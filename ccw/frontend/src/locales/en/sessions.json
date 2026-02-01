@@ -36,7 +36,9 @@
     "dimensions": "dimensions",
     "progress": "Progress",
     "createdAt": "Created",
-    "updatedAt": "Updated"
+    "updatedAt": "Updated",
+    "completed": "completed",
+    "updated": "Updated"
   },
   "detail": {
     "overview": "Overview",

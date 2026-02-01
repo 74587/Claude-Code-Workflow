@@ -1,6 +1,6 @@
 {
   "title": "Commands Manager",
-  "description": "Manage custom slash commands for Claude Code",
+  "description": "Enable/disable CCW commands",
   "actions": {
     "create": "New Command",
     "edit": "Edit Command",
@@ -8,18 +8,24 @@
     "refresh": "Refresh",
     "expandAll": "Expand All",
     "collapseAll": "Collapse All",
-    "copy": "Copy"
+    "copy": "Copy",
+    "showDisabled": "Show Disabled",
+    "hideDisabled": "Hide Disabled"
   },
   "source": {
     "builtin": "Built-in",
     "custom": "Custom"
+  },
+  "location": {
+    "project": "Project",
+    "user": "Global"
   },
   "filters": {
     "allCategories": "All Categories",
     "allSources": "All Sources",
     "category": "Category",
     "source": "Source",
-    "searchPlaceholder": "Search commands by name, description, or alias..."
+    "searchPlaceholder": "Search commands by name or description..."
   },
   "card": {
     "name": "Name",
@@ -39,5 +45,17 @@
     "description": "Description",
     "scope": "Scope",
     "status": "Status"
+  },
+  "stats": {
+    "total": "Total Commands",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "group": {
+    "enabled": "enabled",
+    "clickToEnableAll": "Click to enable all",
+    "clickToDisableAll": "Click to disable all",
+    "noCommands": "No commands in this group",
+    "noEnabledCommands": "No enabled commands in this group"
   }
 }

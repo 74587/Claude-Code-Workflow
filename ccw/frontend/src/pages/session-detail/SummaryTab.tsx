@@ -71,29 +71,14 @@ export function SummaryTab({ summary, summaries }: SummaryTabProps) {
   return (
     <>
       <div className="space-y-4">
-        {summaryList.length === 1 ? (
-          // Single summary - inline display
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                {summaryList[0].name}
-              </h3>
-              <div className="prose prose-sm max-w-none text-foreground">
-                <p className="whitespace-pre-wrap">{summaryList[0].content}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          // Multiple summaries - card list with modal viewer
-          summaryList.map((item, index) => (
-            <SummaryCard
-              key={index}
-              summary={item}
-              onClick={() => setSelectedSummary(item)}
-            />
-          ))
-        )}
+        {/* Always use truncated card display with modal viewer */}
+        {summaryList.map((item, index) => (
+          <SummaryCard
+            key={index}
+            summary={item}
+            onClick={() => setSelectedSummary(item)}
+          />
+        ))}
       </div>
 
       {/* Modal Viewer */}
@@ -119,24 +104,21 @@ interface SummaryCardProps {
 
 function SummaryCard({ summary, onClick }: SummaryCardProps) {
   const { formatMessage } = useIntl();
-  
-  // Get preview (first 3 lines)
+
+  // Get preview (first 5 lines, matching ImplPlanTab style)
   const lines = summary.content.split('\n');
-  const preview = lines.slice(0, 3).join('\n');
-  const hasMore = lines.length > 3;
+  const preview = lines.slice(0, 5).join('\n');
+  const hasMore = lines.length > 5;
 
   return (
-    <Card 
-      className="cursor-pointer hover:shadow-md transition-shadow" 
-      onClick={onClick}
-    >
+    <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-lg">
             <FileText className="w-5 h-5" />
             {summary.name}
           </CardTitle>
-          <Button variant="ghost" size="sm">
+          <Button variant="outline" size="sm" onClick={onClick}>
             <Eye className="w-4 h-4 mr-1" />
             {formatMessage({ id: 'common.actions.view' })}
           </Button>
@@ -147,10 +129,15 @@ function SummaryCard({ summary, onClick }: SummaryCardProps) {
           {preview}{hasMore && '\n...'}
         </pre>
         {hasMore && (
-          <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-            <Badge variant="secondary">
-              {lines.length} {formatMessage({ id: 'sessionDetail.summary.lines' })}
-            </Badge>
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClick}
+              className="w-full"
+            >
+              {formatMessage({ id: 'sessionDetail.summary.viewFull' }, { count: lines.length })}
+            </Button>
           </div>
         )}
       </CardContent>

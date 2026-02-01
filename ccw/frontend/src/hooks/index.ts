@@ -104,12 +104,14 @@ export type {
 export {
   useCommands,
   useCommandSearch,
+  useCommandMutations,
   commandsKeys,
 } from './useCommands';
 export type {
   CommandsFilter,
   UseCommandsOptions,
   UseCommandsReturn,
+  UseCommandMutationsReturn,
 } from './useCommands';
 
 // ========== Memory ==========

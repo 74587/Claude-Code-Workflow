@@ -100,12 +100,9 @@ async function renderHookManager() {
         </div>
 
         <div class="hook-templates-grid grid grid-cols-1 md:grid-cols-2 gap-4">
-          ${renderQuickInstallCard('session-context', t('hook.tpl.sessionContext'), t('hook.tpl.sessionContextDesc'), 'UserPromptSubmit', '')}
-          ${renderQuickInstallCard('codexlens-update', t('hook.tpl.codexlensSync'), t('hook.tpl.codexlensSyncDesc'), 'PostToolUse', 'Write|Edit')}
-          ${renderQuickInstallCard('ccw-notify', t('hook.tpl.ccwDashboardNotify'), t('hook.tpl.ccwDashboardNotifyDesc'), 'PostToolUse', 'Write')}
-          ${renderQuickInstallCard('log-tool', t('hook.tpl.toolLogger'), t('hook.tpl.toolLoggerDesc'), 'PostToolUse', 'All')}
-          ${renderQuickInstallCard('lint-check', t('hook.tpl.autoLint'), t('hook.tpl.autoLintDesc'), 'PostToolUse', 'Write')}
-          ${renderQuickInstallCard('git-add', t('hook.tpl.autoGitStage'), t('hook.tpl.autoGitStageDesc'), 'PostToolUse', 'Write')}
+          <!-- Session Hooks -->
+          ${renderQuickInstallCard('session-start-notify', t('hook.tpl.sessionStart'), t('hook.tpl.sessionStartDesc'), 'SessionStart', '')}
+          ${renderQuickInstallCard('session-state-watch', t('hook.tpl.sessionState'), t('hook.tpl.sessionStateDesc'), 'PostToolUse', 'Write|Edit')}
         </div>
       </div>
 

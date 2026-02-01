@@ -289,7 +289,7 @@ export function FixSessionPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-mono text-muted-foreground">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-semibold bg-primary/10 text-primary border border-primary/20">
                               {task.task_id || task.id || 'N/A'}
                             </span>
                             <Badge variant={statusBadge.variant} className="gap-1">

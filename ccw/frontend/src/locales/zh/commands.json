@@ -1,6 +1,6 @@
 {
   "title": "命令管理",
-  "description": "管理 Claude Code 自定义斜杠命令",
+  "description": "启用/禁用 CCW 命令",
   "actions": {
     "create": "新建命令",
     "edit": "编辑命令",
@@ -8,18 +8,24 @@
     "refresh": "刷新",
     "expandAll": "全部展开",
     "collapseAll": "全部收起",
-    "copy": "复制"
+    "copy": "复制",
+    "showDisabled": "显示已禁用",
+    "hideDisabled": "隐藏已禁用"
   },
   "source": {
     "builtin": "内置",
     "custom": "自定义"
+  },
+  "location": {
+    "project": "项目",
+    "user": "全局"
   },
   "filters": {
     "allCategories": "所有类别",
     "allSources": "所有来源",
     "category": "类别",
     "source": "来源",
-    "searchPlaceholder": "按名称、描述或别名搜索命令..."
+    "searchPlaceholder": "按名称或描述搜索命令..."
   },
   "card": {
     "name": "名称",
@@ -39,5 +45,17 @@
     "description": "描述",
     "scope": "作用域",
     "status": "状态"
+  },
+  "stats": {
+    "total": "命令总数",
+    "enabled": "已启用",
+    "disabled": "已禁用"
+  },
+  "group": {
+    "enabled": "已启用",
+    "clickToEnableAll": "点击全部启用",
+    "clickToDisableAll": "点击全部禁用",
+    "noCommands": "此分组中没有命令",
+    "noEnabledCommands": "此分组中没有已启用的命令"
   }
 }

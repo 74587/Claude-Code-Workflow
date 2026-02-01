@@ -11,6 +11,7 @@ interface ServeOptions {
   host?: string;
   browser?: boolean;
   frontend?: 'js' | 'react' | 'both';
+  new?: boolean;
 }
 
 /**
@@ -20,7 +21,8 @@ interface ServeOptions {
 export async function serveCommand(options: ServeOptions): Promise<void> {
   const port = Number(options.port) || 3456;
   const host = options.host || '127.0.0.1';
-  const frontend = options.frontend || 'js';
+  // --new flag is shorthand for --frontend react
+  const frontend = options.new ? 'react' : (options.frontend || 'js');
 
   // Validate project path
   let initialPath = process.cwd();

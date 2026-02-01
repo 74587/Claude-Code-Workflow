@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 
 // ========== Types ==========
 
-export type HookTriggerType = 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'Stop';
+export type HookTriggerType = 'SessionStart' | 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'Stop';
 
 export interface HookCardData {
   name: string;
@@ -45,6 +45,8 @@ export interface HookCardProps {
 
 function getTriggerIcon(trigger: HookTriggerType) {
   switch (trigger) {
+    case 'SessionStart':
+      return '🎬';
     case 'UserPromptSubmit':
       return '⚡';
     case 'PreToolUse':
@@ -60,6 +62,8 @@ function getTriggerIcon(trigger: HookTriggerType) {
 
 function getTriggerVariant(trigger: HookTriggerType): 'default' | 'secondary' | 'outline' {
   switch (trigger) {
+    case 'SessionStart':
+      return 'default';
     case 'UserPromptSubmit':
       return 'default';
     case 'PreToolUse':

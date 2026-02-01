@@ -658,15 +658,15 @@ Why is config value None during update?
 | Hypothesis history | ❌ | ✅ hypotheses.json |
 | Gemini validation | ❌ | ✅ At key decision points |
 
-## Usage Recommendations
+## Usage Recommendations (Requires User Confirmation)
 
-Use `/workflow:debug-with-file` when:
+**Use `Skill(skill="workflow:debug-with-file", args="\"bug description\"")` when:**
 - Complex bugs requiring multiple investigation rounds
 - Learning from debugging process is valuable
 - Team needs to understand debugging rationale
 - Bug might recur, documentation helps prevention
 
-Use `/workflow:debug` when:
+**Use `Skill(skill="ccw-debug", args="--mode cli \"issue\"")` when:**
 - Simple, quick bugs
 - One-off issues
 - Documentation overhead not needed

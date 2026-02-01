@@ -147,6 +147,7 @@ export function HookFormDialog({
   };
 
   const TRIGGER_OPTIONS: { value: HookTriggerType; label: string }[] = [
+    { value: 'SessionStart', label: 'cliHooks.trigger.SessionStart' },
     { value: 'UserPromptSubmit', label: 'cliHooks.trigger.UserPromptSubmit' },
     { value: 'PreToolUse', label: 'cliHooks.trigger.PreToolUse' },
     { value: 'PostToolUse', label: 'cliHooks.trigger.PostToolUse' },

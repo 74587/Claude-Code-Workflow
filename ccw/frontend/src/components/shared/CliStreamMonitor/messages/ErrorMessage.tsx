@@ -25,46 +25,38 @@ export function ErrorMessage({
   className
 }: ErrorMessageProps) {
   const { formatMessage } = useIntl();
-  const timeString = timestamp
-    ? new Date(timestamp).toLocaleTimeString('en-US', { hour12: false })
-    : '';
 
   return (
     <div
       className={cn(
-        'bg-destructive/10 border-l-4 border-destructive rounded-r-lg overflow-hidden transition-all',
+        'bg-rose-50/60 dark:bg-rose-950/40 border-l-2 border-rose-500 dark:border-rose-400 rounded-r-lg overflow-hidden transition-all',
         className
       )}
     >
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2">
-        <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
-        {timeString && (
-          <span className="text-xs text-muted-foreground shrink-0">
-            [{timeString}]
-          </span>
-        )}
-        <span className="text-sm font-semibold text-destructive">
+      {/* Header - simplified */}
+      <div className="flex items-center gap-2 px-2.5 py-1.5">
+        <AlertCircle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+        <span className="text-xs font-medium text-rose-900 dark:text-rose-100">
           {title}
         </span>
       </div>
 
       {/* Content */}
-      <div className="px-3 py-2 bg-destructive/5">
-        <p className="text-sm text-destructive-foreground whitespace-pre-wrap break-words">
+      <div className="px-2.5 py-2 bg-rose-50/40 dark:bg-rose-950/30">
+        <p className="text-xs text-rose-900 dark:text-rose-100 whitespace-pre-wrap break-words">
           {message}
         </p>
       </div>
 
       {/* Actions */}
       {(onRetry || onDismiss) && (
-        <div className="flex items-center gap-2 px-3 py-2 bg-destructive/5">
+        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-rose-50/40 dark:bg-rose-950/30">
           {onRetry && (
             <Button
               variant="outline"
               size="sm"
               onClick={onRetry}
-              className="h-8 px-3 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
+              className="h-6 px-2 text-[10px] border-rose-500/30 text-rose-700 dark:text-rose-300 hover:bg-rose-500/10"
             >
               {formatMessage({ id: 'cliMonitor.retry' })}
             </Button>
@@ -74,7 +66,7 @@ export function ErrorMessage({
               variant="ghost"
               size="sm"
               onClick={onDismiss}
-              className="h-8 px-3 text-xs text-muted-foreground hover:text-foreground"
+              className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
             >
               {formatMessage({ id: 'cliMonitor.dismiss' })}
             </Button>

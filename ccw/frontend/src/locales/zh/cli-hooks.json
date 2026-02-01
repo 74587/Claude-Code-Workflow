@@ -3,6 +3,7 @@
   "description": "管理自动化工作流的 CLI 钩子",
   "allTools": "所有工具",
   "trigger": {
+    "SessionStart": "会话开始",
     "UserPromptSubmit": "用户提交提示",
     "PreToolUse": "工具使用前",
     "PostToolUse": "工具使用后",
@@ -66,29 +67,13 @@
       "automation": "自动化"
     },
     "templates": {
-      "ccw-status-tracker": {
-        "name": "CCW 状态追踪器",
-        "description": "解析 CCW status.json 并显示当前/下一个命令"
+      "session-start-notify": {
+        "name": "会话启动通知",
+        "description": "当新工作流会话创建时通知仪表盘"
       },
-      "ccw-notify": {
-        "name": "CCW 面板通知",
-        "description": "当文件被写入时向 CCW 面板发送通知"
-      },
-      "codexlens-update": {
-        "name": "CodexLens 自动更新",
-        "description": "当文件被写入或编辑时更新 CodexLens 索引"
-      },
-      "git-add": {
-        "name": "自动 Git 暂存",
-        "description": "自动将写入的文件暂存到 git"
-      },
-      "lint-check": {
-        "name": "自动 ESLint",
-        "description": "在写入后对 JavaScript/TypeScript 文件运行 ESLint"
-      },
-      "log-tool": {
-        "name": "工具使用日志",
-        "description": "将所有工具执行记录到文件以供审计"
+      "session-state-watch": {
+        "name": "会话状态监控",
+        "description": "监控会话元数据文件变更 (workflow-session.json)"
       }
     },
     "actions": {

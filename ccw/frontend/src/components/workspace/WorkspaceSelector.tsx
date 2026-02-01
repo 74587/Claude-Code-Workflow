@@ -1,10 +1,10 @@
 // ========================================
 // Workspace Selector Component
 // ========================================
-// Dropdown for selecting recent workspaces with manual path input dialog
+// Dropdown for selecting recent workspaces with folder browser and manual path input
 
-import { useState, useCallback } from 'react';
-import { ChevronDown, X } from 'lucide-react';
+import { useState, useCallback, useRef } from 'react';
+import { ChevronDown, X, FolderOpen, Check } from 'lucide-react';
 import { useIntl } from 'react-intl';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -89,6 +89,9 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
   const [isBrowseOpen, setIsBrowseOpen] = useState(false);
   const [manualPath, setManualPath] = useState('');
 
+  // Hidden file input for folder selection
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
   /**
    * Handle path selection from dropdown
    */
@@ -112,32 +115,39 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
   );
 
   /**
-   * Handle open browse dialog - tries file dialog first, falls back to manual input
+   * Handle open folder browser - trigger hidden file input click
    */
-  const handleBrowseFolder = useCallback(async () => {
+  const handleBrowseFolder = useCallback(() => {
     setIsDropdownOpen(false);
-
-    // Try to use Electron/Electron-Tauri file dialog API if available
-    if ((window as any).electronAPI?.showOpenDialog) {
-      try {
-        const result = await (window as any).electronAPI.showOpenDialog({
-          properties: ['openDirectory'],
-        });
-
-        if (result && result.filePaths && result.filePaths.length > 0) {
-          const selectedPath = result.filePaths[0];
-          await switchWorkspace(selectedPath);
-          return;
-        }
-      } catch (error) {
-        console.error('Failed to open folder dialog:', error);
-        // Fall through to manual input dialog
-      }
-    }
-
-    // Fallback: open manual path input dialog
-    setIsBrowseOpen(true);
+    // Trigger the hidden file input click
+    folderInputRef.current?.click();
   }, []);
+
+  /**
+   * Handle folder selection from file input
+   */
+  const handleFolderSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        // Get the path from the first file
+        const firstFile = files[0];
+        // The webkitRelativePath contains the full path relative to the selected folder
+        // We need to get the parent directory path
+        const relativePath = firstFile.webkitRelativePath;
+        const folderPath = relativePath.substring(0, relativePath.indexOf('/'));
+
+        // In browser environment, we can't get the full absolute path
+        // We need to ask the user to confirm or use the folder name
+        // For now, open the manual dialog with the folder name as hint
+        setManualPath(folderPath);
+        setIsBrowseOpen(true);
+      }
+      // Reset input value to allow selecting the same folder again
+      e.target.value = '';
+    },
+    []
+  );
 
   /**
    * Handle manual path submission
@@ -214,18 +224,23 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
                   key={path}
                   onClick={() => handleSelectPath(path)}
                   className={cn(
-                    'flex items-center gap-2 cursor-pointer group',
-                    isCurrent && 'bg-accent'
+                    'flex items-center gap-2 cursor-pointer group/path-item pr-8',
+                    isCurrent && 'bg-accent/50'
                   )}
                   title={path}
                 >
-                  <span className="flex-1 truncate">{truncatedItemPath}</span>
+                  <span className={cn(
+                    'flex-1 truncate',
+                    isCurrent && 'font-medium'
+                  )}>
+                    {truncatedItemPath}
+                  </span>
 
                   {/* Delete button for non-current paths */}
                   {!isCurrent && (
                     <button
                       onClick={(e) => handleRemovePath(e, path)}
-                      className="opacity-0 group-hover:opacity-100 hover:bg-destructive hover:text-destructive-foreground rounded p-0.5 transition-opacity"
+                      className="absolute right-2 opacity-0 group-hover/path-item:opacity-100 hover:bg-destructive/10 hover:text-destructive rounded p-0.5 transition-all"
                       aria-label={formatMessage({ id: 'workspace.selector.removePath' })}
                       title={formatMessage({ id: 'workspace.selector.removePath' })}
                     >
@@ -233,10 +248,9 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
                     </button>
                   )}
 
+                  {/* Check icon for current workspace */}
                   {isCurrent && (
-                    <span className="text-xs text-primary">
-                      {formatMessage({ id: 'workspace.selector.current' })}
-                    </span>
+                    <Check className="h-4 w-4 text-emerald-500 absolute right-2" />
                   )}
                 </DropdownMenuItem>
               );
@@ -245,15 +259,48 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
 
           {recentPaths.length > 0 && <DropdownMenuSeparator />}
 
-          {/* Browse button to open manual path dialog */}
+          {/* Browse button to open folder selector */}
           <DropdownMenuItem
             onClick={handleBrowseFolder}
-            className="cursor-pointer"
+            className="cursor-pointer gap-2"
           >
-            {formatMessage({ id: 'workspace.selector.browse' })}
+            <FolderOpen className="h-4 w-4" />
+            <div className="flex-1">
+              <div className="font-medium">
+                {formatMessage({ id: 'workspace.selector.browse' })}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {formatMessage({ id: 'workspace.selector.browseHint' })}
+              </div>
+            </div>
+          </DropdownMenuItem>
+
+          {/* Manual path input option */}
+          <DropdownMenuItem
+            onClick={() => {
+              setIsDropdownOpen(false);
+              setIsBrowseOpen(true);
+            }}
+            className="cursor-pointer gap-2"
+          >
+            <span className="flex-1">
+              {formatMessage({ id: 'workspace.selector.manualPath' })}
+            </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Hidden file input for folder selection */}
+      <input
+        ref={folderInputRef}
+        type="file"
+        webkitdirectory=""
+        directory=""
+        style={{ display: 'none' }}
+        onChange={handleFolderSelect}
+        aria-hidden="true"
+        tabIndex={-1}
+      />
 
       {/* Manual path input dialog */}
       <Dialog open={isBrowseOpen} onOpenChange={setIsBrowseOpen}>

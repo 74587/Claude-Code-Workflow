@@ -23,45 +23,23 @@ export interface OutputLineProps {
 // ========== Helper Functions ==========
 
 /**
- * Get the icon component for a given output line type
+ * Get the icon component with color for a given output line type
  */
 function getOutputLineIcon(type: OutputLineProps['line']['type']) {
   switch (type) {
     case 'thought':
-      return <Brain className="h-3 w-3" />;
+      return <Brain className="h-3 w-3 text-violet-500" />;
     case 'system':
-      return <Settings className="h-3 w-3" />;
+      return <Settings className="h-3 w-3 text-slate-400" />;
     case 'stderr':
-      return <AlertCircle className="h-3 w-3" />;
+      return <AlertCircle className="h-3 w-3 text-rose-500" />;
     case 'metadata':
-      return <Info className="h-3 w-3" />;
+      return <Info className="h-3 w-3 text-slate-400" />;
     case 'tool_call':
-      return <Wrench className="h-3 w-3" />;
+      return <Wrench className="h-3 w-3 text-indigo-500" />;
     case 'stdout':
     default:
-      return <MessageCircle className="h-3 w-3" />;
-  }
-}
-
-/**
- * Get the CSS class name for a given output line type
- * Reuses the existing implementation from LogBlock utils
- */
-function getOutputLineClass(type: OutputLineProps['line']['type']): string {
-  switch (type) {
-    case 'thought':
-      return 'text-purple-400';
-    case 'system':
-      return 'text-blue-400';
-    case 'stderr':
-      return 'text-red-400';
-    case 'metadata':
-      return 'text-yellow-400';
-    case 'tool_call':
-      return 'text-green-400';
-    case 'stdout':
-    default:
-      return 'text-foreground';
+      return <MessageCircle className="h-3 w-3 text-teal-500" />;
   }
 }
 
@@ -72,8 +50,8 @@ function getOutputLineClass(type: OutputLineProps['line']['type']): string {
  *
  * Features:
  * - Auto-detects JSON content and renders with JsonCard
- * - Shows appropriate icon based on line type
- * - Applies color styling based on line type
+ * - Shows colored icon based on line type
+ * - Different card styles for different types
  * - Supports copy functionality
  */
 export function OutputLine({ line, onCopy }: OutputLineProps) {
@@ -81,25 +59,22 @@ export function OutputLine({ line, onCopy }: OutputLineProps) {
   const jsonDetection = useMemo(() => detectJsonInLine(line.content), [line.content]);
 
   return (
-    <div className={cn('flex gap-2 text-xs', getOutputLineClass(line.type))}>
-      {/* Icon indicator */}
-      <span className="text-muted-foreground shrink-0 mt-0.5">
-        {getOutputLineIcon(line.type)}
-      </span>
-
-      {/* Content area */}
-      <div className="flex-1 min-w-0">
-        {jsonDetection.isJson && jsonDetection.parsed ? (
-          <JsonCard
-            data={jsonDetection.parsed}
-            type={line.type as 'tool_call' | 'metadata' | 'system' | 'stdout'}
-            timestamp={line.timestamp}
-            onCopy={() => onCopy?.(line.content)}
-          />
-        ) : (
-          <span className="break-all whitespace-pre-wrap">{line.content}</span>
-        )}
-      </div>
+    <div className="text-xs">
+      {jsonDetection.isJson && jsonDetection.parsed ? (
+        <JsonCard
+          data={jsonDetection.parsed}
+          type={line.type as 'tool_call' | 'metadata' | 'system' | 'stdout' | 'stderr' | 'thought'}
+          timestamp={undefined}
+          onCopy={() => onCopy?.(line.content)}
+        />
+      ) : (
+        <div className="flex gap-1.5 items-start">
+          <span className="shrink-0 mt-0.5">
+            {getOutputLineIcon(line.type)}
+          </span>
+          <span className="break-all whitespace-pre-wrap text-foreground flex-1">{line.content}</span>
+        </div>
+      )}
     </div>
   );
 }

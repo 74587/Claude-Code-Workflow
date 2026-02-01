@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
 import { JsonField } from './JsonField';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // ========== Types ==========
 
@@ -37,6 +39,7 @@ export interface JsonCardProps {
 type TypeConfig = {
   icon: typeof Wrench;
   label: string;
+  shortLabel: string;
   color: string;
   bg: string;
 };
@@ -45,38 +48,44 @@ const TYPE_CONFIGS: Record<string, TypeConfig> = {
   tool_call: {
     icon: Wrench,
     label: 'Tool Call',
-    color: 'text-green-400',
-    bg: 'bg-green-950/30 border-green-900/50',
+    shortLabel: 'Tool',
+    color: 'text-indigo-600 dark:text-indigo-400',
+    bg: 'border-l-indigo-500',
   },
   metadata: {
     icon: Info,
     label: 'Metadata',
-    color: 'text-yellow-400',
-    bg: 'bg-yellow-950/30 border-yellow-900/50',
+    shortLabel: 'Info',
+    color: 'text-slate-600 dark:text-slate-400',
+    bg: 'border-l-slate-400',
   },
   system: {
     icon: Settings,
     label: 'System',
-    color: 'text-blue-400',
-    bg: 'bg-blue-950/30 border-blue-900/50',
+    shortLabel: 'Sys',
+    color: 'text-slate-600 dark:text-slate-400',
+    bg: 'border-l-slate-400',
   },
   stdout: {
     icon: Code,
     label: 'Data',
-    color: 'text-cyan-400',
-    bg: 'bg-cyan-950/30 border-cyan-900/50',
+    shortLabel: 'Out',
+    color: 'text-teal-600 dark:text-teal-400',
+    bg: 'border-l-teal-500',
   },
   stderr: {
     icon: AlertTriangle,
     label: 'Error',
-    color: 'text-red-400',
-    bg: 'bg-red-950/30 border-red-900/50',
+    shortLabel: 'Err',
+    color: 'text-rose-600 dark:text-rose-400',
+    bg: 'border-l-rose-500',
   },
   thought: {
     icon: Brain,
     label: 'Thought',
-    color: 'text-purple-400',
-    bg: 'bg-purple-950/30 border-purple-900/50',
+    shortLabel: '💭',
+    color: 'text-violet-600 dark:text-violet-400',
+    bg: 'border-l-violet-500',
   },
 };
 
@@ -88,97 +97,78 @@ export function JsonCard({
   timestamp,
   onCopy,
 }: JsonCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [showRaw, setShowRaw] = useState(false);
-
-  const entries = Object.entries(data);
-  const visibleCount = isExpanded ? entries.length : 3;
-  const hasMore = entries.length > 3;
+  const [isExpanded, setIsExpanded] = useState(true);
 
   const config = TYPE_CONFIGS[type];
-  const Icon = config.icon;
 
-  return (
-    <div className={cn('border rounded-lg overflow-hidden my-2', config.bg)}>
-      {/* Header */}
-      <div
-        className={cn(
-          'flex items-center justify-between px-3 py-2 cursor-pointer',
-          'hover:bg-black/5 dark:hover:bg-white/5 transition-colors'
-        )}
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <div className="flex items-center gap-2">
-          <Icon className={cn('h-4 w-4', config.color)} />
-          <span className="text-sm font-medium">{config.label}</span>
-          <Badge variant="secondary" className="text-xs h-5">
-            {entries.length}
-          </Badge>
-        </div>
+  // Check if data has a 'content' field
+  const hasContentField = 'content' in data && typeof data.content === 'string';
+  const content = hasContentField ? (data.content as string) : '';
 
-        <div className="flex items-center gap-2">
-          {timestamp && (
-            <span className="text-xs text-muted-foreground font-mono">
-              {new Date(timestamp).toLocaleTimeString()}
-            </span>
+  // If has content field, render as streaming output
+  if (hasContentField) {
+    // Check if content looks like markdown
+    const isMarkdown = content.match(/^#{1,6}\s|^\*{3,}$|^\s*[-*+]\s+|^\s*\d+\.\s+|\*\*.*?\*\*|`{3,}/m);
+
+    return (
+      <div className={cn('border-l-2 rounded-r my-1.5 py-1 px-2 group relative bg-background', config.bg)}>
+        <div className="pr-6">
+          {isMarkdown ? (
+            <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content}
+              </ReactMarkdown>
+            </div>
+          ) : (
+            <div className="text-xs whitespace-pre-wrap break-words leading-relaxed">
+              {content}
+            </div>
           )}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 w-6 p-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              onCopy?.();
-            }}
-          >
-            <Copy className="h-3 w-3" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 w-6 p-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowRaw(!showRaw);
-            }}
-          >
-            <Code className="h-3 w-3" />
-          </Button>
-          <ChevronRight
-            className={cn(
-              'h-4 w-4 transition-transform',
-              isExpanded && 'rotate-90'
-            )}
-          />
         </div>
       </div>
+    );
+  }
+
+  // Otherwise, render as card with fields
+  const entries = Object.entries(data).filter(([key]) =>
+    key !== 'type' && key !== 'timestamp' && key !== 'role' && key !== 'id'
+  );
+  const visibleCount = isExpanded ? entries.length : 1;
+  const hasMore = entries.length > 1;
+
+  const handleCopyCard = () => {
+    const content = JSON.stringify(data, null, 2);
+    navigator.clipboard.writeText(content);
+  };
+
+  return (
+    <div className={cn('border-l-2 rounded-r my-1.5 py-1 px-2 group relative bg-background text-xs', config.bg)}>
+      {/* Copy button - show on hover */}
+      <button
+        onClick={handleCopyCard}
+        className="absolute top-1 right-1 p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-muted"
+        title="Copy JSON"
+      >
+        <Copy className="h-3 w-3 text-muted-foreground" />
+      </button>
 
       {/* Content */}
-      {showRaw ? (
-        <pre className="p-3 text-xs bg-black/20 overflow-x-auto max-h-60">
-          <code>{JSON.stringify(data, null, 2)}</code>
-        </pre>
-      ) : (
-        <div className="divide-y divide-border/30">
-          {entries.slice(0, visibleCount).map(([key, value]) => (
-            <JsonField key={key} fieldName={key} value={value} />
-          ))}
-          {hasMore && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
-              }}
-              className="w-full px-3 py-2 text-xs text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5 transition-colors text-left"
-            >
-              {isExpanded
-                ? '▲ Show less'
-                : `▼ Show ${entries.length - 3} more fields`}
-            </button>
-          )}
-        </div>
-      )}
+      <div className="pr-6">
+        {entries.slice(0, visibleCount).map(([key, value]) => (
+          <JsonField key={key} fieldName={key} value={value} />
+        ))}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors text-left rounded"
+          >
+            {isExpanded
+              ? '▲ Show less'
+              : `▼ Show ${entries.length - 1} more`}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

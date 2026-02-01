@@ -892,6 +892,7 @@ export interface Skill {
   source?: 'builtin' | 'custom' | 'community';
   version?: string;
   author?: string;
+  location?: 'project' | 'user';
 }
 
 export interface SkillsResponse {
@@ -903,12 +904,18 @@ export interface SkillsResponse {
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchSkills(projectPath?: string): Promise<SkillsResponse> {
+  // Helper to add location to skills
+  const addLocation = (skills: Skill[], location: 'project' | 'user'): Skill[] =>
+    skills.map(skill => ({ ...skill, location }));
+
   // Try with project path first, fall back to global on 403/404
   if (projectPath) {
     try {
       const url = `/api/skills?path=${encodeURIComponent(projectPath)}`;
       const data = await fetchApi<{ skills?: Skill[]; projectSkills?: Skill[]; userSkills?: Skill[] }>(url);
-      const allSkills = [...(data.projectSkills ?? []), ...(data.userSkills ?? [])];
+      const projectSkillsWithLocation = addLocation(data.projectSkills ?? [], 'project');
+      const userSkillsWithLocation = addLocation(data.userSkills ?? [], 'user');
+      const allSkills = [...projectSkillsWithLocation, ...userSkillsWithLocation];
       return {
         skills: data.skills ?? allSkills,
       };
@@ -924,19 +931,39 @@ export async function fetchSkills(projectPath?: string): Promise<SkillsResponse>
   }
   // Fallback: fetch global skills
   const data = await fetchApi<{ skills?: Skill[]; projectSkills?: Skill[]; userSkills?: Skill[] }>('/api/skills');
-  const allSkills = [...(data.projectSkills ?? []), ...(data.userSkills ?? [])];
+  const projectSkillsWithLocation = addLocation(data.projectSkills ?? [], 'project');
+  const userSkillsWithLocation = addLocation(data.userSkills ?? [], 'user');
+  const allSkills = [...projectSkillsWithLocation, ...userSkillsWithLocation];
   return {
     skills: data.skills ?? allSkills,
   };
 }
 
 /**
- * Toggle skill enabled status
+ * Enable a skill
  */
-export async function toggleSkill(skillName: string, enabled: boolean): Promise<Skill> {
-  return fetchApi<Skill>(`/api/skills/${encodeURIComponent(skillName)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ enabled }),
+export async function enableSkill(
+  skillName: string,
+  location: 'project' | 'user',
+  projectPath?: string
+): Promise<Skill> {
+  return fetchApi<Skill>(`/api/skills/${encodeURIComponent(skillName)}/enable`, {
+    method: 'POST',
+    body: JSON.stringify({ location, projectPath }),
+  });
+}
+
+/**
+ * Disable a skill
+ */
+export async function disableSkill(
+  skillName: string,
+  location: 'project' | 'user',
+  projectPath?: string
+): Promise<Skill> {
+  return fetchApi<Skill>(`/api/skills/${encodeURIComponent(skillName)}/disable`, {
+    method: 'POST',
+    body: JSON.stringify({ location, projectPath }),
   });
 }
 
@@ -950,10 +977,18 @@ export interface Command {
   category?: string;
   aliases?: string[];
   source?: 'builtin' | 'custom';
+  group?: string;
+  enabled?: boolean;
+  location?: 'project' | 'user';
+  path?: string;
+  relativePath?: string;
 }
 
 export interface CommandsResponse {
   commands: Command[];
+  groups?: string[];
+  projectGroupsConfig?: Record<string, any>;
+  userGroupsConfig?: Record<string, any>;
 }
 
 /**
@@ -965,10 +1000,20 @@ export async function fetchCommands(projectPath?: string): Promise<CommandsRespo
   if (projectPath) {
     try {
       const url = `/api/commands?path=${encodeURIComponent(projectPath)}`;
-      const data = await fetchApi<{ commands?: Command[]; projectCommands?: Command[]; userCommands?: Command[] }>(url);
+      const data = await fetchApi<{
+        commands?: Command[];
+        projectCommands?: Command[];
+        userCommands?: Command[];
+        groups?: string[];
+        projectGroupsConfig?: Record<string, any>;
+        userGroupsConfig?: Record<string, any>;
+      }>(url);
       const allCommands = [...(data.projectCommands ?? []), ...(data.userCommands ?? [])];
       return {
         commands: data.commands ?? allCommands,
+        groups: data.groups,
+        projectGroupsConfig: data.projectGroupsConfig,
+        userGroupsConfig: data.userGroupsConfig,
       };
     } catch (error: unknown) {
       const apiError = error as ApiError;
@@ -981,11 +1026,63 @@ export async function fetchCommands(projectPath?: string): Promise<CommandsRespo
     }
   }
   // Fallback: fetch global commands
-  const data = await fetchApi<{ commands?: Command[]; projectCommands?: Command[]; userCommands?: Command[] }>('/api/commands');
+  const data = await fetchApi<{
+    commands?: Command[];
+    projectCommands?: Command[];
+    userCommands?: Command[];
+    groups?: string[];
+    projectGroupsConfig?: Record<string, any>;
+    userGroupsConfig?: Record<string, any>;
+  }>('/api/commands');
   const allCommands = [...(data.projectCommands ?? []), ...(data.userCommands ?? [])];
   return {
     commands: data.commands ?? allCommands,
+    groups: data.groups,
+    projectGroupsConfig: data.projectGroupsConfig,
+    userGroupsConfig: data.userGroupsConfig,
   };
+}
+
+/**
+ * Toggle command enabled status
+ */
+export async function toggleCommand(
+  commandName: string,
+  enabled: boolean,
+  location: 'project' | 'user',
+  projectPath?: string
+): Promise<{ success: boolean; message: string }> {
+  return fetchApi<{ success: boolean; message: string }>(`/api/commands/${encodeURIComponent(commandName)}/toggle`, {
+    method: 'POST',
+    body: JSON.stringify({ enabled, location, projectPath }),
+  });
+}
+
+/**
+ * Toggle all commands in a group
+ */
+export async function toggleCommandGroup(
+  groupName: string,
+  enable: boolean,
+  location: 'project' | 'user',
+  projectPath?: string
+): Promise<{ success: boolean; results: any[]; message: string }> {
+  return fetchApi<{ success: boolean; results: any[]; message: string }>(`/api/commands/group/${encodeURIComponent(groupName)}/toggle`, {
+    method: 'POST',
+    body: JSON.stringify({ enable, location, projectPath }),
+  });
+}
+
+/**
+ * Get commands groups configuration
+ */
+export async function getCommandsGroupsConfig(
+  location: 'project' | 'user',
+  projectPath?: string
+): Promise<{ groups: Record<string, any>; assignments: Record<string, string> }> {
+  const params = new URLSearchParams({ location });
+  if (projectPath) params.set('path', projectPath);
+  return fetchApi<{ groups: Record<string, any>; assignments: Record<string, string> }>(`/api/commands/groups/config?${params}`);
 }
 
 // ========== Memory API ==========
@@ -1286,10 +1383,9 @@ export async function fetchSessionDetail(sessionId: string, projectPath?: string
   }
 
   // Step 2: Use the session path to fetch detail data from the correct endpoint
-  // Backend expects path parameter, not sessionId
+  // Backend expects the actual session directory path, not the project path
   const sessionPath = (session as any).path || session.session_id;
-  const pathParam = projectPath || sessionPath;
-  const detailData = await fetchApi<any>(`/api/session-detail?path=${encodeURIComponent(pathParam)}&type=all`);
+  const detailData = await fetchApi<any>(`/api/session-detail?path=${encodeURIComponent(sessionPath)}&type=all`);
 
   // Step 3: Transform the response to match SessionDetailResponse interface
   // Also check for summaries array and extract first one if summary is empty
@@ -1298,13 +1394,17 @@ export async function fetchSessionDetail(sessionId: string, projectPath?: string
     finalSummary = detailData.summaries[0].content || detailData.summaries[0].name || '';
   }
 
+  // Step 4: Transform context to match SessionDetailContext interface
+  // Backend returns raw context-package.json content, frontend expects it nested under 'context' field
+  const transformedContext = detailData.context ? { context: detailData.context } : undefined;
+
   return {
     session,
-    context: detailData.context,
+    context: transformedContext,
     summary: finalSummary,
     summaries: detailData.summaries,
     implPlan: detailData.implPlan,
-    conflicts: detailData.conflicts,
+    conflicts: detailData.conflictResolution,  // Backend returns 'conflictResolution', not 'conflicts'
     review: detailData.review,
   };
 }
@@ -1504,6 +1604,7 @@ export interface ImplementationStep {
   commands?: string[];
   steps?: string[];
   test_patterns?: string;
+  status?: 'pending' | 'in_progress' | 'completed' | 'blocked' | 'skipped';
   [key: string]: unknown;
 }
 
@@ -1548,12 +1649,18 @@ export interface LiteTaskSession {
   type: 'lite-plan' | 'lite-fix' | 'multi-cli-plan';
   title?: string;
   description?: string;
+  path?: string;
   tasks?: LiteTask[];
   metadata?: Record<string, unknown>;
   latestSynthesis?: {
     title?: string | { en?: string; zh?: string };
     status?: string;
   };
+  diagnoses?: {
+    manifest?: Record<string, unknown>;
+    items?: Array<Record<string, unknown>>;
+  };
+  plan?: Record<string, unknown>;
   roundCount?: number;
   status?: string;
   createdAt?: string;
@@ -1592,6 +1699,31 @@ export async function fetchLiteTaskSession(
     type === 'lite-fix' ? (data.liteFix || []) :
     (data.multiCliPlan || []);
   return sessions.find(s => s.id === sessionId || s.session_id === sessionId) || null;
+}
+
+/**
+ * Fetch context data for a lite task session
+ * Uses the session-detail API with type=context
+ */
+export interface LiteSessionContext {
+  context?: Record<string, unknown>;
+  explorations?: {
+    manifest?: Record<string, unknown>;
+    data?: Record<string, unknown>;
+  };
+  diagnoses?: {
+    manifest?: Record<string, unknown>;
+    items?: Array<Record<string, unknown>>;
+  };
+}
+
+export async function fetchLiteSessionContext(
+  sessionPath: string
+): Promise<LiteSessionContext> {
+  const data = await fetchApi<LiteSessionContext>(
+    `/api/session-detail?path=${encodeURIComponent(sessionPath)}&type=context`
+  );
+  return data;
 }
 
 // ========== Review Session API ==========

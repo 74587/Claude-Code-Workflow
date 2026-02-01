@@ -3,6 +3,7 @@
   "description": "Manage CLI hooks for automated workflows",
   "allTools": "All tools",
   "trigger": {
+    "SessionStart": "Session Start",
     "UserPromptSubmit": "User Prompt Submit",
     "PreToolUse": "Pre Tool Use",
     "PostToolUse": "Post Tool Use",
@@ -66,29 +67,13 @@
       "automation": "Automation"
     },
     "templates": {
-      "ccw-status-tracker": {
-        "name": "CCW Status Tracker",
-        "description": "Parse CCW status.json and display current/next command"
+      "session-start-notify": {
+        "name": "Session Start Notify",
+        "description": "Notify dashboard when a new workflow session is created"
       },
-      "ccw-notify": {
-        "name": "CCW Dashboard Notify",
-        "description": "Send notifications to CCW dashboard when files are written"
-      },
-      "codexlens-update": {
-        "name": "CodexLens Auto-Update",
-        "description": "Update CodexLens index when files are written or edited"
-      },
-      "git-add": {
-        "name": "Auto Git Stage",
-        "description": "Automatically stage written files to git"
-      },
-      "lint-check": {
-        "name": "Auto ESLint",
-        "description": "Run ESLint on JavaScript/TypeScript files after write"
-      },
-      "log-tool": {
-        "name": "Tool Usage Logger",
-        "description": "Log all tool executions to a file for audit trail"
+      "session-state-watch": {
+        "name": "Session State Watch",
+        "description": "Watch for session metadata file changes (workflow-session.json)"
       }
     },
     "actions": {

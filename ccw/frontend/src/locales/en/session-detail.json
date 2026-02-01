@@ -33,6 +33,32 @@
       "skipped": "Skipped"
     },
     "untitled": "Untitled Task",
+    "deps": "deps",
+    "steps": "steps",
+    "files": "files",
+    "tab": {
+      "task": "Task",
+      "context": "Context"
+    },
+    "quickCards": {
+      "explorations": "Explorations",
+      "context": "Context Package",
+      "dependencies": "Dependencies",
+      "testContext": "Test Context",
+      "available": "Available"
+    },
+    "implementationFlow": "Implementation Flow",
+    "targetFiles": "Target Files",
+    "dependsOn": "Depends on",
+    "focusPaths": "Focus Paths",
+    "acceptance": "Acceptance Criteria",
+    "noContext": "No context information available for this task.",
+    "priority": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
     "empty": {
       "title": "No Tasks Found",
       "message": "This session has no tasks yet."
@@ -107,6 +133,7 @@
     "default": "Summary",
     "title": "Session Summary",
     "lines": "lines",
+    "viewFull": "View Full Summary ({count} lines)",
     "empty": {
       "title": "No Summary Available",
       "message": "This session has no summary yet."

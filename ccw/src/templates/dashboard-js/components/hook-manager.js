@@ -275,6 +275,75 @@ const HOOK_TEMPLATES = {
     description: 'Confirm before changing file permissions (chmod, chown, icacls)',
     category: 'danger',
     timeout: 5000
+  },
+
+  // ========== Session Start Hooks ==========
+  'session-start-notify': {
+    event: 'SessionStart',
+    matcher: '',
+    command: 'node',
+    args: ['-e', 'const cp=require("child_process");const payload=JSON.stringify({type:"SESSION_CREATED",timestamp:Date.now(),project:process.env.CLAUDE_PROJECT_DIR||process.cwd()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})'],
+    description: 'Notify dashboard when session starts or resumes',
+    category: 'session',
+    timeout: 5000
+  },
+  'session-list-sync': {
+    event: 'UserPromptSubmit',
+    matcher: '',
+    command: 'node',
+    args: ['-e', 'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const prompt=(p.user_prompt||"").toLowerCase();if(prompt.includes("session")&&(prompt.includes("list")||prompt==="sessions")){const cp=require("child_process");cp.spawnSync("ccw",["session","list","--metadata"],{stdio:"inherit"})}'],
+    description: 'Auto-sync session list when user views sessions',
+    category: 'session',
+    timeout: 10000
+  },
+  'session-state-watch': {
+    event: 'PostToolUse',
+    matcher: 'Write|Edit',
+    command: 'node',
+    args: ['-e', 'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(/workflow-session\\.json$|session-metadata\\.json$/.test(file)){const fs=require("fs");try{const content=fs.readFileSync(file,"utf8");const data=JSON.parse(content);const cp=require("child_process");const payload=JSON.stringify({type:"SESSION_STATE_CHANGED",file:file,sessionId:data.session_id||"",status:data.status||"unknown",project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})}catch(e){}}'],
+    description: 'Watch for session metadata file changes (workflow-session.json, session-metadata.json)',
+    category: 'session',
+    timeout: 5000
+  },
+
+  // ========== CCW Status Hooks ==========
+  'ccw-status-monitor': {
+    event: 'UserPromptSubmit',
+    matcher: '',
+    command: 'node',
+    args: ['-e', 'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const prompt=(p.user_prompt||"").toLowerCase();if(prompt==="status"||prompt==="ccw status"||prompt.startsWith("/status")){const cp=require("child_process");cp.spawnSync("curl",["-s","http://localhost:3456/api/status/all"],{stdio:"inherit"})}'],
+    description: 'Monitor CCW service status on status-related commands',
+    category: 'monitoring',
+    timeout: 10000
+  },
+  'ccw-health-check': {
+    event: 'UserPromptSubmit',
+    matcher: '',
+    command: 'node',
+    args: ['-e', 'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const prompt=(p.user_prompt||"").toLowerCase();if(prompt.includes("health")||prompt.includes("check")){const cp=require("child_process");const urls=["http://localhost:3456/api/status/all","http://localhost:3456/api/cli/active"];urls.forEach(url=>{cp.spawnSync("curl",["-s",url],{stdio:"inherit"})})}'],
+    description: 'Health check for CCW services (status API, active CLI executions)',
+    category: 'monitoring',
+    timeout: 15000
+  },
+  'ccw-cli-active-sync': {
+    event: 'UserPromptSubmit',
+    matcher: '',
+    command: 'node',
+    args: ['-e', 'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const prompt=(p.user_prompt||"").toLowerCase();if(prompt.includes("cli")&&(prompt.includes("active")||prompt.includes("running")||prompt.includes("status"))){const cp=require("child_process");cp.spawnSync("curl",["-s","http://localhost:3456/api/cli/active"],{stdio:"inherit"})}'],
+    description: 'Sync active CLI executions when requested',
+    category: 'monitoring',
+    timeout: 10000
+  },
+
+  // ========== WebSocket Connection Hook ==========
+  'ccw-websocket-notify': {
+    event: 'UserPromptSubmit',
+    matcher: '',
+    command: 'node',
+    args: ['-e', 'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const WebSocket=require("ws");if(process.platform==="win32"){console.log("WebSocket notification: Skip on Windows");return}const ws=new WebSocket("ws://localhost:3456/ws");ws.on("open",()=>{ws.send(JSON.stringify({type:"CLIENT_HELLO",timestamp:Date.now(),client:"hook-manager"}));ws.close()});ws.on("error",(e)=>{console.log("WebSocket connection failed (dashboard may not be running)")})'],
+    description: 'Test WebSocket connection to CCW dashboard (Unix only)',
+    category: 'monitoring',
+    timeout: 5000
   }
 };
 

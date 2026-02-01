@@ -12,13 +12,24 @@ import {
   FileEdit,
   MessagesSquare,
   Calendar,
-  ListChecks,
   XCircle,
   Activity,
   Repeat,
   MessageCircle,
   ChevronDown,
   ChevronRight,
+  Search,
+  SortAsc,
+  SortDesc,
+  ListFilter,
+  Hash,
+  ListChecks,
+  Package,
+  Loader2,
+  Compass,
+  Stethoscope,
+  FolderOpen,
+  FileText,
 } from 'lucide-react';
 import { useLiteTasks } from '@/hooks/useLiteTasks';
 import { Button } from '@/components/ui/Button';
@@ -26,10 +37,12 @@ import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { TaskDrawer } from '@/components/shared/TaskDrawer';
-import type { LiteTask, LiteTaskSession } from '@/lib/api';
+import { fetchLiteSessionContext, type LiteTask, type LiteTaskSession, type LiteSessionContext } from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
 
 type LiteTaskTab = 'lite-plan' | 'lite-fix' | 'multi-cli-plan';
+type SortField = 'date' | 'name' | 'tasks';
+type SortOrder = 'asc' | 'desc';
 
 /**
  * Get i18n text from label object (supports {en, zh} format)
@@ -39,6 +52,340 @@ function getI18nText(label: string | { en?: string; zh?: string } | undefined): 
   if (!label) return undefined;
   if (typeof label === 'string') return label;
   return label.en || label.zh;
+}
+
+type ExpandedTab = 'tasks' | 'context';
+
+/**
+ * ExpandedSessionPanel - Multi-tab panel shown when a lite session is expanded
+ */
+function ExpandedSessionPanel({
+  session,
+  onTaskClick,
+}: {
+  session: LiteTaskSession;
+  onTaskClick: (task: LiteTask) => void;
+}) {
+  const { formatMessage } = useIntl();
+  const [activeTab, setActiveTab] = React.useState<ExpandedTab>('tasks');
+  const [contextData, setContextData] = React.useState<LiteSessionContext | null>(null);
+  const [contextLoading, setContextLoading] = React.useState(false);
+  const [contextError, setContextError] = React.useState<string | null>(null);
+
+  const tasks = session.tasks || [];
+  const taskCount = tasks.length;
+
+  // Load context data lazily when context tab is selected
+  React.useEffect(() => {
+    if (activeTab !== 'context') return;
+    if (contextData || contextLoading) return;
+    if (!session.path) {
+      setContextError('No session path available');
+      return;
+    }
+
+    setContextLoading(true);
+    fetchLiteSessionContext(session.path)
+      .then((data) => {
+        setContextData(data);
+        setContextError(null);
+      })
+      .catch((err) => {
+        setContextError(err.message || 'Failed to load context');
+      })
+      .finally(() => {
+        setContextLoading(false);
+      });
+  }, [activeTab, session.path, contextData, contextLoading]);
+
+  return (
+    <div className="mt-2 ml-6 pb-2">
+      {/* Quick Info Cards */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        <button
+          onClick={(e) => { e.stopPropagation(); setActiveTab('tasks'); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            activeTab === 'tasks'
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+          }`}
+        >
+          <ListChecks className="h-3.5 w-3.5" />
+          {formatMessage({ id: 'liteTasks.quickCards.tasks' })}
+          <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
+            {taskCount}
+          </Badge>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); setActiveTab('context'); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            activeTab === 'context'
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+          }`}
+        >
+          <Package className="h-3.5 w-3.5" />
+          {formatMessage({ id: 'liteTasks.quickCards.context' })}
+        </button>
+      </div>
+
+      {/* Tasks Tab */}
+      {activeTab === 'tasks' && (
+        <div className="space-y-2">
+          {tasks.map((task, index) => (
+            <Card
+              key={task.id || index}
+              className="cursor-pointer hover:shadow-sm hover:border-primary/50 transition-all border-border"
+              onClick={(e) => {
+                e.stopPropagation();
+                onTaskClick(task);
+              }}
+            >
+              <CardContent className="p-3">
+                <div className="flex items-center gap-3">
+                  <Badge className="text-xs font-mono shrink-0 bg-primary/10 text-primary border-primary/20">
+                    {task.task_id || `#${index + 1}`}
+                  </Badge>
+                  <h4 className="text-sm font-medium text-foreground flex-1 line-clamp-1">
+                    {task.title || formatMessage({ id: 'liteTasks.untitled' })}
+                  </h4>
+                  {task.status && (
+                    <Badge
+                      variant={
+                        task.status === 'completed' ? 'success' :
+                        task.status === 'in_progress' ? 'warning' :
+                        task.status === 'blocked' ? 'destructive' : 'secondary'
+                      }
+                      className="text-[10px]"
+                    >
+                      {task.status}
+                    </Badge>
+                  )}
+                </div>
+                {task.description && (
+                  <p className="text-xs text-muted-foreground mt-1.5 pl-[calc(1.5rem+0.75rem)] line-clamp-2">
+                    {task.description}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Context Tab */}
+      {activeTab === 'context' && (
+        <div className="space-y-3">
+          {contextLoading && (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              <span className="text-sm">{formatMessage({ id: 'liteTasks.contextPanel.loading' })}</span>
+            </div>
+          )}
+          {contextError && !contextLoading && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+              <XCircle className="h-4 w-4 flex-shrink-0" />
+              {formatMessage({ id: 'liteTasks.contextPanel.error' })}: {contextError}
+            </div>
+          )}
+          {!contextLoading && !contextError && contextData && (
+            <ContextContent contextData={contextData} session={session} />
+          )}
+          {!contextLoading && !contextError && !contextData && !session.path && (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Package className="h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">
+                {formatMessage({ id: 'liteTasks.contextPanel.empty' })}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ContextContent - Renders the context data sections
+ */
+function ContextContent({
+  contextData,
+  session,
+}: {
+  contextData: LiteSessionContext;
+  session: LiteTaskSession;
+}) {
+  const { formatMessage } = useIntl();
+  const plan = session.plan || {};
+  const hasExplorations = !!(contextData.explorations?.manifest);
+  const hasDiagnoses = !!(contextData.diagnoses?.manifest || contextData.diagnoses?.items?.length);
+  const hasContext = !!contextData.context;
+  const hasFocusPaths = !!(plan.focus_paths as string[] | undefined)?.length;
+  const hasSummary = !!(plan.summary as string | undefined);
+  const hasAnyContent = hasExplorations || hasDiagnoses || hasContext || hasFocusPaths || hasSummary;
+
+  if (!hasAnyContent) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-center">
+        <Package className="h-8 w-8 text-muted-foreground mb-2" />
+        <p className="text-sm text-muted-foreground">
+          {formatMessage({ id: 'liteTasks.contextPanel.empty' })}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Explorations Section */}
+      {hasExplorations && (
+        <ContextSection
+          icon={<Compass className="h-4 w-4" />}
+          title={formatMessage({ id: 'liteTasks.contextPanel.explorations' })}
+          badge={
+            contextData.explorations?.manifest?.exploration_count
+              ? formatMessage(
+                  { id: 'liteTasks.contextPanel.explorationsCount' },
+                  { count: contextData.explorations.manifest.exploration_count as number }
+                )
+              : undefined
+          }
+        >
+          <div className="space-y-2">
+            {!!contextData.explorations?.manifest?.task_description && (
+              <div className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  {formatMessage({ id: 'liteTasks.contextPanel.taskDescription' })}:
+                </span>{' '}
+                {String(contextData.explorations.manifest.task_description)}
+              </div>
+            )}
+            {!!contextData.explorations?.manifest?.complexity && (
+              <div className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">
+                  {formatMessage({ id: 'liteTasks.contextPanel.complexity' })}:
+                </span>{' '}
+                <Badge variant="info" className="text-[10px]">
+                  {String(contextData.explorations.manifest.complexity)}
+                </Badge>
+              </div>
+            )}
+            {contextData.explorations?.data && (
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {Object.keys(contextData.explorations.data).map((angle) => (
+                  <Badge key={angle} variant="secondary" className="text-[10px] capitalize">
+                    {angle.replace(/-/g, ' ')}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        </ContextSection>
+      )}
+
+      {/* Diagnoses Section */}
+      {hasDiagnoses && (
+        <ContextSection
+          icon={<Stethoscope className="h-4 w-4" />}
+          title={formatMessage({ id: 'liteTasks.contextPanel.diagnoses' })}
+          badge={
+            contextData.diagnoses?.items?.length
+              ? formatMessage(
+                  { id: 'liteTasks.contextPanel.diagnosesCount' },
+                  { count: contextData.diagnoses.items.length }
+                )
+              : undefined
+          }
+        >
+          {contextData.diagnoses?.items?.map((item, i) => (
+            <div key={i} className="text-xs text-muted-foreground py-1 border-b border-border/50 last:border-0">
+              {(item.title as string) || (item.description as string) || `Diagnosis ${i + 1}`}
+            </div>
+          ))}
+        </ContextSection>
+      )}
+
+      {/* Context Package Section */}
+      {hasContext && (
+        <ContextSection
+          icon={<Package className="h-4 w-4" />}
+          title={formatMessage({ id: 'liteTasks.contextPanel.contextPackage' })}
+        >
+          <pre className="text-xs text-muted-foreground overflow-auto max-h-48 bg-muted/50 rounded p-2 whitespace-pre-wrap">
+            {JSON.stringify(contextData.context, null, 2)}
+          </pre>
+        </ContextSection>
+      )}
+
+      {/* Focus Paths from Plan */}
+      {hasFocusPaths && (
+        <ContextSection
+          icon={<FolderOpen className="h-4 w-4" />}
+          title={formatMessage({ id: 'liteTasks.contextPanel.focusPaths' })}
+        >
+          <div className="flex flex-wrap gap-1.5">
+            {(plan.focus_paths as string[]).map((p, i) => (
+              <Badge key={i} variant="secondary" className="text-[10px] font-mono">
+                {p}
+              </Badge>
+            ))}
+          </div>
+        </ContextSection>
+      )}
+
+      {/* Plan Summary */}
+      {hasSummary && (
+        <ContextSection
+          icon={<FileText className="h-4 w-4" />}
+          title={formatMessage({ id: 'liteTasks.contextPanel.summary' })}
+        >
+          <p className="text-xs text-muted-foreground">{plan.summary as string}</p>
+        </ContextSection>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ContextSection - Collapsible section wrapper for context items
+ */
+function ContextSection({
+  icon,
+  title,
+  badge,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  badge?: string;
+  children: React.ReactNode;
+}) {
+  const [isOpen, setIsOpen] = React.useState(true);
+
+  return (
+    <Card className="border-border" onClick={(e) => e.stopPropagation()}>
+      <button
+        className="w-full flex items-center gap-2 p-3 text-left hover:bg-muted/50 transition-colors"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span className="text-muted-foreground">{icon}</span>
+        <span className="text-sm font-medium text-foreground flex-1">{title}</span>
+        {badge && (
+          <Badge variant="secondary" className="text-[10px]">{badge}</Badge>
+        )}
+        {isOpen ? (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
+      {isOpen && (
+        <CardContent className="px-3 pb-3 pt-0">
+          {children}
+        </CardContent>
+      )}
+    </Card>
+  );
 }
 
 /**
@@ -51,6 +398,62 @@ export function LiteTasksPage() {
   const [activeTab, setActiveTab] = React.useState<LiteTaskTab>('lite-plan');
   const [expandedSessionId, setExpandedSessionId] = React.useState<string | null>(null);
   const [selectedTask, setSelectedTask] = React.useState<LiteTask | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [sortField, setSortField] = React.useState<SortField>('date');
+  const [sortOrder, setSortOrder] = React.useState<SortOrder>('desc');
+
+  // Filter and sort sessions
+  const filterAndSort = React.useCallback((sessions: LiteTaskSession[]) => {
+    let filtered = sessions;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = sessions.filter(session =>
+        session.id.toLowerCase().includes(query) ||
+        session.tasks?.some(task =>
+          task.title?.toLowerCase().includes(query) ||
+          task.task_id?.toLowerCase().includes(query)
+        )
+      );
+    }
+
+    // Apply sort
+    const sorted = [...filtered].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case 'date':
+          comparison = new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+          break;
+        case 'name':
+          comparison = a.id.localeCompare(b.id);
+          break;
+        case 'tasks':
+          comparison = (a.tasks?.length || 0) - (b.tasks?.length || 0);
+          break;
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return sorted;
+  }, [searchQuery, sortField, sortOrder]);
+
+  // Filtered data
+  const filteredLitePlan = React.useMemo(() => filterAndSort(litePlan), [litePlan, filterAndSort]);
+  const filteredLiteFix = React.useMemo(() => filterAndSort(liteFix), [liteFix, filterAndSort]);
+  const filteredMultiCliPlan = React.useMemo(() => filterAndSort(multiCliPlan), [multiCliPlan, filterAndSort]);
+
+  // Toggle sort
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
 
   const handleBack = () => {
     navigate('/sessions');
@@ -96,7 +499,7 @@ export function LiteTasksPage() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-foreground text-sm">{session.id}</h3>
+                  <h3 className="font-bold text-foreground text-sm tracking-wide uppercase">{session.id}</h3>
                 </div>
               </div>
               <Badge variant={isLitePlan ? 'secondary' : 'warning'} className="gap-1 flex-shrink-0">
@@ -104,64 +507,29 @@ export function LiteTasksPage() {
                 {formatMessage({ id: isLitePlan ? 'liteTasks.type.plan' : 'liteTasks.type.fix' })}
               </Badge>
             </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
               {session.createdAt && (
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5" />
                   {new Date(session.createdAt).toLocaleDateString()}
                 </span>
               )}
-              <span className="flex items-center gap-1">
-                <ListChecks className="h-3.5 w-3.5" />
-                {taskCount} {formatMessage({ id: 'session.tasks' })}
-              </span>
+              {taskCount > 0 && (
+                <span className="flex items-center gap-1">
+                  <Hash className="h-3.5 w-3.5" />
+                  {taskCount} {formatMessage({ id: 'liteTasks.tasksCount' })}
+                </span>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Expanded tasks list */}
+        {/* Expanded tasks panel with tabs */}
         {isExpanded && session.tasks && session.tasks.length > 0 && (
-          <div className="mt-2 ml-6 space-y-2 pb-2">
-            {session.tasks.map((task, index) => {
-              const taskStatusColor = task.status === 'completed' ? 'success' :
-                                    task.status === 'in_progress' ? 'warning' :
-                                    task.status === 'failed' ? 'destructive' : 'secondary';
-
-              return (
-                <Card
-                  key={task.id || index}
-                  className="cursor-pointer hover:shadow-sm hover:border-primary/50 transition-all border-border"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedTask(task);
-                  }}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-mono text-muted-foreground">
-                            {task.task_id || `#${index + 1}`}
-                          </span>
-                          <Badge variant={taskStatusColor as 'success' | 'warning' | 'destructive' | 'secondary'} className="text-xs">
-                            {task.status}
-                          </Badge>
-                        </div>
-                        <h4 className="text-sm font-medium text-foreground">
-                          {task.title || formatMessage({ id: 'liteTasks.untitled' })}
-                        </h4>
-                        {task.description && (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                            {task.description}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <ExpandedSessionPanel
+            session={session}
+            onTaskClick={setSelectedTask}
+          />
         )}
       </div>
     );
@@ -195,7 +563,7 @@ export function LiteTasksPage() {
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-foreground text-sm">{session.id}</h3>
+                <h3 className="font-bold text-foreground text-sm tracking-wide uppercase">{session.id}</h3>
               </div>
             </div>
             <Badge variant="secondary" className="gap-1 flex-shrink-0">
@@ -308,6 +676,58 @@ export function LiteTasksPage() {
           </TabsTrigger>
         </TabsList>
 
+        {/* Search and Sort Toolbar */}
+        <div className="mt-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder={formatMessage({ id: 'liteTasks.searchPlaceholder' })}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+            />
+          </div>
+
+          {/* Sort Buttons */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <ListFilter className="h-3.5 w-3.5" />
+              {formatMessage({ id: 'liteTasks.sortBy' })}:
+            </span>
+            <Button
+              variant={sortField === 'date' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => toggleSort('date')}
+              className="h-8 px-3 text-xs gap-1"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              {formatMessage({ id: 'liteTasks.sort.date' })}
+              {sortField === 'date' && (sortOrder === 'desc' ? <SortDesc className="h-3 w-3" /> : <SortAsc className="h-3 w-3" />)}
+            </Button>
+            <Button
+              variant={sortField === 'name' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => toggleSort('name')}
+              className="h-8 px-3 text-xs gap-1"
+            >
+              {formatMessage({ id: 'liteTasks.sort.name' })}
+              {sortField === 'name' && (sortOrder === 'desc' ? <SortDesc className="h-3 w-3" /> : <SortAsc className="h-3 w-3" />)}
+            </Button>
+            <Button
+              variant={sortField === 'tasks' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => toggleSort('tasks')}
+              className="h-8 px-3 text-xs gap-1"
+            >
+              <Hash className="h-3.5 w-3.5" />
+              {formatMessage({ id: 'liteTasks.sort.tasks' })}
+              {sortField === 'tasks' && (sortOrder === 'desc' ? <SortDesc className="h-3 w-3" /> : <SortAsc className="h-3 w-3" />)}
+            </Button>
+          </div>
+        </div>
+
         {/* Lite Plan Tab */}
         <TabsContent value="lite-plan" className="mt-4">
           {litePlan.length === 0 ? (
@@ -320,8 +740,18 @@ export function LiteTasksPage() {
                 {formatMessage({ id: 'liteTasks.empty.message' })}
               </p>
             </div>
+          ) : filteredLitePlan.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Search className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                {formatMessage({ id: 'liteTasks.noResults.title' })}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {formatMessage({ id: 'liteTasks.noResults.message' })}
+              </p>
+            </div>
           ) : (
-            <div className="grid gap-3">{litePlan.map(renderLiteTaskCard)}</div>
+            <div className="grid gap-3">{filteredLitePlan.map(renderLiteTaskCard)}</div>
           )}
         </TabsContent>
 
@@ -337,8 +767,18 @@ export function LiteTasksPage() {
                 {formatMessage({ id: 'liteTasks.empty.message' })}
               </p>
             </div>
+          ) : filteredLiteFix.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Search className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                {formatMessage({ id: 'liteTasks.noResults.title' })}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {formatMessage({ id: 'liteTasks.noResults.message' })}
+              </p>
+            </div>
           ) : (
-            <div className="grid gap-3">{liteFix.map(renderLiteTaskCard)}</div>
+            <div className="grid gap-3">{filteredLiteFix.map(renderLiteTaskCard)}</div>
           )}
         </TabsContent>
 
@@ -354,8 +794,18 @@ export function LiteTasksPage() {
                 {formatMessage({ id: 'liteTasks.empty.message' })}
               </p>
             </div>
+          ) : filteredMultiCliPlan.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Search className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">
+                {formatMessage({ id: 'liteTasks.noResults.title' })}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {formatMessage({ id: 'liteTasks.noResults.message' })}
+              </p>
+            </div>
           ) : (
-            <div className="grid gap-3">{multiCliPlan.map(renderMultiCliCard)}</div>
+            <div className="grid gap-3">{filteredMultiCliPlan.map(renderMultiCliCard)}</div>
           )}
         </TabsContent>
       </Tabs>

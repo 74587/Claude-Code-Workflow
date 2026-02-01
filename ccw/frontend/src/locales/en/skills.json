@@ -1,6 +1,17 @@
 {
   "title": "Skills",
   "description": "Manage and configure skills",
+  "disabledSkills": {
+    "title": "Disabled Skills"
+  },
+  "disableConfirm": {
+    "title": "Disable Skill?",
+    "message": "Are you sure you want to disable \"{name}\"?"
+  },
+  "location": {
+    "project": "Project",
+    "user": "Global"
+  },
   "source": {
     "builtin": "Built-in",
     "custom": "Custom",
@@ -12,7 +23,9 @@
     "enable": "Enable",
     "disable": "Disable",
     "toggle": "Toggle",
-    "install": "Install Skill"
+    "install": "Install Skill",
+    "cancel": "Cancel",
+    "confirmDisable": "Disable"
   },
   "state": {
     "enabled": "Enabled",

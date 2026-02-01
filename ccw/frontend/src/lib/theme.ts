@@ -28,7 +28,7 @@ export const COLOR_SCHEMES: ThemeOption[] = [
   {
     id: 'blue',
     name: '经典蓝',
-    accentColor: '#3b82f6', // blue-500
+    accentColor: '#5b8fc4', // blue-gray tone
     description: 'Classic professional blue tone'
   },
   {

@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
+import { spawn } from 'child_process';
 
 import type { RouteContext } from './types.js';
 
@@ -606,18 +607,18 @@ async function executeCliCommand(
     });
 
     if (child.stdout) {
-      child.stdout.on('data', (data) => {
+      child.stdout.on('data', (data: Buffer) => {
         output += data.toString();
       });
     }
 
     if (child.stderr) {
-      child.stderr.on('data', (data) => {
+      child.stderr.on('data', (data: Buffer) => {
         errorOutput += data.toString();
       });
     }
 
-    child.on('close', (code) => {
+    child.on('close', (code: number | null) => {
       if (code === 0) {
         resolve({
           success: true,
@@ -632,11 +633,11 @@ async function executeCliCommand(
       }
     });
 
-    child.on('error', (err) => {
+    child.on('error', (err: Error) => {
       resolve({
         success: false,
         output: '',
-        error: (err as Error).message
+        error: err.message
       });
     });
   });

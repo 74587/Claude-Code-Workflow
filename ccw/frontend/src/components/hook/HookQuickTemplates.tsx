@@ -32,7 +32,7 @@ export interface HookTemplate {
   name: string;
   description: string;
   category: TemplateCategory;
-  trigger: 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'Stop';
+  trigger: 'SessionStart' | 'UserPromptSubmit' | 'PreToolUse' | 'PostToolUse' | 'Stop';
   command: string;
   args?: string[];
   matcher?: string;
@@ -57,79 +57,28 @@ export interface HookQuickTemplatesProps {
  */
 export const HOOK_TEMPLATES: readonly HookTemplate[] = [
   {
-    id: 'ccw-status-tracker',
-    name: 'CCW Status Tracker',
-    description: 'Parse CCW status.json and display current/next command',
+    id: 'session-start-notify',
+    name: 'Session Start Notify',
+    description: 'Notify dashboard when a new workflow session is created',
+    category: 'notification',
+    trigger: 'SessionStart',
+    command: 'node',
+    args: [
+      '-e',
+      'const cp=require("child_process");const payload=JSON.stringify({type:"SESSION_CREATED",timestamp:Date.now(),project:process.env.CLAUDE_PROJECT_DIR||process.cwd()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})'
+    ]
+  },
+  {
+    id: 'session-state-watch',
+    name: 'Session State Watch',
+    description: 'Watch for session metadata file changes (workflow-session.json)',
     category: 'notification',
     trigger: 'PostToolUse',
-    matcher: 'Write',
-    command: 'bash',
+    matcher: 'Write|Edit',
+    command: 'node',
     args: [
-      '-c',
-      'INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); [ -n "$FILE_PATH" ] && [[ "$FILE_PATH" == *"status.json" ]] && ccw hook parse-status --path "$FILE_PATH" || true'
-    ]
-  },
-  {
-    id: 'ccw-notify',
-    name: 'CCW Dashboard Notify',
-    description: 'Send notifications to CCW dashboard when files are written',
-    category: 'notification',
-    trigger: 'PostToolUse',
-    matcher: 'Write',
-    command: 'bash',
-    args: [
-      '-c',
-      'INPUT=$(cat); FILE_PATH=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); [ -n "$FILE_PATH" ] && curl -s -X POST -H "Content-Type: application/json" -d "{\\"type\\":\\"file_written\\",\\"filePath\\":\\"$FILE_PATH\\"}" http://localhost:3456/api/hook || true'
-    ]
-  },
-  {
-    id: 'codexlens-update',
-    name: 'CodexLens Auto-Update',
-    description: 'Update CodexLens index when files are written or edited',
-    category: 'indexing',
-    trigger: 'Stop',
-    command: 'bash',
-    args: [
-      '-c',
-      'INPUT=$(cat); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); [ -d ".codexlens" ] && [ -n "$FILE" ] && (python -m codexlens update "$FILE" --json 2>/dev/null || ~/.codexlens/venv/bin/python -m codexlens update "$FILE" --json 2>/dev/null || true)'
-    ]
-  },
-  {
-    id: 'git-add',
-    name: 'Auto Git Stage',
-    description: 'Automatically stage written files to git',
-    category: 'automation',
-    trigger: 'PostToolUse',
-    matcher: 'Write',
-    command: 'bash',
-    args: [
-      '-c',
-      'INPUT=$(cat); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // empty"); [ -n "$FILE" ] && git add "$FILE" 2>/dev/null || true'
-    ]
-  },
-  {
-    id: 'lint-check',
-    name: 'Auto ESLint',
-    description: 'Run ESLint on JavaScript/TypeScript files after write',
-    category: 'automation',
-    trigger: 'PostToolUse',
-    matcher: 'Write',
-    command: 'bash',
-    args: [
-      '-c',
-      'INPUT=$(cat); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // empty"); if [[ "$FILE" =~ \\.(js|ts|jsx|tsx)$ ]]; then npx eslint "$FILE" --fix 2>/dev/null || true; fi'
-    ]
-  },
-  {
-    id: 'log-tool',
-    name: 'Tool Usage Logger',
-    description: 'Log all tool executions to a file for audit trail',
-    category: 'automation',
-    trigger: 'PostToolUse',
-    command: 'bash',
-    args: [
-      '-c',
-      'mkdir -p "$HOME/.claude"; INPUT=$(cat); TOOL=$(echo "$INPUT" | jq -r ".tool_name // empty" 2>/dev/null); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty" 2>/dev/null); echo "[$(date)] Tool: $TOOL, File: $FILE" >> "$HOME/.claude/tool-usage.log"'
+      '-e',
+      'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(/workflow-session\\.json$|session-metadata\\.json$/.test(file)){const fs=require("fs");try{const content=fs.readFileSync(file,"utf8");const data=JSON.parse(content);const cp=require("child_process");const payload=JSON.stringify({type:"SESSION_STATE_CHANGED",file:file,sessionId:data.session_id||"",status:data.status||"unknown",project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})}catch(e){}}'
     ]
   }
 ] as const;

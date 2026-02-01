@@ -4,7 +4,9 @@
     "recentPaths": "Recent Projects",
     "noRecentPaths": "No recent projects",
     "current": "Current",
-    "browse": "Select Folder...",
+    "browse": "Browse Folder...",
+    "browseHint": "Select a folder from your computer",
+    "manualPath": "Enter Manually...",
     "removePath": "Remove from recent",
     "ariaLabel": "Workspace selector",
     "dialog": {

@@ -10,6 +10,7 @@ interface ViewOptions {
   host?: string;
   browser?: boolean;
   frontend?: 'js' | 'react' | 'both';
+  new?: boolean;
 }
 
 interface SwitchWorkspaceResult {
@@ -76,7 +77,8 @@ export async function viewCommand(options: ViewOptions): Promise<void> {
   const port = Number(options.port) || 3456;
   const host = options.host || '127.0.0.1';
   const browserHost = host === '0.0.0.0' || host === '::' ? 'localhost' : host;
-  const frontend = options.frontend || 'both';
+  // --new flag is shorthand for --frontend react
+  const frontend = options.new ? 'react' : (options.frontend || 'both');
 
   // Resolve workspace path
   let workspacePath = process.cwd();

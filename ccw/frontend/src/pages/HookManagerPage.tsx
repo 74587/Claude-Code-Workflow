@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   RefreshCw,
+  Play,
   Zap,
   Wrench,
   CheckCircle,
@@ -32,6 +33,7 @@ import { cn } from '@/lib/utils';
 // ========== Types ==========
 
 interface HooksByTrigger {
+  SessionStart: HookCardData[];
   UserPromptSubmit: HookCardData[];
   PreToolUse: HookCardData[];
   PostToolUse: HookCardData[];
@@ -41,7 +43,7 @@ interface HooksByTrigger {
 // ========== Helper Functions ==========
 
 function isHookTriggerType(value: string): value is HookTriggerType {
-  return ['UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop'].includes(value);
+  return ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop'].includes(value);
 }
 
 function toHookCardData(hook: { name: string; description?: string; enabled: boolean; trigger: string; matcher?: string; command?: string; script?: string }): HookCardData | null {
@@ -60,6 +62,7 @@ function toHookCardData(hook: { name: string; description?: string; enabled: boo
 
 function groupHooksByTrigger(hooks: HookCardData[]): HooksByTrigger {
   return {
+    SessionStart: hooks.filter((h) => h.trigger === 'SessionStart'),
     UserPromptSubmit: hooks.filter((h) => h.trigger === 'UserPromptSubmit'),
     PreToolUse: hooks.filter((h) => h.trigger === 'PreToolUse'),
     PostToolUse: hooks.filter((h) => h.trigger === 'PostToolUse'),
@@ -69,6 +72,10 @@ function groupHooksByTrigger(hooks: HookCardData[]): HooksByTrigger {
 
 function getTriggerStats(hooksByTrigger: HooksByTrigger) {
   return {
+    SessionStart: {
+      total: hooksByTrigger.SessionStart.length,
+      enabled: hooksByTrigger.SessionStart.filter((h) => h.enabled).length,
+    },
     UserPromptSubmit: {
       total: hooksByTrigger.UserPromptSubmit.length,
       enabled: hooksByTrigger.UserPromptSubmit.filter((h) => h.enabled).length,
@@ -215,6 +222,7 @@ export function HookManagerPage() {
   };
 
   const TRIGGER_TYPES: Array<{ type: HookTriggerType; icon: typeof Zap }> = [
+    { type: 'SessionStart', icon: Play },
     { type: 'UserPromptSubmit', icon: Zap },
     { type: 'PreToolUse', icon: Wrench },
     { type: 'PostToolUse', icon: CheckCircle },

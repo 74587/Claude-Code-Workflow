@@ -23,6 +23,9 @@ import {
   Eye,
   Archive,
   Trash2,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import type { SessionMetadata } from '@/types/store';
 
@@ -175,17 +178,12 @@ export function SessionCard({
       onClick={handleCardClick}
     >
       <CardContent className="p-4">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2">
+        {/* Header - Session ID as title */}
+        <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
-            <h3 className="font-medium text-card-foreground truncate">
-              {session.title || session.session_id}
+            <h3 className="font-bold text-card-foreground text-sm tracking-wide uppercase truncate">
+              {session.session_id}
             </h3>
-            {session.title && session.title !== session.session_id && (
-              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                {session.session_id}
-              </p>
-            )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Badge variant={statusVariant}>{statusLabel}</Badge>
@@ -231,8 +229,15 @@ export function SessionCard({
           </div>
         </div>
 
-        {/* Meta info */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        {/* Title as description */}
+        {session.title && (
+          <p className="text-sm text-foreground line-clamp-2 mb-3">
+            {session.title}
+          </p>
+        )}
+
+        {/* Meta info - enriched */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Calendar className="h-3.5 w-3.5" />
             {formatDate(session.created_at)}
@@ -241,6 +246,18 @@ export function SessionCard({
             <ListChecks className="h-3.5 w-3.5" />
             {progress.total} {formatMessage({ id: 'sessions.card.tasks' })}
           </span>
+          {progress.total > 0 && (
+            <span className="flex items-center gap-1">
+              <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+              {progress.completed} {formatMessage({ id: 'sessions.card.completed' })}
+            </span>
+          )}
+          {session.updated_at && session.updated_at !== session.created_at && (
+            <span className="flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              {formatMessage({ id: 'sessions.card.updated' })}: {formatDate(session.updated_at)}
+            </span>
+          )}
         </div>
 
         {/* Progress bar (only show if not planning and has tasks) */}
@@ -254,16 +271,19 @@ export function SessionCard({
             </div>
             <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
               <div
-                className="h-full bg-primary transition-all duration-300"
+                className={cn(
+                  "h-full transition-all duration-300",
+                  progress.percentage === 100 ? "bg-success" : "bg-primary"
+                )}
                 style={{ width: `${progress.percentage}%` }}
               />
             </div>
           </div>
         )}
 
-        {/* Description (if exists) */}
-        {session.description && (
-          <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
+        {/* Description (if exists and different from title) */}
+        {session.description && session.description !== session.title && (
+          <p className="mt-2 text-xs text-muted-foreground line-clamp-2 italic">
             {session.description}
           </p>
         )}

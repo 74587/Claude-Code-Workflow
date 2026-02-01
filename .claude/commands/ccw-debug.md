@@ -837,15 +837,28 @@ Selected items call: `/issue:new "{issue summary} - {dimension}"`
 
 ---
 
-## Usage Recommendations
+## Usage Recommendations (Requires User Confirmation)
 
-1. **First Time**: Use default mode (debug-first), observe workflow
-2. **Quick Decision**: Use CLI Quick (--mode cli) for immediate recommendations
-3. **Quick Fix**: Use `--hotfix --yes` for minimal diagnostics (debug mode)
-4. **Learning**: Use debug-first, read `understanding.md`
-5. **Complete Validation**: Use bidirectional for multi-dimensional insights
-6. **Auto Repair**: Use test-first for automatic iteration
-7. **Escalation**: Start with CLI Quick, escalate to other modes as needed
+**Use `Skill(skill="ccw-debug", args="\"bug description\"")` when:**
+- First time: Use default mode (debug-first), observe workflow
+
+**Use `Skill(skill="ccw-debug", args="--mode cli \"issue\"")` when:**
+- Quick Decision: Immediate recommendations without full workflow
+
+**Use `Skill(skill="ccw-debug", args="--hotfix --yes \"issue\"")` when:**
+- Quick Fix: Minimal diagnostics for production issues
+
+**Use `Skill(skill="ccw-debug", args="--mode debug \"issue\"")` when:**
+- Learning: Read `understanding.md` for debugging insights
+
+**Use `Skill(skill="ccw-debug", args="--mode bidirectional \"issue\"")` when:**
+- Complete Validation: Multi-dimensional insights from parallel workflows
+
+**Use `Skill(skill="ccw-debug", args="--mode test \"issue\"")` when:**
+- Auto Repair: Automatic iteration with test-first approach
+
+**Use `Skill(skill="ccw-debug", args="--mode cli \"issue\"")` when:**
+- Escalation: Start with CLI Quick, then escalate to other modes as needed
 
 ---
 

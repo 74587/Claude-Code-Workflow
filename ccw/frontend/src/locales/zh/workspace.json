@@ -4,7 +4,9 @@
     "recentPaths": "最近的项目",
     "noRecentPaths": "没有最近的项目",
     "current": "当前",
-    "browse": "选择文件夹...",
+    "browse": "浏览文件夹...",
+    "browseHint": "从计算机选择文件夹",
+    "manualPath": "手动输入...",
     "removePath": "从最近记录中移除",
     "ariaLabel": "工作空间选择器",
     "dialog": {

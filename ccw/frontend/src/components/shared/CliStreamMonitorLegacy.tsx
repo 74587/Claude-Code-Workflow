@@ -27,6 +27,9 @@ import { useActiveCliExecutions, useInvalidateActiveCliExecutions } from '@/hook
 // New components for Tab + JSON Cards
 import { ExecutionTab } from './CliStreamMonitor/components/ExecutionTab';
 import { OutputLine } from './CliStreamMonitor/components/OutputLine';
+import { JsonCard } from './CliStreamMonitor/components/JsonCard';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 // ========== Types for CLI WebSocket Messages ==========
 
@@ -72,6 +75,73 @@ function formatDuration(ms: number): string {
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return `${hours}h ${remainingMinutes}m`;
+}
+
+// ========== Output Line Card Renderer ==========
+
+/**
+ * Get border color class for line type
+ */
+function getBorderColorForType(type: CliOutputLine['type']): string {
+  const borderColors = {
+    tool_call: 'border-l-indigo-500',
+    metadata: 'border-l-slate-400',
+    system: 'border-l-slate-400',
+    stdout: 'border-l-teal-500',
+    stderr: 'border-l-rose-500',
+    thought: 'border-l-violet-500',
+  };
+  return borderColors[type] || 'border-l-slate-400';
+}
+
+/**
+ * Render a single output line as a card
+ */
+interface OutputLineCardProps {
+  line: CliOutputLine;
+  onCopy?: (content: string) => void;
+}
+
+function OutputLineCard({ line, onCopy }: OutputLineCardProps) {
+  const borderColor = getBorderColorForType(line.type);
+  const trimmed = line.content.trim();
+
+  // Check if line is JSON with 'content' field
+  let contentToRender = trimmed;
+  let isMarkdown = false;
+
+  try {
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      const parsed = JSON.parse(trimmed);
+      if ('content' in parsed && typeof parsed.content === 'string') {
+        contentToRender = parsed.content;
+        // Check if content looks like markdown
+        isMarkdown = !!contentToRender.match(/^#{1,6}\s|^\*{3,}$|^\s*[-*+]\s+|^\s*\d+\.\s+|\*\*.*?\*\*|`{3,}/m);
+      }
+    }
+  } catch {
+    // Not valid JSON, use original content
+    // Check if original content looks like markdown
+    isMarkdown = !!trimmed.match(/^#{1,6}\s|^\*{3,}$|^\s*[-*+]\s+|^\s*\d+\.\s+|\*\*.*?\*\*|`{3,}/m);
+  }
+
+  return (
+    <div className={`border-l-2 rounded-r my-1 py-1 px-2 group relative bg-background ${borderColor}`}>
+      <div className="pr-6">
+        {isMarkdown ? (
+          <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {contentToRender}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <div className="text-xs whitespace-pre-wrap break-words leading-relaxed">
+            {contentToRender}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ========== Component ==========
@@ -411,13 +481,17 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
                           </div>
                         ) : (
                           <div className="space-y-1">
-                            {filteredOutput.map((line, index) => (
-                              <OutputLine
-                                key={`${line.timestamp}-${index}`}
-                                line={line}
-                                onCopy={(content) => navigator.clipboard.writeText(content)}
-                              />
-                            ))}
+                            {(() => {
+                              // Group output lines by type
+                              const groupedOutput = groupOutputLines(filteredOutput);
+                              return groupedOutput.map((group, groupIndex) => (
+                                <OutputGroupRenderer
+                                  key={`group-${group.type}-${groupIndex}`}
+                                  group={group}
+                                  onCopy={(content) => navigator.clipboard.writeText(content)}
+                                />
+                              ));
+                            })()}
                             <div ref={logsEndRef} />
                           </div>
                         )}

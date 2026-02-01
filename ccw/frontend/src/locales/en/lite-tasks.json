@@ -11,10 +11,23 @@
     "title": "No {type} sessions",
     "message": "Create a new session to get started."
   },
+  "noResults": {
+    "title": "No results found",
+    "message": "Try adjusting your search query."
+  },
+  "searchPlaceholder": "Search sessions or tasks...",
+  "sortBy": "Sort by",
+  "sort": {
+    "date": "Date",
+    "name": "Name",
+    "tasks": "Tasks"
+  },
   "flowchart": "Flowchart",
   "implementationFlow": "Implementation Flow",
   "focusPaths": "Focus Paths",
   "acceptanceCriteria": "Acceptance Criteria",
+  "dependsOn": "Depends On",
+  "tasksCount": "tasks",
   "emptyDetail": {
     "title": "No tasks in this session",
     "message": "This session does not contain any tasks yet."
@@ -24,5 +37,29 @@
   "notFound": {
     "title": "Lite Task Not Found",
     "message": "The requested lite task session could not be found."
+  },
+  "expandedTabs": {
+    "tasks": "Tasks",
+    "context": "Context"
+  },
+  "contextPanel": {
+    "loading": "Loading context...",
+    "error": "Failed to load context",
+    "empty": "No context data available for this session.",
+    "explorations": "Explorations",
+    "explorationsCount": "{count} angles",
+    "contextPackage": "Context Package",
+    "diagnoses": "Diagnoses",
+    "diagnosesCount": "{count} items",
+    "focusPaths": "Focus Paths",
+    "summary": "Summary",
+    "complexity": "Complexity",
+    "taskDescription": "Task Description"
+  },
+  "quickCards": {
+    "tasks": "Tasks",
+    "explorations": "Explorations",
+    "context": "Context",
+    "diagnoses": "Diagnoses"
   }
 }

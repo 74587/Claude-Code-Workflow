@@ -11,10 +11,23 @@
     "title": "没有 {type} 会话",
     "message": "创建新会话以开始使用。"
   },
+  "noResults": {
+    "title": "未找到结果",
+    "message": "请尝试调整搜索条件。"
+  },
+  "searchPlaceholder": "搜索会话或任务...",
+  "sortBy": "排序",
+  "sort": {
+    "date": "日期",
+    "name": "名称",
+    "tasks": "任务数"
+  },
   "flowchart": "流程图",
   "implementationFlow": "实现流程",
   "focusPaths": "关注路径",
   "acceptanceCriteria": "验收标准",
+  "dependsOn": "依赖于",
+  "tasksCount": "个任务",
   "emptyDetail": {
     "title": "此会话中没有任务",
     "message": "此会话尚不包含任何任务。"
@@ -24,5 +37,29 @@
   "notFound": {
     "title": "未找到轻量任务",
     "message": "无法找到请求的轻量任务会话。"
+  },
+  "expandedTabs": {
+    "tasks": "任务",
+    "context": "上下文"
+  },
+  "contextPanel": {
+    "loading": "加载上下文中...",
+    "error": "加载上下文失败",
+    "empty": "此会话暂无上下文数据。",
+    "explorations": "探索结果",
+    "explorationsCount": "{count} 个角度",
+    "contextPackage": "上下文包",
+    "diagnoses": "诊断",
+    "diagnosesCount": "{count} 个条目",
+    "focusPaths": "关注路径",
+    "summary": "摘要",
+    "complexity": "复杂度",
+    "taskDescription": "任务描述"
+  },
+  "quickCards": {
+    "tasks": "任务",
+    "explorations": "探索",
+    "context": "上下文",
+    "diagnoses": "诊断"
   }
 }

@@ -3,9 +3,11 @@
 // ========================================
 // TanStack Query hooks for commands management
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import {
   fetchCommands,
+  toggleCommand as toggleCommandApi,
+  toggleCommandGroup as toggleCommandGroupApi,
   type Command,
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
@@ -24,6 +26,9 @@ export interface CommandsFilter {
   search?: string;
   category?: string;
   source?: Command['source'];
+  group?: string;
+  location?: 'project' | 'user';
+  showDisabled?: boolean;
 }
 
 export interface UseCommandsOptions {
@@ -36,7 +41,11 @@ export interface UseCommandsReturn {
   commands: Command[];
   categories: string[];
   commandsByCategory: Record<string, Command[]>;
+  groupedCommands: Record<string, Command[]>;
+  groups: string[];
   totalCount: number;
+  enabledCount: number;
+  disabledCount: number;
   isLoading: boolean;
   isFetching: boolean;
   error: Error | null;
@@ -47,6 +56,40 @@ export interface UseCommandsReturn {
 /**
  * Hook for fetching and filtering commands
  */
+
+export interface UseCommandMutationsReturn {
+  toggleCommand: (name: string, enabled: boolean, location: 'project' | 'user') => Promise<any>;
+  toggleGroup: (groupName: string, enable: boolean, location: 'project' | 'user') => Promise<any>;
+  isToggling: boolean;
+}
+
+export function useCommandMutations(): UseCommandMutationsReturn {
+  const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ name, enabled, location }: { name: string; enabled: boolean; location: 'project' | 'user' }) =>
+      toggleCommandApi(name, enabled, location, projectPath),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: commandsKeys.all });
+    },
+  });
+
+  const toggleGroupMutation = useMutation({
+    mutationFn: ({ groupName, enable, location }: { groupName: string; enable: boolean; location: 'project' | 'user' }) =>
+      toggleCommandGroupApi(groupName, enable, location, projectPath),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: commandsKeys.all });
+    },
+  });
+
+  return {
+    toggleCommand: (name, enabled, location) => toggleMutation.mutateAsync({ name, enabled, location }),
+    toggleGroup: (groupName, enable, location) => toggleGroupMutation.mutateAsync({ groupName, enable, location }),
+    isToggling: toggleMutation.isPending || toggleGroupMutation.isPending,
+  };
+}
+
 export function useCommands(options: UseCommandsOptions = {}): UseCommandsReturn {
   const { filter, staleTime = STALE_TIME, enabled = true } = options;
   const queryClient = useQueryClient();
@@ -85,6 +128,18 @@ export function useCommands(options: UseCommandsOptions = {}): UseCommandsReturn
       commands = commands.filter((c) => c.source === filter.source);
     }
 
+    if (filter?.group) {
+      commands = commands.filter((c) => c.group === filter.group);
+    }
+
+    if (filter?.location) {
+      commands = commands.filter((c) => c.location === filter.location);
+    }
+
+    if (filter?.showDisabled === false) {
+      commands = commands.filter((c) => c.enabled !== false);
+    }
+
     return commands;
   })();
 
@@ -101,6 +156,21 @@ export function useCommands(options: UseCommandsOptions = {}): UseCommandsReturn
     commandsByCategory[category].push(command);
   }
 
+  // Group by group
+  const groupedCommands: Record<string, Command[]> = {};
+  const groups = new Set<string>();
+  const enabledCount = allCommands.filter(c => c.enabled !== false).length;
+  const disabledCount = allCommands.length - enabledCount;
+
+  for (const command of allCommands) {
+    const group = command.group || 'other';
+    groups.add(group);
+    if (!groupedCommands[group]) {
+      groupedCommands[group] = [];
+    }
+    groupedCommands[group].push(command);
+  }
+
   const refetch = async () => {
     await query.refetch();
   };
@@ -113,6 +183,10 @@ export function useCommands(options: UseCommandsOptions = {}): UseCommandsReturn
     commands: filteredCommands,
     categories: Array.from(categories).sort(),
     commandsByCategory,
+    groupedCommands,
+    groups: Array.from(groups).sort(),
+    enabledCount,
+    disabledCount,
     totalCount: allCommands.length,
     isLoading: query.isLoading,
     isFetching: query.isFetching,

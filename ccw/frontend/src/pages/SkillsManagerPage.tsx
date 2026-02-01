@@ -13,12 +13,28 @@ import {
   Power,
   PowerOff,
   Tag,
+  ChevronDown,
+  ChevronRight,
+  EyeOff,
+  List,
+  Grid3x3,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui';
 import { SkillCard } from '@/components/shared/SkillCard';
+import { LocationSwitcher } from '@/components/commands/LocationSwitcher';
 import { useSkills, useSkillMutations } from '@/hooks';
 import type { Skill } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -90,12 +106,17 @@ export function SkillsManagerPage() {
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [enabledFilter, setEnabledFilter] = useState<'all' | 'enabled' | 'disabled'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'compact'>('grid');
+  const [showDisabledSection, setShowDisabledSection] = useState(false);
+  const [confirmDisable, setConfirmDisable] = useState<{ skill: Skill; enable: boolean } | null>(null);
+  const [locationFilter, setLocationFilter] = useState<'project' | 'user'>('project');
 
   const {
     skills,
     categories,
     totalCount,
     enabledCount,
+    projectSkills,
+    userSkills,
     isLoading,
     isFetching,
     refetch,
@@ -105,10 +126,14 @@ export function SkillsManagerPage() {
       category: categoryFilter !== 'all' ? categoryFilter : undefined,
       source: sourceFilter !== 'all' ? sourceFilter as Skill['source'] : undefined,
       enabledOnly: enabledFilter === 'enabled',
+      location: locationFilter,
     },
   });
 
   const { toggleSkill, isToggling } = useSkillMutations();
+
+  // Calculate disabled count
+  const disabledCount = totalCount - enabledCount;
 
   // Filter skills based on enabled filter
   const filteredSkills = useMemo(() => {
@@ -119,32 +144,63 @@ export function SkillsManagerPage() {
   }, [skills, enabledFilter]);
 
   const handleToggle = async (skill: Skill, enabled: boolean) => {
-    await toggleSkill(skill.name, enabled);
+    // Use the skill's location property
+    const location = skill.location || 'project';
+    await toggleSkill(skill.name, enabled, location);
+  };
+
+  const handleToggleWithConfirm = (skill: Skill, enabled: boolean) => {
+    if (!enabled) {
+      // Show confirmation dialog when disabling
+      setConfirmDisable({ skill, enable: false });
+    } else {
+      // Enable directly without confirmation
+      handleToggle(skill, true);
+    }
+  };
+
+  const handleConfirmDisable = async () => {
+    if (confirmDisable) {
+      await handleToggle(confirmDisable.skill, false);
+      setConfirmDisable(null);
+    }
   };
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-primary" />
-            {formatMessage({ id: 'skills.title' })}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {formatMessage({ id: 'skills.description' })}
-          </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Sparkles className="w-6 h-6 text-primary" />
+              {formatMessage({ id: 'skills.title' })}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {formatMessage({ id: 'skills.description' })}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+              <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
+              {formatMessage({ id: 'common.actions.refresh' })}
+            </Button>
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              {formatMessage({ id: 'skills.actions.install' })}
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
-            <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
-            {formatMessage({ id: 'common.actions.refresh' })}
-          </Button>
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            {formatMessage({ id: 'skills.actions.install' })}
-          </Button>
-        </div>
+
+        {/* Location Switcher */}
+        <LocationSwitcher
+          currentLocation={locationFilter}
+          onLocationChange={setLocationFilter}
+          projectCount={projectSkills.length}
+          userCount={userSkills.length}
+          disabled={isToggling}
+          translationPrefix="skills"
+        />
       </div>
 
       {/* Stats Cards */}
@@ -229,34 +285,39 @@ export function SkillsManagerPage() {
       {/* Quick Filters */}
       <div className="flex flex-wrap gap-2">
         <Button
-          variant={enabledFilter === 'all' ? 'default' : 'outline'}
+          variant="outline"
           size="sm"
           onClick={() => setEnabledFilter('all')}
+          className={enabledFilter === 'all' ? 'bg-primary text-primary-foreground' : ''}
         >
+          <Sparkles className="w-4 h-4 mr-1" />
           {formatMessage({ id: 'skills.filters.all' })} ({totalCount})
         </Button>
         <Button
-          variant={enabledFilter === 'enabled' ? 'default' : 'outline'}
+          variant="outline"
           size="sm"
           onClick={() => setEnabledFilter('enabled')}
+          className={enabledFilter === 'enabled' ? 'bg-primary text-primary-foreground' : ''}
         >
           <Power className="w-4 h-4 mr-1" />
           {formatMessage({ id: 'skills.state.enabled' })} ({enabledCount})
         </Button>
         <Button
-          variant={enabledFilter === 'disabled' ? 'default' : 'outline'}
+          variant="outline"
           size="sm"
           onClick={() => setEnabledFilter('disabled')}
+          className={enabledFilter === 'disabled' ? 'bg-primary text-primary-foreground' : ''}
         >
           <PowerOff className="w-4 h-4 mr-1" />
-          {formatMessage({ id: 'skills.state.disabled' })} ({totalCount - enabledCount})
+          {formatMessage({ id: 'skills.state.disabled' })} ({disabledCount})
         </Button>
         <div className="flex-1" />
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={() => setViewMode(viewMode === 'grid' ? 'compact' : 'grid')}
         >
+          {viewMode === 'grid' ? <List className="w-4 h-4 mr-1" /> : <Grid3x3 className="w-4 h-4 mr-1" />}
           {formatMessage({ id: viewMode === 'grid' ? 'skills.view.compact' : 'skills.view.grid' })}
         </Button>
       </div>
@@ -265,11 +326,58 @@ export function SkillsManagerPage() {
       <SkillGrid
         skills={filteredSkills}
         isLoading={isLoading}
-        onToggle={handleToggle}
+        onToggle={handleToggleWithConfirm}
         onClick={() => {}}
         isToggling={isToggling}
         compact={viewMode === 'compact'}
       />
+
+      {/* Disabled Skills Section */}
+      {enabledFilter === 'all' && disabledCount > 0 && (
+        <div className="mt-6">
+          <Button
+            variant="ghost"
+            onClick={() => setShowDisabledSection(!showDisabledSection)}
+            className="mb-4 text-muted-foreground hover:text-foreground"
+          >
+            {showDisabledSection ? <ChevronDown className="w-4 h-4 mr-2" /> : <ChevronRight className="w-4 h-4 mr-2" />}
+            <EyeOff className="w-4 h-4 mr-2" />
+            {formatMessage({ id: 'skills.disabledSkills.title' })} ({disabledCount})
+          </Button>
+
+          {showDisabledSection && (
+            <SkillGrid
+              skills={skills.filter((s) => !s.enabled)}
+              isLoading={false}
+              onToggle={handleToggleWithConfirm}
+              onClick={() => {}}
+              isToggling={isToggling}
+              compact={true}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Disable Confirmation Dialog */}
+      <AlertDialog open={!!confirmDisable} onOpenChange={(open) => !open && setConfirmDisable(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{formatMessage({ id: 'skills.disableConfirm.title' })}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {formatMessage(
+                { id: 'skills.disableConfirm.message' },
+                { name: confirmDisable?.skill.name || '' }
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{formatMessage({ id: 'skills.actions.cancel' })}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDisable} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {formatMessage({ id: 'skills.actions.confirmDisable' })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

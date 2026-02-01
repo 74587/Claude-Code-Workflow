@@ -7,10 +7,10 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchSessionDetail } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
-// Query key factory
+// Query key factory - include projectPath as part of the key
 export const sessionDetailKeys = {
   all: ['sessionDetail'] as const,
-  detail: (id: string) => [...sessionDetailKeys.all, 'detail', id] as const,
+  detail: (id: string, projectPath: string) => [...sessionDetailKeys.all, 'detail', id, projectPath] as const,
 };
 
 // Default stale time: 30 seconds
@@ -38,7 +38,7 @@ export function useSessionDetail(sessionId: string, options: UseSessionDetailOpt
   const queryEnabled = enabled && !!sessionId && !!projectPath;
 
   const query = useQuery({
-    queryKey: sessionDetailKeys.detail(sessionId),
+    queryKey: sessionDetailKeys.detail(sessionId, projectPath),
     queryFn: () => fetchSessionDetail(sessionId, projectPath),
     staleTime,
     enabled: queryEnabled,

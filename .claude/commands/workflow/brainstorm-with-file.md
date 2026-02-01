@@ -745,25 +745,31 @@ Dimensions matched against topic keywords to identify focus areas:
 
 See full markdown template in original file (lines 955-1161).
 
-## Usage Recommendations
+## Usage Recommendations (Requires User Confirmation)
 
-**Use `/workflow:brainstorm-with-file` when:**
+**Use `Skill(skill="workflow:brainstorm-with-file", args="\"topic or question\"")` when:**
 - Starting a new feature/product without clear direction
 - Facing a complex problem with multiple possible solutions
 - Need to explore alternatives before committing
 - Want documented thinking process for team review
 - Combining multiple stakeholder perspectives
 
-**Use `/workflow:analyze-with-file` when:**
+**Use `Skill(skill="workflow:analyze-with-file", args="\"topic\"")` when:**
 - Investigating existing code/system
 - Need factual analysis over ideation
 - Debugging or troubleshooting
 - Understanding current state
 
-**Use `/workflow:plan` when:**
+**Use `Skill(skill="workflow:collaborative-plan-with-file", args="\"task description\"")` when:**
+- Complex planning requiring multiple perspectives
+- Large scope needing parallel sub-domain analysis
+- Want shared collaborative planning document
+- Need structured task breakdown with agent coordination
+
+**Use `Skill(skill="workflow:lite-plan", args="\"task description\"")` when:**
 - Direction is already clear
 - Ready to move from ideas to execution
-- Need implementation breakdown
+- Need simple implementation breakdown
 
 ---
 

@@ -1,6 +1,17 @@
 {
   "title": "技能",
   "description": "管理和配置技能",
+  "disabledSkills": {
+    "title": "已禁用技能"
+  },
+  "disableConfirm": {
+    "title": "禁用技能?",
+    "message": "确定要禁用 \"{name}\" 吗?"
+  },
+  "location": {
+    "project": "项目",
+    "user": "全局"
+  },
   "source": {
     "builtin": "内置",
     "custom": "自定义",
@@ -12,7 +23,9 @@
     "enable": "启用",
     "disable": "禁用",
     "toggle": "切换",
-    "install": "安装技能"
+    "install": "安装技能",
+    "cancel": "取消",
+    "confirmDisable": "禁用"
   },
   "state": {
     "enabled": "已启用",

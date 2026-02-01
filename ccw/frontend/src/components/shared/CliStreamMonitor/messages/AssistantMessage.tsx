@@ -19,27 +19,27 @@ function StatusIndicator({ status, duration }: StatusIndicatorProps) {
 
   if (status === 'thinking') {
     return (
-      <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
+      <span className="flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
         {formatMessage({ id: 'cliMonitor.thinking' })}
-        <span className="animate-pulse">🟡</span>
+        <span className="animate-pulse">●</span>
       </span>
     );
   }
 
   if (status === 'streaming') {
     return (
-      <span className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+      <span className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-400">
         {formatMessage({ id: 'cliMonitor.streaming' })}
-        <span className="animate-pulse">🔵</span>
+        <span className="animate-pulse">●</span>
       </span>
     );
   }
 
   if (status === 'error') {
     return (
-      <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
-        Error
-        <span>❌</span>
+      <span className="flex items-center gap-1 text-[10px] text-rose-600 dark:text-rose-400">
+        Err
+        <span>●</span>
       </span>
     );
   }
@@ -47,7 +47,7 @@ function StatusIndicator({ status, duration }: StatusIndicatorProps) {
   if (duration !== undefined) {
     const seconds = (duration / 1000).toFixed(1);
     return (
-      <span className="text-xs text-muted-foreground">
+      <span className="text-[10px] text-muted-foreground">
         {seconds}s
       </span>
     );
@@ -110,28 +110,28 @@ export function AssistantMessage({
   return (
     <div
       className={cn(
-        'bg-purple-50/50 dark:bg-purple-950/30 border-l-4 border-purple-500 rounded-r-lg overflow-hidden transition-all',
+        'bg-violet-50/60 dark:bg-violet-950/40 border-l-2 border-violet-400 dark:border-violet-500 rounded-r-lg overflow-hidden transition-all',
         className
       )}
     >
       {/* Header */}
       <div
         className={cn(
-          'flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-purple-100/50 dark:hover:bg-purple-900/30 transition-colors',
+          'flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-violet-100/40 dark:hover:bg-violet-900/30 transition-colors',
           'group'
         )}
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <Bot className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
-        <span className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+        <Bot className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400 shrink-0" />
+        <span className="text-xs font-medium text-violet-900 dark:text-violet-100">
           {modelName}
         </span>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-1.5 ml-auto">
           <StatusIndicator status={status} duration={duration} />
           <ChevronDown
             className={cn(
-              'h-3.5 w-3.5 text-muted-foreground transition-transform',
+              'h-3 w-3 text-muted-foreground transition-transform',
               !isExpanded && '-rotate-90'
             )}
           />
@@ -141,49 +141,43 @@ export function AssistantMessage({
       {/* Content */}
       {isExpanded && (
         <>
-          <div className="px-3 py-2 bg-purple-50/30 dark:bg-purple-950/20">
-            <div className="bg-white/50 dark:bg-black/20 rounded border border-purple-200/50 dark:border-purple-800/50 p-3">
-              <div className="text-sm text-foreground whitespace-pre-wrap break-words">
+          <div className="px-2.5 py-2 bg-violet-50/40 dark:bg-violet-950/30">
+            <div className="bg-white/60 dark:bg-black/30 rounded border border-violet-200/40 dark:border-violet-800/30 p-2.5">
+              <div className="text-xs text-foreground whitespace-pre-wrap break-words leading-relaxed">
                 {content}
               </div>
             </div>
           </div>
 
-          {/* Metadata Footer */}
+          {/* Metadata Footer - simplified */}
           <div
             className={cn(
-              'flex items-center gap-3 px-3 py-1.5 bg-purple-50/30 dark:bg-purple-950/20',
-              'text-xs text-muted-foreground',
-              'justify-between'
+              'flex items-center justify-between px-2.5 py-1 bg-violet-50/40 dark:bg-violet-950/30',
+              'text-[10px] text-muted-foreground group'
             )}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3">
-              {tokenCount !== undefined && (
-                <span>{formatMessage({ id: 'cliMonitor.tokens' }, { count: tokenCount.toLocaleString() })}</span>
-              )}
+            <div className="flex items-center gap-2">
               {duration !== undefined && (
-                <span>{formatMessage({ id: 'cliMonitor.duration' }, { value: formatDuration(duration) })}</span>
+                <span className="opacity-70">{formatDuration(duration)}</span>
               )}
-              {modelName && <span>{formatMessage({ id: 'cliMonitor.model' }, { name: modelName })}</span>}
+              {tokenCount !== undefined && (
+                <span className="opacity-50 group-hover:opacity-70 transition-opacity">
+                  {tokenCount.toLocaleString()} tok
+                </span>
+              )}
             </div>
 
             <Button
               variant="ghost"
               size="sm"
               onClick={handleCopy}
-              className="h-7 px-2 text-xs"
+              className="h-5 px-1.5 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
             >
               {copied ? (
-                <>
-                  <Check className="h-3 w-3 mr-1" />
-                  {formatMessage({ id: 'cliMonitor.copied' })}
-                </>
+                <Check className="h-2.5 w-2.5" />
               ) : (
-                <>
-                  <Copy className="h-3 w-3 mr-1" />
-                  {formatMessage({ id: 'cliMonitor.copy' })}
-                </>
+                <Copy className="h-2.5 w-2.5" />
               )}
             </Button>
           </div>

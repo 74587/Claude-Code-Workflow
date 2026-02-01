@@ -36,7 +36,9 @@
     "dimensions": "维度",
     "progress": "进度",
     "createdAt": "创建时间",
-    "updatedAt": "更新时间"
+    "updatedAt": "更新时间",
+    "completed": "已完成",
+    "updated": "更新于"
   },
   "detail": {
     "overview": "概览",

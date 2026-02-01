@@ -9,6 +9,8 @@ import {
   MiniMap,
   Controls,
   Background,
+  Handle,
+  Position,
   useNodesState,
   useEdgesState,
   type Node,
@@ -17,6 +19,7 @@ import {
   type NodeTypes,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { CheckCircle, Circle, Loader2 } from 'lucide-react';
 import type { FlowControl } from '@/lib/api';
 
 // Custom node types
@@ -27,39 +30,87 @@ interface FlowchartNodeData extends Record<string, unknown> {
   output?: string;
   type: 'pre-analysis' | 'implementation' | 'section';
   dependsOn?: string[];
+  status?: 'pending' | 'in_progress' | 'completed' | 'blocked' | 'skipped';
 }
+
+// Status icon component
+const StatusIcon: React.FC<{ status?: string; className?: string }> = ({ status, className = 'h-4 w-4' }) => {
+  switch (status) {
+    case 'completed':
+      return <CheckCircle className={`${className} text-green-500`} />;
+    case 'in_progress':
+      return <Loader2 className={`${className} text-amber-500 animate-spin`} />;
+    case 'blocked':
+      return <Circle className={`${className} text-red-500`} />;
+    case 'skipped':
+      return <Circle className={`${className} text-gray-400`} />;
+    default:
+      return <Circle className={`${className} text-gray-300`} />;
+  }
+};
 
 // Custom node component
 const CustomNode: React.FC<{ data: FlowchartNodeData }> = ({ data }) => {
   const isPreAnalysis = data.type === 'pre-analysis';
   const isSection = data.type === 'section';
+  const isCompleted = data.status === 'completed';
+  const isInProgress = data.status === 'in_progress';
 
   if (isSection) {
     return (
-      <div className="px-4 py-2 bg-muted rounded border-2 border-border">
+      <div className="px-4 py-2 bg-muted rounded border-2 border-border relative">
+        <Handle type="target" position={Position.Top} className="!bg-transparent !border-0 !w-0 !h-0" />
         <span className="text-sm font-semibold text-foreground">{data.label}</span>
+        <Handle type="source" position={Position.Bottom} className="!bg-transparent !border-0 !w-0 !h-0" />
       </div>
     );
   }
 
+  // Color scheme based on status
+  let nodeColor = isPreAnalysis ? '#f59e0b' : '#3b82f6';
+  let bgClass = isPreAnalysis
+    ? 'bg-amber-50 border-amber-500 dark:bg-amber-950/30'
+    : 'bg-blue-50 border-blue-500 dark:bg-blue-950/30';
+  let stepBgClass = isPreAnalysis ? 'bg-amber-500 text-white' : 'bg-blue-500 text-white';
+
+  // Override for completed status
+  if (isCompleted) {
+    nodeColor = '#22c55e'; // green-500
+    bgClass = 'bg-green-50 border-green-500 dark:bg-green-950/30';
+    stepBgClass = 'bg-green-500 text-white';
+  } else if (isInProgress) {
+    nodeColor = '#f59e0b'; // amber-500
+    bgClass = 'bg-amber-50 border-amber-500 dark:bg-amber-950/30';
+    stepBgClass = 'bg-amber-500 text-white';
+  }
+
   return (
     <div
-      className={`px-4 py-3 rounded-lg border-2 shadow-sm min-w-[280px] max-w-[400px] ${
-        isPreAnalysis
-          ? 'bg-amber-50 border-amber-500 dark:bg-amber-950/30'
-          : 'bg-blue-50 border-blue-500 dark:bg-blue-950/30'
-      }`}
+      className={`px-4 py-3 rounded-lg border-2 shadow-sm min-w-[280px] max-w-[400px] relative ${bgClass}`}
     >
+      {/* Top handle for incoming edges */}
+      <Handle
+        type="target"
+        position={Position.Top}
+        className="!w-3 !h-3 !-top-1.5"
+        style={{ background: nodeColor, border: `2px solid ${nodeColor}` }}
+      />
+
       <div className="flex items-start gap-2">
         <span
-          className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-            isPreAnalysis ? 'bg-amber-500 text-white' : 'bg-blue-500 text-white'
-          }`}
+          className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${stepBgClass}`}
         >
-          {data.step}
+          {isCompleted ? <CheckCircle className="h-4 w-4" /> : data.step}
         </span>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold text-foreground">{data.label}</div>
+          <div className="flex items-center gap-2">
+            <span className={`text-sm font-semibold ${isCompleted ? 'text-green-700 dark:text-green-400' : 'text-foreground'}`}>
+              {data.label}
+            </span>
+            {data.status && data.status !== 'pending' && (
+              <StatusIcon status={data.status} className="h-3.5 w-3.5" />
+            )}
+          </div>
           {data.description && (
             <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{data.description}</div>
           )}
@@ -70,6 +121,14 @@ const CustomNode: React.FC<{ data: FlowchartNodeData }> = ({ data }) => {
           )}
         </div>
       </div>
+
+      {/* Bottom handle for outgoing edges */}
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="!w-3 !h-3 !-bottom-1.5"
+        style={{ background: nodeColor, border: `2px solid ${nodeColor}` }}
+      />
     </div>
   );
 };
@@ -136,6 +195,8 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
           target: nodeId,
           type: 'smoothstep',
           animated: false,
+          style: { stroke: '#f59e0b', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed' as const, color: '#f59e0b' },
         });
       } else {
         initialEdges.push({
@@ -144,6 +205,8 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
           target: nodeId,
           type: 'smoothstep',
           animated: false,
+          style: { stroke: '#f59e0b', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed' as const, color: '#f59e0b' },
         });
       }
 
@@ -175,7 +238,8 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
         target: implSectionId,
         type: 'smoothstep',
         animated: true,
-        style: { stroke: 'hsl(var(--primary))' },
+        style: { stroke: '#3b82f6', strokeWidth: 2 },
+        markerEnd: { type: 'arrowclosed' as const, color: '#3b82f6' },
       });
     }
 
@@ -186,10 +250,51 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
 
       // Handle both string and ImplementationStep types
       const isString = typeof step === 'string';
-      const label = isString ? step : (step.title || `Step ${step.step}`);
-      const description = isString ? undefined : step.description;
-      const stepNumber = isString ? (idx + 1) : step.step;
+
+      // Extract just the number from strings like "Step 1", "step1", etc.
+      const rawStep = isString ? (idx + 1) : (step.step || idx + 1);
+      const stepNumber = typeof rawStep === 'string'
+        ? (rawStep.match(/\d+/)?.[0] || idx + 1)
+        : rawStep;
+
+      // Try multiple fields for label (matching JS version priority)
+      // Check for content in various possible field names
+      let label: string;
+      let description: string | undefined;
+
+      if (isString) {
+        label = step;
+      } else {
+        // Try title first (JS version uses this), then action, description, phase, or any string value
+        label = step.title || step.action || step.phase || step.description || '';
+
+        // If still empty, try to extract any non-empty string from the step object
+        if (!label) {
+          const stepKeys = Object.keys(step).filter(k =>
+            k !== 'step' && k !== 'depends_on' && k !== 'modification_points' && k !== 'logic_flow'
+          );
+          for (const key of stepKeys) {
+            const val = step[key as keyof typeof step];
+            if (typeof val === 'string' && val.trim()) {
+              label = val;
+              break;
+            }
+          }
+        }
+
+        // Final fallback
+        if (!label) {
+          label = `Step ${stepNumber}`;
+        }
+
+        // Set description if different from label
+        description = step.description && step.description !== label ? step.description : undefined;
+      }
+
       const dependsOn = isString ? undefined : step.depends_on?.map((d: number | string) => `impl-${Number(d) - 1}`);
+
+      // Extract status from step (may be in 'status' field or other locations)
+      const stepStatus = isString ? undefined : (step.status as string | undefined);
 
       initialNodes.push({
         id: nodeId,
@@ -201,6 +306,7 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
           step: stepNumber,
           type: 'implementation' as const,
           dependsOn,
+          status: stepStatus,
         },
       });
 
@@ -212,6 +318,8 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
           target: nodeId,
           type: 'smoothstep',
           animated: false,
+          style: { stroke: '#3b82f6', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed' as const, color: '#3b82f6' },
         });
       } else {
         // Sequential edge with styled connection
@@ -221,7 +329,8 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
           target: nodeId,
           type: 'smoothstep',
           animated: false,
-          style: { stroke: 'hsl(var(--primary))', strokeWidth: 2 },
+          style: { stroke: '#3b82f6', strokeWidth: 2 },
+          markerEnd: { type: 'arrowclosed' as const, color: '#3b82f6' },
         });
       }
 
@@ -235,7 +344,8 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
             target: nodeId,
             type: 'smoothstep',
             animated: false,
-            style: { strokeDasharray: '5,5', stroke: 'hsl(var(--warning))' },
+            style: { strokeDasharray: '5,5', stroke: '#f59e0b', strokeWidth: 2 },
+            markerEnd: { type: 'arrowclosed' as const, color: '#f59e0b' },
           });
         });
       }
@@ -300,6 +410,10 @@ export function Flowchart({ flowControl, className = '' }: FlowchartProps) {
           nodeColor={(node) => {
             const data = node.data as FlowchartNodeData;
             if (data.type === 'section') return '#9ca3af';
+            // Status-based colors
+            if (data.status === 'completed') return '#22c55e'; // green-500
+            if (data.status === 'in_progress') return '#f59e0b'; // amber-500
+            if (data.status === 'blocked') return '#ef4444'; // red-500
             if (data.type === 'pre-analysis') return '#f59e0b';
             return '#3b82f6';
           }}

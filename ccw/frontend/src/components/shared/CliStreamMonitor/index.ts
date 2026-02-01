@@ -3,8 +3,11 @@
 // ========================================
 
 // Main components
-export { CliStreamMonitorNew as CliStreamMonitor } from './CliStreamMonitorNew';
-export type { CliStreamMonitorNewProps as CliStreamMonitorProps } from './CliStreamMonitorNew';
+export { default as CliStreamMonitor } from '../CliStreamMonitorLegacy';
+export type { CliStreamMonitorProps } from '../CliStreamMonitorLegacy';
+
+export { CliStreamMonitorNew } from './CliStreamMonitorNew';
+export type { CliStreamMonitorNewProps } from './CliStreamMonitorNew';
 
 export { default as CliStreamMonitorLegacy } from '../CliStreamMonitorLegacy';
 export type { CliStreamMonitorProps as CliStreamMonitorLegacyProps } from '../CliStreamMonitorLegacy';

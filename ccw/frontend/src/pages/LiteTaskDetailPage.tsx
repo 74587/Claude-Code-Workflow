@@ -393,7 +393,7 @@ export function LiteTaskDetailPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <CardTitle className="text-base font-medium flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-mono text-muted-foreground">{taskId}</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-semibold bg-primary/10 text-primary border border-primary/20">{taskId}</span>
                       <Badge
                         variant={task.status === 'completed' ? 'success' : task.status === 'in_progress' ? 'warning' : 'secondary'}
                       >

@@ -88,6 +88,7 @@ export function run(argv: string[]): void {
     .option('--host <host>', 'Server host to bind', '127.0.0.1')
     .option('--no-browser', 'Start server without opening browser')
     .option('--frontend <type>', 'Frontend type: js, react, both', 'both')
+    .option('--new', 'Launch React frontend (shorthand for --frontend react)')
     .action(viewCommand);
 
   // Serve command (alias for view)
@@ -99,6 +100,7 @@ export function run(argv: string[]): void {
     .option('--host <host>', 'Server host to bind', '127.0.0.1')
     .option('--no-browser', 'Start server without opening browser')
     .option('--frontend <type>', 'Frontend type: js, react, both', 'both')
+    .option('--new', 'Launch React frontend (shorthand for --frontend react)')
     .action(serveCommand);
 
   // Stop command

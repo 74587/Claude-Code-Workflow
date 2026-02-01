@@ -7,7 +7,6 @@ import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useIntl } from 'react-intl';
 import {
-  Plus,
   RefreshCw,
   Search,
   Filter,
@@ -17,7 +16,6 @@ import {
 } from 'lucide-react';
 import {
   useSessions,
-  useCreateSession,
   useArchiveSession,
   useDeleteSession,
   type SessionsFilter,
@@ -61,14 +59,8 @@ export function SessionsPage() {
   const [statusFilter, setStatusFilter] = React.useState<SessionMetadata['status'][]>([]);
 
   // Dialog state
-  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [sessionToDelete, setSessionToDelete] = React.useState<string | null>(null);
-
-  // Create session form state
-  const [newSessionId, setNewSessionId] = React.useState('');
-  const [newSessionTitle, setNewSessionTitle] = React.useState('');
-  const [newSessionDescription, setNewSessionDescription] = React.useState('');
 
   // Build filter object
   const filter: SessionsFilter = React.useMemo(
@@ -90,37 +82,14 @@ export function SessionsPage() {
   } = useSessions({ filter });
 
   // Mutations
-  const { createSession, isCreating } = useCreateSession();
   const { archiveSession, isArchiving } = useArchiveSession();
   const { deleteSession, isDeleting } = useDeleteSession();
 
-  const isMutating = isCreating || isArchiving || isDeleting;
+  const isMutating = isArchiving || isDeleting;
 
   // Handlers
   const handleSessionClick = (sessionId: string) => {
     navigate(`/sessions/${sessionId}`);
-  };
-
-  const handleCreateSession = async () => {
-    if (!newSessionId.trim()) return;
-
-    try {
-      await createSession({
-        session_id: newSessionId.trim(),
-        title: newSessionTitle.trim() || undefined,
-        description: newSessionDescription.trim() || undefined,
-      });
-      setCreateDialogOpen(false);
-      resetCreateForm();
-    } catch (err) {
-      console.error('Failed to create session:', err);
-    }
-  };
-
-  const resetCreateForm = () => {
-    setNewSessionId('');
-    setNewSessionTitle('');
-    setNewSessionDescription('');
   };
 
   const handleArchive = async (sessionId: string) => {
@@ -184,10 +153,6 @@ export function SessionsPage() {
           >
             <RefreshCw className={cn('h-4 w-4 mr-2', isFetching && 'animate-spin')} />
             {formatMessage({ id: 'common.actions.refresh' })}
-          </Button>
-          <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'common.actions.new' })}
           </Button>
         </div>
       </div>
@@ -325,14 +290,9 @@ export function SessionsPage() {
               ? formatMessage({ id: 'sessions.emptyState.message' })
               : formatMessage({ id: 'sessions.emptyState.createFirst' })}
           </p>
-          {hasActiveFilters ? (
+          {hasActiveFilters && (
             <Button variant="outline" onClick={clearFilters}>
               {formatMessage({ id: 'common.actions.clearFilters' })}
-            </Button>
-          ) : (
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              {formatMessage({ id: 'common.actions.new' })}
             </Button>
           )}
         </div>
@@ -351,70 +311,6 @@ export function SessionsPage() {
           ))}
         </div>
       )}
-
-      {/* Create Session Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{formatMessage({ id: 'common.dialog.createSession' })}</DialogTitle>
-            <DialogDescription>
-              {formatMessage({ id: 'common.dialog.createSessionDesc' })}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label htmlFor="sessionId" className="text-sm font-medium">
-                {formatMessage({ id: 'common.form.sessionId' })} <span className="text-destructive">*</span>
-              </label>
-              <Input
-                id="sessionId"
-                placeholder={formatMessage({ id: 'common.form.sessionIdPlaceholder' })}
-                value={newSessionId}
-                onChange={(e) => setNewSessionId(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="sessionTitle" className="text-sm font-medium">
-                {formatMessage({ id: 'common.form.title' })} ({formatMessage({ id: 'common.form.optional' })})
-              </label>
-              <Input
-                id="sessionTitle"
-                placeholder={formatMessage({ id: 'common.form.titlePlaceholder' })}
-                value={newSessionTitle}
-                onChange={(e) => setNewSessionTitle(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="sessionDescription" className="text-sm font-medium">
-                {formatMessage({ id: 'common.form.description' })} ({formatMessage({ id: 'common.form.optional' })})
-              </label>
-              <Input
-                id="sessionDescription"
-                placeholder={formatMessage({ id: 'common.form.descriptionPlaceholder' })}
-                value={newSessionDescription}
-                onChange={(e) => setNewSessionDescription(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setCreateDialogOpen(false);
-                resetCreateForm();
-              }}
-            >
-              {formatMessage({ id: 'common.actions.cancel' })}
-            </Button>
-            <Button
-              onClick={handleCreateSession}
-              disabled={!newSessionId.trim() || isCreating}
-            >
-              {isCreating ? formatMessage({ id: 'common.status.creating' }) : formatMessage({ id: 'common.actions.create' })}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

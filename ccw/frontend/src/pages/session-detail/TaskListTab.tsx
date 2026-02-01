@@ -8,16 +8,31 @@ import { useIntl } from 'react-intl';
 import {
   ListChecks,
   Code,
+  GitBranch,
+  Zap,
+  Calendar,
+  FileCode,
+  Layers,
 } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
 import { TaskStatsBar, TaskStatusDropdown } from '@/components/session-detail/tasks';
 import type { SessionMetadata, TaskData } from '@/types/store';
-import type { TaskStatus } from '@/lib/api';
+import type { TaskStatus, FlowControl } from '@/lib/api';
 import { bulkUpdateTaskStatus, updateTaskStatus } from '@/lib/api';
 
-export interface TaskListTabProps {
-  session: SessionMetadata;
-  onTaskClick?: (task: TaskData) => void;
+// Extended task type with all possible fields from JSON
+interface ExtendedTask extends TaskData {
+  meta?: {
+    type?: string;
+    scope?: string;
+  };
+  context?: {
+    focus_paths?: string[];
+    acceptance?: string[];
+    depends_on?: string[];
+  };
+  flow_control?: FlowControl;
 }
 
 export interface TaskListTabProps {
@@ -52,62 +67,72 @@ export function TaskListTab({ session, onTaskClick }: TaskListTabProps) {
   // Get session path for API calls
   const sessionPath = (session as any).path || session.session_id;
 
-  // Bulk action handlers
+  // Bulk action handlers - mark ALL tasks (not just filtered ones) to the target status
   const handleMarkAllPending = async () => {
-    const targetTasks = localTasks.filter((t) => t.status === 'pending');
+    // Mark all non-pending tasks as pending
+    const targetTasks = localTasks.filter((t) => t.status !== 'pending');
     if (targetTasks.length === 0) return;
 
     setIsLoadingPending(true);
+    // Optimistic update
+    setLocalTasks((prev) => prev.map((t) => ({ ...t, status: 'pending' as const })));
     try {
       const taskIds = targetTasks.map((t) => t.task_id);
       const result = await bulkUpdateTaskStatus(sessionPath, taskIds, 'pending');
-      if (result.success) {
-        // Optimistic update - will be refreshed when parent re-renders
-      } else {
+      if (!result.success) {
         console.error('[TaskListTab] Failed to mark all as pending:', result.error);
+        // Rollback on error
+        setLocalTasks(tasks);
       }
     } catch (error) {
       console.error('[TaskListTab] Failed to mark all as pending:', error);
+      setLocalTasks(tasks);
     } finally {
       setIsLoadingPending(false);
     }
   };
 
   const handleMarkAllInProgress = async () => {
-    const targetTasks = localTasks.filter((t) => t.status === 'in_progress');
+    // Mark all non-in_progress tasks as in_progress
+    const targetTasks = localTasks.filter((t) => t.status !== 'in_progress');
     if (targetTasks.length === 0) return;
 
     setIsLoadingInProgress(true);
+    // Optimistic update
+    setLocalTasks((prev) => prev.map((t) => ({ ...t, status: 'in_progress' as const })));
     try {
       const taskIds = targetTasks.map((t) => t.task_id);
       const result = await bulkUpdateTaskStatus(sessionPath, taskIds, 'in_progress');
-      if (result.success) {
-        // Optimistic update - will be refreshed when parent re-renders
-      } else {
+      if (!result.success) {
         console.error('[TaskListTab] Failed to mark all as in_progress:', result.error);
+        setLocalTasks(tasks);
       }
     } catch (error) {
       console.error('[TaskListTab] Failed to mark all as in_progress:', error);
+      setLocalTasks(tasks);
     } finally {
       setIsLoadingInProgress(false);
     }
   };
 
   const handleMarkAllCompleted = async () => {
-    const targetTasks = localTasks.filter((t) => t.status === 'completed');
+    // Mark all non-completed tasks as completed
+    const targetTasks = localTasks.filter((t) => t.status !== 'completed');
     if (targetTasks.length === 0) return;
 
     setIsLoadingCompleted(true);
+    // Optimistic update
+    setLocalTasks((prev) => prev.map((t) => ({ ...t, status: 'completed' as const })));
     try {
       const taskIds = targetTasks.map((t) => t.task_id);
       const result = await bulkUpdateTaskStatus(sessionPath, taskIds, 'completed');
-      if (result.success) {
-        // Optimistic update - will be refreshed when parent re-renders
-      } else {
+      if (!result.success) {
         console.error('[TaskListTab] Failed to mark all as completed:', result.error);
+        setLocalTasks(tasks);
       }
     } catch (error) {
       console.error('[TaskListTab] Failed to mark all as completed:', error);
+      setLocalTasks(tasks);
     } finally {
       setIsLoadingCompleted(false);
     }
@@ -170,6 +195,32 @@ export function TaskListTab({ session, onTaskClick }: TaskListTabProps) {
       ) : (
         <div className="space-y-2">
           {localTasks.map((task, index) => {
+            // Cast to extended type to access all possible fields
+            const extTask = task as unknown as ExtendedTask;
+
+            // Priority config
+            const priorityConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'warning' | 'info' }> = {
+              critical: { label: formatMessage({ id: 'sessionDetail.tasks.priority.critical' }), variant: 'destructive' },
+              high: { label: formatMessage({ id: 'sessionDetail.tasks.priority.high' }), variant: 'warning' },
+              medium: { label: formatMessage({ id: 'sessionDetail.tasks.priority.medium' }), variant: 'info' },
+              low: { label: formatMessage({ id: 'sessionDetail.tasks.priority.low' }), variant: 'secondary' },
+            };
+            const priority = extTask.priority ? priorityConfig[extTask.priority] : null;
+
+            // Get depends_on from either root level or context
+            const dependsOn = extTask.depends_on || extTask.context?.depends_on || [];
+            const dependsCount = dependsOn.length;
+
+            // Get meta info
+            const taskType = extTask.meta?.type;
+            const taskScope = extTask.meta?.scope;
+
+            // Get implementation steps count from flow_control
+            const stepsCount = extTask.flow_control?.implementation_approach?.length || 0;
+
+            // Get target files count
+            const filesCount = extTask.flow_control?.target_files?.length || 0;
+
             return (
               <Card
                 key={task.task_id || index}
@@ -177,22 +228,13 @@ export function TaskListTab({ session, onTaskClick }: TaskListTabProps) {
                 onClick={() => onTaskClick?.(task as TaskData)}
               >
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-4">
+                    {/* Left: Task ID, Title, Description */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-xs font-mono text-muted-foreground">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-semibold bg-primary/10 text-primary border border-primary/20">
                           {task.task_id}
                         </span>
-                        <TaskStatusDropdown
-                          currentStatus={task.status as TaskStatus}
-                          onStatusChange={(newStatus) => handleTaskStatusChange(task.task_id, newStatus)}
-                          size="sm"
-                        />
-                        {task.priority && (
-                          <span className="text-xs text-muted-foreground">
-                            {task.priority}
-                          </span>
-                        )}
                       </div>
                       <h4 className="font-medium text-foreground text-sm">
                         {task.title || formatMessage({ id: 'sessionDetail.tasks.untitled' })}
@@ -202,18 +244,63 @@ export function TaskListTab({ session, onTaskClick }: TaskListTabProps) {
                           {task.description}
                         </p>
                       )}
-                      {task.depends_on && task.depends_on.length > 0 && (
-                        <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                          <Code className="h-3 w-3" />
-                          <span>Depends on: {task.depends_on.join(', ')}</span>
+                    </div>
+
+                    {/* Right: Status and Meta info */}
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      {/* Row 1: Status dropdown */}
+                      <TaskStatusDropdown
+                        currentStatus={task.status as TaskStatus}
+                        onStatusChange={(newStatus) => handleTaskStatusChange(task.task_id, newStatus)}
+                        size="sm"
+                      />
+
+                      {/* Row 2: Meta info */}
+                      <div className="flex items-center gap-3 flex-wrap justify-end text-xs text-muted-foreground">
+                        {priority && (
+                          <Badge variant={priority.variant} className="text-xs gap-1">
+                            <Zap className="h-3 w-3" />
+                            {priority.label}
+                          </Badge>
+                        )}
+                        {taskType && (
+                          <span className="bg-muted px-1.5 py-0.5 rounded">{taskType}</span>
+                        )}
+                        {stepsCount > 0 && (
+                          <span className="flex items-center gap-1">
+                            <Layers className="h-3 w-3" />
+                            {stepsCount} {formatMessage({ id: 'sessionDetail.tasks.steps' })}
+                          </span>
+                        )}
+                        {filesCount > 0 && (
+                          <span className="flex items-center gap-1">
+                            <FileCode className="h-3 w-3" />
+                            {filesCount} {formatMessage({ id: 'sessionDetail.tasks.files' })}
+                          </span>
+                        )}
+                        {dependsCount > 0 && (
+                          <span className="flex items-center gap-1">
+                            <GitBranch className="h-3 w-3" />
+                            {dependsCount} {formatMessage({ id: 'sessionDetail.tasks.deps' })}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Row 3: Scope or Date */}
+                      {(taskScope || task.created_at) && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {taskScope && (
+                            <span className="bg-muted px-1.5 py-0.5 rounded">{taskScope}</span>
+                          )}
+                          {task.created_at && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(task.created_at).toLocaleDateString()}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
-                    {task.created_at && (
-                      <div className="text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(task.created_at).toLocaleDateString()}
-                      </div>
-                    )}
                   </div>
                 </CardContent>
               </Card>

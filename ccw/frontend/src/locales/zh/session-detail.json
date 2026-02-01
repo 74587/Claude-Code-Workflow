@@ -33,6 +33,32 @@
       "skipped": "已跳过"
     },
     "untitled": "无标题任务",
+    "deps": "个依赖",
+    "steps": "步",
+    "files": "文件",
+    "tab": {
+      "task": "任务",
+      "context": "上下文"
+    },
+    "quickCards": {
+      "explorations": "探索",
+      "context": "上下文包",
+      "dependencies": "依赖",
+      "testContext": "测试上下文",
+      "available": "可用"
+    },
+    "implementationFlow": "实现流程",
+    "targetFiles": "目标文件",
+    "dependsOn": "依赖于",
+    "focusPaths": "关注路径",
+    "acceptance": "验收标准",
+    "noContext": "该任务暂无上下文信息。",
+    "priority": {
+      "critical": "紧急",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
     "empty": {
       "title": "未找到任务",
       "message": "该会话暂无任务。"
@@ -104,7 +130,10 @@
     }
   },
   "summary": {
+    "default": "摘要",
     "title": "会话摘要",
+    "lines": "行",
+    "viewFull": "查看完整摘要（{count} 行）",
     "empty": {
       "title": "暂无摘要",
       "message": "该会话暂无摘要。"

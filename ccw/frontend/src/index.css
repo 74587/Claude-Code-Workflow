@@ -18,7 +18,7 @@
   --border: 220 20% 88%;
   --text: 220 30% 15%;
   --text-secondary: 220 15% 45%;
-  --accent: 220 90% 56%;
+  --accent: 220 60% 65%;
 
   /* Legacy variables for backward compatibility */
   --background: var(--bg);
@@ -27,7 +27,7 @@
   --card-foreground: var(--text);
   --primary: var(--accent);
   --primary-foreground: 0 0% 100%;
-  --primary-light: 220 90% 95%;
+  --primary-light: 220 60% 92%;
   --secondary: 220 60% 65%;
   --secondary-foreground: 0 0% 100%;
   --accent-foreground: 0 0% 100%;
@@ -44,7 +44,7 @@
   --success-light: 142 76% 90%;
   --warning: 38 92% 50%;
   --warning-light: 48 96% 89%;
-  --info: 210 80% 55%;
+  --info: 220 60% 60%;
   --info-light: 210 80% 92%;
   --indigo: 239 65% 60%;
   --indigo-light: 239 65% 92%;
@@ -59,7 +59,7 @@
   --border: 220 20% 22%;
   --text: 220 20% 90%;
   --text-secondary: 220 15% 60%;
-  --accent: 220 90% 60%;
+  --accent: 220 60% 65%;
 
   /* Legacy variables */
   --background: var(--bg);
@@ -68,7 +68,7 @@
   --card-foreground: var(--text);
   --primary: var(--accent);
   --primary-foreground: 220 30% 10%;
-  --primary-light: 220 70% 25%;
+  --primary-light: 220 60% 30%;
   --secondary: 220 60% 60%;
   --secondary-foreground: 0 0% 100%;
   --accent-foreground: 220 30% 10%;
@@ -85,7 +85,7 @@
   --success-light: 142 50% 20%;
   --warning: 38 85% 45%;
   --warning-light: 40 50% 20%;
-  --info: 210 75% 50%;
+  --info: 220 60% 55%;
   --info-light: 210 50% 20%;
   --indigo: 239 60% 55%;
   --indigo-light: 239 40% 20%;
@@ -346,7 +346,7 @@
   --border: var(--border, 220 20% 22%);
   --text: var(--text, 220 20% 90%);
   --text-secondary: var(--text-secondary, 220 15% 60%);
-  --accent: var(--accent, 220 90% 60%);
+  --accent: var(--accent, 220 60% 65%);
 
   /* Apply dark-blue theme as fallback */
   --background: 220 30% 10%;
@@ -355,13 +355,13 @@
   --card-foreground: 220 20% 90%;
   --border: 220 20% 22%;
   --input: 220 20% 22%;
-  --ring: 220 90% 60%;
-  --primary: 220 90% 60%;
+  --ring: 220 60% 65%;
+  --primary: 220 60% 65%;
   --primary-foreground: 220 30% 10%;
-  --primary-light: 220 70% 25%;
+  --primary-light: 220 60% 30%;
   --secondary: 220 60% 60%;
   --secondary-foreground: 0 0% 100%;
-  --accent: 220 90% 60%;
+  --accent: 220 60% 65%;
   --accent-foreground: 220 30% 10%;
   --destructive: 8 70% 50%;
   --destructive-foreground: 0 0% 100%;
@@ -374,7 +374,7 @@
   --success-light: 142 50% 20%;
   --warning: 38 85% 45%;
   --warning-light: 40 50% 20%;
-  --info: 210 75% 50%;
+  --info: 220 60% 55%;
   --info-light: 210 50% 20%;
   --indigo: 239 60% 55%;
   --indigo-light: 239 40% 20%;

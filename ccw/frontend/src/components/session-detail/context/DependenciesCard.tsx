@@ -126,7 +126,7 @@ function ExternalDependenciesSection({ dependencies }: ExternalDependenciesSecti
         {dependencies.map((dep, index) => (
           <Badge key={index} variant="secondary" className="px-3 py-1.5">
             {dep.package}
-            {dep.version && <span className="ml-1 text-muted-foreground">@{dep.version}</span>}
+            {dep.version && <span className="ml-1 text-foreground">@{dep.version}</span>}
           </Badge>
         ))}
       </div>

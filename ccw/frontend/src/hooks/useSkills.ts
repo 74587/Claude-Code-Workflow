@@ -6,7 +6,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchSkills,
-  toggleSkill,
+  enableSkill,
+  disableSkill,
   type Skill,
   type SkillsResponse,
 } from '../lib/api';
@@ -28,6 +29,7 @@ export interface SkillsFilter {
   category?: string;
   source?: Skill['source'];
   enabledOnly?: boolean;
+  location?: 'project' | 'user';
 }
 
 export interface UseSkillsOptions {
@@ -43,6 +45,8 @@ export interface UseSkillsReturn {
   skillsByCategory: Record<string, Skill[]>;
   totalCount: number;
   enabledCount: number;
+  projectSkills: Skill[];
+  userSkills: Skill[];
   isLoading: boolean;
   isFetching: boolean;
   error: Error | null;
@@ -68,9 +72,17 @@ export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
 
   const allSkills = query.data?.skills ?? [];
 
+  // Separate by location
+  const projectSkills = allSkills.filter(s => s.location === 'project');
+  const userSkills = allSkills.filter(s => s.location === 'user');
+
   // Apply filters
   const filteredSkills = (() => {
     let skills = allSkills;
+
+    if (filter?.location) {
+      skills = skills.filter((s) => s.location === filter.location);
+    }
 
     if (filter?.search) {
       const searchLower = filter.search.toLowerCase();
@@ -129,6 +141,8 @@ export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
     skillsByCategory,
     totalCount: allSkills.length,
     enabledCount: enabledSkills.length,
+    projectSkills,
+    userSkills,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     error: query.error,
@@ -140,7 +154,7 @@ export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
 // ========== Mutations ==========
 
 export interface UseToggleSkillReturn {
-  toggleSkill: (skillName: string, enabled: boolean) => Promise<Skill>;
+  toggleSkill: (skillName: string, enabled: boolean, location: 'project' | 'user') => Promise<Skill>;
   isToggling: boolean;
   error: Error | null;
 }
@@ -150,8 +164,10 @@ export function useToggleSkill(): UseToggleSkillReturn {
   const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
-    mutationFn: ({ skillName, enabled }: { skillName: string; enabled: boolean }) =>
-      toggleSkill(skillName, enabled),
+    mutationFn: ({ skillName, enabled, location }: { skillName: string; enabled: boolean; location: 'project' | 'user' }) =>
+      enabled
+        ? enableSkill(skillName, location, projectPath)
+        : disableSkill(skillName, location, projectPath),
     onSuccess: () => {
       // Invalidate to ensure sync with server
       queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.skills(projectPath) : ['skills'] });
@@ -159,7 +175,7 @@ export function useToggleSkill(): UseToggleSkillReturn {
   });
 
   return {
-    toggleSkill: (skillName, enabled) => mutation.mutateAsync({ skillName, enabled }),
+    toggleSkill: (skillName, enabled, location) => mutation.mutateAsync({ skillName, enabled, location }),
     isToggling: mutation.isPending,
     error: mutation.error,
   };

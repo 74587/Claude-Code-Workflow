@@ -150,7 +150,7 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
         <div className="flex items-start justify-between p-6 border-b border-border bg-card">
           <div className="flex-1 min-w-0 mr-4">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-mono text-muted-foreground">{taskId}</span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-semibold bg-primary/10 text-primary border border-primary/20">{taskId}</span>
               <Badge variant={statusConfig.variant} className="gap-1">
                 <StatusIcon className="h-3 w-3" />
                 {formatMessage({ id: statusConfig.label })}
@@ -188,13 +188,14 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
 
             {/* Tab Content (scrollable) */}
             <div className="overflow-y-auto pr-2" style={{ height: 'calc(100vh - 200px)' }}>
-              {/* Overview Tab */}
+              {/* Overview Tab - Rich display matching JS version */}
               <TabsContent value="overview" className="mt-4 pb-6 focus-visible:outline-none">
-                <div className="space-y-6">
-                  {/* Description */}
+                <div className="space-y-4">
+                  {/* Description Section */}
                   {taskDescription && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground mb-2">
+                    <div className="p-4 bg-card rounded-lg border border-border">
+                      <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <span>📝</span>
                         {formatMessage({ id: 'sessionDetail.taskDrawer.overview.description' })}
                       </h3>
                       <p className="text-sm text-muted-foreground whitespace-pre-wrap">
@@ -203,30 +204,94 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
                     </div>
                   )}
 
+                  {/* Scope Section */}
+                  {(task as LiteTask).meta?.scope && (
+                    <div className="p-4 bg-card rounded-lg border border-border">
+                      <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                        <span>📁</span>
+                        Scope
+                      </h3>
+                      <div className="pl-3 border-l-2 border-primary">
+                        <code className="text-sm text-foreground">{(task as LiteTask).meta?.scope}</code>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Acceptance Criteria Section */}
+                  {(task as LiteTask).context?.acceptance && (task as LiteTask).context!.acceptance!.length > 0 && (
+                    <div className="p-4 bg-card rounded-lg border border-border">
+                      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <span>✅</span>
+                        {formatMessage({ id: 'liteTasks.acceptanceCriteria' })}
+                      </h3>
+                      <div className="space-y-2">
+                        {(task as LiteTask).context!.acceptance!.map((criterion, i) => (
+                          <div key={i} className="flex items-start gap-2">
+                            <span className="text-muted-foreground mt-0.5">○</span>
+                            <span className="text-sm text-foreground">{criterion}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Focus Paths / Reference Section */}
+                  {(task as LiteTask).context?.focus_paths && (task as LiteTask).context!.focus_paths!.length > 0 && (
+                    <div className="p-4 bg-card rounded-lg border border-border">
+                      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <span>📚</span>
+                        {formatMessage({ id: 'liteTasks.focusPaths' })}
+                      </h3>
+                      <div className="space-y-1">
+                        {(task as LiteTask).context!.focus_paths!.map((path, i) => (
+                          <code key={i} className="block text-xs bg-muted px-3 py-1.5 rounded text-foreground font-mono">
+                            {path}
+                          </code>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dependencies Section */}
+                  {(task as LiteTask).context?.depends_on && (task as LiteTask).context!.depends_on!.length > 0 && (
+                    <div className="p-4 bg-card rounded-lg border border-border">
+                      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <span>🔗</span>
+                        {formatMessage({ id: 'liteTasks.dependsOn' })}
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {(task as LiteTask).context!.depends_on!.map((dep, i) => (
+                          <Badge key={i} variant="secondary">{dep}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Pre-analysis Steps */}
                   {flowControl?.pre_analysis && flowControl.pre_analysis.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground mb-3">
+                    <div className="p-4 bg-card rounded-lg border border-border">
+                      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <span>🔍</span>
                         {formatMessage({ id: 'sessionDetail.taskDrawer.overview.preAnalysis' })}
                       </h3>
                       <div className="space-y-3">
                         {flowControl.pre_analysis.map((step, index) => (
-                          <div key={index} className="p-3 bg-card rounded-md border border-border shadow-sm">
-                            <div className="flex items-start gap-2">
-                              <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                                {index + 1}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-foreground">{step.step}</p>
+                          <div key={index} className="flex items-start gap-3">
+                            <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                              {index + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground">{step.step || step.action}</p>
+                              {step.action && step.action !== step.step && (
                                 <p className="text-xs text-muted-foreground mt-1">{step.action}</p>
-                                {step.commands && step.commands.length > 0 && (
-                                  <div className="mt-2">
-                                    <code className="text-xs bg-muted px-2 py-1 rounded border">
-                                      {step.commands.join('; ')}
-                                    </code>
-                                  </div>
-                                )}
-                              </div>
+                              )}
+                              {step.commands && step.commands.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {step.commands.map((cmd, i) => (
+                                    <code key={i} className="text-xs bg-muted px-2 py-0.5 rounded">{cmd}</code>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
@@ -236,41 +301,78 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
 
                   {/* Implementation Steps */}
                   {flowControl?.implementation_approach && flowControl.implementation_approach.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground mb-3">
+                    <div className="p-4 bg-card rounded-lg border border-border">
+                      <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                        <span>📋</span>
                         {formatMessage({ id: 'sessionDetail.taskDrawer.overview.implementationSteps' })}
                       </h3>
-                      <div className="space-y-3">
+                      <ol className="space-y-3">
                         {flowControl.implementation_approach.map((step, index) => {
                           const isString = typeof step === 'string';
-                          const title = isString ? step : (step.title || `Step ${step.step || index + 1}`);
-                          const description = isString ? undefined : step.description;
-                          const stepNumber = isString ? (index + 1) : (step.step || index + 1);
+                          // Extract just the number from strings like "Step 1", "step1", etc.
+                          const rawStep = isString ? (index + 1) : (step.step || index + 1);
+                          const stepNumber = typeof rawStep === 'string'
+                            ? (rawStep.match(/\d+/)?.[0] || index + 1)
+                            : rawStep;
+
+                          // Try multiple fields for title (matching JS version)
+                          let stepTitle: string;
+                          let stepDesc: string | undefined;
+
+                          if (isString) {
+                            stepTitle = step;
+                          } else {
+                            // Try title first, then action, phase, description
+                            stepTitle = step.title || step.action || step.phase || '';
+
+                            // If empty, try any string value from the object
+                            if (!stepTitle) {
+                              const stepKeys = Object.keys(step).filter(k =>
+                                k !== 'step' && k !== 'depends_on' && k !== 'modification_points' && k !== 'logic_flow'
+                              );
+                              for (const key of stepKeys) {
+                                const val = step[key as keyof typeof step];
+                                if (typeof val === 'string' && val.trim()) {
+                                  stepTitle = val;
+                                  break;
+                                }
+                              }
+                            }
+
+                            // Final fallback
+                            if (!stepTitle) {
+                              stepTitle = `Step ${stepNumber}`;
+                            }
+
+                            // Description if different from title
+                            stepDesc = step.description && step.description !== stepTitle ? step.description : undefined;
+                          }
 
                           return (
-                            <div key={index} className="p-3 bg-card rounded-md border border-border shadow-sm">
-                              <div className="flex items-start gap-2">
-                                <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                                  {stepNumber}
-                                </span>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-foreground">{title}</p>
-                                  {description && (
-                                    <p className="text-xs text-muted-foreground mt-1">{description}</p>
-                                  )}
-                                </div>
+                            <li key={index} className="flex items-start gap-3">
+                              <span className="flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                                {stepNumber}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-foreground">{stepTitle}</p>
+                                {stepDesc && (
+                                  <p className="text-xs text-muted-foreground mt-1">{stepDesc}</p>
+                                )}
                               </div>
-                            </div>
+                            </li>
                           );
                         })}
-                      </div>
+                      </ol>
                     </div>
                   )}
 
                   {/* Empty State */}
                   {!taskDescription &&
-                    (!flowControl?.pre_analysis || flowControl.pre_analysis.length === 0) &&
-                    (!flowControl?.implementation_approach || flowControl.implementation_approach.length === 0) && (
+                    !(task as LiteTask).meta?.scope &&
+                    !((task as LiteTask).context?.acceptance?.length) &&
+                    !((task as LiteTask).context?.focus_paths?.length) &&
+                    !(flowControl?.pre_analysis?.length) &&
+                    !(flowControl?.implementation_approach?.length) && (
                       <div className="text-center py-12">
                         <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                         <p className="text-sm text-muted-foreground">
