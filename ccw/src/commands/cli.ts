@@ -702,7 +702,9 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
 
   // Handle cache option: pack @patterns and/or content
   let cacheSessionId: string | undefined;
-  let actualPrompt = prompt_to_use;
+  // When skipTemplates is true (review mode with target flags), don't pass prompt to codex CLI
+  // because --uncommitted/--base/--commit and [PROMPT] are mutually exclusive
+  let actualPrompt = skipTemplates ? '' : prompt_to_use;
 
   if (cache) {
     const { handler: contextCacheHandler } = await import('../tools/context-cache.js');

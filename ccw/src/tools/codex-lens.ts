@@ -1028,7 +1028,7 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
 async function ensureReady(): Promise<ReadyStatus> {
   // Use cached result if already checked
   if (bootstrapChecked && bootstrapReady) {
-    return { ready: true };
+    return { ready: true, installed: true };
   }
 
   // Check current status
@@ -1036,13 +1036,13 @@ async function ensureReady(): Promise<ReadyStatus> {
   if (status.ready) {
     bootstrapChecked = true;
     bootstrapReady = true;
-    return { ready: true, version: status.version };
+    return { ready: true, installed: true, version: status.version };
   }
 
   // Attempt bootstrap
   const bootstrap = await bootstrapVenv();
   if (!bootstrap.success) {
-    return { ready: false, error: bootstrap.error };
+    return { ready: false, installed: false, error: bootstrap.error };
   }
 
   // Verify after bootstrap
@@ -1050,7 +1050,7 @@ async function ensureReady(): Promise<ReadyStatus> {
   bootstrapChecked = true;
   bootstrapReady = recheck.ready;
 
-  return recheck;
+  return { ...recheck, installed: recheck.ready };
 }
 
 /**

@@ -254,8 +254,7 @@ export function buildCommand(params: {
           // codex review uses -c key=value for config override, not -m
           args.push('-c', `model=${model}`);
         }
-        // Skip git repo check by default for codex (allows non-git directories)
-        args.push('--skip-git-repo-check');
+        // Note: --skip-git-repo-check is NOT supported by codex review command
         // codex review uses positional prompt argument, not stdin
         useStdin = false;
         if (prompt) {
