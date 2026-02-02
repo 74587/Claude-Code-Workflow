@@ -12,6 +12,7 @@ import {
   Wrench,
   CheckCircle,
   StopCircle,
+  Play,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -33,6 +34,8 @@ export interface EventGroupProps {
 
 function getEventIcon(eventType: HookTriggerType) {
   switch (eventType) {
+    case 'SessionStart':
+      return Play;
     case 'UserPromptSubmit':
       return Zap;
     case 'PreToolUse':
@@ -41,11 +44,15 @@ function getEventIcon(eventType: HookTriggerType) {
       return CheckCircle;
     case 'Stop':
       return StopCircle;
+    default:
+      return Play;
   }
 }
 
 function getEventColor(eventType: HookTriggerType): string {
   switch (eventType) {
+    case 'SessionStart':
+      return 'text-purple-500 bg-purple-500/10';
     case 'UserPromptSubmit':
       return 'text-amber-500 bg-amber-500/10';
     case 'PreToolUse':
@@ -54,6 +61,8 @@ function getEventColor(eventType: HookTriggerType): string {
       return 'text-green-500 bg-green-500/10';
     case 'Stop':
       return 'text-red-500 bg-red-500/10';
+    default:
+      return 'text-gray-500 bg-gray-500/10';
   }
 }
 
