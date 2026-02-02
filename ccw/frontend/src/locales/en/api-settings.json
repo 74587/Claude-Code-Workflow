@@ -167,6 +167,7 @@
     "enableContextCaching": "Enable context caching",
     "cacheTTL": "Cache TTL (minutes)",
     "cacheMaxSize": "Max Size (KB)",
+    "filePatterns": "Patterns",
     "autoCachePatterns": "Auto-cache patterns",
     "filePatternsHint": "Comma-separated glob patterns (e.g., *.md,*.ts)",
     "enabled": "Enabled",

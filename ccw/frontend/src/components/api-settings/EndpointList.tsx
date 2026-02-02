@@ -92,10 +92,10 @@ function EndpointCard({
           )}
           {endpoint.cacheStrategy.enabled && (
             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-              <span>TTL: {endpoint.cacheStrategy.ttlMinutes}m</span>
-              <span>Max: {endpoint.cacheStrategy.maxSizeKB}KB</span>
-              {endpoint.cacheStrategy.filePatterns.length > 0 && (
-                <span>Patterns: {endpoint.cacheStrategy.filePatterns.length}</span>
+              <span>{formatMessage({ id: 'apiSettings.endpoints.cacheTTL' })}: {endpoint.cacheStrategy.ttlMinutes}m</span>
+              <span>{formatMessage({ id: 'apiSettings.endpoints.cacheMaxSize' })}: {endpoint.cacheStrategy.maxSizeKB}KB</span>
+              {(endpoint.cacheStrategy.filePatterns?.length || 0) > 0 && (
+                <span>{formatMessage({ id: 'apiSettings.endpoints.filePatterns' })}: {endpoint.cacheStrategy.filePatterns?.length || 0}</span>
               )}
             </div>
           )}

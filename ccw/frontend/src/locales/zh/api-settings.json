@@ -164,6 +164,7 @@
     "enableContextCaching": "启用上下文缓存",
     "cacheTTL": "缓存 TTL（分钟）",
     "cacheMaxSize": "最大大小（KB）",
+    "filePatterns": "模式数",
     "autoCachePatterns": "自动缓存模式",
     "filePatternsHint": "逗号分隔的 glob 模式（例如：*.md,*.ts）",
     "enabled": "已启用",
