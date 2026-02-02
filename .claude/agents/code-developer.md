@@ -202,33 +202,17 @@ for (const step of task.flow_control.pre_analysis || []) {
   preAnalysisResults[step.output_to] = result;
 }
 
-// Phase 2: Determine execution mode
-const hasLegacyCommands = task.flow_control.implementation_approach
-  .some(step => step.command);
+// Phase 2: Determine execution mode (based on task.meta.execution_config.method)
+// Two modes: 'cli' (call CLI tool) or 'agent' (execute directly)
 
-IF hasLegacyCommands:
-  // Backward compatibility: Old mode with step.command fields
-  FOR each step in implementation_approach[]:
-    IF step.command exists:
-      → Execute via Bash: Bash({ command: step.command, timeout: 3600000 })
-    ELSE:
-      → Agent direct implementation
-
-ELSE IF executionMethod === 'cli':
-  // New mode: CLI Handoff
-  → const cliPrompt = buildCliHandoffPrompt(preAnalysisResults, task)
+IF executionMethod === 'cli':
+  // CLI Handoff: Full context passed to CLI via buildCliHandoffPrompt
+  → const cliPrompt = buildCliHandoffPrompt(preAnalysisResults, task, taskJsonPath)
   → const cliCommand = buildCliCommand(task, cliTool, cliPrompt)
   → Bash({ command: cliCommand, run_in_background: false, timeout: 3600000 })
 
-ELSE IF executionMethod === 'hybrid':
-  // Hybrid mode: Agent decides based on task complexity
-  → IF task is complex (multiple files, complex logic):
-      Use CLI Handoff (same as cli mode)
-    ELSE:
-      Use Agent direct implementation
-
 ELSE (executionMethod === 'agent'):
-  // Default: Agent direct implementation
+  // Execute implementation steps directly
   FOR each step in implementation_approach[]:
     1. Variable Substitution: Replace [variable_name] with preAnalysisResults
     2. Read modification_points[] as files to create/modify
@@ -253,26 +237,23 @@ function getDefaultCliTool() {
 }
 
 // Build CLI prompt from pre-analysis results and task
-function buildCliHandoffPrompt(preAnalysisResults, task) {
+function buildCliHandoffPrompt(preAnalysisResults, task, taskJsonPath) {
   const contextSection = Object.entries(preAnalysisResults)
     .map(([key, value]) => `### ${key}\n${value}`)
     .join('\n\n');
 
-  const approachSection = task.flow_control.implementation_approach
-    .map((step, i) => `
-### Step ${step.step}: ${step.title}
-${step.description}
-
-**Modification Points**:
-${step.modification_points?.map(m => `- ${m}`).join('\n') || 'N/A'}
-
-**Logic Flow**:
-${step.logic_flow?.map((l, j) => `${j + 1}. ${l}`).join('\n') || 'Follow modification points'}
-`).join('\n');
+  const conventions = task.context.shared_context?.conventions?.join(' | ') || '';
+  const constraints = `Follow existing patterns | No breaking changes${conventions ? ' | ' + conventions : ''}`;
 
   return `
 PURPOSE: ${task.title}
-Complete implementation based on pre-analyzed context.
+Complete implementation based on pre-analyzed context and task JSON.
+
+## TASK JSON
+Read full task definition: ${taskJsonPath}
+
+## TECH STACK
+${task.context.shared_context?.tech_stack?.map(t => `- ${t}`).join('\n') || 'Auto-detect from project files'}
 
 ## PRE-ANALYSIS CONTEXT
 ${contextSection}
@@ -280,17 +261,17 @@ ${contextSection}
 ## REQUIREMENTS
 ${task.context.requirements?.map(r => `- ${r}`).join('\n') || task.context.requirements}
 
-## IMPLEMENTATION APPROACH
-${approachSection}
-
 ## ACCEPTANCE CRITERIA
 ${task.context.acceptance?.map(a => `- ${a}`).join('\n') || task.context.acceptance}
 
 ## TARGET FILES
-${task.flow_control.target_files?.map(f => `- ${f}`).join('\n') || 'See modification points above'}
+${task.flow_control.target_files?.map(f => `- ${f}`).join('\n') || 'See task JSON modification_points'}
+
+## FOCUS PATHS
+${task.context.focus_paths?.map(p => `- ${p}`).join('\n') || 'See task JSON'}
 
 MODE: write
-CONSTRAINTS: Follow existing patterns | No breaking changes
+CONSTRAINTS: ${constraints}
 `.trim();
 }
 
@@ -319,7 +300,7 @@ function buildCliCommand(task, cliTool, cliPrompt) {
 **Execution Config Reference** (from task.meta.execution_config):
 | Field | Values | Description |
 |-------|--------|-------------|
-| `method` | `agent` / `cli` / `hybrid` | Execution mode (default: agent) |
+| `method` | `agent` / `cli` | Execution mode (default: agent) |
 | `cli_tool` | See `~/.claude/cli-tools.json` | CLI tool preference (first enabled tool as default) |
 | `enable_resume` | `true` / `false` | Enable CLI session resume |
 

@@ -289,6 +289,8 @@
     "descriptionPlaceholder": "Optional description for this configuration",
     "selectProvider": "Select a provider",
     "includeCoAuthoredBy": "Include co-authored-by in commits",
+    "nameFormatHint": "Letters, numbers, hyphens, underscores only. Used as: ccw cli --tool [name]",
+    "nameTooLong": "Name must be {max} characters or less",
     "validation": {
       "providerRequired": "Please select a provider",
       "authOrBaseUrlRequired": "Please enter auth token or base URL"

@@ -289,6 +289,8 @@
     "descriptionPlaceholder": "此配置的可选描述",
     "selectProvider": "选择提供商",
     "includeCoAuthoredBy": "在提交中包含 co-authored-by",
+    "nameFormatHint": "仅限字母、数字、连字符和下划线。用作：ccw cli --tool [名称]",
+    "nameTooLong": "名称必须在 {max} 个字符以内",
     "validation": {
       "providerRequired": "请选择提供商",
       "authOrBaseUrlRequired": "请输入认证令牌或基础 URL"

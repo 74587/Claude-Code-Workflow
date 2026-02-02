@@ -421,7 +421,7 @@ async function showToolConfigModal(toolName) {
   var status = cliToolStatus[toolName] || {};
 
   if (!toolConfig) {
-    toolConfig = { enabled: true, primaryModel: '', secondaryModel: '' };
+    toolConfig = { enabled: true, primaryModel: '', secondaryModel: '', type: 'builtin' };
   }
 
   var content = buildToolConfigModalContent(toolName, toolConfig, models, status);
@@ -1163,7 +1163,7 @@ function initToolConfigModalEvents(tool, currentConfig, models) {
         }
 
         // Only include settingsFile for builtin claude tool
-        if (tool === 'claude' && config.type === 'builtin') {
+        if (tool === 'claude' && currentConfig.type === 'builtin') {
           updateData.settingsFile = settingsFile || null;
         }
 

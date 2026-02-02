@@ -359,16 +359,24 @@ Execution Method: ${userConfig.executionMethod}  // agent|hybrid|cli
 Preferred CLI Tool: ${userConfig.preferredCliTool}  // codex|gemini|qwen|auto
 Supplementary Materials: ${userConfig.supplementaryMaterials}
 
-## CLI TOOL SELECTION
-Based on userConfig.executionMethod:
-- "agent": No command field in implementation_approach steps
-- "hybrid": Add command field to complex steps only (Red/Green phases recommended for CLI)
-- "cli": Add command field to ALL Red-Green-Refactor steps
+## EXECUTION METHOD MAPPING
+Based on userConfig.executionMethod, set task-level meta.execution_config:
 
-CLI Resume Support (MANDATORY for all CLI commands):
-- Use --resume parameter to continue from previous task execution
-- Read previous task's cliExecutionId from session state
-- Format: ccw cli -p "[prompt]" --resume [previousCliId] --tool [tool] --mode write
+"agent" →
+  meta.execution_config = { method: "agent", cli_tool: null, enable_resume: false }
+  Agent executes Red-Green-Refactor phases directly
+
+"cli" →
+  meta.execution_config = { method: "cli", cli_tool: userConfig.preferredCliTool, enable_resume: true }
+  Agent executes pre_analysis, then hands off full context to CLI via buildCliHandoffPrompt()
+
+"hybrid" →
+  Per-task decision: Analyze TDD cycle complexity, set method to "agent" OR "cli" per task
+  - Simple cycles (≤5 test cases, ≤3 files) → method: "agent"
+  - Complex cycles (>5 test cases, >3 files, integration tests) → method: "cli"
+  CLI tool: userConfig.preferredCliTool, enable_resume: true
+
+IMPORTANT: Do NOT add command field to implementation_approach steps. Execution routing is controlled by task-level meta.execution_config.method only.
 
 ## EXPLORATION CONTEXT (from context-package.exploration_results)
 - Load exploration_results from context-package.json
@@ -426,7 +434,7 @@ CLI Resume Support (MANDATORY for all CLI commands):
     2. Green Phase (`tdd_phase: "green"`): Implement to pass tests
     3. Refactor Phase (`tdd_phase: "refactor"`): Improve code quality
   - `flow_control.pre_analysis`: Include exploration integration_points analysis
-  - CLI tool usage based on userConfig (add `command` field per executionMethod)
+  - **meta.execution_config**: Set per userConfig.executionMethod (agent/cli/hybrid)
 - **Details**: See action-planning-agent.md § TDD Task JSON Generation
 
 ##### 2. IMPL_PLAN.md (TDD Variant)
@@ -623,7 +631,7 @@ This section provides quick reference for TDD task JSON structure. For complete 
 - Context: `focus_paths` use absolute or clear relative paths
 - Flow control: Exactly 3 steps with `tdd_phase` field ("red", "green", "refactor")
 - Flow control: `pre_analysis` includes exploration integration_points analysis
-- Command field: Added per `userConfig.executionMethod` (agent/hybrid/cli)
+- **meta.execution_config**: Set per `userConfig.executionMethod` (agent/cli/hybrid)
 - See Phase 2 agent prompt for full schema and requirements
 
 ## Output Files Structure
@@ -736,7 +744,7 @@ IMPL (Green phase) tasks include automatic test-fix cycle:
 3. **Success Path**: Tests pass → Complete task
 4. **Failure Path**: Tests fail → Enter iterative fix cycle:
    - **Gemini Diagnosis**: Analyze failures with bug-fix template
-   - **Fix Application**: Agent (default) or CLI (if `command` field present)
+   - **Fix Application**: Agent executes fixes directly
    - **Retest**: Verify fix resolves failures
    - **Repeat**: Up to max_iterations (default: 3)
 5. **Safety Net**: Auto-revert all changes if max iterations reached
@@ -745,5 +753,5 @@ IMPL (Green phase) tasks include automatic test-fix cycle:
 
 ## Configuration Options
 - **meta.max_iterations**: Number of fix attempts in Green phase (default: 3)
-- **CLI tool usage**: Determined semantically from user's task description via `command` field in implementation_approach
+- **meta.execution_config.method**: Execution routing (agent/cli) determined from userConfig.executionMethod
 

@@ -28,6 +28,8 @@ export interface CliToolConfig {
   secondaryModel: string;
   tags?: string[];
   envFile?: string | null;
+  type?: 'builtin' | 'cli-wrapper' | 'api-endpoint';  // Tool type for frontend routing
+  settingsFile?: string | null;  // Claude CLI settings file path
 }
 
 export interface CliConfig {
@@ -156,7 +158,9 @@ export function getFullConfigResponse(baseDir: string): {
       primaryModel: tool.primaryModel ?? '',
       secondaryModel: tool.secondaryModel ?? '',
       tags: tool.tags,
-      envFile: tool.envFile
+      envFile: tool.envFile,
+      type: tool.type,  // Preserve type field for frontend routing
+      settingsFile: tool.settingsFile  // Preserve settingsFile for Claude CLI
     };
   }
 

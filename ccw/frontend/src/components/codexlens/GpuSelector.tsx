@@ -266,7 +266,7 @@ function DeviceCard({ device, isSelected, onSelect, isSelecting }: DeviceCardPro
             )}
           </div>
           <p className="text-xs text-muted-foreground">
-            {formatMessage({ id: 'codexlens.gpu.type' })}: {device.type === 'discrete' ? '独立显卡' : '集成显卡'}
+            {formatMessage({ id: 'codexlens.gpu.type' })}: {formatMessage({ id: device.type === 'discrete' ? 'codexlens.gpu.discrete' : 'codexlens.gpu.integrated' })}
           </p>
           {device.memory?.total && (
             <p className="text-xs text-muted-foreground">

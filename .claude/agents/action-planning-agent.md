@@ -288,8 +288,8 @@ function computeCliStrategy(task, allTasks) {
     "execution_group": "parallel-abc123|null",
     "module": "frontend|backend|shared|null",
     "execution_config": {
-      "method": "agent|hybrid|cli",
-      "cli_tool": "codex|gemini|qwen|auto",
+      "method": "agent|cli",
+      "cli_tool": "codex|gemini|qwen|auto|null",
       "enable_resume": true,
       "previous_cli_id": "string|null"
     }
@@ -303,7 +303,7 @@ function computeCliStrategy(task, allTasks) {
 - `execution_group`: Parallelization group ID (tasks with same ID can run concurrently) or `null` for sequential tasks
 - `module`: Module identifier for multi-module projects (e.g., `frontend`, `backend`, `shared`) or `null` for single-module
 - `execution_config`: CLI execution settings (MUST align with userConfig from task-generate-agent)
-  - `method`: Execution method - `agent` (direct), `hybrid` (agent + CLI), `cli` (CLI only)
+  - `method`: Execution method - `agent` (direct) or `cli` (CLI only). Only two values in final task JSON.
   - `cli_tool`: Preferred CLI tool - `codex`, `gemini`, `qwen`, `auto`, or `null` (for agent-only)
   - `enable_resume`: Whether to use `--resume` for CLI continuity (default: true)
   - `previous_cli_id`: Previous task's CLI execution ID for resume (populated at runtime)
@@ -318,14 +318,16 @@ userConfig.executionMethod → meta.execution_config
 
 "cli" →
   meta.execution_config = { method: "cli", cli_tool: userConfig.preferredCliTool, enable_resume: true }
-  Execution: Agent executes pre_analysis, then hands off context + implementation_approach to CLI
+  Execution: Agent executes pre_analysis, then hands off full context to CLI via buildCliHandoffPrompt()
 
 "hybrid" →
-  meta.execution_config = { method: "hybrid", cli_tool: userConfig.preferredCliTool, enable_resume: true }
-  Execution: Agent decides which tasks to handoff to CLI based on complexity
+  Per-task decision: set method to "agent" OR "cli" per task based on complexity
+  - Simple tasks (≤3 files, straightforward logic) → { method: "agent", cli_tool: null, enable_resume: false }
+  - Complex tasks (>3 files, complex logic, refactoring) → { method: "cli", cli_tool: userConfig.preferredCliTool, enable_resume: true }
+  Final task JSON always has method = "agent" or "cli", never "hybrid"
 ```
 
-**Note**: implementation_approach steps NO LONGER contain `command` fields. CLI execution is controlled by task-level `meta.execution_config` only.
+**IMPORTANT**: implementation_approach steps do NOT contain `command` fields. Execution routing is controlled by task-level `meta.execution_config.method` only.
 
 **Test Task Extensions** (for type="test-gen" or type="test-fix"):
 
@@ -344,7 +346,7 @@ userConfig.executionMethod → meta.execution_config
 - `test_framework`: Existing test framework from project (required for test tasks)
 - `coverage_target`: Target code coverage percentage (optional)
 
-**Note**: CLI tool usage for test-fix tasks is now controlled via `flow_control.implementation_approach` steps with `command` fields, not via `meta.use_codex`.
+**Note**: CLI tool usage for test-fix tasks is now controlled via task-level `meta.execution_config.method`, not via `meta.use_codex`.
 
 #### Context Object
 
@@ -555,59 +557,45 @@ The examples above demonstrate **patterns**, not fixed requirements. Agent MUST:
 
 ##### Implementation Approach
 
-**Execution Modes**:
+**Execution Control**:
 
-The `implementation_approach` supports **two execution modes** based on the presence of the `command` field:
+The `implementation_approach` defines sequential implementation steps. Execution routing is controlled by **task-level `meta.execution_config.method`**, NOT by step-level `command` fields.
 
-1. **Default Mode (Agent Execution)** - `command` field **omitted**:
+**Two Execution Modes**:
+
+1. **Agent Mode** (`meta.execution_config.method = "agent"`):
    - Agent interprets `modification_points` and `logic_flow` autonomously
    - Direct agent execution with full context awareness
    - No external tool overhead
    - **Use for**: Standard implementation tasks where agent capability is sufficient
-   - **Required fields**: `step`, `title`, `description`, `modification_points`, `logic_flow`, `depends_on`, `output`
 
-2. **CLI Mode (Command Execution)** - `command` field **included**:
-   - Specified command executes the step directly
-   - Leverages specialized CLI tools (codex/gemini/qwen) for complex reasoning
-   - **Use for**: Large-scale features, complex refactoring, or when user explicitly requests CLI tool usage
-   - **Required fields**: Same as default mode **PLUS** `command`, `resume_from` (optional)
-   - **Command patterns** (with resume support):
-     - `ccw cli -p '[prompt]' --tool codex --mode write --cd [path]`
-     - `ccw cli -p '[prompt]' --resume ${previousCliId} --tool codex --mode write` (resume from previous)
-     - `ccw cli -p '[prompt]' --tool gemini --mode write --cd [path]` (write mode)
-   - **Resume mechanism**: When step depends on previous CLI execution, include `--resume` with previous execution ID
+2. **CLI Mode** (`meta.execution_config.method = "cli"`):
+   - Agent executes `pre_analysis`, then hands off full context to CLI via `buildCliHandoffPrompt()`
+   - CLI tool specified in `meta.execution_config.cli_tool` (codex/gemini/qwen)
+   - Leverages specialized CLI tools for complex reasoning
+   - **Use for**: Large-scale features, complex refactoring, or when userConfig.executionMethod = "cli"
 
-**Semantic CLI Tool Selection**:
+**Step Schema** (same for both modes):
+```json
+{
+  "step": 1,
+  "title": "Step title",
+  "description": "What to implement (may use [variable] placeholders from pre_analysis)",
+  "modification_points": ["Quantified changes: [list with counts]"],
+  "logic_flow": ["Implementation sequence"],
+  "depends_on": [0],
+  "output": "variable_name"
+}
+```
 
-Agent determines CLI tool usage per-step based on user semantics and task nature.
+**Required fields**: `step`, `title`, `description`, `modification_points`, `logic_flow`, `depends_on`, `output`
 
-**Source**: Scan `metadata.task_description` from context-package.json for CLI tool preferences.
+**IMPORTANT**: Do NOT add `command` field to implementation_approach steps. Execution routing is determined by task-level `meta.execution_config.method` only.
 
-**User Semantic Triggers** (patterns to detect in task_description):
-- "use Codex/codex" → Add `command` field with Codex CLI
-- "use Gemini/gemini" → Add `command` field with Gemini CLI
-- "use Qwen/qwen" → Add `command` field with Qwen CLI
-- "CLI execution" / "automated" → Infer appropriate CLI tool
-
-**Task-Based Selection** (when no explicit user preference):
-- **Implementation/coding**: Codex preferred for autonomous development
-- **Analysis/exploration**: Gemini preferred for large context analysis
-- **Documentation**: Gemini/Qwen with write mode (`--mode write`)
-- **Testing**: Depends on complexity - simple=agent, complex=Codex
-
-**Default Behavior**: Agent always executes the workflow. CLI commands are embedded in `implementation_approach` steps:
-- Agent orchestrates task execution
-- When step has `command` field, agent executes it via CCW CLI
-- When step has no `command` field, agent implements directly
-- This maintains agent control while leveraging CLI tool power
-
-**Key Principle**: The `command` field is **optional**. Agent decides based on user semantics and task complexity.
-
-**Examples**:
+**Example**:
 
 ```json
 [
-  // === DEFAULT MODE: Agent Execution (no command field) ===
   {
     "step": 1,
     "title": "Load and analyze role analyses",
@@ -644,8 +632,7 @@ Agent determines CLI tool usage per-step based on user semantics and task nature
     ],
     "depends_on": [1],
     "output": "implementation"
-  },
-
+  }
 ]
 ```
 

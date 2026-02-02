@@ -284,16 +284,24 @@ Execution Method: ${userConfig.executionMethod}  // agent|hybrid|cli
 Preferred CLI Tool: ${userConfig.preferredCliTool}  // codex|gemini|qwen|auto
 Supplementary Materials: ${userConfig.supplementaryMaterials}
 
-## CLI TOOL SELECTION
-Based on userConfig.executionMethod:
-- "agent": No command field in implementation_approach steps
-- "hybrid": Add command field to complex steps only (agent handles simple steps)
-- "cli": Add command field to ALL implementation_approach steps
+## EXECUTION METHOD MAPPING
+Based on userConfig.executionMethod, set task-level meta.execution_config:
 
-CLI Resume Support (MANDATORY for all CLI commands):
-- Use --resume parameter to continue from previous task execution
-- Read previous task's cliExecutionId from session state
-- Format: ccw cli -p "[prompt]" --resume ${previousCliId} --tool ${tool} --mode write
+"agent" →
+  meta.execution_config = { method: "agent", cli_tool: null, enable_resume: false }
+  Agent executes implementation_approach steps directly
+
+"cli" →
+  meta.execution_config = { method: "cli", cli_tool: userConfig.preferredCliTool, enable_resume: true }
+  Agent executes pre_analysis, then hands off full context to CLI via buildCliHandoffPrompt()
+
+"hybrid" →
+  Per-task decision: Analyze task complexity, set method to "agent" OR "cli" per task
+  - Simple tasks (≤3 files, straightforward logic) → method: "agent"
+  - Complex tasks (>3 files, complex logic, refactoring) → method: "cli"
+  CLI tool: userConfig.preferredCliTool, enable_resume: true
+
+IMPORTANT: Do NOT add command field to implementation_approach steps. Execution routing is controlled by task-level meta.execution_config.method only.
 
 ## PRIORITIZED CONTEXT (from context-package.prioritized_context) - ALREADY SORTED
 Context sorting is ALREADY COMPLETED in context-gather Phase 2/3. DO NOT re-sort.
@@ -458,16 +466,24 @@ Execution Method: ${userConfig.executionMethod}  // agent|hybrid|cli
 Preferred CLI Tool: ${userConfig.preferredCliTool}  // codex|gemini|qwen|auto
 Supplementary Materials: ${userConfig.supplementaryMaterials}
 
-## CLI TOOL SELECTION
-Based on userConfig.executionMethod:
-- "agent": No command field in implementation_approach steps
-- "hybrid": Add command field to complex steps only (agent handles simple steps)
-- "cli": Add command field to ALL implementation_approach steps
+## EXECUTION METHOD MAPPING
+Based on userConfig.executionMethod, set task-level meta.execution_config:
 
-CLI Resume Support (MANDATORY for all CLI commands):
-- Use --resume parameter to continue from previous task execution
-- Read previous task's cliExecutionId from session state
-- Format: ccw cli -p "[prompt]" --resume ${previousCliId} --tool ${tool} --mode write
+"agent" →
+  meta.execution_config = { method: "agent", cli_tool: null, enable_resume: false }
+  Agent executes implementation_approach steps directly
+
+"cli" →
+  meta.execution_config = { method: "cli", cli_tool: userConfig.preferredCliTool, enable_resume: true }
+  Agent executes pre_analysis, then hands off full context to CLI via buildCliHandoffPrompt()
+
+"hybrid" →
+  Per-task decision: Analyze task complexity, set method to "agent" OR "cli" per task
+  - Simple tasks (≤3 files, straightforward logic) → method: "agent"
+  - Complex tasks (>3 files, complex logic, refactoring) → method: "cli"
+  CLI tool: userConfig.preferredCliTool, enable_resume: true
+
+IMPORTANT: Do NOT add command field to implementation_approach steps. Execution routing is controlled by task-level meta.execution_config.method only.
 
 ## PRIORITIZED CONTEXT (from context-package.prioritized_context) - ALREADY SORTED
 Context sorting is ALREADY COMPLETED in context-gather Phase 2/3. DO NOT re-sort.

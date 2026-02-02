@@ -228,10 +228,13 @@ function getGlobalSettingsPath(): string {
  */
 function resolveConfigPath(projectDir: string): { path: string; source: 'project' | 'global' | 'default' } {
   const globalPath = getGlobalConfigPath();
+  debugLog(`[HYPOTHESIS-1] Checking for global config at: ${globalPath}`);
   if (fs.existsSync(globalPath)) {
+    debugLog(`[HYPOTHESIS-1] Global config found. Using source: 'global'`);
     return { path: globalPath, source: 'global' };
   }
 
+  debugLog(`[HYPOTHESIS-1] Global config NOT found. Using source: 'default'`);
   // Return global path for default (will be created there)
   return { path: globalPath, source: 'default' };
 }
@@ -278,15 +281,13 @@ function backupConfigFile(filePath: string): string {
 
 /**
  * Ensure tool has required fields (for backward compatibility)
+ * Preserves ALL fields from original tool object
  */
 function ensureToolTags(tool: Partial<ClaudeCliTool>): ClaudeCliTool {
   return {
+    ...tool,  // Preserve all original fields (including availableModels, type, id, etc.)
     enabled: tool.enabled ?? true,
-    primaryModel: tool.primaryModel,
-    secondaryModel: tool.secondaryModel,
-    tags: tool.tags ?? [],
-    envFile: tool.envFile,
-    settingsFile: tool.settingsFile
+    tags: tool.tags ?? []
   };
 }
 
@@ -509,10 +510,12 @@ export async function ensureClaudeCliToolsAsync(projectDir: string, createInProj
  * Automatically migrates older config versions to v3.2.0
  */
 export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & { _source?: string } {
+  debugLog(`[DIAGNOSIS] Starting to load claude cli tools for projectDir: ${projectDir}`);
   const resolved = resolveConfigPath(projectDir);
 
   try {
     if (resolved.source === 'default') {
+      debugLog('[DIAGNOSIS] Resolved source is "default", returning default config.');
       return { ...DEFAULT_TOOLS_CONFIG, _source: 'default' };
     }
 
@@ -526,9 +529,8 @@ export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & {
     const mergedTools: Record<string, ClaudeCliTool> = {};
     for (const [key, tool] of Object.entries(migrated.tools || {})) {
       mergedTools[key] = {
-        ...ensureToolTags(tool),
-        type: tool.type ?? 'builtin',
-        id: tool.id  // Preserve id for api-endpoint type
+        ...ensureToolTags(tool),  // Now preserves all fields including availableModels, type, id
+        type: tool.type ?? 'builtin'  // Ensure type has default value
       };
     }
 
@@ -554,6 +556,7 @@ export function loadClaudeCliTools(projectDir: string): ClaudeCliToolsConfig & {
     debugLog(`[claude-cli-tools] Loaded tools config from ${resolved.source}: ${resolved.path}`);
     return config;
   } catch (err) {
+    console.error('[HYPOTHESIS-2] Error loading or parsing tools config. Falling back to default. Error:', err);
     console.error('[claude-cli-tools] Error loading tools config:', err);
     return { ...DEFAULT_TOOLS_CONFIG, _source: 'default' };
   }

@@ -142,6 +142,8 @@
     "notAvailable": "GPU functionality not available",
     "unknownDevice": "Unknown device",
     "type": "Type",
+    "discrete": "Discrete GPU",
+    "integrated": "Integrated GPU",
     "driver": "Driver Version",
     "memory": "Memory"
   },

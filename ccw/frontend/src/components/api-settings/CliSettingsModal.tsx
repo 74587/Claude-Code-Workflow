@@ -116,6 +116,16 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
 
     if (!name.trim()) {
       newErrors.name = formatMessage({ id: 'apiSettings.validation.nameRequired' });
+    } else {
+      // Validate name format: must start with letter, followed by letters/numbers/hyphens/underscores
+      const namePattern = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
+      if (!namePattern.test(name.trim())) {
+        newErrors.name = formatMessage({ id: 'apiSettings.cliSettings.nameFormatHint' });
+      }
+      // Validate name length
+      if (name.trim().length > 32) {
+        newErrors.name = formatMessage({ id: 'apiSettings.cliSettings.nameTooLong' }, { max: 32 });
+      }
     }
 
     if (mode === 'provider-based') {
@@ -219,7 +229,11 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
                 onChange={(e) => setName(e.target.value)}
                 placeholder={formatMessage({ id: 'apiSettings.cliSettings.namePlaceholder' })}
                 className={errors.name ? 'border-destructive' : ''}
+                maxLength={32}
               />
+              <p className="text-xs text-muted-foreground">
+                {formatMessage({ id: 'apiSettings.cliSettings.nameFormatHint' })}
+              </p>
               {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
             </div>
 

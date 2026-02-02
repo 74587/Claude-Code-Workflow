@@ -154,11 +154,15 @@ STEP 1: Parse Red Phase Requirements
   → Load existing test patterns from focus_paths
 
 STEP 2: Execute Red Phase Implementation
-  IF step.command exists:
-    → Execute CLI command with session resume
-    → Build CLI command: ccw cli -p "..." --resume {resume_from} --tool {tool} --mode write
+  const executionMethod = task.meta?.execution_config?.method || 'agent';
+
+  IF executionMethod === 'cli':
+    // CLI Handoff: Full context passed via buildCliHandoffPrompt
+    → const cliPrompt = buildCliHandoffPrompt(preAnalysisResults, task, taskJsonPath)
+    → const cliCommand = buildCliCommand(task, cliTool, cliPrompt)
+    → Bash({ command: cliCommand, run_in_background: false, timeout: 3600000 })
   ELSE:
-    → Direct agent implementation
+    // Execute directly
     → Create test files in modification_points
     → Write test cases following test_cases enumeration
     → Use context.shared_context.conventions for test style
@@ -195,11 +199,16 @@ STEP 1: Parse Green Phase Requirements
   → Set max_iterations from meta.max_iterations (default: 3)
 
 STEP 2: Initial Implementation
-  IF step.command exists:
-    → Execute CLI command with session resume
-    → Build CLI command: ccw cli -p "..." --resume {resume_from} --tool {tool} --mode write
+  const executionMethod = task.meta?.execution_config?.method || 'agent';
+
+  IF executionMethod === 'cli':
+    // CLI Handoff: Full context passed via buildCliHandoffPrompt
+    → const cliPrompt = buildCliHandoffPrompt(preAnalysisResults, task, taskJsonPath)
+    → const cliCommand = buildCliCommand(task, cliTool, cliPrompt)
+    → Bash({ command: cliCommand, run_in_background: false, timeout: 3600000 })
+
   ELSE:
-    → Direct agent implementation
+    // Execute implementation steps directly
     → Implement functions in modification_points
     → Follow logic_flow sequence
     → Use minimal code to pass tests (no over-engineering)
@@ -293,10 +302,15 @@ STEP 1: Parse Refactor Phase Requirements
   → Load refactoring scope from modification_points
 
 STEP 2: Execute Refactor Implementation
-  IF step.command exists:
-    → Execute CLI command with session resume
+  const executionMethod = task.meta?.execution_config?.method || 'agent';
+
+  IF executionMethod === 'cli':
+    // CLI Handoff: Full context passed via buildCliHandoffPrompt
+    → const cliPrompt = buildCliHandoffPrompt(preAnalysisResults, task, taskJsonPath)
+    → const cliCommand = buildCliCommand(task, cliTool, cliPrompt)
+    → Bash({ command: cliCommand, run_in_background: false, timeout: 3600000 })
   ELSE:
-    → Direct agent refactoring
+    // Execute directly
     → Apply refactorings from logic_flow
     → Follow refactoring best practices:
       • Extract functions for clarity
@@ -326,47 +340,15 @@ STEP 3: Regression Testing (REQUIRED)
 
 ### 3. CLI Execution Integration
 
-**CLI Session Resumption** (when step.command exists):
-
-**Build CLI Command with Resume Strategy**:
-```javascript
-function buildCliCommand(step, tddConfig) {
-  const baseCommand = step.command  // From task JSON
-
-  // Parse cli_execution strategy
-  switch (tddConfig.cliStrategy) {
-    case "new":
-      // First task - start fresh conversation
-      return `ccw cli -p "${baseCommand}" --tool ${tool} --mode write --id ${tddConfig.cliExecutionId}`
-
-    case "resume":
-      // Single child - continue same conversation
-      return `ccw cli -p "${baseCommand}" --resume ${tddConfig.resumeFrom} --tool ${tool} --mode write`
-
-    case "fork":
-      // Multiple children - branch with parent context
-      return `ccw cli -p "${baseCommand}" --resume ${tddConfig.resumeFrom} --id ${tddConfig.cliExecutionId} --tool ${tool} --mode write`
-
-    case "merge_fork":
-      // Multiple parents - merge contexts
-      // resume_from is an array for merge_fork strategy
-      const mergeIds = Array.isArray(tddConfig.resumeFrom)
-        ? tddConfig.resumeFrom.join(',')
-        : tddConfig.resumeFrom
-      return `ccw cli -p "${baseCommand}" --resume ${mergeIds} --id ${tddConfig.cliExecutionId} --tool ${tool} --mode write`
-
-    default:
-      // Fallback - no resume
-      return `ccw cli -p "${baseCommand}" --tool ${tool} --mode write`
-  }
-}
-```
+**CLI Functions** (inherited from code-developer):
+- `buildCliHandoffPrompt(preAnalysisResults, task, taskJsonPath)` - Assembles CLI prompt with full context
+- `buildCliCommand(task, cliTool, cliPrompt)` - Builds CLI command with resume strategy
 
 **Execute CLI Command**:
 ```javascript
 // TDD agent runs in foreground - can receive hook callbacks
 Bash(
-  command=buildCliCommand(step, tddConfig),
+  command=buildCliCommand(task, cliTool, cliPrompt),
   timeout=3600000,  // 60 min for CLI execution
   run_in_background=false  // Agent can receive task completion hooks
 )
@@ -504,7 +486,7 @@ Before completing any TDD task, verify:
 - Use test-fix cycle in Green phase
 - Auto-revert on max iterations failure
 - Generate TDD-enhanced summaries
-- Use CLI resume strategies when step.command exists
+- Use CLI resume strategies when meta.execution_config.method is "cli"
 - Log all test-fix iterations to .process/
 
 **Bash Tool (CLI Execution in TDD Agent)**:

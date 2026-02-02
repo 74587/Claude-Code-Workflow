@@ -446,9 +446,9 @@ export function SettingsPage() {
           {/* System Theme Toggle (Backward Compatibility) */}
           <div className="flex items-center justify-between pt-4 border-t border-border">
             <div>
-              <p className="font-medium text-foreground">系统跟随</p>
+              <p className="font-medium text-foreground">{formatMessage({ id: 'settings.appearance.systemFollow' })}</p>
               <p className="text-sm text-muted-foreground">
-                使用系统的深色/浅色模式设置
+                {formatMessage({ id: 'settings.appearance.systemFollowDesc' })}
               </p>
             </div>
             <Button
