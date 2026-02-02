@@ -748,6 +748,11 @@ async function executeCliTool(
     conversationId = `${Date.now()}-${tool}`;
   }
 
+  // Generate transaction ID for concurrent session disambiguation
+  // This will be injected into the prompt for exact session matching during resume
+  const transactionId = generateTransactionId(conversationId);
+  debugLog('TX_ID', `Generated transaction ID: ${transactionId}`, { conversationId });
+
   // Determine resume strategy (native vs prompt-concat vs hybrid)
   let resumeDecision: ResumeDecision | null = null;
   let nativeResumeConfig: NativeResumeConfig | undefined;
@@ -810,6 +815,11 @@ async function executeCliTool(
       finalPrompt = buildMultiTurnPrompt(conversationForContext, prompt, format);
     }
   }
+
+  // Inject transaction ID at the start of the final prompt for session tracking
+  // This enables exact session matching during parallel execution scenarios
+  finalPrompt = injectTransactionId(finalPrompt, transactionId);
+  debugLog('TX_ID', `Injected transaction ID into prompt`, { transactionId, promptLength: finalPrompt.length });
 
   // Check tool availability
   const toolStatus = await checkToolAvailability(tool);
@@ -1207,11 +1217,11 @@ async function executeCliTool(
       }
 
       // Track native session after execution (awaited to prevent process hang)
-      // Pass prompt for precise matching in parallel execution scenarios
+      // Pass prompt and transactionId for precise matching in parallel execution scenarios
       try {
-        const nativeSession = await trackNewSession(tool, new Date(startTime), workingDir, prompt);
+        const nativeSession = await trackNewSession(tool, new Date(startTime), workingDir, prompt, transactionId);
         if (nativeSession) {
-          // Save native session mapping
+          // Save native session mapping with transaction ID
           try {
             store.saveNativeSessionMapping({
               ccw_id: conversationId,
@@ -1219,6 +1229,7 @@ async function executeCliTool(
               native_session_id: nativeSession.sessionId,
               native_session_path: nativeSession.filePath,
               project_hash: nativeSession.projectHash,
+              transaction_id: transactionId,
               created_at: new Date().toISOString()
             });
           } catch (err) {

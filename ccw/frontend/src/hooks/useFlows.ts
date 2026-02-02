@@ -16,6 +16,9 @@ export const flowKeys = {
   list: (filters?: Record<string, unknown>) => [...flowKeys.lists(), filters] as const,
   details: () => [...flowKeys.all, 'detail'] as const,
   detail: (id: string) => [...flowKeys.details(), id] as const,
+  executions: () => [...flowKeys.all, 'execution'] as const,
+  executionState: (execId: string) => [...flowKeys.executions(), 'state', execId] as const,
+  executionLogs: (execId: string, options?: Record<string, unknown>) => [...flowKeys.executions(), 'logs', execId, options] as const,
 };
 
 // API response types
@@ -291,5 +294,74 @@ export function useResumeExecution() {
 export function useStopExecution() {
   return useMutation({
     mutationFn: stopExecution,
+  });
+}
+
+// ========== Execution Monitoring Fetch Functions ==========
+
+async function fetchExecutionStateById(execId: string): Promise<{ success: boolean; data: { execId: string; flowId: string; status: string; currentNodeId?: string; startedAt: string; completedAt?: string; elapsedMs: number } }> {
+  const response = await fetch(`${API_BASE}/executions/${execId}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch execution state: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function fetchExecutionLogsById(
+  execId: string,
+  options?: {
+    limit?: number;
+    offset?: number;
+    level?: string;
+    nodeId?: string;
+  }
+): Promise<{ success: boolean; data: { execId: string; logs: unknown[]; total: number; limit: number; offset: number; hasMore: boolean } }> {
+  const params = new URLSearchParams();
+  if (options?.limit) params.append('limit', String(options.limit));
+  if (options?.offset) params.append('offset', String(options.offset));
+  if (options?.level) params.append('level', options.level);
+  if (options?.nodeId) params.append('nodeId', options.nodeId);
+
+  const queryString = params.toString();
+  const response = await fetch(`${API_BASE}/executions/${execId}/logs${queryString ? `?${queryString}` : ''}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch execution logs: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+// ========== Execution Monitoring Query Hooks ==========
+
+/**
+ * Fetch execution state
+ * Uses useQuery to get execution state, enabled when execId exists
+ */
+export function useExecutionState(execId: string | null) {
+  return useQuery({
+    queryKey: flowKeys.executionState(execId ?? ''),
+    queryFn: () => fetchExecutionStateById(execId!),
+    enabled: !!execId,
+    staleTime: 5000, // 5 seconds - needs more frequent updates for monitoring
+  });
+}
+
+/**
+ * Fetch execution logs with pagination
+ * Uses useQuery to get execution logs with pagination support
+ */
+export function useExecutionLogs(
+  execId: string | null,
+  options?: {
+    limit?: number;
+    offset?: number;
+    level?: string;
+    nodeId?: string;
+  }
+) {
+  return useQuery({
+    queryKey: flowKeys.executionLogs(execId ?? '', options),
+    queryFn: () => fetchExecutionLogsById(execId!, options),
+    enabled: !!execId,
+    staleTime: 10000, // 10 seconds
   });
 }

@@ -1010,6 +1010,7 @@ export class CliHistoryStore {
       native_session_id: row.native_session_id,
       native_session_path: row.native_session_path,
       project_hash: row.project_hash,
+      transaction_id: row.transaction_id,
       created_at: row.created_at
     };
   }
@@ -1033,6 +1034,7 @@ export class CliHistoryStore {
       native_session_id: row.native_session_id,
       native_session_path: row.native_session_path,
       project_hash: row.project_hash,
+      transaction_id: row.transaction_id,
       created_at: row.created_at
     };
   }

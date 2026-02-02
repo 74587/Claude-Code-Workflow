@@ -3822,3 +3822,72 @@ export async function toggleCliSettingsEnabled(endpointId: string, enabled: bool
 export async function getCliSettingsPath(endpointId: string): Promise<{ endpointId: string; filePath: string; enabled: boolean }> {
   return fetchApi(`/api/cli/settings/${encodeURIComponent(endpointId)}/path`);
 }
+
+// ========== Orchestrator Execution Monitoring API ==========
+
+/**
+ * Execution state response from orchestrator
+ */
+export interface ExecutionStateResponse {
+  execId: string;
+  flowId: string;
+  status: 'pending' | 'running' | 'paused' | 'completed' | 'failed';
+  currentNodeId?: string;
+  startedAt: string;
+  completedAt?: string;
+  elapsedMs: number;
+}
+
+/**
+ * Execution log entry
+ */
+export interface ExecutionLogEntry {
+  timestamp: string;
+  level: 'info' | 'warn' | 'error' | 'debug';
+  nodeId?: string;
+  message: string;
+}
+
+/**
+ * Execution logs response
+ */
+export interface ExecutionLogsResponse {
+  execId: string;
+  logs: ExecutionLogEntry[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
+/**
+ * Fetch execution state by execId
+ * @param execId - Execution ID
+ */
+export async function fetchExecutionState(execId: string): Promise<{ success: boolean; data: ExecutionStateResponse }> {
+  return fetchApi(`/api/orchestrator/executions/${encodeURIComponent(execId)}`);
+}
+
+/**
+ * Fetch execution logs with pagination and filtering
+ * @param execId - Execution ID
+ * @param options - Query options
+ */
+export async function fetchExecutionLogs(
+  execId: string,
+  options?: {
+    limit?: number;
+    offset?: number;
+    level?: 'info' | 'warn' | 'error' | 'debug';
+    nodeId?: string;
+  }
+): Promise<{ success: boolean; data: ExecutionLogsResponse }> {
+  const params = new URLSearchParams();
+  if (options?.limit) params.append('limit', String(options.limit));
+  if (options?.offset) params.append('offset', String(options.offset));
+  if (options?.level) params.append('level', options.level);
+  if (options?.nodeId) params.append('nodeId', options.nodeId);
+
+  const queryString = params.toString();
+  return fetchApi(`/api/orchestrator/executions/${encodeURIComponent(execId)}/logs${queryString ? `?${queryString}` : ''}`);
+}

@@ -73,34 +73,50 @@ abstract class SessionDiscoverer {
    * @param beforeTimestamp - Filter sessions created after this time
    * @param workingDir - Project working directory
    * @param prompt - Optional prompt content for precise matching (fallback)
+   * @param transactionId - Optional transaction ID for exact matching (highest priority)
    */
   async trackNewSession(
     beforeTimestamp: Date,
     workingDir: string,
-    prompt?: string
+    prompt?: string,
+    transactionId?: string
   ): Promise<NativeSession | null> {
     const sessions = this.getSessions({
       workingDir,
       afterTimestamp: beforeTimestamp,
-      limit: 10 // Get more candidates for prompt matching
+      limit: 10 // Get more candidates for matching
     });
 
     if (sessions.length === 0) return null;
 
-    // If only one session or no prompt provided, return the latest
-    if (sessions.length === 1 || !prompt) {
+    // Priority 1: Match by transaction ID (exact match, highest confidence)
+    if (transactionId) {
+      const matched = this.matchSessionByTransactionId(transactionId, sessions);
+      if (matched) {
+        return matched;
+      }
+      // Transaction ID provided but no match - fall through to other methods
+    }
+
+    // If only one session, return it
+    if (sessions.length === 1) {
       return sessions[0];
     }
 
-    // Try to match by prompt content (fallback for parallel execution)
-    const matched = this.matchSessionByPrompt(sessions, prompt);
+    // Priority 2: Match by prompt content (fallback for parallel execution)
+    if (prompt) {
+      const matched = this.matchSessionByPrompt(sessions, prompt);
+      if (matched) {
+        return matched;
+      }
+    }
 
-    // Warn if multiple sessions and no prompt match found (low confidence)
-    if (!matched && sessions.length > 1) {
+    // Warn if multiple sessions and no match found (low confidence)
+    if (sessions.length > 1) {
       console.warn(`[ccw] Session tracking: multiple candidates found (${sessions.length}), using latest session`);
     }
 
-    return matched || sessions[0]; // Fallback to latest if no match
+    return sessions[0]; // Fallback to latest if no match
   }
 
   /**
@@ -117,6 +133,33 @@ abstract class SessionDiscoverer {
         const userMessage = this.extractFirstUserMessage(session.filePath);
         if (userMessage && userMessage.includes(promptPrefix)) {
           return session;
+        }
+      } catch {
+        // Skip sessions that can't be read
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Match session by transaction ID
+   * Extracts transaction ID from session's first user message and compares
+   * @param txId - Transaction ID to match (format: ccw-tx-${conversationId}-${uniquePart})
+   * @param sessions - Candidate sessions to search
+   * @returns Matching session or null
+   */
+  matchSessionByTransactionId(txId: string, sessions: NativeSession[]): NativeSession | null {
+    if (!txId) return null;
+
+    for (const session of sessions) {
+      try {
+        const userMessage = this.extractFirstUserMessage(session.filePath);
+        if (userMessage) {
+          // Extract transaction ID from user message
+          const match = userMessage.match(/\[CCW-TX-ID:\s+([^\]]+)\]/);
+          if (match && match[1] === txId) {
+            return session;
+          }
         }
       } catch {
         // Skip sessions that can't be read
@@ -956,16 +999,18 @@ export function findNativeSessionById(
  * @param beforeTimestamp - Filter sessions created after this time
  * @param workingDir - Project working directory
  * @param prompt - Optional prompt for precise matching in parallel execution
+ * @param transactionId - Optional transaction ID for exact session matching
  */
 export async function trackNewSession(
   tool: string,
   beforeTimestamp: Date,
   workingDir: string,
-  prompt?: string
+  prompt?: string,
+  transactionId?: string
 ): Promise<NativeSession | null> {
   const discoverer = discoverers[tool];
   if (!discoverer) return null;
-  return discoverer.trackNewSession(beforeTimestamp, workingDir, prompt);
+  return discoverer.trackNewSession(beforeTimestamp, workingDir, prompt, transactionId);
 }
 
 /**
