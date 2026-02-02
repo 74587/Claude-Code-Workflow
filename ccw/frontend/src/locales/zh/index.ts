@@ -24,6 +24,7 @@ import cliManager from './cli-manager.json';
 import cliMonitor from './cli-monitor.json';
 import mcpManager from './mcp-manager.json';
 import codexlens from './codexlens.json';
+import apiSettings from './api-settings.json';
 import theme from './theme.json';
 import executionMonitor from './execution-monitor.json';
 import cliHooks from './cli-hooks.json';
@@ -82,6 +83,7 @@ export default {
   ...flattenMessages(cliMonitor, 'cliMonitor'),
   ...flattenMessages(mcpManager, 'mcp'),
   ...flattenMessages(codexlens, 'codexlens'),
+  ...flattenMessages(apiSettings, 'apiSettings'),
   ...flattenMessages(theme, 'theme'),
   ...flattenMessages(cliHooks, 'cliHooks'),
   ...flattenMessages(executionMonitor, 'executionMonitor'),

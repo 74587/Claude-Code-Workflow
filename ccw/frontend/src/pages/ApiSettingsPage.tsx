@@ -7,14 +7,10 @@ import { useState, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import {
   Server,
-  Link,
-  Database,
-  Layers,
-  Settings as SettingsIcon,
   RefreshCw,
 } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import {
   ProviderList,
   ProviderModal,
@@ -30,19 +26,9 @@ import {
 } from '@/components/api-settings';
 import { useProviders, useEndpoints, useModelPools, useCliSettings } from '@/hooks/useApiSettings';
 import { useNotifications } from '@/hooks/useNotifications';
-import { cn } from '@/lib/utils';
 
 // Tab type definitions
 type TabType = 'providers' | 'endpoints' | 'cache' | 'modelPools' | 'cliSettings';
-
-// Tab configuration
-const TABS: { value: TabType; icon: React.ElementType }[] = [
-  { value: 'providers', icon: Server },
-  { value: 'endpoints', icon: Link },
-  { value: 'cache', icon: Database },
-  { value: 'modelPools', icon: Layers },
-  { value: 'cliSettings', icon: SettingsIcon },
-];
 
 export function ApiSettingsPage() {
   const { formatMessage } = useIntl();
@@ -192,52 +178,6 @@ export function ApiSettingsPage() {
     }
   };
 
-  // Render the active tab's main content
-  const renderMainContent = () => {
-    switch (activeTab) {
-      case 'providers':
-        return (
-          <ProviderList
-            onAddProvider={handleAddProvider}
-            onEditProvider={handleEditProvider}
-            onMultiKeySettings={handleMultiKeySettings}
-            onSyncToCodexLens={handleSyncToCodexLens}
-            onManageModels={handleManageModels}
-          />
-        );
-
-      case 'endpoints':
-        return (
-          <EndpointList
-            onAddEndpoint={handleAddEndpoint}
-            onEditEndpoint={handleEditEndpoint}
-          />
-        );
-
-      case 'cache':
-        return <CacheSettings />;
-
-      case 'modelPools':
-        return (
-          <ModelPoolList
-            onAddPool={handleAddPool}
-            onEditPool={handleEditPool}
-          />
-        );
-
-      case 'cliSettings':
-        return (
-          <CliSettingsList
-            onAddCliSettings={handleAddCliSettings}
-            onEditCliSettings={handleEditCliSettings}
-          />
-        );
-
-      default:
-        return null;
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -257,44 +197,61 @@ export function ApiSettingsPage() {
         </Button>
       </div>
 
-      {/* Split Panel Layout */}
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Left Sidebar - Tabs */}
-        <aside className="w-full lg:w-64 flex-shrink-0">
-          <Card className="p-2">
-            <nav className="space-y-1" aria-label="API Settings tabs">
-              {TABS.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.value;
-                return (
-                  <button
-                    key={tab.value}
-                    onClick={() => setActiveTab(tab.value)}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm transition-colors',
-                      'hover:bg-muted hover:text-foreground',
-                      isActive
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-muted-foreground'
-                    )}
-                    aria-current={isActive ? 'page' : undefined}
-                  >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    <span className="flex-1 text-left">
-                      {formatMessage({ id: `apiSettings.tabs.${tab.value}` })}
-                    </span>
-                  </button>
-                );
-              })}
-            </nav>
-          </Card>
-        </aside>
+      {/* Tabbed Interface */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)}>
+        <TabsList>
+          <TabsTrigger value="providers">
+            {formatMessage({ id: 'apiSettings.tabs.providers' })}
+          </TabsTrigger>
+          <TabsTrigger value="endpoints">
+            {formatMessage({ id: 'apiSettings.tabs.endpoints' })}
+          </TabsTrigger>
+          <TabsTrigger value="cache">
+            {formatMessage({ id: 'apiSettings.tabs.cache' })}
+          </TabsTrigger>
+          <TabsTrigger value="modelPools">
+            {formatMessage({ id: 'apiSettings.tabs.modelPools' })}
+          </TabsTrigger>
+          <TabsTrigger value="cliSettings">
+            {formatMessage({ id: 'apiSettings.tabs.cliSettings' })}
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Right Main Panel - Content */}
-        <main className="flex-1 min-w-0">
-          {renderMainContent()}
-        </main>
-      </div>
+        <TabsContent value="providers">
+          <ProviderList
+            onAddProvider={handleAddProvider}
+            onEditProvider={handleEditProvider}
+            onMultiKeySettings={handleMultiKeySettings}
+            onSyncToCodexLens={handleSyncToCodexLens}
+            onManageModels={handleManageModels}
+          />
+        </TabsContent>
+
+        <TabsContent value="endpoints">
+          <EndpointList
+            onAddEndpoint={handleAddEndpoint}
+            onEditEndpoint={handleEditEndpoint}
+          />
+        </TabsContent>
+
+        <TabsContent value="cache">
+          <CacheSettings />
+        </TabsContent>
+
+        <TabsContent value="modelPools">
+          <ModelPoolList
+            onAddPool={handleAddPool}
+            onEditPool={handleEditPool}
+          />
+        </TabsContent>
+
+        <TabsContent value="cliSettings">
+          <CliSettingsList
+            onAddCliSettings={handleAddCliSettings}
+            onEditCliSettings={handleEditCliSettings}
+          />
+        </TabsContent>
+      </Tabs>
 
       {/* Modals */}
       <ProviderModal
