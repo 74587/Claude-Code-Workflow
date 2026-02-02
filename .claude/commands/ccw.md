@@ -644,23 +644,23 @@ todos = [
 
 ```bash
 # Auto-select workflow
-ccw "Add user authentication"
+/ccw "Add user authentication"
 
 # Complex requirement (triggers clarification)
-ccw "Optimize system performance"
+/ccw "Optimize system performance"
 
 # Bug fix
-ccw "Fix memory leak in WebSocket handler"
+/ccw "Fix memory leak in WebSocket handler"
 
 # TDD development
-ccw "Implement user registration with TDD"
+/ccw "Implement user registration with TDD"
 
 # Exploratory task
-ccw "Uncertain about architecture for real-time notifications"
+/ccw "Uncertain about architecture for real-time notifications"
 
 # With-File workflows (documented exploration with multi-CLI collaboration)
-ccw "头脑风暴: 用户通知系统重新设计"           # → brainstorm-with-file
-ccw "从头脑风暴 BS-通知系统-2025-01-28 创建 issue"  # → brainstorm-to-issue (bridge)
-ccw "深度调试: 系统随机崩溃问题"              # → debug-with-file
-ccw "协作分析: 理解现有认证架构的设计决策"     # → analyze-with-file
+/ccw "头脑风暴: 用户通知系统重新设计"           # → brainstorm-with-file
+/ccw "从头脑风暴 BS-通知系统-2025-01-28 创建 issue"  # → brainstorm-to-issue (bridge)
+/ccw "深度调试: 系统随机崩溃问题"              # → debug-with-file
+/ccw "协作分析: 理解现有认证架构的设计决策"     # → analyze-with-file
 ```
