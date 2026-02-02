@@ -386,8 +386,14 @@ export function buildCommand(params: {
     fullCommand: `${command} ${args.join(' ')}${useStdin ? ' (stdin)' : ''}`,
   });
 
-  // Auto-detect output format: Codex uses --json flag for JSONL output
-  const outputFormat = tool.toLowerCase() === 'codex' ? 'json-lines' : 'text';
+  // Auto-detect output format: All CLI tools use JSON lines output
+  // - Codex: --json
+  // - Gemini: -o stream-json
+  // - Qwen: -o stream-json
+  // - Claude: --output-format stream-json
+  // - OpenCode: --format json
+  const jsonLineTools = ['codex', 'gemini', 'qwen', 'claude', 'opencode'];
+  const outputFormat = jsonLineTools.includes(tool.toLowerCase()) ? 'json-lines' : 'text';
 
   return { command, args, useStdin, outputFormat };
 }

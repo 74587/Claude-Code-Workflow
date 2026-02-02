@@ -1571,11 +1571,17 @@ export interface ConversationTurn {
     stdout: string;
     stderr?: string;
     truncated?: boolean;
+    cached?: boolean;
+    stdout_full?: string;
+    stderr_full?: string;
+    parsed_output?: string;
+    final_output?: string;
     structured?: unknown[];
   };
   timestamp: string;
   duration_ms: number;
   status?: 'success' | 'error' | 'timeout';
+  exit_code?: number;
 }
 
 // ========== CLI Tools Config API ==========
