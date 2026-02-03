@@ -28,9 +28,9 @@ export interface ActivityLineChartWidgetProps {
  */
 function ActivityLineChartWidgetComponent({ className, ...props }: ActivityLineChartWidgetProps) {
   const { formatMessage } = useIntl();
-  const { data, isLoading, error } = useActivityTimeline();
+  const { data, isLoading } = useActivityTimeline();
 
-  // Use mock data if API is not ready
+  // Use mock data if API call fails or returns no data
   const chartData = data || generateMockActivityTimeline();
 
   return (
@@ -41,10 +41,6 @@ function ActivityLineChartWidgetComponent({ className, ...props }: ActivityLineC
         </h3>
         {isLoading ? (
           <ChartSkeleton type="line" height={280} />
-        ) : error ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-destructive">Failed to load chart data</p>
-          </div>
         ) : (
           <ActivityLineChart data={chartData} height={280} />
         )}

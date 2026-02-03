@@ -1,0 +1,51 @@
+{
+  "page": {
+    "title": "CLI 查看器",
+    "subtitle": "{count, plural, =0 {暂无活动会话} other {# 个活动会话}}"
+  },
+  "layout": {
+    "title": "布局",
+    "single": "单窗格",
+    "splitH": "水平分割",
+    "splitV": "垂直分割",
+    "grid": "2x2 网格"
+  },
+  "pane": {
+    "empty": "未选择执行",
+    "selectExecution": "选择执行",
+    "loading": "正在加载 {executionId} 的输出...",
+    "close": "关闭",
+    "maximize": "最大化",
+    "minimize": "最小化"
+  },
+  "toolbar": {
+    "refresh": "刷新",
+    "clearAll": "清空所有",
+    "settings": "设置"
+  },
+  "emptyState": {
+    "title": "暂无 CLI 执行",
+    "description": "从侧边栏选择一个执行或启动新的 CLI 会话以在此查看输出。",
+    "action": "查看执行列表"
+  },
+  "tabs": {
+    "noTabs": "暂无标签页",
+    "addTab": "添加标签页",
+    "closeTab": "关闭标签页",
+    "pinTab": "固定标签页",
+    "unpinTab": "取消固定"
+  },
+  "picker": {
+    "selectExecution": "选择执行",
+    "searchExecutions": "搜索执行...",
+    "noExecutions": "暂无可用执行",
+    "noMatchingExecutions": "未找到匹配的执行",
+    "alreadyOpen": "已打开",
+    "executionCount": "{available}/{total} 个执行可用"
+  },
+  "paneActions": {
+    "splitHorizontal": "水平分割",
+    "splitVertical": "垂直分割",
+    "closePane": "关闭窗格"
+  }
+}

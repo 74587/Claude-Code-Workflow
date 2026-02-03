@@ -63,12 +63,16 @@
     "inactive": "未激活",
     "pending": "待处理",
     "inProgress": "进行中",
+    "running": "运行中",
+    "initializing": "初始化中",
+    "planning": "规划中",
     "completed": "已完成",
     "failed": "失败",
     "blocked": "已阻塞",
     "cancelled": "已取消",
     "paused": "已暂停",
     "archived": "已归档",
+    "idle": "空闲",
     "unknown": "未知",
     "draft": "草稿",
     "published": "已发布",
@@ -76,7 +80,7 @@
     "deleting": "删除中...",
     "label": "状态",
     "openIssues": "开放问题",
-    "enabled": "Enabled",
+    "enabled": "已启用",
     "disabled": "已禁用"
   },
   "priority": {
@@ -95,7 +99,10 @@
     "months": "月",
     "years": "年",
     "ago": "前",
-    "justNow": "刚刚"
+    "justNow": "刚刚",
+    "minutesAgo": "{count}分钟前",
+    "hoursAgo": "{count}小时前",
+    "daysAgo": "{count}天前"
   },
   "buttons": {
     "new": "新建",
@@ -168,7 +175,11 @@
     "todayActivity": "今日活动",
     "totalCommands": "总命令数",
     "totalSkills": "总技能数",
-    "categories": "分类"
+    "categories": "分类",
+    "total": "总计"
+  },
+  "labels": {
+    "progress": "进度"
   },
   "dialog": {
     "createSession": "创建新会话",
@@ -192,6 +203,15 @@
       "title": "搜索文档",
       "description": "使用全面的文档搜索快速找到答案",
       "button": "搜索文档"
+    }
+  },
+  "dashboard": {
+    "config": {
+      "title": "部件",
+      "widgets": "仪表板部件",
+      "hideAll": "全部隐藏",
+      "showAll": "全部显示",
+      "resetLayout": "重置布局"
     }
   },
   "all": "全部",
@@ -245,78 +265,6 @@
     "yes": "是",
     "no": "否",
     "required": "此问题为必填项"
-  },
-  "coordinator": {
-    "page": {
-      "title": "协调器",
-      "status": "状态：{status}",
-      "startButton": "启动协调器",
-      "noNodeSelected": "选择节点以查看详细信息"
-    },
-    "modal": {
-      "title": "启动协调器",
-      "description": "描述您希望协调器执行的任务"
-    },
-    "form": {
-      "taskDescription": "任务描述",
-      "taskDescriptionPlaceholder": "描述协调器需要执行的任务（至少10个字符）...",
-      "parameters": "参数（可选）",
-      "parametersPlaceholder": "{\"key\": \"value\"}",
-      "parametersHelp": "协调器执行的可选JSON参数",
-      "characterCount": "{current} / {max} 字符（最少：{min}）",
-      "start": "启动协调器",
-      "starting": "启动中..."
-    },
-    "validation": {
-      "taskDescriptionRequired": "任务描述为必填项",
-      "taskDescriptionTooShort": "任务描述至少需要10个字符",
-      "taskDescriptionTooLong": "任务描述不能超过2000个字符",
-      "parametersInvalidJson": "参数必须是有效的JSON格式",
-      "answerRequired": "答案为必填项"
-    },
-    "success": {
-      "started": "协调器启动成功"
-    },
-    "status": {
-      "pending": "待执行",
-      "running": "运行中",
-      "completed": "已完成",
-      "failed": "失败",
-      "skipped": "已跳过"
-    },
-    "logs": "日志",
-    "entries": "条日志",
-    "error": "错误",
-    "output": "输出",
-    "startedAt": "开始时间",
-    "completedAt": "完成时间",
-    "retrying": "重试中...",
-    "retry": "重试",
-    "skipping": "跳过中...",
-    "skip": "跳过",
-    "logLevel": "日志级别",
-    "level": {
-      "all": "全部",
-      "info": "信息",
-      "warn": "警告",
-      "error": "错误",
-      "debug": "调试"
-    },
-    "noLogs": "无可用日志",
-    "question": {
-      "answer": "答案",
-      "textPlaceholder": "输入您的答案...",
-      "selectOne": "选择一个",
-      "selectMultiple": "选择多个",
-      "confirm": "确认",
-      "yes": "是",
-      "no": "否",
-      "submitting": "提交中...",
-      "submit": "提交"
-    },
-    "error": {
-      "submitFailed": "提交答案失败"
-    }
   },
   "feedback": {
     "error": {

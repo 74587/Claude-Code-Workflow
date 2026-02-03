@@ -3,6 +3,9 @@
     "title": "Execution Monitor",
     "subtitle": "View real-time execution status and history"
   },
+  "actions": {
+    "openCliViewer": "CLI Monitor"
+  },
   "currentExecution": {
     "title": "Current Execution",
     "noExecution": "No workflow is currently executing",

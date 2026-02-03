@@ -5,6 +5,7 @@
 
 import { useState, useMemo } from 'react';
 import { useIntl } from 'react-intl';
+import { useNavigate } from 'react-router-dom';
 import {
   Activity,
   Clock,
@@ -16,10 +17,12 @@ import {
   ListTree,
   History,
   List,
+  Monitor,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { TabsNavigation, type TabItem } from '@/components/ui/TabsNavigation';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { ExecutionMonitor } from './orchestrator/ExecutionMonitor';
 import { useExecutionStore } from '@/stores/executionStore';
 import type { ExecutionStatus } from '@/types/execution';
@@ -86,8 +89,13 @@ function formatDateTime(dateString: string): string {
 
 export function ExecutionMonitorPage() {
   const { formatMessage } = useIntl();
+  const navigate = useNavigate();
   const currentExecution = useExecutionStore((state) => state.currentExecution);
   const [selectedView, setSelectedView] = useState<'workflow' | 'timeline' | 'list'>('workflow');
+
+  const handleOpenCliViewer = () => {
+    navigate('/cli-viewer');
+  };
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -126,14 +134,20 @@ export function ExecutionMonitorPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
-          <Activity className="w-6 h-6" />
-          {formatMessage({ id: 'executionMonitor.page.title' })}
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {formatMessage({ id: 'executionMonitor.page.subtitle' })}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2">
+            <Activity className="w-6 h-6" />
+            {formatMessage({ id: 'executionMonitor.page.title' })}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {formatMessage({ id: 'executionMonitor.page.subtitle' })}
+          </p>
+        </div>
+        <Button onClick={handleOpenCliViewer} className="gap-2">
+          <Monitor className="w-4 h-4" />
+          {formatMessage({ id: 'executionMonitor.actions.openCliViewer' })}
+        </Button>
       </div>
 
       {/* Current Execution Area */}
@@ -230,24 +244,31 @@ export function ExecutionMonitorPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={selectedView} onValueChange={(v) => setSelectedView(v as typeof selectedView)}>
-            <TabsList>
-              <TabsTrigger value="workflow">
-                <ListTree className="w-4 h-4 mr-2" />
-                {formatMessage({ id: 'executionMonitor.history.tabs.byWorkflow' })}
-              </TabsTrigger>
-              <TabsTrigger value="timeline">
-                <History className="w-4 h-4 mr-2" />
-                {formatMessage({ id: 'executionMonitor.history.tabs.timeline' })}
-              </TabsTrigger>
-              <TabsTrigger value="list">
-                <List className="w-4 h-4 mr-2" />
-                {formatMessage({ id: 'executionMonitor.history.tabs.list' })}
-              </TabsTrigger>
-            </TabsList>
+          <TabsNavigation
+            value={selectedView}
+            onValueChange={(v) => setSelectedView(v as typeof selectedView)}
+            tabs={[
+              {
+                value: 'workflow',
+                label: formatMessage({ id: 'executionMonitor.history.tabs.byWorkflow' }),
+                icon: <ListTree className="w-4 h-4" />,
+              },
+              {
+                value: 'timeline',
+                label: formatMessage({ id: 'executionMonitor.history.tabs.timeline' }),
+                icon: <History className="w-4 h-4" />,
+              },
+              {
+                value: 'list',
+                label: formatMessage({ id: 'executionMonitor.history.tabs.list' }),
+                icon: <List className="w-4 h-4" />,
+              },
+            ]}
+          />
 
-            {/* By Workflow View */}
-            <TabsContent value="workflow" className="mt-4">
+          {/* By Workflow View */}
+          {selectedView === 'workflow' && (
+            <div className="mt-4">
               {workflowGroups.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   {formatMessage({ id: 'executionMonitor.history.empty' })}
@@ -302,10 +323,11 @@ export function ExecutionMonitorPage() {
                   ))}
                 </div>
               )}
-            </TabsContent>
+            </div>
+          )}
 
-            {/* Timeline View */}
-            <TabsContent value="timeline" className="mt-4">
+          {/* Timeline View */}
+          {selectedView === 'timeline' && (
               <div className="space-y-3">
                 {mockExecutionHistory.map((exec, index) => (
                   <div key={exec.execId} className="flex gap-4">
@@ -359,11 +381,11 @@ export function ExecutionMonitorPage() {
                   </div>
                 ))}
               </div>
-            </TabsContent>
+          )}
 
-            {/* List View */}
-            <TabsContent value="list" className="mt-4">
-              <div className="space-y-2">
+          {/* List View */}
+          {selectedView === 'list' && (
+            <div className="space-y-2">
                 {mockExecutionHistory.map((exec) => (
                   <Card key={exec.execId} className="hover:border-primary/50 transition-colors">
                     <CardContent className="p-4">
@@ -402,9 +424,8 @@ export function ExecutionMonitorPage() {
                     </CardContent>
                   </Card>
                 ))}
-              </div>
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

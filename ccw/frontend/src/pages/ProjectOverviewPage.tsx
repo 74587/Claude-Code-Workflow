@@ -228,158 +228,161 @@ export function ProjectOverviewPage() {
   const { technologyStack, architecture, keyComponents, developmentIndex, guidelines, metadata } = projectOverview;
 
   return (
-    <div className="space-y-6">
-      {/* Project Header */}
+    <div className="space-y-4">
+      {/* Project Header + Technology Stack - Combined */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between">
+        <CardContent className="p-4">
+          {/* Header Row */}
+          <div className="flex items-start justify-between mb-4 pb-3 border-b border-border">
             <div className="flex-1">
-              <h1 className="text-2xl font-bold text-foreground mb-2">
+              <h1 className="text-base font-semibold text-foreground mb-1">
                 {projectOverview.projectName}
               </h1>
-              <p className="text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {projectOverview.description || formatMessage({ id: 'projectOverview.noDescription' })}
               </p>
             </div>
-            <div className="text-sm text-muted-foreground text-right">
+            <div className="text-xs text-muted-foreground text-right">
               <div>
                 {formatMessage({ id: 'projectOverview.header.initialized' })}:{' '}
                 {formatDate(projectOverview.initializedAt)}
               </div>
               {metadata?.analysis_mode && (
                 <div className="mt-1">
-                  <span className="font-mono text-xs px-2 py-0.5 bg-muted rounded">
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 bg-muted rounded">
                     {metadata.analysis_mode}
                   </span>
                 </div>
               )}
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Technology Stack */}
-      <Card>
-        <CardContent className="p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-            <Code2 className="w-5 h-5" />
+          {/* Technology Stack */}
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+            <Code2 className="w-4 h-4" />
             {formatMessage({ id: 'projectOverview.techStack.title' })}
           </h3>
 
-          {/* Languages */}
-          <div className="mb-5">
-            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              {formatMessage({ id: 'projectOverview.techStack.languages' })}
-            </h4>
-            <div className="flex flex-wrap gap-3">
-              {technologyStack?.languages && technologyStack.languages.length > 0 ? (
-                technologyStack.languages.map((lang: { name: string; file_count: number; primary?: boolean }) => (
-                  <div
-                    key={lang.name}
-                    className={`flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-lg ${
-                      lang.primary ? 'ring-2 ring-primary' : ''
-                    }`}
-                  >
-                    <span className="font-semibold text-foreground">{lang.name}</span>
-                    <span className="text-xs text-muted-foreground">{lang.file_count} files</span>
-                    {lang.primary && (
-                      <span className="text-xs px-1.5 py-0.5 bg-primary text-primary-foreground rounded">
-                        {formatMessage({ id: 'projectOverview.techStack.primary' })}
-                      </span>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <span className="text-muted-foreground text-sm">
-                  {formatMessage({ id: 'projectOverview.techStack.noLanguages' })}
-                </span>
-              )}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {/* Languages */}
+            <div>
+              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                {formatMessage({ id: 'projectOverview.techStack.languages' })}
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {technologyStack?.languages && technologyStack.languages.length > 0 ? (
+                  technologyStack.languages.map((lang: { name: string; file_count: number; primary?: boolean }) => (
+                    <div
+                      key={lang.name}
+                      className={`flex items-center gap-1.5 px-2 py-1 bg-background border border-border rounded text-xs ${
+                        lang.primary ? 'ring-1 ring-primary' : ''
+                      }`}
+                    >
+                      <span className="font-medium text-foreground">{lang.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{lang.file_count}</span>
+                      {lang.primary && (
+                        <span className="text-[9px] px-1 py-0.5 bg-primary text-primary-foreground rounded">
+                          {formatMessage({ id: 'projectOverview.techStack.primary' })}
+                        </span>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground text-xs">
+                    {formatMessage({ id: 'projectOverview.techStack.noLanguages' })}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Frameworks */}
-          <div className="mb-5">
-            <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-              {formatMessage({ id: 'projectOverview.techStack.frameworks' })}
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {technologyStack?.frameworks && technologyStack.frameworks.length > 0 ? (
-                technologyStack.frameworks.map((fw: string) => (
-                  <Badge key={fw} variant="success" className="px-3 py-1.5">
-                    {fw}
-                  </Badge>
-                ))
-              ) : (
-                <span className="text-muted-foreground text-sm">
-                  {formatMessage({ id: 'projectOverview.techStack.noFrameworks' })}
-                </span>
-              )}
+            {/* Frameworks */}
+            <div>
+              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                {formatMessage({ id: 'projectOverview.techStack.frameworks' })}
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {technologyStack?.frameworks && technologyStack.frameworks.length > 0 ? (
+                  technologyStack.frameworks.map((fw: string) => (
+                    <Badge key={fw} variant="success" className="px-2 py-0.5 text-[10px]">
+                      {fw}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground text-xs">
+                    {formatMessage({ id: 'projectOverview.techStack.noFrameworks' })}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Build Tools */}
-          {technologyStack?.build_tools && technologyStack.build_tools.length > 0 && (
-            <div className="mb-5">
-              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+            {/* Build Tools */}
+            <div>
+              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 {formatMessage({ id: 'projectOverview.techStack.buildTools' })}
               </h4>
-              <div className="flex flex-wrap gap-2">
-                {technologyStack.build_tools.map((tool: string) => (
-                  <Badge key={tool} variant="warning" className="px-3 py-1.5">
-                    {tool}
-                  </Badge>
-                ))}
+              <div className="flex flex-wrap gap-1.5">
+                {technologyStack?.build_tools && technologyStack.build_tools.length > 0 ? (
+                  technologyStack.build_tools.map((tool: string) => (
+                    <Badge key={tool} variant="warning" className="px-2 py-0.5 text-[10px]">
+                      {tool}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground text-xs">-</span>
+                )}
               </div>
             </div>
-          )}
 
-          {/* Test Frameworks */}
-          {technologyStack?.test_frameworks && technologyStack.test_frameworks.length > 0 && (
+            {/* Test Frameworks */}
             <div>
-              <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 {formatMessage({ id: 'projectOverview.techStack.testFrameworks' })}
               </h4>
-              <div className="flex flex-wrap gap-2">
-                {technologyStack.test_frameworks.map((fw: string) => (
-                  <Badge key={fw} variant="default" className="px-3 py-1.5">
-                    {fw}
-                  </Badge>
-                ))}
+              <div className="flex flex-wrap gap-1.5">
+                {technologyStack?.test_frameworks && technologyStack.test_frameworks.length > 0 ? (
+                  technologyStack.test_frameworks.map((fw: string) => (
+                    <Badge key={fw} variant="default" className="px-2 py-0.5 text-[10px]">
+                      {fw}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground text-xs">-</span>
+                )}
               </div>
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
       {/* Architecture */}
       {architecture && (
         <Card>
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Blocks className="w-5 h-5" />
+          <CardContent className="p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+              <Blocks className="w-4 h-4" />
               {formatMessage({ id: 'projectOverview.architecture.title' })}
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Style */}
               <div>
-                <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                   {formatMessage({ id: 'projectOverview.architecture.style' })}
                 </h4>
-                <div className="px-3 py-2 bg-background border border-border rounded-lg">
-                  <span className="text-foreground font-medium">{architecture.style}</span>
+                <div className="px-2 py-1.5 bg-background border border-border rounded">
+                  <span className="text-foreground font-medium text-xs">{architecture.style}</span>
                 </div>
               </div>
 
               {/* Layers */}
               {architecture.layers && architecture.layers.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                     {formatMessage({ id: 'projectOverview.architecture.layers' })}
                   </h4>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {architecture.layers.map((layer: string) => (
-                      <span key={layer} className="px-2 py-1 bg-muted text-foreground rounded text-sm">
+                      <span key={layer} className="px-1.5 py-0.5 bg-muted text-foreground rounded text-[10px]">
                         {layer}
                       </span>
                     ))}
@@ -390,12 +393,12 @@ export function ProjectOverviewPage() {
               {/* Patterns */}
               {architecture.patterns && architecture.patterns.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                     {formatMessage({ id: 'projectOverview.architecture.patterns' })}
                   </h4>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {architecture.patterns.map((pattern: string) => (
-                      <span key={pattern} className="px-2 py-1 bg-muted text-foreground rounded text-sm">
+                      <span key={pattern} className="px-1.5 py-0.5 bg-muted text-foreground rounded text-[10px]">
                         {pattern}
                       </span>
                     ))}
@@ -410,33 +413,33 @@ export function ProjectOverviewPage() {
       {/* Key Components */}
       {keyComponents && keyComponents.length > 0 && (
         <Card>
-          <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Component className="w-5 h-5" />
+          <CardContent className="p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+              <Component className="w-4 h-4" />
               {formatMessage({ id: 'projectOverview.components.title' })}
             </h3>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {keyComponents.map((comp: KeyComponent) => {
                 const importance = comp.importance || 'low';
                 const importanceColors: Record<string, string> = {
-                  high: 'border-l-4 border-l-destructive bg-destructive/5',
-                  medium: 'border-l-4 border-l-warning bg-warning/5',
-                  low: 'border-l-4 border-l-muted-foreground bg-muted',
+                  high: 'border-l-2 border-l-destructive bg-destructive/5',
+                  medium: 'border-l-2 border-l-warning bg-warning/5',
+                  low: 'border-l-2 border-l-muted-foreground bg-muted',
                 };
                 const importanceBadges: Record<string, React.ReactElement> = {
                   high: (
-                    <Badge variant="destructive" className="text-xs">
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
                       {formatMessage({ id: 'projectOverview.components.importance.high' })}
                     </Badge>
                   ),
                   medium: (
-                    <Badge variant="warning" className="text-xs">
+                    <Badge variant="warning" className="text-[10px] px-1.5 py-0">
                       {formatMessage({ id: 'projectOverview.components.importance.medium' })}
                     </Badge>
                   ),
                   low: (
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                       {formatMessage({ id: 'projectOverview.components.importance.low' })}
                     </Badge>
                   ),
@@ -445,17 +448,17 @@ export function ProjectOverviewPage() {
                 return (
                   <div
                     key={comp.name}
-                    className={`p-4 rounded-lg ${importanceColors[importance] || importanceColors.low}`}
+                    className={`p-2.5 rounded ${importanceColors[importance] || importanceColors.low}`}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-semibold text-foreground">{comp.name}</h4>
+                    <div className="flex items-start justify-between mb-1">
+                      <h4 className="font-medium text-foreground text-xs">{comp.name}</h4>
                       {importanceBadges[importance]}
                     </div>
                     {comp.description && (
-                      <p className="text-sm text-muted-foreground mb-2">{comp.description}</p>
+                      <p className="text-[10px] text-muted-foreground mb-1">{comp.description}</p>
                     )}
                     {comp.responsibility && comp.responsibility.length > 0 && (
-                      <ul className="text-xs text-muted-foreground list-disc list-inside">
+                      <ul className="text-[10px] text-muted-foreground list-disc list-inside">
                         {comp.responsibility.map((resp: string, i: number) => (
                           <li key={i}>{resp}</li>
                         ))}
@@ -472,20 +475,20 @@ export function ProjectOverviewPage() {
       {/* Development Index */}
       {developmentIndex && totalEntries > 0 && (
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <GitBranch className="w-5 h-5" />
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                <GitBranch className="w-4 h-4" />
                 {formatMessage({ id: 'projectOverview.devIndex.title' })}
               </h3>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 {devIndexCategories.map((cat) => {
                   const count = devIndexTotals[cat.key];
                   if (count === 0) return null;
                   const Icon = cat.icon;
                   return (
-                    <Badge key={cat.key} variant={cat.color === 'primary' ? 'default' : 'secondary'}>
-                      <Icon className="w-3 h-3 mr-1" />
+                    <Badge key={cat.key} variant={cat.color === 'primary' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                      <Icon className="w-2.5 h-2.5 mr-0.5" />
                       {count}
                     </Badge>
                   );
@@ -494,21 +497,21 @@ export function ProjectOverviewPage() {
             </div>
 
             <Tabs value={devIndexView} onValueChange={(v) => setDevIndexView(v as DevIndexView)}>
-              <div className="flex items-center justify-between mb-4">
-                <TabsList>
-                  <TabsTrigger value="category">
-                    <LayoutGrid className="w-3.5 h-3.5 mr-1" />
+              <div className="flex items-center justify-between mb-3">
+                <TabsList className="h-7">
+                  <TabsTrigger value="category" className="text-xs px-2 py-1 h-6">
+                    <LayoutGrid className="w-3 h-3 mr-1" />
                     {formatMessage({ id: 'projectOverview.devIndex.categories' })}
                   </TabsTrigger>
-                  <TabsTrigger value="timeline">
-                    <GitCommitHorizontal className="w-3.5 h-3.5 mr-1" />
+                  <TabsTrigger value="timeline" className="text-xs px-2 py-1 h-6">
+                    <GitCommitHorizontal className="w-3 h-3 mr-1" />
                     {formatMessage({ id: 'projectOverview.devIndex.timeline' })}
                   </TabsTrigger>
                 </TabsList>
               </div>
 
               <TabsContent value="category">
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {devIndexCategories.map((cat) => {
                     const entries = developmentIndex?.[cat.key] || [];
                     if (entries.length === 0) return null;
@@ -516,38 +519,38 @@ export function ProjectOverviewPage() {
 
                     return (
                       <div key={cat.key}>
-                        <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                          <Icon className="w-4 h-4" />
+                        <h4 className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                          <Icon className="w-3.5 h-3.5" />
                           <span>{formatMessage({ id: cat.i18nKey })}</span>
-                          <Badge variant="secondary">{entries.length}</Badge>
+                          <Badge variant="secondary" className="text-[10px] px-1 py-0">{entries.length}</Badge>
                         </h4>
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                           {entries.slice(0, 5).map((entry: DevelopmentIndexEntry & { type?: string; typeLabel?: string; typeIcon?: React.ElementType; typeColor?: string; date?: string }, i: number) => (
                             <div
                               key={i}
-                              className="p-3 bg-background border border-border rounded-lg hover:shadow-sm transition-shadow"
+                              className="p-2 bg-background border border-border rounded hover:shadow-sm transition-shadow"
                             >
-                              <div className="flex items-start justify-between mb-1">
-                                <h5 className="font-medium text-foreground text-sm">{entry.title}</h5>
-                                <span className="text-xs text-muted-foreground">
+                              <div className="flex items-start justify-between mb-0.5">
+                                <h5 className="font-medium text-foreground text-xs">{entry.title}</h5>
+                                <span className="text-[10px] text-muted-foreground">
                                   {formatDate(entry.archivedAt || entry.date || entry.implemented_at)}
                                 </span>
                               </div>
                               {entry.description && (
-                                <p className="text-sm text-muted-foreground mb-1">{entry.description}</p>
+                                <p className="text-[10px] text-muted-foreground mb-1">{entry.description}</p>
                               )}
-                              <div className="flex items-center gap-2 text-xs flex-wrap">
+                              <div className="flex items-center gap-1.5 text-[10px] flex-wrap">
                                 {entry.sessionId && (
-                                  <span className="px-2 py-0.5 bg-primary-light text-primary rounded font-mono">
+                                  <span className="px-1.5 py-0.5 bg-primary-light text-primary rounded font-mono">
                                     {entry.sessionId}
                                   </span>
                                 )}
                                 {entry.sub_feature && (
-                                  <span className="px-2 py-0.5 bg-muted rounded">{entry.sub_feature}</span>
+                                  <span className="px-1.5 py-0.5 bg-muted rounded">{entry.sub_feature}</span>
                                 )}
                                 {entry.status && (
                                   <span
-                                    className={`px-2 py-0.5 rounded ${
+                                    className={`px-1.5 py-0.5 rounded ${
                                       entry.status === 'completed'
                                         ? 'bg-success-light text-success'
                                         : 'bg-warning-light text-warning'
@@ -560,7 +563,7 @@ export function ProjectOverviewPage() {
                             </div>
                           ))}
                           {entries.length > 5 && (
-                            <div className="text-sm text-muted-foreground text-center py-2">
+                            <div className="text-xs text-muted-foreground text-center py-1">
                               ... and {entries.length - 5} more
                             </div>
                           )}
@@ -572,24 +575,24 @@ export function ProjectOverviewPage() {
               </TabsContent>
 
               <TabsContent value="timeline">
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {allDevEntries.slice(0, 20).map((entry, i) => {
                     const Icon = entry.typeIcon;
                     return (
-                      <div key={i} className="flex gap-4">
+                      <div key={i} className="flex gap-3">
                         <div className="flex flex-col items-center">
                           <div
-                            className={`w-8 h-8 rounded-full bg-${entry.typeColor}-light text-${entry.typeColor} flex items-center justify-center`}
+                            className={`w-6 h-6 rounded-full bg-${entry.typeColor}-light text-${entry.typeColor} flex items-center justify-center`}
                           >
-                            <Icon className="w-4 h-4" />
+                            <Icon className="w-3 h-3" />
                           </div>
                           {i < Math.min(allDevEntries.length, 20) - 1 && (
-                            <div className="w-0.5 flex-1 bg-border mt-2" />
+                            <div className="w-0.5 flex-1 bg-border mt-1.5" />
                           )}
                         </div>
-                        <div className="flex-1 pb-4">
-                          <div className="flex items-start justify-between mb-1">
-                            <div className="flex items-center gap-2">
+                        <div className="flex-1 pb-3">
+                          <div className="flex items-start justify-between mb-0.5">
+                            <div className="flex items-center gap-1.5">
                               <Badge
                                 variant={
                                   entry.typeColor === 'primary'
@@ -598,31 +601,31 @@ export function ProjectOverviewPage() {
                                       ? 'destructive'
                                       : 'secondary'
                                 }
-                                className="text-xs"
+                                className="text-[10px] px-1.5 py-0"
                               >
                                 {entry.typeLabel}
                               </Badge>
-                              <h5 className="font-medium text-foreground text-sm">{entry.title}</h5>
+                              <h5 className="font-medium text-foreground text-xs">{entry.title}</h5>
                             </div>
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                               {formatDate(entry.date)}
                             </span>
                           </div>
                           {entry.description && (
-                            <p className="text-sm text-muted-foreground mb-2">{entry.description}</p>
+                            <p className="text-[10px] text-muted-foreground mb-1">{entry.description}</p>
                           )}
-                          <div className="flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-1.5 text-[10px]">
                             {entry.sessionId && (
-                              <span className="px-2 py-0.5 bg-muted rounded font-mono">
+                              <span className="px-1.5 py-0.5 bg-muted rounded font-mono">
                                 {entry.sessionId}
                               </span>
                             )}
                             {entry.sub_feature && (
-                              <span className="px-2 py-0.5 bg-muted rounded">{entry.sub_feature}</span>
+                              <span className="px-1.5 py-0.5 bg-muted rounded">{entry.sub_feature}</span>
                             )}
                             {entry.tags &&
                               entry.tags.slice(0, 3).map((tag) => (
-                                <span key={tag} className="px-2 py-0.5 bg-accent rounded">
+                                <span key={tag} className="px-1.5 py-0.5 bg-accent rounded">
                                   {tag}
                                 </span>
                               ))}
@@ -632,7 +635,7 @@ export function ProjectOverviewPage() {
                     );
                   })}
                   {allDevEntries.length > 20 && (
-                    <div className="text-sm text-muted-foreground text-center py-4">
+                    <div className="text-xs text-muted-foreground text-center py-2">
                       ... and {allDevEntries.length - 20} more entries
                     </div>
                   )}
@@ -646,26 +649,26 @@ export function ProjectOverviewPage() {
       {/* Guidelines */}
       {guidelines && (
         <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <ScrollText className="w-5 h-5" />
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                <ScrollText className="w-4 h-4" />
                 {formatMessage({ id: 'projectOverview.guidelines.title' })}
               </h3>
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 {!isEditMode ? (
-                  <Button variant="outline" size="sm" onClick={handleEditStart}>
-                    <Edit className="w-4 h-4 mr-1" />
+                  <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={handleEditStart}>
+                    <Edit className="w-3 h-3 mr-1" />
                     {formatMessage({ id: 'projectOverview.guidelines.edit' })}
                   </Button>
                 ) : (
                   <>
-                    <Button variant="outline" size="sm" onClick={handleEditCancel} disabled={isUpdating}>
-                      <X className="w-4 h-4 mr-1" />
+                    <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={handleEditCancel} disabled={isUpdating}>
+                      <X className="w-3 h-3 mr-1" />
                       {formatMessage({ id: 'projectOverview.guidelines.cancel' })}
                     </Button>
-                    <Button variant="default" size="sm" onClick={handleSave} disabled={isUpdating}>
-                      <Save className="w-4 h-4 mr-1" />
+                    <Button variant="default" size="sm" className="h-7 text-xs px-2" onClick={handleSave} disabled={isUpdating}>
+                      <Save className="w-3 h-3 mr-1" />
                       {isUpdating ? formatMessage({ id: 'projectOverview.guidelines.saving' }) : formatMessage({ id: 'projectOverview.guidelines.save' })}
                     </Button>
                   </>
@@ -673,17 +676,17 @@ export function ProjectOverviewPage() {
               </div>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4">
               {!isEditMode ? (
                 <>
                   {/* Read-only Mode - Conventions */}
                   {guidelines.conventions && (
                     <div>
-                      <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                        <BookMarked className="w-4 h-4" />
+                      <h4 className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                        <BookMarked className="w-3.5 h-3.5" />
                         <span>{formatMessage({ id: 'projectOverview.guidelines.conventions' })}</span>
                       </h4>
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         {Object.entries(guidelines.conventions).map(([key, items]) => {
                           const itemList = Array.isArray(items) ? items : [];
                           if (itemList.length === 0) return null;
@@ -692,12 +695,12 @@ export function ProjectOverviewPage() {
                               {itemList.map((item: string, i: number) => (
                                 <div
                                   key={i}
-                                  className="flex items-start gap-3 p-3 bg-background border border-border rounded-lg"
+                                  className="flex items-start gap-2 p-2 bg-background border border-border rounded"
                                 >
-                                  <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-muted text-muted-foreground rounded">
                                     {key}
                                   </span>
-                                  <span className="text-sm text-foreground">{item}</span>
+                                  <span className="text-xs text-foreground">{item}</span>
                                 </div>
                               ))}
                             </div>
@@ -710,11 +713,11 @@ export function ProjectOverviewPage() {
                   {/* Read-only Mode - Constraints */}
                   {guidelines.constraints && (
                     <div>
-                      <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                        <ShieldAlert className="w-4 h-4" />
+                      <h4 className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                        <ShieldAlert className="w-3.5 h-3.5" />
                         <span>{formatMessage({ id: 'projectOverview.guidelines.constraints' })}</span>
                       </h4>
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         {Object.entries(guidelines.constraints).map(([key, items]) => {
                           const itemList = Array.isArray(items) ? items : [];
                           if (itemList.length === 0) return null;
@@ -723,12 +726,12 @@ export function ProjectOverviewPage() {
                               {itemList.map((item: string, i: number) => (
                                 <div
                                   key={i}
-                                  className="flex items-start gap-3 p-3 bg-background border border-border rounded-lg"
+                                  className="flex items-start gap-2 p-2 bg-background border border-border rounded"
                                 >
-                                  <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-muted text-muted-foreground rounded">
                                     {key}
                                   </span>
-                                  <span className="text-sm text-foreground">{item}</span>
+                                  <span className="text-xs text-foreground">{item}</span>
                                 </div>
                               ))}
                             </div>

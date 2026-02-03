@@ -4,8 +4,8 @@
   "description": "CCW is a professional workflow automation platform that combines AI-powered intelligence with structured development workflows. With 40+ commands and 15 integrated workflows, CCW transforms how you build, test, and ship software.",
   "source": "@site/docs/overview.mdx",
   "sourceDirName": ".",
-  "slug": "/",
-  "permalink": "/docs/docs/",
+  "slug": "/overview",
+  "permalink": "/docs/docs/overview",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/overview.mdx",
@@ -15,8 +15,7 @@
   "frontMatter": {
     "title": "Welcome to CCW",
     "sidebar_label": "Overview",
-    "sidebar_position": 1,
-    "slug": "/"
+    "sidebar_position": 1
   },
   "sidebar": "docs",
   "next": {

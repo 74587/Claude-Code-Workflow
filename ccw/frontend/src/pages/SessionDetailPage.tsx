@@ -27,7 +27,7 @@ import { ReviewTab } from './session-detail/ReviewTab';
 import { TaskDrawer } from '@/components/shared/TaskDrawer';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { TabsNavigation, type TabItem } from '@/components/ui/TabsNavigation';
 import type { TaskData } from '@/types/store';
 
 type TabValue = 'tasks' | 'context' | 'summary' | 'impl-plan' | 'conflict' | 'review';
@@ -103,6 +103,43 @@ export function SessionDetailPage() {
   const completedTasks = tasks.filter((t) => t.status === 'completed').length;
   const hasReview = session.has_review || session.review;
 
+  const tabs: TabItem[] = [
+    {
+      value: 'tasks',
+      label: formatMessage({ id: 'sessionDetail.tabs.tasks' }),
+      icon: <ListChecks className="h-4 w-4" />,
+      badge: <Badge variant="secondary" className="ml-2">{tasks.length}</Badge>,
+    },
+    {
+      value: 'context',
+      label: formatMessage({ id: 'sessionDetail.tabs.context' }),
+      icon: <Package className="h-4 w-4" />,
+    },
+    {
+      value: 'summary',
+      label: formatMessage({ id: 'sessionDetail.tabs.summary' }),
+      icon: <FileText className="h-4 w-4" />,
+    },
+    {
+      value: 'impl-plan',
+      label: formatMessage({ id: 'sessionDetail.tabs.implPlan' }),
+      icon: <Ruler className="h-4 w-4" />,
+    },
+    {
+      value: 'conflict',
+      label: formatMessage({ id: 'sessionDetail.tabs.conflict' }),
+      icon: <Scale className="h-4 w-4" />,
+    },
+  ];
+
+  if (hasReview) {
+    tabs.push({
+      value: 'review',
+      label: formatMessage({ id: 'sessionDetail.tabs.review' }),
+      icon: <Search className="h-4 w-4" />,
+    });
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -148,65 +185,48 @@ export function SessionDetailPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-        <TabsList>
-          <TabsTrigger value="tasks">
-            <ListChecks className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'sessionDetail.tabs.tasks' })}
-            <Badge variant="secondary" className="ml-2">
-              {tasks.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="context">
-            <Package className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'sessionDetail.tabs.context' })}
-          </TabsTrigger>
-          <TabsTrigger value="summary">
-            <FileText className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'sessionDetail.tabs.summary' })}
-          </TabsTrigger>
-          <TabsTrigger value="impl-plan">
-            <Ruler className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'sessionDetail.tabs.implPlan' })}
-          </TabsTrigger>
-          <TabsTrigger value="conflict">
-            <Scale className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'sessionDetail.tabs.conflict' })}
-          </TabsTrigger>
-          {hasReview && (
-            <TabsTrigger value="review">
-              <Search className="h-4 w-4 mr-2" />
-              {formatMessage({ id: 'sessionDetail.tabs.review' })}
-            </TabsTrigger>
-          )}
-        </TabsList>
+      <TabsNavigation
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as TabValue)}
+        tabs={tabs}
+      />
 
-        <TabsContent value="tasks" className="mt-4">
+      {/* Tab Content */}
+      {activeTab === 'tasks' && (
+        <div className="mt-4">
           <TaskListTab session={session} onTaskClick={setSelectedTask} />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="context" className="mt-4">
+      {activeTab === 'context' && (
+        <div className="mt-4">
           <ContextTab context={context} />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="summary" className="mt-4">
+      {activeTab === 'summary' && (
+        <div className="mt-4">
           <SummaryTab summary={summary} summaries={summaries} />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="impl-plan" className="mt-4">
+      {activeTab === 'impl-plan' && (
+        <div className="mt-4">
           <ImplPlanTab implPlan={implPlan} />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="conflict" className="mt-4">
+      {activeTab === 'conflict' && (
+        <div className="mt-4">
           <ConflictTab conflicts={conflicts as any} />
-        </TabsContent>
+        </div>
+      )}
 
-        {hasReview && (
-          <TabsContent value="review" className="mt-4">
-            <ReviewTab review={review as any} />
-          </TabsContent>
-        )}
-      </Tabs>
+      {hasReview && activeTab === 'review' && (
+        <div className="mt-4">
+          <ReviewTab review={review as any} />
+        </div>
+      )}
 
       {/* Description (if exists) */}
       {session.description && (

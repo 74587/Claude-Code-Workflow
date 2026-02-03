@@ -30,12 +30,16 @@ import {
   Stethoscope,
   FolderOpen,
   FileText,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
 } from 'lucide-react';
 import { useLiteTasks } from '@/hooks/useLiteTasks';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { Tabs, TabsContent } from '@/components/ui/Tabs';
+import { TabsNavigation, type TabItem } from '@/components/ui/TabsNavigation';
 import { TaskDrawer } from '@/components/shared/TaskDrawer';
 import { fetchLiteSessionContext, type LiteTask, type LiteTaskSession, type LiteSessionContext } from '@/lib/api';
 import { useNavigate } from 'react-router-dom';
@@ -482,6 +486,19 @@ export function LiteTasksPage() {
     const taskCount = session.tasks?.length || 0;
     const isExpanded = expandedSessionId === session.id;
 
+    // Calculate task status distribution
+    const taskStats = React.useMemo(() => {
+      const tasks = session.tasks || [];
+      return {
+        completed: tasks.filter((t) => t.status === 'completed').length,
+        inProgress: tasks.filter((t) => t.status === 'in_progress').length,
+        blocked: tasks.filter((t) => t.status === 'blocked').length,
+        pending: tasks.filter((t) => !t.status || t.status === 'pending').length,
+      };
+    }, [session.tasks]);
+
+    const firstTask = session.tasks?.[0];
+
     return (
       <div key={session.id}>
         <Card
@@ -507,6 +524,43 @@ export function LiteTasksPage() {
                 {formatMessage({ id: isLitePlan ? 'liteTasks.type.plan' : 'liteTasks.type.fix' })}
               </Badge>
             </div>
+
+            {/* Task preview - first task title */}
+            {firstTask?.title && (
+              <div className="mb-3 pb-3 border-b border-border/50">
+                <p className="text-sm text-foreground line-clamp-1">{firstTask.title}</p>
+              </div>
+            )}
+
+            {/* Task status distribution */}
+            <div className="flex items-center flex-wrap gap-2 mb-3">
+              {taskStats.completed > 0 && (
+                <Badge variant="success" className="gap-1 text-xs">
+                  <CheckCircle2 className="h-3 w-3" />
+                  {taskStats.completed} {formatMessage({ id: 'liteTasks.status.completed' })}
+                </Badge>
+              )}
+              {taskStats.inProgress > 0 && (
+                <Badge variant="warning" className="gap-1 text-xs">
+                  <Clock className="h-3 w-3" />
+                  {taskStats.inProgress} {formatMessage({ id: 'liteTasks.status.inProgress' })}
+                </Badge>
+              )}
+              {taskStats.blocked > 0 && (
+                <Badge variant="destructive" className="gap-1 text-xs">
+                  <AlertCircle className="h-3 w-3" />
+                  {taskStats.blocked} {formatMessage({ id: 'liteTasks.status.blocked' })}
+                </Badge>
+              )}
+              {taskStats.pending > 0 && (
+                <Badge variant="secondary" className="gap-1 text-xs">
+                  <Activity className="h-3 w-3" />
+                  {taskStats.pending} {formatMessage({ id: 'liteTasks.status.pending' })}
+                </Badge>
+              )}
+            </div>
+
+            {/* Date and task count */}
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               {session.createdAt && (
                 <span className="flex items-center gap-1">
@@ -546,6 +600,18 @@ export function LiteTasksPage() {
     const status = latestSynthesis.status || session.status || 'analyzing';
     const createdAt = (metadata.timestamp as string) || session.createdAt || '';
 
+    // Calculate task status distribution
+    const taskStats = React.useMemo(() => {
+      const tasks = session.tasks || [];
+      return {
+        completed: tasks.filter((t) => t.status === 'completed').length,
+        inProgress: tasks.filter((t) => t.status === 'in_progress').length,
+        blocked: tasks.filter((t) => t.status === 'blocked').length,
+        pending: tasks.filter((t) => !t.status || t.status === 'pending').length,
+        total: tasks.length,
+      };
+    }, [session.tasks]);
+
     return (
       <Card
         key={session.id}
@@ -575,6 +641,37 @@ export function LiteTasksPage() {
             <MessageCircle className="h-4 w-4" />
             <span className="line-clamp-1">{topicTitle}</span>
           </div>
+
+          {/* Task status distribution for multi-cli */}
+          {taskStats.total > 0 && (
+            <div className="flex items-center flex-wrap gap-2 mb-3">
+              {taskStats.completed > 0 && (
+                <Badge variant="success" className="gap-1 text-xs">
+                  <CheckCircle2 className="h-3 w-3" />
+                  {taskStats.completed} {formatMessage({ id: 'liteTasks.status.completed' })}
+                </Badge>
+              )}
+              {taskStats.inProgress > 0 && (
+                <Badge variant="warning" className="gap-1 text-xs">
+                  <Clock className="h-3 w-3" />
+                  {taskStats.inProgress} {formatMessage({ id: 'liteTasks.status.inProgress' })}
+                </Badge>
+              )}
+              {taskStats.blocked > 0 && (
+                <Badge variant="destructive" className="gap-1 text-xs">
+                  <AlertCircle className="h-3 w-3" />
+                  {taskStats.blocked} {formatMessage({ id: 'liteTasks.status.blocked' })}
+                </Badge>
+              )}
+              {taskStats.pending > 0 && (
+                <Badge variant="secondary" className="gap-1 text-xs">
+                  <Activity className="h-3 w-3" />
+                  {taskStats.pending} {formatMessage({ id: 'liteTasks.status.pending' })}
+                </Badge>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             {createdAt && (
               <span className="flex items-center gap-1">
@@ -651,30 +748,30 @@ export function LiteTasksPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as LiteTaskTab)}>
-        <TabsList>
-          <TabsTrigger value="lite-plan">
-            <FileEdit className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'liteTasks.type.plan' })}
-            <Badge variant="secondary" className="ml-2">
-              {litePlan.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="lite-fix">
-            <Wrench className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'liteTasks.type.fix' })}
-            <Badge variant="secondary" className="ml-2">
-              {liteFix.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="multi-cli-plan">
-            <MessagesSquare className="h-4 w-4 mr-2" />
-            {formatMessage({ id: 'liteTasks.type.multiCli' })}
-            <Badge variant="secondary" className="ml-2">
-              {multiCliPlan.length}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
+      <TabsNavigation
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as LiteTaskTab)}
+        tabs={[
+          {
+            value: 'lite-plan',
+            label: formatMessage({ id: 'liteTasks.type.plan' }),
+            icon: <FileEdit className="h-4 w-4" />,
+            badge: <Badge variant="secondary" className="ml-2">{litePlan.length}</Badge>,
+          },
+          {
+            value: 'lite-fix',
+            label: formatMessage({ id: 'liteTasks.type.fix' }),
+            icon: <Wrench className="h-4 w-4" />,
+            badge: <Badge variant="secondary" className="ml-2">{liteFix.length}</Badge>,
+          },
+          {
+            value: 'multi-cli-plan',
+            label: formatMessage({ id: 'liteTasks.type.multiCli' }),
+            icon: <MessagesSquare className="h-4 w-4" />,
+            badge: <Badge variant="secondary" className="ml-2">{multiCliPlan.length}</Badge>,
+          },
+        ]}
+      />
 
         {/* Search and Sort Toolbar */}
         <div className="mt-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
@@ -729,86 +826,91 @@ export function LiteTasksPage() {
         </div>
 
         {/* Lite Plan Tab */}
-        <TabsContent value="lite-plan" className="mt-4">
-          {litePlan.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Zap className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                {formatMessage({ id: 'liteTasks.empty.title' }, { type: 'lite-plan' })}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'liteTasks.empty.message' })}
-              </p>
-            </div>
-          ) : filteredLitePlan.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Search className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                {formatMessage({ id: 'liteTasks.noResults.title' })}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'liteTasks.noResults.message' })}
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-3">{filteredLitePlan.map(renderLiteTaskCard)}</div>
-          )}
-        </TabsContent>
+        {activeTab === 'lite-plan' && (
+          <div className="mt-4">
+            {litePlan.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Zap className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {formatMessage({ id: 'liteTasks.empty.title' }, { type: 'lite-plan' })}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {formatMessage({ id: 'liteTasks.empty.message' })}
+                </p>
+              </div>
+            ) : filteredLitePlan.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Search className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {formatMessage({ id: 'liteTasks.noResults.title' })}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {formatMessage({ id: 'liteTasks.noResults.message' })}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3">{filteredLitePlan.map(renderLiteTaskCard)}</div>
+            )}
+          </div>
+        )}
 
         {/* Lite Fix Tab */}
-        <TabsContent value="lite-fix" className="mt-4">
-          {liteFix.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Zap className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                {formatMessage({ id: 'liteTasks.empty.title' }, { type: 'lite-fix' })}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'liteTasks.empty.message' })}
-              </p>
-            </div>
-          ) : filteredLiteFix.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Search className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                {formatMessage({ id: 'liteTasks.noResults.title' })}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'liteTasks.noResults.message' })}
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-3">{filteredLiteFix.map(renderLiteTaskCard)}</div>
-          )}
-        </TabsContent>
+        {activeTab === 'lite-fix' && (
+          <div className="mt-4">
+            {liteFix.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Zap className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {formatMessage({ id: 'liteTasks.empty.title' }, { type: 'lite-fix' })}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {formatMessage({ id: 'liteTasks.empty.message' })}
+                </p>
+              </div>
+            ) : filteredLiteFix.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Search className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {formatMessage({ id: 'liteTasks.noResults.title' })}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {formatMessage({ id: 'liteTasks.noResults.message' })}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3">{filteredLiteFix.map(renderLiteTaskCard)}</div>
+            )}
+          </div>
+        )}
 
         {/* Multi-CLI Plan Tab */}
-        <TabsContent value="multi-cli-plan" className="mt-4">
-          {multiCliPlan.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Zap className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                {formatMessage({ id: 'liteTasks.empty.title' }, { type: 'multi-cli-plan' })}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'liteTasks.empty.message' })}
-              </p>
-            </div>
-          ) : filteredMultiCliPlan.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Search className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                {formatMessage({ id: 'liteTasks.noResults.title' })}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'liteTasks.noResults.message' })}
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-3">{filteredMultiCliPlan.map(renderMultiCliCard)}</div>
-          )}
-        </TabsContent>
-      </Tabs>
+        {activeTab === 'multi-cli-plan' && (
+          <div className="mt-4">
+            {multiCliPlan.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Zap className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {formatMessage({ id: 'liteTasks.empty.title' }, { type: 'multi-cli-plan' })}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {formatMessage({ id: 'liteTasks.empty.message' })}
+                </p>
+              </div>
+            ) : filteredMultiCliPlan.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Search className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium text-foreground mb-2">
+                  {formatMessage({ id: 'liteTasks.noResults.title' })}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {formatMessage({ id: 'liteTasks.noResults.message' })}
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-3">{filteredMultiCliPlan.map(renderMultiCliCard)}</div>
+            )}
+          </div>
+        )}
 
       {/* TaskDrawer */}
       <TaskDrawer

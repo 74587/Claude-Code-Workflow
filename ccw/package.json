@@ -5,6 +5,7 @@
   "description": "CCW - Claude Code Workflow Platform",
   "author": "CCW Team",
   "license": "MIT",
+  "type": "module",
   "workspaces": [
     "frontend",
     "docs-site"

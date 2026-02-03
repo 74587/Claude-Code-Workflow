@@ -257,12 +257,6 @@ export function TaskListTab({ session, onTaskClick }: TaskListTabProps) {
 
                       {/* Row 2: Meta info */}
                       <div className="flex items-center gap-3 flex-wrap justify-end text-xs text-muted-foreground">
-                        {priority && (
-                          <Badge variant={priority.variant} className="text-xs gap-1">
-                            <Zap className="h-3 w-3" />
-                            {priority.label}
-                          </Badge>
-                        )}
                         {taskType && (
                           <span className="bg-muted px-1.5 py-0.5 rounded">{taskType}</span>
                         )}

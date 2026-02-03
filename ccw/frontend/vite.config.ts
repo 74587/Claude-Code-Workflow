@@ -41,9 +41,8 @@ export default defineConfig({
       '/docs': {
         target: 'http://localhost:3001',
         changeOrigin: true,
-        // Remove /docs prefix when forwarding to Docusaurus
-        // Example: /docs/getting-started -> http://localhost:3001/getting-started
-        rewrite: (path) => path.replace(/^\/docs/, ''),
+        // Preserve /docs prefix to match Docusaurus baseUrl configuration
+        // Example: /docs/overview -> http://localhost:3001/docs/overview
       },
     },
   },

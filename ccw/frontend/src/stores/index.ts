@@ -90,6 +90,20 @@ export {
   selectIsPipelineLoaded,
 } from './coordinatorStore';
 
+// Viewer Store
+export {
+  useViewerStore,
+  useViewerActions,
+  useViewerLayout,
+  useViewerPanes,
+  useViewerTabs,
+  useFocusedPaneId,
+  selectPane,
+  selectTab,
+  selectPaneTabs,
+  selectActiveTab,
+} from './viewerStore';
+
 // Re-export types for convenience
 export type {
   // App Store Types
@@ -142,6 +156,18 @@ export type {
   CoordinatorQuestion,
   PipelineDetails,
 } from './coordinatorStore';
+
+// Viewer Store Types
+export type {
+  PaneId,
+  CliExecutionId,
+  TabId,
+  TabState,
+  PaneState,
+  AllotmentLayoutGroup,
+  AllotmentLayout,
+  ViewerState,
+} from './viewerStore';
 
 // Execution Types
 export type {

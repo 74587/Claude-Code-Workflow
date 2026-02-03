@@ -8,6 +8,15 @@
     "archived": "Archived",
     "paused": "Paused"
   },
+  "type": {
+    "workflow": "Workflow",
+    "review": "Review",
+    "tdd": "TDD",
+    "test": "Test",
+    "docs": "Docs",
+    "lite-plan": "Lite Plan",
+    "lite-fix": "Lite Fix"
+  },
   "actions": {
     "viewDetails": "View Details",
     "archive": "Archive",

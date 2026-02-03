@@ -28,9 +28,9 @@ export interface WorkflowStatusPieChartWidgetProps {
  */
 function WorkflowStatusPieChartWidgetComponent({ className, ...props }: WorkflowStatusPieChartWidgetProps) {
   const { formatMessage } = useIntl();
-  const { data, isLoading, error } = useWorkflowStatusCounts();
+  const { data, isLoading } = useWorkflowStatusCounts();
 
-  // Use mock data if API is not ready
+  // Use mock data if API call fails or returns no data
   const chartData = data || generateMockWorkflowStatusCounts();
 
   return (
@@ -41,10 +41,6 @@ function WorkflowStatusPieChartWidgetComponent({ className, ...props }: Workflow
         </h3>
         {isLoading ? (
           <ChartSkeleton type="pie" height={280} />
-        ) : error ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-destructive">Failed to load chart data</p>
-          </div>
         ) : (
           <WorkflowStatusPieChart data={chartData} height={280} />
         )}

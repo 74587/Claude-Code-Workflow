@@ -27,6 +27,12 @@ import {
   CheckCircle2,
   AlertCircle,
   RefreshCw,
+  FileText,
+  Search,
+  TestTube,
+  File,
+  Settings,
+  Zap,
 } from 'lucide-react';
 import type { SessionMetadata } from '@/types/store';
 
@@ -68,6 +74,31 @@ const statusLabelKeys: Record<SessionMetadata['status'], string> = {
   completed: 'sessions.status.completed',
   archived: 'sessions.status.archived',
   paused: 'sessions.status.paused',
+};
+
+// Type variant configuration for session type badges
+const typeVariantConfig: Record<
+  SessionMetadata['type'],
+  { variant: 'default' | 'secondary' | 'destructive' | 'success' | 'warning' | 'info'; icon: React.ElementType }
+> = {
+  review: { variant: 'info', icon: Search },
+  'tdd': { variant: 'success', icon: TestTube },
+  test: { variant: 'default', icon: FileText },
+  docs: { variant: 'warning', icon: File },
+  workflow: { variant: 'secondary', icon: Settings },
+  'lite-plan': { variant: 'default', icon: FileText },
+  'lite-fix': { variant: 'warning', icon: Zap },
+};
+
+// Type label keys for i18n
+const typeLabelKeys: Record<SessionMetadata['type'], string> = {
+  review: 'sessions.type.review',
+  tdd: 'sessions.type.tdd',
+  test: 'sessions.type.test',
+  docs: 'sessions.type.docs',
+  workflow: 'sessions.type.workflow',
+  'lite-plan': 'sessions.type.lite-plan',
+  'lite-fix': 'sessions.type.lite-fix',
 };
 
 /**
@@ -150,6 +181,12 @@ export function SessionCard({
     ? formatMessage({ id: statusLabelKeys[session.status] })
     : formatMessage({ id: 'common.status.unknown' });
 
+  // Type badge configuration (graceful degradation when type is undefined)
+  const typeConfig = session.type ? typeVariantConfig[session.type] : null;
+  const typeLabel = session.type && typeLabelKeys[session.type]
+    ? formatMessage({ id: typeLabelKeys[session.type] })
+    : null;
+
   const progress = calculateProgress(session.tasks);
   const isPlanning = session.status === 'planning';
   const isArchived = session.status === 'archived' || session.location === 'archived';
@@ -199,6 +236,12 @@ export function SessionCard({
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Badge variant={statusVariant}>{statusLabel}</Badge>
+            {typeConfig && typeLabel && (
+              <Badge variant={typeConfig.variant} className="gap-1">
+                <typeConfig.icon className="h-3 w-3" />
+                {typeLabel}
+              </Badge>
+            )}
             {showActions && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

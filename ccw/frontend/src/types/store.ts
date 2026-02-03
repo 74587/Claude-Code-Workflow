@@ -12,6 +12,28 @@ export type ViewMode = 'sessions' | 'liteTasks' | 'project-overview' | 'sessionD
 export type SessionFilter = 'all' | 'active' | 'archived';
 export type LiteTaskType = 'lite-plan' | 'lite-fix' | null;
 
+/**
+ * Session type identifier matching backend session types.
+ *
+ * @remarks
+ * This type defines all available session types in the CCW workflow system.
+ * It matches the backend SessionType definition in `ccw/src/types/session.ts`.
+ *
+ * **Type descriptions:**
+ * - `workflow`: Standard workflow execution session
+ * - `review`: Code review session with dimension-based analysis
+ * - `tdd`: Test-driven development session
+ * - `test`: Testing session
+ * - `docs`: Documentation generation session
+ * - `lite-plan`: Lightweight planning session
+ * - `lite-fix`: Lightweight bug fix session
+ *
+ * **Backend type definition:** {@link https://github.com/claudews/ccw/blob/main/ccw/src/types/session.ts | session.ts}
+ *
+ * @see {@link SessionMetadata.type | SessionMetadata.type} for usage in session metadata
+ */
+export type SessionType = 'workflow' | 'review' | 'tdd' | 'test' | 'docs' | 'lite-plan' | 'lite-fix';
+
 export interface AppState {
   // Theme
   theme: Theme;
@@ -148,6 +170,7 @@ export interface DashboardLayoutActions {
  */
 export interface SessionMetadata {
   session_id: string;
+  type?: SessionType;
   title?: string;
   description?: string;
   status: 'planning' | 'in_progress' | 'completed' | 'archived' | 'paused';

@@ -10,7 +10,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { TabsNavigation, type TabItem } from '@/components/ui/TabsNavigation';
 import {
   ProviderList,
   ProviderModal,
@@ -198,26 +198,21 @@ export function ApiSettingsPage() {
       </div>
 
       {/* Tabbed Interface */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)}>
-        <TabsList>
-          <TabsTrigger value="providers">
-            {formatMessage({ id: 'apiSettings.tabs.providers' })}
-          </TabsTrigger>
-          <TabsTrigger value="endpoints">
-            {formatMessage({ id: 'apiSettings.tabs.endpoints' })}
-          </TabsTrigger>
-          <TabsTrigger value="cache">
-            {formatMessage({ id: 'apiSettings.tabs.cache' })}
-          </TabsTrigger>
-          <TabsTrigger value="modelPools">
-            {formatMessage({ id: 'apiSettings.tabs.modelPools' })}
-          </TabsTrigger>
-          <TabsTrigger value="cliSettings">
-            {formatMessage({ id: 'apiSettings.tabs.cliSettings' })}
-          </TabsTrigger>
-        </TabsList>
+      <TabsNavigation
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as TabType)}
+        tabs={[
+          { value: 'providers', label: formatMessage({ id: 'apiSettings.tabs.providers' }) },
+          { value: 'endpoints', label: formatMessage({ id: 'apiSettings.tabs.endpoints' }) },
+          { value: 'cache', label: formatMessage({ id: 'apiSettings.tabs.cache' }) },
+          { value: 'modelPools', label: formatMessage({ id: 'apiSettings.tabs.modelPools' }) },
+          { value: 'cliSettings', label: formatMessage({ id: 'apiSettings.tabs.cliSettings' }) },
+        ]}
+      />
 
-        <TabsContent value="providers">
+      {/* Tab Content */}
+      {activeTab === 'providers' && (
+        <div className="mt-4">
           <ProviderList
             onAddProvider={handleAddProvider}
             onEditProvider={handleEditProvider}
@@ -225,33 +220,41 @@ export function ApiSettingsPage() {
             onSyncToCodexLens={handleSyncToCodexLens}
             onManageModels={handleManageModels}
           />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="endpoints">
+      {activeTab === 'endpoints' && (
+        <div className="mt-4">
           <EndpointList
             onAddEndpoint={handleAddEndpoint}
             onEditEndpoint={handleEditEndpoint}
           />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="cache">
+      {activeTab === 'cache' && (
+        <div className="mt-4">
           <CacheSettings />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="modelPools">
+      {activeTab === 'modelPools' && (
+        <div className="mt-4">
           <ModelPoolList
             onAddPool={handleAddPool}
             onEditPool={handleEditPool}
           />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="cliSettings">
+      {activeTab === 'cliSettings' && (
+        <div className="mt-4">
           <CliSettingsList
             onAddCliSettings={handleAddCliSettings}
             onEditCliSettings={handleEditCliSettings}
           />
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* Modals */}
       <ProviderModal

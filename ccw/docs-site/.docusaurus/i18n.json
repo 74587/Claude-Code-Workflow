@@ -14,7 +14,7 @@
       "calendar": "gregory",
       "path": "en",
       "translate": false,
-      "url": "https://ccw.dev",
+      "url": "http://localhost:3001",
       "baseUrl": "/docs/"
     },
     "zh": {
@@ -24,7 +24,7 @@
       "calendar": "gregory",
       "path": "zh",
       "translate": true,
-      "url": "https://ccw.dev",
+      "url": "http://localhost:3001",
       "baseUrl": "/docs/zh/"
     }
   }

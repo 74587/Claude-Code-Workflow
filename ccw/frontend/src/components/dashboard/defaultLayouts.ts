@@ -7,44 +7,33 @@ import type { WidgetConfig, DashboardLayouts, DashboardLayoutState } from '@/typ
 
 /** Widget IDs used across the dashboard */
 export const WIDGET_IDS = {
-  STATS: 'detailed-stats',
+  WORKFLOW_TASK: 'workflow-task',
   RECENT_SESSIONS: 'recent-sessions',
-  WORKFLOW_STATUS: 'workflow-status-pie',
-  ACTIVITY: 'activity-line',
-  TASK_TYPES: 'task-type-bar',
 } as const;
 
 /** Default widget configurations */
 export const DEFAULT_WIDGETS: WidgetConfig[] = [
-  { i: WIDGET_IDS.STATS, name: 'Statistics', visible: true, minW: 4, minH: 2 },
-  { i: WIDGET_IDS.RECENT_SESSIONS, name: 'Recent Sessions', visible: true, minW: 4, minH: 3 },
-  { i: WIDGET_IDS.WORKFLOW_STATUS, name: 'Workflow Status', visible: true, minW: 3, minH: 3 },
-  { i: WIDGET_IDS.ACTIVITY, name: 'Activity', visible: true, minW: 4, minH: 3 },
-  { i: WIDGET_IDS.TASK_TYPES, name: 'Task Types', visible: true, minW: 3, minH: 3 },
+  { i: WIDGET_IDS.WORKFLOW_TASK, name: 'Workflow & Tasks', visible: true, minW: 6, minH: 4 },
+  { i: WIDGET_IDS.RECENT_SESSIONS, name: 'Recent Sessions', visible: true, minW: 6, minH: 3 },
 ];
 
 /** Default responsive layouts */
 export const DEFAULT_LAYOUTS: DashboardLayouts = {
   lg: [
-    { i: WIDGET_IDS.STATS, x: 0, y: 0, w: 12, h: 2, minW: 4, minH: 2 },
-    { i: WIDGET_IDS.RECENT_SESSIONS, x: 0, y: 2, w: 6, h: 4, minW: 4, minH: 3 },
-    { i: WIDGET_IDS.WORKFLOW_STATUS, x: 6, y: 2, w: 6, h: 4, minW: 3, minH: 3 },
-    { i: WIDGET_IDS.ACTIVITY, x: 0, y: 6, w: 7, h: 4, minW: 4, minH: 3 },
-    { i: WIDGET_IDS.TASK_TYPES, x: 7, y: 6, w: 5, h: 4, minW: 3, minH: 3 },
+    // Row 1: Combined WorkflowTask (full width - includes Stats, Workflow, Tasks, Heatmap)
+    { i: WIDGET_IDS.WORKFLOW_TASK, x: 0, y: 0, w: 12, h: 5, minW: 6, minH: 4 },
+    // Row 2: Recent Sessions (full width)
+    { i: WIDGET_IDS.RECENT_SESSIONS, x: 0, y: 5, w: 12, h: 4, minW: 6, minH: 3 },
   ],
   md: [
-    { i: WIDGET_IDS.STATS, x: 0, y: 0, w: 6, h: 2, minW: 3, minH: 2 },
-    { i: WIDGET_IDS.RECENT_SESSIONS, x: 0, y: 2, w: 6, h: 4, minW: 3, minH: 3 },
-    { i: WIDGET_IDS.WORKFLOW_STATUS, x: 0, y: 6, w: 6, h: 4, minW: 3, minH: 3 },
-    { i: WIDGET_IDS.ACTIVITY, x: 0, y: 10, w: 6, h: 4, minW: 3, minH: 3 },
-    { i: WIDGET_IDS.TASK_TYPES, x: 0, y: 14, w: 6, h: 4, minW: 3, minH: 3 },
+    // Medium: Stack vertically, full width each
+    { i: WIDGET_IDS.WORKFLOW_TASK, x: 0, y: 0, w: 6, h: 5, minW: 4, minH: 4 },
+    { i: WIDGET_IDS.RECENT_SESSIONS, x: 0, y: 5, w: 6, h: 4, minW: 4, minH: 3 },
   ],
   sm: [
-    { i: WIDGET_IDS.STATS, x: 0, y: 0, w: 2, h: 3, minW: 2, minH: 2 },
-    { i: WIDGET_IDS.RECENT_SESSIONS, x: 0, y: 3, w: 2, h: 4, minW: 2, minH: 3 },
-    { i: WIDGET_IDS.WORKFLOW_STATUS, x: 0, y: 7, w: 2, h: 4, minW: 2, minH: 3 },
-    { i: WIDGET_IDS.ACTIVITY, x: 0, y: 11, w: 2, h: 4, minW: 2, minH: 3 },
-    { i: WIDGET_IDS.TASK_TYPES, x: 0, y: 15, w: 2, h: 4, minW: 2, minH: 3 },
+    // Small: Stack vertically
+    { i: WIDGET_IDS.WORKFLOW_TASK, x: 0, y: 0, w: 2, h: 8, minW: 2, minH: 6 },
+    { i: WIDGET_IDS.RECENT_SESSIONS, x: 0, y: 8, w: 2, h: 5, minW: 2, minH: 4 },
   ],
 };
 

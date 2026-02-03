@@ -12,6 +12,9 @@ import { DEFAULT_DASHBOARD_LAYOUT } from '@/components/dashboard/defaultLayouts'
 const DEBOUNCE_DELAY = 1000; // 1 second debounce for layout saves
 const STORAGE_KEY = 'ccw-dashboard-layout';
 
+// Version for layout schema - increment when widget IDs change
+const LAYOUT_VERSION = 2; // v2: workflow-task + recent-sessions
+
 export interface UseUserDashboardLayoutResult {
   /** Current dashboard layouts */
   layouts: DashboardLayouts;
@@ -59,8 +62,36 @@ export function useUserDashboardLayout(): UseUserDashboardLayoutResult {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isSavingRef = useRef(false);
 
-  // Initialize layout if not set
+  // Initialize layout if not set or version mismatch
   useEffect(() => {
+    // Check if stored version matches current version
+    const storedVersion = localStorage.getItem(`${STORAGE_KEY}-version`);
+    const versionMismatch = storedVersion !== String(LAYOUT_VERSION);
+
+    if (versionMismatch) {
+      // Version mismatch - reset to default and update version
+      console.log(`Dashboard layout version changed (${storedVersion} -> ${LAYOUT_VERSION}), resetting to default`);
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(`${STORAGE_KEY}-version`, String(LAYOUT_VERSION));
+
+      // Also clear dashboardLayout from Zustand persist storage
+      try {
+        const zustandStorage = localStorage.getItem('ccw-app-store');
+        if (zustandStorage) {
+          const parsed = JSON.parse(zustandStorage);
+          if (parsed.state?.dashboardLayout) {
+            delete parsed.state.dashboardLayout;
+            localStorage.setItem('ccw-app-store', JSON.stringify(parsed));
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to clear Zustand dashboard layout:', e);
+      }
+
+      resetDashboardLayout();
+      return;
+    }
+
     if (!dashboardLayout) {
       // Try to load from localStorage first
       try {
@@ -96,9 +127,10 @@ export function useUserDashboardLayout(): UseUserDashboardLayoutResult {
         // Update Zustand store (which will persist to localStorage)
         setDashboardLayouts(newLayouts);
 
-        // Also save to additional localStorage backup
+        // Also save to additional localStorage backup with version
         const currentWidgets = dashboardLayout?.widgets || DEFAULT_DASHBOARD_LAYOUT.widgets;
         setLocalStorageLayout({ layouts: newLayouts, widgets: currentWidgets });
+        localStorage.setItem(`${STORAGE_KEY}-version`, String(LAYOUT_VERSION));
 
         // TODO: When backend API is ready, uncomment this:
         // syncToBackend({ layouts: newLayouts, widgets: currentWidgets });
@@ -114,9 +146,10 @@ export function useUserDashboardLayout(): UseUserDashboardLayoutResult {
     (newWidgets: WidgetConfig[]) => {
       setDashboardWidgets(newWidgets);
 
-      // Also save to localStorage backup
+      // Also save to localStorage backup with version
       const currentLayouts = dashboardLayout?.layouts || DEFAULT_DASHBOARD_LAYOUT.layouts;
       setLocalStorageLayout({ layouts: currentLayouts, widgets: newWidgets });
+      localStorage.setItem(`${STORAGE_KEY}-version`, String(LAYOUT_VERSION));
 
       // TODO: When backend API is ready, uncomment this:
       // syncToBackend({ layouts: currentLayouts, widgets: newWidgets });
@@ -134,8 +167,9 @@ export function useUserDashboardLayout(): UseUserDashboardLayoutResult {
     // Reset Zustand store
     resetDashboardLayout();
 
-    // Reset localStorage backup
+    // Reset localStorage backup with version
     setLocalStorageLayout(DEFAULT_DASHBOARD_LAYOUT);
+    localStorage.setItem(`${STORAGE_KEY}-version`, String(LAYOUT_VERSION));
 
     // TODO: When backend API is ready, uncomment this:
     // syncToBackend(DEFAULT_DASHBOARD_LAYOUT);

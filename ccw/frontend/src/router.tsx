@@ -31,7 +31,6 @@ import {
   McpManagerPage,
   EndpointsPage,
   InstallationsPage,
-  ExecutionMonitorPage,
   HookManagerPage,
   RulesManagerPage,
   PromptHistoryPage,
@@ -39,6 +38,7 @@ import {
   GraphExplorerPage,
   CodexLensManagerPage,
   ApiSettingsPage,
+  CliViewerPage,
 } from '@/pages';
 
 /**
@@ -92,12 +92,12 @@ const routes: RouteObject[] = [
         element: <CoordinatorPage />,
       },
       {
-        path: 'executions',
-        element: <ExecutionMonitorPage />,
-      },
-      {
         path: 'loops',
         element: <LoopMonitorPage />,
+      },
+      {
+        path: 'cli-viewer',
+        element: <CliViewerPage />,
       },
       {
         path: 'issues',
@@ -206,8 +206,8 @@ export const ROUTES = {
   HISTORY: '/history',
   ORCHESTRATOR: '/orchestrator',
   COORDINATOR: '/coordinator',
-  EXECUTIONS: '/executions',
   LOOPS: '/loops',
+  CLI_VIEWER: '/cli-viewer',
   ISSUES: '/issues',
   // Legacy issue routes - use ISSUES with ?tab parameter instead
   ISSUE_QUEUE: '/issues?tab=queue',

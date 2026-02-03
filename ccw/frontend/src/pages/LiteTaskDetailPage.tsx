@@ -41,7 +41,8 @@ import { Flowchart } from '@/components/shared/Flowchart';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { Tabs, TabsContent } from '@/components/ui/Tabs';
+import { TabsNavigation, type TabItem } from '@/components/ui/TabsNavigation';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/Collapsible';
 import type { LiteTask, LiteTaskSession } from '@/lib/api';
 
@@ -330,53 +331,68 @@ export function LiteTaskDetailPage() {
 
       {/* Session Type-Specific Tabs */}
       {isMultiCli ? (
-        <Tabs value={multiCliActiveTab} onValueChange={(v) => setMultiCliActiveTab(v as MultiCliTab)}>
-          <TabsList className="w-full">
-            <TabsTrigger value="tasks" className="flex-1 gap-1">
-              <ListTodo className="h-4 w-4" />
-              {formatMessage({ id: 'liteTasksDetail.tabs.tasks' })}
-            </TabsTrigger>
-            <TabsTrigger value="discussion" className="flex-1 gap-1">
-              <MessageSquare className="h-4 w-4" />
-              {formatMessage({ id: 'liteTasksDetail.tabs.discussion' })}
-            </TabsTrigger>
-            <TabsTrigger value="context" className="flex-1 gap-1">
-              <Package className="h-4 w-4" />
-              {formatMessage({ id: 'liteTasksDetail.tabs.context' })}
-            </TabsTrigger>
-            <TabsTrigger value="summary" className="flex-1 gap-1">
-              <FileText className="h-4 w-4" />
-              {formatMessage({ id: 'liteTasksDetail.tabs.summary' })}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <TabsNavigation
+          value={multiCliActiveTab}
+          onValueChange={(v) => setMultiCliActiveTab(v as MultiCliTab)}
+          tabs={[
+            {
+              value: 'tasks',
+              label: formatMessage({ id: 'liteTasksDetail.tabs.tasks' }),
+              icon: <ListTodo className="h-4 w-4" />,
+            },
+            {
+              value: 'discussion',
+              label: formatMessage({ id: 'liteTasksDetail.tabs.discussion' }),
+              icon: <MessageSquare className="h-4 w-4" />,
+            },
+            {
+              value: 'context',
+              label: formatMessage({ id: 'liteTasksDetail.tabs.context' }),
+              icon: <Package className="h-4 w-4" />,
+            },
+            {
+              value: 'summary',
+              label: formatMessage({ id: 'liteTasksDetail.tabs.summary' }),
+              icon: <FileText className="h-4 w-4" />,
+            },
+          ]}
+        />
       ) : (
-        <Tabs value={litePlanActiveTab} onValueChange={(v) => setLitePlanActiveTab(v as LitePlanTab)}>
-          <TabsList className="w-full">
-            <TabsTrigger value="tasks" className="flex-1 gap-1">
-              <ListTodo className="h-4 w-4" />
-              {formatMessage({ id: 'liteTasksDetail.tabs.tasks' })}
-            </TabsTrigger>
-            <TabsTrigger value="plan" className="flex-1 gap-1">
-              <Ruler className="h-4 w-4" />
-              {formatMessage({ id: 'liteTasksDetail.tabs.plan' })}
-            </TabsTrigger>
-            {isLiteFix && (
-              <TabsTrigger value="diagnoses" className="flex-1 gap-1">
-                <Stethoscope className="h-4 w-4" />
-                {formatMessage({ id: 'liteTasksDetail.tabs.diagnoses' })}
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="context" className="flex-1 gap-1">
-              <Package className="h-4 w-4" />
-              {formatMessage({ id: 'liteTasksDetail.tabs.context' })}
-            </TabsTrigger>
-            <TabsTrigger value="summary" className="flex-1 gap-1">
-              <FileText className="h-4 w-4" />
-              {formatMessage({ id: 'liteTasksDetail.tabs.summary' })}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <TabsNavigation
+          value={litePlanActiveTab}
+          onValueChange={(v) => setLitePlanActiveTab(v as LitePlanTab)}
+          tabs={[
+            {
+              value: 'tasks',
+              label: formatMessage({ id: 'liteTasksDetail.tabs.tasks' }),
+              icon: <ListTodo className="h-4 w-4" />,
+            },
+            {
+              value: 'plan',
+              label: formatMessage({ id: 'liteTasksDetail.tabs.plan' }),
+              icon: <Ruler className="h-4 w-4" />,
+            },
+            ...(isLiteFix
+              ? [
+                  {
+                    value: 'diagnoses' as const,
+                    label: formatMessage({ id: 'liteTasksDetail.tabs.diagnoses' }),
+                    icon: <Stethoscope className="h-4 w-4" />,
+                  },
+                ]
+              : []),
+            {
+              value: 'context',
+              label: formatMessage({ id: 'liteTasksDetail.tabs.context' }),
+              icon: <Package className="h-4 w-4" />,
+            },
+            {
+              value: 'summary',
+              label: formatMessage({ id: 'liteTasksDetail.tabs.summary' }),
+              icon: <FileText className="h-4 w-4" />,
+            },
+          ]}
+        />
       )}
 
       {/* Task List with Multi-Tab Content */}
@@ -390,15 +406,11 @@ export function LiteTaskDetailPage() {
             <Card key={taskId} className="overflow-hidden">
               {/* Task Header */}
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-4">
+                  {/* Left: Task ID, Title, Description */}
                   <div className="flex-1 min-w-0">
                     <CardTitle className="text-base font-medium flex items-center gap-2 flex-wrap">
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-semibold bg-primary/10 text-primary border border-primary/20">{taskId}</span>
-                      <Badge
-                        variant={task.status === 'completed' ? 'success' : task.status === 'in_progress' ? 'warning' : 'secondary'}
-                      >
-                        {task.status}
-                      </Badge>
                       {task.priority && (
                         <Badge variant="outline" className="text-xs">{task.priority}</Badge>
                       )}
@@ -414,28 +426,77 @@ export function LiteTaskDetailPage() {
                       <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
                     )}
                   </div>
+
+                  {/* Right: Meta Information */}
+                  <div className="flex flex-col items-end gap-2 text-xs text-muted-foreground flex-shrink-0">
+                    {/* Row 1: Status Badge */}
+                    <Badge
+                      variant={task.status === 'completed' ? 'success' : task.status === 'in_progress' ? 'warning' : task.status === 'blocked' ? 'destructive' : 'secondary'}
+                      className="w-fit"
+                    >
+                      {task.status}
+                    </Badge>
+
+                    {/* Row 2: Metadata */}
+                    <div className="flex items-center gap-3 flex-wrap justify-end">
+                      {/* Dependencies Count */}
+                      {task.context?.depends_on && task.context.depends_on.length > 0 && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-muted/50">
+                          <span className="font-mono font-semibold text-foreground">{task.context.depends_on.length}</span>
+                          <span>dep{task.context.depends_on.length > 1 ? 's' : ''}</span>
+                        </span>
+                      )}
+
+                      {/* Target Files Count */}
+                      {task.flow_control?.target_files && task.flow_control.target_files.length > 0 && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-muted/50">
+                          <span className="font-mono font-semibold text-foreground">{task.flow_control.target_files.length}</span>
+                          <span>file{task.flow_control.target_files.length > 1 ? 's' : ''}</span>
+                        </span>
+                      )}
+
+                      {/* Focus Paths Count */}
+                      {task.context?.focus_paths && task.context.focus_paths.length > 0 && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-muted/50">
+                          <span className="font-mono font-semibold text-foreground">{task.context.focus_paths.length}</span>
+                          <span>focus</span>
+                        </span>
+                      )}
+
+                      {/* Acceptance Criteria Count */}
+                      {task.context?.acceptance && task.context.acceptance.length > 0 && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-muted/50">
+                          <span className="font-mono font-semibold text-foreground">{task.context.acceptance.length}</span>
+                          <span>criteria</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </CardHeader>
 
               {/* Multi-Tab Content */}
-              <Tabs
-                value={activeTaskTab}
-                onValueChange={(v) => handleTaskTabChange(taskId, v as TaskTabValue)}
-                className="w-full"
-              >
-                <TabsList className="w-full rounded-none border-y border-border bg-muted/50 px-4">
-                  <TabsTrigger value="task" className="flex-1 gap-1.5">
-                    <ListTodo className="h-4 w-4" />
-                    Task
-                  </TabsTrigger>
-                  <TabsTrigger value="context" className="flex-1 gap-1.5">
-                    <Package className="h-4 w-4" />
-                    Context
-                  </TabsTrigger>
-                </TabsList>
+              <div className="w-full">
+                <TabsNavigation
+                  value={activeTaskTab}
+                  onValueChange={(v) => handleTaskTabChange(taskId, v as TaskTabValue)}
+                  tabs={[
+                    {
+                      value: 'task',
+                      label: 'Task',
+                      icon: <ListTodo className="h-4 w-4" />,
+                    },
+                    {
+                      value: 'context',
+                      label: 'Context',
+                      icon: <Package className="h-4 w-4" />,
+                    },
+                  ]}
+                />
 
                 {/* Task Tab - Implementation Details */}
-                <TabsContent value="task" className="p-4 space-y-4">
+                {activeTaskTab === 'task' && (
+                  <div className="p-4 space-y-4">
                   {/* Flowchart */}
                   {hasFlowchart && task.flow_control && (
                     <div>
@@ -478,10 +539,12 @@ export function LiteTaskDetailPage() {
                       </div>
                     </div>
                   )}
-                </TabsContent>
+                  </div>
+                )}
 
                 {/* Context Tab - Planning Context */}
-                <TabsContent value="context" className="p-4 space-y-4">
+                {activeTaskTab === 'context' && (
+                  <div className="p-4 space-y-4">
                   {/* Focus Paths */}
                   {task.context?.focus_paths && task.context.focus_paths.length > 0 && (
                     <div>
@@ -547,8 +610,9 @@ export function LiteTaskDetailPage() {
                       </ul>
                     </div>
                   )}
-                </TabsContent>
-              </Tabs>
+                  </div>
+                )}
+              </div>
             </Card>
           );
         })}

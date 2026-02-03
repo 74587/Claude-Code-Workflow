@@ -7,11 +7,13 @@ const config: Config = {
   tagline: 'Professional Workflow Automation Platform',
   favicon: 'img/favicon.ico',
 
-  url: 'https://ccw.dev',
+  url: 'http://localhost:3001',
   baseUrl: '/docs/',
 
   organizationName: 'ccw',
   projectName: 'docs',
+
+  trailingSlash: false,
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',

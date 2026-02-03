@@ -45,5 +45,7 @@
   "tokens": "Tokens: {count}",
   "duration": "Duration: {value}",
   "model": "Model: {name}",
-  "user": "User"
+  "user": "User",
+  "popOutToPage": "Open in Full Page",
+  "openInViewer": "Open in CLI Viewer"
 }

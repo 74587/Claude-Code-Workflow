@@ -42,22 +42,18 @@
       "plugin": "plugin---docs-docusaurus-debugb-38-c84"
     }
   },
-  "/docs/docs-7fe": {
+  "/docs/docs-942": {
     "__comp": "__comp---theme-docs-root-5-e-9-0b6",
     "__context": {
       "plugin": "plugin---docs-docsaba-31e"
     }
   },
-  "/docs/docs-830": {
+  "/docs/docs-a90": {
     "__comp": "__comp---theme-doc-version-roota-7-b-5de",
     "__props": "__props---docs-docsa-20-f19"
   },
-  "/docs/docs-77f": {
+  "/docs/docs-c2e": {
     "__comp": "__comp---theme-doc-roota-94-67a"
-  },
-  "/docs/docs/-2fa": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-188-f57"
   },
   "/docs/docs/commands/cli/cli-init-c74": {
     "__comp": "__comp---theme-doc-item-178-a40",
@@ -150,6 +146,10 @@
   "/docs/docs/faq-4b2": {
     "__comp": "__comp---theme-doc-item-178-a40",
     "content": "content---docs-docs-faqea-3-29f"
+  },
+  "/docs/docs/overview-7df": {
+    "__comp": "__comp---theme-doc-item-178-a40",
+    "content": "content---docs-docs-overview-188-8fe"
   },
   "/docs/docs/workflows/faq-f47": {
     "__comp": "__comp---theme-doc-item-178-a40",

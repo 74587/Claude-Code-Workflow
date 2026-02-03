@@ -1,43 +1,27 @@
 // ========================================
 // HomePage Component
 // ========================================
-// Dashboard home page with stat cards and recent sessions
+// Dashboard home page with combined stats, workflow status, and activity heatmap
 
 import * as React from 'react';
-import { lazy, Suspense } from 'react';
 import { useIntl } from 'react-intl';
 import { AlertCircle } from 'lucide-react';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
-import { DashboardGridContainer } from '@/components/dashboard/DashboardGridContainer';
-import { DetailedStatsWidget } from '@/components/dashboard/widgets/DetailedStatsWidget';
+import { WorkflowTaskWidget } from '@/components/dashboard/widgets/WorkflowTaskWidget';
 import { RecentSessionsWidget } from '@/components/dashboard/widgets/RecentSessionsWidget';
-import { ChartSkeleton } from '@/components/charts';
 import { Button } from '@/components/ui/Button';
-import { useUserDashboardLayout } from '@/hooks/useUserDashboardLayout';
-import { WIDGET_IDS } from '@/components/dashboard/defaultLayouts';
-
-// Code-split chart widgets for better initial load performance
-const WorkflowStatusPieChartWidget = lazy(() => import('@/components/dashboard/widgets/WorkflowStatusPieChartWidget'));
-const ActivityLineChartWidget = lazy(() => import('@/components/dashboard/widgets/ActivityLineChartWidget'));
-const TaskTypeBarChartWidget = lazy(() => import('@/components/dashboard/widgets/TaskTypeBarChartWidget'));
 
 /**
- * HomePage component - Dashboard overview with widget-based layout
+ * HomePage component - Dashboard overview with fixed widget layout
  */
 export function HomePage() {
   const { formatMessage } = useIntl();
-  const { resetLayout } = useUserDashboardLayout();
 
   // Track errors from widgets (optional, for future enhancements)
   const [hasError, _setHasError] = React.useState(false);
 
   const handleRefresh = () => {
-    // Trigger refetch by reloading the page or using React Query's invalidateQueries
     window.location.reload();
-  };
-
-  const handleResetLayout = () => {
-    resetLayout();
   };
 
   return (
@@ -47,7 +31,6 @@ export function HomePage() {
         titleKey="home.dashboard.title"
         descriptionKey="home.dashboard.description"
         onRefresh={handleRefresh}
-        onResetLayout={handleResetLayout}
       />
 
       {/* Error alert (optional, shown if widgets encounter critical errors) */}
@@ -66,29 +49,14 @@ export function HomePage() {
         </div>
       )}
 
-      {/* Dashboard Grid with Widgets */}
-      <DashboardGridContainer isDraggable={true} isResizable={true}>
-        {/* Widget 1: Detailed Stats */}
-        <DetailedStatsWidget key={WIDGET_IDS.STATS} />
+      {/* Dashboard Widgets - Simple flex layout for dynamic height */}
+      <div className="flex flex-col gap-4">
+        {/* Row 1: Combined Stats + Workflow Status + Task Details */}
+        <WorkflowTaskWidget />
 
-        {/* Widget 2: Recent Sessions */}
-        <RecentSessionsWidget key={WIDGET_IDS.RECENT_SESSIONS} />
-
-        {/* Widget 3: Workflow Status Pie Chart (code-split with Suspense fallback) */}
-        <Suspense fallback={<ChartSkeleton type="pie" height={280} />}>
-          <WorkflowStatusPieChartWidget key={WIDGET_IDS.WORKFLOW_STATUS} />
-        </Suspense>
-
-        {/* Widget 4: Activity Line Chart (code-split with Suspense fallback) */}
-        <Suspense fallback={<ChartSkeleton type="line" height={280} />}>
-          <ActivityLineChartWidget key={WIDGET_IDS.ACTIVITY} />
-        </Suspense>
-
-        {/* Widget 5: Task Type Bar Chart (code-split with Suspense fallback) */}
-        <Suspense fallback={<ChartSkeleton type="bar" height={280} />}>
-          <TaskTypeBarChartWidget key={WIDGET_IDS.TASK_TYPES} />
-        </Suspense>
-      </DashboardGridContainer>
+        {/* Row 2: Recent Sessions */}
+        <RecentSessionsWidget />
+      </div>
     </div>
   );
 }

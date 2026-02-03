@@ -127,7 +127,7 @@
             },
             {
               "id": "overview",
-              "path": "/docs/docs/",
+              "path": "/docs/docs/overview",
               "sidebar": "docs"
             },
             {
@@ -169,7 +169,7 @@
           "sidebars": {
             "docs": {
               "link": {
-                "path": "/docs/docs/",
+                "path": "/docs/docs/overview",
                 "label": "Quick Start"
               }
             }

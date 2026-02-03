@@ -9,6 +9,7 @@ import sessions from './sessions.json';
 import issues from './issues.json';
 import home from './home.json';
 import orchestrator from './orchestrator.json';
+import coordinator from './coordinator.json';
 import loops from './loops.json';
 import commands from './commands.json';
 import memory from './memory.json';
@@ -37,6 +38,7 @@ import notification from './notification.json';
 import notifications from './notifications.json';
 import workspace from './workspace.json';
 import help from './help.json';
+import cliViewer from './cli-viewer.json';
 
 /**
  * Flattens nested JSON object to dot-separated keys
@@ -69,6 +71,7 @@ export default {
   ...flattenMessages(issues, 'issues'),
   ...flattenMessages(home, 'home'),
   ...flattenMessages(orchestrator, 'orchestrator'),
+  ...flattenMessages(coordinator, 'coordinator'),
   ...flattenMessages(loops, 'loops'),
   ...flattenMessages(commands, 'commands'),
   ...flattenMessages(memory, 'memory'),
@@ -97,4 +100,5 @@ export default {
   ...flattenMessages(notifications, 'notifications'),
   ...flattenMessages(workspace, 'workspace'),
   ...flattenMessages(help, 'help'),
+  ...flattenMessages(cliViewer, 'cliViewer'),
 } as Record<string, string>;

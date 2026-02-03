@@ -28,9 +28,9 @@ export interface TaskTypeBarChartWidgetProps {
  */
 function TaskTypeBarChartWidgetComponent({ className, ...props }: TaskTypeBarChartWidgetProps) {
   const { formatMessage } = useIntl();
-  const { data, isLoading, error } = useTaskTypeCounts();
+  const { data, isLoading } = useTaskTypeCounts();
 
-  // Use mock data if API is not ready
+  // Use mock data if API call fails or returns no data
   const chartData = data || generateMockTaskTypeCounts();
 
   return (
@@ -41,10 +41,6 @@ function TaskTypeBarChartWidgetComponent({ className, ...props }: TaskTypeBarCha
         </h3>
         {isLoading ? (
           <ChartSkeleton type="bar" height={280} />
-        ) : error ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-sm text-destructive">Failed to load chart data</p>
-          </div>
         ) : (
           <TaskTypeBarChart data={chartData} height={280} />
         )}

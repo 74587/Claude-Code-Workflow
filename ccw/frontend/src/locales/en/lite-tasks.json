@@ -61,5 +61,11 @@
     "explorations": "Explorations",
     "context": "Context",
     "diagnoses": "Diagnoses"
+  },
+  "status": {
+    "completed": "completed",
+    "inProgress": "in progress",
+    "blocked": "blocked",
+    "pending": "pending"
   }
 }

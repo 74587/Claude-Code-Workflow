@@ -8,6 +8,15 @@
     "archived": "已归档",
     "paused": "已暂停"
   },
+  "type": {
+    "workflow": "工作流",
+    "review": "审查",
+    "tdd": "TDD",
+    "test": "测试",
+    "docs": "文档",
+    "lite-plan": "轻量计划",
+    "lite-fix": "轻量修复"
+  },
   "actions": {
     "viewDetails": "查看详情",
     "archive": "归档",

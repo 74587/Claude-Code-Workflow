@@ -40,7 +40,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/Dropdown';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { TabsNavigation, type TabItem } from '@/components/ui/TabsNavigation';
 import { cn } from '@/lib/utils';
 import type { SessionMetadata } from '@/types/store';
 
@@ -174,13 +174,15 @@ export function SessionsPage() {
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         {/* Location tabs */}
-        <Tabs value={locationFilter} onValueChange={(v) => setLocationFilter(v as LocationFilter)}>
-          <TabsList>
-            <TabsTrigger value="active">{formatMessage({ id: 'sessions.filters.active' })}</TabsTrigger>
-            <TabsTrigger value="archived">{formatMessage({ id: 'sessions.filters.archived' })}</TabsTrigger>
-            <TabsTrigger value="all">{formatMessage({ id: 'sessions.filters.all' })}</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <TabsNavigation
+          value={locationFilter}
+          onValueChange={(v) => setLocationFilter(v as LocationFilter)}
+          tabs={[
+            { value: 'active', label: formatMessage({ id: 'sessions.filters.active' }) },
+            { value: 'archived', label: formatMessage({ id: 'sessions.filters.archived' }) },
+            { value: 'all', label: formatMessage({ id: 'sessions.filters.all' }) },
+          ]}
+        />
 
         {/* Search input */}
         <div className="flex-1 max-w-sm relative">

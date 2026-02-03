@@ -7,10 +7,11 @@ export default {
   "title": "CCW Help Documentation",
   "tagline": "Professional Workflow Automation Platform",
   "favicon": "img/favicon.ico",
-  "url": "https://ccw.dev",
+  "url": "http://localhost:3001",
   "baseUrl": "/docs/",
   "organizationName": "ccw",
   "projectName": "docs",
+  "trailingSlash": false,
   "onBrokenLinks": "throw",
   "i18n": {
     "defaultLocale": "en",

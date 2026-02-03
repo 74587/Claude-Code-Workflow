@@ -1,0 +1,157 @@
+{
+  "page": {
+    "title": "协调器",
+    "status": "状态：{status}",
+    "startButton": "启动协调器",
+    "noNodeSelected": "选择节点以查看详细信息"
+  },
+  "taskDetail": {
+    "title": "任务详情",
+    "noSelection": "选择任务以查看执行详情"
+  },
+  "emptyState": {
+    "title": "欢迎使用工作流协调器",
+    "subtitle": "智能任务编排，实时执行监控，一站式管理复杂工作流",
+    "startButton": "启动协调器",
+    "feature1": {
+      "title": "智能执行",
+      "description": "依赖管理与并行执行的智能任务编排"
+    },
+    "feature2": {
+      "title": "实时监控",
+      "description": "流水线可视化，详细日志与执行指标"
+    },
+    "feature3": {
+      "title": "灵活控制",
+      "description": "支持重试、跳过和暂停的交互式控制"
+    },
+    "quickStart": {
+      "title": "快速开始",
+      "step1": "点击「启动协调器」按钮开始",
+      "step2": "用自然语言描述您的工作流任务",
+      "step3": "监控执行流水线，与运行中的任务交互"
+    }
+  },
+  "modal": {
+    "title": "启动协调器",
+    "description": "描述您希望协调器执行的任务"
+  },
+  "multiStep": {
+    "step1": {
+      "title": "欢迎使用协调器",
+      "subtitle": "智能工作流编排，助力任务自动化执行",
+      "feature1": {
+        "title": "智能执行",
+        "description": "依赖管理与并行执行的智能任务编排"
+      },
+      "feature2": {
+        "title": "实时监控",
+        "description": "流水线可视化，详细日志与执行指标"
+      },
+      "feature3": {
+        "title": "灵活控制",
+        "description": "支持重试、跳过和暂停的交互式控制"
+      }
+    },
+    "step2": {
+      "title": "配置参数",
+      "subtitle": "选择模板或自定义参数",
+      "templateLabel": "选择模板",
+      "templates": {
+        "featureDev": "功能开发",
+        "apiIntegration": "API 集成",
+        "performanceOptimization": "性能优化",
+        "documentGeneration": "文档生成"
+      },
+      "taskName": "任务名称",
+      "taskNamePlaceholder": "输入任务名称...",
+      "taskDescription": "任务描述",
+      "taskDescriptionPlaceholder": "详细描述您的任务需求...",
+      "customParameters": "自定义参数"
+    },
+    "progress": {
+      "step": "步骤 {current} / {total}"
+    },
+    "actions": {
+      "next": "下一步",
+      "back": "返回",
+      "cancel": "取消",
+      "submit": "提交"
+    }
+  },
+  "form": {
+    "taskDescription": "任务描述",
+    "taskDescriptionPlaceholder": "描述协调器需要执行的任务（至少10个字符）...",
+    "parameters": "参数（可选）",
+    "parametersPlaceholder": "{\"key\": \"value\"}",
+    "parametersHelp": "协调器执行的可选JSON参数",
+    "characterCount": "{current} / {max} 字符（最少：{min}）",
+    "start": "启动协调器",
+    "starting": "启动中..."
+  },
+  "validation": {
+    "taskDescriptionRequired": "任务描述为必填项",
+    "taskDescriptionTooShort": "任务描述至少需要10个字符",
+    "taskDescriptionTooLong": "任务描述不能超过2000个字符",
+    "parametersInvalidJson": "参数必须是有效的JSON格式",
+    "answerRequired": "答案为必填项"
+  },
+  "success": {
+    "started": "协调器启动成功"
+  },
+  "status": {
+    "pending": "待执行",
+    "running": "运行中",
+    "completed": "已完成",
+    "failed": "失败",
+    "skipped": "已跳过"
+  },
+  "logs": "日志",
+  "entries": "条日志",
+  "error": "错误",
+  "output": "输出",
+  "startedAt": "开始时间",
+  "completedAt": "完成时间",
+  "retrying": "重试中...",
+  "retry": "重试",
+  "skipping": "跳过中...",
+  "skip": "跳过",
+  "logLevel": "日志级别",
+  "level": {
+    "all": "全部",
+    "info": "信息",
+    "warn": "警告",
+    "error": "错误",
+    "debug": "调试"
+  },
+  "noLogs": "暂无日志",
+  "question": {
+    "answer": "回答",
+    "textPlaceholder": "输入您的回答...",
+    "selectOne": "单选",
+    "selectMultiple": "多选",
+    "confirm": "确认",
+    "yes": "是",
+    "no": "否",
+    "submitting": "提交中...",
+    "submit": "提交"
+  },
+  "taskList": {
+    "filter": {
+      "all": "全部任务",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败"
+    },
+    "sort": {
+      "time": "按时间",
+      "name": "按名称"
+    },
+    "empty": "暂无任务"
+  },
+  "taskCard": {
+    "nodes": "节点",
+    "started": "开始"
+  },
+  "steps": "步"
+}

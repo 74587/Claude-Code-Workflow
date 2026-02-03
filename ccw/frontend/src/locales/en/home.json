@@ -17,19 +17,36 @@
   "sections": {
     "statistics": "Statistics",
     "recentSessions": "Recent Sessions",
+    "recentTasks": "Recent Tasks",
     "activeLoops": "Active Loops",
     "openIssues": "Open Issues",
-    "quickActions": "Quick Actions"
+    "quickActions": "Quick Actions",
+    "taskDetails": "Task Details"
+  },
+  "tabs": {
+    "allSessions": "All",
+    "allTasks": "All",
+    "workflow": "Workflow",
+    "liteTasks": "Lite Tasks",
+    "orchestrator": "Orchestrator",
+    "inProgress": "In Progress",
+    "planning": "Planning",
+    "completed": "Completed",
+    "paused": "Paused"
   },
   "widgets": {
     "workflowStatus": "Workflow Status",
-    "activity": "Activity Timeline",
+    "activity": "Activity Heatmap",
     "taskTypes": "Task Types"
   },
   "emptyState": {
     "noSessions": {
       "title": "No Sessions Found",
       "message": "No workflow sessions match your current filter."
+    },
+    "noTasks": {
+      "title": "No Tasks",
+      "message": "No tasks match your current filter."
     },
     "noLoops": {
       "title": "No Active Loops",
@@ -81,5 +98,8 @@
   "errors": {
     "loadFailed": "Failed to load dashboard data",
     "retry": "Retry"
+  },
+  "project": {
+    "features": "features"
   }
 }

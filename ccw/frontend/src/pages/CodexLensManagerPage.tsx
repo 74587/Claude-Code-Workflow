@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { TabsNavigation, type TabItem } from '@/components/ui/TabsNavigation';
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -176,26 +176,21 @@ export function CodexLensManagerPage() {
       )}
 
       {/* Tabbed Interface */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="overview">
-            {formatMessage({ id: 'codexlens.tabs.overview' })}
-          </TabsTrigger>
-          <TabsTrigger value="settings">
-            {formatMessage({ id: 'codexlens.tabs.settings' })}
-          </TabsTrigger>
-          <TabsTrigger value="models">
-            {formatMessage({ id: 'codexlens.tabs.models' })}
-          </TabsTrigger>
-          <TabsTrigger value="search">
-            {formatMessage({ id: 'codexlens.tabs.search' })}
-          </TabsTrigger>
-          <TabsTrigger value="advanced">
-            {formatMessage({ id: 'codexlens.tabs.advanced' })}
-          </TabsTrigger>
-        </TabsList>
+      <TabsNavigation
+        value={activeTab}
+        onValueChange={setActiveTab}
+        tabs={[
+          { value: 'overview', label: formatMessage({ id: 'codexlens.tabs.overview' }) },
+          { value: 'settings', label: formatMessage({ id: 'codexlens.tabs.settings' }) },
+          { value: 'models', label: formatMessage({ id: 'codexlens.tabs.models' }) },
+          { value: 'search', label: formatMessage({ id: 'codexlens.tabs.search' }) },
+          { value: 'advanced', label: formatMessage({ id: 'codexlens.tabs.advanced' }) },
+        ]}
+      />
 
-        <TabsContent value="overview">
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="mt-4">
           <OverviewTab
             installed={installed}
             status={status}
@@ -203,24 +198,32 @@ export function CodexLensManagerPage() {
             isLoading={isLoading}
             onRefresh={handleRefresh}
           />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="settings">
+      {activeTab === 'settings' && (
+        <div className="mt-4">
           <SettingsTab enabled={installed} />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="models">
+      {activeTab === 'models' && (
+        <div className="mt-4">
           <ModelsTab installed={installed} />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="search">
+      {activeTab === 'search' && (
+        <div className="mt-4">
           <SearchTab enabled={installed} />
-        </TabsContent>
+        </div>
+      )}
 
-        <TabsContent value="advanced">
+      {activeTab === 'advanced' && (
+        <div className="mt-4">
           <AdvancedTab enabled={installed} />
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
 
       {/* Semantic Install Dialog */}
       <SemanticInstallDialog

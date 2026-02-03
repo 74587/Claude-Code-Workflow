@@ -178,6 +178,41 @@ async function fetchApi<T>(
 // ========== Transformation Helpers ==========
 
 /**
+ * Infer session type from session_id pattern (matches backend logic)
+ * Used as fallback when backend.type field is missing
+ *
+ * @param sessionId - Session ID to analyze
+ * @returns Inferred session type
+ *
+ * @see ccw/src/core/session-scanner.ts:inferTypeFromName for backend implementation
+ */
+function inferTypeFromName(sessionId: string): SessionMetadata['type'] {
+  const name = sessionId.toLowerCase();
+
+  if (name.includes('-review-') || name.includes('-code-review-')) {
+    return 'review';
+  }
+  if (name.includes('-tdd-') || name.includes('-test-driven-')) {
+    return 'tdd';
+  }
+  if (name.includes('-test-') || name.includes('-testing-')) {
+    return 'test';
+  }
+  if (name.includes('-docs-') || name.includes('-doc-') || name.includes('-documentation-')) {
+    return 'docs';
+  }
+  if (name.includes('-lite-plan-')) {
+    return 'lite-plan';
+  }
+  if (name.includes('-lite-fix-') || name.includes('-fix-')) {
+    return 'lite-fix';
+  }
+
+  // Default to workflow for standard sessions
+  return 'workflow';
+}
+
+/**
  * Transform backend session data to frontend SessionMetadata interface
  * Maps backend schema (project, status: 'active') to frontend schema (title, description, status: 'in_progress', location)
  *
@@ -212,8 +247,14 @@ function transformBackendSession(
     description = parts.slice(1).join(':').trim();
   }
 
+  // Preserve type field from backend, or infer from session_id pattern
+  // Multi-level type detection: backend.type > infer from name
+  const sessionType = (backendSession.type as SessionMetadata['type']) ||
+    inferTypeFromName(backendSession.session_id);
+
   return {
     session_id: backendSession.session_id,
+    type: sessionType,
     title,
     description,
     status: transformedStatus,

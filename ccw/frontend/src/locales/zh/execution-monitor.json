@@ -3,6 +3,9 @@
     "title": "执行监控",
     "subtitle": "查看实时执行状态和历史记录"
   },
+  "actions": {
+    "openCliViewer": "CLI 监控"
+  },
   "currentExecution": {
     "title": "当前执行",
     "noExecution": "当前没有正在执行的工作流",

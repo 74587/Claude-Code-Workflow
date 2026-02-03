@@ -17,19 +17,36 @@
   "sections": {
     "statistics": "统计",
     "recentSessions": "最近会话",
+    "recentTasks": "最近任务",
     "activeLoops": "活跃循环",
     "openIssues": "开放问题",
-    "quickActions": "快速操作"
+    "quickActions": "快速操作",
+    "taskDetails": "任务详情"
+  },
+  "tabs": {
+    "allSessions": "全部",
+    "allTasks": "全部",
+    "workflow": "工作流",
+    "liteTasks": "轻量任务",
+    "orchestrator": "编排器",
+    "inProgress": "进行中",
+    "planning": "规划中",
+    "completed": "已完成",
+    "paused": "已暂停"
   },
   "widgets": {
     "workflowStatus": "工作流状态",
-    "activity": "活动时间线",
+    "activity": "活动热图",
     "taskTypes": "任务类型"
   },
   "emptyState": {
     "noSessions": {
       "title": "未找到会话",
       "message": "没有符合当前筛选条件的工作流会话。"
+    },
+    "noTasks": {
+      "title": "暂无任务",
+      "message": "没有符合当前筛选条件的任务。"
     },
     "noLoops": {
       "title": "无活跃循环",
@@ -81,5 +98,8 @@
   "errors": {
     "loadFailed": "加载仪表板数据失败",
     "retry": "重试"
+  },
+  "project": {
+    "features": "个功能"
   }
 }

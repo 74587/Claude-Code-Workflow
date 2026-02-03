@@ -119,8 +119,8 @@ function DetailedStatsWidgetComponent({ className, ...props }: DetailedStatsWidg
 
   return (
     <div {...props} className={className}>
-      <Card className="h-full p-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <Card className="h-full p-4 flex flex-col">
+        <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
           {isLoading
             ? Array.from({ length: 6 }).map((_, i) => <StatCardSkeleton key={i} />)
             : statCards.map((card) => (

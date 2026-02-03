@@ -5,7 +5,8 @@
 
 import { memo } from 'react';
 import { useIntl } from 'react-intl';
-import { X, Activity, ChevronDown } from 'lucide-react';
+import { X, Activity, ChevronDown, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 
@@ -18,6 +19,8 @@ export interface MonitorHeaderProps {
   totalCount?: number;
   /** Number of executions with errors */
   errorCount?: number;
+  /** Current execution ID for popup navigation */
+  currentExecutionId?: string;
 }
 
 /**
@@ -32,10 +35,20 @@ export const MonitorHeader = memo(function MonitorHeader({
   activeCount = 0,
   totalCount = 0,
   errorCount = 0,
+  currentExecutionId,
 }: MonitorHeaderProps) {
   const { formatMessage } = useIntl();
+  const navigate = useNavigate();
   const hasActive = activeCount > 0;
   const hasErrors = errorCount > 0;
+
+  const handlePopOut = () => {
+    const url = currentExecutionId
+      ? `/cli-viewer?executionId=${currentExecutionId}`
+      : '/cli-viewer';
+    navigate(url);
+    onClose();
+  };
 
   return (
     <header
@@ -70,8 +83,20 @@ export const MonitorHeader = memo(function MonitorHeader({
         </div>
       </div>
 
-      {/* Right side: Status + Count badge */}
+      {/* Right side: Pop out + Status + Count badge */}
       <div className="flex items-center gap-3 shrink-0">
+        {/* Pop out to full page button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handlePopOut}
+          className="h-8 w-8"
+          title={formatMessage({ id: 'cliMonitor.popOutToPage' })}
+          aria-label={formatMessage({ id: 'cliMonitor.openInViewer' })}
+        >
+          <ExternalLink className="h-4 w-4" />
+        </Button>
+
         {/* Live status indicator */}
         {hasActive && (
           <div className="flex items-center gap-2">

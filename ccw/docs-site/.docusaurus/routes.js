@@ -39,22 +39,16 @@ export default [
   },
   {
     path: '/docs/docs',
-    component: ComponentCreator('/docs/docs', '7fe'),
+    component: ComponentCreator('/docs/docs', '942'),
     routes: [
       {
         path: '/docs/docs',
-        component: ComponentCreator('/docs/docs', '830'),
+        component: ComponentCreator('/docs/docs', 'a90'),
         routes: [
           {
             path: '/docs/docs',
-            component: ComponentCreator('/docs/docs', '77f'),
+            component: ComponentCreator('/docs/docs', 'c2e'),
             routes: [
-              {
-                path: '/docs/docs/',
-                component: ComponentCreator('/docs/docs/', '2fa'),
-                exact: true,
-                sidebar: "docs"
-              },
               {
                 path: '/docs/docs/commands/cli/cli-init',
                 component: ComponentCreator('/docs/docs/commands/cli/cli-init', 'c74'),
@@ -190,6 +184,12 @@ export default [
               {
                 path: '/docs/docs/faq',
                 component: ComponentCreator('/docs/docs/faq', '4b2'),
+                exact: true,
+                sidebar: "docs"
+              },
+              {
+                path: '/docs/docs/overview',
+                component: ComponentCreator('/docs/docs/overview', '7df'),
                 exact: true,
                 sidebar: "docs"
               },

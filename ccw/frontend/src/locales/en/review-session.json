@@ -8,8 +8,22 @@
     "low": "Low"
   },
   "stats": {
-    "total": "Total Findings",
+    "total": "Total",
     "dimensions": "Dimensions"
+  },
+  "progress": {
+    "title": "Review Progress",
+    "totalFindings": "Total Findings",
+    "critical": "Critical",
+    "high": "High"
+  },
+  "dimensionTabs": {
+    "all": "All"
+  },
+  "filters": {
+    "severity": "Severity",
+    "sort": "Sort",
+    "reset": "Reset"
   },
   "search": {
     "placeholder": "Search findings..."
@@ -23,16 +37,38 @@
     "count": "{count} selected",
     "selectAll": "Select All",
     "clearAll": "Clear All",
-    "clear": "Clear"
+    "clear": "Clear",
+    "selectVisible": "Visible",
+    "selectCritical": "Critical"
   },
   "export": "Export Fix JSON",
   "codeContext": "Code Context",
   "rootCause": "Root Cause",
   "impact": "Impact",
   "recommendations": "Recommendations",
+  "fixProgress": {
+    "title": "Fix Progress",
+    "phase": {
+      "planning": "PLANNING",
+      "execution": "EXECUTION",
+      "completion": "COMPLETION"
+    },
+    "stats": {
+      "total": "Total",
+      "fixed": "Fixed",
+      "failed": "Failed",
+      "pending": "Pending"
+    },
+    "activeAgents": "Active Agent",
+    "activeAgentsPlural": "Active Agents",
+    "stage": "Stage",
+    "complete": "{percent}% Complete",
+    "working": "Working..."
+  },
   "empty": {
     "title": "No findings found",
-    "message": "Try adjusting your filters or search query."
+    "message": "Try adjusting your filters or search query.",
+    "noFixProgress": "No fix progress data available"
   },
   "notFound": {
     "title": "Review Session Not Found",

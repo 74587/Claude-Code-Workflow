@@ -61,5 +61,11 @@
     "explorations": "探索",
     "context": "上下文",
     "diagnoses": "诊断"
+  },
+  "status": {
+    "completed": "已完成",
+    "inProgress": "进行中",
+    "blocked": "已阻止",
+    "pending": "待处理"
   }
 }

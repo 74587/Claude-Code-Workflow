@@ -3,10 +3,10 @@
 // ========================================
 // Convenient hook for locale management
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useAppStore, selectLocale } from '../stores/appStore';
 import type { Locale } from '../types/store';
-import { availableLocales } from '../lib/i18n';
+import { availableLocales, formatMessage } from '../lib/i18n';
 
 export interface UseLocaleReturn {
   /** Current locale ('en' or 'zh') */
@@ -50,4 +50,26 @@ export function useLocale(): UseLocaleReturn {
     setLocale,
     availableLocales,
   };
+}
+
+/**
+ * Hook to format i18n messages with the current locale
+ * @returns A formatMessage function for translating message IDs
+ *
+ * @example
+ * ```tsx
+ * const formatMessage = useFormatMessage();
+ * return <h1>{formatMessage('home.title')}</h1>;
+ * ```
+ */
+export function useFormatMessage(): (
+  id: string,
+  values?: Record<string, string | number | boolean | Date | null | undefined>
+) => string {
+  // Use useMemo to avoid recreating the function on each render
+  return useMemo(() => {
+    return (id: string, values?: Record<string, string | number | boolean | Date | null | undefined>) => {
+      return formatMessage(id, values);
+    };
+  }, []);
 }

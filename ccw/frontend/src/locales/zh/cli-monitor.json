@@ -45,5 +45,7 @@
   "tokens": "令牌: {count}",
   "duration": "时长: {value}",
   "model": "模型: {name}",
-  "user": "用户"
+  "user": "用户",
+  "popOutToPage": "在完整页面中打开",
+  "openInViewer": "在 CLI 查看器中打开"
 }
