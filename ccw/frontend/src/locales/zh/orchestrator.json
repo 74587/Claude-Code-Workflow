@@ -135,6 +135,13 @@
     "tipLabel": "提示:",
     "tip": "通过从输出拖动到输入句柄来连接节点"
   },
+  "variablePicker": {
+    "empty": "没有可用的变量"
+  },
+  "multiNodeSelector": {
+    "empty": "没有可用的节点",
+    "clear": "清除全部"
+  },
   "propertyPanel": {
     "title": "属性",
     "open": "打开属性面板",
@@ -174,8 +181,8 @@
       "failFast": "快速失败 (首次错误时停止所有分支)"
     },
     "options": {
-      "modeAnalysis": "分析 (只读)",
-      "modeWrite": "写入 (修改文件)",
+      "modeMainprocess": "主进程",
+      "modeAsync": "异步",
       "errorStop": "停止执行",
       "errorContinue": "继续",
       "errorRetry": "重试",

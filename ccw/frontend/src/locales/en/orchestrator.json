@@ -136,6 +136,13 @@
     "tipLabel": "Tip:",
     "tip": "Connect nodes by dragging from output to input handles"
   },
+  "variablePicker": {
+    "empty": "No variables available"
+  },
+  "multiNodeSelector": {
+    "empty": "No nodes available",
+    "clear": "Clear all"
+  },
   "propertyPanel": {
     "title": "Properties",
     "open": "Open properties panel",
@@ -175,8 +182,8 @@
       "failFast": "Fail fast (stop all branches on first error)"
     },
     "options": {
-      "modeAnalysis": "Analysis (Read-only)",
-      "modeWrite": "Write (Modify files)",
+      "modeMainprocess": "Main Process",
+      "modeAsync": "Async",
       "errorStop": "Stop execution",
       "errorContinue": "Continue",
       "errorRetry": "Retry",

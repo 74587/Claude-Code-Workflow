@@ -17,12 +17,12 @@ interface SlashCommandNodeProps {
 
 // Mode badge styling
 const MODE_STYLES = {
-  analysis: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  write: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  mainprocess: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  async: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
 };
 
 export const SlashCommandNode = memo(({ data, selected }: SlashCommandNodeProps) => {
-  const executionMode = data.execution?.mode || 'analysis';
+  const executionMode = data.execution?.mode || 'mainprocess';
 
   return (
     <NodeWrapper

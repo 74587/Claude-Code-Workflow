@@ -74,16 +74,16 @@ function SlashCommandProperties({
       <div>
         <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.executionMode' })}</label>
         <select
-          value={data.execution?.mode || 'analysis'}
+          value={data.execution?.mode || 'mainprocess'}
           onChange={(e) =>
             onChange({
-              execution: { ...data.execution, mode: e.target.value as 'analysis' | 'write' },
+              execution: { ...data.execution, mode: e.target.value as 'mainprocess' | 'async' },
             })
           }
           className="w-full h-10 px-3 rounded-md border border-border bg-background text-foreground text-sm"
         >
-          <option value="analysis">{formatMessage({ id: 'orchestrator.propertyPanel.options.modeAnalysis' })}</option>
-          <option value="write">{formatMessage({ id: 'orchestrator.propertyPanel.options.modeWrite' })}</option>
+          <option value="mainprocess">{formatMessage({ id: 'orchestrator.propertyPanel.options.modeMainprocess' })}</option>
+          <option value="async">{formatMessage({ id: 'orchestrator.propertyPanel.options.modeAsync' })}</option>
         </select>
       </div>
 
@@ -109,12 +109,21 @@ function SlashCommandProperties({
             onChange({
               execution: {
                 ...data.execution,
-                mode: data.execution?.mode || 'analysis',
+                mode: data.execution?.mode || 'mainprocess',
                 timeout: e.target.value ? parseInt(e.target.value) : undefined,
               },
             })
           }
           placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.timeout' })}
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.outputVariable' })}</label>
+        <Input
+          value={data.outputVariable || ''}
+          onChange={(e) => onChange({ outputVariable: e.target.value })}
+          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.variableName' })}
         />
       </div>
     </div>
@@ -270,6 +279,15 @@ function ConditionalProperties({
           />
         </div>
       </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.outputVariable' })}</label>
+        <Input
+          value={data.outputVariable || ''}
+          onChange={(e) => onChange({ outputVariable: e.target.value })}
+          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.variableName' })}
+        />
+      </div>
     </div>
   );
 }
@@ -333,6 +351,15 @@ function ParallelProperties({
         <label htmlFor="failFast" className="text-sm text-foreground">
           {formatMessage({ id: 'orchestrator.propertyPanel.labels.failFast' })}
         </label>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.outputVariable' })}</label>
+        <Input
+          value={data.outputVariable || ''}
+          onChange={(e) => onChange({ outputVariable: e.target.value })}
+          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.variableName' })}
+        />
       </div>
     </div>
   );

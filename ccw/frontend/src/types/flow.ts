@@ -18,6 +18,7 @@ interface BaseNodeData {
   executionStatus?: ExecutionStatus;
   executionError?: string;
   executionResult?: unknown;
+  outputVariable?: string;
   [key: string]: unknown;
 }
 
@@ -26,7 +27,7 @@ export interface SlashCommandNodeData extends BaseNodeData {
   command: string;
   args?: string;
   execution: {
-    mode: 'analysis' | 'write';
+    mode: 'mainprocess' | 'async';
     timeout?: number;
   };
   contextHint?: string;
@@ -191,7 +192,7 @@ export const NODE_TYPE_CONFIGS: Record<FlowNodeType, NodeTypeConfig> = {
       label: 'New Command',
       command: '',
       args: '',
-      execution: { mode: 'analysis' },
+      execution: { mode: 'mainprocess' },
       onError: 'stop',
     } as SlashCommandNodeData,
     handles: { inputs: 1, outputs: 1 },
