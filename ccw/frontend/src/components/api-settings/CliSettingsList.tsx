@@ -119,7 +119,7 @@ function CliSettingsCard({
             )}
             {cliSettings.settings.includeCoAuthoredBy !== undefined && (
               <span>
-                Co-authored: {cliSettings.settings.includeCoAuthoredBy ? 'Yes' : 'No'}
+                {formatMessage({ id: 'apiSettings.cliSettings.coAuthoredBy' })}: {formatMessage({ id: cliSettings.settings.includeCoAuthoredBy ? 'common.yes' : 'common.no' })}
               </span>
             )}
           </div>

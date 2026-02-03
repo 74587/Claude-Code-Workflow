@@ -8,6 +8,7 @@ import { useNotificationStore } from '@/stores';
 import { useExecutionStore } from '@/stores/executionStore';
 import { useFlowStore } from '@/stores';
 import { useCliStreamStore } from '@/stores/cliStreamStore';
+import { useCoordinatorStore } from '@/stores/coordinatorStore';
 import {
   OrchestratorMessageSchema,
   type OrchestratorWebSocketMessage,
@@ -59,6 +60,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
   // CLI stream store for CLI output handling
   const addOutput = useCliStreamStore((state) => state.addOutput);
+
+  // Coordinator store for coordinator state updates
+  const updateNodeStatus = useCoordinatorStore((state) => state.updateNodeStatus);
+  const addCoordinatorLog = useCoordinatorStore((state) => state.addLog);
+  const setActiveQuestion = useCoordinatorStore((state) => state.setActiveQuestion);
+  const markExecutionComplete = useCoordinatorStore((state) => state.markExecutionComplete);
+  const coordinatorExecutionId = useCoordinatorStore((state) => state.currentExecutionId);
 
   // Handle incoming WebSocket messages
   const handleMessage = useCallback(
@@ -143,6 +151,56 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
           return;
         }
 
+        // Handle Coordinator messages
+        if (data.type?.startsWith('COORDINATOR_')) {
+          // Only process messages for current coordinator execution
+          if (coordinatorExecutionId && data.executionId !== coordinatorExecutionId) {
+            return;
+          }
+
+          // Dispatch to coordinator store based on message type
+          switch (data.type) {
+            case 'COORDINATOR_STATE_UPDATE':
+              // Check for completion
+              if (data.status === 'completed') {
+                markExecutionComplete(true);
+              } else if (data.status === 'failed') {
+                markExecutionComplete(false);
+              }
+              break;
+
+            case 'COORDINATOR_COMMAND_STARTED':
+              updateNodeStatus(data.nodeId, 'running');
+              break;
+
+            case 'COORDINATOR_COMMAND_COMPLETED':
+              updateNodeStatus(data.nodeId, 'completed', data.result);
+              break;
+
+            case 'COORDINATOR_COMMAND_FAILED':
+              updateNodeStatus(data.nodeId, 'failed', undefined, data.error);
+              break;
+
+            case 'COORDINATOR_LOG_ENTRY':
+              addCoordinatorLog(
+                data.log.message,
+                data.log.level,
+                data.log.nodeId,
+                data.log.source
+              );
+              break;
+
+            case 'COORDINATOR_QUESTION_ASKED':
+              setActiveQuestion(data.question);
+              break;
+
+            case 'COORDINATOR_ANSWER_RECEIVED':
+              // Answer received - handled by submitAnswer in the store
+              break;
+          }
+          return;
+        }
+
         // Check if this is an orchestrator message
         if (!data.type?.startsWith('ORCHESTRATOR_')) {
           return;
@@ -210,6 +268,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     },
     [
       currentExecution,
+      coordinatorExecutionId,
       setWsLastMessage,
       setExecutionStatus,
       setNodeStarted,
@@ -220,6 +279,10 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
       updateNode,
       addOutput,
       addA2UINotification,
+      updateNodeStatus,
+      addCoordinatorLog,
+      setActiveQuestion,
+      markExecutionComplete,
       onMessage,
     ]
   );

@@ -613,7 +613,13 @@ User agrees with current direction, wants deeper code analysis
 - Current design allows horizontal scaling without session affinity
 ```
 
-## Usage Recommendations (Requires User Confirmation)
+## Usage Recommendations(Requires User Confirmation) 
+
+**When to Execute Directly :**
+- Short, focused analysis tasks (single module/component)
+- Clear, well-defined topics with limited scope
+- Quick information gathering without multi-round iteration
+- Follow-up analysis building on existing session
 
 **Use `Skill(skill="workflow:analyze-with-file", args="\"topic\"")` when:**
 - Exploring a complex topic collaboratively

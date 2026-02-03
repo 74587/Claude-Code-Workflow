@@ -562,8 +562,8 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleClaudeRoutes(routeContext)) return;
       }
 
-      // Memory routes (/api/memory/*)
-      if (pathname.startsWith('/api/memory/')) {
+      // Memory routes (/api/memory and /api/memory/*)
+      if (pathname === '/api/memory' || pathname.startsWith('/api/memory/')) {
         if (await handleMemoryRoutes(routeContext)) return;
       }
 

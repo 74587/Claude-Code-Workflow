@@ -10,7 +10,6 @@ import {
   updateMemory,
   deleteMemory,
   type CoreMemory,
-  type MemoryResponse,
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { workspaceQueryKeys } from '@/lib/queryKeys';
@@ -30,6 +29,8 @@ const STALE_TIME = 60 * 1000;
 export interface MemoryFilter {
   search?: string;
   tags?: string[];
+  favorite?: boolean;
+  archived?: boolean;
 }
 
 export interface UseMemoryOptions {
@@ -91,6 +92,26 @@ export function useMemory(options: UseMemoryOptions = {}): UseMemoryReturn {
       memories = memories.filter((m) =>
         filter.tags!.some((tag) => m.tags?.includes(tag))
       );
+    }
+
+    // Filter by favorite status (from metadata)
+    if (filter?.favorite === true) {
+      memories = memories.filter((m) => {
+        if (!m.metadata) return false;
+        try {
+          const metadata = typeof m.metadata === 'string' ? JSON.parse(m.metadata) : m.metadata;
+          return metadata.favorite === true;
+        } catch {
+          return false;
+        }
+      });
+    }
+
+    // Filter by archived status
+    if (filter?.archived === true) {
+      memories = memories.filter((m) => m.archived === true);
+    } else if (filter?.archived === false) {
+      memories = memories.filter((m) => m.archived !== true);
     }
 
     return memories;
@@ -202,6 +223,64 @@ export function useDeleteMemory(): UseDeleteMemoryReturn {
   };
 }
 
+export interface UseArchiveMemoryReturn {
+  archiveMemory: (memoryId: string) => Promise<void>;
+  isArchiving: boolean;
+  error: Error | null;
+}
+
+export function useArchiveMemory(): UseArchiveMemoryReturn {
+  const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  const mutation = useMutation({
+    mutationFn: (memoryId: string) =>
+      fetch(`/api/core-memory/memories/${encodeURIComponent(memoryId)}/archive?path=${encodeURIComponent(projectPath)}`, {
+        method: 'POST',
+        credentials: 'same-origin',
+      }).then(res => res.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.memory(projectPath) : ['memory'] });
+    },
+  });
+
+  return {
+    archiveMemory: mutation.mutateAsync,
+    isArchiving: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export interface UseUnarchiveMemoryReturn {
+  unarchiveMemory: (memoryId: string) => Promise<void>;
+  isUnarchiving: boolean;
+  error: Error | null;
+}
+
+export function useUnarchiveMemory(): UseUnarchiveMemoryReturn {
+  const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  const mutation = useMutation({
+    mutationFn: (memoryId: string) =>
+      fetch(`/api/core-memory/memories?path=${encodeURIComponent(projectPath)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ id: memoryId, archived: false }),
+      }).then(res => res.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.memory(projectPath) : ['memory'] });
+    },
+  });
+
+  return {
+    unarchiveMemory: mutation.mutateAsync,
+    isUnarchiving: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
 /**
  * Combined hook for all memory mutations
  */
@@ -209,14 +288,20 @@ export function useMemoryMutations() {
   const create = useCreateMemory();
   const update = useUpdateMemory();
   const remove = useDeleteMemory();
+  const archive = useArchiveMemory();
+  const unarchive = useUnarchiveMemory();
 
   return {
     createMemory: create.createMemory,
     updateMemory: update.updateMemory,
     deleteMemory: remove.deleteMemory,
+    archiveMemory: archive.archiveMemory,
+    unarchiveMemory: unarchive.unarchiveMemory,
     isCreating: create.isCreating,
     isUpdating: update.isUpdating,
     isDeleting: remove.isDeleting,
-    isMutating: create.isCreating || update.isUpdating || remove.isDeleting,
+    isArchiving: archive.isArchiving,
+    isUnarchiving: unarchive.isUnarchiving,
+    isMutating: create.isCreating || update.isUpdating || remove.isDeleting || archive.isArchiving || unarchive.isUnarchiving,
   };
 }

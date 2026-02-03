@@ -481,11 +481,15 @@ function NotificationItem({ notification, onDelete, onToggleRead }: Notification
     <div
       className={cn(
         'p-3 border-b border-border hover:bg-muted/50 transition-colors',
-        'border-l-4',
+        'border-l-4 relative',
         getTypeBorder(notification.type),
         isRead && 'opacity-70'
       )}
     >
+      {/* Unread dot indicator */}
+      {!isRead && (
+        <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-destructive" />
+      )}
       <div className="flex gap-3">
         {/* Icon */}
         <div className="mt-0.5">{getNotificationIcon(notification.type)}</div>
@@ -510,6 +514,23 @@ function NotificationItem({ notification, onDelete, onToggleRead }: Notification
                     )}
                   >
                     {notification.source}
+                  </Badge>
+                )}
+                {/* Read/Unread status badge */}
+                {!isRead && (
+                  <Badge
+                    variant="destructive"
+                    className="h-5 px-1.5 text-[10px] font-medium shrink-0"
+                  >
+                    {formatMessage({ id: 'notifications.unread' }) || '未读'}
+                  </Badge>
+                )}
+                {isRead && (
+                  <Badge
+                    variant="outline"
+                    className="h-5 px-1.5 text-[10px] font-medium shrink-0 opacity-60"
+                  >
+                    {formatMessage({ id: 'notifications.read' }) || '已读'}
                   </Badge>
                 )}
               </div>

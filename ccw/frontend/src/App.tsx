@@ -11,6 +11,7 @@ import { router } from './router';
 import queryClient from './lib/query-client';
 import type { Locale } from './lib/i18n';
 import { useWorkflowStore } from '@/stores/workflowStore';
+import { useActiveCliExecutions } from '@/hooks/useActiveCliExecutions';
 
 interface AppProps {
   locale: Locale;
@@ -26,6 +27,7 @@ function App({ locale, messages }: AppProps) {
     <IntlProvider locale={locale} messages={messages}>
       <QueryClientProvider client={queryClient}>
         <QueryInvalidator />
+        <CliExecutionSync />
         <RouterProvider router={router} />
       </QueryClientProvider>
     </IntlProvider>
@@ -53,6 +55,21 @@ function QueryInvalidator() {
 
     registerQueryInvalidator(callback);
   }, [registerQueryInvalidator]);
+
+  return null;
+}
+
+/**
+ * CLI Execution Sync component
+ * Syncs active CLI executions in the background to keep the count updated in Header
+ */
+function CliExecutionSync() {
+  // Always sync active CLI executions with a longer polling interval
+  // This ensures the activeCliCount badge in Header shows correct count on initial load
+  useActiveCliExecutions(
+    true, // enabled: always sync
+    15000 // refetchInterval: 15 seconds (longer than monitor's 5 seconds to reduce load)
+  );
 
   return null;
 }

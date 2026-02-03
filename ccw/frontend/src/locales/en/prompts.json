@@ -3,6 +3,7 @@
   "description": "View and analyze your prompt history with AI insights",
   "searchPlaceholder": "Search prompts...",
   "filterByIntent": "Filter by intent",
+  "filterByProject": "Filter by project",
   "intents": {
     "all": "All Intents",
     "intent": "Intent",
@@ -12,6 +13,10 @@
     "document": "Document",
     "analyze": "Analyze"
   },
+  "projects": {
+    "all": "All Projects",
+    "project": "Project"
+  },
   "stats": {
     "totalCount": "Total Prompts",
     "totalCountDesc": "All stored prompts",
@@ -19,7 +24,15 @@
     "avgLengthDesc": "Mean character count",
     "topIntent": "Top Intent",
     "topIntentDesc": "Most used category",
-    "noIntent": "N/A"
+    "noIntent": "N/A",
+    "avgQuality": "Avg Quality",
+    "avgQualityDesc": "Quality score distribution"
+  },
+  "quality": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "none": "N/A"
   },
   "card": {
     "untitled": "Untitled Prompt",
@@ -52,6 +65,24 @@
       "suggestions": "Suggestions"
     }
   },
+  "insightsHistory": {
+    "loading": "Loading insights history...",
+    "patterns": "Patterns",
+    "suggestions": "Suggestions",
+    "prompts": "Prompts",
+    "empty": {
+      "title": "No analysis history",
+      "message": "Run an analysis to see historical insights and patterns."
+    }
+  },
+  "insightDetail": {
+    "title": "Insight Detail",
+    "patterns": "Patterns Found",
+    "suggestions": "Suggestions",
+    "promptsAnalyzed": "prompts analyzed",
+    "noContent": "No patterns or suggestions available for this insight.",
+    "deleting": "Deleting..."
+  },
   "suggestions": {
     "types": {
       "refactor": "Refactor",
@@ -63,7 +94,15 @@
   },
   "dialog": {
     "deleteTitle": "Delete Prompt",
-    "deleteConfirm": "Are you sure you want to delete this prompt? This action cannot be undone."
+    "deleteConfirm": "Are you sure you want to delete this prompt? This action cannot be undone.",
+    "batchDeleteTitle": "Delete Prompts",
+    "batchDeleteConfirm": "Are you sure you want to delete {count} selected prompt(s)? This action cannot be undone."
+  },
+  "batch": {
+    "selected": "{count} selected",
+    "selectAll": "Select All",
+    "clearSelection": "Clear Selection",
+    "deleteSelected": "Delete Selected"
   },
   "emptyState": {
     "title": "No prompts found",

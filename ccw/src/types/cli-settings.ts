@@ -23,6 +23,12 @@ export interface ClaudeCliSettings {
   model?: 'opus' | 'sonnet' | 'haiku' | string;
   /** 是否包含 co-authored-by */
   includeCoAuthoredBy?: boolean;
+  /** CLI工具标签 (用于标签路由) */
+  tags?: string[];
+  /** 可用模型列表 (显示在下拉菜单中) */
+  availableModels?: string[];
+  /** 外部配置文件路径 (用于 builtin claude 工具) */
+  settingsFile?: string;
 }
 
 /**
@@ -104,7 +110,9 @@ export function createDefaultSettings(): ClaudeCliSettings {
       DISABLE_AUTOUPDATER: '1'
     },
     model: 'sonnet',
-    includeCoAuthoredBy: false
+    includeCoAuthoredBy: false,
+    tags: [],
+    availableModels: []
   };
 }
 
@@ -123,6 +131,18 @@ export function validateSettings(settings: unknown): settings is ClaudeCliSettin
     return false;
   }
 
+  // 深层验证：env 内部所有值必须是 string 或 undefined
+  const envObj = s.env as Record<string, unknown>;
+  for (const key in envObj) {
+    if (Object.prototype.hasOwnProperty.call(envObj, key)) {
+      const value = envObj[key];
+      // 允许 undefined 或 string，其他类型（包括 null）都拒绝
+      if (value !== undefined && typeof value !== 'string') {
+        return false;
+      }
+    }
+  }
+
   // model 可选，但如果存在必须是字符串
   if (s.model !== undefined && typeof s.model !== 'string') {
     return false;
@@ -130,6 +150,21 @@ export function validateSettings(settings: unknown): settings is ClaudeCliSettin
 
   // includeCoAuthoredBy 可选，但如果存在必须是布尔值
   if (s.includeCoAuthoredBy !== undefined && typeof s.includeCoAuthoredBy !== 'boolean') {
+    return false;
+  }
+
+  // tags 可选，但如果存在必须是数组
+  if (s.tags !== undefined && !Array.isArray(s.tags)) {
+    return false;
+  }
+
+  // availableModels 可选，但如果存在必须是数组
+  if (s.availableModels !== undefined && !Array.isArray(s.availableModels)) {
+    return false;
+  }
+
+  // settingsFile 可选，但如果存在必须是字符串
+  if (s.settingsFile !== undefined && typeof s.settingsFile !== 'string') {
     return false;
   }
 

@@ -3,8 +3,9 @@
 // ========================================
 // View and manage core memory and context with CRUD operations
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIntl } from 'react-intl';
+import { toast } from 'sonner';
 import {
   Brain,
   Search,
@@ -19,12 +20,16 @@ import {
   Copy,
   ChevronDown,
   ChevronUp,
+  Star,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { useMemory, useMemoryMutations } from '@/hooks';
 import type { CoreMemory } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -38,10 +43,19 @@ interface MemoryCardProps {
   onEdit: (memory: CoreMemory) => void;
   onDelete: (memory: CoreMemory) => void;
   onCopy: (content: string) => void;
+  onToggleFavorite: (memory: CoreMemory) => void;
+  onArchive: (memory: CoreMemory) => void;
+  onUnarchive: (memory: CoreMemory) => void;
 }
 
-function MemoryCard({ memory, isExpanded, onToggleExpand, onEdit, onDelete, onCopy }: MemoryCardProps) {
+function MemoryCard({ memory, isExpanded, onToggleExpand, onEdit, onDelete, onCopy, onToggleFavorite, onArchive, onUnarchive }: MemoryCardProps) {
   const formattedDate = new Date(memory.createdAt).toLocaleDateString();
+
+  // Parse metadata from memory
+  const metadata = memory.metadata ? (typeof memory.metadata === 'string' ? JSON.parse(memory.metadata) : memory.metadata) : {};
+  const isFavorite = metadata.favorite === true;
+  const priority = metadata.priority || 'medium';
+  const isArchived = memory.archived || false;
   const formattedSize = memory.size
     ? memory.size < 1024
       ? `${memory.size} B`
@@ -70,6 +84,16 @@ function MemoryCard({ memory, isExpanded, onToggleExpand, onEdit, onDelete, onCo
                     {memory.source}
                   </Badge>
                 )}
+                {priority !== 'medium' && (
+                  <Badge variant={priority === 'high' ? 'destructive' : 'secondary'} className="text-xs">
+                    {priority}
+                  </Badge>
+                )}
+                {isArchived && (
+                  <Badge variant="secondary" className="text-xs">
+                    Archived
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 {formattedDate} - {formattedSize}
@@ -77,6 +101,17 @@ function MemoryCard({ memory, isExpanded, onToggleExpand, onEdit, onDelete, onCo
             </div>
           </div>
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn("h-8 w-8 p-0", isFavorite && "text-yellow-500")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleFavorite(memory);
+              }}
+            >
+              <Star className={cn("w-4 h-4", isFavorite && "fill-current")} />
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -99,6 +134,31 @@ function MemoryCard({ memory, isExpanded, onToggleExpand, onEdit, onDelete, onCo
             >
               <Edit className="w-4 h-4" />
             </Button>
+            {!isArchived ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onArchive(memory);
+                }}
+              >
+                <Archive className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUnarchive(memory);
+                }}
+              >
+                <ArchiveRestore className="w-4 h-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -160,7 +220,7 @@ function MemoryCard({ memory, isExpanded, onToggleExpand, onEdit, onDelete, onCo
 interface NewMemoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: { content: string; tags?: string[] }) => void;
+  onSubmit: (data: { content: string; tags?: string[]; metadata?: Record<string, any> }) => void;
   isCreating: boolean;
   editingMemory?: CoreMemory | null;
 }
@@ -175,6 +235,27 @@ function NewMemoryDialog({
   const { formatMessage } = useIntl();
   const [content, setContent] = useState(editingMemory?.content || '');
   const [tagsInput, setTagsInput] = useState(editingMemory?.tags?.join(', ') || '');
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
+
+  // Initialize from editing memory metadata
+  useEffect(() => {
+    if (editingMemory && editingMemory.metadata) {
+      try {
+        const metadata = typeof editingMemory.metadata === 'string'
+          ? JSON.parse(editingMemory.metadata)
+          : editingMemory.metadata;
+        setIsFavorite(metadata.favorite === true);
+        setPriority(metadata.priority || 'medium');
+      } catch {
+        setIsFavorite(false);
+        setPriority('medium');
+      }
+    } else {
+      setIsFavorite(false);
+      setPriority('medium');
+    }
+  }, [editingMemory]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,9 +264,21 @@ function NewMemoryDialog({
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean);
-      onSubmit({ content: content.trim(), tags: tags.length > 0 ? tags : undefined });
+
+      // Build metadata object
+      const metadata: Record<string, any> = {};
+      if (isFavorite) metadata.favorite = true;
+      if (priority !== 'medium') metadata.priority = priority;
+
+      onSubmit({
+        content: content.trim(),
+        tags: tags.length > 0 ? tags : undefined,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+      });
       setContent('');
       setTagsInput('');
+      setIsFavorite(false);
+      setPriority('medium');
     }
   };
 
@@ -216,6 +309,30 @@ function NewMemoryDialog({
               placeholder={formatMessage({ id: 'memory.createDialog.placeholders.tags' })}
               className="mt-1"
             />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="favorite"
+                checked={isFavorite}
+                onCheckedChange={(checked) => setIsFavorite(checked === true)}
+              />
+              <label htmlFor="favorite" className="text-sm font-medium cursor-pointer">
+                {formatMessage({ id: 'memory.createDialog.labels.favorite' })}
+              </label>
+            </div>
+            <div>
+              <label className="text-sm font-medium">{formatMessage({ id: 'memory.createDialog.labels.priority' })}</label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
+                className="mt-1 w-full p-2 bg-background border border-input rounded-md text-sm"
+              >
+                <option value="low">{formatMessage({ id: 'memory.priority.low' })}</option>
+                <option value="medium">{formatMessage({ id: 'memory.priority.medium' })}</option>
+                <option value="high">{formatMessage({ id: 'memory.priority.high' })}</option>
+              </select>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -250,6 +367,11 @@ export function MemoryPage() {
   const [isNewMemoryOpen, setIsNewMemoryOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<CoreMemory | null>(null);
   const [expandedMemories, setExpandedMemories] = useState<Set<string>>(new Set());
+  const [currentTab, setCurrentTab] = useState<'memories' | 'favorites' | 'archived'>('memories');
+
+  // Build filter based on current tab
+  const favoriteFilter = currentTab === 'favorites' ? { favorite: true } : undefined;
+  const archivedFilter = currentTab === 'archived' ? { archived: true } : { archived: false };
 
   const {
     memories,
@@ -263,10 +385,12 @@ export function MemoryPage() {
     filter: {
       search: searchQuery || undefined,
       tags: selectedTags.length > 0 ? selectedTags : undefined,
+      ...favoriteFilter,
+      ...archivedFilter,
     },
   });
 
-  const { createMemory, updateMemory, deleteMemory, isCreating, isUpdating } =
+  const { createMemory, updateMemory, deleteMemory, archiveMemory, unarchiveMemory, isCreating, isUpdating } =
     useMemoryMutations();
 
   const toggleExpand = (memoryId: string) => {
@@ -281,12 +405,12 @@ export function MemoryPage() {
     });
   };
 
-  const handleCreateMemory = async (data: { content: string; tags?: string[] }) => {
+  const handleCreateMemory = async (data: { content: string; tags?: string[]; metadata?: Record<string, any> }) => {
     if (editingMemory) {
       await updateMemory(editingMemory.id, data);
       setEditingMemory(null);
     } else {
-      await createMemory(data);
+      await createMemory(data as any); // TODO: update createMemory type to accept metadata
     }
     setIsNewMemoryOpen(false);
   };
@@ -302,12 +426,29 @@ export function MemoryPage() {
     }
   };
 
+  const handleToggleFavorite = async (memory: CoreMemory) => {
+    const currentMetadata = memory.metadata ? (typeof memory.metadata === 'string' ? JSON.parse(memory.metadata) : memory.metadata) : {};
+    const newFavorite = !(currentMetadata.favorite === true);
+    await updateMemory(memory.id, {
+      metadata: JSON.stringify({ ...currentMetadata, favorite: newFavorite }),
+    } as any); // TODO: update updateMemory to accept metadata field
+  };
+
+  const handleArchive = async (memory: CoreMemory) => {
+    await archiveMemory(memory.id);
+  };
+
+  const handleUnarchive = async (memory: CoreMemory) => {
+    await unarchiveMemory(memory.id);
+  };
+
   const copyToClipboard = async (content: string) => {
     try {
       await navigator.clipboard.writeText(content);
-      // TODO: Show toast notification
+      toast.success(formatMessage({ id: 'memory.actions.copySuccess' }));
     } catch (err) {
       console.error('Failed to copy:', err);
+      toast.error(formatMessage({ id: 'memory.actions.copyError' }));
     }
   };
 
@@ -346,6 +487,34 @@ export function MemoryPage() {
             {formatMessage({ id: 'memory.actions.add' })}
           </Button>
         </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="flex items-center gap-2 border-b border-border">
+        <Button
+          variant={currentTab === 'memories' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setCurrentTab('memories')}
+        >
+          <Brain className="w-4 h-4 mr-2" />
+          {formatMessage({ id: 'memory.tabs.memories' })}
+        </Button>
+        <Button
+          variant={currentTab === 'favorites' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setCurrentTab('favorites')}
+        >
+          <Star className="w-4 h-4 mr-2" />
+          {formatMessage({ id: 'memory.tabs.favorites' })}
+        </Button>
+        <Button
+          variant={currentTab === 'archived' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setCurrentTab('archived')}
+        >
+          <Archive className="w-4 h-4 mr-2" />
+          {formatMessage({ id: 'memory.tabs.archived' })}
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -429,9 +598,9 @@ export function MemoryPage() {
 
       {/* Memory List */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-64 bg-muted animate-pulse rounded-lg" />
           ))}
         </div>
       ) : memories.length === 0 ? (
@@ -449,7 +618,7 @@ export function MemoryPage() {
           </Button>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {memories.map((memory) => (
             <MemoryCard
               key={memory.id}
@@ -459,6 +628,9 @@ export function MemoryPage() {
               onEdit={handleEdit}
               onDelete={handleDelete}
               onCopy={copyToClipboard}
+              onToggleFavorite={handleToggleFavorite}
+              onArchive={handleArchive}
+              onUnarchive={handleUnarchive}
             />
           ))}
         </div>

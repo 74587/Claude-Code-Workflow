@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, unlinkSyn
 import { join, isAbsolute, extname } from 'path';
 import { homedir } from 'os';
 import { getMemoryStore } from '../memory-store.js';
+import { getCoreMemoryStore } from '../core-memory-store.js';
 import { executeCliTool } from '../../tools/cli-executor.js';
 import { SmartContentFormatter } from '../../tools/cli-output-converter.js';
 import { getDefaultTool } from '../../tools/claude-cli-tools.js';
@@ -86,6 +87,147 @@ function calculateQualityScore(text: string): number {
  */
 export async function handleMemoryRoutes(ctx: RouteContext): Promise<boolean> {
   const { pathname, url, req, res, initialPath, handlePostRequest, broadcastToClients } = ctx;
+
+  // API: Memory Module - Get all memories (core memory list)
+  if (pathname === '/api/memory' && req.method === 'GET') {
+    const projectPath = url.searchParams.get('path') || initialPath;
+
+    try {
+      const store = getCoreMemoryStore(projectPath);
+      const memories = store.getMemories({ archived: false, limit: 100 });
+
+      // Calculate total size
+      const totalSize = memories.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+
+      // Count CLAUDE.md files (assuming memories with source='CLAUDE.md')
+      const claudeMdCount = memories.filter(m => m.metadata?.includes('CLAUDE.md') || m.content?.includes('# Claude Instructions')).length;
+
+      // Transform to frontend format
+      const formattedMemories = memories.map(m => ({
+        id: m.id,
+        content: m.content,
+        createdAt: m.created_at,
+        updatedAt: m.updated_at,
+        source: m.metadata || undefined,
+        tags: [], // TODO: Extract tags from metadata if available
+        size: m.content?.length || 0
+      }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        memories: formattedMemories,
+        totalSize,
+        claudeMdCount
+      }));
+    } catch (error: unknown) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (error as Error).message }));
+    }
+    return true;
+  }
+
+  // API: Memory Module - Create new memory
+  if (pathname === '/api/memory' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { content, tags, path: projectPath } = body;
+
+      if (!content) {
+        return { error: 'content is required', status: 400 };
+      }
+
+      const basePath = projectPath || initialPath;
+
+      try {
+        const store = getCoreMemoryStore(basePath);
+        const memory = store.upsertMemory({ content });
+
+        // Broadcast update event
+        broadcastToClients({
+          type: 'CORE_MEMORY_CREATED',
+          payload: {
+            memoryId: memory.id,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        return {
+          id: memory.id,
+          content: memory.content,
+          createdAt: memory.created_at,
+          updatedAt: memory.updated_at,
+          source: memory.metadata || undefined,
+          tags: tags || [],
+          size: memory.content?.length || 0
+        };
+      } catch (error: unknown) {
+        return { error: (error as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Memory Module - Update memory
+  if (pathname.match(/^\/api\/memory\/[^\/]+$/) && req.method === 'PATCH') {
+    const memoryId = pathname.replace('/api/memory/', '');
+    handlePostRequest(req, res, async (body) => {
+      const { content, tags, path: projectPath } = body;
+      const basePath = projectPath || initialPath;
+
+      try {
+        const store = getCoreMemoryStore(basePath);
+        const memory = store.upsertMemory({ id: memoryId, content });
+
+        // Broadcast update event
+        broadcastToClients({
+          type: 'CORE_MEMORY_UPDATED',
+          payload: {
+            memoryId,
+            timestamp: new Date().toISOString()
+          }
+        });
+
+        return {
+          id: memory.id,
+          content: memory.content,
+          createdAt: memory.created_at,
+          updatedAt: memory.updated_at,
+          source: memory.metadata || undefined,
+          tags: tags || [],
+          size: memory.content?.length || 0
+        };
+      } catch (error: unknown) {
+        return { error: (error as Error).message, status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // API: Memory Module - Delete memory
+  if (pathname.match(/^\/api\/memory\/[^\/]+$/) && req.method === 'DELETE') {
+    const memoryId = pathname.replace('/api/memory/', '');
+    const projectPath = url.searchParams.get('path') || initialPath;
+
+    try {
+      const store = getCoreMemoryStore(projectPath);
+      store.deleteMemory(memoryId);
+
+      // Broadcast update event
+      broadcastToClients({
+        type: 'CORE_MEMORY_DELETED',
+        payload: {
+          memoryId,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (error: unknown) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (error as Error).message }));
+    }
+    return true;
+  }
 
   // API: Memory Module - Track entity access
   if (pathname === '/api/memory/track' && req.method === 'POST') {

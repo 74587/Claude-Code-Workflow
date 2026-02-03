@@ -185,6 +185,8 @@
       "tutorials": "教程"
     }
   },
+  "yes": "是",
+  "no": "否",
   "askQuestion": {
     "defaultTitle": "问题",
     "description": "请回答以下问题",
@@ -192,5 +194,71 @@
     "yes": "是",
     "no": "否",
     "required": "此问题为必填项"
+  },
+  "coordinator": {
+    "modal": {
+      "title": "启动协调器",
+      "description": "描述您希望协调器执行的任务"
+    },
+    "form": {
+      "taskDescription": "任务描述",
+      "taskDescriptionPlaceholder": "描述协调器需要执行的任务（至少10个字符）...",
+      "parameters": "参数（可选）",
+      "parametersPlaceholder": "{\"key\": \"value\"}",
+      "parametersHelp": "协调器执行的可选JSON参数",
+      "characterCount": "{current} / {max} 字符（最少：{min}）",
+      "start": "启动协调器",
+      "starting": "启动中..."
+    },
+    "validation": {
+      "taskDescriptionRequired": "任务描述为必填项",
+      "taskDescriptionTooShort": "任务描述至少需要10个字符",
+      "taskDescriptionTooLong": "任务描述不能超过2000个字符",
+      "parametersInvalidJson": "参数必须是有效的JSON格式",
+      "answerRequired": "答案为必填项"
+    },
+    "success": {
+      "started": "协调器启动成功"
+    },
+    "status": {
+      "pending": "待执行",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "skipped": "已跳过"
+    },
+    "logs": "日志",
+    "entries": "条日志",
+    "error": "错误",
+    "output": "输出",
+    "startedAt": "开始时间",
+    "completedAt": "完成时间",
+    "retrying": "重试中...",
+    "retry": "重试",
+    "skipping": "跳过中...",
+    "skip": "跳过",
+    "logLevel": "日志级别",
+    "level": {
+      "all": "全部",
+      "info": "信息",
+      "warn": "警告",
+      "error": "错误",
+      "debug": "调试"
+    },
+    "noLogs": "无可用日志",
+    "question": {
+      "answer": "答案",
+      "textPlaceholder": "输入您的答案...",
+      "selectOne": "选择一个",
+      "selectMultiple": "选择多个",
+      "confirm": "确认",
+      "yes": "是",
+      "no": "否",
+      "submitting": "提交中...",
+      "submit": "提交"
+    },
+    "error": {
+      "submitFailed": "提交答案失败"
+    }
   }
 }

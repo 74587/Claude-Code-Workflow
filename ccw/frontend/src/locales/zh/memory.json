@@ -6,9 +6,16 @@
     "edit": "编辑",
     "delete": "删除",
     "copy": "复制",
+    "copySuccess": "已复制到剪贴板",
+    "copyError": "复制失败",
     "refresh": "刷新",
     "expand": "展开",
     "collapse": "收起"
+  },
+  "tabs": {
+    "memories": "记忆",
+    "favorites": "收藏",
+    "archived": "归档"
   },
   "stats": {
     "totalSize": "总大小",
@@ -43,7 +50,9 @@
     "editTitle": "编辑记忆",
     "labels": {
       "content": "内容",
-      "tags": "标签"
+      "tags": "标签",
+      "favorite": "收藏",
+      "priority": "优先级"
     },
     "placeholders": {
       "content": "输入记忆内容...",
@@ -56,6 +65,11 @@
       "creating": "创建中...",
       "updating": "更新中..."
     }
+  },
+  "priority": {
+    "low": "低",
+    "medium": "中",
+    "high": "高"
   },
   "types": {
     "coreMemory": "核心记忆",

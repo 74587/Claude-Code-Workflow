@@ -1,4 +1,12 @@
 {
+  "groups": {
+    "overview": "概览",
+    "workflow": "工作流与执行",
+    "knowledge": "知识与记忆",
+    "issues": "问题管理",
+    "tools": "工具与钩子",
+    "configuration": "配置与支持"
+  },
   "main": {
     "home": "首页",
     "sessions": "会话",

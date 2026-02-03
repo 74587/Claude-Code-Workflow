@@ -429,3 +429,170 @@ export function broadcastOrchestratorLog(execId: string, log: Omit<ExecutionLog,
     timestamp: new Date().toISOString()
   });
 }
+
+/**
+ * Coordinator WebSocket message types
+ */
+export type CoordinatorMessageType =
+  | 'COORDINATOR_STATE_UPDATE'
+  | 'COORDINATOR_COMMAND_STARTED'
+  | 'COORDINATOR_COMMAND_COMPLETED'
+  | 'COORDINATOR_COMMAND_FAILED'
+  | 'COORDINATOR_LOG_ENTRY'
+  | 'COORDINATOR_QUESTION_ASKED'
+  | 'COORDINATOR_ANSWER_RECEIVED';
+
+/**
+ * Coordinator State Update - fired when coordinator execution status changes
+ */
+export interface CoordinatorStateUpdateMessage {
+  type: 'COORDINATOR_STATE_UPDATE';
+  executionId: string;
+  status: 'idle' | 'initializing' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  currentNodeId?: string;
+  timestamp: string;
+}
+
+/**
+ * Coordinator Command Started - fired when a command node begins execution
+ */
+export interface CoordinatorCommandStartedMessage {
+  type: 'COORDINATOR_COMMAND_STARTED';
+  executionId: string;
+  nodeId: string;
+  commandName: string;
+  timestamp: string;
+}
+
+/**
+ * Coordinator Command Completed - fired when a command node finishes successfully
+ */
+export interface CoordinatorCommandCompletedMessage {
+  type: 'COORDINATOR_COMMAND_COMPLETED';
+  executionId: string;
+  nodeId: string;
+  result?: unknown;
+  timestamp: string;
+}
+
+/**
+ * Coordinator Command Failed - fired when a command node encounters an error
+ */
+export interface CoordinatorCommandFailedMessage {
+  type: 'COORDINATOR_COMMAND_FAILED';
+  executionId: string;
+  nodeId: string;
+  error: string;
+  timestamp: string;
+}
+
+/**
+ * Coordinator Log Entry - fired for execution log entries
+ */
+export interface CoordinatorLogEntryMessage {
+  type: 'COORDINATOR_LOG_ENTRY';
+  executionId: string;
+  log: {
+    level: 'info' | 'warn' | 'error' | 'debug' | 'success';
+    message: string;
+    nodeId?: string;
+    source?: 'system' | 'node' | 'user';
+    timestamp: string;
+  };
+  timestamp: string;
+}
+
+/**
+ * Coordinator Question Asked - fired when coordinator needs user input
+ */
+export interface CoordinatorQuestionAskedMessage {
+  type: 'COORDINATOR_QUESTION_ASKED';
+  executionId: string;
+  question: {
+    id: string;
+    nodeId: string;
+    title: string;
+    description?: string;
+    type: 'text' | 'single' | 'multi' | 'yes_no';
+    options?: string[];
+    required: boolean;
+  };
+  timestamp: string;
+}
+
+/**
+ * Coordinator Answer Received - fired when user submits an answer
+ */
+export interface CoordinatorAnswerReceivedMessage {
+  type: 'COORDINATOR_ANSWER_RECEIVED';
+  executionId: string;
+  questionId: string;
+  answer: string | string[];
+  timestamp: string;
+}
+
+/**
+ * Union type for Coordinator messages (without timestamp - added automatically)
+ */
+export type CoordinatorMessage =
+  | Omit<CoordinatorStateUpdateMessage, 'timestamp'>
+  | Omit<CoordinatorCommandStartedMessage, 'timestamp'>
+  | Omit<CoordinatorCommandCompletedMessage, 'timestamp'>
+  | Omit<CoordinatorCommandFailedMessage, 'timestamp'>
+  | Omit<CoordinatorLogEntryMessage, 'timestamp'>
+  | Omit<CoordinatorQuestionAskedMessage, 'timestamp'>
+  | Omit<CoordinatorAnswerReceivedMessage, 'timestamp'>;
+
+/**
+ * Coordinator-specific broadcast with throttling
+ * Throttles COORDINATOR_STATE_UPDATE messages to avoid flooding clients
+ */
+let lastCoordinatorBroadcast = 0;
+const COORDINATOR_BROADCAST_THROTTLE = 1000; // 1 second
+
+/**
+ * Broadcast coordinator update with throttling
+ * STATE_UPDATE messages are throttled to 1 per second
+ * Other message types are sent immediately
+ */
+export function broadcastCoordinatorUpdate(message: CoordinatorMessage): void {
+  const now = Date.now();
+
+  // Throttle COORDINATOR_STATE_UPDATE to reduce WebSocket traffic
+  if (message.type === 'COORDINATOR_STATE_UPDATE' && now - lastCoordinatorBroadcast < COORDINATOR_BROADCAST_THROTTLE) {
+    return;
+  }
+
+  if (message.type === 'COORDINATOR_STATE_UPDATE') {
+    lastCoordinatorBroadcast = now;
+  }
+
+  broadcastToClients({
+    ...message,
+    timestamp: new Date().toISOString()
+  });
+}
+
+/**
+ * Broadcast coordinator log entry (no throttling)
+ * Used for streaming real-time coordinator logs to Dashboard
+ */
+export function broadcastCoordinatorLog(
+  executionId: string,
+  log: {
+    level: 'info' | 'warn' | 'error' | 'debug' | 'success';
+    message: string;
+    nodeId?: string;
+    source?: 'system' | 'node' | 'user';
+  }
+): void {
+  broadcastToClients({
+    type: 'COORDINATOR_LOG_ENTRY',
+    executionId,
+    log: {
+      ...log,
+      timestamp: new Date().toISOString()
+    },
+    timestamp: new Date().toISOString()
+  });
+}

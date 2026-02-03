@@ -1,4 +1,12 @@
 {
+  "groups": {
+    "overview": "Overview",
+    "workflow": "Workflow & Execution",
+    "knowledge": "Knowledge & Memory",
+    "issues": "Issue Management",
+    "tools": "Tools & Hooks",
+    "configuration": "Configuration & Support"
+  },
   "main": {
     "home": "Home",
     "sessions": "Sessions",

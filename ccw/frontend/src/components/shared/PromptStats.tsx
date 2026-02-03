@@ -6,7 +6,13 @@
 import * as React from 'react';
 import { useIntl } from 'react-intl';
 import { StatCard, StatCardSkeleton } from '@/components/shared/StatCard';
-import { MessageSquare, FileType, Hash } from 'lucide-react';
+import { MessageSquare, FileType, Hash, Star } from 'lucide-react';
+
+export interface QualityDistribution {
+  high: number;
+  medium: number;
+  low: number;
+}
 
 export interface PromptStatsProps {
   /** Total number of prompts */
@@ -15,6 +21,10 @@ export interface PromptStatsProps {
   avgLength: number;
   /** Most common intent/category */
   topIntent: string | null;
+  /** Average quality score (0-100) */
+  avgQualityScore?: number;
+  /** Quality distribution */
+  qualityDistribution?: QualityDistribution;
   /** Loading state */
   isLoading?: boolean;
 }
@@ -22,15 +32,18 @@ export interface PromptStatsProps {
 /**
  * PromptStats component - displays prompt history statistics
  *
- * Shows three key metrics:
+ * Shows four key metrics:
  * - Total prompts: overall count of stored prompts
  * - Average length: mean character count across all prompts
  * - Top intent: most frequently used category
+ * - Quality: average quality score with distribution
  */
 export function PromptStats({
   totalCount,
   avgLength,
   topIntent,
+  avgQualityScore,
+  qualityDistribution,
   isLoading = false,
 }: PromptStatsProps) {
   const { formatMessage } = useIntl();
@@ -44,7 +57,7 @@ export function PromptStats({
   };
 
   return (
-    <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
       <StatCard
         title={formatMessage({ id: 'prompts.stats.totalCount' })}
         value={totalCount}
@@ -69,6 +82,17 @@ export function PromptStats({
         isLoading={isLoading}
         description={formatMessage({ id: 'prompts.stats.topIntentDesc' })}
       />
+      <StatCard
+        title={formatMessage({ id: 'prompts.stats.avgQuality' })}
+        value={avgQualityScore !== undefined ? Math.round(avgQualityScore) : 'N/A'}
+        icon={Star}
+        variant="warning"
+        isLoading={isLoading}
+        description={qualityDistribution
+          ? `${formatMessage({ id: 'prompts.quality.high' })}: ${qualityDistribution.high} | ${formatMessage({ id: 'prompts.quality.medium' })}: ${qualityDistribution.medium} | ${formatMessage({ id: 'prompts.quality.low' })}: ${qualityDistribution.low}`
+          : formatMessage({ id: 'prompts.stats.avgQualityDesc' })
+        }
+      />
     </div>
   );
 }
@@ -78,7 +102,8 @@ export function PromptStats({
  */
 export function PromptStatsSkeleton() {
   return (
-    <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-4">
+      <StatCardSkeleton />
       <StatCardSkeleton />
       <StatCardSkeleton />
       <StatCardSkeleton />

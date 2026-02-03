@@ -48,5 +48,7 @@
     "atTime": "{0}"
   },
   "markAsRead": "标为已读",
-  "markAsUnread": "标为未读"
+  "markAsUnread": "标为未读",
+  "read": "已读",
+  "unread": "未读"
 }

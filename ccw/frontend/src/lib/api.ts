@@ -996,7 +996,7 @@ export interface CommandsResponse {
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchCommands(projectPath?: string): Promise<CommandsResponse> {
-  // Try with project path first, fall back to global on 403/404
+  // Try with project path first, fall back to global on errors
   if (projectPath) {
     try {
       const url = `/api/commands?path=${encodeURIComponent(projectPath)}`;
@@ -1017,30 +1017,41 @@ export async function fetchCommands(projectPath?: string): Promise<CommandsRespo
       };
     } catch (error: unknown) {
       const apiError = error as ApiError;
-      if (apiError.status === 403 || apiError.status === 404) {
-        // Fall back to global commands list
-        console.warn('[fetchCommands] 403/404 for project path, falling back to global commands');
+      if (apiError.status === 403 || apiError.status === 404 || apiError.status === 400) {
+        // Fall back to global commands list on path validation errors
+        console.warn('[fetchCommands] Path validation failed, falling back to global commands');
       } else {
         throw error;
       }
     }
   }
   // Fallback: fetch global commands
-  const data = await fetchApi<{
-    commands?: Command[];
-    projectCommands?: Command[];
-    userCommands?: Command[];
-    groups?: string[];
-    projectGroupsConfig?: Record<string, any>;
-    userGroupsConfig?: Record<string, any>;
-  }>('/api/commands');
-  const allCommands = [...(data.projectCommands ?? []), ...(data.userCommands ?? [])];
-  return {
-    commands: data.commands ?? allCommands,
-    groups: data.groups,
-    projectGroupsConfig: data.projectGroupsConfig,
-    userGroupsConfig: data.userGroupsConfig,
-  };
+  try {
+    const data = await fetchApi<{
+      commands?: Command[];
+      projectCommands?: Command[];
+      userCommands?: Command[];
+      groups?: string[];
+      projectGroupsConfig?: Record<string, any>;
+      userGroupsConfig?: Record<string, any>;
+    }>('/api/commands');
+    const allCommands = [...(data.projectCommands ?? []), ...(data.userCommands ?? [])];
+    return {
+      commands: data.commands ?? allCommands,
+      groups: data.groups,
+      projectGroupsConfig: data.projectGroupsConfig,
+      userGroupsConfig: data.userGroupsConfig,
+    };
+  } catch (error) {
+    // If global fetch also fails, return empty data instead of throwing
+    console.warn('[fetchCommands] Failed to fetch commands, returning empty data:', error);
+    return {
+      commands: [],
+      groups: [],
+      projectGroupsConfig: {},
+      userGroupsConfig: {},
+    };
+  }
 }
 
 /**
@@ -1095,6 +1106,8 @@ export interface CoreMemory {
   source?: string;
   tags?: string[];
   size?: number;
+  metadata?: string | Record<string, any>;
+  archived?: boolean;
 }
 
 export interface MemoryResponse {
@@ -1111,7 +1124,7 @@ export async function fetchMemories(projectPath?: string): Promise<MemoryRespons
   // Try with project path first, fall back to global on 403/404
   if (projectPath) {
     try {
-      const url = `/api/memory?path=${encodeURIComponent(projectPath)}`;
+      const url = `/api/core-memory/memories?path=${encodeURIComponent(projectPath)}`;
       const data = await fetchApi<{
         memories?: CoreMemory[];
         totalSize?: number;
@@ -1137,7 +1150,7 @@ export async function fetchMemories(projectPath?: string): Promise<MemoryRespons
     memories?: CoreMemory[];
     totalSize?: number;
     claudeMdCount?: number;
-  }>('/api/memory');
+  }>('/api/core-memory/memories');
   return {
     memories: data.memories ?? [],
     totalSize: data.totalSize ?? 0,
@@ -1153,12 +1166,16 @@ export async function fetchMemories(projectPath?: string): Promise<MemoryRespons
 export async function createMemory(input: {
   content: string;
   tags?: string[];
+  metadata?: Record<string, any>;
 }, projectPath?: string): Promise<CoreMemory> {
-  const url = projectPath ? `/api/memory?path=${encodeURIComponent(projectPath)}` : '/api/memory';
-  return fetchApi<CoreMemory>(url, {
+  const url = '/api/core-memory/memories';
+  return fetchApi<{ success: boolean; memory: CoreMemory }>(url, {
     method: 'POST',
-    body: JSON.stringify(input),
-  });
+    body: JSON.stringify({
+      ...input,
+      path: projectPath,
+    }),
+  }).then(data => data.memory);
 }
 
 /**
@@ -1172,13 +1189,15 @@ export async function updateMemory(
   input: Partial<CoreMemory>,
   projectPath?: string
 ): Promise<CoreMemory> {
-  const url = projectPath
-    ? `/api/memory/${encodeURIComponent(memoryId)}?path=${encodeURIComponent(projectPath)}`
-    : `/api/memory/${encodeURIComponent(memoryId)}`;
-  return fetchApi<CoreMemory>(url, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
-  });
+  const url = '/api/core-memory/memories';
+  return fetchApi<{ success: boolean; memory: CoreMemory }>(url, {
+    method: 'POST',
+    body: JSON.stringify({
+      id: memoryId,
+      ...input,
+      path: projectPath,
+    }),
+  }).then(data => data.memory);
 }
 
 /**
@@ -1188,8 +1207,8 @@ export async function updateMemory(
  */
 export async function deleteMemory(memoryId: string, projectPath?: string): Promise<void> {
   const url = projectPath
-    ? `/api/memory/${encodeURIComponent(memoryId)}?path=${encodeURIComponent(projectPath)}`
-    : `/api/memory/${encodeURIComponent(memoryId)}`;
+    ? `/api/core-memory/memories/${encodeURIComponent(memoryId)}?path=${encodeURIComponent(projectPath)}`
+    : `/api/core-memory/memories/${encodeURIComponent(memoryId)}`;
   return fetchApi<void>(url, {
     method: 'DELETE',
   });
@@ -2330,6 +2349,35 @@ export interface PromptInsightsResponse {
 }
 
 /**
+ * Insight history entry from CLI analysis
+ */
+export interface InsightHistory {
+  /** Unique insight identifier */
+  id: string;
+  /** Created timestamp */
+  created_at: string;
+  /** AI tool used for analysis */
+  tool: 'gemini' | 'qwen' | 'codex' | string;
+  /** Number of prompts analyzed */
+  prompt_count: number;
+  /** Detected patterns */
+  patterns: Pattern[];
+  /** AI suggestions */
+  suggestions: Suggestion[];
+  /** Associated execution ID */
+  execution_id: string | null;
+  /** Language preference */
+  lang: string;
+}
+
+/**
+ * Insights history response from backend
+ */
+export interface InsightsHistoryResponse {
+  insights: InsightHistory[];
+}
+
+/**
  * Analyze prompts request
  */
 export interface AnalyzePromptsRequest {
@@ -2357,6 +2405,30 @@ export async function fetchPromptInsights(projectPath?: string): Promise<PromptI
 }
 
 /**
+ * Fetch insights history (past CLI analyses) from backend
+ * @param projectPath - Optional project path to filter data by workspace
+ * @param limit - Maximum number of insights to fetch (default: 20)
+ */
+export async function fetchInsightsHistory(projectPath?: string, limit: number = 20): Promise<InsightsHistoryResponse> {
+  const url = projectPath
+    ? `/api/memory/insights?limit=${limit}&path=${encodeURIComponent(projectPath)}`
+    : `/api/memory/insights?limit=${limit}`;
+  return fetchApi<InsightsHistoryResponse>(url);
+}
+
+/**
+ * Fetch a single insight detail by ID
+ * @param insightId - Insight ID to fetch
+ * @param projectPath - Optional project path to filter data by workspace
+ */
+export async function fetchInsightDetail(insightId: string, projectPath?: string): Promise<InsightHistory> {
+  const url = projectPath
+    ? `/api/memory/insights/${encodeURIComponent(insightId)}?path=${encodeURIComponent(projectPath)}`
+    : `/api/memory/insights/${encodeURIComponent(insightId)}`;
+  return fetchApi<InsightHistory>(url);
+}
+
+/**
  * Analyze prompts using AI tool
  */
 export async function analyzePrompts(request: AnalyzePromptsRequest = {}): Promise<PromptInsightsResponse> {
@@ -2372,6 +2444,28 @@ export async function analyzePrompts(request: AnalyzePromptsRequest = {}): Promi
 export async function deletePrompt(promptId: string): Promise<void> {
   await fetchApi<void>('/api/memory/prompts/' + encodeURIComponent(promptId), {
     method: 'DELETE',
+  });
+}
+
+/**
+ * Delete an insight from history
+ */
+export async function deleteInsight(insightId: string, projectPath?: string): Promise<{ success: boolean }> {
+  const url = projectPath
+    ? `/api/memory/insights/${encodeURIComponent(insightId)}?path=${encodeURIComponent(projectPath)}`
+    : `/api/memory/insights/${encodeURIComponent(insightId)}`;
+  return fetchApi<{ success: boolean }>(url, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Batch delete prompts from history
+ */
+export async function batchDeletePrompts(promptIds: string[]): Promise<{ deleted: number }> {
+  return fetchApi<{ deleted: number }>('/api/memory/prompts/batch-delete', {
+    method: 'POST',
+    body: JSON.stringify({ promptIds }),
   });
 }
 
@@ -3845,6 +3939,41 @@ export interface ExecutionStateResponse {
 }
 
 /**
+ * Coordinator pipeline details response
+ */
+export interface CoordinatorPipelineDetails {
+  id: string;
+  name: string;
+  description?: string;
+  nodes: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    command: string;
+    status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+    startedAt?: string;
+    completedAt?: string;
+    result?: unknown;
+    error?: string;
+    output?: string;
+    parentId?: string;
+    children?: Array<any>;
+  }>;
+  totalSteps: number;
+  estimatedDuration?: number;
+  logs?: Array<{
+    id: string;
+    timestamp: string;
+    level: 'info' | 'warn' | 'error' | 'debug' | 'success';
+    message: string;
+    nodeId?: string;
+    source?: 'system' | 'node' | 'user';
+  }>;
+  status: 'idle' | 'initializing' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  createdAt: string;
+}
+
+/**
  * Execution log entry
  */
 export interface ExecutionLogEntry {
@@ -3872,6 +4001,14 @@ export interface ExecutionLogsResponse {
  */
 export async function fetchExecutionState(execId: string): Promise<{ success: boolean; data: ExecutionStateResponse }> {
   return fetchApi(`/api/orchestrator/executions/${encodeURIComponent(execId)}`);
+}
+
+/**
+ * Fetch coordinator pipeline details by execution ID
+ * @param execId - Execution/Pipeline ID
+ */
+export async function fetchCoordinatorPipeline(execId: string): Promise<{ success: boolean; data: CoordinatorPipelineDetails }> {
+  return fetchApi(`/api/coordinator/pipeline/${encodeURIComponent(execId)}`);
 }
 
 /**

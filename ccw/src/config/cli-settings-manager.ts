@@ -126,11 +126,16 @@ export function saveEndpointSettings(request: SaveEndpointRequest): SettingsOper
     // Usage: ccw cli -p "..." --tool <name> --mode analysis
     try {
       const projectDir = os.homedir(); // Use home dir as base for global config
+      // Merge user-provided tags with cli-wrapper tag for proper type registration
+      const userTags = request.settings.tags || [];
+      const tags = [...new Set([...userTags, 'cli-wrapper'])]; // Dedupe and ensure cli-wrapper tag
       addClaudeCustomEndpoint(projectDir, {
         id: endpointId,
         name: request.name,
         enabled: request.enabled ?? true,
-        tags: ['cli-wrapper']  // cli-wrapper tag -> registers as type: 'cli-wrapper'
+        tags,
+        availableModels: request.settings.availableModels,
+        settingsFile: request.settings.settingsFile
       });
       console.log(`[CliSettings] Synced endpoint ${endpointId} to cli-tools.json tools (cli-wrapper)`);
     } catch (syncError) {
@@ -306,11 +311,17 @@ export function toggleEndpointEnabled(endpointId: string, enabled: boolean): Set
     // Sync enabled status with cli-tools.json tools (cli-wrapper type)
     try {
       const projectDir = os.homedir();
+      // Load full settings to get tags
+      const endpoint = loadEndpointSettings(endpointId);
+      const userTags = endpoint?.settings.tags || [];
+      const tags = [...new Set([...userTags, 'cli-wrapper'])]; // Dedupe and ensure cli-wrapper tag
       addClaudeCustomEndpoint(projectDir, {
         id: endpointId,
         name: metadata.name,
         enabled: enabled,
-        tags: ['cli-wrapper']  // cli-wrapper tag -> registers as type: 'cli-wrapper'
+        tags,
+        availableModels: endpoint?.settings.availableModels,
+        settingsFile: endpoint?.settings.settingsFile
       });
       console.log(`[CliSettings] Synced endpoint ${endpointId} enabled=${enabled} to cli-tools.json tools`);
     } catch (syncError) {

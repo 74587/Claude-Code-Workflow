@@ -9,6 +9,8 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
+import { Checkbox } from '@/components/ui/Checkbox';
+import { QualityBadge } from '@/components/shared/QualityBadge';
 import {
   Copy,
   Trash2,
@@ -31,6 +33,12 @@ export interface PromptCardProps {
   actionsDisabled?: boolean;
   /** Default expanded state */
   defaultExpanded?: boolean;
+  /** Selection state for batch operations */
+  selected?: boolean;
+  /** Called when selection state changes */
+  onSelectChange?: (id: string, selected: boolean) => void;
+  /** Whether selection mode is active */
+  selectionMode?: boolean;
 }
 
 /**
@@ -66,6 +74,9 @@ export function PromptCard({
   className,
   actionsDisabled = false,
   defaultExpanded = false,
+  selected = false,
+  onSelectChange,
+  selectionMode = false,
 }: PromptCardProps) {
   const { formatMessage } = useIntl();
   const [expanded, setExpanded] = React.useState(defaultExpanded);
@@ -91,12 +102,44 @@ export function PromptCard({
     setExpanded((prev) => !prev);
   };
 
+  const handleSelectionChange = (checked: boolean) => {
+    onSelectChange?.(prompt.id, checked);
+  };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (selectionMode && (e.target as HTMLElement).closest('.prompt-card-checkbox')) {
+      return;
+    }
+    if (selectionMode) {
+      handleSelectionChange(!selected);
+    }
+  };
+
   return (
-    <Card className={cn('transition-all duration-200', className)}>
+    <Card
+      className={cn(
+        'transition-all duration-200',
+        selected && 'ring-2 ring-primary',
+        selectionMode && 'cursor-pointer',
+        className
+      )}
+      onClick={handleCardClick}
+    >
       <CardHeader className="p-4">
         <div className="flex items-start justify-between gap-3">
+          {/* Checkbox for selection mode */}
+          {selectionMode && (
+            <div className="prompt-card-checkbox">
+              <Checkbox
+                checked={selected}
+                onCheckedChange={handleSelectionChange}
+                className="mt-1"
+              />
+            </div>
+          )}
+
           {/* Title and metadata */}
-          <div className="flex-1 min-w-0">
+          <div className={cn('flex-1 min-w-0', !selectionMode && 'ml-0')}>
             <div className="flex items-center gap-2 mb-2">
               <h3 className="text-sm font-medium text-foreground truncate">
                 {prompt.title || formatMessage({ id: 'prompts.card.untitled' })}
@@ -106,6 +149,7 @@ export function PromptCard({
                   {prompt.category}
                 </Badge>
               )}
+              <QualityBadge qualityScore={prompt.quality_score} className="text-xs" />
             </div>
 
             {/* Metadata */}

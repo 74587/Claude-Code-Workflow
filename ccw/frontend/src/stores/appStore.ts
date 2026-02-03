@@ -36,6 +36,7 @@ const initialState = {
   // Sidebar
   sidebarOpen: true,
   sidebarCollapsed: false,
+  expandedNavGroups: ['overview', 'workflow', 'knowledge', 'issues', 'tools', 'configuration'] as string[],
 
   // View state
   currentView: 'sessions' as ViewMode,
@@ -110,6 +111,10 @@ export const useAppStore = create<AppStore>()(
           set({ sidebarCollapsed: collapsed }, false, 'setSidebarCollapsed');
         },
 
+        setExpandedNavGroups: (groups: string[]) => {
+          set({ expandedNavGroups: groups }, false, 'setExpandedNavGroups');
+        },
+
         // ========== View Actions ==========
 
         setCurrentView: (view: ViewMode) => {
@@ -150,6 +155,7 @@ export const useAppStore = create<AppStore>()(
           colorScheme: state.colorScheme,
           locale: state.locale,
           sidebarCollapsed: state.sidebarCollapsed,
+          expandedNavGroups: state.expandedNavGroups,
         }),
         onRehydrateStorage: () => (state) => {
           // Apply theme on rehydration

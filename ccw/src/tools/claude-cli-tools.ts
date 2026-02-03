@@ -860,7 +860,7 @@ export function removeClaudeApiEndpoint(
  */
 export function addClaudeCustomEndpoint(
   projectDir: string,
-  endpoint: { id: string; name: string; enabled: boolean; tags?: string[] }
+  endpoint: { id: string; name: string; enabled: boolean; tags?: string[]; availableModels?: string[]; settingsFile?: string }
 ): ClaudeCliToolsConfig {
   const config = loadClaudeCliTools(projectDir);
 
@@ -869,7 +869,9 @@ export function addClaudeCustomEndpoint(
     config.tools[endpoint.name] = {
       enabled: endpoint.enabled,
       tags: endpoint.tags.filter(t => t !== 'cli-wrapper'),
-      type: 'cli-wrapper'
+      type: 'cli-wrapper',
+      ...(endpoint.availableModels && { availableModels: endpoint.availableModels }),
+      ...(endpoint.settingsFile && { settingsFile: endpoint.settingsFile })
     };
   } else {
     // API endpoint tool
@@ -877,7 +879,9 @@ export function addClaudeCustomEndpoint(
       enabled: endpoint.enabled,
       tags: [],
       type: 'api-endpoint',
-      id: endpoint.id
+      id: endpoint.id,
+      ...(endpoint.availableModels && { availableModels: endpoint.availableModels }),
+      ...(endpoint.settingsFile && { settingsFile: endpoint.settingsFile })
     };
   }
 

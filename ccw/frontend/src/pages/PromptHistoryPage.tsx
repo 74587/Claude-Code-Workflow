@@ -17,12 +17,20 @@ import {
 import {
   usePromptHistory,
   usePromptInsights,
+  useInsightsHistory,
   usePromptHistoryMutations,
+  useDeleteInsight,
+  extractUniqueProjects,
   type PromptHistoryFilter,
 } from '@/hooks/usePromptHistory';
 import { PromptStats, PromptStatsSkeleton } from '@/components/shared/PromptStats';
 import { PromptCard } from '@/components/shared/PromptCard';
+import { BatchOperationToolbar } from '@/components/shared/BatchOperationToolbar';
 import { InsightsPanel } from '@/components/shared/InsightsPanel';
+import { InsightsHistoryList } from '@/components/shared/InsightsHistoryList';
+import { InsightDetailPanelOverlay } from '@/components/shared/InsightDetailPanel';
+import { fetchInsightDetail } from '@/lib/api';
+import type { InsightHistory } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
@@ -42,7 +50,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/Dropdown';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { cn } from '@/lib/utils';
 
 type IntentFilter = 'all' | string;
@@ -56,24 +63,35 @@ export function PromptHistoryPage() {
   // Filter state
   const [searchQuery, setSearchQuery] = React.useState('');
   const [intentFilter, setIntentFilter] = React.useState<IntentFilter>('all');
+  const [projectFilter, setProjectFilter] = React.useState<string>('all');
   const [selectedTool, setSelectedTool] = React.useState<'gemini' | 'qwen' | 'codex'>('gemini');
 
   // Dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [promptToDelete, setPromptToDelete] = React.useState<string | null>(null);
 
+  // Insight detail state
+  const [selectedInsight, setSelectedInsight] = React.useState<InsightHistory | null>(null);
+  const [insightDetailOpen, setInsightDetailOpen] = React.useState(false);
+
+  // Batch operations state
+  const [selectedPromptIds, setSelectedPromptIds] = React.useState<Set<string>>(new Set());
+  const [batchDeleteDialogOpen, setBatchDeleteDialogOpen] = React.useState(false);
+
   // Build filter object
   const filter: PromptHistoryFilter = React.useMemo(
     () => ({
       search: searchQuery,
       intent: intentFilter === 'all' ? undefined : intentFilter,
+      project: projectFilter === 'all' ? undefined : projectFilter,
     }),
-    [searchQuery, intentFilter]
+    [searchQuery, intentFilter, projectFilter]
   );
 
   // Fetch prompts and insights
   const {
     prompts,
+    allPrompts,
     promptsBySession,
     stats,
     isLoading,
@@ -83,10 +101,18 @@ export function PromptHistoryPage() {
   } = usePromptHistory({ filter });
 
   const { data: insightsData, isLoading: insightsLoading } = usePromptInsights();
+  const { data: insightsHistoryData, isLoading: insightsHistoryLoading } = useInsightsHistory({ limit: 20 });
 
-  const { analyzePrompts, deletePrompt, isAnalyzing } = usePromptHistoryMutations();
+  const { analyzePrompts, deletePrompt, batchDeletePrompts, isAnalyzing, isBatchDeleting } = usePromptHistoryMutations();
+  const { deleteInsight: deleteInsightMutation, isDeleting: isDeletingInsight } = useDeleteInsight();
 
-  const isMutating = isAnalyzing;
+  const isMutating = isAnalyzing || isBatchDeleting;
+
+  // Extract unique projects from all prompts
+  const uniqueProjects = React.useMemo(
+    () => extractUniqueProjects(allPrompts),
+    [allPrompts]
+  );
 
   // Handlers
   const handleAnalyze = async () => {
@@ -118,6 +144,45 @@ export function PromptHistoryPage() {
     setSearchQuery('');
   };
 
+  const handleInsightSelect = async (insightId: string) => {
+    try {
+      const insight = await fetchInsightDetail(insightId);
+      setSelectedInsight(insight);
+      setInsightDetailOpen(true);
+    } catch (err) {
+      console.error('Failed to fetch insight detail:', err);
+    }
+  };
+
+  const handleDeleteInsight = async (insightId: string) => {
+    const locale = useIntl().locale;
+    const confirmMessage = locale === 'zh'
+      ? '确定要删除此分析吗？此操作无法撤销。'
+      : 'Are you sure you want to delete this insight? This action cannot be undone.';
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      await deleteInsightMutation(insightId);
+      setInsightDetailOpen(false);
+      setSelectedInsight(null);
+      // Show success toast
+      const successMessage = locale === 'zh' ? '洞察已删除' : 'Insight deleted';
+      if (window.showToast) {
+        window.showToast(successMessage, 'success');
+      }
+    } catch (err) {
+      console.error('Failed to delete insight:', err);
+      // Show error toast
+      const errorMessage = locale === 'zh' ? '删除洞察失败' : 'Failed to delete insight';
+      if (window.showToast) {
+        window.showToast(errorMessage, 'error');
+      }
+    }
+  };
+
   const toggleIntentFilter = (intent: string) => {
     setIntentFilter((prev) => (prev === intent ? 'all' : intent));
   };
@@ -125,9 +190,53 @@ export function PromptHistoryPage() {
   const clearFilters = () => {
     setSearchQuery('');
     setIntentFilter('all');
+    setProjectFilter('all');
   };
 
-  const hasActiveFilters = searchQuery.length > 0 || intentFilter !== 'all';
+  // Batch operations handlers
+  const handleSelectPrompt = (promptId: string, selected: boolean) => {
+    setSelectedPromptIds((prev) => {
+      const next = new Set(prev);
+      if (selected) {
+        next.add(promptId);
+      } else {
+        next.delete(promptId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = (selected: boolean) => {
+    if (selected) {
+      setSelectedPromptIds(new Set(prompts.map((p) => p.id)));
+    } else {
+      setSelectedPromptIds(new Set());
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedPromptIds(new Set());
+  };
+
+  const handleBatchDeleteClick = () => {
+    if (selectedPromptIds.size > 0) {
+      setBatchDeleteDialogOpen(true);
+    }
+  };
+
+  const handleConfirmBatchDelete = async () => {
+    if (selectedPromptIds.size === 0) return;
+
+    try {
+      await batchDeletePrompts(Array.from(selectedPromptIds));
+      setBatchDeleteDialogOpen(false);
+      setSelectedPromptIds(new Set());
+    } catch (err) {
+      console.error('Failed to batch delete prompts:', err);
+    }
+  };
+
+  const hasActiveFilters = searchQuery.length > 0 || intentFilter !== 'all' || projectFilter !== 'all';
 
   // Group prompts for timeline view
   const timelineGroups = React.useMemo(() => {
@@ -247,9 +356,9 @@ export function PromptHistoryPage() {
                 <Button variant="outline" size="sm" className="gap-2">
                   <Filter className="h-4 w-4" />
                   {formatMessage({ id: 'common.actions.filter' })}
-                  {intentFilter !== 'all' && (
+                  {(intentFilter !== 'all' || projectFilter !== 'all') && (
                     <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1">
-                      {intentFilter}
+                      {(intentFilter !== 'all' ? 1 : 0) + (projectFilter !== 'all' ? 1 : 0)}
                     </Badge>
                   )}
                 </Button>
@@ -272,6 +381,26 @@ export function PromptHistoryPage() {
                   >
                     <span>{formatMessage({ id: `prompts.intents.${intent}` })}</span>
                     {intentFilter === intent && <span className="text-primary">&#10003;</span>}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>{formatMessage({ id: 'prompts.filterByProject' })}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setProjectFilter('all')}
+                  className="justify-between"
+                >
+                  <span>{formatMessage({ id: 'prompts.projects.all' })}</span>
+                  {projectFilter === 'all' && <span className="text-primary">&#10003;</span>}
+                </DropdownMenuItem>
+                {uniqueProjects.map((project) => (
+                  <DropdownMenuItem
+                    key={project}
+                    onClick={() => setProjectFilter(project)}
+                    className="justify-between"
+                  >
+                    <span className="truncate max-w-32" title={project}>{project}</span>
+                    {projectFilter === project && <span className="text-primary">&#10003;</span>}
                   </DropdownMenuItem>
                 ))}
                 {hasActiveFilters && (
@@ -300,6 +429,16 @@ export function PromptHistoryPage() {
                   <X className="ml-1 h-3 w-3" />
                 </Badge>
               )}
+              {projectFilter !== 'all' && (
+                <Badge
+                  variant="secondary"
+                  className="cursor-pointer"
+                  onClick={() => setProjectFilter('all')}
+                >
+                  {formatMessage({ id: 'prompts.projects.project' })}: {projectFilter}
+                  <X className="ml-1 h-3 w-3" />
+                </Badge>
+              )}
               {searchQuery && (
                 <Badge
                   variant="secondary"
@@ -315,6 +454,16 @@ export function PromptHistoryPage() {
               </Button>
             </div>
           )}
+
+          {/* Batch operations toolbar */}
+          <BatchOperationToolbar
+            selectedCount={selectedPromptIds.size}
+            allSelected={prompts.length > 0 && selectedPromptIds.size === prompts.length}
+            onSelectAll={handleSelectAll}
+            onClearSelection={handleClearSelection}
+            onDelete={handleBatchDeleteClick}
+            isDeleting={isBatchDeleting}
+          />
 
           {/* Timeline */}
           {isLoading ? (
@@ -366,6 +515,9 @@ export function PromptHistoryPage() {
                         prompt={prompt}
                         onDelete={handleDeleteClick}
                         actionsDisabled={isMutating}
+                        selected={selectedPromptIds.has(prompt.id)}
+                        onSelectChange={handleSelectPrompt}
+                        selectionMode={selectedPromptIds.size > 0 || prompts.some(p => selectedPromptIds.has(p.id))}
                       />
                     ))}
                   </div>
@@ -376,7 +528,7 @@ export function PromptHistoryPage() {
         </div>
 
         {/* Insights panel */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-4">
           <InsightsPanel
             insights={insightsData?.insights}
             patterns={insightsData?.patterns}
@@ -386,6 +538,11 @@ export function PromptHistoryPage() {
             onAnalyze={handleAnalyze}
             isAnalyzing={isAnalyzing || insightsLoading}
             className="sticky top-4"
+          />
+          <InsightsHistoryList
+            insights={insightsHistoryData?.insights}
+            isLoading={insightsHistoryLoading}
+            onInsightSelect={handleInsightSelect}
           />
         </div>
       </div>
@@ -419,6 +576,48 @@ export function PromptHistoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Batch Delete Confirmation Dialog */}
+      <Dialog open={batchDeleteDialogOpen} onOpenChange={setBatchDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{formatMessage({ id: 'prompts.dialog.batchDeleteTitle' })}</DialogTitle>
+            <DialogDescription>
+              {formatMessage({ id: 'prompts.dialog.batchDeleteConfirm' }, { count: selectedPromptIds.size })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBatchDeleteDialogOpen(false);
+              }}
+              disabled={isBatchDeleting}
+            >
+              {formatMessage({ id: 'common.actions.cancel' })}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmBatchDelete}
+              disabled={isBatchDeleting}
+            >
+              {isBatchDeleting ? formatMessage({ id: 'common.actions.deleting' }, { defaultValue: 'Deleting...' }) : formatMessage({ id: 'common.actions.delete' })}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Insight Detail Panel Overlay */}
+      <InsightDetailPanelOverlay
+        insight={selectedInsight}
+        onClose={() => {
+          setInsightDetailOpen(false);
+          setSelectedInsight(null);
+        }}
+        onDelete={handleDeleteInsight}
+        isDeleting={isDeletingInsight}
+        showOverlay={true}
+      />
     </div>
   );
 }

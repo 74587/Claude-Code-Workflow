@@ -3,6 +3,7 @@
   "description": "查看和分析您的提示历史记录，获取 AI 洞察",
   "searchPlaceholder": "搜索提示...",
   "filterByIntent": "按意图筛选",
+  "filterByProject": "按项目筛选",
   "intents": {
     "all": "所有意图",
     "intent": "意图",
@@ -12,6 +13,10 @@
     "document": "文档",
     "analyze": "分析"
   },
+  "projects": {
+    "all": "所有项目",
+    "project": "项目"
+  },
   "stats": {
     "totalCount": "总提示数",
     "totalCountDesc": "所有存储的提示",
@@ -19,7 +24,15 @@
     "avgLengthDesc": "平均字符数",
     "topIntent": "主要意图",
     "topIntentDesc": "最常用的类别",
-    "noIntent": "无"
+    "noIntent": "无",
+    "avgQuality": "平均质量",
+    "avgQualityDesc": "质量分数分布"
+  },
+  "quality": {
+    "high": "高",
+    "medium": "中",
+    "low": "低",
+    "none": "无"
   },
   "card": {
     "untitled": "未命名提示",
@@ -52,6 +65,24 @@
       "suggestions": "建议"
     }
   },
+  "insightsHistory": {
+    "loading": "加载洞察历史...",
+    "patterns": "模式",
+    "suggestions": "建议",
+    "prompts": "提示",
+    "empty": {
+      "title": "暂无分析历史",
+      "message": "运行分析以查看历史洞察和模式。"
+    }
+  },
+  "insightDetail": {
+    "title": "洞察详情",
+    "patterns": "发现的模式",
+    "suggestions": "建议",
+    "promptsAnalyzed": "个提示已分析",
+    "noContent": "此洞察暂无模式或建议。",
+    "deleting": "删除中..."
+  },
   "suggestions": {
     "types": {
       "refactor": "重构",
@@ -63,7 +94,15 @@
   },
   "dialog": {
     "deleteTitle": "删除提示",
-    "deleteConfirm": "确定要删除此提示吗？此操作无法撤销。"
+    "deleteConfirm": "确定要删除此提示吗？此操作无法撤销。",
+    "batchDeleteTitle": "批量删除提示",
+    "batchDeleteConfirm": "确定要删除 {count} 个选中的提示吗？此操作无法撤销。"
+  },
+  "batch": {
+    "selected": "已选 {count} 个",
+    "selectAll": "全选",
+    "clearSelection": "清除选择",
+    "deleteSelected": "删除选中"
   },
   "emptyState": {
     "title": "未找到提示",

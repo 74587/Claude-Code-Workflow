@@ -24,6 +24,7 @@ export interface AppState {
   // Sidebar
   sidebarOpen: boolean;
   sidebarCollapsed: boolean;
+  expandedNavGroups: string[];
 
   // View state
   currentView: ViewMode;
@@ -50,6 +51,7 @@ export interface AppActions {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  setExpandedNavGroups: (groups: string[]) => void;
 
   // View actions
   setCurrentView: (view: ViewMode) => void;
@@ -611,6 +613,8 @@ export interface Prompt {
   category?: string;
   /** Search tags */
   tags?: string[];
+  /** Project path */
+  project?: string;
   /** Usage count */
   useCount?: number;
   /** Last used timestamp */
@@ -619,6 +623,8 @@ export interface Prompt {
   createdAt: string;
   /** Updated timestamp */
   updatedAt?: string;
+  /** Quality score (0-100) */
+  quality_score?: number;
 }
 
 /**

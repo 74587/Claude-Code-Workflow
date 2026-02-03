@@ -7,14 +7,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   fetchPrompts,
   fetchPromptInsights,
+  fetchInsightsHistory,
   analyzePrompts,
   deletePrompt,
+  batchDeletePrompts,
+  deleteInsight,
   type Prompt,
-  type PromptInsight,
-  type Pattern,
-  type Suggestion,
   type PromptsResponse,
   type PromptInsightsResponse,
+  type InsightsHistoryResponse,
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
@@ -24,6 +25,7 @@ export const promptHistoryKeys = {
   lists: () => [...promptHistoryKeys.all, 'list'] as const,
   list: (filters?: PromptHistoryFilter) => [...promptHistoryKeys.lists(), filters] as const,
   insights: () => [...promptHistoryKeys.all, 'insights'] as const,
+  insightsHistory: () => [...promptHistoryKeys.all, 'insightsHistory'] as const,
 };
 
 // Default stale time: 30 seconds (prompts update less frequently)
@@ -32,6 +34,7 @@ const STALE_TIME = 30 * 1000;
 export interface PromptHistoryFilter {
   search?: string;
   intent?: string;
+  project?: string;
   dateRange?: { start: Date | null; end: Date | null };
 }
 
@@ -43,12 +46,19 @@ export interface UsePromptHistoryOptions {
 
 export interface UsePromptHistoryReturn {
   prompts: Prompt[];
+  allPrompts: Prompt[];
   totalPrompts: number;
   promptsBySession: Record<string, Prompt[]>;
   stats: {
     totalCount: number;
     avgLength: number;
     topIntent: string | null;
+    avgQualityScore?: number;
+    qualityDistribution?: {
+      high: number;
+      medium: number;
+      low: number;
+    };
   };
   isLoading: boolean;
   isFetching: boolean;
@@ -96,6 +106,10 @@ export function usePromptHistory(options: UsePromptHistoryOptions = {}): UseProm
       prompts = prompts.filter((p) => p.category === filter.intent);
     }
 
+    if (filter?.project) {
+      prompts = prompts.filter((p) => p.project === filter.project);
+    }
+
     if (filter?.dateRange?.start || filter?.dateRange?.end) {
       prompts = prompts.filter((p) => {
         const date = new Date(p.createdAt);
@@ -132,6 +146,34 @@ export function usePromptHistory(options: UsePromptHistoryOptions = {}): UseProm
   }
   const topIntent = Object.entries(intentCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
+  // Calculate quality distribution
+  const qualityDistribution = {
+    high: 0,
+    medium: 0,
+    low: 0,
+  };
+  let totalQualityScore = 0;
+  let qualityScoreCount = 0;
+
+  for (const prompt of allPrompts) {
+    if (prompt.quality_score !== undefined && prompt.quality_score !== null) {
+      totalQualityScore += prompt.quality_score;
+      qualityScoreCount++;
+
+      if (prompt.quality_score >= 80) {
+        qualityDistribution.high++;
+      } else if (prompt.quality_score >= 60) {
+        qualityDistribution.medium++;
+      } else {
+        qualityDistribution.low++;
+      }
+    }
+  }
+
+  const avgQualityScore = qualityScoreCount > 0
+    ? totalQualityScore / qualityScoreCount
+    : undefined;
+
   const refetch = async () => {
     await query.refetch();
   };
@@ -142,12 +184,15 @@ export function usePromptHistory(options: UsePromptHistoryOptions = {}): UseProm
 
   return {
     prompts: filteredPrompts,
+    allPrompts,
     totalPrompts: totalCount,
     promptsBySession,
     stats: {
       totalCount: allPrompts.length,
       avgLength,
       topIntent,
+      avgQualityScore,
+      qualityDistribution,
     },
     isLoading: query.isLoading,
     isFetching: query.isFetching,
@@ -156,6 +201,8 @@ export function usePromptHistory(options: UsePromptHistoryOptions = {}): UseProm
     invalidate,
   };
 }
+
+
 
 /**
  * Hook for fetching prompt insights
@@ -169,6 +216,28 @@ export function usePromptInsights(options: { enabled?: boolean; staleTime?: numb
   return useQuery({
     queryKey: promptHistoryKeys.insights(),
     queryFn: () => fetchPromptInsights(projectPath),
+    staleTime,
+    enabled: queryEnabled,
+    retry: 2,
+  });
+}
+
+/**
+ * Hook for fetching insights history (past CLI analyses)
+ */
+export function useInsightsHistory(options: {
+  limit?: number;
+  enabled?: boolean;
+  staleTime?: number;
+} = {}) {
+  const { limit = 20, enabled = true, staleTime = STALE_TIME } = options;
+
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const queryEnabled = enabled && !!projectPath;
+
+  return useQuery({
+    queryKey: promptHistoryKeys.insightsHistory(),
+    queryFn: () => fetchInsightsHistory(projectPath, limit),
     staleTime,
     enabled: queryEnabled,
     retry: 2,
@@ -244,18 +313,120 @@ export function useDeletePrompt(): UseDeletePromptReturn {
   };
 }
 
+export interface UseBatchDeletePromptsReturn {
+  batchDeletePrompts: (promptIds: string[]) => Promise<{ deleted: number }>;
+  isBatchDeleting: boolean;
+  error: Error | null;
+}
+
+export function useBatchDeletePrompts(): UseBatchDeletePromptsReturn {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: batchDeletePrompts,
+    onMutate: async (promptIds) => {
+      await queryClient.cancelQueries({ queryKey: promptHistoryKeys.all });
+      const previousPrompts = queryClient.getQueryData<PromptsResponse>(promptHistoryKeys.list());
+
+      queryClient.setQueryData<PromptsResponse>(promptHistoryKeys.list(), (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          prompts: old.prompts.filter((p) => !promptIds.includes(p.id)),
+          total: old.total - promptIds.length,
+        };
+      });
+
+      return { previousPrompts };
+    },
+    onError: (_error, _promptIds, context) => {
+      if (context?.previousPrompts) {
+        queryClient.setQueryData(promptHistoryKeys.list(), context.previousPrompts);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: promptHistoryKeys.all });
+    },
+  });
+
+  return {
+    batchDeletePrompts: mutation.mutateAsync,
+    isBatchDeleting: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export interface UseDeleteInsightReturn {
+  deleteInsight: (insightId: string) => Promise<{ success: boolean }>;
+  isDeleting: boolean;
+  error: Error | null;
+}
+
+export function useDeleteInsight(): UseDeleteInsightReturn {
+  const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  const mutation = useMutation({
+    mutationFn: (insightId: string) => deleteInsight(insightId, projectPath),
+    onMutate: async (insightId) => {
+      await queryClient.cancelQueries({ queryKey: promptHistoryKeys.insightsHistory() });
+      const previousInsights = queryClient.getQueryData<InsightsHistoryResponse>(promptHistoryKeys.insightsHistory());
+
+      queryClient.setQueryData<InsightsHistoryResponse>(promptHistoryKeys.insightsHistory(), (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          insights: old.insights.filter((i) => i.id !== insightId),
+        };
+      });
+
+      return { previousInsights };
+    },
+    onError: (_error, _insightId, context) => {
+      if (context?.previousInsights) {
+        queryClient.setQueryData(promptHistoryKeys.insightsHistory(), context.previousInsights);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: promptHistoryKeys.insightsHistory() });
+    },
+  });
+
+  return {
+    deleteInsight: mutation.mutateAsync,
+    isDeleting: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
 /**
  * Combined hook for all prompt history mutations
  */
 export function usePromptHistoryMutations() {
   const analyze = useAnalyzePrompts();
   const remove = useDeletePrompt();
+  const batchRemove = useBatchDeletePrompts();
 
   return {
     analyzePrompts: analyze.analyzePrompts,
     deletePrompt: remove.deletePrompt,
+    batchDeletePrompts: batchRemove.batchDeletePrompts,
     isAnalyzing: analyze.isAnalyzing,
     isDeleting: remove.isDeleting,
-    isMutating: analyze.isAnalyzing || remove.isDeleting,
+    isBatchDeleting: batchRemove.isBatchDeleting,
+    isMutating: analyze.isAnalyzing || remove.isDeleting || batchRemove.isBatchDeleting,
   };
+}
+
+/**
+ * Extract unique projects from prompts list
+ */
+export function extractUniqueProjects(prompts: Prompt[]): string[] {
+  const projectsSet = new Set<string>();
+  for (const prompt of prompts) {
+    if (prompt.project) {
+      projectsSet.add(prompt.project);
+    }
+  }
+  return Array.from(projectsSet).sort();
 }

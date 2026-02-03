@@ -6,9 +6,16 @@
     "edit": "Edit",
     "delete": "Delete",
     "copy": "Copy",
+    "copySuccess": "Copied to clipboard",
+    "copyError": "Failed to copy",
     "refresh": "Refresh",
     "expand": "Expand",
     "collapse": "Collapse"
+  },
+  "tabs": {
+    "memories": "Memories",
+    "favorites": "Favorites",
+    "archived": "Archived"
   },
   "stats": {
     "totalSize": "Total Size",
@@ -43,7 +50,9 @@
     "editTitle": "Edit Memory",
     "labels": {
       "content": "Content",
-      "tags": "Tags"
+      "tags": "Tags",
+      "favorite": "Favorite",
+      "priority": "Priority"
     },
     "placeholders": {
       "content": "Enter memory content...",
@@ -56,6 +65,11 @@
       "creating": "Creating...",
       "updating": "Updating..."
     }
+  },
+  "priority": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High"
   },
   "types": {
     "coreMemory": "Core Memory",

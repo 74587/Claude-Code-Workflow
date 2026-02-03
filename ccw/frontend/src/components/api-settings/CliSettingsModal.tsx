@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useIntl } from 'react-intl';
-import { Check, Eye, EyeOff } from 'lucide-react';
+import { Check, Eye, EyeOff, X, Plus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -59,11 +59,20 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
   const [providerId, setProviderId] = useState('');
   const [model, setModel] = useState('sonnet');
   const [includeCoAuthoredBy, setIncludeCoAuthoredBy] = useState(false);
+  const [settingsFile, setSettingsFile] = useState('');
 
   // Direct mode state
   const [authToken, setAuthToken] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
   const [showToken, setShowToken] = useState(false);
+
+  // Available models state
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [modelInput, setModelInput] = useState('');
+
+  // Tags state
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState('');
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -76,6 +85,9 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
       setEnabled(cliSettings.enabled);
       setModel(cliSettings.settings.model || 'sonnet');
       setIncludeCoAuthoredBy(cliSettings.settings.includeCoAuthoredBy || false);
+      setSettingsFile(cliSettings.settings.settingsFile || '');
+      setAvailableModels(cliSettings.settings.availableModels || []);
+      setTags(cliSettings.settings.tags || []);
 
       // Determine mode based on settings
       const hasCustomBaseUrl = Boolean(
@@ -104,8 +116,13 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
       setProviderId('');
       setModel('sonnet');
       setIncludeCoAuthoredBy(false);
+      setSettingsFile('');
       setAuthToken('');
       setBaseUrl('');
+      setAvailableModels([]);
+      setModelInput('');
+      setTags([]);
+      setTagInput('');
       setErrors({});
     }
   }, [cliSettings, open, providers]);
@@ -183,6 +200,9 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
           env,
           model,
           includeCoAuthoredBy,
+          settingsFile: settingsFile.trim() || undefined,
+          availableModels,
+          tags,
         },
       };
 
@@ -197,6 +217,37 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
       showNotification('error', formatMessage({ id: 'apiSettings.cliSettings.saveError' }));
     }
   };
+
+  // Handle add model
+  const handleAddModel = () => {
+    const newModel = modelInput.trim();
+    if (newModel && !availableModels.includes(newModel)) {
+      setAvailableModels([...availableModels, newModel]);
+      setModelInput('');
+    }
+  };
+
+  // Handle remove model
+  const handleRemoveModel = (modelToRemove: string) => {
+    setAvailableModels(availableModels.filter((m) => m !== modelToRemove));
+  };
+
+  // Handle add tag
+  const handleAddTag = () => {
+    const newTag = tagInput.trim();
+    if (newTag && !tags.includes(newTag)) {
+      setTags([...tags, newTag]);
+      setTagInput('');
+    }
+  };
+
+  // Handle remove tag
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(tags.filter((t) => t !== tagToRemove));
+  };
+
+  // Predefined tags
+  const predefinedTags = ['分析', 'Debug', 'implementation', 'refactoring', 'testing'];
 
   // Get selected provider info
   const selectedProvider = providers.find((p) => p.id === providerId);
@@ -387,15 +438,154 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
           </Tabs>
 
           {/* Additional Settings (both modes) */}
-          <div className="flex items-center gap-2">
-            <Switch
-              id="coAuthored"
-              checked={includeCoAuthoredBy}
-              onCheckedChange={setIncludeCoAuthoredBy}
-            />
-            <Label htmlFor="coAuthored" className="cursor-pointer">
-              {formatMessage({ id: 'apiSettings.cliSettings.includeCoAuthoredBy' })}
-            </Label>
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="coAuthored"
+                checked={includeCoAuthoredBy}
+                onCheckedChange={setIncludeCoAuthoredBy}
+              />
+              <Label htmlFor="coAuthored" className="cursor-pointer">
+                {formatMessage({ id: 'apiSettings.cliSettings.includeCoAuthoredBy' })}
+              </Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="settingsFile">
+                {formatMessage({ id: 'apiSettings.cliSettings.settingsFile' })}
+              </Label>
+              <Input
+                id="settingsFile"
+                value={settingsFile}
+                onChange={(e) => setSettingsFile(e.target.value)}
+                placeholder={formatMessage({ id: 'apiSettings.cliSettings.settingsFilePlaceholder' })}
+              />
+              <p className="text-xs text-muted-foreground">
+                {formatMessage({ id: 'apiSettings.cliSettings.settingsFileHint' })}
+              </p>
+            </div>
+
+            {/* Available Models Section */}
+            <div className="space-y-2">
+              <Label htmlFor="availableModels">
+                {formatMessage({ id: 'apiSettings.cliSettings.availableModels' })}
+              </Label>
+              <div className="flex flex-wrap gap-2 p-3 bg-muted/30 rounded-lg min-h-[60px]">
+                {availableModels.map((model) => (
+                  <span
+                    key={model}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-md text-sm"
+                  >
+                    {model}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveModel(model)}
+                      className="hover:text-destructive transition-colors"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <div className="flex gap-2 flex-1">
+                  <Input
+                    id="availableModels"
+                    value={modelInput}
+                    onChange={(e) => setModelInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddModel();
+                      }
+                    }}
+                    placeholder={formatMessage({ id: 'apiSettings.cliSettings.availableModelsPlaceholder' })}
+                    className="flex-1 min-w-[120px]"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddModel}
+                    variant="outline"
+                  >
+                    <Check className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {formatMessage({ id: 'apiSettings.cliSettings.availableModelsHint' })}
+              </p>
+            </div>
+
+            {/* Tags Section */}
+            <div className="space-y-2">
+              <Label htmlFor="tags">
+                {formatMessage({ id: 'apiSettings.cliSettings.tags' })}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {formatMessage({ id: 'apiSettings.cliSettings.tagsDescription' })}
+              </p>
+              <div className="flex flex-wrap gap-2 p-3 bg-muted/30 rounded-lg min-h-[60px]">
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-md text-sm"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      className="hover:text-destructive transition-colors"
+                      aria-label={formatMessage({ id: 'apiSettings.cliSettings.removeTag' })}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+                <div className="flex gap-2 flex-1">
+                  <Input
+                    id="tags"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddTag();
+                      }
+                    }}
+                    placeholder={formatMessage({ id: 'apiSettings.cliSettings.tagInputPlaceholder' })}
+                    className="flex-1 min-w-[120px]"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddTag}
+                    variant="outline"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+              {/* Predefined Tags */}
+              <div className="flex flex-wrap gap-1">
+                <span className="text-xs text-muted-foreground">
+                  {formatMessage({ id: 'apiSettings.cliSettings.predefinedTags' })}:
+                </span>
+                {predefinedTags.map((predefinedTag) => (
+                  <button
+                    key={predefinedTag}
+                    type="button"
+                    onClick={() => {
+                      if (!tags.includes(predefinedTag)) {
+                        setTags([...tags, predefinedTag]);
+                      }
+                    }}
+                    disabled={tags.includes(predefinedTag)}
+                    className="text-xs px-2 py-0.5 rounded border border-border hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {predefinedTag}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 

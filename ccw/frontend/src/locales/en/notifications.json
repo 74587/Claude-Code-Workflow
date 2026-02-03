@@ -48,5 +48,7 @@
     "atTime": "at {0}"
   },
   "markAsRead": "Mark as read",
-  "markAsUnread": "Mark as unread"
+  "markAsUnread": "Mark as unread",
+  "read": "Read",
+  "unread": "Unread"
 }
