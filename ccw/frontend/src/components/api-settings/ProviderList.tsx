@@ -189,7 +189,7 @@ export function ProviderList({
   onManageModels,
 }: ProviderListProps) {
   const { formatMessage } = useIntl();
-  const { showNotification } = useNotifications();
+  const { error } = useNotifications();
   const [searchQuery, setSearchQuery] = useState('');
   const [showDisabledOnly, setShowDisabledOnly] = useState(false);
 
@@ -224,8 +224,8 @@ export function ProviderList({
     if (window.confirm(confirmMessage)) {
       try {
         await deleteProvider(providerId);
-      } catch (error) {
-        showNotification('error', formatMessage({ id: 'apiSettings.providers.deleteError' }));
+      } catch (err) {
+        error(formatMessage({ id: 'apiSettings.providers.deleteError' }));
       }
     }
   };
@@ -233,8 +233,8 @@ export function ProviderList({
   const handleToggleEnabled = async (providerId: string, enabled: boolean) => {
     try {
       await updateProvider(providerId, { enabled });
-    } catch (error) {
-      showNotification('error', formatMessage({ id: 'apiSettings.providers.toggleError' }));
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.providers.toggleError' }));
     }
   };
 
@@ -245,8 +245,8 @@ export function ProviderList({
         // Trigger health check refresh
         await triggerHealthCheck(providerId);
       }
-    } catch (error) {
-      showNotification('error', formatMessage({ id: 'apiSettings.providers.testError' }));
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.providers.testError' }));
     }
   };
 

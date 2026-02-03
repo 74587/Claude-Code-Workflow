@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -22,7 +21,7 @@ import { Label } from '@/components/ui/Label';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNotificationStore } from '@/stores';
-import type { AskQuestionPayload, Question, QuestionType } from '@/types/store';
+import type { AskQuestionPayload, Question } from '@/types/store';
 
 // ========== Types ==========
 

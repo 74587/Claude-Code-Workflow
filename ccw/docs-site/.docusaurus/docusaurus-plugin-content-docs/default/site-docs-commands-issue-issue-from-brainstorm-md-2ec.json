@@ -1,0 +1,30 @@
+{
+  "id": "commands/issue/issue-from-brainstorm",
+  "title": "issue:from-brainstorm",
+  "description": "Convert brainstorm session ideas into issues with solutions",
+  "source": "@site/docs/commands/issue/issue-from-brainstorm.md",
+  "sourceDirName": "commands/issue",
+  "slug": "/commands/issue/issue-from-brainstorm",
+  "permalink": "/docs/docs/commands/issue/issue-from-brainstorm",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/issue/issue-from-brainstorm.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 6,
+  "frontMatter": {
+    "title": "issue:from-brainstorm",
+    "sidebar_label": "issue:from-brainstorm",
+    "sidebar_position": 6,
+    "description": "Convert brainstorm session ideas into issues with solutions"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "issue:execute",
+    "permalink": "/docs/docs/commands/issue/issue-execute"
+  },
+  "next": {
+    "title": "issue:convert-to-plan",
+    "permalink": "/docs/docs/commands/issue/issue-convert-to-plan"
+  }
+}

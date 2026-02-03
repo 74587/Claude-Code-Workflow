@@ -2,7 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import 'react-grid-layout/css/styles.css'
+import 'react-resizable/css/styles.css'
 import { initMessages, getInitialLocale, getMessages, type Locale } from './lib/i18n'
+import { logWebVitals } from './lib/webVitals'
 
 async function bootstrapApplication() {
   const rootElement = document.getElementById('root')
@@ -23,6 +26,10 @@ async function bootstrapApplication() {
       <App locale={locale} messages={messages} />
     </StrictMode>
   )
+
+  // Initialize Web Vitals monitoring (LCP, FID, CLS)
+  // Logs metrics to console in development; extend to analytics in production
+  logWebVitals()
 }
 
 bootstrapApplication().catch((error) => {

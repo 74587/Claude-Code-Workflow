@@ -38,8 +38,16 @@
     "category": "Category",
     "source": "Source",
     "author": "Author",
-    "version": "Version"
+    "version": "Version",
+    "description": "Description"
   },
+  "allowedTools": "Allowed Tools",
+  "files": "Files",
+  "path": "Path",
+  "metadata": "Metadata",
+  "noDescription": "No description available",
+  "projectSkills": "Project Skills",
+  "userSkills": "User Skills",
   "filters": {
     "all": "All",
     "enabled": "Enabled",

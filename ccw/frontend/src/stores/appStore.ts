@@ -5,7 +5,8 @@
 
 import { create } from 'zustand';
 import { persist, devtools } from 'zustand/middleware';
-import type { AppStore, Theme, ColorScheme, Locale, ViewMode, SessionFilter, LiteTaskType } from '../types/store';
+import type { AppStore, Theme, ColorScheme, Locale, ViewMode, SessionFilter, LiteTaskType, DashboardLayouts, WidgetConfig } from '../types/store';
+import { DEFAULT_DASHBOARD_LAYOUT } from '../components/dashboard/defaultLayouts';
 import { getInitialLocale, updateIntl } from '../lib/i18n';
 import { getThemeId } from '../lib/theme';
 
@@ -48,6 +49,9 @@ const initialState = {
   isLoading: false,
   loadingMessage: null as string | null,
   error: null as string | null,
+
+  // Dashboard layout
+  dashboardLayout: null,
 };
 
 export const useAppStore = create<AppStore>()(
@@ -146,6 +150,38 @@ export const useAppStore = create<AppStore>()(
         clearError: () => {
           set({ error: null }, false, 'clearError');
         },
+
+        // ========== Dashboard Layout Actions ==========
+
+        setDashboardLayouts: (layouts: DashboardLayouts) => {
+          set(
+            (state) => ({
+              dashboardLayout: {
+                widgets: state.dashboardLayout?.widgets || DEFAULT_DASHBOARD_LAYOUT.widgets,
+                layouts,
+              },
+            }),
+            false,
+            'setDashboardLayouts'
+          );
+        },
+
+        setDashboardWidgets: (widgets: WidgetConfig[]) => {
+          set(
+            (state) => ({
+              dashboardLayout: {
+                widgets,
+                layouts: state.dashboardLayout?.layouts || DEFAULT_DASHBOARD_LAYOUT.layouts,
+              },
+            }),
+            false,
+            'setDashboardWidgets'
+          );
+        },
+
+        resetDashboardLayout: () => {
+          set({ dashboardLayout: DEFAULT_DASHBOARD_LAYOUT }, false, 'resetDashboardLayout');
+        },
       }),
       {
         name: 'ccw-app-store',
@@ -156,6 +192,7 @@ export const useAppStore = create<AppStore>()(
           locale: state.locale,
           sidebarCollapsed: state.sidebarCollapsed,
           expandedNavGroups: state.expandedNavGroups,
+          dashboardLayout: state.dashboardLayout,
         }),
         onRehydrateStorage: () => (state) => {
           // Apply theme on rehydration

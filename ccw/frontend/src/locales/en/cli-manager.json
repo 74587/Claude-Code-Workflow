@@ -68,32 +68,99 @@
     }
   },
   "cliHooks": {
-    "title": "Git Hooks",
-    "description": "Manage Git hooks for automated workflows",
+    "title": "Hook Manager",
+    "description": "Manage automated CLI hooks",
     "trigger": {
+      "SessionStart": "Session Start",
+      "UserPromptSubmit": "User Prompt Submit",
+      "PreToolUse": "Pre Tool Use",
+      "PostToolUse": "Post Tool Use",
+      "Stop": "Stop",
       "pre-commit": "Pre-commit",
       "post-commit": "Post-commit",
       "pre-push": "Pre-push",
       "custom": "Custom"
     },
     "stats": {
-      "total": "Total Hooks",
-      "enabled": "Enabled"
+      "total": "{count, plural, =0 {No hooks} one {# hook} other {# hooks}}",
+      "enabled": "{count, plural, =0 {No active} one {# active} other {# active}}",
+      "count": "{enabled}/{total} enabled"
     },
     "filters": {
       "trigger": "Trigger",
       "allTriggers": "All Triggers",
-      "searchPlaceholder": "Search hooks by name..."
+      "searchPlaceholder": "Search by name, description, command or trigger..."
     },
     "actions": {
       "add": "Add Hook",
+      "addFirst": "Add Your First Hook",
       "edit": "Edit Hook",
       "delete": "Delete Hook",
-      "toggle": "Toggle Hook"
+      "deleteConfirm": "Are you sure you want to delete hook \"{hookName}\"?",
+      "enable": "Enable",
+      "disable": "Disable",
+      "toggle": "Toggle Hook",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "expandAll": "Expand All",
+      "collapseAll": "Collapse All"
     },
-    "emptyState": {
-      "title": "No Git Hooks Found",
-      "message": "Add a Git hook to automate tasks during Git workflows."
+    "form": {
+      "name": "Hook Name",
+      "description": "Description",
+      "trigger": "Trigger Event",
+      "matcher": "Matcher Pattern",
+      "command": "Command"
+    },
+    "quickTemplates": {
+      "title": "Quick Install Templates",
+      "description": "Install popular hooks with one click"
+    },
+    "templates": {
+      "title": "Quick Install Templates",
+      "description": "Install popular hooks with one click",
+      "categories": {
+        "notification": "Notification",
+        "indexing": "Indexing",
+        "automation": "Automation"
+      },
+      "templates": {
+        "session-start-notify": {
+          "name": "Session Start Notify",
+          "description": "Notify dashboard when a new workflow session is created"
+        },
+        "session-state-watch": {
+          "name": "Session State Watch",
+          "description": "Watch for session metadata file changes (workflow-session.json)"
+        }
+      },
+      "actions": {
+        "install": "Install",
+        "installed": "Installed"
+      }
+    },
+    "wizards": {
+      "sectionTitle": "Hook Wizards",
+      "sectionDescription": "Step-by-step guides to create common hooks",
+      "launch": "Launch Wizard",
+      "memoryUpdate": {
+        "title": "Memory Update Hook",
+        "shortDescription": "Automatically update CLAUDE.md"
+      },
+      "dangerProtection": {
+        "title": "Danger Protection",
+        "shortDescription": "Protect dangerous operations"
+      },
+      "skillContext": {
+        "title": "SKILL Context Hook",
+        "shortDescription": "Auto-inject SKILL context"
+      }
+    },
+    "allTools": "All Tools",
+    "empty": {
+      "title": "No Hooks Yet",
+      "description": "Get started by adding your first hook or use a quick template",
+      "noHooksInEvent": "No hooks configured for this event"
     }
   },
   "cliRules": {

@@ -38,8 +38,16 @@
     "category": "类别",
     "source": "来源",
     "author": "作者",
-    "version": "版本"
+    "version": "版本",
+    "description": "描述"
   },
+  "allowedTools": "允许的工具",
+  "files": "文件",
+  "path": "路径",
+  "metadata": "元数据",
+  "noDescription": "暂无描述",
+  "projectSkills": "项目技能",
+  "userSkills": "用户技能",
   "filters": {
     "all": "全部",
     "enabled": "已启用",

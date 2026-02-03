@@ -32,7 +32,7 @@ type TabType = 'providers' | 'endpoints' | 'cache' | 'modelPools' | 'cliSettings
 
 export function ApiSettingsPage() {
   const { formatMessage } = useIntl();
-  const { showNotification } = useNotifications();
+  const { success, error } = useNotifications();
   const [activeTab, setActiveTab] = useState<TabType>('providers');
 
   // Get providers, endpoints, model pools, and CLI settings data
@@ -172,9 +172,9 @@ export function ApiSettingsPage() {
     try {
       // TODO: Implement actual sync API call
       // For now, just show a success message
-      showNotification('success', formatMessage({ id: 'apiSettings.messages.configSynced' }));
-    } catch (error) {
-      showNotification('error', formatMessage({ id: 'apiSettings.providers.saveError' }));
+      success(formatMessage({ id: 'apiSettings.messages.configSynced' }));
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.providers.saveError' }));
     }
   };
 

@@ -151,7 +151,7 @@ function ApiKeyEntryRow({
 
 export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
   const { formatMessage } = useIntl();
-  const { showNotification } = useNotifications();
+  const { error } = useNotifications();
   const isEditing = !!provider;
 
   // Mutations
@@ -420,8 +420,8 @@ export function ProviderModal({ open, onClose, provider }: ProviderModalProps) {
       }
 
       onClose();
-    } catch (error) {
-      showNotification('error', formatMessage({ id: 'apiSettings.providers.saveError' }));
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.providers.saveError' }));
     }
   };
 

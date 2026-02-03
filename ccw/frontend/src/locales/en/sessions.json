@@ -40,6 +40,12 @@
     "completed": "completed",
     "updated": "Updated"
   },
+  "taskStatus": {
+    "pending": "Pending",
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
   "detail": {
     "overview": "Overview",
     "tasks": "Tasks",

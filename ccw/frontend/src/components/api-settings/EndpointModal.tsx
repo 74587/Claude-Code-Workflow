@@ -105,7 +105,7 @@ function FilePatternInput({ value, onChange, placeholder }: FilePatternInputProp
 
 export function EndpointModal({ open, onClose, endpoint }: EndpointModalProps) {
   const { formatMessage } = useIntl();
-  const { showNotification } = useNotifications();
+  const { error } = useNotifications();
   const isEditing = !!endpoint;
 
   // Mutations
@@ -213,8 +213,8 @@ export function EndpointModal({ open, onClose, endpoint }: EndpointModalProps) {
       }
 
       onClose();
-    } catch (error) {
-      showNotification('error', formatMessage({ id: 'apiSettings.endpoints.saveError' }));
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.endpoints.saveError' }));
     }
   };
 

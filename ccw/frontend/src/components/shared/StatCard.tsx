@@ -8,6 +8,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/Card';
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from 'lucide-react';
+import { Sparkline } from '@/components/charts/Sparkline';
 
 const statCardVariants = cva(
   'transition-all duration-200 hover:shadow-md',
@@ -64,6 +65,10 @@ export interface StatCardProps
   isLoading?: boolean;
   /** Optional description */
   description?: string;
+  /** Optional sparkline data (e.g., last 7 days) */
+  sparklineData?: number[];
+  /** Whether to show sparkline */
+  showSparkline?: boolean;
 }
 
 /**
@@ -91,6 +96,8 @@ export function StatCard({
   trendValue,
   isLoading = false,
   description,
+  sparklineData,
+  showSparkline = false,
   ...props
 }: StatCardProps) {
   const TrendIcon = trend === 'up' ? TrendingUp : trend === 'down' ? TrendingDown : Minus;
@@ -128,6 +135,15 @@ export function StatCard({
               <p className="mt-1 text-xs text-muted-foreground truncate">
                 {description}
               </p>
+            )}
+            {showSparkline && sparklineData && sparklineData.length > 0 && (
+              <div className="mt-3 -mx-2">
+                <Sparkline
+                  data={sparklineData}
+                  height={40}
+                  strokeWidth={2}
+                />
+              </div>
             )}
           </div>
           {Icon && (

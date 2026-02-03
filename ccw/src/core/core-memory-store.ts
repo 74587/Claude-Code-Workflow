@@ -416,6 +416,18 @@ export class CoreMemoryStore {
   }
 
   /**
+   * Unarchive a memory
+   */
+  unarchiveMemory(id: string): void {
+    const stmt = this.db.prepare(`
+      UPDATE memories
+      SET archived = 0, updated_at = ?
+      WHERE id = ?
+    `);
+    stmt.run(new Date().toISOString(), id);
+  }
+
+  /**
    * Delete a memory
    */
   deleteMemory(id: string): void {

@@ -36,6 +36,9 @@ export interface AppState {
   isLoading: boolean;
   loadingMessage: string | null;
   error: string | null;
+
+  // Dashboard layout
+  dashboardLayout: DashboardLayoutState | null;
 }
 
 export interface AppActions {
@@ -63,9 +66,59 @@ export interface AppActions {
   setLoading: (loading: boolean, message?: string | null) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
+
+  // Dashboard layout actions
+  setDashboardLayouts: (layouts: DashboardLayouts) => void;
+  setDashboardWidgets: (widgets: WidgetConfig[]) => void;
+  resetDashboardLayout: () => void;
 }
 
 export type AppStore = AppState & AppActions;
+
+// ========== Dashboard Layout Types ==========
+
+export interface WidgetConfig {
+  /** Unique widget identifier */
+  i: string;
+  /** Display name for the widget */
+  name: string;
+  /** Whether the widget is visible */
+  visible: boolean;
+  /** Minimum width in grid units */
+  minW?: number;
+  /** Minimum height in grid units */
+  minH?: number;
+}
+
+/** Layout item for a single breakpoint */
+export interface DashboardLayoutItem {
+  i: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  minW?: number;
+  minH?: number;
+  static?: boolean;
+}
+
+/** Responsive layouts keyed by breakpoint name */
+export type DashboardLayouts = {
+  lg: DashboardLayoutItem[];
+  md: DashboardLayoutItem[];
+  sm: DashboardLayoutItem[];
+};
+
+export interface DashboardLayoutState {
+  widgets: WidgetConfig[];
+  layouts: DashboardLayouts;
+}
+
+export interface DashboardLayoutActions {
+  setDashboardLayouts: (layouts: DashboardLayouts) => void;
+  setDashboardWidgets: (widgets: WidgetConfig[]) => void;
+  resetDashboardLayout: () => void;
+}
 
 // ========== Workflow Store Types ==========
 

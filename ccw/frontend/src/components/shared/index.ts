@@ -10,11 +10,14 @@ export type { SessionCardProps } from './SessionCard';
 export { ConversationCard } from './ConversationCard';
 export type { ConversationCardProps } from './ConversationCard';
 
-export { IssueCard, IssueCardSkeleton } from './IssueCard';
+export { IssueCard } from './IssueCard';
 export type { IssueCardProps } from './IssueCard';
 
-export { SkillCard, SkillCardSkeleton } from './SkillCard';
+export { SkillCard } from './SkillCard';
 export type { SkillCardProps } from './SkillCard';
+
+export { SkillDetailPanel } from './SkillDetailPanel';
+export type { SkillDetailPanelProps } from './SkillDetailPanel';
 
 export { StatCard, StatCardSkeleton } from './StatCard';
 export type { StatCardProps } from './StatCard';
@@ -139,3 +142,7 @@ export type { IndexManagerProps } from './IndexManager';
 
 export { ExplorerToolbar } from './ExplorerToolbar';
 export type { ExplorerToolbarProps } from './ExplorerToolbar';
+
+// Ticker components
+export { TickerMarquee } from './TickerMarquee';
+export type { TickerMarqueeProps } from './TickerMarquee';

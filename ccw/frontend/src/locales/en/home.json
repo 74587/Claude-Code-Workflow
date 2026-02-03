@@ -1,6 +1,11 @@
 {
   "title": "Home",
   "description": "Dashboard overview and statistics",
+  "dashboard": {
+    "title": "Dashboard",
+    "description": "Overview of your workflow sessions and task statistics",
+    "refreshTooltip": "Refresh dashboard data"
+  },
   "stats": {
     "activeSessions": "Active Sessions",
     "totalTasks": "Total Tasks",
@@ -15,6 +20,11 @@
     "activeLoops": "Active Loops",
     "openIssues": "Open Issues",
     "quickActions": "Quick Actions"
+  },
+  "widgets": {
+    "workflowStatus": "Workflow Status",
+    "activity": "Activity Timeline",
+    "taskTypes": "Task Types"
   },
   "emptyState": {
     "noSessions": {
@@ -48,6 +58,24 @@
       "title": "CLI Integration",
       "description": "Using CCW commands and CLI tool integration",
       "heading": "CLI Integration"
+    },
+    "commands": {
+      "title": "Commands Reference",
+      "description": "Browse 40+ commands across workflow, issue, CLI, and memory categories"
+    },
+    "commandsOverview": {
+      "title": "Commands Documentation",
+      "description": "Explore all available CCW commands with detailed documentation and examples"
+    },
+    "workflowsOverview": {
+      "title": "Workflow Guides",
+      "description": "Interactive guides for all 15 workflow levels from ultra-lightweight to intelligent"
+    },
+    "quickStart": {
+      "title": "Quick Start",
+      "description": "Get up and running with CCW in minutes",
+      "guide": "Getting Started Guide",
+      "faq": "Frequently Asked Questions"
     }
   },
   "errors": {

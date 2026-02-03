@@ -80,21 +80,13 @@ export function CommandsManagerPage() {
   };
 
   // Toggle individual command
-  const handleToggleCommand = async (name: string, enabled: boolean) => {
-    try {
-      await toggleCommand(name, enabled, locationFilter);
-    } catch (error) {
-      console.error('Failed to toggle command:', error);
-    }
+  const handleToggleCommand = (name: string, enabled: boolean) => {
+    toggleCommand(name, enabled, locationFilter);
   };
 
   // Toggle all commands in a group
-  const handleToggleGroup = async (groupName: string, enable: boolean) => {
-    try {
-      await toggleGroup(groupName, enable, locationFilter);
-    } catch (error) {
-      console.error('Failed to toggle group:', error);
-    }
+  const handleToggleGroup = (groupName: string, enable: boolean) => {
+    toggleGroup(groupName, enable, locationFilter);
   };
 
   // Calculate command counts per location

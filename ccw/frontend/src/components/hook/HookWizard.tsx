@@ -36,16 +36,16 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { fetchSkills, type Skill, createHook } from '@/lib/api';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchSkills, type Skill, type SkillsResponse, createHook } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
   detect,
   getShell,
+  getShellCommand,
   getShellName,
   checkCompatibility,
   getPlatformName,
-  adjustCommandForPlatform,
   DEFAULT_PLATFORM_REQUIREMENTS,
   type Platform,
 } from '@/utils/platformUtils';
@@ -72,14 +72,6 @@ export interface HookWizardProps {
   open: boolean;
   /** Callback when dialog is closed */
   onClose: () => void;
-  /** Callback when wizard completes with hook configuration */
-  onComplete: (hookConfig: {
-    name: string;
-    description: string;
-    trigger: string;
-    matcher?: string;
-    command: string;
-  }) => Promise<void>;
 }
 
 /**
@@ -107,11 +99,6 @@ interface SkillContextConfig {
   keywordSkillPairs: Array<{ keyword: string; skill: string }>;
   priority: 'high' | 'medium' | 'low';
 }
-
-/**
- * Wizard configuration union type
- */
-type WizardConfig = MemoryUpdateConfig | DangerProtectionConfig | SkillContextConfig;
 
 // ========== Wizard Definitions ==========
 
@@ -157,16 +144,16 @@ export function HookWizard({
   wizardType,
   open,
   onClose,
-  onComplete,
 }: HookWizardProps) {
   const { formatMessage } = useIntl();
+  const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [detectedPlatform, setDetectedPlatform] = useState<Platform>('linux');
 
   // Fetch available skills for skill-context wizard
-  const { data: skillsData, isLoading: skillsLoading } = useQuery({
+  const { data: skillsData, isLoading: skillsLoading } = useQuery<SkillsResponse>({
     queryKey: ['skills'],
-    queryFn: fetchSkills,
+    queryFn: () => fetchSkills(),
     enabled: open && wizardType === 'skill-context',
   });
 
@@ -174,6 +161,7 @@ export function HookWizard({
   const createMutation = useMutation({
     mutationFn: createHook,
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hooks'] });
       onClose();
       setCurrentStep(1);
     },
@@ -533,7 +521,7 @@ export function HookWizard({
   );
 
   const renderSkillContextConfig = () => {
-    const skills = skillsData?.skills ?? [];
+    const skills: Skill[] = skillsData?.skills ?? [];
 
     const addPair = () => {
       setSkillConfig({

@@ -26,6 +26,7 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import type { SessionMetadata } from '@/types/store';
 
@@ -88,22 +89,33 @@ function formatDate(dateString: string | undefined): string {
 }
 
 /**
- * Calculate progress percentage from tasks
+ * Task status breakdown returned by calculateProgress
  */
-function calculateProgress(tasks: SessionMetadata['tasks']): {
-  completed: number;
+interface TaskStatusBreakdown {
   total: number;
+  completed: number;
+  failed: number;
+  pending: number;
+  inProgress: number;
   percentage: number;
-} {
+}
+
+/**
+ * Calculate progress and status breakdown from tasks
+ */
+function calculateProgress(tasks: SessionMetadata['tasks']): TaskStatusBreakdown {
   if (!tasks || tasks.length === 0) {
-    return { completed: 0, total: 0, percentage: 0 };
+    return { total: 0, completed: 0, failed: 0, pending: 0, inProgress: 0, percentage: 0 };
   }
 
-  const completed = tasks.filter((t) => t.status === 'completed').length;
   const total = tasks.length;
+  const completed = tasks.filter((t) => t.status === 'completed').length;
+  const failed = tasks.filter((t) => t.status === 'blocked' || t.status === 'skipped').length;
+  const inProgress = tasks.filter((t) => t.status === 'in_progress').length;
+  const pending = tasks.filter((t) => t.status === 'pending').length;
   const percentage = Math.round((completed / total) * 100);
 
-  return { completed, total, percentage };
+  return { total, completed, failed, pending, inProgress, percentage };
 }
 
 /**
@@ -260,6 +272,36 @@ export function SessionCard({
           )}
         </div>
 
+        {/* Task status badges */}
+        {progress.total > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            {progress.pending > 0 && (
+              <Badge variant="warning" className="gap-1 px-1.5 py-0 text-[10px]">
+                <Clock className="h-3 w-3" />
+                {progress.pending} {formatMessage({ id: 'sessions.taskStatus.pending' })}
+              </Badge>
+            )}
+            {progress.inProgress > 0 && (
+              <Badge variant="info" className="gap-1 px-1.5 py-0 text-[10px]">
+                <RefreshCw className="h-3 w-3" />
+                {progress.inProgress} {formatMessage({ id: 'sessions.taskStatus.inProgress' })}
+              </Badge>
+            )}
+            {progress.completed > 0 && (
+              <Badge variant="success" className="gap-1 px-1.5 py-0 text-[10px]">
+                <CheckCircle2 className="h-3 w-3" />
+                {progress.completed} {formatMessage({ id: 'sessions.taskStatus.completed' })}
+              </Badge>
+            )}
+            {progress.failed > 0 && (
+              <Badge variant="destructive" className="gap-1 px-1.5 py-0 text-[10px]">
+                <AlertCircle className="h-3 w-3" />
+                {progress.failed} {formatMessage({ id: 'sessions.taskStatus.failed' })}
+              </Badge>
+            )}
+          </div>
+        )}
+
         {/* Progress bar (only show if not planning and has tasks) */}
         {progress.total > 0 && !isPlanning && (
           <div className="mt-3">
@@ -309,6 +351,12 @@ export function SessionCardSkeleton({ className }: { className?: string }) {
         <div className="mt-3 flex gap-4">
           <div className="h-4 w-20 rounded bg-muted" />
           <div className="h-4 w-16 rounded bg-muted" />
+        </div>
+        {/* Status badge skeletons */}
+        <div className="mt-2 flex gap-1.5">
+          <div className="h-5 w-16 rounded-full bg-muted" />
+          <div className="h-5 w-20 rounded-full bg-muted" />
+          <div className="h-5 w-18 rounded-full bg-muted" />
         </div>
         <div className="mt-3">
           <div className="h-1.5 w-full rounded-full bg-muted" />

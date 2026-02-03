@@ -4,6 +4,9 @@
 // TanStack Query hooks for CLI endpoint management
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useFormatMessage } from '../hooks/useLocale';
+import { useNotifications } from '../hooks/useNotifications';
+import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import {
   fetchCliEndpoints,
   toggleCliEndpoint,
@@ -190,9 +193,30 @@ export function useCliInstallations(options: UseCliInstallationsOptions = {}): U
 
 export function useInstallCliTool() {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: (toolName: string) => installCliTool(toolName),
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.cliToolInstall.success' })
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cliInstallationsKeys.all });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.cliToolInstall.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'cliToolInstall');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: cliInstallationsKeys.all });
     },
@@ -207,9 +231,30 @@ export function useInstallCliTool() {
 
 export function useUninstallCliTool() {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: (toolName: string) => uninstallCliTool(toolName),
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.cliToolUninstall.success' })
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cliInstallationsKeys.all });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.cliToolUninstall.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'cliToolUninstall');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: cliInstallationsKeys.all });
     },
@@ -224,9 +269,30 @@ export function useUninstallCliTool() {
 
 export function useUpgradeCliTool() {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: (toolName: string) => upgradeCliTool(toolName),
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.cliToolUpgrade.success' })
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: cliInstallationsKeys.all });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.cliToolUpgrade.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'cliToolUpgrade');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: cliInstallationsKeys.all });
     },

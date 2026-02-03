@@ -13,6 +13,9 @@ import {
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { workspaceQueryKeys } from '@/lib/queryKeys';
+import { useNotifications } from './useNotifications';
+import { sanitizeErrorMessage } from '@/utils/errorSanitizer';
+import { formatMessage } from '@/lib/i18n';
 
 // Query key factory
 export const skillsKeys = {
@@ -162,15 +165,33 @@ export interface UseToggleSkillReturn {
 export function useToggleSkill(): UseToggleSkillReturn {
   const queryClient = useQueryClient();
   const projectPath = useWorkflowStore(selectProjectPath);
+  const { addToast, removeToast, success, error } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: ({ skillName, enabled, location }: { skillName: string; enabled: boolean; location: 'project' | 'user' }) =>
       enabled
         ? enableSkill(skillName, location, projectPath)
         : disableSkill(skillName, location, projectPath),
-    onSuccess: () => {
-      // Invalidate to ensure sync with server
+    onMutate: (): { loadingId: string } => {
+      const loadingId = addToast('info', formatMessage('common.loading'), undefined, { duration: 0 });
+      return { loadingId };
+    },
+    onSuccess: (_, variables, context) => {
+      const { loadingId } = context ?? { loadingId: '' };
+      if (loadingId) removeToast(loadingId);
+
+      const operation = variables.enabled ? 'skillEnable' : 'skillDisable';
+      success(formatMessage(`feedback.${operation}.success`));
+
       queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.skills(projectPath) : ['skills'] });
+    },
+    onError: (err, variables, context) => {
+      const { loadingId } = context ?? { loadingId: '' };
+      if (loadingId) removeToast(loadingId);
+
+      const operation = variables.enabled ? 'skillEnable' : 'skillDisable';
+      const sanitized = sanitizeErrorMessage(err, operation);
+      error(formatMessage('common.error'), formatMessage(sanitized.messageKey));
     },
   });
 

@@ -141,6 +141,34 @@ export async function handleCoreMemoryRoutes(ctx: RouteContext): Promise<boolean
     return true;
   }
 
+  // API: Core Memory - Unarchive memory
+  if (pathname.startsWith('/api/core-memory/memories/') && pathname.endsWith('/unarchive') && req.method === 'POST') {
+    const memoryId = pathname.replace('/api/core-memory/memories/', '').replace('/unarchive', '');
+    const projectPath = url.searchParams.get('path') || initialPath;
+
+    try {
+      const store = getCoreMemoryStore(projectPath);
+      store.unarchiveMemory(memoryId);
+
+      // Broadcast update event
+      broadcastToClients({
+        type: 'CORE_MEMORY_UPDATED',
+        payload: {
+          memoryId,
+          archived: false,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (error: unknown) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (error as Error).message }));
+    }
+    return true;
+  }
+
   // API: Core Memory - Delete memory
   if (pathname.startsWith('/api/core-memory/memories/') && req.method === 'DELETE') {
     const memoryId = pathname.replace('/api/core-memory/memories/', '');

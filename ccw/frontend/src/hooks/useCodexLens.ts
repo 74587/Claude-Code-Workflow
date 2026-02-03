@@ -4,6 +4,9 @@
 // TanStack Query hooks for CodexLens management
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useFormatMessage } from '../hooks/useLocale';
+import { useNotifications } from '../hooks/useNotifications';
+import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import {
   fetchCodexLensDashboardInit,
   fetchCodexLensStatus,
@@ -513,12 +516,30 @@ export interface UseUpdateCodexLensConfigReturn {
  */
 export function useUpdateCodexLensConfig(): UseUpdateCodexLensConfigReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: updateCodexLensConfig,
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.codexLensConfigUpdate.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.config() });
       queryClient.invalidateQueries({ queryKey: codexLensKeys.dashboard() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensConfigUpdate.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensConfigUpdate');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -540,11 +561,29 @@ export interface UseBootstrapCodexLensReturn {
  */
 export function useBootstrapCodexLens(): UseBootstrapCodexLensReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: bootstrapCodexLens,
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'codexlens.bootstrapping' }),
+        formatMessage({ id: 'common.feedback.codexLensBootstrap.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.all });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensBootstrap.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensBootstrap');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -566,12 +605,30 @@ export interface UseInstallSemanticReturn {
  */
 export function useInstallSemantic(): UseInstallSemanticReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: installCodexLensSemantic,
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'codexlens.semantic.installing' }),
+        formatMessage({ id: 'common.feedback.codexLensInstallSemantic.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.all });
       queryClient.invalidateQueries({ queryKey: codexLensKeys.dashboard() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensInstallSemantic.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensInstallSemantic');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -593,11 +650,29 @@ export interface UseUninstallCodexLensReturn {
  */
 export function useUninstallCodexLens(): UseUninstallCodexLensReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: uninstallCodexLens,
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'codexlens.uninstalling' }),
+        formatMessage({ id: 'common.feedback.codexLensUninstall.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.all });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensUninstall.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensUninstall');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -620,6 +695,8 @@ export interface UseDownloadModelReturn {
  */
 export function useDownloadModel(): UseDownloadModelReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: async ({ profile, modelName, modelType }: { profile?: string; modelName?: string; modelType?: string }) => {
@@ -627,8 +704,24 @@ export function useDownloadModel(): UseDownloadModelReturn {
       if (modelName) return downloadCodexLensCustomModel(modelName, modelType);
       throw new Error('Either profile or modelName must be provided');
     },
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'codexlens.models.downloading' }),
+        formatMessage({ id: 'common.feedback.codexLensDownloadModel.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.models() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensDownloadModel.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensDownloadModel');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -652,6 +745,8 @@ export interface UseDeleteModelReturn {
  */
 export function useDeleteModel(): UseDeleteModelReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: async ({ profile, cachePath }: { profile?: string; cachePath?: string }) => {
@@ -659,8 +754,24 @@ export function useDeleteModel(): UseDeleteModelReturn {
       if (cachePath) return deleteCodexLensModelByPath(cachePath);
       throw new Error('Either profile or cachePath must be provided');
     },
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.deleting' }),
+        formatMessage({ id: 'common.feedback.codexLensDeleteModel.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.models() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensDeleteModel.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensDeleteModel');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -683,12 +794,30 @@ export interface UseUpdateCodexLensEnvReturn {
  */
 export function useUpdateCodexLensEnv(): UseUpdateCodexLensEnvReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: (request: CodexLensUpdateEnvRequest) => updateCodexLensEnv(request),
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.codexLensUpdateEnv.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.env() });
       queryClient.invalidateQueries({ queryKey: codexLensKeys.dashboard() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensUpdateEnv.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensUpdateEnv');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -712,18 +841,52 @@ export interface UseSelectGpuReturn {
  */
 export function useSelectGpu(): UseSelectGpuReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const selectMutation = useMutation({
     mutationFn: (deviceId: string | number) => selectCodexLensGpu(deviceId),
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.codexLensSelectGpu.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.gpu() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensSelectGpu.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensSelectGpu');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
   const resetMutation = useMutation({
     mutationFn: () => resetCodexLensGpu(),
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.codexLensResetGpu.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.gpu() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensResetGpu.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensResetGpu');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -747,11 +910,29 @@ export interface UseUpdateIgnorePatternsReturn {
  */
 export function useUpdateIgnorePatterns(): UseUpdateIgnorePatternsReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: updateCodexLensIgnorePatterns,
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.codexLensUpdatePatterns.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.ignorePatterns() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensUpdatePatterns.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensUpdatePatterns');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -847,6 +1028,8 @@ export interface UseRebuildIndexReturn {
  */
 export function useRebuildIndex(): UseRebuildIndexReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: async ({
@@ -861,9 +1044,25 @@ export function useRebuildIndex(): UseRebuildIndexReturn {
         maxWorkers?: number;
       };
     }) => rebuildCodexLensIndex(projectPath, options),
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.codexLensRebuildIndex.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.indexes() });
       queryClient.invalidateQueries({ queryKey: codexLensKeys.dashboard() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensRebuildIndex.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensRebuildIndex');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -891,6 +1090,8 @@ export interface UseUpdateIndexReturn {
  */
 export function useUpdateIndex(): UseUpdateIndexReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: async ({
@@ -905,9 +1106,25 @@ export function useUpdateIndex(): UseUpdateIndexReturn {
         maxWorkers?: number;
       };
     }) => updateCodexLensIndex(projectPath, options),
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.codexLensUpdateIndex.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.indexes() });
       queryClient.invalidateQueries({ queryKey: codexLensKeys.dashboard() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensUpdateIndex.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensUpdateIndex');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -930,11 +1147,29 @@ export interface UseCancelIndexingReturn {
  */
 export function useCancelIndexing(): UseCancelIndexingReturn {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: cancelCodexLensIndexing,
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.codexLensCancelIndexing.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: codexLensKeys.indexingStatus() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.codexLensCancelIndexing.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensCancelIndexing');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 

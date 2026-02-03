@@ -1,0 +1,30 @@
+{
+  "id": "commands/general/ccw",
+  "title": "/ccw",
+  "description": "Main CCW workflow coordinator for intelligent command orchestration",
+  "source": "@site/docs/commands/general/ccw.mdx",
+  "sourceDirName": "commands/general",
+  "slug": "/commands/general/ccw",
+  "permalink": "/docs/docs/commands/general/ccw",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/general/ccw.mdx",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "/ccw",
+    "sidebar_label": "/ccw",
+    "sidebar_position": 1,
+    "description": "Main CCW workflow coordinator for intelligent command orchestration"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "Overview",
+    "permalink": "/docs/docs/"
+  },
+  "next": {
+    "title": "/ccw-plan",
+    "permalink": "/docs/docs/commands/general/ccw-plan"
+  }
+}

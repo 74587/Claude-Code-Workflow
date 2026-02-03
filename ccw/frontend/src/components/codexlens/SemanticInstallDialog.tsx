@@ -84,7 +84,7 @@ export function SemanticInstallDialog({ open, onOpenChange, onSuccess }: Semanti
         onSuccess?.();
         onOpenChange(false);
       } else {
-        throw new Error(result.error || 'Installation failed');
+        throw new Error(result.message || 'Installation failed');
       }
     } catch (err) {
       showError(

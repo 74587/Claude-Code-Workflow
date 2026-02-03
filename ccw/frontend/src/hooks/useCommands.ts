@@ -11,6 +11,9 @@ import {
   type Command,
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { useNotifications } from './useNotifications';
+import { sanitizeErrorMessage } from '@/utils/errorSanitizer';
+import { formatMessage } from '@/lib/i18n';
 
 // Query key factory
 export const commandsKeys = {
@@ -66,20 +69,47 @@ export interface UseCommandMutationsReturn {
 export function useCommandMutations(): UseCommandMutationsReturn {
   const queryClient = useQueryClient();
   const projectPath = useWorkflowStore(selectProjectPath);
+  const { addToast, removeToast, success, error } = useNotifications();
 
   const toggleMutation = useMutation({
     mutationFn: ({ name, enabled, location }: { name: string; enabled: boolean; location: 'project' | 'user' }) =>
       toggleCommandApi(name, enabled, location, projectPath),
-    onSuccess: () => {
+    onMutate: (): { loadingId: string } => {
+      const loadingId = addToast('info', formatMessage('common.loading'), undefined, { duration: 0 });
+      return { loadingId };
+    },
+    onSuccess: (_, __, context) => {
+      const { loadingId } = context ?? { loadingId: '' };
+      if (loadingId) removeToast(loadingId);
+      success(formatMessage('feedback.commandToggle.success'));
       queryClient.invalidateQueries({ queryKey: commandsKeys.all });
+    },
+    onError: (err, __, context) => {
+      const { loadingId } = context ?? { loadingId: '' };
+      if (loadingId) removeToast(loadingId);
+      const sanitized = sanitizeErrorMessage(err, 'commandToggle');
+      error(formatMessage('common.error'), formatMessage(sanitized.messageKey));
     },
   });
 
   const toggleGroupMutation = useMutation({
     mutationFn: ({ groupName, enable, location }: { groupName: string; enable: boolean; location: 'project' | 'user' }) =>
       toggleCommandGroupApi(groupName, enable, location, projectPath),
-    onSuccess: () => {
+    onMutate: (): { loadingId: string } => {
+      const loadingId = addToast('info', formatMessage('common.loading'), undefined, { duration: 0 });
+      return { loadingId };
+    },
+    onSuccess: (_, __, context) => {
+      const { loadingId } = context ?? { loadingId: '' };
+      if (loadingId) removeToast(loadingId);
+      success(formatMessage('feedback.commandToggle.success'));
       queryClient.invalidateQueries({ queryKey: commandsKeys.all });
+    },
+    onError: (err, __, context) => {
+      const { loadingId } = context ?? { loadingId: '' };
+      if (loadingId) removeToast(loadingId);
+      const sanitized = sanitizeErrorMessage(err, 'commandToggle');
+      error(formatMessage('common.error'), formatMessage(sanitized.messageKey));
     },
   });
 

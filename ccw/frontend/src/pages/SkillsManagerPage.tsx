@@ -3,7 +3,7 @@
 // ========================================
 // Browse and manage skills library with search/filter
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import {
   Sparkles,
@@ -33,9 +33,11 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui';
-import { SkillCard } from '@/components/shared/SkillCard';
+import { SkillCard, SkillDetailPanel } from '@/components/shared';
 import { LocationSwitcher } from '@/components/commands/LocationSwitcher';
 import { useSkills, useSkillMutations } from '@/hooks';
+import { fetchSkillDetail } from '@/lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import type { Skill } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -101,6 +103,8 @@ function SkillGrid({ skills, isLoading, onToggle, onClick, isToggling, compact }
 
 export function SkillsManagerPage() {
   const { formatMessage } = useIntl();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
@@ -109,6 +113,11 @@ export function SkillsManagerPage() {
   const [showDisabledSection, setShowDisabledSection] = useState(false);
   const [confirmDisable, setConfirmDisable] = useState<{ skill: Skill; enable: boolean } | null>(null);
   const [locationFilter, setLocationFilter] = useState<'project' | 'user'>('project');
+
+  // Skill detail panel state
+  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [isDetailPanelOpen, setIsDetailPanelOpen] = useState(false);
 
   const {
     skills,
@@ -165,6 +174,33 @@ export function SkillsManagerPage() {
       setConfirmDisable(null);
     }
   };
+
+  // Skill detail panel handlers
+  const handleSkillClick = useCallback(async (skill: Skill) => {
+    setIsDetailLoading(true);
+    setIsDetailPanelOpen(true);
+    setSelectedSkill(skill);
+
+    try {
+      // Fetch full skill details from API
+      const data = await fetchSkillDetail(
+        skill.name,
+        skill.location || 'project',
+        projectPath
+      );
+      setSelectedSkill(data.skill);
+    } catch (error) {
+      console.error('Failed to fetch skill details:', error);
+      // Keep the basic skill info if fetch fails
+    } finally {
+      setIsDetailLoading(false);
+    }
+  }, [projectPath]);
+
+  const handleCloseDetailPanel = useCallback(() => {
+    setIsDetailPanelOpen(false);
+    setSelectedSkill(null);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -327,7 +363,7 @@ export function SkillsManagerPage() {
         skills={filteredSkills}
         isLoading={isLoading}
         onToggle={handleToggleWithConfirm}
-        onClick={() => {}}
+        onClick={handleSkillClick}
         isToggling={isToggling}
         compact={viewMode === 'compact'}
       />
@@ -350,7 +386,7 @@ export function SkillsManagerPage() {
               skills={skills.filter((s) => !s.enabled)}
               isLoading={false}
               onToggle={handleToggleWithConfirm}
-              onClick={() => {}}
+              onClick={handleSkillClick}
               isToggling={isToggling}
               compact={true}
             />
@@ -378,6 +414,14 @@ export function SkillsManagerPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Skill Detail Panel */}
+      <SkillDetailPanel
+        skill={selectedSkill}
+        isOpen={isDetailPanelOpen}
+        onClose={handleCloseDetailPanel}
+        isLoading={isDetailLoading}
+      />
     </div>
   );
 }

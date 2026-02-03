@@ -3,7 +3,6 @@
 // ========================================
 // Toggle between Project and User command locations
 
-import * as React from 'react';
 import { useIntl } from 'react-intl';
 import { Folder, User } from 'lucide-react';
 import { cn } from '@/lib/utils';

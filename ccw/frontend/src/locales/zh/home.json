@@ -1,6 +1,11 @@
 {
   "title": "首页",
   "description": "仪表板概览与统计",
+  "dashboard": {
+    "title": "仪表板",
+    "description": "工作流会话和任务统计概览",
+    "refreshTooltip": "刷新仪表板数据"
+  },
   "stats": {
     "activeSessions": "活跃会话",
     "totalTasks": "总任务",
@@ -15,6 +20,11 @@
     "activeLoops": "活跃循环",
     "openIssues": "开放问题",
     "quickActions": "快速操作"
+  },
+  "widgets": {
+    "workflowStatus": "工作流状态",
+    "activity": "活动时间线",
+    "taskTypes": "任务类型"
   },
   "emptyState": {
     "noSessions": {
@@ -48,6 +58,24 @@
       "title": "CLI 集成",
       "description": "使用 CCW 命令和 CLI 工具集成",
       "heading": "CLI 集成"
+    },
+    "commands": {
+      "title": "命令参考",
+      "description": "浏览 40+ 命令，涵盖工作流、问题、CLI 和内存类别"
+    },
+    "commandsOverview": {
+      "title": "命令文档",
+      "description": "探索所有可用的 CCW 命令，包含详细文档和示例"
+    },
+    "workflowsOverview": {
+      "title": "工作流指南",
+      "description": "15 种工作流级别的交互式指南，从超轻量到智能工作流"
+    },
+    "quickStart": {
+      "title": "快速开始",
+      "description": "在几分钟内上手 CCW",
+      "guide": "入门指南",
+      "faq": "常见问题"
     }
   },
   "errors": {

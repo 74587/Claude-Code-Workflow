@@ -1,0 +1,30 @@
+{
+  "id": "commands/issue/issue-new",
+  "title": "issue:new",
+  "description": "Create new issue with automatic categorization",
+  "source": "@site/docs/commands/issue/issue-new.md",
+  "sourceDirName": "commands/issue",
+  "slug": "/commands/issue/issue-new",
+  "permalink": "/docs/docs/commands/issue/issue-new",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/issue/issue-new.md",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 1,
+  "frontMatter": {
+    "title": "issue:new",
+    "sidebar_label": "issue:new",
+    "sidebar_position": 1,
+    "description": "Create new issue with automatic categorization"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "/codex-coordinator",
+    "permalink": "/docs/docs/commands/general/codex-coordinator"
+  },
+  "next": {
+    "title": "issue:discover",
+    "permalink": "/docs/docs/commands/issue/issue-discover"
+  }
+}

@@ -26,13 +26,24 @@ export default defineConfig({
     // strictPort: true ensures the specified port is used or fails
     strictPort: true,
     proxy: {
+      // Backend API proxy
       '/api': {
         target: 'http://localhost:3456',
         changeOrigin: true,
       },
+      // WebSocket proxy for real-time updates
       '/ws': {
         target: 'ws://localhost:3456',
         ws: true,
+      },
+      // Docusaurus documentation site proxy
+      // Forwards /docs requests to Docusaurus dev server running on port 3001
+      '/docs': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        // Remove /docs prefix when forwarding to Docusaurus
+        // Example: /docs/getting-started -> http://localhost:3001/getting-started
+        rewrite: (path) => path.replace(/^\/docs/, ''),
       },
     },
   },

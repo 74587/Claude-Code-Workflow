@@ -19,15 +19,17 @@ import {
   Brain,
   Shield,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { EventGroup, HookFormDialog, HookQuickTemplates, HookWizard, type HookCardData, type HookFormData, type HookTriggerType, HOOK_TEMPLATES, type WizardType } from '@/components/hook';
+import { HookCard, HookFormDialog, HookQuickTemplates, HookWizard, type HookCardData, type HookFormData, type HookTriggerType, HOOK_TEMPLATES, type WizardType } from '@/components/hook';
 import { useHooks, useToggleHook } from '@/hooks';
-import { installHookTemplate, createHook } from '@/lib/api';
+import { installHookTemplate } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 // ========== Types ==========
@@ -100,30 +102,42 @@ function getTriggerStats(hooksByTrigger: HooksByTrigger) {
 export function HookManagerPage() {
   const { formatMessage } = useIntl();
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedTrigger, setSelectedTrigger] = useState<HookTriggerType | 'all'>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [editingHook, setEditingHook] = useState<HookCardData | undefined>();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardType, setWizardType] = useState<WizardType>('memory-update');
+  const [expandedHooks, setExpandedHooks] = useState<Set<string>>(new Set());
+  const [templatesExpanded, setTemplatesExpanded] = useState(false);
+  const [wizardsExpanded, setWizardsExpanded] = useState(false);
 
   const { hooks, enabledCount, totalCount, isLoading, refetch } = useHooks();
   const { toggleHook } = useToggleHook();
 
-  // Convert hooks to HookCardData and filter by search query
+  // Convert hooks to HookCardData and filter by search query and trigger type
   const filteredHooks = useMemo(() => {
-    const validHooks = hooks.map(toHookCardData).filter((h): h is HookCardData => h !== null);
+    let validHooks = hooks.map(toHookCardData).filter((h): h is HookCardData => h !== null);
 
-    if (!searchQuery.trim()) return validHooks;
+    // Filter by trigger type
+    if (selectedTrigger !== 'all') {
+      validHooks = validHooks.filter(h => h.trigger === selectedTrigger);
+    }
 
-    const query = searchQuery.toLowerCase();
-    return validHooks.filter(
-      (h) =>
-        h.name.toLowerCase().includes(query) ||
-        (h.description && h.description.toLowerCase().includes(query)) ||
-        h.trigger.toLowerCase().includes(query) ||
-        (h.command && h.command.toLowerCase().includes(query))
-    );
-  }, [hooks, searchQuery]);
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      validHooks = validHooks.filter(
+        (h) =>
+          h.name.toLowerCase().includes(query) ||
+          (h.description && h.description.toLowerCase().includes(query)) ||
+          h.trigger.toLowerCase().includes(query) ||
+          (h.command && h.command.toLowerCase().includes(query))
+      );
+    }
+
+    return validHooks;
+  }, [hooks, searchQuery, selectedTrigger]);
 
   // Group hooks by trigger type
   const hooksByTrigger = useMemo(() => groupHooksByTrigger(filteredHooks), [filteredHooks]);
@@ -155,6 +169,18 @@ export function HookManagerPage() {
     await refetch();
   };
 
+  const handleToggleHookExpand = (hookName: string) => {
+    setExpandedHooks((prev) => {
+      const next = new Set(prev);
+      if (next.has(hookName)) {
+        next.delete(hookName);
+      } else {
+        next.add(hookName);
+      }
+      return next;
+    });
+  };
+
   // ========== Wizard Handlers ==========
 
   const wizardTypes: Array<{ type: WizardType; icon: typeof Brain; label: string; description: string }> = [
@@ -181,17 +207,6 @@ export function HookManagerPage() {
   const handleLaunchWizard = (type: WizardType) => {
     setWizardType(type);
     setWizardOpen(true);
-  };
-
-  const handleWizardComplete = async (hookConfig: {
-    name: string;
-    description: string;
-    trigger: string;
-    matcher?: string;
-    command: string;
-  }) => {
-    await createHook(hookConfig);
-    await refetch();
   };
 
   // ========== Quick Templates Logic ==========
@@ -221,12 +236,13 @@ export function HookManagerPage() {
     await installMutation.mutateAsync(templateId);
   };
 
-  const TRIGGER_TYPES: Array<{ type: HookTriggerType; icon: typeof Zap }> = [
-    { type: 'SessionStart', icon: Play },
-    { type: 'UserPromptSubmit', icon: Zap },
-    { type: 'PreToolUse', icon: Wrench },
-    { type: 'PostToolUse', icon: CheckCircle },
-    { type: 'Stop', icon: StopCircle },
+  const FILTER_OPTIONS: Array<{ type: HookTriggerType | 'all'; icon: typeof Zap; label: string }> = [
+    { type: 'all', icon: GitFork, label: formatMessage({ id: 'common.all' }) },
+    { type: 'SessionStart', icon: Play, label: formatMessage({ id: 'cliHooks.trigger.SessionStart' }) },
+    { type: 'UserPromptSubmit', icon: Zap, label: formatMessage({ id: 'cliHooks.trigger.UserPromptSubmit' }) },
+    { type: 'PreToolUse', icon: Wrench, label: formatMessage({ id: 'cliHooks.trigger.PreToolUse' }) },
+    { type: 'PostToolUse', icon: CheckCircle, label: formatMessage({ id: 'cliHooks.trigger.PostToolUse' }) },
+    { type: 'Stop', icon: StopCircle, label: formatMessage({ id: 'cliHooks.trigger.Stop' }) },
   ];
 
   return (
@@ -263,109 +279,158 @@ export function HookManagerPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {TRIGGER_TYPES.map(({ type, icon: Icon }) => {
-          const stats = triggerStats[type];
-          return (
-            <Card key={type} className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Icon className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    {formatMessage({ id: `cliHooks.trigger.${type}` })}
-                  </p>
-                  <p className="text-lg font-semibold text-foreground">
-                    {stats.enabled}/{stats.total}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Search and Global Stats */}
+      {/* Search and Filters */}
       <Card className="p-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder={formatMessage({ id: 'cliHooks.filters.searchPlaceholder' })}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
+        <div className="space-y-4">
+          {/* Search Bar */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={formatMessage({ id: 'cliHooks.filters.searchPlaceholder' })}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-sm">
+                {formatMessage({ id: 'cliHooks.stats.total' }, { count: totalCount })}
+              </Badge>
+              <Badge variant="default" className="text-sm">
+                {formatMessage({ id: 'cliHooks.stats.enabled' }, { count: enabledCount })}
+              </Badge>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <Badge variant="outline" className="text-sm">
-              {formatMessage({ id: 'cliHooks.stats.total' }, { count: totalCount })}
-            </Badge>
-            <Badge variant="default" className="text-sm">
-              {formatMessage({ id: 'cliHooks.stats.enabled' }, { count: enabledCount })}
-            </Badge>
+
+          {/* Trigger Type Filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {FILTER_OPTIONS.map(({ type, icon: Icon, label }) => {
+              const isSelected = selectedTrigger === type;
+              const stats = type === 'all'
+                ? { enabled: enabledCount, total: totalCount }
+                : triggerStats[type as HookTriggerType];
+
+              return (
+                <Button
+                  key={type}
+                  variant={isSelected ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedTrigger(type)}
+                  className="gap-2"
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                  <Badge
+                    variant={isSelected ? 'secondary' : 'outline'}
+                    className="ml-1"
+                  >
+                    {stats.enabled}/{stats.total}
+                  </Badge>
+                </Button>
+              );
+            })}
           </div>
         </div>
       </Card>
 
+      {/* Hook Cards Grid */}
+      {filteredHooks.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredHooks.map((hook) => (
+            <HookCard
+              key={hook.name}
+              hook={hook}
+              isExpanded={expandedHooks.has(hook.name)}
+              onToggleExpand={() => handleToggleHookExpand(hook.name)}
+              onToggle={toggleHook}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteClick}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Quick Templates */}
-      <Card className="p-6">
-        <HookQuickTemplates
-          onInstallTemplate={handleInstallTemplate}
-          installedTemplates={installedTemplates}
-          isLoading={installMutation.isPending}
-        />
+      <Card className="overflow-hidden">
+        <div
+          className="p-4 cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between border-b border-border"
+          onClick={() => setTemplatesExpanded(!templatesExpanded)}
+        >
+          <div className="flex items-center gap-3">
+            <Zap className="w-5 h-5 text-primary" />
+            <h2 className="text-base font-semibold text-foreground">
+              {formatMessage({ id: 'cliHooks.quickTemplates.title' })}
+            </h2>
+          </div>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            {templatesExpanded ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </Button>
+        </div>
+        {templatesExpanded && (
+          <div className="p-6">
+            <HookQuickTemplates
+              onInstallTemplate={handleInstallTemplate}
+              installedTemplates={installedTemplates}
+              isLoading={installMutation.isPending}
+            />
+          </div>
+        )}
       </Card>
 
       {/* Wizard Launchers */}
-      <Card className="p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <Wand2 className="w-5 h-5 text-primary" />
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              {formatMessage({ id: 'cliHooks.wizards.sectionTitle' })}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {formatMessage({ id: 'cliHooks.wizards.sectionDescription' })}
-            </p>
+      <Card className="overflow-hidden">
+        <div
+          className="p-4 cursor-pointer hover:bg-muted/50 transition-colors flex items-center justify-between"
+          onClick={() => setWizardsExpanded(!wizardsExpanded)}
+        >
+          <div className="flex items-center gap-3">
+            <Wand2 className="w-5 h-5 text-primary" />
+            <div>
+              <h2 className="text-base font-semibold text-foreground">
+                {formatMessage({ id: 'cliHooks.wizards.sectionTitle' })}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                {formatMessage({ id: 'cliHooks.wizards.sectionDescription' })}
+              </p>
+            </div>
           </div>
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+            {wizardsExpanded ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {wizardTypes.map(({ type, icon: Icon, label, description }) => (
-            <Card key={type} className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleLaunchWizard(type)}>
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-primary/10 shrink-0">
-                  <Icon className="w-5 h-5 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-medium text-foreground mb-1">
-                    {label}
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {description}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+        {wizardsExpanded && (
+          <div className="border-t border-border p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {wizardTypes.map(({ type, icon: Icon, label, description }) => (
+                <Card key={type} className="p-4 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleLaunchWizard(type)}>
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10 shrink-0">
+                      <Icon className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-medium text-foreground mb-1">
+                        {label}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        {description}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </Card>
-
-      {/* Event Groups */}
-      <div className="space-y-4">
-        {TRIGGER_TYPES.map(({ type }) => (
-          <EventGroup
-            key={type}
-            eventType={type}
-            hooks={hooksByTrigger[type]}
-            onHookToggle={(hookName, enabled) => toggleHook(hookName, enabled)}
-            onHookEdit={handleEditClick}
-            onHookDelete={handleDeleteClick}
-          />
-        ))}
-      </div>
 
       {/* Empty State */}
       {!isLoading && filteredHooks.length === 0 && (
@@ -398,7 +463,6 @@ export function HookManagerPage() {
         wizardType={wizardType}
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
-        onComplete={handleWizardComplete}
       />
     </div>
   );

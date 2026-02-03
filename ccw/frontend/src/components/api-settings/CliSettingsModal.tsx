@@ -39,7 +39,7 @@ type ModeType = 'provider-based' | 'direct';
 
 export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModalProps) {
   const { formatMessage } = useIntl();
-  const { showNotification } = useNotifications();
+  const { error } = useNotifications();
   const isEditing = !!cliSettings;
 
   // Mutations
@@ -213,8 +213,8 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
       }
 
       onClose();
-    } catch (error) {
-      showNotification('error', formatMessage({ id: 'apiSettings.cliSettings.saveError' }));
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.cliSettings.saveError' }));
     }
   };
 

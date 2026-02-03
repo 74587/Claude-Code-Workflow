@@ -893,6 +893,10 @@ export interface Skill {
   version?: string;
   author?: string;
   location?: 'project' | 'user';
+  folderName?: string;
+  path?: string;
+  allowedTools?: string[];
+  supportingFiles?: string[];
 }
 
 export interface SkillsResponse {
@@ -965,6 +969,23 @@ export async function disableSkill(
     method: 'POST',
     body: JSON.stringify({ location, projectPath }),
   });
+}
+
+/**
+ * Fetch detailed information about a specific skill
+ * @param skillName - Name of the skill to fetch
+ * @param location - Location of the skill (project or user)
+ * @param projectPath - Optional project path
+ */
+export async function fetchSkillDetail(
+  skillName: string,
+  location: 'project' | 'user',
+  projectPath?: string
+): Promise<{ skill: Skill }> {
+  const url = projectPath
+    ? `/api/skills/${encodeURIComponent(skillName)}?location=${location}&path=${encodeURIComponent(projectPath)}`
+    : `/api/skills/${encodeURIComponent(skillName)}?location=${location}`;
+  return fetchApi<{ skill: Skill }>(url);
 }
 
 // ========== Commands API ==========
@@ -1211,6 +1232,34 @@ export async function deleteMemory(memoryId: string, projectPath?: string): Prom
     : `/api/core-memory/memories/${encodeURIComponent(memoryId)}`;
   return fetchApi<void>(url, {
     method: 'DELETE',
+  });
+}
+
+/**
+ * Archive a memory entry for a specific workspace
+ * @param memoryId - Memory ID to archive
+ * @param projectPath - Optional project path to filter data by workspace
+ */
+export async function archiveMemory(memoryId: string, projectPath?: string): Promise<void> {
+  const url = projectPath
+    ? `/api/core-memory/memories/${encodeURIComponent(memoryId)}/archive?path=${encodeURIComponent(projectPath)}`
+    : `/api/core-memory/memories/${encodeURIComponent(memoryId)}/archive`;
+  return fetchApi<void>(url, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Unarchive a memory entry for a specific workspace
+ * @param memoryId - Memory ID to unarchive
+ * @param projectPath - Optional project path to filter data by workspace
+ */
+export async function unarchiveMemory(memoryId: string, projectPath?: string): Promise<void> {
+  const url = projectPath
+    ? `/api/core-memory/memories/${encodeURIComponent(memoryId)}/unarchive?path=${encodeURIComponent(projectPath)}`
+    : `/api/core-memory/memories/${encodeURIComponent(memoryId)}/unarchive`;
+  return fetchApi<void>(url, {
+    method: 'POST',
   });
 }
 
@@ -3829,6 +3878,9 @@ export interface CliSettingsEndpoint {
     };
     model?: string;
     includeCoAuthoredBy?: boolean;
+    settingsFile?: string;
+    availableModels?: string[];
+    tags?: string[];
   };
   enabled: boolean;
   createdAt: string;
@@ -3859,6 +3911,9 @@ export interface SaveCliSettingsRequest {
     };
     model?: string;
     includeCoAuthoredBy?: boolean;
+    settingsFile?: string;
+    availableModels?: string[];
+    tags?: string[];
   };
   enabled?: boolean;
 }

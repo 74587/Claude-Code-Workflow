@@ -1,7 +1,7 @@
 // ========================================
 // Help Page
 // ========================================
-// Help documentation and guides
+// Help documentation and guides with link to full documentation
 
 import {
   HelpCircle,
@@ -12,6 +12,11 @@ import {
   Workflow,
   FolderKanban,
   Terminal,
+  FileText,
+  ArrowRight,
+  Search,
+  Code,
+  Layers,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useIntl } from 'react-intl';
@@ -25,6 +30,7 @@ interface HelpSection {
   icon: React.ElementType;
   link?: string;
   isExternal?: boolean;
+  badge?: string;
 }
 
 interface HelpSectionConfig {
@@ -34,6 +40,7 @@ interface HelpSectionConfig {
   icon: React.ElementType;
   link?: string;
   isExternal?: boolean;
+  badge?: string;
 }
 
 const helpSectionsConfig: HelpSectionConfig[] = [
@@ -42,26 +49,31 @@ const helpSectionsConfig: HelpSectionConfig[] = [
     descriptionKey: 'home.help.gettingStarted.description',
     headingKey: 'home.help.gettingStarted.heading',
     icon: Book,
-    link: '#getting-started',
+    link: '/docs/overview',
+    isExternal: false,
+    badge: 'Docs',
   },
   {
     i18nKey: 'home.help.orchestratorGuide.title',
     descriptionKey: 'home.help.orchestratorGuide.description',
     icon: Workflow,
-    link: '/orchestrator',
+    link: '/docs/workflows/introduction',
+    isExternal: false,
+    badge: 'Docs',
+  },
+  {
+    i18nKey: 'home.help.commands.title',
+    descriptionKey: 'home.help.commands.description',
+    icon: Terminal,
+    link: '/docs/commands',
+    isExternal: false,
+    badge: 'Docs',
   },
   {
     i18nKey: 'home.help.sessionsManagement.title',
     descriptionKey: 'home.help.sessionsManagement.description',
     icon: FolderKanban,
     link: '/sessions',
-  },
-  {
-    i18nKey: 'home.help.cliIntegration.title',
-    descriptionKey: 'home.help.cliIntegration.description',
-    headingKey: 'home.help.cliIntegration.heading',
-    icon: Terminal,
-    link: '#cli-integration',
   },
 ];
 
@@ -76,44 +88,71 @@ export function HelpPage() {
   }));
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <HelpCircle className="w-6 h-6 text-primary" />
-          {formatMessage({ id: 'help.title' })}
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {formatMessage({ id: 'help.description' })}
-        </p>
+    <div className="max-w-6xl mx-auto space-y-8">
+      {/* Page Header with CTA */}
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+            <HelpCircle className="w-8 h-8 text-primary" />
+            {formatMessage({ id: 'help.title' })}
+          </h1>
+          <p className="text-muted-foreground mt-2 text-lg">
+            {formatMessage({ id: 'help.description' })}
+          </p>
+        </div>
+        <Button
+          variant="default"
+          className="gap-2"
+          asChild
+        >
+          <a href="/docs" target="_blank" rel="noopener noreferrer">
+            <FileText className="w-4 h-4" />
+            {formatMessage({ id: 'help.fullDocs' })}
+            <ExternalLink className="w-4 h-4" />
+          </a>
+        </Button>
       </div>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {helpSections.map((section) => {
           const Icon = section.icon;
+          const isDocsLink = section.link?.startsWith('/docs');
           const content = (
-            <Card className="p-4 h-full hover:shadow-md hover:border-primary/50 transition-all cursor-pointer group">
+            <Card className="p-5 h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer group relative">
+              {section.badge && (
+                <div className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full">
+                  {section.badge}
+                </div>
+              )}
               <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <div className="p-2.5 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                   <Icon className="w-5 h-5" />
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-medium text-foreground group-hover:text-primary transition-colors">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
                     {formatMessage({ id: section.i18nKey })}
                   </h3>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2">
                     {formatMessage({ id: section.descriptionI18nKey })}
                   </p>
                 </div>
-                {section.isExternal && (
-                  <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                )}
+                {isDocsLink || section.isExternal ? (
+                  <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 mt-1" />
+                ) : null}
               </div>
             </Card>
           );
 
-          if (section.link?.startsWith('/')) {
+          if (section.link?.startsWith('/docs')) {
+            return (
+              <a key={section.i18nKey} href={section.link} className="block">
+                {content}
+              </a>
+            );
+          }
+
+          if (section.link?.startsWith('/') && !section.link.startsWith('/docs')) {
             return (
               <Link key={section.i18nKey} to={section.link}>
                 {content}
@@ -122,77 +161,143 @@ export function HelpPage() {
           }
 
           return (
-            <a key={section.i18nKey} href={section.link}>
+            <a key={section.i18nKey} href={section.link} target="_blank" rel="noopener noreferrer">
               {content}
             </a>
           );
         })}
       </div>
 
-      {/* Getting Started Section */}
-      <Card className="p-6" id="getting-started">
-        <h2 className="text-xl font-semibold text-foreground mb-4">
-          {formatMessage({ id: 'home.help.gettingStarted.heading' })}
-        </h2>
-        <div className="prose prose-sm max-w-none text-muted-foreground">
-          <p>
-            CCW (Claude Code Workflow) Dashboard is your central hub for managing
-            AI-powered development workflows. Here are the key concepts:
+      {/* Documentation Overview Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Commands Card */}
+        <Card className="p-6 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
+              <Terminal className="w-5 h-5" />
+            </div>
+            <h3 className="font-semibold text-foreground">
+              {formatMessage({ id: 'help.commandsOverview.title' })}
+            </h3>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            {formatMessage({ id: 'help.commandsOverview.description' })}
           </p>
-          <ul className="mt-4 space-y-2">
-            <li>
-              <strong className="text-foreground">Sessions</strong> - Track the
-              progress of multi-step development tasks
-            </li>
-            <li>
-              <strong className="text-foreground">Orchestrator</strong> - Visual
-              workflow builder for creating automation flows
-            </li>
-            <li>
-              <strong className="text-foreground">Loops</strong> - Monitor
-              iterative development cycles in real-time
-            </li>
-            <li>
-              <strong className="text-foreground">Skills</strong> - Extend Claude
-              Code with custom capabilities
-            </li>
-            <li>
-              <strong className="text-foreground">Memory</strong> - Store context
-              and knowledge for better AI assistance
-            </li>
-          </ul>
-        </div>
-      </Card>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <Layers className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Workflow Commands</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Layers className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Issue Commands</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Layers className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">CLI & Memory Commands</span>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" className="w-full mt-4" asChild>
+            <a href="/docs/commands">
+              {formatMessage({ id: 'help.viewAll' })}
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </a>
+          </Button>
+        </Card>
 
-      {/* CLI Integration Section */}
-      <Card className="p-6" id="cli-integration">
-        <h2 className="text-xl font-semibold text-foreground mb-4">
-          {formatMessage({ id: 'home.help.cliIntegration.heading' })}
-        </h2>
-        <div className="prose prose-sm max-w-none text-muted-foreground">
-          <p>
-            CCW integrates with multiple CLI tools for AI-assisted development:
+        {/* Workflows Card */}
+        <Card className="p-6 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-green-500/10 text-green-500">
+              <Workflow className="w-5 h-5" />
+            </div>
+            <h3 className="font-semibold text-foreground">
+              {formatMessage({ id: 'help.workflowsOverview.title' })}
+            </h3>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            {formatMessage({ id: 'help.workflowsOverview.description' })}
           </p>
-          <ul className="mt-4 space-y-2">
-            <li>
-              <code className="bg-muted px-1.5 py-0.5 rounded text-foreground">
-                ccw cli -p "prompt" --tool gemini
-              </code>
-              - Execute with Gemini
-            </li>
-            <li>
-              <code className="bg-muted px-1.5 py-0.5 rounded text-foreground">
-                ccw cli -p "prompt" --tool qwen
-              </code>
-              - Execute with Qwen
-            </li>
-            <li>
-              <code className="bg-muted px-1.5 py-0.5 rounded text-foreground">
-                ccw cli -p "prompt" --tool codex
-              </code>
-              - Execute with Codex
-            </li>
-          </ul>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <Code className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Level 1-5 Workflows</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Search className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Interactive Diagrams</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <FileText className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Best Practices</span>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" className="w-full mt-4" asChild>
+            <a href="/docs/workflows">
+              {formatMessage({ id: 'help.viewAll' })}
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </a>
+          </Button>
+        </Card>
+
+        {/* Quick Start Card */}
+        <Card className="p-6 hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500">
+              <Book className="w-5 h-5" />
+            </div>
+            <h3 className="font-semibold text-foreground">
+              {formatMessage({ id: 'help.quickStart.title' })}
+            </h3>
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            {formatMessage({ id: 'help.quickStart.description' })}
+          </p>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <ExternalLink className="w-4 h-4 text-muted-foreground" />
+              <a href="/docs/overview" className="text-muted-foreground hover:text-foreground transition-colors">
+                {formatMessage({ id: 'help.quickStart.guide' })}
+              </a>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <MessageCircle className="w-4 h-4 text-muted-foreground" />
+              <a href="/docs/faq" className="text-muted-foreground hover:text-foreground transition-colors">
+                {formatMessage({ id: 'help.quickStart.faq' })}
+              </a>
+            </div>
+          </div>
+          <Button variant="ghost" size="sm" className="w-full mt-4" asChild>
+            <a href="/docs/overview">
+              {formatMessage({ id: 'help.getStarted' })}
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </a>
+          </Button>
+        </Card>
+      </div>
+
+      {/* Search Documentation CTA */}
+      <Card className="p-8 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="p-3 rounded-lg bg-primary/20">
+              <Search className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">
+                {formatMessage({ id: 'help.searchDocs.title' })}
+              </h3>
+              <p className="text-muted-foreground">
+                {formatMessage({ id: 'help.searchDocs.description' })}
+              </p>
+            </div>
+          </div>
+          <Button variant="default" className="gap-2" asChild>
+            <a href="/docs">
+              {formatMessage({ id: 'help.searchDocs.button' })}
+              <ArrowRight className="w-4 h-4" />
+            </a>
+          </Button>
         </div>
       </Card>
 
@@ -210,13 +315,17 @@ export function HelpPage() {
               {formatMessage({ id: 'help.support.description' })}
             </p>
             <div className="flex gap-3">
-              <Button variant="outline" size="sm">
-                <Book className="w-4 h-4 mr-2" />
-                {formatMessage({ id: 'help.support.documentation' })}
+              <Button variant="outline" size="sm" asChild>
+                <a href="/docs/faq">
+                  <Book className="w-4 h-4 mr-2" />
+                  {formatMessage({ id: 'help.support.documentation' })}
+                </a>
               </Button>
-              <Button variant="outline" size="sm">
-                <Video className="w-4 h-4 mr-2" />
-                {formatMessage({ id: 'help.support.tutorials' })}
+              <Button variant="outline" size="sm" asChild>
+                <a href="https://github.com/catlog22/Claude-Code-Workflow/issues" target="_blank" rel="noopener noreferrer">
+                  <Video className="w-4 h-4 mr-2" />
+                  {formatMessage({ id: 'help.support.tutorials' })}
+                </a>
               </Button>
             </div>
           </div>

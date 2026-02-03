@@ -68,32 +68,99 @@
     }
   },
   "cliHooks": {
-    "title": "Git 钩子",
-    "description": "管理用于自动化工作流的 Git 钩子",
+    "title": "钩子管理器",
+    "description": "管理自动化工作流的 CLI 钩子",
     "trigger": {
+      "SessionStart": "会话开始",
+      "UserPromptSubmit": "用户提交指令",
+      "PreToolUse": "工具使用前",
+      "PostToolUse": "工具使用后",
+      "Stop": "停止",
       "pre-commit": "提交前",
       "post-commit": "提交后",
       "pre-push": "推送前",
       "custom": "自定义"
     },
     "stats": {
-      "total": "钩子总数",
-      "enabled": "已启用"
+      "total": "{count, plural, =0 {无钩子} one {# 个钩子} other {# 个钩子}}",
+      "enabled": "{count, plural, =0 {无激活} one {# 个激活} other {# 个激活}}",
+      "count": "{enabled}/{total} 个已启用"
     },
     "filters": {
       "trigger": "触发器",
       "allTriggers": "全部触发器",
-      "searchPlaceholder": "按名称搜索钩子..."
+      "searchPlaceholder": "按名称、描述、命令或触发器搜索..."
     },
     "actions": {
       "add": "添加钩子",
+      "addFirst": "添加您的第一个钩子",
       "edit": "编辑钩子",
       "delete": "删除钩子",
-      "toggle": "切换钩子"
+      "deleteConfirm": "确定要删除钩子 \"{hookName}\" 吗？",
+      "enable": "启用",
+      "disable": "禁用",
+      "toggle": "切换钩子",
+      "expand": "展开",
+      "collapse": "收起",
+      "expandAll": "全部展开",
+      "collapseAll": "全部收起"
     },
-    "emptyState": {
-      "title": "未找到 Git 钩子",
-      "message": "添加 Git 钩子以在 Git 工作流期间自动化任务。"
+    "form": {
+      "name": "钩子名称",
+      "description": "描述",
+      "trigger": "触发事件",
+      "matcher": "匹配模式",
+      "command": "命令"
+    },
+    "quickTemplates": {
+      "title": "快速安装模板",
+      "description": "一键安装常用钩子"
+    },
+    "templates": {
+      "title": "快速安装模板",
+      "description": "一键安装常用钩子",
+      "categories": {
+        "notification": "通知",
+        "indexing": "索引",
+        "automation": "自动化"
+      },
+      "templates": {
+        "session-start-notify": {
+          "name": "会话启动通知",
+          "description": "当新工作流会话创建时通知仪表盘"
+        },
+        "session-state-watch": {
+          "name": "会话状态监控",
+          "description": "监控会话元数据文件变更 (workflow-session.json)"
+        }
+      },
+      "actions": {
+        "install": "安装",
+        "installed": "已安装"
+      }
+    },
+    "wizards": {
+      "sectionTitle": "钩子向导",
+      "sectionDescription": "通过分步引导创建常见钩子",
+      "launch": "启动向导",
+      "memoryUpdate": {
+        "title": "记忆更新钩子",
+        "shortDescription": "自动更新 CLAUDE.md"
+      },
+      "dangerProtection": {
+        "title": "危险操作保护",
+        "shortDescription": "保护危险操作"
+      },
+      "skillContext": {
+        "title": "SKILL 上下文钩子",
+        "shortDescription": "自动注入 SKILL 上下文"
+      }
+    },
+    "allTools": "全部工具",
+    "empty": {
+      "title": "暂无钩子",
+      "description": "开始添加您的第一个钩子或使用快速模板",
+      "noHooksInEvent": "此事件未配置钩子"
     }
   },
   "cliRules": {

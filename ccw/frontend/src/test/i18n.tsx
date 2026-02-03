@@ -58,6 +58,11 @@ const mockMessages: Record<Locale, Record<string, string>> = {
     // Notifications
     'common.aria.notifications': 'Notifications',
     'common.actions.refresh': 'Refresh',
+    'common.actions.resetLayout': 'Reset Layout',
+    // Dashboard
+    'home.dashboard.title': 'Dashboard',
+    'home.dashboard.description': 'Monitor your project activity and metrics',
+    'home.dashboard.refreshTooltip': 'Refresh dashboard data',
     // Issues - Queue
     'issues.queue.pageTitle': 'Issue Queue',
     'issues.queue.pageDescription': 'Manage issue execution queue with execution groups',
@@ -235,6 +240,11 @@ const mockMessages: Record<Locale, Record<string, string>> = {
     // Notifications
     'common.aria.notifications': '通知',
     'common.actions.refresh': '刷新',
+    'common.actions.resetLayout': '重置布局',
+    // Dashboard
+    'home.dashboard.title': '仪表盘',
+    'home.dashboard.description': '监控您的项目活动和指标',
+    'home.dashboard.refreshTooltip': '刷新仪表盘数据',
     // Issues - Queue
     'issues.queue.pageTitle': '问题队列',
     'issues.queue.pageDescription': '管理问题执行队列和执行组',

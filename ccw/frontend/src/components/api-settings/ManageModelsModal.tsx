@@ -29,7 +29,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Badge } from '@/components/ui/Badge';
 import { useProviders, useUpdateProvider } from '@/hooks/useApiSettings';
 import { useNotifications } from '@/hooks/useNotifications';
-import type { ModelDefinition } from '@/lib/api';
 
 // ========== Types ==========
 
@@ -164,7 +163,7 @@ function ModelEntryRow({
 
 export function ManageModelsModal({ open, onClose, providerId }: ManageModelsModalProps) {
   const { formatMessage } = useIntl();
-  const { showNotification } = useNotifications();
+  const { success, error } = useNotifications();
   const { providers } = useProviders();
   const { updateProvider, isUpdating } = useUpdateProvider();
 
@@ -259,10 +258,10 @@ export function ManageModelsModal({ open, onClose, providerId }: ManageModelsMod
         })),
       });
 
-      showNotification('success', formatMessage({ id: 'apiSettings.providers.actions.save' }) + ' success');
+      success(formatMessage({ id: 'apiSettings.providers.actions.save' }));
       onClose();
-    } catch (error) {
-      showNotification('error', formatMessage({ id: 'apiSettings.providers.saveError' }));
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.providers.saveError' }));
     }
   };
 

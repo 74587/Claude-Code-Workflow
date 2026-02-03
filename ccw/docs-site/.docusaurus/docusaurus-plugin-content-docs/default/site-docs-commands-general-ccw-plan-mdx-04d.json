@@ -1,0 +1,30 @@
+{
+  "id": "commands/general/ccw-plan",
+  "title": "/ccw-plan",
+  "description": "Planning coordinator for intelligent workflow selection",
+  "source": "@site/docs/commands/general/ccw-plan.mdx",
+  "sourceDirName": "commands/general",
+  "slug": "/commands/general/ccw-plan",
+  "permalink": "/docs/docs/commands/general/ccw-plan",
+  "draft": false,
+  "unlisted": false,
+  "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/general/ccw-plan.mdx",
+  "tags": [],
+  "version": "current",
+  "sidebarPosition": 2,
+  "frontMatter": {
+    "title": "/ccw-plan",
+    "sidebar_label": "/ccw-plan",
+    "sidebar_position": 2,
+    "description": "Planning coordinator for intelligent workflow selection"
+  },
+  "sidebar": "docs",
+  "previous": {
+    "title": "/ccw",
+    "permalink": "/docs/docs/commands/general/ccw"
+  },
+  "next": {
+    "title": "/ccw-test",
+    "permalink": "/docs/docs/commands/general/ccw-test"
+  }
+}

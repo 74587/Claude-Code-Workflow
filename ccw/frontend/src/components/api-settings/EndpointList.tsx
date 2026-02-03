@@ -139,7 +139,7 @@ export function EndpointList({
   onEditEndpoint,
 }: EndpointListProps) {
   const { formatMessage } = useIntl();
-  const { showNotification } = useNotifications();
+  const { error } = useNotifications();
   const [searchQuery, setSearchQuery] = useState('');
   const [showDisabledOnly, setShowDisabledOnly] = useState(false);
   const [showCachedOnly, setShowCachedOnly] = useState(false);
@@ -176,8 +176,8 @@ export function EndpointList({
     if (window.confirm(confirmMessage)) {
       try {
         await deleteEndpoint(endpointId);
-      } catch (error) {
-        showNotification('error', formatMessage({ id: 'apiSettings.endpoints.deleteError' }));
+      } catch (err) {
+        error(formatMessage({ id: 'apiSettings.endpoints.deleteError' }));
       }
     }
   };
@@ -185,8 +185,8 @@ export function EndpointList({
   const handleToggleEnabled = async (endpointId: string, enabled: boolean) => {
     try {
       await updateEndpoint(endpointId, { enabled });
-    } catch (error) {
-      showNotification('error', formatMessage({ id: 'apiSettings.endpoints.toggleError' }));
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.endpoints.toggleError' }));
     }
   };
 

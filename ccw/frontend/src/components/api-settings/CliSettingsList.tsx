@@ -12,7 +12,6 @@ import {
   Trash2,
   Settings,
   CheckCircle2,
-  XCircle,
   MoreVertical,
   Link as LinkIcon,
 } from 'lucide-react';
@@ -35,7 +34,6 @@ import {
 } from '@/hooks/useApiSettings';
 import { useNotifications } from '@/hooks/useNotifications';
 import type { CliSettingsEndpoint } from '@/lib/api';
-import { cn } from '@/lib/utils';
 
 // ========== Types ==========
 
@@ -163,7 +161,7 @@ export function CliSettingsList({
   onEditCliSettings,
 }: CliSettingsListProps) {
   const { formatMessage } = useIntl();
-  const { showNotification } = useNotifications();
+  const { error } = useNotifications();
   const [searchQuery, setSearchQuery] = useState('');
 
   const {
@@ -204,8 +202,8 @@ export function CliSettingsList({
     if (confirm(confirmMessage)) {
       try {
         await deleteCliSettings(endpointId);
-      } catch (error) {
-        showNotification('error', formatMessage({ id: 'apiSettings.cliSettings.deleteError' }));
+      } catch (err) {
+        error(formatMessage({ id: 'apiSettings.cliSettings.deleteError' }));
       }
     }
   };
@@ -213,8 +211,8 @@ export function CliSettingsList({
   const handleToggleEnabled = async (endpointId: string, enabled: boolean) => {
     try {
       await toggleCliSettings(endpointId, enabled);
-    } catch (error) {
-      showNotification('error', formatMessage({ id: 'apiSettings.cliSettings.toggleError' }));
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.cliSettings.toggleError' }));
     }
   };
 

@@ -69,7 +69,9 @@ export async function startReactFrontend(port: number): Promise<void> {
   }
 
   // Spawn React dev server
-  reactProcess = spawn('npm', ['run', 'dev', '--', '--port', port.toString()], {
+  // Use 'dev:vite' directly instead of 'dev' to avoid the 'concurrently' wrapper
+  // which doesn't properly pass the --port argument to vite
+  reactProcess = spawn('npm', ['run', 'dev:vite', '--', '--port', port.toString(), '--strictPort'], {
     cwd: frontendDir,
     stdio: 'pipe',
     shell: true,
@@ -106,11 +108,13 @@ export async function startReactFrontend(port: number): Promise<void> {
       const chunk = data.toString();
       output += chunk;
       
-      // Check for ready signals
+      // Check for ready signals (Vite 5/6 output format)
       if (
         chunk.includes('Local:') ||
         chunk.includes('ready in') ||
-        chunk.includes('VITE') && chunk.includes(port.toString())
+        chunk.includes('VITE') && chunk.includes(port.toString()) ||
+        chunk.includes(`http://localhost:${port}`) ||
+        chunk.includes(`https://localhost:${port}`)
       ) {
         cleanup();
         console.log(chalk.green(`  React frontend ready at http://localhost:${port}`));

@@ -4,6 +4,9 @@
 // TanStack Query hooks for API Settings management
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useFormatMessage } from '../hooks/useLocale';
+import { useNotifications } from '../hooks/useNotifications';
+import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import {
   fetchProviders,
   createProvider,
@@ -120,12 +123,30 @@ export function useProviders(options: UseProvidersOptions = {}): UseProvidersRet
 
 export function useCreateProvider() {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: (provider: Omit<ProviderCredential, 'id' | 'createdAt' | 'updatedAt'>) =>
       createProvider(provider),
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.creating' }),
+        formatMessage({ id: 'common.feedback.providerCreate.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: apiSettingsKeys.providers() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.providerCreate.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'providerCreate');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -138,12 +159,30 @@ export function useCreateProvider() {
 
 export function useUpdateProvider() {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: ({ providerId, updates }: { providerId: string; updates: Partial<Omit<ProviderCredential, 'id' | 'createdAt' | 'updatedAt'>> }) =>
       updateProvider(providerId, updates),
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.inProgress' }),
+        formatMessage({ id: 'common.feedback.providerUpdate.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: apiSettingsKeys.providers() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.providerUpdate.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'providerUpdate');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 
@@ -157,11 +196,29 @@ export function useUpdateProvider() {
 
 export function useDeleteProvider() {
   const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, info, error: errorToast } = useNotifications();
 
   const mutation = useMutation({
     mutationFn: (providerId: string) => deleteProvider(providerId),
+    onMutate: () => {
+      info(
+        formatMessage({ id: 'status.deleting' }),
+        formatMessage({ id: 'common.feedback.providerDelete.success' })
+      );
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: apiSettingsKeys.providers() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'common.feedback.providerDelete.success' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'providerDelete');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
     },
   });
 

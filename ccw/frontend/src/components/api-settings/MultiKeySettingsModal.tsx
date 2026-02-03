@@ -46,13 +46,6 @@ interface ApiKeyFormEntry {
   enabled: boolean;
 }
 
-interface HealthCheckSettings {
-  enabled: boolean;
-  intervalSeconds: number;
-  cooldownSeconds: number;
-  failureThreshold: number;
-}
-
 // ========== Helper Components ==========
 
 interface ApiKeyEntryRowProps {
@@ -147,7 +140,7 @@ function ApiKeyEntryRow({
 
 export function MultiKeySettingsModal({ open, onClose, providerId }: MultiKeySettingsModalProps) {
   const { formatMessage } = useIntl();
-  const { showNotification } = useNotifications();
+  const { success, error } = useNotifications();
   const { providers } = useProviders();
   const { updateProvider, isUpdating } = useUpdateProvider();
 
@@ -256,10 +249,10 @@ export function MultiKeySettingsModal({ open, onClose, providerId }: MultiKeySet
         } : undefined,
       });
 
-      showNotification('success', formatMessage({ id: 'apiSettings.providers.actions.save' }) + ' success');
+      success(formatMessage({ id: 'apiSettings.providers.actions.save' }));
       onClose();
-    } catch (error) {
-      showNotification('error', formatMessage({ id: 'apiSettings.providers.saveError' }));
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.providers.saveError' }));
     }
   };
 

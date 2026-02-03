@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { useIntl } from 'react-intl';
-import { ChevronDown, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/Badge';
 import { Switch } from '@/components/ui/Switch';
@@ -39,7 +39,7 @@ export interface CommandGroupAccordionProps {
  * Get icon for a command group
  * Uses top-level parent's icon for nested groups
  */
-function getGroupIcon(groupName: string): React.ReactNode {
+function getGroupIcon(groupName: string): string {
   const groupIcons: Record<string, string> = {
     cli: 'terminal',
     workflow: 'git-branch',
@@ -246,7 +246,6 @@ export function CommandGroupAccordion({
   const { formatMessage } = useIntl();
 
   const enabledCommands = commands.filter((cmd) => cmd.enabled);
-  const disabledCommands = commands.filter((cmd) => !cmd.enabled);
   const allEnabled = enabledCommands.length === commands.length && commands.length > 0;
 
   // Filter commands based on showDisabled setting
@@ -264,7 +263,7 @@ export function CommandGroupAccordion({
 
   return (
     <div className={cn('mb-4', indentLevel > 0 && 'ml-5')} style={indentLevel > 0 ? { marginLeft: `${indentLevel * 20}px` } : undefined}>
-      <Collapsible open={isExpanded} onOpenChange={(open) => onToggleExpand(groupName)}>
+      <Collapsible open={isExpanded} onOpenChange={() => onToggleExpand(groupName)}>
         {/* Group Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg hover:bg-muted/50 transition-colors">
           <CollapsibleTrigger asChild>
@@ -334,7 +333,7 @@ export function CommandGroupAccordion({
               <tbody className="divide-y divide-border">
                 {visibleCommands.map((command) => (
                   <CommandRow
-                    key={command.name}
+                    key={`${command.name}-${command.location || 'default'}`}
                     command={command}
                     onToggle={onToggleCommand}
                     disabled={isToggling}

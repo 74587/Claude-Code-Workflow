@@ -9,6 +9,8 @@ import {
   createMemory,
   updateMemory,
   deleteMemory,
+  archiveMemory as archiveMemoryApi,
+  unarchiveMemory as unarchiveMemoryApi,
   type CoreMemory,
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
@@ -234,11 +236,7 @@ export function useArchiveMemory(): UseArchiveMemoryReturn {
   const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
-    mutationFn: (memoryId: string) =>
-      fetch(`/api/core-memory/memories/${encodeURIComponent(memoryId)}/archive?path=${encodeURIComponent(projectPath)}`, {
-        method: 'POST',
-        credentials: 'same-origin',
-      }).then(res => res.json()),
+    mutationFn: (memoryId: string) => archiveMemoryApi(memoryId, projectPath),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.memory(projectPath) : ['memory'] });
     },
@@ -262,13 +260,7 @@ export function useUnarchiveMemory(): UseUnarchiveMemoryReturn {
   const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
-    mutationFn: (memoryId: string) =>
-      fetch(`/api/core-memory/memories?path=${encodeURIComponent(projectPath)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ id: memoryId, archived: false }),
-      }).then(res => res.json()),
+    mutationFn: (memoryId: string) => unarchiveMemoryApi(memoryId, projectPath),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.memory(projectPath) : ['memory'] });
     },

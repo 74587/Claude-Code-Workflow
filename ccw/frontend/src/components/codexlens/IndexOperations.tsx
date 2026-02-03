@@ -48,21 +48,21 @@ type IndexOperation = {
 
 export function IndexOperations({ disabled = false, onRefresh }: IndexOperationsProps) {
   const { formatMessage } = useIntl();
-  const { success, error: showError } = useNotifications();
+  const { success, error: showError, wsLastMessage } = useNotifications();
   const projectPath = useWorkflowStore(selectProjectPath);
   const { inProgress } = useCodexLensIndexingStatus();
   const { rebuildIndex, isRebuilding } = useRebuildIndex();
   const { updateIndex, isUpdating } = useUpdateIndex();
   const { cancelIndexing, isCancelling } = useCancelIndexing();
-  const { lastMessage } = useWebSocket();
+  useWebSocket();
 
   const [indexProgress, setIndexProgress] = useState<IndexProgress | null>(null);
   const [activeOperation, setActiveOperation] = useState<string | null>(null);
 
   // Listen for WebSocket progress updates
   useEffect(() => {
-    if (lastMessage?.type === 'CODEXLENS_INDEX_PROGRESS') {
-      const progress = lastMessage.payload as IndexProgress;
+    if (wsLastMessage?.type === 'CODEXLENS_INDEX_PROGRESS') {
+      const progress = wsLastMessage.payload as IndexProgress;
       setIndexProgress(progress);
 
       // Clear active operation when complete or error
@@ -83,7 +83,7 @@ export function IndexOperations({ disabled = false, onRefresh }: IndexOperations
         setIndexProgress(null);
       }
     }
-  }, [lastMessage, formatMessage, success, showError, onRefresh]);
+  }, [wsLastMessage, formatMessage, success, showError, onRefresh]);
 
   const isOperating = isRebuilding || isUpdating || inProgress || !!activeOperation;
 
