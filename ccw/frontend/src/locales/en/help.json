@@ -1,0 +1,32 @@
+{
+  "title": "Help Center",
+  "description": "Get complete documentation, guides, and support resources for CCW platform",
+  "fullDocs": "Full Docs",
+  "commandsOverview": {
+    "title": "Commands Overview",
+    "description": "Master the visual workflow editor with drag-and-drop flows"
+  },
+  "workflowsOverview": {
+    "title": "Workflows Overview",
+    "description": "Browse 40+ commands across workflow, issue, CLI, and memory categories"
+  },
+  "quickStart": {
+    "title": "Quick Start",
+    "description": "Get up and running with CCW in minutes",
+    "guide": "Getting Started Guide",
+    "faq": "Frequently Asked Questions"
+  },
+  "getStarted": "Get Started",
+  "viewAll": "View All",
+  "searchDocs": {
+    "title": "Search Documentation",
+    "description": "Find detailed documentation and examples for specific topics or commands",
+    "button": "Search Docs"
+  },
+  "support": {
+    "title": "Need Help?",
+    "description": "Access our documentation, tutorials, and community support resources",
+    "documentation": "Documentation",
+    "tutorials": "Tutorials"
+  }
+}

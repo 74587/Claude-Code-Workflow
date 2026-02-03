@@ -90,27 +90,30 @@ export function HelpPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* Page Header with CTA */}
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <HelpCircle className="w-8 h-8 text-primary" />
-            {formatMessage({ id: 'help.title' })}
-          </h1>
-          <p className="text-muted-foreground mt-2 text-lg">
-            {formatMessage({ id: 'help.description' })}
-          </p>
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+              <HelpCircle className="w-8 h-8 text-primary flex-shrink-0" />
+              <span>{formatMessage({ id: 'help.title' })}</span>
+            </h1>
+            <p className="text-muted-foreground mt-2 text-base">
+              {formatMessage({ id: 'help.description' })}
+            </p>
+          </div>
+          <Button
+            variant="default"
+            size="sm"
+            className="gap-2 flex-shrink-0"
+            asChild
+          >
+            <a href="/docs" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap">
+              <FileText className="w-4 h-4" />
+              {formatMessage({ id: 'help.fullDocs' })}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </Button>
         </div>
-        <Button
-          variant="default"
-          className="gap-2"
-          asChild
-        >
-          <a href="/docs" target="_blank" rel="noopener noreferrer">
-            <FileText className="w-4 h-4" />
-            {formatMessage({ id: 'help.fullDocs' })}
-            <ExternalLink className="w-4 h-4" />
-          </a>
-        </Button>
       </div>
 
       {/* Quick Links */}
@@ -119,27 +122,33 @@ export function HelpPage() {
           const Icon = section.icon;
           const isDocsLink = section.link?.startsWith('/docs');
           const content = (
-            <Card className="p-5 h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer group relative">
-              {section.badge && (
-                <div className="absolute top-3 right-3 px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full">
-                  {section.badge}
+            <Card className="p-5 h-full hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer group">
+              <div className="flex flex-col h-full gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="p-2.5 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors flex-shrink-0">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                        {formatMessage({ id: section.i18nKey })}
+                      </h3>
+                      {section.badge && (
+                        <span className="px-2 py-0.5 text-xs font-medium bg-primary/10 text-primary rounded-full flex-shrink-0">
+                          {section.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2">
+                      {formatMessage({ id: section.descriptionI18nKey })}
+                    </p>
+                  </div>
                 </div>
-              )}
-              <div className="flex items-start gap-3">
-                <div className="p-2.5 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                    {formatMessage({ id: section.i18nKey })}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2">
-                    {formatMessage({ id: section.descriptionI18nKey })}
-                  </p>
-                </div>
-                {isDocsLink || section.isExternal ? (
-                  <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0 mt-1" />
-                ) : null}
+                {(isDocsLink || section.isExternal) && (
+                  <div className="flex justify-end mt-auto">
+                    <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                )}
               </div>
             </Card>
           );
@@ -171,34 +180,34 @@ export function HelpPage() {
       {/* Documentation Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Commands Card */}
-        <Card className="p-6 hover:shadow-md transition-shadow">
+        <Card className="p-6 hover:shadow-md transition-shadow flex flex-col">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
+            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500 flex-shrink-0">
               <Terminal className="w-5 h-5" />
             </div>
             <h3 className="font-semibold text-foreground">
               {formatMessage({ id: 'help.commandsOverview.title' })}
             </h3>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">
+          <p className="text-sm text-muted-foreground mb-4 flex-1">
             {formatMessage({ id: 'help.commandsOverview.description' })}
           </p>
-          <div className="space-y-2">
+          <div className="space-y-2 mb-4">
             <div className="flex items-center gap-2 text-sm">
-              <Layers className="w-4 h-4 text-muted-foreground" />
+              <Layers className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <span className="text-muted-foreground">Workflow Commands</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <Layers className="w-4 h-4 text-muted-foreground" />
+              <Layers className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <span className="text-muted-foreground">Issue Commands</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <Layers className="w-4 h-4 text-muted-foreground" />
+              <Layers className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <span className="text-muted-foreground">CLI & Memory Commands</span>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="w-full mt-4" asChild>
-            <a href="/docs/commands">
+          <Button variant="ghost" size="sm" className="w-full mt-auto" asChild>
+            <a href="/docs/commands" className="whitespace-nowrap">
               {formatMessage({ id: 'help.viewAll' })}
               <ArrowRight className="w-4 h-4 ml-1" />
             </a>
@@ -206,34 +215,34 @@ export function HelpPage() {
         </Card>
 
         {/* Workflows Card */}
-        <Card className="p-6 hover:shadow-md transition-shadow">
+        <Card className="p-6 hover:shadow-md transition-shadow flex flex-col">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-green-500/10 text-green-500">
+            <div className="p-2 rounded-lg bg-green-500/10 text-green-500 flex-shrink-0">
               <Workflow className="w-5 h-5" />
             </div>
             <h3 className="font-semibold text-foreground">
               {formatMessage({ id: 'help.workflowsOverview.title' })}
             </h3>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">
+          <p className="text-sm text-muted-foreground mb-4 flex-1">
             {formatMessage({ id: 'help.workflowsOverview.description' })}
           </p>
-          <div className="space-y-2">
+          <div className="space-y-2 mb-4">
             <div className="flex items-center gap-2 text-sm">
-              <Code className="w-4 h-4 text-muted-foreground" />
+              <Code className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <span className="text-muted-foreground">Level 1-5 Workflows</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <Search className="w-4 h-4 text-muted-foreground" />
+              <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <span className="text-muted-foreground">Interactive Diagrams</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <FileText className="w-4 h-4 text-muted-foreground" />
+              <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <span className="text-muted-foreground">Best Practices</span>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="w-full mt-4" asChild>
-            <a href="/docs/workflows">
+          <Button variant="ghost" size="sm" className="w-full mt-auto" asChild>
+            <a href="/docs/workflows" className="whitespace-nowrap">
               {formatMessage({ id: 'help.viewAll' })}
               <ArrowRight className="w-4 h-4 ml-1" />
             </a>
@@ -241,34 +250,34 @@ export function HelpPage() {
         </Card>
 
         {/* Quick Start Card */}
-        <Card className="p-6 hover:shadow-md transition-shadow">
+        <Card className="p-6 hover:shadow-md transition-shadow flex flex-col">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500">
+            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 flex-shrink-0">
               <Book className="w-5 h-5" />
             </div>
             <h3 className="font-semibold text-foreground">
               {formatMessage({ id: 'help.quickStart.title' })}
             </h3>
           </div>
-          <p className="text-sm text-muted-foreground mb-4">
+          <p className="text-sm text-muted-foreground mb-4 flex-1">
             {formatMessage({ id: 'help.quickStart.description' })}
           </p>
-          <div className="space-y-2">
+          <div className="space-y-2 mb-4">
             <div className="flex items-center gap-2 text-sm">
-              <ExternalLink className="w-4 h-4 text-muted-foreground" />
+              <ExternalLink className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <a href="/docs/overview" className="text-muted-foreground hover:text-foreground transition-colors">
                 {formatMessage({ id: 'help.quickStart.guide' })}
               </a>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <MessageCircle className="w-4 h-4 text-muted-foreground" />
+              <MessageCircle className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <a href="/docs/faq" className="text-muted-foreground hover:text-foreground transition-colors">
                 {formatMessage({ id: 'help.quickStart.faq' })}
               </a>
             </div>
           </div>
-          <Button variant="ghost" size="sm" className="w-full mt-4" asChild>
-            <a href="/docs/overview">
+          <Button variant="ghost" size="sm" className="w-full mt-auto" asChild>
+            <a href="/docs/overview" className="whitespace-nowrap">
               {formatMessage({ id: 'help.getStarted' })}
               <ArrowRight className="w-4 h-4 ml-1" />
             </a>
@@ -277,23 +286,23 @@ export function HelpPage() {
       </div>
 
       {/* Search Documentation CTA */}
-      <Card className="p-8 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-lg bg-primary/20">
+      <Card className="p-6 sm:p-8 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:justify-between">
+          <div className="flex items-start gap-4 flex-1 min-w-0">
+            <div className="p-3 rounded-lg bg-primary/20 flex-shrink-0">
               <Search className="w-6 h-6 text-primary" />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <h3 className="text-lg font-semibold text-foreground">
                 {formatMessage({ id: 'help.searchDocs.title' })}
               </h3>
-              <p className="text-muted-foreground">
+              <p className="text-sm text-muted-foreground mt-1">
                 {formatMessage({ id: 'help.searchDocs.description' })}
               </p>
             </div>
           </div>
-          <Button variant="default" className="gap-2" asChild>
-            <a href="/docs">
+          <Button variant="default" size="sm" className="gap-2 flex-shrink-0 w-full sm:w-auto" asChild>
+            <a href="/docs" className="whitespace-nowrap">
               {formatMessage({ id: 'help.searchDocs.button' })}
               <ArrowRight className="w-4 h-4" />
             </a>
@@ -303,26 +312,26 @@ export function HelpPage() {
 
       {/* Support Section */}
       <Card className="p-6 bg-primary/5 border-primary/20">
-        <div className="flex items-start gap-4">
-          <div className="p-3 rounded-lg bg-primary/10">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+          <div className="p-3 rounded-lg bg-primary/10 flex-shrink-0">
             <MessageCircle className="w-6 h-6 text-primary" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-foreground">
               {formatMessage({ id: 'help.support.title' })}
             </h3>
-            <p className="text-muted-foreground mt-1 mb-4">
+            <p className="text-muted-foreground text-sm mt-2">
               {formatMessage({ id: 'help.support.description' })}
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
               <Button variant="outline" size="sm" asChild>
-                <a href="/docs/faq">
+                <a href="/docs/faq" className="whitespace-nowrap">
                   <Book className="w-4 h-4 mr-2" />
                   {formatMessage({ id: 'help.support.documentation' })}
                 </a>
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <a href="https://github.com/catlog22/Claude-Code-Workflow/issues" target="_blank" rel="noopener noreferrer">
+                <a href="https://github.com/catlog22/Claude-Code-Workflow/issues" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap">
                   <Video className="w-4 h-4 mr-2" />
                   {formatMessage({ id: 'help.support.tutorials' })}
                 </a>

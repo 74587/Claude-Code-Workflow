@@ -36,6 +36,7 @@ import graph from './graph.json';
 import notification from './notification.json';
 import notifications from './notifications.json';
 import workspace from './workspace.json';
+import help from './help.json';
 
 /**
  * Flattens nested JSON object to dot-separated keys
@@ -95,4 +96,5 @@ export default {
   ...flattenMessages(notification, 'notificationPanel'),
   ...flattenMessages(notifications, 'notifications'),
   ...flattenMessages(workspace, 'workspace'),
+  ...flattenMessages(help, 'help'),
 } as Record<string, string>;

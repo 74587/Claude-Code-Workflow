@@ -1,0 +1,32 @@
+{
+  "title": "帮助中心",
+  "description": "获取 CCW 平台的完整文档、指南和支持资源",
+  "fullDocs": "完整文档",
+  "commandsOverview": {
+    "title": "命令概览",
+    "description": "了解可视化拖放式工作流编辑器"
+  },
+  "workflowsOverview": {
+    "title": "工作流概览",
+    "description": "浏览 40+ 命令，适用于工作流、问题、CLI 和内存"
+  },
+  "quickStart": {
+    "title": "快速开始",
+    "description": "在几分钟内上手 CCW",
+    "guide": "入门指南",
+    "faq": "常见问题"
+  },
+  "getStarted": "开始使用",
+  "viewAll": "查看全部",
+  "searchDocs": {
+    "title": "搜索文档",
+    "description": "查找特定主题或命令的详细文档和示例",
+    "button": "搜索文档"
+  },
+  "support": {
+    "title": "需要帮助？",
+    "description": "访问我们的文档、教程和社区支持资源",
+    "documentation": "文档",
+    "tutorials": "教程"
+  }
+}
