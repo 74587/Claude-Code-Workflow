@@ -104,13 +104,13 @@ export function HelpPage() {
           <Button
             variant="default"
             size="sm"
-            className="gap-2 flex-shrink-0"
+            className="flex-shrink-0"
             asChild
           >
-            <a href="/docs" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap">
-              <FileText className="w-4 h-4" />
+            <a href="/docs" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 whitespace-nowrap">
+              <FileText className="w-4 h-4 flex-shrink-0" />
               {formatMessage({ id: 'help.fullDocs' })}
-              <ExternalLink className="w-3 h-3" />
+              <ExternalLink className="w-3 h-3 flex-shrink-0" />
             </a>
           </Button>
         </div>
@@ -207,9 +207,9 @@ export function HelpPage() {
             </div>
           </div>
           <Button variant="ghost" size="sm" className="w-full mt-auto" asChild>
-            <a href="/docs/commands" className="whitespace-nowrap">
+            <a href="/docs/commands" className="inline-flex items-center justify-center whitespace-nowrap">
               {formatMessage({ id: 'help.viewAll' })}
-              <ArrowRight className="w-4 h-4 ml-1" />
+              <ArrowRight className="w-4 h-4 ml-1 flex-shrink-0" />
             </a>
           </Button>
         </Card>
@@ -242,9 +242,9 @@ export function HelpPage() {
             </div>
           </div>
           <Button variant="ghost" size="sm" className="w-full mt-auto" asChild>
-            <a href="/docs/workflows" className="whitespace-nowrap">
+            <a href="/docs/workflows" className="inline-flex items-center justify-center whitespace-nowrap">
               {formatMessage({ id: 'help.viewAll' })}
-              <ArrowRight className="w-4 h-4 ml-1" />
+              <ArrowRight className="w-4 h-4 ml-1 flex-shrink-0" />
             </a>
           </Button>
         </Card>
@@ -277,9 +277,9 @@ export function HelpPage() {
             </div>
           </div>
           <Button variant="ghost" size="sm" className="w-full mt-auto" asChild>
-            <a href="/docs/overview" className="whitespace-nowrap">
+            <a href="/docs/overview" className="inline-flex items-center justify-center whitespace-nowrap">
               {formatMessage({ id: 'help.getStarted' })}
-              <ArrowRight className="w-4 h-4 ml-1" />
+              <ArrowRight className="w-4 h-4 ml-1 flex-shrink-0" />
             </a>
           </Button>
         </Card>
@@ -301,10 +301,10 @@ export function HelpPage() {
               </p>
             </div>
           </div>
-          <Button variant="default" size="sm" className="gap-2 flex-shrink-0 w-full sm:w-auto" asChild>
-            <a href="/docs" className="whitespace-nowrap">
+          <Button variant="default" size="sm" className="flex-shrink-0 w-full sm:w-auto" asChild>
+            <a href="/docs" className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
               {formatMessage({ id: 'help.searchDocs.button' })}
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-4 h-4 flex-shrink-0" />
             </a>
           </Button>
         </div>
@@ -323,16 +323,16 @@ export function HelpPage() {
             <p className="text-muted-foreground text-sm mt-2">
               {formatMessage({ id: 'help.support.description' })}
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+            <div className="flex flex-wrap gap-3 mt-4">
               <Button variant="outline" size="sm" asChild>
-                <a href="/docs/faq" className="whitespace-nowrap">
-                  <Book className="w-4 h-4 mr-2" />
+                <a href="/docs/faq" className="inline-flex items-center whitespace-nowrap">
+                  <Book className="w-4 h-4 mr-2 flex-shrink-0" />
                   {formatMessage({ id: 'help.support.documentation' })}
                 </a>
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <a href="https://github.com/catlog22/Claude-Code-Workflow/issues" target="_blank" rel="noopener noreferrer" className="whitespace-nowrap">
-                  <Video className="w-4 h-4 mr-2" />
+                <a href="https://github.com/catlog22/Claude-Code-Workflow/issues" target="_blank" rel="noopener noreferrer" className="inline-flex items-center whitespace-nowrap">
+                  <Video className="w-4 h-4 mr-2 flex-shrink-0" />
                   {formatMessage({ id: 'help.support.tutorials' })}
                 </a>
               </Button>
