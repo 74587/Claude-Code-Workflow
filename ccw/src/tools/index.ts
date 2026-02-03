@@ -26,6 +26,7 @@ import * as readFileMod from './read-file.js';
 import * as coreMemoryMod from './core-memory.js';
 import * as contextCacheMod from './context-cache.js';
 import * as skillContextLoaderMod from './skill-context-loader.js';
+import * as askQuestionMod from './ask-question.js';
 import type { ProgressInfo } from './codex-lens.js';
 
 // Import legacy JS tools
@@ -366,6 +367,7 @@ registerTool(toLegacyTool(readFileMod));
 registerTool(toLegacyTool(coreMemoryMod));
 registerTool(toLegacyTool(contextCacheMod));
 registerTool(toLegacyTool(skillContextLoaderMod));
+registerTool(toLegacyTool(askQuestionMod));
 
 // Register legacy JS tools
 registerTool(uiGeneratePreviewTool);

@@ -1,6 +1,8 @@
 import { createHash } from 'crypto';
 import type { IncomingMessage } from 'http';
 import type { Duplex } from 'stream';
+import { a2uiWebSocketHandler, handleA2UIMessage } from './a2ui/A2UIWebSocketHandler.js';
+import { handleAnswer } from '../tools/ask-question.js';
 
 // WebSocket clients for real-time notifications
 export const wsClients = new Set<Duplex>();
@@ -174,6 +176,11 @@ export function handleWebSocketUpgrade(req: IncomingMessage, socket: Duplex, _he
         case 0x1: // Text frame
           if (payload) {
             console.log('[WS] Received:', payload);
+            // Try to handle as A2UI message
+            const handledAsA2UI = handleA2UIMessage(payload, a2uiWebSocketHandler, handleAnswer);
+            if (handledAsA2UI) {
+              console.log('[WS] Handled as A2UI message');
+            }
           }
           break;
         case 0x8: // Close frame

@@ -14,6 +14,7 @@ import type {
   AskQuestionResult,
   PendingQuestion,
 } from '../core/a2ui/A2UITypes.js';
+import { a2uiWebSocketHandler } from '../core/a2ui/A2UIWebSocketHandler.js';
 
 // ========== Constants ==========
 
@@ -332,8 +333,9 @@ export async function execute(params: AskQuestionParams): Promise<ToolResult<Ask
       }, params.timeout || DEFAULT_TIMEOUT_MS);
     });
 
-    // TODO: Send A2UI surface via WebSocket
-    // This will be handled by A2UIWebSocketHandler
+    // Send A2UI surface via WebSocket to frontend
+    const a2uiSurface = createA2UISurface(question, surfaceId);
+    a2uiWebSocketHandler.sendSurface(a2uiSurface.surfaceUpdate);
 
     // Wait for answer
     const result = await resultPromise;

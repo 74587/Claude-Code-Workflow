@@ -58,6 +58,23 @@ export class A2UIWebSocketHandler {
     timestamp: number;
   }>();
 
+  private answerCallback?: (answer: QuestionAnswer) => boolean;
+
+  /**
+   * Register callback for handling question answers
+   * @param callback - Function to handle incoming answers
+   */
+  registerAnswerCallback(callback: (answer: QuestionAnswer) => boolean): void {
+    this.answerCallback = callback;
+  }
+
+  /**
+   * Get the registered answer callback
+   */
+  getAnswerCallback(): ((answer: QuestionAnswer) => boolean) | undefined {
+    return this.answerCallback;
+  }
+
   /**
    * Send A2UI surface to all connected clients
    * @param surfaceUpdate - A2UI surface update to send
