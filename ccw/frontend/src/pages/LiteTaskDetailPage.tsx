@@ -428,49 +428,34 @@ export function LiteTaskDetailPage() {
                   </div>
 
                   {/* Right: Meta Information */}
-                  <div className="flex flex-col items-end gap-2 text-xs text-muted-foreground flex-shrink-0">
-                    {/* Row 1: Status Badge */}
-                    <Badge
-                      variant={task.status === 'completed' ? 'success' : task.status === 'in_progress' ? 'warning' : task.status === 'blocked' ? 'destructive' : 'secondary'}
-                      className="w-fit"
-                    >
-                      {task.status}
-                    </Badge>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Dependencies - show task IDs */}
+                    {task.context?.depends_on && task.context.depends_on.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground">→</span>
+                        {task.context.depends_on.map((depId, idx) => (
+                          <Badge key={idx} variant="outline" className="h-6 px-2 py-0.5 text-xs font-mono border-primary/30 text-primary">
+                            {depId}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
 
-                    {/* Row 2: Metadata */}
-                    <div className="flex items-center gap-3 flex-wrap justify-end">
-                      {/* Dependencies Count */}
-                      {task.context?.depends_on && task.context.depends_on.length > 0 && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-muted/50">
-                          <span className="font-mono font-semibold text-foreground">{task.context.depends_on.length}</span>
-                          <span>dep{task.context.depends_on.length > 1 ? 's' : ''}</span>
-                        </span>
-                      )}
+                    {/* Target Files Count */}
+                    {task.flow_control?.target_files && task.flow_control.target_files.length > 0 && (
+                      <Badge variant="secondary" className="h-5 px-1.5 py-0 text-[10px] gap-0.5">
+                        <span className="font-semibold">{task.flow_control.target_files.length}</span>
+                        <span>file{task.flow_control.target_files.length > 1 ? 's' : ''}</span>
+                      </Badge>
+                    )}
 
-                      {/* Target Files Count */}
-                      {task.flow_control?.target_files && task.flow_control.target_files.length > 0 && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-muted/50">
-                          <span className="font-mono font-semibold text-foreground">{task.flow_control.target_files.length}</span>
-                          <span>file{task.flow_control.target_files.length > 1 ? 's' : ''}</span>
-                        </span>
-                      )}
-
-                      {/* Focus Paths Count */}
-                      {task.context?.focus_paths && task.context.focus_paths.length > 0 && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-muted/50">
-                          <span className="font-mono font-semibold text-foreground">{task.context.focus_paths.length}</span>
-                          <span>focus</span>
-                        </span>
-                      )}
-
-                      {/* Acceptance Criteria Count */}
-                      {task.context?.acceptance && task.context.acceptance.length > 0 && (
-                        <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-muted/50">
-                          <span className="font-mono font-semibold text-foreground">{task.context.acceptance.length}</span>
-                          <span>criteria</span>
-                        </span>
-                      )}
-                    </div>
+                    {/* Implementation Steps Count */}
+                    {task.flow_control?.implementation_approach && task.flow_control.implementation_approach.length > 0 && (
+                      <Badge variant="secondary" className="h-5 px-1.5 py-0 text-[10px] gap-0.5">
+                        <span className="font-semibold">{task.flow_control.implementation_approach.length}</span>
+                        <span>step{task.flow_control.implementation_approach.length > 1 ? 's' : ''}</span>
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </CardHeader>

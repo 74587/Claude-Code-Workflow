@@ -328,13 +328,9 @@ export function ReviewSessionPage() {
     });
   };
 
-  const toggleSelectAll = () => {
+  const selectAllFindings = () => {
     const validIds = filteredFindings.map(f => f.id).filter((id): id is string => id !== undefined);
-    if (selectedFindings.size === validIds.length) {
-      setSelectedFindings(new Set());
-    } else {
-      setSelectedFindings(new Set(validIds));
-    }
+    setSelectedFindings(new Set(validIds));
   };
 
   const selectVisibleFindings = () => {
@@ -343,14 +339,18 @@ export function ReviewSessionPage() {
   };
 
   const selectBySeverity = (severity: FindingWithSelection['severity']) => {
-    const criticalIds = flattenedFindings
+    const severityIds = flattenedFindings
       .filter(f => f.severity === severity && f.id !== undefined)
       .map(f => f.id!);
     setSelectedFindings(prev => {
       const next = new Set(prev);
-      criticalIds.forEach(id => next.add(id));
+      severityIds.forEach(id => next.add(id));
       return next;
     });
+  };
+
+  const clearSelection = () => {
+    setSelectedFindings(new Set());
   };
 
   const toggleExpandFinding = (findingId: string) => {
@@ -600,49 +600,19 @@ export function ReviewSessionPage() {
       {/* Fix Progress Carousel */}
       {sessionId && <FixProgressCarousel sessionId={sessionId} />}
 
-      {/* Filters and Controls */}
+      {/* Unified Filter Card with Dimension Tabs */}
       <Card>
         <CardContent className="p-4 space-y-4">
-          {/* Checkbox-style Severity Filters */}
-          <div className="space-y-3">
-            <div className="text-sm font-medium">{formatMessage({ id: 'reviewSession.filters.severity' })}</div>
-            <div className="flex flex-wrap gap-2">
-              {(['critical', 'high', 'medium', 'low'] as const).map(severity => {
-                const isEnabled = severityFilter.has(severity);
-                return (
-                  <label
-                    key={severity}
-                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border cursor-pointer transition-colors ${
-                      isEnabled
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background border-border hover:bg-muted'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isEnabled}
-                      onChange={() => toggleSeverity(severity)}
-                      className="sr-only"
-                    />
-                    <span className="text-sm font-medium">
-                      {formatMessage({ id: `reviewSession.severity.${severity}` })}
-                    </span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Search and Sort */}
-          <div className="flex flex-wrap gap-3">
-            <div className="relative flex-1 min-w-[200px]">
+          {/* Top Bar: Search + Sort + Reset */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="relative flex-1 min-w-[180px] max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder={formatMessage({ id: 'reviewSession.search.placeholder' })}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full pl-10 pr-4 py-2 text-sm bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
             <select
@@ -658,81 +628,128 @@ export function ReviewSessionPage() {
               variant="outline"
               size="sm"
               onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="w-9 p-0"
             >
               {sortOrder === 'asc' ? '↑' : '↓'}
             </Button>
-            <Button variant="outline" size="sm" onClick={resetFilters}>
-              {formatMessage({ id: 'reviewSession.filters.reset' })}
+            <Button variant="ghost" size="sm" onClick={resetFilters} className="text-muted-foreground hover:text-foreground">
+              ✕ {formatMessage({ id: 'reviewSession.filters.reset' })}
             </Button>
           </div>
 
-          {/* Selection Controls */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'reviewSession.selection.count' }, { count: selectedFindings.size })}
+          {/* Middle Row: Dimension Tabs + Severity Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            {/* Dimension Tabs - Horizontal Scrollable */}
+            <div className="flex-1">
+              <div className="text-xs font-medium text-muted-foreground mb-2">
+                {formatMessage({ id: 'reviewSession.filters.dimension' })}
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                <button
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
+                    dimensionFilter === 'all'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                  }`}
+                  onClick={() => setDimensionFilter('all')}
+                >
+                  All ({dimensionCounts.all || 0})
+                </button>
+                {dimensions.map(dim => (
+                  <button
+                    key={dim.name}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium whitespace-nowrap transition-colors ${
+                      dimensionFilter === dim.name
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                    }`}
+                    onClick={() => setDimensionFilter(dim.name)}
+                  >
+                    {dim.name} ({dim.findings?.length || 0})
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Severity Filters - Compact Pills */}
+            <div className="sm:w-auto">
+              <div className="text-xs font-medium text-muted-foreground mb-2">
+                {formatMessage({ id: 'reviewSession.filters.severity' })}
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {(['critical', 'high', 'medium', 'low'] as const).map(severity => {
+                  const isEnabled = severityFilter.has(severity);
+                  const colors = {
+                    critical: isEnabled ? 'bg-red-500 text-white border-red-500' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800',
+                    high: isEnabled ? 'bg-orange-500 text-white border-orange-500' : 'bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800',
+                    medium: isEnabled ? 'bg-blue-500 text-white border-blue-500' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800',
+                    low: isEnabled ? 'bg-gray-500 text-white border-gray-500' : 'bg-gray-50 dark:bg-gray-900/20 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-800',
+                  };
+                  return (
+                    <label
+                      key={severity}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-medium cursor-pointer transition-all ${
+                        colors[severity]
+                      } ${isEnabled ? 'shadow-sm' : 'hover:opacity-80'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isEnabled}
+                        onChange={() => toggleSeverity(severity)}
+                        className="sr-only"
+                      />
+                      <span>{formatMessage({ id: `reviewSession.severity.short.${severity}` })}</span>
+                      <span className="opacity-70">({flattenedFindings.filter(f => f.severity === severity).length})</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Bar: Selection Actions + Export */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted-foreground px-2 py-1 bg-muted rounded-md">
+                {selectedFindings.size > 0
+                  ? formatMessage({ id: 'reviewSession.selection.countSelected' }, { count: selectedFindings.size })
+                  : formatMessage({ id: 'reviewSession.selection.total' }, { count: filteredFindings.length })
+                }
               </span>
-              <Button variant="outline" size="sm" onClick={toggleSelectAll}>
-                {selectedFindings.size === filteredFindings.length
-                  ? formatMessage({ id: 'reviewSession.selection.clearAll' })
-                  : formatMessage({ id: 'reviewSession.selection.selectAll' })}
-              </Button>
-              <Button variant="outline" size="sm" onClick={selectVisibleFindings}>
-                {formatMessage({ id: 'reviewSession.selection.selectVisible' })}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => selectBySeverity('critical')}>
-                {formatMessage({ id: 'reviewSession.selection.selectCritical' })}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedFindings(new Set())}
-              >
-                {formatMessage({ id: 'reviewSession.selection.clear' })}
-              </Button>
+              {selectedFindings.size > 0 && (
+                <>
+                  <Button variant="outline" size="sm" onClick={clearSelection} className="h-8 text-xs">
+                    {formatMessage({ id: 'reviewSession.selection.clear' })}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => selectBySeverity('critical')} className="h-8 text-xs">
+                    🔥 {formatMessage({ id: 'reviewSession.selection.selectCritical' })}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={selectVisibleFindings} className="h-8 text-xs">
+                    {formatMessage({ id: 'reviewSession.selection.selectVisible' })}
+                  </Button>
+                </>
+              )}
+              {selectedFindings.size === 0 && (
+                <Button variant="outline" size="sm" onClick={selectAllFindings} className="h-8 text-xs">
+                  {formatMessage({ id: 'reviewSession.selection.selectAll' })}
+                </Button>
+              )}
             </div>
             <Button
-              variant="default"
+              variant={selectedFindings.size > 0 ? 'default' : 'outline'}
               size="sm"
               onClick={exportSelectedAsJson}
               disabled={selectedFindings.size === 0}
-              className="gap-2"
+              className="h-8 gap-1.5 text-xs"
             >
-              <Download className="h-4 w-4" />
+              <Download className="h-3.5 w-3.5" />
               🔧 {formatMessage({ id: 'reviewSession.export' })}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Dimension Tabs */}
-      <div className="flex flex-wrap gap-2">
-        <button
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            dimensionFilter === 'all'
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground hover:bg-muted/80'
-          }`}
-          onClick={() => setDimensionFilter('all')}
-        >
-          {formatMessage({ id: 'reviewSession.dimensionTabs.all' })} ({dimensionCounts.all || 0})
-        </button>
-        {dimensions.map(dim => (
-          <button
-            key={dim.name}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              dimensionFilter === dim.name
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
-            onClick={() => setDimensionFilter(dim.name)}
-          >
-            {dim.name} ({dim.findings?.length || 0})
-          </button>
-        ))}
-      </div>
-
-      {/* Findings List */}
+      {/* Split Panel: Findings List + Preview */}
       {filteredFindings.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center">
@@ -746,118 +763,274 @@ export function ReviewSessionPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {filteredFindings.filter(f => f.id !== undefined).map(finding => {
-            const findingId = finding.id!;
-            const isExpanded = expandedFindings.has(findingId);
-            const isSelected = selectedFindings.has(findingId);
-            const badge = getSeverityBadge(finding.severity);
-            const BadgeIcon = badge.icon;
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,45fr)_minmax(0,55fr)] gap-4">
+          {/* Left Panel: Findings List */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium">
+                  {formatMessage({ id: 'reviewSession.findingsList.count' }, { count: filteredFindings.length })}
+                </span>
+              </div>
+              <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                {filteredFindings.filter(f => f.id !== undefined).map(finding => {
+                  const findingId = finding.id!;
+                  const isSelected = selectedFindings.has(findingId);
+                  const isPreviewing = selectedFindingId === findingId;
+                  const badge = getSeverityBadge(finding.severity);
+                  const BadgeIcon = badge.icon;
 
-            return (
-              <Card key={findingId} className={isSelected ? 'ring-2 ring-primary' : ''}>
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    {/* Checkbox */}
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelectFinding(findingId)}
-                      className="mt-1"
-                    />
+                  return (
+                    <div
+                      key={findingId}
+                      className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                        isPreviewing
+                          ? 'bg-primary/10 border-primary'
+                          : 'bg-background border-border hover:bg-muted'
+                      }`}
+                      onClick={() => handleFindingClick(findingId)}
+                    >
+                      <div className="flex items-start gap-2">
+                        {/* Checkbox */}
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleSelectFinding(findingId);
+                          }}
+                          className="mt-0.5 flex-shrink-0"
+                        />
 
-                    <div className="flex-1 min-w-0">
-                      {/* Header */}
-                      <div
-                        className="flex items-start justify-between gap-3 cursor-pointer"
-                        onClick={() => toggleExpandFinding(findingId)}
-                      >
+                        {/* Compact Finding Content */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <Badge variant={badge.variant} className="gap-1">
+                          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                            <Badge variant={badge.variant} className="gap-1 text-xs">
+                              <BadgeIcon className="h-2.5 w-2.5" />
+                              {badge.label}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {finding.dimension}
+                            </span>
+                          </div>
+                          <p className="text-sm font-medium text-foreground truncate">
+                            {finding.title}
+                          </p>
+                          {finding.file && (
+                            <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">
+                              {finding.file}:{finding.line || '?'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Right Panel: Enhanced Preview */}
+          <Card className="sticky top-4 self-start">
+            <CardContent className="p-0 h-full min-h-[500px]">
+              {!selectedFindingId ? (
+                // Enhanced Empty State
+                <div className="flex flex-col items-center justify-center h-full min-h-[400px] p-8 text-center bg-gradient-to-br from-muted/30 to-muted/10">
+                  <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <Search className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-base font-semibold text-foreground mb-2">
+                    {formatMessage({ id: 'reviewSession.preview.emptyTitle' })}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4 max-w-[250px]">
+                    {formatMessage({ id: 'reviewSession.preview.empty' })}
+                  </p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-background rounded-lg border text-xs">
+                      <span className="w-2 h-2 rounded-full bg-destructive"></span>
+                      {formatMessage({ id: 'reviewSession.preview.emptyTipSeverity' })}
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-background rounded-lg border text-xs">
+                      <span>📁</span>
+                      {formatMessage({ id: 'reviewSession.preview.emptyTipFile' })}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                // Preview Content
+                (() => {
+                  const finding = flattenedFindings.find(f => f.id === selectedFindingId);
+                  if (!finding) return null;
+
+                  const badge = getSeverityBadge(finding.severity);
+                  const BadgeIcon = badge.icon;
+                  const isSelected = selectedFindings.has(selectedFindingId);
+
+                  // Find adjacent findings for navigation
+                  const findingIndex = filteredFindings.findIndex(f => f.id === selectedFindingId);
+                  const prevFinding = findingIndex > 0 ? filteredFindings[findingIndex - 1] : null;
+                  const nextFinding = findingIndex < filteredFindings.length - 1 ? filteredFindings[findingIndex + 1] : null;
+
+                  return (
+                    <div className="flex flex-col h-full">
+                      {/* Sticky Header */}
+                      <div className="sticky top-0 z-10 bg-background border-b border-border p-4 space-y-3">
+                        {/* Navigation + Badges Row */}
+                        <div className="flex items-center justify-between gap-2">
+                          {/* Navigation Buttons */}
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => prevFinding && handleFindingClick(prevFinding.id!)}
+                              disabled={!prevFinding}
+                              className="h-8 w-8 p-0"
+                            >
+                              <ChevronRight className="h-4 w-4 rotate-180" />
+                            </Button>
+                            <span className="text-xs text-muted-foreground px-2">
+                              {findingIndex + 1} / {filteredFindings.length}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => nextFinding && handleFindingClick(nextFinding.id!)}
+                              disabled={!nextFinding}
+                              className="h-8 w-8 p-0"
+                            >
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          {/* Badges */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Badge variant={badge.variant} className="gap-1 text-xs">
                               <BadgeIcon className="h-3 w-3" />
                               {badge.label}
                             </Badge>
                             <Badge variant="outline" className="text-xs">
                               {finding.dimension}
                             </Badge>
-                            {finding.file && (
-                              <span className="text-xs text-muted-foreground font-mono">
-                                {finding.file}:{finding.line || '?'}
-                              </span>
-                            )}
                           </div>
-                          <h4 className="font-medium text-foreground text-sm">{finding.title}</h4>
-                          {finding.description && (
-                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                              {finding.description}
-                            </p>
+
+                          {/* Select Button */}
+                          <Button
+                            variant={isSelected ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSelectFinding(selectedFindingId);
+                            }}
+                            className="h-8 text-xs"
+                          >
+                            {isSelected ? (
+                              <>
+                                <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                {formatMessage({ id: 'reviewSession.preview.selected' })}
+                              </>
+                            ) : (
+                              <>
+                                <span className="mr-1">⊕</span>
+                                {formatMessage({ id: 'reviewSession.preview.selectForFix' })}
+                              </>
+                            )}
+                          </Button>
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-base font-semibold text-foreground line-clamp-2">
+                          {finding.title}
+                        </h3>
+
+                        {/* Quick Info Bar */}
+                        <div className="flex items-center gap-3 text-xs">
+                          {finding.file && (
+                            <div className="flex items-center gap-1 text-muted-foreground flex-1 min-w-0">
+                              <span className="flex-shrink-0">📁</span>
+                              <code className="truncate">{finding.file}:{finding.line || '?'}</code>
+                            </div>
                           )}
                         </div>
-                        <Button variant="ghost" size="sm" className="flex-shrink-0">
-                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                        </Button>
                       </div>
 
-                      {/* Expanded Content */}
-                      {isExpanded && (
-                        <div className="mt-4 pt-4 border-t border-border space-y-3">
-                          {/* Code Context */}
-                          {finding.code_context && (
-                            <div>
-                              <h5 className="text-xs font-semibold text-foreground mb-1">
-                                {formatMessage({ id: 'reviewSession.codeContext' })}
-                              </h5>
-                              <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">
-                                <code>{finding.code_context}</code>
-                              </pre>
+                      {/* Scrollable Content */}
+                      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {/* Description */}
+                        {finding.description && (
+                          <div className="bg-muted/30 rounded-lg p-3">
+                            <div className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                              <span>📝</span>
+                              {formatMessage({ id: 'reviewSession.preview.description' })}
                             </div>
-                          )}
+                            <p className="text-sm text-foreground leading-relaxed">
+                              {finding.description}
+                            </p>
+                          </div>
+                        )}
 
-                          {/* Root Cause */}
-                          {finding.root_cause && (
-                            <div>
-                              <h5 className="text-xs font-semibold text-foreground mb-1">
-                                {formatMessage({ id: 'reviewSession.rootCause' })}
-                              </h5>
-                              <p className="text-xs text-muted-foreground">{finding.root_cause}</p>
+                        {/* Code Context */}
+                        {finding.code_context && (
+                          <div>
+                            <div className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                              <span>💻</span>
+                              {formatMessage({ id: 'reviewSession.preview.codeContext' })}
                             </div>
-                          )}
+                            <pre className="text-xs bg-muted p-3 rounded-lg overflow-x-auto border border-border">
+                              <code className="text-foreground">{finding.code_context}</code>
+                            </pre>
+                          </div>
+                        )}
 
-                          {/* Impact */}
-                          {finding.impact && (
-                            <div>
-                              <h5 className="text-xs font-semibold text-foreground mb-1">
-                                {formatMessage({ id: 'reviewSession.impact' })}
-                              </h5>
-                              <p className="text-xs text-muted-foreground">{finding.impact}</p>
+                        {/* Root Cause */}
+                        {finding.root_cause && (
+                          <div>
+                            <div className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                              <span>🎯</span>
+                              {formatMessage({ id: 'reviewSession.preview.rootCause' })}
                             </div>
-                          )}
+                            <p className="text-sm text-foreground bg-muted/30 rounded-lg p-3 leading-relaxed">
+                              {finding.root_cause}
+                            </p>
+                          </div>
+                        )}
 
-                          {/* Recommendations */}
-                          {finding.recommendations && finding.recommendations.length > 0 && (
-                            <div>
-                              <h5 className="text-xs font-semibold text-foreground mb-1">
-                                {formatMessage({ id: 'reviewSession.recommendations' })}
-                              </h5>
-                              <ul className="space-y-1">
-                                {finding.recommendations.map((rec, idx) => (
-                                  <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2">
-                                    <span className="text-primary">•</span>
-                                    <span>{rec}</span>
-                                  </li>
-                                ))}
-                              </ul>
+                        {/* Impact */}
+                        {finding.impact && (
+                          <div>
+                            <div className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                              <span>⚠️</span>
+                              {formatMessage({ id: 'reviewSession.preview.impact' })}
                             </div>
-                          )}
-                        </div>
-                      )}
+                            <p className="text-sm text-foreground bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3 leading-relaxed border border-orange-200 dark:border-orange-800">
+                              {finding.impact}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Recommendations */}
+                        {finding.recommendations && finding.recommendations.length > 0 && (
+                          <div>
+                            <div className="text-xs font-semibold text-foreground mb-1.5 flex items-center gap-1.5">
+                              <span>✅</span>
+                              {formatMessage({ id: 'reviewSession.preview.recommendations' })}
+                            </div>
+                            <ul className="space-y-2">
+                              {finding.recommendations.map((rec, idx) => (
+                                <li key={idx} className="text-sm text-foreground flex items-start gap-2 bg-green-50 dark:bg-green-900/20 rounded-lg p-3 border border-green-200 dark:border-green-800">
+                                  <span className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5">✓</span>
+                                  <span className="leading-relaxed">{rec}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  );
+                })()
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

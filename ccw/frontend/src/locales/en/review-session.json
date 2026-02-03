@@ -5,7 +5,13 @@
     "critical": "Critical",
     "high": "High",
     "medium": "Medium",
-    "low": "Low"
+    "low": "Low",
+    "short": {
+      "critical": "Crit",
+      "high": "High",
+      "medium": "Med",
+      "low": "Low"
+    }
   },
   "stats": {
     "total": "Total",
@@ -22,6 +28,7 @@
   },
   "filters": {
     "severity": "Severity",
+    "dimension": "Dimension",
     "sort": "Sort",
     "reset": "Reset"
   },
@@ -35,6 +42,8 @@
   },
   "selection": {
     "count": "{count} selected",
+    "countSelected": "{count} selected",
+    "total": "{count} total",
     "selectAll": "Select All",
     "clearAll": "Clear All",
     "clear": "Clear",
@@ -46,6 +55,23 @@
   "rootCause": "Root Cause",
   "impact": "Impact",
   "recommendations": "Recommendations",
+  "findingsList": {
+    "count": "{count} findings"
+  },
+  "preview": {
+    "empty": "Click on a finding to preview details",
+    "emptyTitle": "Select a Finding",
+    "emptyTipSeverity": "Filter by severity",
+    "emptyTipFile": "Group by file",
+    "location": "Location",
+    "description": "Description",
+    "codeContext": "Code Context",
+    "recommendations": "Recommendations",
+    "rootCause": "Root Cause",
+    "impact": "Impact",
+    "selected": "Selected",
+    "selectForFix": "Select"
+  },
   "fixProgress": {
     "title": "Fix Progress",
     "phase": {

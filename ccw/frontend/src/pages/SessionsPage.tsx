@@ -46,6 +46,15 @@ import type { SessionMetadata } from '@/types/store';
 
 type LocationFilter = 'all' | 'active' | 'archived';
 
+// Status label keys for i18n (maps snake_case status to camelCase translation keys)
+const statusLabelKeys: Record<SessionMetadata['status'], string> = {
+  planning: 'sessions.status.planning',
+  in_progress: 'sessions.status.inProgress',
+  completed: 'sessions.status.completed',
+  archived: 'sessions.status.archived',
+  paused: 'sessions.status.paused',
+};
+
 /**
  * SessionsPage component - Sessions list with CRUD operations
  */
@@ -88,8 +97,13 @@ export function SessionsPage() {
   const isMutating = isArchiving || isDeleting;
 
   // Handlers
-  const handleSessionClick = (sessionId: string) => {
-    navigate(`/sessions/${sessionId}`);
+  const handleSessionClick = (sessionId: string, sessionType?: SessionMetadata['type']) => {
+    // Route review sessions to the dedicated review page
+    if (sessionType === 'review') {
+      navigate(`/sessions/${sessionId}/review`);
+    } else {
+      navigate(`/sessions/${sessionId}`);
+    }
   };
 
   const handleArchive = async (sessionId: string) => {
@@ -225,7 +239,7 @@ export function SessionsPage() {
                 onClick={() => toggleStatusFilter(status)}
                 className="justify-between"
               >
-                <span>{formatMessage({ id: `sessions.status.${status}` })}</span>
+                <span>{formatMessage({ id: statusLabelKeys[status] })}</span>
                 {statusFilter.includes(status) && (
                   <span className="text-primary">&#10003;</span>
                 )}
@@ -254,7 +268,7 @@ export function SessionsPage() {
               className="cursor-pointer"
               onClick={() => toggleStatusFilter(status)}
             >
-              {formatMessage({ id: `sessions.status.${status}` })}
+              {formatMessage({ id: statusLabelKeys[status] })}
               <X className="ml-1 h-3 w-3" />
             </Badge>
           ))}
@@ -304,8 +318,8 @@ export function SessionsPage() {
             <SessionCard
               key={session.session_id}
               session={session}
-              onClick={handleSessionClick}
-              onView={handleSessionClick}
+              onClick={(sessionId) => handleSessionClick(sessionId, session.type)}
+              onView={(sessionId) => handleSessionClick(sessionId, session.type)}
               onArchive={handleArchive}
               onDelete={handleDeleteClick}
               actionsDisabled={isMutating}

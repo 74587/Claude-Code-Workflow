@@ -33,6 +33,8 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  Target,
+  FileCode,
 } from 'lucide-react';
 import { useLiteTasks } from '@/hooks/useLiteTasks';
 import { Button } from '@/components/ui/Button';
@@ -146,25 +148,36 @@ function ExpandedSessionPanel({
               }}
             >
               <CardContent className="p-3">
-                <div className="flex items-center gap-3">
-                  <Badge className="text-xs font-mono shrink-0 bg-primary/10 text-primary border-primary/20">
-                    {task.task_id || `#${index + 1}`}
-                  </Badge>
-                  <h4 className="text-sm font-medium text-foreground flex-1 line-clamp-1">
-                    {task.title || formatMessage({ id: 'liteTasks.untitled' })}
-                  </h4>
-                  {task.status && (
-                    <Badge
-                      variant={
-                        task.status === 'completed' ? 'success' :
-                        task.status === 'in_progress' ? 'warning' :
-                        task.status === 'blocked' ? 'destructive' : 'secondary'
-                      }
-                      className="text-[10px]"
-                    >
-                      {task.status}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Badge className="text-xs font-mono shrink-0 bg-primary/10 text-primary border-primary/20">
+                      {task.task_id || `#${index + 1}`}
                     </Badge>
-                  )}
+                    <h4 className="text-sm font-medium text-foreground flex-1 line-clamp-1">
+                      {task.title || formatMessage({ id: 'liteTasks.untitled' })}
+                    </h4>
+                  </div>
+                  {/* Right: Meta info */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Dependencies - show task IDs */}
+                    {task.context?.depends_on && task.context.depends_on.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-muted-foreground">→</span>
+                        {task.context.depends_on.map((depId, idx) => (
+                          <Badge key={idx} variant="outline" className="h-5 px-2 py-0.5 text-xs font-mono border-primary/30 text-primary">
+                            {depId}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    {/* Target Files Count */}
+                    {task.flow_control?.target_files && task.flow_control.target_files.length > 0 && (
+                      <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[10px] gap-0.5">
+                        <span className="font-semibold">{task.flow_control.target_files.length}</span>
+                        <span>file{task.flow_control.target_files.length > 1 ? 's' : ''}</span>
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 {task.description && (
                   <p className="text-xs text-muted-foreground mt-1.5 pl-[calc(1.5rem+0.75rem)] line-clamp-2">
@@ -392,6 +405,407 @@ function ContextSection({
   );
 }
 
+type MultiCliExpandedTab = 'tasks' | 'discussion' | 'context' | 'summary';
+
+/**
+ * ExpandedMultiCliPanel - Multi-tab panel shown when a multi-cli session is expanded
+ */
+function ExpandedMultiCliPanel({
+  session,
+  onTaskClick,
+}: {
+  session: LiteTaskSession;
+  onTaskClick: (task: LiteTask) => void;
+}) {
+  const { formatMessage } = useIntl();
+  const [activeTab, setActiveTab] = React.useState<MultiCliExpandedTab>('tasks');
+  const [contextData, setContextData] = React.useState<LiteSessionContext | null>(null);
+  const [contextLoading, setContextLoading] = React.useState(false);
+  const [contextError, setContextError] = React.useState<string | null>(null);
+
+  const tasks = session.tasks || [];
+  const taskCount = tasks.length;
+  const synthesis = session.latestSynthesis || {};
+  const plan = session.plan || {};
+  const roundCount = session.roundCount || (session.metadata?.roundId as number) || 1;
+
+  // Get i18n text helper
+  const getI18nTextLocal = (text: string | { en?: string; zh?: string } | undefined): string => {
+    if (!text) return '';
+    if (typeof text === 'string') return text;
+    return text.en || text.zh || '';
+  };
+
+  // Build implementation chain from task dependencies
+  const buildImplementationChain = (): string => {
+    if (tasks.length === 0) return '';
+
+    // Find tasks with no dependencies (starting tasks)
+    const taskDeps: Record<string, string[]> = {};
+    const taskIds = new Set<string>();
+
+    tasks.forEach(t => {
+      const id = t.task_id || t.id;
+      taskIds.add(id);
+      taskDeps[id] = t.context?.depends_on || [];
+    });
+
+    // Find starting tasks (no deps or deps not in task list)
+    const startingTasks = tasks.filter(t => {
+      const deps = t.context?.depends_on || [];
+      return deps.length === 0 || deps.every(d => !taskIds.has(d));
+    }).map(t => t.task_id || t.id);
+
+    // Group parallel tasks
+    const parallelStart = startingTasks.length > 1
+      ? `(${startingTasks.join(' | ')})`
+      : startingTasks[0] || '';
+
+    // Find subsequent tasks in order
+    const processed = new Set(startingTasks);
+    const chain: string[] = [parallelStart];
+
+    let iterations = 0;
+    while (processed.size < tasks.length && iterations < 20) {
+      iterations++;
+      const nextBatch: string[] = [];
+
+      tasks.forEach(t => {
+        const id = t.task_id || t.id;
+        if (processed.has(id)) return;
+
+        const deps = t.context?.depends_on || [];
+        if (deps.every(d => processed.has(d) || !taskIds.has(d))) {
+          nextBatch.push(id);
+        }
+      });
+
+      if (nextBatch.length === 0) break;
+
+      nextBatch.forEach(id => processed.add(id));
+      if (nextBatch.length > 1) {
+        chain.push(`(${nextBatch.join(' | ')})`);
+      } else {
+        chain.push(nextBatch[0]);
+      }
+    }
+
+    return chain.filter(Boolean).join(' → ');
+  };
+
+  // Load context data lazily
+  React.useEffect(() => {
+    if (activeTab !== 'context') return;
+    if (contextData || contextLoading) return;
+    if (!session.path) {
+      setContextError('No session path available');
+      return;
+    }
+
+    setContextLoading(true);
+    fetchLiteSessionContext(session.path)
+      .then((data) => {
+        setContextData(data);
+        setContextError(null);
+      })
+      .catch((err) => {
+        setContextError(err.message || 'Failed to load context');
+      })
+      .finally(() => {
+        setContextLoading(false);
+      });
+  }, [activeTab, session.path, contextData, contextLoading]);
+
+  const implementationChain = buildImplementationChain();
+  const goal = getI18nTextLocal(plan.goal as string | { en?: string; zh?: string }) ||
+               getI18nTextLocal(synthesis.title as string | { en?: string; zh?: string }) || '';
+  const solution = getI18nTextLocal(plan.solution as string | { en?: string; zh?: string }) || '';
+  const feasibility = (plan.feasibility as number) || 0;
+  const effort = (plan.effort as string) || '';
+  const risk = (plan.risk as string) || '';
+
+  return (
+    <div className="mt-2 ml-6 pb-2">
+      {/* Session Info Header */}
+      <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3 pb-2 border-b border-border/50">
+        {session.createdAt && (
+          <span className="flex items-center gap-1">
+            <Calendar className="h-3.5 w-3.5" />
+            {formatMessage({ id: 'liteTasks.createdAt' })}: {new Date(session.createdAt).toLocaleDateString()}
+          </span>
+        )}
+        <span className="flex items-center gap-1">
+          <ListChecks className="h-3.5 w-3.5" />
+          {formatMessage({ id: 'liteTasks.quickCards.tasks' })}: {taskCount} {formatMessage({ id: 'liteTasks.tasksCount' })}
+        </span>
+      </div>
+
+      {/* Tab Buttons */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        <button
+          onClick={(e) => { e.stopPropagation(); setActiveTab('tasks'); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            activeTab === 'tasks'
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+          }`}
+        >
+          <ListChecks className="h-3.5 w-3.5" />
+          {formatMessage({ id: 'liteTasks.quickCards.tasks' })}
+          <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
+            {taskCount}
+          </Badge>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); setActiveTab('discussion'); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            activeTab === 'discussion'
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+          }`}
+        >
+          <MessagesSquare className="h-3.5 w-3.5" />
+          {formatMessage({ id: 'liteTasks.multiCli.discussion' })}
+          <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
+            {roundCount}
+          </Badge>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); setActiveTab('context'); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            activeTab === 'context'
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+          }`}
+        >
+          <Package className="h-3.5 w-3.5" />
+          {formatMessage({ id: 'liteTasks.quickCards.context' })}
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); setActiveTab('summary'); }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            activeTab === 'summary'
+              ? 'bg-primary/10 text-primary border-primary/30'
+              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+          }`}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          {formatMessage({ id: 'liteTasks.multiCli.summary' })}
+        </button>
+      </div>
+
+      {/* Tasks Tab */}
+      {activeTab === 'tasks' && (
+        <div className="space-y-3">
+          {/* Goal/Solution/Implementation Header */}
+          {(goal || solution || implementationChain) && (
+            <Card className="border-border bg-muted/30">
+              <CardContent className="p-3 space-y-2">
+                {goal && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">{formatMessage({ id: 'liteTasks.multiCli.goal' })}:</span>
+                    <span className="ml-2 text-foreground">{goal}</span>
+                  </div>
+                )}
+                {solution && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">{formatMessage({ id: 'liteTasks.multiCli.solution' })}:</span>
+                    <span className="ml-2 text-foreground">{solution}</span>
+                  </div>
+                )}
+                {implementationChain && (
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">{formatMessage({ id: 'liteTasks.multiCli.implementation' })}:</span>
+                    <code className="ml-2 px-2 py-0.5 rounded bg-background border border-border text-xs font-mono">
+                      {implementationChain}
+                    </code>
+                  </div>
+                )}
+                {(feasibility > 0 || effort || risk) && (
+                  <div className="flex items-center gap-2 pt-1">
+                    {feasibility > 0 && (
+                      <Badge variant="success" className="text-[10px]">{feasibility}%</Badge>
+                    )}
+                    {effort && (
+                      <Badge variant="warning" className="text-[10px]">{effort}</Badge>
+                    )}
+                    {risk && (
+                      <Badge variant={risk === 'high' ? 'destructive' : risk === 'medium' ? 'warning' : 'success'} className="text-[10px]">
+                        {risk} {formatMessage({ id: 'liteTasks.multiCli.risk' })}
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Task List */}
+          {tasks.map((task, index) => {
+            const filesCount = task.flow_control?.target_files?.length || 0;
+            const stepsCount = task.flow_control?.implementation_approach?.length || 0;
+            const criteriaCount = task.context?.acceptance?.length || 0;
+            const depsCount = task.context?.depends_on?.length || 0;
+
+            return (
+              <Card
+                key={task.id || index}
+                className="cursor-pointer hover:shadow-sm hover:border-primary/50 transition-all border-border border-l-4 border-l-primary/50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTaskClick(task);
+                }}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <Badge className="text-xs font-mono shrink-0 bg-primary/10 text-primary border-primary/20">
+                        {task.task_id || `T${index + 1}`}
+                      </Badge>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-foreground line-clamp-1">
+                          {task.title || formatMessage({ id: 'liteTasks.untitled' })}
+                        </h4>
+                        {/* Meta badges */}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          {task.meta?.type && (
+                            <Badge variant="info" className="text-[10px] px-1.5 py-0">{task.meta.type}</Badge>
+                          )}
+                          {filesCount > 0 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
+                              <FileCode className="h-2.5 w-2.5" />
+                              {filesCount} files
+                            </Badge>
+                          )}
+                          {stepsCount > 0 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {stepsCount} steps
+                            </Badge>
+                          )}
+                          {criteriaCount > 0 && (
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                              {criteriaCount} criteria
+                            </Badge>
+                          )}
+                          {depsCount > 0 && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">
+                              {depsCount} deps
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Discussion Tab */}
+      {activeTab === 'discussion' && (
+        <div className="space-y-3">
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <MessagesSquare className="h-5 w-5 text-primary" />
+                <h4 className="font-medium text-foreground">
+                  {formatMessage({ id: 'liteTasks.multiCli.discussionRounds' })}
+                </h4>
+                <Badge variant="secondary" className="text-xs">{roundCount} {formatMessage({ id: 'liteTasks.rounds' })}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {formatMessage({ id: 'liteTasks.multiCli.discussionDescription' })}
+              </p>
+              {goal && (
+                <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm text-foreground">{goal}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Context Tab */}
+      {activeTab === 'context' && (
+        <div className="space-y-3">
+          {contextLoading && (
+            <div className="flex items-center justify-center py-8 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              <span className="text-sm">{formatMessage({ id: 'liteTasks.contextPanel.loading' })}</span>
+            </div>
+          )}
+          {contextError && !contextLoading && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+              <XCircle className="h-4 w-4 flex-shrink-0" />
+              {formatMessage({ id: 'liteTasks.contextPanel.error' })}: {contextError}
+            </div>
+          )}
+          {!contextLoading && !contextError && contextData && (
+            <ContextContent contextData={contextData} session={session} />
+          )}
+          {!contextLoading && !contextError && !contextData && !session.path && (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Package className="h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">
+                {formatMessage({ id: 'liteTasks.contextPanel.empty' })}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Summary Tab */}
+      {activeTab === 'summary' && (
+        <div className="space-y-3">
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="h-5 w-5 text-primary" />
+                <h4 className="font-medium text-foreground">
+                  {formatMessage({ id: 'liteTasks.multiCli.planSummary' })}
+                </h4>
+              </div>
+              {goal && (
+                <div className="mb-3">
+                  <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'liteTasks.multiCli.goal' })}</p>
+                  <p className="text-sm text-foreground">{goal}</p>
+                </div>
+              )}
+              {solution && (
+                <div className="mb-3">
+                  <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'liteTasks.multiCli.solution' })}</p>
+                  <p className="text-sm text-foreground">{solution}</p>
+                </div>
+              )}
+              {implementationChain && (
+                <div className="mb-3">
+                  <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'liteTasks.multiCli.implementation' })}</p>
+                  <code className="block px-3 py-2 rounded bg-muted border border-border text-xs font-mono">
+                    {implementationChain}
+                  </code>
+                </div>
+              )}
+              <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                <span className="text-xs text-muted-foreground">{formatMessage({ id: 'liteTasks.quickCards.tasks' })}:</span>
+                <Badge variant="secondary" className="text-xs">{taskCount}</Badge>
+                {feasibility > 0 && (
+                  <>
+                    <span className="text-xs text-muted-foreground ml-2">{formatMessage({ id: 'liteTasks.multiCli.feasibility' })}:</span>
+                    <Badge variant="success" className="text-xs">{feasibility}%</Badge>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
  * LiteTasksPage component - Display lite-plan and lite-fix sessions with expandable tasks
  */
@@ -486,18 +900,15 @@ export function LiteTasksPage() {
     const taskCount = session.tasks?.length || 0;
     const isExpanded = expandedSessionId === session.id;
 
-    // Calculate task status distribution
-    const taskStats = React.useMemo(() => {
-      const tasks = session.tasks || [];
-      return {
-        completed: tasks.filter((t) => t.status === 'completed').length,
-        inProgress: tasks.filter((t) => t.status === 'in_progress').length,
-        blocked: tasks.filter((t) => t.status === 'blocked').length,
-        pending: tasks.filter((t) => !t.status || t.status === 'pending').length,
-      };
-    }, [session.tasks]);
+    // Calculate task status distribution (no useMemo - this is a render function, not a component)
+    const tasks = session.tasks || [];
+    const taskStats = {
+      completed: tasks.filter((t) => t.status === 'completed').length,
+      inProgress: tasks.filter((t) => t.status === 'in_progress').length,
+      blocked: tasks.filter((t) => t.status === 'blocked').length,
+    };
 
-    const firstTask = session.tasks?.[0];
+    const firstTask = tasks[0];
 
     return (
       <div key={session.id}>
@@ -552,12 +963,6 @@ export function LiteTasksPage() {
                   {taskStats.blocked} {formatMessage({ id: 'liteTasks.status.blocked' })}
                 </Badge>
               )}
-              {taskStats.pending > 0 && (
-                <Badge variant="secondary" className="gap-1 text-xs">
-                  <Activity className="h-3 w-3" />
-                  {taskStats.pending} {formatMessage({ id: 'liteTasks.status.pending' })}
-                </Badge>
-              )}
             </div>
 
             {/* Date and task count */}
@@ -600,96 +1005,98 @@ export function LiteTasksPage() {
     const status = latestSynthesis.status || session.status || 'analyzing';
     const createdAt = (metadata.timestamp as string) || session.createdAt || '';
 
-    // Calculate task status distribution
-    const taskStats = React.useMemo(() => {
-      const tasks = session.tasks || [];
-      return {
-        completed: tasks.filter((t) => t.status === 'completed').length,
-        inProgress: tasks.filter((t) => t.status === 'in_progress').length,
-        blocked: tasks.filter((t) => t.status === 'blocked').length,
-        pending: tasks.filter((t) => !t.status || t.status === 'pending').length,
-        total: tasks.length,
-      };
-    }, [session.tasks]);
+    // Calculate task status distribution (no useMemo - this is a render function, not a component)
+    const tasks = session.tasks || [];
+    const taskStats = {
+      completed: tasks.filter((t) => t.status === 'completed').length,
+      inProgress: tasks.filter((t) => t.status === 'in_progress').length,
+      blocked: tasks.filter((t) => t.status === 'blocked').length,
+      total: tasks.length,
+    };
+
+    const isExpanded = expandedSessionId === session.id;
 
     return (
-      <Card
-        key={session.id}
-        className="cursor-pointer hover:shadow-md transition-shadow"
-        onClick={() => setExpandedSessionId(expandedSessionId === session.id ? null : session.id)}
-      >
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className="flex-shrink-0">
-                {expandedSessionId === session.id ? (
-                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
+      <div key={session.id}>
+        <Card
+          className="cursor-pointer hover:shadow-md transition-shadow"
+          onClick={() => setExpandedSessionId(isExpanded ? null : session.id)}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="flex-shrink-0">
+                  {isExpanded ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-foreground text-sm tracking-wide uppercase">{session.id}</h3>
+                </div>
+              </div>
+              <Badge variant="secondary" className="gap-1 flex-shrink-0">
+                <MessagesSquare className="h-3 w-3" />
+                {formatMessage({ id: 'liteTasks.type.multiCli' })}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
+              <MessageCircle className="h-4 w-4" />
+              <span className="line-clamp-1">{topicTitle}</span>
+            </div>
+
+            {/* Task status distribution for multi-cli */}
+            {taskStats.total > 0 && (
+              <div className="flex items-center flex-wrap gap-2 mb-3">
+                {taskStats.completed > 0 && (
+                  <Badge variant="success" className="gap-1 text-xs">
+                    <CheckCircle2 className="h-3 w-3" />
+                    {taskStats.completed} {formatMessage({ id: 'liteTasks.status.completed' })}
+                  </Badge>
+                )}
+                {taskStats.inProgress > 0 && (
+                  <Badge variant="warning" className="gap-1 text-xs">
+                    <Clock className="h-3 w-3" />
+                    {taskStats.inProgress} {formatMessage({ id: 'liteTasks.status.inProgress' })}
+                  </Badge>
+                )}
+                {taskStats.blocked > 0 && (
+                  <Badge variant="destructive" className="gap-1 text-xs">
+                    <AlertCircle className="h-3 w-3" />
+                    {taskStats.blocked} {formatMessage({ id: 'liteTasks.status.blocked' })}
+                  </Badge>
                 )}
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-foreground text-sm tracking-wide uppercase">{session.id}</h3>
-              </div>
-            </div>
-            <Badge variant="secondary" className="gap-1 flex-shrink-0">
-              <MessagesSquare className="h-3 w-3" />
-              {formatMessage({ id: 'liteTasks.type.multiCli' })}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
-            <MessageCircle className="h-4 w-4" />
-            <span className="line-clamp-1">{topicTitle}</span>
-          </div>
-
-          {/* Task status distribution for multi-cli */}
-          {taskStats.total > 0 && (
-            <div className="flex items-center flex-wrap gap-2 mb-3">
-              {taskStats.completed > 0 && (
-                <Badge variant="success" className="gap-1 text-xs">
-                  <CheckCircle2 className="h-3 w-3" />
-                  {taskStats.completed} {formatMessage({ id: 'liteTasks.status.completed' })}
-                </Badge>
-              )}
-              {taskStats.inProgress > 0 && (
-                <Badge variant="warning" className="gap-1 text-xs">
-                  <Clock className="h-3 w-3" />
-                  {taskStats.inProgress} {formatMessage({ id: 'liteTasks.status.inProgress' })}
-                </Badge>
-              )}
-              {taskStats.blocked > 0 && (
-                <Badge variant="destructive" className="gap-1 text-xs">
-                  <AlertCircle className="h-3 w-3" />
-                  {taskStats.blocked} {formatMessage({ id: 'liteTasks.status.blocked' })}
-                </Badge>
-              )}
-              {taskStats.pending > 0 && (
-                <Badge variant="secondary" className="gap-1 text-xs">
-                  <Activity className="h-3 w-3" />
-                  {taskStats.pending} {formatMessage({ id: 'liteTasks.status.pending' })}
-                </Badge>
-              )}
-            </div>
-          )}
-
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {createdAt && (
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3.5 w-3.5" />
-                {new Date(createdAt).toLocaleDateString()}
-              </span>
             )}
-            <span className="flex items-center gap-1">
-              <Repeat className="h-3.5 w-3.5" />
-              {roundCount} {formatMessage({ id: 'liteTasks.rounds' })}
-            </span>
-            <Badge variant={getStatusColor(status) as 'success' | 'info' | 'warning' | 'destructive' | 'secondary'} className="gap-1">
-              <Activity className="h-3 w-3" />
-              {status}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
+
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              {createdAt && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {new Date(createdAt).toLocaleDateString()}
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <Repeat className="h-3.5 w-3.5" />
+                {roundCount} {formatMessage({ id: 'liteTasks.rounds' })}
+              </span>
+              <Badge variant={getStatusColor(status) as 'success' | 'info' | 'warning' | 'destructive' | 'secondary'} className="gap-1">
+                <Activity className="h-3 w-3" />
+                {status}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Expanded multi-cli panel with tabs */}
+        {isExpanded && (
+          <ExpandedMultiCliPanel
+            session={session}
+            onTaskClick={setSelectedTask}
+          />
+        )}
+      </div>
     );
   };
 

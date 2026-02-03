@@ -9,7 +9,6 @@ import {
   ListChecks,
   Code,
   GitBranch,
-  Zap,
   Calendar,
   FileCode,
   Layers,
@@ -197,15 +196,6 @@ export function TaskListTab({ session, onTaskClick }: TaskListTabProps) {
           {localTasks.map((task, index) => {
             // Cast to extended type to access all possible fields
             const extTask = task as unknown as ExtendedTask;
-
-            // Priority config
-            const priorityConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'warning' | 'info' }> = {
-              critical: { label: formatMessage({ id: 'sessionDetail.tasks.priority.critical' }), variant: 'destructive' },
-              high: { label: formatMessage({ id: 'sessionDetail.tasks.priority.high' }), variant: 'warning' },
-              medium: { label: formatMessage({ id: 'sessionDetail.tasks.priority.medium' }), variant: 'info' },
-              low: { label: formatMessage({ id: 'sessionDetail.tasks.priority.low' }), variant: 'secondary' },
-            };
-            const priority = extTask.priority ? priorityConfig[extTask.priority] : null;
 
             // Get depends_on from either root level or context
             const dependsOn = extTask.depends_on || extTask.context?.depends_on || [];

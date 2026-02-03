@@ -17,7 +17,8 @@
     "title": "架构",
     "style": "架构风格",
     "layers": "分层",
-    "patterns": "设计模式"
+    "patterns": "设计模式",
+    "principles": "设计原则"
   },
   "components": {
     "title": "核心组件",

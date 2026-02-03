@@ -65,6 +65,7 @@
     "inProgress": "进行中",
     "running": "运行中",
     "initializing": "初始化中",
+    "initialized": "已初始化",
     "planning": "规划中",
     "completed": "已完成",
     "failed": "失败",
@@ -256,6 +257,71 @@
       "collapseAria": "收起侧边栏",
       "expand": "展开",
       "expandAria": "展开侧边栏"
+    }
+  },
+  "liteTasks": {
+    "title": "轻量任务",
+    "type": {
+      "plan": "轻量规划",
+      "fix": "轻量修复",
+      "multiCli": "多CLI规划"
+    },
+    "quickCards": {
+      "tasks": "任务",
+      "context": "上下文"
+    },
+    "multiCli": {
+      "discussion": "讨论",
+      "discussionRounds": "讨论轮次",
+      "discussionDescription": "多CLI协作规划，迭代分析与交叉验证",
+      "summary": "摘要",
+      "goal": "目标",
+      "solution": "解决方案",
+      "implementation": "实现方式",
+      "feasibility": "可行性",
+      "risk": "风险",
+      "planSummary": "规划摘要"
+    },
+    "createdAt": "创建时间",
+    "rounds": "轮",
+    "tasksCount": "个任务",
+    "untitled": "未命名任务",
+    "discussionTopic": "讨论主题",
+    "contextPanel": {
+      "loading": "加载上下文数据中...",
+      "error": "加载上下文失败",
+      "empty": "无可用上下文数据",
+      "explorations": "探索",
+      "explorationsCount": "{count} 个探索",
+      "diagnoses": "诊断",
+      "diagnosesCount": "{count} 个诊断",
+      "contextPackage": "上下文包",
+      "focusPaths": "关注路径",
+      "summary": "摘要",
+      "taskDescription": "任务描述",
+      "complexity": "复杂度"
+    },
+    "status": {
+      "completed": "已完成",
+      "inProgress": "进行中",
+      "blocked": "已阻塞",
+      "pending": "待处理"
+    },
+    "subtitle": "{count} 个会话",
+    "empty": {
+      "title": "无 {type} 会话",
+      "message": "未找到该类型的会话"
+    },
+    "noResults": {
+      "title": "无结果",
+      "message": "没有符合搜索条件的会话"
+    },
+    "searchPlaceholder": "搜索会话...",
+    "sortBy": "排序方式",
+    "sort": {
+      "date": "日期",
+      "name": "名称",
+      "tasks": "任务"
     }
   },
   "askQuestion": {

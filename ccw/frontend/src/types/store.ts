@@ -182,9 +182,11 @@ export interface SessionMetadata {
   plan_updated_at?: string;
   has_review?: boolean;
   review?: {
-    dimensions: string[];
-    iterations: string[];
-    fixes: string[];
+    dimensions: Array<{ name: string; findings?: Array<{ severity?: string }> }>;
+    dimensions_count?: number;
+    findings?: number;
+    iterations?: string[];
+    fixes?: string[];
   };
   summaries?: Array<{ task_id: string; content: unknown }>;
   tasks?: TaskData[];

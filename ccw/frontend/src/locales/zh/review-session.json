@@ -5,11 +5,32 @@
     "critical": "严重",
     "high": "高",
     "medium": "中",
-    "low": "低"
+    "low": "低",
+    "short": {
+      "critical": "严重",
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    }
   },
   "stats": {
     "total": "总发现",
     "dimensions": "维度"
+  },
+  "progress": {
+    "title": "审查进度",
+    "totalFindings": "总发现",
+    "critical": "严重",
+    "high": "高"
+  },
+  "dimensionTabs": {
+    "all": "全部"
+  },
+  "filters": {
+    "severity": "严重程度",
+    "dimension": "维度",
+    "sort": "排序",
+    "reset": "重置"
   },
   "search": {
     "placeholder": "搜索发现..."
@@ -21,18 +42,59 @@
   },
   "selection": {
     "count": "已选择 {count} 项",
+    "countSelected": "已选 {count} 项",
+    "total": "共 {count} 项",
     "selectAll": "全选",
     "clearAll": "清除全部",
-    "clear": "清除"
+    "clear": "清除",
+    "selectVisible": "可见",
+    "selectCritical": "严重"
   },
   "export": "导出修复 JSON",
   "codeContext": "代码上下文",
   "rootCause": "根本原因",
   "impact": "影响",
   "recommendations": "建议",
+  "findingsList": {
+    "count": "{count} 条发现"
+  },
+  "preview": {
+    "empty": "点击发现以预览详情",
+    "emptyTitle": "选择一个发现",
+    "emptyTipSeverity": "按严重程度筛选",
+    "emptyTipFile": "按文件分组",
+    "location": "位置",
+    "description": "描述",
+    "codeContext": "代码上下文",
+    "recommendations": "建议",
+    "rootCause": "根本原因",
+    "impact": "影响",
+    "selected": "已选择",
+    "selectForFix": "选择"
+  },
+  "fixProgress": {
+    "title": "修复进度",
+    "phase": {
+      "planning": "规划",
+      "execution": "执行",
+      "completion": "完成"
+    },
+    "stats": {
+      "total": "总数",
+      "fixed": "已修复",
+      "failed": "失败",
+      "pending": "待处理"
+    },
+    "activeAgents": "活跃代理",
+    "activeAgentsPlural": "活跃代理",
+    "stage": "阶段",
+    "complete": "完成 {percent}%",
+    "working": "工作中..."
+  },
   "empty": {
     "title": "未找到发现",
-    "message": "尝试调整筛选条件或搜索查询。"
+    "message": "尝试调整筛选条件或搜索查询。",
+    "noFixProgress": "无修复进度数据"
   },
   "notFound": {
     "title": "未找到审查会话",

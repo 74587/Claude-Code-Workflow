@@ -5,13 +5,13 @@
 
 import { memo, useMemo, useState, useEffect } from 'react';
 import { useIntl } from 'react-intl';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { Card } from '@/components/ui/Card';
 import { Progress } from '@/components/ui/Progress';
 import { Button } from '@/components/ui/Button';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { useWorkflowStatusCounts, generateMockWorkflowStatusCounts } from '@/hooks/useWorkflowStatusCounts';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
-import { useCoordinatorStore } from '@/stores/coordinatorStore';
 import { useProjectOverview } from '@/hooks/useProjectOverview';
 import { cn } from '@/lib/utils';
 import {
@@ -21,11 +21,6 @@ import {
   CheckCircle2,
   XCircle,
   Activity,
-  Play,
-  Pause,
-  Square,
-  Loader2,
-  AlertCircle,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -40,7 +35,8 @@ import {
   FileCode,
   Bug,
   Sparkles,
-  BookOpen,
+  BarChart3,
+  PieChart as PieChartIcon,
 } from 'lucide-react';
 
 export interface WorkflowTaskWidgetProps {
@@ -175,19 +171,19 @@ function MiniStatCard({ icon: Icon, title, value, variant, sparklineData }: Mini
   const styles = variantStyles[variant] || variantStyles.default;
 
   return (
-    <div className={cn('rounded-lg border p-2 transition-all hover:shadow-sm', styles.card)}>
-      <div className="flex items-start justify-between gap-1">
+    <div className={cn('rounded-lg border p-3 transition-all hover:shadow-sm h-full flex flex-col', styles.card)}>
+      <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-medium text-muted-foreground truncate">{title}</p>
-          <p className="text-lg font-semibold text-card-foreground mt-0.5">{value.toLocaleString()}</p>
+          <p className="text-xs font-medium text-muted-foreground truncate">{title}</p>
+          <p className="text-xl font-bold text-card-foreground mt-1">{value.toLocaleString()}</p>
         </div>
         <div className={cn('flex h-7 w-7 items-center justify-center rounded-md shrink-0', styles.icon)}>
-          <Icon className="h-3.5 w-3.5" />
+          <Icon className="h-4 w-4" />
         </div>
       </div>
       {sparklineData && sparklineData.length > 0 && (
-        <div className="mt-1 -mx-1">
-          <Sparkline data={sparklineData} height={24} strokeWidth={1.5} />
+        <div className="mt-auto pt-2 -mx-1">
+          <Sparkline data={sparklineData} height={28} strokeWidth={1.5} />
         </div>
       )}
     </div>
@@ -209,27 +205,11 @@ function generateSparklineData(currentValue: number, variance = 0.3): number[] {
   return data;
 }
 
-// Orchestrator status icons and colors
-const orchestratorStatusConfig: Record<string, { icon: typeof Play; color: string; bg: string }> = {
-  idle: { icon: Square, color: 'text-muted-foreground', bg: 'bg-muted' },
-  initializing: { icon: Loader2, color: 'text-info', bg: 'bg-info/20' },
-  running: { icon: Play, color: 'text-success', bg: 'bg-success/20' },
-  paused: { icon: Pause, color: 'text-warning', bg: 'bg-warning/20' },
-  completed: { icon: CheckCircle2, color: 'text-success', bg: 'bg-success/20' },
-  failed: { icon: XCircle, color: 'text-destructive', bg: 'bg-destructive/20' },
-  cancelled: { icon: AlertCircle, color: 'text-muted-foreground', bg: 'bg-muted' },
-};
-
 function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
   const { formatMessage } = useIntl();
   const { data, isLoading } = useWorkflowStatusCounts();
   const { stats, isLoading: statsLoading } = useDashboardStats({ refetchInterval: 60000 });
   const { projectOverview, isLoading: projectLoading } = useProjectOverview();
-
-  // Get coordinator state
-  const coordinatorState = useCoordinatorStore();
-  const orchestratorConfig = orchestratorStatusConfig[coordinatorState.status] || orchestratorStatusConfig.idle;
-  const OrchestratorIcon = orchestratorConfig.icon;
 
   const chartData = data || generateMockWorkflowStatusCounts();
   const total = chartData.reduce((sum, item) => sum + item.count, 0);
@@ -243,11 +223,6 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
     failedTasks: generateSparklineData(stats?.failedTasks ?? 0, 0.5),
     todayActivity: generateSparklineData(stats?.todayActivity ?? 0, 0.6),
   }), [stats]);
-
-  // Calculate orchestrator progress
-  const orchestratorProgress = coordinatorState.commandChain.length > 0
-    ? Math.round((coordinatorState.commandChain.filter(n => n.status === 'completed').length / coordinatorState.commandChain.length) * 100)
-    : 0;
 
   // Project info expanded state
   const [projectExpanded, setProjectExpanded] = useState(false);
@@ -284,79 +259,79 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
         ) : (
           <>
             {/* Collapsed Header */}
-            <div className="px-4 py-3 flex items-center gap-6 flex-wrap">
+            <div className="px-5 py-4 flex items-center gap-6 flex-wrap">
               {/* Project Name & Icon */}
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-1.5 rounded-md bg-primary/10">
-                  <Code2 className="h-4 w-4 text-primary" />
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 rounded-md bg-primary/10">
+                  <Code2 className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-sm font-semibold text-foreground truncate">
+                  <h2 className="text-base font-semibold text-foreground truncate">
                     {projectOverview?.projectName || 'Claude Code Workflow'}
                   </h2>
-                  <p className="text-[10px] text-muted-foreground truncate max-w-[280px]">
+                  <p className="text-xs text-muted-foreground truncate max-w-[300px]">
                     {projectOverview?.description || 'AI-powered workflow management system'}
                   </p>
                 </div>
               </div>
 
               {/* Divider */}
-              <div className="h-8 w-px bg-border hidden md:block" />
+              <div className="h-10 w-px bg-border hidden md:block" />
 
               {/* Tech Stack Badges */}
-              <div className="flex items-center gap-2 text-[10px]">
-                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-blue-500/10 text-blue-600 font-medium">
-                  <Code2 className="h-3 w-3" />
+              <div className="flex items-center gap-2.5 text-xs">
+                <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-blue-500/10 text-blue-600 font-medium">
+                  <Code2 className="h-3.5 w-3.5" />
                   {projectOverview?.technologyStack?.languages?.[0]?.name || 'TypeScript'}
                 </span>
-                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-green-500/10 text-green-600 font-medium">
-                  <Server className="h-3 w-3" />
+                <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-green-500/10 text-green-600 font-medium">
+                  <Server className="h-3.5 w-3.5" />
                   {projectOverview?.technologyStack?.frameworks?.[0] || 'Node.js'}
                 </span>
-                <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-violet-500/10 text-violet-600 font-medium">
-                  <Layers className="h-3 w-3" />
+                <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-violet-500/10 text-violet-600 font-medium">
+                  <Layers className="h-3.5 w-3.5" />
                   {projectOverview?.architecture?.style || 'Modular Monolith'}
                 </span>
-                {projectOverview?.technologyStack?.buildTools?.[0] && (
-                  <span className="flex items-center gap-1 px-2 py-1 rounded-md bg-orange-500/10 text-orange-600 font-medium">
-                    <Wrench className="h-3 w-3" />
-                    {projectOverview.technologyStack.buildTools[0]}
+                {projectOverview?.technologyStack?.build_tools?.[0] && (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-orange-500/10 text-orange-600 font-medium">
+                    <Wrench className="h-3.5 w-3.5" />
+                    {projectOverview.technologyStack.build_tools[0]}
                   </span>
                 )}
               </div>
 
               {/* Divider */}
-              <div className="h-8 w-px bg-border hidden lg:block" />
+              <div className="h-10 w-px bg-border hidden lg:block" />
 
               {/* Quick Stats */}
-              <div className="flex items-center gap-4 text-[10px]">
-                <div className="flex items-center gap-1.5 text-emerald-600">
-                  <Sparkles className="h-3 w-3" />
+              <div className="flex items-center gap-5 text-xs">
+                <div className="flex items-center gap-2 text-emerald-600">
+                  <Sparkles className="h-3.5 w-3.5" />
                   <span className="font-semibold">{projectOverview?.developmentIndex?.feature?.length || 0}</span>
                   <span className="text-muted-foreground">{formatMessage({ id: 'projectOverview.devIndex.category.features' })}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-amber-600">
-                  <Bug className="h-3 w-3" />
+                <div className="flex items-center gap-2 text-amber-600">
+                  <Bug className="h-3.5 w-3.5" />
                   <span className="font-semibold">{projectOverview?.developmentIndex?.bugfix?.length || 0}</span>
                   <span className="text-muted-foreground">{formatMessage({ id: 'projectOverview.devIndex.category.bugfixes' })}</span>
                 </div>
-                <div className="flex items-center gap-1.5 text-blue-600">
-                  <FileCode className="h-3 w-3" />
+                <div className="flex items-center gap-2 text-blue-600">
+                  <FileCode className="h-3.5 w-3.5" />
                   <span className="font-semibold">{projectOverview?.developmentIndex?.enhancement?.length || 0}</span>
                   <span className="text-muted-foreground">{formatMessage({ id: 'projectOverview.devIndex.category.enhancements' })}</span>
                 </div>
               </div>
 
               {/* Date + Expand Button */}
-              <div className="flex items-center gap-3 text-[10px] text-muted-foreground ml-auto">
-                <span className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50">
-                  <Calendar className="h-3 w-3" />
+              <div className="flex items-center gap-3 text-xs text-muted-foreground ml-auto">
+                <span className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-muted/50">
+                  <Calendar className="h-3.5 w-3.5" />
                   {projectOverview?.initializedAt ? new Date(projectOverview.initializedAt).toLocaleDateString() : new Date().toLocaleDateString()}
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-6 w-6 p-0 hover:bg-muted"
+                  className="h-7 w-7 p-0 hover:bg-muted"
                   onClick={() => setProjectExpanded(!projectExpanded)}
                 >
                   {projectExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -366,88 +341,102 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
 
             {/* Expanded Details */}
             {projectExpanded && (
-              <div className="px-3 pb-2 grid grid-cols-4 gap-3 border-t border-border/50 pt-2">
+              <div className="px-5 pb-4 grid grid-cols-4 gap-6 border-t border-border/50 pt-4">
                 {/* Architecture */}
-                <div className="space-y-1">
-                  <h4 className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
-                    <Layers className="h-3 w-3" />
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Layers className="h-4 w-4 text-primary" />
                     {formatMessage({ id: 'projectOverview.architecture.title' })}
                   </h4>
-                  <div className="space-y-0.5">
-                    <p className="text-[10px] text-foreground">{projectOverview?.architecture?.style || 'Modular Monolith'}</p>
-                    <div className="flex flex-wrap gap-1">
-                      {projectOverview?.architecture?.layers?.slice(0, 3).map((layer, i) => (
-                        <span key={i} className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground">{layer}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">{projectOverview?.architecture?.style || 'Modular Monolith'}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {formatMessage({ id: 'projectOverview.architecture.layers' })}:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(projectOverview?.architecture?.layers || ['CLI Tools', 'Core Services', 'Dashboard UI', 'Data Layer']).slice(0, 5).map((layer, i) => (
+                        <span key={i} className="text-xs px-2 py-1 rounded-md bg-muted text-muted-foreground font-medium">{layer}</span>
                       ))}
                     </div>
                   </div>
                 </div>
 
                 {/* Key Components */}
-                <div className="space-y-1">
-                  <h4 className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
-                    <Wrench className="h-3 w-3" />
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Wrench className="h-4 w-4 text-orange-500" />
                     {formatMessage({ id: 'projectOverview.components.title' })}
                   </h4>
-                  <div className="space-y-0.5">
-                    {projectOverview?.keyComponents?.slice(0, 3).map((comp, i) => (
-                      <p key={i} className="text-[9px] text-foreground truncate">{comp.name}</p>
-                    )) || (
-                      <>
-                        <p className="text-[9px] text-foreground">Session Manager</p>
-                        <p className="text-[9px] text-foreground">Dashboard Generator</p>
-                        <p className="text-[9px] text-foreground">Data Aggregator</p>
-                      </>
-                    )}
+                  <div className="space-y-1.5">
+                    {(projectOverview?.keyComponents || [
+                      { name: 'Session Manager', description: 'Workflow session lifecycle' },
+                      { name: 'Dashboard Generator', description: 'Dynamic widget rendering' },
+                      { name: 'Data Aggregator', description: 'Stats and metrics collection' },
+                      { name: 'Task Scheduler', description: 'Async task orchestration' },
+                    ]).slice(0, 4).map((comp, i) => (
+                      <div key={i} className="flex items-start gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-foreground truncate">{comp.name}</p>
+                          {comp.description && (
+                            <p className="text-[11px] text-muted-foreground truncate">{comp.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 {/* Development History */}
-                <div className="space-y-1">
-                  <h4 className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
-                    <FileCode className="h-3 w-3" />
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <FileCode className="h-4 w-4 text-blue-500" />
                     {formatMessage({ id: 'projectOverview.devIndex.title' })}
                   </h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="flex items-center gap-0.5 text-[9px] text-emerald-600">
-                      <Sparkles className="h-2.5 w-2.5" />
-                      {projectOverview?.developmentIndex?.feature?.length || 0}
-                    </span>
-                    <span className="flex items-center gap-0.5 text-[9px] text-blue-600">
-                      <FileCode className="h-2.5 w-2.5" />
-                      {projectOverview?.developmentIndex?.enhancement?.length || 0}
-                    </span>
-                    <span className="flex items-center gap-0.5 text-[9px] text-amber-600">
-                      <Bug className="h-2.5 w-2.5" />
-                      {projectOverview?.developmentIndex?.bugfix?.length || 0}
-                    </span>
-                    <span className="flex items-center gap-0.5 text-[9px] text-violet-600">
-                      <Wrench className="h-2.5 w-2.5" />
-                      {projectOverview?.developmentIndex?.refactor?.length || 0}
-                    </span>
-                    <span className="flex items-center gap-0.5 text-[9px] text-slate-600">
-                      <BookOpen className="h-2.5 w-2.5" />
-                      {projectOverview?.developmentIndex?.docs?.length || 0}
-                    </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-emerald-500/10">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-600">{projectOverview?.developmentIndex?.feature?.length || 10}</p>
+                        <p className="text-[10px] text-emerald-600/80">{formatMessage({ id: 'projectOverview.devIndex.category.features' })}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-blue-500/10">
+                      <FileCode className="h-3.5 w-3.5 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-blue-600">{projectOverview?.developmentIndex?.enhancement?.length || 5}</p>
+                        <p className="text-[10px] text-blue-600/80">{formatMessage({ id: 'projectOverview.devIndex.category.enhancements' })}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-amber-500/10">
+                      <Bug className="h-3.5 w-3.5 text-amber-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-amber-600">{projectOverview?.developmentIndex?.bugfix?.length || 3}</p>
+                        <p className="text-[10px] text-amber-600/80">{formatMessage({ id: 'projectOverview.devIndex.category.bugfixes' })}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-violet-500/10">
+                      <Wrench className="h-3.5 w-3.5 text-violet-600" />
+                      <div>
+                        <p className="text-sm font-semibold text-violet-600">{projectOverview?.developmentIndex?.refactor?.length || 2}</p>
+                        <p className="text-[10px] text-violet-600/80">{formatMessage({ id: 'projectOverview.devIndex.category.refactorings' })}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 {/* Design Patterns */}
-                <div className="space-y-1">
-                  <h4 className="text-[10px] font-semibold text-muted-foreground flex items-center gap-1">
-                    <GitBranch className="h-3 w-3" />
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <GitBranch className="h-4 w-4 text-violet-500" />
                     {formatMessage({ id: 'projectOverview.architecture.patterns' })}
                   </h4>
-                  <div className="flex flex-wrap gap-1">
-                    {projectOverview?.architecture?.patterns?.slice(0, 4).map((pattern, i) => (
-                      <span key={i} className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary">{pattern}</span>
-                    )) || (
-                      <>
-                        <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary">Factory</span>
-                        <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary">Strategy</span>
-                        <span className="text-[9px] px-1 py-0.5 rounded bg-primary/10 text-primary">Observer</span>
-                      </>
-                    )}
+                  <div className="flex flex-wrap gap-1.5">
+                    {(projectOverview?.architecture?.patterns || ['Factory', 'Strategy', 'Observer', 'Singleton', 'Decorator']).slice(0, 6).map((pattern, i) => (
+                      <span key={i} className="text-xs px-2.5 py-1 rounded-md bg-primary/10 text-primary font-medium">{pattern}</span>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -457,21 +446,22 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
       </Card>
 
       {/* Main content Card: Stats | Workflow+Orchestrator | Task Details */}
-      <Card className="h-[320px] flex shrink-0 overflow-hidden">
+      <Card className="h-[400px] flex shrink-0 overflow-hidden">
         {/* Compact Stats Section with Sparklines */}
-        <div className="w-[28%] p-2.5 flex flex-col border-r border-border">
-          <h3 className="text-xs font-semibold text-foreground mb-2 px-0.5">
+        <div className="w-[28%] p-3 flex flex-col border-r border-border">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+            <BarChart3 className="h-4 w-4" />
             {formatMessage({ id: 'home.sections.statistics' })}
           </h3>
 
           {statsLoading ? (
-            <div className="grid grid-cols-2 gap-1.5 flex-1">
+            <div className="grid grid-cols-2 grid-rows-3 gap-2.5 flex-1">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="h-14 bg-muted rounded animate-pulse" />
+                <div key={i} className="bg-muted rounded animate-pulse" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-1.5 flex-1 content-start overflow-auto">
+            <div className="grid grid-cols-2 grid-rows-3 gap-2.5 flex-1">
               <MiniStatCard
                 icon={FolderKanban}
                 title={formatMessage({ id: 'home.stats.activeSessions' })}
@@ -518,134 +508,117 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
           )}
         </div>
 
-        {/* Workflow Status + Orchestrator Status Section */}
-        <div className="w-[26%] p-3 flex flex-col border-r border-border overflow-auto">
-          {/* Workflow Status */}
-          <h3 className="text-xs font-semibold text-foreground mb-2">
+        {/* Workflow Status Section - Pie Chart */}
+        <div className="w-[22%] p-3 flex flex-col border-r border-border">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+            <PieChartIcon className="h-4 w-4" />
             {formatMessage({ id: 'home.widgets.workflowStatus' })}
           </h3>
 
           {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-3 bg-muted rounded animate-pulse" />
-              ))}
+            <div className="flex-1 flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full bg-muted animate-pulse" />
             </div>
           ) : (
-            <div className="space-y-2">
-              {chartData.map((item) => {
-                const percentage = total > 0 ? Math.round((item.count / total) * 100) : 0;
-                const colors = statusColors[item.status] || statusColors.completed;
-                return (
-                  <div key={item.status} className="space-y-0.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1">
-                        <div className={cn('w-1.5 h-1.5 rounded-full', colors.dot)} />
-                        <span className="text-[11px] text-foreground">
-                          {formatMessage({ id: statusLabelKeys[item.status] })}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          {item.count}
-                        </span>
-                      </div>
-                      <span className={cn('text-[11px] font-medium', colors.text)}>
+            <div className="flex-1 flex flex-col">
+              {/* Mini Donut Chart */}
+              <div className="flex-1 min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="55%"
+                      outerRadius="85%"
+                      paddingAngle={2}
+                      dataKey="count"
+                    >
+                      {chartData.map((item) => {
+                        const colors = statusColors[item.status] || statusColors.completed;
+                        const fillColor = colors.dot.replace('bg-', '');
+                        const colorMap: Record<string, string> = {
+                          'emerald-500': '#10b981',
+                          'amber-500': '#f59e0b',
+                          'violet-500': '#8b5cf6',
+                          'slate-400': '#94a3b8',
+                          'slate-300': '#cbd5e1',
+                        };
+                        return (
+                          <Cell key={item.status} fill={colorMap[fillColor] || '#94a3b8'} />
+                        );
+                      })}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Compact Legend */}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mt-3">
+                {chartData.map((item) => {
+                  const colors = statusColors[item.status] || statusColors.completed;
+                  const percentage = total > 0 ? Math.round((item.count / total) * 100) : 0;
+                  return (
+                    <div key={item.status} className="flex items-center gap-1.5 min-w-0">
+                      <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', colors.dot)} />
+                      <span className="text-xs text-muted-foreground truncate">
+                        {formatMessage({ id: statusLabelKeys[item.status] })}
+                      </span>
+                      <span className="text-xs font-medium text-foreground ml-auto">
                         {percentage}%
                       </span>
                     </div>
-                    <Progress
-                      value={percentage}
-                      className="h-1 bg-muted"
-                      indicatorClassName={colors.bg}
-                    />
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
-
-          {/* Orchestrator Status Section */}
-          <div className="mt-3 pt-3 border-t border-border">
-            <h3 className="text-xs font-semibold text-foreground mb-2">
-              {formatMessage({ id: 'navigation.main.orchestrator' })}
-            </h3>
-
-            <div className={cn('rounded-lg p-2', orchestratorConfig.bg)}>
-              <div className="flex items-center gap-2">
-                <OrchestratorIcon className={cn('h-4 w-4', orchestratorConfig.color, coordinatorState.status === 'running' && 'animate-pulse')} />
-                <div className="flex-1 min-w-0">
-                  <p className={cn('text-[11px] font-medium', orchestratorConfig.color)}>
-                    {formatMessage({ id: `common.status.${coordinatorState.status}` })}
-                  </p>
-                  {coordinatorState.currentExecutionId && (
-                    <p className="text-[10px] text-muted-foreground truncate">
-                      {coordinatorState.pipelineDetails?.nodes[0]?.name || coordinatorState.currentExecutionId}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {coordinatorState.status !== 'idle' && coordinatorState.commandChain.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-muted-foreground">
-                      {formatMessage({ id: 'common.labels.progress' })}
-                    </span>
-                    <span className="font-medium">{orchestratorProgress}%</span>
-                  </div>
-                  <Progress value={orchestratorProgress} className="h-1 bg-muted/50" />
-                  <p className="text-[10px] text-muted-foreground">
-                    {coordinatorState.commandChain.filter(n => n.status === 'completed').length}/{coordinatorState.commandChain.length} {formatMessage({ id: 'coordinator.steps' })}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         {/* Task Details Section: Session Carousel with Task List */}
-        <div className="w-[46%] p-3 flex flex-col">
+        <div className="flex-1 p-4 flex flex-col">
           {/* Header with navigation */}
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs font-semibold text-foreground flex items-center gap-1">
-              <ListChecks className="h-3.5 w-3.5" />
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <ListChecks className="h-4 w-4" />
               {formatMessage({ id: 'home.sections.taskDetails' })}
             </h3>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={handlePrevSession}>
-                <ChevronLeft className="h-3 w-3" />
+            <div className="flex items-center gap-1.5">
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handlePrevSession}>
+                <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-[10px] text-muted-foreground min-w-[40px] text-center">
+              <span className="text-xs text-muted-foreground min-w-[45px] text-center">
                 {currentSessionIndex + 1} / {MOCK_SESSIONS.length}
               </span>
-              <Button variant="ghost" size="sm" className="h-5 w-5 p-0" onClick={handleNextSession}>
-                <ChevronRight className="h-3 w-3" />
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={handleNextSession}>
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
           {/* Session Card (Carousel Item) */}
           {currentSession && (
-            <div className="flex-1 flex flex-col min-h-0 rounded-lg border border-border bg-accent/20 p-2.5 overflow-hidden">
+            <div className="flex-1 flex flex-col min-h-0 rounded-lg border border-border bg-accent/20 p-3 overflow-hidden">
               {/* Session Header */}
               <div className="mb-2 pb-2 border-b border-border shrink-0">
                 <div className="flex items-start gap-2">
-                  <div className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0', sessionStatusColors[currentSession.status].bg, sessionStatusColors[currentSession.status].text)}>
+                  <div className={cn('px-2 py-1 rounded text-xs font-medium shrink-0', sessionStatusColors[currentSession.status].bg, sessionStatusColors[currentSession.status].text)}>
                     {formatMessage({ id: `common.status.${currentSession.status === 'in_progress' ? 'inProgress' : currentSession.status}` })}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-medium text-foreground truncate">{currentSession.name}</p>
-                    <p className="text-[10px] text-muted-foreground">{currentSession.id}</p>
+                    <p className="text-sm font-medium text-foreground truncate">{currentSession.name}</p>
+                    <p className="text-xs text-muted-foreground">{currentSession.id}</p>
                   </div>
                 </div>
                 {/* Description */}
                 {currentSession.description && (
-                  <p className="text-[10px] text-muted-foreground mt-1.5 line-clamp-2">
+                  <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
                     {currentSession.description}
                   </p>
                 )}
                 {/* Progress bar */}
-                <div className="mt-2 space-y-1">
-                  <div className="flex items-center justify-between text-[10px]">
+                <div className="mt-2.5 space-y-1">
+                  <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">
                       {formatMessage({ id: 'common.labels.progress' })}
                     </span>
@@ -655,20 +628,20 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
                   </div>
                   <Progress
                     value={currentSession.tasks.length > 0 ? (currentSession.tasks.filter(t => t.status === 'completed').length / currentSession.tasks.length) * 100 : 0}
-                    className="h-1 bg-muted"
+                    className="h-1.5 bg-muted"
                     indicatorClassName="bg-success"
                   />
                 </div>
                 {/* Tags and Date */}
-                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
                   {currentSession.tags.map((tag) => (
-                    <span key={tag} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[9px]">
-                      <Tag className="h-2 w-2" />
+                    <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px]">
+                      <Tag className="h-2.5 w-2.5" />
                       {tag}
                     </span>
                   ))}
-                  <span className="inline-flex items-center gap-0.5 text-[9px] text-muted-foreground ml-auto">
-                    <Calendar className="h-2.5 w-2.5" />
+                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground ml-auto">
+                    <Calendar className="h-3 w-3" />
                     {currentSession.updatedAt}
                   </span>
                 </div>
@@ -676,19 +649,23 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
 
               {/* Task List for this Session - Two columns */}
               <div className="flex-1 overflow-auto min-h-0">
-                <div className="grid grid-cols-2 gap-1">
-                  {currentSession.tasks.map((task) => {
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  {currentSession.tasks.map((task, index) => {
                     const config = taskStatusColors[task.status];
                     const StatusIcon = config.icon;
+                    const isLastOdd = currentSession.tasks.length % 2 === 1 && index === currentSession.tasks.length - 1;
                     return (
                       <div
                         key={task.id}
-                        className="flex items-center gap-1.5 p-1.5 rounded hover:bg-background/50 transition-colors cursor-pointer"
+                        className={cn(
+                          'flex items-center gap-2 p-2 rounded hover:bg-background/50 transition-colors cursor-pointer',
+                          isLastOdd && 'col-span-2'
+                        )}
                       >
-                        <div className={cn('p-0.5 rounded shrink-0', config.bg)}>
-                          <StatusIcon className={cn('h-2.5 w-2.5', config.text)} />
+                        <div className={cn('p-1 rounded shrink-0', config.bg)}>
+                          <StatusIcon className={cn('h-3 w-3', config.text)} />
                         </div>
-                        <p className={cn('flex-1 text-[10px] font-medium truncate', task.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground')}>
+                        <p className={cn('flex-1 text-xs font-medium truncate', task.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground')}>
                           {task.name}
                         </p>
                       </div>

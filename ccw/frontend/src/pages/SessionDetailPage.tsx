@@ -28,9 +28,18 @@ import { TaskDrawer } from '@/components/shared/TaskDrawer';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { TabsNavigation, type TabItem } from '@/components/ui/TabsNavigation';
-import type { TaskData } from '@/types/store';
+import type { TaskData, SessionMetadata } from '@/types/store';
 
 type TabValue = 'tasks' | 'context' | 'summary' | 'impl-plan' | 'conflict' | 'review';
+
+// Status label keys for i18n (maps snake_case status to camelCase translation keys)
+const statusLabelKeys: Record<SessionMetadata['status'], string> = {
+  planning: 'sessions.status.planning',
+  in_progress: 'sessions.status.inProgress',
+  completed: 'sessions.status.completed',
+  archived: 'sessions.status.archived',
+  paused: 'sessions.status.paused',
+};
 
 /**
  * SessionDetailPage component - Main session detail page with tabs
@@ -159,7 +168,7 @@ export function SessionDetailPage() {
           </div>
         </div>
         <Badge variant={session.status === 'completed' ? 'success' : 'secondary'}>
-          {formatMessage({ id: `sessions.status.${session.status}` })}
+          {formatMessage({ id: statusLabelKeys[session.status] })}
         </Badge>
       </div>
 

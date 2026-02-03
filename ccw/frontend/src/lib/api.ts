@@ -248,9 +248,53 @@ function transformBackendSession(
   }
 
   // Preserve type field from backend, or infer from session_id pattern
-  // Multi-level type detection: backend.type > infer from name
-  const sessionType = (backendSession.type as SessionMetadata['type']) ||
+  // Multi-level type detection: backend.type > hasReview (for review sessions) > infer from name
+  let sessionType = (backendSession.type as SessionMetadata['type']) ||
     inferTypeFromName(backendSession.session_id);
+
+  // Transform backend review data to frontend format
+  // Backend has: hasReview, reviewSummary, reviewDimensions (separate fields)
+  // Frontend expects: review object with dimensions, findings count, etc.
+  const backendData = backendSession as unknown as {
+    hasReview?: boolean;
+    reviewSummary?: {
+      phase?: string;
+      severityDistribution?: Record<string, number>;
+      criticalFiles?: string[];
+      status?: string;
+    };
+    reviewDimensions?: Array<{
+      name: string;
+      findings?: Array<{ severity?: string }>;
+      summary?: unknown;
+      status?: string;
+    }>;
+  };
+
+  let review: SessionMetadata['review'] | undefined;
+  if (backendData.hasReview) {
+    // If session has review data but type is not 'review', auto-fix the type
+    if (sessionType !== 'review') {
+      sessionType = 'review';
+    }
+
+    // Build review object from backend data
+    const dimensions = backendData.reviewDimensions || [];
+    const totalFindings = dimensions.reduce(
+      (sum, dim) => sum + (dim.findings?.length || 0), 0
+    );
+
+    review = {
+      dimensions: dimensions.map(dim => ({
+        name: dim.name,
+        findings: dim.findings || []
+      })),
+      dimensions_count: dimensions.length,
+      findings: totalFindings,
+      iterations: undefined,
+      fixes: undefined
+    };
+  }
 
   return {
     session_id: backendSession.session_id,
@@ -265,8 +309,8 @@ function transformBackendSession(
     // Preserve additional fields if they exist
     has_plan: (backendSession as unknown as { has_plan?: boolean }).has_plan,
     plan_updated_at: (backendSession as unknown as { plan_updated_at?: string }).plan_updated_at,
-    has_review: (backendSession as unknown as { has_review?: boolean }).has_review,
-    review: (backendSession as unknown as { review?: SessionMetadata['review'] }).review,
+    has_review: backendData.hasReview,
+    review,
     summaries: (backendSession as unknown as { summaries?: SessionMetadata['summaries'] }).summaries,
     tasks: (backendSession as unknown as { tasks?: TaskData[] }).tasks,
   };
@@ -1904,6 +1948,14 @@ export interface ReviewSession {
 
 export interface ReviewSessionsResponse {
   reviewSessions?: ReviewSession[];
+  reviewData?: {
+    sessions?: Array<{
+      session_id: string;
+      dimensions: Array<{ name: string; findings?: Array<ReviewFinding> }>;
+      findings?: Array<ReviewFinding & { dimension: string }>;
+      progress?: unknown;
+    }>;
+  };
 }
 
 /**
@@ -1911,7 +1963,32 @@ export interface ReviewSessionsResponse {
  */
 export async function fetchReviewSessions(): Promise<ReviewSession[]> {
   const data = await fetchApi<ReviewSessionsResponse>('/api/data');
-  return data.reviewSessions || [];
+
+  // If reviewSessions field exists (legacy format), use it
+  if (data.reviewSessions && data.reviewSessions.length > 0) {
+    return data.reviewSessions;
+  }
+
+  // Otherwise, transform reviewData.sessions into ReviewSession format
+  if (data.reviewData?.sessions) {
+    return data.reviewData.sessions.map(session => ({
+      session_id: session.session_id,
+      title: session.session_id,
+      description: '',
+      type: 'review' as const,
+      phase: 'in-progress',
+      reviewDimensions: session.dimensions.map(dim => ({
+        name: dim.name,
+        findings: dim.findings || []
+      })),
+      _isActive: true,
+      created_at: undefined,
+      updated_at: undefined,
+      status: 'active'
+    }));
+  }
+
+  return [];
 }
 
 /**
