@@ -334,7 +334,7 @@ export async function execute(params: AskQuestionParams): Promise<ToolResult<Ask
     });
 
     // Send A2UI surface via WebSocket to frontend
-    const a2uiSurface = createA2UISurface(question, surfaceId);
+    const a2uiSurface = generateQuestionSurface(question, surfaceId);
     a2uiWebSocketHandler.sendSurface(a2uiSurface.surfaceUpdate);
 
     // Wait for answer
@@ -474,3 +474,11 @@ export const schema: ToolSchema = {
     required: ['question'],
   },
 };
+
+/**
+ * Tool handler for MCP integration
+ * Wraps the execute function to match the expected handler signature
+ */
+export async function handler(params: Record<string, unknown>): Promise<ToolResult<AskQuestionResult>> {
+  return execute(params as AskQuestionParams);
+}

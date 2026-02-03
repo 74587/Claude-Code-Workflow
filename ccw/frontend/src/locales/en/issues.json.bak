@@ -1,0 +1,196 @@
+{
+  "title": "Issues",
+  "description": "Track and manage issues",
+  "status": {
+    "open": "Open",
+    "inProgress": "In Progress",
+    "resolved": "Resolved",
+    "closed": "Closed",
+    "completed": "Completed"
+  },
+  "priority": {
+    "low": "Low",
+    "medium": "Medium",
+    "high": "High",
+    "critical": "Critical"
+  },
+  "actions": {
+    "create": "New Issue",
+    "edit": "Edit",
+    "delete": "Delete",
+    "viewDetails": "View Details",
+    "changeStatus": "Change Status",
+    "changePriority": "Change Priority",
+    "startProgress": "Start Progress",
+    "markResolved": "Mark Resolved",
+    "github": "Pull from GitHub"
+  },
+  "filters": {
+    "all": "All",
+    "open": "Open",
+    "inProgress": "In Progress",
+    "resolved": "Resolved",
+    "closed": "Closed",
+    "byPriority": "By Priority"
+  },
+  "emptyState": {
+    "title": "No Issues Found",
+    "message": "No issues match your current filter.",
+    "createFirst": "Create your first issue to get started"
+  },
+  "createDialog": {
+    "title": "Create New Issue",
+    "labels": {
+      "title": "Title",
+      "context": "Context",
+      "priority": "Priority"
+    },
+    "placeholders": {
+      "title": "Enter issue title...",
+      "context": "Describe the issue context..."
+    },
+    "buttons": {
+      "create": "Create",
+      "cancel": "Cancel",
+      "creating": "Creating..."
+    }
+  },
+  "card": {
+    "id": "ID",
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "solutions": "{count, plural, one {solution} other {solutions}}"
+  },
+  "queue": {
+    "title": "Queue",
+    "pageTitle": "Issue Queue",
+    "description": "Manage issue execution queue with execution groups",
+    "stats": {
+      "totalItems": "Total Items",
+      "groups": "Groups",
+      "tasks": "Tasks",
+      "solutions": "Solutions"
+    },
+    "actions": {
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "delete": "Delete",
+      "merge": "Merge",
+      "confirmDelete": "Are you sure you want to delete this queue?"
+    },
+    "executionGroup": "Execution Group",
+    "parallel": "Parallel",
+    "sequential": "Sequential",
+    "emptyState": "No queue data available",
+    "conflicts": "Conflicts detected in queue",
+    "noQueueData": "No queue data"
+  },
+  "discovery": {
+    "title": "Discovery",
+    "pageTitle": "Issue Discovery",
+    "description": "View and manage issue discovery sessions",
+    "totalSessions": "Total Sessions",
+    "completedSessions": "Completed",
+    "runningSessions": "Running",
+    "totalFindings": "Findings",
+    "sessionList": "Session List",
+    "noSessions": "No sessions found",
+    "noSessionsDescription": "Start a new discovery session to begin",
+    "findingsDetail": "Findings Detail",
+    "selectSession": "Select a session to view findings",
+    "sessionId": "Session ID",
+    "name": "Name",
+    "status": "Status",
+    "createdAt": "Created At",
+    "completedAt": "Completed At",
+    "progress": "Progress",
+    "findingsCount": "Findings Count",
+    "export": "Export JSON",
+    "exportSelected": "Export Selected ({count})",
+    "exporting": "Exporting...",
+    "exportAsIssues": "Export as Issues",
+    "severityBreakdown": "Severity Breakdown",
+    "typeBreakdown": "Type Breakdown",
+    "tabFindings": "Findings",
+    "tabProgress": "Progress",
+    "tabInfo": "Session Info",
+    "stats": {
+      "totalSessions": "Total Sessions",
+      "completed": "Completed",
+      "running": "Running",
+      "findings": "Findings"
+    },
+    "session": {
+      "status": {
+        "running": "Running",
+        "completed": "Completed",
+        "failed": "Failed"
+      },
+      "findings": "{count} findings",
+      "startedAt": "Started"
+    },
+    "findings": {
+      "title": "Findings",
+      "filters": {
+        "severity": "Severity",
+        "type": "Type",
+        "search": "Search findings..."
+      },
+      "severity": {
+        "all": "All Severities",
+        "critical": "Critical",
+        "high": "High",
+        "medium": "Medium",
+        "low": "Low"
+      },
+      "type": {
+        "all": "All Types"
+      },
+      "exportedStatus": {
+        "all": "All Export Status",
+        "exported": "Exported",
+        "notExported": "Not Exported"
+      },
+      "issueStatus": {
+        "all": "All Issue Status",
+        "hasIssue": "Has Issue",
+        "noIssue": "No Issue"
+      },
+      "noFindings": "No findings found",
+      "noFindingsDescription": "No matching findings found",
+      "searchPlaceholder": "Search findings...",
+      "filterBySeverity": "Filter by severity",
+      "filterByType": "Filter by type",
+      "filterByExported": "Filter by export status",
+      "filterByIssue": "Filter by issue link",
+      "allSeverities": "All severities",
+      "allTypes": "All types",
+      "showingCount": "Showing {count} findings",
+      "exported": "Exported",
+      "hasIssue": "Linked",
+      "export": "Export",
+      "selectAll": "Select All",
+      "deselectAll": "Deselect All"
+    },
+    "tabs": {
+      "findings": "Findings",
+      "progress": "Progress",
+      "info": "Session Info"
+    },
+    "emptyState": "No discovery sessions found",
+    "noSessionSelected": "Select a session to view findings",
+    "actions": {
+      "export": "Export Findings",
+      "refresh": "Refresh"
+    }
+  },
+  "hub": {
+    "title": "Issue Hub",
+    "description": "Unified management for issues, queues, and discoveries",
+    "tabs": {
+      "issues": "Issues",
+      "queue": "Queue",
+      "discovery": "Discovery"
+    }
+  }
+}

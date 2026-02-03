@@ -15,6 +15,9 @@ export type { UseConfigReturn } from './useConfig';
 export { useNotifications } from './useNotifications';
 export type { UseNotificationsReturn, ToastOptions } from './useNotifications';
 
+export { useWebSocket } from './useWebSocket';
+export type { UseWebSocketOptions, UseWebSocketReturn } from './useWebSocket';
+
 export { useWebSocketNotifications } from './useWebSocketNotifications';
 
 export { useSystemNotifications } from './useSystemNotifications';
@@ -140,7 +143,13 @@ export {
   useDeleteMcpServer,
   useToggleMcpServer,
   useMcpServerMutations,
+  useMcpTemplates,
+  useCreateTemplate,
+  useDeleteTemplate,
+  useInstallTemplate,
+  useProjectOperations,
   mcpServersKeys,
+  mcpTemplatesKeys,
 } from './useMcpServers';
 export type {
   UseMcpServersOptions,
@@ -149,6 +158,12 @@ export type {
   UseCreateMcpServerReturn,
   UseDeleteMcpServerReturn,
   UseToggleMcpServerReturn,
+  UseMcpTemplatesOptions,
+  UseMcpTemplatesReturn,
+  UseCreateTemplateReturn,
+  UseDeleteTemplateReturn,
+  UseInstallTemplateReturn,
+  UseProjectOperationsReturn,
 } from './useMcpServers';
 
 // ========== CLI ==========

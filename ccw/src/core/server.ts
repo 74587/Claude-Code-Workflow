@@ -457,7 +457,7 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
   const tokenManager = getTokenManager();
   const secretKey = tokenManager.getSecretKey();
   tokenManager.getOrCreateAuthToken();
-  const unauthenticatedPaths = new Set<string>(['/api/auth/token', '/api/csrf-token', '/api/hook']);
+  const unauthenticatedPaths = new Set<string>(['/api/auth/token', '/api/csrf-token', '/api/hook', '/api/test/ask-question']);
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://localhost:${serverPort}`);
@@ -527,6 +527,46 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Try each route handler in order
       // Order matters: more specific routes should come before general ones
 
+      // Test endpoint for ask_question tool (temporary for E2E testing)
+      if (pathname === '/api/test/ask-question' && req.method === 'POST') {
+        const { executeTool } = await import('../tools/index.js');
+
+        // Get question params from request body if provided, or use default
+        let questionParams = {
+          question: {
+            id: 'test-question-' + Date.now(),
+            type: 'confirm',
+            title: 'Test Question',
+            message: 'This is a test of the ask_question tool integration',
+            description: 'Click Confirm or Cancel to complete the test'
+          },
+          timeout: 30000
+        };
+
+        if (req.headers['content-type']?.includes('application/json')) {
+          try {
+            const chunks: Buffer[] = [];
+            for await (const chunk of req) {
+              chunks.push(chunk);
+            }
+            const body = JSON.parse(Buffer.concat(chunks).toString());
+            if (body.question) {
+              questionParams.question = { ...questionParams.question, ...body.question };
+            }
+            if (body.timeout) {
+              questionParams.timeout = body.timeout;
+            }
+          } catch (e) {
+            // Use defaults if parsing fails
+          }
+        }
+
+        const result = await executeTool('ask_question', questionParams);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+        return;
+      }
+
       // Auth routes (/api/csrf-token)
       if (await handleAuthRoutes(routeContext)) return;
 
@@ -540,8 +580,8 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleNavStatusRoutes(routeContext)) return;
       }
 
-      // Dashboard routes (/api/dashboard/*) - Dashboard initialization
-      if (pathname.startsWith('/api/dashboard/')) {
+      // Dashboard routes (/api/dashboard/*, /api/workflow-status-counts)
+      if (pathname.startsWith('/api/dashboard/') || pathname === '/api/workflow-status-counts') {
         if (await handleDashboardRoutes(routeContext)) return;
       }
 

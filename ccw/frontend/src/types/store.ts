@@ -805,3 +805,111 @@ export interface Suggestion {
   /** Whether suggestion was applied */
   applied?: boolean;
 }
+
+// ========================================
+// MCP Template Types
+// ========================================
+
+/**
+ * MCP Server Template for reusable configurations
+ * Matches backend schema from mcp-templates-db.ts
+ */
+export interface McpTemplate {
+  /** Template ID (database primary key) */
+  id?: number;
+  /** Unique template name */
+  name: string;
+  /** Template description */
+  description?: string;
+  /** Server command configuration */
+  serverConfig: {
+    /** Command to run */
+    command: string;
+    /** Command arguments */
+    args?: string[];
+    /** Environment variables */
+    env?: Record<string, string>;
+  };
+  /** Optional tags for categorization */
+  tags?: string[];
+  /** Category for grouping */
+  category?: string;
+  /** Creation timestamp */
+  createdAt?: number;
+  /** Last update timestamp */
+  updatedAt?: number;
+}
+
+/**
+ * MCP Template category response
+ */
+export interface McpTemplateCategory {
+  /** Category name */
+  name: string;
+  /** Number of templates in category */
+  count: number;
+}
+
+/**
+ * MCP Template installation request
+ */
+export interface McpTemplateInstallRequest {
+  /** Template name to install */
+  templateName: string;
+  /** Target project path (required for project scope) */
+  projectPath?: string;
+  /** Installation scope */
+  scope: 'global' | 'project';
+  /** Configuration type ('mcp' for .mcp.json, 'claude' for .claude.json) */
+  configType?: 'mcp' | 'claude';
+}
+
+/**
+ * All projects overview response
+ */
+export interface AllProjectsResponse {
+  /** List of all project paths */
+  projects: string[];
+  /** Current active project path */
+  currentProject?: string;
+}
+
+/**
+ * Other projects' MCP servers response
+ */
+export interface OtherProjectsServersResponse {
+  /** Map of project path to their MCP servers */
+  servers: Record<string, Array<{
+    name: string;
+    command: string;
+    args?: string[];
+    env?: Record<string, string>;
+    enabled: boolean;
+  }>>;
+}
+
+/**
+ * Cross-CLI MCP server copy request
+ */
+export interface CrossCliCopyRequest {
+  /** Source CLI (claude or codex) */
+  source: 'claude' | 'codex';
+  /** Target CLI (claude or codex) */
+  target: 'claude' | 'codex';
+  /** Server names to copy */
+  serverNames: string[];
+  /** Target project path (optional, defaults to current) */
+  projectPath?: string;
+}
+
+/**
+ * Cross-CLI copy response
+ */
+export interface CrossCliCopyResponse {
+  /** Copy success status */
+  success: boolean;
+  /** Successfully copied servers */
+  copied: string[];
+  /** Failed servers with error messages */
+  failed: Array<{ name: string; error: string }>;
+}

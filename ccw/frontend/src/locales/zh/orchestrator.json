@@ -142,6 +142,18 @@
     "empty": "没有可用的节点",
     "clear": "清除全部"
   },
+  "contextAssembler": {
+    "title": "上下文模板",
+    "helpTitle": "上下文组装语法",
+    "helpSyntax1": "引用节点输出: {{node:节点ID}}",
+    "helpSyntax2": "引用变量: {{var:变量名}}",
+    "helpSyntax3": "以自定义格式组合多个来源",
+    "addNode": "添加节点引用",
+    "selectNode": "选择节点...",
+    "addVariable": "添加变量引用",
+    "selectVariable": "选择变量...",
+    "manualEdit": "自定义模板 (使用 {{node:id}} 或 {{var:name}})"
+  },
   "propertyPanel": {
     "title": "属性",
     "open": "打开属性面板",
@@ -159,7 +171,9 @@
       "variableName": "变量名称",
       "condition": "例如: result.success === true",
       "trueLabel": "真",
-      "falseLabel": "假"
+      "falseLabel": "假",
+      "contextTemplate": "带有 {variable} 占位符的模板",
+      "promptText": "在此输入您的提示词..."
     },
     "labels": {
       "label": "标签",
@@ -178,7 +192,13 @@
       "trueLabel": "真标签",
       "falseLabel": "假标签",
       "joinMode": "加入模式",
-      "failFast": "快速失败 (首次错误时停止所有分支)"
+      "failFast": "快速失败 (首次错误时停止所有分支)",
+      "tool": "CLI 工具",
+      "mode": "模式",
+      "promptType": "提示词类型",
+      "sourceNodes": "源节点",
+      "contextTemplate": "上下文模板",
+      "promptText": "提示词文本"
     },
     "options": {
       "modeMainprocess": "主进程",
@@ -194,7 +214,18 @@
       "operationMove": "移动",
       "joinModeAll": "等待所有分支",
       "joinModeAny": "任一分支完成时完成",
-      "joinModeNone": "无同步"
+      "joinModeNone": "无同步",
+      "toolGemini": "Gemini",
+      "toolQwen": "Qwen",
+      "toolCodex": "Codex",
+      "modeAnalysis": "分析",
+      "modeWrite": "写入",
+      "modeReview": "审查",
+      "promptTypeOrganize": "组织",
+      "promptTypeRefine": "精炼",
+      "promptTypeSummarize": "总结",
+      "promptTypeTransform": "转换",
+      "promptTypeCustom": "自定义"
     }
   }
 }

@@ -1,8 +1,8 @@
 // ========================================
 // MCP Manager Page
 // ========================================
-// Manage MCP servers (Model Context Protocol) with project/global scope switching
-// Supports both Claude and Codex CLI modes
+// Manage MCP servers (Model Context Protocol) with tabbed interface
+// Supports Templates, Servers, and Cross-CLI tabs
 
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -27,15 +27,24 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { McpServerDialog } from '@/components/mcp/McpServerDialog';
 import { CliModeToggle, type CliMode } from '@/components/mcp/CliModeToggle';
-import { CodexMcpCard } from '@/components/mcp/CodexMcpCard';
+import { CodexMcpEditableCard } from '@/components/mcp/CodexMcpEditableCard';
 import { CcwToolsMcpCard } from '@/components/mcp/CcwToolsMcpCard';
+import { McpTemplatesSection } from '@/components/mcp/McpTemplatesSection';
+import { RecommendedMcpSection } from '@/components/mcp/RecommendedMcpSection';
+import { ConfigTypeToggle } from '@/components/mcp/ConfigTypeToggle';
+import { WindowsCompatibilityWarning } from '@/components/mcp/WindowsCompatibilityWarning';
+import { CrossCliCopyButton } from '@/components/mcp/CrossCliCopyButton';
+import { AllProjectsTable } from '@/components/mcp/AllProjectsTable';
+import { OtherProjectsSection } from '@/components/mcp/OtherProjectsSection';
+import { TabsNavigation } from '@/components/ui/TabsNavigation';
 import { useMcpServers, useMcpServerMutations } from '@/hooks';
 import {
   fetchCodexMcpServers,
   fetchCcwMcpConfig,
   updateCcwConfig,
+  codexRemoveServer,
+  codexToggleServer,
   type McpServer,
-  type CodexMcpServer,
   type CcwMcpConfig,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -190,6 +199,7 @@ function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, o
 
 export function McpManagerPage() {
   const { formatMessage } = useIntl();
+  const [activeTab, setActiveTab] = useState<'templates' | 'servers' | 'cross-cli'>('servers');
   const [searchQuery, setSearchQuery] = useState('');
   const [scopeFilter, setScopeFilter] = useState<'all' | 'project' | 'global'>('all');
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
@@ -197,6 +207,7 @@ export function McpManagerPage() {
   const [editingServer, setEditingServer] = useState<McpServer | undefined>(undefined);
   const [cliMode, setCliMode] = useState<CliMode>('claude');
   const [codexExpandedServers, setCodexExpandedServers] = useState<Set<string>>(new Set());
+  const [configType, setConfigType] = useState<'mcp-json' | 'claude-json'>('mcp-json');
 
   const {
     servers,
@@ -317,6 +328,44 @@ export function McpManagerPage() {
     ccwMcpQuery.refetch();
   };
 
+  // Template handlers
+  const handleInstallTemplate = (template: any) => {
+    setEditingServer({
+      name: template.name,
+      command: template.serverConfig.command,
+      args: template.serverConfig.args || [],
+      env: template.serverConfig.env,
+      scope: 'project',
+      enabled: true,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSaveAsTemplate = (serverName: string, config: { command: string; args: string[] }) => {
+    // This would open a dialog to save current server as template
+    // For now, just log it
+    console.log('Save as template:', serverName, config);
+  };
+
+  // Codex MCP handlers
+  const handleCodexRemove = async (serverName: string) => {
+    try {
+      await codexRemoveServer(serverName);
+      codexQuery.refetch();
+    } catch (error) {
+      console.error('Failed to remove Codex MCP server:', error);
+    }
+  };
+
+  const handleCodexToggle = async (serverName: string, enabled: boolean) => {
+    try {
+      await codexToggleServer(serverName, enabled);
+      codexQuery.refetch();
+    } catch (error) {
+      console.error('Failed to toggle Codex MCP server:', error);
+    }
+  };
+
   // Filter servers by search query
   const filteredServers = servers.filter((s) =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -372,7 +421,48 @@ export function McpManagerPage() {
         codexConfigPath={codexConfigPath}
       />
 
-      {/* Stats Cards - Claude mode only */}
+      {/* Tabbed Interface */}
+      <TabsNavigation
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as 'templates' | 'servers' | 'cross-cli')}
+        tabs={[
+          { value: 'templates', label: formatMessage({ id: 'mcp.tabs.templates' }) },
+          { value: 'servers', label: formatMessage({ id: 'mcp.tabs.servers' }) },
+          { value: 'cross-cli', label: formatMessage({ id: 'mcp.tabs.crossCli' }) },
+        ]}
+      />
+
+      {/* Tab Content: Templates */}
+      {activeTab === 'templates' && (
+        <div className="mt-4">
+          <McpTemplatesSection
+            onInstallTemplate={handleInstallTemplate}
+            onSaveAsTemplate={handleSaveAsTemplate}
+          />
+        </div>
+      )}
+
+      {/* Tab Content: Servers */}
+      {activeTab === 'servers' && (
+        <div className="mt-4 space-y-4">
+          {/* Windows Compatibility Warning */}
+          <WindowsCompatibilityWarning />
+
+          {/* Recommended MCP Servers */}
+          {cliMode === 'claude' && (
+            <RecommendedMcpSection onInstallComplete={() => refetch()} />
+          )}
+
+          {/* Config Type Toggle */}
+          {cliMode === 'claude' && (
+            <ConfigTypeToggle
+              currentType={configType}
+              onTypeChange={setConfigType}
+              existingServersCount={totalCount}
+            />
+          )}
+
+          {/* Stats Cards - Claude mode only */}
       {cliMode === 'claude' && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="p-4">
@@ -492,12 +582,15 @@ export function McpManagerPage() {
         <div className="space-y-3">
           {currentServers.map((server) => (
             cliMode === 'codex' ? (
-              <CodexMcpCard
+              <CodexMcpEditableCard
                 key={server.name}
-                server={server as CodexMcpServer}
+                server={server as McpServer}
                 enabled={server.enabled}
                 isExpanded={currentExpanded.has(server.name)}
                 onToggleExpand={() => currentToggleExpand(server.name)}
+                isEditable={true}
+                onRemove={handleCodexRemove}
+                onToggle={handleCodexToggle}
               />
             ) : (
               <McpServerCard
@@ -513,8 +606,46 @@ export function McpManagerPage() {
           ))}
         </div>
       )}
+        </div>
+      )}
 
-      {/* Add/Edit Dialog - Claude mode only */}
+      {/* Tab Content: Cross-CLI */}
+      {activeTab === 'cross-cli' && (
+        <div className="mt-4 space-y-4">
+          {/* Cross-CLI Copy Button */}
+          <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-foreground">
+                {formatMessage({ id: 'mcp.crossCli.title' })}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                {formatMessage({ id: 'mcp.crossCli.selectServersHint' })}
+              </p>
+            </div>
+            <CrossCliCopyButton
+              currentMode={cliMode}
+              onSuccess={() => refetch()}
+            />
+          </div>
+
+          {/* All Projects Table */}
+          <AllProjectsTable
+            maxProjects={10}
+            onProjectClick={(path) => console.log('Open project:', path)}
+            onOpenNewWindow={(path) => window.open(`/?project=${encodeURIComponent(path)}`, '_blank')}
+          />
+
+          {/* Other Projects Section */}
+          <OtherProjectsSection
+            onImportSuccess={(serverName, sourceProject) => {
+              console.log('Imported server:', serverName, 'from:', sourceProject);
+              refetch();
+            }}
+          />
+        </div>
+      )}
+
+      {/* Add/Edit Dialog - Claude mode only (shared across tabs) */}
       {cliMode === 'claude' && (
         <McpServerDialog
           mode={editingServer ? 'edit' : 'add'}

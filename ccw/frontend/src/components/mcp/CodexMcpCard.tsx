@@ -24,6 +24,8 @@ export interface CodexMcpCardProps {
   enabled: boolean;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  /** Optional: When true, indicates this card is in editable mode (for CodexMcpEditableCard extension) */
+  isEditable?: boolean;
 }
 
 // ========== Component ==========
@@ -33,6 +35,8 @@ export function CodexMcpCard({
   enabled,
   isExpanded,
   onToggleExpand,
+  // isEditable prop is for CodexMcpEditableCard extension compatibility
+  isEditable: _isEditable = false,
 }: CodexMcpCardProps) {
   const { formatMessage } = useIntl();
 

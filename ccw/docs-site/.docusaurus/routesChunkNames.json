@@ -1,182 +1,139 @@
 {
-  "/docs/__docusaurus/debug-e58": {
-    "__comp": "__comp---theme-debug-config-23-a-2ff",
-    "__context": {
-      "plugin": "plugin---docs-docusaurus-debugb-38-c84"
-    }
-  },
-  "/docs/__docusaurus/debug/config-2ce": {
-    "__comp": "__comp---theme-debug-config-23-a-2ff",
-    "__context": {
-      "plugin": "plugin---docs-docusaurus-debugb-38-c84"
-    }
-  },
-  "/docs/__docusaurus/debug/content-11b": {
-    "__comp": "__comp---theme-debug-contentba-8-ce7",
-    "__context": {
-      "plugin": "plugin---docs-docusaurus-debugb-38-c84"
-    },
-    "__props": "__props---docs-docusaurus-debug-content-344-8d5"
-  },
-  "/docs/__docusaurus/debug/globalData-f13": {
-    "__comp": "__comp---theme-debug-global-dataede-0fa",
-    "__context": {
-      "plugin": "plugin---docs-docusaurus-debugb-38-c84"
-    }
-  },
-  "/docs/__docusaurus/debug/metadata-bff": {
-    "__comp": "__comp---theme-debug-site-metadata-68-e-3d4",
-    "__context": {
-      "plugin": "plugin---docs-docusaurus-debugb-38-c84"
-    }
-  },
-  "/docs/__docusaurus/debug/registry-830": {
-    "__comp": "__comp---theme-debug-registry-679-501",
-    "__context": {
-      "plugin": "plugin---docs-docusaurus-debugb-38-c84"
-    }
-  },
-  "/docs/__docusaurus/debug/routes-13e": {
-    "__comp": "__comp---theme-debug-routes-946-699",
-    "__context": {
-      "plugin": "plugin---docs-docusaurus-debugb-38-c84"
-    }
-  },
   "/docs/docs-942": {
-    "__comp": "__comp---theme-docs-root-5-e-9-0b6",
+    "__comp": "5e95c892",
     "__context": {
-      "plugin": "plugin---docs-docsaba-31e"
+      "plugin": "aba21aa0"
     }
   },
   "/docs/docs-a90": {
-    "__comp": "__comp---theme-doc-version-roota-7-b-5de",
-    "__props": "__props---docs-docsa-20-f19"
+    "__comp": "a7bd4aaa",
+    "__props": "a2065270"
   },
   "/docs/docs-c2e": {
-    "__comp": "__comp---theme-doc-roota-94-67a"
+    "__comp": "a94703ab"
   },
   "/docs/docs/commands/cli/cli-init-c74": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-cli-cli-init-056-2d3"
+    "__comp": "17896441",
+    "content": "0566a0a8"
   },
   "/docs/docs/commands/cli/codex-review-937": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-cli-codex-reviewf-1-b-532"
+    "__comp": "17896441",
+    "content": "f1bf82ec"
   },
   "/docs/docs/commands/general/ccw-3fb": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-general-ccwf-48-4f9"
+    "__comp": "17896441",
+    "content": "f4817052"
   },
   "/docs/docs/commands/general/ccw-coordinator-a90": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-general-ccw-coordinatord-55-a04"
+    "__comp": "17896441",
+    "content": "d550a629"
   },
   "/docs/docs/commands/general/ccw-debug-663": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-general-ccw-debug-97-c-2c8"
+    "__comp": "17896441",
+    "content": "97c6e66a"
   },
   "/docs/docs/commands/general/ccw-plan-40b": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-general-ccw-plan-04-d-aa3"
+    "__comp": "17896441",
+    "content": "04db0a2e"
   },
   "/docs/docs/commands/general/ccw-test-99d": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-general-ccw-testcce-a5d"
+    "__comp": "17896441",
+    "content": "ccef5d0f"
   },
   "/docs/docs/commands/general/codex-coordinator-996": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-general-codex-coordinatorf-92-965"
+    "__comp": "17896441",
+    "content": "f9222419"
   },
   "/docs/docs/commands/general/flow-create-d91": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-general-flow-createfab-5a7"
+    "__comp": "17896441",
+    "content": "fabaf1c8"
   },
   "/docs/docs/commands/issue/issue-convert-to-plan-d90": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-issue-issue-convert-to-plan-5-c-7-428"
+    "__comp": "17896441",
+    "content": "5c7b2278"
   },
   "/docs/docs/commands/issue/issue-discover-2a1": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-issue-issue-discover-1-e-3-61d"
+    "__comp": "17896441",
+    "content": "1e3006f3"
   },
   "/docs/docs/commands/issue/issue-execute-abb": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-issue-issue-executefe-8-121"
+    "__comp": "17896441",
+    "content": "fe8e3dcf"
   },
   "/docs/docs/commands/issue/issue-from-brainstorm-72b": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-issue-issue-from-brainstorm-2-ec-ca5"
+    "__comp": "17896441",
+    "content": "2ecf8b4a"
   },
   "/docs/docs/commands/issue/issue-new-c58": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-issue-issue-new-4-ad-afb"
+    "__comp": "17896441",
+    "content": "4ad7db0f"
   },
   "/docs/docs/commands/issue/issue-plan-fd2": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-issue-issue-plana-6-c-1b0"
+    "__comp": "17896441",
+    "content": "a6c3df16"
   },
   "/docs/docs/commands/issue/issue-queue-1ce": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-issue-issue-queue-1-ba-06f"
+    "__comp": "17896441",
+    "content": "1bac9067"
   },
   "/docs/docs/commands/memory/memory-compact-74c": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-memory-memory-compact-7-a-1-f85"
+    "__comp": "17896441",
+    "content": "7a1ee27c"
   },
   "/docs/docs/commands/memory/memory-docs-full-cli-7a4": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-memory-memory-docs-full-cli-4-cc-b15"
+    "__comp": "17896441",
+    "content": "4cc74730"
   },
   "/docs/docs/commands/memory/memory-docs-related-cli-fb4": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-memory-memory-docs-related-cli-60-e-28a"
+    "__comp": "17896441",
+    "content": "60eef997"
   },
   "/docs/docs/commands/memory/memory-load-c66": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-memory-memory-load-157-920"
+    "__comp": "17896441",
+    "content": "157db180"
   },
   "/docs/docs/commands/memory/memory-update-full-b80": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-memory-memory-update-full-666-28e"
+    "__comp": "17896441",
+    "content": "666bb1bf"
   },
   "/docs/docs/commands/memory/memory-update-related-f0d": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-commands-memory-memory-update-related-611-f0a"
+    "__comp": "17896441",
+    "content": "611877e1"
   },
   "/docs/docs/faq-4b2": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-faqea-3-29f"
+    "__comp": "17896441",
+    "content": "ea313555"
   },
   "/docs/docs/overview-7df": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-overview-188-8fe"
+    "__comp": "17896441",
+    "content": "18891827"
   },
   "/docs/docs/workflows/faq-f47": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-workflows-faqbcf-a47"
+    "__comp": "17896441",
+    "content": "bcf6b37c"
   },
   "/docs/docs/workflows/introduction-4cb": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-workflows-introduction-9-f-4-dba"
+    "__comp": "17896441",
+    "content": "9f4ca91e"
   },
   "/docs/docs/workflows/level-1-ultra-lightweight-5c4": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-workflows-level-1-ultra-lightweightc-5-a-692"
+    "__comp": "17896441",
+    "content": "c5a82d8d"
   },
   "/docs/docs/workflows/level-2-rapid-ad8": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-workflows-level-2-rapid-19-b-a2f"
+    "__comp": "17896441",
+    "content": "19b64556"
   },
   "/docs/docs/workflows/level-3-standard-3ea": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-workflows-level-3-standardbdb-19a"
+    "__comp": "17896441",
+    "content": "bdb2b105"
   },
   "/docs/docs/workflows/level-4-brainstorm-f4f": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-workflows-level-4-brainstormd-04-69a"
+    "__comp": "17896441",
+    "content": "d045285b"
   },
   "/docs/docs/workflows/level-5-intelligent-84a": {
-    "__comp": "__comp---theme-doc-item-178-a40",
-    "content": "content---docs-docs-workflows-level-5-intelligent-186-435"
+    "__comp": "17896441",
+    "content": "186dcf4e"
   }
 }

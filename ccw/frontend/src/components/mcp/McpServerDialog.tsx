@@ -1,7 +1,7 @@
 // ========================================
 // MCP Server Dialog Component
 // ========================================
-// Add/Edit dialog for MCP server configuration with template presets
+// Add/Edit dialog for MCP server configuration with dynamic template loading
 
 import { useState, useEffect } from 'react';
 import { useIntl } from 'react-intl';
@@ -29,7 +29,7 @@ import {
   fetchMcpServers,
   type McpServer,
 } from '@/lib/api';
-import { mcpServersKeys } from '@/hooks';
+import { mcpServersKeys, useMcpTemplates } from '@/hooks';
 import { cn } from '@/lib/utils';
 
 // ========== Types ==========
@@ -42,14 +42,8 @@ export interface McpServerDialogProps {
   onSave?: () => void;
 }
 
-export interface McpTemplate {
-  id: string;
-  name: string;
-  description: string;
-  command: string;
-  args: string[];
-  env?: Record<string, string>;
-}
+// Re-export McpTemplate for convenience
+export type { McpTemplate } from '@/types/store';
 
 interface McpServerFormData {
   name: string;
@@ -67,32 +61,6 @@ interface FormErrors {
   env?: string;
 }
 
-// ========== Template Presets ==========
-
-const TEMPLATE_PRESETS: McpTemplate[] = [
-  {
-    id: 'npx-stdio',
-    name: 'NPX STDIO',
-    description: 'Node.js package using stdio transport',
-    command: 'npx',
-    args: ['{package}'],
-  },
-  {
-    id: 'python-stdio',
-    name: 'Python STDIO',
-    description: 'Python script using stdio transport',
-    command: 'python',
-    args: ['{script}.py'],
-  },
-  {
-    id: 'sse-server',
-    name: 'SSE Server',
-    description: 'HTTP server with Server-Sent Events transport',
-    command: 'node',
-    args: ['{server}.js'],
-  },
-];
-
 // ========== Component ==========
 
 export function McpServerDialog({
@@ -104,6 +72,9 @@ export function McpServerDialog({
 }: McpServerDialogProps) {
   const { formatMessage } = useIntl();
   const queryClient = useQueryClient();
+
+  // Fetch templates from backend
+  const { templates, isLoading: templatesLoading } = useMcpTemplates();
 
   // Form state
   const [formData, setFormData] = useState<McpServerFormData>({
@@ -181,17 +152,17 @@ export function McpServerDialog({
   };
 
   const handleTemplateSelect = (templateId: string) => {
-    const template = TEMPLATE_PRESETS.find((t) => t.id === templateId);
+    const template = templates.find((t) => t.name === templateId);
     if (template) {
       setFormData((prev) => ({
         ...prev,
-        command: template.command,
-        args: template.args,
-        env: template.env || {},
+        command: template.serverConfig.command,
+        args: template.serverConfig.args || [],
+        env: template.serverConfig.env || {},
       }));
-      setArgsInput(template.args.join(', '));
+      setArgsInput((template.serverConfig.args || []).join(', '));
       setEnvInput(
-        Object.entries(template.env || {})
+        Object.entries(template.serverConfig.env || {})
           .map(([k, v]) => `${k}=${v}`)
           .join('\n')
       );
@@ -324,23 +295,32 @@ export function McpServerDialog({
             <label className="text-sm font-medium text-foreground">
               {formatMessage({ id: 'mcp.dialog.form.template' })}
             </label>
-            <Select value={selectedTemplate} onValueChange={handleTemplateSelect}>
+            <Select value={selectedTemplate} onValueChange={handleTemplateSelect} disabled={templatesLoading}>
               <SelectTrigger className="w-full">
                 <SelectValue
-                  placeholder={formatMessage({ id: 'mcp.dialog.form.templatePlaceholder' })}
+                  placeholder={templatesLoading
+                    ? formatMessage({ id: 'mcp.templates.loading' })
+                    : formatMessage({ id: 'mcp.dialog.form.templatePlaceholder' })
+                  }
                 />
               </SelectTrigger>
               <SelectContent>
-                {TEMPLATE_PRESETS.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{template.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {template.description}
-                      </span>
-                    </div>
+                {templates.length === 0 ? (
+                  <SelectItem value="" disabled>
+                    {formatMessage({ id: 'mcp.templates.empty.title' })}
                   </SelectItem>
-                ))}
+                ) : (
+                  templates.map((template) => (
+                    <SelectItem key={template.name} value={template.name}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{template.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {template.description || formatMessage({ id: 'mcp.dialog.form.templatePlaceholder' })}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

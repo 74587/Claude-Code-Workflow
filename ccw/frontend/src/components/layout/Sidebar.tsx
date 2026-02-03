@@ -117,6 +117,7 @@ const navGroupDefinitions: NavGroupDef[] = [
     icon: Cog,
     items: [
       { path: '/settings', labelKey: 'navigation.main.settings', icon: Settings },
+      { path: '/settings/mcp', labelKey: 'navigation.main.mcp', icon: Server },
       { path: '/settings/rules', labelKey: 'navigation.main.rules', icon: Shield },
       { path: '/settings/codexlens', labelKey: 'navigation.main.codexlens', icon: Sparkles },
       { path: '/api-settings', labelKey: 'navigation.main.apiSettings', icon: Server },

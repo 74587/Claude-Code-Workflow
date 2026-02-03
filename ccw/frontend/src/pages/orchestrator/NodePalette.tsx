@@ -18,6 +18,8 @@ const nodeIcons: Record<FlowNodeType, React.FC<{ className?: string }>> = {
   'file-operation': FileText,
   conditional: GitBranch,
   parallel: GitMerge,
+  'cli-command': Terminal,
+  prompt: FileText,
 };
 
 // Color mapping for node types
@@ -26,6 +28,8 @@ const nodeColors: Record<FlowNodeType, string> = {
   'file-operation': 'bg-green-500 hover:bg-green-600',
   conditional: 'bg-amber-500 hover:bg-amber-600',
   parallel: 'bg-purple-500 hover:bg-purple-600',
+  'cli-command': 'bg-amber-500 hover:bg-amber-600',
+  prompt: 'bg-purple-500 hover:bg-purple-600',
 };
 
 const nodeBorderColors: Record<FlowNodeType, string> = {
@@ -33,6 +37,8 @@ const nodeBorderColors: Record<FlowNodeType, string> = {
   'file-operation': 'border-green-500',
   conditional: 'border-amber-500',
   parallel: 'border-purple-500',
+  'cli-command': 'border-amber-500',
+  prompt: 'border-purple-500',
 };
 
 interface NodePaletteProps {

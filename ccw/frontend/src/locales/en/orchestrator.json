@@ -143,6 +143,18 @@
     "empty": "No nodes available",
     "clear": "Clear all"
   },
+  "contextAssembler": {
+    "title": "Context Template",
+    "helpTitle": "Context Assembly Syntax",
+    "helpSyntax1": "Reference node output: {{node:node-id}}",
+    "helpSyntax2": "Reference variable: {{var:variableName}}",
+    "helpSyntax3": "Combine multiple sources in custom format",
+    "addNode": "Add Node Reference",
+    "selectNode": "Select a node...",
+    "addVariable": "Add Variable Reference",
+    "selectVariable": "Select a variable...",
+    "manualEdit": "Custom Template (use {{node:id}} or {{var:name}})"
+  },
   "propertyPanel": {
     "title": "Properties",
     "open": "Open properties panel",
@@ -160,7 +172,9 @@
       "variableName": "variableName",
       "condition": "e.g., result.success === true",
       "trueLabel": "True",
-      "falseLabel": "False"
+      "falseLabel": "False",
+      "contextTemplate": "Template with {variable} placeholders",
+      "promptText": "Enter your prompt here..."
     },
     "labels": {
       "label": "Label",
@@ -179,7 +193,13 @@
       "trueLabel": "True Label",
       "falseLabel": "False Label",
       "joinMode": "Join Mode",
-      "failFast": "Fail fast (stop all branches on first error)"
+      "failFast": "Fail fast (stop all branches on first error)",
+      "tool": "CLI Tool",
+      "mode": "Mode",
+      "promptType": "Prompt Type",
+      "sourceNodes": "Source Nodes",
+      "contextTemplate": "Context Template",
+      "promptText": "Prompt Text"
     },
     "options": {
       "modeMainprocess": "Main Process",
@@ -195,7 +215,18 @@
       "operationMove": "Move",
       "joinModeAll": "Wait for all branches",
       "joinModeAny": "Complete when any branch finishes",
-      "joinModeNone": "No synchronization"
+      "joinModeNone": "No synchronization",
+      "toolGemini": "Gemini",
+      "toolQwen": "Qwen",
+      "toolCodex": "Codex",
+      "modeAnalysis": "Analysis",
+      "modeWrite": "Write",
+      "modeReview": "Review",
+      "promptTypeOrganize": "Organize",
+      "promptTypeRefine": "Refine",
+      "promptTypeSummarize": "Summarize",
+      "promptTypeTransform": "Transform",
+      "promptTypeCustom": "Custom"
     }
   }
 }

@@ -85,9 +85,9 @@ export class A2UIWebSocketHandler {
     components: unknown[];
     initialState: Record<string, unknown>;
   }): number {
-    const message: A2UISurfaceMessage = {
+    const message = {
       type: 'a2ui-surface',
-      surfaceUpdate,
+      payload: surfaceUpdate,  // Frontend expects 'payload' not 'surfaceUpdate'
       timestamp: new Date().toISOString(),
     };
 
@@ -132,9 +132,9 @@ export class A2UIWebSocketHandler {
       initialState: Record<string, unknown>;
     }
   ): boolean {
-    const message: A2UISurfaceMessage = {
+    const message = {
       type: 'a2ui-surface',
-      surfaceUpdate,
+      payload: surfaceUpdate,  // Frontend expects 'payload' not 'surfaceUpdate'
       timestamp: new Date().toISOString(),
     };
 

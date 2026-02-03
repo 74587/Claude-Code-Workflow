@@ -9,6 +9,8 @@ import { Settings, X, Terminal, FileText, GitBranch, GitMerge, Trash2 } from 'lu
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { MultiNodeSelector, type NodeOption } from '@/components/ui/MultiNodeSelector';
+import { ContextAssembler } from '@/components/ui/ContextAssembler';
 import { useFlowStore } from '@/stores';
 import type {
   FlowNodeType,
@@ -16,8 +18,54 @@ import type {
   FileOperationNodeData,
   ConditionalNodeData,
   ParallelNodeData,
+  CliCommandNodeData,
+  PromptNodeData,
   NodeData,
 } from '@/types/flow';
+
+// ========== Common Form Field Components ==========
+
+interface LabelInputProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+function LabelInput({ value, onChange }: LabelInputProps) {
+  const { formatMessage } = useIntl();
+  return (
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-1">
+        {formatMessage({ id: 'orchestrator.propertyPanel.labels.label' })}
+      </label>
+      <Input
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.nodeLabel' })}
+      />
+    </div>
+  );
+}
+
+interface OutputVariableInputProps {
+  value?: string;
+  onChange: (value?: string) => void;
+}
+
+function OutputVariableInput({ value, onChange }: OutputVariableInputProps) {
+  const { formatMessage } = useIntl();
+  return (
+    <div>
+      <label className="block text-sm font-medium text-foreground mb-1">
+        {formatMessage({ id: 'orchestrator.propertyPanel.labels.outputVariable' })}
+      </label>
+      <Input
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value || undefined)}
+        placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.variableName' })}
+      />
+    </div>
+  );
+}
 
 interface PropertyPanelProps {
   className?: string;
@@ -29,6 +77,8 @@ const nodeIcons: Record<FlowNodeType, React.FC<{ className?: string }>> = {
   'file-operation': FileText,
   conditional: GitBranch,
   parallel: GitMerge,
+  'cli-command': Terminal,
+  prompt: FileText,
 };
 
 // Slash Command Property Editor
@@ -43,14 +93,7 @@ function SlashCommandProperties({
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.label' })}</label>
-        <Input
-          value={data.label || ''}
-          onChange={(e) => onChange({ label: e.target.value })}
-          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.nodeLabel' })}
-        />
-      </div>
+      <LabelInput value={data.label} onChange={(value) => onChange({ label: value })} />
 
       <div>
         <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.command' })}</label>
@@ -118,14 +161,7 @@ function SlashCommandProperties({
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.outputVariable' })}</label>
-        <Input
-          value={data.outputVariable || ''}
-          onChange={(e) => onChange({ outputVariable: e.target.value })}
-          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.variableName' })}
-        />
-      </div>
+      <OutputVariableInput value={data.outputVariable} onChange={(value) => onChange({ outputVariable: value })} />
     </div>
   );
 }
@@ -142,14 +178,7 @@ function FileOperationProperties({
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.label' })}</label>
-        <Input
-          value={data.label || ''}
-          onChange={(e) => onChange({ label: e.target.value })}
-          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.nodeLabel' })}
-        />
-      </div>
+      <LabelInput value={data.label} onChange={(value) => onChange({ label: value })} />
 
       <div>
         <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.operation' })}</label>
@@ -205,14 +234,7 @@ function FileOperationProperties({
         </div>
       )}
 
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.outputVariable' })}</label>
-        <Input
-          value={data.outputVariable || ''}
-          onChange={(e) => onChange({ outputVariable: e.target.value })}
-          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.variableName' })}
-        />
-      </div>
+      <OutputVariableInput value={data.outputVariable} onChange={(value) => onChange({ outputVariable: value })} />
 
       <div className="flex items-center gap-2">
         <input
@@ -242,14 +264,7 @@ function ConditionalProperties({
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.label' })}</label>
-        <Input
-          value={data.label || ''}
-          onChange={(e) => onChange({ label: e.target.value })}
-          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.nodeLabel' })}
-        />
-      </div>
+      <LabelInput value={data.label} onChange={(value) => onChange({ label: value })} />
 
       <div>
         <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.condition' })}</label>
@@ -280,14 +295,7 @@ function ConditionalProperties({
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.outputVariable' })}</label>
-        <Input
-          value={data.outputVariable || ''}
-          onChange={(e) => onChange({ outputVariable: e.target.value })}
-          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.variableName' })}
-        />
-      </div>
+      <OutputVariableInput value={data.outputVariable} onChange={(value) => onChange({ outputVariable: value })} />
     </div>
   );
 }
@@ -304,14 +312,7 @@ function ParallelProperties({
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.label' })}</label>
-        <Input
-          value={data.label || ''}
-          onChange={(e) => onChange({ label: e.target.value })}
-          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.nodeLabel' })}
-        />
-      </div>
+      <LabelInput value={data.label} onChange={(value) => onChange({ label: value })} />
 
       <div>
         <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.joinMode' })}</label>
@@ -353,14 +354,174 @@ function ParallelProperties({
         </label>
       </div>
 
+      <OutputVariableInput value={data.outputVariable} onChange={(value) => onChange({ outputVariable: value })} />
+    </div>
+  );
+}
+
+// CLI Command Property Editor
+function CliCommandProperties({
+  data,
+  onChange,
+}: {
+  data: CliCommandNodeData;
+  onChange: (updates: Partial<CliCommandNodeData>) => void;
+}) {
+  const { formatMessage } = useIntl();
+
+  return (
+    <div className="space-y-4">
+      <LabelInput value={data.label} onChange={(value) => onChange({ label: value })} />
+
       <div>
-        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.outputVariable' })}</label>
+        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.command' })}</label>
         <Input
-          value={data.outputVariable || ''}
-          onChange={(e) => onChange({ outputVariable: e.target.value })}
-          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.variableName' })}
+          value={data.command || ''}
+          onChange={(e) => onChange({ command: e.target.value })}
+          placeholder="PURPOSE: ... TASK: ..."
+          className="font-mono"
         />
       </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.arguments' })}</label>
+        <Input
+          value={data.args || ''}
+          onChange={(e) => onChange({ args: e.target.value })}
+          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.commandArgs' })}
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.tool' })}</label>
+        <select
+          value={data.tool || 'gemini'}
+          onChange={(e) => onChange({ tool: e.target.value as 'gemini' | 'qwen' | 'codex' })}
+          className="w-full h-10 px-3 rounded-md border border-border bg-background text-foreground text-sm"
+        >
+          <option value="gemini">{formatMessage({ id: 'orchestrator.propertyPanel.options.toolGemini' })}</option>
+          <option value="qwen">{formatMessage({ id: 'orchestrator.propertyPanel.options.toolQwen' })}</option>
+          <option value="codex">{formatMessage({ id: 'orchestrator.propertyPanel.options.toolCodex' })}</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.mode' })}</label>
+        <select
+          value={data.mode || 'analysis'}
+          onChange={(e) => onChange({ mode: e.target.value as 'analysis' | 'write' | 'review' })}
+          className="w-full h-10 px-3 rounded-md border border-border bg-background text-foreground text-sm"
+        >
+          <option value="analysis">{formatMessage({ id: 'orchestrator.propertyPanel.options.modeAnalysis' })}</option>
+          <option value="write">{formatMessage({ id: 'orchestrator.propertyPanel.options.modeWrite' })}</option>
+          <option value="review">{formatMessage({ id: 'orchestrator.propertyPanel.options.modeReview' })}</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.timeout' })}</label>
+        <Input
+          type="number"
+          value={data.execution?.timeout || ''}
+          onChange={(e) =>
+            onChange({
+              execution: {
+                ...data.execution,
+                timeout: e.target.value ? parseInt(e.target.value) : undefined,
+              },
+            })
+          }
+          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.timeout' })}
+        />
+      </div>
+
+      <OutputVariableInput value={data.outputVariable} onChange={(value) => onChange({ outputVariable: value })} />
+    </div>
+  );
+}
+
+// Prompt Property Editor
+function PromptProperties({
+  data,
+  onChange,
+}: {
+  data: PromptNodeData;
+  onChange: (updates: Partial<PromptNodeData>) => void;
+}) {
+  const { formatMessage } = useIntl();
+  const nodes = useFlowStore((state) => state.nodes);
+
+  // Build available nodes list for MultiNodeSelector and ContextAssembler
+  const availableNodes: NodeOption[] = nodes
+    .filter((n) => n.id !== useFlowStore.getState().selectedNodeId) // Exclude current node
+    .map((n) => ({
+      id: n.id,
+      label: n.data?.label || n.id,
+      type: n.type,
+    }));
+
+  // Build available variables list from nodes with outputVariable
+  const availableVariables = nodes
+    .filter((n) => n.data?.outputVariable)
+    .map((n) => n.data?.outputVariable as string)
+    .filter(Boolean);
+
+  return (
+    <div className="space-y-4">
+      <LabelInput value={data.label} onChange={(value) => onChange({ label: value })} />
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.promptType' })}</label>
+        <select
+          value={data.promptType || 'custom'}
+          onChange={(e) => onChange({ promptType: e.target.value as PromptNodeData['promptType'] })}
+          className="w-full h-10 px-3 rounded-md border border-border bg-background text-foreground text-sm"
+        >
+          <option value="organize">{formatMessage({ id: 'orchestrator.propertyPanel.options.promptTypeOrganize' })}</option>
+          <option value="refine">{formatMessage({ id: 'orchestrator.propertyPanel.options.promptTypeRefine' })}</option>
+          <option value="summarize">{formatMessage({ id: 'orchestrator.propertyPanel.options.promptTypeSummarize' })}</option>
+          <option value="transform">{formatMessage({ id: 'orchestrator.propertyPanel.options.promptTypeTransform' })}</option>
+          <option value="custom">{formatMessage({ id: 'orchestrator.propertyPanel.options.promptTypeCustom' })}</option>
+        </select>
+      </div>
+
+      {/* MultiNodeSelector for source nodes */}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.sourceNodes' })}</label>
+        <MultiNodeSelector
+          availableNodes={availableNodes}
+          selectedNodes={data.sourceNodes || []}
+          onChange={(selectedIds) => onChange({ sourceNodes: selectedIds })}
+          placeholder={formatMessage({ id: 'orchestrator.multiNodeSelector.empty' })}
+        />
+      </div>
+
+      {/* ContextAssembler for context template management */}
+      <div>
+        <ContextAssembler
+          value={data.contextTemplate || ''}
+          onChange={(value) => onChange({ contextTemplate: value })}
+          availableNodes={nodes.map((n) => ({
+            id: n.id,
+            label: n.data?.label || n.id,
+            type: n.type,
+            outputVariable: n.data?.outputVariable,
+          }))}
+          availableVariables={availableVariables}
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.promptText' })}</label>
+        <textarea
+          value={data.promptText || ''}
+          onChange={(e) => onChange({ promptText: e.target.value })}
+          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.promptText' })}
+          className="w-full h-32 px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm resize-none font-mono"
+        />
+      </div>
+
+      <OutputVariableInput value={data.outputVariable} onChange={(value) => onChange({ outputVariable: value })} />
     </div>
   );
 }
@@ -486,6 +647,18 @@ export function PropertyPanel({ className }: PropertyPanelProps) {
         {nodeType === 'parallel' && (
           <ParallelProperties
             data={selectedNode.data as ParallelNodeData}
+            onChange={handleChange}
+          />
+        )}
+        {nodeType === 'cli-command' && (
+          <CliCommandProperties
+            data={selectedNode.data as CliCommandNodeData}
+            onChange={handleChange}
+          />
+        )}
+        {nodeType === 'prompt' && (
+          <PromptProperties
+            data={selectedNode.data as PromptNodeData}
             onChange={handleChange}
           />
         )}

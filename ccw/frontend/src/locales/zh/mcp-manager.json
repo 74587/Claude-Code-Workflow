@@ -1,6 +1,11 @@
 {
   "title": "MCP 服务器",
   "description": "管理模型上下文协议 (MCP) 服务器以实现跨 CLI 集成",
+  "tabs": {
+    "templates": "模板",
+    "servers": "服务器",
+    "crossCli": "跨 CLI"
+  },
   "mode": {
     "claude": "Claude",
     "codex": "Codex"
@@ -25,7 +30,26 @@
   "codex": {
     "configPath": "配置路径",
     "readOnly": "只读",
-    "readOnlyNotice": "Codex MCP 服务器通过 config.toml 管理，无法在此处编辑。"
+    "readOnlyNotice": "Codex MCP 服务器通过 config.toml 管理，无法在此处编辑。",
+    "editable": "可编辑",
+    "editableNotice": "此服务器可以编辑。更改将保存到 config.toml。",
+    "deleteConfirm": {
+      "title": "删除服务器 \"{name}\"？",
+      "description": "这将从您的 Codex config.toml 文件中删除 \"{name}\"。此操作无法撤销。",
+      "confirm": "删除服务器",
+      "cancel": "取消",
+      "deleting": "删除中..."
+    }
+  },
+  "windows": {
+    "title": "Windows 兼容性",
+    "description": "某些 MCP 服务器命令需要 Windows 特定配置才能正确执行。",
+    "missingCount": "缺少 {count} 个命令",
+    "checking": "正在检查 Windows 兼容性...",
+    "fixing": "正在应用 Windows 兼容性修复...",
+    "autoFix": "自动修复命令",
+    "autoFixHint": "这将在命令前添加 'cmd /c' 前缀以提高 Windows 兼容性。",
+    "install": "下载"
   },
   "filters": {
     "all": "全部",
@@ -126,5 +150,148 @@
       "saveConfig": "保存配置",
       "saving": "保存中..."
     }
+  },
+  "recommended": {
+    "title": "推荐服务器",
+    "description": "一键快速安装热门 MCP 服务器",
+    "servers": {
+      "ace": {
+        "name": "ACE 工具",
+        "description": "高级代码搜索和上下文引擎，用于智能代码发现",
+        "command": "mcp__ace-tool__search_context",
+        "install": "安装 ACE",
+        "installing": "安装中..."
+      },
+      "chrome": {
+        "name": "Chrome 开发者工具",
+        "description": "浏览器自动化和调试工具，用于 Web 开发",
+        "command": "mcp__chrome-devtools",
+        "install": "安装 Chrome",
+        "installing": "安装中..."
+      },
+      "exa": {
+        "name": "Exa 搜索",
+        "description": "AI 驱动的网络搜索，支持实时抓取",
+        "command": "mcp__exa__search",
+        "install": "安装 Exa",
+        "installing": "安装中..."
+      }
+    },
+    "actions": {
+      "install": "安装",
+      "installing": "安装中...",
+      "installed": "已安装",
+      "viewAll": "查看全部服务器"
+    }
+  },
+  "configType": {
+    "label": "配置格式",
+    "mcpJson": ".mcp.json",
+    "claudeJson": ".claude.json",
+    "switchWarning": "切换配置格式不会迁移现有服务器。您需要在新格式中重新配置服务器。",
+    "switchConfirm": "切换配置格式",
+    "switchCancel": "保持当前格式"
+  },
+  "templates": {
+    "title": "模板",
+    "description": "可重用的 MCP 服务器配置模板",
+    "searchPlaceholder": "按名称或描述搜索模板...",
+    "filter": {
+      "allCategories": "所有类别"
+    },
+    "actions": {
+      "install": "安装模板",
+      "delete": "删除模板",
+      "saveAsTemplate": "保存为模板"
+    },
+    "loading": "正在加载模板...",
+    "empty": {
+      "title": "未找到模板",
+      "message": "创建您的第一个模板或从社区安装模板",
+      "createFirst": "创建第一个模板"
+    },
+    "saveDialog": {
+      "title": "保存为模板",
+      "name": "模板名称",
+      "namePlaceholder": "例如：我的 Python MCP 服务器",
+      "category": "类别",
+      "categoryPlaceholder": "选择一个类别",
+      "description": "描述",
+      "descriptionPlaceholder": "简要描述此模板的用途...",
+      "validation": {
+        "nameRequired": "模板名称不能为空"
+      },
+      "save": "保存模板",
+      "cancel": "取消"
+    },
+    "deleteDialog": {
+      "title": "删除模板",
+      "message": "确定要删除模板 \"{name}\" 吗？此操作无法撤销。",
+      "delete": "删除",
+      "deleting": "删除中...",
+      "cancel": "取消"
+    },
+    "categories": {
+      "stdio": "STDIO",
+      "sse": "SSE",
+      "language": "语言",
+      "official": "官方",
+      "custom": "自定义"
+    },
+    "feedback": {
+      "installSuccess": "模板安装成功",
+      "installError": "模板安装失败",
+      "deleteSuccess": "模板删除成功",
+      "deleteError": "模板删除失败",
+      "saveSuccess": "模板保存成功",
+      "saveError": "模板保存失败"
+    }
+  },
+  "crossCli": {
+    "button": "跨 CLI 复制",
+    "title": "在 CLI 之间复制 MCP 服务器",
+    "selectServers": "选择要从 {source} 复制的服务器",
+    "selectServersHint": "选择要复制的服务器。配置将转换为目标 CLI 格式。",
+    "noServers": "当前配置中没有可用的服务器",
+    "selectedCount": "已选择 {count} 个服务器",
+    "copying": "复制中...",
+    "copyButton": "复制到 {target}"
+  },
+  "allProjects": {
+    "title": "所有项目",
+    "name": "项目名称",
+    "servers": "服务器",
+    "lastModified": "最后修改",
+    "actions": "操作",
+    "current": "当前",
+    "openNewWindow": "在新窗口中打开",
+    "empty": "未找到项目",
+    "summary": "显示 {count} 个项目"
+  },
+  "otherProjects": {
+    "title": "其他项目",
+    "description": "从您的其他项目发现并导入 MCP 服务器",
+    "selectProject": "选择一个项目",
+    "selectProjectPlaceholder": "选择一个项目...",
+    "noProjects": "没有其他可用的项目",
+    "noServers": "在 {project} 中未找到 MCP 服务器",
+    "import": "导入",
+    "hint": "导入的服务器将添加到您的当前项目配置中"
+  },
+  "installCmd": {
+    "title": "安装命令",
+    "cliCommand": "CLI 命令",
+    "cliCommandHint": "在终端中运行此命令以安装服务器",
+    "jsonConfig": "JSON 配置",
+    "jsonConfigHint": "将此添加到您的 {filename} 文件中",
+    "envVars": "环境变量",
+    "steps": "安装步骤",
+    "step1": "在您的终端中运行上面的 CLI 命令",
+    "step2": "或将 JSON 配置手动添加到您的配置文件中",
+    "step3": "重启您的 CLI 以加载新服务器"
+  },
+  "enterprise": {
+    "label": "企业版",
+    "tooltip": "企业版 MCP 服务器"
   }
 }

@@ -61,29 +61,126 @@
     "updatedAt": "Updated",
     "solutions": "{count, plural, one {solution} other {solutions}}"
   },
+  "detail": {
+    "title": "Issue Details",
+    "tabs": {
+      "overview": "Overview",
+      "solutions": "Solutions",
+      "history": "History",
+      "json": "JSON"
+    },
+    "overview": {
+      "title": "Title",
+      "status": "Status",
+      "priority": "Priority",
+      "createdAt": "Created At",
+      "updatedAt": "Updated At",
+      "context": "Context",
+      "labels": "Labels",
+      "assignee": "Assignee"
+    },
+    "solutions": {
+      "title": "Solutions",
+      "empty": "No solutions yet",
+      "addSolution": "Add Solution",
+      "boundSolution": "Bound Solution"
+    },
+    "history": {
+      "title": "History",
+      "empty": "No history yet"
+    }
+  },
   "queue": {
     "title": "Queue",
     "pageTitle": "Issue Queue",
     "description": "Manage issue execution queue with execution groups",
+    "status": {
+      "pending": "Pending",
+      "ready": "Ready",
+      "executing": "Executing",
+      "completed": "Completed",
+      "failed": "Failed",
+      "blocked": "Blocked",
+      "active": "Active",
+      "inactive": "Inactive"
+    },
     "stats": {
       "totalItems": "Total Items",
       "groups": "Groups",
       "tasks": "Tasks",
-      "solutions": "Solutions"
+      "solutions": "Solutions",
+      "items": "Items",
+      "executionGroups": "Execution Groups"
     },
     "actions": {
       "activate": "Activate",
       "deactivate": "Deactivate",
       "delete": "Delete",
       "merge": "Merge",
+      "split": "Split",
       "confirmDelete": "Are you sure you want to delete this queue?"
     },
     "executionGroup": "Execution Group",
+    "executionGroups": "Execution Groups",
+    "parallelGroup": "Parallel Group",
+    "sequentialGroup": "Sequential Group",
+    "items": "items",
+    "itemCount": "{count} items",
+    "groups": "groups",
     "parallel": "Parallel",
     "sequential": "Sequential",
     "emptyState": "No queue data available",
+    "empty": "No data",
     "conflicts": "Conflicts detected in queue",
-    "noQueueData": "No queue data"
+    "noQueueData": "No queue data",
+    "error": {
+      "title": "Load Failed",
+      "message": "Unable to load queue data, please try again later"
+    },
+    "conflicts": {
+      "title": "Queue Conflicts",
+      "description": "conflicts"
+    },
+    "deleteDialog": {
+      "title": "Delete Queue",
+      "description": "Are you sure you want to delete this queue? This action cannot be undone."
+    },
+    "mergeDialog": {
+      "title": "Merge Queues",
+      "targetQueueLabel": "Target Queue ID",
+      "targetQueuePlaceholder": "Enter the queue ID to merge into"
+    },
+    "splitDialog": {
+      "title": "Split Queue",
+      "selected": "{count}/{total} selected",
+      "selectAll": "Select All",
+      "clearAll": "Clear All",
+      "noSelection": "Please select items to split",
+      "cannotSplitAll": "Cannot split all items, source queue must retain at least one item"
+    }
+  },
+  "solution": {
+    "issue": "Issue",
+    "solution": "Solution",
+    "shortIssue": "Issue",
+    "shortSolution": "Sol",
+    "tabs": {
+      "overview": "Overview",
+      "tasks": "Tasks",
+      "json": "JSON"
+    },
+    "overview": {
+      "executionInfo": "Execution Info",
+      "executionOrder": "Execution Order",
+      "semanticPriority": "Semantic Priority",
+      "group": "Execution Group",
+      "taskCount": "Task Count",
+      "dependencies": "Dependencies",
+      "filesTouched": "Files Touched"
+    },
+    "tasks": {
+      "comingSoon": "Task list coming soon"
+    }
   },
   "discovery": {
     "title": "Discovery",

@@ -14,7 +14,7 @@ import { NotificationPanel } from '@/components/notification';
 import { AskQuestionDialog } from '@/components/a2ui/AskQuestionDialog';
 import { useNotificationStore, selectCurrentQuestion } from '@/stores';
 import { useWorkflowStore } from '@/stores/workflowStore';
-import { useWebSocketNotifications } from '@/hooks';
+import { useWebSocketNotifications, useWebSocket } from '@/hooks';
 
 export interface AppShellProps {
   /** Initial sidebar collapsed state */
@@ -103,7 +103,8 @@ export function AppShell({
   const currentQuestion = useNotificationStore(selectCurrentQuestion);
   const setCurrentQuestion = useNotificationStore((state) => state.setCurrentQuestion);
 
-  // Initialize WebSocket notifications handler
+  // Initialize WebSocket connection and notifications handler
+  useWebSocket();
   useWebSocketNotifications();
 
   // Load persistent notifications from localStorage on mount

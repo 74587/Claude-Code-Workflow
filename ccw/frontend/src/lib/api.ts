@@ -3,7 +3,7 @@
 // ========================================
 // Typed fetch functions for API communication with CSRF token handling
 
-import type { SessionMetadata, TaskData, IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion } from '../types/store';
+import type { SessionMetadata, TaskData, IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion, McpTemplate, McpTemplateInstallRequest, AllProjectsResponse, OtherProjectsServersResponse, CrossCliCopyRequest, CrossCliCopyResponse } from '../types/store';
 
 // Re-export types for backward compatibility
 export type { IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion };
@@ -2105,6 +2105,136 @@ export async function addCodexMcpServer(server: Omit<McpServer, 'name'>): Promis
   return fetchApi<CodexMcpServer>('/api/mcp/codex-add', {
     method: 'POST',
     body: JSON.stringify(server),
+  });
+}
+
+/**
+ * Remove MCP server from Codex config.toml
+ */
+export async function codexRemoveServer(serverName: string): Promise<{ success: boolean; error?: string }> {
+  return fetchApi<{ success: boolean; error?: string }>('/api/codex-mcp-remove', {
+    method: 'POST',
+    body: JSON.stringify({ serverName }),
+  });
+}
+
+/**
+ * Toggle Codex MCP server enabled state
+ */
+export async function codexToggleServer(
+  serverName: string,
+  enabled: boolean
+): Promise<{ success: boolean; error?: string }> {
+  return fetchApi<{ success: boolean; error?: string }>('/api/codex-mcp-toggle', {
+    method: 'POST',
+    body: JSON.stringify({ serverName, enabled }),
+  });
+}
+
+// ========== MCP Templates API ==========
+
+/**
+ * Fetch all MCP templates from database
+ */
+export async function fetchMcpTemplates(): Promise<McpTemplate[]> {
+  const data = await fetchApi<{ success: boolean; templates: McpTemplate[] }>('/api/mcp-templates');
+  return data.templates ?? [];
+}
+
+/**
+ * Save or update MCP template
+ */
+export async function saveMcpTemplate(
+  template: Omit<McpTemplate, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<{ success: boolean; id?: number; error?: string }> {
+  return fetchApi<{ success: boolean; id?: number; error?: string }>('/api/mcp-templates', {
+    method: 'POST',
+    body: JSON.stringify(template),
+  });
+}
+
+/**
+ * Delete MCP template by name
+ */
+export async function deleteMcpTemplate(templateName: string): Promise<{ success: boolean; error?: string }> {
+  return fetchApi<{ success: boolean; error?: string }>(
+    `/api/mcp-templates/${encodeURIComponent(templateName)}`,
+    { method: 'DELETE' }
+  );
+}
+
+/**
+ * Install MCP template to project or global scope
+ */
+export async function installMcpTemplate(
+  request: McpTemplateInstallRequest
+): Promise<{ success: boolean; serverName?: string; error?: string }> {
+  return fetchApi<{ success: boolean; serverName?: string; error?: string }>('/api/mcp-templates/install', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * Search MCP templates by keyword
+ */
+export async function searchMcpTemplates(keyword: string): Promise<McpTemplate[]> {
+  const data = await fetchApi<{ success: boolean; templates: McpTemplate[] }>(
+    `/api/mcp-templates/search?q=${encodeURIComponent(keyword)}`
+  );
+  return data.templates ?? [];
+}
+
+/**
+ * Get all MCP template categories
+ */
+export async function fetchMcpTemplateCategories(): Promise<string[]> {
+  const data = await fetchApi<{ success: boolean; categories: string[] }>('/api/mcp-templates/categories');
+  return data.categories ?? [];
+}
+
+/**
+ * Get MCP templates by category
+ */
+export async function fetchMcpTemplatesByCategory(category: string): Promise<McpTemplate[]> {
+  const data = await fetchApi<{ success: boolean; templates: McpTemplate[] }>(
+    `/api/mcp-templates/category/${encodeURIComponent(category)}`
+  );
+  return data.templates ?? [];
+}
+
+// ========== Projects API ==========
+
+/**
+ * Fetch all projects for cross-project operations
+ */
+export async function fetchAllProjects(): Promise<AllProjectsResponse> {
+  return fetchApi<AllProjectsResponse>('/api/projects/all');
+}
+
+/**
+ * Fetch MCP servers from other projects
+ */
+export async function fetchOtherProjectsServers(
+  projectPaths?: string[]
+): Promise<OtherProjectsServersResponse> {
+  const url = projectPaths
+    ? `/api/projects/other-servers?paths=${projectPaths.map(p => encodeURIComponent(p)).join(',')}`
+    : '/api/projects/other-servers';
+  return fetchApi<OtherProjectsServersResponse>(url);
+}
+
+// ========== Cross-CLI Operations ==========
+
+/**
+ * Copy MCP servers between Claude and Codex CLIs
+ */
+export async function crossCliCopy(
+  request: CrossCliCopyRequest
+): Promise<CrossCliCopyResponse> {
+  return fetchApi<CrossCliCopyResponse>('/api/mcp/cross-cli-copy', {
+    method: 'POST',
+    body: JSON.stringify(request),
   });
 }
 

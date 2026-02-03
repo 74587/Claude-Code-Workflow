@@ -69,8 +69,9 @@ export function QueueActions({
   const [mergeTargetId, setMergeTargetId] = useState('');
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
-  // Get queue ID - IssueQueue interface doesn't have an id field, using tasks array as key
-  const queueId = (queue.tasks?.join(',') || queue.solutions?.join(',') || 'default');
+  // Use "current" as the queue ID for single-queue model
+  // This matches the API pattern where deactivate works on the current queue
+  const queueId = 'current';
 
   // Get all items from grouped_items for split dialog
   const allItems: QueueItem[] = Object.values(queue.grouped_items || {}).flat();

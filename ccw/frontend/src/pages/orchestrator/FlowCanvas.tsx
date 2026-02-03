@@ -171,6 +171,10 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
                 return '#f59e0b'; // amber-500
               case 'parallel':
                 return '#a855f7'; // purple-500
+              case 'cli-command':
+                return '#f59e0b'; // amber-500
+              case 'prompt':
+                return '#a855f7'; // purple-500
               default:
                 return '#6b7280'; // gray-500
             }
