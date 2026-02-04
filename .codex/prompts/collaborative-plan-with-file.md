@@ -385,26 +385,4 @@ User resumes: TASK="same task"
 
 ---
 
-## When to Use This Workflow
-
-### Use collaborative-plan-with-file when:
-- Complex tasks requiring multi-domain decomposition
-- Need structured planning with conflict detection
-- Tasks spanning multiple modules or systems
-- Want documented planning process for team review
-- Preparing for multi-step execution workflows
-
-### Use direct execution when:
-- Simple, single-domain tasks
-- Clear implementation path without ambiguity
-- Quick follow-up to existing planning session
-
-### Consider alternatives when:
-- Exploring ideas without clear direction → use `workflow:brainstorm-with-file`
-- Analyzing existing code/system → use `workflow:analyze-with-file`
-- Lightweight planning for simple features → use `workflow:lite-plan`
-- Ready to execute existing plan → use `workflow:unified-execute-with-file`
-
----
-
 **Now execute collaborative-plan-with-file for**: $TASK

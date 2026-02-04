@@ -562,27 +562,6 @@ Final synthesis:
 4. **Evolution Tracking**: Document how ideas changed and evolved
 5. **Action Items**: Generate specific, implementable recommendations
 
----
-
-## When to Use This Workflow
-
-### Use brainstorm-with-file when:
-- Starting a new feature/product without clear direction
-- Facing a complex problem with multiple possible solutions
-- Need to explore alternatives before committing to an approach
-- Want documented thinking process for team review
-- Combining multiple viewpoints (creative, pragmatic, systematic)
-
-### Use direct execution when:
-- Short, focused idea evaluation (single component)
-- Clear direction with minimal exploration needed
-- Quick follow-up to existing brainstorm session
-
-### Consider alternatives when:
-- Analyzing existing code/system → use `workflow:analyze-with-file`
-- Complex planning with parallel perspectives → use `workflow:collaborative-plan-with-file`
-- Ready to implement → use `workflow:lite-plan`
-- Debugging or troubleshooting → use `workflow:debug-with-file`
 
 ---
 

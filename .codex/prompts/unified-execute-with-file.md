@@ -434,27 +434,6 @@ Complete
 
 ---
 
-## When to Use This Workflow
-
-### Use unified-execute-with-file when:
-- Ready to execute a complete plan from planning workflow
-- Need reliable sequential task execution with tracking
-- Want automatic git commits for audit trail
-- Executing plans from brainstorm, analysis, or collaborative-plan workflows
-- Need to validate plan before full execution (--dry-run)
-
-### Use direct CLI execution when:
-- Single task that doesn't need full plan structure
-- Quick implementation without tracking overhead
-- Small changes that don't need git history
-
-### Consider alternatives when:
-- Still planning/exploring → use `workflow:brainstorm-with-file` or `workflow:analyze-with-file`
-- Need complex task planning → use `workflow:collaborative-plan-with-file`
-- Debugging or troubleshooting → use `workflow:debug-with-file`
-
----
-
 ## Command Examples
 
 ### Standard Execution

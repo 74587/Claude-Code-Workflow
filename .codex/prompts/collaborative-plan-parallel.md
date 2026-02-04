@@ -612,7 +612,6 @@ cat .workflow/.execution/EXEC-eg-001-*/execution-events.md
 cat .workflow/.execution/EXEC-eg-002-*/execution-events.md
 cat .workflow/.execution/EXEC-eg-003-*/execution-events.md
 ```
-```
 
 ### Step 4.3: Generate plan.md Summary (Extended)
 
@@ -703,28 +702,6 @@ Present session statistics with execution group information.
 3. **Prepare Environments**: Ensure multiple codex instances can run in parallel
 4. **Plan Merge Order**: Understand which groups must merge first
 
----
-
-## When to Use This Workflow
-
-### Use collaborative-plan-parallel when:
-- Complex tasks with multiple independent sub-systems
-- Want true parallel development with multiple developers/codex instances
-- Need structured multi-branch development strategy
-- Tasks have clear domain boundaries with minimal cross-dependencies
-- Large projects requiring faster completion through parallelization
-
-### Use collaborative-plan-with-file (original) when:
-- Smaller tasks with high inter-domain dependencies
-- Single developer/codex instance
-- Prefer simpler linear execution
-- Cross-domain coordination is critical
-
-### Consider alternatives when:
-- Simple single-domain tasks → use `workflow:lite-plan`
-- Exploring ideas → use `workflow:brainstorm-with-file`
-- Analyzing code → use `workflow:analyze-with-file`
-- Ready to execute existing plan → use `workflow:unified-execute-parallel` with GROUP parameter
 
 ---
 
