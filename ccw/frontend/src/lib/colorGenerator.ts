@@ -98,6 +98,25 @@ export function generateThemeFromHue(
     vars['--active'] = `${normalizedHue} 15% 90%`;
     vars['--focus'] = `${normalizedHue} 70% 60%`;
 
+    // Legacy variables for shadcn/ui compatibility
+    vars['--background'] = vars['--bg'];
+    vars['--foreground'] = vars['--text'];
+    vars['--card'] = vars['--surface'];
+    vars['--card-foreground'] = vars['--text'];
+    vars['--primary-foreground'] = `0 0% 100%`;
+    vars['--secondary-foreground'] = `0 0% 100%`;
+    vars['--accent-foreground'] = `0 0% 100%`;
+    vars['--destructive-foreground'] = `0 0% 100%`;
+    vars['--muted-foreground'] = vars['--text-secondary'];
+    vars['--sidebar-background'] = `${normalizedHue} 30% 97%`;
+    vars['--sidebar-foreground'] = vars['--text'];
+    vars['--input'] = vars['--border'];
+    vars['--ring'] = vars['--accent'];
+    vars['--indigo'] = `239 65% 60%`;
+    vars['--indigo-light'] = `239 65% 92%`;
+    vars['--orange'] = `25 90% 55%`;
+    vars['--orange-light'] = `25 90% 92%`;
+
   } else {
     // Dark mode: Medium saturation, low lightness backgrounds
     vars['--bg'] = `${normalizedHue} 20% 10%`;
@@ -163,6 +182,25 @@ export function generateThemeFromHue(
     vars['--hover'] = `${normalizedHue} 18% 16%`;
     vars['--active'] = `${normalizedHue} 20% 20%`;
     vars['--focus'] = `${normalizedHue} 70% 60%`;
+
+    // Legacy variables for shadcn/ui compatibility
+    vars['--background'] = vars['--bg'];
+    vars['--foreground'] = vars['--text'];
+    vars['--card'] = vars['--surface'];
+    vars['--card-foreground'] = vars['--text'];
+    vars['--primary-foreground'] = `${normalizedHue} 30% 10%`;
+    vars['--secondary-foreground'] = `0 0% 100%`;
+    vars['--accent-foreground'] = `${normalizedHue} 30% 10%`;
+    vars['--destructive-foreground'] = `0 0% 100%`;
+    vars['--muted-foreground'] = vars['--text-secondary'];
+    vars['--sidebar-background'] = `${normalizedHue} 25% 12%`;
+    vars['--sidebar-foreground'] = vars['--text'];
+    vars['--input'] = vars['--border'];
+    vars['--ring'] = vars['--accent'];
+    vars['--indigo'] = `239 60% 55%`;
+    vars['--indigo-light'] = `239 40% 20%`;
+    vars['--orange'] = `25 85% 50%`;
+    vars['--orange-light'] = `25 50% 20%`;
   }
 
   return vars;

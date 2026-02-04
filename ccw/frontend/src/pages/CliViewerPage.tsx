@@ -232,7 +232,7 @@ export function CliViewerPage() {
       invalidateActive();
     } else if (type === 'CLI_OUTPUT') {
       const p = payload as CliStreamOutputPayload;
-      const unitContent = p.unit?.content;
+      const unitContent = p.unit?.content ?? p.data;
       const unitType = p.unit?.type || p.chunkType;
 
       let content: string;
@@ -249,7 +249,7 @@ export function CliViewerPage() {
           content = JSON.stringify(unitContent);
         }
       } else {
-        content = typeof p.data === 'string' ? p.data : JSON.stringify(p.data);
+        content = typeof unitContent === 'string' ? unitContent : JSON.stringify(unitContent);
       }
 
       const lines = content.split('\n');

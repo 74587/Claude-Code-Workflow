@@ -107,6 +107,12 @@ export class PlainTextParser implements IOutputParser {
 export class JsonLinesParser implements IOutputParser {
   private buffer: string = '';
 
+  // Gemini "message" frames may be true deltas OR cumulative content (varies by CLI/version).
+  // Track cumulative assistant content so we can normalize cumulative frames into true deltas and
+  // avoid emitting duplicated content downstream (terminal + dashboard + final reconstruction).
+  private geminiAssistantCumulative: string = '';
+  private geminiSawAssistantDelta: boolean = false;
+
   /**
    * Classify non-JSON content to determine appropriate output type
    * Helps distinguish real errors from normal progress/output sent to stderr
@@ -294,12 +300,67 @@ export class JsonLinesParser implements IOutputParser {
     if (json.type === 'message' && json.role) {
       // Gemini assistant/user message
       if (json.role === 'assistant') {
-        // Delta messages use 'streaming_content' type - aggregated to agent_message later
-        // Non-delta (final) messages use 'agent_message' type directly
-        const outputType = json.delta === true ? 'streaming_content' : 'agent_message';
+        const content = json.content || '';
+        if (!content) {
+          return null;
+        }
+
+        // Delta messages use 'streaming_content' type (should be incremental).
+        // Some CLIs send delta=true with cumulative content; normalize to a suffix-delta when possible.
+        if (json.delta === true) {
+          this.geminiSawAssistantDelta = true;
+
+          // Duplicate frame
+          if (content === this.geminiAssistantCumulative) {
+            return null;
+          }
+
+          // Cumulative frame (new content starts with previous content)
+          if (this.geminiAssistantCumulative && content.startsWith(this.geminiAssistantCumulative)) {
+            const delta = content.slice(this.geminiAssistantCumulative.length);
+            this.geminiAssistantCumulative = content;
+            if (!delta) {
+              return null;
+            }
+            return {
+              type: 'streaming_content',
+              content: delta,
+              timestamp
+            };
+          }
+
+          // Unexpected reset/shortening: treat as a fresh stream restart to avoid negative slicing
+          if (this.geminiAssistantCumulative && this.geminiAssistantCumulative.startsWith(content)) {
+            this.geminiAssistantCumulative = content;
+            return {
+              type: 'streaming_content',
+              content,
+              timestamp
+            };
+          }
+
+          // True delta frame (append-only)
+          this.geminiAssistantCumulative += content;
+          return {
+            type: 'streaming_content',
+            content,
+            timestamp
+          };
+        }
+
+        // Non-delta (final) messages use 'agent_message' type directly.
+        // If we already streamed deltas for this assistant message, skip this final frame to avoid duplication
+        // in streaming UIs (frontend already has the assembled content from deltas).
+        if (this.geminiSawAssistantDelta) {
+          // Keep cumulative for potential later comparisons but do not emit.
+          this.geminiAssistantCumulative = content;
+          return null;
+        }
+
+        this.geminiAssistantCumulative = content;
         return {
-          type: outputType,
-          content: json.content || '',
+          type: 'agent_message',
+          content,
           timestamp
         };
       }
@@ -1141,17 +1202,24 @@ export function flattenOutputUnits(
   let processedUnits = units;
   const streamingUnits = units.filter(u => u.type === 'streaming_content');
   if (streamingUnits.length > 0) {
-    // Concatenate all streaming_content into one
-    const concatenatedContent = streamingUnits
-      .map(u => typeof u.content === 'string' ? u.content : '')
-      .join('');
+    const hasAgentMessage = units.some(u => u.type === 'agent_message');
+
+    // If a non-delta final agent_message already exists, prefer it and simply drop streaming_content.
+    // This avoids duplicated final output when providers emit BOTH streaming deltas and a final message frame.
     processedUnits = units.filter(u => u.type !== 'streaming_content');
-    // Add concatenated content as agent_message type for final output
-    processedUnits.push({
-      type: 'agent_message',
-      content: concatenatedContent,
-      timestamp: streamingUnits[streamingUnits.length - 1].timestamp
-    });
+
+    // If no agent_message exists, synthesize one from streaming_content (delta-only streams).
+    if (!hasAgentMessage) {
+      const concatenatedContent = streamingUnits
+        .map(u => typeof u.content === 'string' ? u.content : '')
+        .join('');
+
+      processedUnits.push({
+        type: 'agent_message',
+        content: concatenatedContent,
+        timestamp: streamingUnits[streamingUnits.length - 1].timestamp
+      });
+    }
   }
 
   // Filter units by type

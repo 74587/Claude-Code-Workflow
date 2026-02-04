@@ -8,8 +8,5 @@ export { NodePalette } from './NodePalette';
 export { PropertyPanel } from './PropertyPanel';
 export { FlowToolbar } from './FlowToolbar';
 
-// Node components
-export { SlashCommandNode } from './nodes/SlashCommandNode';
-export { FileOperationNode } from './nodes/FileOperationNode';
-export { ConditionalNode } from './nodes/ConditionalNode';
-export { ParallelNode } from './nodes/ParallelNode';
+// Node components (unified system)
+export { NodeWrapper, PromptTemplateNode, nodeTypes } from './nodes';

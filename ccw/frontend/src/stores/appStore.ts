@@ -51,8 +51,9 @@ const applyThemeToDocument = (
     document.documentElement.classList.remove('light', 'dark');
     document.documentElement.classList.add(resolvedTheme);
 
-    // Clear custom CSS variables list
+    // Clear custom CSS variables list (includes both new and legacy variables)
     const customVars = [
+      // New theme system variables
       '--bg', '--bg-secondary', '--surface', '--surface-hover',
       '--border', '--border-hover', '--text', '--text-secondary',
       '--text-tertiary', '--text-disabled', '--accent', '--accent-hover',
@@ -63,7 +64,13 @@ const applyThemeToDocument = (
       '--warning', '--warning-light', '--warning-text', '--error',
       '--error-light', '--error-text', '--info', '--info-light',
       '--info-text', '--destructive', '--destructive-hover', '--destructive-light',
-      '--hover', '--active', '--focus'
+      '--hover', '--active', '--focus',
+      // Legacy shadcn/ui compatibility variables
+      '--background', '--foreground', '--card', '--card-foreground',
+      '--primary-foreground', '--secondary-foreground', '--accent-foreground',
+      '--destructive-foreground', '--muted-foreground', '--sidebar-background',
+      '--sidebar-foreground', '--input', '--ring', '--indigo', '--indigo-light',
+      '--orange', '--orange-light'
     ];
 
     // Apply custom theme or preset theme
