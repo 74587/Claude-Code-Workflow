@@ -29,7 +29,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { A2UIRenderer } from '@/packages/a2ui-runtime/renderer/A2UIRenderer';
+import { A2UIRenderer } from '@/packages/a2ui-runtime/renderer';
 import { useNotificationStore, selectPersistentNotifications } from '@/stores';
 import type { Toast, NotificationAttachment, NotificationAction, ActionStateType, NotificationSource } from '@/types/store';
 
@@ -470,6 +470,7 @@ function NotificationItem({ notification, onDelete, onToggleRead }: Notification
   const hasActions = notification.actions && notification.actions.length > 0;
   const hasLegacyAction = notification.action && !hasActions;
   const hasAttachments = notification.attachments && notification.attachments.length > 0;
+  const sendA2UIAction = useNotificationStore((state) => state.sendA2UIAction);
 
   // Check if this is an A2UI notification
   const isA2UI = notification.type === 'a2ui' && notification.a2uiSurface;
@@ -486,10 +487,6 @@ function NotificationItem({ notification, onDelete, onToggleRead }: Notification
         isRead && 'opacity-70'
       )}
     >
-      {/* Unread dot indicator */}
-      {!isRead && (
-        <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-destructive" />
-      )}
       <div className="flex gap-3">
         {/* Icon */}
         <div className="mt-0.5">{getNotificationIcon(notification.type)}</div>
@@ -519,7 +516,7 @@ function NotificationItem({ notification, onDelete, onToggleRead }: Notification
                 {/* Read/Unread status badge */}
                 {!isRead && (
                   <Badge
-                    variant="destructive"
+                    variant="default"
                     className="h-5 px-1.5 text-[10px] font-medium shrink-0"
                   >
                     {formatMessage({ id: 'notifications.unread' }) || '未读'}
@@ -580,7 +577,23 @@ function NotificationItem({ notification, onDelete, onToggleRead }: Notification
           {/* A2UI Surface Content */}
           {isA2UI && notification.a2uiSurface ? (
             <div className="mt-2">
-              <A2UIRenderer surface={notification.a2uiSurface} />
+              <A2UIRenderer
+                surface={notification.a2uiSurface}
+                onAction={(actionId, params) => {
+                  // Send A2UI action back to backend via WebSocket
+                  sendA2UIAction(actionId, notification.a2uiSurface!.surfaceId, params);
+
+                  // ask_question surfaces should disappear after the user answers
+                  const maybeQuestionId = (notification.a2uiSurface?.initialState as Record<string, unknown> | undefined)
+                    ?.questionId;
+                  const isAskQuestionSurface = typeof maybeQuestionId === 'string';
+                  const resolvesQuestion = actionId === 'confirm' || actionId === 'cancel' || actionId === 'submit' || actionId === 'answer';
+
+                  if (isAskQuestionSurface && resolvesQuestion) {
+                    onDelete(notification.id);
+                  }
+                }}
+              />
             </div>
           ) : (
             <>

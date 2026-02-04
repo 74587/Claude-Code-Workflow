@@ -77,8 +77,11 @@ const initialState: NotificationState = {
   // A2UI surfaces
   a2uiSurfaces: new Map<string, SurfaceUpdate>(),
 
-  // Current question dialog state
+  // Current question dialog state (legacy)
   currentQuestion: null,
+
+  // Current popup card surface (for displayMode: 'popup')
+  currentPopupCard: null,
 
   // Action state tracking
   actionStates: new Map<string, ActionState>(),
@@ -365,8 +368,30 @@ export const useNotificationStore = create<NotificationStore>()(
       // ========== A2UI Actions ==========
 
       addA2UINotification: (surface: SurfaceUpdate, title = 'A2UI Surface') => {
+        // Route based on displayMode
+        if (surface.displayMode === 'popup') {
+          // Popup mode: show as centered dialog
+          set(
+            (state) => {
+              // Store surface in a2uiSurfaces Map
+              const newSurfaces = new Map(state.a2uiSurfaces);
+              newSurfaces.set(surface.surfaceId, surface);
+
+              return {
+                currentPopupCard: surface,
+                a2uiSurfaces: newSurfaces,
+              };
+            },
+            false,
+            'addA2UINotification (popup)'
+          );
+
+          return surface.surfaceId;
+        }
+
+        // Panel mode (default): show in notification panel
         const id = generateId();
-        const newToast: Toast = {
+        const newNotification: Toast = {
           id,
           type: 'a2ui',
           title,
@@ -375,29 +400,31 @@ export const useNotificationStore = create<NotificationStore>()(
           duration: 0, // Persistent by default
           a2uiSurface: surface,
           a2uiState: surface.initialState || {},
+          read: false,
         };
 
         set(
           (state) => {
-            // Add to toasts array
-            const { maxToasts } = state;
-            let newToasts = [...state.toasts, newToast];
-            if (newToasts.length > maxToasts) {
-              newToasts = newToasts.slice(-maxToasts);
-            }
-
             // Store surface in a2uiSurfaces Map
             const newSurfaces = new Map(state.a2uiSurfaces);
             newSurfaces.set(surface.surfaceId, surface);
 
             return {
-              toasts: newToasts,
+              // A2UI surfaces should be visible in the NotificationPanel (which reads persistentNotifications)
+              // and should also bump the unread badge in the header.
+              persistentNotifications: [newNotification, ...state.persistentNotifications],
               a2uiSurfaces: newSurfaces,
+              // Auto-open panel for interactive A2UI surfaces
+              isPanelVisible: true,
             };
           },
           false,
-          'addA2UINotification'
+          'addA2UINotification (panel)'
         );
+
+        // Persist to localStorage (same behavior as addPersistentNotification)
+        const state = get();
+        saveToStorage(state.persistentNotifications);
 
         return id;
       },
@@ -416,19 +443,39 @@ export const useNotificationStore = create<NotificationStore>()(
               });
             }
 
-            // Update notification's a2uiState
+            // Update notification's a2uiState (both toast queue and persistent panel list)
             const newToasts = state.toasts.map((toast) => {
               if (toast.a2uiSurface && toast.a2uiSurface.surfaceId === surfaceId) {
                 return {
                   ...toast,
                   a2uiState: { ...toast.a2uiState, ...updates },
+                  a2uiSurface: surface
+                    ? { ...toast.a2uiSurface, initialState: { ...toast.a2uiSurface.initialState, ...updates } }
+                    : toast.a2uiSurface,
                 };
               }
               return toast;
             });
 
+            const newPersistentNotifications = state.persistentNotifications.map((notification) => {
+              if (notification.a2uiSurface && notification.a2uiSurface.surfaceId === surfaceId) {
+                return {
+                  ...notification,
+                  a2uiState: { ...notification.a2uiState, ...updates },
+                  a2uiSurface: surface
+                    ? {
+                        ...notification.a2uiSurface,
+                        initialState: { ...notification.a2uiSurface.initialState, ...updates },
+                      }
+                    : notification.a2uiSurface,
+                };
+              }
+              return notification;
+            });
+
             return {
               toasts: newToasts,
+              persistentNotifications: newPersistentNotifications,
               a2uiSurfaces: newSurfaces,
             };
           },
@@ -457,6 +504,12 @@ export const useNotificationStore = create<NotificationStore>()(
       setCurrentQuestion: (question: any) => {
         set({ currentQuestion: question }, false, 'setCurrentQuestion');
       },
+
+      // ========== Current Popup Card Actions ==========
+
+      setCurrentPopupCard: (surface: SurfaceUpdate | null) => {
+        set({ currentPopupCard: surface }, false, 'setCurrentPopupCard');
+      },
     }),
     { name: 'NotificationStore' }
   )
@@ -478,6 +531,7 @@ export const selectIsPanelVisible = (state: NotificationStore) => state.isPanelV
 export const selectPersistentNotifications = (state: NotificationStore) =>
   state.persistentNotifications;
 export const selectCurrentQuestion = (state: NotificationStore) => state.currentQuestion;
+export const selectCurrentPopupCard = (state: NotificationStore) => state.currentPopupCard;
 
 // Helper to create toast shortcuts
 export const toast = {

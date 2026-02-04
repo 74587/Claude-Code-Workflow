@@ -46,6 +46,7 @@ export {
   selectIsPanelVisible,
   selectPersistentNotifications,
   selectCurrentQuestion,
+  selectCurrentPopupCard,
   toast,
 } from './notificationStore';
 

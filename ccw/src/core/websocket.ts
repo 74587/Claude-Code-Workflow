@@ -165,41 +165,51 @@ export function handleWebSocketUpgrade(req: IncomingMessage, socket: Duplex, _he
   console.log(`[WS] Client connected (${wsClients.size} total)`);
 
   // Handle incoming messages
+  let pendingBuffer = Buffer.alloc(0);
+
   socket.on('data', (buffer: Buffer) => {
+    // Buffers may contain partial frames or multiple frames; accumulate and parse in a loop.
+    pendingBuffer = Buffer.concat([pendingBuffer, buffer]);
+
     try {
-      const frame = parseWebSocketFrame(buffer);
-      if (!frame) return;
+      while (true) {
+        const frame = parseWebSocketFrame(pendingBuffer);
+        if (!frame) return;
 
-      const { opcode, payload } = frame;
+        const { opcode, payload, frameLength } = frame;
+        pendingBuffer = pendingBuffer.slice(frameLength);
 
-      switch (opcode) {
-        case 0x1: // Text frame
-          if (payload) {
-            console.log('[WS] Received:', payload);
-            // Try to handle as A2UI message
-            const handledAsA2UI = handleA2UIMessage(payload, a2uiWebSocketHandler, handleAnswer);
-            if (handledAsA2UI) {
-              console.log('[WS] Handled as A2UI message');
+        switch (opcode) {
+          case 0x1: // Text frame
+            if (payload) {
+              console.log('[WS] Received:', payload);
+              // Try to handle as A2UI message
+              const handledAsA2UI = handleA2UIMessage(payload, a2uiWebSocketHandler, handleAnswer);
+              if (handledAsA2UI) {
+                console.log('[WS] Handled as A2UI message');
+              }
             }
+            break;
+          case 0x8: // Close frame
+            socket.end();
+            return;
+          case 0x9: { // Ping frame - respond with Pong
+            const pongFrame = Buffer.alloc(2);
+            pongFrame[0] = 0x8A; // Pong opcode with FIN bit
+            pongFrame[1] = 0x00; // No payload
+            socket.write(pongFrame);
+            break;
           }
-          break;
-        case 0x8: // Close frame
-          socket.end();
-          break;
-        case 0x9: // Ping frame - respond with Pong
-          const pongFrame = Buffer.alloc(2);
-          pongFrame[0] = 0x8A; // Pong opcode with FIN bit
-          pongFrame[1] = 0x00; // No payload
-          socket.write(pongFrame);
-          break;
-        case 0xA: // Pong frame - ignore
-          break;
-        default:
-          // Ignore other frame types (binary, continuation)
-          break;
+          case 0xA: // Pong frame - ignore
+            break;
+          default:
+            // Ignore other frame types (binary, continuation)
+            break;
+        }
       }
     } catch (e) {
-      // Ignore parse errors
+      // On parse error, drop the buffered data to avoid unbounded growth.
+      pendingBuffer = Buffer.alloc(0);
     }
   });
 
@@ -218,7 +228,7 @@ export function handleWebSocketUpgrade(req: IncomingMessage, socket: Duplex, _he
  * Parse WebSocket frame (simplified)
  * Returns { opcode, payload } or null
  */
-export function parseWebSocketFrame(buffer: Buffer): { opcode: number; payload: string } | null {
+export function parseWebSocketFrame(buffer: Buffer): { opcode: number; payload: string; frameLength: number } | null {
   if (buffer.length < 2) return null;
 
   const firstByte = buffer[0];
@@ -234,18 +244,24 @@ export function parseWebSocketFrame(buffer: Buffer): { opcode: number; payload: 
 
   let offset = 2;
   if (payloadLength === 126) {
+    if (buffer.length < 4) return null;
     payloadLength = buffer.readUInt16BE(2);
     offset = 4;
   } else if (payloadLength === 127) {
+    if (buffer.length < 10) return null;
     payloadLength = Number(buffer.readBigUInt64BE(2));
     offset = 10;
   }
 
   let mask: Buffer | null = null;
   if (isMasked) {
+    if (buffer.length < offset + 4) return null;
     mask = buffer.slice(offset, offset + 4);
     offset += 4;
   }
+
+  const frameLength = offset + payloadLength;
+  if (buffer.length < frameLength) return null;
 
   const payload = buffer.slice(offset, offset + payloadLength);
 
@@ -255,7 +271,7 @@ export function parseWebSocketFrame(buffer: Buffer): { opcode: number; payload: 
     }
   }
 
-  return { opcode, payload: payload.toString('utf8') };
+  return { opcode, payload: payload.toString('utf8'), frameLength };
 }
 
 /**

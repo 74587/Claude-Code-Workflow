@@ -501,8 +501,11 @@ export interface NotificationState {
   // A2UI surfaces (Map of surfaceId to SurfaceUpdate)
   a2uiSurfaces: Map<string, SurfaceUpdate>;
 
-  // Current question dialog state
+  // Current question dialog state (legacy)
   currentQuestion: AskQuestionPayload | null;
+
+  // Current popup card surface (for displayMode: 'popup')
+  currentPopupCard: SurfaceUpdate | null;
 
   // Action state tracking (Map of actionKey to ActionState)
   actionStates: Map<string, ActionState>;
@@ -547,6 +550,9 @@ export interface NotificationActions {
 
   // Current question actions
   setCurrentQuestion: (question: AskQuestionPayload | null) => void;
+
+  // Current popup card actions (for displayMode: 'popup')
+  setCurrentPopupCard: (surface: SurfaceUpdate | null) => void;
 }
 
 export type NotificationStore = NotificationState & NotificationActions;

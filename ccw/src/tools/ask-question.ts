@@ -255,6 +255,32 @@ function generateQuestionSurface(question: Question, surfaceId: string): {
           },
         },
       });
+
+      // Submit/cancel actions for multi-select so users can choose multiple options before resolving
+      components.push({
+        id: 'submit-btn',
+        component: {
+          Button: {
+            onClick: { actionId: 'submit', parameters: { questionId: question.id } },
+            content: {
+              Text: { text: { literalString: 'Submit' } },
+            },
+            variant: 'primary',
+          },
+        },
+      });
+      components.push({
+        id: 'cancel-btn',
+        component: {
+          Button: {
+            onClick: { actionId: 'cancel', parameters: { questionId: question.id } },
+            content: {
+              Text: { text: { literalString: 'Cancel' } },
+            },
+            variant: 'secondary',
+          },
+        },
+      });
       break;
     }
 
@@ -284,6 +310,8 @@ function generateQuestionSurface(question: Question, surfaceId: string): {
         options: question.options,
         required: question.required,
       },
+      /** Display mode: 'popup' for centered dialog (interactive questions) */
+      displayMode: 'popup' as const,
     },
   };
 }

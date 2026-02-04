@@ -16,7 +16,9 @@ describe('NotificationStore A2UI Methods', () => {
       a2uiSurfaces: new Map(),
       currentQuestion: null,
       persistentNotifications: [],
+      isPanelVisible: false,
     });
+    localStorage.removeItem('ccw_notifications');
     vi.clearAllMocks();
   });
 
@@ -26,7 +28,7 @@ describe('NotificationStore A2UI Methods', () => {
   });
 
   describe('addA2UINotification()', () => {
-    it('should add A2UI notification to toasts array', () => {
+    it('should add A2UI notification to persistentNotifications array', () => {
       const surface: SurfaceUpdate = {
         surfaceId: 'test-surface',
         components: [
@@ -44,14 +46,17 @@ describe('NotificationStore A2UI Methods', () => {
         result.current.addA2UINotification(surface, 'Test Surface');
       });
 
-      expect(result.current.toasts).toHaveLength(1);
-      expect(result.current.toasts[0]).toMatchObject({
+      expect(result.current.toasts).toHaveLength(0);
+      expect(result.current.persistentNotifications).toHaveLength(1);
+      expect(result.current.isPanelVisible).toBe(true);
+      expect(result.current.persistentNotifications[0]).toMatchObject({
         type: 'a2ui',
         title: 'Test Surface',
         a2uiSurface: surface,
         a2uiState: { key: 'value' },
         dismissible: true,
         duration: 0, // Persistent by default
+        read: false,
       });
     });
 
@@ -76,7 +81,7 @@ describe('NotificationStore A2UI Methods', () => {
       expect(result.current.a2uiSurfaces.get('surface-123')).toEqual(surface);
     });
 
-    it('should respect maxToasts limit for A2UI notifications', () => {
+    it('should not be constrained by maxToasts (A2UI uses persistentNotifications)', () => {
       const { result } = renderHook(() => useNotificationStore());
 
       // Set max toasts to 3
@@ -94,10 +99,10 @@ describe('NotificationStore A2UI Methods', () => {
         });
       }
 
-      // Should only keep last 3
-      expect(result.current.toasts).toHaveLength(3);
-      expect(result.current.toasts[0].a2uiSurface?.surfaceId).toBe('surface-1');
-      expect(result.current.toasts[2].a2uiSurface?.surfaceId).toBe('surface-3');
+      expect(result.current.toasts).toHaveLength(0);
+      expect(result.current.persistentNotifications).toHaveLength(4);
+      expect(result.current.persistentNotifications[0].a2uiSurface?.surfaceId).toBe('surface-3');
+      expect(result.current.persistentNotifications[3].a2uiSurface?.surfaceId).toBe('surface-0');
     });
 
     it('should use default title when not provided', () => {
@@ -112,10 +117,10 @@ describe('NotificationStore A2UI Methods', () => {
         result.current.addA2UINotification(surface);
       });
 
-      expect(result.current.toasts[0].title).toBe('A2UI Surface');
+      expect(result.current.persistentNotifications[0].title).toBe('A2UI Surface');
     });
 
-    it('should return toast ID', () => {
+    it('should return notification ID', () => {
       const surface: SurfaceUpdate = {
         surfaceId: 'test',
         components: [{ id: 'c1', component: { Text: { text: { literalString: 'Test' } } } }],
@@ -123,14 +128,14 @@ describe('NotificationStore A2UI Methods', () => {
 
       const { result } = renderHook(() => useNotificationStore());
 
-      let toastId: string;
+      let notificationId: string;
       act(() => {
-        toastId = result.current.addA2UINotification(surface);
+        notificationId = result.current.addA2UINotification(surface);
       });
 
-      expect(toastId).toBeDefined();
-      expect(typeof toastId).toBe('string');
-      expect(result.current.toasts[0].id).toBe(toastId);
+      expect(notificationId).toBeDefined();
+      expect(typeof notificationId).toBe('string');
+      expect(result.current.persistentNotifications[0].id).toBe(notificationId);
     });
 
     it('should include initialState in a2uiState', () => {
@@ -146,7 +151,7 @@ describe('NotificationStore A2UI Methods', () => {
         result.current.addA2UINotification(surface);
       });
 
-      expect(result.current.toasts[0].a2uiState).toEqual({ counter: 0, user: 'Alice' });
+      expect(result.current.persistentNotifications[0].a2uiState).toEqual({ counter: 0, user: 'Alice' });
     });
 
     it('should default to empty a2uiState when initialState is not provided', () => {
@@ -161,12 +166,12 @@ describe('NotificationStore A2UI Methods', () => {
         result.current.addA2UINotification(surface);
       });
 
-      expect(result.current.toasts[0].a2uiState).toEqual({});
+      expect(result.current.persistentNotifications[0].a2uiState).toEqual({});
     });
   });
 
   describe('updateA2UIState()', () => {
-    it('should update a2uiState for matching toast', () => {
+    it('should update a2uiState for matching notification', () => {
       const surface: SurfaceUpdate = {
         surfaceId: 'test-surface',
         components: [{ id: 'c1', component: { Text: { text: { literalString: 'Test' } } } }],
@@ -183,7 +188,7 @@ describe('NotificationStore A2UI Methods', () => {
         result.current.updateA2UIState('test-surface', { count: 5, newField: 'value' });
       });
 
-      expect(result.current.toasts[0].a2uiState).toEqual({ count: 5, newField: 'value' });
+      expect(result.current.persistentNotifications[0].a2uiState).toEqual({ count: 5, newField: 'value' });
     });
 
     it('should update surface initialState in a2uiSurfaces Map', () => {
@@ -207,7 +212,7 @@ describe('NotificationStore A2UI Methods', () => {
       expect(updatedSurface?.initialState).toEqual({ value: 'updated' });
     });
 
-    it('should not affect other toasts with different surface IDs', () => {
+    it('should not affect other notifications with different surface IDs', () => {
       const { result } = renderHook(() => useNotificationStore());
 
       act(() => {
@@ -227,8 +232,9 @@ describe('NotificationStore A2UI Methods', () => {
         result.current.updateA2UIState('surface-1', { value: 'A-updated' });
       });
 
-      expect(result.current.toasts[0].a2uiState).toEqual({ value: 'A-updated' });
-      expect(result.current.toasts[1].a2uiState).toEqual({ value: 'B' });
+      // addA2UINotification prepends, so surface-2 is index 0 and surface-1 is index 1
+      expect(result.current.persistentNotifications[0].a2uiState).toEqual({ value: 'B' });
+      expect(result.current.persistentNotifications[1].a2uiState).toEqual({ value: 'A-updated' });
     });
 
     it('should handle updates for non-existent surface gracefully', () => {
@@ -338,8 +344,8 @@ describe('NotificationStore A2UI Methods', () => {
     });
   });
 
-  describe('Integration with toast actions', () => {
-    it('should allow removing A2UI toast via removeToast', () => {
+  describe('Integration with persistent notification actions', () => {
+    it('should allow removing A2UI notification via removePersistentNotification', () => {
       const surface: SurfaceUpdate = {
         surfaceId: 'test',
         components: [{ id: 'c1', component: { Text: { text: { literalString: 'Test' } } } }],
@@ -347,21 +353,21 @@ describe('NotificationStore A2UI Methods', () => {
 
       const { result } = renderHook(() => useNotificationStore());
 
-      let toastId: string;
+      let notificationId: string;
       act(() => {
-        toastId = result.current.addA2UINotification(surface);
+        notificationId = result.current.addA2UINotification(surface);
       });
 
-      expect(result.current.toasts).toHaveLength(1);
+      expect(result.current.persistentNotifications).toHaveLength(1);
 
       act(() => {
-        result.current.removeToast(toastId);
+        result.current.removePersistentNotification(notificationId);
       });
 
-      expect(result.current.toasts).toHaveLength(0);
+      expect(result.current.persistentNotifications).toHaveLength(0);
     });
 
-    it('should clear all A2UI toasts with clearAllToasts', () => {
+    it('should clear all A2UI notifications with clearPersistentNotifications', () => {
       const { result } = renderHook(() => useNotificationStore());
 
       act(() => {
@@ -369,25 +375,28 @@ describe('NotificationStore A2UI Methods', () => {
           surfaceId: 's1',
           components: [{ id: 'c1', component: { Text: { text: { literalString: 'A' } } } }],
         });
-        result.current.addToast({ type: 'info', title: 'Regular toast' });
+        // Duration 0 avoids auto-timeout side effects in tests
+        result.current.addToast({ type: 'info', title: 'Regular toast', duration: 0 });
         result.current.addA2UINotification({
           surfaceId: 's2',
           components: [{ id: 'c2', component: { Text: { text: { literalString: 'B' } } } }],
         });
       });
 
-      expect(result.current.toasts).toHaveLength(3);
+      expect(result.current.toasts).toHaveLength(1);
+      expect(result.current.persistentNotifications).toHaveLength(2);
 
       act(() => {
-        result.current.clearAllToasts();
+        result.current.clearPersistentNotifications();
       });
 
-      expect(result.current.toasts).toHaveLength(0);
+      expect(result.current.toasts).toHaveLength(1);
+      expect(result.current.persistentNotifications).toHaveLength(0);
     });
   });
 
   describe('A2UI surfaces Map management', () => {
-    it('should maintain separate surfaces Map from toasts', () => {
+    it('should maintain separate surfaces Map from persistent notifications', () => {
       const { result } = renderHook(() => useNotificationStore());
 
       act(() => {
@@ -398,15 +407,16 @@ describe('NotificationStore A2UI Methods', () => {
       });
 
       expect(result.current.a2uiSurfaces.size).toBe(1);
-      expect(result.current.toasts).toHaveLength(1);
+      expect(result.current.toasts).toHaveLength(0);
+      expect(result.current.persistentNotifications).toHaveLength(1);
 
       act(() => {
-        result.current.removeToast(result.current.toasts[0].id);
+        result.current.removePersistentNotification(result.current.persistentNotifications[0].id);
       });
 
-      // Surface should remain in Map even after toast is removed
+      // Surface should remain in Map even after notification is removed (cleanup happens in NotificationPanel)
       expect(result.current.a2uiSurfaces.size).toBe(1);
-      expect(result.current.toasts).toHaveLength(0);
+      expect(result.current.persistentNotifications).toHaveLength(0);
     });
   });
 });

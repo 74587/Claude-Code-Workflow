@@ -58,6 +58,8 @@ export class A2UIWebSocketHandler {
     timestamp: number;
   }>();
 
+  private multiSelectSelections = new Map<string, Set<string>>();
+
   private answerCallback?: (answer: QuestionAnswer) => boolean;
 
   /**
@@ -84,6 +86,7 @@ export class A2UIWebSocketHandler {
     surfaceId: string;
     components: unknown[];
     initialState: Record<string, unknown>;
+    displayMode?: 'popup' | 'panel';
   }): number {
     const message = {
       type: 'a2ui-surface',
@@ -93,12 +96,18 @@ export class A2UIWebSocketHandler {
 
     // Track active surface
     const questionId = surfaceUpdate.initialState?.questionId as string | undefined;
+    const questionType = surfaceUpdate.initialState?.questionType as string | undefined;
     if (questionId) {
       this.activeSurfaces.set(questionId, {
         surfaceId: surfaceUpdate.surfaceId,
         questionId,
         timestamp: Date.now(),
       });
+
+      if (questionType === 'multi-select') {
+        // Selection state is updated via a2ui-action messages ("toggle") and resolved on "submit"
+        this.multiSelectSelections.set(questionId, new Set<string>());
+      }
     }
 
     // Broadcast to all clients
@@ -130,6 +139,7 @@ export class A2UIWebSocketHandler {
       surfaceId: string;
       components: unknown[];
       initialState: Record<string, unknown>;
+      displayMode?: 'popup' | 'panel';
     }
   ): boolean {
     const message = {
@@ -188,9 +198,76 @@ export class A2UIWebSocketHandler {
     // Remove from active surfaces if answered/cancelled
     if (handled) {
       this.activeSurfaces.delete(answer.questionId);
+      this.multiSelectSelections.delete(answer.questionId);
     }
 
     return handled;
+  }
+
+  /**
+   * Try to interpret a2ui-action messages as ask_question answers.
+   * This keeps the frontend generic: it only sends actions; the backend resolves question answers.
+   */
+  handleQuestionAction(
+    action: A2UIActionMessage,
+    answerCallback: (answer: QuestionAnswer) => boolean
+  ): boolean {
+    const params = action.parameters ?? {};
+    const questionId = typeof params.questionId === 'string' ? params.questionId : undefined;
+    if (!questionId) {
+      return false;
+    }
+
+    const resolveAndCleanup = (answer: QuestionAnswer): boolean => {
+      const handled = answerCallback(answer);
+      if (handled) {
+        this.activeSurfaces.delete(questionId);
+        this.multiSelectSelections.delete(questionId);
+      }
+      return handled;
+    };
+
+    switch (action.actionId) {
+      case 'confirm':
+        return resolveAndCleanup({ questionId, value: true, cancelled: false });
+
+      case 'cancel':
+        return resolveAndCleanup({ questionId, value: false, cancelled: true });
+
+      case 'answer': {
+        const value = params.value;
+        if (typeof value !== 'string' && typeof value !== 'boolean' && !Array.isArray(value)) {
+          return false;
+        }
+        return resolveAndCleanup({ questionId, value: value as string | boolean | string[], cancelled: false });
+      }
+
+      case 'toggle': {
+        const value = params.value;
+        const checked = params.checked;
+
+        if (typeof value !== 'string' || typeof checked !== 'boolean') {
+          return false;
+        }
+
+        const selected = this.multiSelectSelections.get(questionId) ?? new Set<string>();
+        if (checked) {
+          selected.add(value);
+        } else {
+          selected.delete(value);
+        }
+        this.multiSelectSelections.set(questionId, selected);
+        return true;
+      }
+
+      case 'submit': {
+        const selected = this.multiSelectSelections.get(questionId) ?? new Set<string>();
+        return resolveAndCleanup({ questionId, value: Array.from(selected), cancelled: false });
+      }
+
+      default:
+        return false;
+    }
   }
 
   /**
@@ -222,6 +299,7 @@ export class A2UIWebSocketHandler {
     }
 
     this.activeSurfaces.delete(questionId);
+    this.multiSelectSelections.delete(questionId);
     return true;
   }
 
@@ -284,7 +362,13 @@ export function handleA2UIMessage(
 
     // Handle A2UI action messages
     if (data.type === 'a2ui-action') {
-      a2uiHandler.handleAction(data as A2UIActionMessage);
+      const action = data as A2UIActionMessage;
+      a2uiHandler.handleAction(action);
+
+      // If this action belongs to an ask_question surface, interpret it as an answer update/submit.
+      if (answerCallback) {
+        a2uiHandler.handleQuestionAction(action, answerCallback);
+      }
       return true;
     }
 

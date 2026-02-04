@@ -11,8 +11,8 @@ import { Sidebar } from './Sidebar';
 import { MainContent } from './MainContent';
 import { CliStreamMonitor } from '@/components/shared/CliStreamMonitor';
 import { NotificationPanel } from '@/components/notification';
-import { AskQuestionDialog } from '@/components/a2ui/AskQuestionDialog';
-import { useNotificationStore, selectCurrentQuestion } from '@/stores';
+import { AskQuestionDialog, A2UIPopupCard } from '@/components/a2ui';
+import { useNotificationStore, selectCurrentQuestion, selectCurrentPopupCard } from '@/stores';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useWebSocketNotifications, useWebSocket } from '@/hooks';
 
@@ -99,9 +99,13 @@ export function AppShell({
     (state) => state.loadPersistentNotifications
   );
 
-  // Current question dialog state
+  // Current question dialog state (legacy)
   const currentQuestion = useNotificationStore(selectCurrentQuestion);
   const setCurrentQuestion = useNotificationStore((state) => state.setCurrentQuestion);
+
+  // Current popup card state (for A2UI displayMode: 'popup')
+  const currentPopupCard = useNotificationStore(selectCurrentPopupCard);
+  const setCurrentPopupCard = useNotificationStore((state) => state.setCurrentPopupCard);
 
   // Initialize WebSocket connection and notifications handler
   useWebSocket();
@@ -157,6 +161,10 @@ export function AppShell({
     setCurrentQuestion(null);
   }, [setCurrentQuestion]);
 
+  const handlePopupCardClose = useCallback(() => {
+    setCurrentPopupCard(null);
+  }, [setCurrentPopupCard]);
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Header - fixed at top */}
@@ -201,11 +209,19 @@ export function AppShell({
         onClose={handleNotificationPanelClose}
       />
 
-      {/* Ask Question Dialog - For ask_question MCP tool */}
+      {/* Ask Question Dialog - For ask_question MCP tool (legacy) */}
       {currentQuestion && (
         <AskQuestionDialog
           payload={currentQuestion}
           onClose={handleQuestionDialogClose}
+        />
+      )}
+
+      {/* A2UI Popup Card - For A2UI surfaces with displayMode: 'popup' */}
+      {currentPopupCard && (
+        <A2UIPopupCard
+          surface={currentPopupCard}
+          onClose={handlePopupCardClose}
         />
       )}
     </div>

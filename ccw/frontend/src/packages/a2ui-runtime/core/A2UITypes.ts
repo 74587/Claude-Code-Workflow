@@ -175,11 +175,16 @@ export const SurfaceComponentSchema = z.object({
   component: ComponentSchema,
 });
 
+/** Display mode for A2UI surfaces */
+export const DisplayModeSchema = z.enum(['popup', 'panel']);
+
 /** Surface update message */
 export const SurfaceUpdateSchema = z.object({
   surfaceId: z.string(),
   components: z.array(SurfaceComponentSchema),
   initialState: z.record(z.unknown()).optional(),
+  /** Display mode: 'popup' for centered dialog, 'panel' for notification panel */
+  displayMode: DisplayModeSchema.optional(),
 });
 
 // ========== TypeScript Types ==========
@@ -206,6 +211,7 @@ export type DateTimeInputComponent = z.infer<typeof DateTimeInputComponentSchema
 export type A2UIComponent = z.infer<typeof ComponentSchema>;
 export type SurfaceComponent = z.infer<typeof SurfaceComponentSchema>;
 export type SurfaceUpdate = z.infer<typeof SurfaceUpdateSchema>;
+export type DisplayMode = z.infer<typeof DisplayModeSchema>;
 
 // ========== Helper Types ==========
 
