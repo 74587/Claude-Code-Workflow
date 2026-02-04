@@ -4,9 +4,29 @@
   "type": {
     "plan": "Lite Plan",
     "fix": "Lite Fix",
-    "multiCli": "Multi-CLI"
+    "multiCli": "Multi-CLI Plan"
   },
+  "quickCards": {
+    "tasks": "Tasks",
+    "context": "Context"
+  },
+  "multiCli": {
+    "discussion": "Discussion",
+    "discussionRounds": "Discussion Rounds",
+    "discussionDescription": "Multi-CLI collaborative planning with iterative analysis and cross-verification",
+    "summary": "Summary",
+    "goal": "Goal",
+    "solution": "Solution",
+    "implementation": "Implementation",
+    "feasibility": "Feasibility",
+    "risk": "Risk",
+    "planSummary": "Plan Summary"
+  },
+  "createdAt": "Created",
   "rounds": "rounds",
+  "tasksCount": "tasks",
+  "untitled": "Untitled Task",
+  "discussionTopic": "Discussion Topic",
   "empty": {
     "title": "No {type} sessions",
     "message": "Create a new session to get started."
@@ -27,13 +47,10 @@
   "focusPaths": "Focus Paths",
   "acceptanceCriteria": "Acceptance Criteria",
   "dependsOn": "Depends On",
-  "tasksCount": "tasks",
   "emptyDetail": {
     "title": "No tasks in this session",
     "message": "This session does not contain any tasks yet."
   },
-  "untitled": "Untitled Task",
-  "discussionTopic": "Discussion Topic",
   "notFound": {
     "title": "Lite Task Not Found",
     "message": "The requested lite task session could not be found."
@@ -43,29 +60,23 @@
     "context": "Context"
   },
   "contextPanel": {
-    "loading": "Loading context...",
+    "loading": "Loading context data...",
     "error": "Failed to load context",
-    "empty": "No context data available for this session.",
+    "empty": "No context data available",
     "explorations": "Explorations",
-    "explorationsCount": "{count} angles",
-    "contextPackage": "Context Package",
+    "explorationsCount": "{count} explorations",
     "diagnoses": "Diagnoses",
-    "diagnosesCount": "{count} items",
+    "diagnosesCount": "{count} diagnoses",
+    "contextPackage": "Context Package",
     "focusPaths": "Focus Paths",
     "summary": "Summary",
-    "complexity": "Complexity",
-    "taskDescription": "Task Description"
-  },
-  "quickCards": {
-    "tasks": "Tasks",
-    "explorations": "Explorations",
-    "context": "Context",
-    "diagnoses": "Diagnoses"
+    "taskDescription": "Task Description",
+    "complexity": "Complexity"
   },
   "status": {
-    "completed": "completed",
-    "inProgress": "in progress",
-    "blocked": "blocked",
-    "pending": "pending"
+    "completed": "Completed",
+    "inProgress": "In Progress",
+    "blocked": "Blocked",
+    "pending": "Pending"
   }
 }

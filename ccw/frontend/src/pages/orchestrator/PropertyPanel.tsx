@@ -9,6 +9,7 @@ import { Settings, X, Terminal, FileText, GitBranch, GitMerge, Trash2 } from 'lu
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { CommandCombobox } from '@/components/ui/CommandCombobox';
 import { MultiNodeSelector, type NodeOption } from '@/components/ui/MultiNodeSelector';
 import { ContextAssembler } from '@/components/ui/ContextAssembler';
 import { useFlowStore } from '@/stores';
@@ -97,11 +98,10 @@ function SlashCommandProperties({
 
       <div>
         <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.labels.command' })}</label>
-        <Input
+        <CommandCombobox
           value={data.command || ''}
-          onChange={(e) => onChange({ command: e.target.value })}
+          onChange={(value) => onChange({ command: value })}
           placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.commandName' })}
-          className="font-mono"
         />
       </div>
 

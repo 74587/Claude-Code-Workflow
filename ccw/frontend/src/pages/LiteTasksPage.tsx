@@ -33,7 +33,6 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
-  Target,
   FileCode,
 } from 'lucide-react';
 import { useLiteTasks } from '@/hooks/useLiteTasks';
@@ -138,55 +137,73 @@ function ExpandedSessionPanel({
       {/* Tasks Tab */}
       {activeTab === 'tasks' && (
         <div className="space-y-2">
-          {tasks.map((task, index) => (
-            <Card
-              key={task.id || index}
-              className="cursor-pointer hover:shadow-sm hover:border-primary/50 transition-all border-border"
-              onClick={(e) => {
-                e.stopPropagation();
-                onTaskClick(task);
-              }}
-            >
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Badge className="text-xs font-mono shrink-0 bg-primary/10 text-primary border-primary/20">
-                      {task.task_id || `#${index + 1}`}
-                    </Badge>
-                    <h4 className="text-sm font-medium text-foreground flex-1 line-clamp-1">
-                      {task.title || formatMessage({ id: 'liteTasks.untitled' })}
-                    </h4>
-                  </div>
-                  {/* Right: Meta info */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Dependencies - show task IDs */}
-                    {task.context?.depends_on && task.context.depends_on.length > 0 && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-muted-foreground">→</span>
-                        {task.context.depends_on.map((depId, idx) => (
-                          <Badge key={idx} variant="outline" className="h-5 px-2 py-0.5 text-xs font-mono border-primary/30 text-primary">
-                            {depId}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    {/* Target Files Count */}
-                    {task.flow_control?.target_files && task.flow_control.target_files.length > 0 && (
-                      <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[10px] gap-0.5">
-                        <span className="font-semibold">{task.flow_control.target_files.length}</span>
-                        <span>file{task.flow_control.target_files.length > 1 ? 's' : ''}</span>
+          {tasks.map((task, index) => {
+            const filesCount = task.flow_control?.target_files?.length || 0;
+            const stepsCount = task.flow_control?.implementation_approach?.length || 0;
+            const criteriaCount = task.context?.acceptance?.length || 0;
+            const depsCount = task.context?.depends_on?.length || 0;
+
+            return (
+              <Card
+                key={task.id || index}
+                className="cursor-pointer hover:shadow-sm hover:border-primary/50 transition-all border-border border-l-4 border-l-primary/50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTaskClick(task);
+                }}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <Badge className="text-xs font-mono shrink-0 bg-primary/10 text-primary border-primary/20">
+                        {task.task_id || `#${index + 1}`}
                       </Badge>
-                    )}
+                      <h4 className="text-sm font-medium text-foreground line-clamp-1">
+                        {task.title || formatMessage({ id: 'liteTasks.untitled' })}
+                      </h4>
+                    </div>
+                    {/* Meta badges - right side, single row */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {task.meta?.type && (
+                        <Badge variant="info" className="text-[10px] px-1.5 py-0 whitespace-nowrap">{task.meta.type}</Badge>
+                      )}
+                      {filesCount > 0 && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5 whitespace-nowrap">
+                          <FileCode className="h-2.5 w-2.5" />
+                          {filesCount} files
+                        </Badge>
+                      )}
+                      {stepsCount > 0 && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 whitespace-nowrap">
+                          {stepsCount} steps
+                        </Badge>
+                      )}
+                      {criteriaCount > 0 && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 whitespace-nowrap">
+                          {criteriaCount} criteria
+                        </Badge>
+                      )}
+                      {depsCount > 0 && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground">→</span>
+                          {task.context.depends_on.map((depId, idx) => (
+                            <Badge key={idx} variant="outline" className="text-[10px] px-1.5 py-0 font-mono border-primary/30 text-primary whitespace-nowrap">
+                              {depId}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                {task.description && (
-                  <p className="text-xs text-muted-foreground mt-1.5 pl-[calc(1.5rem+0.75rem)] line-clamp-2">
-                    {task.description}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  {task.description && (
+                    <p className="text-xs text-muted-foreground mt-1.5 pl-[calc(1.5rem+0.75rem)] line-clamp-2">
+                      {task.description}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -328,9 +345,117 @@ function ContextContent({
           icon={<Package className="h-4 w-4" />}
           title={formatMessage({ id: 'liteTasks.contextPanel.contextPackage' })}
         >
-          <pre className="text-xs text-muted-foreground overflow-auto max-h-48 bg-muted/50 rounded p-2 whitespace-pre-wrap">
-            {JSON.stringify(contextData.context, null, 2)}
-          </pre>
+          <div className="space-y-2 text-xs">
+            {contextData.context.task_description && (
+              <div className="text-muted-foreground">
+                <span className="font-medium text-foreground">{formatMessage({ id: 'liteTasks.contextPanel.taskDescription' })}:</span>{' '}
+                {contextData.context.task_description as string}
+              </div>
+            )}
+
+            {contextData.context.constraints && contextData.context.constraints.length > 0 && (
+              <div>
+                <div className="text-muted-foreground mb-1">
+                  <span className="font-medium text-foreground">约束:</span>
+                </div>
+                <div className="space-y-1 pl-2">
+                  {contextData.context.constraints.map((c, i) => (
+                    <div key={i} className="text-muted-foreground flex items-start gap-1">
+                      <span className="text-primary/50">•</span>
+                      <span>{c as string}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {contextData.context.focus_paths && contextData.context.focus_paths.length > 0 && (
+              <div className="text-muted-foreground">
+                <span className="font-medium text-foreground">{formatMessage({ id: 'liteTasks.contextPanel.focusPaths' })}:</span>{' '}
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {contextData.context.focus_paths.map((p, i) => (
+                    <Badge key={i} variant="secondary" className="text-[10px] font-mono">
+                      {p as string}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {contextData.context.relevant_files && contextData.context.relevant_files.length > 0 && (
+              <div>
+                <div className="text-muted-foreground mb-1">
+                  <span className="font-medium text-foreground">相关文件:</span>{' '}
+                  <Badge variant="outline" className="text-[10px] align-middle">
+                    {contextData.context.relevant_files.length}
+                  </Badge>
+                </div>
+                <div className="space-y-0.5 pl-2 max-h-32 overflow-y-auto">
+                  {contextData.context.relevant_files.map((f, i) => {
+                    const filePath = typeof f === 'string' ? f : (f as { path: string; reason?: string }).path;
+                    const reason = typeof f === 'string' ? undefined : (f as { path: string; reason?: string }).reason;
+                    return (
+                      <div key={i} className="group flex items-start gap-1 text-muted-foreground hover:bg-muted/30 rounded px-1 py-0.5">
+                        <span className="text-primary/50 shrink-0">{i + 1}.</span>
+                        <span className="font-mono text-xs truncate flex-1" title={filePath as string}>
+                          {filePath as string}
+                        </span>
+                        {reason && (
+                          <span className="text-[10px] text-muted-foreground/60 truncate ml-1" title={reason}>
+                            ({reason})
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {contextData.context.dependencies && contextData.context.dependencies.length > 0 && (
+              <div>
+                <div className="text-muted-foreground mb-1">
+                  <span className="font-medium text-foreground">依赖:</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {contextData.context.dependencies.map((d, i) => {
+                    const depInfo = typeof d === 'string'
+                      ? { name: d, type: '', version: '' }
+                      : d as { name: string; type?: string; version?: string };
+                    return (
+                      <Badge key={i} variant="outline" className="text-[10px]">
+                        {depInfo.name}
+                        {depInfo.version && <span className="ml-1 opacity-70">@{depInfo.version}</span>}
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {contextData.context.session_id && (
+              <div className="text-muted-foreground">
+                <span className="font-medium text-foreground">会话ID:</span>{' '}
+                <span className="font-mono bg-muted/50 px-1.5 py-0.5 rounded">{contextData.context.session_id as string}</span>
+              </div>
+            )}
+
+            {contextData.context.metadata && (
+              <div>
+                <div className="text-muted-foreground mb-1">
+                  <span className="font-medium text-foreground">元数据:</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 pl-2 text-muted-foreground">
+                  {Object.entries(contextData.context.metadata as Record<string, unknown>).map(([k, v]) => (
+                    <div key={k} className="flex items-center gap-1">
+                      <span className="font-mono text-[10px] text-primary/60">{k}:</span>
+                      <span className="truncate">{String(v)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </ContextSection>
       )}
 
@@ -405,7 +530,7 @@ function ContextSection({
   );
 }
 
-type MultiCliExpandedTab = 'tasks' | 'discussion' | 'context' | 'summary';
+type MultiCliExpandedTab = 'tasks' | 'discussion' | 'context';
 
 /**
  * ExpandedMultiCliPanel - Multi-tab panel shown when a multi-cli session is expanded
@@ -581,17 +706,6 @@ function ExpandedMultiCliPanel({
           <Package className="h-3.5 w-3.5" />
           {formatMessage({ id: 'liteTasks.quickCards.context' })}
         </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); setActiveTab('summary'); }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-            activeTab === 'summary'
-              ? 'bg-primary/10 text-primary border-primary/30'
-              : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
-          }`}
-        >
-          <FileText className="h-3.5 w-3.5" />
-          {formatMessage({ id: 'liteTasks.multiCli.summary' })}
-        </button>
       </div>
 
       {/* Tasks Tab */}
@@ -657,43 +771,46 @@ function ExpandedMultiCliPanel({
                 }}
               >
                 <CardContent className="p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
                       <Badge className="text-xs font-mono shrink-0 bg-primary/10 text-primary border-primary/20">
                         {task.task_id || `T${index + 1}`}
                       </Badge>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-medium text-foreground line-clamp-1">
-                          {task.title || formatMessage({ id: 'liteTasks.untitled' })}
-                        </h4>
-                        {/* Meta badges */}
-                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                          {task.meta?.type && (
-                            <Badge variant="info" className="text-[10px] px-1.5 py-0">{task.meta.type}</Badge>
-                          )}
-                          {filesCount > 0 && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5">
-                              <FileCode className="h-2.5 w-2.5" />
-                              {filesCount} files
+                      <h4 className="text-sm font-medium text-foreground line-clamp-1">
+                        {task.title || formatMessage({ id: 'liteTasks.untitled' })}
+                      </h4>
+                    </div>
+                    {/* Meta badges - right side, single row */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {task.meta?.type && (
+                        <Badge variant="info" className="text-[10px] px-1.5 py-0 whitespace-nowrap">{task.meta.type}</Badge>
+                      )}
+                      {filesCount > 0 && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 gap-0.5 whitespace-nowrap">
+                          <FileCode className="h-2.5 w-2.5" />
+                          {filesCount} files
+                        </Badge>
+                      )}
+                      {stepsCount > 0 && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 whitespace-nowrap">
+                          {stepsCount} steps
+                        </Badge>
+                      )}
+                      {criteriaCount > 0 && (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 whitespace-nowrap">
+                          {criteriaCount} criteria
+                        </Badge>
+                      )}
+                      {depsCount > 0 && (
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground">→</span>
+                          {task.context.depends_on.map((depId, idx) => (
+                            <Badge key={idx} variant="outline" className="text-[10px] px-1.5 py-0 font-mono border-primary/30 text-primary whitespace-nowrap">
+                              {depId}
                             </Badge>
-                          )}
-                          {stepsCount > 0 && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                              {stepsCount} steps
-                            </Badge>
-                          )}
-                          {criteriaCount > 0 && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                              {criteriaCount} criteria
-                            </Badge>
-                          )}
-                          {depsCount > 0 && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-primary/30 text-primary">
-                              {depsCount} deps
-                            </Badge>
-                          )}
+                          ))}
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -757,51 +874,6 @@ function ExpandedMultiCliPanel({
         </div>
       )}
 
-      {/* Summary Tab */}
-      {activeTab === 'summary' && (
-        <div className="space-y-3">
-          <Card className="border-border">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Target className="h-5 w-5 text-primary" />
-                <h4 className="font-medium text-foreground">
-                  {formatMessage({ id: 'liteTasks.multiCli.planSummary' })}
-                </h4>
-              </div>
-              {goal && (
-                <div className="mb-3">
-                  <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'liteTasks.multiCli.goal' })}</p>
-                  <p className="text-sm text-foreground">{goal}</p>
-                </div>
-              )}
-              {solution && (
-                <div className="mb-3">
-                  <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'liteTasks.multiCli.solution' })}</p>
-                  <p className="text-sm text-foreground">{solution}</p>
-                </div>
-              )}
-              {implementationChain && (
-                <div className="mb-3">
-                  <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'liteTasks.multiCli.implementation' })}</p>
-                  <code className="block px-3 py-2 rounded bg-muted border border-border text-xs font-mono">
-                    {implementationChain}
-                  </code>
-                </div>
-              )}
-              <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-                <span className="text-xs text-muted-foreground">{formatMessage({ id: 'liteTasks.quickCards.tasks' })}:</span>
-                <Badge variant="secondary" className="text-xs">{taskCount}</Badge>
-                {feasibility > 0 && (
-                  <>
-                    <span className="text-xs text-muted-foreground ml-2">{formatMessage({ id: 'liteTasks.multiCli.feasibility' })}:</span>
-                    <Badge variant="success" className="text-xs">{feasibility}%</Badge>
-                  </>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

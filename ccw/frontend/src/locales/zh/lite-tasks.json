@@ -4,9 +4,29 @@
   "type": {
     "plan": "轻量规划",
     "fix": "轻量修复",
-    "multiCli": "多 CLI 规划"
+    "multiCli": "多CLI规划"
   },
+  "quickCards": {
+    "tasks": "任务",
+    "context": "上下文"
+  },
+  "multiCli": {
+    "discussion": "讨论",
+    "discussionRounds": "讨论轮次",
+    "discussionDescription": "多CLI协作规划，迭代分析与交叉验证",
+    "summary": "摘要",
+    "goal": "目标",
+    "solution": "解决方案",
+    "implementation": "实现方式",
+    "feasibility": "可行性",
+    "risk": "风险",
+    "planSummary": "规划摘要"
+  },
+  "createdAt": "创建时间",
   "rounds": "轮",
+  "tasksCount": "个任务",
+  "untitled": "未命名任务",
+  "discussionTopic": "讨论主题",
   "empty": {
     "title": "没有 {type} 会话",
     "message": "创建新会话以开始使用。"
@@ -27,13 +47,10 @@
   "focusPaths": "关注路径",
   "acceptanceCriteria": "验收标准",
   "dependsOn": "依赖于",
-  "tasksCount": "个任务",
   "emptyDetail": {
     "title": "此会话中没有任务",
     "message": "此会话尚不包含任何任务。"
   },
-  "untitled": "无标题任务",
-  "discussionTopic": "讨论主题",
   "notFound": {
     "title": "未找到轻量任务",
     "message": "无法找到请求的轻量任务会话。"
@@ -43,29 +60,23 @@
     "context": "上下文"
   },
   "contextPanel": {
-    "loading": "加载上下文中...",
+    "loading": "加载上下文数据中...",
     "error": "加载上下文失败",
-    "empty": "此会话暂无上下文数据。",
-    "explorations": "探索结果",
-    "explorationsCount": "{count} 个角度",
-    "contextPackage": "上下文包",
+    "empty": "无可用上下文数据",
+    "explorations": "探索",
+    "explorationsCount": "{count} 个探索",
     "diagnoses": "诊断",
-    "diagnosesCount": "{count} 个条目",
+    "diagnosesCount": "{count} 个诊断",
+    "contextPackage": "上下文包",
     "focusPaths": "关注路径",
     "summary": "摘要",
-    "complexity": "复杂度",
-    "taskDescription": "任务描述"
-  },
-  "quickCards": {
-    "tasks": "任务",
-    "explorations": "探索",
-    "context": "上下文",
-    "diagnoses": "诊断"
+    "taskDescription": "任务描述",
+    "complexity": "复杂度"
   },
   "status": {
     "completed": "已完成",
     "inProgress": "进行中",
-    "blocked": "已阻止",
+    "blocked": "已阻塞",
     "pending": "待处理"
   }
 }

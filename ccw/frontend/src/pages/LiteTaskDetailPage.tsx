@@ -53,7 +53,7 @@ import type { LiteTask, LiteTaskSession } from '@/lib/api';
 type SessionType = 'lite-plan' | 'lite-fix' | 'multi-cli-plan';
 
 type LitePlanTab = 'tasks' | 'plan' | 'diagnoses' | 'context' | 'summary';
-type MultiCliTab = 'tasks' | 'discussion' | 'context' | 'summary';
+type MultiCliTab = 'tasks' | 'discussion' | 'context';
 
 type TaskTabValue = 'task' | 'context';
 
