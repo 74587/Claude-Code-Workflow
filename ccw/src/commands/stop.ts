@@ -54,7 +54,7 @@ async function killProcess(pid: string): Promise<boolean> {
  * @param {Object} options - Command options
  */
 export async function stopCommand(options: StopOptions): Promise<void> {
-  const port = options.port || 3456;
+  const port = Number(options.port) || 3456;
   const reactPort = port + 1; // React frontend runs on port + 1
   const force = options.force || false;
 

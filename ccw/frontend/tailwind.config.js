@@ -1,4 +1,46 @@
 /** @type {import('tailwindcss').Config} */
+import plugin from 'tailwindcss/plugin';
+
+// Gradient utilities plugin
+const gradientPlugin = plugin(function({ addUtilities, addComponents }) {
+  // 1. Background gradient utilities
+  addUtilities({
+    '.bg-gradient-primary': {
+      backgroundImage: 'radial-gradient(circle, hsl(var(--accent)) 0%, transparent 70%)',
+    },
+    '.bg-gradient-brand': {
+      backgroundImage: 'linear-gradient(to right, hsl(var(--primary)), hsl(var(--secondary)))',
+    },
+    '.bg-gradient-radial': {
+      backgroundImage: 'radial-gradient(var(--tw-gradient-stops))',
+    },
+    '.bg-gradient-conic': {
+      backgroundImage: 'conic-gradient(var(--tw-gradient-stops))',
+    },
+  });
+
+  // 2. Gradient border component
+  addComponents({
+    '.border-gradient-brand': {
+      position: 'relative',
+      zIndex: '0',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        inset: '0',
+        zIndex: '-1',
+        borderRadius: 'inherit',
+        padding: '1px',
+        background: 'linear-gradient(to right, hsl(var(--primary)), hsl(var(--secondary)))',
+        '-webkit-mask': 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+        'mask': 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+        '-webkit-mask-composite': 'xor',
+        'mask-composite': 'exclude',
+      },
+    },
+  });
+});
+
 export default {
   darkMode: ['class', '[data-theme="dark"]'],
   content: [
@@ -88,6 +130,7 @@ export default {
         DEFAULT: "0 2px 8px rgb(0 0 0 / 0.08)",
         md: "0 4px 12px rgb(0 0 0 / 0.1)",
         lg: "0 8px 24px rgb(0 0 0 / 0.12)",
+        "glow-accent": "0 0 40px 10px hsl(var(--accent) / 0.7)",
       },
 
       borderRadius: {
@@ -109,14 +152,22 @@ export default {
           "0%": { transform: "translateX(0)" },
           "100%": { transform: "translateX(-50%)" },
         },
+        "slow-gradient-shift": {
+          "0%": { backgroundImage: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%)" },
+          "25%": { backgroundImage: "linear-gradient(135deg, hsl(var(--secondary)) 0%, hsl(var(--accent)) 100%)" },
+          "50%": { backgroundImage: "linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(var(--primary)) 100%)" },
+          "75%": { backgroundImage: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%)" },
+          "100%": { backgroundImage: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%)" },
+        },
       },
 
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         marquee: "marquee 30s linear infinite",
+        "slow-gradient": "slow-gradient-shift 60s ease-in-out infinite alternate",
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), gradientPlugin],
 }

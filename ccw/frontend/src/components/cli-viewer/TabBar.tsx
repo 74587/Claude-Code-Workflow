@@ -1,9 +1,9 @@
 // ========================================
 // TabBar Component
 // ========================================
-// Tab management for CLI viewer panes
+// Tab management for CLI viewer panes with drag-and-drop support
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { X, Pin, PinOff, MoreHorizontal, SplitSquareHorizontal, SplitSquareVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/DropdownMenu';
+} from '@/components/ui/Dropdown';
 import {
   useViewerStore,
   useViewerPanes,
@@ -32,6 +32,7 @@ export interface TabBarProps {
 
 interface TabItemProps {
   tab: TabState;
+  paneId: PaneId;
   isActive: boolean;
   onSelect: () => void;
   onClose: (e: React.MouseEvent) => void;
@@ -49,10 +50,23 @@ const STATUS_COLORS = {
 
 // ========== Helper Components ==========
 
+// Data transfer key for tab drag-and-drop
+const TAB_DRAG_DATA_TYPE = 'application/x-cli-viewer-tab';
+
+interface TabDragData {
+  tabId: string;
+  sourcePaneId: string;
+}
+
 /**
- * Individual tab item
+ * Individual tab item with drag-and-drop support
  */
-function TabItem({ tab, isActive, onSelect, onClose, onTogglePin }: TabItemProps) {
+function TabItem({ tab, paneId, isActive, onSelect, onClose, onTogglePin }: TabItemProps) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const moveTab = useViewerStore((state) => state.moveTab);
+  const panes = useViewerPanes();
+
   // Simplify title for display
   const displayTitle = useMemo(() => {
     // If title contains tool name pattern, extract it
@@ -60,17 +74,93 @@ function TabItem({ tab, isActive, onSelect, onClose, onTogglePin }: TabItemProps
     return parts[0] || tab.title;
   }, [tab.title]);
 
+  // Drag start handler
+  const handleDragStart = useCallback((e: React.DragEvent) => {
+    const dragData: TabDragData = {
+      tabId: tab.id,
+      sourcePaneId: paneId,
+    };
+    e.dataTransfer.setData(TAB_DRAG_DATA_TYPE, JSON.stringify(dragData));
+    e.dataTransfer.effectAllowed = 'move';
+    setIsDragging(true);
+  }, [tab.id, paneId]);
+
+  // Drag end handler
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Drag over handler
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes(TAB_DRAG_DATA_TYPE)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setIsDragOver(true);
+    }
+  }, []);
+
+  // Drag leave handler
+  const handleDragLeave = useCallback(() => {
+    setIsDragOver(false);
+  }, []);
+
+  // Drop handler
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const rawData = e.dataTransfer.getData(TAB_DRAG_DATA_TYPE);
+    if (!rawData) return;
+
+    try {
+      const dragData: TabDragData = JSON.parse(rawData);
+      const { tabId: sourceTabId, sourcePaneId } = dragData;
+
+      // Don't do anything if dropping on the same tab
+      if (sourceTabId === tab.id) return;
+
+      // Find the target index
+      const targetPane = panes[paneId];
+      if (!targetPane) return;
+
+      const targetIndex = targetPane.tabs.findIndex((t) => t.id === tab.id);
+      if (targetIndex === -1) return;
+
+      // Move the tab
+      moveTab(sourcePaneId, sourceTabId, paneId, targetIndex);
+    } catch (err) {
+      console.error('[TabBar] Failed to parse drag data:', err);
+    }
+  }, [tab.id, paneId, panes, moveTab]);
+
   return (
-    <button
+    <div
+      role="tab"
+      tabIndex={0}
+      draggable={!tab.isPinned}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       className={cn(
         'group relative flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs',
         'border border-border/50 shrink-0 min-w-0 max-w-[160px]',
-        'transition-all duration-150',
+        'transition-all duration-150 select-none',
         isActive
           ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 shadow-sm'
           : 'bg-muted/30 hover:bg-muted/50 border-border/30',
-        tab.isPinned && 'border-amber-500/50'
+        tab.isPinned && 'border-amber-500/50',
+        isDragging && 'opacity-50 cursor-grabbing',
+        isDragOver && 'border-primary border-dashed bg-primary/10',
+        !tab.isPinned && 'cursor-grab'
       )}
       title={tab.title}
     >
@@ -111,7 +201,7 @@ function TabItem({ tab, isActive, onSelect, onClose, onTogglePin }: TabItemProps
           </button>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -125,10 +215,12 @@ function TabItem({ tab, isActive, onSelect, onClose, onTogglePin }: TabItemProps
  * - Active tab highlighting
  * - Close button on hover
  * - Pin/unpin functionality
+ * - Drag-and-drop tab reordering and moving between panes
  * - Pane actions dropdown
  */
 export function TabBar({ paneId, className }: TabBarProps) {
   const { formatMessage } = useIntl();
+  const [isDragOver, setIsDragOver] = useState(false);
   const panes = useViewerPanes();
   const pane = panes[paneId];
   const setActiveTab = useViewerStore((state) => state.setActiveTab);
@@ -136,6 +228,7 @@ export function TabBar({ paneId, className }: TabBarProps) {
   const togglePinTab = useViewerStore((state) => state.togglePinTab);
   const addPane = useViewerStore((state) => state.addPane);
   const removePane = useViewerStore((state) => state.removePane);
+  const moveTab = useViewerStore((state) => state.moveTab);
 
   const handleTabSelect = useCallback(
     (tabId: string) => {
@@ -172,6 +265,43 @@ export function TabBar({ paneId, className }: TabBarProps) {
     removePane(paneId);
   }, [paneId, removePane]);
 
+  // Drag over handler for tab bar container (allows dropping to end of list)
+  const handleContainerDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes(TAB_DRAG_DATA_TYPE)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setIsDragOver(true);
+    }
+  }, []);
+
+  // Drag leave handler for container
+  const handleContainerDragLeave = useCallback((e: React.DragEvent) => {
+    // Only set false if leaving the container entirely, not just moving to a child
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  // Drop handler for tab bar container (drops to end of list)
+  const handleContainerDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const rawData = e.dataTransfer.getData(TAB_DRAG_DATA_TYPE);
+    if (!rawData) return;
+
+    try {
+      const dragData: TabDragData = JSON.parse(rawData);
+      const { tabId: sourceTabId, sourcePaneId } = dragData;
+
+      // Move the tab to the end of this pane
+      const targetIndex = pane?.tabs.length || 0;
+      moveTab(sourcePaneId, sourceTabId, paneId, targetIndex);
+    } catch (err) {
+      console.error('[TabBar] Failed to parse drag data:', err);
+    }
+  }, [paneId, pane, moveTab]);
+
   // Sort tabs: pinned first, then by order
   const sortedTabs = useMemo(() => {
     if (!pane) return [];
@@ -197,7 +327,15 @@ export function TabBar({ paneId, className }: TabBarProps) {
       )}
     >
       {/* Tabs */}
-      <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto">
+      <div
+        onDragOver={handleContainerDragOver}
+        onDragLeave={handleContainerDragLeave}
+        onDrop={handleContainerDrop}
+        className={cn(
+          'flex items-center gap-1 flex-1 min-w-0 overflow-x-auto',
+          isDragOver && 'bg-primary/5 border border-primary border-dashed rounded'
+        )}
+      >
         {sortedTabs.length === 0 ? (
           <span className="text-xs text-muted-foreground px-2">
             {formatMessage({ id: 'cliViewer.tabs.noTabs', defaultMessage: 'No tabs open' })}
@@ -207,6 +345,7 @@ export function TabBar({ paneId, className }: TabBarProps) {
             <TabItem
               key={tab.id}
               tab={tab}
+              paneId={paneId}
               isActive={pane.activeTabId === tab.id}
               onSelect={() => handleTabSelect(tab.id)}
               onClose={(e) => handleTabClose(e, tab.id)}

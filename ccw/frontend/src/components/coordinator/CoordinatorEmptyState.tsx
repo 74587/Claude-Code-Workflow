@@ -32,8 +32,8 @@ export function CoordinatorEmptyState({
         className
       )}
     >
-      {/* Animated Background - Using theme colors */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-card to-background">
+      {/* Animated Background - Using theme colors with gradient utilities */}
+      <div className="absolute inset-0 bg-gradient-to-br from-background via-card to-background animate-slow-gradient">
         {/* Grid Pattern */}
         <div
           className="absolute inset-0 opacity-10"
@@ -46,29 +46,16 @@ export function CoordinatorEmptyState({
           }}
         />
 
-        {/* Animated Gradient Orbs - Using primary color */}
-        <div className="absolute top-20 left-20 w-72 h-72 rounded-full blur-3xl animate-pulse" 
-          style={{ 
-            background: 'radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)',
-            opacity: 0.15,
-          }} 
-        />
+        {/* Animated Gradient Orbs - Using gradient utility classes */}
+        <div className="absolute top-20 left-20 w-72 h-72 rounded-full blur-3xl animate-pulse bg-gradient-primary opacity-15" />
         <div
-          className="absolute bottom-20 right-20 w-96 h-96 rounded-full blur-3xl animate-pulse"
-          style={{ 
+          className="absolute bottom-20 right-20 w-96 h-96 rounded-full blur-3xl animate-pulse opacity-15"
+          style={{
             background: 'radial-gradient(circle, hsl(var(--secondary)) 0%, transparent 70%)',
             animationDelay: '1s',
-            opacity: 0.15,
           }}
         />
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-3xl animate-pulse"
-          style={{ 
-            background: 'radial-gradient(circle, hsl(var(--accent)) 0%, transparent 70%)',
-            animationDelay: '2s',
-            opacity: 0.1,
-          }}
-        />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-3xl animate-pulse bg-gradient-primary opacity-10" style={{ animationDelay: '2s' }} />
       </div>
 
       {/* Main Content */}

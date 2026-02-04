@@ -28,6 +28,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { TabsNavigation } from '@/components/ui/TabsNavigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Checkbox } from '@/components/ui/Checkbox';
 import { useMemory, useMemoryMutations } from '@/hooks';
@@ -527,33 +528,28 @@ export function MemoryPage() {
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex items-center gap-2 border-b border-border">
-        <Button
-          variant={currentTab === 'memories' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setCurrentTab('memories')}
-        >
-          <Brain className="w-4 h-4 mr-2" />
-          {formatMessage({ id: 'memory.tabs.memories' })}
-        </Button>
-        <Button
-          variant={currentTab === 'favorites' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setCurrentTab('favorites')}
-        >
-          <Star className="w-4 h-4 mr-2" />
-          {formatMessage({ id: 'memory.tabs.favorites' })}
-        </Button>
-        <Button
-          variant={currentTab === 'archived' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setCurrentTab('archived')}
-        >
-          <Archive className="w-4 h-4 mr-2" />
-          {formatMessage({ id: 'memory.tabs.archived' })}
-        </Button>
-      </div>
+      {/* Tab Navigation - styled like LiteTasksPage */}
+      <TabsNavigation
+        value={currentTab}
+        onValueChange={(v) => setCurrentTab(v as 'memories' | 'favorites' | 'archived')}
+        tabs={[
+          {
+            value: 'memories',
+            label: formatMessage({ id: 'memory.tabs.memories' }),
+            icon: <Brain className="h-4 w-4" />,
+          },
+          {
+            value: 'favorites',
+            label: formatMessage({ id: 'memory.tabs.favorites' }),
+            icon: <Star className="h-4 w-4" />,
+          },
+          {
+            value: 'archived',
+            label: formatMessage({ id: 'memory.tabs.archived' }),
+            icon: <Archive className="h-4 w-4" />,
+          },
+        ]}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -23,7 +23,9 @@
       "multiKeySettings": "多密钥设置",
       "syncToCodexLens": "同步到 CodexLens",
       "manageModels": "管理模型",
-      "addModel": "添加模型"
+      "addModel": "添加模型",
+      "showDisabled": "显示已禁用",
+      "hideDisabled": "隐藏已禁用"
     },
     "deleteConfirm": "确定要删除提供商 \"{name}\" 吗？",
     "emptyState": {
@@ -129,8 +131,6 @@
     "basicInfo": "基本信息",
     "endpointSettings": "端点设置",
     "apiBaseUpdated": "基础 URL 已更新",
-    "showDisabled": "显示已禁用",
-    "hideDisabled": "隐藏已禁用",
     "showAll": "显示全部",
     "saveError": "保存提供商失败",
     "deleteError": "删除提供商失败",

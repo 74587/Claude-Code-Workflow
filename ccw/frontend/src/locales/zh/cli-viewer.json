@@ -47,5 +47,10 @@
     "splitHorizontal": "水平分割",
     "splitVertical": "垂直分割",
     "closePane": "关闭窗格"
-  }
+  },
+  "noActiveTab": "暂无活动标签页",
+  "selectOrCreate": "选择一个标签页或启动新的 CLI 执行",
+  "executionNotFound": "未找到执行",
+  "waitingForOutput": "等待输出...",
+  "noOutput": "暂无输出"
 }

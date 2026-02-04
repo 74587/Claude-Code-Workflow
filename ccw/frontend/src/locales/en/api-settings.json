@@ -23,7 +23,9 @@
       "multiKeySettings": "Multi-Key Settings",
       "syncToCodexLens": "Sync to CodexLens",
       "manageModels": "Manage Models",
-      "addModel": "Add Model"
+      "addModel": "Add Model",
+      "showDisabled": "Show Disabled",
+      "hideDisabled": "Hide Disabled"
     },
     "deleteConfirm": "Are you sure you want to delete the provider \"{name}\"?",
     "emptyState": {
@@ -129,8 +131,6 @@
     "basicInfo": "Basic Information",
     "endpointSettings": "Endpoint Settings",
     "apiBaseUpdated": "Base URL updated",
-    "showDisabled": "Show Disabled",
-    "hideDisabled": "Hide Disabled",
     "showAll": "Show All",
     "saveError": "Failed to save provider",
     "deleteError": "Failed to delete provider",

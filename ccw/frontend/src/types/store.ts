@@ -39,6 +39,8 @@ export interface AppState {
   theme: Theme;
   resolvedTheme: 'light' | 'dark';
   colorScheme: ColorScheme; // New: 4 color scheme options (blue/green/orange/purple)
+  customHue: number | null; // Custom hue value (0-360) for theme customization
+  isCustomTheme: boolean; // Indicates if custom theme is active
 
   // Locale
   locale: Locale;
@@ -68,6 +70,7 @@ export interface AppActions {
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   setColorScheme: (scheme: ColorScheme) => void; // New: set color scheme
+  setCustomHue: (hue: number | null) => void; // Set custom hue for theme customization
 
   // Locale actions
   setLocale: (locale: Locale) => void;

@@ -18,10 +18,14 @@ import {
   EyeOff,
   List,
   Grid3x3,
+  Folder,
+  User,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
+import { TabsNavigation } from '@/components/ui/TabsNavigation';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select';
 import {
   AlertDialog,
@@ -34,7 +38,6 @@ import {
   AlertDialogCancel,
 } from '@/components/ui';
 import { SkillCard, SkillDetailPanel } from '@/components/shared';
-import { LocationSwitcher } from '@/components/commands/LocationSwitcher';
 import { useSkills, useSkillMutations } from '@/hooks';
 import { fetchSkillDetail } from '@/lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
@@ -245,14 +248,26 @@ export function SkillsManagerPage() {
           </div>
         </div>
 
-        {/* Location Switcher */}
-        <LocationSwitcher
-          currentLocation={locationFilter}
-          onLocationChange={setLocationFilter}
-          projectCount={projectSkills.length}
-          userCount={userSkills.length}
-          disabled={isToggling}
-          translationPrefix="skills"
+        {/* Location Tabs - styled like LiteTasksPage */}
+        <TabsNavigation
+          value={locationFilter}
+          onValueChange={(v) => setLocationFilter(v as 'project' | 'user')}
+          tabs={[
+            {
+              value: 'project',
+              label: formatMessage({ id: 'skills.location.project' }),
+              icon: <Folder className="h-4 w-4" />,
+              badge: <Badge variant="secondary" className="ml-2">{projectSkills.length}</Badge>,
+              disabled: isToggling,
+            },
+            {
+              value: 'user',
+              label: formatMessage({ id: 'skills.location.user' }),
+              icon: <User className="h-4 w-4" />,
+              badge: <Badge variant="secondary" className="ml-2">{userSkills.length}</Badge>,
+              disabled: isToggling,
+            },
+          ]}
         />
       </div>
 

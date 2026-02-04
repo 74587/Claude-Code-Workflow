@@ -21,9 +21,52 @@ const NOTIFICATION_STORAGE_KEY = 'ccw_notifications';
 const NOTIFICATION_MAX_STORED = 100;
 const NOTIFICATION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// Patterns that should not be stored in localStorage (potential sensitive data)
+const SENSITIVE_PATTERNS = [
+  // API keys and tokens (common formats)
+  /\b[A-Za-z0-9_-]{20,}\b/g,
+  // UUIDs (might be session tokens)
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
+  // Base64 encoded strings (might be tokens)
+  /\b[A-Za-z0-9+/=]{32,}={0,2}\b/g,
+];
+
+/**
+ * Sanitize notification content before persisting to localStorage
+ * Removes potentially sensitive patterns and limits content length
+ */
+const sanitizeNotification = (toast: Toast): Toast => {
+  const sanitizeText = (text: string | null | undefined): string | null => {
+    if (!text) return null;
+    let sanitized = text;
+
+    // Remove potentially sensitive patterns
+    for (const pattern of SENSITIVE_PATTERNS) {
+      sanitized = sanitized.replace(pattern, '[REDACTED]');
+    }
+
+    // Limit length to prevent localStorage bloat
+    const MAX_LENGTH = 500;
+    if (sanitized.length > MAX_LENGTH) {
+      sanitized = sanitized.substring(0, MAX_LENGTH) + '...';
+    }
+
+    return sanitized;
+  };
+
+  return {
+    ...toast,
+    title: sanitizeText(toast.title) || toast.title,
+    message: sanitizeText(toast.message) || toast.message,
+    // Don't persist a2uiSurface or a2uiState as they may contain sensitive runtime data
+    a2uiSurface: undefined,
+    a2uiState: undefined,
+  };
+};
+
 // Helper to generate unique ID
 const generateId = (): string => {
-  return `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `toast-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 };
 
 // Helper to load notifications from localStorage
@@ -51,7 +94,9 @@ const saveToStorage = (notifications: Toast[]): void => {
   try {
     // Keep only the last N notifications
     const toSave = notifications.slice(0, NOTIFICATION_MAX_STORED);
-    localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(toSave));
+    // Sanitize notification content before persisting to localStorage
+    const sanitized = toSave.map(sanitizeNotification);
+    localStorage.setItem(NOTIFICATION_STORAGE_KEY, JSON.stringify(sanitized));
   } catch (e) {
     console.error('[NotificationStore] Failed to save to storage:', e);
   }

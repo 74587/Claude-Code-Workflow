@@ -130,6 +130,7 @@ export function AppShell({
     };
 
     window.addEventListener('resize', handleResize);
+    // Cleanup: Remove event listener on unmount to prevent memory leak
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 

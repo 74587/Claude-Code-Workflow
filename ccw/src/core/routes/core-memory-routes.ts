@@ -31,8 +31,10 @@ export async function handleCoreMemoryRoutes(ctx: RouteContext): Promise<boolean
   // API: Core Memory - Get all memories
   if (pathname === '/api/core-memory/memories' && req.method === 'GET') {
     const projectPath = url.searchParams.get('path') || initialPath;
-    const archived = url.searchParams.get('archived') === 'true';
-    const limit = parseInt(url.searchParams.get('limit') || '50', 10);
+    const archivedParam = url.searchParams.get('archived');
+    // undefined means fetch all, 'true' means only archived, 'false' means only non-archived
+    const archived = archivedParam === null ? undefined : archivedParam === 'true';
+    const limit = parseInt(url.searchParams.get('limit') || '100', 10);
     const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
     try {

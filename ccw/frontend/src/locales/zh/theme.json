@@ -1,13 +1,15 @@
 {
   "title": {
     "colorScheme": "颜色主题",
-    "themeMode": "明暗模式"
+    "themeMode": "明暗模式",
+    "customHue": "自定义色调"
   },
   "colorScheme": {
     "blue": "经典蓝",
     "green": "深邃绿",
     "orange": "活力橙",
-    "purple": "优雅紫"
+    "purple": "优雅紫",
+    "custom": "自定义"
   },
   "themeMode": {
     "light": "浅色",
@@ -17,5 +19,9 @@
     "colorScheme": "选择{name}主题",
     "themeMode": "选择{name}模式"
   },
-  "current": "当前主题: {name}"
+  "current": "当前主题: {name}",
+  "hueValue": "色调: {value}°",
+  "preview": "预览",
+  "save": "保存自定义主题",
+  "reset": "重置为预设"
 }

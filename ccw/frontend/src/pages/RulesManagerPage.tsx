@@ -13,6 +13,9 @@ import {
   AlertCircle,
   FileCode,
   X,
+  Folder,
+  User,
+  Globe,
 } from 'lucide-react';
 import {
   useRules,
@@ -25,6 +28,7 @@ import { RuleDialog } from '@/components/shared/RuleDialog';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import { TabsNavigation } from '@/components/ui/TabsNavigation';
 import {
   Dialog,
   DialogContent,
@@ -130,6 +134,12 @@ export function RulesManagerPage() {
     return Array.from(cats).sort();
   }, [rules]);
 
+  // Count rules by location
+  const projectRulesCount = React.useMemo(() =>
+    rules.filter((r) => r.location === 'project').length, [rules]);
+  const userRulesCount = React.useMemo(() =>
+    rules.filter((r) => r.location === 'user').length, [rules]);
+
   // Handlers
   const handleEditClick = (rule: Rule) => {
     setSelectedRule(rule);
@@ -223,6 +233,35 @@ export function RulesManagerPage() {
         </div>
       )}
 
+      {/* Location Tabs - styled like LiteTasksPage */}
+      <TabsNavigation
+        value={locationFilter}
+        onValueChange={(v) => setLocationFilter(v as LocationFilter)}
+        tabs={[
+          {
+            value: 'all',
+            label: formatMessage({ id: 'rules.filters.all' }),
+            icon: <Globe className="h-4 w-4" />,
+            badge: <Badge variant="secondary" className="ml-2">{rules.length}</Badge>,
+            disabled: isMutating,
+          },
+          {
+            value: 'project',
+            label: formatMessage({ id: 'rules.location.project' }),
+            icon: <Folder className="h-4 w-4" />,
+            badge: <Badge variant="secondary" className="ml-2">{projectRulesCount}</Badge>,
+            disabled: isMutating,
+          },
+          {
+            value: 'user',
+            label: formatMessage({ id: 'rules.location.user' }),
+            icon: <User className="h-4 w-4" />,
+            badge: <Badge variant="secondary" className="ml-2">{userRulesCount}</Badge>,
+            disabled: isMutating,
+          },
+        ]}
+      />
+
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         {/* Status tabs */}
@@ -252,37 +291,6 @@ export function RulesManagerPage() {
             </button>
           )}
         </div>
-
-        {/* Location filter dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <Filter className="h-4 w-4" />
-              {formatMessage({ id: 'rules.filters.location' })}
-              {locationFilter !== 'all' && (
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1">
-                  {locationFilter === 'project' ? formatMessage({ id: 'rules.location.project' }) : formatMessage({ id: 'rules.location.user' })}
-                </Badge>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuLabel>{formatMessage({ id: 'rules.filters.location' })}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setLocationFilter('all')}>
-              {formatMessage({ id: 'rules.filters.all' })}
-              {locationFilter === 'all' && <span className="ml-auto text-primary">&#10003;</span>}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setLocationFilter('project')}>
-              {formatMessage({ id: 'rules.location.project' })}
-              {locationFilter === 'project' && <span className="ml-auto text-primary">&#10003;</span>}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setLocationFilter('user')}>
-              {formatMessage({ id: 'rules.location.user' })}
-              {locationFilter === 'user' && <span className="ml-auto text-primary">&#10003;</span>}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
 
         {/* Category filter dropdown */}
         {categories.length > 0 && (

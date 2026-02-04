@@ -9,6 +9,7 @@ import type { AppStore, Theme, ColorScheme, Locale, ViewMode, SessionFilter, Lit
 import { DEFAULT_DASHBOARD_LAYOUT } from '../components/dashboard/defaultLayouts';
 import { getInitialLocale, updateIntl } from '../lib/i18n';
 import { getThemeId } from '../lib/theme';
+import { generateThemeFromHue } from '../lib/colorGenerator';
 
 // Helper to resolve system theme
 const getSystemTheme = (): 'light' | 'dark' => {
@@ -24,12 +25,87 @@ const resolveTheme = (theme: Theme): 'light' | 'dark' => {
   return theme;
 };
 
+/**
+ * DOM Theme Application Helper
+ *
+ * ARCHITECTURAL NOTE: This function contains DOM manipulation logic that ideally
+ * belongs in a React component/hook rather than a store. However, it's placed
+ * here for pragmatic reasons:
+ * - Immediate theme application without React render cycle
+ * - SSR compatibility (checks for document/window)
+ * - Backward compatibility with existing codebase
+ *
+ * FUTURE IMPROVEMENT: Move theme application to a ThemeProvider component using
+ * useEffect to listen for store changes. This would properly separate concerns.
+ */
+const applyThemeToDocument = (
+  resolvedTheme: 'light' | 'dark',
+  colorScheme: ColorScheme,
+  customHue: number | null
+): void => {
+  if (typeof document === 'undefined') return;
+
+  // Define the actual DOM update logic
+  const performThemeUpdate = () => {
+    // Update document classes
+    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.add(resolvedTheme);
+
+    // Clear custom CSS variables list
+    const customVars = [
+      '--bg', '--bg-secondary', '--surface', '--surface-hover',
+      '--border', '--border-hover', '--text', '--text-secondary',
+      '--text-tertiary', '--text-disabled', '--accent', '--accent-hover',
+      '--accent-active', '--accent-light', '--accent-lighter', '--primary',
+      '--primary-hover', '--primary-light', '--primary-lighter', '--secondary',
+      '--secondary-hover', '--secondary-light', '--muted', '--muted-hover',
+      '--muted-text', '--success', '--success-light', '--success-text',
+      '--warning', '--warning-light', '--warning-text', '--error',
+      '--error-light', '--error-text', '--info', '--info-light',
+      '--info-text', '--destructive', '--destructive-hover', '--destructive-light',
+      '--hover', '--active', '--focus'
+    ];
+
+    // Apply custom theme or preset theme
+    if (customHue !== null) {
+      const cssVars = generateThemeFromHue(customHue, resolvedTheme);
+      Object.entries(cssVars).forEach(([varName, varValue]) => {
+        document.documentElement.style.setProperty(varName, varValue);
+      });
+      document.documentElement.setAttribute('data-theme', `custom-${resolvedTheme}`);
+    } else {
+      // Clear custom CSS variables
+      customVars.forEach(varName => {
+        document.documentElement.style.removeProperty(varName);
+      });
+      // Apply preset theme
+      const themeId = getThemeId(colorScheme, resolvedTheme);
+      document.documentElement.setAttribute('data-theme', themeId);
+    }
+
+    // Set color scheme attribute
+    document.documentElement.setAttribute('data-color-scheme', colorScheme);
+  };
+
+  // Use View Transition API for smooth transitions (progressive enhancement)
+  // @ts-expect-error - View Transition API not yet in TypeScript DOM types
+  if (document.startViewTransition) {
+    // @ts-expect-error - View Transition API not yet in TypeScript DOM types
+    document.startViewTransition(performThemeUpdate);
+  } else {
+    // Fallback: apply immediately without transition
+    performThemeUpdate();
+  }
+};
+
 // Initial state
 const initialState = {
   // Theme
   theme: 'system' as Theme,
   resolvedTheme: 'light' as 'light' | 'dark',
   colorScheme: 'blue' as ColorScheme, // New: default to blue scheme
+  customHue: null as number | null,
+  isCustomTheme: false,
 
   // Locale
   locale: getInitialLocale() as Locale,
@@ -66,26 +142,32 @@ export const useAppStore = create<AppStore>()(
           const resolved = resolveTheme(theme);
           set({ theme, resolvedTheme: resolved }, false, 'setTheme');
 
-          // Apply theme to document
-          if (typeof document !== 'undefined') {
-            const { colorScheme } = get();
-            const themeId = getThemeId(colorScheme, resolved);
-            document.documentElement.classList.remove('light', 'dark');
-            document.documentElement.classList.add(resolved);
-            document.documentElement.setAttribute('data-theme', themeId);
-          }
+          // Apply theme using helper (encapsulates DOM manipulation)
+          const { colorScheme, customHue } = get();
+          applyThemeToDocument(resolved, colorScheme, customHue);
         },
 
         setColorScheme: (colorScheme: ColorScheme) => {
-          set({ colorScheme }, false, 'setColorScheme');
+          set({ colorScheme, customHue: null, isCustomTheme: false }, false, 'setColorScheme');
 
-          // Apply color scheme to document
-          if (typeof document !== 'undefined') {
-            const { resolvedTheme } = get();
-            const themeId = getThemeId(colorScheme, resolvedTheme);
-            document.documentElement.setAttribute('data-theme', themeId);
-            document.documentElement.setAttribute('data-color-scheme', colorScheme);
+          // Apply color scheme using helper (encapsulates DOM manipulation)
+          const { resolvedTheme } = get();
+          applyThemeToDocument(resolvedTheme, colorScheme, null);
+        },
+
+        setCustomHue: (hue: number | null) => {
+          if (hue === null) {
+            // Reset to preset theme
+            const { colorScheme, resolvedTheme } = get();
+            set({ customHue: null, isCustomTheme: false }, false, 'setCustomHue');
+            applyThemeToDocument(resolvedTheme, colorScheme, null);
+            return;
           }
+
+          // Apply custom hue
+          set({ customHue: hue, isCustomTheme: true }, false, 'setCustomHue');
+          const { resolvedTheme, colorScheme } = get();
+          applyThemeToDocument(resolvedTheme, colorScheme, hue);
         },
 
         toggleTheme: () => {
@@ -189,6 +271,7 @@ export const useAppStore = create<AppStore>()(
         partialize: (state) => ({
           theme: state.theme,
           colorScheme: state.colorScheme,
+          customHue: state.customHue,
           locale: state.locale,
           sidebarCollapsed: state.sidebarCollapsed,
           expandedNavGroups: state.expandedNavGroups,
@@ -199,12 +282,9 @@ export const useAppStore = create<AppStore>()(
           if (state) {
             const resolved = resolveTheme(state.theme);
             state.resolvedTheme = resolved;
-            const themeId = getThemeId(state.colorScheme, resolved);
-            if (typeof document !== 'undefined') {
-              document.documentElement.classList.remove('light', 'dark');
-              document.documentElement.classList.add(resolved);
-              document.documentElement.setAttribute('data-theme', themeId);
-            }
+            state.isCustomTheme = state.customHue !== null;
+            // Apply theme using helper (encapsulates DOM manipulation)
+            applyThemeToDocument(resolved, state.colorScheme, state.customHue);
           }
           // Apply locale on rehydration
           if (state) {
@@ -225,10 +305,8 @@ if (typeof window !== 'undefined') {
     if (state.theme === 'system') {
       const resolved = getSystemTheme();
       useAppStore.setState({ resolvedTheme: resolved });
-      const themeId = getThemeId(state.colorScheme, resolved);
-      document.documentElement.classList.remove('light', 'dark');
-      document.documentElement.classList.add(resolved);
-      document.documentElement.setAttribute('data-theme', themeId);
+      // Apply theme using helper (encapsulates DOM manipulation)
+      applyThemeToDocument(resolved, state.colorScheme, state.customHue);
     }
   });
 }
@@ -236,6 +314,9 @@ if (typeof window !== 'undefined') {
 // Selectors for common access patterns
 export const selectTheme = (state: AppStore) => state.theme;
 export const selectResolvedTheme = (state: AppStore) => state.resolvedTheme;
+export const selectColorScheme = (state: AppStore) => state.colorScheme;
+export const selectCustomHue = (state: AppStore) => state.customHue;
+export const selectIsCustomTheme = (state: AppStore) => state.isCustomTheme;
 export const selectLocale = (state: AppStore) => state.locale;
 export const selectSidebarOpen = (state: AppStore) => state.sidebarOpen;
 export const selectCurrentView = (state: AppStore) => state.currentView;

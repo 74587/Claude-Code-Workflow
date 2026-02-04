@@ -653,14 +653,14 @@ export const useCoordinatorStore = create<CoordinatorState>()(
     {
       name: LOG_STORAGE_KEY,
       version: COORDINATOR_STORAGE_VERSION,
-      // Only persist metadata and basic pipeline info (not full nodes/logs)
+      // Only persist basic pipeline info (not full nodes/logs or metadata which may contain sensitive data)
       partialize: (state) => ({
         currentExecutionId: state.currentExecutionId,
         status: state.status,
         startedAt: state.startedAt,
         completedAt: state.completedAt,
         totalElapsedMs: state.totalElapsedMs,
-        metadata: state.metadata,
+        // Exclude metadata from persistence - it may contain sensitive data (Record<string, unknown>)
         isLogPanelExpanded: state.isLogPanelExpanded,
         autoScrollLogs: state.autoScrollLogs,
         // Only persist basic pipeline info, not full nodes

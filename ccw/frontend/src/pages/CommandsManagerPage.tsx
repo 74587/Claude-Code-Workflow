@@ -8,19 +8,21 @@ import { useIntl } from 'react-intl';
 import {
   Terminal,
   Search,
-  Plus,
   RefreshCw,
   Eye,
   EyeOff,
   CheckCircle2,
   XCircle,
+  Folder,
+  User,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
+import { TabsNavigation } from '@/components/ui/TabsNavigation';
 import { useCommands, useCommandMutations } from '@/hooks';
 import { CommandGroupAccordion } from '@/components/commands/CommandGroupAccordion';
-import { LocationSwitcher } from '@/components/commands/LocationSwitcher';
 import { cn } from '@/lib/utils';
 
 // ========== Main Page Component ==========
@@ -113,45 +115,52 @@ export function CommandsManagerPage() {
               {formatMessage({ id: 'commands.description' })}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
-              <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
-              {formatMessage({ id: 'common.actions.refresh' })}
-            </Button>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              {formatMessage({ id: 'commands.actions.create' })}
-            </Button>
-          </div>
+          <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
+            {formatMessage({ id: 'common.actions.refresh' })}
+          </Button>
         </div>
 
-        {/* Location and Show Disabled Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <LocationSwitcher
-            currentLocation={locationFilter}
-            onLocationChange={setLocationFilter}
-            projectCount={projectCount}
-            userCount={userCount}
+        {/* Location Tabs - styled like LiteTasksPage */}
+        <TabsNavigation
+          value={locationFilter}
+          onValueChange={(v) => setLocationFilter(v as 'project' | 'user')}
+          tabs={[
+            {
+              value: 'project',
+              label: formatMessage({ id: 'commands.location.project' }),
+              icon: <Folder className="h-4 w-4" />,
+              badge: <Badge variant="secondary" className="ml-2">{projectCount}</Badge>,
+              disabled: isToggling,
+            },
+            {
+              value: 'user',
+              label: formatMessage({ id: 'commands.location.user' }),
+              icon: <User className="h-4 w-4" />,
+              badge: <Badge variant="secondary" className="ml-2">{userCount}</Badge>,
+              disabled: isToggling,
+            },
+          ]}
+        />
+
+        {/* Show Disabled Controls */}
+        <div className="flex items-center justify-end gap-2">
+          <Button
+            variant={showDisabledCommands ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowDisabledCommands((prev) => !prev)}
             disabled={isToggling}
-          />
-          <div className="flex items-center gap-2">
-            <Button
-              variant={showDisabledCommands ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setShowDisabledCommands((prev) => !prev)}
-              disabled={isToggling}
-            >
-              {showDisabledCommands ? (
-                <Eye className="w-4 h-4 mr-2" />
-              ) : (
-                <EyeOff className="w-4 h-4 mr-2" />
-              )}
-              {showDisabledCommands
-                ? formatMessage({ id: 'commands.actions.hideDisabled' })
-                : formatMessage({ id: 'commands.actions.showDisabled' })}
-              <span className="ml-1 text-xs opacity-70">({disabledCount})</span>
-            </Button>
-          </div>
+          >
+            {showDisabledCommands ? (
+              <Eye className="w-4 h-4 mr-2" />
+            ) : (
+              <EyeOff className="w-4 h-4 mr-2" />
+            )}
+            {showDisabledCommands
+              ? formatMessage({ id: 'commands.actions.hideDisabled' })
+              : formatMessage({ id: 'commands.actions.showDisabled' })}
+            <span className="ml-1 text-xs opacity-70">({disabledCount})</span>
+          </Button>
         </div>
       </div>
 

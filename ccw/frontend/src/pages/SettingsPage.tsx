@@ -585,7 +585,7 @@ export function SettingsPage() {
       </Card>
 
       {/* Display Settings */}
-      <Card className="p-6">
+      <div className="py-4">
         <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
           <Settings className="w-5 h-5" />
           {formatMessage({ id: 'settings.sections.display' })}
@@ -607,7 +607,7 @@ export function SettingsPage() {
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* Reset Settings */}
       <Card className="p-6 border-destructive/50">

@@ -4,7 +4,7 @@
 // Convenient hook for theme management with multi-color scheme support
 
 import { useCallback } from 'react';
-import { useAppStore, selectTheme, selectResolvedTheme } from '../stores/appStore';
+import { useAppStore, selectTheme, selectResolvedTheme, selectCustomHue, selectIsCustomTheme } from '../stores/appStore';
 import type { Theme, ColorScheme } from '../types/store';
 
 export interface UseThemeReturn {
@@ -16,10 +16,16 @@ export interface UseThemeReturn {
   isDark: boolean;
   /** Current color scheme ('blue', 'green', 'orange', 'purple') */
   colorScheme: ColorScheme;
+  /** Custom hue value (0-360) for theme customization, null when using preset themes */
+  customHue: number | null;
+  /** Whether the current theme is a custom theme */
+  isCustomTheme: boolean;
   /** Set theme preference */
   setTheme: (theme: Theme) => void;
   /** Set color scheme */
   setColorScheme: (scheme: ColorScheme) => void;
+  /** Set custom hue value (0-360) or null to reset to preset theme */
+  setCustomHue: (hue: number | null) => void;
   /** Toggle between light and dark (ignores system) */
   toggleTheme: () => void;
 }
@@ -46,8 +52,11 @@ export function useTheme(): UseThemeReturn {
   const theme = useAppStore(selectTheme);
   const resolvedTheme = useAppStore(selectResolvedTheme);
   const colorScheme = useAppStore((state) => state.colorScheme);
+  const customHue = useAppStore(selectCustomHue);
+  const isCustomTheme = useAppStore(selectIsCustomTheme);
   const setThemeAction = useAppStore((state) => state.setTheme);
   const setColorSchemeAction = useAppStore((state) => state.setColorScheme);
+  const setCustomHueAction = useAppStore((state) => state.setCustomHue);
   const toggleThemeAction = useAppStore((state) => state.toggleTheme);
 
   const setTheme = useCallback(
@@ -64,6 +73,13 @@ export function useTheme(): UseThemeReturn {
     [setColorSchemeAction]
   );
 
+  const setCustomHue = useCallback(
+    (hue: number | null) => {
+      setCustomHueAction(hue);
+    },
+    [setCustomHueAction]
+  );
+
   const toggleTheme = useCallback(() => {
     toggleThemeAction();
   }, [toggleThemeAction]);
@@ -73,8 +89,11 @@ export function useTheme(): UseThemeReturn {
     resolvedTheme,
     isDark: resolvedTheme === 'dark',
     colorScheme,
+    customHue,
+    isCustomTheme,
     setTheme,
     setColorScheme,
+    setCustomHue,
     toggleTheme,
   };
 }

@@ -1,13 +1,15 @@
 {
   "title": {
     "colorScheme": "Color Scheme",
-    "themeMode": "Theme Mode"
+    "themeMode": "Theme Mode",
+    "customHue": "Custom Hue"
   },
   "colorScheme": {
     "blue": "Classic Blue",
     "green": "Deep Green",
     "orange": "Vibrant Orange",
-    "purple": "Elegant Purple"
+    "purple": "Elegant Purple",
+    "custom": "Custom"
   },
   "themeMode": {
     "light": "Light",
@@ -17,5 +19,9 @@
     "colorScheme": "Select {name} theme",
     "themeMode": "Select {name} mode"
   },
-  "current": "Current theme: {name}"
+  "current": "Current theme: {name}",
+  "hueValue": "Hue: {value}°",
+  "preview": "Preview",
+  "save": "Save Custom Theme",
+  "reset": "Reset to Preset"
 }

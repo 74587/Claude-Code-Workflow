@@ -235,21 +235,21 @@ export function ProjectOverviewPage() {
           {/* Header Row */}
           <div className="flex items-start justify-between mb-4 pb-3 border-b border-border">
             <div className="flex-1">
-              <h1 className="text-base font-semibold text-foreground mb-1">
+              <h1 className="text-lg font-semibold text-foreground mb-1">
                 {projectOverview.projectName}
               </h1>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 {projectOverview.description || formatMessage({ id: 'projectOverview.noDescription' })}
               </p>
             </div>
-            <div className="text-xs text-muted-foreground text-right">
+            <div className="text-sm text-muted-foreground text-right">
               <div>
                 {formatMessage({ id: 'projectOverview.header.initialized' })}:{' '}
                 {formatDate(projectOverview.initializedAt)}
               </div>
               {metadata?.analysis_mode && (
                 <div className="mt-1">
-                  <span className="font-mono text-[10px] px-1.5 py-0.5 bg-muted rounded">
+                  <span className="font-mono text-xs px-1.5 py-0.5 bg-muted rounded">
                     {metadata.analysis_mode}
                   </span>
                 </div>
@@ -258,7 +258,7 @@ export function ProjectOverviewPage() {
           </div>
 
           {/* Technology Stack */}
-          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
+          <h3 className="text-base font-semibold text-foreground mb-3 flex items-center gap-1.5">
             <Code2 className="w-4 h-4" />
             {formatMessage({ id: 'projectOverview.techStack.title' })}
           </h3>
@@ -266,7 +266,7 @@ export function ProjectOverviewPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Languages */}
             <div>
-              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 {formatMessage({ id: 'projectOverview.techStack.languages' })}
               </h4>
               <div className="flex flex-wrap gap-1.5">
@@ -274,21 +274,21 @@ export function ProjectOverviewPage() {
                   technologyStack.languages.map((lang: { name: string; file_count: number; primary?: boolean }) => (
                     <div
                       key={lang.name}
-                      className={`flex items-center gap-1.5 px-2 py-1 bg-background border border-border rounded text-xs ${
+                      className={`flex items-center gap-1.5 px-2 py-1 bg-background border border-border rounded text-sm ${
                         lang.primary ? 'ring-1 ring-primary' : ''
                       }`}
                     >
                       <span className="font-medium text-foreground">{lang.name}</span>
-                      <span className="text-[10px] text-muted-foreground">{lang.file_count}</span>
+                      <span className="text-xs text-muted-foreground">{lang.file_count}</span>
                       {lang.primary && (
-                        <span className="text-[9px] px-1 py-0.5 bg-primary text-primary-foreground rounded">
+                        <span className="text-[10px] px-1 py-0.5 bg-primary text-primary-foreground rounded">
                           {formatMessage({ id: 'projectOverview.techStack.primary' })}
                         </span>
                       )}
                     </div>
                   ))
                 ) : (
-                  <span className="text-muted-foreground text-xs">
+                  <span className="text-muted-foreground text-sm">
                     {formatMessage({ id: 'projectOverview.techStack.noLanguages' })}
                   </span>
                 )}
@@ -297,18 +297,18 @@ export function ProjectOverviewPage() {
 
             {/* Frameworks */}
             <div>
-              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 {formatMessage({ id: 'projectOverview.techStack.frameworks' })}
               </h4>
               <div className="flex flex-wrap gap-1.5">
                 {technologyStack?.frameworks && technologyStack.frameworks.length > 0 ? (
                   technologyStack.frameworks.map((fw: string) => (
-                    <Badge key={fw} variant="success" className="px-2 py-0.5 text-[10px]">
+                    <Badge key={fw} variant="success" className="px-2 py-0.5 text-xs">
                       {fw}
                     </Badge>
                   ))
                 ) : (
-                  <span className="text-muted-foreground text-xs">
+                  <span className="text-muted-foreground text-sm">
                     {formatMessage({ id: 'projectOverview.techStack.noFrameworks' })}
                   </span>
                 )}
@@ -317,36 +317,36 @@ export function ProjectOverviewPage() {
 
             {/* Build Tools */}
             <div>
-              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 {formatMessage({ id: 'projectOverview.techStack.buildTools' })}
               </h4>
               <div className="flex flex-wrap gap-1.5">
                 {technologyStack?.build_tools && technologyStack.build_tools.length > 0 ? (
                   technologyStack.build_tools.map((tool: string) => (
-                    <Badge key={tool} variant="warning" className="px-2 py-0.5 text-[10px]">
+                    <Badge key={tool} variant="warning" className="px-2 py-0.5 text-xs">
                       {tool}
                     </Badge>
                   ))
                 ) : (
-                  <span className="text-muted-foreground text-xs">-</span>
+                  <span className="text-muted-foreground text-sm">-</span>
                 )}
               </div>
             </div>
 
             {/* Test Frameworks */}
             <div>
-              <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 {formatMessage({ id: 'projectOverview.techStack.testFrameworks' })}
               </h4>
               <div className="flex flex-wrap gap-1.5">
                 {technologyStack?.test_frameworks && technologyStack.test_frameworks.length > 0 ? (
                   technologyStack.test_frameworks.map((fw: string) => (
-                    <Badge key={fw} variant="default" className="px-2 py-0.5 text-[10px]">
+                    <Badge key={fw} variant="default" className="px-2 py-0.5 text-xs">
                       {fw}
                     </Badge>
                   ))
                 ) : (
-                  <span className="text-muted-foreground text-xs">-</span>
+                  <span className="text-muted-foreground text-sm">-</span>
                 )}
               </div>
             </div>
@@ -354,120 +354,128 @@ export function ProjectOverviewPage() {
         </CardContent>
       </Card>
 
-      {/* Architecture */}
-      {architecture && (
+      {/* Architecture & Key Components - Merged */}
+      {(architecture || (keyComponents && keyComponents.length > 0)) && (
         <Card>
           <CardContent className="p-4">
-            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
-              <Blocks className="w-4 h-4" />
-              {formatMessage({ id: 'projectOverview.architecture.title' })}
-            </h3>
+            {/* Architecture Section */}
+            {architecture && (
+              <>
+                <h3 className="text-base font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                  <Blocks className="w-4 h-4" />
+                  {formatMessage({ id: 'projectOverview.architecture.title' })}
+                </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Style */}
-              <div>
-                <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                  {formatMessage({ id: 'projectOverview.architecture.style' })}
-                </h4>
-                <div className="px-2 py-1.5 bg-background border border-border rounded">
-                  <span className="text-foreground font-medium text-xs">{architecture.style}</span>
-                </div>
-              </div>
-
-              {/* Layers */}
-              {architecture.layers && architecture.layers.length > 0 && (
-                <div>
-                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    {formatMessage({ id: 'projectOverview.architecture.layers' })}
-                  </h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {architecture.layers.map((layer: string) => (
-                      <span key={layer} className="px-1.5 py-0.5 bg-muted text-foreground rounded text-[10px]">
-                        {layer}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Patterns */}
-              {architecture.patterns && architecture.patterns.length > 0 && (
-                <div>
-                  <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    {formatMessage({ id: 'projectOverview.architecture.patterns' })}
-                  </h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {architecture.patterns.map((pattern: string) => (
-                      <span key={pattern} className="px-1.5 py-0.5 bg-muted text-foreground rounded text-[10px]">
-                        {pattern}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Key Components */}
-      {keyComponents && keyComponents.length > 0 && (
-        <Card>
-          <CardContent className="p-4">
-            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-1.5">
-              <Component className="w-4 h-4" />
-              {formatMessage({ id: 'projectOverview.components.title' })}
-            </h3>
-
-            <div className="space-y-2">
-              {keyComponents.map((comp: KeyComponent) => {
-                const importance = comp.importance || 'low';
-                const importanceColors: Record<string, string> = {
-                  high: 'border-l-2 border-l-destructive bg-destructive/5',
-                  medium: 'border-l-2 border-l-warning bg-warning/5',
-                  low: 'border-l-2 border-l-muted-foreground bg-muted',
-                };
-                const importanceBadges: Record<string, React.ReactElement> = {
-                  high: (
-                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
-                      {formatMessage({ id: 'projectOverview.components.importance.high' })}
-                    </Badge>
-                  ),
-                  medium: (
-                    <Badge variant="warning" className="text-[10px] px-1.5 py-0">
-                      {formatMessage({ id: 'projectOverview.components.importance.medium' })}
-                    </Badge>
-                  ),
-                  low: (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                      {formatMessage({ id: 'projectOverview.components.importance.low' })}
-                    </Badge>
-                  ),
-                };
-
-                return (
-                  <div
-                    key={comp.name}
-                    className={`p-2.5 rounded ${importanceColors[importance] || importanceColors.low}`}
-                  >
-                    <div className="flex items-start justify-between mb-1">
-                      <h4 className="font-medium text-foreground text-xs">{comp.name}</h4>
-                      {importanceBadges[importance]}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Style */}
+                  <div>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                      {formatMessage({ id: 'projectOverview.architecture.style' })}
+                    </h4>
+                    <div className="px-2 py-1.5 bg-background border border-border rounded">
+                      <span className="text-foreground font-medium text-sm">{architecture.style}</span>
                     </div>
-                    {comp.description && (
-                      <p className="text-[10px] text-muted-foreground mb-1">{comp.description}</p>
-                    )}
-                    {comp.responsibility && comp.responsibility.length > 0 && (
-                      <ul className="text-[10px] text-muted-foreground list-disc list-inside">
-                        {comp.responsibility.map((resp: string, i: number) => (
-                          <li key={i}>{resp}</li>
-                        ))}
-                      </ul>
-                    )}
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Layers */}
+                  {architecture.layers && architecture.layers.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                        {formatMessage({ id: 'projectOverview.architecture.layers' })}
+                      </h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {architecture.layers.map((layer: string) => (
+                          <span key={layer} className="px-1.5 py-0.5 bg-muted text-foreground rounded text-xs">
+                            {layer}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Patterns */}
+                  {architecture.patterns && architecture.patterns.length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                        {formatMessage({ id: 'projectOverview.architecture.patterns' })}
+                      </h4>
+                      <div className="flex flex-wrap gap-1.5">
+                        {architecture.patterns.map((pattern: string) => (
+                          <span key={pattern} className="px-1.5 py-0.5 bg-muted text-foreground rounded text-xs">
+                            {pattern}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Divider between Architecture and Components */}
+            {architecture && keyComponents && keyComponents.length > 0 && (
+              <div className="border-t border-border my-4" />
+            )}
+
+            {/* Key Components Section */}
+            {keyComponents && keyComponents.length > 0 && (
+              <>
+                <h3 className="text-base font-semibold text-foreground mb-3 flex items-center gap-1.5">
+                  <Component className="w-4 h-4" />
+                  {formatMessage({ id: 'projectOverview.components.title' })}
+                </h3>
+
+                <div className="space-y-2">
+                  {keyComponents.map((comp: KeyComponent) => {
+                    const importance = comp.importance || 'low';
+                    const importanceColors: Record<string, string> = {
+                      high: 'border-l-2 border-l-destructive bg-destructive/5',
+                      medium: 'border-l-2 border-l-warning bg-warning/5',
+                      low: 'border-l-2 border-l-muted-foreground bg-muted',
+                    };
+                    const importanceBadges: Record<string, React.ReactElement> = {
+                      high: (
+                        <Badge variant="destructive" className="text-xs px-1.5 py-0">
+                          {formatMessage({ id: 'projectOverview.components.importance.high' })}
+                        </Badge>
+                      ),
+                      medium: (
+                        <Badge variant="warning" className="text-xs px-1.5 py-0">
+                          {formatMessage({ id: 'projectOverview.components.importance.medium' })}
+                        </Badge>
+                      ),
+                      low: (
+                        <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                          {formatMessage({ id: 'projectOverview.components.importance.low' })}
+                        </Badge>
+                      ),
+                    };
+
+                    return (
+                      <div
+                        key={comp.name}
+                        className={`p-2.5 rounded ${importanceColors[importance] || importanceColors.low}`}
+                      >
+                        <div className="flex items-start justify-between mb-1">
+                          <h4 className="font-medium text-foreground text-sm">{comp.name}</h4>
+                          {importanceBadges[importance]}
+                        </div>
+                        {comp.description && (
+                          <p className="text-xs text-muted-foreground mb-1">{comp.description}</p>
+                        )}
+                        {comp.responsibility && comp.responsibility.length > 0 && (
+                          <ul className="text-xs text-muted-foreground list-disc list-inside">
+                            {comp.responsibility.map((resp: string, i: number) => (
+                              <li key={i}>{resp}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
@@ -477,7 +485,7 @@ export function ProjectOverviewPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <h3 className="text-base font-semibold text-foreground flex items-center gap-1.5">
                 <GitBranch className="w-4 h-4" />
                 {formatMessage({ id: 'projectOverview.devIndex.title' })}
               </h3>
@@ -487,8 +495,8 @@ export function ProjectOverviewPage() {
                   if (count === 0) return null;
                   const Icon = cat.icon;
                   return (
-                    <Badge key={cat.key} variant={cat.color === 'primary' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                      <Icon className="w-2.5 h-2.5 mr-0.5" />
+                    <Badge key={cat.key} variant={cat.color === 'primary' ? 'default' : 'secondary'} className="text-xs px-1.5 py-0">
+                      <Icon className="w-3 h-3 mr-0.5" />
                       {count}
                     </Badge>
                   );
@@ -498,13 +506,13 @@ export function ProjectOverviewPage() {
 
             <Tabs value={devIndexView} onValueChange={(v) => setDevIndexView(v as DevIndexView)}>
               <div className="flex items-center justify-between mb-3">
-                <TabsList className="h-7">
-                  <TabsTrigger value="category" className="text-xs px-2 py-1 h-6">
-                    <LayoutGrid className="w-3 h-3 mr-1" />
+                <TabsList className="h-8">
+                  <TabsTrigger value="category" className="text-sm px-3 py-1 h-7">
+                    <LayoutGrid className="w-3.5 h-3.5 mr-1" />
                     {formatMessage({ id: 'projectOverview.devIndex.categories' })}
                   </TabsTrigger>
-                  <TabsTrigger value="timeline" className="text-xs px-2 py-1 h-6">
-                    <GitCommitHorizontal className="w-3 h-3 mr-1" />
+                  <TabsTrigger value="timeline" className="text-sm px-3 py-1 h-7">
+                    <GitCommitHorizontal className="w-3.5 h-3.5 mr-1" />
                     {formatMessage({ id: 'projectOverview.devIndex.timeline' })}
                   </TabsTrigger>
                 </TabsList>
@@ -519,10 +527,10 @@ export function ProjectOverviewPage() {
 
                     return (
                       <div key={cat.key}>
-                        <h4 className="text-xs font-semibold text-foreground mb-2 flex items-center gap-1.5">
+                        <h4 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-1.5">
                           <Icon className="w-3.5 h-3.5" />
                           <span>{formatMessage({ id: cat.i18nKey })}</span>
-                          <Badge variant="secondary" className="text-[10px] px-1 py-0">{entries.length}</Badge>
+                          <Badge variant="secondary" className="text-xs px-1 py-0">{entries.length}</Badge>
                         </h4>
                         <div className="space-y-1.5">
                           {entries.slice(0, 5).map((entry: DevelopmentIndexEntry & { type?: string; typeLabel?: string; typeIcon?: React.ElementType; typeColor?: string; date?: string }, i: number) => (
@@ -531,15 +539,15 @@ export function ProjectOverviewPage() {
                               className="p-2 bg-background border border-border rounded hover:shadow-sm transition-shadow"
                             >
                               <div className="flex items-start justify-between mb-0.5">
-                                <h5 className="font-medium text-foreground text-xs">{entry.title}</h5>
-                                <span className="text-[10px] text-muted-foreground">
+                                <h5 className="font-medium text-foreground text-sm">{entry.title}</h5>
+                                <span className="text-xs text-muted-foreground">
                                   {formatDate(entry.archivedAt || entry.date || entry.implemented_at)}
                                 </span>
                               </div>
                               {entry.description && (
-                                <p className="text-[10px] text-muted-foreground mb-1">{entry.description}</p>
+                                <p className="text-xs text-muted-foreground mb-1">{entry.description}</p>
                               )}
-                              <div className="flex items-center gap-1.5 text-[10px] flex-wrap">
+                              <div className="flex items-center gap-1.5 text-xs flex-wrap">
                                 {entry.sessionId && (
                                   <span className="px-1.5 py-0.5 bg-primary-light text-primary rounded font-mono">
                                     {entry.sessionId}
@@ -563,7 +571,7 @@ export function ProjectOverviewPage() {
                             </div>
                           ))}
                           {entries.length > 5 && (
-                            <div className="text-xs text-muted-foreground text-center py-1">
+                            <div className="text-sm text-muted-foreground text-center py-1">
                               ... and {entries.length - 5} more
                             </div>
                           )}
@@ -601,20 +609,20 @@ export function ProjectOverviewPage() {
                                       ? 'destructive'
                                       : 'secondary'
                                 }
-                                className="text-[10px] px-1.5 py-0"
+                                className="text-xs px-1.5 py-0"
                               >
                                 {entry.typeLabel}
                               </Badge>
-                              <h5 className="font-medium text-foreground text-xs">{entry.title}</h5>
+                              <h5 className="font-medium text-foreground text-sm">{entry.title}</h5>
                             </div>
-                            <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
                               {formatDate(entry.date)}
                             </span>
                           </div>
                           {entry.description && (
-                            <p className="text-[10px] text-muted-foreground mb-1">{entry.description}</p>
+                            <p className="text-xs text-muted-foreground mb-1">{entry.description}</p>
                           )}
-                          <div className="flex items-center gap-1.5 text-[10px]">
+                          <div className="flex items-center gap-1.5 text-xs">
                             {entry.sessionId && (
                               <span className="px-1.5 py-0.5 bg-muted rounded font-mono">
                                 {entry.sessionId}
@@ -635,7 +643,7 @@ export function ProjectOverviewPage() {
                     );
                   })}
                   {allDevEntries.length > 20 && (
-                    <div className="text-xs text-muted-foreground text-center py-2">
+                    <div className="text-sm text-muted-foreground text-center py-2">
                       ... and {allDevEntries.length - 20} more entries
                     </div>
                   )}

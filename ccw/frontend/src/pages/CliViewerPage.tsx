@@ -296,19 +296,35 @@ export function CliViewerPage() {
     }
   }, [lastMessage, invalidateActive]);
 
-  // Auto-add new executions as tabs when they appear
+  // Auto-add new executions as tabs, distributing across available panes
+  // Uses round-robin distribution to spread executions across panes side-by-side
   const addedExecutionsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!focusedPaneId) return;
-    for (const executionId of Object.keys(executions)) {
-      if (!addedExecutionsRef.current.has(executionId)) {
-        addedExecutionsRef.current.add(executionId);
-        const exec = executions[executionId];
-        const toolShort = exec.tool.split('-')[0];
-        addTab(focusedPaneId, executionId, `${toolShort} (${exec.mode})`);
-      }
-    }
-  }, [executions, focusedPaneId, addTab]);
+    // Get all pane IDs from the current layout
+    const paneIds = Object.keys(panes);
+    if (paneIds.length === 0) return;
+
+    // Get addTab from store directly to avoid dependency on reactive function
+    // This prevents infinite loop when addTab updates store state
+    const storeAddTab = useViewerStore.getState().addTab;
+
+    // Get new executions that haven't been added yet
+    const newExecutionIds = Object.keys(executions).filter(
+      (id) => !addedExecutionsRef.current.has(id)
+    );
+
+    if (newExecutionIds.length === 0) return;
+
+    // Distribute new executions across panes round-robin
+    newExecutionIds.forEach((executionId, index) => {
+      addedExecutionsRef.current.add(executionId);
+      const exec = executions[executionId];
+      const toolShort = exec.tool.split('-')[0];
+      // Round-robin pane selection
+      const targetPaneId = paneIds[index % paneIds.length];
+      storeAddTab(targetPaneId, executionId, `${toolShort} (${exec.mode})`);
+    });
+  }, [executions, panes]);
 
   // Initialize layout if empty
   useEffect(() => {

@@ -47,5 +47,10 @@
     "splitHorizontal": "Split Horizontal",
     "splitVertical": "Split Vertical",
     "closePane": "Close Pane"
-  }
+  },
+  "noActiveTab": "No active tab",
+  "selectOrCreate": "Select a tab or start a new CLI execution",
+  "executionNotFound": "Execution not found",
+  "waitingForOutput": "Waiting for output...",
+  "noOutput": "No output"
 }

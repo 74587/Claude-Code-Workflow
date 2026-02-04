@@ -532,12 +532,18 @@ Use fix_strategy.test_pattern to run affected tests:
 
 ### Error Handling
 
-**Planning Failures**:
-- Invalid template → Abort with error message
-- Insufficient findings data → Request complete export
-- Planning timeout → Retry once, then fail gracefully
+**Batching Failures (Phase 1.5)**:
+- Invalid findings data → Abort with error message
+- Empty batches after grouping → Warn and skip empty batches
 
-**Execution Failures**:
+**Planning Failures (Phase 2)**:
+- Planning agent timeout → Mark batch as failed, continue with other batches
+- Partial plan missing → Skip batch, warn user
+- Agent crash → Collect available partial plans, proceed with aggregation
+- All agents fail → Abort entire fix session with error
+- Aggregation conflicts → Apply conflict resolution (serialize conflicting groups)
+
+**Execution Failures (Phase 3)**:
 - Agent crash → Mark group as failed, continue with other groups
 - Test command not found → Skip test verification, warn user
 - Git operations fail → Abort with error, preserve state
@@ -549,14 +555,34 @@ Use fix_strategy.test_pattern to run affected tests:
 
 ### TodoWrite Structure
 
-**Initialization**:
+**Initialization (after Phase 1.5 batching)**:
 ```javascript
 TodoWrite({
   todos: [
-    {content: "Phase 1: Discovery & Initialization", status: "completed"},
-    {content: "Phase 2: Planning", status: "in_progress"},
-    {content: "Phase 3: Execution", status: "pending"},
-    {content: "Phase 4: Completion", status: "pending"}
+    {content: "Phase 1: Discovery & Initialization", status: "completed", activeForm: "Discovering"},
+    {content: "Phase 1.5: Intelligent Batching", status: "completed", activeForm: "Batching"},
+    {content: "Phase 2: Parallel Planning", status: "in_progress", activeForm: "Planning"},
+    {content: "  → Batch 1: 4 findings (auth.ts:security)", status: "pending", activeForm: "Planning batch 1"},
+    {content: "  → Batch 2: 3 findings (query.ts:security)", status: "pending", activeForm: "Planning batch 2"},
+    {content: "  → Batch 3: 2 findings (config.ts:quality)", status: "pending", activeForm: "Planning batch 3"},
+    {content: "Phase 3: Execution", status: "pending", activeForm: "Executing"},
+    {content: "Phase 4: Completion", status: "pending", activeForm: "Completing"}
+  ]
+});
+```
+
+**During Planning (parallel agents running)**:
+```javascript
+TodoWrite({
+  todos: [
+    {content: "Phase 1: Discovery & Initialization", status: "completed", activeForm: "Discovering"},
+    {content: "Phase 1.5: Intelligent Batching", status: "completed", activeForm: "Batching"},
+    {content: "Phase 2: Parallel Planning", status: "in_progress", activeForm: "Planning"},
+    {content: "  → Batch 1: 4 findings (auth.ts:security)", status: "completed", activeForm: "Planning batch 1"},
+    {content: "  → Batch 2: 3 findings (query.ts:security)", status: "in_progress", activeForm: "Planning batch 2"},
+    {content: "  → Batch 3: 2 findings (config.ts:quality)", status: "in_progress", activeForm: "Planning batch 3"},
+    {content: "Phase 3: Execution", status: "pending", activeForm: "Executing"},
+    {content: "Phase 4: Completion", status: "pending", activeForm: "Completing"}
   ]
 });
 ```
@@ -565,23 +591,25 @@ TodoWrite({
 ```javascript
 TodoWrite({
   todos: [
-    {content: "Phase 1: Discovery & Initialization", status: "completed"},
-    {content: "Phase 2: Planning", status: "completed"},
-    {content: "Phase 3: Execution", status: "in_progress"},
-    {content: "  → Stage 1: Parallel execution (3 groups)", status: "completed"},
-    {content: "    • Group G1: Auth validation (2 findings)", status: "completed"},
-    {content: "    • Group G2: Query security (3 findings)", status: "completed"},
-    {content: "    • Group G3: Config quality (1 finding)", status: "completed"},
-    {content: "  → Stage 2: Serial execution (1 group)", status: "in_progress"},
-    {content: "    • Group G4: Dependent fixes (2 findings)", status: "in_progress"},
-    {content: "Phase 4: Completion", status: "pending"}
+    {content: "Phase 1: Discovery & Initialization", status: "completed", activeForm: "Discovering"},
+    {content: "Phase 1.5: Intelligent Batching", status: "completed", activeForm: "Batching"},
+    {content: "Phase 2: Parallel Planning (3 batches → 5 groups)", status: "completed", activeForm: "Planning"},
+    {content: "Phase 3: Execution", status: "in_progress", activeForm: "Executing"},
+    {content: "  → Stage 1: Parallel execution (3 groups)", status: "completed", activeForm: "Executing stage 1"},
+    {content: "    • Group G1: Auth validation (2 findings)", status: "completed", activeForm: "Fixing G1"},
+    {content: "    • Group G2: Query security (3 findings)", status: "completed", activeForm: "Fixing G2"},
+    {content: "    • Group G3: Config quality (1 finding)", status: "completed", activeForm: "Fixing G3"},
+    {content: "  → Stage 2: Serial execution (1 group)", status: "in_progress", activeForm: "Executing stage 2"},
+    {content: "    • Group G4: Dependent fixes (2 findings)", status: "in_progress", activeForm: "Fixing G4"},
+    {content: "Phase 4: Completion", status: "pending", activeForm: "Completing"}
   ]
 });
 ```
 
 **Update Rules**:
-- Add stage items dynamically based on fix-plan.json timeline
-- Add group items per stage
+- Add batch items dynamically during Phase 1.5
+- Mark batch items completed as parallel agents return results
+- Add stage/group items dynamically after Phase 2 plan aggregation
 - Mark completed immediately after each group finishes
 - Update parent phase status when all child items complete
 
@@ -591,12 +619,13 @@ TodoWrite({
 
 ## Best Practices
 
-1. **Trust AI Planning**: Planning agent's grouping and execution strategy are based on dependency analysis
-2. **Conservative Approach**: Test verification is mandatory - no fixes kept without passing tests
-3. **Parallel Efficiency**: Default 3 concurrent agents balances speed and resource usage
-4. **Resume Support**: Fix sessions can resume from checkpoints after interruption
-5. **Manual Review**: Always review failed fixes manually - may require architectural changes
-6. **Incremental Fixing**: Start with small batches (5-10 findings) before large-scale fixes
+1. **Leverage Parallel Planning**: For 10+ findings, parallel batching significantly reduces planning time
+2. **Tune Batch Size**: Use `--batch-size` to control granularity (smaller batches = more parallelism, larger = better grouping context)
+3. **Conservative Approach**: Test verification is mandatory - no fixes kept without passing tests
+4. **Parallel Efficiency**: MAX_PARALLEL=10 for planning agents, 3 concurrent execution agents per stage
+5. **Resume Support**: Fix sessions can resume from checkpoints after interruption
+6. **Manual Review**: Always review failed fixes manually - may require architectural changes
+7. **Incremental Fixing**: Start with small batches (5-10 findings) before large-scale fixes
 
 ## Related Commands
 
