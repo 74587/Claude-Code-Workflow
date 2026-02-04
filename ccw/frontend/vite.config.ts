@@ -8,8 +8,9 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // Get base path from environment variable
-// Always use VITE_BASE_URL if set (for both dev and production)
-const basePath = process.env.VITE_BASE_URL || '/'
+// Default to /react/ for development (CCW server proxies /react/* to Vite)
+// Can be overridden by VITE_BASE_URL environment variable
+const basePath = process.env.VITE_BASE_URL || '/react/'
 
 // https://vite.dev/config/
 export default defineConfig({

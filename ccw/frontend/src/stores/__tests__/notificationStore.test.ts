@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useNotificationStore } from '../notificationStore';
-import type { SurfaceUpdate } from '../packages/a2ui-runtime/core/A2UITypes';
+import type { SurfaceUpdate } from '../../packages/a2ui-runtime/core/A2UITypes';
 
 describe('NotificationStore A2UI Methods', () => {
   beforeEach(() => {
@@ -128,7 +128,7 @@ describe('NotificationStore A2UI Methods', () => {
 
       const { result } = renderHook(() => useNotificationStore());
 
-      let notificationId: string;
+      let notificationId: string = '';
       act(() => {
         notificationId = result.current.addA2UINotification(surface);
       });
@@ -312,7 +312,7 @@ describe('NotificationStore A2UI Methods', () => {
         surfaceId: 'question-1',
         title: 'Test Question',
         questions: [
-          { id: 'q1', question: 'What is your name?', type: 'text', required: true },
+          { id: 'q1', question: 'What is your name?', type: 'text' as const, required: true },
         ],
       };
 
@@ -329,7 +329,7 @@ describe('NotificationStore A2UI Methods', () => {
       const mockQuestion = {
         surfaceId: 'question-1',
         title: 'Test',
-        questions: [{ id: 'q1', question: 'Test?', type: 'text' }],
+        questions: [{ id: 'q1', question: 'Test?', type: 'text' as const, required: true }],
       };
 
       act(() => {
@@ -353,7 +353,7 @@ describe('NotificationStore A2UI Methods', () => {
 
       const { result } = renderHook(() => useNotificationStore());
 
-      let notificationId: string;
+      let notificationId: string = '';
       act(() => {
         notificationId = result.current.addA2UINotification(surface);
       });

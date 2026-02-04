@@ -349,7 +349,7 @@ export const useNotificationStore = create<NotificationStore>()(
         }
       },
 
-      retryAction: async (actionKey: string, notificationId: string) => {
+      retryAction: async (actionKey: string) => {
         const state = get();
         const actionState = state.actionStates.get(actionKey);
 

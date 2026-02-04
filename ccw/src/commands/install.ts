@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, unlinkSync, rmdirSync, appendFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, unlinkSync, rmdirSync, appendFileSync, renameSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { homedir, platform } from 'os';
 import { fileURLToPath } from 'url';
@@ -43,6 +43,145 @@ interface InstallOptions {
 interface CopyResult {
   files: number;
   directories: number;
+}
+
+// Disabled item tracking for install process
+interface DisabledItem {
+  name: string;
+  path: string;
+  type: 'skill' | 'command';
+}
+
+interface DisabledItems {
+  skills: DisabledItem[];
+  commands: DisabledItem[];
+}
+
+/**
+ * Scan for disabled skills and commands before installation
+ * Skills: look for SKILL.md.disabled files
+ * Commands: look for *.md.disabled files
+ */
+function scanDisabledItems(installPath: string, globalPath?: string): DisabledItems {
+  const result: DisabledItems = { skills: [], commands: [] };
+  const pathsToScan = [installPath];
+  if (globalPath && globalPath !== installPath) {
+    pathsToScan.push(globalPath);
+  }
+
+  for (const basePath of pathsToScan) {
+    // Scan skills
+    const skillsDir = join(basePath, '.claude', 'skills');
+    if (existsSync(skillsDir)) {
+      try {
+        const entries = readdirSync(skillsDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            const disabledPath = join(skillsDir, entry.name, 'SKILL.md.disabled');
+            if (existsSync(disabledPath)) {
+              result.skills.push({
+                name: entry.name,
+                path: disabledPath,
+                type: 'skill'
+              });
+            }
+          }
+        }
+      } catch {
+        // Ignore errors
+      }
+    }
+
+    // Scan commands recursively
+    const commandsDir = join(basePath, '.claude', 'commands');
+    if (existsSync(commandsDir)) {
+      scanDisabledCommandsRecursive(commandsDir, commandsDir, result.commands);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Recursively scan for disabled command files
+ */
+function scanDisabledCommandsRecursive(baseDir: string, currentDir: string, results: DisabledItem[]): void {
+  try {
+    const entries = readdirSync(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        scanDisabledCommandsRecursive(baseDir, fullPath, results);
+      } else if (entry.isFile() && entry.name.endsWith('.md.disabled')) {
+        const relativePath = fullPath.substring(baseDir.length + 1);
+        const commandName = relativePath.replace(/\.disabled$/, '');
+        results.push({
+          name: commandName,
+          path: fullPath,
+          type: 'command'
+        });
+      }
+    }
+  } catch {
+    // Ignore errors
+  }
+}
+
+/**
+ * Restore disabled state after installation
+ * For each previously disabled item, if the enabled version exists, rename it back to disabled
+ */
+function restoreDisabledState(
+  disabledItems: DisabledItems,
+  installPath: string,
+  globalPath?: string
+): { skillsRestored: number; commandsRestored: number } {
+  let skillsRestored = 0;
+  let commandsRestored = 0;
+
+  // Restore skills
+  for (const skill of disabledItems.skills) {
+    // Determine which path this skill belongs to
+    const skillDir = dirname(skill.path);
+    const enabledPath = join(skillDir, 'SKILL.md');
+    const disabledPath = join(skillDir, 'SKILL.md.disabled');
+
+    // If enabled version was installed, rename it to disabled
+    if (existsSync(enabledPath)) {
+      try {
+        // Remove old disabled file if it still exists (shouldn't, but be safe)
+        if (existsSync(disabledPath)) {
+          unlinkSync(disabledPath);
+        }
+        renameSync(enabledPath, disabledPath);
+        skillsRestored++;
+      } catch {
+        // Ignore errors
+      }
+    }
+  }
+
+  // Restore commands
+  for (const command of disabledItems.commands) {
+    const enabledPath = command.path.replace(/\.disabled$/, '');
+    const disabledPath = command.path;
+
+    // If enabled version was installed, rename it to disabled
+    if (existsSync(enabledPath)) {
+      try {
+        // Remove old disabled file if it still exists
+        if (existsSync(disabledPath)) {
+          unlinkSync(disabledPath);
+        }
+        renameSync(enabledPath, disabledPath);
+        commandsRestored++;
+      } catch {
+        // Ignore errors
+      }
+    }
+  }
+
+  return { skillsRestored, commandsRestored };
 }
 
 // Get package root directory (ccw/src/commands -> ccw)
@@ -204,6 +343,14 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     }
   }
 
+  // Scan for disabled items before installation
+  const globalPath = mode === 'Path' ? homedir() : undefined;
+  const disabledItems = scanDisabledItems(installPath, globalPath);
+  const totalDisabled = disabledItems.skills.length + disabledItems.commands.length;
+  if (totalDisabled > 0) {
+    info(`Found ${totalDisabled} disabled items (${disabledItems.skills.length} skills, ${disabledItems.commands.length} commands)`);
+  }
+
   // Create manifest
   const manifest = createManifest(mode, installPath);
 
@@ -213,6 +360,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
   let totalFiles = 0;
   let totalDirs = 0;
+  let restoreStats = { skillsRestored: 0, commandsRestored: 0 };
 
   try {
     // For Path mode, install workflows to global first
@@ -259,6 +407,15 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
     spinner.succeed('Installation complete!');
 
+    // Restore disabled state for previously disabled items
+    if (totalDisabled > 0) {
+      restoreStats = restoreDisabledState(disabledItems, installPath, globalPath);
+      const totalRestored = restoreStats.skillsRestored + restoreStats.commandsRestored;
+      if (totalRestored > 0) {
+        info(`Restored ${totalRestored} disabled items (${restoreStats.skillsRestored} skills, ${restoreStats.commandsRestored} commands)`);
+      }
+    }
+
   } catch (err) {
     spinner.fail('Installation failed');
     const errMsg = err as Error;
@@ -288,6 +445,12 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     if (cleanStats.skipped > 0) {
       summaryLines.push(chalk.gray(`Settings preserved: ${cleanStats.skipped}`));
     }
+  }
+
+  // Add restore stats if any disabled items were restored
+  if (restoreStats.skillsRestored > 0 || restoreStats.commandsRestored > 0) {
+    const totalRestored = restoreStats.skillsRestored + restoreStats.commandsRestored;
+    summaryLines.push(chalk.gray(`Disabled state restored: ${totalRestored} items`));
   }
 
   summaryLines.push('');

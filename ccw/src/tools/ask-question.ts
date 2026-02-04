@@ -144,6 +144,7 @@ function generateQuestionSurface(question: Question, surfaceId: string): {
     surfaceId: string;
     components: unknown[];
     initialState: Record<string, unknown>;
+    displayMode?: 'popup' | 'panel';
   };
 } {
   const components: unknown[] = [];
@@ -219,15 +220,43 @@ function generateQuestionSurface(question: Question, surfaceId: string): {
       const options = question.options?.map((opt) => ({
         label: { literalString: opt.label },
         value: opt.value,
+        description: opt.description ? { literalString: opt.description } : undefined,
       })) || [];
+
+      // Use RadioGroup for direct selection display (not dropdown)
       components.push({
-        id: 'select',
+        id: 'radio-group',
         component: {
-          Dropdown: {
+          RadioGroup: {
             options,
             selectedValue: question.defaultValue ? { literalString: String(question.defaultValue) } : undefined,
-            onChange: { actionId: 'answer', parameters: { questionId: question.id } },
-            placeholder: question.placeholder || 'Select an option',
+            onChange: { actionId: 'select', parameters: { questionId: question.id } },
+          },
+        },
+      });
+
+      // Add Submit/Cancel buttons to avoid accidental submission
+      components.push({
+        id: 'submit-btn',
+        component: {
+          Button: {
+            onClick: { actionId: 'submit', parameters: { questionId: question.id } },
+            content: {
+              Text: { text: { literalString: 'Submit' } },
+            },
+            variant: 'primary',
+          },
+        },
+      });
+      components.push({
+        id: 'cancel-btn',
+        component: {
+          Button: {
+            onClick: { actionId: 'cancel', parameters: { questionId: question.id } },
+            content: {
+              Text: { text: { literalString: 'Cancel' } },
+            },
+            variant: 'secondary',
           },
         },
       });
@@ -239,21 +268,19 @@ function generateQuestionSurface(question: Question, surfaceId: string): {
         label: { literalString: opt.label },
         value: opt.value,
       })) || [];
-      components.push({
-        id: 'checkboxes',
-        component: {
-          Card: {
-            content: options.map((opt, idx) => ({
-              id: `checkbox-${idx}`,
-              component: {
-                Checkbox: {
-                  label: opt.label,
-                  onChange: { actionId: 'toggle', parameters: { questionId: question.id, value: opt.value } },
-                },
-              },
-            })),
+
+      // Add each checkbox as a separate component for better layout control
+      options.forEach((opt, idx) => {
+        components.push({
+          id: `checkbox-${idx}`,
+          component: {
+            Checkbox: {
+              label: opt.label,
+              onChange: { actionId: 'toggle', parameters: { questionId: question.id, value: opt.value } },
+              checked: { literalBoolean: false },
+            },
           },
-        },
+        });
       });
 
       // Submit/cancel actions for multi-select so users can choose multiple options before resolving

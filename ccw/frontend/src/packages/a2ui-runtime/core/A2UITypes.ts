@@ -104,6 +104,19 @@ export const CheckboxComponentSchema = z.object({
   }),
 });
 
+/** RadioGroup component - single selection from multiple options */
+export const RadioGroupComponentSchema = z.object({
+  RadioGroup: z.object({
+    options: z.array(z.object({
+      label: TextContentSchema,
+      value: z.string(),
+      description: TextContentSchema.optional(),
+    })),
+    selectedValue: TextContentSchema.optional(),
+    onChange: ActionSchema,
+  }),
+});
+
 /** Code block component */
 export const CodeBlockComponentSchema = z.object({
   CodeBlock: z.object({
@@ -160,6 +173,7 @@ export const ComponentSchema: z.ZodType<any> = z.union([
   TextFieldComponentSchema,
   TextAreaComponentSchema,
   CheckboxComponentSchema,
+  RadioGroupComponentSchema,
   CodeBlockComponentSchema,
   ProgressComponentSchema,
   CardComponentSchema,
@@ -202,6 +216,7 @@ export type DropdownComponent = z.infer<typeof DropdownComponentSchema>;
 export type TextFieldComponent = z.infer<typeof TextFieldComponentSchema>;
 export type TextAreaComponent = z.infer<typeof TextAreaComponentSchema>;
 export type CheckboxComponent = z.infer<typeof CheckboxComponentSchema>;
+export type RadioGroupComponent = z.infer<typeof RadioGroupComponentSchema>;
 export type CodeBlockComponent = z.infer<typeof CodeBlockComponentSchema>;
 export type ProgressComponent = z.infer<typeof ProgressComponentSchema>;
 export type CardComponent = z.infer<typeof CardComponentSchema>;
@@ -223,6 +238,7 @@ export type A2UIComponentType =
   | 'TextField'
   | 'TextArea'
   | 'Checkbox'
+  | 'RadioGroup'
   | 'CodeBlock'
   | 'Progress'
   | 'Card'

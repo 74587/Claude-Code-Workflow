@@ -59,6 +59,7 @@ export class A2UIWebSocketHandler {
   }>();
 
   private multiSelectSelections = new Map<string, Set<string>>();
+  private singleSelectSelections = new Map<string, string>();
 
   private answerCallback?: (answer: QuestionAnswer) => boolean;
 
@@ -107,6 +108,10 @@ export class A2UIWebSocketHandler {
       if (questionType === 'multi-select') {
         // Selection state is updated via a2ui-action messages ("toggle") and resolved on "submit"
         this.multiSelectSelections.set(questionId, new Set<string>());
+      } else if (questionType === 'select') {
+        // Single selection state is updated via a2ui-action messages ("select") and resolved on "submit"
+        // Initialize with empty string (no selection)
+        this.singleSelectSelections.set(questionId, '');
       }
     }
 
@@ -199,6 +204,7 @@ export class A2UIWebSocketHandler {
     if (handled) {
       this.activeSurfaces.delete(answer.questionId);
       this.multiSelectSelections.delete(answer.questionId);
+      this.singleSelectSelections.delete(answer.questionId);
     }
 
     return handled;
@@ -223,6 +229,7 @@ export class A2UIWebSocketHandler {
       if (handled) {
         this.activeSurfaces.delete(questionId);
         this.multiSelectSelections.delete(questionId);
+        this.singleSelectSelections.delete(questionId);
       }
       return handled;
     };
@@ -240,6 +247,16 @@ export class A2UIWebSocketHandler {
           return false;
         }
         return resolveAndCleanup({ questionId, value: value as string | boolean | string[], cancelled: false });
+      }
+
+      case 'select': {
+        // Single select: store the selected value (don't submit yet)
+        const value = params.value;
+        if (typeof value !== 'string') {
+          return false;
+        }
+        this.singleSelectSelections.set(questionId, value);
+        return true;
       }
 
       case 'toggle': {
@@ -261,8 +278,15 @@ export class A2UIWebSocketHandler {
       }
 
       case 'submit': {
-        const selected = this.multiSelectSelections.get(questionId) ?? new Set<string>();
-        return resolveAndCleanup({ questionId, value: Array.from(selected), cancelled: false });
+        // Check if this is a single-select or multi-select
+        const singleSelection = this.singleSelectSelections.get(questionId);
+        if (singleSelection !== undefined) {
+          // Single-select submit
+          return resolveAndCleanup({ questionId, value: singleSelection, cancelled: false });
+        }
+        // Multi-select submit
+        const multiSelected = this.multiSelectSelections.get(questionId) ?? new Set<string>();
+        return resolveAndCleanup({ questionId, value: Array.from(multiSelected), cancelled: false });
       }
 
       default:
