@@ -10,7 +10,14 @@
     "copyError": "Failed to copy",
     "refresh": "Refresh",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "favoriteAdded": "Added to favorites",
+    "favoriteRemoved": "Removed from favorites",
+    "favoriteError": "Failed to update favorite status",
+    "archiveSuccess": "Memory archived",
+    "archiveError": "Failed to archive memory",
+    "unarchiveSuccess": "Memory restored",
+    "unarchiveError": "Failed to restore memory"
   },
   "tabs": {
     "memories": "Memories",

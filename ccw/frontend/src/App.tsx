@@ -7,6 +7,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router-dom';
 import { IntlProvider } from 'react-intl';
 import { useEffect } from 'react';
+import { Toaster } from 'sonner';
 import { router } from './router';
 import queryClient from './lib/query-client';
 import type { Locale } from './lib/i18n';
@@ -29,6 +30,7 @@ function App({ locale, messages }: AppProps) {
         <QueryInvalidator />
         <CliExecutionSync />
         <RouterProvider router={router} />
+        <Toaster richColors position="top-right" />
       </QueryClientProvider>
     </IntlProvider>
   );

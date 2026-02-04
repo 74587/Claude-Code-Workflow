@@ -54,9 +54,10 @@ export function NavGroup({
         {items.map((item) => {
           const ItemIcon = item.icon;
           const [basePath] = item.path.split('?');
+          // More precise matching: exact match or basePath followed by '/' to avoid parent/child conflicts
           const isActive =
             location.pathname === basePath ||
-            (basePath !== '/' && location.pathname.startsWith(basePath));
+            (basePath !== '/' && location.pathname.startsWith(basePath + '/'));
 
           return (
             <NavLink
@@ -93,9 +94,10 @@ export function NavGroup({
           {items.map((item) => {
             const ItemIcon = item.icon;
             const [basePath, searchParams] = item.path.split('?');
+            // More precise matching: exact match or basePath followed by '/' to avoid parent/child conflicts
             const isActive =
               location.pathname === basePath ||
-              (basePath !== '/' && location.pathname.startsWith(basePath));
+              (basePath !== '/' && location.pathname.startsWith(basePath + '/'));
             const isQueryParamActive =
               searchParams && location.search.includes(searchParams);
 

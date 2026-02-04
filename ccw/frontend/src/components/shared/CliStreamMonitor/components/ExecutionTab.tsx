@@ -58,13 +58,21 @@ export function ExecutionTab({ execution, isActive, onClick, onClose }: Executio
       </span>
 
       {/* Close button - show on hover */}
-      <button
+      <span
         onClick={onClose}
-        className="ml-0.5 p-0.5 rounded hover:bg-rose-500/20 transition-opacity opacity-0 group-hover:opacity-100"
+        className="ml-0.5 p-0.5 rounded hover:bg-rose-500/20 transition-opacity opacity-0 group-hover:opacity-100 cursor-pointer"
         aria-label="Close execution tab"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClose(e as any);
+          }
+        }}
       >
         <X className="h-2.5 w-2.5 text-rose-600 dark:text-rose-400" />
-      </button>
+      </span>
     </TabsTrigger>
   );
 }

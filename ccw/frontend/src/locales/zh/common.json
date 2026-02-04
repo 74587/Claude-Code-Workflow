@@ -218,6 +218,8 @@
   "all": "全部",
   "yes": "是",
   "no": "否",
+  "loading": "加载中...",
+  "error": "错误",
   "navigation": {
     "header": {
       "brand": "CCW 仪表板"

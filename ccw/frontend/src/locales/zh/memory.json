@@ -10,7 +10,14 @@
     "copyError": "复制失败",
     "refresh": "刷新",
     "expand": "展开",
-    "collapse": "收起"
+    "collapse": "收起",
+    "favoriteAdded": "已添加到收藏",
+    "favoriteRemoved": "已从收藏移除",
+    "favoriteError": "更新收藏状态失败",
+    "archiveSuccess": "记忆已归档",
+    "archiveError": "归档记忆失败",
+    "unarchiveSuccess": "记忆已恢复",
+    "unarchiveError": "恢复记忆失败"
   },
   "tabs": {
     "memories": "记忆",

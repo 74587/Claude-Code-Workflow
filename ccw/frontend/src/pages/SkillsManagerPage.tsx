@@ -122,8 +122,6 @@ export function SkillsManagerPage() {
   const {
     skills,
     categories,
-    totalCount,
-    enabledCount,
     projectSkills,
     userSkills,
     isLoading,
@@ -141,9 +139,6 @@ export function SkillsManagerPage() {
 
   const { toggleSkill, isToggling } = useSkillMutations();
 
-  // Calculate disabled count
-  const disabledCount = totalCount - enabledCount;
-
   // Filter skills based on enabled filter
   const filteredSkills = useMemo(() => {
     if (enabledFilter === 'disabled') {
@@ -152,10 +147,32 @@ export function SkillsManagerPage() {
     return skills;
   }, [skills, enabledFilter]);
 
+  // Calculate counts based on current location filter (from skills, not allSkills)
+  const currentLocationEnabledCount = useMemo(() => skills.filter(s => s.enabled).length, [skills]);
+  const currentLocationTotalCount = skills.length;
+  const currentLocationDisabledCount = currentLocationTotalCount - currentLocationEnabledCount;
+
   const handleToggle = async (skill: Skill, enabled: boolean) => {
     // Use the skill's location property
     const location = skill.location || 'project';
-    await toggleSkill(skill.name, enabled, location);
+    // Use folderName for API calls (actual folder name), fallback to name if not available
+    const skillIdentifier = skill.folderName || skill.name;
+    
+    // Debug logging
+    console.log('[SkillToggle] Toggling skill:', { 
+      name: skill.name, 
+      folderName: skill.folderName, 
+      location, 
+      enabled, 
+      skillIdentifier 
+    });
+    
+    try {
+      await toggleSkill(skillIdentifier, enabled, location);
+    } catch (error) {
+      console.error('[SkillToggle] Toggle failed:', error);
+      throw error;
+    }
   };
 
   const handleToggleWithConfirm = (skill: Skill, enabled: boolean) => {
@@ -244,21 +261,21 @@ export function SkillsManagerPage() {
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            <span className="text-2xl font-bold">{totalCount}</span>
+            <span className="text-2xl font-bold">{currentLocationTotalCount}</span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'common.stats.totalSkills' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <Power className="w-5 h-5 text-success" />
-            <span className="text-2xl font-bold">{enabledCount}</span>
+            <span className="text-2xl font-bold">{currentLocationEnabledCount}</span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'skills.state.enabled' })}</p>
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2">
             <PowerOff className="w-5 h-5 text-muted-foreground" />
-            <span className="text-2xl font-bold">{totalCount - enabledCount}</span>
+            <span className="text-2xl font-bold">{currentLocationDisabledCount}</span>
           </div>
           <p className="text-sm text-muted-foreground mt-1">{formatMessage({ id: 'skills.state.disabled' })}</p>
         </Card>
@@ -327,7 +344,7 @@ export function SkillsManagerPage() {
           className={enabledFilter === 'all' ? 'bg-primary text-primary-foreground' : ''}
         >
           <Sparkles className="w-4 h-4 mr-1" />
-          {formatMessage({ id: 'skills.filters.all' })} ({totalCount})
+          {formatMessage({ id: 'skills.filters.all' })} ({currentLocationTotalCount})
         </Button>
         <Button
           variant="outline"
@@ -336,7 +353,7 @@ export function SkillsManagerPage() {
           className={enabledFilter === 'enabled' ? 'bg-primary text-primary-foreground' : ''}
         >
           <Power className="w-4 h-4 mr-1" />
-          {formatMessage({ id: 'skills.state.enabled' })} ({enabledCount})
+          {formatMessage({ id: 'skills.state.enabled' })} ({currentLocationEnabledCount})
         </Button>
         <Button
           variant="outline"
@@ -345,7 +362,7 @@ export function SkillsManagerPage() {
           className={enabledFilter === 'disabled' ? 'bg-primary text-primary-foreground' : ''}
         >
           <PowerOff className="w-4 h-4 mr-1" />
-          {formatMessage({ id: 'skills.state.disabled' })} ({disabledCount})
+          {formatMessage({ id: 'skills.state.disabled' })} ({currentLocationDisabledCount})
         </Button>
         <div className="flex-1" />
         <Button
@@ -364,12 +381,12 @@ export function SkillsManagerPage() {
         isLoading={isLoading}
         onToggle={handleToggleWithConfirm}
         onClick={handleSkillClick}
-        isToggling={isToggling}
+        isToggling={isToggling || !!confirmDisable}
         compact={viewMode === 'compact'}
       />
 
       {/* Disabled Skills Section */}
-      {enabledFilter === 'all' && disabledCount > 0 && (
+      {enabledFilter === 'all' && currentLocationDisabledCount > 0 && (
         <div className="mt-6">
           <Button
             variant="ghost"
@@ -378,7 +395,7 @@ export function SkillsManagerPage() {
           >
             {showDisabledSection ? <ChevronDown className="w-4 h-4 mr-2" /> : <ChevronRight className="w-4 h-4 mr-2" />}
             <EyeOff className="w-4 h-4 mr-2" />
-            {formatMessage({ id: 'skills.disabledSkills.title' })} ({disabledCount})
+            {formatMessage({ id: 'skills.disabledSkills.title' })} ({currentLocationDisabledCount})
           </Button>
 
           {showDisabledSection && (
@@ -387,7 +404,7 @@ export function SkillsManagerPage() {
               isLoading={false}
               onToggle={handleToggleWithConfirm}
               onClick={handleSkillClick}
-              isToggling={isToggling}
+              isToggling={isToggling || !!confirmDisable}
               compact={true}
             />
           )}

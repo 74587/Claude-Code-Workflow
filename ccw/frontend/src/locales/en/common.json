@@ -224,6 +224,8 @@
   "all": "All",
   "yes": "Yes",
   "no": "No",
+  "loading": "Loading...",
+  "error": "Error",
   "navigation": {
     "header": {
       "brand": "CCW Dashboard"

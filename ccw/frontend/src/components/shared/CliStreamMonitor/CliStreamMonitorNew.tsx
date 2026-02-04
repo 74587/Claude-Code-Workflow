@@ -3,7 +3,7 @@
 // ========================================
 // Redesigned CLI streaming monitor with smart parsing and message-based layout
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import {
   Terminal,
@@ -220,9 +220,14 @@ export function CliStreamMonitorNew({ isOpen, onClose }: CliStreamMonitorNewProp
   // WebSocket last message
   const lastMessage = useNotificationStore(selectWsLastMessage);
 
+  // Track last processed WebSocket message to prevent duplicate processing
+  const lastProcessedMsgRef = useRef<unknown>(null);
+
   // Handle WebSocket messages (same as original)
   useEffect(() => {
-    if (!lastMessage) return;
+    // Skip if no message or same message already processed (prevents React strict mode double-execution)
+    if (!lastMessage || lastMessage === lastProcessedMsgRef.current) return;
+    lastProcessedMsgRef.current = lastMessage;
 
     const { type, payload } = lastMessage;
 

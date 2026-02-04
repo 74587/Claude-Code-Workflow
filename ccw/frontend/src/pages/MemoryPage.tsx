@@ -240,18 +240,31 @@ function NewMemoryDialog({
 
   // Initialize from editing memory metadata
   useEffect(() => {
-    if (editingMemory && editingMemory.metadata) {
-      try {
-        const metadata = typeof editingMemory.metadata === 'string'
-          ? JSON.parse(editingMemory.metadata)
-          : editingMemory.metadata;
-        setIsFavorite(metadata.favorite === true);
-        setPriority(metadata.priority || 'medium');
-      } catch {
+    if (editingMemory) {
+      // Sync content and tags
+      setContent(editingMemory.content || '');
+      setTagsInput(editingMemory.tags?.join(', ') || '');
+
+      // Sync metadata
+      if (editingMemory.metadata) {
+        try {
+          const metadata = typeof editingMemory.metadata === 'string'
+            ? JSON.parse(editingMemory.metadata)
+            : editingMemory.metadata;
+          setIsFavorite(metadata.favorite === true);
+          setPriority(metadata.priority || 'medium');
+        } catch {
+          setIsFavorite(false);
+          setPriority('medium');
+        }
+      } else {
         setIsFavorite(false);
         setPriority('medium');
       }
     } else {
+      // New mode: reset all state
+      setContent('');
+      setTagsInput('');
       setIsFavorite(false);
       setPriority('medium');
     }
@@ -410,7 +423,7 @@ export function MemoryPage() {
       await updateMemory(editingMemory.id, data);
       setEditingMemory(null);
     } else {
-      await createMemory(data as any); // TODO: update createMemory type to accept metadata
+      await createMemory(data);
     }
     setIsNewMemoryOpen(false);
   };
@@ -427,19 +440,44 @@ export function MemoryPage() {
   };
 
   const handleToggleFavorite = async (memory: CoreMemory) => {
-    const currentMetadata = memory.metadata ? (typeof memory.metadata === 'string' ? JSON.parse(memory.metadata) : memory.metadata) : {};
-    const newFavorite = !(currentMetadata.favorite === true);
-    await updateMemory(memory.id, {
-      metadata: JSON.stringify({ ...currentMetadata, favorite: newFavorite }),
-    } as any); // TODO: update updateMemory to accept metadata field
+    try {
+      const currentMetadata = memory.metadata
+        ? (typeof memory.metadata === 'string' ? JSON.parse(memory.metadata) : memory.metadata)
+        : {};
+      const newFavorite = !(currentMetadata.favorite === true);
+      await updateMemory(memory.id, {
+        content: memory.content,
+        metadata: { ...currentMetadata, favorite: newFavorite },
+      });
+      toast.success(
+        formatMessage({
+          id: newFavorite ? 'memory.actions.favoriteAdded' : 'memory.actions.favoriteRemoved',
+        })
+      );
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
+      toast.error(formatMessage({ id: 'memory.actions.favoriteError' }));
+    }
   };
 
   const handleArchive = async (memory: CoreMemory) => {
-    await archiveMemory(memory.id);
+    try {
+      await archiveMemory(memory.id);
+      toast.success(formatMessage({ id: 'memory.actions.archiveSuccess' }));
+    } catch (err) {
+      console.error('Failed to archive:', err);
+      toast.error(formatMessage({ id: 'memory.actions.archiveError' }));
+    }
   };
 
   const handleUnarchive = async (memory: CoreMemory) => {
-    await unarchiveMemory(memory.id);
+    try {
+      await unarchiveMemory(memory.id);
+      toast.success(formatMessage({ id: 'memory.actions.unarchiveSuccess' }));
+    } catch (err) {
+      console.error('Failed to unarchive:', err);
+      toast.error(formatMessage({ id: 'memory.actions.unarchiveError' }));
+    }
   };
 
   const copyToClipboard = async (content: string) => {

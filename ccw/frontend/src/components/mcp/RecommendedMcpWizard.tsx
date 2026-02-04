@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Download, Loader2, X } from 'lucide-react';
+import { Download, Loader2, Search, Globe, Sparkles, Settings } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { Badge } from '@/components/ui/Badge';
 import {
   addGlobalMcpServer,
   copyMcpServerToProject,
@@ -26,6 +25,14 @@ import {
 import { mcpServersKeys } from '@/hooks';
 import { useNotifications } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
+
+// Icon map for MCP definitions
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  'search-code': Search,
+  'chrome': Globe,
+  'globe-2': Sparkles,
+  'code-2': Settings,
+};
 
 // ========== Types ==========
 
@@ -207,6 +214,7 @@ export function RecommendedMcpWizard({
   if (!mcpDefinition) return null;
 
   const hasFields = mcpDefinition.fields.length > 0;
+  const Icon = ICON_MAP[mcpDefinition.icon] || Settings;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -215,7 +223,7 @@ export function RecommendedMcpWizard({
         <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-              <i className={cn('lucide w-5 h-5 text-primary', `lucide-${mcpDefinition.icon}`)} />
+              <Icon className="w-5 h-5 text-primary" />
             </div>
             <div>
               <DialogTitle>

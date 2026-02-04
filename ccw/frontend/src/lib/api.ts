@@ -993,18 +993,19 @@ export interface SkillsResponse {
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchSkills(projectPath?: string): Promise<SkillsResponse> {
-  // Helper to add location to skills
-  const addLocation = (skills: Skill[], location: 'project' | 'user'): Skill[] =>
-    skills.map(skill => ({ ...skill, location }));
+  // Helper to add location and enabled status to skills
+  // Backend only returns enabled skills (with SKILL.md), so we set enabled: true
+  const addMetadata = (skills: Skill[], location: 'project' | 'user'): Skill[] =>
+    skills.map(skill => ({ ...skill, location, enabled: true }));
 
   // Try with project path first, fall back to global on 403/404
   if (projectPath) {
     try {
       const url = `/api/skills?path=${encodeURIComponent(projectPath)}`;
       const data = await fetchApi<{ skills?: Skill[]; projectSkills?: Skill[]; userSkills?: Skill[] }>(url);
-      const projectSkillsWithLocation = addLocation(data.projectSkills ?? [], 'project');
-      const userSkillsWithLocation = addLocation(data.userSkills ?? [], 'user');
-      const allSkills = [...projectSkillsWithLocation, ...userSkillsWithLocation];
+      const projectSkillsWithMetadata = addMetadata(data.projectSkills ?? [], 'project');
+      const userSkillsWithMetadata = addMetadata(data.userSkills ?? [], 'user');
+      const allSkills = [...projectSkillsWithMetadata, ...userSkillsWithMetadata];
       return {
         skills: data.skills ?? allSkills,
       };
@@ -1020,9 +1021,9 @@ export async function fetchSkills(projectPath?: string): Promise<SkillsResponse>
   }
   // Fallback: fetch global skills
   const data = await fetchApi<{ skills?: Skill[]; projectSkills?: Skill[]; userSkills?: Skill[] }>('/api/skills');
-  const projectSkillsWithLocation = addLocation(data.projectSkills ?? [], 'project');
-  const userSkillsWithLocation = addLocation(data.userSkills ?? [], 'user');
-  const allSkills = [...projectSkillsWithLocation, ...userSkillsWithLocation];
+  const projectSkillsWithMetadata = addMetadata(data.projectSkills ?? [], 'project');
+  const userSkillsWithMetadata = addMetadata(data.userSkills ?? [], 'user');
+  const allSkills = [...projectSkillsWithMetadata, ...userSkillsWithMetadata];
   return {
     skills: data.skills ?? allSkills,
   };

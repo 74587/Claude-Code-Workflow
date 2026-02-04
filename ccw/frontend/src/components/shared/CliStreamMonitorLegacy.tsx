@@ -14,7 +14,9 @@ import {
   Search,
   ArrowDownToLine,
   Trash2,
+  ExternalLink,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -196,6 +198,7 @@ export interface CliStreamMonitorProps {
 
 export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
   const { formatMessage } = useIntl();
+  const navigate = useNavigate();
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -205,6 +208,9 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
 
   // Track last output length to detect new output
   const lastOutputLengthRef = useRef<Record<string, number>>({});
+
+  // Track last processed WebSocket message to prevent duplicate processing
+  const lastProcessedMsgRef = useRef<unknown>(null);
 
   // Store state
   const executions = useCliStreamStore((state) => state.executions);
@@ -222,7 +228,9 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
 
   // Handle WebSocket messages for CLI stream
   useEffect(() => {
-    if (!lastMessage) return;
+    // Skip if no message or same message already processed (prevents React strict mode double-execution)
+    if (!lastMessage || lastMessage === lastProcessedMsgRef.current) return;
+    lastProcessedMsgRef.current = lastMessage;
 
     const { type, payload } = lastMessage;
 
@@ -377,6 +385,15 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
     setCurrentExecution(null);
   }, [markExecutionClosedByUser, removeExecution, executions, setCurrentExecution]);
 
+  // Open in full page viewer
+  const handlePopOut = useCallback(() => {
+    const url = currentExecutionId
+      ? `/cli-viewer?executionId=${currentExecutionId}`
+      : '/cli-viewer';
+    navigate(url);
+    onClose();
+  }, [currentExecutionId, navigate, onClose]);
+
   // ESC key to close
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -510,6 +527,14 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
             <Button
               variant="ghost"
               size="icon"
+              onClick={handlePopOut}
+              title="Open in full page viewer"
+            >
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => refetch()}
               disabled={isSyncing}
               title="Refresh"
@@ -635,17 +660,6 @@ export function CliStreamMonitor({ isOpen, onClose }: CliStreamMonitorProps) {
                             ))}
                             <div ref={logsEndRef} />
                           </div>
-                        )}
-                        {isUserScrolling && filteredOutput.length > 0 && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            className="absolute bottom-4 right-4"
-                            onClick={scrollToBottom}
-                          >
-                            <ArrowDownToLine className="h-4 w-4 mr-1" />
-                            Scroll to bottom
-                          </Button>
                         )}
                       </div>
                     )}

@@ -150,7 +150,7 @@ export function useMemory(options: UseMemoryOptions = {}): UseMemoryReturn {
 // ========== Mutations ==========
 
 export interface UseCreateMemoryReturn {
-  createMemory: (input: { content: string; tags?: string[] }) => Promise<CoreMemory>;
+  createMemory: (input: { content: string; tags?: string[]; metadata?: Record<string, any> }) => Promise<CoreMemory>;
   isCreating: boolean;
   error: Error | null;
 }
@@ -160,7 +160,8 @@ export function useCreateMemory(): UseCreateMemoryReturn {
   const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
-    mutationFn: (input: { content: string; tags?: string[] }) => createMemory(input, projectPath),
+    mutationFn: (input: { content: string; tags?: string[]; metadata?: Record<string, any> }) =>
+      createMemory(input, projectPath),
     onSuccess: () => {
       // Invalidate memory cache to trigger refetch
       queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.memory(projectPath) : ['memory'] });
