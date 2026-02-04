@@ -40,63 +40,101 @@ const __dirname = dirname(__filename);
 // ============================================================================
 
 /**
- * Node types supported by the orchestrator
+ * Unified node type - all nodes are prompt templates
+ * Replaces previous 6-type system with single unified model
  */
-export type FlowNodeType = 'slash-command' | 'file-operation' | 'conditional' | 'parallel';
+export type FlowNodeType = 'prompt-template';
 
 /**
- * SlashCommand node data
+ * Available CLI tools for execution
  */
-export interface SlashCommandNodeData {
-  command: string;
-  args?: string;
-  execution: {
-    mode: 'mainprocess' | 'async';
-    timeout?: number;
-  };
-  contextHint?: string;
+export type CliTool = 'gemini' | 'qwen' | 'codex' | 'claude';
+
+/**
+ * Execution modes for prompt templates
+ * - analysis: Read-only operations, code review, exploration
+ * - write: Create/modify/delete files
+ * - mainprocess: Execute in main process (blocking)
+ * - async: Execute asynchronously (non-blocking)
+ */
+export type ExecutionMode = 'analysis' | 'write' | 'mainprocess' | 'async';
+
+/**
+ * Unified PromptTemplate node data model
+ *
+ * All workflow nodes are represented as prompt templates with natural language
+ * instructions. This model replaces the previous specialized node types:
+ * - slash-command -> instruction: "Execute /command args"
+ * - cli-command -> instruction + tool + mode
+ * - file-operation -> instruction: "Save {{ref}} to path"
+ * - conditional -> instruction: "If {{condition}} then..."
+ * - parallel -> instruction: "Execute in parallel..."
+ * - prompt -> instruction (direct)
+ */
+export interface PromptTemplateNodeData {
+  /**
+   * Display label for the node in the editor
+   */
+  label: string;
+
+  /**
+   * Natural language instruction describing what to execute
+   * Can include context references using {{variableName}} syntax
+   */
+  instruction: string;
+
+  /**
+   * Optional name for the output, allowing subsequent steps to reference it
+   * via contextRefs or {{outputName}} syntax in instructions
+   */
+  outputName?: string;
+
+  /**
+   * Optional CLI tool to use for execution
+   * If not specified, the system selects based on task requirements
+   */
+  tool?: CliTool;
+
+  /**
+   * Optional execution mode
+   * Defaults to 'mainprocess' if not specified
+   */
+  mode?: ExecutionMode;
+
+  /**
+   * References to outputs from previous steps
+   * Use the outputName values from earlier nodes
+   */
+  contextRefs?: string[];
+
+  /**
+   * Error handling behavior
+   */
   onError?: 'continue' | 'pause' | 'fail';
+
+  // ========== Execution State Fields ==========
+
+  /**
+   * Current execution status of this node
+   * Uses same values as NodeExecutionStatus defined below
+   */
+  executionStatus?: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+
+  /**
+   * Error message if execution failed
+   */
+  executionError?: string;
+
+  /**
+   * Result data from execution
+   */
+  executionResult?: unknown;
 }
 
 /**
- * FileOperation node data
+ * NodeData type - unified to single PromptTemplateNodeData
  */
-export interface FileOperationNodeData {
-  operation: 'read' | 'write' | 'append' | 'delete' | 'copy' | 'move';
-  path: string;
-  content?: string;
-  destinationPath?: string;
-  encoding?: string;
-  outputVariable?: string;
-  addToContext: boolean;
-}
-
-/**
- * Conditional node data
- */
-export interface ConditionalNodeData {
-  condition: string;
-  trueLabel?: string;
-  falseLabel?: string;
-}
-
-/**
- * Parallel node data
- */
-export interface ParallelNodeData {
-  joinMode: 'all' | 'any' | 'none';
-  timeout?: number;
-  failFast?: boolean;
-}
-
-/**
- * Union type for all node data types
- */
-export type NodeData =
-  | SlashCommandNodeData
-  | FileOperationNodeData
-  | ConditionalNodeData
-  | ParallelNodeData;
+export type NodeData = PromptTemplateNodeData;
 
 /**
  * Flow node definition

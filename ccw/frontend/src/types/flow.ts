@@ -2,93 +2,133 @@
 // Flow Types
 // ========================================
 // TypeScript interfaces for Orchestrator flow editor
+// Unified PromptTemplate model - all nodes are prompt templates
+// See: .workflow/.analysis/ANL-前端编排器与skill设计简化分析-2026-02-04/conclusions.json
 
 import type { Node, Edge } from '@xyflow/react';
 
 // ========== Node Types ==========
 
-export type FlowNodeType = 'slash-command' | 'file-operation' | 'conditional' | 'parallel' | 'cli-command' | 'prompt';
+/**
+ * Single unified node type - all nodes are prompt templates
+ * This replaces the previous 6-type system (slash-command, file-operation,
+ * conditional, parallel, cli-command, prompt) with a single unified model.
+ */
+export type FlowNodeType = 'prompt-template';
 
-// Execution status for nodes during workflow execution
+/**
+ * Execution status for nodes during workflow execution
+ */
 export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed';
 
-// Base interface for all node data - must have index signature for React Flow compatibility
-interface BaseNodeData {
+/**
+ * Available CLI tools for execution
+ */
+export type CliTool = 'gemini' | 'qwen' | 'codex' | 'claude';
+
+/**
+ * Execution modes for prompt templates
+ * - analysis: Read-only operations, code review, exploration
+ * - write: Create/modify/delete files
+ * - mainprocess: Execute in main process (blocking)
+ * - async: Execute asynchronously (non-blocking)
+ */
+export type ExecutionMode = 'analysis' | 'write' | 'mainprocess' | 'async';
+
+/**
+ * Unified PromptTemplate node data model
+ *
+ * All workflow nodes are represented as prompt templates with natural language
+ * instructions. This model replaces the previous 6 specialized node types:
+ * - slash-command -> instruction: "Execute /command args"
+ * - cli-command -> instruction + tool + mode
+ * - file-operation -> instruction: "Save {{ref}} to path"
+ * - conditional -> instruction: "If {{condition}} then..."
+ * - parallel -> instruction: "Execute in parallel..."
+ * - prompt -> instruction (direct)
+ *
+ * @example Slash command equivalent
+ * { instruction: "Execute /workflow:plan for login feature", outputName: "plan", mode: "mainprocess" }
+ *
+ * @example CLI command equivalent
+ * { instruction: "Analyze code architecture", outputName: "analysis", tool: "gemini", mode: "analysis" }
+ *
+ * @example File operation equivalent
+ * { instruction: "Save {{analysis}} to ./output/result.json", contextRefs: ["analysis"] }
+ *
+ * @example Conditional equivalent
+ * { instruction: "If {{prev.success}} is true, continue; otherwise stop", contextRefs: ["prev"] }
+ */
+export interface PromptTemplateNodeData {
+  /**
+   * Display label for the node in the editor
+   */
   label: string;
+
+  /**
+   * Natural language instruction describing what to execute
+   * Can include context references using {{variableName}} syntax
+   */
+  instruction: string;
+
+  /**
+   * Optional name for the output, allowing subsequent steps to reference it
+   * via contextRefs or {{outputName}} syntax in instructions
+   */
+  outputName?: string;
+
+  /**
+   * Optional CLI tool to use for execution
+   * If not specified, the system selects based on task requirements
+   */
+  tool?: CliTool;
+
+  /**
+   * Optional execution mode
+   * Defaults to 'mainprocess' if not specified
+   */
+  mode?: ExecutionMode;
+
+  /**
+   * References to outputs from previous steps
+   * Use the outputName values from earlier nodes
+   */
+  contextRefs?: string[];
+
+  // ========== Execution State Fields ==========
+
+  /**
+   * Current execution status of this node
+   */
   executionStatus?: ExecutionStatus;
+
+  /**
+   * Error message if execution failed
+   */
   executionError?: string;
+
+  /**
+   * Result data from execution
+   */
   executionResult?: unknown;
-  outputVariable?: string;
+
+  /**
+   * Index signature for React Flow compatibility
+   */
   [key: string]: unknown;
 }
 
-// Slash Command Node Data
-export interface SlashCommandNodeData extends BaseNodeData {
-  command: string;
-  args?: string;
-  execution: {
-    mode: 'mainprocess' | 'async';
-    timeout?: number;
-  };
-  contextHint?: string;
-  onError?: 'continue' | 'stop' | 'retry';
-}
+/**
+ * NodeData type - unified to single PromptTemplateNodeData
+ * @deprecated Individual node data types are deprecated.
+ * Use PromptTemplateNodeData directly.
+ */
+export type NodeData = PromptTemplateNodeData;
 
-// File Operation Node Data
-export interface FileOperationNodeData extends BaseNodeData {
-  operation: 'read' | 'write' | 'append' | 'delete' | 'copy' | 'move';
-  path: string;
-  content?: string;
-  destinationPath?: string;
-  encoding?: 'utf8' | 'ascii' | 'base64';
-  addToContext?: boolean;
-}
-
-// Conditional Node Data
-export interface ConditionalNodeData extends BaseNodeData {
-  condition: string;
-  trueLabel?: string;
-  falseLabel?: string;
-}
-
-// Parallel Node Data
-export interface ParallelNodeData extends BaseNodeData {
-  joinMode: 'all' | 'any' | 'none';
-  branchCount?: number; // Number of parallel branches (default: 2)
-  timeout?: number;
-  failFast?: boolean;
-}
-
-// CLI Command Node Data
-export interface CliCommandNodeData extends BaseNodeData {
-  command: string;
-  args?: string;
-  tool: 'gemini' | 'qwen' | 'codex';
-  mode: 'analysis' | 'write' | 'review';
-  execution?: {
-    timeout?: number;
-  };
-}
-
-// Prompt Node Data
-export interface PromptNodeData extends BaseNodeData {
-  promptType: 'organize' | 'refine' | 'summarize' | 'transform' | 'custom';
-  sourceNodes: string[];
-  contextTemplate?: string;
-  promptText: string;
-}
-
-// Union type for all node data
-export type NodeData =
-  | SlashCommandNodeData
-  | FileOperationNodeData
-  | ConditionalNodeData
-  | ParallelNodeData
-  | CliCommandNodeData
-  | PromptNodeData;
-
-// Extended Node type for React Flow
-export type FlowNode = Node<NodeData, FlowNodeType>;
+/**
+ * Extended Node type for React Flow with unified PromptTemplate model
+ */
+export type FlowNode = Node<PromptTemplateNodeData, FlowNodeType>;
 
 // ========== Edge Types ==========
 
@@ -156,7 +196,7 @@ export interface FlowActions {
   duplicateFlow: (id: string) => Promise<Flow | null>;
 
   // Node operations
-  addNode: (type: FlowNodeType, position: { x: number; y: number }) => string;
+  addNode: (position: { x: number; y: number }) => string;
   updateNode: (id: string, data: Partial<NodeData>) => void;
   removeNode: (id: string) => void;
   setNodes: (nodes: FlowNode[]) => void;
@@ -188,102 +228,41 @@ export type FlowStore = FlowState & FlowActions;
 
 // ========== Node Type Configuration ==========
 
+/**
+ * Configuration for the unified prompt-template node type
+ */
 export interface NodeTypeConfig {
   type: FlowNodeType;
   label: string;
   description: string;
   icon: string;
   color: string;
-  defaultData: NodeData;
+  defaultData: PromptTemplateNodeData;
   handles: {
     inputs: number;
     outputs: number;
   };
 }
 
+/**
+ * Single unified node type configuration
+ * Replaces the previous 6 separate configurations
+ */
 export const NODE_TYPE_CONFIGS: Record<FlowNodeType, NodeTypeConfig> = {
-  'slash-command': {
-    type: 'slash-command',
-    label: 'Slash Command',
-    description: 'Execute CCW slash commands',
-    icon: 'Terminal',
+  'prompt-template': {
+    type: 'prompt-template',
+    label: 'Prompt Template',
+    description: 'Natural language instruction for workflow step',
+    icon: 'MessageSquare',
     color: 'bg-blue-500',
     defaultData: {
-      label: 'New Command',
-      command: '',
-      args: '',
-      execution: { mode: 'mainprocess' },
-      onError: 'stop',
-    } as SlashCommandNodeData,
-    handles: { inputs: 1, outputs: 1 },
-  },
-  'file-operation': {
-    type: 'file-operation',
-    label: 'File Operation',
-    description: 'Read/write/delete files',
-    icon: 'FileText',
-    color: 'bg-green-500',
-    defaultData: {
-      label: 'File Operation',
-      operation: 'read',
-      path: '',
-      addToContext: false,
-    } as FileOperationNodeData,
-    handles: { inputs: 1, outputs: 1 },
-  },
-  conditional: {
-    type: 'conditional',
-    label: 'Conditional',
-    description: 'Branch based on condition',
-    icon: 'GitBranch',
-    color: 'bg-amber-500',
-    defaultData: {
-      label: 'Condition',
-      condition: '',
-      trueLabel: 'True',
-      falseLabel: 'False',
-    } as ConditionalNodeData,
-    handles: { inputs: 1, outputs: 2 },
-  },
-  parallel: {
-    type: 'parallel',
-    label: 'Parallel',
-    description: 'Execute branches in parallel',
-    icon: 'GitMerge',
-    color: 'bg-purple-500',
-    defaultData: {
-      label: 'Parallel',
-      joinMode: 'all',
-      failFast: false,
-    } as ParallelNodeData,
-    handles: { inputs: 1, outputs: 2 },
-  },
-  'cli-command': {
-    type: 'cli-command',
-    label: 'CLI Command',
-    description: 'Execute CLI tools with AI models',
-    icon: 'Terminal',
-    color: 'bg-amber-500',
-    defaultData: {
-      label: 'CLI Command',
-      command: '',
-      tool: 'gemini',
-      mode: 'analysis',
-    } as CliCommandNodeData,
-    handles: { inputs: 1, outputs: 1 },
-  },
-  prompt: {
-    type: 'prompt',
-    label: 'Prompt',
-    description: 'Construct AI prompts with context',
-    icon: 'FileText',
-    color: 'bg-purple-500',
-    defaultData: {
-      label: 'Prompt',
-      promptType: 'custom',
-      sourceNodes: [],
-      promptText: '',
-    } as PromptNodeData,
+      label: 'New Step',
+      instruction: '',
+      outputName: undefined,
+      tool: undefined,
+      mode: undefined,
+      contextRefs: [],
+    },
     handles: { inputs: 1, outputs: 1 },
   },
 };

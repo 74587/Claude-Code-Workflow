@@ -5,57 +5,25 @@
 
 import { DragEvent, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { Terminal, FileText, GitBranch, GitMerge, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
+import { MessageSquare, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { useFlowStore } from '@/stores';
-import type { FlowNodeType } from '@/types/flow';
 import { NODE_TYPE_CONFIGS } from '@/types/flow';
-
-// Icon mapping for node types
-const nodeIcons: Record<FlowNodeType, React.FC<{ className?: string }>> = {
-  'slash-command': Terminal,
-  'file-operation': FileText,
-  conditional: GitBranch,
-  parallel: GitMerge,
-  'cli-command': Terminal,
-  prompt: FileText,
-};
-
-// Color mapping for node types
-const nodeColors: Record<FlowNodeType, string> = {
-  'slash-command': 'bg-blue-500 hover:bg-blue-600',
-  'file-operation': 'bg-green-500 hover:bg-green-600',
-  conditional: 'bg-amber-500 hover:bg-amber-600',
-  parallel: 'bg-purple-500 hover:bg-purple-600',
-  'cli-command': 'bg-amber-500 hover:bg-amber-600',
-  prompt: 'bg-purple-500 hover:bg-purple-600',
-};
-
-const nodeBorderColors: Record<FlowNodeType, string> = {
-  'slash-command': 'border-blue-500',
-  'file-operation': 'border-green-500',
-  conditional: 'border-amber-500',
-  parallel: 'border-purple-500',
-  'cli-command': 'border-amber-500',
-  prompt: 'border-purple-500',
-};
 
 interface NodePaletteProps {
   className?: string;
 }
 
-interface NodeTypeCardProps {
-  type: FlowNodeType;
-}
-
-function NodeTypeCard({ type }: NodeTypeCardProps) {
-  const config = NODE_TYPE_CONFIGS[type];
-  const Icon = nodeIcons[type];
+/**
+ * Draggable card for the unified Prompt Template node type
+ */
+function PromptTemplateCard() {
+  const config = NODE_TYPE_CONFIGS['prompt-template'];
 
   // Handle drag start
   const onDragStart = (event: DragEvent<HTMLDivElement>) => {
-    event.dataTransfer.setData('application/reactflow-node-type', type);
+    event.dataTransfer.setData('application/reactflow-node-type', 'prompt-template');
     event.dataTransfer.effectAllowed = 'move';
   };
 
@@ -66,11 +34,11 @@ function NodeTypeCard({ type }: NodeTypeCardProps) {
       className={cn(
         'group flex items-center gap-3 p-3 rounded-lg border-2 bg-card cursor-grab transition-all',
         'hover:shadow-md hover:scale-[1.02] active:cursor-grabbing active:scale-[0.98]',
-        nodeBorderColors[type]
+        'border-blue-500'
       )}
     >
-      <div className={cn('p-2 rounded-md text-white', nodeColors[type])}>
-        <Icon className="w-4 h-4" />
+      <div className="p-2 rounded-md text-white bg-blue-500 hover:bg-blue-600">
+        <MessageSquare className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-foreground">{config.label}</div>
@@ -141,9 +109,7 @@ export function NodePalette({ className }: NodePaletteProps) {
 
           {isExpanded && (
             <div className="space-y-2">
-              {(Object.keys(NODE_TYPE_CONFIGS) as FlowNodeType[]).map((type) => (
-                <NodeTypeCard key={type} type={type} />
-              ))}
+              <PromptTemplateCard />
             </div>
           )}
         </div>

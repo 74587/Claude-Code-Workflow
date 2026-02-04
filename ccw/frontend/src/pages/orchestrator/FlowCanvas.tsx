@@ -23,8 +23,7 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { useFlowStore } from '@/stores';
-import type { FlowNodeType, FlowNode, FlowEdge } from '@/types/flow';
-import { NODE_TYPE_CONFIGS } from '@/types/flow';
+import type { FlowNode, FlowEdge } from '@/types/flow';
 
 // Custom node types (enhanced with execution status in IMPL-A8)
 import { nodeTypes } from './nodes';
@@ -116,8 +115,9 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
 
-      const nodeType = event.dataTransfer.getData('application/reactflow-node-type') as FlowNodeType;
-      if (!nodeType || !NODE_TYPE_CONFIGS[nodeType]) {
+      // Verify the drop is from node palette
+      const nodeType = event.dataTransfer.getData('application/reactflow-node-type');
+      if (!nodeType) {
         return;
       }
 
@@ -127,8 +127,8 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
         y: event.clientY,
       });
 
-      // Add node at drop position
-      addNode(nodeType, position);
+      // Add prompt-template node at drop position
+      addNode(position);
     },
     [screenToFlowPosition, addNode]
   );
@@ -161,24 +161,7 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
         />
         <MiniMap
           className="bg-card border border-border rounded-md shadow-sm"
-          nodeColor={(node) => {
-            switch (node.type) {
-              case 'slash-command':
-                return '#3b82f6'; // blue-500
-              case 'file-operation':
-                return '#22c55e'; // green-500
-              case 'conditional':
-                return '#f59e0b'; // amber-500
-              case 'parallel':
-                return '#a855f7'; // purple-500
-              case 'cli-command':
-                return '#f59e0b'; // amber-500
-              case 'prompt':
-                return '#a855f7'; // purple-500
-              default:
-                return '#6b7280'; // gray-500
-            }
-          }}
+          nodeColor={() => '#3b82f6'}
           maskColor="rgba(0, 0, 0, 0.1)"
         />
         <Background

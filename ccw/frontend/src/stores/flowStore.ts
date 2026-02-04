@@ -10,7 +10,6 @@ import type {
   Flow,
   FlowNode,
   FlowEdge,
-  FlowNodeType,
   NodeData,
   FlowEdgeData,
 } from '../types/flow';
@@ -234,13 +233,13 @@ export const useFlowStore = create<FlowStore>()(
 
       // ========== Node Operations ==========
 
-      addNode: (type: FlowNodeType, position: { x: number; y: number }): string => {
-        const config = nodeConfigs[type];
+      addNode: (position: { x: number; y: number }): string => {
+        const config = nodeConfigs['prompt-template'];
         const id = generateId('node');
 
         const newNode: FlowNode = {
           id,
-          type,
+          type: 'prompt-template',
           position,
           data: { ...config.defaultData },
         };
