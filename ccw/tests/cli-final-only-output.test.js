@@ -8,9 +8,13 @@
 import { afterEach, describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const cliCommandPath = new URL('../dist/commands/cli.js', import.meta.url).href;
 const cliExecutorPath = new URL('../dist/tools/cli-executor.js', import.meta.url).href;
+const historyStorePath = new URL('../dist/tools/cli-history-store.js', import.meta.url).href;
 
 function stubHttpRequest() {
   mock.method(http, 'request', () => {
@@ -35,8 +39,17 @@ describe('ccw cli exec --final', async () => {
   it('writes only finalOutput to stdout (no banner/summary)', async () => {
     stubHttpRequest();
 
+    const testHome = mkdtempSync(join(tmpdir(), 'ccw-cli-final-only-'));
+    const prevHome = process.env.CCW_DATA_DIR;
+    process.env.CCW_DATA_DIR = testHome;
+
+    // Ensure the CLI doesn't wait for stdin in Node's test runner environment.
+    const prevStdinIsTty = process.stdin.isTTY;
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
+
     const cliModule = await import(cliCommandPath);
     const cliExecutorModule = await import(cliExecutorPath);
+    const historyStoreModule = await import(historyStorePath);
 
     const stdoutWrites = [];
     mock.method(process.stdout, 'write', (chunk) => {
@@ -72,5 +85,14 @@ describe('ccw cli exec --final', async () => {
     await cliModule.cliCommand('exec', [], { prompt: 'Hello', tool: 'gemini', final: true });
 
     assert.equal(stdoutWrites.join(''), 'FINAL');
+
+    try {
+      historyStoreModule?.closeAllStores?.();
+    } catch {
+      // ignore
+    }
+    Object.defineProperty(process.stdin, 'isTTY', { value: prevStdinIsTty, configurable: true });
+    process.env.CCW_DATA_DIR = prevHome;
+    rmSync(testHome, { recursive: true, force: true });
   });
 });

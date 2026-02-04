@@ -22,6 +22,9 @@
   "current": "Current theme: {name}",
   "hueValue": "Hue: {value}°",
   "preview": "Preview",
+  "preview.background": "Background",
+  "preview.surface": "Card",
+  "preview.accent": "Accent",
   "save": "Save Custom Theme",
   "reset": "Reset to Preset"
 }

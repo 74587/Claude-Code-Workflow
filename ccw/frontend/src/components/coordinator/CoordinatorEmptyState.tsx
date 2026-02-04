@@ -49,27 +49,18 @@ export function CoordinatorEmptyState({
         {/* Animated Gradient Orbs - Using gradient utility classes */}
         <div className="absolute top-20 left-20 w-72 h-72 rounded-full blur-3xl animate-pulse bg-gradient-primary opacity-15" />
         <div
-          className="absolute bottom-20 right-20 w-96 h-96 rounded-full blur-3xl animate-pulse opacity-15"
-          style={{
-            background: 'radial-gradient(circle, hsl(var(--secondary)) 0%, transparent 70%)',
-            animationDelay: '1s',
-          }}
+          className="absolute bottom-20 right-20 w-96 h-96 rounded-full blur-3xl animate-pulse opacity-15 bg-gradient-secondary"
+          style={{ animationDelay: '1s' }}
         />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full blur-3xl animate-pulse bg-gradient-primary opacity-10" style={{ animationDelay: '2s' }} />
       </div>
 
       {/* Main Content */}
       <div className="relative z-10 max-w-2xl mx-auto px-8 text-center">
-        {/* Hero Icon */}
+        {/* Hero Icon - Using gradient brand background */}
         <div className="relative mb-8 inline-block">
-          <div 
-            className="absolute inset-0 rounded-full blur-2xl opacity-40 animate-pulse"
-            style={{ background: 'hsl(var(--primary))' }}
-          />
-          <div 
-            className="relative p-6 rounded-full shadow-2xl text-white"
-            style={{ background: 'hsl(var(--primary))' }}
-          >
+          <div className="absolute inset-0 rounded-full blur-2xl opacity-40 animate-pulse bg-gradient-brand" />
+          <div className="relative p-6 rounded-full shadow-2xl text-white bg-primary hover-glow-primary">
             <Rocket className="w-16 h-16" strokeWidth={2} />
           </div>
         </div>
@@ -84,23 +75,15 @@ export function CoordinatorEmptyState({
           {formatMessage({ id: 'coordinator.emptyState.subtitle' })}
         </p>
 
-        {/* Start Button - Using primary theme color */}
+        {/* Start Button - Using gradient and glow utilities */}
         <Button
           size="lg"
           onClick={onStart}
           disabled={disabled}
-          className="group relative px-8 py-6 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-          style={{
-            background: 'hsl(var(--primary))',
-            color: 'hsl(var(--primary-foreground))',
-          }}
+          className="group relative px-8 py-6 text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 bg-primary text-primary-foreground hover-glow-primary"
         >
           <Play className="w-6 h-6 mr-2 group-hover:scale-110 transition-transform" />
           {formatMessage({ id: 'coordinator.emptyState.startButton' })}
-          <div 
-            className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity blur-xl"
-            style={{ background: 'hsl(var(--primary) / 0.3)' }}
-          />
         </Button>
 
         {/* Feature Cards */}
@@ -175,38 +158,26 @@ export function CoordinatorEmptyState({
         {/* Quick Start Guide */}
         <div className="mt-12 text-left bg-card/50 backdrop-blur-sm rounded-xl p-6 border border-border">
           <h3 className="font-semibold mb-4 text-foreground flex items-center gap-2">
-            <span 
-              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-              style={{ background: 'hsl(var(--primary))' }}
-            >
-              ✓
+            <span className="w-6 h-6 rounded-full flex items-center justify-center text-primary-foreground text-xs font-semibold bg-primary">
+              ok
             </span>
             {formatMessage({ id: 'coordinator.emptyState.quickStart.title' })}
           </h3>
           <div className="space-y-3 text-sm text-muted-foreground">
             <div className="flex items-start gap-3">
-              <span 
-                className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 mt-0.5 text-white"
-                style={{ background: 'hsl(var(--primary))' }}
-              >
+              <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 mt-0.5 text-white bg-primary">
                 1
               </span>
               <p>{formatMessage({ id: 'coordinator.emptyState.quickStart.step1' })}</p>
             </div>
             <div className="flex items-start gap-3">
-              <span 
-                className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 mt-0.5 text-white"
-                style={{ background: 'hsl(var(--secondary))' }}
-              >
+              <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 mt-0.5 text-white bg-secondary">
                 2
               </span>
               <p>{formatMessage({ id: 'coordinator.emptyState.quickStart.step2' })}</p>
             </div>
             <div className="flex items-start gap-3">
-              <span 
-                className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 mt-0.5 text-white"
-                style={{ background: 'hsl(var(--accent))' }}
-              >
+              <span className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 mt-0.5 text-white bg-accent">
                 3
               </span>
               <p>{formatMessage({ id: 'coordinator.emptyState.quickStart.step3' })}</p>

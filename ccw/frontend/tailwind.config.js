@@ -8,6 +8,9 @@ const gradientPlugin = plugin(function({ addUtilities, addComponents }) {
     '.bg-gradient-primary': {
       backgroundImage: 'radial-gradient(circle, hsl(var(--accent)) 0%, transparent 70%)',
     },
+    '.bg-gradient-secondary': {
+      backgroundImage: 'radial-gradient(circle, hsl(var(--secondary)) 0%, transparent 70%)',
+    },
     '.bg-gradient-brand': {
       backgroundImage: 'linear-gradient(to right, hsl(var(--primary)), hsl(var(--secondary)))',
     },
@@ -16,6 +19,19 @@ const gradientPlugin = plugin(function({ addUtilities, addComponents }) {
     },
     '.bg-gradient-conic': {
       backgroundImage: 'conic-gradient(var(--tw-gradient-stops))',
+    },
+    // Hover glow effect utilities
+    '.hover-glow': {
+      transition: 'box-shadow 0.3s ease-in-out',
+      '&:hover': {
+        boxShadow: '0 0 40px 10px hsl(var(--accent) / 0.7)',
+      },
+    },
+    '.hover-glow-primary': {
+      transition: 'box-shadow 0.3s ease-in-out',
+      '&:hover': {
+        boxShadow: '0 0 40px 10px hsl(var(--primary) / 0.5)',
+      },
     },
   });
 

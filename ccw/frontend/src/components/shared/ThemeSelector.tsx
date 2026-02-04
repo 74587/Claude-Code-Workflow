@@ -192,25 +192,31 @@ export function ThemeSelector() {
             />
 
             {/* Preview Swatches */}
-            <div className="flex gap-2 items-center">
-              <span className="text-xs text-text-secondary mr-2">
+            <div className="flex gap-3 items-end">
+              <span className="text-xs text-text-secondary pb-1">
                 {formatMessage({ id: 'theme.preview' })}:
               </span>
-              <div
-                className="w-10 h-10 rounded border-2 border-border shadow-sm"
-                style={{ backgroundColor: getPreviewColor('--bg') }}
-                title="Background"
-              />
-              <div
-                className="w-10 h-10 rounded border-2 border-border shadow-sm"
-                style={{ backgroundColor: getPreviewColor('--surface') }}
-                title="Surface"
-              />
-              <div
-                className="w-10 h-10 rounded border-2 border-border shadow-sm"
-                style={{ backgroundColor: getPreviewColor('--accent') }}
-                title="Accent"
-              />
+              <div className="flex flex-col items-center gap-1">
+                <div
+                  className="w-10 h-10 rounded border-2 border-border shadow-sm"
+                  style={{ backgroundColor: getPreviewColor('--bg') }}
+                />
+                <span className="text-[10px] text-text-tertiary">{formatMessage({ id: 'theme.preview.background' })}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <div
+                  className="w-10 h-10 rounded border-2 border-border shadow-sm"
+                  style={{ backgroundColor: getPreviewColor('--surface') }}
+                />
+                <span className="text-[10px] text-text-tertiary">{formatMessage({ id: 'theme.preview.surface' })}</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <div
+                  className="w-10 h-10 rounded border-2 border-border shadow-sm"
+                  style={{ backgroundColor: getPreviewColor('--accent') }}
+                />
+                <span className="text-[10px] text-text-tertiary">{formatMessage({ id: 'theme.preview.accent' })}</span>
+              </div>
             </div>
 
             {/* Save and Reset Buttons */}
