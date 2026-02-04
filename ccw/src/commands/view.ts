@@ -78,7 +78,7 @@ export async function viewCommand(options: ViewOptions): Promise<void> {
   const host = options.host || '127.0.0.1';
   const browserHost = host === '0.0.0.0' || host === '::' ? 'localhost' : host;
   // --new flag is shorthand for --frontend react
-  const frontend = options.new ? 'react' : (options.frontend || 'both');
+  const frontend = options.new ? 'react' : (options.frontend || 'js');
 
   // Resolve workspace path
   let workspacePath = process.cwd();

@@ -1,51 +1,29 @@
 // ========================================
 // Recommended MCP Section Component
 // ========================================
-// Display recommended MCP servers with one-click install functionality
+// Display recommended MCP servers with wizard-based install functionality
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIntl } from 'react-intl';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Search,
   Globe,
   Sparkles,
   Download,
   Check,
-  Loader2,
+  Settings,
+  Key,
+  Zap,
+  Code2,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/Dialog';
-import {
-  createMcpServer,
-  fetchMcpServers,
-} from '@/lib/api';
-import { mcpServersKeys } from '@/hooks';
-import { useNotifications } from '@/hooks/useNotifications';
+import { RecommendedMcpWizard, RecommendedMcpDefinition } from './RecommendedMcpWizard';
+import { fetchMcpConfig } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 // ========== Types ==========
-
-/**
- * Recommended server configuration
- */
-export interface RecommendedServer {
-  id: string;
-  name: string;
-  description: string;
-  command: string;
-  args: string[];
-  icon: React.ComponentType<{ className?: string }>;
-  category: 'search' | 'browser' | 'ai';
-}
 
 /**
  * Props for RecommendedMcpSection component
@@ -55,61 +33,135 @@ export interface RecommendedMcpSectionProps {
   onInstallComplete?: () => void;
 }
 
-interface RecommendedServerCardProps {
-  server: RecommendedServer;
-  isInstalled: boolean;
-  isInstalling: boolean;
-  onInstall: (server: RecommendedServer) => void;
-}
-
-// ========== Constants ==========
+// ========== Platform Detection ==========
+const isWindows = typeof navigator !== 'undefined' && navigator.platform?.toLowerCase().includes('win');
 
 /**
- * Pre-configured recommended MCP servers
+ * Build cross-platform MCP config
+ * On Windows, wraps npx/node/python commands with cmd /c for proper execution
  */
-const RECOMMENDED_SERVERS: RecommendedServer[] = [
+function buildCrossPlatformMcpConfig(
+  command: string,
+  args: string[] = [],
+  options: { env?: Record<string, string>; type?: string } = {}
+) {
+  const { env, type } = options;
+
+  const windowsWrappedCommands = ['npx', 'npm', 'node', 'python', 'python3', 'pip', 'pip3', 'pnpm', 'yarn', 'bun'];
+  const needsWindowsWrapper = isWindows && windowsWrappedCommands.includes(command.toLowerCase());
+
+  const config: { command: string; args: string[]; env?: Record<string, string>; type?: string } = needsWindowsWrapper
+    ? { command: 'cmd', args: ['/c', command, ...args] }
+    : { command, args };
+
+  if (type) config.type = type;
+  if (env && Object.keys(env).length > 0) config.env = env;
+
+  return config;
+}
+
+// ========== Recommended MCP Definitions ==========
+
+/**
+ * Pre-configured recommended MCP servers with field definitions
+ * Matches original JS version structure for full wizard support
+ */
+const RECOMMENDED_MCP_DEFINITIONS: RecommendedMcpDefinition[] = [
   {
     id: 'ace-tool',
-    name: 'ACE Tool',
-    description: 'Advanced code search and context engine for intelligent code discovery',
-    command: 'mcp__ace-tool__search_context',
-    args: [],
-    icon: Search,
+    nameKey: 'mcp.ace-tool.name',
+    descKey: 'mcp.ace-tool.desc',
+    icon: 'search-code',
     category: 'search',
+    fields: [
+      {
+        key: 'baseUrl',
+        labelKey: 'mcp.ace-tool.field.baseUrl',
+        type: 'text',
+        default: 'https://acemcp.heroman.wtf/relay/',
+        placeholder: 'https://acemcp.heroman.wtf/relay/',
+        required: true,
+        descKey: 'mcp.ace-tool.field.baseUrl.desc',
+      },
+      {
+        key: 'token',
+        labelKey: 'mcp.ace-tool.field.token',
+        type: 'password',
+        default: '',
+        placeholder: 'ace_xxxxxxxxxxxxxxxx',
+        required: true,
+        descKey: 'mcp.ace-tool.field.token.desc',
+      },
+    ],
+    buildConfig: (values) => buildCrossPlatformMcpConfig('npx', [
+      'ace-tool',
+      '--base-url',
+      values.baseUrl || 'https://acemcp.heroman.wtf/relay/',
+      '--token',
+      values.token,
+    ]),
   },
   {
     id: 'chrome-devtools',
-    name: 'Chrome DevTools',
-    description: 'Browser automation and debugging tools for web development',
-    command: 'mcp__chrome-devtools',
-    args: [],
-    icon: Globe,
+    nameKey: 'mcp.chrome-devtools.name',
+    descKey: 'mcp.chrome-devtools.desc',
+    icon: 'chrome',
     category: 'browser',
+    fields: [],
+    buildConfig: () => buildCrossPlatformMcpConfig('npx', ['chrome-devtools-mcp@latest'], { type: 'stdio' }),
   },
   {
-    id: 'exa-search',
-    name: 'Exa Search',
-    description: 'AI-powered web search with real-time crawling capabilities',
-    command: 'mcp__exa__search',
-    args: [],
-    icon: Sparkles,
-    category: 'ai',
+    id: 'exa',
+    nameKey: 'mcp.exa.name',
+    descKey: 'mcp.exa.desc',
+    icon: 'globe-2',
+    category: 'search',
+    fields: [
+      {
+        key: 'apiKey',
+        labelKey: 'mcp.exa.field.apiKey',
+        type: 'password',
+        default: '',
+        placeholder: 'your-exa-api-key',
+        required: false,
+        descKey: 'mcp.exa.field.apiKey.desc',
+      },
+    ],
+    buildConfig: (values) => {
+      const env = values.apiKey ? { EXA_API_KEY: values.apiKey } : undefined;
+      return buildCrossPlatformMcpConfig('npx', ['-y', 'exa-mcp-server'], { env });
+    },
   },
 ];
 
+// ========== Icon Map ==========
+
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  'search-code': Search,
+  'chrome': Globe,
+  'globe-2': Sparkles,
+  'code-2': Code2,
+};
+
 // ========== Helper Component ==========
+
+interface RecommendedServerCardProps {
+  definition: RecommendedMcpDefinition;
+  isInstalled: boolean;
+  onInstall: (definition: RecommendedMcpDefinition) => void;
+}
 
 /**
  * Individual recommended server card
  */
 function RecommendedServerCard({
-  server,
+  definition,
   isInstalled,
-  isInstalling,
   onInstall,
 }: RecommendedServerCardProps) {
   const { formatMessage } = useIntl();
-  const Icon = server.icon;
+  const Icon = ICON_MAP[definition.icon] || Settings;
+  const hasFields = definition.fields.length > 0;
 
   return (
     <Card className="p-4 hover:shadow-md transition-shadow">
@@ -129,7 +181,7 @@ function RecommendedServerCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <h4 className="text-sm font-medium text-foreground truncate">
-              {server.name}
+              {formatMessage({ id: definition.nameKey })}
             </h4>
             {isInstalled && (
               <Badge variant="default" className="text-xs">
@@ -138,39 +190,40 @@ function RecommendedServerCard({
             )}
           </div>
           <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
-            {server.description}
+            {formatMessage({ id: definition.descKey })}
           </p>
 
-          {/* Install Button */}
-          {!isInstalled && (
+          {/* Config info + Install */}
+          <div className="flex items-center justify-between">
+            {hasFields ? (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Key className="w-3 h-3" />
+                {definition.fields.length} {formatMessage({ id: 'mcp.configRequired' })}
+              </span>
+            ) : (
+              <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                <Zap className="w-3 h-3" />
+                {formatMessage({ id: 'mcp.noConfigNeeded' })}
+              </span>
+            )}
             <Button
-              variant="outline"
+              variant={isInstalled ? 'outline' : 'default'}
               size="sm"
-              onClick={() => onInstall(server)}
-              disabled={isInstalling}
-              className="w-full"
+              onClick={() => onInstall(definition)}
             >
-              {isInstalling ? (
+              {isInstalled ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  {formatMessage({ id: 'mcp.recommended.actions.installing' })}
+                  <Settings className="w-3.5 h-3.5 mr-1" />
+                  {formatMessage({ id: 'mcp.reconfigure' })}
                 </>
               ) : (
                 <>
-                  <Download className="w-4 h-4 mr-1" />
+                  <Download className="w-3.5 h-3.5 mr-1" />
                   {formatMessage({ id: 'mcp.recommended.actions.install' })}
                 </>
               )}
             </Button>
-          )}
-
-          {/* Installed Indicator */}
-          {isInstalled && (
-            <div className="flex items-center gap-1 text-xs text-primary">
-              <Check className="w-4 h-4" />
-              <span>{formatMessage({ id: 'mcp.recommended.actions.installed' })}</span>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </Card>
@@ -180,88 +233,64 @@ function RecommendedServerCard({
 // ========== Main Component ==========
 
 /**
- * Recommended MCP servers section with one-click install
+ * Recommended MCP servers section with wizard-based install
  */
 export function RecommendedMcpSection({
   onInstallComplete,
 }: RecommendedMcpSectionProps) {
   const { formatMessage } = useIntl();
-  const queryClient = useQueryClient();
-  const { success, error } = useNotifications();
 
-  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
-  const [selectedServer, setSelectedServer] = useState<RecommendedServer | null>(null);
-  const [installingServerId, setInstallingServerId] = useState<string | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [selectedDefinition, setSelectedDefinition] = useState<RecommendedMcpDefinition | null>(null);
   const [installedServerIds, setInstalledServerIds] = useState<Set<string>>(new Set());
 
   // Check which servers are already installed
   const checkInstalledServers = async () => {
     try {
-      const data = await fetchMcpServers();
-      const allServers = [...data.project, ...data.global];
-      const installedIds = new Set(
-        allServers
-          .filter(s => s.command.startsWith('mcp__'))
-          .map(s => s.command)
-      );
+      const data = await fetchMcpConfig();
+      const installedIds = new Set<string>();
+
+      const globalServers = data.globalServers || {};
+      const userServers = data.userServers || {};
+      for (const name of Object.keys(globalServers)) installedIds.add(name);
+      for (const name of Object.keys(userServers)) installedIds.add(name);
+
+      const projects = data.projects || {};
+      for (const proj of Object.values(projects)) {
+        const servers = (proj as any).mcpServers || {};
+        for (const name of Object.keys(servers)) installedIds.add(name);
+      }
+
+      if ((data as any).codex?.servers) {
+        for (const name of Object.keys((data as any).codex.servers)) installedIds.add(name);
+      }
+
       setInstalledServerIds(installedIds);
     } catch {
       // Ignore errors during check
     }
   };
 
-  // Check on mount
-  useState(() => {
+  useEffect(() => {
     checkInstalledServers();
-  });
+  }, []);
 
-  // Create server mutation
-  const createMutation = useMutation({
-    mutationFn: (server: Omit<RecommendedServer, 'id' | 'icon' | 'category'>) =>
-      createMcpServer({
-        command: server.command,
-        args: server.args,
-        scope: 'global',
-        enabled: true,
-      }),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
-      setInstalledServerIds(prev => new Set(prev).add(variables.command));
-      setInstallingServerId(null);
-      setConfirmDialogOpen(false);
-      setSelectedServer(null);
-      success(
-        formatMessage({ id: 'mcp.recommended.actions.installed' }),
-        formatMessage({ id: 'mcp.recommended.servers.' + selectedServer?.id + '.name' })
-      );
-      onInstallComplete?.();
-    },
-    onError: () => {
-      setInstallingServerId(null);
-      error(
-        formatMessage({ id: 'mcp.dialog.validation.nameRequired' }),
-        formatMessage({ id: 'mcp.dialog.validation.commandRequired' })
-      );
-    },
-  });
-
-  // Handle install click
-  const handleInstallClick = (server: RecommendedServer) => {
-    setSelectedServer(server);
-    setConfirmDialogOpen(true);
+  // Handle install click - open wizard
+  const handleInstallClick = (definition: RecommendedMcpDefinition) => {
+    setSelectedDefinition(definition);
+    setWizardOpen(true);
   };
 
-  // Handle confirm install
-  const handleConfirmInstall = () => {
-    if (!selectedServer) return;
-    setInstallingServerId(selectedServer.id);
-    setConfirmDialogOpen(false);
-    createMutation.mutate(selectedServer);
+  // Handle wizard close
+  const handleWizardClose = () => {
+    setWizardOpen(false);
+    setSelectedDefinition(null);
   };
 
-  // Check if server is installed
-  const isServerInstalled = (server: RecommendedServer) => {
-    return installedServerIds.has(server.command);
+  // Handle install complete
+  const handleInstallComplete = () => {
+    checkInstalledServers();
+    onInstallComplete?.();
   };
 
   return (
@@ -279,66 +308,24 @@ export function RecommendedMcpSection({
 
         {/* Server Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {RECOMMENDED_SERVERS.map((server) => (
+          {RECOMMENDED_MCP_DEFINITIONS.map((definition) => (
             <RecommendedServerCard
-              key={server.id}
-              server={server}
-              isInstalled={isServerInstalled(server)}
-              isInstalling={installingServerId === server.id}
+              key={definition.id}
+              definition={definition}
+              isInstalled={installedServerIds.has(definition.id)}
               onInstall={handleInstallClick}
             />
           ))}
         </div>
       </section>
 
-      {/* Confirmation Dialog */}
-      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {formatMessage({ id: 'mcp.recommended.actions.install' })} {selectedServer?.name}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              {formatMessage(
-                { id: 'mcp.recommended.description' },
-                { server: selectedServer?.name }
-              )}
-            </p>
-            <div className="mt-4 p-3 bg-muted rounded-lg">
-              <code className="text-xs font-mono">
-                {selectedServer?.command} {selectedServer?.args.join(' ')}
-              </code>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmDialogOpen(false)}
-              disabled={createMutation.isPending}
-            >
-              {formatMessage({ id: 'mcp.dialog.actions.cancel' })}
-            </Button>
-            <Button
-              onClick={handleConfirmInstall}
-              disabled={createMutation.isPending}
-            >
-              {createMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                  {formatMessage({ id: 'mcp.recommended.actions.installing' })}
-                </>
-              ) : (
-                <>
-                  <Download className="w-4 h-4 mr-1" />
-                  {formatMessage({ id: 'mcp.recommended.actions.install' })}
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Wizard Dialog */}
+      <RecommendedMcpWizard
+        open={wizardOpen}
+        onClose={handleWizardClose}
+        mcpDefinition={selectedDefinition}
+        onInstallComplete={handleInstallComplete}
+      />
     </>
   );
 }

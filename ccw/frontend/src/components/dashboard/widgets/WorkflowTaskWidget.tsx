@@ -13,6 +13,7 @@ import { Sparkline } from '@/components/charts/Sparkline';
 import { useWorkflowStatusCounts, generateMockWorkflowStatusCounts } from '@/hooks/useWorkflowStatusCounts';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useProjectOverview } from '@/hooks/useProjectOverview';
+import { useIndexStatus } from '@/hooks/useIndex';
 import { cn } from '@/lib/utils';
 import {
   ListChecks,
@@ -37,6 +38,7 @@ import {
   Sparkles,
   BarChart3,
   PieChart as PieChartIcon,
+  Database,
 } from 'lucide-react';
 
 export interface WorkflowTaskWidgetProps {
@@ -210,6 +212,7 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
   const { data, isLoading } = useWorkflowStatusCounts();
   const { stats, isLoading: statsLoading } = useDashboardStats({ refetchInterval: 60000 });
   const { projectOverview, isLoading: projectLoading } = useProjectOverview();
+  const { status: indexStatus } = useIndexStatus({ refetchInterval: 30000 });
 
   const chartData = data || generateMockWorkflowStatusCounts();
   const total = chartData.reduce((sum, item) => sum + item.count, 0);
@@ -319,6 +322,35 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
                   <FileCode className="h-3.5 w-3.5" />
                   <span className="font-semibold">{projectOverview?.developmentIndex?.enhancement?.length || 0}</span>
                   <span className="text-muted-foreground">{formatMessage({ id: 'projectOverview.devIndex.category.enhancements' })}</span>
+                </div>
+
+                {/* Index Status Indicator */}
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Database className={cn(
+                      "h-3.5 w-3.5",
+                      indexStatus?.status === 'building' && "text-blue-600 animate-pulse",
+                      indexStatus?.status === 'completed' && "text-emerald-600",
+                      indexStatus?.status === 'idle' && "text-slate-500",
+                      indexStatus?.status === 'failed' && "text-red-600"
+                    )} />
+                    {indexStatus?.status === 'building' && (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                      </span>
+                    )}
+                  </div>
+                  <span className={cn(
+                    "font-semibold",
+                    indexStatus?.status === 'building' && "text-blue-600",
+                    indexStatus?.status === 'completed' && "text-emerald-600",
+                    indexStatus?.status === 'idle' && "text-slate-500",
+                    indexStatus?.status === 'failed' && "text-red-600"
+                  )}>
+                    {indexStatus?.totalFiles || 0}
+                  </span>
+                  <span className="text-muted-foreground">{formatMessage({ id: 'home.indexStatus.label' })}</span>
                 </div>
               </div>
 

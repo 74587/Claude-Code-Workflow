@@ -308,6 +308,7 @@ export interface CliToolConfig {
   tags: string[];
   type: 'builtin' | 'cli-wrapper' | 'api-endpoint';
   settingsFile?: string;
+  availableModels?: string[];
 }
 
 export interface ApiEndpoints {

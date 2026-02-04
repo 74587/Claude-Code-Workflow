@@ -2016,6 +2016,21 @@ export interface McpServersResponse {
 }
 
 /**
+ * Fetch complete MCP configuration from all sources
+ * Returns raw config including projects, globalServers, userServers, enterpriseServers
+ */
+export async function fetchMcpConfig(): Promise<{
+  projects: Record<string, { mcpServers: Record<string, any>; disabledMcpServers?: string[] }>;
+  globalServers: Record<string, any>;
+  userServers: Record<string, any>;
+  enterpriseServers: Record<string, any>;
+  configSources: string[];
+  codex?: { servers: Record<string, any>; configPath: string };
+}> {
+  return fetchApi('/api/mcp-config');
+}
+
+/**
  * Fetch all MCP servers (project and global scope) for a specific workspace
  * @param projectPath - Optional project path to filter data by workspace
  */
@@ -2551,6 +2566,47 @@ export async function deleteRule(
   });
 }
 
+/**
+ * Add MCP server to global scope (~/.claude.json mcpServers)
+ */
+export async function addGlobalMcpServer(
+  serverName: string,
+  serverConfig: {
+    command: string;
+    args?: string[];
+    env?: Record<string, string>;
+    type?: string;
+  }
+): Promise<{ success: boolean; error?: string }> {
+  return fetchApi<{ success: boolean; error?: string }>('/api/mcp-add-global-server', {
+    method: 'POST',
+    body: JSON.stringify({ serverName, serverConfig }),
+  });
+}
+
+/**
+ * Copy/Add MCP server to project (.mcp.json or .claude.json)
+ */
+export async function copyMcpServerToProject(
+  serverName: string,
+  serverConfig: {
+    command: string;
+    args?: string[];
+    env?: Record<string, string>;
+    type?: string;
+  },
+  projectPath?: string,
+  configType: 'mcp' | 'claude' = 'mcp'
+): Promise<{ success: boolean; error?: string }> {
+  // Use current project path from URL or fallback
+  const path = projectPath || window.location.pathname.split('/').filter(Boolean)[0] || '';
+  
+  return fetchApi<{ success: boolean; error?: string }>('/api/mcp-copy-server', {
+    method: 'POST',
+    body: JSON.stringify({ projectPath: path, serverName, serverConfig, configType }),
+  });
+}
+
 // ========== CCW Tools MCP API ==========
 
 /**
@@ -2565,15 +2621,111 @@ export interface CcwMcpConfig {
 }
 
 /**
- * Fetch CCW Tools MCP configuration
+ * Platform detection for cross-platform MCP config
  */
-export async function fetchCcwMcpConfig(): Promise<CcwMcpConfig> {
-  const data = await fetchApi<CcwMcpConfig>('/api/mcp/ccw-config');
-  return data;
+const isWindows = typeof navigator !== 'undefined' && navigator.platform?.toLowerCase().includes('win');
+
+/**
+ * Build CCW MCP server config
+ */
+function buildCcwMcpServerConfig(config: {
+  enabledTools?: string[];
+  projectRoot?: string;
+  allowedDirs?: string;
+  disableSandbox?: boolean;
+}): { command: string; args: string[]; env: Record<string, string> } {
+  const env: Record<string, string> = {};
+
+  if (config.enabledTools && config.enabledTools.length > 0) {
+    env.CCW_ENABLED_TOOLS = config.enabledTools.join(',');
+  } else {
+    env.CCW_ENABLED_TOOLS = 'all';
+  }
+
+  if (config.projectRoot) {
+    env.CCW_PROJECT_ROOT = config.projectRoot;
+  }
+  if (config.allowedDirs) {
+    env.CCW_ALLOWED_DIRS = config.allowedDirs;
+  }
+  if (config.disableSandbox) {
+    env.CCW_DISABLE_SANDBOX = '1';
+  }
+
+  // Cross-platform config
+  if (isWindows) {
+    return {
+      command: 'cmd',
+      args: ['/c', 'npx', '-y', 'ccw-mcp'],
+      env
+    };
+  }
+  return {
+    command: 'npx',
+    args: ['-y', 'ccw-mcp'],
+    env
+  };
 }
 
 /**
- * Update CCW Tools MCP configuration
+ * Fetch CCW Tools MCP configuration by checking if ccw-tools server exists
+ */
+export async function fetchCcwMcpConfig(): Promise<CcwMcpConfig> {
+  try {
+    const config = await fetchMcpConfig();
+
+    // Check if ccw-tools server exists in any config
+    let ccwServer: any = null;
+
+    // Check global servers
+    if (config.globalServers?.['ccw-tools']) {
+      ccwServer = config.globalServers['ccw-tools'];
+    }
+    // Check user servers
+    if (!ccwServer && config.userServers?.['ccw-tools']) {
+      ccwServer = config.userServers['ccw-tools'];
+    }
+    // Check project servers
+    if (!ccwServer && config.projects) {
+      for (const proj of Object.values(config.projects)) {
+        if (proj.mcpServers?.['ccw-tools']) {
+          ccwServer = proj.mcpServers['ccw-tools'];
+          break;
+        }
+      }
+    }
+
+    if (!ccwServer) {
+      return {
+        isInstalled: false,
+        enabledTools: [],
+      };
+    }
+
+    // Parse enabled tools from env
+    const env = ccwServer.env || {};
+    const enabledToolsStr = env.CCW_ENABLED_TOOLS || 'all';
+    const enabledTools = enabledToolsStr === 'all'
+      ? ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question']
+      : enabledToolsStr.split(',').map((t: string) => t.trim());
+
+    return {
+      isInstalled: true,
+      enabledTools,
+      projectRoot: env.CCW_PROJECT_ROOT,
+      allowedDirs: env.CCW_ALLOWED_DIRS,
+      disableSandbox: env.CCW_DISABLE_SANDBOX === '1',
+    };
+  } catch {
+    return {
+      isInstalled: false,
+      enabledTools: [],
+    };
+  }
+}
+
+/**
+ * Update CCW Tools MCP configuration (re-install with new config)
  */
 export async function updateCcwConfig(config: {
   enabledTools?: string[];
@@ -2581,27 +2733,40 @@ export async function updateCcwConfig(config: {
   allowedDirs?: string;
   disableSandbox?: boolean;
 }): Promise<CcwMcpConfig> {
-  return fetchApi<CcwMcpConfig>('/api/mcp/ccw-config', {
-    method: 'PATCH',
-    body: JSON.stringify(config),
-  });
+  const serverConfig = buildCcwMcpServerConfig(config);
+
+  // Install/update to global config
+  const result = await addGlobalMcpServer('ccw-tools', serverConfig);
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to update CCW config');
+  }
+
+  return fetchCcwMcpConfig();
 }
 
 /**
  * Install CCW Tools MCP server
  */
 export async function installCcwMcp(): Promise<CcwMcpConfig> {
-  return fetchApi<CcwMcpConfig>('/api/mcp/ccw-install', {
-    method: 'POST',
+  const serverConfig = buildCcwMcpServerConfig({
+    enabledTools: ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question'],
   });
+
+  const result = await addGlobalMcpServer('ccw-tools', serverConfig);
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to install CCW MCP');
+  }
+
+  return fetchCcwMcpConfig();
 }
 
 /**
  * Uninstall CCW Tools MCP server
  */
 export async function uninstallCcwMcp(): Promise<void> {
-  await fetchApi<void>('/api/mcp/ccw-uninstall', {
+  await fetchApi<{ success: boolean }>('/api/mcp-remove-global-server', {
     method: 'POST',
+    body: JSON.stringify({ serverName: 'ccw-tools' }),
   });
 }
 

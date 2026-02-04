@@ -128,6 +128,10 @@
       "core_memory": {
         "name": "core_memory",
         "desc": "管理核心内存条目"
+      },
+      "ask_question": {
+        "name": "ask_question",
+        "desc": "通过 A2UI 界面发起交互式问答"
       }
     },
     "paths": {

@@ -8,6 +8,8 @@ const CCW_MCP_TOOLS = [
   { name: 'edit_file', desc: 'Edit/replace content', core: true },
   { name: 'read_file', desc: 'Read file contents', core: true },
   { name: 'core_memory', desc: 'Core memory management', core: true },
+  // Optional tools
+  { name: 'ask_question', desc: 'Interactive questions (A2UI)', core: false },
 ];
 
 // Get currently enabled tools from installed config (Claude)

@@ -58,6 +58,9 @@
     "description": "Create your first hook to automate your CLI workflow",
     "noHooksInEvent": "No hooks configured for this event"
   },
+  "quickTemplates": {
+    "title": "Quick Install Templates"
+  },
   "templates": {
     "title": "Quick Install Templates",
     "description": "One-click installation for common hook patterns",

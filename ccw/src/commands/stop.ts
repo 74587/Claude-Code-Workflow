@@ -35,10 +35,17 @@ async function findProcessOnPort(port: number): Promise<string | null> {
  */
 async function killProcess(pid: string): Promise<boolean> {
   try {
-    await execAsync(`taskkill /PID ${pid} /F`);
+    // Use PowerShell to avoid Git Bash path expansion issues with /PID
+    await execAsync(`powershell -Command "Stop-Process -Id ${pid} -Force -ErrorAction Stop"`);
     return true;
   } catch {
-    return false;
+    // Fallback to taskkill via cmd
+    try {
+      await execAsync(`cmd /c "taskkill /PID ${pid} /F"`);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 
@@ -52,7 +59,7 @@ export async function stopCommand(options: StopOptions): Promise<void> {
   const force = options.force || false;
 
   console.log(chalk.blue.bold('\n  CCW Dashboard\n'));
-  console.log(chalk.gray(`  Checking server on port ${port}...`));
+  console.log(chalk.gray(`  Checking server on port ${port} and ${reactPort}...`));
 
   try {
     // Try graceful shutdown via API first
@@ -139,11 +146,18 @@ export async function stopCommand(options: StopOptions): Promise<void> {
         console.log(chalk.green('  Main server killed successfully!'));
 
         // Also try to kill React frontend
+        console.log(chalk.gray(`  Checking React frontend on port ${reactPort}...`));
         const reactPid = await findProcessOnPort(reactPort);
         if (reactPid) {
-          console.log(chalk.cyan(`  Cleaning up React frontend on port ${reactPort}...`));
-          await killProcess(reactPid);
-          console.log(chalk.green('  React frontend stopped!'));
+          console.log(chalk.cyan(`  Cleaning up React frontend (PID: ${reactPid})...`));
+          const reactKilled = await killProcess(reactPid);
+          if (reactKilled) {
+            console.log(chalk.green('  React frontend stopped!'));
+          } else {
+            console.log(chalk.yellow('  Failed to stop React frontend'));
+          }
+        } else {
+          console.log(chalk.gray('  No React frontend running'));
         }
 
         console.log(chalk.green.bold('\n  All processes stopped successfully!\n'));
@@ -153,6 +167,12 @@ export async function stopCommand(options: StopOptions): Promise<void> {
         process.exit(1);
       }
     } else {
+      // Also check React frontend port
+      const reactPid = await findProcessOnPort(reactPort);
+      if (reactPid) {
+        console.log(chalk.yellow(`  React frontend running on port ${reactPort} (PID: ${reactPid})`));
+      }
+
       console.log(chalk.gray(`\n  This is not a CCW server. Use --force to kill it:`));
       console.log(chalk.white(`  ccw stop --force\n`));
       process.exit(0);

@@ -1,7 +1,7 @@
 // ========================================
 // Sidebar Component
 // ========================================
-// Collapsible navigation sidebar with 6-group accordion structure
+// Collapsible navigation sidebar with 5-group accordion structure
 
 import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
@@ -9,7 +9,6 @@ import {
   Home,
   FolderKanban,
   Workflow,
-  RefreshCw,
   AlertCircle,
   Sparkles,
   Terminal,
@@ -60,7 +59,7 @@ interface NavGroupDef {
   }>;
 }
 
-// Define the 6 navigation groups with their items
+// Define the 5 navigation groups with their items
 const navGroupDefinitions: NavGroupDef[] = [
   {
     id: 'overview',
@@ -80,8 +79,8 @@ const navGroupDefinitions: NavGroupDef[] = [
       { path: '/lite-tasks', labelKey: 'navigation.main.liteTasks', icon: Zap },
       { path: '/orchestrator', labelKey: 'navigation.main.orchestrator', icon: Workflow },
       { path: '/coordinator', labelKey: 'navigation.main.coordinator', icon: GitFork },
-      { path: '/loops', labelKey: 'navigation.main.loops', icon: RefreshCw },
       { path: '/history', labelKey: 'navigation.main.history', icon: Clock },
+      { path: '/issues', labelKey: 'navigation.main.issues', icon: AlertCircle },
     ],
   },
   {
@@ -93,14 +92,7 @@ const navGroupDefinitions: NavGroupDef[] = [
       { path: '/prompts', labelKey: 'navigation.main.prompts', icon: History },
       { path: '/skills', labelKey: 'navigation.main.skills', icon: Sparkles },
       { path: '/commands', labelKey: 'navigation.main.commands', icon: Terminal },
-    ],
-  },
-  {
-    id: 'issues',
-    titleKey: 'navigation.groups.issues',
-    icon: AlertCircle,
-    items: [
-      { path: '/issues', labelKey: 'navigation.main.issues', icon: AlertCircle },
+      { path: '/settings/rules', labelKey: 'navigation.main.rules', icon: Shield },
     ],
   },
   {
@@ -109,6 +101,7 @@ const navGroupDefinitions: NavGroupDef[] = [
     icon: Wrench,
     items: [
       { path: '/hooks', labelKey: 'navigation.main.hooks', icon: GitFork },
+      { path: '/settings/mcp', labelKey: 'navigation.main.mcp', icon: Server },
     ],
   },
   {
@@ -116,11 +109,9 @@ const navGroupDefinitions: NavGroupDef[] = [
     titleKey: 'navigation.groups.configuration',
     icon: Cog,
     items: [
-      { path: '/settings', labelKey: 'navigation.main.settings', icon: Settings },
-      { path: '/settings/mcp', labelKey: 'navigation.main.mcp', icon: Server },
-      { path: '/settings/rules', labelKey: 'navigation.main.rules', icon: Shield },
       { path: '/settings/codexlens', labelKey: 'navigation.main.codexlens', icon: Sparkles },
       { path: '/api-settings', labelKey: 'navigation.main.apiSettings', icon: Server },
+      { path: '/settings', labelKey: 'navigation.main.settings', icon: Settings },
       { path: '/help', labelKey: 'navigation.main.help', icon: HelpCircle },
     ],
   },

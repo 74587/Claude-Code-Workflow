@@ -14,6 +14,9 @@
     "runningLoops": "运行中的循环",
     "openIssues": "开放问题"
   },
+  "indexStatus": {
+    "label": "索引"
+  },
   "sections": {
     "statistics": "统计",
     "recentSessions": "最近会话",

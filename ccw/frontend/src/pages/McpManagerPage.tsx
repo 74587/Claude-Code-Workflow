@@ -31,7 +31,6 @@ import { CodexMcpEditableCard } from '@/components/mcp/CodexMcpEditableCard';
 import { CcwToolsMcpCard } from '@/components/mcp/CcwToolsMcpCard';
 import { McpTemplatesSection } from '@/components/mcp/McpTemplatesSection';
 import { RecommendedMcpSection } from '@/components/mcp/RecommendedMcpSection';
-import { ConfigTypeToggle } from '@/components/mcp/ConfigTypeToggle';
 import { WindowsCompatibilityWarning } from '@/components/mcp/WindowsCompatibilityWarning';
 import { CrossCliCopyButton } from '@/components/mcp/CrossCliCopyButton';
 import { AllProjectsTable } from '@/components/mcp/AllProjectsTable';
@@ -207,7 +206,6 @@ export function McpManagerPage() {
   const [editingServer, setEditingServer] = useState<McpServer | undefined>(undefined);
   const [cliMode, setCliMode] = useState<CliMode>('claude');
   const [codexExpandedServers, setCodexExpandedServers] = useState<Set<string>>(new Set());
-  const [configType, setConfigType] = useState<'mcp-json' | 'claude-json'>('mcp-json');
 
   const {
     servers,
@@ -391,14 +389,24 @@ export function McpManagerPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Server className="w-6 h-6 text-primary" />
-            {formatMessage({ id: 'mcp.title' })}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {formatMessage({ id: 'mcp.description' })}
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Server className="w-6 h-6 text-primary" />
+              {formatMessage({ id: 'mcp.title' })}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {formatMessage({ id: 'mcp.description' })}
+            </p>
+          </div>
+          {/* CLI Mode Badge Switcher */}
+          <div className="ml-3 flex-shrink-0">
+            <CliModeToggle
+              currentMode={cliMode}
+              onModeChange={handleModeChange}
+              codexConfigPath={codexConfigPath}
+            />
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => currentRefetch()} disabled={currentIsFetching}>
@@ -414,13 +422,6 @@ export function McpManagerPage() {
         </div>
       </div>
 
-      {/* CLI Mode Toggle */}
-      <CliModeToggle
-        currentMode={cliMode}
-        onModeChange={handleModeChange}
-        codexConfigPath={codexConfigPath}
-      />
-
       {/* Tabbed Interface */}
       <TabsNavigation
         value={activeTab}
@@ -434,7 +435,11 @@ export function McpManagerPage() {
 
       {/* Tab Content: Templates */}
       {activeTab === 'templates' && (
-        <div className="mt-4">
+        <div className="mt-4 space-y-4">
+          {/* Recommended MCP Servers */}
+          <RecommendedMcpSection onInstallComplete={() => refetch()} />
+
+          {/* Templates Section */}
           <McpTemplatesSection
             onInstallTemplate={handleInstallTemplate}
             onSaveAsTemplate={handleSaveAsTemplate}
@@ -447,20 +452,6 @@ export function McpManagerPage() {
         <div className="mt-4 space-y-4">
           {/* Windows Compatibility Warning */}
           <WindowsCompatibilityWarning />
-
-          {/* Recommended MCP Servers */}
-          {cliMode === 'claude' && (
-            <RecommendedMcpSection onInstallComplete={() => refetch()} />
-          )}
-
-          {/* Config Type Toggle */}
-          {cliMode === 'claude' && (
-            <ConfigTypeToggle
-              currentType={configType}
-              onTypeChange={setConfigType}
-              existingServersCount={totalCount}
-            />
-          )}
 
           {/* Stats Cards - Claude mode only */}
       {cliMode === 'claude' && (

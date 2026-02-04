@@ -15,6 +15,9 @@ import {
   Database,
   FileText,
   HardDrive,
+  MessageCircleQuestion,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -83,6 +86,7 @@ export const CCW_MCP_TOOLS: CcwTool[] = [
   { name: 'edit_file', desc: 'Edit/replace content', core: true },
   { name: 'read_file', desc: 'Read file contents', core: true },
   { name: 'core_memory', desc: 'Core memory management', core: true },
+  { name: 'ask_question', desc: 'Interactive questions (A2UI)', core: false },
 ];
 
 // ========== Component ==========
@@ -211,13 +215,9 @@ export function CcwToolsMcpCard({
           </div>
           <div className="flex items-center gap-2">
             {isExpanded ? (
-              <div className="w-5 h-5 flex items-center justify-center text-muted-foreground">
-                ▼
-              </div>
+              <ChevronDown className="w-5 h-5 text-muted-foreground" />
             ) : (
-              <div className="w-5 h-5 flex items-center justify-center text-muted-foreground">
-                ▶
-              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
             )}
           </div>
         </div>
@@ -425,6 +425,8 @@ function getToolIcon(toolName: string): React.ReactElement {
       return <Database {...iconProps} />;
     case 'core_memory':
       return <Settings {...iconProps} />;
+    case 'ask_question':
+      return <MessageCircleQuestion {...iconProps} />;
     default:
       return <Settings {...iconProps} />;
   }

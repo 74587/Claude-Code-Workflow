@@ -31,6 +31,7 @@ import {
 } from '@/lib/api';
 import { mcpServersKeys, useMcpTemplates } from '@/hooks';
 import { cn } from '@/lib/utils';
+import { ConfigTypeToggle, type McpConfigType } from './ConfigTypeToggle';
 
 // ========== Types ==========
 
@@ -90,6 +91,7 @@ export function McpServerDialog({
   const [errors, setErrors] = useState<FormErrors>({});
   const [argsInput, setArgsInput] = useState('');
   const [envInput, setEnvInput] = useState('');
+  const [configType, setConfigType] = useState<McpConfigType>('mcp-json');
 
   // Initialize form from server prop (edit mode)
   useEffect(() => {
@@ -458,6 +460,20 @@ export function McpServerDialog({
                 </span>
               </label>
             </div>
+
+            {/* Config Type Toggle - Only for project scope */}
+            {formData.scope === 'project' && (
+              <div className="flex items-center gap-2 mt-2 pl-6">
+                <span className="text-xs text-muted-foreground">
+                  {formatMessage({ id: 'mcp.configType.format' })}:
+                </span>
+                <ConfigTypeToggle
+                  currentType={configType}
+                  onTypeChange={setConfigType}
+                  showWarning={false}
+                />
+              </div>
+            )}
           </div>
 
           {/* Enabled */}

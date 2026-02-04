@@ -58,6 +58,9 @@
     "description": "创建您的第一个钩子以自动化 CLI 工作流",
     "noHooksInEvent": "此事件未配置钩子"
   },
+  "quickTemplates": {
+    "title": "快速安装模板"
+  },
   "templates": {
     "title": "快速安装模板",
     "description": "常见钩子模式的一键安装",

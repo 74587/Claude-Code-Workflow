@@ -162,56 +162,32 @@ export function ConfigTypeToggle({
 
   return (
     <>
-      <div className="space-y-3">
-        {/* Label */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">
-            {formatMessage({ id: 'mcp.configType.label' })}
-          </span>
-          <Badge variant="outline" className="text-xs">
-            {getConfigFileExtension(internalType)}
-          </Badge>
-        </div>
-
-        {/* Toggle Buttons */}
-        <div className="flex gap-2 p-1 bg-muted rounded-lg">
-          <Button
-            variant={internalType === 'mcp-json' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => handleTypeClick('mcp-json')}
-            className={cn(
-              'flex-1',
-              internalType === 'mcp-json' && 'shadow-sm'
-            )}
-          >
-            <span className="text-sm">
-              {formatMessage({ id: 'mcp.configType.claudeJson' })}
-            </span>
-          </Button>
-          <Button
-            variant={internalType === 'claude-json' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => handleTypeClick('claude-json')}
-            className={cn(
-              'flex-1',
-              internalType === 'claude-json' && 'shadow-sm'
-            )}
-          >
-            <span className="text-sm">
-              {formatMessage({ id: 'mcp.configType.claudeJson' })}
-            </span>
-          </Button>
-        </div>
-
-        {/* Current Format Display */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-md border border-border">
-          <code className="text-xs text-muted-foreground font-mono">
-            {getConfigFileExtension(internalType)}
-          </code>
-          <span className="text-xs text-muted-foreground">
-            {formatMessage({ id: 'mcp.configType.' + internalType.replace('-', '') })}
-          </span>
-        </div>
+      {/* Compact inline toggle */}
+      <div className="flex items-center gap-1.5 p-0.5 bg-muted rounded-md h-9">
+        <button
+          type="button"
+          onClick={() => handleTypeClick('mcp-json')}
+          className={cn(
+            'px-2.5 py-1 text-xs font-medium rounded transition-all',
+            internalType === 'mcp-json'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          .mcp.json
+        </button>
+        <button
+          type="button"
+          onClick={() => handleTypeClick('claude-json')}
+          className={cn(
+            'px-2.5 py-1 text-xs font-medium rounded transition-all',
+            internalType === 'claude-json'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          .claude.json
+        </button>
       </div>
 
       {/* Warning Dialog */}
