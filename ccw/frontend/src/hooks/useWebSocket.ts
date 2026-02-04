@@ -38,6 +38,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectDelayRef = useRef(RECONNECT_DELAY_BASE);
+  const mountedRef = useRef(true);
 
   // Notification store for connection status
   const setWsStatus = useNotificationStore((state) => state.setWsStatus);
@@ -71,6 +72,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   // Handle incoming WebSocket messages
   const handleMessage = useCallback(
     (event: MessageEvent) => {
+      // Guard against state updates after unmount
+      if (!mountedRef.current) {
+        return;
+      }
+
       try {
         const data = JSON.parse(event.data);
 
@@ -391,6 +397,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
     window.addEventListener('a2ui-action', handleA2UIAction as EventListener);
 
     return () => {
+      // Mark as unmounted to prevent state updates in handleMessage
+      mountedRef.current = false;
+
       window.removeEventListener('a2ui-action', handleA2UIAction as EventListener);
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
