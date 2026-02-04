@@ -294,6 +294,42 @@
     "step2": "Or manually add the JSON config to your configuration file",
     "step3": "Restart your CLI to load the new server"
   },
+  "configRequired": "config required",
+  "noConfigNeeded": "No configuration needed",
+  "reconfigure": "Reconfigure",
+  "wizard": {
+    "install": "Install",
+    "installing": "Installing...",
+    "installSuccess": "Server installed successfully",
+    "installError": "Failed to install server",
+    "validation": "Validation error",
+    "requiredFields": "Please fill in all required fields",
+    "scope": "Installation Scope",
+    "scope.global": "Global (All projects)",
+    "scope.project": "Project (Current project only)"
+  },
+  "ace-tool": {
+    "name": "ACE Tool",
+    "desc": "Advanced code search and context engine for intelligent code discovery",
+    "field": {
+      "baseUrl": "Base URL",
+      "baseUrl.desc": "ACE MCP relay server endpoint",
+      "token": "API Token",
+      "token.desc": "Your ACE API token for authentication"
+    }
+  },
+  "chrome-devtools": {
+    "name": "Chrome DevTools",
+    "desc": "Browser automation and debugging tools for web development"
+  },
+  "exa": {
+    "name": "Exa Search",
+    "desc": "AI-powered web search with real-time crawling capabilities",
+    "field": {
+      "apiKey": "API Key",
+      "apiKey.desc": "Your Exa API key (optional, some features may require it)"
+    }
+  },
   "enterprise": {
     "label": "Enterprise",
     "tooltip": "Enterprise MCP server"

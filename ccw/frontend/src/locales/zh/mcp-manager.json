@@ -294,6 +294,42 @@
     "step2": "或将 JSON 配置手动添加到您的配置文件中",
     "step3": "重启您的 CLI 以加载新服务器"
   },
+  "configRequired": "项配置",
+  "noConfigNeeded": "无需配置",
+  "reconfigure": "重新配置",
+  "wizard": {
+    "install": "安装",
+    "installing": "安装中...",
+    "installSuccess": "服务器安装成功",
+    "installError": "服务器安装失败",
+    "validation": "验证错误",
+    "requiredFields": "请填写所有必填字段",
+    "scope": "安装范围",
+    "scope.global": "全局（所有项目）",
+    "scope.project": "项目（仅当前项目）"
+  },
+  "ace-tool": {
+    "name": "ACE 工具",
+    "desc": "高级代码搜索和上下文引擎，用于智能代码发现",
+    "field": {
+      "baseUrl": "服务器地址",
+      "baseUrl.desc": "ACE MCP 中继服务器端点",
+      "token": "API 令牌",
+      "token.desc": "用于认证的 ACE API 令牌"
+    }
+  },
+  "chrome-devtools": {
+    "name": "Chrome 开发者工具",
+    "desc": "浏览器自动化和调试工具，用于 Web 开发"
+  },
+  "exa": {
+    "name": "Exa 搜索",
+    "desc": "AI 驱动的网络搜索，支持实时抓取",
+    "field": {
+      "apiKey": "API 密钥",
+      "apiKey.desc": "您的 Exa API 密钥（可选，部分功能可能需要）"
+    }
+  },
   "enterprise": {
     "label": "企业版",
     "tooltip": "企业版 MCP 服务器"

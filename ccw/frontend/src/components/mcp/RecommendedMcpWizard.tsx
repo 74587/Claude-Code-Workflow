@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/Label';
 import { Badge } from '@/components/ui/Badge';
 import {
   addGlobalMcpServer,
-  addProjectMcpServer,
+  copyMcpServerToProject,
 } from '@/lib/api';
 import { mcpServersKeys } from '@/hooks';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -131,7 +131,7 @@ export function RecommendedMcpWizard({
       if (selectedScope === 'global') {
         return addGlobalMcpServer(mcpDefinition.id, serverConfig);
       } else {
-        return addProjectMcpServer(mcpDefinition.id, serverConfig);
+        return copyMcpServerToProject(mcpDefinition.id, serverConfig);
       }
     },
     onSuccess: (result) => {
