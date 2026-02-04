@@ -7,6 +7,7 @@
 
 export type Theme = 'light' | 'dark' | 'system';
 export type ColorScheme = 'blue' | 'green' | 'orange' | 'purple';
+export type GradientLevel = 'off' | 'standard' | 'enhanced';
 export type Locale = 'en' | 'zh';
 export type ViewMode = 'sessions' | 'liteTasks' | 'project-overview' | 'sessionDetail' | 'liteTaskDetail' | 'loop-monitor' | 'issue-manager' | 'orchestrator';
 export type SessionFilter = 'all' | 'active' | 'archived';
@@ -42,6 +43,11 @@ export interface AppState {
   customHue: number | null; // Custom hue value (0-360) for theme customization
   isCustomTheme: boolean; // Indicates if custom theme is active
 
+  // Gradient settings
+  gradientLevel: GradientLevel; // Gradient intensity: off, standard, enhanced
+  enableHoverGlow: boolean; // Enable hover glow effects
+  enableBackgroundAnimation: boolean; // Enable background gradient animation
+
   // Locale
   locale: Locale;
 
@@ -71,6 +77,11 @@ export interface AppActions {
   toggleTheme: () => void;
   setColorScheme: (scheme: ColorScheme) => void; // New: set color scheme
   setCustomHue: (hue: number | null) => void; // Set custom hue for theme customization
+
+  // Gradient settings actions
+  setGradientLevel: (level: GradientLevel) => void;
+  setEnableHoverGlow: (enabled: boolean) => void;
+  setEnableBackgroundAnimation: (enabled: boolean) => void;
 
   // Locale actions
   setLocale: (locale: Locale) => void;

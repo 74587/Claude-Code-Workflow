@@ -26,5 +26,13 @@
   "preview.surface": "Card",
   "preview.accent": "Accent",
   "save": "Save Custom Theme",
-  "reset": "Reset to Preset"
+  "reset": "Reset to Preset",
+  "gradient": {
+    "title": "Gradient Effects",
+    "off": "Off",
+    "standard": "Standard",
+    "enhanced": "Enhanced",
+    "hoverGlow": "Enable hover glow effects",
+    "bgAnimation": "Enable background gradient animation"
+  }
 }

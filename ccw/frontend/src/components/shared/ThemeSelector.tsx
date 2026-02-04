@@ -20,7 +20,21 @@ import { generateThemeFromHue } from '@/lib/colorGenerator';
  */
 export function ThemeSelector() {
   const { formatMessage } = useIntl();
-  const { colorScheme, resolvedTheme, customHue, isCustomTheme, setColorScheme, setTheme, setCustomHue } = useTheme();
+  const {
+    colorScheme,
+    resolvedTheme,
+    customHue,
+    isCustomTheme,
+    gradientLevel,
+    enableHoverGlow,
+    enableBackgroundAnimation,
+    setColorScheme,
+    setTheme,
+    setCustomHue,
+    setGradientLevel,
+    setEnableHoverGlow,
+    setEnableBackgroundAnimation,
+  } = useTheme();
 
   // Local state for preview hue (uncommitted changes)
   const [previewHue, setPreviewHue] = useState<number | null>(customHue);
@@ -250,6 +264,74 @@ export function ThemeSelector() {
           </div>
         </div>
       )}
+
+      {/* Gradient Effects Settings */}
+      <div>
+        <h3 className="text-sm font-medium text-text mb-3">
+          {formatMessage({ id: 'theme.gradient.title' })}
+        </h3>
+
+        {/* Gradient Level Selection */}
+        <div className="space-y-4">
+          <div
+            className="flex gap-2"
+            role="radiogroup"
+            aria-label={formatMessage({ id: 'theme.gradient.title' })}
+          >
+            {(['off', 'standard', 'enhanced'] as const).map((level) => (
+              <button
+                key={level}
+                onClick={() => setGradientLevel(level)}
+                role="radio"
+                aria-checked={gradientLevel === level}
+                className={`
+                  flex-1 px-3 py-2 rounded-lg text-sm font-medium
+                  transition-all duration-200 border-2
+                  ${gradientLevel === level
+                    ? 'border-accent bg-surface shadow-md'
+                    : 'border-border bg-bg hover:bg-surface'
+                  }
+                  focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2
+                `}
+              >
+                {formatMessage({ id: `theme.gradient.${level}` })}
+              </button>
+            ))}
+          </div>
+
+          {/* Hover Glow Checkbox */}
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={enableHoverGlow}
+              onChange={(e) => setEnableHoverGlow(e.target.checked)}
+              className="
+                w-4 h-4 rounded border-border text-accent
+                focus:ring-2 focus:ring-accent focus:ring-offset-2
+              "
+            />
+            <span className="text-sm text-text">
+              {formatMessage({ id: 'theme.gradient.hoverGlow' })}
+            </span>
+          </label>
+
+          {/* Background Animation Checkbox */}
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={enableBackgroundAnimation}
+              onChange={(e) => setEnableBackgroundAnimation(e.target.checked)}
+              className="
+                w-4 h-4 rounded border-border text-accent
+                focus:ring-2 focus:ring-accent focus:ring-offset-2
+              "
+            />
+            <span className="text-sm text-text">
+              {formatMessage({ id: 'theme.gradient.bgAnimation' })}
+            </span>
+          </label>
+        </div>
+      </div>
 
       {/* Theme Mode Selection */}
       <div>

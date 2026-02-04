@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import { persist, devtools } from 'zustand/middleware';
-import type { AppStore, Theme, ColorScheme, Locale, ViewMode, SessionFilter, LiteTaskType, DashboardLayouts, WidgetConfig } from '../types/store';
+import type { AppStore, Theme, ColorScheme, GradientLevel, Locale, ViewMode, SessionFilter, LiteTaskType, DashboardLayouts, WidgetConfig } from '../types/store';
 import { DEFAULT_DASHBOARD_LAYOUT } from '../components/dashboard/defaultLayouts';
 import { getInitialLocale, updateIntl } from '../lib/i18n';
 import { getThemeId } from '../lib/theme';
@@ -41,7 +41,10 @@ const resolveTheme = (theme: Theme): 'light' | 'dark' => {
 const applyThemeToDocument = (
   resolvedTheme: 'light' | 'dark',
   colorScheme: ColorScheme,
-  customHue: number | null
+  customHue: number | null,
+  gradientLevel: GradientLevel = 'standard',
+  enableHoverGlow: boolean = true,
+  enableBackgroundAnimation: boolean = false
 ): void => {
   if (typeof document === 'undefined') return;
 
@@ -92,13 +95,16 @@ const applyThemeToDocument = (
 
     // Set color scheme attribute
     document.documentElement.setAttribute('data-color-scheme', colorScheme);
+
+    // Apply gradient settings
+    document.documentElement.setAttribute('data-gradient', gradientLevel);
+    document.documentElement.setAttribute('data-hover-glow', String(enableHoverGlow));
+    document.documentElement.setAttribute('data-bg-animation', String(enableBackgroundAnimation));
   };
 
   // Use View Transition API for smooth transitions (progressive enhancement)
-  // @ts-expect-error - View Transition API not yet in TypeScript DOM types
-  if (document.startViewTransition) {
-    // @ts-expect-error - View Transition API not yet in TypeScript DOM types
-    document.startViewTransition(performThemeUpdate);
+  if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+    (document as unknown as { startViewTransition: (callback: () => void) => void }).startViewTransition(performThemeUpdate);
   } else {
     // Fallback: apply immediately without transition
     performThemeUpdate();
@@ -113,6 +119,11 @@ const initialState = {
   colorScheme: 'blue' as ColorScheme, // New: default to blue scheme
   customHue: null as number | null,
   isCustomTheme: false,
+
+  // Gradient settings
+  gradientLevel: 'standard' as GradientLevel,
+  enableHoverGlow: true,
+  enableBackgroundAnimation: false,
 
   // Locale
   locale: getInitialLocale() as Locale,
@@ -150,37 +161,57 @@ export const useAppStore = create<AppStore>()(
           set({ theme, resolvedTheme: resolved }, false, 'setTheme');
 
           // Apply theme using helper (encapsulates DOM manipulation)
-          const { colorScheme, customHue } = get();
-          applyThemeToDocument(resolved, colorScheme, customHue);
+          const { colorScheme, customHue, gradientLevel, enableHoverGlow, enableBackgroundAnimation } = get();
+          applyThemeToDocument(resolved, colorScheme, customHue, gradientLevel, enableHoverGlow, enableBackgroundAnimation);
         },
 
         setColorScheme: (colorScheme: ColorScheme) => {
           set({ colorScheme, customHue: null, isCustomTheme: false }, false, 'setColorScheme');
 
           // Apply color scheme using helper (encapsulates DOM manipulation)
-          const { resolvedTheme } = get();
-          applyThemeToDocument(resolvedTheme, colorScheme, null);
+          const { resolvedTheme, gradientLevel, enableHoverGlow, enableBackgroundAnimation } = get();
+          applyThemeToDocument(resolvedTheme, colorScheme, null, gradientLevel, enableHoverGlow, enableBackgroundAnimation);
         },
 
         setCustomHue: (hue: number | null) => {
           if (hue === null) {
             // Reset to preset theme
-            const { colorScheme, resolvedTheme } = get();
+            const { colorScheme, resolvedTheme, gradientLevel, enableHoverGlow, enableBackgroundAnimation } = get();
             set({ customHue: null, isCustomTheme: false }, false, 'setCustomHue');
-            applyThemeToDocument(resolvedTheme, colorScheme, null);
+            applyThemeToDocument(resolvedTheme, colorScheme, null, gradientLevel, enableHoverGlow, enableBackgroundAnimation);
             return;
           }
 
           // Apply custom hue
           set({ customHue: hue, isCustomTheme: true }, false, 'setCustomHue');
-          const { resolvedTheme, colorScheme } = get();
-          applyThemeToDocument(resolvedTheme, colorScheme, hue);
+          const { resolvedTheme, colorScheme, gradientLevel, enableHoverGlow, enableBackgroundAnimation } = get();
+          applyThemeToDocument(resolvedTheme, colorScheme, hue, gradientLevel, enableHoverGlow, enableBackgroundAnimation);
         },
 
         toggleTheme: () => {
           const { theme } = get();
           const newTheme: Theme = theme === 'dark' ? 'light' : theme === 'light' ? 'dark' : 'dark';
           get().setTheme(newTheme);
+        },
+
+        // ========== Gradient Settings Actions ==========
+
+        setGradientLevel: (level: GradientLevel) => {
+          set({ gradientLevel: level }, false, 'setGradientLevel');
+          const { resolvedTheme, colorScheme, customHue, enableHoverGlow, enableBackgroundAnimation } = get();
+          applyThemeToDocument(resolvedTheme, colorScheme, customHue, level, enableHoverGlow, enableBackgroundAnimation);
+        },
+
+        setEnableHoverGlow: (enabled: boolean) => {
+          set({ enableHoverGlow: enabled }, false, 'setEnableHoverGlow');
+          const { resolvedTheme, colorScheme, customHue, gradientLevel, enableBackgroundAnimation } = get();
+          applyThemeToDocument(resolvedTheme, colorScheme, customHue, gradientLevel, enabled, enableBackgroundAnimation);
+        },
+
+        setEnableBackgroundAnimation: (enabled: boolean) => {
+          set({ enableBackgroundAnimation: enabled }, false, 'setEnableBackgroundAnimation');
+          const { resolvedTheme, colorScheme, customHue, gradientLevel, enableHoverGlow } = get();
+          applyThemeToDocument(resolvedTheme, colorScheme, customHue, gradientLevel, enableHoverGlow, enabled);
         },
 
         // ========== Locale Actions ==========
@@ -279,6 +310,9 @@ export const useAppStore = create<AppStore>()(
           theme: state.theme,
           colorScheme: state.colorScheme,
           customHue: state.customHue,
+          gradientLevel: state.gradientLevel,
+          enableHoverGlow: state.enableHoverGlow,
+          enableBackgroundAnimation: state.enableBackgroundAnimation,
           locale: state.locale,
           sidebarCollapsed: state.sidebarCollapsed,
           expandedNavGroups: state.expandedNavGroups,
@@ -291,7 +325,14 @@ export const useAppStore = create<AppStore>()(
             state.resolvedTheme = resolved;
             state.isCustomTheme = state.customHue !== null;
             // Apply theme using helper (encapsulates DOM manipulation)
-            applyThemeToDocument(resolved, state.colorScheme, state.customHue);
+            applyThemeToDocument(
+              resolved,
+              state.colorScheme,
+              state.customHue,
+              state.gradientLevel ?? 'standard',
+              state.enableHoverGlow ?? true,
+              state.enableBackgroundAnimation ?? false
+            );
           }
           // Apply locale on rehydration
           if (state) {
@@ -313,7 +354,14 @@ if (typeof window !== 'undefined') {
       const resolved = getSystemTheme();
       useAppStore.setState({ resolvedTheme: resolved });
       // Apply theme using helper (encapsulates DOM manipulation)
-      applyThemeToDocument(resolved, state.colorScheme, state.customHue);
+      applyThemeToDocument(
+        resolved,
+        state.colorScheme,
+        state.customHue,
+        state.gradientLevel,
+        state.enableHoverGlow,
+        state.enableBackgroundAnimation
+      );
     }
   });
 }
@@ -324,6 +372,9 @@ export const selectResolvedTheme = (state: AppStore) => state.resolvedTheme;
 export const selectColorScheme = (state: AppStore) => state.colorScheme;
 export const selectCustomHue = (state: AppStore) => state.customHue;
 export const selectIsCustomTheme = (state: AppStore) => state.isCustomTheme;
+export const selectGradientLevel = (state: AppStore) => state.gradientLevel;
+export const selectEnableHoverGlow = (state: AppStore) => state.enableHoverGlow;
+export const selectEnableBackgroundAnimation = (state: AppStore) => state.enableBackgroundAnimation;
 export const selectLocale = (state: AppStore) => state.locale;
 export const selectSidebarOpen = (state: AppStore) => state.sidebarOpen;
 export const selectCurrentView = (state: AppStore) => state.currentView;

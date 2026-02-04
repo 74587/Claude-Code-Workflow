@@ -433,3 +433,105 @@
 .animate-spin {
   animation: spin 1s linear infinite;
 }
+
+/* ===========================
+   Gradient Effects System
+   Conditional styles based on data attributes
+   =========================== */
+
+/* Disable gradients when off */
+[data-gradient="off"] .bg-gradient-primary,
+[data-gradient="off"] .bg-gradient-brand,
+[data-gradient="off"] .bg-gradient-accent {
+  background-image: none !important;
+  background: inherit;
+}
+
+[data-gradient="off"] .gradient-text {
+  background-image: none !important;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: inherit;
+}
+
+/* Standard gradients (default) */
+[data-gradient="standard"] .bg-gradient-primary {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+}
+
+[data-gradient="standard"] .bg-gradient-brand {
+  background: linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(var(--primary)) 100%);
+}
+
+[data-gradient="standard"] .bg-gradient-accent {
+  background: linear-gradient(90deg, hsl(var(--accent)) 0%, hsl(var(--primary)) 100%);
+}
+
+/* Enhanced gradients - more vibrant with multiple color stops */
+[data-gradient="enhanced"] .bg-gradient-primary {
+  background: linear-gradient(135deg,
+    hsl(var(--primary)) 0%,
+    hsl(var(--accent)) 50%,
+    hsl(var(--secondary)) 100%
+  );
+}
+
+[data-gradient="enhanced"] .bg-gradient-brand {
+  background: linear-gradient(135deg,
+    hsl(var(--accent)) 0%,
+    hsl(var(--primary)) 40%,
+    hsl(var(--secondary)) 100%
+  );
+}
+
+[data-gradient="enhanced"] .bg-gradient-accent {
+  background: linear-gradient(90deg,
+    hsl(var(--accent)) 0%,
+    hsl(var(--primary)) 50%,
+    hsl(var(--accent)) 100%
+  );
+}
+
+/* Hover glow effects - disabled when data-hover-glow="false" */
+.hover-glow,
+.hover-glow-primary {
+  transition: box-shadow 0.3s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 20px hsla(var(--accent), 0.4);
+}
+
+.hover-glow-primary:hover {
+  box-shadow: 0 0 20px hsla(var(--primary), 0.4);
+}
+
+[data-hover-glow="false"] .hover-glow:hover,
+[data-hover-glow="false"] .hover-glow-primary:hover {
+  box-shadow: none;
+}
+
+/* Background animation keyframes */
+@keyframes slow-gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Animated background gradient class */
+.animate-slow-gradient {
+  background-size: 200% 200%;
+  animation: slow-gradient 15s ease infinite;
+}
+
+/* Disable background animation when data-bg-animation="false" */
+[data-bg-animation="false"] .animate-slow-gradient {
+  animation: none;
+  background-size: 100% 100%;
+}

@@ -26,5 +26,13 @@
   "preview.surface": "卡片",
   "preview.accent": "强调色",
   "save": "保存自定义主题",
-  "reset": "重置为预设"
+  "reset": "重置为预设",
+  "gradient": {
+    "title": "渐变效果",
+    "off": "关闭",
+    "standard": "标准",
+    "enhanced": "增强",
+    "hoverGlow": "启用悬停光晕效果",
+    "bgAnimation": "启用背景渐变动画"
+  }
 }

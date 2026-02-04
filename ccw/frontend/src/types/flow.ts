@@ -266,3 +266,101 @@ export const NODE_TYPE_CONFIGS: Record<FlowNodeType, NodeTypeConfig> = {
     handles: { inputs: 1, outputs: 1 },
   },
 };
+
+// ========== Quick Templates ==========
+
+/**
+ * Quick template definition for common prompt patterns
+ */
+export interface QuickTemplate {
+  id: string;
+  label: string;
+  description: string;
+  icon: string;
+  color: string;
+  data: Partial<PromptTemplateNodeData>;
+}
+
+/**
+ * Predefined quick templates for common workflow patterns
+ * All use 'prompt-template' type with preset configurations
+ */
+export const QUICK_TEMPLATES: QuickTemplate[] = [
+  {
+    id: 'analysis',
+    label: 'Analysis',
+    description: 'Code review, architecture analysis',
+    icon: 'Search',
+    color: 'bg-emerald-500',
+    data: {
+      label: 'Analyze',
+      instruction: 'Analyze the code for:\n1. Architecture patterns\n2. Code quality\n3. Potential issues',
+      tool: 'gemini',
+      mode: 'analysis',
+    },
+  },
+  {
+    id: 'implementation',
+    label: 'Implementation',
+    description: 'Write code, create files',
+    icon: 'Code',
+    color: 'bg-violet-500',
+    data: {
+      label: 'Implement',
+      instruction: 'Implement the following:\n\n[Describe what to implement]',
+      tool: 'codex',
+      mode: 'write',
+    },
+  },
+  {
+    id: 'file-operation',
+    label: 'File Operation',
+    description: 'Save, read, or transform files',
+    icon: 'FileOutput',
+    color: 'bg-amber-500',
+    data: {
+      label: 'Save Output',
+      instruction: 'Save {{previous_output}} to ./output/result.md\n\nFormat as markdown with summary.',
+      mode: 'write',
+      contextRefs: [],
+    },
+  },
+  {
+    id: 'conditional',
+    label: 'Conditional',
+    description: 'Branch based on condition',
+    icon: 'GitBranch',
+    color: 'bg-orange-500',
+    data: {
+      label: 'Decision',
+      instruction: 'If {{previous.status}} === "success":\n  Continue to next step\nElse:\n  Stop and report error',
+      mode: 'mainprocess',
+      contextRefs: [],
+    },
+  },
+  {
+    id: 'parallel',
+    label: 'Parallel Start',
+    description: 'Fork into parallel branches',
+    icon: 'GitFork',
+    color: 'bg-cyan-500',
+    data: {
+      label: 'Parallel Tasks',
+      instruction: 'Execute the following tasks in parallel:\n1. [Task A]\n2. [Task B]\n3. [Task C]',
+      mode: 'mainprocess',
+    },
+  },
+  {
+    id: 'merge',
+    label: 'Merge Results',
+    description: 'Combine parallel outputs',
+    icon: 'GitMerge',
+    color: 'bg-pink-500',
+    data: {
+      label: 'Merge',
+      instruction: 'Combine results from:\n- {{task_a}}\n- {{task_b}}\n- {{task_c}}\n\nGenerate unified summary.',
+      mode: 'analysis',
+      contextRefs: [],
+    },
+  },
+];
