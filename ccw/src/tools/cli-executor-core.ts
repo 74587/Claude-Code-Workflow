@@ -85,7 +85,29 @@ import { findEndpointById } from '../config/litellm-api-config-manager.js';
 
 // CLI Settings (CLI封装) integration
 import { loadEndpointSettings, getSettingsFilePath, findEndpoint } from '../config/cli-settings-manager.js';
-import { loadClaudeCliTools, getToolConfig, getPrimaryModel } from './claude-cli-tools.js';
+import { loadClaudeCliTools, getToolConfig, getPrimaryModel, getSecondaryModel } from './claude-cli-tools.js';
+
+/**
+ * Resolve model alias to actual model name
+ * Supports: PRIMARY_MODEL, SECONDARY_MODEL
+ * Returns original value if not an alias
+ */
+function resolveModelAlias(model: string | undefined, tool: string, workingDir: string): string | undefined {
+  if (!model) return model;
+
+  const upperModel = model.toUpperCase();
+
+  if (upperModel === 'PRIMARY_MODEL') {
+    return getPrimaryModel(workingDir, tool);
+  }
+
+  if (upperModel === 'SECONDARY_MODEL') {
+    return getSecondaryModel(workingDir, tool);
+  }
+
+  // Not an alias, return original
+  return model;
+}
 
 /**
  * Parse .env file content into key-value pairs
@@ -597,8 +619,10 @@ async function executeCliTool(
 
       // Use configured primary model if no explicit model provided
       // This allows --model parameter to override the tool's primaryModel
+      // Resolve model aliases (PRIMARY_MODEL, SECONDARY_MODEL) before using
       // Use undefined if primaryModel is empty string (endpoint.model will be used as fallback)
-      const apiEndpointEffectiveModel = model || (toolConfig.primaryModel || undefined);
+      const resolvedApiModel = resolveModelAlias(model, toolName, workingDir);
+      const apiEndpointEffectiveModel = resolvedApiModel || (toolConfig.primaryModel || undefined);
 
       // Find LiteLLM endpoint configuration
       const litellmEndpoint = findEndpointById(workingDir, litellmEndpointId);
@@ -851,7 +875,9 @@ async function executeCliTool(
   }
 
   // Use configured primary model if no explicit model provided
-  const effectiveModel = model || getPrimaryModel(workingDir, tool);
+  // Resolve model aliases (PRIMARY_MODEL, SECONDARY_MODEL) before using
+  const resolvedModel = resolveModelAlias(model, tool, workingDir);
+  const effectiveModel = resolvedModel || getPrimaryModel(workingDir, tool);
 
   // Load and validate settings file for Claude tool (builtin only)
   let settingsFilePath: string | undefined;

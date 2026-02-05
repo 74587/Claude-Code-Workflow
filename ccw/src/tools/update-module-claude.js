@@ -15,13 +15,6 @@ const EXCLUDE_DIRS = [
   'coverage', '.nyc_output', 'logs', 'tmp', 'temp'
 ];
 
-// Default models for each tool
-const DEFAULT_MODELS = {
-  gemini: 'gemini-2.5-flash',
-  qwen: 'coder-model',
-  codex: 'gpt5-codex'
-};
-
 /**
  * Count files in directory
  */
@@ -159,33 +152,23 @@ function createPromptFile(prompt) {
 }
 
 /**
- * Build CLI command using stdin piping for prompt (avoids shell escaping issues)
+ * Build ccw cli command using prompt file
  */
 function buildCliCommand(tool, promptFile, model) {
-  // Use stdin piping: cat file | tool or Get-Content | tool
-  // This avoids shell escaping issues with multiline prompts
+  // Use ccw cli with prompt file
+  // ccw cli reads prompt from file when using -p @file syntax
   const normalizedPath = promptFile.replace(/\\/g, '/');
   const isWindows = process.platform === 'win32';
-  
-  // Build the cat/read command based on platform
-  const catCmd = isWindows ? `Get-Content -Raw "${normalizedPath}" | ` : `cat "${normalizedPath}" | `;
-  
-  switch (tool) {
-    case 'qwen':
-      return model === 'coder-model'
-        ? `${catCmd}qwen --yolo`
-        : `${catCmd}qwen -m "${model}" --yolo`;
-    case 'codex':
-      // codex uses different syntax - prompt as exec argument
-      if (isWindows) {
-        return `codex --full-auto exec (Get-Content -Raw "${normalizedPath}") -m "${model}" --skip-git-repo-check -s danger-full-access`;
-      }
-      return `codex --full-auto exec "$(cat "${normalizedPath}")" -m "${model}" --skip-git-repo-check -s danger-full-access`;
-    case 'gemini':
-    default:
-      // gemini reads from stdin when no positional prompt is given
-      return `${catCmd}gemini -m "${model}" --yolo`;
-  }
+
+  // Read prompt content for ccw cli -p parameter
+  const promptContent = readFileSync(promptFile, 'utf8');
+
+  // Escape single quotes in prompt for shell
+  const escapedPrompt = promptContent.replace(/'/g, "'\\''");
+
+  // Build ccw cli command with --mode write
+  // Format: ccw cli -p 'prompt content' --tool <tool> --model <model> --mode write
+  return `ccw cli -p '${escapedPrompt}' --tool ${tool} --model ${model} --mode write`;
 }
 
 /**
@@ -227,8 +210,9 @@ async function execute(params) {
     };
   }
 
-  // Set model
-  const actualModel = model || DEFAULT_MODELS[tool] || DEFAULT_MODELS.gemini;
+  // Set model - if not provided by user, use SECONDARY_MODEL alias
+  // The ccw cli will resolve this to the actual secondary model from cli-tools.json
+  const actualModel = model || 'SECONDARY_MODEL';
 
   // Load template
   const templateContent = loadTemplate();
@@ -344,13 +328,15 @@ Instructions:
  */
 export const updateModuleClaudeTool = {
   name: 'update_module_claude',
-  description: `Generate/update CLAUDE.md module documentation using CLI tools.
+  description: `Generate/update CLAUDE.md module documentation using ccw cli.
 
 Strategies:
 - single-layer: Read current dir code + child CLAUDE.md, generate ./CLAUDE.md
 - multi-layer: Read all files, generate CLAUDE.md for each directory
 
-Tools: gemini (default), qwen, codex`,
+Tools: gemini (default), qwen, codex
+Model: Supports model aliases (PRIMARY_MODEL, SECONDARY_MODEL) or explicit model names
+       Default: SECONDARY_MODEL (resolved from ~/.claude/cli-tools.json)`,
   parameters: {
     type: 'object',
     properties: {
