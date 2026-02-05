@@ -1,4 +1,5 @@
 ---
+name: collaborative-plan-parallel
 description: Parallel collaborative planning with Execution Groups - Multi-codex parallel task generation, execution group assignment, multi-branch strategy. Codex-optimized.
 argument-hint: "TASK=\"<description>\" [--max-groups=3] [--group-strategy=automatic|balanced|manual]"
 ---

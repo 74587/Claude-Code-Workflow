@@ -1,4 +1,5 @@
 ---
+name: unified-execute-parallel
 description: Worktree-based parallel execution engine. Execute group tasks in isolated Git worktree. Codex-optimized.
 argument-hint: "PLAN=\"<path>\" GROUP=\"<group-id>\" [--auto-commit] [--dry-run]"
 ---

@@ -1,4 +1,5 @@
 ---
+name: issue-execute
 description: Execute all solutions from issue queue with git commit after each solution. Supports batch processing and execution control.
 argument-hint: "--queue=<id> [--worktree=<path|new>] [--skip-tests] [--skip-build] [--dry-run]"
 ---

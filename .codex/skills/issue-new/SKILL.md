@@ -1,4 +1,5 @@
 ---
+name: issue-new
 description: Create structured issue from GitHub URL or text description. Auto mode with --yes flag.
 argument-hint: "[--yes|-y] <GITHUB_URL | TEXT_DESCRIPTION> [--priority PRIORITY] [--labels LABELS]"
 ---

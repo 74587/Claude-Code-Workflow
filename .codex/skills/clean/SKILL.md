@@ -1,4 +1,5 @@
 ---
+name: clean
 description: Intelligent code cleanup with mainline detection, stale artifact discovery, and safe execution. Supports targeted cleanup and confirmation.
 argument-hint: "[--dry-run] [--focus=<area>]"
 ---

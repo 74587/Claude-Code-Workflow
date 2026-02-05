@@ -1,4 +1,5 @@
 ---
+name: debug-with-file
 description: Interactive hypothesis-driven debugging with documented exploration, understanding evolution, and analysis-assisted correction.
 argument-hint: "BUG=\"<bug description or error message>\""
 ---

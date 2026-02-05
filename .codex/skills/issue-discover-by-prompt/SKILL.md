@@ -1,4 +1,5 @@
 ---
+name: issue-discover-by-prompt
 description: Discover issues from user prompt with iterative multi-agent exploration and cross-module comparison
 argument-hint: "<prompt> [--scope=src/**] [--depth=standard|deep] [--max-iterations=5]"
 ---

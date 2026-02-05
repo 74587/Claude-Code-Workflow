@@ -1,4 +1,5 @@
 ---
+name: worktree-merge
 description: Merge completed worktrees back to main branch. Handle cross-group conflicts and dependency order.
 argument-hint: "[--plan=<plan-session>] [--group=<group-id>] [--all] [--cleanup]"
 ---

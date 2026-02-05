@@ -1,4 +1,5 @@
 ---
+name: issue-discover
 description: Discover potential issues from multiple perspectives (bug, UX, test, quality, security, performance, maintainability, best-practices)
 argument-hint: "<path-pattern> [--perspectives=bug,ux,...] [--external]"
 ---

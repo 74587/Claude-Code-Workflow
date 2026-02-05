@@ -1,4 +1,5 @@
 ---
+name: brainstorm-with-file
 description: Interactive brainstorming with parallel subagent collaboration, idea expansion, and documented thought evolution. Parallel multi-perspective analysis for Codex.
 argument-hint: "TOPIC=\"<idea or topic>\" [--perspectives=creative,pragmatic,systematic] [--max-ideas=<n>]"
 ---

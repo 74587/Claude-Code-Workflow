@@ -1,4 +1,5 @@
 ---
+name: collaborative-plan-with-file
 description: Parallel collaborative planning with Plan Note - Multi-agent parallel task generation, unified plan-note.md, conflict detection. Codex subagent-optimized.
 argument-hint: "TASK=\"<description>\" [--max-agents=5]"
 ---

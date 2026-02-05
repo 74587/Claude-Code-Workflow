@@ -1,4 +1,5 @@
 ---
+name: brainstorm-to-cycle
 description: Convert brainstorm session output to parallel-dev-cycle input with idea selection and context enrichment. Unified parameter format.
 argument-hint: "--session=<id> [--idea=<index>] [--auto] [--launch]"
 ---

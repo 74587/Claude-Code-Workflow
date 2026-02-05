@@ -1,4 +1,5 @@
 ---
+name: compact
 description: Compact current session memory into structured text for session recovery. Supports custom descriptions and tagging.
 argument-hint: "[--description=\"...\"] [--tags=<tag1,tag2>] [--force]"
 ---

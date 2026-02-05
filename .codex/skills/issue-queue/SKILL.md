@@ -1,4 +1,5 @@
 ---
+name: issue-queue
 description: Form execution queue from bound solutions using subagent for conflict analysis and ordering
 argument-hint: "[--queues <n>] [--issue <id>] [--append <id>]"
 ---

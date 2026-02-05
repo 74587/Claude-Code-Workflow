@@ -1,4 +1,5 @@
 ---
+name: unified-execute-with-file
 description: Universal execution engine for consuming planning/brainstorm/analysis output. Serial task execution with progress tracking. Codex-optimized.
 argument-hint: "PLAN=\"<path>\" [--auto-commit] [--dry-run]"
 ---

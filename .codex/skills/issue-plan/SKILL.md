@@ -1,4 +1,5 @@
 ---
+name: issue-plan
 description: Plan issue(s) into bound solutions using subagent pattern (explore + plan closed-loop)
 argument-hint: "<issue-id>[,<issue-id>,...] [--all-pending] [--batch-size 4]"
 ---
