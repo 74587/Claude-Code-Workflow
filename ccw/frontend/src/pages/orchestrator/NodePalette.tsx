@@ -7,7 +7,7 @@ import { DragEvent, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   MessageSquare, ChevronDown, ChevronRight, GripVertical,
-  Search, Code, FileOutput, GitBranch, GitFork, GitMerge, Plus, Terminal
+  Search, Code, Plus, Terminal
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -26,10 +26,6 @@ const TEMPLATE_ICONS: Record<string, React.ElementType> = {
   'slash-command-async': Terminal,
   analysis: Search,
   implementation: Code,
-  'file-operation': FileOutput,
-  conditional: GitBranch,
-  parallel: GitFork,
-  merge: GitMerge,
 };
 
 /**
@@ -209,13 +205,6 @@ export function NodePalette({ className }: NodePaletteProps) {
         {/* CLI Tools */}
         <TemplateCategory title="CLI Tools" defaultExpanded={true}>
           {QUICK_TEMPLATES.filter(t => ['analysis', 'implementation'].includes(t.id)).map((template) => (
-            <QuickTemplateCard key={template.id} template={template} />
-          ))}
-        </TemplateCategory>
-
-        {/* Flow Control */}
-        <TemplateCategory title="Flow Control" defaultExpanded={true}>
-          {QUICK_TEMPLATES.filter(t => ['file-operation', 'conditional', 'parallel', 'merge'].includes(t.id)).map((template) => (
             <QuickTemplateCard key={template.id} template={template} />
           ))}
         </TemplateCategory>

@@ -7,7 +7,7 @@
 
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { MessageSquare, Link2 } from 'lucide-react';
+import { MessageSquare, Link2, Terminal } from 'lucide-react';
 import type { PromptTemplateNodeData } from '@/types/flow';
 import { NodeWrapper } from './NodeWrapper';
 import { cn } from '@/lib/utils';
@@ -72,13 +72,23 @@ export const PromptTemplateNode = memo(({ data, selected }: PromptTemplateNodePr
 
       {/* Node Content */}
       <div className="px-3 py-2 space-y-1.5">
-        {/* Instruction preview */}
-        <div
-          className="font-mono text-xs bg-muted px-2 py-1 rounded text-foreground/90 truncate"
-          title={data.instruction}
-        >
-          {displayInstruction}
-        </div>
+        {/* Slash command badge or instruction preview */}
+        {data.slashCommand ? (
+          <div
+            className="flex items-center gap-1.5 font-mono text-xs bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 px-2 py-1 rounded truncate"
+            title={`/${data.slashCommand}${data.slashArgs ? ' ' + data.slashArgs : ''}`}
+          >
+            <Terminal className="w-3 h-3 shrink-0" />
+            <span className="truncate">/{data.slashCommand}</span>
+          </div>
+        ) : (
+          <div
+            className="font-mono text-xs bg-muted px-2 py-1 rounded text-foreground/90 truncate"
+            title={data.instruction}
+          >
+            {displayInstruction}
+          </div>
+        )}
 
         {/* Tool and output badges row */}
         <div className="flex items-center gap-1.5 flex-wrap">

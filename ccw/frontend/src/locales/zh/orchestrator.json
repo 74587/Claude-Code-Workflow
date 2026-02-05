@@ -163,7 +163,10 @@
     "placeholders": {
       "nodeLabel": "节点标签",
       "instruction": "例如: 执行 /workflow:plan 用于登录功能\n或: 分析代码架构\n或: 将 {{analysis}} 保存到 ./output/result.json",
-      "outputName": "例如: analysis, plan, result"
+      "outputName": "例如: analysis, plan, result",
+      "slashCommand": "选择命令...",
+      "slashArgs": "输入参数...",
+      "additionalInstruction": "命令的附加说明或上下文..."
     },
     "labels": {
       "label": "标签",
@@ -171,7 +174,10 @@
       "outputName": "输出名称",
       "tool": "CLI 工具",
       "mode": "执行模式",
-      "contextRefs": "上下文引用"
+      "contextRefs": "上下文引用",
+      "slashCommand": "斜杠命令",
+      "slashArgs": "参数",
+      "additionalInstruction": "附加说明 (可选)"
     },
     "options": {
       "toolNone": "无 (自动选择)",

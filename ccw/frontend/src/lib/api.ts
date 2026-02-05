@@ -1089,6 +1089,8 @@ export interface Command {
   location?: 'project' | 'user';
   path?: string;
   relativePath?: string;
+  argumentHint?: string;
+  allowedTools?: string[];
 }
 
 export interface CommandsResponse {

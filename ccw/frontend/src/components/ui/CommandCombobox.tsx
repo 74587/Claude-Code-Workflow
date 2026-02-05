@@ -1,53 +1,99 @@
 // ========================================
 // Command Combobox Component
 // ========================================
-// Searchable dropdown for selecting slash commands
+// Searchable dropdown for selecting slash commands (commands + skills)
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCommands } from '@/hooks/useCommands';
-import type { Command } from '@/lib/api';
+import { useSkills } from '@/hooks/useSkills';
+
+export interface CommandSelectDetails {
+  name: string;
+  argumentHint?: string;
+  description?: string;
+  source: 'command' | 'skill';
+}
+
+interface UnifiedItem {
+  name: string;
+  description: string;
+  group: string;
+  argumentHint?: string;
+  source: 'command' | 'skill';
+}
 
 interface CommandComboboxProps {
   value: string;
   onChange: (value: string) => void;
+  onSelectDetails?: (details: CommandSelectDetails) => void;
   placeholder?: string;
   className?: string;
 }
 
-export function CommandCombobox({ value, onChange, placeholder, className }: CommandComboboxProps) {
+export function CommandCombobox({ value, onChange, onSelectDetails, placeholder, className }: CommandComboboxProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { commands, isLoading } = useCommands({
+  const { commands, isLoading: commandsLoading } = useCommands({
     filter: { showDisabled: false },
   });
 
-  // Group commands by group field
+  const { skills, isLoading: skillsLoading } = useSkills({
+    filter: { enabledOnly: true },
+  });
+
+  const isLoading = commandsLoading || skillsLoading;
+
+  // Merge commands and skills into unified items
+  const unifiedItems = useMemo<UnifiedItem[]>(() => {
+    const items: UnifiedItem[] = [];
+
+    for (const cmd of commands) {
+      items.push({
+        name: cmd.name,
+        description: cmd.description,
+        group: cmd.group || 'other',
+        argumentHint: cmd.argumentHint,
+        source: 'command',
+      });
+    }
+
+    for (const skill of skills) {
+      items.push({
+        name: skill.name,
+        description: skill.description,
+        group: 'skills',
+        source: 'skill',
+      });
+    }
+
+    return items;
+  }, [commands, skills]);
+
+  // Group and filter items
   const groupedFiltered = useMemo(() => {
     const filtered = search
-      ? commands.filter(
-          (c) =>
-            c.name.toLowerCase().includes(search.toLowerCase()) ||
-            c.description.toLowerCase().includes(search.toLowerCase()) ||
-            c.aliases?.some((a) => a.toLowerCase().includes(search.toLowerCase()))
+      ? unifiedItems.filter(
+          (item) =>
+            item.name.toLowerCase().includes(search.toLowerCase()) ||
+            item.description.toLowerCase().includes(search.toLowerCase())
         )
-      : commands;
+      : unifiedItems;
 
-    const groups: Record<string, Command[]> = {};
-    for (const cmd of filtered) {
-      const group = cmd.group || 'other';
-      if (!groups[group]) groups[group] = [];
-      groups[group].push(cmd);
+    const groups: Record<string, UnifiedItem[]> = {};
+    for (const item of filtered) {
+      if (!groups[item.group]) groups[item.group] = [];
+      groups[item.group].push(item);
     }
     return groups;
-  }, [commands, search]);
+  }, [unifiedItems, search]);
 
   const totalFiltered = useMemo(
-    () => Object.values(groupedFiltered).reduce((sum, cmds) => sum + cmds.length, 0),
+    () => Object.values(groupedFiltered).reduce((sum, items) => sum + items.length, 0),
     [groupedFiltered]
   );
 
@@ -65,12 +111,18 @@ export function CommandCombobox({ value, onChange, placeholder, className }: Com
   }, [open]);
 
   const handleSelect = useCallback(
-    (name: string) => {
-      onChange(name);
+    (item: UnifiedItem) => {
+      onChange(item.name);
+      onSelectDetails?.({
+        name: item.name,
+        argumentHint: item.argumentHint,
+        description: item.description,
+        source: item.source,
+      });
       setOpen(false);
       setSearch('');
     },
-    [onChange]
+    [onChange, onSelectDetails]
   );
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,11 +141,9 @@ export function CommandCombobox({ value, onChange, placeholder, className }: Com
   );
 
   // Display label for current value
-  const selectedCommand = commands.find((c) => c.name === value);
+  const selectedItem = unifiedItems.find((item) => item.name === value);
   const displayValue = value
-    ? selectedCommand
-      ? `/${selectedCommand.name}`
-      : `/${value}`
+    ? `/${selectedItem?.name || value}`
     : '';
 
   return (
@@ -135,7 +185,7 @@ export function CommandCombobox({ value, onChange, placeholder, className }: Com
             />
           </div>
 
-          {/* Command list */}
+          {/* Items list */}
           <div className="max-h-64 overflow-y-auto p-1">
             {isLoading ? (
               <div className="py-4 text-center text-sm text-muted-foreground">Loading...</div>
@@ -145,26 +195,31 @@ export function CommandCombobox({ value, onChange, placeholder, className }: Com
               </div>
             ) : (
               Object.entries(groupedFiltered)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .map(([group, cmds]) => (
+                .sort(([a], [b]) => {
+                  // Skills group last
+                  if (a === 'skills') return 1;
+                  if (b === 'skills') return -1;
+                  return a.localeCompare(b);
+                })
+                .map(([group, items]) => (
                   <div key={group}>
                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       {group}
                     </div>
-                    {cmds.map((cmd) => (
+                    {items.map((item) => (
                       <button
-                        key={cmd.name}
+                        key={`${item.source}-${item.name}`}
                         type="button"
-                        onClick={() => handleSelect(cmd.name)}
+                        onClick={() => handleSelect(item)}
                         className={cn(
                           'flex w-full flex-col items-start rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent hover:text-accent-foreground',
-                          value === cmd.name && 'bg-accent/50'
+                          value === item.name && 'bg-accent/50'
                         )}
                       >
-                        <span className="font-mono text-foreground">/{cmd.name}</span>
-                        {cmd.description && (
+                        <span className="font-mono text-foreground">/{item.name}</span>
+                        {item.description && (
                           <span className="text-xs text-muted-foreground truncate w-full text-left">
-                            {cmd.description}
+                            {item.description}
                           </span>
                         )}
                       </button>

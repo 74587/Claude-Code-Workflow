@@ -164,7 +164,10 @@
     "placeholders": {
       "nodeLabel": "Node label",
       "instruction": "e.g., Execute /workflow:plan for login feature\nor: Analyze code architecture\nor: Save {{analysis}} to ./output/result.json",
-      "outputName": "e.g., analysis, plan, result"
+      "outputName": "e.g., analysis, plan, result",
+      "slashCommand": "Select a command...",
+      "slashArgs": "Enter arguments...",
+      "additionalInstruction": "Additional instructions or context for the command..."
     },
     "labels": {
       "label": "Label",
@@ -172,7 +175,10 @@
       "outputName": "Output Name",
       "tool": "CLI Tool",
       "mode": "Execution Mode",
-      "contextRefs": "Context References"
+      "contextRefs": "Context References",
+      "slashCommand": "Slash Command",
+      "slashArgs": "Arguments",
+      "additionalInstruction": "Additional Context (optional)"
     },
     "options": {
       "toolNone": "None (auto-select)",

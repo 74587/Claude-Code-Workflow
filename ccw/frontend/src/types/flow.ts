@@ -95,6 +95,19 @@ export interface PromptTemplateNodeData {
    */
   contextRefs?: string[];
 
+  /**
+   * Selected slash command name (e.g., "workflow:plan", "review-code")
+   * When set, overrides instruction during execution.
+   * Used when mode is 'mainprocess' or 'async'.
+   */
+  slashCommand?: string;
+
+  /**
+   * Arguments for the slash command
+   * Supports {{variable}} interpolation syntax
+   */
+  slashArgs?: string;
+
   // ========== Execution State Fields ==========
 
   /**
@@ -295,7 +308,9 @@ export const QUICK_TEMPLATES: QuickTemplate[] = [
     color: 'bg-rose-500',
     data: {
       label: 'Slash Command',
-      instruction: 'Execute slash command:\n\n/workflow:plan "Implement [feature]"\n\nAvailable commands:\n- /workflow:plan\n- /workflow:lite-plan\n- /workflow:execute\n- /workflow:analyze-with-file\n- /workflow:brainstorm-with-file\n- /workflow:test-fix-gen',
+      instruction: '',
+      slashCommand: '',
+      slashArgs: '',
       mode: 'mainprocess',
     },
   },
@@ -307,7 +322,9 @@ export const QUICK_TEMPLATES: QuickTemplate[] = [
     color: 'bg-rose-400',
     data: {
       label: 'Slash Command (Async)',
-      instruction: 'Execute slash command in background:\n\n/workflow:execute --in-memory\n\nThe workflow will run asynchronously via CLI. Continue to next step without waiting.',
+      instruction: '',
+      slashCommand: '',
+      slashArgs: '',
       mode: 'async',
     },
   },
@@ -335,57 +352,6 @@ export const QUICK_TEMPLATES: QuickTemplate[] = [
       instruction: 'Implement the following:\n\n[Describe what to implement]',
       tool: 'codex',
       mode: 'write',
-    },
-  },
-  {
-    id: 'file-operation',
-    label: 'File Operation',
-    description: 'Save, read, or transform files',
-    icon: 'FileOutput',
-    color: 'bg-amber-500',
-    data: {
-      label: 'Save Output',
-      instruction: 'Save {{previous_output}} to ./output/result.md\n\nFormat as markdown with summary.',
-      mode: 'write',
-      contextRefs: [],
-    },
-  },
-  {
-    id: 'conditional',
-    label: 'Conditional',
-    description: 'Branch based on condition',
-    icon: 'GitBranch',
-    color: 'bg-orange-500',
-    data: {
-      label: 'Decision',
-      instruction: 'If {{previous.status}} === "success":\n  Continue to next step\nElse:\n  Stop and report error',
-      mode: 'mainprocess',
-      contextRefs: [],
-    },
-  },
-  {
-    id: 'parallel',
-    label: 'Parallel Start',
-    description: 'Fork into parallel branches',
-    icon: 'GitFork',
-    color: 'bg-cyan-500',
-    data: {
-      label: 'Parallel Tasks',
-      instruction: 'Execute the following tasks in parallel:\n1. [Task A]\n2. [Task B]\n3. [Task C]',
-      mode: 'mainprocess',
-    },
-  },
-  {
-    id: 'merge',
-    label: 'Merge Results',
-    description: 'Combine parallel outputs',
-    icon: 'GitMerge',
-    color: 'bg-pink-500',
-    data: {
-      label: 'Merge',
-      instruction: 'Combine results from:\n- {{task_a}}\n- {{task_b}}\n- {{task_c}}\n\nGenerate unified summary.',
-      mode: 'analysis',
-      contextRefs: [],
     },
   },
 ];

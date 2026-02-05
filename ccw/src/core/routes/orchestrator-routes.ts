@@ -108,6 +108,16 @@ export interface PromptTemplateNodeData {
   contextRefs?: string[];
 
   /**
+   * Selected slash command name for structured execution
+   */
+  slashCommand?: string;
+
+  /**
+   * Arguments for the slash command
+   */
+  slashArgs?: string;
+
+  /**
    * Error handling behavior
    */
   onError?: 'continue' | 'pause' | 'fail';

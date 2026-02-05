@@ -203,8 +203,21 @@ export class NodeRunner {
   private async runPromptTemplate(node: FlowNode): Promise<NodeResult> {
     const data = node.data as PromptTemplateNodeData;
 
-    // Interpolate instruction with variables
-    let instruction = interpolate(data.instruction, this.context.variables);
+    // Construct instruction from slash command fields if set, otherwise use raw instruction
+    let instruction: string;
+    if (data.slashCommand) {
+      const args = data.slashArgs
+        ? interpolate(data.slashArgs, this.context.variables)
+        : '';
+      instruction = `/${data.slashCommand}${args ? ' ' + args : ''}`;
+      // Append additional instruction if provided
+      if (data.instruction) {
+        const additional = interpolate(data.instruction, this.context.variables);
+        instruction = `${instruction}\n\n${additional}`;
+      }
+    } else {
+      instruction = interpolate(data.instruction, this.context.variables);
+    }
 
     // Resolve context references
     if (data.contextRefs && data.contextRefs.length > 0) {
