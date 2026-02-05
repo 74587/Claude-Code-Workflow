@@ -291,6 +291,27 @@ allowed-tools: Task, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, 
 ## Architecture Overview
 {ASCII 架构图}
 
+## Key Design Principles
+{设计原则列表}
+
+## Auto Mode
+{自动模式说明}
+
+## Usage
+
+```
+Skill(skill="{skill-name}", args="<task description>")
+Skill(skill="{skill-name}", args="[FLAGS] \"<task description>\"")
+
+# Flags
+{flag 说明，每个 flag 一行}
+
+# Examples
+Skill(skill="{skill-name}", args="\"Implement JWT authentication\"")                   # 说明
+Skill(skill="{skill-name}", args="--mode xxx \"Refactor payment module\"")             # 说明
+Skill(skill="{skill-name}", args="-y \"Add user profile page\"")                        # 说明
+```
+
 ## Execution Flow
 {流程图 + Phase 引用表}
 
@@ -312,6 +333,16 @@ allowed-tools: Task, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, 
 ## Error Handling
 {错误处理策略}
 ```
+
+**Usage 格式要求**：
+
+- **必须使用代码块** 包裹 Usage 内容
+- 使用 `Skill()` 调用格式，不使用 `/skill-name` 命令行格式
+- 包含两种调用格式：基本调用 + 带 Flags 的完整调用
+- Flags 说明每行一个 flag，格式：`flag-name    说明`
+- Examples 必须展示所有 flag 组合的典型调用场景
+- 字符串参数中的引号使用转义 `\"`
+- Examples 行尾可添加 `# 说明` 注释
 
 ### 5.3 执行流程示例
 
@@ -641,11 +672,33 @@ skills/workflow-plan/
 | 原 plan.md 内容 | SKILL.md 对应位置 |
 |----------------|-------------------|
 | Frontmatter | Frontmatter (扩展) |
+| argument-hint | Usage (转换为 Skill 调用格式) |
 | 执行流程描述 | Execution Flow (可视化) |
 | 子命令调用 | Phase Reference Table |
 | 数据传递 | Data Flow (显式定义) |
+| (无) | Usage (新增 - Skill 调用格式) |
 | (无) | TodoWrite Pattern (新增) |
 | (无) | Error Handling (新增) |
+
+**Usage 转换示例**：
+
+原命令 `argument-hint`:
+```yaml
+argument-hint: "[-y|--yes] \"text description\"|file.md"
+```
+
+转换为 SKILL.md Usage:
+```
+Skill(skill="workflow-plan", args="<task description>")
+Skill(skill="workflow-plan", args="[-y|--yes] \"<task description>\"")
+
+# Flags
+-y, --yes    Skip all confirmations (auto mode)
+
+# Examples
+Skill(skill="workflow-plan", args="\"Implement authentication\"")     # Interactive mode
+Skill(skill="workflow-plan", args="-y \"Implement authentication\"")  # Auto mode
+```
 
 ### 9.3 Phase 文件与原子命令对比
 
@@ -685,3 +738,4 @@ wc -l skills/{skill-name}/SKILL.md skills/{skill-name}/phases/*.md
 | v1.0 | 2025-02-05 | 基于 workflow-plan 转换实践创建 |
 | v1.1 | 2025-02-05 | 强化内容一致性要求；添加第7章一致性验证；添加应移除的命令特有内容说明 |
 | v2.0 | 2026-02-05 | 命令调用引用统一转换为文件路径引用；移除 `/workflow:XX` 命令语法；引用转换规则重构 |
+| v2.1 | 2026-02-05 | 添加 Usage 部分格式规范（Skill 调用格式）；更新 5.2 必需章节；添加 Usage 转换示例到 9.2 节 |

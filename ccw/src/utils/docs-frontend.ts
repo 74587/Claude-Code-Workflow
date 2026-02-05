@@ -13,6 +13,13 @@ let docsPort: number | null = null;
 // Default Docusaurus port
 const DEFAULT_DOCS_PORT = 3001;
 
+type DocsStartMode = 'serve' | 'start';
+
+function normalizeDocsStartMode(mode: string | undefined): DocsStartMode {
+  const normalized = (mode ?? '').trim().toLowerCase();
+  return normalized === 'start' ? 'start' : 'serve';
+}
+
 /**
  * Start Docusaurus documentation development server
  * @param port - Port to run Docusaurus server on (default: 3001)
@@ -55,15 +62,35 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
   console.log(chalk.cyan(`  Starting Docusaurus docs site on port ${port}...`));
   console.log(chalk.gray(`  Docs dir: ${docsDir}`));
 
-  // Check if package.json exists and has start script
+  const requestedMode = normalizeDocsStartMode(process.env.CCW_DOCS_MODE);
+  const requestedLocale = process.env.CCW_DOCS_LOCALE?.trim();
+
+  // Check if package.json exists and has required scripts
   const packageJsonPath = join(docsDir, 'package.json');
+  let effectiveMode: DocsStartMode = requestedMode;
   try {
     const { readFileSync, existsSync } = await import('fs');
     if (!existsSync(packageJsonPath)) {
       throw new Error('package.json not found in docs-site directory');
     }
     const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
-    if (!packageJson.scripts?.start) {
+
+    const hasStart = Boolean(packageJson.scripts?.start);
+    const hasServe = Boolean(packageJson.scripts?.serve);
+
+    // Default to "serve --build" because it serves all locales (i18n).
+    // Docusaurus `start` serves only 1 locale at a time, so `/docs/zh/*` will
+    // render "Page Not Found" when the English dev server is running.
+    if (requestedMode === 'serve' && !hasServe && hasStart) {
+      effectiveMode = 'start';
+    } else if (requestedMode === 'start' && !hasStart && hasServe) {
+      effectiveMode = 'serve';
+    }
+
+    if (effectiveMode === 'serve' && !hasServe) {
+      throw new Error('No "serve" script found in package.json');
+    }
+    if (effectiveMode === 'start' && !hasStart) {
       throw new Error('No "start" script found in package.json');
     }
   } catch (error) {
@@ -72,22 +99,44 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
     return;
   }
 
-  // Spawn Docusaurus dev server
-  // Use npm run start with PORT environment variable for cross-platform compatibility
-  // On Windows with shell: true, we need to pass arguments differently
-  const cmd = process.platform === 'win32'
-    ? `npm start`
-    : `npm start`;
+  const args: string[] = [];
+  if (effectiveMode === 'serve') {
+    // Serve the built site (all locales) at /docs/ (baseUrl)
+    args.push(
+      'run',
+      'serve',
+      '--',
+      '--build',
+      '--port',
+      port.toString(),
+      '--host',
+      'localhost',
+      '--no-open',
+    );
+  } else {
+    // Start a single-locale dev server (use CCW_DOCS_LOCALE to pick locale)
+    args.push(
+      'run',
+      'start',
+      '--',
+      '--port',
+      port.toString(),
+      '--host',
+      'localhost',
+      '--no-open',
+    );
 
-  docsProcess = spawn(cmd, [], {
+    if (requestedLocale) {
+      args.push('--locale', requestedLocale);
+    }
+  }
+
+  docsProcess = spawn('npm', args, {
     cwd: docsDir,
     stdio: 'pipe',
     shell: true,
     env: {
       ...process.env,
-      // Set PORT via environment variable (Docusaurus respects this)
-      PORT: port.toString(),
-      HOST: 'localhost',
       // Docusaurus uses COLUMNS for terminal width
       COLUMNS: '80',
     }
@@ -122,16 +171,21 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
       // Log all Docusaurus output for debugging
       console.log(chalk.gray(`  Docs: ${chunk.trim()}`));
 
-      // Check for ready signals (Docusaurus output format)
-      if (
+      const isServeReady =
+        chunk.includes('Serving "build" directory at:') ||
+        chunk.includes('Serving "build" directory at');
+
+      const isStartReady =
         chunk.includes('Compiled successfully') ||
         chunk.includes('Compiled with warnings') ||
         chunk.includes('The server is running at') ||
         chunk.includes(`http://localhost:${port}`) ||
         (chunk.includes('Docusaurus') && (chunk.includes('started') || chunk.includes('ready'))) ||
         chunk.includes('➜') || // Docusaurus uses this in CLI output
-        chunk.includes('Local:')
-      ) {
+        chunk.includes('Local:');
+
+      // Check for ready signals (Docusaurus output format)
+      if ((effectiveMode === 'serve' && isServeReady) || (effectiveMode === 'start' && isStartReady)) {
         cleanup();
         console.log(chalk.green(`  Docs site ready at http://localhost:${port}/docs/`));
         resolve();
@@ -168,8 +222,23 @@ export async function stopDocsSite(): Promise<void> {
   if (docsProcess) {
     console.log(chalk.yellow('  Stopping docs site...'));
 
-    // Try graceful shutdown first
-    docsProcess.kill('SIGTERM');
+    const pid = docsProcess.pid;
+
+    // On Windows with shell: true, killing the shell process can orphan children.
+    // Prefer taskkill to terminate the entire process tree.
+    if (process.platform === 'win32' && pid) {
+      try {
+        const { exec } = await import('child_process');
+        await new Promise<void>((resolve) => {
+          exec(`taskkill /T /PID ${pid}`, () => resolve());
+        });
+      } catch {
+        // Fall back to SIGTERM below
+      }
+    } else {
+      // Try graceful shutdown first
+      docsProcess.kill('SIGTERM');
+    }
 
     // Wait up to 5 seconds for graceful shutdown
     await new Promise<void>((resolve) => {
@@ -184,13 +253,12 @@ export async function stopDocsSite(): Promise<void> {
     });
 
     // Force kill if still running
-    if (docsProcess && !docsProcess.killed) {
+    if (docsProcess && docsProcess.exitCode === null) {
       // On Windows with shell: true, we need to kill the entire process group
       if (process.platform === 'win32') {
         try {
           // Use taskkill to forcefully terminate the process tree
           const { exec } = await import('child_process');
-          const pid = docsProcess.pid;
           if (pid) {
             await new Promise<void>((resolve) => {
               exec(`taskkill /F /T /PID ${pid}`, (err) => {

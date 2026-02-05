@@ -41,6 +41,25 @@ allowed-tools: Task, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, 
 
 When `--yes` or `-y`: Auto-continue all phases (skip confirmations), use recommended conflict resolutions.
 
+## Usage
+
+```
+Skill(skill="workflow-plan", args="<task description>")
+Skill(skill="workflow-plan", args="[-y|--yes] \"<task description>\"")
+
+# Flags
+-y, --yes    Skip all confirmations (auto mode)
+
+# Arguments
+<task description>    Task description text, structured GOAL/SCOPE/CONTEXT, or path to .md file
+
+# Examples
+Skill(skill="workflow-plan", args="\"Build authentication system\"")                    # Simple task
+Skill(skill="workflow-plan", args="\"Add JWT auth with email/password and refresh\"")   # Detailed task
+Skill(skill="workflow-plan", args="-y \"Implement user profile page\"")                 # Auto mode
+Skill(skill="workflow-plan", args="\"requirements.md\"")                                # From file
+```
+
 ## Execution Flow
 
 ```

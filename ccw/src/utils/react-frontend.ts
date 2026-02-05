@@ -152,8 +152,23 @@ export async function stopReactFrontend(): Promise<void> {
   if (reactProcess) {
     console.log(chalk.yellow('  Stopping React frontend...'));
 
-    // Try graceful shutdown first
-    reactProcess.kill('SIGTERM');
+    const pid = reactProcess.pid;
+
+    // On Windows with shell: true, killing the shell process can orphan children.
+    // Prefer taskkill to terminate the entire process tree.
+    if (process.platform === 'win32' && pid) {
+      try {
+        const { exec } = await import('child_process');
+        await new Promise<void>((resolve) => {
+          exec(`taskkill /T /PID ${pid}`, () => resolve());
+        });
+      } catch {
+        // Fall back to SIGTERM below
+      }
+    } else {
+      // Try graceful shutdown first
+      reactProcess.kill('SIGTERM');
+    }
 
     // Wait up to 5 seconds for graceful shutdown
     await new Promise<void>((resolve) => {
@@ -168,13 +183,12 @@ export async function stopReactFrontend(): Promise<void> {
     });
 
     // Force kill if still running
-    if (reactProcess && !reactProcess.killed) {
+    if (reactProcess && reactProcess.exitCode === null) {
       // On Windows with shell: true, we need to kill the entire process group
       if (process.platform === 'win32') {
         try {
           // Use taskkill to forcefully terminate the process tree
           const { exec } = await import('child_process');
-          const pid = reactProcess.pid;
           if (pid) {
             await new Promise<void>((resolve) => {
               exec(`taskkill /F /T /PID ${pid}`, (err) => {

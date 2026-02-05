@@ -62,7 +62,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     } catch (error) {
       console.log(chalk.yellow(`\n  Warning: Failed to start docs site: ${error}`));
       console.log(chalk.gray(`  The /docs endpoint will not be available.`));
-      console.log(chalk.gray(`  You can start it manually: cd docs-site && npm start\n`));
+      console.log(chalk.gray(`  You can start it manually: cd ccw/docs-site && npm run serve -- --build --port 3001 --no-open\n`));
     }
   }
 
