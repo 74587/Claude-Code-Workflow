@@ -5,7 +5,7 @@
       "versions": [
         {
           "name": "current",
-          "label": "Next",
+          "label": "当前",
           "isLast": true,
           "path": "/docs/zh/",
           "mainDocId": "index",
@@ -131,17 +131,9 @@
               "sidebar": "docs"
             },
             {
-              "id": "index.zh",
-              "path": "/docs/zh/"
-            },
-            {
               "id": "overview",
               "path": "/docs/zh/overview",
               "sidebar": "docs"
-            },
-            {
-              "id": "overview.zh",
-              "path": "/docs/zh/overview.zh"
             },
             {
               "id": "workflows/faq",

@@ -1,15 +1,15 @@
 {
-  "/docs/zh/-47a": {
+  "/docs/zh/-f41": {
     "__comp": "5e95c892",
     "__context": {
       "plugin": "aba21aa0"
     }
   },
-  "/docs/zh/-dec": {
+  "/docs/zh/-dbd": {
     "__comp": "a7bd4aaa",
     "__props": "b17e4002"
   },
-  "/docs/zh/-aea": {
+  "/docs/zh/-c34": {
     "__comp": "a94703ab"
   },
   "/docs/zh/commands/cli/cli-init-fe3": {
@@ -108,10 +108,6 @@
     "__comp": "17896441",
     "content": "8a7e39ed"
   },
-  "/docs/zh/overview.zh-ce0": {
-    "__comp": "17896441",
-    "content": "07157af6"
-  },
   "/docs/zh/workflows/faq-319": {
     "__comp": "17896441",
     "content": "46f40178"
@@ -143,9 +139,5 @@
   "/docs/zh/-0e3": {
     "__comp": "17896441",
     "content": "6ab014e9"
-  },
-  "/docs/zh/-792": {
-    "__comp": "17896441",
-    "content": "e2121358"
   }
 }

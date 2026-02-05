@@ -48,9 +48,9 @@ export default {
   ],
   "themeConfig": {
     "navbar": {
-      "title": "CCW Help",
+      "title": "CCW 帮助",
       "logo": {
-        "alt": "CCW Logo",
+        "alt": "CCW 标志",
         "src": "img/logo.svg"
       },
       "items": [
@@ -65,7 +65,7 @@ export default {
     },
     "footer": {
       "style": "dark",
-      "copyright": "Copyright © 2026 CCW. Built with Docusaurus.",
+      "copyright": "版权 © 2026 CCW。使用 Docusaurus 构建。",
       "links": []
     },
     "prism": {

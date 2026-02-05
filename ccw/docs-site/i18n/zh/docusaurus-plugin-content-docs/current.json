@@ -1,34 +1,34 @@
 {
   "version.label": {
-    "message": "Next",
+    "message": "当前",
     "description": "The label for version current"
   },
   "sidebar.docs.category.Commands": {
-    "message": "Commands",
+    "message": "命令",
     "description": "The label for category 'Commands' in sidebar 'docs'"
   },
   "sidebar.docs.category.General Commands": {
-    "message": "General Commands",
+    "message": "通用命令",
     "description": "The label for category 'General Commands' in sidebar 'docs'"
   },
   "sidebar.docs.category.Issue Commands": {
-    "message": "Issue Commands",
+    "message": "Issue 命令",
     "description": "The label for category 'Issue Commands' in sidebar 'docs'"
   },
   "sidebar.docs.category.CLI Commands": {
-    "message": "CLI Commands",
+    "message": "CLI 命令",
     "description": "The label for category 'CLI Commands' in sidebar 'docs'"
   },
   "sidebar.docs.category.Memory Commands": {
-    "message": "Memory Commands",
+    "message": "Memory 命令",
     "description": "The label for category 'Memory Commands' in sidebar 'docs'"
   },
   "sidebar.docs.category.Workflows": {
-    "message": "Workflows",
+    "message": "工作流",
     "description": "The label for category 'Workflows' in sidebar 'docs'"
   },
   "sidebar.docs.doc.Quick Start": {
-    "message": "Quick Start",
+    "message": "概览",
     "description": "The label for the doc item 'Quick Start' in sidebar 'docs', linking to the doc overview"
   },
   "sidebar.docs.doc.ccw": {
@@ -120,31 +120,31 @@
     "description": "The label for the doc item 'memory-compact' in sidebar 'docs', linking to the doc commands/memory/memory-compact"
   },
   "sidebar.docs.doc.Introduction": {
-    "message": "Introduction",
+    "message": "介绍",
     "description": "The label for the doc item 'Introduction' in sidebar 'docs', linking to the doc workflows/introduction"
   },
   "sidebar.docs.doc.Level 1: Ultra Lightweight": {
-    "message": "Level 1: Ultra Lightweight",
+    "message": "级别 1：超轻量",
     "description": "The label for the doc item 'Level 1: Ultra Lightweight' in sidebar 'docs', linking to the doc workflows/level-1-ultra-lightweight"
   },
   "sidebar.docs.doc.Level 2: Rapid": {
-    "message": "Level 2: Rapid",
+    "message": "级别 2：快速",
     "description": "The label for the doc item 'Level 2: Rapid' in sidebar 'docs', linking to the doc workflows/level-2-rapid"
   },
   "sidebar.docs.doc.Level 3: Standard": {
-    "message": "Level 3: Standard",
+    "message": "级别 3：标准",
     "description": "The label for the doc item 'Level 3: Standard' in sidebar 'docs', linking to the doc workflows/level-3-standard"
   },
   "sidebar.docs.doc.Level 4: Brainstorm": {
-    "message": "Level 4: Brainstorm",
+    "message": "级别 4：头脑风暴",
     "description": "The label for the doc item 'Level 4: Brainstorm' in sidebar 'docs', linking to the doc workflows/level-4-brainstorm"
   },
   "sidebar.docs.doc.Level 5: Intelligent": {
-    "message": "Level 5: Intelligent",
+    "message": "级别 5：智能",
     "description": "The label for the doc item 'Level 5: Intelligent' in sidebar 'docs', linking to the doc workflows/level-5-intelligent"
   },
   "sidebar.docs.doc.FAQ": {
-    "message": "FAQ",
+    "message": "常见问题",
     "description": "The label for the doc item 'FAQ' in sidebar 'docs', linking to the doc faq"
   }
 }
