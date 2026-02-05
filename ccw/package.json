@@ -6,27 +6,21 @@
   "author": "CCW Team",
   "license": "MIT",
   "type": "module",
-  "workspaces": [
-    "frontend",
-    "docs-site"
-  ],
   "scripts": {
-    "dev": "npm run dev --workspace=frontend",
-    "dev:docs": "npm run start --workspace=docs-site",
+    "dev": "cd frontend && npm run dev",
+    "dev:docs": "cd docs-site && npm run start",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:docs\" --names \"FRONTEND,DOCS\" --prefix-colors \"blue,green\"",
-    "build": "npm run build --workspace=docs-site && npm run build --workspace=frontend",
-    "build:frontend": "npm run build --workspace=frontend",
-    "build:docs": "npm run build --workspace=docs-site",
-    "clean": "npm run clean --workspace=frontend && npm run clean --workspace=docs-site",
-    "clean:node_modules": "npm exec --workspaces -- rm -rf node_modules",
-    "lint": "npm run lint --workspace=frontend",
-    "lint:fix": "npm run lint:fix --workspace=frontend",
-    "test": "npm run test --workspace=frontend",
-    "test:coverage": "npm run test:coverage --workspace=frontend",
-    "test:e2e": "npm run test:e2e --workspace=frontend",
-    "validate": "npm run validate:i18n --workspace=frontend",
-    "serve": "npm run serve --workspace=docs-site",
-    "preview": "npm run preview --workspace=frontend"
+    "build": "cd docs-site && npm run build && cd ../frontend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    "build:docs": "cd docs-site && npm run build",
+    "lint": "cd frontend && npm run lint",
+    "lint:fix": "cd frontend && npm run lint:fix",
+    "test": "cd frontend && npm run test",
+    "test:coverage": "cd frontend && npm run test:coverage",
+    "test:e2e": "cd frontend && npm run test:e2e",
+    "validate": "cd frontend && npm run validate:i18n",
+    "serve": "cd docs-site && npm run serve",
+    "preview": "cd frontend && npm run preview"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
