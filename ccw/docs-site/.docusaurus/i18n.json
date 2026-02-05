@@ -18,9 +18,9 @@
       "baseUrl": "/docs/"
     },
     "zh": {
-      "label": "中文",
+      "label": "简体中文",
       "direction": "ltr",
-      "htmlLang": "zh",
+      "htmlLang": "zh-CN",
       "calendar": "gregory",
       "path": "zh",
       "translate": true,

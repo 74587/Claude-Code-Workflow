@@ -24,6 +24,9 @@
  * - POST   /api/orchestrator/templates/install  - Install template from URL or GitHub
  * - DELETE /api/orchestrator/templates/:id      - Delete local template
  * - POST   /api/orchestrator/templates/export   - Export flow as template
+ *
+ * Configuration Endpoints:
+ * - GET    /api/config/version                  - Check application version against GitHub
  */
 
 import { join, dirname } from 'path';
@@ -1728,6 +1731,25 @@ export async function handleOrchestratorRoutes(ctx: RouteContext): Promise<boole
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: false, error: (error as Error).message }));
+      return true;
+    }
+  }
+
+  // ==== VERSION CHECK ====
+  // GET /api/config/version
+  // Check application version against GitHub latest release
+  if (pathname === '/api/config/version' && req.method === 'GET') {
+    try {
+      const { VersionChecker } = await import('../services/version-checker.js');
+      const checker = new VersionChecker();
+      const result = await checker.checkVersion();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, data: result }));
+      return true;
+    } catch (error: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: error.message }));
       return true;
     }
   }

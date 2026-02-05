@@ -1,7 +1,7 @@
 ---
 name: analyze-with-file
 description: Interactive collaborative analysis with documented discussions, CLI-assisted exploration, and evolving understanding. Serial analysis for Codex.
-argument-hint: "TOPIC=\"<question or topic>\" [--focus=<area>] [--depth=quick|standard|deep] [--continue]"
+argument-hint: "TOPIC=\"<question or topic>\" [--depth=quick|standard|deep] [--continue]"
 ---
 
 # Codex Analyze-With-File Workflow

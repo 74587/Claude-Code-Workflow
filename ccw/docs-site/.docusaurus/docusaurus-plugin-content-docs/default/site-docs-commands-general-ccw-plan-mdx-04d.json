@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/general/ccw-plan.mdx",
   "sourceDirName": "commands/general",
   "slug": "/commands/general/ccw-plan",
-  "permalink": "/docs/docs/commands/general/ccw-plan",
+  "permalink": "/docs/commands/general/ccw-plan",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/general/ccw-plan.mdx",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/ccw",
-    "permalink": "/docs/docs/commands/general/ccw"
+    "permalink": "/docs/commands/general/ccw"
   },
   "next": {
     "title": "/ccw-test",
-    "permalink": "/docs/docs/commands/general/ccw-test"
+    "permalink": "/docs/commands/general/ccw-test"
   }
 }

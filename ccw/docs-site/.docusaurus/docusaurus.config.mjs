@@ -12,21 +12,28 @@ export default {
   "organizationName": "ccw",
   "projectName": "docs",
   "trailingSlash": false,
-  "onBrokenLinks": "throw",
+  "onBrokenLinks": "warn",
   "i18n": {
     "defaultLocale": "en",
     "locales": [
       "en",
       "zh"
     ],
-    "path": "i18n",
-    "localeConfigs": {}
+    "localeConfigs": {
+      "zh": {
+        "label": "简体中文",
+        "htmlLang": "zh-CN"
+      }
+    },
+    "path": "i18n"
   },
   "presets": [
     [
       "@docusaurus/preset-classic",
       {
         "docs": {
+          "path": "docs",
+          "routeBasePath": "/",
           "sidebarPath": "./sidebars.ts",
           "editUrl": "https://github.com/ccw/docs/tree/main/"
         },

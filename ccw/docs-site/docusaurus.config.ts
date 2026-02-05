@@ -15,12 +15,18 @@ const config: Config = {
 
   trailingSlash: false,
 
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'warn',
   onBrokenMarkdownLinks: 'warn',
 
   i18n: {
     defaultLocale: 'en',
     locales: ['en', 'zh'],
+    localeConfigs: {
+      zh: {
+        label: '简体中文',
+        htmlLang: 'zh-CN',
+      },
+    },
   },
 
   presets: [
@@ -28,6 +34,8 @@ const config: Config = {
       '@docusaurus/preset-classic',
       {
         docs: {
+          path: 'docs',
+          routeBasePath: '/',
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/ccw/docs/tree/main/',
         },

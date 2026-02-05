@@ -146,3 +146,13 @@ export type { ExplorerToolbarProps } from './ExplorerToolbar';
 // Ticker components
 export { TickerMarquee } from './TickerMarquee';
 export type { TickerMarqueeProps } from './TickerMarquee';
+
+// Version check components
+export { VersionCheck } from './VersionCheck';
+export { VersionCheckModal } from './VersionCheckModal';
+
+// Config sync components
+export { ConfigSync } from './ConfigSync';
+export { ConfigSyncModal } from './ConfigSyncModal';
+export type { ConfigSyncProps, BackupInfo, SyncResult, BackupResult } from './ConfigSync';
+export type { ConfigSyncModalProps } from './ConfigSyncModal';

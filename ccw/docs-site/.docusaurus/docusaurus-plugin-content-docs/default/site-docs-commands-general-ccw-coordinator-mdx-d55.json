@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/general/ccw-coordinator.mdx",
   "sourceDirName": "commands/general",
   "slug": "/commands/general/ccw-coordinator",
-  "permalink": "/docs/docs/commands/general/ccw-coordinator",
+  "permalink": "/docs/commands/general/ccw-coordinator",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/general/ccw-coordinator.mdx",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/ccw-test",
-    "permalink": "/docs/docs/commands/general/ccw-test"
+    "permalink": "/docs/commands/general/ccw-test"
   },
   "next": {
     "title": "/ccw-debug",
-    "permalink": "/docs/docs/commands/general/ccw-debug"
+    "permalink": "/docs/commands/general/ccw-debug"
   }
 }

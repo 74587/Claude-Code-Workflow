@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/memory/memory-load.mdx",
   "sourceDirName": "commands/memory",
   "slug": "/commands/memory/memory-load",
-  "permalink": "/docs/docs/commands/memory/memory-load",
+  "permalink": "/docs/commands/memory/memory-load",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/memory/memory-load.mdx",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/memory:update-related",
-    "permalink": "/docs/docs/commands/memory/memory-update-related"
+    "permalink": "/docs/commands/memory/memory-update-related"
   },
   "next": {
     "title": "/memory:docs-full-cli",
-    "permalink": "/docs/docs/commands/memory/memory-docs-full-cli"
+    "permalink": "/docs/commands/memory/memory-docs-full-cli"
   }
 }

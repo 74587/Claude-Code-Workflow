@@ -24,11 +24,12 @@ import {
   MultiKeySettingsModal,
   ManageModelsModal,
 } from '@/components/api-settings';
+import { ConfigSync } from '@/components/shared';
 import { useProviders, useEndpoints, useModelPools, useCliSettings } from '@/hooks/useApiSettings';
 import { useNotifications } from '@/hooks/useNotifications';
 
 // Tab type definitions
-type TabType = 'providers' | 'endpoints' | 'cache' | 'modelPools' | 'cliSettings';
+type TabType = 'providers' | 'endpoints' | 'cache' | 'modelPools' | 'cliSettings' | 'configSync';
 
 export function ApiSettingsPage() {
   const { formatMessage } = useIntl();
@@ -207,6 +208,7 @@ export function ApiSettingsPage() {
           { value: 'cache', label: formatMessage({ id: 'apiSettings.tabs.cache' }) },
           { value: 'modelPools', label: formatMessage({ id: 'apiSettings.tabs.modelPools' }) },
           { value: 'cliSettings', label: formatMessage({ id: 'apiSettings.tabs.cliSettings' }) },
+          { value: 'configSync', label: formatMessage({ id: 'apiSettings.tabs.configSync' }) || 'Config Sync' },
         ]}
       />
 
@@ -253,6 +255,12 @@ export function ApiSettingsPage() {
             onAddCliSettings={handleAddCliSettings}
             onEditCliSettings={handleEditCliSettings}
           />
+        </div>
+      )}
+
+      {activeTab === 'configSync' && (
+        <div className="mt-4">
+          <ConfigSync />
         </div>
       )}
 

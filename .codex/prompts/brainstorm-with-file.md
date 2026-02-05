@@ -1,6 +1,6 @@
 ---
 description: Interactive brainstorming with serial CLI collaboration, idea expansion, and documented thought evolution. Sequential multi-perspective analysis for Codex.
-argument-hint: "TOPIC=\"<idea or topic>\" [--perspectives=creative,pragmatic,systematic] [--max-ideas=<n>] [--focus=<area>] [--mode=creative|structured|balanced]"
+argument-hint: "TOPIC=\"<idea or topic>\" [--perspectives=creative,pragmatic,systematic] [--max-ideas=<n>]"
 ---
 
 # Codex Brainstorm-With-File Workflow

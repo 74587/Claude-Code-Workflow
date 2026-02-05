@@ -5,7 +5,7 @@
   "source": "@site/docs/overview.mdx",
   "sourceDirName": ".",
   "slug": "/overview",
-  "permalink": "/docs/docs/overview",
+  "permalink": "/docs/overview",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/overview.mdx",
@@ -18,8 +18,12 @@
     "sidebar_position": 1
   },
   "sidebar": "docs",
+  "previous": {
+    "title": "Home",
+    "permalink": "/docs/"
+  },
   "next": {
     "title": "/ccw",
-    "permalink": "/docs/docs/commands/general/ccw"
+    "permalink": "/docs/commands/general/ccw"
   }
 }

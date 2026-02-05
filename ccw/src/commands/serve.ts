@@ -2,6 +2,7 @@ import { startServer } from '../core/server.js';
 import { launchBrowser } from '../utils/browser-launcher.js';
 import { resolvePath, validatePath } from '../utils/path-resolver.js';
 import { startReactFrontend, stopReactFrontend } from '../utils/react-frontend.js';
+import { startDocsSite, stopDocsSite } from '../utils/docs-frontend.js';
 import chalk from 'chalk';
 import type { Server } from 'http';
 
@@ -53,6 +54,18 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     }
   }
 
+  // Start Docusaurus docs site if React frontend is enabled
+  // The docs site is proxied through Vite at /docs endpoint
+  if (frontend === 'react' || frontend === 'both') {
+    try {
+      await startDocsSite(3001);
+    } catch (error) {
+      console.log(chalk.yellow(`\n  Warning: Failed to start docs site: ${error}`));
+      console.log(chalk.gray(`  The /docs endpoint will not be available.`));
+      console.log(chalk.gray(`  You can start it manually: cd docs-site && npm start\n`));
+    }
+  }
+
   try {
     // Start server
     console.log(chalk.cyan('  Starting server...'));
@@ -78,8 +91,10 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     if (frontend === 'both') {
       console.log(chalk.gray(`  JS Frontend:    ${boundUrl}`));
       console.log(chalk.gray(`  React Frontend: http://${host}:${reactPort}`));
+      console.log(chalk.gray(`  Docs:           http://${host}:${reactPort}/docs/`));
     } else if (frontend === 'react') {
       console.log(chalk.gray(`  React Frontend: http://${host}:${reactPort}`));
+      console.log(chalk.gray(`  Docs:           http://${host}:${reactPort}/docs/`));
     }
 
     // Open browser
@@ -113,6 +128,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     process.on('SIGINT', async () => {
       console.log(chalk.yellow('\n  Shutting down server...'));
       await stopReactFrontend();
+      await stopDocsSite();
       server.close(() => {
         console.log(chalk.green('  Server stopped.\n'));
         process.exit(0);
@@ -127,6 +143,7 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       console.error(chalk.gray(`  Try a different port: ccw serve --port ${port + 1}\n`));
     }
     await stopReactFrontend();
+    await stopDocsSite();
     process.exit(1);
   }
 }

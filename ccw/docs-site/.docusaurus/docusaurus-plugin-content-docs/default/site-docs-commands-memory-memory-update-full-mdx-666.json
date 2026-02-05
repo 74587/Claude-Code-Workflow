@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/memory/memory-update-full.mdx",
   "sourceDirName": "commands/memory",
   "slug": "/commands/memory/memory-update-full",
-  "permalink": "/docs/docs/commands/memory/memory-update-full",
+  "permalink": "/docs/commands/memory/memory-update-full",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/memory/memory-update-full.mdx",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/cli:codex-review",
-    "permalink": "/docs/docs/commands/cli/codex-review"
+    "permalink": "/docs/commands/cli/codex-review"
   },
   "next": {
     "title": "/memory:update-related",
-    "permalink": "/docs/docs/commands/memory/memory-update-related"
+    "permalink": "/docs/commands/memory/memory-update-related"
   }
 }

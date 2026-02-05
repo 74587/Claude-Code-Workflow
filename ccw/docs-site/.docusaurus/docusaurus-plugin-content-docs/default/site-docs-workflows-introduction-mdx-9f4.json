@@ -5,7 +5,7 @@
   "source": "@site/docs/workflows/introduction.mdx",
   "sourceDirName": "workflows",
   "slug": "/workflows/introduction",
-  "permalink": "/docs/docs/workflows/introduction",
+  "permalink": "/docs/workflows/introduction",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/workflows/introduction.mdx",
@@ -20,10 +20,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/memory:compact",
-    "permalink": "/docs/docs/commands/memory/memory-compact"
+    "permalink": "/docs/commands/memory/memory-compact"
   },
   "next": {
     "title": "Level 1: Ultra Lightweight",
-    "permalink": "/docs/docs/workflows/level-1-ultra-lightweight"
+    "permalink": "/docs/workflows/level-1-ultra-lightweight"
   }
 }

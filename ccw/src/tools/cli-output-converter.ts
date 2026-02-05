@@ -267,6 +267,21 @@ export class JsonLinesParser implements IOutputParser {
   }
 
   /**
+   * Debug logging helper for CLI output parsing
+   * Enable with DEBUG_CLI_OUTPUT=true environment variable
+   */
+  private debugLog(event: string, data: Record<string, unknown>): void {
+    if (process.env.DEBUG_CLI_OUTPUT) {
+      const logEntry = {
+        ts: new Date().toISOString(),
+        event,
+        ...data
+      };
+      console.error(`[CLI_OUTPUT_DEBUG] ${JSON.stringify(logEntry)}`);
+    }
+  }
+
+  /**
    * Map parsed JSON object to appropriate IR type
    * Handles various JSON event formats from different CLI tools:
    * - Gemini CLI: stream-json format (init, message, result)
@@ -275,6 +290,7 @@ export class JsonLinesParser implements IOutputParser {
    * - OpenCode CLI: --format json (step_start, text, step_finish)
    */
   private mapJsonToIR(json: any, fallbackStreamType: 'stdout' | 'stderr'): CliOutputUnit | null {
+    this.debugLog('mapJsonToIR_input', { type: json.type, role: json.role, keys: Object.keys(json) });
     // Handle numeric timestamp (milliseconds) from OpenCode
     const timestamp = typeof json.timestamp === 'number'
       ? new Date(json.timestamp).toISOString()
@@ -772,6 +788,14 @@ export class JsonLinesParser implements IOutputParser {
 
     // Default: treat as stdout/stderr based on fallback
     if (json.content || json.message || json.text) {
+      this.debugLog('mapJsonToIR_fallback_stdout', {
+        type: json.type,
+        fallbackType: fallbackStreamType,
+        hasContent: !!json.content,
+        hasMessage: !!json.message,
+        hasText: !!json.text,
+        contentPreview: (json.content || json.message || json.text || '').substring(0, 100)
+      });
       return {
         type: fallbackStreamType,
         content: json.content || json.message || json.text,
@@ -780,6 +804,7 @@ export class JsonLinesParser implements IOutputParser {
     }
 
     // Unrecognized structure, return as metadata
+    this.debugLog('mapJsonToIR_fallback_metadata', { type: json.type, keys: Object.keys(json) });
     return {
       type: 'metadata',
       content: json,
@@ -1172,6 +1197,41 @@ export function createOutputParser(format: 'text' | 'json-lines'): IOutputParser
 // ========== Utility Functions ==========
 
 /**
+ * Find the start index of the last streaming_content group
+ * Groups are separated by non-streaming events (tool_call, metadata, etc.)
+ * This helps filter out intermediate assistant messages in multi-turn executions
+ *
+ * @param units - All output units
+ * @returns Index of the last streaming_content group start
+ */
+function findLastStreamingGroup(units: CliOutputUnit[]): number {
+  let lastGroupStart = 0;
+
+  for (let i = units.length - 1; i >= 0; i--) {
+    const unit = units[i];
+
+    // streaming_content found, this could be part of the last group
+    if (unit.type === 'streaming_content') {
+      lastGroupStart = i;
+
+      // Look backwards to find the start of this group
+      // (first streaming_content after a non-streaming event)
+      for (let j = i - 1; j >= 0; j--) {
+        if (units[j].type === 'streaming_content') {
+          lastGroupStart = j;
+        } else {
+          // Found a separator (tool_call, metadata, etc.)
+          break;
+        }
+      }
+      break;
+    }
+  }
+
+  return lastGroupStart;
+}
+
+/**
  * Flatten output units into plain text string
  * Useful for Resume scenario where we need concatenated context
  *
@@ -1197,12 +1257,23 @@ export function flattenOutputUnits(
     stripCommandJsonBlocks = false
   } = options || {};
 
+  // Debug logging for output unit analysis
+  if (process.env.DEBUG_CLI_OUTPUT) {
+    const typeCounts: Record<string, number> = {};
+    for (const u of units) {
+      typeCounts[u.type] = (typeCounts[u.type] || 0) + 1;
+    }
+    console.error(`[CLI_OUTPUT_DEBUG] flattenOutputUnits_input: ${JSON.stringify({ unitCount: units.length, typeCounts, includeTypes, excludeTypes })}`);
+  }
+
   // Special handling for streaming_content: concatenate all into a single agent_message unit
   // Gemini delta messages are incremental (each contains partial content to append)
   let processedUnits = units;
   const streamingUnits = units.filter(u => u.type === 'streaming_content');
+  const agentMessages = units.filter(u => u.type === 'agent_message');
+
   if (streamingUnits.length > 0) {
-    const hasAgentMessage = units.some(u => u.type === 'agent_message');
+    const hasAgentMessage = agentMessages.length > 0;
 
     // If a non-delta final agent_message already exists, prefer it and simply drop streaming_content.
     // This avoids duplicated final output when providers emit BOTH streaming deltas and a final message frame.
@@ -1210,16 +1281,36 @@ export function flattenOutputUnits(
 
     // If no agent_message exists, synthesize one from streaming_content (delta-only streams).
     if (!hasAgentMessage) {
-      const concatenatedContent = streamingUnits
+      // For multi-turn executions, only keep the LAST group of streaming_content
+      // (separated by tool_call/tool_result/metadata events)
+      // This filters out intermediate planning/status messages
+      const lastGroupStartIndex = findLastStreamingGroup(units);
+      const lastGroupStreamingUnits = streamingUnits.filter((_, idx) => {
+        const unitIndex = units.indexOf(streamingUnits[idx]);
+        return unitIndex >= lastGroupStartIndex;
+      });
+
+      const concatenatedContent = lastGroupStreamingUnits
         .map(u => typeof u.content === 'string' ? u.content : '')
         .join('');
 
-      processedUnits.push({
-        type: 'agent_message',
-        content: concatenatedContent,
-        timestamp: streamingUnits[streamingUnits.length - 1].timestamp
-      });
+      if (concatenatedContent) {
+        processedUnits.push({
+          type: 'agent_message',
+          content: concatenatedContent,
+          timestamp: lastGroupStreamingUnits[lastGroupStreamingUnits.length - 1].timestamp
+        });
+      }
     }
+  }
+
+  // For multi-turn executions with multiple agent_message units (Codex/Claude),
+  // only keep the LAST agent_message (final result)
+  if (agentMessages.length > 1) {
+    const lastAgentMessage = agentMessages[agentMessages.length - 1];
+    processedUnits = processedUnits.filter(u =>
+      u.type !== 'agent_message' || u === lastAgentMessage
+    );
   }
 
   // Filter units by type
@@ -1229,6 +1320,15 @@ export function flattenOutputUnits(
   }
   if (excludeTypes && excludeTypes.length > 0) {
     filtered = filtered.filter(u => !excludeTypes.includes(u.type));
+  }
+
+  // Debug logging for filtered output
+  if (process.env.DEBUG_CLI_OUTPUT) {
+    const filteredTypeCounts: Record<string, number> = {};
+    for (const u of filtered) {
+      filteredTypeCounts[u.type] = (filteredTypeCounts[u.type] || 0) + 1;
+    }
+    console.error(`[CLI_OUTPUT_DEBUG] flattenOutputUnits_filtered: ${JSON.stringify({ filteredCount: filtered.length, filteredTypeCounts })}`);
   }
 
   // Convert to text

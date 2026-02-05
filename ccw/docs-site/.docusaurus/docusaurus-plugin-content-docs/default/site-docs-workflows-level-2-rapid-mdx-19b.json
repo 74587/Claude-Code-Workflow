@@ -5,7 +5,7 @@
   "source": "@site/docs/workflows/level-2-rapid.mdx",
   "sourceDirName": "workflows",
   "slug": "/workflows/level-2-rapid",
-  "permalink": "/docs/docs/workflows/level-2-rapid",
+  "permalink": "/docs/workflows/level-2-rapid",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/workflows/level-2-rapid.mdx",
@@ -20,10 +20,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "Level 1: Ultra Lightweight",
-    "permalink": "/docs/docs/workflows/level-1-ultra-lightweight"
+    "permalink": "/docs/workflows/level-1-ultra-lightweight"
   },
   "next": {
     "title": "Level 3: Standard",
-    "permalink": "/docs/docs/workflows/level-3-standard"
+    "permalink": "/docs/workflows/level-3-standard"
   }
 }

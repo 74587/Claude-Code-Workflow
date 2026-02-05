@@ -1,167 +1,180 @@
 {
   "docusaurus-plugin-content-docs": {
     "default": {
-      "path": "/docs/docs",
+      "path": "/docs/",
       "versions": [
         {
           "name": "current",
           "label": "Next",
           "isLast": true,
-          "path": "/docs/docs",
-          "mainDocId": "overview",
+          "path": "/docs/",
+          "mainDocId": "index",
           "docs": [
             {
               "id": "commands/cli/cli-init",
-              "path": "/docs/docs/commands/cli/cli-init",
+              "path": "/docs/commands/cli/cli-init",
               "sidebar": "docs"
             },
             {
               "id": "commands/cli/codex-review",
-              "path": "/docs/docs/commands/cli/codex-review",
+              "path": "/docs/commands/cli/codex-review",
               "sidebar": "docs"
             },
             {
               "id": "commands/general/ccw",
-              "path": "/docs/docs/commands/general/ccw",
+              "path": "/docs/commands/general/ccw",
               "sidebar": "docs"
             },
             {
               "id": "commands/general/ccw-coordinator",
-              "path": "/docs/docs/commands/general/ccw-coordinator",
+              "path": "/docs/commands/general/ccw-coordinator",
               "sidebar": "docs"
             },
             {
               "id": "commands/general/ccw-debug",
-              "path": "/docs/docs/commands/general/ccw-debug",
+              "path": "/docs/commands/general/ccw-debug",
               "sidebar": "docs"
             },
             {
               "id": "commands/general/ccw-plan",
-              "path": "/docs/docs/commands/general/ccw-plan",
+              "path": "/docs/commands/general/ccw-plan",
               "sidebar": "docs"
             },
             {
               "id": "commands/general/ccw-test",
-              "path": "/docs/docs/commands/general/ccw-test",
+              "path": "/docs/commands/general/ccw-test",
               "sidebar": "docs"
             },
             {
               "id": "commands/general/codex-coordinator",
-              "path": "/docs/docs/commands/general/codex-coordinator",
+              "path": "/docs/commands/general/codex-coordinator",
               "sidebar": "docs"
             },
             {
               "id": "commands/general/flow-create",
-              "path": "/docs/docs/commands/general/flow-create",
+              "path": "/docs/commands/general/flow-create",
               "sidebar": "docs"
             },
             {
               "id": "commands/issue/issue-convert-to-plan",
-              "path": "/docs/docs/commands/issue/issue-convert-to-plan",
+              "path": "/docs/commands/issue/issue-convert-to-plan",
               "sidebar": "docs"
             },
             {
               "id": "commands/issue/issue-discover",
-              "path": "/docs/docs/commands/issue/issue-discover",
+              "path": "/docs/commands/issue/issue-discover",
               "sidebar": "docs"
             },
             {
               "id": "commands/issue/issue-execute",
-              "path": "/docs/docs/commands/issue/issue-execute",
+              "path": "/docs/commands/issue/issue-execute",
               "sidebar": "docs"
             },
             {
               "id": "commands/issue/issue-from-brainstorm",
-              "path": "/docs/docs/commands/issue/issue-from-brainstorm",
+              "path": "/docs/commands/issue/issue-from-brainstorm",
               "sidebar": "docs"
             },
             {
               "id": "commands/issue/issue-new",
-              "path": "/docs/docs/commands/issue/issue-new",
+              "path": "/docs/commands/issue/issue-new",
               "sidebar": "docs"
             },
             {
               "id": "commands/issue/issue-plan",
-              "path": "/docs/docs/commands/issue/issue-plan",
+              "path": "/docs/commands/issue/issue-plan",
               "sidebar": "docs"
             },
             {
               "id": "commands/issue/issue-queue",
-              "path": "/docs/docs/commands/issue/issue-queue",
+              "path": "/docs/commands/issue/issue-queue",
               "sidebar": "docs"
             },
             {
               "id": "commands/memory/memory-compact",
-              "path": "/docs/docs/commands/memory/memory-compact",
+              "path": "/docs/commands/memory/memory-compact",
               "sidebar": "docs"
             },
             {
               "id": "commands/memory/memory-docs-full-cli",
-              "path": "/docs/docs/commands/memory/memory-docs-full-cli",
+              "path": "/docs/commands/memory/memory-docs-full-cli",
               "sidebar": "docs"
             },
             {
               "id": "commands/memory/memory-docs-related-cli",
-              "path": "/docs/docs/commands/memory/memory-docs-related-cli",
+              "path": "/docs/commands/memory/memory-docs-related-cli",
               "sidebar": "docs"
             },
             {
               "id": "commands/memory/memory-load",
-              "path": "/docs/docs/commands/memory/memory-load",
+              "path": "/docs/commands/memory/memory-load",
               "sidebar": "docs"
             },
             {
               "id": "commands/memory/memory-update-full",
-              "path": "/docs/docs/commands/memory/memory-update-full",
+              "path": "/docs/commands/memory/memory-update-full",
               "sidebar": "docs"
             },
             {
               "id": "commands/memory/memory-update-related",
-              "path": "/docs/docs/commands/memory/memory-update-related",
+              "path": "/docs/commands/memory/memory-update-related",
               "sidebar": "docs"
             },
             {
               "id": "faq",
-              "path": "/docs/docs/faq",
+              "path": "/docs/faq",
               "sidebar": "docs"
+            },
+            {
+              "id": "index",
+              "path": "/docs/",
+              "sidebar": "docs"
+            },
+            {
+              "id": "index.zh",
+              "path": "/docs/"
             },
             {
               "id": "overview",
-              "path": "/docs/docs/overview",
+              "path": "/docs/overview",
               "sidebar": "docs"
             },
             {
+              "id": "overview.zh",
+              "path": "/docs/overview.zh"
+            },
+            {
               "id": "workflows/faq",
-              "path": "/docs/docs/workflows/faq"
+              "path": "/docs/workflows/faq"
             },
             {
               "id": "workflows/introduction",
-              "path": "/docs/docs/workflows/introduction",
+              "path": "/docs/workflows/introduction",
               "sidebar": "docs"
             },
             {
               "id": "workflows/level-1-ultra-lightweight",
-              "path": "/docs/docs/workflows/level-1-ultra-lightweight",
+              "path": "/docs/workflows/level-1-ultra-lightweight",
               "sidebar": "docs"
             },
             {
               "id": "workflows/level-2-rapid",
-              "path": "/docs/docs/workflows/level-2-rapid",
+              "path": "/docs/workflows/level-2-rapid",
               "sidebar": "docs"
             },
             {
               "id": "workflows/level-3-standard",
-              "path": "/docs/docs/workflows/level-3-standard",
+              "path": "/docs/workflows/level-3-standard",
               "sidebar": "docs"
             },
             {
               "id": "workflows/level-4-brainstorm",
-              "path": "/docs/docs/workflows/level-4-brainstorm",
+              "path": "/docs/workflows/level-4-brainstorm",
               "sidebar": "docs"
             },
             {
               "id": "workflows/level-5-intelligent",
-              "path": "/docs/docs/workflows/level-5-intelligent",
+              "path": "/docs/workflows/level-5-intelligent",
               "sidebar": "docs"
             }
           ],
@@ -169,8 +182,8 @@
           "sidebars": {
             "docs": {
               "link": {
-                "path": "/docs/docs/overview",
-                "label": "Quick Start"
+                "path": "/docs/",
+                "label": "Home"
               }
             }
           }

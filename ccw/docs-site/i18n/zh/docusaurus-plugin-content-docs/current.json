@@ -1,40 +1,150 @@
 {
-  "theme.admonition.note": "注意",
-  "theme.admonition.tip": "提示",
-  "theme.admonition.danger": "危险",
-  "theme.admonition.info": "信息",
-  "theme.admonition.caution": "警告",
-  "theme.admonition.note.title": "注意",
-  "theme.admonition.tip.title": "提示",
-  "theme.admonition.danger.title": "危险",
-  "theme.admonition.info.title": "信息",
-  "theme.admonition.caution.title": "警告",
-  "theme.docs.versionBadge.label": "版本：{versionLabel}",
-  "theme.docs.tag.title": "已标记「{name}」的页面",
-  "theme.tags.tagsListLabel": "标签列表",
-  "theme.tags.tagsPageTitle": "标签",
-  "theme.tags.tagPageTitle": "标签：{name}",
-  "theme.editLink.pageTitle": "编辑此页",
-  "theme.editLink.thisPage": "编辑此页",
-  "theme.docs.breadcrumbs.home": "首页",
-  "theme.docs.breadcrumbs.docs": "文档",
-  "theme.docs.lastUpdatedAt": "最后更新于 {at}",
-  "theme.docs.lastUpdatedByUser": "由 {user} 最后更新于 {at}",
-  "theme.docs.aria.unlistedDocument.title": "未列出页面",
-  "theme.docs.aria.unlistedDocument.description": "此页面未列出。只有拥有直接链接的用户才能访问它。",
-  "theme.docs.aria.draftDocument.title": "草稿页面",
-  "theme.docs.aria.draftDocument.description": "此页面是草稿。仅内容作者和具有特定权限的用户可以看到它。",
-  "theme.blog.post.readingTime": "{readingTime} 分钟阅读",
-  "theme.blog.post.readMore": "阅读更多",
-  "theme.blog.post.paginator.navAriaLabel": "文章列表导航",
-  "theme.blog.post.paginator.newer": "较新文章",
-  "theme.blog.post.paginator.older": "较旧文章",
-  "theme.navbar.mobileLanguageDropdown.label": "语言",
-  "theme.versions.unreleasedVersionLabel": "未发布版本",
-  "theme.versions.unreleasedVersionLabel.tooltip": "这是 {siteTitle} {version} 版本的未发布版本",
-  "theme.versions.latestVersionSuggestion": "最新稳定版本为 {latestVersion}，请访问「{latestVersion}」文档。",
-  "theme.versions.latestVersionSuggestion.button": "访问最新版本",
-  "theme.versions.maintainedVersionsLabel": "当前维护版本：",
-  "theme.versions.upcomingVersionLabel": "即将推出：",
-  "theme.versions.archivedVersionsLabel": "归档版本："
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docs.category.Commands": {
+    "message": "Commands",
+    "description": "The label for category 'Commands' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.General Commands": {
+    "message": "General Commands",
+    "description": "The label for category 'General Commands' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Issue Commands": {
+    "message": "Issue Commands",
+    "description": "The label for category 'Issue Commands' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.CLI Commands": {
+    "message": "CLI Commands",
+    "description": "The label for category 'CLI Commands' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Memory Commands": {
+    "message": "Memory Commands",
+    "description": "The label for category 'Memory Commands' in sidebar 'docs'"
+  },
+  "sidebar.docs.category.Workflows": {
+    "message": "Workflows",
+    "description": "The label for category 'Workflows' in sidebar 'docs'"
+  },
+  "sidebar.docs.doc.Quick Start": {
+    "message": "Quick Start",
+    "description": "The label for the doc item 'Quick Start' in sidebar 'docs', linking to the doc overview"
+  },
+  "sidebar.docs.doc.ccw": {
+    "message": "ccw",
+    "description": "The label for the doc item 'ccw' in sidebar 'docs', linking to the doc commands/general/ccw"
+  },
+  "sidebar.docs.doc.ccw-plan": {
+    "message": "ccw-plan",
+    "description": "The label for the doc item 'ccw-plan' in sidebar 'docs', linking to the doc commands/general/ccw-plan"
+  },
+  "sidebar.docs.doc.ccw-test": {
+    "message": "ccw-test",
+    "description": "The label for the doc item 'ccw-test' in sidebar 'docs', linking to the doc commands/general/ccw-test"
+  },
+  "sidebar.docs.doc.ccw-coordinator": {
+    "message": "ccw-coordinator",
+    "description": "The label for the doc item 'ccw-coordinator' in sidebar 'docs', linking to the doc commands/general/ccw-coordinator"
+  },
+  "sidebar.docs.doc.ccw-debug": {
+    "message": "ccw-debug",
+    "description": "The label for the doc item 'ccw-debug' in sidebar 'docs', linking to the doc commands/general/ccw-debug"
+  },
+  "sidebar.docs.doc.flow-create": {
+    "message": "flow-create",
+    "description": "The label for the doc item 'flow-create' in sidebar 'docs', linking to the doc commands/general/flow-create"
+  },
+  "sidebar.docs.doc.codex-coordinator": {
+    "message": "codex-coordinator",
+    "description": "The label for the doc item 'codex-coordinator' in sidebar 'docs', linking to the doc commands/general/codex-coordinator"
+  },
+  "sidebar.docs.doc.issue-new": {
+    "message": "issue-new",
+    "description": "The label for the doc item 'issue-new' in sidebar 'docs', linking to the doc commands/issue/issue-new"
+  },
+  "sidebar.docs.doc.issue-discover": {
+    "message": "issue-discover",
+    "description": "The label for the doc item 'issue-discover' in sidebar 'docs', linking to the doc commands/issue/issue-discover"
+  },
+  "sidebar.docs.doc.issue-plan": {
+    "message": "issue-plan",
+    "description": "The label for the doc item 'issue-plan' in sidebar 'docs', linking to the doc commands/issue/issue-plan"
+  },
+  "sidebar.docs.doc.issue-queue": {
+    "message": "issue-queue",
+    "description": "The label for the doc item 'issue-queue' in sidebar 'docs', linking to the doc commands/issue/issue-queue"
+  },
+  "sidebar.docs.doc.issue-execute": {
+    "message": "issue-execute",
+    "description": "The label for the doc item 'issue-execute' in sidebar 'docs', linking to the doc commands/issue/issue-execute"
+  },
+  "sidebar.docs.doc.issue-from-brainstorm": {
+    "message": "issue-from-brainstorm",
+    "description": "The label for the doc item 'issue-from-brainstorm' in sidebar 'docs', linking to the doc commands/issue/issue-from-brainstorm"
+  },
+  "sidebar.docs.doc.issue-convert-to-plan": {
+    "message": "issue-convert-to-plan",
+    "description": "The label for the doc item 'issue-convert-to-plan' in sidebar 'docs', linking to the doc commands/issue/issue-convert-to-plan"
+  },
+  "sidebar.docs.doc.cli-init": {
+    "message": "cli-init",
+    "description": "The label for the doc item 'cli-init' in sidebar 'docs', linking to the doc commands/cli/cli-init"
+  },
+  "sidebar.docs.doc.codex-review": {
+    "message": "codex-review",
+    "description": "The label for the doc item 'codex-review' in sidebar 'docs', linking to the doc commands/cli/codex-review"
+  },
+  "sidebar.docs.doc.memory-update-full": {
+    "message": "memory-update-full",
+    "description": "The label for the doc item 'memory-update-full' in sidebar 'docs', linking to the doc commands/memory/memory-update-full"
+  },
+  "sidebar.docs.doc.memory-update-related": {
+    "message": "memory-update-related",
+    "description": "The label for the doc item 'memory-update-related' in sidebar 'docs', linking to the doc commands/memory/memory-update-related"
+  },
+  "sidebar.docs.doc.memory-load": {
+    "message": "memory-load",
+    "description": "The label for the doc item 'memory-load' in sidebar 'docs', linking to the doc commands/memory/memory-load"
+  },
+  "sidebar.docs.doc.memory-docs-full-cli": {
+    "message": "memory-docs-full-cli",
+    "description": "The label for the doc item 'memory-docs-full-cli' in sidebar 'docs', linking to the doc commands/memory/memory-docs-full-cli"
+  },
+  "sidebar.docs.doc.memory-docs-related-cli": {
+    "message": "memory-docs-related-cli",
+    "description": "The label for the doc item 'memory-docs-related-cli' in sidebar 'docs', linking to the doc commands/memory/memory-docs-related-cli"
+  },
+  "sidebar.docs.doc.memory-compact": {
+    "message": "memory-compact",
+    "description": "The label for the doc item 'memory-compact' in sidebar 'docs', linking to the doc commands/memory/memory-compact"
+  },
+  "sidebar.docs.doc.Introduction": {
+    "message": "Introduction",
+    "description": "The label for the doc item 'Introduction' in sidebar 'docs', linking to the doc workflows/introduction"
+  },
+  "sidebar.docs.doc.Level 1: Ultra Lightweight": {
+    "message": "Level 1: Ultra Lightweight",
+    "description": "The label for the doc item 'Level 1: Ultra Lightweight' in sidebar 'docs', linking to the doc workflows/level-1-ultra-lightweight"
+  },
+  "sidebar.docs.doc.Level 2: Rapid": {
+    "message": "Level 2: Rapid",
+    "description": "The label for the doc item 'Level 2: Rapid' in sidebar 'docs', linking to the doc workflows/level-2-rapid"
+  },
+  "sidebar.docs.doc.Level 3: Standard": {
+    "message": "Level 3: Standard",
+    "description": "The label for the doc item 'Level 3: Standard' in sidebar 'docs', linking to the doc workflows/level-3-standard"
+  },
+  "sidebar.docs.doc.Level 4: Brainstorm": {
+    "message": "Level 4: Brainstorm",
+    "description": "The label for the doc item 'Level 4: Brainstorm' in sidebar 'docs', linking to the doc workflows/level-4-brainstorm"
+  },
+  "sidebar.docs.doc.Level 5: Intelligent": {
+    "message": "Level 5: Intelligent",
+    "description": "The label for the doc item 'Level 5: Intelligent' in sidebar 'docs', linking to the doc workflows/level-5-intelligent"
+  },
+  "sidebar.docs.doc.FAQ": {
+    "message": "FAQ",
+    "description": "The label for the doc item 'FAQ' in sidebar 'docs', linking to the doc faq"
+  }
 }

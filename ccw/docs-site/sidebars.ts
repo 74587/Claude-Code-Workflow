@@ -4,6 +4,11 @@ const sidebars: SidebarsConfig = {
   docs: [
     {
       type: 'doc',
+      id: 'index',
+      label: 'Home',
+    },
+    {
+      type: 'doc',
       id: 'overview',
       label: 'Quick Start',
     },
@@ -114,44 +119,6 @@ const sidebars: SidebarsConfig = {
               type: 'doc',
               id: 'commands/cli/codex-review',
               label: 'codex-review',
-            },
-          ],
-        },
-        {
-          type: 'category',
-          label: 'Memory Commands',
-          collapsible: true,
-          collapsed: false,
-          items: [
-            {
-              type: 'doc',
-              id: 'commands/memory/memory-update-full',
-              label: 'memory-update-full',
-            },
-            {
-              type: 'doc',
-              id: 'commands/memory/memory-update-related',
-              label: 'memory-update-related',
-            },
-            {
-              type: 'doc',
-              id: 'commands/memory/memory-load',
-              label: 'memory-load',
-            },
-            {
-              type: 'doc',
-              id: 'commands/memory/memory-docs-full-cli',
-              label: 'memory-docs-full-cli',
-            },
-            {
-              type: 'doc',
-              id: 'commands/memory/memory-docs-related-cli',
-              label: 'memory-docs-related-cli',
-            },
-            {
-              type: 'doc',
-              id: 'commands/memory/memory-compact',
-              label: 'memory-compact',
             },
           ],
         },
