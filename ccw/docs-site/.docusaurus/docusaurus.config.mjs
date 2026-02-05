@@ -8,7 +8,7 @@ export default {
   "tagline": "Professional Workflow Automation Platform",
   "favicon": "img/favicon.ico",
   "url": "http://localhost:3001",
-  "baseUrl": "/docs/",
+  "baseUrl": "/docs/zh/",
   "organizationName": "ccw",
   "projectName": "docs",
   "trailingSlash": false,

@@ -1,0 +1,2 @@
+Test prompt for model alias resolution.
+This should be executed with SECONDARY_MODEL.

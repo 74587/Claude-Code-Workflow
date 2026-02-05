@@ -5,7 +5,7 @@
   "source": "@site/docs/overview.zh.mdx",
   "sourceDirName": ".",
   "slug": "/overview.zh",
-  "permalink": "/docs/overview.zh",
+  "permalink": "/docs/zh/overview.zh",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/overview.zh.mdx",

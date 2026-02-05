@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/cli/codex-review.mdx",
   "sourceDirName": "commands/cli",
   "slug": "/commands/cli/codex-review",
-  "permalink": "/docs/commands/cli/codex-review",
+  "permalink": "/docs/zh/commands/cli/codex-review",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/cli/codex-review.mdx",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/cli:cli-init",
-    "permalink": "/docs/commands/cli/cli-init"
+    "permalink": "/docs/zh/commands/cli/cli-init"
   },
   "next": {
     "title": "/memory:update-full",
-    "permalink": "/docs/commands/memory/memory-update-full"
+    "permalink": "/docs/zh/commands/memory/memory-update-full"
   }
 }

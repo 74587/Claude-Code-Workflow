@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/general/codex-coordinator.mdx",
   "sourceDirName": "commands/general",
   "slug": "/commands/general/codex-coordinator",
-  "permalink": "/docs/commands/general/codex-coordinator",
+  "permalink": "/docs/zh/commands/general/codex-coordinator",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/general/codex-coordinator.mdx",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/flow-create",
-    "permalink": "/docs/commands/general/flow-create"
+    "permalink": "/docs/zh/commands/general/flow-create"
   },
   "next": {
     "title": "issue:new",
-    "permalink": "/docs/commands/issue/issue-new"
+    "permalink": "/docs/zh/commands/issue/issue-new"
   }
 }
