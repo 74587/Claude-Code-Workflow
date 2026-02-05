@@ -65,8 +65,8 @@ export function NavGroup({
               to={item.path}
               onClick={onNavClick}
               className={cn(
-                'flex items-center justify-center gap-3 px-2 py-2.5 rounded-md text-sm transition-colors',
-                'hover:bg-hover hover:text-foreground',
+                'flex items-center justify-center gap-3 px-2 py-2.5 rounded-md text-sm transition-all duration-200',
+                'hover:bg-hover hover:text-foreground hover-glow',
                 isActive
                   ? 'bg-primary/10 text-primary font-medium'
                   : 'text-muted-foreground'
@@ -107,8 +107,8 @@ export function NavGroup({
                   to={item.path}
                   onClick={onNavClick}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors pl-6',
-                    'hover:bg-hover hover:text-foreground',
+                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-all duration-200 pl-6',
+                    'hover:bg-hover hover:text-foreground hover-glow',
                     (isActive && !searchParams) || isQueryParamActive
                       ? 'bg-primary/10 text-primary font-medium'
                       : 'text-muted-foreground'

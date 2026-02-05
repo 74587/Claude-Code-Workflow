@@ -364,6 +364,18 @@ if (typeof window !== 'undefined') {
       );
     }
   });
+
+  // Apply initial theme immediately (before localStorage rehydration)
+  // This ensures gradient attributes are set from the start
+  const state = useAppStore.getState();
+  applyThemeToDocument(
+    state.resolvedTheme,
+    state.colorScheme,
+    state.customHue,
+    state.gradientLevel,
+    state.enableHoverGlow,
+    state.enableBackgroundAnimation
+  );
 }
 
 // Selectors for common access patterns

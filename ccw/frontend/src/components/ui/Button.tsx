@@ -19,6 +19,10 @@ const buttonVariants = cva(
           "hover:bg-accent hover:text-accent-foreground",
         link:
           "text-primary underline-offset-4 hover:underline",
+        gradient:
+          "bg-gradient-brand text-primary-foreground hover-glow",
+        gradientPrimary:
+          "bg-gradient-primary text-primary-foreground hover-glow-primary",
       },
       size: {
         default: "h-10 px-4 py-2",

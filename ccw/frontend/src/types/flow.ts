@@ -197,6 +197,7 @@ export interface FlowActions {
 
   // Node operations
   addNode: (position: { x: number; y: number }) => string;
+  addNodeFromTemplate: (templateId: string, position: { x: number; y: number }) => string;
   updateNode: (id: string, data: Partial<NodeData>) => void;
   removeNode: (id: string) => void;
   setNodes: (nodes: FlowNode[]) => void;
@@ -286,6 +287,30 @@ export interface QuickTemplate {
  * All use 'prompt-template' type with preset configurations
  */
 export const QUICK_TEMPLATES: QuickTemplate[] = [
+  {
+    id: 'slash-command-main',
+    label: 'Slash Command',
+    description: 'Execute /workflow commands (main thread)',
+    icon: 'Terminal',
+    color: 'bg-rose-500',
+    data: {
+      label: 'Slash Command',
+      instruction: 'Execute slash command:\n\n/workflow:plan "Implement [feature]"\n\nAvailable commands:\n- /workflow:plan\n- /workflow:lite-plan\n- /workflow:execute\n- /workflow:analyze-with-file\n- /workflow:brainstorm-with-file\n- /workflow:test-fix-gen',
+      mode: 'mainprocess',
+    },
+  },
+  {
+    id: 'slash-command-async',
+    label: 'Slash Command (Async)',
+    description: 'Execute /workflow commands (background)',
+    icon: 'Terminal',
+    color: 'bg-rose-400',
+    data: {
+      label: 'Slash Command (Async)',
+      instruction: 'Execute slash command in background:\n\n/workflow:execute --in-memory\n\nThe workflow will run asynchronously via CLI. Continue to next step without waiting.',
+      mode: 'async',
+    },
+  },
   {
     id: 'analysis',
     label: 'Analysis',

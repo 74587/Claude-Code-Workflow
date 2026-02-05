@@ -13,7 +13,7 @@ import type {
   NodeData,
   FlowEdgeData,
 } from '../types/flow';
-import { NODE_TYPE_CONFIGS as nodeConfigs } from '../types/flow';
+import { NODE_TYPE_CONFIGS as nodeConfigs, QUICK_TEMPLATES } from '../types/flow';
 
 // Helper to generate unique IDs
 const generateId = (prefix: string): string => {
@@ -252,6 +252,44 @@ export const useFlowStore = create<FlowStore>()(
           }),
           false,
           'addNode'
+        );
+
+        return id;
+      },
+
+      addNodeFromTemplate: (templateId: string, position: { x: number; y: number }): string => {
+        const template = QUICK_TEMPLATES.find((t) => t.id === templateId);
+        if (!template) {
+          console.error(`Template not found: ${templateId}`);
+          return get().addNode(position);
+        }
+
+        const id = generateId('node');
+        const config = nodeConfigs['prompt-template'];
+
+        // Merge template data with default data
+        const nodeData: NodeData = {
+          ...config.defaultData,
+          ...template.data,
+          label: template.data.label || template.label,
+          contextRefs: template.data.contextRefs || [],
+        };
+
+        const newNode: FlowNode = {
+          id,
+          type: 'prompt-template',
+          position,
+          data: nodeData,
+        };
+
+        set(
+          (state) => ({
+            nodes: [...state.nodes, newNode],
+            isModified: true,
+            selectedNodeId: id,
+          }),
+          false,
+          'addNodeFromTemplate'
         );
 
         return id;

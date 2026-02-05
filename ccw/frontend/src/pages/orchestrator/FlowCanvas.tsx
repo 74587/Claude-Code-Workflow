@@ -42,6 +42,7 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
   const setNodes = useFlowStore((state) => state.setNodes);
   const setEdges = useFlowStore((state) => state.setEdges);
   const addNode = useFlowStore((state) => state.addNode);
+  const addNodeFromTemplate = useFlowStore((state) => state.addNodeFromTemplate);
   const setSelectedNodeId = useFlowStore((state) => state.setSelectedNodeId);
   const setSelectedEdgeId = useFlowStore((state) => state.setSelectedEdgeId);
   const markModified = useFlowStore((state) => state.markModified);
@@ -127,10 +128,17 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
         y: event.clientY,
       });
 
-      // Add prompt-template node at drop position
-      addNode(position);
+      // Check if a template ID is provided
+      const templateId = event.dataTransfer.getData('application/reactflow-template-id');
+      if (templateId) {
+        // Use quick template
+        addNodeFromTemplate(templateId, position);
+      } else {
+        // Use basic empty node
+        addNode(position);
+      }
     },
-    [screenToFlowPosition, addNode]
+    [screenToFlowPosition, addNode, addNodeFromTemplate]
   );
 
   return (

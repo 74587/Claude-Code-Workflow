@@ -535,3 +535,49 @@
   animation: none;
   background-size: 100% 100%;
 }
+
+/* ===========================
+   Global Ambient Gradient Background
+   Always visible behind content
+   =========================== */
+
+/* Standard ambient gradient - subtle */
+[data-gradient="standard"] body::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 30% 30%, hsla(var(--accent), 0.03) 0%, transparent 50%),
+              radial-gradient(circle at 70% 70%, hsla(var(--primary), 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Enhanced ambient gradient - more vibrant with animation */
+[data-gradient="enhanced"] body::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 20% 20%, hsla(var(--accent), 0.08) 0%, transparent 40%),
+              radial-gradient(circle at 80% 80%, hsla(var(--primary), 0.08) 0%, transparent 40%),
+              radial-gradient(circle at 50% 50%, hsla(var(--secondary), 0.05) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: -1;
+  animation: ambient-shift 20s ease-in-out infinite;
+}
+
+/* Disable ambient gradient when off */
+[data-gradient="off"] body::before {
+  display: none;
+}
+
+/* Ambient shift animation for enhanced gradient */
+@keyframes ambient-shift {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-2%, -2%); }
+}
