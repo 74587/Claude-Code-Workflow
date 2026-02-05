@@ -1,6 +1,6 @@
 ---
 description: Serial collaborative planning with Plan Note - Single-agent sequential task generation, unified plan-note.md, conflict detection. Codex-optimized.
-argument-hint: "TASK=\"<description>\" [--max-domains=5] [--focus=<domain>]"
+argument-hint: "TASK=\"<description>\" [--max-domains=5]"
 ---
 
 # Codex Collaborative-Plan-With-File Workflow
@@ -316,7 +316,6 @@ Present session statistics and next steps.
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `--max-domains` | 5 | Maximum sub-domains to identify |
-| `--focus` | None | Focus specific domain (optional) |
 
 ---
 

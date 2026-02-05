@@ -1,6 +1,6 @@
 ---
 description: Parallel collaborative planning with Execution Groups - Multi-codex parallel task generation, execution group assignment, multi-branch strategy. Codex-optimized.
-argument-hint: "TASK=\"<description>\" [--max-groups=3] [--group-strategy=automatic|balanced|manual] [--focus=<domain>]"
+argument-hint: "TASK=\"<description>\" [--max-groups=3] [--group-strategy=automatic|balanced|manual]"
 ---
 
 # Codex Collaborative-Plan-Parallel Workflow
@@ -656,7 +656,6 @@ Present session statistics with execution group information.
 |-----------|---------|-------------|
 | `--max-groups` | 3 | Maximum execution groups to create |
 | `--group-strategy` | automatic | Group assignment: automatic / balanced / manual |
-| `--focus` | None | Focus specific domain (optional) |
 
 **Group Strategy Details**:
 - **automatic**: Group by dependency relationships (dependent domains in same group)
