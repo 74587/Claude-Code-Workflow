@@ -1,6 +1,8 @@
-# 命令转 Skill 规范 v1.0
+# 命令转 Skill 规范 v2.0
 
-> 基于 `workflow-plan` 命令转换实践提炼的标准流程
+> 基于 `workflow-plan` 转换实践提炼的标准流程
+>
+> **v2.0 变更**：命令调用引用统一转换为文件路径引用，不再保留 `/workflow:XX` 等命令调用语法
 
 ## ⚠️ 核心要求
 
@@ -70,7 +72,7 @@
 | ✅ 添加阶段标识 | Phase标题、来源标注 | `# Phase 1: Session Discovery` |
 | ✅ 添加组织结构 | 章节标题优化 | 添加 `## Execution Steps` |
 | ✅ 添加衔接说明 | Post-Phase Update | 阶段完成后的状态说明 |
-| ✅ 移除命令调用语法 | 移除 `/workflow`、`/command` 等命令引用 | 原文 `/workflow:session:start` → 移除 |
+| ✅ 命令引用转文件路径 | 将 `/workflow`、`/command` 等命令引用转换为相对文件路径 | 原文 `/workflow:session:start` → `phases/01-session-discovery.md` |
 | ✅ 移除 Frontmatter | 移除命令的 argument-hint、examples | 命令级元数据在 Skill 中不需要 |
 | ❌ 简化代码 | 任何代码的省略或改写 | 不允许 |
 | ❌ 简化Prompt | Agent Prompt的任何删减 | 不允许 |
@@ -111,19 +113,19 @@
    - ❌ 错误：省略JSON输出示例
    - ✅ 正确：保留所有输入输出示例
 
-**应移除的命令特有内容**：
+**引用转换规则**：
 
-转换时应移除以下命令格式专有的内容：
+命令引用统一转换为文件路径引用，规则如下：
 
-| 移除内容 | 原因 | 示例 |
-|---------|------|------|
-| **Frontmatter** | Skill 使用 SKILL.md 的 Frontmatter | `argument-hint`、`allowed-tools`、`examples` |
-| **命令调用语法** | Skill 使用 Phase 引用 | `/workflow:session:start` → 移除 |
-| **命令路径引用** | 改为 Phase 路径引用 | `commands/workflow/tools/` → 移除 |
-| **Skill 调用说明** | 在 SKILL.md 中统一说明 | `使用 /workflow:xxx 调用` → 移除 |
-| **命令参数说明** | 仅保留执行参数 | `usage: /workflow:plan [session-id]` → 移除 |
+| 原命令引用 | 转换方式 | 示例 |
+|-----------|---------|------|
+| **Frontmatter** | 移除，在 SKILL.md 中统一定义 | `argument-hint`、`examples` → 移除 |
+| **命令调用语法** | 转换为 Phase 文件的相对路径 | `/workflow:session:start` → `phases/01-session-discovery.md` |
+| **命令路径引用** | 转换为 Skill 目录内路径 | `commands/workflow/tools/` → `phases/` |
+| **跨命令引用** | 转换为 Phase 间文件引用 | `/workflow:tools:context-gather` → `phases/02-context-gathering.md` |
+| **命令参数说明** | 移除或转为 Phase Prerequisites | `usage: /workflow:plan [session-id]` → Phase Prerequisites 中说明 |
 
-**示例**：
+**转换示例**：
 
 原命令文件中：
 ```markdown
@@ -132,14 +134,21 @@
 - `/workflow:tools:context-gather` - Gather context
 ```
 
-转换后Phase文件中：
+转换后 Phase 文件中（使用文件路径引用）：
 ```markdown
 ## Related Phases
-- Phase 1: Session Discovery
-- Phase 2: Context Gathering
+- [Phase 1: Session Discovery](phases/01-session-discovery.md)
+- [Phase 2: Context Gathering](phases/02-context-gathering.md)
 ```
 
-或直接移除相关命令说明章节，因为 SKILL.md 已包含完整的 Phase 引用表。
+或在 SKILL.md 的 Phase Reference Table 中统一管理引用关系：
+```markdown
+### Phase Reference Documents
+| Phase | Document | Purpose |
+|-------|----------|---------|
+| Phase 1 | [phases/01-session-discovery.md](phases/01-session-discovery.md) | 会话发现与初始化 |
+| Phase 2 | [phases/02-context-gathering.md](phases/02-context-gathering.md) | 上下文收集 |
+```
 
 ### 2.2 分布读取原则
 
@@ -675,3 +684,4 @@ wc -l skills/{skill-name}/SKILL.md skills/{skill-name}/phases/*.md
 |------|------|------|
 | v1.0 | 2025-02-05 | 基于 workflow-plan 转换实践创建 |
 | v1.1 | 2025-02-05 | 强化内容一致性要求；添加第7章一致性验证；添加应移除的命令特有内容说明 |
+| v2.0 | 2026-02-05 | 命令调用引用统一转换为文件路径引用；移除 `/workflow:XX` 命令语法；引用转换规则重构 |
