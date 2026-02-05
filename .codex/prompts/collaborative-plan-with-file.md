@@ -1,34 +1,38 @@
 ---
-description: Serial collaborative planning with Plan Note - Single-agent sequential task generation, unified plan-note.md, conflict detection. Codex-optimized.
-argument-hint: "TASK=\"<description>\" [--max-domains=5]"
+description: Parallel collaborative planning with Plan Note - Multi-agent parallel task generation, unified plan-note.md, conflict detection. Codex subagent-optimized.
+argument-hint: "TASK=\"<description>\" [--max-agents=5]"
 ---
 
 # Codex Collaborative-Plan-With-File Workflow
 
 ## Quick Start
 
-Serial collaborative planning workflow using **Plan Note** architecture. Processes sub-domains sequentially, generates task plans, and detects conflicts across domains.
+Parallel collaborative planning workflow using **Plan Note** architecture. Spawns parallel subagents for each sub-domain, generates task plans concurrently, and detects conflicts across domains.
 
-**Core workflow**: Understand → Template → Sequential Planning → Conflict Detection → Completion
+**Core workflow**: Understand → Template → Parallel Subagent Planning → Conflict Detection → Completion
 
 **Key features**:
 - **plan-note.md**: Shared collaborative document with pre-allocated sections
-- **Serial domain processing**: Each sub-domain planned sequentially via CLI
+- **Parallel subagent planning**: Each sub-domain planned by its own subagent concurrently
 - **Conflict detection**: Automatic file, dependency, and strategy conflict scanning
 - **No merge needed**: Pre-allocated sections eliminate merge conflicts
 
-**Note**: Codex does not support parallel agent execution. All domains are processed serially.
+**Codex-Specific Features**:
+- Parallel subagent execution via `spawn_agent` + batch `wait({ ids: [...] })`
+- Role loading via path (agent reads `~/.codex/agents/*.md` itself)
+- Pre-allocated sections per agent = no write conflicts
+- Explicit lifecycle management with `close_agent`
 
 ## Overview
 
-This workflow enables structured planning through sequential phases:
+This workflow enables structured planning through parallel-capable phases:
 
 1. **Understanding & Template** - Analyze requirements, identify sub-domains, create plan-note.md template
-2. **Sequential Planning** - Process each sub-domain serially via CLI analysis
+2. **Parallel Planning** - Spawn subagent per sub-domain, batch wait for all results
 3. **Conflict Detection** - Scan plan-note.md for conflicts across all domains
 4. **Completion** - Generate human-readable plan.md summary
 
-The key innovation is the **Plan Note** architecture - a shared collaborative document with pre-allocated sections per sub-domain, eliminating merge conflicts.
+The key innovation is the **Plan Note** architecture - a shared collaborative document with pre-allocated sections per sub-domain, eliminating merge conflicts. Combined with Codex's true parallel subagent execution, all domains are planned simultaneously.
 
 ## Output Structure
 
@@ -55,12 +59,12 @@ The key innovation is the **Plan Note** architecture - a shared collaborative do
 | `plan-note.md` | Collaborative template with pre-allocated task pool and evidence sections per domain |
 | `requirement-analysis.json` | Sub-domain assignments, TASK ID ranges, complexity assessment |
 
-### Phase 2: Sequential Planning
+### Phase 2: Parallel Planning
 
 | Artifact | Purpose |
 |----------|---------|
-| `agents/{domain}/plan.json` | Detailed implementation plan per domain |
-| Updated `plan-note.md` | Task pool and evidence sections filled for each domain |
+| `agents/{domain}/plan.json` | Detailed implementation plan per domain (from parallel subagent) |
+| Updated `plan-note.md` | Task pool and evidence sections filled by each subagent |
 
 ### Phase 3: Conflict Detection
 
@@ -166,59 +170,163 @@ Create the sub-domain configuration document.
 
 ---
 
-## Phase 2: Sequential Sub-Domain Planning
+## Phase 2: Parallel Sub-Domain Planning
 
-**Objective**: Process each sub-domain serially via CLI analysis, generating detailed plans and updating plan-note.md.
+**Objective**: Spawn parallel subagents for each sub-domain, generating detailed plans and updating plan-note.md concurrently.
 
-**Execution Model**: Serial processing - plan each domain completely before moving to the next. Later domains can reference earlier planning results.
+**Execution Model**: Parallel subagent execution - all domains planned simultaneously via `spawn_agent` + batch `wait`.
 
-### Step 2.1: Domain Planning Loop
+**Key API Pattern**:
+```
+spawn_agent × N → wait({ ids: [...] }) → verify outputs → close_agent × N
+```
 
-For each sub-domain in sequence:
-1. Execute Gemini CLI analysis for the current domain
-2. Parse CLI output into structured plan
-3. Save detailed plan as `agents/{domain}/plan.json`
-4. Update plan-note.md with task summaries and evidence
+### Step 2.1: User Confirmation (unless autoMode)
 
-**Planning Guideline**: Wait for each domain's CLI analysis to complete before proceeding to the next.
+Display identified sub-domains and confirm before spawning agents.
 
-### Step 2.2: CLI Planning for Each Domain
+```javascript
+// User confirmation
+if (!autoMode) {
+  // Display sub-domains for user approval
+  // Options: "开始规划" / "调整拆分" / "取消"
+}
+```
 
-Execute synchronous CLI analysis to generate a detailed implementation plan.
+### Step 2.2: Parallel Subagent Planning
 
-**CLI Analysis Scope**:
-- **PURPOSE**: Generate detailed implementation plan for the specific domain
-- **CONTEXT**: Domain description, related codebase files, prior domain results
-- **TASK**: Analyze domain, identify all necessary tasks, define dependencies, estimate effort
-- **EXPECTED**: JSON output with tasks, summaries, interdependencies, total effort
+**⚠️ IMPORTANT**: Role files are NOT read by main process. Pass path in message, agent reads itself.
 
-**Analysis Output Should Include**:
-- Task breakdown with IDs from the assigned range
+**Spawn All Domain Agents in Parallel**:
+
+```javascript
+// Create agent directories first
+subDomains.forEach(sub => {
+  // mkdir: ${sessionFolder}/agents/${sub.focus_area}/
+})
+
+// Parallel spawn - all agents start immediately
+const agentIds = subDomains.map(sub => {
+  return spawn_agent({
+    message: `
+## TASK ASSIGNMENT
+
+### MANDATORY FIRST STEPS (Agent Execute)
+1. **Read role definition**: ~/.codex/agents/cli-lite-planning-agent.md (MUST read first)
+2. Read: .workflow/project-tech.json
+3. Read: .workflow/project-guidelines.json
+4. Read: ${sessionFolder}/plan-note.md (understand template structure)
+5. Read: ${sessionFolder}/requirement-analysis.json (understand full context)
+
+---
+
+## Sub-Domain Context
+**Focus Area**: ${sub.focus_area}
+**Description**: ${sub.description}
+**TASK ID Range**: ${sub.task_id_range[0]}-${sub.task_id_range[1]}
+**Session**: ${sessionId}
+
+## Dual Output Tasks
+
+### Task 1: Generate Complete plan.json
+Output: ${sessionFolder}/agents/${sub.focus_area}/plan.json
+
+Include:
+- Task breakdown with IDs from assigned range (${sub.task_id_range[0]}-${sub.task_id_range[1]})
 - Dependencies within and across domains
 - Files to modify with specific locations
 - Effort and complexity estimates per task
 - Conflict risk assessment for each task
 
-### Step 2.3: Update plan-note.md After Each Domain
+### Task 2: Sync Summary to plan-note.md
 
-Parse CLI output and update the plan-note.md sections for the current domain.
+**Locate Your Sections** (pre-allocated, ONLY modify these):
+- Task Pool: "## 任务池 - ${toTitleCase(sub.focus_area)}"
+- Evidence: "## 上下文证据 - ${toTitleCase(sub.focus_area)}"
 
-**Task Summary Format** (for "任务池" section):
-- Task header: `### TASK-{ID}: {Title} [{domain}]`
-- Fields: 状态 (status), 复杂度 (complexity), 依赖 (dependencies), 范围 (scope)
-- Modification points: File paths with line ranges and change summaries
-- Conflict risk assessment: Low/Medium/High
+**Task Summary Format**:
+### TASK-{ID}: {Title} [${sub.focus_area}]
+- **状态**: pending
+- **复杂度**: Low/Medium/High
+- **依赖**: TASK-xxx (if any)
+- **范围**: Brief scope description
+- **修改点**: file:line - change summary
+- **冲突风险**: Low/Medium/High
 
-**Evidence Format** (for "上下文证据" section):
-- Related files with relevance descriptions
-- Existing patterns identified in codebase
-- Constraints discovered during analysis
+**Evidence Format**:
+- 相关文件: File list with relevance
+- 现有模式: Patterns identified
+- 约束: Constraints discovered
+
+## Execution Steps
+1. Explore codebase for domain-relevant files
+2. Generate complete plan.json
+3. Extract task summaries from plan.json
+4. Read ${sessionFolder}/plan-note.md
+5. Locate and fill your pre-allocated task pool section
+6. Locate and fill your pre-allocated evidence section
+7. Write back plan-note.md
+
+## Important Rules
+- ONLY modify your pre-allocated sections (do NOT touch other domains)
+- Use assigned TASK ID range exclusively: ${sub.task_id_range[0]}-${sub.task_id_range[1]}
+- Include conflict_risk assessment for each task
+
+## Success Criteria
+- [ ] Role definition read
+- [ ] plan.json generated with detailed tasks
+- [ ] plan-note.md updated with task pool and evidence
+- [ ] All tasks within assigned ID range
+`
+  })
+})
+
+// Batch wait - TRUE PARALLELISM (key Codex advantage)
+const results = wait({
+  ids: agentIds,
+  timeout_ms: 900000  // 15 minutes for all planning agents
+})
+
+// Handle timeout
+if (results.timed_out) {
+  const completed = agentIds.filter(id => results.status[id].completed)
+  const pending = agentIds.filter(id => !results.status[id].completed)
+
+  // Option: Continue waiting or use partial results
+  // If most agents completed, proceed with partial results
+}
+
+// Verify outputs exist
+subDomains.forEach((sub, index) => {
+  const agentId = agentIds[index]
+  if (results.status[agentId].completed) {
+    // Verify: agents/${sub.focus_area}/plan.json exists
+    // Verify: plan-note.md sections populated
+  }
+})
+
+// Batch cleanup
+agentIds.forEach(id => close_agent({ id }))
+```
+
+### Step 2.3: Verify plan-note.md Consistency
+
+After all agents complete, verify the shared document.
+
+**Verification Activities**:
+1. Read final plan-note.md
+2. Verify all task pool sections are populated
+3. Verify all evidence sections are populated
+4. Check for any accidental cross-section modifications
+5. Validate TASK ID uniqueness across all domains
 
 **Success Criteria**:
-- All domains processed sequentially
+- All subagents spawned and completed (or timeout handled)
 - `agents/{domain}/plan.json` created for each domain
 - `plan-note.md` updated with all task pools and evidence sections
 - Task summaries follow consistent format
+- No TASK ID overlaps across domains
+- All agents closed properly
 
 ---
 
@@ -323,17 +431,51 @@ Present session statistics and next steps.
 
 | Situation | Action | Recovery |
 |-----------|--------|----------|
-| CLI timeout | Retry with shorter, focused prompt | Skip domain or reduce scope |
-| No tasks generated | Review domain description | Retry with refined description |
-| Section not found in plan-note | Recreate section defensively | Continue with new section |
-| Conflict detection fails | Continue with empty conflicts | Note in completion summary |
-| Session folder conflict | Append timestamp suffix | Create unique folder |
+| **Subagent timeout** | Check `results.timed_out`, continue `wait()` or use partial results | Reduce scope, plan remaining domains with new agent |
+| **Agent closed prematurely** | Cannot recover closed agent | Spawn new agent with domain context |
+| **Parallel agent partial failure** | Some domains complete, some fail | Use completed results, re-spawn for failed domains |
+| **plan-note.md write conflict** | Multiple agents write simultaneously | Pre-allocated sections prevent this; if detected, re-read and verify |
+| **Section not found in plan-note** | Agent creates section defensively | Continue with new section |
+| **No tasks generated** | Review domain description | Retry with refined description via new agent |
+| **Conflict detection fails** | Continue with empty conflicts | Note in completion summary |
+| **Session folder conflict** | Append timestamp suffix | Create unique folder |
+
+### Codex-Specific Error Patterns
+
+```javascript
+// Safe parallel planning with error handling
+try {
+  const agentIds = subDomains.map(sub => spawn_agent({ message: buildPlanPrompt(sub) }))
+
+  const results = wait({ ids: agentIds, timeout_ms: 900000 })
+
+  if (results.timed_out) {
+    const completed = agentIds.filter(id => results.status[id].completed)
+    const pending = agentIds.filter(id => !results.status[id].completed)
+
+    // Re-spawn for timed-out domains
+    const retryIds = pending.map((id, i) => {
+      const sub = subDomains[agentIds.indexOf(id)]
+      return spawn_agent({ message: buildPlanPrompt(sub) })
+    })
+
+    const retryResults = wait({ ids: retryIds, timeout_ms: 600000 })
+    retryIds.forEach(id => { try { close_agent({ id }) } catch(e) {} })
+  }
+
+} finally {
+  // ALWAYS cleanup
+  agentIds.forEach(id => {
+    try { close_agent({ id }) } catch (e) { /* ignore */ }
+  })
+}
+```
 
 ---
 
 ## Iteration Patterns
 
-### New Planning Session
+### New Planning Session (Parallel Mode)
 
 ```
 User initiates: TASK="task description"
@@ -341,9 +483,13 @@ User initiates: TASK="task description"
    ├─ Analyze task and identify sub-domains
    ├─ Create plan-note.md template
    ├─ Generate requirement-analysis.json
-   ├─ Process each domain serially:
-   │   ├─ CLI analysis → plan.json
-   │   └─ Update plan-note.md sections
+   │
+   ├─ Execute parallel planning:
+   │   ├─ spawn_agent × N (one per sub-domain)
+   │   ├─ wait({ ids: [...] })  ← TRUE PARALLELISM
+   │   └─ close_agent × N
+   │
+   ├─ Verify plan-note.md consistency
    ├─ Detect conflicts
    ├─ Generate plan.md summary
    └─ Report completion
@@ -355,8 +501,24 @@ User initiates: TASK="task description"
 User resumes: TASK="same task"
    ├─ Session exists → Continue mode
    ├─ Load plan-note.md and requirement-analysis.json
-   ├─ Resume from first incomplete domain
-   └─ Continue sequential processing
+   ├─ Identify incomplete domains (empty task pool sections)
+   ├─ Spawn agents for incomplete domains only
+   └─ Continue with conflict detection
+```
+
+### Agent Lifecycle Management
+
+```
+Subagent lifecycle:
+   ├─ spawn_agent({ message }) → Create with role path + task
+   ├─ wait({ ids, timeout_ms }) → Get results (ONLY way to get output)
+   └─ close_agent({ id }) → Cleanup (MUST do, cannot recover)
+
+Key rules:
+   ├─ Pre-allocated sections = no write conflicts
+   ├─ ALWAYS use wait() to get results, NOT close_agent()
+   ├─ Batch wait for all domain agents: wait({ ids: [a, b, c, ...] })
+   └─ Verify plan-note.md after batch completion
 ```
 
 ---
@@ -375,6 +537,16 @@ User resumes: TASK="same task"
 2. **Verify Domains**: Ensure sub-domains are truly independent and parallelizable
 3. **Check Dependencies**: Cross-domain dependencies should be documented explicitly
 4. **Inspect Details**: Review `agents/{domain}/plan.json` for specifics when needed
+
+### Codex Subagent Best Practices
+
+1. **Role Path, Not Content**: Pass `~/.codex/agents/*.md` path in message, let agent read itself
+2. **Pre-allocated Sections**: Each agent only writes to its own sections - no write conflicts
+3. **Batch wait**: Use `wait({ ids: [a, b, c] })` for all domain agents, not sequential waits
+4. **Handle Timeouts**: Check `results.timed_out`, re-spawn for failed domains
+5. **Explicit Cleanup**: Always `close_agent` when done, even on errors (use try/finally)
+6. **Verify After Batch**: Read plan-note.md after all agents complete to verify consistency
+7. **TASK ID Isolation**: Pre-assigned non-overlapping ranges prevent ID conflicts
 
 ### After Planning
 

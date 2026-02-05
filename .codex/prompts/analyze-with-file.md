@@ -1,6 +1,6 @@
 ---
 name: analyze-with-file
-description: Interactive collaborative analysis with documented discussions, CLI-assisted exploration, and evolving understanding. Serial analysis for Codex.
+description: Interactive collaborative analysis with documented discussions, parallel subagent exploration, and evolving understanding. Parallel analysis for Codex.
 argument-hint: "TOPIC=\"<question or topic>\" [--depth=quick|standard|deep] [--continue]"
 ---
 
@@ -8,20 +8,26 @@ argument-hint: "TOPIC=\"<question or topic>\" [--depth=quick|standard|deep] [--c
 
 ## Quick Start
 
-Interactive collaborative analysis workflow with **documented discussion process**. Records understanding evolution, facilitates multi-round Q&A, and uses CLI tools for deep exploration.
+Interactive collaborative analysis workflow with **documented discussion process**. Records understanding evolution, facilitates multi-round Q&A, and uses **parallel subagent exploration** for deep analysis.
 
-**Core workflow**: Topic → Explore → Discuss → Document → Refine → Conclude
+**Core workflow**: Topic → Parallel Explore → Discuss → Document → Refine → Conclude
 
 ## Overview
 
-This workflow enables iterative exploration and refinement of complex topics through sequential phases:
+This workflow enables iterative exploration and refinement of complex topics through parallel-capable phases:
 
 1. **Topic Understanding** - Parse the topic and identify analysis dimensions
-2. **CLI Exploration** - Gather codebase context and perform deep analysis via Gemini
+2. **Parallel Exploration** - Gather codebase context via parallel subagents (up to 4)
 3. **Interactive Discussion** - Multi-round Q&A with user feedback and direction adjustments
 4. **Synthesis & Conclusion** - Consolidate insights and generate actionable recommendations
 
 The key innovation is **documented discussion timeline** that captures the evolution of understanding across all phases, enabling users to track how insights develop and assumptions are corrected.
+
+**Codex-Specific Features**:
+- Parallel subagent execution via `spawn_agent` + batch `wait({ ids: [...] })`
+- Role loading via path (agent reads `~/.codex/agents/*.md` itself)
+- Deep interaction with `send_input` for multi-round within single agent
+- Explicit lifecycle management with `close_agent`
 
 ## Analysis Flow
 
@@ -34,18 +40,21 @@ Session Detection
 Phase 1: Topic Understanding
    ├─ Parse topic/question
    ├─ Identify analysis dimensions (architecture, implementation, performance, security, concept, comparison, decision)
-   ├─ Initial scoping with user (focus areas, analysis depth)
+   ├─ Initial scoping with user (focus areas, perspectives, analysis depth)
    └─ Initialize discussion.md
 
-Phase 2: CLI Exploration (Serial Execution)
-   ├─ Codebase context gathering (project structure, related files, constraints)
-   ├─ Gemini CLI analysis (build on codebase findings)
-   └─ Aggregate findings into explorations.json
+Phase 2: Parallel Exploration (Subagent Execution)
+   ├─ Determine exploration mode (single vs multi-perspective)
+   ├─ Parallel: spawn_agent × N (up to 4 perspectives)
+   ├─ Batch wait: wait({ ids: [agent1, agent2, ...] })
+   ├─ Aggregate findings from all perspectives
+   ├─ Synthesize convergent/conflicting themes (if multi-perspective)
+   └─ Write explorations.json or perspectives.json
 
 Phase 3: Interactive Discussion (Multi-Round)
    ├─ Present exploration findings to user
    ├─ Gather user feedback (deepen, adjust direction, ask questions, complete)
-   ├─ Execute targeted CLI analysis based on user direction
+   ├─ Execute targeted analysis via send_input or new subagent
    ├─ Update discussion.md with each round
    └─ Repeat until clarity achieved (max 5 rounds)
 
@@ -61,8 +70,13 @@ Phase 4: Synthesis & Conclusion
 ```
 .workflow/.analysis/ANL-{slug}-{date}/
 ├── discussion.md                # ⭐ Evolution of understanding & discussions
-├── exploration-codebase.json    # Phase 2: Codebase context and project structure
-├── explorations.json            # Phase 2: CLI analysis findings aggregated
+├── exploration-codebase.json    # Phase 2: Codebase context (single perspective)
+├── explorations/                # Phase 2: Multi-perspective explorations (if selected)
+│   ├── technical.json
+│   ├── architectural.json
+│   └── ...
+├── explorations.json            # Phase 2: Single perspective findings
+├── perspectives.json            # Phase 2: Multi-perspective findings with synthesis
 └── conclusions.json             # Phase 4: Final synthesis with recommendations
 ```
 
@@ -73,22 +87,24 @@ Phase 4: Synthesis & Conclusion
 | Artifact | Purpose |
 |----------|---------|
 | `discussion.md` | Initialized with session metadata and initial questions |
-| Session variables | Topic slug, dimensions, focus areas, analysis depth |
+| Session variables | Topic slug, dimensions, focus areas, perspectives, analysis depth |
 
-### Phase 2: CLI Exploration
+### Phase 2: Parallel Exploration
 
 | Artifact | Purpose |
 |----------|---------|
-| `exploration-codebase.json` | Codebase context: relevant files, patterns, constraints |
-| `explorations.json` | CLI analysis findings: key findings, discussion points, open questions |
-| Updated `discussion.md` | Round 1-2: Exploration results and initial analysis |
+| `exploration-codebase.json` | Single perspective: Codebase context (relevant files, patterns, constraints) |
+| `explorations/*.json` | Multi-perspective: Individual exploration results per perspective |
+| `explorations.json` | Single perspective: Aggregated findings |
+| `perspectives.json` | Multi-perspective: Findings with synthesis (convergent/conflicting themes) |
+| Updated `discussion.md` | Round 1: Exploration results and initial analysis |
 
 ### Phase 3: Interactive Discussion
 
 | Artifact | Purpose |
 |----------|---------|
-| Updated `discussion.md` | Round N (3-5): User feedback, direction adjustments, corrected assumptions |
-| CLI analysis results | Deepened analysis, adjusted perspective, or specific question answers |
+| Updated `discussion.md` | Round N (2-5): User feedback, direction adjustments, corrected assumptions |
+| Subagent analysis results | Deepened analysis, adjusted perspective, or specific question answers |
 
 ### Phase 4: Synthesis & Conclusion
 
@@ -155,10 +171,18 @@ For new analysis sessions, gather user preferences before exploration:
 - 最佳实践 (Best practices)
 - 问题诊断 (Problem diagnosis)
 
+**Analysis Perspectives** (Multi-select, max 4 for parallel exploration):
+- 技术视角 (Technical - implementation patterns, code structure)
+- 架构视角 (Architectural - system design, component interactions)
+- 安全视角 (Security - vulnerabilities, access control)
+- 性能视角 (Performance - bottlenecks, optimization)
+
+**Selection Note**: Single perspective = 1 subagent. Multiple perspectives = parallel subagents (up to 4).
+
 **Analysis Depth** (Single-select):
-- 快速概览 (Quick overview, 10-15 minutes)
-- 标准分析 (Standard analysis, 30-60 minutes)
-- 深度挖掘 (Deep dive, 1-2+ hours)
+- 快速概览 (Quick overview, 10-15 minutes, 1 agent)
+- 标准分析 (Standard analysis, 30-60 minutes, 1-2 agents)
+- 深度挖掘 (Deep dive, 1-2+ hours, up to 4 parallel agents)
 
 ### Step 1.3: Initialize discussion.md
 
@@ -185,103 +209,234 @@ Create the main discussion document with session metadata, context, and placehol
 
 ---
 
-## Phase 2: CLI Exploration
+## Phase 2: Parallel Exploration
 
-**Objective**: Gather codebase context and execute deep analysis via CLI tools to build understanding of the topic.
+**Objective**: Gather codebase context and execute deep analysis via parallel subagents to build understanding of the topic.
 
-**Execution Model**: Sequential (serial) execution - gather codebase context first, then perform CLI analysis building on those findings.
+**Execution Model**: Parallel subagent execution - spawn multiple agents for different perspectives, batch wait for all results, then aggregate.
 
-### Step 2.1: Codebase Context Gathering
+**Key API Pattern**:
+```
+spawn_agent × N → wait({ ids: [...] }) → aggregate → close_agent × N
+```
 
-Use built-in tools to understand the codebase structure and identify relevant code related to the topic.
+### Step 2.1: Determine Exploration Mode
 
-**Context Gathering Activities**:
-1. **Get project structure** - Execute `ccw tool exec get_modules_by_depth '{}'` to understand module organization
-2. **Search for related code** - Use Grep/Glob to find files matching topic keywords
-3. **Read project tech context** - Load `.workflow/project-tech.json` if available for constraints and integration points
-4. **Analyze patterns** - Identify common code patterns and architecture decisions
+Based on user's perspective selection in Phase 1, choose exploration mode:
 
-**exploration-codebase.json Structure**:
-- `relevant_files[]`: Files related to the topic with relevance indicators
-- `patterns[]`: Common code patterns and architectural styles identified
-- `constraints[]`: Project-level constraints that affect the analysis
-- `integration_points[]`: Key integration points between modules
-- `_metadata`: Timestamp and context information
+| Mode | Condition | Subagents | Output |
+|------|-----------|-----------|--------|
+| Single | Default or 1 perspective selected | 1 agent | `exploration-codebase.json`, `explorations.json` |
+| Multi-perspective | 2-4 perspectives selected | 2-4 agents | `explorations/*.json`, `perspectives.json` |
 
-**Key Information to Capture**:
-- Top 5-10 most relevant files with brief descriptions
-- Recurring patterns in code organization and naming
-- Project constraints (frameworks, architectural styles, tech stack)
-- Integration patterns between modules
-- Existing solutions or similar implementations
+### Step 2.2: Parallel Subagent Exploration
 
-### Step 2.2: Gemini CLI Analysis
+**⚠️ IMPORTANT**: Role files are NOT read by main process. Pass path in message, agent reads itself.
 
-Execute a comprehensive CLI analysis building on the codebase context gathered in Step 2.1.
+**Single Perspective Exploration**:
 
-**CLI Execution**: Synchronous analysis via Gemini with mode=analysis
+```javascript
+// spawn_agent with role path (agent reads itself)
+const explorationAgent = spawn_agent({
+  message: `
+## TASK ASSIGNMENT
 
-**Prompt Structure**:
-- **PURPOSE**: Clear goal and success criteria for the analysis
-- **PRIOR CODEBASE CONTEXT**: Incorporate findings from Step 2.1 (top files, patterns, constraints)
-- **TASK**: Specific investigation steps (analyze patterns, identify issues, generate insights, create discussion points)
-- **MODE**: analysis (read-only)
-- **CONTEXT**: Full codebase context with topic reference
-- **EXPECTED**: Structured output with evidence-based insights and confidence levels
-- **CONSTRAINTS**: Focus dimensions, ignore test files
+### MANDATORY FIRST STEPS (Agent Execute)
+1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
+2. Read: .workflow/project-tech.json
+3. Read: .workflow/project-guidelines.json
 
-**Analysis Output Should Include**:
-- Structured analysis organized by analysis dimensions
-- Specific insights tied to evidence (file references)
-- Questions to deepen understanding
-- Recommendations with clear rationale
-- Confidence levels (high/medium/low) for conclusions
-- 3-5 key findings with supporting details
+---
 
-**Execution Guideline**: Wait for CLI analysis to complete before proceeding to aggregation.
+## Analysis Context
+Topic: ${topic_or_question}
+Dimensions: ${dimensions.join(', ')}
+Session: ${sessionFolder}
+
+## Exploration Tasks
+1. Run: ccw tool exec get_modules_by_depth '{}'
+2. Execute relevant searches based on topic keywords
+3. Analyze identified files for patterns and constraints
+
+## Deliverables
+Write findings to: ${sessionFolder}/exploration-codebase.json
+
+Schema: {relevant_files, patterns, constraints, integration_points, key_findings, _metadata}
+
+## Success Criteria
+- [ ] Role definition read
+- [ ] At least 5 relevant files identified
+- [ ] Patterns and constraints documented
+- [ ] JSON output follows schema
+`
+})
+
+// Wait for single agent
+const result = wait({ ids: [explorationAgent], timeout_ms: 600000 })
+
+// Clean up
+close_agent({ id: explorationAgent })
+```
+
+**Multi-Perspective Parallel Exploration** (up to 4 agents):
+
+```javascript
+// Define perspectives based on user selection
+const selectedPerspectives = [
+  { name: 'technical', focus: 'Implementation patterns and code structure' },
+  { name: 'architectural', focus: 'System design and component interactions' },
+  { name: 'security', focus: 'Security patterns and vulnerabilities' },
+  { name: 'performance', focus: 'Performance bottlenecks and optimization' }
+].slice(0, userSelectedCount)  // Max 4
+
+// Parallel spawn - all agents start immediately
+const agentIds = selectedPerspectives.map(perspective => {
+  return spawn_agent({
+    message: `
+## TASK ASSIGNMENT
+
+### MANDATORY FIRST STEPS (Agent Execute)
+1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
+2. Read: .workflow/project-tech.json
+3. Read: .workflow/project-guidelines.json
+
+---
+
+## Analysis Context
+Topic: ${topic_or_question}
+Perspective: ${perspective.name} - ${perspective.focus}
+Session: ${sessionFolder}
+
+## Perspective-Specific Exploration
+Focus on ${perspective.focus} aspects of the topic.
+
+## Exploration Tasks
+1. Run: ccw tool exec get_modules_by_depth '{}'
+2. Execute searches focused on ${perspective.name} patterns
+3. Identify ${perspective.name}-specific findings
+
+## Deliverables
+Write findings to: ${sessionFolder}/explorations/${perspective.name}.json
+
+Schema: {
+  perspective: "${perspective.name}",
+  relevant_files, patterns, key_findings,
+  perspective_insights, open_questions,
+  _metadata
+}
+
+## Success Criteria
+- [ ] Role definition read
+- [ ] Perspective-specific insights identified
+- [ ] At least 3 relevant findings
+- [ ] JSON output follows schema
+`
+  })
+})
+
+// Batch wait - TRUE PARALLELISM (key Codex advantage)
+const results = wait({
+  ids: agentIds,
+  timeout_ms: 600000  // 10 minutes for all
+})
+
+// Handle timeout
+if (results.timed_out) {
+  // Some agents may still be running
+  // Decide: continue waiting or use completed results
+}
+
+// Collect results from all perspectives
+const completedFindings = {}
+agentIds.forEach((agentId, index) => {
+  const perspective = selectedPerspectives[index]
+  if (results.status[agentId].completed) {
+    completedFindings[perspective.name] = results.status[agentId].completed
+  }
+})
+
+// Batch cleanup
+agentIds.forEach(id => close_agent({ id }))
+```
 
 ### Step 2.3: Aggregate Findings
 
-Consolidate results from codebase context gathering and CLI analysis into a unified findings document.
+**Single Perspective Aggregation**:
 
-**explorations.json Structure**:
-- `session_id`: Reference to the analysis session
+Create `explorations.json` from single agent output:
+- Extract key findings from exploration-codebase.json
+- Organize by analysis dimensions
+- Generate discussion points and open questions
+
+**Multi-Perspective Synthesis**:
+
+Create `perspectives.json` from parallel agent outputs:
+
+```javascript
+const synthesis = {
+  session_id: sessionId,
+  timestamp: new Date().toISOString(),
+  topic: topic_or_question,
+  dimensions: dimensions,
+
+  // Individual perspective findings
+  perspectives: selectedPerspectives.map(p => ({
+    name: p.name,
+    findings: completedFindings[p.name]?.key_findings || [],
+    insights: completedFindings[p.name]?.perspective_insights || [],
+    questions: completedFindings[p.name]?.open_questions || []
+  })),
+
+  // Cross-perspective synthesis
+  synthesis: {
+    convergent_themes: extractConvergentThemes(completedFindings),
+    conflicting_views: extractConflicts(completedFindings),
+    unique_contributions: extractUniqueInsights(completedFindings)
+  },
+
+  // Aggregated for discussion
+  aggregated_findings: mergeAllFindings(completedFindings),
+  discussion_points: generateDiscussionPoints(completedFindings),
+  open_questions: mergeOpenQuestions(completedFindings)
+}
+```
+
+**perspectives.json Schema**:
+- `session_id`: Session identifier
 - `timestamp`: Completion time
 - `topic`: Original topic/question
-- `dimensions[]`: Identified analysis dimensions
-- `sources[]`: List of information sources (codebase exploration, CLI analysis)
-- `key_findings[]`: Main insights with evidence
-- `discussion_points[]`: Questions to engage user
-- `open_questions[]`: Unresolved or partially answered questions
-- `_metadata`: Processing metadata
-
-**Aggregation Activities**:
-1. Extract key findings from CLI analysis output
-2. Cross-reference with codebase context
-3. Identify discussion points that benefit from user input
-4. Note open questions for follow-up investigation
-5. Organize findings by analysis dimension
+- `dimensions[]`: Analysis dimensions
+- `perspectives[]`: [{name, findings, insights, questions}]
+- `synthesis`: {convergent_themes, conflicting_views, unique_contributions}
+- `aggregated_findings[]`: Main insights across all perspectives
+- `discussion_points[]`: Questions for user engagement
+- `open_questions[]`: Unresolved questions
 
 ### Step 2.4: Update discussion.md
 
-Append exploration results to the discussion timeline.
+Append Round 1 with exploration results.
 
-**Round 1-2 Sections** (Initial Understanding + Exploration Results):
-- **Codebase Findings**: Top relevant files and identified patterns
-- **Analysis Results**: Key findings, discussion points, recommendations
-- **Sources Analyzed**: Files and code patterns examined
+**Single Perspective Round 1**:
+- Sources analyzed (files, patterns)
+- Key findings with evidence
+- Discussion points for user
+- Open questions
 
-**Documentation Standards**:
-- Include direct references to analyzed files (file:line format)
-- List discussion points as questions or open items
-- Highlight key conclusions with confidence indicators
-- Note any constraints that affect the analysis
+**Multi-Perspective Round 1**:
+- Per-perspective summary (brief)
+- Synthesis section:
+  - Convergent themes (what all perspectives agree on)
+  - Conflicting views (where perspectives differ)
+  - Unique contributions (insights from specific perspectives)
+- Discussion points
+- Open questions
 
 **Success Criteria**:
-- `exploration-codebase.json` created with comprehensive context
-- `explorations.json` created with aggregated findings
-- `discussion.md` updated with Round 1-2 results
-- All explorations completed successfully
+- All subagents spawned and completed (or timeout handled)
+- `exploration-codebase.json` OR `explorations/*.json` created
+- `explorations.json` OR `perspectives.json` created with aggregated findings
+- `discussion.md` updated with Round 1 results
+- All agents closed properly
 - Ready for interactive discussion phase
 
 ---
@@ -291,6 +446,8 @@ Append exploration results to the discussion timeline.
 **Objective**: Iteratively refine understanding through multi-round user-guided discussion cycles.
 
 **Max Rounds**: 5 discussion rounds (can exit earlier if user indicates analysis is complete)
+
+**Execution Model**: Use `send_input` for deep interaction within same agent context, or spawn new agent for significantly different analysis angles.
 
 ### Step 3.1: Present Findings & Gather Feedback
 
@@ -306,69 +463,192 @@ Display current understanding and exploration findings to the user.
 
 | Option | Purpose | Next Action |
 |--------|---------|------------|
-| **继续深入** | Analysis direction is correct, deepen investigation | Execute deeper CLI analysis on same topic |
-| **调整方向** | Different understanding or focus needed | Ask for adjusted focus, rerun CLI analysis |
-| **有具体问题** | Specific questions to ask about the topic | Capture questions, use CLI to answer them |
+| **继续深入** | Analysis direction is correct, deepen investigation | `send_input` to existing agent OR spawn new deepening agent |
+| **调整方向** | Different understanding or focus needed | Spawn new agent with adjusted focus |
+| **有具体问题** | Specific questions to ask about the topic | `send_input` with specific questions OR spawn Q&A agent |
 | **分析完成** | Sufficient information obtained | Exit discussion loop, proceed to synthesis |
 
-### Step 3.2: Deepen Analysis
+### Step 3.2: Deepen Analysis (via send_input or new agent)
 
-When user selects "continue deepening", execute more detailed investigation in the same direction.
+When user selects "continue deepening", execute more detailed investigation.
 
-**Deepening Strategy**:
-- Focus on previously identified findings
-- Investigate edge cases and special scenarios
-- Identify patterns not yet discussed
-- Suggest implementation or improvement approaches
-- Provide risk/impact assessments
+**Option A: send_input to Existing Agent** (preferred if agent still active)
 
-**CLI Execution**: Synchronous analysis via Gemini with emphasis on elaboration and detail.
+```javascript
+// Continue with existing agent context (if not closed)
+send_input({
+  id: explorationAgent,
+  message: `
+## CONTINUATION: Deepen Analysis
 
-**Analysis Scope**:
-- Expand on prior findings with more specifics
-- Investigate corner cases and limitations
-- Propose concrete improvement strategies
-- Provide risk/impact ratings for findings
-- Generate follow-up questions
+Based on your initial exploration, the user wants deeper investigation.
 
-### Step 3.3: Adjust Direction
+## Focus Areas for Deepening
+${previousFindings.discussion_points.map(p => `- ${p}`).join('\n')}
 
-When user indicates a different focus is needed, shift the analysis angle.
+## Additional Tasks
+1. Investigate edge cases and special scenarios
+2. Identify patterns not yet discussed
+3. Suggest implementation or improvement approaches
+4. Provide risk/impact assessments
+
+## Deliverables
+Append to: ${sessionFolder}/explorations.json (add "deepening_round_N" section)
+
+## Success Criteria
+- [ ] Prior findings expanded with specifics
+- [ ] Corner cases and limitations identified
+- [ ] Concrete improvement strategies proposed
+`
+})
+
+const deepenResult = wait({ ids: [explorationAgent], timeout_ms: 600000 })
+```
+
+**Option B: Spawn New Deepening Agent** (if prior agent closed)
+
+```javascript
+const deepeningAgent = spawn_agent({
+  message: `
+## TASK ASSIGNMENT
+
+### MANDATORY FIRST STEPS (Agent Execute)
+1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
+2. Read: ${sessionFolder}/explorations.json (prior findings)
+3. Read: .workflow/project-tech.json
+
+---
+
+## Context
+Topic: ${topic_or_question}
+Prior Findings Summary: ${previousFindings.key_findings.slice(0,3).join('; ')}
+
+## Deepening Task
+Expand on prior findings with more detailed investigation.
+
+## Focus Areas
+${previousFindings.discussion_points.map(p => `- ${p}`).join('\n')}
+
+## Deliverables
+Update: ${sessionFolder}/explorations.json (add deepening insights)
+`
+})
+
+const result = wait({ ids: [deepeningAgent], timeout_ms: 600000 })
+close_agent({ id: deepeningAgent })
+```
+
+### Step 3.3: Adjust Direction (new agent)
+
+When user indicates a different focus is needed, spawn new agent with adjusted perspective.
 
 **Direction Adjustment Process**:
 1. Ask user for adjusted focus area (through AskUserQuestion)
-2. Determine new analysis angle (different dimension or perspective)
-3. Execute CLI analysis from new perspective
-4. Compare new insights with prior analysis
-5. Identify what was missed and why
+2. Spawn new agent with different dimension/perspective
+3. Compare new insights with prior analysis
+4. Identify what was missed and why
 
-**CLI Execution**: Synchronous analysis via Gemini with new perspective.
+```javascript
+// Spawn agent with adjusted focus
+const adjustedAgent = spawn_agent({
+  message: `
+## TASK ASSIGNMENT
 
-**Analysis Scope**:
-- Analyze topic from different dimension or angle
-- Identify gaps in prior analysis
-- Generate insights specific to new focus
-- Cross-reference with prior findings
-- Suggest investigation paths forward
+### MANDATORY FIRST STEPS (Agent Execute)
+1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
+2. Read: ${sessionFolder}/explorations.json (prior findings)
+3. Read: .workflow/project-tech.json
 
-### Step 3.4: Answer Specific Questions
+---
+
+## Context
+Topic: ${topic_or_question}
+Previous Focus: ${previousDimensions.join(', ')}
+**New Focus**: ${userAdjustedFocus}
+
+## Adjusted Analysis Task
+Analyze the topic from ${userAdjustedFocus} perspective.
+
+## Tasks
+1. Identify gaps in prior analysis
+2. Generate insights specific to new focus
+3. Cross-reference with prior findings
+4. Explain what was missed and why
+
+## Deliverables
+Update: ${sessionFolder}/explorations.json (add adjusted_direction section)
+`
+})
+
+const result = wait({ ids: [adjustedAgent], timeout_ms: 600000 })
+close_agent({ id: adjustedAgent })
+```
+
+### Step 3.4: Answer Specific Questions (send_input preferred)
 
 When user has specific questions, address them directly.
 
-**Question Handling Process**:
-1. Capture user questions (through AskUserQuestion)
-2. Use CLI analysis or direct investigation to answer
-3. Provide evidence-based answers with supporting details
-4. Offer related follow-up investigations
+**Preferred: send_input to Active Agent**
 
-**CLI Execution**: Synchronous analysis via Gemini focused on specific questions.
+```javascript
+// Capture user questions first
+const userQuestions = await AskUserQuestion({
+  question: "What specific questions do you have?",
+  options: [/* predefined + custom */]
+})
 
-**Analysis Scope**:
+// Send questions to active agent
+send_input({
+  id: activeAgent,
+  message: `
+## USER QUESTIONS
+
+Please answer the following questions based on your analysis:
+
+${userQuestions.map((q, i) => `Q${i+1}: ${q}`).join('\n\n')}
+
+## Requirements
 - Answer each question directly and clearly
-- Provide evidence and examples
-- Clarify ambiguous or complex points
+- Provide evidence and file references
+- Rate confidence for each answer (high/medium/low)
 - Suggest related investigation areas
-- Rate confidence for each answer
+`
+})
+
+const answerResult = wait({ ids: [activeAgent], timeout_ms: 300000 })
+```
+
+**Alternative: Spawn Q&A Agent**
+
+```javascript
+const qaAgent = spawn_agent({
+  message: `
+## TASK ASSIGNMENT
+
+### MANDATORY FIRST STEPS (Agent Execute)
+1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
+2. Read: ${sessionFolder}/explorations.json (context)
+
+---
+
+## Q&A Task
+Answer user's specific questions:
+
+${userQuestions.map((q, i) => `Q${i+1}: ${q}`).join('\n\n')}
+
+## Requirements
+- Evidence-based answers with file references
+- Confidence rating for each answer
+- Suggest related investigation areas
+
+## Deliverables
+Append to: ${sessionFolder}/explorations.json (add qa_round_N section)
+`
+})
+
+const result = wait({ ids: [qaAgent], timeout_ms: 300000 })
+close_agent({ id: qaAgent })
+```
 
 ### Step 3.5: Document Each Round
 
@@ -498,6 +778,21 @@ Offer user follow-up actions based on analysis results.
 
 ## Configuration
 
+### Analysis Perspectives
+
+Optional multi-perspective parallel exploration (single perspective is default, max 4):
+
+| Perspective | Role File | Focus | Best For |
+|------------|-----------|-------|----------|
+| **Technical** | `~/.codex/agents/cli-explore-agent.md` | Implementation, code patterns, technical feasibility | Understanding how and technical details |
+| **Architectural** | `~/.codex/agents/cli-explore-agent.md` | System design, scalability, component interactions | Understanding structure and organization |
+| **Security** | `~/.codex/agents/cli-explore-agent.md` | Security patterns, vulnerabilities, access control | Identifying security risks |
+| **Performance** | `~/.codex/agents/cli-explore-agent.md` | Bottlenecks, optimization, resource utilization | Finding performance issues |
+
+**Selection**: User can multi-select up to 4 perspectives in Phase 1, or default to single comprehensive view.
+
+**Subagent Assignment**: Each perspective gets its own subagent for true parallel exploration.
+
 ### Analysis Dimensions Reference
 
 Dimensions guide the scope and focus of analysis:
@@ -514,11 +809,11 @@ Dimensions guide the scope and focus of analysis:
 
 ### Analysis Depth Levels
 
-| Depth | Duration | Scope | Questions |
+| Depth | Duration | Scope | Subagents |
 |-------|----------|-------|-----------|
-| Quick (快速概览) | 10-15 min | Surface level understanding | 3-5 key questions |
-| Standard (标准分析) | 30-60 min | Moderate depth with good coverage | 5-8 key questions |
-| Deep (深度挖掘) | 1-2+ hours | Comprehensive detailed analysis | 10+ key questions |
+| Quick (快速概览) | 10-15 min | Surface level understanding | 1 agent, short timeout |
+| Standard (标准分析) | 30-60 min | Moderate depth with good coverage | 1-2 agents |
+| Deep (深度挖掘) | 1-2+ hours | Comprehensive detailed analysis | Up to 4 parallel agents |
 
 ### Focus Areas
 
@@ -537,27 +832,70 @@ Common focus areas that guide the analysis direction:
 
 | Situation | Action | Recovery |
 |-----------|--------|----------|
-| CLI timeout | Retry with shorter, focused prompt | Skip analysis or reduce depth |
-| No relevant findings | Broaden search keywords or adjust scope | Ask user for clarification |
-| User disengaged | Summarize progress and offer break point | Save state for later continuation |
-| Max rounds reached (5) | Force synthesis phase | Highlight remaining questions in conclusions |
-| Session folder conflict | Append timestamp suffix to session ID | Create unique folder and continue |
+| **Subagent timeout** | Check `results.timed_out`, continue `wait()` or use partial results | Reduce scope, spawn single agent instead of parallel |
+| **Agent closed prematurely** | Cannot recover closed agent | Spawn new agent with prior context from explorations.json |
+| **Parallel agent partial failure** | Some agents complete, some fail | Use completed results, note gaps in synthesis |
+| **send_input to closed agent** | Error: agent not found | Spawn new agent with prior findings as context |
+| **No relevant findings** | Broaden search keywords or adjust scope | Ask user for clarification |
+| **User disengaged** | Summarize progress and offer break point | Save state, keep agents alive for resume |
+| **Max rounds reached (5)** | Force synthesis phase | Highlight remaining questions in conclusions |
+| **Session folder conflict** | Append timestamp suffix to session ID | Create unique folder and continue |
+
+### Codex-Specific Error Patterns
+
+```javascript
+// Safe parallel execution with error handling
+try {
+  const agentIds = perspectives.map(p => spawn_agent({ message: buildPrompt(p) }))
+
+  const results = wait({ ids: agentIds, timeout_ms: 600000 })
+
+  if (results.timed_out) {
+    // Handle partial completion
+    const completed = agentIds.filter(id => results.status[id].completed)
+    const pending = agentIds.filter(id => !results.status[id].completed)
+
+    // Option 1: Continue waiting for pending
+    // const moreResults = wait({ ids: pending, timeout_ms: 300000 })
+
+    // Option 2: Use partial results
+    // processPartialResults(completed, results)
+  }
+
+  // Process all results
+  processResults(agentIds, results)
+
+} finally {
+  // ALWAYS cleanup, even on errors
+  agentIds.forEach(id => {
+    try { close_agent({ id }) } catch (e) { /* ignore */ }
+  })
+}
+```
 
 ---
 
 ## Iteration Patterns
 
-### First Analysis Session
+### First Analysis Session (Parallel Mode)
 
 ```
 User initiates: TOPIC="specific question"
    ├─ No session exists → New session mode
    ├─ Parse topic and identify dimensions
-   ├─ Scope analysis with user (focus areas, depth)
+   ├─ Scope analysis with user (focus areas, perspectives, depth)
    ├─ Create discussion.md
-   ├─ Gather codebase context
-   ├─ Execute Gemini CLI analysis
-   ├─ Aggregate findings
+   │
+   ├─ Determine exploration mode:
+   │   ├─ Single perspective → 1 subagent
+   │   └─ Multi-perspective → 2-4 parallel subagents
+   │
+   ├─ Execute parallel exploration:
+   │   ├─ spawn_agent × N (perspectives)
+   │   ├─ wait({ ids: [...] })  ← TRUE PARALLELISM
+   │   └─ close_agent × N
+   │
+   ├─ Aggregate findings (+ synthesis if multi-perspective)
    └─ Enter multi-round discussion loop
 ```
 
@@ -567,32 +905,50 @@ User initiates: TOPIC="specific question"
 User resumes: TOPIC="same topic" with --continue flag
    ├─ Session exists → Continue mode
    ├─ Load previous discussion.md
-   ├─ Load explorations.json
+   ├─ Load explorations.json or perspectives.json
    └─ Resume from last discussion round
 ```
 
-### Discussion Loop (Rounds 3-5)
+### Discussion Loop (Rounds 2-5)
 
 ```
 Each round:
    ├─ Present current findings
    ├─ Gather user feedback
    ├─ Process response:
-   │   ├─ Deepen → Deeper CLI analysis on same topic
-   │   ├─ Adjust → New CLI analysis with adjusted focus
-   │   ├─ Questions → CLI analysis answering specific questions
+   │   ├─ Deepen → send_input to active agent OR spawn deepening agent
+   │   ├─ Adjust → spawn new agent with adjusted focus
+   │   ├─ Questions → send_input with questions OR spawn Q&A agent
    │   └─ Complete → Exit loop for synthesis
+   ├─ wait({ ids: [...] }) for result
    ├─ Update discussion.md
    └─ Repeat until user selects complete or max rounds reached
+```
+
+### Agent Lifecycle Management
+
+```
+Subagent lifecycle:
+   ├─ spawn_agent({ message }) → Create with role path + task
+   ├─ wait({ ids, timeout_ms }) → Get results (ONLY way to get output)
+   ├─ send_input({ id, message }) → Continue interaction (if not closed)
+   └─ close_agent({ id }) → Cleanup (MUST do, cannot recover)
+
+Key rules:
+   ├─ NEVER close before you're done with an agent
+   ├─ ALWAYS use wait() to get results, NOT close_agent()
+   ├─ Batch wait for parallel agents: wait({ ids: [a, b, c] })
+   └─ Delay close_agent until all rounds complete (for send_input reuse)
 ```
 
 ### Completion Flow
 
 ```
 Final synthesis:
-   ├─ Consolidate all insights
+   ├─ Consolidate all insights from all rounds
    ├─ Generate conclusions.json
    ├─ Update discussion.md with final synthesis
+   ├─ close_agent for any remaining active agents
    ├─ Offer follow-up options
    └─ Archive session artifacts
 ```
@@ -605,7 +961,8 @@ Final synthesis:
 
 1. **Clear Topic Definition**: Detailed topics lead to better dimension identification
 2. **User Context**: Understanding focus preferences helps scope the analysis
-3. **Scope Understanding**: Being clear about depth expectations sets correct analysis intensity
+3. **Perspective Selection**: Choose 2-4 perspectives for complex topics, single for focused queries
+4. **Scope Understanding**: Being clear about depth expectations sets correct analysis intensity
 
 ### During Analysis
 
@@ -615,6 +972,15 @@ Final synthesis:
 4. **Embrace Corrections**: Track wrong→right transformations as valuable learnings
 5. **Iterate Thoughtfully**: Each discussion round should meaningfully refine understanding
 
+### Codex Subagent Best Practices
+
+1. **Role Path, Not Content**: Pass `~/.codex/agents/*.md` path in message, let agent read itself
+2. **Delay close_agent**: Keep agents active for `send_input` reuse during discussion rounds
+3. **Batch wait**: Use `wait({ ids: [a, b, c] })` for parallel agents, not sequential waits
+4. **Handle Timeouts**: Check `results.timed_out` and decide: continue waiting or use partial results
+5. **Explicit Cleanup**: Always `close_agent` when done, even on errors (use try/finally pattern)
+6. **send_input vs spawn**: Prefer `send_input` for same-context continuation, `spawn` for new angles
+
 ### Documentation Practices
 
 1. **Evidence-Based**: Every conclusion should reference specific code or patterns
@@ -622,6 +988,7 @@ Final synthesis:
 3. **Timeline Clarity**: Use clear timestamps for traceability
 4. **Evolution Tracking**: Document how understanding changed across rounds
 5. **Action Items**: Generate specific, actionable recommendations
+6. **Multi-Perspective Synthesis**: When using parallel perspectives, document convergent/conflicting themes
 
 ---
 

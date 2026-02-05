@@ -583,30 +583,13 @@ After ALL tasks in the solution pass implementation, testing, and verification, 
 # Stage all modified files from all tasks
 git add path/to/file1.ts path/to/file2.ts ...
 
-# Commit with formatted solution summary
-git commit -m "$(cat <<'EOF'
-[commit_type](scope): [solution.description - brief]
+# Commit with clean, standard format (NO solution metadata)
+git commit -m "[commit_type](scope): [brief description of changes]"
 
-## Solution Summary
-- **Solution-ID**: [solution_id]
-- **Issue-ID**: [issue_id]
-- **Risk/Impact/Complexity**: [solution.analysis.risk]/[solution.analysis.impact]/[solution.analysis.complexity]
-
-## Tasks Completed
-- [T1] [task1.title]: [task1.action] [task1.scope]
-- [T2] [task2.title]: [task2.action] [task2.scope]
-- ...
-
-## Files Modified
-- path/to/file1.ts
-- path/to/file2.ts
-- ...
-
-## Verification
-- All unit tests passed
-- All acceptance criteria verified
-EOF
-)"
+# Example commits:
+# feat(auth): add token refresh mechanism
+# fix(payment): resolve timeout handling in checkout flow
+# refactor(api): simplify error handling logic
 ```
 
 **Commit Type Selection**:
@@ -644,16 +627,78 @@ EOF
 
 ## Step 4: Report Completion
 
-After ALL tasks in the solution are complete and committed, report to queue system:
+After ALL tasks in the solution are complete and committed, report to queue system with full solution metadata:
 
 ```javascript
 // ccw auto-detects worktree and uses main repo's .workflow/
+// Record ALL solution context here (NOT in git commit)
 shell_command({
   command: `ccw issue done ${item_id} --result '${JSON.stringify({
-    files_modified: ["path1", "path2"],
+    solution_id: solution.id,
+    issue_id: issue_id,
+    commit: {
+      hash: commit_hash,
+      type: commit_type,
+      scope: commit_scope,
+      message: commit_message
+    },
+    analysis: {
+      risk: solution.analysis.risk,
+      impact: solution.analysis.impact,
+      complexity: solution.analysis.complexity
+    },
+    tasks_completed: solution.tasks.map(t => ({
+      id: t.id,
+      title: t.title,
+      action: t.action,
+      scope: t.scope
+    })),
+    files_modified: ["path1", "path2", ...],
     tests_passed: true,
-    commit: { hash: "abc123", type: "feat", tasks: ["T1", "T2"] },
-    summary: "[What was accomplished]"
+    verification: {
+      all_tests_passed: true,
+      acceptance_criteria_met: true,
+      regression_checked: true
+    },
+    summary: "[What was accomplished - brief description]"
+  })}'`
+})
+```
+
+**Complete Example**:
+
+```javascript
+shell_command({
+  command: `ccw issue done S-1 --result '${JSON.stringify({
+    solution_id: "SOL-ISS-20251227-001-1",
+    issue_id: "ISS-20251227-001",
+    commit: {
+      hash: "a1b2c3d4",
+      type: "feat",
+      scope: "auth",
+      message: "feat(auth): add token refresh mechanism"
+    },
+    analysis: {
+      risk: "low",
+      impact: "medium",
+      complexity: "medium"
+    },
+    tasks_completed: [
+      { id: "T1", title: "Implement refresh token endpoint", action: "Add", scope: "src/auth/" },
+      { id: "T2", title: "Add token rotation logic", action: "Create", scope: "src/auth/services/" }
+    ],
+    files_modified: [
+      "src/auth/routes/token.ts",
+      "src/auth/services/refresh.ts",
+      "src/auth/middleware/validate.ts"
+    ],
+    tests_passed: true,
+    verification: {
+      all_tests_passed: true,
+      acceptance_criteria_met: true,
+      regression_checked: true
+    },
+    summary: "Implemented token refresh mechanism with automatic rotation"
   })}'`
 })
 ```
@@ -662,7 +707,13 @@ shell_command({
 
 ```javascript
 shell_command({
-  command: `ccw issue done ${item_id} --fail --reason '{"task_id": "TX", "error_type": "test_failure", "message": "..."}'`
+  command: `ccw issue done ${item_id} --fail --reason '${JSON.stringify({
+    task_id: "TX",
+    error_type: "test_failure",
+    message: "Integration tests failed: timeout in token validation",
+    files_attempted: ["path1", "path2"],
+    commit: null
+  })}'`
 })
 ```
 
