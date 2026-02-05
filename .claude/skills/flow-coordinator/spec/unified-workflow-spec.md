@@ -48,6 +48,10 @@ interface PromptTemplateNodeData {
   label: string;                 // Display label in editor
   instruction: string;           // Natural language instruction
 
+  // === Slash Command (optional, overrides instruction) ===
+  slashCommand?: string;         // Slash command name (e.g., "workflow:plan")
+  slashArgs?: string;            // Arguments for slash command (supports {{variable}})
+
   // === Data Flow ===
   outputName?: string;           // Name for output reference
   contextRefs?: string[];        // References to previous outputs
@@ -62,6 +66,10 @@ interface PromptTemplateNodeData {
   executionResult?: unknown;
 }
 ```
+
+**Instruction Resolution Priority**:
+1. If `slashCommand` is set: `/{slashCommand} {slashArgs}` + optional `instruction` as context
+2. Otherwise: `instruction` directly
 
 ### FlowEdge
 

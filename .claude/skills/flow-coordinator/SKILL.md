@@ -43,6 +43,8 @@ Execution Modes:
 
 **Unified PromptTemplate Model**: All workflow steps are natural language instructions with:
 - `instruction`: What to execute (natural language)
+- `slashCommand`: Optional slash command name (e.g., "workflow:plan")
+- `slashArgs`: Optional arguments for slash command (supports {{variable}})
 - `outputName`: Name for output reference
 - `contextRefs`: References to previous step outputs
 - `tool`: Optional CLI tool (gemini/qwen/codex/claude)
@@ -137,18 +139,14 @@ async function executeDAG(workflow, order, state, statusPath) {
       continue; // Will be executed when dependencies complete
     }
 
-    // Resolve context references
-    const resolvedInstruction = resolveContextRefs(
-      data.instruction,
-      data.contextRefs || [],
-      state.outputs
-    );
+    // Build instruction from slashCommand or raw instruction
+    let instruction = buildNodeInstruction(data, state.outputs);
 
     // Execute based on mode
     state.nodeStates[nodeId] = { status: 'running' };
     write(statusPath, JSON.stringify(state, null, 2));
 
-    const result = await executeNode(resolvedInstruction, data.tool, data.mode);
+    const result = await executeNode(instruction, data.tool, data.mode);
 
     // Store output for downstream nodes
     state.nodeStates[nodeId] = { status: 'completed', result };
@@ -160,6 +158,36 @@ async function executeDAG(workflow, order, state, statusPath) {
 
   state.complete = true;
   write(statusPath, JSON.stringify(state, null, 2));
+}
+
+/**
+ * Build node instruction from slashCommand or raw instruction
+ * Handles slashCommand/slashArgs fields from frontend orchestrator
+ */
+function buildNodeInstruction(data, outputs) {
+  const refs = data.contextRefs || [];
+
+  // If slashCommand is set, construct instruction from it
+  if (data.slashCommand) {
+    // Resolve variables in slashArgs
+    const args = data.slashArgs
+      ? resolveContextRefs(data.slashArgs, refs, outputs)
+      : '';
+
+    // Build slash command instruction
+    let instruction = `/${data.slashCommand}${args ? ' ' + args : ''}`;
+
+    // Append additional instruction if provided
+    if (data.instruction) {
+      const additionalInstruction = resolveContextRefs(data.instruction, refs, outputs);
+      instruction = `${instruction}\n\n${additionalInstruction}`;
+    }
+
+    return instruction;
+  }
+
+  // Fallback: use raw instruction with context refs resolved
+  return resolveContextRefs(data.instruction || '', refs, outputs);
 }
 
 function resolveContextRefs(instruction, refs, outputs) {
