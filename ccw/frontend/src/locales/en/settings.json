@@ -1,0 +1,80 @@
+{
+  "title": "Settings",
+  "description": "Configure your dashboard preferences and CLI tools",
+  "sections": {
+    "appearance": "Appearance",
+    "cliTools": "CLI Tools",
+    "display": "Display Settings",
+    "language": "Language",
+    "hooks": "Git Hooks",
+    "rules": "Rules",
+    "about": "About"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "theme": "Theme",
+    "themeOptions": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "description": "Choose your preferred color theme",
+    "systemFollow": "System",
+    "systemFollowDesc": "Use system's dark/light mode setting"
+  },
+  "cliTools": {
+    "title": "CLI Tools",
+    "description": "Configure CLI tool settings",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "default": "Default",
+    "setDefault": "Set as Default",
+    "primaryModel": "Primary Model",
+    "secondaryModel": "Secondary Model",
+    "expand": "Expand for details"
+  },
+  "display": {
+    "title": "Display Settings",
+    "showCompletedTasks": "Show Completed Tasks",
+    "showCompletedTasksDesc": "Display completed tasks in task lists",
+    "show": "Show",
+    "hide": "Hide"
+  },
+  "language": {
+    "title": "Language",
+    "description": "Select your preferred language",
+    "english": "English",
+    "chinese": "中文",
+    "displayLanguage": "Display Language",
+    "chooseLanguage": "Choose your preferred language for the interface"
+  },
+  "dataRefresh": {
+    "title": "Data Refresh",
+    "autoRefresh": "Auto Refresh",
+    "autoRefreshDesc": "Automatically refresh data periodically",
+    "refreshInterval": "Refresh Interval",
+    "refreshIntervalDesc": "How often to refresh data",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "enableNotifications": "Enable Notifications",
+    "enableNotificationsDesc": "Show notifications for workflow events",
+    "soundEffects": "Sound Effects",
+    "soundEffectsDesc": "Play sound for notifications",
+    "on": "On",
+    "off": "Off"
+  },
+  "about": {
+    "title": "About",
+    "version": "Version",
+    "description": "Claude Code Workflow Dashboard"
+  },
+  "reset": {
+    "title": "Reset",
+    "description": "Reset all user preferences to their default values. This cannot be undone.",
+    "confirm": "Reset all settings to defaults?",
+    "button": "Reset to Defaults"
+  }
+}

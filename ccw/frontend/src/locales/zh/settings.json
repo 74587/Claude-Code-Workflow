@@ -1,0 +1,80 @@
+{
+  "title": "设置",
+  "description": "配置仪表板偏好设置和 CLI 工具",
+  "sections": {
+    "appearance": "外观",
+    "cliTools": "CLI 工具",
+    "display": "显示设置",
+    "language": "语言",
+    "hooks": "Git 钩子",
+    "rules": "规则",
+    "about": "关于"
+  },
+  "appearance": {
+    "title": "外观",
+    "theme": "主题",
+    "themeOptions": {
+      "light": "浅色",
+      "dark": "深色",
+      "system": "跟随系统"
+    },
+    "description": "选择您喜欢的颜色主题",
+    "systemFollow": "系统跟随",
+    "systemFollowDesc": "使用系统的深色/浅色模式设置"
+  },
+  "cliTools": {
+    "title": "CLI 工具",
+    "description": "配置 CLI 工具设置",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "default": "默认",
+    "setDefault": "设为默认",
+    "primaryModel": "主模型",
+    "secondaryModel": "辅助模型",
+    "expand": "展开详情"
+  },
+  "display": {
+    "title": "显示设置",
+    "showCompletedTasks": "显示已完成任务",
+    "showCompletedTasksDesc": "在任务列表中显示已完成的任务",
+    "show": "显示",
+    "hide": "隐藏"
+  },
+  "language": {
+    "title": "语言",
+    "description": "选择您的首选语言",
+    "english": "English",
+    "chinese": "中文",
+    "displayLanguage": "显示语言",
+    "chooseLanguage": "选择界面的首选语言"
+  },
+  "dataRefresh": {
+    "title": "数据刷新",
+    "autoRefresh": "自动刷新",
+    "autoRefreshDesc": "定期自动刷新数据",
+    "refreshInterval": "刷新间隔",
+    "refreshIntervalDesc": "刷新数据的频率",
+    "enabled": "已启用",
+    "disabled": "已禁用"
+  },
+  "notifications": {
+    "title": "通知",
+    "enableNotifications": "启用通知",
+    "enableNotificationsDesc": "显示工作流事件的通知",
+    "soundEffects": "音效",
+    "soundEffectsDesc": "播放通知音效",
+    "on": "开启",
+    "off": "关闭"
+  },
+  "about": {
+    "title": "关于",
+    "version": "版本",
+    "description": "Claude Code Workflow 仪表板"
+  },
+  "reset": {
+    "title": "重置",
+    "description": "将所有用户偏好重置为默认值。此操作无法撤销。",
+    "confirm": "确定要将所有设置重置为默认值吗？",
+    "button": "重置为默认值"
+  }
+}
