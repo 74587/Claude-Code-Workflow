@@ -25,6 +25,7 @@ import {
 import { mcpServersKeys } from '@/hooks';
 import { useNotifications } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // Icon map for MCP definitions
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -96,6 +97,7 @@ export function RecommendedMcpWizard({
   const { formatMessage } = useIntl();
   const queryClient = useQueryClient();
   const { success: showSuccess, error: showError } = useNotifications();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   // State for field values
   const [fieldValues, setFieldValues] = useState<Record<string, any>>({});
@@ -138,7 +140,10 @@ export function RecommendedMcpWizard({
       if (selectedScope === 'global') {
         return addGlobalMcpServer(mcpDefinition.id, serverConfig);
       } else {
-        return copyMcpServerToProject(mcpDefinition.id, serverConfig);
+        if (!projectPath) {
+          throw new Error('Project path is required to install to project scope');
+        }
+        return copyMcpServerToProject(mcpDefinition.id, serverConfig, projectPath);
       }
     },
     onSuccess: (result) => {

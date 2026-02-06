@@ -520,6 +520,32 @@ dist/
 
 ## 🔧 Troubleshooting
 
+### `better-sqlite3` NODE_MODULE_VERSION mismatch
+
+**Error message**:
+```
+Error: The module '.../better_sqlite3.node' was compiled against a different Node.js version
+using NODE_MODULE_VERSION XX. This version of Node.js requires NODE_MODULE_VERSION YY.
+```
+
+**Cause**: The `better-sqlite3` native module was compiled for a different Node.js version than the one you're running. This commonly happens when:
+- You installed dependencies with one Node.js version and later switched versions
+- Prebuilt binaries don't match your Node.js version
+
+**Solution**:
+```bash
+# Option 1: Rebuild the native module (recommended)
+npm rebuild better-sqlite3
+
+# Option 2: Rebuild from source
+npm install better-sqlite3 --build-from-source
+
+# Option 3: Reinstall all dependencies
+rm -rf node_modules && npm install
+```
+
+> **Note**: Building from source requires C++ build tools. On macOS run `xcode-select --install`, on Ubuntu run `sudo apt install build-essential`, on Windows install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
+
 ### "No active session found" error
 
 **Cause**: No workflow session is currently active.

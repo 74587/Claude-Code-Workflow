@@ -1734,7 +1734,7 @@ async function toggleChineseResponse(enabled, target) {
   }
 
   try {
-    var response = await fetch('/api/language/chinese-response', {
+    var response = await csrfFetch('/api/language/chinese-response', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: enabled, target: target })
@@ -1799,7 +1799,7 @@ async function toggleWindowsPlatform(enabled) {
   windowsPlatformLoading = true;
 
   try {
-    var response = await fetch('/api/language/windows-platform', {
+    var response = await csrfFetch('/api/language/windows-platform', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: enabled })
@@ -1848,7 +1848,7 @@ async function toggleCodexCliEnhancement(enabled) {
   codexCliEnhancementLoading = true;
 
   try {
-    var response = await fetch('/api/language/codex-cli-enhancement', {
+    var response = await csrfFetch('/api/language/codex-cli-enhancement', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: enabled, action: 'toggle' })
@@ -1888,7 +1888,7 @@ async function refreshCodexCliEnhancement() {
   codexCliEnhancementLoading = true;
 
   try {
-    var response = await fetch('/api/language/codex-cli-enhancement', {
+    var response = await csrfFetch('/api/language/codex-cli-enhancement', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'refresh' })

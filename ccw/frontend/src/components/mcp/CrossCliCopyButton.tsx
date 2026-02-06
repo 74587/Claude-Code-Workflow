@@ -17,8 +17,9 @@ import {
 import { Checkbox } from '@/components/ui/Checkbox';
 import { Badge } from '@/components/ui/Badge';
 import { useMcpServers } from '@/hooks';
-import { crossCliCopy } from '@/lib/api';
+import { crossCliCopy, fetchCodexMcpServers } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // ========== Types ==========
 
@@ -69,13 +70,11 @@ export function CrossCliCopyButton({
   const [serverItems, setServerItems] = useState<ServerCheckboxItem[]>([]);
 
   const { servers } = useMcpServers();
+  const projectPath = useWorkflowStore(selectProjectPath);
   const [isCopying, setIsCopying] = useState(false);
 
-  // Initialize server items when dialog opens
-  const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    if (open) {
-      setDirection(currentMode === 'claude' ? 'claude-to-codex' : 'codex-to-claude');
+  const loadServerItems = async (nextDirection: CopyDirection) => {
+    if (nextDirection === 'claude-to-codex') {
       setServerItems(
         servers.map((s) => ({
           name: s.name,
@@ -84,6 +83,34 @@ export function CrossCliCopyButton({
           selected: false,
         }))
       );
+      return;
+    }
+
+    try {
+      const codex = await fetchCodexMcpServers();
+      setServerItems(
+        (codex.servers ?? []).map((s) => ({
+          name: s.name,
+          command: s.command,
+          enabled: s.enabled,
+          selected: false,
+        }))
+      );
+    } catch (error) {
+      console.error('Failed to load Codex MCP servers:', error);
+      setServerItems([]);
+    }
+  };
+
+  // Initialize server items when dialog opens
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (open) {
+      const nextDirection = currentMode === 'claude' ? 'claude-to-codex' : 'codex-to-claude';
+      setDirection(nextDirection);
+      void loadServerItems(nextDirection);
+    } else {
+      setServerItems([]);
     }
   };
 
@@ -93,10 +120,9 @@ export function CrossCliCopyButton({
 
   // Toggle direction
   const handleToggleDirection = () => {
-    setDirection((prev) =>
-      prev === 'claude-to-codex' ? 'codex-to-claude' : 'claude-to-codex'
-    );
-    setServerItems((prev) => prev.map((item) => ({ ...item, selected: false })));
+    const next = direction === 'claude-to-codex' ? 'codex-to-claude' : 'claude-to-codex';
+    setDirection(next);
+    void loadServerItems(next);
   };
 
   // Toggle server selection
@@ -124,10 +150,15 @@ export function CrossCliCopyButton({
 
     setIsCopying(true);
     try {
+      if (targetCli === 'claude' && !projectPath) {
+        throw new Error('Project path is required to copy servers into Claude project');
+      }
+
       const result = await crossCliCopy({
         source: sourceCli,
         target: targetCli,
         serverNames: selectedServers,
+        projectPath: projectPath ?? undefined,
       });
 
       if (result.success) {

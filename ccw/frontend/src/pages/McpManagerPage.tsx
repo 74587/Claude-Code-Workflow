@@ -56,7 +56,7 @@ interface McpServerCardProps {
   onToggleExpand: () => void;
   onToggle: (serverName: string, enabled: boolean) => void;
   onEdit: (server: McpServer) => void;
-  onDelete: (serverName: string) => void;
+  onDelete: (server: McpServer) => void;
 }
 
 function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, onDelete }: McpServerCardProps) {
@@ -132,7 +132,7 @@ function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, o
               className="h-8 w-8 p-0"
               onClick={(e) => {
                 e.stopPropagation();
-                onDelete(server.name);
+                onDelete(server);
               }}
             >
               <Trash2 className="w-4 h-4 text-destructive" />
@@ -269,9 +269,9 @@ export function McpManagerPage() {
     toggleServer(serverName, enabled);
   };
 
-  const handleDelete = (serverName: string) => {
-    if (confirm(formatMessage({ id: 'mcp.deleteConfirm' }, { name: serverName }))) {
-      deleteServer(serverName);
+  const handleDelete = (server: McpServer) => {
+    if (confirm(formatMessage({ id: 'mcp.deleteConfirm' }, { name: server.name }))) {
+      deleteServer(server.name, server.scope);
     }
   };
 

@@ -63,9 +63,10 @@ export function OtherProjectsSection({
 
       for (const [path, serverList] of Object.entries(response.servers)) {
         const projectName = path.split(/[/\\]/).filter(Boolean).pop() || path;
-        for (const server of (serverList as McpServer[])) {
+        for (const server of (serverList as Omit<McpServer, 'scope'>[])) {
           servers.push({
             ...server,
+            scope: 'project',
             projectPath: path,
             projectName,
           });
@@ -88,6 +89,7 @@ export function OtherProjectsSection({
       const uniqueName = `${server.projectName}-${server.name}`.toLowerCase().replace(/\s+/g, '-');
 
       await createServer({
+        name: uniqueName,
         command: server.command,
         args: server.args,
         env: server.env,

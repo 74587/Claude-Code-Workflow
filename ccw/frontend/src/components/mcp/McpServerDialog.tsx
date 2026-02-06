@@ -28,10 +28,12 @@ import {
   updateMcpServer,
   fetchMcpServers,
   type McpServer,
+  type McpProjectConfigType,
 } from '@/lib/api';
 import { mcpServersKeys, useMcpTemplates } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { ConfigTypeToggle, type McpConfigType } from './ConfigTypeToggle';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // ========== Types ==========
 
@@ -73,6 +75,7 @@ export function McpServerDialog({
 }: McpServerDialogProps) {
   const { formatMessage } = useIntl();
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   // Fetch templates from backend
   const { templates, isLoading: templatesLoading } = useMcpTemplates();
@@ -92,6 +95,7 @@ export function McpServerDialog({
   const [argsInput, setArgsInput] = useState('');
   const [envInput, setEnvInput] = useState('');
   const [configType, setConfigType] = useState<McpConfigType>('mcp-json');
+  const projectConfigType: McpProjectConfigType = configType === 'claude-json' ? 'claude' : 'mcp';
 
   // Initialize form from server prop (edit mode)
   useEffect(() => {
@@ -129,7 +133,8 @@ export function McpServerDialog({
 
   // Mutations
   const createMutation = useMutation({
-    mutationFn: (data: Omit<McpServer, 'name'>) => createMcpServer(data),
+    mutationFn: ({ server, configType }: { server: McpServer; configType?: McpProjectConfigType }) =>
+      createMcpServer(server, { projectPath: projectPath ?? undefined, configType }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
       handleClose();
@@ -138,8 +143,8 @@ export function McpServerDialog({
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ serverName, config }: { serverName: string; config: Partial<McpServer> }) =>
-      updateMcpServer(serverName, config),
+    mutationFn: ({ serverName, config, configType }: { serverName: string; config: Partial<McpServer>; configType?: McpProjectConfigType }) =>
+      updateMcpServer(serverName, config, { projectPath: projectPath ?? undefined, configType }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
       handleClose();
@@ -234,7 +239,7 @@ export function McpServerDialog({
 
   const checkNameExists = async (name: string): Promise<boolean> => {
     try {
-      const data = await fetchMcpServers();
+      const data = await fetchMcpServers(projectPath ?? undefined);
       const allServers = [...data.project, ...data.global];
       // In edit mode, exclude current server
       return allServers.some(
@@ -258,11 +263,15 @@ export function McpServerDialog({
 
     if (mode === 'add') {
       createMutation.mutate({
-        command: formData.command,
-        args: formData.args,
-        env: formData.env,
-        scope: formData.scope,
-        enabled: formData.enabled,
+        server: {
+          name: formData.name,
+          command: formData.command,
+          args: formData.args,
+          env: formData.env,
+          scope: formData.scope,
+          enabled: formData.enabled,
+        },
+        configType: formData.scope === 'project' ? projectConfigType : undefined,
       });
     } else {
       updateMutation.mutate({
@@ -274,6 +283,7 @@ export function McpServerDialog({
           scope: formData.scope,
           enabled: formData.enabled,
         },
+        configType: formData.scope === 'project' ? projectConfigType : undefined,
       });
     }
   };
@@ -441,6 +451,7 @@ export function McpServerDialog({
                   checked={formData.scope === 'project'}
                   onChange={(e) => handleFieldChange('scope', e.target.value as 'project' | 'global')}
                   className="w-4 h-4"
+                  disabled={mode === 'edit'}
                 />
                 <span className="text-sm">
                   {formatMessage({ id: 'mcp.scope.project' })}
@@ -454,6 +465,7 @@ export function McpServerDialog({
                   checked={formData.scope === 'global'}
                   onChange={(e) => handleFieldChange('scope', e.target.value as 'project' | 'global')}
                   className="w-4 h-4"
+                  disabled={mode === 'edit'}
                 />
                 <span className="text-sm">
                   {formatMessage({ id: 'mcp.scope.global' })}

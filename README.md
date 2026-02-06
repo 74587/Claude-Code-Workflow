@@ -81,6 +81,8 @@ npm install -g claude-code-workflow
 ccw install -m Global
 ```
 
+> **Troubleshooting**: If you see `NODE_MODULE_VERSION` mismatch errors for `better-sqlite3`, run `npm rebuild better-sqlite3`. See [FAQ - Troubleshooting](FAQ.md#better-sqlite3-node_module_version-mismatch) for details.
+
 ### Choose Your Workflow Level
 
 <div align="center">

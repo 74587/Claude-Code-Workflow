@@ -2,11 +2,11 @@
  * MCP Templates Database Module
  * Stores MCP server configurations as reusable templates
  */
-import Database from 'better-sqlite3';
 import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { StoragePaths, ensureStorageDir } from '../../config/storage-paths.js';
+import { createDatabase } from '../../utils/db-loader.js';
 
 // Database path - uses centralized storage
 const DB_DIR = StoragePaths.global.databases();
@@ -16,14 +16,15 @@ const DB_PATH = StoragePaths.global.mcpTemplates();
 ensureStorageDir(DB_DIR);
 
 // Initialize database connection
-let db: Database.Database | null = null;
+let db: any | null = null;
 
 /**
  * Get or create database connection
  */
-function getDb(): Database.Database {
+function getDb(): any {
   if (!db) {
-    db = new Database(DB_PATH);
+    db = createDatabase(DB_PATH);
+    if (!db) return null;
     initDatabase();
   }
   return db;
@@ -33,7 +34,7 @@ function getDb(): Database.Database {
  * Initialize database schema
  */
 function initDatabase() {
-  const db = getDb();
+  if (!db) return;
   
   // Create templates table
   db.exec(`
@@ -83,6 +84,7 @@ export interface McpTemplate {
 export function saveTemplate(template: McpTemplate): { success: boolean; id?: number; error?: string } {
   try {
     const db = getDb();
+    if (!db) return { success: false, error: 'Database unavailable (native module issue)' };
     const now = Date.now();
     
     const stmt = db.prepare(`
@@ -125,6 +127,7 @@ export function saveTemplate(template: McpTemplate): { success: boolean; id?: nu
 export function getAllTemplates(): McpTemplate[] {
   try {
     const db = getDb();
+    if (!db) return [];
     const rows = db.prepare('SELECT * FROM mcp_templates ORDER BY name').all();
     
     return rows.map((row: any) => ({
@@ -149,6 +152,7 @@ export function getAllTemplates(): McpTemplate[] {
 export function getTemplateByName(name: string): McpTemplate | null {
   try {
     const db = getDb();
+    if (!db) return null;
     const row = db.prepare('SELECT * FROM mcp_templates WHERE name = ?').get(name);
     
     if (!row) return null;
@@ -175,6 +179,7 @@ export function getTemplateByName(name: string): McpTemplate | null {
 export function getTemplatesByCategory(category: string): McpTemplate[] {
   try {
     const db = getDb();
+    if (!db) return [];
     const rows = db.prepare('SELECT * FROM mcp_templates WHERE category = ? ORDER BY name').all(category);
     
     return rows.map((row: any) => ({
@@ -199,6 +204,7 @@ export function getTemplatesByCategory(category: string): McpTemplate[] {
 export function deleteTemplate(name: string): { success: boolean; error?: string } {
   try {
     const db = getDb();
+    if (!db) return { success: false, error: 'Database unavailable (native module issue)' };
     const result = db.prepare('DELETE FROM mcp_templates WHERE name = ?').run(name);
     
     return {
@@ -219,6 +225,7 @@ export function deleteTemplate(name: string): { success: boolean; error?: string
 export function searchTemplates(keyword: string): McpTemplate[] {
   try {
     const db = getDb();
+    if (!db) return [];
     const searchPattern = `%${keyword}%`;
     const rows = db.prepare(`
       SELECT * FROM mcp_templates 
@@ -248,6 +255,7 @@ export function searchTemplates(keyword: string): McpTemplate[] {
 export function getAllCategories(): string[] {
   try {
     const db = getDb();
+    if (!db) return [];
     const rows = db.prepare('SELECT DISTINCT category FROM mcp_templates WHERE category IS NOT NULL ORDER BY category').all();
     return rows.map((row: any) => row.category);
   } catch (error: unknown) {
