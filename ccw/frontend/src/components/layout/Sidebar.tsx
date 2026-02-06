@@ -78,7 +78,6 @@ const navGroupDefinitions: NavGroupDef[] = [
       { path: '/sessions', labelKey: 'navigation.main.sessions', icon: FolderKanban },
       { path: '/lite-tasks', labelKey: 'navigation.main.liteTasks', icon: Zap },
       { path: '/orchestrator', labelKey: 'navigation.main.orchestrator', icon: Workflow },
-      { path: '/coordinator', labelKey: 'navigation.main.coordinator', icon: GitFork },
       { path: '/history', labelKey: 'navigation.main.history', icon: Clock },
       { path: '/issues', labelKey: 'navigation.main.issues', icon: AlertCircle },
     ],

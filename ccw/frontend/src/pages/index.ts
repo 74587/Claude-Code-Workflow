@@ -10,7 +10,6 @@ export { ProjectOverviewPage } from './ProjectOverviewPage';
 export { SessionDetailPage } from './SessionDetailPage';
 export { HistoryPage } from './HistoryPage';
 export { OrchestratorPage } from './orchestrator';
-export { CoordinatorPage } from './coordinator';
 export { LoopMonitorPage } from './LoopMonitorPage';
 export { IssueHubPage } from './IssueHubPage';
 export { QueuePage } from './QueuePage';

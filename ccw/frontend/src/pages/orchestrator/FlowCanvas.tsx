@@ -23,6 +23,7 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { useFlowStore } from '@/stores';
+import { useExecutionStore, selectIsExecuting } from '@/stores/executionStore';
 import type { FlowNode, FlowEdge } from '@/types/flow';
 
 // Custom node types (enhanced with execution status in IMPL-A8)
@@ -35,6 +36,9 @@ interface FlowCanvasProps {
 function FlowCanvasInner({ className }: FlowCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
+
+  // Execution state - lock canvas during execution
+  const isExecuting = useExecutionStore(selectIsExecuting);
 
   // Get state and actions from store
   const nodes = useFlowStore((state) => state.nodes);
@@ -68,6 +72,7 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
   // Handle new edge connections
   const onConnect = useCallback(
     (connection: Connection) => {
+      if (isExecuting) return;
       if (connection.source && connection.target) {
         const newEdge: FlowEdge = {
           id: `edge-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -80,7 +85,7 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
         markModified();
       }
     },
-    [edges, setEdges, markModified]
+    [edges, setEdges, markModified, isExecuting]
   );
 
   // Handle node selection
@@ -115,6 +120,7 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
   const onDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
+      if (isExecuting) return;
 
       // Verify the drop is from node palette
       const nodeType = event.dataTransfer.getData('application/reactflow-node-type');
@@ -138,7 +144,7 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
         addNode(position);
       }
     },
-    [screenToFlowPosition, addNode, addNodeFromTemplate]
+    [screenToFlowPosition, addNode, addNodeFromTemplate, isExecuting]
   );
 
   return (
@@ -155,10 +161,13 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
         onDragOver={onDragOver}
         onDrop={onDrop}
         nodeTypes={nodeTypes}
+        nodesDraggable={!isExecuting}
+        nodesConnectable={!isExecuting}
+        elementsSelectable={!isExecuting}
+        deleteKeyCode={isExecuting ? null : ['Backspace', 'Delete']}
         fitView
         snapToGrid
         snapGrid={[15, 15]}
-        deleteKeyCode={['Backspace', 'Delete']}
         className="bg-background"
       >
         <Controls
@@ -179,6 +188,14 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
           className="bg-muted/20"
         />
       </ReactFlow>
+
+      {/* Execution lock overlay */}
+      {isExecuting && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 bg-primary/90 text-primary-foreground rounded-full text-xs font-medium shadow-lg flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-primary-foreground animate-pulse" />
+          Execution in progress
+        </div>
+      )}
     </div>
   );
 }

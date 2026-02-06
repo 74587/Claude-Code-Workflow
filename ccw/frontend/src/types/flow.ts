@@ -212,6 +212,9 @@ export interface FlowState {
   flows: Flow[];
   isLoadingFlows: boolean;
 
+  // Custom node templates (user-defined, persisted to localStorage)
+  customTemplates: QuickTemplate[];
+
   // UI state
   isPaletteOpen: boolean;
   isPropertyPanelOpen: boolean;
@@ -251,6 +254,12 @@ export interface FlowActions {
   setIsPaletteOpen: (open: boolean) => void;
   setIsPropertyPanelOpen: (open: boolean) => void;
   setLeftPanelTab: (tab: 'templates' | 'nodes') => void;
+
+  // Custom templates
+  addCustomTemplate: (template: QuickTemplate) => void;
+  removeCustomTemplate: (id: string) => void;
+  saveNodeAsTemplate: (nodeId: string, label: string, description: string) => QuickTemplate | null;
+  loadCustomTemplates: () => void;
 
   // Utility
   resetFlow: () => void;
@@ -352,172 +361,6 @@ export const QUICK_TEMPLATES: QuickTemplate[] = [
       slashArgs: '',
       mode: 'async',
       nodeCategory: 'command',
-    },
-  },
-  {
-    id: 'analysis',
-    label: 'Analysis',
-    description: 'Code review, architecture analysis',
-    icon: 'Search',
-    color: 'bg-emerald-500',
-    category: 'command',
-    data: {
-      label: 'Analyze',
-      instruction: 'Analyze the code for:\n1. Architecture patterns\n2. Code quality\n3. Potential issues',
-      tool: 'gemini',
-      mode: 'analysis',
-      nodeCategory: 'command',
-    },
-  },
-  {
-    id: 'implementation',
-    label: 'Implementation',
-    description: 'Write code, create files',
-    icon: 'Code',
-    color: 'bg-violet-500',
-    category: 'command',
-    data: {
-      label: 'Implement',
-      instruction: 'Implement the following:\n\n[Describe what to implement]',
-      tool: 'codex',
-      mode: 'write',
-      nodeCategory: 'command',
-    },
-  },
-  // ========== Phase Templates ==========
-  {
-    id: 'phase-session',
-    label: 'Session',
-    description: 'Initialize workflow session and environment',
-    icon: 'FolderOpen',
-    color: 'bg-sky-500',
-    category: 'phase',
-    data: {
-      label: 'Session Setup',
-      instruction: 'Initialize workflow session:\n- Set project context\n- Load configuration\n- Validate environment',
-      phase: 'session',
-      nodeCategory: 'phase',
-      mode: 'mainprocess',
-    },
-  },
-  {
-    id: 'phase-context',
-    label: 'Context',
-    description: 'Collect and prepare context information',
-    icon: 'Database',
-    color: 'bg-cyan-500',
-    category: 'phase',
-    data: {
-      label: 'Context Gathering',
-      instruction: 'Gather context:\n- Analyze codebase structure\n- Identify relevant files\n- Build context package',
-      phase: 'context',
-      nodeCategory: 'phase',
-      mode: 'analysis',
-      tool: 'gemini',
-      artifacts: ['context-package.json'],
-    },
-  },
-  {
-    id: 'phase-plan',
-    label: 'Plan',
-    description: 'Generate execution plan and task breakdown',
-    icon: 'ListTodo',
-    color: 'bg-amber-500',
-    category: 'phase',
-    data: {
-      label: 'Planning',
-      instruction: 'Create execution plan:\n- Break requirements into tasks\n- Identify dependencies\n- Evaluate complexity',
-      phase: 'plan',
-      nodeCategory: 'phase',
-      mode: 'analysis',
-      tool: 'gemini',
-      artifacts: ['execution-plan.md'],
-    },
-  },
-  {
-    id: 'phase-execute',
-    label: 'Execute',
-    description: 'Execute tasks according to plan',
-    icon: 'Play',
-    color: 'bg-green-500',
-    category: 'phase',
-    data: {
-      label: 'Execution',
-      instruction: 'Execute planned tasks:\n- Follow dependency order\n- Apply code changes\n- Run validation',
-      phase: 'execute',
-      nodeCategory: 'phase',
-      mode: 'write',
-      tool: 'codex',
-    },
-  },
-  {
-    id: 'phase-review',
-    label: 'Review',
-    description: 'Review results and validate output',
-    icon: 'CheckCircle',
-    color: 'bg-purple-500',
-    category: 'phase',
-    data: {
-      label: 'Review',
-      instruction: 'Review execution results:\n- Validate code changes\n- Run tests\n- Check regressions',
-      phase: 'review',
-      nodeCategory: 'phase',
-      mode: 'analysis',
-      tool: 'gemini',
-    },
-  },
-  // ========== Tool Templates ==========
-  {
-    id: 'tool-context-gather',
-    label: 'Context Gather',
-    description: 'Automated context collection tool',
-    icon: 'FolderSearch',
-    color: 'bg-teal-500',
-    category: 'tool',
-    data: {
-      label: 'Context Gather',
-      instruction: 'Collect project context:\n- Scan file structure\n- Identify key modules\n- Extract type definitions\n- Map dependencies',
-      tool: 'gemini',
-      mode: 'analysis',
-      nodeCategory: 'tool',
-      phase: 'context',
-      outputName: 'context',
-      artifacts: ['context-package.json'],
-    },
-  },
-  {
-    id: 'tool-conflict-resolution',
-    label: 'Conflict Resolution',
-    description: 'Resolve code conflicts and inconsistencies',
-    icon: 'GitMerge',
-    color: 'bg-orange-500',
-    category: 'tool',
-    data: {
-      label: 'Conflict Resolution',
-      instruction: 'Resolve conflicts:\n- Identify conflicting changes\n- Analyze intent of each side\n- Generate merge solution\n- Verify consistency',
-      tool: 'gemini',
-      mode: 'analysis',
-      nodeCategory: 'tool',
-      phase: 'execute',
-      outputName: 'resolution',
-    },
-  },
-  {
-    id: 'tool-task-generate',
-    label: 'Task Generate',
-    description: 'Generate task breakdown from requirements',
-    icon: 'ListChecks',
-    color: 'bg-indigo-500',
-    category: 'tool',
-    data: {
-      label: 'Task Generation',
-      instruction: 'Generate tasks:\n- Parse requirements\n- Break into atomic tasks\n- Set dependencies\n- Assign priorities',
-      tool: 'gemini',
-      mode: 'analysis',
-      nodeCategory: 'tool',
-      phase: 'plan',
-      outputName: 'tasks',
-      artifacts: ['task-list.json'],
     },
   },
 ];

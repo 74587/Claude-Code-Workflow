@@ -10,7 +10,6 @@ import {
   FolderKanban,
   Workflow,
   Zap,
-  Play,
   Clock,
   CheckCircle2,
   XCircle,
@@ -27,7 +26,6 @@ import { Button } from '@/components/ui/Button';
 import { Progress } from '@/components/ui/Progress';
 import { useSessions } from '@/hooks/useSessions';
 import { useLiteTasks } from '@/hooks/useLiteTasks';
-import { useCoordinatorStore } from '@/stores/coordinatorStore';
 import { cn } from '@/lib/utils';
 
 export interface RecentSessionsWidgetProps {
@@ -36,7 +34,7 @@ export interface RecentSessionsWidgetProps {
 }
 
 // Task type definitions
-type TaskType = 'all' | 'workflow' | 'lite' | 'orchestrator';
+type TaskType = 'all' | 'workflow' | 'lite';
 
 // Unified task item for display
 interface UnifiedTaskItem {
@@ -57,7 +55,6 @@ const TABS: { key: TaskType; label: string; icon: React.ElementType }[] = [
   { key: 'all', label: 'home.tabs.allTasks', icon: FolderKanban },
   { key: 'workflow', label: 'home.tabs.workflow', icon: Workflow },
   { key: 'lite', label: 'home.tabs.liteTasks', icon: Zap },
-  { key: 'orchestrator', label: 'home.tabs.orchestrator', icon: Play },
 ];
 
 // Status icon mapping
@@ -114,15 +111,13 @@ const typeColors: Record<TaskType, string> = {
   all: 'bg-muted text-muted-foreground',
   workflow: 'bg-primary/20 text-primary',
   lite: 'bg-amber-500/20 text-amber-600',
-  orchestrator: 'bg-violet-500/20 text-violet-600',
 };
 
 function TaskItemCard({ item, onClick }: { item: UnifiedTaskItem; onClick: () => void }) {
   const { formatMessage } = useIntl();
   const StatusIcon = statusIcons[item.status] || Clock;
   const TypeIcon = item.subType ? (liteTypeIcons[item.subType] || Zap) :
-    item.type === 'workflow' ? Workflow :
-    item.type === 'orchestrator' ? Play : Zap;
+    item.type === 'workflow' ? Workflow : Zap;
 
   const isAnimated = item.status === 'in_progress' || item.status === 'running' || item.status === 'initializing';
 
@@ -226,9 +221,6 @@ function RecentSessionsWidgetComponent({
   // Fetch lite tasks
   const { allSessions: liteSessions, isLoading: liteLoading } = useLiteTasks();
 
-  // Get coordinator state
-  const coordinatorState = useCoordinatorStore();
-
   // Format relative time with fallback
   const formatRelativeTime = React.useCallback((dateStr: string | undefined): string => {
     if (!dateStr) return formatMessage({ id: 'common.time.justNow' });
@@ -286,28 +278,9 @@ function RecentSessionsWidgetComponent({
       });
     });
 
-    // Add current coordinator execution if exists
-    if (coordinatorState.currentExecutionId && coordinatorState.status !== 'idle') {
-      const status = coordinatorState.status;
-      const completedSteps = coordinatorState.commandChain.filter(n => n.status === 'completed').length;
-      const totalSteps = coordinatorState.commandChain.length;
-      const progress = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
-
-      items.push({
-        id: coordinatorState.currentExecutionId,
-        name: coordinatorState.pipelineDetails?.nodes[0]?.name || 'Orchestrator Task',
-        type: 'orchestrator',
-        status,
-        statusKey: statusI18nKeys[status] || status,
-        createdAt: formatRelativeTime(coordinatorState.startedAt),
-        description: `${completedSteps}/${totalSteps} steps completed`,
-        progress,
-      });
-    }
-
     // Sort by most recent (use original date for sorting, not formatted string)
     return items;
-  }, [activeSessions, liteSessions, coordinatorState, formatRelativeTime]);
+  }, [activeSessions, liteSessions, formatRelativeTime]);
 
   // Filter items by tab
   const filteredItems = React.useMemo(() => {
@@ -323,9 +296,6 @@ function RecentSessionsWidgetComponent({
         break;
       case 'lite':
         navigate(`/lite-tasks/${item.subType}/${item.id}`);
-        break;
-      case 'orchestrator':
-        navigate(`/orchestrator`);
         break;
     }
   };

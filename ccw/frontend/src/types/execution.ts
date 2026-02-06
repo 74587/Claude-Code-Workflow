@@ -155,7 +155,7 @@ export interface ExecutionStoreState {
   maxLogs: number;
 
   // UI state
-  isMonitorExpanded: boolean;
+  isMonitorPanelOpen: boolean;
   autoScrollLogs: boolean;
 }
 
@@ -177,7 +177,7 @@ export interface ExecutionStoreActions {
   clearLogs: () => void;
 
   // UI state
-  setMonitorExpanded: (expanded: boolean) => void;
+  setMonitorPanelOpen: (open: boolean) => void;
   setAutoScrollLogs: (autoScroll: boolean) => void;
 }
 

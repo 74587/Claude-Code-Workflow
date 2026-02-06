@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo, useState, useEffect, useRef, KeyboardEvent } from 'react';
 import { useIntl } from 'react-intl';
-import { Settings, X, MessageSquare, Trash2, AlertCircle, CheckCircle2, Plus, Save, Copy, ChevronDown, ChevronRight } from 'lucide-react';
+import { Settings, X, MessageSquare, Trash2, AlertCircle, CheckCircle2, Plus, Save, ChevronDown, ChevronRight, BookmarkPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -338,7 +338,7 @@ interface TagEditorProps {
 /**
  * Token types for the editor
  */
-type TokenType = 'text' | 'variable';
+type TokenType = 'text' | 'variable' | 'artifact';
 
 interface Token {
   type: TokenType;
@@ -347,21 +347,27 @@ interface Token {
 }
 
 /**
- * Parse text into tokens (text segments and variables)
+ * Parse text into tokens (text segments, {{variables}}, and [[artifacts]])
  */
 function tokenize(text: string): Token[] {
   const tokens: Token[] = [];
-  const regex = /\{\{([^}]+)\}\}/g;
+  // Match both {{variable}} and [[artifact]] patterns
+  const regex = /\{\{([^}]+)\}\}|\[\[([^\]]+)\]\]/g;
   let lastIndex = 0;
   let match;
 
   while ((match = regex.exec(text)) !== null) {
-    // Add text before variable
+    // Add text before token
     if (match.index > lastIndex) {
       tokens.push({ type: 'text', value: text.slice(lastIndex, match.index) });
     }
-    // Add variable token
-    tokens.push({ type: 'variable', value: match[1].trim() });
+    if (match[1] !== undefined) {
+      // {{variable}} match
+      tokens.push({ type: 'variable', value: match[1].trim() });
+    } else if (match[2] !== undefined) {
+      // [[artifact]] match
+      tokens.push({ type: 'artifact', value: match[2].trim() });
+    }
     lastIndex = match.index + match[0].length;
   }
 
@@ -382,17 +388,27 @@ function extractVariables(text: string): string[] {
 }
 
 /**
+ * Extract unique artifact names from text
+ */
+function extractArtifacts(text: string): string[] {
+  const matches = text.match(/\[\[([^\]]+)\]\]/g) || [];
+  return [...new Set(matches.map(m => m.slice(2, -2).trim()))];
+}
+
+/**
  * Tag-based instruction editor with inline variable tags
  */
 function TagEditor({ value, onChange, placeholder, availableVariables, minHeight = 120 }: TagEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [newVarName, setNewVarName] = useState('');
+  const [newArtifactName, setNewArtifactName] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [customTemplates, setCustomTemplates] = useState<TemplateItem[]>(() => loadCustomTemplates());
 
   const tokens = useMemo(() => tokenize(value || ''), [value]);
   const detectedVars = useMemo(() => extractVariables(value || ''), [value]);
+  const detectedArtifacts = useMemo(() => extractArtifacts(value || ''), [value]);
   const hasContent = (value || '').length > 0;
 
   // All templates (builtin + custom)
@@ -413,7 +429,7 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
   }, [customTemplates]);
 
   // Handle content changes from contenteditable
-  // Convert tag elements back to {{variable}} format for storage
+  // Convert tag elements back to {{variable}} / [[artifact]] format for storage
   const handleInput = useCallback(() => {
     if (editorRef.current) {
       // Clone the content to avoid modifying the actual DOM
@@ -425,6 +441,15 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
         const varName = tag.getAttribute('data-var');
         if (varName) {
           tag.replaceWith(`{{${varName}}}`);
+        }
+      });
+
+      // Convert artifact tags back to [[artifact]] format
+      const artTags = clone.querySelectorAll('[data-artifact]');
+      artTags.forEach((tag) => {
+        const artName = tag.getAttribute('data-artifact');
+        if (artName) {
+          tag.replaceWith(`[[${artName}]]`);
         }
       });
 
@@ -453,6 +478,15 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
     }
   }, []);
 
+  // Insert artifact at cursor position
+  const insertArtifact = useCallback((artName: string) => {
+    if (editorRef.current) {
+      editorRef.current.focus();
+      const artText = `[[${artName}]]`;
+      document.execCommand('insertText', false, artText);
+    }
+  }, []);
+
   // Insert text at cursor position (or append if no focus)
   const insertText = useCallback((text: string) => {
     if (editorRef.current) {
@@ -469,6 +503,14 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
     }
   }, [newVarName, insertVariable]);
 
+  // Add new artifact
+  const handleAddArtifact = useCallback(() => {
+    if (newArtifactName.trim()) {
+      insertArtifact(newArtifactName.trim());
+      setNewArtifactName('');
+    }
+  }, [newArtifactName, insertArtifact]);
+
   // Handle key press in new variable input
   const handleVarInputKeyDown = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -477,19 +519,21 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
     }
   }, [handleAddVariable]);
 
-  // Render tokens as HTML - variables show as tags without {{}}
+  // Render tokens as HTML - variables show as green tags, artifacts as blue tags
   const renderContent = useMemo(() => {
     if (!hasContent) return '';
 
     return tokens.map((token) => {
       if (token.type === 'variable') {
         const isValid = availableVariables.includes(token.value) || token.value.includes('.');
-        // Show only variable name in tag, no {{}}
         return `<span class="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded text-xs font-semibold align-baseline cursor-default select-none ${
           isValid
             ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300'
             : 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300'
         }" contenteditable="false" data-var="${token.value}">${token.value}</span>`;
+      }
+      if (token.type === 'artifact') {
+        return `<span class="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded text-xs font-semibold align-baseline cursor-default select-none bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300" contenteditable="false" data-artifact="${token.value}">\u2192 ${token.value}</span>`;
       }
       // Escape HTML in text and preserve whitespace
       return token.value
@@ -535,7 +579,7 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
         />
       </div>
 
-      {/* Variable toolbar */}
+      {/* Variable & Artifact toolbar */}
       <div className="flex flex-wrap items-center gap-2 p-2 rounded-md bg-muted/30 border border-border">
         {/* Add new variable input */}
         <div className="flex items-center gap-1">
@@ -543,8 +587,8 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
             value={newVarName}
             onChange={(e) => setNewVarName(e.target.value)}
             onKeyDown={handleVarInputKeyDown}
-            placeholder="变量名"
-            className="h-7 w-24 text-xs font-mono"
+            placeholder="{{变量}}"
+            className="h-7 w-20 text-xs font-mono"
           />
           <Button
             type="button"
@@ -560,9 +604,31 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
 
         <div className="w-px h-5 bg-border" />
 
+        {/* Add new artifact input */}
+        <div className="flex items-center gap-1">
+          <Input
+            value={newArtifactName}
+            onChange={(e) => setNewArtifactName(e.target.value)}
+            onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); handleAddArtifact(); } }}
+            placeholder="[[产物]]"
+            className="h-7 w-20 text-xs font-mono"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleAddArtifact}
+            disabled={!newArtifactName.trim()}
+            className="h-7 px-2"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+
         {/* Quick insert available variables */}
         {availableVariables.length > 0 && (
           <>
+            <div className="w-px h-5 bg-border" />
             <span className="text-xs text-muted-foreground">可用:</span>
             {availableVariables.slice(0, 5).map((varName) => (
               <button
@@ -581,7 +647,7 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
         {detectedVars.length > 0 && (
           <>
             <div className="w-px h-5 bg-border" />
-            <span className="text-xs text-muted-foreground">已用:</span>
+            <span className="text-xs text-muted-foreground">变量:</span>
             {detectedVars.map((varName) => {
               const isValid = availableVariables.includes(varName) || varName.includes('.');
               return (
@@ -599,6 +665,22 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
                 </span>
               );
             })}
+          </>
+        )}
+
+        {/* Detected artifacts summary */}
+        {detectedArtifacts.length > 0 && (
+          <>
+            <div className="w-px h-5 bg-border" />
+            <span className="text-xs text-muted-foreground">产物:</span>
+            {detectedArtifacts.map((artName) => (
+              <span
+                key={artName}
+                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-mono bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300"
+              >
+                {'\u2192'} {artName}
+              </span>
+            ))}
           </>
         )}
       </div>
@@ -906,56 +988,6 @@ function ArtifactsList({ artifacts, onChange }: { artifacts: string[]; onChange:
   );
 }
 
-// ========== Script Preview ==========
-
-function ScriptPreview({ data }: { data: PromptTemplateNodeData }) {
-  const script = useMemo(() => {
-    // Slash command mode
-    if (data.slashCommand) {
-      const args = data.slashArgs ? ` ${data.slashArgs}` : '';
-      return `/${data.slashCommand}${args}`;
-    }
-
-    // CLI tool mode
-    if (data.tool && (data.mode === 'analysis' || data.mode === 'write')) {
-      const parts = ['ccw cli'];
-      parts.push(`--tool ${data.tool}`);
-      parts.push(`--mode ${data.mode}`);
-      if (data.instruction) {
-        const snippet = data.instruction.slice(0, 80).replace(/\n/g, ' ');
-        parts.push(`-p "${snippet}..."`);
-      }
-      return parts.join(' \\\n  ');
-    }
-
-    // Plain instruction
-    if (data.instruction) {
-      return `# ${data.instruction.slice(0, 100)}`;
-    }
-
-    return '# 未配置命令';
-  }, [data.slashCommand, data.slashArgs, data.tool, data.mode, data.instruction]);
-
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(script);
-  }, [script]);
-
-  return (
-    <div className="relative">
-      <pre className="p-3 rounded-md bg-muted/50 font-mono text-xs text-foreground/80 overflow-x-auto whitespace-pre-wrap border border-border">
-        {script}
-      </pre>
-      <button
-        onClick={handleCopy}
-        className="absolute top-2 right-2 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-        title="复制"
-      >
-        <Copy className="w-3 h-3" />
-      </button>
-    </div>
-  );
-}
-
 // ========== Unified PromptTemplate Property Editor ==========
 
 interface PromptTemplatePropertiesProps {
@@ -1030,7 +1062,11 @@ function PromptTemplateProperties({ data, onChange }: PromptTemplatePropertiesPr
           </label>
           <TagEditor
             value={data.instruction || ''}
-            onChange={(value) => onChange({ instruction: value })}
+            onChange={(value) => {
+              // Auto-extract [[artifact]] names and sync to artifacts field
+              const arts = extractArtifacts(value);
+              onChange({ instruction: value, artifacts: arts.length > 0 ? arts : undefined });
+            }}
             placeholder={formatMessage({ id: 'orchestrator.propertyPanel.placeholders.instruction' })}
             minHeight={120}
             availableVariables={availableVariables}
@@ -1050,23 +1086,6 @@ function PromptTemplateProperties({ data, onChange }: PromptTemplatePropertiesPr
             rows={2}
             className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm resize-none"
           />
-        </div>
-
-        {/* Phase */}
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-1">阶段</label>
-          <select
-            value={data.phase || ''}
-            onChange={(e) => onChange({ phase: (e.target.value || undefined) as PromptTemplateNodeData['phase'] })}
-            className="w-full h-10 px-3 rounded-md border border-border bg-background text-foreground text-sm"
-          >
-            <option value="">无</option>
-            <option value="session">Session</option>
-            <option value="context">Context</option>
-            <option value="plan">Plan</option>
-            <option value="execute">Execute</option>
-            <option value="review">Review</option>
-          </select>
         </div>
 
         {/* Tags */}
@@ -1101,11 +1120,104 @@ function PromptTemplateProperties({ data, onChange }: PromptTemplatePropertiesPr
           />
         </div>
       </CollapsibleSection>
+    </div>
+  );
+}
 
-      {/* Script Preview Section */}
-      <CollapsibleSection title="脚本预览" defaultExpanded={true}>
-        <ScriptPreview data={data} />
-      </CollapsibleSection>
+// ========== Save As Template Button ==========
+
+const SAVE_COLOR_OPTIONS = [
+  { value: 'bg-blue-500', label: 'Blue' },
+  { value: 'bg-green-500', label: 'Green' },
+  { value: 'bg-purple-500', label: 'Purple' },
+  { value: 'bg-rose-500', label: 'Rose' },
+  { value: 'bg-amber-500', label: 'Amber' },
+  { value: 'bg-cyan-500', label: 'Cyan' },
+  { value: 'bg-teal-500', label: 'Teal' },
+  { value: 'bg-orange-500', label: 'Orange' },
+];
+
+function SaveAsTemplateButton({ nodeId, nodeLabel }: { nodeId: string; nodeLabel: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  const [color, setColor] = useState('bg-blue-500');
+  const saveNodeAsTemplate = useFlowStore((s) => s.saveNodeAsTemplate);
+  const addCustomTemplate = useFlowStore((s) => s.addCustomTemplate);
+  const nodes = useFlowStore((s) => s.nodes);
+
+  const handleSave = () => {
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node || !name.trim()) return;
+
+    const { executionStatus, executionError, executionResult, ...templateData } = node.data;
+    addCustomTemplate({
+      id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      label: name.trim(),
+      description: desc.trim() || name.trim(),
+      icon: 'MessageSquare',
+      color,
+      category: 'command',
+      data: { ...templateData, label: name.trim() },
+    });
+
+    setIsOpen(false);
+    setName('');
+    setDesc('');
+    setColor('bg-blue-500');
+  };
+
+  if (!isOpen) {
+    return (
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={() => { setName(nodeLabel); setIsOpen(true); }}
+      >
+        <BookmarkPlus className="w-4 h-4 mr-2" />
+        Save to Node Library
+      </Button>
+    );
+  }
+
+  return (
+    <div className="p-2 rounded-md border border-primary/50 bg-muted/50 space-y-2">
+      <Input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Template name"
+        className="h-8 text-sm"
+        autoFocus
+      />
+      <Input
+        value={desc}
+        onChange={(e) => setDesc(e.target.value)}
+        placeholder="Description (optional)"
+        className="h-8 text-sm"
+      />
+      <div className="flex flex-wrap gap-1">
+        {SAVE_COLOR_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => setColor(opt.value)}
+            className={cn(
+              'w-5 h-5 rounded-full transition-all',
+              opt.value,
+              color === opt.value ? 'ring-2 ring-offset-1 ring-offset-background ring-primary' : '',
+            )}
+            title={opt.label}
+          />
+        ))}
+      </div>
+      <div className="flex gap-1">
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => setIsOpen(false)}>
+          Cancel
+        </Button>
+        <Button size="sm" className="flex-1" onClick={handleSave} disabled={!name.trim()}>
+          <Save className="w-3.5 h-3.5 mr-1" />
+          Save
+        </Button>
+      </div>
     </div>
   );
 }
@@ -1218,8 +1330,9 @@ export function PropertyPanel({ className }: PropertyPanelProps) {
         />
       </div>
 
-      {/* Delete Button */}
-      <div className="px-4 py-3 border-t border-border">
+      {/* Footer Actions */}
+      <div className="px-4 py-3 border-t border-border space-y-2">
+        <SaveAsTemplateButton nodeId={selectedNodeId!} nodeLabel={selectedNode.data.label} />
         <Button variant="destructive" className="w-full" onClick={handleDelete}>
           <Trash2 className="w-4 h-4 mr-2" />
           {formatMessage({ id: 'orchestrator.propertyPanel.deleteNode' })}

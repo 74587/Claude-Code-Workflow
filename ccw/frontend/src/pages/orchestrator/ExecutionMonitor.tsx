@@ -1,21 +1,20 @@
 // ========================================
 // Execution Monitor
 // ========================================
-// Real-time execution monitoring panel with logs and controls
+// Right-side slide-out panel for real-time execution monitoring
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import {
   Play,
   Pause,
   Square,
-  ChevronDown,
-  ChevronUp,
   Clock,
   AlertCircle,
   CheckCircle2,
   Loader2,
   Terminal,
   ArrowDownToLine,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -103,12 +102,12 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
   const currentExecution = useExecutionStore((state) => state.currentExecution);
   const logs = useExecutionStore((state) => state.logs);
   const nodeStates = useExecutionStore((state) => state.nodeStates);
-  const isMonitorExpanded = useExecutionStore((state) => state.isMonitorExpanded);
+  const isMonitorPanelOpen = useExecutionStore((state) => state.isMonitorPanelOpen);
   const autoScrollLogs = useExecutionStore((state) => state.autoScrollLogs);
-  const setMonitorExpanded = useExecutionStore((state) => state.setMonitorExpanded);
+  const setMonitorPanelOpen = useExecutionStore((state) => state.setMonitorPanelOpen);
   const startExecution = useExecutionStore((state) => state.startExecution);
 
-  // Local state for elapsed time (calculated from startedAt)
+  // Local state for elapsed time
   const [elapsedMs, setElapsedMs] = useState(0);
 
   // Flow store state
@@ -121,22 +120,17 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
   const resumeExecution = useResumeExecution();
   const stopExecution = useStopExecution();
 
-  // Update elapsed time every second while running (calculated from startedAt)
+  // Update elapsed time every second while running
   useEffect(() => {
     if (currentExecution?.status === 'running' && currentExecution.startedAt) {
       const calculateElapsed = () => {
         const startTime = new Date(currentExecution.startedAt).getTime();
         setElapsedMs(Date.now() - startTime);
       };
-
-      // Calculate immediately
       calculateElapsed();
-
-      // Update every second
       const interval = setInterval(calculateElapsed, 1000);
       return () => clearInterval(interval);
     } else if (currentExecution?.completedAt) {
-      // Use final elapsed time from store when completed
       setElapsedMs(currentExecution.elapsedMs);
     } else if (!currentExecution) {
       setElapsedMs(0);
@@ -153,10 +147,8 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
   // Handle scroll to detect user scrolling
   const handleScroll = useCallback(() => {
     if (!logsContainerRef.current) return;
-
     const { scrollTop, scrollHeight, clientHeight } = logsContainerRef.current;
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
-
     setIsUserScrolling(!isAtBottom);
   }, []);
 
@@ -169,7 +161,6 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
   // Handle execute
   const handleExecute = useCallback(async () => {
     if (!currentFlow) return;
-
     try {
       const result = await executeFlow.mutateAsync(currentFlow.id);
       startExecution(result.execId, currentFlow.id);
@@ -219,241 +210,200 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
   const isPaused = currentExecution?.status === 'paused';
   const canExecute = currentFlow && !isExecuting && !isPaused;
 
+  if (!isMonitorPanelOpen) return null;
+
   return (
     <div
       className={cn(
-        'border-t border-border bg-card transition-all duration-300',
-        isMonitorExpanded ? 'h-64' : 'h-12',
+        'w-80 border-l border-border bg-card flex flex-col h-full',
+        'animate-in slide-in-from-right duration-300',
         className
       )}
     >
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-4 h-12 border-b border-border cursor-pointer"
-        onClick={() => setMonitorExpanded(!isMonitorExpanded)}
-      >
-        <div className="flex items-center gap-3">
-          <Terminal className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Execution Monitor</span>
-
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Terminal className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium truncate">Monitor</span>
           {currentExecution && (
-            <>
-              <Badge variant={getStatusBadgeVariant(currentExecution.status)}>
-                <span className="flex items-center gap-1">
-                  {getStatusIcon(currentExecution.status)}
-                  {currentExecution.status}
-                </span>
-              </Badge>
-
-              <span className="text-sm text-muted-foreground flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                {formatElapsedTime(elapsedMs)}
+            <Badge variant={getStatusBadgeVariant(currentExecution.status)} className="shrink-0">
+              <span className="flex items-center gap-1">
+                {getStatusIcon(currentExecution.status)}
+                {currentExecution.status}
               </span>
-
-              {totalNodes > 0 && (
-                <span className="text-sm text-muted-foreground">
-                  {completedNodes}/{totalNodes} nodes
-                </span>
-              )}
-            </>
+            </Badge>
           )}
         </div>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 w-7 p-0 shrink-0"
+          onClick={() => setMonitorPanelOpen(false)}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
 
-        <div className="flex items-center gap-2">
-          {/* Control buttons */}
-          {canExecute && (
+      {/* Controls */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0">
+        {canExecute && (
+          <Button
+            size="sm"
+            variant="default"
+            onClick={handleExecute}
+            disabled={executeFlow.isPending}
+            className="flex-1"
+          >
+            <Play className="h-4 w-4 mr-1" />
+            Execute
+          </Button>
+        )}
+
+        {isExecuting && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handlePause}
+              disabled={pauseExecution.isPending}
+            >
+              <Pause className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleStop}
+              disabled={stopExecution.isPending}
+            >
+              <Square className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+
+        {isPaused && (
+          <>
             <Button
               size="sm"
               variant="default"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleExecute();
-              }}
-              disabled={executeFlow.isPending}
+              onClick={handleResume}
+              disabled={resumeExecution.isPending}
+              className="flex-1"
             >
               <Play className="h-4 w-4 mr-1" />
-              Execute
+              Resume
             </Button>
-          )}
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleStop}
+              disabled={stopExecution.isPending}
+            >
+              <Square className="h-4 w-4" />
+            </Button>
+          </>
+        )}
 
-          {isExecuting && (
-            <>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePause();
-                }}
-                disabled={pauseExecution.isPending}
-              >
-                <Pause className="h-4 w-4" />
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleStop();
-                }}
-                disabled={stopExecution.isPending}
-              >
-                <Square className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-
-          {isPaused && (
-            <>
-              <Button
-                size="sm"
-                variant="default"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleResume();
-                }}
-                disabled={resumeExecution.isPending}
-              >
-                <Play className="h-4 w-4 mr-1" />
-                Resume
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleStop();
-                }}
-                disabled={stopExecution.isPending}
-              >
-                <Square className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-
-          {/* Expand/collapse button */}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              setMonitorExpanded(!isMonitorExpanded);
-            }}
-          >
-            {isMonitorExpanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronUp className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
+        {currentExecution && (
+          <span className="text-xs text-muted-foreground flex items-center gap-1 ml-auto">
+            <Clock className="h-3 w-3" />
+            {formatElapsedTime(elapsedMs)}
+          </span>
+        )}
       </div>
 
-      {/* Content */}
-      {isMonitorExpanded && (
-        <div className="flex h-[calc(100%-3rem)]">
-          {/* Progress bar */}
-          {currentExecution && (
-            <div className="absolute top-12 left-0 right-0 h-1 bg-muted">
-              <div
-                className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          )}
+      {/* Progress bar */}
+      {currentExecution && (
+        <div className="h-1 bg-muted shrink-0">
+          <div
+            className="h-full bg-primary transition-all duration-300"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      )}
 
-          {/* Logs panel */}
-          <div className="flex-1 flex flex-col relative">
-            {/* Logs container */}
-            <div
-              ref={logsContainerRef}
-              className="flex-1 overflow-y-auto p-3 font-mono text-xs"
-              onScroll={handleScroll}
-            >
-              {logs.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
-                  {currentExecution
-                    ? 'Waiting for logs...'
-                    : 'Select a flow and click Execute to start'}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {logs.map((log, index) => (
-                    <div key={index} className="flex gap-2">
-                      <span className="text-muted-foreground shrink-0">
-                        {new Date(log.timestamp).toLocaleTimeString()}
-                      </span>
-                      <span
-                        className={cn(
-                          'uppercase w-12 shrink-0',
-                          getLogLevelColor(log.level)
-                        )}
-                      >
-                        [{log.level}]
-                      </span>
-                      {log.nodeId && (
-                        <span className="text-purple-500 shrink-0">
-                          [{log.nodeId}]
-                        </span>
-                      )}
-                      <span className="text-foreground break-all">
-                        {log.message}
-                      </span>
-                    </div>
-                  ))}
-                  <div ref={logsEndRef} />
-                </div>
-              )}
-            </div>
-
-            {/* Scroll to bottom button */}
-            {isUserScrolling && logs.length > 0 && (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="absolute bottom-3 right-3"
-                onClick={scrollToBottom}
-              >
-                <ArrowDownToLine className="h-4 w-4 mr-1" />
-                Scroll to bottom
-              </Button>
-            )}
+      {/* Node status */}
+      {currentExecution && Object.keys(nodeStates).length > 0 && (
+        <div className="px-3 py-2 border-b border-border shrink-0">
+          <div className="text-xs font-medium text-muted-foreground mb-1.5">
+            Node Status ({completedNodes}/{totalNodes})
           </div>
+          <div className="space-y-1 max-h-32 overflow-y-auto">
+            {Object.entries(nodeStates).map(([nodeId, state]) => (
+              <div
+                key={nodeId}
+                className="flex items-center gap-2 text-xs p-1 rounded hover:bg-muted"
+              >
+                {state.status === 'running' && (
+                  <Loader2 className="h-3 w-3 animate-spin text-blue-500 shrink-0" />
+                )}
+                {state.status === 'completed' && (
+                  <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                )}
+                {state.status === 'failed' && (
+                  <AlertCircle className="h-3 w-3 text-red-500 shrink-0" />
+                )}
+                {state.status === 'pending' && (
+                  <Clock className="h-3 w-3 text-gray-400 shrink-0" />
+                )}
+                <span className="truncate" title={nodeId}>
+                  {nodeId.slice(0, 24)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
-          {/* Node states panel (collapsed by default) */}
-          {currentExecution && Object.keys(nodeStates).length > 0 && (
-            <div className="w-48 border-l border-border p-2 overflow-y-auto">
-              <div className="text-xs font-medium text-muted-foreground mb-2">
-                Node Status
-              </div>
-              <div className="space-y-1">
-                {Object.entries(nodeStates).map(([nodeId, state]) => (
-                  <div
-                    key={nodeId}
-                    className="flex items-center gap-2 text-xs p-1 rounded hover:bg-muted"
+      {/* Logs */}
+      <div className="flex-1 flex flex-col min-h-0 relative">
+        <div
+          ref={logsContainerRef}
+          className="flex-1 overflow-y-auto p-3 font-mono text-xs"
+          onScroll={handleScroll}
+        >
+          {logs.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-muted-foreground text-center">
+              {currentExecution
+                ? 'Waiting for logs...'
+                : 'Click Execute to start'}
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {logs.map((log, index) => (
+                <div key={index} className="flex gap-1.5">
+                  <span className="text-muted-foreground shrink-0 text-[10px]">
+                    {new Date(log.timestamp).toLocaleTimeString()}
+                  </span>
+                  <span
+                    className={cn(
+                      'uppercase w-10 shrink-0 text-[10px]',
+                      getLogLevelColor(log.level)
+                    )}
                   >
-                    {state.status === 'running' && (
-                      <Loader2 className="h-3 w-3 animate-spin text-blue-500" />
-                    )}
-                    {state.status === 'completed' && (
-                      <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    )}
-                    {state.status === 'failed' && (
-                      <AlertCircle className="h-3 w-3 text-red-500" />
-                    )}
-                    {state.status === 'pending' && (
-                      <Clock className="h-3 w-3 text-gray-400" />
-                    )}
-                    <span className="truncate" title={nodeId}>
-                      {nodeId.slice(0, 20)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                    [{log.level}]
+                  </span>
+                  <span className="text-foreground break-all text-[11px]">
+                    {log.message}
+                  </span>
+                </div>
+              ))}
+              <div ref={logsEndRef} />
             </div>
           )}
         </div>
-      )}
+
+        {/* Scroll to bottom button */}
+        {isUserScrolling && logs.length > 0 && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="absolute bottom-3 right-3"
+            onClick={scrollToBottom}
+          >
+            <ArrowDownToLine className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

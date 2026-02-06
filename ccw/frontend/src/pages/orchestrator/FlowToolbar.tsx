@@ -1,7 +1,7 @@
 // ========================================
 // Flow Toolbar Component
 // ========================================
-// Toolbar for flow operations: Save, Load, Import Template, Export, Simulate, Run
+// Toolbar for flow operations: Save, Load, Import Template, Export, Run, Monitor
 
 import { useState, useCallback, useEffect } from 'react';
 import { useIntl } from 'react-intl';
@@ -16,12 +16,14 @@ import {
   ChevronDown,
   Library,
   Play,
-  FlaskConical,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useFlowStore, toast } from '@/stores';
+import { useExecutionStore } from '@/stores/executionStore';
+import { useExecuteFlow } from '@/hooks/useFlows';
 import type { Flow } from '@/types/flow';
 
 interface FlowToolbarProps {
@@ -45,6 +47,18 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
   const deleteFlow = useFlowStore((state) => state.deleteFlow);
   const duplicateFlow = useFlowStore((state) => state.duplicateFlow);
   const fetchFlows = useFlowStore((state) => state.fetchFlows);
+
+  // Execution store
+  const currentExecution = useExecutionStore((state) => state.currentExecution);
+  const isMonitorPanelOpen = useExecutionStore((state) => state.isMonitorPanelOpen);
+  const setMonitorPanelOpen = useExecutionStore((state) => state.setMonitorPanelOpen);
+  const startExecution = useExecutionStore((state) => state.startExecution);
+
+  // Mutations
+  const executeFlow = useExecuteFlow();
+
+  const isExecuting = currentExecution?.status === 'running';
+  const isPaused = currentExecution?.status === 'paused';
 
   // Load flows on mount
   useEffect(() => {
@@ -160,6 +174,25 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
 
     toast.success('Flow Exported', 'Flow exported as JSON file');
   }, [currentFlow]);
+
+  // Handle run workflow
+  const handleRun = useCallback(async () => {
+    if (!currentFlow) return;
+    try {
+      // Open monitor panel automatically
+      setMonitorPanelOpen(true);
+      const result = await executeFlow.mutateAsync(currentFlow.id);
+      startExecution(result.execId, currentFlow.id);
+    } catch (error) {
+      console.error('Failed to execute flow:', error);
+      toast.error('Execution Failed', 'Could not start flow execution');
+    }
+  }, [currentFlow, executeFlow, startExecution, setMonitorPanelOpen]);
+
+  // Handle monitor toggle
+  const handleToggleMonitor = useCallback(() => {
+    setMonitorPanelOpen(!isMonitorPanelOpen);
+  }, [isMonitorPanelOpen, setMonitorPanelOpen]);
 
   return (
     <div className={cn('flex items-center gap-3 p-3 bg-card border-b border-border', className)}>
@@ -294,14 +327,28 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
 
         <div className="w-px h-6 bg-border" />
 
-        {/* Run Group */}
-        <Button variant="outline" size="sm" disabled title="Coming soon">
-          <FlaskConical className="w-4 h-4 mr-1" />
-          Simulate
+        {/* Run & Monitor Group */}
+        <Button
+          variant={isMonitorPanelOpen ? 'secondary' : 'outline'}
+          size="sm"
+          onClick={handleToggleMonitor}
+          title="Toggle execution monitor"
+        >
+          <Activity className={cn('w-4 h-4 mr-1', (isExecuting || isPaused) && 'text-primary animate-pulse')} />
+          Monitor
         </Button>
 
-        <Button variant="default" size="sm" disabled title="Coming soon">
-          <Play className="w-4 h-4 mr-1" />
+        <Button
+          variant="default"
+          size="sm"
+          onClick={handleRun}
+          disabled={!currentFlow || isExecuting || isPaused || executeFlow.isPending}
+        >
+          {executeFlow.isPending ? (
+            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+          ) : (
+            <Play className="w-4 h-4 mr-1" />
+          )}
           Run Workflow
         </Button>
       </div>

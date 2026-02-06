@@ -9,7 +9,6 @@ import sessions from './sessions.json';
 import issues from './issues.json';
 import home from './home.json';
 import orchestrator from './orchestrator.json';
-import coordinator from './coordinator.json';
 import loops from './loops.json';
 import commands from './commands.json';
 import memory from './memory.json';
@@ -71,7 +70,6 @@ export default {
   ...flattenMessages(issues, 'issues'),
   ...flattenMessages(home, 'home'),
   ...flattenMessages(orchestrator, 'orchestrator'),
-  ...flattenMessages(coordinator, 'coordinator'),
   ...flattenMessages(loops, 'loops'),
   ...flattenMessages(commands, 'commands'),
   ...flattenMessages(memory, 'memory'),

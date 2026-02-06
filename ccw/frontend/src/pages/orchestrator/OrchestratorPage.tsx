@@ -5,14 +5,17 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useFlowStore } from '@/stores';
+import { useExecutionStore } from '@/stores/executionStore';
 import { FlowCanvas } from './FlowCanvas';
 import { LeftSidebar } from './LeftSidebar';
 import { PropertyPanel } from './PropertyPanel';
 import { FlowToolbar } from './FlowToolbar';
 import { TemplateLibrary } from './TemplateLibrary';
+import { ExecutionMonitor } from './ExecutionMonitor';
 
 export function OrchestratorPage() {
   const fetchFlows = useFlowStore((state) => state.fetchFlows);
+  const isMonitorPanelOpen = useExecutionStore((state) => state.isMonitorPanelOpen);
   const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState(false);
 
   // Load flows on mount
@@ -26,7 +29,7 @@ export function OrchestratorPage() {
   }, []);
 
   return (
-    <div className="h-full flex flex-col -m-4 md:-m-6">
+    <div className="h-[calc(100%+2rem)] md:h-[calc(100%+3rem)] flex flex-col -m-4 md:-m-6">
       {/* Toolbar */}
       <FlowToolbar onOpenTemplateLibrary={handleOpenTemplateLibrary} />
 
@@ -40,8 +43,11 @@ export function OrchestratorPage() {
           <FlowCanvas className="absolute inset-0" />
         </div>
 
-        {/* Property Panel (Right) */}
-        <PropertyPanel />
+        {/* Property Panel (Right) - hidden when monitor is open */}
+        {!isMonitorPanelOpen && <PropertyPanel />}
+
+        {/* Execution Monitor Panel (Right) */}
+        <ExecutionMonitor />
       </div>
 
       {/* Template Library Dialog */}
@@ -52,5 +58,3 @@ export function OrchestratorPage() {
     </div>
   );
 }
-
-export default OrchestratorPage;

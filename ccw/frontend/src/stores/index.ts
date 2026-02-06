@@ -71,25 +71,11 @@ export {
   selectCurrentExecution,
   selectNodeStates,
   selectLogs,
-  selectIsMonitorExpanded,
+  selectIsMonitorPanelOpen,
   selectAutoScrollLogs,
   selectIsExecuting,
   selectNodeStatus,
 } from './executionStore';
-
-// Coordinator Store
-export {
-  useCoordinatorStore,
-  useCoordinatorActions,
-  selectCoordinatorStatus,
-  selectCurrentExecutionId,
-  selectCoordinatorLogs,
-  selectActiveQuestion,
-  selectCommandChain,
-  selectCurrentNode,
-  selectPipelineDetails,
-  selectIsPipelineLoaded,
-} from './coordinatorStore';
 
 // Viewer Store
 export {
@@ -147,16 +133,6 @@ export type {
   Question,
   AskQuestionPayload,
 } from '../types/store';
-
-// Coordinator Store Types
-export type {
-  CoordinatorState,
-  CoordinatorStatus,
-  CommandNode,
-  CoordinatorLog,
-  CoordinatorQuestion,
-  PipelineDetails,
-} from './coordinatorStore';
 
 // Viewer Store Types
 export type {

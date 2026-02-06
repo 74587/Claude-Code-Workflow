@@ -13,7 +13,6 @@ import {
   SessionDetailPage,
   HistoryPage,
   OrchestratorPage,
-  CoordinatorPage,
   LoopMonitorPage,
   IssueHubPage,
   IssueManagerPage,
@@ -86,10 +85,6 @@ const routes: RouteObject[] = [
       {
         path: 'orchestrator',
         element: <OrchestratorPage />,
-      },
-      {
-        path: 'coordinator',
-        element: <CoordinatorPage />,
       },
       {
         path: 'loops',
@@ -205,7 +200,6 @@ export const ROUTES = {
   PROJECT: '/project',
   HISTORY: '/history',
   ORCHESTRATOR: '/orchestrator',
-  COORDINATOR: '/coordinator',
   LOOPS: '/loops',
   CLI_VIEWER: '/cli-viewer',
   ISSUES: '/issues',

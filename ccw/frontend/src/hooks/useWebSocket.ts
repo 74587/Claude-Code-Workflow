@@ -8,7 +8,6 @@ import { useNotificationStore } from '@/stores';
 import { useExecutionStore } from '@/stores/executionStore';
 import { useFlowStore } from '@/stores';
 import { useCliStreamStore } from '@/stores/cliStreamStore';
-import { useCoordinatorStore } from '@/stores/coordinatorStore';
 import {
   OrchestratorMessageSchema,
   type OrchestratorWebSocketMessage,
@@ -28,7 +27,6 @@ function getStoreState() {
   const execution = useExecutionStore.getState();
   const flow = useFlowStore.getState();
   const cliStream = useCliStreamStore.getState();
-  const coordinator = useCoordinatorStore.getState();
   return {
     // Notification store
     setWsStatus: notification.setWsStatus,
@@ -48,12 +46,6 @@ function getStoreState() {
     updateNode: flow.updateNode,
     // CLI stream store
     addOutput: cliStream.addOutput,
-    // Coordinator store
-    updateNodeStatus: coordinator.updateNodeStatus,
-    addCoordinatorLog: coordinator.addLog,
-    setActiveQuestion: coordinator.setActiveQuestion,
-    markExecutionComplete: coordinator.markExecutionComplete,
-    coordinatorExecutionId: coordinator.currentExecutionId,
   };
 }
 
@@ -161,57 +153,6 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
             stores.addA2UINotification(parsed.data, 'Interactive UI');
           } else {
             console.warn('[WebSocket] Invalid A2UI surface:', parsed.error.issues);
-          }
-          return;
-        }
-
-        // Handle Coordinator messages
-        if (data.type?.startsWith('COORDINATOR_')) {
-          const { coordinatorExecutionId } = stores;
-          // Only process messages for current coordinator execution
-          if (coordinatorExecutionId && data.executionId !== coordinatorExecutionId) {
-            return;
-          }
-
-          // Dispatch to coordinator store based on message type
-          switch (data.type) {
-            case 'COORDINATOR_STATE_UPDATE':
-              // Check for completion
-              if (data.status === 'completed') {
-                stores.markExecutionComplete(true);
-              } else if (data.status === 'failed') {
-                stores.markExecutionComplete(false);
-              }
-              break;
-
-            case 'COORDINATOR_COMMAND_STARTED':
-              stores.updateNodeStatus(data.nodeId, 'running');
-              break;
-
-            case 'COORDINATOR_COMMAND_COMPLETED':
-              stores.updateNodeStatus(data.nodeId, 'completed', data.result);
-              break;
-
-            case 'COORDINATOR_COMMAND_FAILED':
-              stores.updateNodeStatus(data.nodeId, 'failed', undefined, data.error);
-              break;
-
-            case 'COORDINATOR_LOG_ENTRY':
-              stores.addCoordinatorLog(
-                data.log.message,
-                data.log.level,
-                data.log.nodeId,
-                data.log.source
-              );
-              break;
-
-            case 'COORDINATOR_QUESTION_ASKED':
-              stores.setActiveQuestion(data.question);
-              break;
-
-            case 'COORDINATOR_ANSWER_RECEIVED':
-              // Answer received - handled by submitAnswer in the store
-              break;
           }
           return;
         }

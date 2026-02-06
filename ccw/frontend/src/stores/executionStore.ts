@@ -29,7 +29,7 @@ const initialState = {
   maxLogs: MAX_LOGS,
 
   // UI state
-  isMonitorExpanded: true,
+  isMonitorPanelOpen: false,
   autoScrollLogs: true,
 };
 
@@ -197,8 +197,8 @@ export const useExecutionStore = create<ExecutionStore>()(
 
       // ========== UI State ==========
 
-      setMonitorExpanded: (expanded: boolean) => {
-        set({ isMonitorExpanded: expanded }, false, 'setMonitorExpanded');
+      setMonitorPanelOpen: (open: boolean) => {
+        set({ isMonitorPanelOpen: open }, false, 'setMonitorPanelOpen');
       },
 
       setAutoScrollLogs: (autoScroll: boolean) => {
@@ -213,7 +213,7 @@ export const useExecutionStore = create<ExecutionStore>()(
 export const selectCurrentExecution = (state: ExecutionStore) => state.currentExecution;
 export const selectNodeStates = (state: ExecutionStore) => state.nodeStates;
 export const selectLogs = (state: ExecutionStore) => state.logs;
-export const selectIsMonitorExpanded = (state: ExecutionStore) => state.isMonitorExpanded;
+export const selectIsMonitorPanelOpen = (state: ExecutionStore) => state.isMonitorPanelOpen;
 export const selectAutoScrollLogs = (state: ExecutionStore) => state.autoScrollLogs;
 
 // Helper to check if execution is active

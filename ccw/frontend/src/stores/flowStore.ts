@@ -12,8 +12,31 @@ import type {
   FlowEdge,
   NodeData,
   FlowEdgeData,
+  QuickTemplate,
 } from '../types/flow';
 import { NODE_TYPE_CONFIGS as nodeConfigs, QUICK_TEMPLATES } from '../types/flow';
+
+// localStorage key for custom templates
+const CUSTOM_TEMPLATES_KEY = 'ccw-orchestrator-custom-templates';
+
+// Load custom templates from localStorage
+function loadCustomTemplatesFromStorage(): QuickTemplate[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_TEMPLATES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Save custom templates to localStorage
+function saveCustomTemplatesToStorage(templates: QuickTemplate[]): void {
+  try {
+    localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(templates));
+  } catch (e) {
+    console.error('Failed to save custom templates:', e);
+  }
+}
 
 // Helper to generate unique IDs
 const generateId = (prefix: string): string => {
@@ -45,6 +68,9 @@ const initialState = {
   isPaletteOpen: true,
   isPropertyPanelOpen: true,
   leftPanelTab: 'nodes' as const,
+
+  // Custom templates (loaded from localStorage)
+  customTemplates: loadCustomTemplatesFromStorage(),
 };
 
 export const useFlowStore = create<FlowStore>()(
@@ -259,7 +285,9 @@ export const useFlowStore = create<FlowStore>()(
       },
 
       addNodeFromTemplate: (templateId: string, position: { x: number; y: number }): string => {
-        const template = QUICK_TEMPLATES.find((t) => t.id === templateId);
+        // Look up in built-in templates first, then custom templates
+        const template = QUICK_TEMPLATES.find((t) => t.id === templateId)
+          || get().customTemplates.find((t) => t.id === templateId);
         if (!template) {
           console.error(`Template not found: ${templateId}`);
           return get().addNode(position);
@@ -432,6 +460,55 @@ export const useFlowStore = create<FlowStore>()(
 
       setLeftPanelTab: (tab) => {
         set({ leftPanelTab: tab }, false, 'setLeftPanelTab');
+      },
+
+      // ========== Custom Templates ==========
+
+      addCustomTemplate: (template: QuickTemplate) => {
+        set(
+          (state) => {
+            const updated = [...state.customTemplates, template];
+            saveCustomTemplatesToStorage(updated);
+            return { customTemplates: updated };
+          },
+          false,
+          'addCustomTemplate'
+        );
+      },
+
+      removeCustomTemplate: (id: string) => {
+        set(
+          (state) => {
+            const updated = state.customTemplates.filter((t) => t.id !== id);
+            saveCustomTemplatesToStorage(updated);
+            return { customTemplates: updated };
+          },
+          false,
+          'removeCustomTemplate'
+        );
+      },
+
+      saveNodeAsTemplate: (nodeId: string, label: string, description: string): QuickTemplate | null => {
+        const node = get().nodes.find((n) => n.id === nodeId);
+        if (!node) return null;
+
+        const { executionStatus, executionError, executionResult, ...templateData } = node.data;
+        const template: QuickTemplate = {
+          id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          label,
+          description,
+          icon: 'MessageSquare',
+          color: 'bg-blue-500',
+          category: 'command',
+          data: { ...templateData, label },
+        };
+
+        get().addCustomTemplate(template);
+        return template;
+      },
+
+      loadCustomTemplates: () => {
+        set({ customTemplates: loadCustomTemplatesFromStorage() }, false, 'loadCustomTemplates');
       },
 
       // ========== Utility ==========

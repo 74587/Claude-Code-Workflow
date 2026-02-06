@@ -8,15 +8,15 @@
    ============================================================================= */
 
 :root {
-  /* Primary Colors */
-  --ccw-primary-h: 221;
-  --ccw-primary-s: 83%;
-  --ccw-primary-l: 53%;
+  /* Primary Colors - 匹配 Frontend light-blue 主题 */
+  --ccw-primary-h: 220;
+  --ccw-primary-s: 60%;
+  --ccw-primary-l: 65%;
   --ccw-primary: hsl(var(--ccw-primary-h), var(--ccw-primary-s), var(--ccw-primary-l));
-  --ccw-primary-hover: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 43%);
-  --ccw-primary-active: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 38%);
+  --ccw-primary-hover: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 55%);
+  --ccw-primary-active: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 50%);
   --ccw-primary-light: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 95%);
-  --ccw-primary-dark: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 23%);
+  --ccw-primary-dark: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 30%);
 
   /* Secondary Colors */
   --ccw-secondary-h: 210;
@@ -26,38 +26,38 @@
   --ccw-secondary-hover: hsl(var(--ccw-secondary-h), var(--ccw-secondary-s), 92%);
   --ccw-secondary-border: hsl(var(--ccw-secondary-h), var(--ccw-secondary-s), 88%);
 
-  /* Accent Colors */
-  --ccw-accent-h: 142;
-  --ccw-accent-s: 76%;
-  --ccw-accent-l: 36%;
+  /* Accent Colors - 匹配 Frontend 蓝色系 */
+  --ccw-accent-h: 220;
+  --ccw-accent-s: 60%;
+  --ccw-accent-l: 65%;
   --ccw-accent: hsl(var(--ccw-accent-h), var(--ccw-accent-s), var(--ccw-accent-l));
-  --ccw-accent-hover: hsl(var(--ccw-accent-h), var(--ccw-accent-s), 26%);
-  --ccw-accent-light: hsl(var(--ccw-accent-h), var(--ccw-accent-s), 92%);
+  --ccw-accent-hover: hsl(var(--ccw-accent-h), var(--ccw-accent-s), 55%);
+  --ccw-accent-light: hsl(var(--ccw-accent-h), var(--ccw-accent-s), 95%);
 
-  /* Background Colors */
+  /* Background Colors - 匹配 Frontend */
   --ccw-bg-h: 0;
   --ccw-bg-s: 0%;
-  --ccw-bg-l: 100%;
+  --ccw-bg-l: 98%;
   --ccw-bg: hsl(var(--ccw-bg-h), var(--ccw-bg-s), var(--ccw-bg-l));
-  --ccw-bg-secondary: hsl(210, 20%, 98%);
-  --ccw-bg-tertiary: hsl(210, 20%, 96%);
+  --ccw-bg-secondary: hsl(220, 10%, 96%);
+  --ccw-bg-tertiary: hsl(220, 15%, 94%);
   --ccw-bg-elevated: hsl(0, 0%, 100%);
   --ccw-bg-overlay: hsla(0, 0%, 0%, 0.5);
 
-  /* Text Colors */
-  --ccw-text-h: 222;
-  --ccw-text-s: 47%;
-  --ccw-text-l: 11%;
+  /* Text Colors - 匹配 Frontend */
+  --ccw-text-h: 220;
+  --ccw-text-s: 30%;
+  --ccw-text-l: 15%;
   --ccw-text-primary: hsl(var(--ccw-text-h), var(--ccw-text-s), var(--ccw-text-l));
-  --ccw-text-secondary: hsl(215, 16%, 47%);
-  --ccw-text-tertiary: hsl(215, 16%, 65%);
+  --ccw-text-secondary: hsl(220, 15%, 45%);
+  --ccw-text-tertiary: hsl(220, 15%, 60%);
   --ccw-text-disabled: hsl(215, 16%, 80%);
   --ccw-text-inverse: hsl(0, 0%, 100%);
 
-  /* Border Colors */
-  --ccw-border-h: 214;
-  --ccw-border-s: 32%;
-  --ccw-border-l: 91%;
+  /* Border Colors - 匹配 Frontend */
+  --ccw-border-h: 220;
+  --ccw-border-s: 20%;
+  --ccw-border-l: 88%;
   --ccw-border: hsl(var(--ccw-border-h), var(--ccw-border-s), var(--ccw-border-l));
   --ccw-border-hover: hsl(var(--ccw-border-h), var(--ccw-border-s), 80%);
   --ccw-border-focus: var(--ccw-primary);
@@ -118,11 +118,11 @@
    ============================================================================= */
 
 [data-theme='dark'] {
-  /* Primary Colors (adjusted for dark mode) */
-  --ccw-primary: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 60%);
-  --ccw-primary-hover: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 50%);
-  --ccw-primary-active: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 45%);
-  --ccw-primary-light: hsl(var(--ccw-primary-h), 20%, 20%);
+  /* Primary Colors - 匹配 Frontend dark-blue 主题 */
+  --ccw-primary: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 65%);
+  --ccw-primary-hover: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 55%);
+  --ccw-primary-active: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 50%);
+  --ccw-primary-light: hsl(var(--ccw-primary-h), 30%, 25%);
   --ccw-primary-dark: hsl(var(--ccw-primary-h), var(--ccw-primary-s), 30%);
 
   /* Secondary Colors */
@@ -130,29 +130,29 @@
   --ccw-secondary-hover: hsl(217, 33%, 23%);
   --ccw-secondary-border: hsl(217, 33%, 28%);
 
-  /* Background Colors */
-  --ccw-bg-h: 222;
-  --ccw-bg-s: 47%;
-  --ccw-bg-l: 11%;
+  /* Background Colors - 匹配 Frontend dark-blue */
+  --ccw-bg-h: 220;
+  --ccw-bg-s: 30%;
+  --ccw-bg-l: 10%;
   --ccw-bg: hsl(var(--ccw-bg-h), var(--ccw-bg-s), var(--ccw-bg-l));
-  --ccw-bg-secondary: hsl(217, 33%, 17%);
-  --ccw-bg-tertiary: hsl(215, 28%, 22%);
-  --ccw-bg-elevated: hsl(217, 33%, 20%);
+  --ccw-bg-secondary: hsl(220, 25%, 14%);
+  --ccw-bg-tertiary: hsl(220, 25%, 18%);
+  --ccw-bg-elevated: hsl(220, 25%, 16%);
   --ccw-bg-overlay: hsla(0, 0%, 0%, 0.7);
 
-  /* Text Colors */
-  --ccw-text-primary: hsl(210, 40%, 98%);
-  --ccw-text-secondary: hsl(215, 16%, 75%);
-  --ccw-text-tertiary: hsl(215, 16%, 55%);
-  --ccw-text-disabled: hsl(215, 16%, 40%);
+  /* Text Colors - 匹配 Frontend dark-blue */
+  --ccw-text-primary: hsl(220, 20%, 90%);
+  --ccw-text-secondary: hsl(220, 15%, 60%);
+  --ccw-text-tertiary: hsl(220, 15%, 50%);
+  --ccw-text-disabled: hsl(220, 15%, 40%);
   --ccw-text-inverse: hsl(0, 0%, 0%);
 
-  /* Border Colors */
-  --ccw-border-h: 217;
-  --ccw-border-s: 33%;
-  --ccw-border-l: 17%;
+  /* Border Colors - 匹配 Frontend dark-blue */
+  --ccw-border-h: 220;
+  --ccw-border-s: 20%;
+  --ccw-border-l: 22%;
   --ccw-border: hsl(var(--ccw-border-h), var(--ccw-border-s), var(--ccw-border-l));
-  --ccw-border-hover: hsl(var(--ccw-border-h), var(--ccw-border-s), 25%);
+  --ccw-border-hover: hsl(var(--ccw-border-h), var(--ccw-border-s), 30%);
   --ccw-border-focus: var(--ccw-primary);
 
   /* Shadow (adjusted for dark mode) */
