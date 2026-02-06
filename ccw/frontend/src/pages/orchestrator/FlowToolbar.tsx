@@ -1,12 +1,11 @@
 // ========================================
 // Flow Toolbar Component
 // ========================================
-// Toolbar for flow operations: New, Save, Load, Export
+// Toolbar for flow operations: Save, Load, Import Template, Export, Simulate, Run
 
 import { useState, useCallback, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 import {
-  Plus,
   Save,
   FolderOpen,
   Download,
@@ -16,6 +15,8 @@ import {
   Loader2,
   ChevronDown,
   Library,
+  Play,
+  FlaskConical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -39,7 +40,6 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
   const isModified = useFlowStore((state) => state.isModified);
   const flows = useFlowStore((state) => state.flows);
   const isLoadingFlows = useFlowStore((state) => state.isLoadingFlows);
-  const createFlow = useFlowStore((state) => state.createFlow);
   const saveFlow = useFlowStore((state) => state.saveFlow);
   const loadFlow = useFlowStore((state) => state.loadFlow);
   const deleteFlow = useFlowStore((state) => state.deleteFlow);
@@ -55,13 +55,6 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
   useEffect(() => {
     setFlowName(currentFlow?.name || '');
   }, [currentFlow?.name]);
-
-  // Handle new flow
-  const handleNew = useCallback(() => {
-    const newFlow = createFlow('Untitled Flow', 'A new workflow');
-    setFlowName(newFlow.name);
-    toast.success('Flow Created', 'New flow created successfully');
-  }, [createFlow]);
 
   // Handle save
   const handleSave = useCallback(async () => {
@@ -186,11 +179,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
 
       {/* Action Buttons */}
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={handleNew}>
-          <Plus className="w-4 h-4 mr-1" />
-          New
-        </Button>
-
+        {/* Save & Load Group */}
         <Button
           variant="outline"
           size="sm"
@@ -290,17 +279,31 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
           )}
         </div>
 
-        <Button variant="outline" size="sm" onClick={handleExport} disabled={!currentFlow}>
-          <Download className="w-4 h-4 mr-1" />
-          Export
-        </Button>
+        <div className="w-px h-6 bg-border" />
 
+        {/* Import & Export Group */}
         <Button variant="outline" size="sm" onClick={onOpenTemplateLibrary}>
           <Library className="w-4 h-4 mr-1" />
-          Templates
+          Import Template
+        </Button>
+
+        <Button variant="outline" size="sm" onClick={handleExport} disabled={!currentFlow}>
+          <Download className="w-4 h-4 mr-1" />
+          Export Flow
         </Button>
 
         <div className="w-px h-6 bg-border" />
+
+        {/* Run Group */}
+        <Button variant="outline" size="sm" disabled title="Coming soon">
+          <FlaskConical className="w-4 h-4 mr-1" />
+          Simulate
+        </Button>
+
+        <Button variant="default" size="sm" disabled title="Coming soon">
+          <Play className="w-4 h-4 mr-1" />
+          Run Workflow
+        </Button>
       </div>
     </div>
   );

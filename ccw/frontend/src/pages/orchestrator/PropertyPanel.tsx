@@ -5,7 +5,7 @@
 
 import { useCallback, useMemo, useState, useEffect, useRef, KeyboardEvent } from 'react';
 import { useIntl } from 'react-intl';
-import { Settings, X, MessageSquare, Trash2, AlertCircle, CheckCircle2, Plus, Save } from 'lucide-react';
+import { Settings, X, MessageSquare, Trash2, AlertCircle, CheckCircle2, Plus, Save, Copy, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -786,6 +786,176 @@ function SlashCommandSection({ data, onChange, availableVariables }: SlashComman
   );
 }
 
+// ========== Collapsible Section ==========
+
+function CollapsibleSection({
+  title,
+  defaultExpanded = false,
+  children,
+}: {
+  title: string;
+  defaultExpanded?: boolean;
+  children: React.ReactNode;
+}) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  return (
+    <div className="border-t border-border pt-3">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center gap-2 w-full text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 hover:text-foreground transition-colors"
+      >
+        {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        {title}
+      </button>
+      {isExpanded && <div className="space-y-3">{children}</div>}
+    </div>
+  );
+}
+
+// ========== Tags Input ==========
+
+function TagsInput({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
+  const [input, setInput] = useState('');
+
+  const handleAdd = () => {
+    if (input.trim() && !tags.includes(input.trim())) {
+      onChange([...tags, input.trim()]);
+      setInput('');
+    }
+  };
+
+  const handleRemove = (tag: string) => {
+    onChange(tags.filter(t => t !== tag));
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAdd();
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1">
+        {tags.map((tag) => (
+          <span key={tag} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+            {tag}
+            <button onClick={() => handleRemove(tag)} className="hover:text-destructive">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-1">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="添加标签..."
+          className="h-7 text-xs"
+        />
+        <Button variant="ghost" size="sm" onClick={handleAdd} disabled={!input.trim()} className="h-7 px-2">
+          <Plus className="w-3 h-3" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ========== Artifacts List ==========
+
+function ArtifactsList({ artifacts, onChange }: { artifacts: string[]; onChange: (artifacts: string[]) => void }) {
+  const [input, setInput] = useState('');
+
+  const handleAdd = () => {
+    if (input.trim()) {
+      onChange([...artifacts, input.trim()]);
+      setInput('');
+    }
+  };
+
+  const handleRemove = (index: number) => {
+    onChange(artifacts.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-2">
+      {artifacts.map((artifact, i) => (
+        <div key={i} className="flex items-center gap-2 text-xs">
+          <span className="text-muted-foreground">{'->'}</span>
+          <span className="flex-1 font-mono truncate">{artifact}</span>
+          <button onClick={() => handleRemove(i)} className="text-muted-foreground hover:text-destructive">
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      ))}
+      <div className="flex gap-1">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAdd(); } }}
+          placeholder="output-file.json"
+          className="h-7 text-xs font-mono"
+        />
+        <Button variant="ghost" size="sm" onClick={handleAdd} disabled={!input.trim()} className="h-7 px-2">
+          <Plus className="w-3 h-3" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ========== Script Preview ==========
+
+function ScriptPreview({ data }: { data: PromptTemplateNodeData }) {
+  const script = useMemo(() => {
+    // Slash command mode
+    if (data.slashCommand) {
+      const args = data.slashArgs ? ` ${data.slashArgs}` : '';
+      return `/${data.slashCommand}${args}`;
+    }
+
+    // CLI tool mode
+    if (data.tool && (data.mode === 'analysis' || data.mode === 'write')) {
+      const parts = ['ccw cli'];
+      parts.push(`--tool ${data.tool}`);
+      parts.push(`--mode ${data.mode}`);
+      if (data.instruction) {
+        const snippet = data.instruction.slice(0, 80).replace(/\n/g, ' ');
+        parts.push(`-p "${snippet}..."`);
+      }
+      return parts.join(' \\\n  ');
+    }
+
+    // Plain instruction
+    if (data.instruction) {
+      return `# ${data.instruction.slice(0, 100)}`;
+    }
+
+    return '# 未配置命令';
+  }, [data.slashCommand, data.slashArgs, data.tool, data.mode, data.instruction]);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(script);
+  }, [script]);
+
+  return (
+    <div className="relative">
+      <pre className="p-3 rounded-md bg-muted/50 font-mono text-xs text-foreground/80 overflow-x-auto whitespace-pre-wrap border border-border">
+        {script}
+      </pre>
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+        title="复制"
+      >
+        <Copy className="w-3 h-3" />
+      </button>
+    </div>
+  );
+}
+
 // ========== Unified PromptTemplate Property Editor ==========
 
 interface PromptTemplatePropertiesProps {
@@ -867,6 +1037,75 @@ function PromptTemplateProperties({ data, onChange }: PromptTemplatePropertiesPr
           />
         </div>
       )}
+
+      {/* Classification Section */}
+      <CollapsibleSection title="分类信息" defaultExpanded={false}>
+        {/* Description */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">描述</label>
+          <textarea
+            value={data.description || ''}
+            onChange={(e) => onChange({ description: e.target.value })}
+            placeholder="节点功能描述..."
+            rows={2}
+            className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm resize-none"
+          />
+        </div>
+
+        {/* Phase */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">阶段</label>
+          <select
+            value={data.phase || ''}
+            onChange={(e) => onChange({ phase: (e.target.value || undefined) as PromptTemplateNodeData['phase'] })}
+            className="w-full h-10 px-3 rounded-md border border-border bg-background text-foreground text-sm"
+          >
+            <option value="">无</option>
+            <option value="session">Session</option>
+            <option value="context">Context</option>
+            <option value="plan">Plan</option>
+            <option value="execute">Execute</option>
+            <option value="review">Review</option>
+          </select>
+        </div>
+
+        {/* Tags */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">标签</label>
+          <TagsInput
+            tags={data.tags || []}
+            onChange={(tags) => onChange({ tags })}
+          />
+        </div>
+      </CollapsibleSection>
+
+      {/* Execution Section */}
+      <CollapsibleSection title="执行配置" defaultExpanded={false}>
+        {/* Condition */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">条件</label>
+          <Input
+            value={data.condition || ''}
+            onChange={(e) => onChange({ condition: e.target.value || undefined })}
+            placeholder="例如: {{prev.success}} === true"
+            className="font-mono text-sm"
+          />
+        </div>
+
+        {/* Artifacts */}
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">产物</label>
+          <ArtifactsList
+            artifacts={data.artifacts || []}
+            onChange={(artifacts) => onChange({ artifacts })}
+          />
+        </div>
+      </CollapsibleSection>
+
+      {/* Script Preview Section */}
+      <CollapsibleSection title="脚本预览" defaultExpanded={true}>
+        <ScriptPreview data={data} />
+      </CollapsibleSection>
     </div>
   );
 }

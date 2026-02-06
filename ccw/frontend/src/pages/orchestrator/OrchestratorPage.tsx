@@ -6,7 +6,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useFlowStore } from '@/stores';
 import { FlowCanvas } from './FlowCanvas';
-import { NodePalette } from './NodePalette';
+import { LeftSidebar } from './LeftSidebar';
 import { PropertyPanel } from './PropertyPanel';
 import { FlowToolbar } from './FlowToolbar';
 import { TemplateLibrary } from './TemplateLibrary';
@@ -32,8 +32,8 @@ export function OrchestratorPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Node Palette (Left) */}
-        <NodePalette />
+        {/* Left Sidebar (Templates + Nodes) */}
+        <LeftSidebar />
 
         {/* Flow Canvas (Center) */}
         <div className="flex-1 relative">

@@ -17,7 +17,7 @@ interface NodeWrapperProps {
   children: ReactNode;
   status?: ExecutionStatus;
   selected?: boolean;
-  accentColor: 'blue' | 'green' | 'amber' | 'purple';
+  accentColor: string;
   className?: string;
 }
 
@@ -35,6 +35,11 @@ const SELECTION_STYLES: Record<string, string> = {
   green: 'ring-2 ring-green-500/20 border-green-500',
   amber: 'ring-2 ring-amber-500/20 border-amber-500',
   purple: 'ring-2 ring-purple-500/20 border-purple-500',
+  sky: 'ring-2 ring-sky-500/20 border-sky-500',
+  cyan: 'ring-2 ring-cyan-500/20 border-cyan-500',
+  teal: 'ring-2 ring-teal-500/20 border-teal-500',
+  orange: 'ring-2 ring-orange-500/20 border-orange-500',
+  indigo: 'ring-2 ring-indigo-500/20 border-indigo-500',
 };
 
 // Status icons
