@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/general/ccw-debug.mdx",
   "sourceDirName": "commands/general",
   "slug": "/commands/general/ccw-debug",
-  "permalink": "/docs/zh/commands/general/ccw-debug",
+  "permalink": "/docs/commands/general/ccw-debug",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/general/ccw-debug.mdx",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/ccw-coordinator",
-    "permalink": "/docs/zh/commands/general/ccw-coordinator"
+    "permalink": "/docs/commands/general/ccw-coordinator"
   },
   "next": {
     "title": "/flow-create",
-    "permalink": "/docs/zh/commands/general/flow-create"
+    "permalink": "/docs/commands/general/flow-create"
   }
 }

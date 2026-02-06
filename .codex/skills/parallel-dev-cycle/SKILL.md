@@ -1,28 +1,18 @@
 ---
-name: Parallel Dev Cycle
-description: Multi-agent parallel development cycle with requirement analysis, exploration planning, code development, and validation. Supports continuous iteration with markdown progress documentation.
-argument-hint: TASK="<task description>" | --cycle-id=<id> [--extend="<extension>"] [--auto] [--parallel=<count>]
+name: parallel-dev-cycle
+description: Multi-agent parallel development cycle with requirement analysis, exploration planning, code development, and validation. Supports continuous iteration with markdown progress documentation. Triggers on "parallel-dev-cycle".
+allowed-tools: Task, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep
 ---
 
-# Parallel Dev Cycle - Multi-Agent Development Workflow
+# Parallel Dev Cycle
 
 Multi-agent parallel development cycle using Codex subagent pattern with four specialized workers:
 1. **Requirements Analysis & Extension** (RA) - Requirement analysis and self-enhancement
-2. **Exploration & Planning** (EP) - Exploration and planning
+2. **Exploration & Planning** (EP) - Codebase exploration and implementation planning
 3. **Code Development** (CD) - Code development with debug strategy support
 4. **Validation & Archival Summary** (VAS) - Validation and archival summary
 
-Each agent **maintains one main document** (e.g., requirements.md, plan.json, implementation.md) that is completely rewritten per iteration, plus auxiliary logs (changes.log, debug-log.ndjson) that are append-only. Supports versioning, automatic archival, and complete history tracking.
-
-## Arguments
-
-| Arg | Required | Description |
-|-----|----------|-------------|
-| TASK | One of TASK or --cycle-id | Task description (for new cycle, mutually exclusive with --cycle-id) |
-| --cycle-id | One of TASK or --cycle-id | Existing cycle ID to continue (from API or previous session) |
-| --extend | No | Extension description (only valid with --cycle-id) |
-| --auto | No | Auto-cycle mode (run all phases sequentially) |
-| --parallel | No | Number of parallel agents (default: 4, max: 4) |
+Each agent **maintains one main document** (e.g., requirements.md, plan.json, implementation.md) that is completely rewritten per iteration, plus auxiliary logs (changes.log, debug-log.ndjson) that are append-only.
 
 ## Architecture Overview
 
@@ -70,92 +60,272 @@ Each agent **maintains one main document** (e.g., requirements.md, plan.json, im
 6. **File References**: Use short file paths instead of content passing
 7. **Self-Enhancement**: RA agent proactively extends requirements based on context
 
+## Arguments
+
+| Arg | Required | Description |
+|-----|----------|-------------|
+| TASK | One of TASK or --cycle-id | Task description (for new cycle, mutually exclusive with --cycle-id) |
+| --cycle-id | One of TASK or --cycle-id | Existing cycle ID to continue (from API or previous session) |
+| --extend | No | Extension description (only valid with --cycle-id) |
+| --auto | No | Auto-cycle mode (run all phases sequentially without user confirmation) |
+| --parallel | No | Number of parallel agents (default: 4, max: 4) |
+
+## Auto Mode
+
+When `--auto`: Run all phases sequentially without user confirmation between iterations. Use recommended defaults for all decisions. Automatically continue iteration loop until tests pass or max iterations reached.
+
+## Execution Flow
+
+```
+Input Parsing:
+   └─ Parse arguments (TASK | --cycle-id + --extend)
+   └─ Convert to structured context (cycleId, state, progressDir)
+
+Phase 1: Session Initialization
+   └─ Ref: phases/01-session-init.md
+      ├─ Create new cycle OR resume existing cycle
+      ├─ Initialize state file and directory structure
+      └─ Output: cycleId, state, progressDir
+
+Phase 2: Agent Execution (Parallel)
+   └─ Ref: phases/02-agent-execution.md
+      ├─ Tasks attached: Spawn RA → Spawn EP → Spawn CD → Spawn VAS → Wait all
+      ├─ Spawn RA, EP, CD, VAS agents in parallel
+      ├─ Wait for all agents with timeout handling
+      └─ Output: agentOutputs (4 agent results)
+
+Phase 3: Result Aggregation & Iteration
+   └─ Ref: phases/03-result-aggregation.md
+      ├─ Parse PHASE_RESULT from each agent
+      ├─ Detect issues (test failures, blockers)
+      ├─ Decision: Issues found AND iteration < max?
+      │   ├─ Yes → Send feedback via send_input, loop back to Phase 2
+      │   └─ No → Proceed to Phase 4
+      └─ Output: parsedResults, iteration status
+
+Phase 4: Completion & Summary
+   └─ Ref: phases/04-completion-summary.md
+      ├─ Generate unified summary report
+      ├─ Update final state
+      ├─ Close all agents
+      └─ Output: final cycle report with continuation instructions
+```
+
+**Phase Reference Documents** (read on-demand when phase executes):
+
+| Phase | Document | Purpose |
+|-------|----------|---------|
+| 1 | [phases/01-session-init.md](phases/01-session-init.md) | Session creation/resume and state initialization |
+| 2 | [phases/02-agent-execution.md](phases/02-agent-execution.md) | Parallel agent spawning and execution |
+| 3 | [phases/03-result-aggregation.md](phases/03-result-aggregation.md) | Result parsing, feedback generation, iteration handling |
+| 4 | [phases/04-completion-summary.md](phases/04-completion-summary.md) | Final summary generation and cleanup |
+
+## Data Flow
+
+```
+User Input (TASK | --cycle-id + --extend)
+    ↓
+[Parse Arguments]
+    ↓ cycleId, state, progressDir
+
+Phase 1: Session Initialization
+    ↓ cycleId, state, progressDir (initialized/resumed)
+
+Phase 2: Agent Execution
+    ↓ agentOutputs {ra, ep, cd, vas}
+
+Phase 3: Result Aggregation
+    ↓ parsedResults, hasIssues, iteration count
+    ↓ [Loop back to Phase 2 if issues and iteration < max]
+
+Phase 4: Completion & Summary
+    ↓ finalState, summaryReport
+
+Return: cycle_id, iterations, final_state
+```
+
 ## Session Structure
 
 ```
 .workflow/.cycle/
-+-- {cycleId}.json                                 # Master state file
-+-- {cycleId}.progress/
-    +-- ra/
-    |   +-- requirements.md                        # Current version (complete rewrite)
-    |   +-- changes.log                            # NDJSON complete history (append-only)
-    |   └-- history/
-    |       +-- requirements-v1.0.0.md             # Archived snapshot
-    |       +-- requirements-v1.1.0.md             # Archived snapshot
-    +-- ep/
-    |   +-- exploration.md                         # Codebase exploration report
-    |   +-- architecture.md                        # Architecture design
-    |   +-- plan.json                              # Structured task list (current version)
-    |   +-- changes.log                            # NDJSON complete history
-    |   └-- history/
-    |       +-- plan-v1.0.0.json
-    |       +-- plan-v1.1.0.json
-    +-- cd/
-    |   +-- implementation.md                      # Current version
-    |   +-- debug-log.ndjson                       # Debug hypothesis tracking
-    |   +-- changes.log                            # NDJSON complete history
-    |   └-- history/
-    |       +-- implementation-v1.0.0.md
-    |       +-- implementation-v1.1.0.md
-    +-- vas/
-    |   +-- summary.md                             # Current version
-    |   +-- changes.log                            # NDJSON complete history
-    |   └-- history/
-    |       +-- summary-v1.0.0.md
-    |       +-- summary-v1.1.0.md
-    └-- coordination/
-        +-- timeline.md                            # Execution timeline
-        +-- decisions.log                          # Decision log
+├── {cycleId}.json                                 # Master state file
+├── {cycleId}.progress/
+    ├── ra/
+    │   ├── requirements.md                        # Current version (complete rewrite)
+    │   ├── changes.log                            # NDJSON complete history (append-only)
+    │   └── history/                               # Archived snapshots
+    ├── ep/
+    │   ├── exploration.md                         # Codebase exploration report
+    │   ├── architecture.md                        # Architecture design
+    │   ├── plan.json                              # Structured task list (current version)
+    │   ├── changes.log                            # NDJSON complete history
+    │   └── history/
+    ├── cd/
+    │   ├── implementation.md                      # Current version
+    │   ├── debug-log.ndjson                       # Debug hypothesis tracking
+    │   ├── changes.log                            # NDJSON complete history
+    │   └── history/
+    ├── vas/
+    │   ├── summary.md                             # Current version
+    │   ├── changes.log                            # NDJSON complete history
+    │   └── history/
+    └── coordination/
+        ├── timeline.md                            # Execution timeline
+        └── decisions.log                          # Decision log
 ```
 
 ## State Management
 
-State schema is defined in [phases/state-schema.md](phases/state-schema.md). The master state file (`{cycleId}.json`) tracks:
+Master state file: `.workflow/.cycle/{cycleId}.json`
 
-- Cycle metadata (id, title, status, iterations)
-- Agent states (status, output files, version)
-- Shared context (requirements, plan, changes, test results)
-- Coordination data (feedback log, decisions, blockers)
-
-## Versioning Workflow
-
-### Initial Version (v1.0.0)
-
-```bash
-/parallel-dev-cycle TASK="Implement OAuth login"
+```json
+{
+  "cycle_id": "cycle-v1-20260122T100000-abc123",
+  "title": "Task title",
+  "description": "Full task description",
+  "status": "created | running | paused | completed | failed",
+  "created_at": "ISO8601", "updated_at": "ISO8601",
+  "max_iterations": 5, "current_iteration": 0,
+  "agents": {
+    "ra":  { "status": "idle | running | completed | failed", "output_files": [] },
+    "ep":  { "status": "idle", "output_files": [] },
+    "cd":  { "status": "idle", "output_files": [] },
+    "vas": { "status": "idle", "output_files": [] }
+  },
+  "current_phase": "init | ra | ep | cd | vas | aggregation | complete",
+  "completed_phases": [],
+  "requirements": null, "plan": null, "changes": [], "test_results": null,
+  "coordination": { "feedback_log": [], "blockers": [] }
+}
 ```
 
-Generates:
+**Recovery**: If state corrupted, rebuild from `.progress/` markdown files and changes.log.
+
+## TodoWrite Pattern
+
+### Phase-Level Tracking (Tasks Attached)
+
+```json
+[
+  {"content": "Phase 1: Session Initialization", "status": "completed"},
+  {"content": "Phase 2: Agent Execution", "status": "in_progress"},
+  {"content": "  → Spawn RA Agent", "status": "completed"},
+  {"content": "  → Spawn EP Agent", "status": "completed"},
+  {"content": "  → Spawn CD Agent", "status": "in_progress"},
+  {"content": "  → Spawn VAS Agent", "status": "pending"},
+  {"content": "Phase 3: Result Aggregation", "status": "pending"},
+  {"content": "Phase 4: Completion & Summary", "status": "pending"}
+]
 ```
-requirements.md (v1.0.0)
-exploration.md (v1.0.0)
-architecture.md (v1.0.0)
-plan.json (v1.0.0)
-implementation.md (v1.0.0) - if applicable
-summary.md (v1.0.0) - if applicable
+
+### Phase-Level Tracking (Collapsed)
+
+```json
+[
+  {"content": "Phase 1: Session Initialization", "status": "completed"},
+  {"content": "Phase 2: Agent Execution (4 agents completed)", "status": "completed"},
+  {"content": "Phase 3: Result Aggregation", "status": "in_progress"},
+  {"content": "Phase 4: Completion & Summary", "status": "pending"}
+]
 ```
 
-### Iteration Versions (v1.1.0, v1.2.0)
+### Iteration Loop Tracking
 
-```bash
-/parallel-dev-cycle --cycle-id=cycle-v1-xxx --extend="Add GitHub support"
+```json
+[
+  {"content": "Phase 1: Session Initialization", "status": "completed"},
+  {"content": "Iteration 1: Agent Execution + Aggregation", "status": "completed"},
+  {"content": "Iteration 2: Feedback → Re-execution → Aggregation", "status": "in_progress"},
+  {"content": "Phase 4: Completion & Summary", "status": "pending"}
+]
 ```
 
-**Automatic handling**:
-1. Read current `requirements.md (v1.0.0)`
-2. Auto-archive to `history/requirements-v1.0.0.md`
-3. Recreate `requirements.md (v1.1.0)` - complete overwrite
-4. Append changes to `changes.log` (NDJSON)
+## Versioning
 
-## Changes.log Format (NDJSON)
+- **1.0.0**: Initial cycle → **1.x.0**: Each iteration (minor bump)
+- Each iteration: archive old → complete rewrite → append changes.log
 
-Permanent audit log (append-only, never deleted):
-
-```jsonl
-{"timestamp":"2026-01-22T10:00:00+08:00","version":"1.0.0","agent":"ra","action":"create","change":"Initial requirements","iteration":1}
-{"timestamp":"2026-01-22T11:00:00+08:00","version":"1.1.0","agent":"ra","action":"update","change":"Added Google OAuth requirement","iteration":2}
-{"timestamp":"2026-01-22T11:30:00+08:00","version":"1.0.0","agent":"ep","action":"create","change":"Initial implementation plan","iteration":1}
 ```
+Archive: copy requirements.md → history/requirements-v1.0.0.md
+Rewrite: overwrite requirements.md with v1.1.0 (complete new content)
+Append:  changes.log ← {"timestamp","version":"1.1.0","action":"update","description":"..."}
+```
+
+| Agent Output | Rewrite (per iteration) | Append-only |
+|-------------|------------------------|-------------|
+| RA | requirements.md | changes.log |
+| EP | exploration.md, architecture.md, plan.json | changes.log |
+| CD | implementation.md, issues.md | changes.log, debug-log.ndjson |
+| VAS | summary.md, test-results.json | changes.log |
+
+## Coordination Protocol
+
+**Execution Order**: RA → EP → CD → VAS (dependency chain, all spawned in parallel but block on dependencies)
+
+**Agent → Orchestrator**: Each agent outputs `PHASE_RESULT:` block:
+```
+PHASE_RESULT:
+- phase: ra | ep | cd | vas
+- status: success | failed | partial
+- files_written: [list]
+- summary: one-line summary
+- issues: []
+```
+
+**Orchestrator → Agent**: Feedback via `send_input` (file refs + issue summary, never full content):
+```
+## FEEDBACK FROM [Source]
+[Issue summary with file:line references]
+## Reference
+- File: .progress/vas/test-results.json (v1.0.0)
+## Actions Required
+1. [Specific fix]
+```
+
+**Rules**: Only orchestrator writes state file. Agents read state, write to own `.progress/{agent}/` directory only.
+
+## Core Rules
+
+1. **Start Immediately**: First action is TodoWrite initialization, then Phase 1 execution
+2. **Progressive Phase Loading**: Read phase docs ONLY when that phase is about to execute
+3. **Parse Every Output**: Extract PHASE_RESULT data from each agent for next phase
+4. **Auto-Continue**: After each phase, execute next pending phase automatically
+5. **Track Progress**: Update TodoWrite dynamically with attachment/collapse pattern
+6. **Single Writer**: Only orchestrator writes to master state file; agents report via PHASE_RESULT
+7. **File References**: Pass file paths between agents, not content
+8. **DO NOT STOP**: Continuous execution until all phases complete or max iterations reached
+
+## Error Handling
+
+| Error Type | Recovery |
+|------------|----------|
+| Agent timeout | send_input requesting convergence, then retry |
+| State corrupted | Rebuild from progress markdown files and changes.log |
+| Agent failed | Re-spawn agent with previous context |
+| Conflicting results | Orchestrator sends reconciliation request |
+| Missing files | RA/EP agents identify and request clarification |
+| Max iterations reached | Generate summary with remaining issues documented |
+
+## Coordinator Checklist
+
+### Before Each Phase
+
+- [ ] Read phase reference document
+- [ ] Check current state for dependencies
+- [ ] Update TodoWrite with phase tasks
+
+### After Each Phase
+
+- [ ] Parse agent outputs (PHASE_RESULT)
+- [ ] Update master state file
+- [ ] Collapse TodoWrite sub-tasks
+- [ ] Determine next action (continue / iterate / complete)
+
+## Reference Documents
+
+| Document | Purpose |
+|----------|---------|
+| [roles/](roles/) | Agent role definitions (RA, EP, CD, VAS) |
 
 ## Usage
 
@@ -172,23 +342,3 @@ Permanent audit log (append-only, never deleted):
 # Auto mode
 /parallel-dev-cycle --auto TASK="Add OAuth authentication"
 ```
-
-## Key Benefits
-
-- **Simple**: Each agent maintains only 1 file + changes.log
-- **Efficient**: Version rewrite without complex version marking
-- **Traceable**: Complete history in `history/` and `changes.log`
-- **Fast**: Agent reads current version quickly (no history parsing needed)
-- **Auditable**: NDJSON changes.log fully traces every change
-- **Self-Enhancing**: RA agent proactively extends requirements
-- **Debug-Ready**: CD agent supports hypothesis-driven debugging
-
-## Reference Documents
-
-| Document | Purpose |
-|----------|---------|
-| [phases/orchestrator.md](phases/orchestrator.md) | Orchestrator logic |
-| [phases/state-schema.md](phases/state-schema.md) | State structure definition |
-| [phases/agents/](phases/agents/) | Four agent role definitions |
-| [specs/coordination-protocol.md](specs/coordination-protocol.md) | Communication protocol |
-| [specs/versioning-strategy.md](specs/versioning-strategy.md) | Version management |

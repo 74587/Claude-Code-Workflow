@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/issue/issue-plan.md",
   "sourceDirName": "commands/issue",
   "slug": "/commands/issue/issue-plan",
-  "permalink": "/docs/zh/commands/issue/issue-plan",
+  "permalink": "/docs/commands/issue/issue-plan",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/issue/issue-plan.md",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "issue:discover",
-    "permalink": "/docs/zh/commands/issue/issue-discover"
+    "permalink": "/docs/commands/issue/issue-discover"
   },
   "next": {
     "title": "issue:queue",
-    "permalink": "/docs/zh/commands/issue/issue-queue"
+    "permalink": "/docs/commands/issue/issue-queue"
   }
 }

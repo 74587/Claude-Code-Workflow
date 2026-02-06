@@ -23,7 +23,7 @@ test.describe('[Dashboard Redesign] - Navigation & Layout Tests', () => {
     await waitForDashboardLoad(page);
   });
 
-  describe('Navigation Grouping', () => {
+  test.describe('Navigation Grouping', () => {
     test('DR-1.1 - should display all 6 navigation groups', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 
@@ -146,7 +146,7 @@ test.describe('[Dashboard Redesign] - Navigation & Layout Tests', () => {
     });
   });
 
-  describe('Dashboard Loading', () => {
+  test.describe('Dashboard Loading', () => {
     test('DR-2.1 - should load all 5 widgets successfully', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 
@@ -213,7 +213,7 @@ test.describe('[Dashboard Redesign] - Navigation & Layout Tests', () => {
     });
   });
 
-  describe('Drag-Drop Persistence', () => {
+  test.describe('Drag-Drop Persistence', () => {
     test('DR-3.1 - should allow dragging widgets to new positions', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 
@@ -293,7 +293,7 @@ test.describe('[Dashboard Redesign] - Navigation & Layout Tests', () => {
     });
   });
 
-  describe('Ticker Real-time Updates', () => {
+  test.describe('Ticker Real-time Updates', () => {
     test('DR-4.1 - should display ticker marquee component', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 
@@ -374,7 +374,7 @@ test.describe('[Dashboard Redesign] - Navigation & Layout Tests', () => {
     });
   });
 
-  describe('Responsive Layout', () => {
+  test.describe('Responsive Layout', () => {
     test('DR-5.1 - should adapt layout for mobile viewport', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 

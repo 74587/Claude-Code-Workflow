@@ -8,7 +8,7 @@ export default {
   "tagline": "Professional Workflow Automation Platform",
   "favicon": "img/favicon.svg",
   "url": "http://localhost:3001",
-  "baseUrl": "/docs/zh/",
+  "baseUrl": "/docs/",
   "organizationName": "ccw",
   "projectName": "docs",
   "trailingSlash": false,
@@ -48,9 +48,9 @@ export default {
   ],
   "themeConfig": {
     "navbar": {
-      "title": "CCW 帮助",
+      "title": "CCW Help",
       "logo": {
-        "alt": "CCW 标志",
+        "alt": "CCW Logo",
         "src": "img/logo.svg"
       },
       "items": [
@@ -65,7 +65,7 @@ export default {
     },
     "footer": {
       "style": "dark",
-      "copyright": "版权 © 2026 CCW。使用 Docusaurus 构建。",
+      "copyright": "Copyright © 2026 CCW. Built with Docusaurus.",
       "links": []
     },
     "prism": {

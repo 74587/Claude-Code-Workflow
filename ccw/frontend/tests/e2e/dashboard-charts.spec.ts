@@ -18,7 +18,7 @@ test.describe('[Dashboard Charts] - Chart Rendering & Interaction Tests', () => 
     await waitForDashboardLoad(page);
   });
 
-  describe('Pie Chart Rendering', () => {
+  test.describe('Pie Chart Rendering', () => {
     test('DC-1.1 - should render workflow status pie chart with data', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 
@@ -84,7 +84,7 @@ test.describe('[Dashboard Charts] - Chart Rendering & Interaction Tests', () => 
     });
   });
 
-  describe('Line Chart Rendering', () => {
+  test.describe('Line Chart Rendering', () => {
     test('DC-2.1 - should render activity timeline line chart', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 
@@ -167,7 +167,7 @@ test.describe('[Dashboard Charts] - Chart Rendering & Interaction Tests', () => 
     });
   });
 
-  describe('Bar Chart Rendering', () => {
+  test.describe('Bar Chart Rendering', () => {
     test('DC-3.1 - should render task type bar chart', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 
@@ -232,7 +232,7 @@ test.describe('[Dashboard Charts] - Chart Rendering & Interaction Tests', () => 
     });
   });
 
-  describe('Chart Responsiveness', () => {
+  test.describe('Chart Responsiveness', () => {
     test('DC-4.1 - should resize charts on mobile viewport', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 
@@ -290,7 +290,7 @@ test.describe('[Dashboard Charts] - Chart Rendering & Interaction Tests', () => 
     });
   });
 
-  describe('Chart Empty States', () => {
+  test.describe('Chart Empty States', () => {
     test('DC-5.1 - should display empty state when no data available', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 
@@ -342,7 +342,7 @@ test.describe('[Dashboard Charts] - Chart Rendering & Interaction Tests', () => 
     });
   });
 
-  describe('Chart Legend Interaction', () => {
+  test.describe('Chart Legend Interaction', () => {
     test('DC-6.1 - should toggle line visibility when clicking legend', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 
@@ -373,7 +373,7 @@ test.describe('[Dashboard Charts] - Chart Rendering & Interaction Tests', () => 
     });
   });
 
-  describe('Chart Performance', () => {
+  test.describe('Chart Performance', () => {
     test('DC-7.1 - should render all charts within performance budget', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 

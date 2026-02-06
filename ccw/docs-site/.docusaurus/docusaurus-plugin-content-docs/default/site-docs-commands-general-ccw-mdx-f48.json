@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/general/ccw.mdx",
   "sourceDirName": "commands/general",
   "slug": "/commands/general/ccw",
-  "permalink": "/docs/zh/commands/general/ccw",
+  "permalink": "/docs/commands/general/ccw",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/general/ccw.mdx",
@@ -20,11 +20,11 @@
   },
   "sidebar": "docs",
   "previous": {
-    "title": "概览",
-    "permalink": "/docs/zh/overview"
+    "title": "Overview",
+    "permalink": "/docs/overview"
   },
   "next": {
     "title": "/ccw-plan",
-    "permalink": "/docs/zh/commands/general/ccw-plan"
+    "permalink": "/docs/commands/general/ccw-plan"
   }
 }
