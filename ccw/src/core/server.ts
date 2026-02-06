@@ -65,6 +65,7 @@ interface ServerOptions {
   open?: boolean;
   frontend?: 'js' | 'react' | 'both';
   reactPort?: number;
+  docsPort?: number;
 }
 
 type PostHandler = PostRequestHandler;
@@ -448,12 +449,13 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
   const host = options.host ?? '127.0.0.1';
   const frontend = options.frontend || 'js';
   const reactPort = options.reactPort || serverPort + 1;
+  const docsPort = options.docsPort || 3001;
 
   // Log frontend configuration
   console.log(`[Server] Frontend mode: ${frontend}`);
   if (frontend === 'react' || frontend === 'both') {
     console.log(`[Server] React proxy configured: /react/* -> http://localhost:${reactPort}`);
-    console.log(`[Server] Docs proxy configured: /docs/* -> http://localhost:3001`);
+    console.log(`[Server] Docs proxy configured: /docs/* -> http://localhost:${docsPort}`);
   }
 
   const tokenManager = getTokenManager();
@@ -837,7 +839,6 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
       // Proxy /docs/* requests to Docusaurus
       if (pathname.startsWith('/docs/')) {
-        const docsPort = 3001;
         // Preserve the /docs prefix when forwarding to Docusaurus
         const docsUrl = `http://localhost:${docsPort}${pathname}${url.search}`;
 
@@ -957,11 +958,16 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
       // Start cache warmup asynchronously (non-blocking)
       // Uses setImmediate to not delay server startup response
-      setImmediate(() => {
-        warmupCaches(initialPath).catch((err) => {
-          console.warn('[WARMUP] Cache warmup failed:', err);
+      const warmupDisabled = ['1', 'true', 'yes'].includes(
+        (process.env.CCW_DISABLE_WARMUP ?? '').trim().toLowerCase(),
+      );
+      if (!warmupDisabled) {
+        setImmediate(() => {
+          warmupCaches(initialPath).catch((err) => {
+            console.warn('[WARMUP] Cache warmup failed:', err);
+          });
         });
-      });
+      }
 
       resolve(server);
     });

@@ -12,6 +12,13 @@ const __dirname = path.dirname(__filename)
 // Can be overridden by VITE_BASE_URL environment variable
 const basePath = process.env.VITE_BASE_URL || '/react/'
 
+// Backend target for Vite proxy (used when directly opening the Vite dev server port).
+// In `ccw view`, this is set to the dashboard server port so /api, /ws, and /docs all route correctly.
+const backendHost = process.env.VITE_BACKEND_HOST || 'localhost'
+const backendPort = Number(process.env.VITE_BACKEND_PORT || '3456')
+const backendHttpTarget = `http://${backendHost}:${backendPort}`
+const backendWsTarget = `ws://${backendHost}:${backendPort}`
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -29,21 +36,21 @@ export default defineConfig({
     proxy: {
       // Backend API proxy
       '/api': {
-        target: 'http://localhost:3456',
+        target: backendHttpTarget,
         changeOrigin: true,
       },
       // WebSocket proxy for real-time updates
       '/ws': {
-        target: 'ws://localhost:3456',
+        target: backendWsTarget,
         ws: true,
       },
-      // Docusaurus documentation site proxy
-      // Forwards /docs requests to Docusaurus dev server running on port 3001
+      // Docs proxy
+      // Forwards /docs requests to the dashboard server, which proxies to the docs server.
       '/docs': {
-        target: 'http://localhost:3001',
+        target: backendHttpTarget,
         changeOrigin: true,
-        // Preserve /docs prefix to match Docusaurus baseUrl configuration
-        // Example: /docs/overview -> http://localhost:3001/docs/overview
+        // Preserve /docs prefix to match the dashboard's /docs proxy and Docusaurus baseUrl.
+        // Example: /docs/overview -> http://localhost:{backendPort}/docs/overview
       },
     },
   },

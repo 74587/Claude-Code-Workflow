@@ -26,6 +26,8 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 |----------|-------------|
 | `exploration-{angle}.json` | Per-angle exploration results (1-4 files based on complexity) |
 | `explorations-manifest.json` | Index of all exploration files |
+| `exploration-notes.md` | Full exploration log (consumed by Plan phase, 6 sections) |
+| `exploration-notes-refined.md` | Refined exploration log (consumed by Execute phase, task-relevant only) |
 | `planning-context.md` | Evidence paths + synthesized understanding |
 | `plan.json` | Structured implementation plan (plan-json-schema.json) |
 
@@ -340,6 +342,115 @@ Angles explored: ${explorationManifest.explorations.map(e => e.angle).join(', ')
 - ... (1-4 files based on complexity)
 - `${sessionFolder}/explorations-manifest.json`
 
+**Generate Exploration Notes** (auto-generated after exploration completes):
+
+```javascript
+// Step 1: Load all exploration JSON files
+const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
+const explorations = manifest.explorations.map(exp => ({
+  angle: exp.angle,
+  data: JSON.parse(Read(exp.path))
+}))
+
+// Step 2: Extract core files (relevance ≥ 0.7)
+const coreFiles = []
+explorations.forEach(exp => {
+  if (Array.isArray(exp.data.relevant_files)) {
+    exp.data.relevant_files.forEach(f => {
+      if (typeof f === 'object' && f.relevance >= 0.7) {
+        coreFiles.push({ path: f.path, relevance: f.relevance, rationale: f.rationale, angle: exp.angle })
+      }
+    })
+  }
+})
+const uniqueCoreFiles = deduplicateByPath(coreFiles.sort((a, b) => b.relevance - a.relevance))
+
+// Step 3: Build exploration notes Markdown (6 sections)
+const explorationLog = `# Exploration Notes: ${task_description.slice(0, 60)}
+
+**Generated**: ${getUtc8ISOString()}
+**Task**: ${task_description}
+**Complexity**: ${complexity}
+**Exploration Angles**: ${explorations.map(e => e.angle).join(', ')}
+
+---
+
+## Part 1: Multi-Angle Exploration Summary
+
+${explorations.map(exp => `### Angle: ${exp.angle}
+
+**Key Files** (priority sorted):
+${formatFileList(exp.data.relevant_files)}
+
+**Code Patterns**: ${exp.data.patterns}
+
+**Integration Points**: ${exp.data.integration_points}
+
+**Dependencies**: ${exp.data.dependencies}
+
+**Constraints**: ${exp.data.constraints}
+`).join('\n---\n')}
+
+---
+
+## Part 2: File Deep-Dive Summary
+
+${uniqueCoreFiles.slice(0, 10).map(file => {
+  const content = Read(file.path)
+  const refs = Bash(\`rg "from ['\"].*${path.basename(file.path, path.extname(file.path))}['\"]" --type ts -n | head -10\`)
+  return formatFileDeepDive(file, content, refs)
+}).join('\n---\n')}
+
+---
+
+## Part 3: Architecture Reasoning Chains
+
+${buildReasoningChains(explorations, task_description)}
+
+---
+
+## Part 4: Potential Risks and Mitigations
+
+${buildRiskMitigations(explorations, uniqueCoreFiles)}
+
+---
+
+## Part 5: Clarification Questions Summary
+
+${aggregateClarifications(explorations)}
+
+---
+
+## Part 6: Execution Recommendations Checklist
+
+${generateExecutionChecklist(task_description, explorations, uniqueCoreFiles)}
+
+---
+
+## Appendix: Key Code Location Index
+
+| Component | File Path | Key Lines | Purpose |
+|-----------|-----------|-----------|---------|
+${uniqueCoreFiles.slice(0, 15).map(f => `| ${path.basename(f.path)} | ${f.path} | - | ${f.rationale} |`).join('\n')}
+`
+
+// Step 4: Write initial exploration notes
+Write(`${sessionFolder}/exploration-notes.md`, explorationLog)
+
+console.log(`
+## Exploration Notes Generated
+
+File: ${sessionFolder}/exploration-notes.md
+Core files: ${uniqueCoreFiles.length}
+Angles: ${explorations.map(e => e.angle).join(', ')}
+
+This log will be fully consumed by planning phase, then refined for execution.
+`)
+```
+
+**Output (new)**:
+- `${sessionFolder}/exploration-notes.md` (full version, consumed by Plan phase)
+
 ---
 
 ### Phase 2: Clarification (Optional, Multi-Round)
@@ -557,6 +668,116 @@ close_agent({ id: planningAgentId })
 
 **Output**: `${sessionFolder}/plan.json`
 
+**Refine Exploration Notes** (auto-executed after Plan completes):
+
+**Purpose**: Refine exploration-notes.md based on actual tasks in plan.json, keeping only execution-relevant content
+
+```javascript
+// Step 1: Load plan and exploration notes
+const plan = JSON.parse(Read(`${sessionFolder}/plan.json`))
+const explorationLog = Read(`${sessionFolder}/exploration-notes.md`)
+
+// Step 2: Extract files and modules from plan
+const planFiles = new Set()
+const planScopes = new Set()
+plan.tasks.forEach(task => {
+  if (task.scope) planScopes.add(task.scope)
+  if (task.modification_points) {
+    task.modification_points.forEach(mp => planFiles.add(mp.file))
+  }
+  if (task.reference?.files) {
+    task.reference.files.forEach(f => planFiles.add(f))
+  }
+})
+
+// Step 3: Build refined exploration notes
+const refinedLog = `# Exploration Notes (Refined): ${task_description.slice(0, 60)}
+
+**Generated**: ${getUtc8ISOString()}
+**Task**: ${task_description}
+**Plan Tasks**: ${plan.tasks.length}
+**Refined For**: Execution phase consumption
+
+---
+
+## Execution-Relevant File Index
+
+The following files are directly related to plan.json tasks, prioritize these during execution:
+
+${Array.from(planFiles).map(f => `- \`${f}\``).join('\n')}
+
+---
+
+## Part 1: Task-Relevant Exploration Context
+
+${plan.tasks.map(task => {
+  // Extract content relevant to this task from original exploration notes
+  return `### Task: ${task.title}
+
+**Scope**: \`${task.scope}\`
+**Files**: ${task.modification_points?.map(mp => mp.file).join(', ') || 'N/A'}
+
+**Relevant Exploration Findings**:
+${extractRelevantExploration(explorationLog, task)}
+
+**Reference Patterns**:
+${task.reference?.pattern || 'See exploration notes Part 1 patterns'}
+
+**Risk Notes**:
+${extractRelevantRisks(explorationLog, task)}
+`
+}).join('\n---\n')}
+
+---
+
+## Part 2: Condensed Code Reference
+
+${Array.from(planFiles).slice(0, 8).map(filePath => {
+  // Extract file deep-dive from original exploration notes Part 2
+  return extractFileDeepDive(explorationLog, filePath) || `### ${filePath}\n\n(See original exploration notes for details)`
+}).join('\n---\n')}
+
+---
+
+## Part 3: Execution Notes
+
+### Key Constraints (from exploration)
+${extractConstraints(explorationLog)}
+
+### Integration Points (plan-task related)
+${extractIntegrationPoints(explorationLog, planFiles)}
+
+### Dependencies
+${extractDependencies(explorationLog, planFiles)}
+
+---
+
+## Appendix: Full Exploration Notes Location
+
+Original full exploration notes: \`${sessionFolder}/exploration-notes.md\`
+
+For additional context, refer to:
+- Part 3: Architecture Reasoning Chains
+- Part 4: Potential Risks and Mitigations
+- Part 5: Clarification Questions Summary
+`
+
+// Step 4: Write refined exploration notes
+Write(`${sessionFolder}/exploration-notes-refined.md`, refinedLog)
+
+// Step 5: Update session artifacts
+console.log(`
+## Exploration Notes Refined
+
+Original: ${sessionFolder}/exploration-notes.md (full version, for Plan reference)
+Refined:  ${sessionFolder}/exploration-notes-refined.md (condensed, for Execute consumption)
+
+Refined for ${plan.tasks.length} tasks, ${planFiles.size} files
+`)
+```
+
+**Output (new)**: `${sessionFolder}/exploration-notes-refined.md`
+
 ---
 
 ### Phase 4: Task Confirmation & Execution Selection
@@ -683,6 +904,8 @@ executionContext = {
         path: exp.path
       })),
       explorations_manifest: `${sessionFolder}/explorations-manifest.json`,
+      exploration_log: `${sessionFolder}/exploration-notes.md`,           // Full version (Plan consumption)
+      exploration_log_refined: `${sessionFolder}/exploration-notes-refined.md`,  // Refined version (Execute consumption)
       plan: `${sessionFolder}/plan.json`
     }
   }
@@ -699,12 +922,14 @@ executionContext = {
 
 ```
 .workflow/.lite-plan/{task-slug}-{YYYY-MM-DD}/
-├── exploration-{angle1}.json      # Exploration angle 1
-├── exploration-{angle2}.json      # Exploration angle 2
-├── exploration-{angle3}.json      # Exploration angle 3 (if applicable)
-├── exploration-{angle4}.json      # Exploration angle 4 (if applicable)
-├── explorations-manifest.json     # Exploration index
-└── plan.json                      # Implementation plan
+├── exploration-{angle1}.json           # Exploration angle 1
+├── exploration-{angle2}.json           # Exploration angle 2
+├── exploration-{angle3}.json           # Exploration angle 3 (if applicable)
+├── exploration-{angle4}.json           # Exploration angle 4 (if applicable)
+├── explorations-manifest.json          # Exploration index
+├── exploration-notes.md                # Full exploration notes (Plan phase consumption)
+├── exploration-notes-refined.md        # Refined exploration notes (Execute phase consumption)
+└── plan.json                           # Implementation plan
 ```
 
 **Example**:

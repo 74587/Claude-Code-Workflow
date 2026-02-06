@@ -381,6 +381,21 @@ ${t.verification?.success_metrics?.length > 0 ? `\n**Success metrics**: ${t.veri
 
   // Context (reference only)
   const context = []
+
+  // Priority: reference refined exploration notes (Execute phase specific)
+  if (executionContext?.session?.artifacts?.exploration_log_refined) {
+    context.push(`### Exploration Notes (Refined)
+**Read first**: ${executionContext.session.artifacts.exploration_log_refined}
+
+This refined notes contains only execution-relevant context:
+- Execution-relevant file index (files directly related to plan tasks)
+- Task-relevant exploration context (findings, patterns, risks per task)
+- Condensed code reference (code snippets with line numbers)
+- Execution notes (constraints, integration points, dependencies)
+
+**IMPORTANT**: Use this refined notes to avoid re-exploring files. DO NOT re-read files already analyzed in the notes unless verifying specific implementation details.`)
+  }
+
   if (previousExecutionResults.length > 0) {
     context.push(`### Previous Work\n${previousExecutionResults.map(r => `- ${r.tasksSummary}: ${r.status}`).join('\n')}`)
   }
@@ -411,12 +426,38 @@ When to use:
 - or `executionMethod = "Auto" AND complexity = "Low"` (global fallback)
 
 ```javascript
-Task(
-  subagent_type="code-developer",
-  run_in_background=false,
-  description=batch.taskSummary,
-  prompt=buildExecutionPrompt(batch)
-)
+// Step 1: Create execution agent with mandatory context reading
+const executionAgentId = spawn_agent({
+  message: `
+## TASK ASSIGNMENT
+
+### MANDATORY FIRST STEPS (Agent Execute)
+1. **Read role definition**: ~/.codex/agents/code-developer.md (MUST read first)
+2. Read: .workflow/project-tech.json
+3. Read: .workflow/project-guidelines.json
+4. **Read refined exploration log**: ${executionContext?.session?.artifacts?.exploration_log_refined || 'N/A'}
+
+**CRITICAL**: Step 4 contains execution-relevant context including:
+- Task-relevant code patterns and integration points
+- Condensed code reference (with line numbers)
+- Execution constraints and risk notes
+
+Use the notes to avoid re-exploring files - the analysis is already done.
+
+---
+
+${buildExecutionPrompt(batch)}
+`
+})
+
+// Step 2: Wait for execution completion
+const execResult = wait({
+  ids: [executionAgentId],
+  timeout_ms: 600000  // 10 minutes
+})
+
+// Step 3: Close execution agent
+close_agent({ id: executionAgentId })
 ```
 
 **Result Collection**: After completion, collect result following `executionResult` structure (see Data Structures section)
@@ -683,6 +724,8 @@ Passed from planning phase via global variable:
     artifacts: {
       explorations: [{angle, path}],   // exploration-{angle}.json paths
       explorations_manifest: string,   // explorations-manifest.json path
+      exploration_log: string,         // exploration-notes.md (full version, Plan consumption)
+      exploration_log_refined: string, // exploration-notes-refined.md (refined version, Execute consumption)
       plan: string                     // plan.json path (always present)
     }
   }
@@ -690,7 +733,8 @@ Passed from planning phase via global variable:
 ```
 
 **Artifact Usage**:
-- Artifact files contain detailed planning context
+- **exploration_log**: Full exploration notes, for Plan phase reference, contains 6 sections
+- **exploration_log_refined**: Refined exploration notes, for Execute phase consumption, task-relevant content only
 - Pass artifact paths to CLI tools and agents for enhanced context
 - See execution options above for usage examples
 

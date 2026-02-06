@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process';
+import { createServer } from 'net';
 import { join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -20,23 +21,103 @@ function normalizeDocsStartMode(mode: string | undefined): DocsStartMode {
   return normalized === 'start' ? 'start' : 'serve';
 }
 
+async function fetchStatus(url: string, timeoutMs: number): Promise<number | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response.status;
+  } catch {
+    return null;
+  }
+}
+
+async function isPortAvailable(port: number, host: string = '127.0.0.1'): Promise<boolean> {
+  return await new Promise<boolean>((resolve) => {
+    const server = createServer();
+    server.unref();
+    server.on('error', () => resolve(false));
+    server.listen(port, host, () => {
+      server.close(() => resolve(true));
+    });
+  });
+}
+
+async function findAvailablePort({
+  preferredPort,
+  maxAttempts,
+}: {
+  preferredPort: number;
+  maxAttempts: number;
+}): Promise<number | null> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const port = preferredPort + i;
+    if (await isPortAvailable(port)) return port;
+  }
+  return null;
+}
+
 /**
- * Start Docusaurus documentation development server
- * @param port - Port to run Docusaurus server on (default: 3001)
- * @returns Promise that resolves when server is ready
+ * Start Docusaurus documentation server.
+ *
+ * Notes:
+ * - Docusaurus `start` serves a single locale; `/docs/zh/*` will 404 unless started with `--locale zh`.
+ * - Docusaurus `serve --build` serves all locales (multi-locale i18n).
+ *
+ * @param port - Preferred port to run Docusaurus server on (default: 3001)
+ * @returns Promise that resolves with the actual port used
  */
-export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<void> {
-  // Check if already running
+export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<number> {
+  // Check if already running (CCW-managed)
   if (docsProcess && docsPort === port) {
     console.log(chalk.yellow(`  Docs site already running on port ${port}`));
-    return;
+    return port;
+  }
+
+  const requestedMode = normalizeDocsStartMode(process.env.CCW_DOCS_MODE);
+  const requestedLocale = process.env.CCW_DOCS_LOCALE?.trim();
+
+  // If something else is already listening on this port, avoid spawning a second server.
+  // If zh routes are missing (common with `docusaurus start` default-locale), start CCW docs on a fallback port.
+  let effectivePort = port;
+  const portAvailable = await isPortAvailable(port);
+  if (!portAvailable) {
+    const docsStatus = await fetchStatus(`http://localhost:${port}/docs/`, 800);
+    const zhStatus = docsStatus !== null ? await fetchStatus(`http://localhost:${port}/docs/zh/`, 800) : null;
+
+    if (docsStatus !== null) {
+      console.log(chalk.yellow(`  Docs server already running on port ${port} (GET /docs/ -> ${docsStatus}).`));
+
+      if (zhStatus === 200) {
+        return port;
+      }
+
+      console.log(chalk.yellow(`  Note: GET /docs/zh/ -> ${zhStatus ?? 'no response'}.`));
+      console.log(chalk.gray(`  Docusaurus dev server (start) serves a single locale; /docs/zh/* will 404 unless started with --locale zh.`));
+      console.log(chalk.gray(`  Fix options:`));
+      console.log(chalk.gray(`    - Stop the existing process on port ${port} and restart CCW`));
+      console.log(chalk.gray(`    - Or run: cd ccw/docs-site && npm run serve -- --build --port ${port} --no-open`));
+      console.log(chalk.gray(`    - Or run a single-locale zh dev server: cd ccw/docs-site && npm run start -- --locale zh --port ${port} --no-open`));
+    } else {
+      console.log(chalk.yellow(`  Port ${port} is already in use.`));
+    }
+
+    const fallbackPort = await findAvailablePort({ preferredPort: port + 1, maxAttempts: 20 });
+    if (!fallbackPort) {
+      console.log(chalk.yellow(`  Could not find a free port near ${port}. Reusing ${port}.`));
+      return port;
+    }
+
+    effectivePort = fallbackPort;
+    console.log(chalk.yellow(`  Starting CCW-managed docs site on fallback port ${effectivePort}...`));
   }
 
   // Try to find docs-site directory (relative to ccw package)
   const possiblePaths = [
-    join(__dirname, '../../docs-site'),     // From dist/utils
-    join(__dirname, '../docs-site'),         // From src/utils (dev)
-    join(process.cwd(), 'docs-site'),       // Current working directory
+    join(__dirname, '../../docs-site'), // From dist/utils
+    join(__dirname, '../docs-site'), // From src/utils (dev)
+    join(process.cwd(), 'docs-site'), // Current working directory
   ];
 
   let docsDir: string | null = null;
@@ -56,20 +137,17 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
   if (!docsDir) {
     console.log(chalk.yellow(`  Docs site directory not found. Skipping docs server startup.`));
     console.log(chalk.gray(`  The /docs endpoint will not be available.`));
-    return;
+    return effectivePort;
   }
 
-  console.log(chalk.cyan(`  Starting Docusaurus docs site on port ${port}...`));
+  console.log(chalk.cyan(`  Starting Docusaurus docs site on port ${effectivePort}...`));
   console.log(chalk.gray(`  Docs dir: ${docsDir}`));
-
-  const requestedMode = normalizeDocsStartMode(process.env.CCW_DOCS_MODE);
-  const requestedLocale = process.env.CCW_DOCS_LOCALE?.trim();
 
   // Check if package.json exists and has required scripts
   const packageJsonPath = join(docsDir, 'package.json');
   let effectiveMode: DocsStartMode = requestedMode;
   try {
-    const { readFileSync, existsSync } = await import('fs');
+    const { readFileSync, existsSync, readdirSync } = await import('fs');
     if (!existsSync(packageJsonPath)) {
       throw new Error('package.json not found in docs-site directory');
     }
@@ -78,12 +156,31 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
     const hasStart = Boolean(packageJson.scripts?.start);
     const hasServe = Boolean(packageJson.scripts?.serve);
 
-    // Default to "serve --build" because it serves all locales (i18n).
-    // Docusaurus `start` serves only 1 locale at a time, so `/docs/zh/*` will
-    // render "Page Not Found" when the English dev server is running.
-    if (requestedMode === 'serve' && !hasServe && hasStart) {
+    const hasMultipleLocales = (() => {
+      try {
+        const i18nDir = join(docsDir, 'i18n');
+        if (!existsSync(i18nDir)) return false;
+        // Presence of any locale subfolder implies multi-locale setup.
+        return readdirSync(i18nDir, { withFileTypes: true }).some((entry) => entry.isDirectory());
+      } catch {
+        return false;
+      }
+    })();
+
+    // Docusaurus `start` serves only 1 locale at a time.
+    // If the site has multiple locales and no locale is explicitly requested,
+    // prefer serving the built site so `/docs/zh/*` works.
+    if (requestedMode === 'start' && !requestedLocale && hasMultipleLocales && hasServe) {
+      effectiveMode = 'serve';
+      console.log(chalk.yellow(`  CCW_DOCS_MODE=start detected, but CCW_DOCS_LOCALE is not set.`));
+      console.log(chalk.gray(`  Falling back to "serve --build" so all locales (e.g. /docs/zh/) are available.`));
+      console.log(chalk.gray(`  Tip: set CCW_DOCS_LOCALE=zh if you specifically want a single-locale dev server.`));
+    }
+
+    // If the requested script isn't available, fall back to the other script.
+    if (effectiveMode === 'serve' && !hasServe && hasStart) {
       effectiveMode = 'start';
-    } else if (requestedMode === 'start' && !hasStart && hasServe) {
+    } else if (effectiveMode === 'start' && !hasStart && hasServe) {
       effectiveMode = 'serve';
     }
 
@@ -96,7 +193,7 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
   } catch (error) {
     console.log(chalk.yellow(`  Failed to validate docs-site setup: ${error}`));
     console.log(chalk.gray(`  Skipping docs server startup.`));
-    return;
+    return effectivePort;
   }
 
   const args: string[] = [];
@@ -108,7 +205,7 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
       '--',
       '--build',
       '--port',
-      port.toString(),
+      effectivePort.toString(),
       '--host',
       'localhost',
       '--no-open',
@@ -120,7 +217,7 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
       'start',
       '--',
       '--port',
-      port.toString(),
+      effectivePort.toString(),
       '--host',
       'localhost',
       '--no-open',
@@ -139,13 +236,13 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
       ...process.env,
       // Docusaurus uses COLUMNS for terminal width
       COLUMNS: '80',
-    }
+    },
   });
 
-  docsPort = port;
+  docsPort = effectivePort;
 
   // Wait for server to be ready
-  return new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     let output = '';
     let errorOutput = '';
 
@@ -154,7 +251,7 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
       reject(new Error(
         `Docs site startup timeout (60s).\n` +
         `Output: ${output}\n` +
-        `Errors: ${errorOutput}`
+        `Errors: ${errorOutput}`,
       ));
     }, 60000); // Docusaurus can take longer to start
 
@@ -179,15 +276,14 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
         chunk.includes('Compiled successfully') ||
         chunk.includes('Compiled with warnings') ||
         chunk.includes('The server is running at') ||
-        chunk.includes(`http://localhost:${port}`) ||
+        chunk.includes(`http://localhost:${effectivePort}`) ||
         (chunk.includes('Docusaurus') && (chunk.includes('started') || chunk.includes('ready'))) ||
-        chunk.includes('➜') || // Docusaurus uses this in CLI output
         chunk.includes('Local:');
 
       // Check for ready signals (Docusaurus output format)
       if ((effectiveMode === 'serve' && isServeReady) || (effectiveMode === 'start' && isStartReady)) {
         cleanup();
-        console.log(chalk.green(`  Docs site ready at http://localhost:${port}/docs/`));
+        console.log(chalk.green(`  Docs site ready at http://localhost:${effectivePort}/docs/`));
         resolve();
       }
     });
@@ -213,10 +309,12 @@ export async function startDocsSite(port: number = DEFAULT_DOCS_PORT): Promise<v
       }
     });
   });
+
+  return effectivePort;
 }
 
 /**
- * Stop Docusaurus documentation development server
+ * Stop Docusaurus documentation server (only if CCW started it).
  */
 export async function stopDocsSite(): Promise<void> {
   if (docsProcess) {
@@ -280,7 +378,7 @@ export async function stopDocsSite(): Promise<void> {
     }
 
     // Wait a bit more for force kill to complete
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     docsProcess = null;
     docsPort = null;
@@ -288,12 +386,11 @@ export async function stopDocsSite(): Promise<void> {
 }
 
 /**
- * Get docs site status
- * @returns Object with running status and port
+ * Get docs site status (CCW-managed only).
  */
 export function getDocsSiteStatus(): { running: boolean; port: number | null } {
   return {
     running: docsProcess !== null && !docsProcess.killed,
-    port: docsPort
+    port: docsPort,
   };
 }

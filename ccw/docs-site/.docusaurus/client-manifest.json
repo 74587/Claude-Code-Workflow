@@ -3,10 +3,16 @@
     "main"
   ],
   "origins": {
+    "82": [
+      401,
+      869,
+      82
+    ],
     "723": [
       723
     ],
     "17896441": [
+      82,
       869,
       401
     ],
@@ -136,6 +142,7 @@
     "styles": [
       11,
       48,
+      82,
       354,
       401,
       792,
@@ -176,6 +183,15 @@
           "file": "assets/js/a94703ab.7b43e8e3.js",
           "hash": "3d3895729cce8c0b",
           "publicPath": "/docs/zh/assets/js/a94703ab.7b43e8e3.js"
+        }
+      ]
+    },
+    "82": {
+      "js": [
+        {
+          "file": "assets/js/82.83021dee.js",
+          "hash": "85e1a90e6c998c54",
+          "publicPath": "/docs/zh/assets/js/82.83021dee.js"
         }
       ]
     },
@@ -263,9 +279,9 @@
     "354": {
       "js": [
         {
-          "file": "assets/js/runtime~main.bd5a8ace.js",
-          "hash": "e9e746aba7bc0059",
-          "publicPath": "/docs/zh/assets/js/runtime~main.bd5a8ace.js"
+          "file": "assets/js/runtime~main.1a215224.js",
+          "hash": "6124961f9fb0fe95",
+          "publicPath": "/docs/zh/assets/js/runtime~main.1a215224.js"
         }
       ]
     },
@@ -281,9 +297,9 @@
     "401": {
       "js": [
         {
-          "file": "assets/js/17896441.d1575d23.js",
-          "hash": "056571beacec7d2b",
-          "publicPath": "/docs/zh/assets/js/17896441.d1575d23.js"
+          "file": "assets/js/17896441.1cf08a80.js",
+          "hash": "31f054e7c91e39e1",
+          "publicPath": "/docs/zh/assets/js/17896441.1cf08a80.js"
         }
       ]
     },
@@ -398,9 +414,9 @@
     "792": {
       "js": [
         {
-          "file": "assets/js/main.fa249fd1.js",
-          "hash": "5a1abc0f0370f175",
-          "publicPath": "/docs/zh/assets/js/main.fa249fd1.js"
+          "file": "assets/js/main.4a9bfa07.js",
+          "hash": "0bc96b50c8fc427f",
+          "publicPath": "/docs/zh/assets/js/main.4a9bfa07.js"
         }
       ]
     },
