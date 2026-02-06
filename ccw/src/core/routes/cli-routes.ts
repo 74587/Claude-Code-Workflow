@@ -68,14 +68,8 @@ type ActiveExecutionDto = Omit<ActiveExecution, 'output'> & { output: string };
 
 const activeExecutions = new Map<string, ActiveExecution>();
 const EXECUTION_RETENTION_MS = 5 * 60 * 1000;  // 5 minutes
-const CLEANUP_INTERVAL_MS = 60 * 1000;  // 1 minute - periodic cleanup interval
 const MAX_OUTPUT_BUFFER_LINES = 1000;  // Max lines to keep in memory per execution
 const MAX_ACTIVE_EXECUTIONS = 200;  // Max concurrent executions in memory
-
-// Enable periodic cleanup to prevent memory buildup
-setInterval(() => {
-  cleanupStaleExecutions();
-}, CLEANUP_INTERVAL_MS);
 
 /**
  * Cleanup stale completed executions older than retention period

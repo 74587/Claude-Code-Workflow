@@ -44,6 +44,7 @@ const initialState = {
   // UI state
   isPaletteOpen: true,
   isPropertyPanelOpen: true,
+  leftPanelTab: 'nodes' as const,
 };
 
 export const useFlowStore = create<FlowStore>()(
@@ -427,6 +428,10 @@ export const useFlowStore = create<FlowStore>()(
 
       setIsPropertyPanelOpen: (open: boolean) => {
         set({ isPropertyPanelOpen: open }, false, 'setIsPropertyPanelOpen');
+      },
+
+      setLeftPanelTab: (tab) => {
+        set({ leftPanelTab: tab }, false, 'setLeftPanelTab');
       },
 
       // ========== Utility ==========

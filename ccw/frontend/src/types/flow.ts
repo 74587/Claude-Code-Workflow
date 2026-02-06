@@ -125,6 +125,24 @@ export interface PromptTemplateNodeData {
    */
   executionResult?: unknown;
 
+  /** Node description, more detailed than label */
+  description?: string;
+
+  /** Phase assignment for canvas grouping */
+  phase?: 'session' | 'context' | 'plan' | 'execute' | 'review';
+
+  /** Node classification for panel organization */
+  nodeCategory?: 'phase' | 'tool' | 'command';
+
+  /** Tag list for categorization and search */
+  tags?: string[];
+
+  /** Precondition expression */
+  condition?: string;
+
+  /** Artifact definition list */
+  artifacts?: string[];
+
   /**
    * Index signature for React Flow compatibility
    */
@@ -197,6 +215,7 @@ export interface FlowState {
   // UI state
   isPaletteOpen: boolean;
   isPropertyPanelOpen: boolean;
+  leftPanelTab: 'templates' | 'nodes';
 }
 
 export interface FlowActions {
@@ -231,6 +250,7 @@ export interface FlowActions {
   // UI state
   setIsPaletteOpen: (open: boolean) => void;
   setIsPropertyPanelOpen: (open: boolean) => void;
+  setLeftPanelTab: (tab: 'templates' | 'nodes') => void;
 
   // Utility
   resetFlow: () => void;
@@ -293,6 +313,8 @@ export interface QuickTemplate {
   icon: string;
   color: string;
   data: Partial<PromptTemplateNodeData>;
+  /** Category for palette organization */
+  category: 'phase' | 'tool' | 'command';
 }
 
 /**
@@ -306,12 +328,14 @@ export const QUICK_TEMPLATES: QuickTemplate[] = [
     description: 'Execute /workflow commands (main thread)',
     icon: 'Terminal',
     color: 'bg-rose-500',
+    category: 'command',
     data: {
       label: 'Slash Command',
       instruction: '',
       slashCommand: '',
       slashArgs: '',
       mode: 'mainprocess',
+      nodeCategory: 'command',
     },
   },
   {
@@ -320,12 +344,14 @@ export const QUICK_TEMPLATES: QuickTemplate[] = [
     description: 'Execute /workflow commands (background)',
     icon: 'Terminal',
     color: 'bg-rose-400',
+    category: 'command',
     data: {
       label: 'Slash Command (Async)',
       instruction: '',
       slashCommand: '',
       slashArgs: '',
       mode: 'async',
+      nodeCategory: 'command',
     },
   },
   {
@@ -334,11 +360,13 @@ export const QUICK_TEMPLATES: QuickTemplate[] = [
     description: 'Code review, architecture analysis',
     icon: 'Search',
     color: 'bg-emerald-500',
+    category: 'command',
     data: {
       label: 'Analyze',
       instruction: 'Analyze the code for:\n1. Architecture patterns\n2. Code quality\n3. Potential issues',
       tool: 'gemini',
       mode: 'analysis',
+      nodeCategory: 'command',
     },
   },
   {
@@ -347,11 +375,149 @@ export const QUICK_TEMPLATES: QuickTemplate[] = [
     description: 'Write code, create files',
     icon: 'Code',
     color: 'bg-violet-500',
+    category: 'command',
     data: {
       label: 'Implement',
       instruction: 'Implement the following:\n\n[Describe what to implement]',
       tool: 'codex',
       mode: 'write',
+      nodeCategory: 'command',
+    },
+  },
+  // ========== Phase Templates ==========
+  {
+    id: 'phase-session',
+    label: 'Session',
+    description: 'Initialize workflow session and environment',
+    icon: 'FolderOpen',
+    color: 'bg-sky-500',
+    category: 'phase',
+    data: {
+      label: 'Session Setup',
+      instruction: 'Initialize workflow session:\n- Set project context\n- Load configuration\n- Validate environment',
+      phase: 'session',
+      nodeCategory: 'phase',
+      mode: 'mainprocess',
+    },
+  },
+  {
+    id: 'phase-context',
+    label: 'Context',
+    description: 'Collect and prepare context information',
+    icon: 'Database',
+    color: 'bg-cyan-500',
+    category: 'phase',
+    data: {
+      label: 'Context Gathering',
+      instruction: 'Gather context:\n- Analyze codebase structure\n- Identify relevant files\n- Build context package',
+      phase: 'context',
+      nodeCategory: 'phase',
+      mode: 'analysis',
+      tool: 'gemini',
+      artifacts: ['context-package.json'],
+    },
+  },
+  {
+    id: 'phase-plan',
+    label: 'Plan',
+    description: 'Generate execution plan and task breakdown',
+    icon: 'ListTodo',
+    color: 'bg-amber-500',
+    category: 'phase',
+    data: {
+      label: 'Planning',
+      instruction: 'Create execution plan:\n- Break requirements into tasks\n- Identify dependencies\n- Evaluate complexity',
+      phase: 'plan',
+      nodeCategory: 'phase',
+      mode: 'analysis',
+      tool: 'gemini',
+      artifacts: ['execution-plan.md'],
+    },
+  },
+  {
+    id: 'phase-execute',
+    label: 'Execute',
+    description: 'Execute tasks according to plan',
+    icon: 'Play',
+    color: 'bg-green-500',
+    category: 'phase',
+    data: {
+      label: 'Execution',
+      instruction: 'Execute planned tasks:\n- Follow dependency order\n- Apply code changes\n- Run validation',
+      phase: 'execute',
+      nodeCategory: 'phase',
+      mode: 'write',
+      tool: 'codex',
+    },
+  },
+  {
+    id: 'phase-review',
+    label: 'Review',
+    description: 'Review results and validate output',
+    icon: 'CheckCircle',
+    color: 'bg-purple-500',
+    category: 'phase',
+    data: {
+      label: 'Review',
+      instruction: 'Review execution results:\n- Validate code changes\n- Run tests\n- Check regressions',
+      phase: 'review',
+      nodeCategory: 'phase',
+      mode: 'analysis',
+      tool: 'gemini',
+    },
+  },
+  // ========== Tool Templates ==========
+  {
+    id: 'tool-context-gather',
+    label: 'Context Gather',
+    description: 'Automated context collection tool',
+    icon: 'FolderSearch',
+    color: 'bg-teal-500',
+    category: 'tool',
+    data: {
+      label: 'Context Gather',
+      instruction: 'Collect project context:\n- Scan file structure\n- Identify key modules\n- Extract type definitions\n- Map dependencies',
+      tool: 'gemini',
+      mode: 'analysis',
+      nodeCategory: 'tool',
+      phase: 'context',
+      outputName: 'context',
+      artifacts: ['context-package.json'],
+    },
+  },
+  {
+    id: 'tool-conflict-resolution',
+    label: 'Conflict Resolution',
+    description: 'Resolve code conflicts and inconsistencies',
+    icon: 'GitMerge',
+    color: 'bg-orange-500',
+    category: 'tool',
+    data: {
+      label: 'Conflict Resolution',
+      instruction: 'Resolve conflicts:\n- Identify conflicting changes\n- Analyze intent of each side\n- Generate merge solution\n- Verify consistency',
+      tool: 'gemini',
+      mode: 'analysis',
+      nodeCategory: 'tool',
+      phase: 'execute',
+      outputName: 'resolution',
+    },
+  },
+  {
+    id: 'tool-task-generate',
+    label: 'Task Generate',
+    description: 'Generate task breakdown from requirements',
+    icon: 'ListChecks',
+    color: 'bg-indigo-500',
+    category: 'tool',
+    data: {
+      label: 'Task Generation',
+      instruction: 'Generate tasks:\n- Parse requirements\n- Break into atomic tasks\n- Set dependencies\n- Assign priorities',
+      tool: 'gemini',
+      mode: 'analysis',
+      nodeCategory: 'tool',
+      phase: 'plan',
+      outputName: 'tasks',
+      artifacts: ['task-list.json'],
     },
   },
 ];
