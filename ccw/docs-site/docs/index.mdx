@@ -7,6 +7,7 @@ slug: /
 
 import Mermaid from '@theme/Mermaid';
 import Link from '@docusaurus/Link';
+import { Workflow, Terminal, HelpCircle, Sparkles, Code } from 'lucide-react';
 
 # Welcome to CCW Help Documentation
 
@@ -31,7 +32,10 @@ CCW (Claude Code Workflows) is an advanced development environment that orchestr
   <div className="col col--4">
     <Link to="/workflows/introduction" className="card padding--lg">
       <div className="card__header">
-        <h3>Workflows</h3>
+        <div className="header__icon header__icon--success" aria-hidden="true">
+          <Workflow />
+        </div>
+        <h3 className="card__title">Workflows</h3>
       </div>
       <div className="card__body">
         <p>Explore 15 workflow levels from rapid execution to intelligent orchestration</p>
@@ -41,7 +45,10 @@ CCW (Claude Code Workflows) is an advanced development environment that orchestr
   <div className="col col--4">
     <Link to="/commands/general/ccw" className="card padding--lg">
       <div className="card__header">
-        <h3>Commands</h3>
+        <div className="header__icon header__icon--info" aria-hidden="true">
+          <Terminal />
+        </div>
+        <h3 className="card__title">Commands</h3>
       </div>
       <div className="card__body">
         <p>Complete command reference for workflow, issue, CLI, and memory operations</p>
@@ -51,7 +58,10 @@ CCW (Claude Code Workflows) is an advanced development environment that orchestr
   <div className="col col--4">
     <Link to="/faq" className="card padding--lg">
       <div className="card__header">
-        <h3>FAQ</h3>
+        <div className="header__icon header__icon--warning" aria-hidden="true">
+          <HelpCircle />
+        </div>
+        <h3 className="card__title">FAQ</h3>
       </div>
       <div className="card__body">
         <p>Common questions, troubleshooting tips, and best practices</p>
@@ -178,7 +188,10 @@ CCW provides full state persistence for all workflow sessions:
   <div className="col col--6">
     <div className="card padding--md">
       <div className="card__header">
-        <h3>New to CCW?</h3>
+        <div className="header__icon header__icon--info" aria-hidden="true">
+          <Sparkles />
+        </div>
+        <h3 className="card__title">New to CCW?</h3>
       </div>
       <div className="card__body">
         <p>Start with <strong>Level 1 workflows</strong> for simple tasks:</p>
@@ -194,7 +207,10 @@ CCW provides full state persistence for all workflow sessions:
   <div className="col col--6">
     <div className="card padding--md">
       <div className="card__header">
-        <h3>Experienced Developer?</h3>
+        <div className="header__icon header__icon--success" aria-hidden="true">
+          <Code />
+        </div>
+        <h3 className="card__title">Experienced Developer?</h3>
       </div>
       <div className="card__body">
         <p>Jump to <strong>Level 3 workflows</strong> for complex features:</p>

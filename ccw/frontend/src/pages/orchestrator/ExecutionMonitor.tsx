@@ -4,6 +4,7 @@
 // Right-side slide-out panel for real-time execution monitoring
 
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { useIntl } from 'react-intl';
 import {
   Play,
   Pause,
@@ -97,6 +98,7 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
   const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const { formatMessage } = useIntl();
 
   // Execution store state
   const currentExecution = useExecutionStore((state) => state.currentExecution);
@@ -215,7 +217,7 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
   return (
     <div
       className={cn(
-        'w-80 border-l border-border bg-card flex flex-col h-full',
+        'w-[50%] border-l border-border bg-card flex flex-col h-full',
         'animate-in slide-in-from-right duration-300',
         className
       )}
@@ -224,12 +226,12 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
       <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Terminal className="h-4 w-4 text-muted-foreground shrink-0" />
-          <span className="text-sm font-medium truncate">Monitor</span>
+          <span className="text-sm font-medium truncate">{formatMessage({ id: 'orchestrator.monitor.title' })}</span>
           {currentExecution && (
             <Badge variant={getStatusBadgeVariant(currentExecution.status)} className="shrink-0">
               <span className="flex items-center gap-1">
                 {getStatusIcon(currentExecution.status)}
-                {currentExecution.status}
+                {formatMessage({ id: `orchestrator.status.${currentExecution.status}` })}
               </span>
             </Badge>
           )}
@@ -255,7 +257,7 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
             className="flex-1"
           >
             <Play className="h-4 w-4 mr-1" />
-            Execute
+            {formatMessage({ id: 'orchestrator.actions.execute' })}
           </Button>
         )}
 
@@ -290,7 +292,7 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
               className="flex-1"
             >
               <Play className="h-4 w-4 mr-1" />
-              Resume
+              {formatMessage({ id: 'orchestrator.execution.resume' })}
             </Button>
             <Button
               size="sm"
@@ -325,7 +327,7 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
       {currentExecution && Object.keys(nodeStates).length > 0 && (
         <div className="px-3 py-2 border-b border-border shrink-0">
           <div className="text-xs font-medium text-muted-foreground mb-1.5">
-            Node Status ({completedNodes}/{totalNodes})
+            {formatMessage({ id: 'orchestrator.node.statusCount' }, { completed: completedNodes, total: totalNodes })}
           </div>
           <div className="space-y-1 max-h-32 overflow-y-auto">
             {Object.entries(nodeStates).map(([nodeId, state]) => (
@@ -364,8 +366,8 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
           {logs.length === 0 ? (
             <div className="flex items-center justify-center h-full text-muted-foreground text-center">
               {currentExecution
-                ? 'Waiting for logs...'
-                : 'Click Execute to start'}
+                ? formatMessage({ id: 'orchestrator.monitor.waitingForLogs' })
+                : formatMessage({ id: 'orchestrator.monitor.clickExecuteToStart' })}
             </div>
           ) : (
             <div className="space-y-1">

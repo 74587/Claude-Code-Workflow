@@ -3,6 +3,7 @@
 // ========================================
 // Container with tab switching between NodeLibrary and InlineTemplatePanel
 
+import { useIntl } from 'react-intl';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -12,9 +13,9 @@ import { InlineTemplatePanel } from './InlineTemplatePanel';
 
 // ========== Tab Configuration ==========
 
-const TABS: Array<{ key: 'templates' | 'nodes'; label: string }> = [
-  { key: 'templates', label: '\u6A21\u677F\u5E93' },
-  { key: 'nodes', label: '\u8282\u70B9\u5E93' },
+const TABS: Array<{ key: 'templates' | 'nodes'; labelKey: string }> = [
+  { key: 'templates', labelKey: 'orchestrator.leftSidebar.tabTemplates' },
+  { key: 'nodes', labelKey: 'orchestrator.leftSidebar.tabNodes' },
 ];
 
 // ========== Main Component ==========
@@ -28,6 +29,7 @@ interface LeftSidebarProps {
  * Renders either InlineTemplatePanel or NodeLibrary based on active tab.
  */
 export function LeftSidebar({ className }: LeftSidebarProps) {
+  const { formatMessage } = useIntl();
   const isPaletteOpen = useFlowStore((state) => state.isPaletteOpen);
   const setIsPaletteOpen = useFlowStore((state) => state.setIsPaletteOpen);
   const leftPanelTab = useFlowStore((state) => state.leftPanelTab);
@@ -41,7 +43,7 @@ export function LeftSidebar({ className }: LeftSidebarProps) {
           variant="ghost"
           size="icon"
           onClick={() => setIsPaletteOpen(true)}
-          title="展开面板"
+          title={formatMessage({ id: 'orchestrator.leftSidebar.expand' })}
         >
           <ChevronRight className="w-4 h-4" />
         </Button>
@@ -54,13 +56,13 @@ export function LeftSidebar({ className }: LeftSidebarProps) {
     <div className={cn('w-72 bg-card border-r border-border flex flex-col', className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h3 className="font-semibold text-foreground">工作台</h3>
+        <h3 className="font-semibold text-foreground">{formatMessage({ id: 'orchestrator.leftSidebar.workbench' })}</h3>
         <Button
           variant="ghost"
           size="icon"
           className="h-6 w-6"
           onClick={() => setIsPaletteOpen(false)}
-          title="折叠面板"
+          title={formatMessage({ id: 'orchestrator.leftSidebar.collapse' })}
         >
           <ChevronDown className="w-4 h-4" />
         </Button>
@@ -80,7 +82,7 @@ export function LeftSidebar({ className }: LeftSidebarProps) {
                 : 'text-muted-foreground'
             )}
           >
-            {tab.label}
+            {formatMessage({ id: tab.labelKey })}
           </button>
         ))}
       </div>
@@ -95,7 +97,7 @@ export function LeftSidebar({ className }: LeftSidebarProps) {
       {/* Footer */}
       <div className="px-4 py-3 border-t border-border bg-muted/30">
         <div className="text-xs text-muted-foreground">
-          <span className="font-medium">Tip:</span> 拖拽到画布或双击添加
+          <span className="font-medium">{formatMessage({ id: 'orchestrator.leftSidebar.tipLabel' })}</span> {formatMessage({ id: 'orchestrator.leftSidebar.dragOrDoubleClick' })}
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@
 // React Flow canvas with minimap, controls, and background
 
 import { useCallback, useRef, DragEvent } from 'react';
+import { useIntl } from 'react-intl';
 import {
   ReactFlow,
   MiniMap,
@@ -36,6 +37,7 @@ interface FlowCanvasProps {
 function FlowCanvasInner({ className }: FlowCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
+  const { formatMessage } = useIntl();
 
   // Execution state - lock canvas during execution
   const isExecuting = useExecutionStore(selectIsExecuting);
@@ -193,7 +195,7 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
       {isExecuting && (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 bg-primary/90 text-primary-foreground rounded-full text-xs font-medium shadow-lg flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-primary-foreground animate-pulse" />
-          Execution in progress
+          {formatMessage({ id: 'orchestrator.execution.inProgress' })}
         </div>
       )}
     </div>

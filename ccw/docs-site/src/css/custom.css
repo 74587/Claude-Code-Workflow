@@ -412,6 +412,26 @@ hr {
   font-size: 1.5rem;
 }
 
+.card__header .header__icon > svg {
+  width: 22px;
+  height: 22px;
+}
+
+.card__header .header__icon.header__icon--info {
+  background-color: var(--ccw-info-light);
+  color: var(--ccw-info);
+}
+
+.card__header .header__icon.header__icon--success {
+  background-color: var(--ccw-success-light);
+  color: var(--ccw-success);
+}
+
+.card__header .header__icon.header__icon--warning {
+  background-color: var(--ccw-warning-light);
+  color: var(--ccw-warning);
+}
+
 /* =============================================================================
    Buttons
    ============================================================================= */

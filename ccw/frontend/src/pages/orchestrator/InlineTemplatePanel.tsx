@@ -4,6 +4,7 @@
 // Compact template list for the left sidebar, uses useTemplates hook
 
 import { useState, useCallback, useMemo } from 'react';
+import { useIntl } from 'react-intl';
 import { Search, Loader2, FileText, Download, GitBranch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/Input';
@@ -21,6 +22,8 @@ interface TemplateItemProps {
 }
 
 function TemplateItem({ template, onInstall, isInstalling }: TemplateItemProps) {
+  const { formatMessage } = useIntl();
+
   return (
     <button
       onClick={() => onInstall(template)}
@@ -38,7 +41,7 @@ function TemplateItem({ template, onInstall, isInstalling }: TemplateItemProps) 
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <GitBranch className="w-3 h-3" />
-            {template.nodeCount} nodes
+            {template.nodeCount} {formatMessage({ id: 'orchestrator.inlineTemplates.nodes' })}
           </span>
           {template.category && (
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
@@ -68,6 +71,7 @@ interface InlineTemplatePanelProps {
  * Clicking a template installs it as the current flow.
  */
 export function InlineTemplatePanel({ className }: InlineTemplatePanelProps) {
+  const { formatMessage } = useIntl();
   const [searchQuery, setSearchQuery] = useState('');
   const [installingId, setInstallingId] = useState<string | null>(null);
 
@@ -118,7 +122,7 @@ export function InlineTemplatePanel({ className }: InlineTemplatePanelProps) {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索模板..."
+            placeholder={formatMessage({ id: 'orchestrator.inlineTemplates.searchPlaceholder' })}
             className="pl-8 h-8 text-sm"
           />
         </div>
@@ -134,14 +138,14 @@ export function InlineTemplatePanel({ className }: InlineTemplatePanelProps) {
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground px-4">
             <FileText className="h-8 w-8 mb-2 opacity-50" />
             <p className="text-xs text-center">
-              无法加载模板库，请确认 API 服务可用
+              {formatMessage({ id: 'orchestrator.inlineTemplates.loadFailed' })}
             </p>
           </div>
         ) : filteredTemplates.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-muted-foreground px-4">
             <FileText className="h-8 w-8 mb-2 opacity-50" />
             <p className="text-xs text-center">
-              {searchQuery ? '未找到匹配的模板' : '暂无可用模板'}
+              {searchQuery ? formatMessage({ id: 'orchestrator.inlineTemplates.noMatches' }) : formatMessage({ id: 'orchestrator.inlineTemplates.noTemplates' })}
             </p>
           </div>
         ) : (

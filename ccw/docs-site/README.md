@@ -8,14 +8,17 @@ This is the documentation site for CCW (Claude Code Workflow), built with [Docus
 # Install dependencies
 npm install
 
-# Start development server (port 3001)
+# Start development server (port 3001, default locale: en)
 npm start
+
+# Start dev server for Chinese (single-locale)
+npm run start:zh
 
 # Build for production
 npm run build
 
 # Serve production build locally
-npm serve
+npm run serve -- --build --port 3001 --no-open
 ```
 
 ## 📁 Project Structure
@@ -120,6 +123,25 @@ This operation cannot be undone
 
 - ✅ English (EN) - Complete
 - 🔄 Chinese (ZH) - Interface translated, content pending
+
+### Previewing Locales
+
+Notes:
+- `docusaurus start` serves **one locale per run**.
+- To preview **both locales together**, build then serve the static output.
+
+Examples:
+```bash
+# English (default locale)
+npm start
+
+# Chinese
+npm run start:zh
+
+# Both locales
+npm run build
+npm run serve -- --build --port 3001 --no-open
+```
 
 ## 🔧 Configuration
 

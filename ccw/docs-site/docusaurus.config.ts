@@ -5,7 +5,7 @@ import type { ThemeConfig } from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'CCW Help Documentation',
   tagline: 'Professional Workflow Automation Platform',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.svg',
 
   url: 'http://localhost:3001',
   baseUrl: '/docs/',

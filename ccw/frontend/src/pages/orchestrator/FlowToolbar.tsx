@@ -73,7 +73,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
   // Handle save
   const handleSave = useCallback(async () => {
     if (!currentFlow) {
-      toast.error('No Flow', 'Create a flow first before saving');
+      toast.error(formatMessage({ id: 'orchestrator.notifications.noFlow' }), formatMessage({ id: 'orchestrator.notifications.createFlowFirst' }));
       return;
     }
 
@@ -90,12 +90,12 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
 
       const saved = await saveFlow();
       if (saved) {
-        toast.success('Flow Saved', `"${flowName || currentFlow.name}" saved successfully`);
+        toast.success(formatMessage({ id: 'orchestrator.notifications.flowSaved' }), formatMessage({ id: 'orchestrator.notifications.savedSuccessfully' }, { name: flowName || currentFlow.name }));
       } else {
-        toast.error('Save Failed', 'Could not save the flow');
+        toast.error(formatMessage({ id: 'orchestrator.notifications.saveFailed' }), formatMessage({ id: 'orchestrator.notifications.couldNotSave' }));
       }
     } catch (err) {
-      toast.error('Save Error', 'An error occurred while saving');
+      toast.error(formatMessage({ id: 'orchestrator.notifications.saveFailed' }), formatMessage({ id: 'orchestrator.notifications.saveError' }));
     } finally {
       setIsSaving(false);
     }
@@ -107,9 +107,9 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
       const loaded = await loadFlow(flow.id);
       if (loaded) {
         setIsFlowListOpen(false);
-        toast.success('Flow Loaded', `"${flow.name}" loaded successfully`);
+        toast.success(formatMessage({ id: 'orchestrator.notifications.flowLoaded' }), formatMessage({ id: 'orchestrator.notifications.loadedSuccessfully' }, { name: flow.name }));
       } else {
-        toast.error('Load Failed', 'Could not load the flow');
+        toast.error(formatMessage({ id: 'orchestrator.notifications.loadFailed' }), formatMessage({ id: 'orchestrator.notifications.couldNotLoad' }));
       }
     },
     [loadFlow]
@@ -119,13 +119,13 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
   const handleDelete = useCallback(
     async (flow: Flow, e: React.MouseEvent) => {
       e.stopPropagation();
-      if (!confirm(`Delete "${flow.name}"? This cannot be undone.`)) return;
+      if (!confirm(formatMessage({ id: 'orchestrator.notifications.confirmDelete' }, { name: flow.name }))) return;
 
       const deleted = await deleteFlow(flow.id);
       if (deleted) {
-        toast.success('Flow Deleted', `"${flow.name}" deleted successfully`);
+        toast.success(formatMessage({ id: 'orchestrator.notifications.flowDeleted' }), formatMessage({ id: 'orchestrator.notifications.deletedSuccessfully' }, { name: flow.name }));
       } else {
-        toast.error('Delete Failed', 'Could not delete the flow');
+        toast.error(formatMessage({ id: 'orchestrator.notifications.deleteFailed' }), formatMessage({ id: 'orchestrator.notifications.couldNotDelete' }));
       }
     },
     [deleteFlow]
@@ -137,9 +137,9 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
       e.stopPropagation();
       const duplicated = await duplicateFlow(flow.id);
       if (duplicated) {
-        toast.success('Flow Duplicated', `"${duplicated.name}" created`);
+        toast.success(formatMessage({ id: 'orchestrator.notifications.flowDuplicated' }), formatMessage({ id: 'orchestrator.notifications.duplicatedSuccessfully' }, { name: duplicated.name }));
       } else {
-        toast.error('Duplicate Failed', 'Could not duplicate the flow');
+        toast.error(formatMessage({ id: 'orchestrator.notifications.duplicateFailed' }), formatMessage({ id: 'orchestrator.notifications.couldNotDuplicate' }));
       }
     },
     [duplicateFlow]
@@ -148,7 +148,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
   // Handle export
   const handleExport = useCallback(() => {
     if (!currentFlow) {
-      toast.error('No Flow', 'Create or load a flow first');
+      toast.error(formatMessage({ id: 'orchestrator.notifications.noFlow' }), formatMessage({ id: 'orchestrator.notifications.noFlowToExport' }));
       return;
     }
 
@@ -172,7 +172,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    toast.success('Flow Exported', 'Flow exported as JSON file');
+    toast.success(formatMessage({ id: 'orchestrator.notifications.flowExported' }), formatMessage({ id: 'orchestrator.notifications.flowExported' }));
   }, [currentFlow]);
 
   // Handle run workflow
@@ -185,7 +185,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
       startExecution(result.execId, currentFlow.id);
     } catch (error) {
       console.error('Failed to execute flow:', error);
-      toast.error('Execution Failed', 'Could not start flow execution');
+      toast.error(formatMessage({ id: 'orchestrator.notifications.executionFailed' }), formatMessage({ id: 'orchestrator.notifications.couldNotExecute' }));
     }
   }, [currentFlow, executeFlow, startExecution, setMonitorPanelOpen]);
 
@@ -206,7 +206,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
           className="max-w-[200px] h-8 text-sm"
         />
         {isModified && (
-          <span className="text-xs text-amber-500 flex-shrink-0">Unsaved changes</span>
+          <span className="text-xs text-amber-500 flex-shrink-0">{formatMessage({ id: 'orchestrator.toolbar.unsavedChanges' })}</span>
         )}
       </div>
 
@@ -224,7 +224,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
           ) : (
             <Save className="w-4 h-4 mr-1" />
           )}
-          Save
+          {formatMessage({ id: 'orchestrator.toolbar.save' })}
         </Button>
 
         {/* Flow List Dropdown */}
@@ -235,7 +235,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
             onClick={() => setIsFlowListOpen(!isFlowListOpen)}
           >
             <FolderOpen className="w-4 h-4 mr-1" />
-            Load
+            {formatMessage({ id: 'orchestrator.toolbar.load' })}
             <ChevronDown className="w-3 h-3 ml-1" />
           </Button>
 
@@ -251,7 +251,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
               <div className="absolute top-full right-0 mt-1 w-72 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
                 <div className="px-3 py-2 border-b border-border bg-muted/50">
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Saved Flows ({flows.length})
+                    {formatMessage({ id: 'orchestrator.toolbar.savedFlows' }, { count: flows.length })}
                   </span>
                 </div>
 
@@ -259,11 +259,11 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
                   {isLoadingFlows ? (
                     <div className="p-4 text-center text-muted-foreground">
                       <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2" />
-                      Loading...
+                      {formatMessage({ id: 'orchestrator.toolbar.loading' })}
                     </div>
                   ) : flows.length === 0 ? (
                     <div className="p-4 text-center text-muted-foreground">
-                      No saved flows
+                      {formatMessage({ id: 'orchestrator.toolbar.noSavedFlows' })}
                     </div>
                   ) : (
                     flows.map((flow) => (
@@ -317,12 +317,12 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
         {/* Import & Export Group */}
         <Button variant="outline" size="sm" onClick={onOpenTemplateLibrary}>
           <Library className="w-4 h-4 mr-1" />
-          Import Template
+          {formatMessage({ id: 'orchestrator.toolbar.importTemplate' })}
         </Button>
 
         <Button variant="outline" size="sm" onClick={handleExport} disabled={!currentFlow}>
           <Download className="w-4 h-4 mr-1" />
-          Export Flow
+          {formatMessage({ id: 'orchestrator.toolbar.export' })}
         </Button>
 
         <div className="w-px h-6 bg-border" />
@@ -332,10 +332,10 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
           variant={isMonitorPanelOpen ? 'secondary' : 'outline'}
           size="sm"
           onClick={handleToggleMonitor}
-          title="Toggle execution monitor"
+          title={formatMessage({ id: 'orchestrator.monitor.toggleMonitor' })}
         >
           <Activity className={cn('w-4 h-4 mr-1', (isExecuting || isPaused) && 'text-primary animate-pulse')} />
-          Monitor
+          {formatMessage({ id: 'orchestrator.toolbar.monitor' })}
         </Button>
 
         <Button
@@ -349,7 +349,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
           ) : (
             <Play className="w-4 h-4 mr-1" />
           )}
-          Run Workflow
+          {formatMessage({ id: 'orchestrator.toolbar.runWorkflow' })}
         </Button>
       </div>
     </div>

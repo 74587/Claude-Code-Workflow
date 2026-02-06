@@ -4,15 +4,15 @@ import ComponentCreator from '@docusaurus/ComponentCreator';
 export default [
   {
     path: '/docs/zh/',
-    component: ComponentCreator('/docs/zh/', 'f41'),
+    component: ComponentCreator('/docs/zh/', 'b34'),
     routes: [
       {
         path: '/docs/zh/',
-        component: ComponentCreator('/docs/zh/', 'dbd'),
+        component: ComponentCreator('/docs/zh/', 'a8e'),
         routes: [
           {
             path: '/docs/zh/',
-            component: ComponentCreator('/docs/zh/', 'c34'),
+            component: ComponentCreator('/docs/zh/', '632'),
             routes: [
               {
                 path: '/docs/zh/commands/cli/cli-init',
@@ -148,7 +148,7 @@ export default [
               },
               {
                 path: '/docs/zh/faq',
-                component: ComponentCreator('/docs/zh/faq', '9bf'),
+                component: ComponentCreator('/docs/zh/faq', 'd6c'),
                 exact: true,
                 sidebar: "docs"
               },

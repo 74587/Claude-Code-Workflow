@@ -5,13 +5,14 @@
 // Supports creating, saving, and deleting custom templates with color selection
 
 import { DragEvent, useState } from 'react';
+import { useIntl } from 'react-intl';
 import {
   MessageSquare, ChevronDown, ChevronRight, GripVertical,
   Terminal, Plus, Trash2, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFlowStore } from '@/stores';
-import { NODE_TYPE_CONFIGS, QUICK_TEMPLATES } from '@/types/flow';
+import { QUICK_TEMPLATES } from '@/types/flow';
 import type { QuickTemplate } from '@/types/flow';
 
 // ========== Icon Mapping ==========
@@ -19,6 +20,23 @@ import type { QuickTemplate } from '@/types/flow';
 const TEMPLATE_ICONS: Record<string, React.ElementType> = {
   'slash-command-main': Terminal,
   'slash-command-async': Terminal,
+};
+
+// ========== I18n Key Mapping for Built-in Templates ==========
+
+const TEMPLATE_I18N: Record<string, { labelKey: string; descKey: string }> = {
+  'prompt-template': {
+    labelKey: 'orchestrator.nodeLibrary.promptTemplateLabel',
+    descKey: 'orchestrator.nodeLibrary.promptTemplateDesc',
+  },
+  'slash-command-main': {
+    labelKey: 'orchestrator.nodeLibrary.slashCommandLabel',
+    descKey: 'orchestrator.nodeLibrary.slashCommandDesc',
+  },
+  'slash-command-async': {
+    labelKey: 'orchestrator.nodeLibrary.slashCommandAsyncLabel',
+    descKey: 'orchestrator.nodeLibrary.slashCommandAsyncDesc',
+  },
 };
 
 // ========== Color Palette for custom templates ==========
@@ -86,7 +104,11 @@ function QuickTemplateCard({
   template: QuickTemplate;
   onDelete?: () => void;
 }) {
+  const { formatMessage } = useIntl();
   const Icon = TEMPLATE_ICONS[template.id] || MessageSquare;
+  const i18n = TEMPLATE_I18N[template.id];
+  const displayLabel = i18n ? formatMessage({ id: i18n.labelKey }) : template.label;
+  const displayDesc = i18n ? formatMessage({ id: i18n.descKey }) : template.description;
 
   const onDragStart = (event: DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('application/reactflow-node-type', 'prompt-template');
@@ -113,14 +135,14 @@ function QuickTemplateCard({
         <Icon className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-foreground">{template.label}</div>
-        <div className="text-xs text-muted-foreground truncate">{template.description}</div>
+        <div className="text-sm font-medium text-foreground">{displayLabel}</div>
+        <div className="text-xs text-muted-foreground truncate">{displayDesc}</div>
       </div>
       {onDelete ? (
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive"
-          title="Delete template"
+          title={formatMessage({ id: 'orchestrator.nodeLibrary.deleteTemplate' })}
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -135,7 +157,8 @@ function QuickTemplateCard({
  * Basic empty prompt template card
  */
 function BasicTemplateCard() {
-  const config = NODE_TYPE_CONFIGS['prompt-template'];
+  const { formatMessage } = useIntl();
+  const i18n = TEMPLATE_I18N['prompt-template'];
 
   const onDragStart = (event: DragEvent<HTMLDivElement>) => {
     event.dataTransfer.setData('application/reactflow-node-type', 'prompt-template');
@@ -162,8 +185,8 @@ function BasicTemplateCard() {
         <Plus className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-foreground">{config.label}</div>
-        <div className="text-xs text-muted-foreground truncate">{config.description}</div>
+        <div className="text-sm font-medium text-foreground">{formatMessage({ id: i18n.labelKey })}</div>
+        <div className="text-xs text-muted-foreground truncate">{formatMessage({ id: i18n.descKey })}</div>
       </div>
       <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
     </div>
@@ -174,6 +197,7 @@ function BasicTemplateCard() {
  * Inline form for creating a new custom template
  */
 function CreateTemplateForm({ onClose }: { onClose: () => void }) {
+  const { formatMessage } = useIntl();
   const [label, setLabel] = useState('');
   const [description, setDescription] = useState('');
   const [instruction, setInstruction] = useState('');
@@ -204,7 +228,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
   return (
     <div className="p-3 rounded-lg border border-primary/50 bg-muted/50 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-foreground">New Custom Node</span>
+        <span className="text-xs font-medium text-foreground">{formatMessage({ id: 'orchestrator.nodeLibrary.newCustomNode' })}</span>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
           <X className="w-3.5 h-3.5" />
         </button>
@@ -212,7 +236,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 
       <input
         type="text"
-        placeholder="Node name"
+        placeholder={formatMessage({ id: 'orchestrator.nodeLibrary.nodeName' })}
         value={label}
         onChange={(e) => setLabel(e.target.value)}
         className="w-full text-sm px-2 py-1.5 rounded border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
@@ -221,14 +245,14 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 
       <input
         type="text"
-        placeholder="Description (optional)"
+        placeholder={formatMessage({ id: 'orchestrator.nodeLibrary.descriptionOptional' })}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         className="w-full text-sm px-2 py-1.5 rounded border border-border bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
       />
 
       <textarea
-        placeholder="Default instruction (optional)"
+        placeholder={formatMessage({ id: 'orchestrator.nodeLibrary.defaultInstructionOptional' })}
         value={instruction}
         onChange={(e) => setInstruction(e.target.value)}
         rows={2}
@@ -237,7 +261,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
 
       {/* Color picker */}
       <div>
-        <div className="text-xs text-muted-foreground mb-1.5">Color</div>
+        <div className="text-xs text-muted-foreground mb-1.5">{formatMessage({ id: 'orchestrator.nodeLibrary.color' })}</div>
         <div className="flex flex-wrap gap-1.5">
           {COLOR_OPTIONS.map((opt) => (
             <button
@@ -266,7 +290,7 @@ function CreateTemplateForm({ onClose }: { onClose: () => void }) {
             : 'bg-muted text-muted-foreground cursor-not-allowed',
         )}
       >
-        Save
+        {formatMessage({ id: 'orchestrator.nodeLibrary.save' })}
       </button>
     </div>
   );
@@ -284,6 +308,7 @@ interface NodeLibraryProps {
  * Custom: User-created templates persisted to localStorage
  */
 export function NodeLibrary({ className }: NodeLibraryProps) {
+  const { formatMessage } = useIntl();
   const [isCreating, setIsCreating] = useState(false);
   const customTemplates = useFlowStore((s) => s.customTemplates);
   const removeCustomTemplate = useFlowStore((s) => s.removeCustomTemplate);
@@ -291,7 +316,7 @@ export function NodeLibrary({ className }: NodeLibraryProps) {
   return (
     <div className={cn('flex-1 overflow-y-auto p-4 space-y-4', className)}>
       {/* Built-in templates */}
-      <TemplateCategory title="Built-in" defaultExpanded>
+      <TemplateCategory title={formatMessage({ id: 'orchestrator.nodeLibrary.builtIn' })} defaultExpanded>
         <BasicTemplateCard />
         {QUICK_TEMPLATES.map((template) => (
           <QuickTemplateCard key={template.id} template={template} />
@@ -300,13 +325,13 @@ export function NodeLibrary({ className }: NodeLibraryProps) {
 
       {/* Custom templates */}
       <TemplateCategory
-        title={`Custom (${customTemplates.length})`}
+        title={formatMessage({ id: 'orchestrator.nodeLibrary.custom' }, { count: customTemplates.length })}
         defaultExpanded
         action={
           <button
             onClick={() => setIsCreating(true)}
             className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            title="Create custom node"
+            title={formatMessage({ id: 'orchestrator.nodeLibrary.createCustomNode' })}
           >
             <Plus className="w-3.5 h-3.5" />
           </button>
@@ -322,7 +347,7 @@ export function NodeLibrary({ className }: NodeLibraryProps) {
         ))}
         {customTemplates.length === 0 && !isCreating && (
           <div className="text-xs text-muted-foreground text-center py-3">
-            No custom nodes yet. Click + to create.
+            {formatMessage({ id: 'orchestrator.nodeLibrary.noCustomNodes' })}
           </div>
         )}
       </TemplateCategory>

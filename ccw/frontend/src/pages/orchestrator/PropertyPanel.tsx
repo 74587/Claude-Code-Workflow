@@ -172,6 +172,7 @@ interface TemplateModalProps {
 }
 
 function TemplateModal({ isOpen, onClose, onSave }: TemplateModalProps) {
+  const { formatMessage } = useIntl();
   const [label, setLabel] = useState('');
   const [content, setContent] = useState('');
   const [color, setColor] = useState<TemplateItem['color']>('slate');
@@ -216,7 +217,7 @@ function TemplateModal({ isOpen, onClose, onSave }: TemplateModalProps) {
       {/* Modal */}
       <div className="relative bg-card border border-border rounded-lg shadow-xl w-full max-w-md mx-4 p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-foreground">创建自定义模板</h3>
+          <h3 className="text-lg font-semibold text-foreground">{formatMessage({ id: 'orchestrator.propertyPanel.createCustomTemplate' })}</h3>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="w-5 h-5" />
           </button>
@@ -224,7 +225,7 @@ function TemplateModal({ isOpen, onClose, onSave }: TemplateModalProps) {
 
         {/* Template name */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">模板名称</label>
+          <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.templateNameLabel' })}</label>
           <Input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
@@ -236,8 +237,8 @@ function TemplateModal({ isOpen, onClose, onSave }: TemplateModalProps) {
         {/* Template content */}
         <div>
           <label className="block text-sm font-medium text-foreground mb-1">
-            模板内容
-            <span className="text-muted-foreground font-normal ml-1">(使用 $INPUT 作为输入占位符)</span>
+            {formatMessage({ id: 'orchestrator.propertyPanel.templateContent' })}
+            <span className="text-muted-foreground font-normal ml-1">{formatMessage({ id: 'orchestrator.propertyPanel.templateContentHint' })}</span>
           </label>
           <textarea
             value={content}
@@ -250,7 +251,7 @@ function TemplateModal({ isOpen, onClose, onSave }: TemplateModalProps) {
 
         {/* Color selection */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">标签颜色</label>
+          <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.tagColor' })}</label>
           <div className="flex flex-wrap gap-2">
             {COLOR_OPTIONS.map((opt) => (
               <button
@@ -279,7 +280,7 @@ function TemplateModal({ isOpen, onClose, onSave }: TemplateModalProps) {
             className="rounded border-border"
           />
           <label htmlFor="has-input" className="text-sm text-foreground">
-            需要用户输入参数
+            {formatMessage({ id: 'orchestrator.propertyPanel.requiresInput' })}
           </label>
         </div>
 
@@ -287,7 +288,7 @@ function TemplateModal({ isOpen, onClose, onSave }: TemplateModalProps) {
         {hasInput && (
           <div className="grid grid-cols-2 gap-2 pl-6">
             <div>
-              <label className="block text-xs text-muted-foreground mb-1">输入提示</label>
+              <label className="block text-xs text-muted-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.inputPrompt' })}</label>
               <Input
                 value={inputLabel}
                 onChange={(e) => setInputLabel(e.target.value)}
@@ -296,7 +297,7 @@ function TemplateModal({ isOpen, onClose, onSave }: TemplateModalProps) {
               />
             </div>
             <div>
-              <label className="block text-xs text-muted-foreground mb-1">默认值</label>
+              <label className="block text-xs text-muted-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.defaultValue' })}</label>
               <Input
                 value={inputDefault}
                 onChange={(e) => setInputDefault(e.target.value)}
@@ -310,7 +311,7 @@ function TemplateModal({ isOpen, onClose, onSave }: TemplateModalProps) {
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" size="sm" onClick={onClose}>
-            取消
+            {formatMessage({ id: 'orchestrator.propertyPanel.cancel' })}
           </Button>
           <Button
             size="sm"
@@ -319,7 +320,7 @@ function TemplateModal({ isOpen, onClose, onSave }: TemplateModalProps) {
             className="gap-1"
           >
             <Save className="w-4 h-4" />
-            保存模板
+            {formatMessage({ id: 'orchestrator.propertyPanel.saveTemplate' })}
           </Button>
         </div>
       </div>
@@ -399,6 +400,7 @@ function extractArtifacts(text: string): string[] {
  * Tag-based instruction editor with inline variable tags
  */
 function TagEditor({ value, onChange, placeholder, availableVariables, minHeight = 120 }: TagEditorProps) {
+  const { formatMessage } = useIntl();
   const editorRef = useRef<HTMLDivElement>(null);
   const [isFocused, setIsFocused] = useState(false);
   const [newVarName, setNewVarName] = useState('');
@@ -629,7 +631,7 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
         {availableVariables.length > 0 && (
           <>
             <div className="w-px h-5 bg-border" />
-            <span className="text-xs text-muted-foreground">可用:</span>
+            <span className="text-xs text-muted-foreground">{formatMessage({ id: 'orchestrator.propertyPanel.available' })}</span>
             {availableVariables.slice(0, 5).map((varName) => (
               <button
                 key={varName}
@@ -647,7 +649,7 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
         {detectedVars.length > 0 && (
           <>
             <div className="w-px h-5 bg-border" />
-            <span className="text-xs text-muted-foreground">变量:</span>
+            <span className="text-xs text-muted-foreground">{formatMessage({ id: 'orchestrator.propertyPanel.variables' })}</span>
             {detectedVars.map((varName) => {
               const isValid = availableVariables.includes(varName) || varName.includes('.');
               return (
@@ -672,7 +674,7 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
         {detectedArtifacts.length > 0 && (
           <>
             <div className="w-px h-5 bg-border" />
-            <span className="text-xs text-muted-foreground">产物:</span>
+            <span className="text-xs text-muted-foreground">{formatMessage({ id: 'orchestrator.propertyPanel.artifactsLabel' })}</span>
             {detectedArtifacts.map((artName) => (
               <span
                 key={artName}
@@ -689,7 +691,7 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
       <div className="space-y-2">
         {/* Template buttons by category */}
         <div className="flex flex-wrap items-center gap-2 p-2 rounded-md bg-muted/30 border border-border">
-          <span className="text-xs text-muted-foreground shrink-0">模板:</span>
+          <span className="text-xs text-muted-foreground shrink-0">{formatMessage({ id: 'orchestrator.propertyPanel.templateLabel' })}</span>
 
           {allTemplates.map((template) => (
             <div key={template.id} className="relative group">
@@ -719,7 +721,7 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (confirm(`确定删除模板 "${template.label}"？`)) {
+                    if (confirm(formatMessage({ id: 'orchestrator.propertyPanel.confirmDeleteTemplate' }, { name: template.label }))) {
                       handleDeleteTemplate(template.id);
                     }
                   }}
@@ -738,7 +740,7 @@ function TagEditor({ value, onChange, placeholder, availableVariables, minHeight
             className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
           >
             <Plus className="w-3 h-3" />
-            新建
+            {formatMessage({ id: 'orchestrator.propertyPanel.newTemplate' })}
           </button>
         </div>
       </div>
@@ -897,6 +899,7 @@ function CollapsibleSection({
 // ========== Tags Input ==========
 
 function TagsInput({ tags, onChange }: { tags: string[]; onChange: (tags: string[]) => void }) {
+  const { formatMessage } = useIntl();
   const [input, setInput] = useState('');
 
   const handleAdd = () => {
@@ -934,7 +937,7 @@ function TagsInput({ tags, onChange }: { tags: string[]; onChange: (tags: string
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="添加标签..."
+          placeholder={formatMessage({ id: 'orchestrator.propertyPanel.addTag' })}
           className="h-7 text-xs"
         />
         <Button variant="ghost" size="sm" onClick={handleAdd} disabled={!input.trim()} className="h-7 px-2">
@@ -1041,11 +1044,11 @@ function PromptTemplateProperties({ data, onChange }: PromptTemplatePropertiesPr
           }}
           className="w-full h-10 px-3 rounded-md border border-border bg-background text-foreground text-sm"
         >
-          <optgroup label="Slash Commands">
+          <optgroup label={formatMessage({ id: 'orchestrator.propertyPanel.slashCommandsGroup' })}>
             <option value="mainprocess">{formatMessage({ id: 'orchestrator.propertyPanel.options.modeMainprocess' })}</option>
             <option value="async">{formatMessage({ id: 'orchestrator.propertyPanel.options.modeAsync' })}</option>
           </optgroup>
-          <optgroup label="CLI Tools">
+          <optgroup label={formatMessage({ id: 'orchestrator.propertyPanel.cliToolsGroup' })}>
             <option value="analysis">{formatMessage({ id: 'orchestrator.propertyPanel.options.modeAnalysis' })}</option>
             <option value="write">{formatMessage({ id: 'orchestrator.propertyPanel.options.modeWrite' })}</option>
           </optgroup>
@@ -1075,14 +1078,14 @@ function PromptTemplateProperties({ data, onChange }: PromptTemplatePropertiesPr
       )}
 
       {/* Classification Section */}
-      <CollapsibleSection title="分类信息" defaultExpanded={false}>
+      <CollapsibleSection title={formatMessage({ id: 'orchestrator.propertyPanel.classificationSection' })} defaultExpanded={false}>
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">描述</label>
+          <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.description' })}</label>
           <textarea
             value={data.description || ''}
             onChange={(e) => onChange({ description: e.target.value })}
-            placeholder="节点功能描述..."
+            placeholder={formatMessage({ id: 'orchestrator.propertyPanel.descriptionPlaceholder' })}
             rows={2}
             className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm resize-none"
           />
@@ -1090,7 +1093,7 @@ function PromptTemplateProperties({ data, onChange }: PromptTemplatePropertiesPr
 
         {/* Tags */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">标签</label>
+          <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.tags' })}</label>
           <TagsInput
             tags={data.tags || []}
             onChange={(tags) => onChange({ tags })}
@@ -1099,21 +1102,21 @@ function PromptTemplateProperties({ data, onChange }: PromptTemplatePropertiesPr
       </CollapsibleSection>
 
       {/* Execution Section */}
-      <CollapsibleSection title="执行配置" defaultExpanded={false}>
+      <CollapsibleSection title={formatMessage({ id: 'orchestrator.propertyPanel.executionSection' })} defaultExpanded={false}>
         {/* Condition */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">条件</label>
+          <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.condition' })}</label>
           <Input
             value={data.condition || ''}
             onChange={(e) => onChange({ condition: e.target.value || undefined })}
-            placeholder="例如: {{prev.success}} === true"
+            placeholder={formatMessage({ id: 'orchestrator.propertyPanel.conditionPlaceholder' })}
             className="font-mono text-sm"
           />
         </div>
 
         {/* Artifacts */}
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">产物</label>
+          <label className="block text-sm font-medium text-foreground mb-1">{formatMessage({ id: 'orchestrator.propertyPanel.artifacts' })}</label>
           <ArtifactsList
             artifacts={data.artifacts || []}
             onChange={(artifacts) => onChange({ artifacts })}
@@ -1138,6 +1141,7 @@ const SAVE_COLOR_OPTIONS = [
 ];
 
 function SaveAsTemplateButton({ nodeId, nodeLabel }: { nodeId: string; nodeLabel: string }) {
+  const { formatMessage } = useIntl();
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
@@ -1175,7 +1179,7 @@ function SaveAsTemplateButton({ nodeId, nodeLabel }: { nodeId: string; nodeLabel
         onClick={() => { setName(nodeLabel); setIsOpen(true); }}
       >
         <BookmarkPlus className="w-4 h-4 mr-2" />
-        Save to Node Library
+        {formatMessage({ id: 'orchestrator.propertyPanel.saveToLibrary' })}
       </Button>
     );
   }
@@ -1185,14 +1189,14 @@ function SaveAsTemplateButton({ nodeId, nodeLabel }: { nodeId: string; nodeLabel
       <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        placeholder="Template name"
+        placeholder={formatMessage({ id: 'orchestrator.propertyPanel.templateName' })}
         className="h-8 text-sm"
         autoFocus
       />
       <Input
         value={desc}
         onChange={(e) => setDesc(e.target.value)}
-        placeholder="Description (optional)"
+        placeholder={formatMessage({ id: 'orchestrator.propertyPanel.descriptionOptional' })}
         className="h-8 text-sm"
       />
       <div className="flex flex-wrap gap-1">
@@ -1211,11 +1215,11 @@ function SaveAsTemplateButton({ nodeId, nodeLabel }: { nodeId: string; nodeLabel
       </div>
       <div className="flex gap-1">
         <Button variant="outline" size="sm" className="flex-1" onClick={() => setIsOpen(false)}>
-          Cancel
+          {formatMessage({ id: 'orchestrator.propertyPanel.cancel' })}
         </Button>
         <Button size="sm" className="flex-1" onClick={handleSave} disabled={!name.trim()}>
           <Save className="w-3.5 h-3.5 mr-1" />
-          Save
+          {formatMessage({ id: 'orchestrator.propertyPanel.save' })}
         </Button>
       </div>
     </div>
@@ -1318,7 +1322,7 @@ export function PropertyPanel({ className }: PropertyPanelProps) {
       {/* Node Type Badge */}
       <div className="px-4 py-2 border-b border-border bg-muted/30">
         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          prompt template
+          {formatMessage({ id: 'orchestrator.propertyPanel.nodeType' })}
         </span>
       </div>
 
