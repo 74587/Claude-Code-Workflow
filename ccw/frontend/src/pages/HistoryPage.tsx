@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { useHistory } from '@/hooks/useHistory';
 import { ConversationCard } from '@/components/shared/ConversationCard';
 import { CliStreamPanel } from '@/components/shared/CliStreamPanel';
+import { NativeSessionPanel } from '@/components/shared/NativeSessionPanel';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -50,6 +51,8 @@ export function HistoryPage() {
   const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
   const [selectedExecution, setSelectedExecution] = React.useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = React.useState(false);
+  const [nativeExecutionId, setNativeExecutionId] = React.useState<string | null>(null);
+  const [isNativePanelOpen, setIsNativePanelOpen] = React.useState(false);
 
   const {
     executions,
@@ -86,6 +89,12 @@ export function HistoryPage() {
   const handleCardClick = (execution: CliExecution) => {
     setSelectedExecution(execution.id);
     setIsPanelOpen(true);
+  };
+
+  // View native session handler
+  const handleViewNative = (execution: CliExecution) => {
+    setNativeExecutionId(execution.id);
+    setIsNativePanelOpen(true);
   };
 
   // Delete handlers
@@ -274,6 +283,7 @@ export function HistoryPage() {
               key={execution.id}
               execution={execution}
               onClick={handleCardClick}
+              onViewNative={handleViewNative}
               onDelete={handleDeleteClick}
               actionsDisabled={isDeleting}
             />
@@ -286,6 +296,13 @@ export function HistoryPage() {
         executionId={selectedExecution || ''}
         open={isPanelOpen}
         onOpenChange={setIsPanelOpen}
+      />
+
+      {/* Native Session Panel */}
+      <NativeSessionPanel
+        executionId={nativeExecutionId || ''}
+        open={isNativePanelOpen}
+        onOpenChange={setIsNativePanelOpen}
       />
 
       {/* Delete Confirmation Dialog */}
