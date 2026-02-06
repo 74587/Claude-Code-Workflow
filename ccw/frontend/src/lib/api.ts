@@ -1599,6 +1599,9 @@ export interface CliExecution {
   duration_ms: number;
   sourceDir?: string;
   turn_count?: number;
+  hasNativeSession?: boolean;
+  nativeSessionId?: string;
+  nativeSessionPath?: string;
 }
 
 export interface HistoryResponse {
@@ -1606,11 +1609,13 @@ export interface HistoryResponse {
 }
 
 /**
- * Fetch CLI execution history for a specific workspace
+ * Fetch CLI execution history with native session info
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchHistory(projectPath?: string): Promise<HistoryResponse> {
-  const url = projectPath ? `/api/cli/history?path=${encodeURIComponent(projectPath)}` : '/api/cli/history';
+  const url = projectPath
+    ? `/api/cli/history-native?path=${encodeURIComponent(projectPath)}`
+    : '/api/cli/history-native';
   const data = await fetchApi<{ executions?: CliExecution[] }>(url);
   return {
     executions: data.executions ?? [],
@@ -1738,6 +1743,57 @@ export interface ConversationTurn {
   duration_ms: number;
   status?: 'success' | 'error' | 'timeout';
   exit_code?: number;
+}
+
+// ========== Native Session Types ==========
+
+export interface NativeTokenInfo {
+  input?: number;
+  output?: number;
+  cached?: number;
+  total?: number;
+}
+
+export interface NativeToolCall {
+  name: string;
+  arguments?: string;
+  output?: string;
+}
+
+export interface NativeSessionTurn {
+  turnNumber: number;
+  timestamp: string;
+  role: 'user' | 'assistant';
+  content: string;
+  thoughts?: string[];
+  toolCalls?: NativeToolCall[];
+  tokens?: NativeTokenInfo;
+}
+
+export interface NativeSession {
+  sessionId: string;
+  tool: string;
+  model?: string;
+  projectHash?: string;
+  workingDir?: string;
+  startTime: string;
+  lastUpdated: string;
+  turns: NativeSessionTurn[];
+  totalTokens?: NativeTokenInfo;
+}
+
+/**
+ * Fetch native CLI session content by execution ID
+ */
+export async function fetchNativeSession(
+  executionId: string,
+  projectPath?: string
+): Promise<NativeSession> {
+  const params = new URLSearchParams({ id: executionId });
+  if (projectPath) params.set('path', projectPath);
+  return fetchApi<NativeSession>(
+    `/api/cli/native-session?${params.toString()}`
+  );
 }
 
 // ========== CLI Tools Config API ==========
@@ -1889,15 +1945,79 @@ export async function fetchLiteTaskSession(
  * Fetch context data for a lite task session
  * Uses the session-detail API with type=context
  */
+
+// Context package core type (compatible with lite and full context-package.json)
+export interface LiteContextPackage {
+  // Basic fields (lite task context)
+  task_description?: string;
+  constraints?: string[];
+  focus_paths?: string[];
+  relevant_files?: Array<string | { path: string; reason?: string }>;
+  dependencies?: string[] | Array<{ name: string; type?: string; version?: string }>;
+  conflict_risks?: string[] | Array<{ description: string; severity?: string }>;
+  session_id?: string;
+  metadata?: Record<string, unknown>;
+
+  // Extended fields (full context-package.json)
+  project_context?: {
+    tech_stack?: {
+      languages?: Array<{ name: string; file_count?: number }>;
+      frameworks?: string[];
+      libraries?: string[];
+    };
+    architecture_patterns?: string[];
+  };
+  assets?: {
+    documentation?: Array<{ path: string; relevance_score?: number; scope?: string; contains?: string[] }>;
+    source_code?: Array<{ path: string; relevance_score?: number; scope?: string; contains?: string[] }>;
+    tests?: Array<{ path: string; relevance_score?: number; scope?: string; contains?: string[] }>;
+  };
+  test_context?: Record<string, unknown>;
+  conflict_detection?: {
+    risk_level?: 'low' | 'medium' | 'high' | 'critical';
+    mitigation_strategy?: string;
+    risk_factors?: { test_gaps?: string[]; existing_implementations?: string[] };
+    affected_modules?: string[];
+  };
+}
+
+export interface LiteExplorationAngle {
+  project_structure?: string[];
+  relevant_files?: string[];
+  patterns?: string[];
+  dependencies?: string[];
+  integration_points?: string[];
+  testing?: string[];
+  findings?: string[];
+  recommendations?: string[];
+  risks?: string[];
+}
+
+export interface LiteDiagnosisItem {
+  id?: string;
+  title?: string;
+  description?: string;
+  symptom?: string;
+  root_cause?: string;
+  issues?: Array<{ file: string; line?: number; severity?: string; message: string }>;
+  affected_files?: string[];
+  fix_hints?: string[];
+}
+
 export interface LiteSessionContext {
-  context?: Record<string, unknown>;
+  context?: LiteContextPackage;
   explorations?: {
-    manifest?: Record<string, unknown>;
-    data?: Record<string, unknown>;
+    manifest?: {
+      task_description?: string;
+      complexity?: string;
+      exploration_count?: number;
+    };
+    data?: Record<string, LiteExplorationAngle>;
   };
   diagnoses?: {
     manifest?: Record<string, unknown>;
-    items?: Array<Record<string, unknown>>;
+    data?: Record<string, unknown>;          // Backend session-routes format
+    items?: LiteDiagnosisItem[];             // lite-scanner format (compat)
   };
 }
 
@@ -2028,9 +2148,81 @@ export async function fetchMcpConfig(): Promise<{
   userServers: Record<string, any>;
   enterpriseServers: Record<string, any>;
   configSources: string[];
-  codex?: { servers: Record<string, any>; configPath: string };
+  codex?: { servers: Record<string, any>; configPath: string; exists?: boolean };
 }> {
   return fetchApi('/api/mcp-config');
+}
+
+type UnknownRecord = Record<string, unknown>;
+
+function isUnknownRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function normalizePathForCompare(inputPath: string): string {
+  const trimmed = inputPath.trim();
+  if (!trimmed) return '';
+
+  let normalized = trimmed.replace(/\\/g, '/');
+
+  // Handle /d/path -> D:/path (matches backend normalization)
+  if (/^\/[a-zA-Z]\//.test(normalized)) {
+    normalized = normalized.charAt(1).toUpperCase() + ':' + normalized.slice(2);
+  }
+
+  // Normalize drive letter casing
+  if (/^[a-zA-Z]:\//.test(normalized)) {
+    normalized = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+
+  return normalized.replace(/\/+$/, '');
+}
+
+function findProjectConfigKey(projects: Record<string, unknown>, projectPath?: string): string | null {
+  if (!projectPath) return null;
+
+  const desired = normalizePathForCompare(projectPath);
+  if (!desired) return null;
+
+  for (const key of Object.keys(projects)) {
+    if (normalizePathForCompare(key) === desired) {
+      return key;
+    }
+  }
+
+  // Fallback to exact key match if present
+  return projectPath in projects ? projectPath : null;
+}
+
+function normalizeServerConfig(config: unknown): { command: string; args?: string[]; env?: Record<string, string> } {
+  if (!isUnknownRecord(config)) {
+    return { command: '' };
+  }
+
+  const command =
+    typeof config.command === 'string'
+      ? config.command
+      : typeof config.url === 'string'
+        ? config.url
+        : '';
+
+  const args = Array.isArray(config.args)
+    ? config.args.filter((arg): arg is string => typeof arg === 'string')
+    : undefined;
+
+  const env = isUnknownRecord(config.env)
+    ? Object.fromEntries(
+        Object.entries(config.env).flatMap(([key, value]) =>
+          typeof value === 'string' ? [[key, value]] : []
+        )
+      )
+    : undefined;
+
+  return {
+    command,
+    args: args && args.length > 0 ? args : undefined,
+    env: env && Object.keys(env).length > 0 ? env : undefined,
+  };
 }
 
 /**
@@ -2038,12 +2230,77 @@ export async function fetchMcpConfig(): Promise<{
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchMcpServers(projectPath?: string): Promise<McpServersResponse> {
-  const url = projectPath ? `/api/mcp/servers?path=${encodeURIComponent(projectPath)}` : '/api/mcp/servers';
-  const data = await fetchApi<{ project?: McpServer[]; global?: McpServer[] }>(url);
+  const config = await fetchMcpConfig();
+
+  const projectsRecord = isUnknownRecord(config.projects) ? (config.projects as UnknownRecord) : {};
+  const projectKey = findProjectConfigKey(projectsRecord, projectPath);
+  const projectConfig = projectKey && isUnknownRecord(projectsRecord[projectKey])
+    ? (projectsRecord[projectKey] as UnknownRecord)
+    : null;
+
+  const disabledServers = projectConfig && Array.isArray(projectConfig.disabledMcpServers)
+    ? projectConfig.disabledMcpServers.filter((name): name is string => typeof name === 'string')
+    : [];
+  const disabledSet = new Set(disabledServers);
+
+  const userServers = isUnknownRecord(config.userServers) ? (config.userServers as UnknownRecord) : {};
+  const enterpriseServers = isUnknownRecord(config.enterpriseServers) ? (config.enterpriseServers as UnknownRecord) : {};
+
+  const projectServersRecord = projectConfig && isUnknownRecord(projectConfig.mcpServers)
+    ? (projectConfig.mcpServers as UnknownRecord)
+    : {};
+
+  const global: McpServer[] = Object.entries(userServers).map(([name, raw]) => {
+    const normalized = normalizeServerConfig(raw);
+    return {
+      name,
+      ...normalized,
+      enabled: !disabledSet.has(name),
+      scope: 'global',
+    };
+  });
+
+  const project: McpServer[] = Object.entries(projectServersRecord)
+    // Avoid duplicates: if defined globally/enterprise, treat it as global
+    .filter(([name]) => !(name in userServers) && !(name in enterpriseServers))
+    .map(([name, raw]) => {
+      const normalized = normalizeServerConfig(raw);
+      return {
+        name,
+        ...normalized,
+        enabled: !disabledSet.has(name),
+        scope: 'project',
+      };
+    });
+
   return {
-    project: data.project ?? [],
-    global: data.global ?? [],
+    project,
+    global,
   };
+}
+
+export type McpProjectConfigType = 'mcp' | 'claude';
+
+export interface McpServerMutationOptions {
+  /** Required for project-scoped mutations and for enabled/disabled toggles */
+  projectPath?: string;
+  /** Controls where project servers are stored (.mcp.json vs legacy .claude.json) */
+  configType?: McpProjectConfigType;
+}
+
+function requireProjectPath(projectPath: string | undefined, ctx: string): string {
+  const trimmed = projectPath?.trim();
+  if (!trimmed) {
+    throw new Error(`${ctx}: projectPath is required`);
+  }
+  return trimmed;
+}
+
+function toServerConfig(server: { command: string; args?: string[]; env?: Record<string, string> }): UnknownRecord {
+  const config: UnknownRecord = { command: server.command };
+  if (server.args && server.args.length > 0) config.args = server.args;
+  if (server.env && Object.keys(server.env).length > 0) config.env = server.env;
+  return config;
 }
 
 /**
@@ -2051,33 +2308,161 @@ export async function fetchMcpServers(projectPath?: string): Promise<McpServersR
  */
 export async function updateMcpServer(
   serverName: string,
-  config: Partial<McpServer>
+  config: Partial<McpServer>,
+  options: McpServerMutationOptions = {}
 ): Promise<McpServer> {
-  return fetchApi<McpServer>(`/api/mcp/servers/${encodeURIComponent(serverName)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(config),
+  if (!config.scope) {
+    throw new Error('updateMcpServer: scope is required');
+  }
+  if (typeof config.command !== 'string' || !config.command.trim()) {
+    throw new Error('updateMcpServer: command is required');
+  }
+
+  const serverConfig = toServerConfig({
+    command: config.command,
+    args: config.args,
+    env: config.env,
   });
+
+  if (config.scope === 'global') {
+    const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-add-global-server', {
+      method: 'POST',
+      body: JSON.stringify({ serverName, serverConfig }),
+    });
+    if (result?.error) {
+      throw new Error(result.error);
+    }
+  } else {
+    const projectPath = requireProjectPath(options.projectPath, 'updateMcpServer');
+    const configType = options.configType ?? 'mcp';
+    const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-copy-server', {
+      method: 'POST',
+      body: JSON.stringify({ projectPath, serverName, serverConfig, configType }),
+    });
+    if (result?.error) {
+      throw new Error(result.error);
+    }
+  }
+
+  if (typeof config.enabled === 'boolean') {
+    const projectPath = options.projectPath?.trim();
+    if (projectPath) {
+      const toggleRes = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-toggle', {
+        method: 'POST',
+        body: JSON.stringify({ projectPath, serverName, enable: config.enabled }),
+      });
+      if (toggleRes?.error) {
+        throw new Error(toggleRes.error);
+      }
+    }
+  }
+
+  if (options.projectPath) {
+    const servers = await fetchMcpServers(options.projectPath);
+    return [...servers.project, ...servers.global].find((s) => s.name === serverName) ?? {
+      name: serverName,
+      command: config.command,
+      args: config.args,
+      env: config.env,
+      enabled: config.enabled ?? true,
+      scope: config.scope,
+    };
+  }
+
+  return {
+    name: serverName,
+    command: config.command,
+    args: config.args,
+    env: config.env,
+    enabled: config.enabled ?? true,
+    scope: config.scope,
+  };
 }
 
 /**
  * Create a new MCP server
  */
 export async function createMcpServer(
-  server: Omit<McpServer, 'name'>
+  server: McpServer,
+  options: McpServerMutationOptions = {}
 ): Promise<McpServer> {
-  return fetchApi<McpServer>('/api/mcp/servers', {
-    method: 'POST',
-    body: JSON.stringify(server),
-  });
+  if (!server.name?.trim()) {
+    throw new Error('createMcpServer: name is required');
+  }
+  if (!server.command?.trim()) {
+    throw new Error('createMcpServer: command is required');
+  }
+
+  const serverName = server.name.trim();
+  const serverConfig = toServerConfig(server);
+
+  if (server.scope === 'global') {
+    const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-add-global-server', {
+      method: 'POST',
+      body: JSON.stringify({ serverName, serverConfig }),
+    });
+    if (result?.error) {
+      throw new Error(result.error);
+    }
+  } else {
+    const projectPath = requireProjectPath(options.projectPath, 'createMcpServer');
+    const configType = options.configType ?? 'mcp';
+    const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-copy-server', {
+      method: 'POST',
+      body: JSON.stringify({ projectPath, serverName, serverConfig, configType }),
+    });
+    if (result?.error) {
+      throw new Error(result.error);
+    }
+  }
+
+  // Enforced enabled/disabled is project-scoped (via disabledMcpServers list)
+  if (server.enabled === false) {
+    const projectPath = requireProjectPath(options.projectPath, 'createMcpServer');
+    const toggleRes = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-toggle', {
+      method: 'POST',
+      body: JSON.stringify({ projectPath, serverName, enable: false }),
+    });
+    if (toggleRes?.error) {
+      throw new Error(toggleRes.error);
+    }
+  }
+
+  if (options.projectPath) {
+    const servers = await fetchMcpServers(options.projectPath);
+    return [...servers.project, ...servers.global].find((s) => s.name === serverName) ?? server;
+  }
+
+  return server;
 }
 
 /**
  * Delete an MCP server
  */
-export async function deleteMcpServer(serverName: string): Promise<void> {
-  await fetchApi<void>(`/api/mcp/servers/${encodeURIComponent(serverName)}`, {
-    method: 'DELETE',
+export async function deleteMcpServer(
+  serverName: string,
+  scope: 'project' | 'global',
+  options: McpServerMutationOptions = {}
+): Promise<void> {
+  if (scope === 'global') {
+    const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-remove-global-server', {
+      method: 'POST',
+      body: JSON.stringify({ serverName }),
+    });
+    if (result?.error) {
+      throw new Error(result.error);
+    }
+    return;
+  }
+
+  const projectPath = requireProjectPath(options.projectPath, 'deleteMcpServer');
+  const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-remove-server', {
+    method: 'POST',
+    body: JSON.stringify({ projectPath, serverName }),
   });
+  if (result?.error) {
+    throw new Error(result.error);
+  }
 }
 
 /**
@@ -2085,12 +2470,26 @@ export async function deleteMcpServer(serverName: string): Promise<void> {
  */
 export async function toggleMcpServer(
   serverName: string,
-  enabled: boolean
+  enabled: boolean,
+  options: McpServerMutationOptions = {}
 ): Promise<McpServer> {
-  return fetchApi<McpServer>(`/api/mcp/servers/${encodeURIComponent(serverName)}/toggle`, {
+  const projectPath = requireProjectPath(options.projectPath, 'toggleMcpServer');
+
+  const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-toggle', {
     method: 'POST',
-    body: JSON.stringify({ enabled }),
+    body: JSON.stringify({ projectPath, serverName, enable: enabled }),
   });
+  if (result?.error) {
+    throw new Error(result.error);
+  }
+
+  const servers = await fetchMcpServers(projectPath);
+  return [...servers.project, ...servers.global].find((s) => s.name === serverName) ?? {
+    name: serverName,
+    command: '',
+    enabled,
+    scope: 'project',
+  };
 }
 
 // ========== Codex MCP API ==========
@@ -2112,17 +2511,37 @@ export interface CodexMcpServersResponse {
  * Codex MCP servers are read-only (managed via config file)
  */
 export async function fetchCodexMcpServers(): Promise<CodexMcpServersResponse> {
-  return fetchApi<CodexMcpServersResponse>('/api/mcp/codex-servers');
+  const data = await fetchApi<{ servers?: Record<string, unknown>; configPath: string; exists?: boolean }>('/api/codex-mcp-config');
+  const serversRecord = isUnknownRecord(data.servers) ? (data.servers as UnknownRecord) : {};
+
+  const servers: CodexMcpServer[] = Object.entries(serversRecord).map(([name, raw]) => {
+    const normalized = normalizeServerConfig(raw);
+    const enabled = isUnknownRecord(raw) ? (raw.enabled !== false) : true;
+
+    return {
+      name,
+      ...normalized,
+      enabled,
+      // Codex config is global for the CLI; scope is only used for UI badges in Claude mode
+      scope: 'global',
+      configPath: data.configPath,
+    };
+  });
+
+  return { servers, configPath: data.configPath };
 }
 
 /**
  * Add a new MCP server to Codex config
  * Note: This requires write access to Codex config.toml
  */
-export async function addCodexMcpServer(server: Omit<McpServer, 'name'>): Promise<CodexMcpServer> {
-  return fetchApi<CodexMcpServer>('/api/mcp/codex-add', {
+export async function addCodexMcpServer(
+  serverName: string,
+  serverConfig: Record<string, unknown>
+): Promise<{ success?: boolean; error?: string }> {
+  return fetchApi<{ success?: boolean; error?: string }>('/api/codex-mcp-add', {
     method: 'POST',
-    body: JSON.stringify(server),
+    body: JSON.stringify({ serverName, serverConfig }),
   });
 }
 
@@ -2227,7 +2646,9 @@ export async function fetchMcpTemplatesByCategory(category: string): Promise<Mcp
  * Fetch all projects for cross-project operations
  */
 export async function fetchAllProjects(): Promise<AllProjectsResponse> {
-  return fetchApi<AllProjectsResponse>('/api/projects/all');
+  const config = await fetchMcpConfig();
+  const projects = Object.keys(config.projects ?? {}).sort((a, b) => a.localeCompare(b));
+  return { projects };
 }
 
 /**
@@ -2236,10 +2657,46 @@ export async function fetchAllProjects(): Promise<AllProjectsResponse> {
 export async function fetchOtherProjectsServers(
   projectPaths?: string[]
 ): Promise<OtherProjectsServersResponse> {
-  const url = projectPaths
-    ? `/api/projects/other-servers?paths=${projectPaths.map(p => encodeURIComponent(p)).join(',')}`
-    : '/api/projects/other-servers';
-  return fetchApi<OtherProjectsServersResponse>(url);
+  const config = await fetchMcpConfig();
+  const userServers = isUnknownRecord(config.userServers) ? (config.userServers as UnknownRecord) : {};
+  const enterpriseServers = isUnknownRecord(config.enterpriseServers) ? (config.enterpriseServers as UnknownRecord) : {};
+
+  const filterSet = projectPaths && projectPaths.length > 0
+    ? new Set(projectPaths.map((p) => normalizePathForCompare(p)))
+    : null;
+
+  const servers: OtherProjectsServersResponse['servers'] = {};
+
+  for (const [path, rawProjectConfig] of Object.entries(config.projects ?? {})) {
+    const normalizedPath = normalizePathForCompare(path);
+    if (filterSet && !filterSet.has(normalizedPath)) {
+      continue;
+    }
+
+    const projectConfig = isUnknownRecord(rawProjectConfig) ? (rawProjectConfig as UnknownRecord) : {};
+    const projectServersRecord = isUnknownRecord(projectConfig.mcpServers)
+      ? (projectConfig.mcpServers as UnknownRecord)
+      : {};
+
+    const disabledServers = Array.isArray(projectConfig.disabledMcpServers)
+      ? projectConfig.disabledMcpServers.filter((name): name is string => typeof name === 'string')
+      : [];
+    const disabledSet = new Set(disabledServers);
+
+    servers[path] = Object.entries(projectServersRecord)
+      // Exclude globally-defined servers; this section is meant for project-local discovery
+      .filter(([name]) => !(name in userServers) && !(name in enterpriseServers))
+      .map(([name, raw]) => {
+        const normalized = normalizeServerConfig(raw);
+        return {
+          name,
+          ...normalized,
+          enabled: !disabledSet.has(name),
+        };
+      });
+  }
+
+  return { servers };
 }
 
 // ========== Cross-CLI Operations ==========
@@ -2250,10 +2707,93 @@ export async function fetchOtherProjectsServers(
 export async function crossCliCopy(
   request: CrossCliCopyRequest
 ): Promise<CrossCliCopyResponse> {
-  return fetchApi<CrossCliCopyResponse>('/api/mcp/cross-cli-copy', {
-    method: 'POST',
-    body: JSON.stringify(request),
-  });
+  const serverNames = request.serverNames ?? [];
+  if (serverNames.length === 0 || request.source === request.target) {
+    return { success: true, copied: [], failed: [] };
+  }
+
+  const copied: string[] = [];
+  const failed: Array<{ name: string; error: string }> = [];
+
+  // Claude -> Codex (upserts into ~/.codex/config.toml via backend)
+  if (request.source === 'claude' && request.target === 'codex') {
+    const config = await fetchMcpConfig();
+    const projectsRecord = isUnknownRecord(config.projects) ? (config.projects as UnknownRecord) : {};
+    const projectKey = findProjectConfigKey(projectsRecord, request.projectPath ?? undefined);
+    const projectConfig = projectKey && isUnknownRecord(projectsRecord[projectKey])
+      ? (projectsRecord[projectKey] as UnknownRecord)
+      : null;
+
+    const projectServersRecord = projectConfig && isUnknownRecord(projectConfig.mcpServers)
+      ? (projectConfig.mcpServers as UnknownRecord)
+      : {};
+
+    for (const name of serverNames) {
+      try {
+        const rawConfig =
+          projectServersRecord[name] ??
+          (config.userServers ? (config.userServers as UnknownRecord)[name] : undefined) ??
+          (config.enterpriseServers ? (config.enterpriseServers as UnknownRecord)[name] : undefined);
+
+        if (!isUnknownRecord(rawConfig)) {
+          failed.push({ name, error: 'Source server config not found' });
+          continue;
+        }
+
+        const result = await addCodexMcpServer(name, rawConfig);
+        if (result?.error) {
+          failed.push({ name, error: result.error });
+          continue;
+        }
+
+        copied.push(name);
+      } catch (err: unknown) {
+        failed.push({ name, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    return { success: copied.length > 0, copied, failed };
+  }
+
+  // Codex -> Claude (defaults to copying into current project via /api/mcp-copy-server)
+  if (request.source === 'codex' && request.target === 'claude') {
+    const projectPath = requireProjectPath(request.projectPath, 'crossCliCopy');
+
+    const codex = await fetchApi<{ servers?: Record<string, unknown> }>('/api/codex-mcp-config');
+    const codexServers = isUnknownRecord(codex.servers) ? (codex.servers as UnknownRecord) : {};
+
+    for (const name of serverNames) {
+      try {
+        const rawConfig = codexServers[name];
+        if (!isUnknownRecord(rawConfig)) {
+          failed.push({ name, error: 'Source server config not found' });
+          continue;
+        }
+
+        const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-copy-server', {
+          method: 'POST',
+          body: JSON.stringify({ projectPath, serverName: name, serverConfig: rawConfig, configType: 'mcp' }),
+        });
+
+        if (result?.error) {
+          failed.push({ name, error: result.error });
+          continue;
+        }
+
+        copied.push(name);
+      } catch (err: unknown) {
+        failed.push({ name, error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
+    return { success: copied.length > 0, copied, failed };
+  }
+
+  return {
+    success: false,
+    copied: [],
+    failed: serverNames.map((name) => ({ name, error: 'Unsupported copy direction' })),
+  };
 }
 
 // ========== CLI Endpoints API ==========
@@ -2598,12 +3138,11 @@ export async function copyMcpServerToProject(
     env?: Record<string, string>;
     type?: string;
   },
-  projectPath?: string,
+  projectPath: string,
   configType: 'mcp' | 'claude' = 'mcp'
 ): Promise<{ success: boolean; error?: string }> {
-  // Use current project path from URL or fallback
-  const path = projectPath || window.location.pathname.split('/').filter(Boolean)[0] || '';
-  
+  const path = requireProjectPath(projectPath, 'copyMcpServerToProject');
+
   return fetchApi<{ success: boolean; error?: string }>('/api/mcp-copy-server', {
     method: 'POST',
     body: JSON.stringify({ projectPath: path, serverName, serverConfig, configType }),

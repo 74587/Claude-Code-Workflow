@@ -21,6 +21,7 @@ import {
   crossCliCopy,
   type McpServer,
   type McpServersResponse,
+  type McpProjectConfigType,
   type McpTemplate,
   type McpTemplateInstallRequest,
   type AllProjectsResponse,
@@ -124,70 +125,75 @@ export function useMcpServers(options: UseMcpServersOptions = {}): UseMcpServers
 // ========== Mutations ==========
 
 export interface UseUpdateMcpServerReturn {
-  updateServer: (serverName: string, config: Partial<McpServer>) => Promise<McpServer>;
+  updateServer: (serverName: string, config: Partial<McpServer>, configType?: McpProjectConfigType) => Promise<McpServer>;
   isUpdating: boolean;
   error: Error | null;
 }
 
 export function useUpdateMcpServer(): UseUpdateMcpServerReturn {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
-    mutationFn: ({ serverName, config }: { serverName: string; config: Partial<McpServer> }) =>
-      updateMcpServer(serverName, config),
+    mutationFn: ({ serverName, config, configType }: { serverName: string; config: Partial<McpServer>; configType?: McpProjectConfigType }) =>
+      updateMcpServer(serverName, config, { projectPath: projectPath ?? undefined, configType }),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
     },
   });
 
   return {
-    updateServer: (serverName, config) => mutation.mutateAsync({ serverName, config }),
+    updateServer: (serverName, config, configType) => mutation.mutateAsync({ serverName, config, configType }),
     isUpdating: mutation.isPending,
     error: mutation.error,
   };
 }
 
 export interface UseCreateMcpServerReturn {
-  createServer: (server: Omit<McpServer, 'name'>) => Promise<McpServer>;
+  createServer: (server: McpServer, configType?: McpProjectConfigType) => Promise<McpServer>;
   isCreating: boolean;
   error: Error | null;
 }
 
 export function useCreateMcpServer(): UseCreateMcpServerReturn {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
-    mutationFn: (server: Omit<McpServer, 'name'>) => createMcpServer(server),
+    mutationFn: ({ server, configType }: { server: McpServer; configType?: McpProjectConfigType }) =>
+      createMcpServer(server, { projectPath: projectPath ?? undefined, configType }),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
     },
   });
 
   return {
-    createServer: mutation.mutateAsync,
+    createServer: (server, configType) => mutation.mutateAsync({ server, configType }),
     isCreating: mutation.isPending,
     error: mutation.error,
   };
 }
 
 export interface UseDeleteMcpServerReturn {
-  deleteServer: (serverName: string) => Promise<void>;
+  deleteServer: (serverName: string, scope: 'project' | 'global') => Promise<void>;
   isDeleting: boolean;
   error: Error | null;
 }
 
 export function useDeleteMcpServer(): UseDeleteMcpServerReturn {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
-    mutationFn: (serverName: string) => deleteMcpServer(serverName),
+    mutationFn: ({ serverName, scope }: { serverName: string; scope: 'project' | 'global' }) =>
+      deleteMcpServer(serverName, scope, { projectPath: projectPath ?? undefined }),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
     },
   });
 
   return {
-    deleteServer: mutation.mutateAsync,
+    deleteServer: (serverName, scope) => mutation.mutateAsync({ serverName, scope }),
     isDeleting: mutation.isPending,
     error: mutation.error,
   };
@@ -201,10 +207,11 @@ export interface UseToggleMcpServerReturn {
 
 export function useToggleMcpServer(): UseToggleMcpServerReturn {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
     mutationFn: ({ serverName, enabled }: { serverName: string; enabled: boolean }) =>
-      toggleMcpServer(serverName, enabled),
+      toggleMcpServer(serverName, enabled, { projectPath: projectPath ?? undefined }),
     onMutate: async ({ serverName, enabled }) => {
       await queryClient.cancelQueries({ queryKey: mcpServersKeys.all });
       const previousServers = queryClient.getQueryData<McpServersResponse>(mcpServersKeys.list());

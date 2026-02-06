@@ -348,7 +348,7 @@ export function CliStreamPanel({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pr-8">
             <DialogTitle className="flex items-center gap-2">
               <Terminal className="h-5 w-5" />
               {formatMessage({ id: 'cli-manager.executionDetails' })}

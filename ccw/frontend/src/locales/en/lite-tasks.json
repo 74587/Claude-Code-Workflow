@@ -71,7 +71,14 @@
     "focusPaths": "Focus Paths",
     "summary": "Summary",
     "taskDescription": "Task Description",
-    "complexity": "Complexity"
+    "complexity": "Complexity",
+    "constraints": "Constraints",
+    "relevantFiles": "Relevant Files",
+    "dependencies": "Dependencies",
+    "sessionId": "Session ID",
+    "metadata": "Metadata",
+    "conflictRisks": "Conflict Risks",
+    "rawJson": "Raw JSON"
   },
   "status": {
     "completed": "Completed",

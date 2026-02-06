@@ -19,6 +19,7 @@ import {
   Hash,
   MessagesSquare,
   Folder,
+  FileJson,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -34,6 +35,8 @@ export interface ConversationCardProps {
   execution: CliExecution;
   /** Called when view action is triggered */
   onView?: (execution: CliExecution) => void;
+  /** Called when view native session is triggered */
+  onViewNative?: (execution: CliExecution) => void;
   /** Called when delete action is triggered */
   onDelete?: (id: string) => void;
   /** Called when card is clicked */
@@ -94,6 +97,7 @@ function getTimeAgo(dateString: string): string {
 export function ConversationCard({
   execution,
   onView,
+  onViewNative,
   onDelete,
   onClick,
   className,
@@ -173,6 +177,12 @@ export function ConversationCard({
                   {execution.sourceDir}
                 </Badge>
               )}
+              {execution.hasNativeSession && (
+                <Badge variant="outline" className="gap-1 text-xs">
+                  <FileJson className="h-3 w-3" />
+                  native
+                </Badge>
+              )}
               <Badge variant={status.variant} className="gap-1 text-xs ml-auto">
                 {status.icon === 'check-circle' && '✓'}
                 {status.icon === 'x-circle' && '✗'}
@@ -228,6 +238,12 @@ export function ConversationCard({
                 <Eye className="mr-2 h-4 w-4" />
                 {formatMessage({ id: 'history.actions.view' })}
               </DropdownMenuItem>
+              {execution.hasNativeSession && (
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onViewNative?.(execution); }}>
+                  <FileJson className="mr-2 h-4 w-4" />
+                  {formatMessage({ id: 'history.actions.viewNative', defaultMessage: 'View Native Session' })}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={(e) => handleAction(e, 'delete')}

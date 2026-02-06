@@ -26,10 +26,6 @@ import {
   ListChecks,
   Package,
   Loader2,
-  Compass,
-  Stethoscope,
-  FolderOpen,
-  FileText,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -43,6 +39,7 @@ import { Tabs, TabsContent } from '@/components/ui/Tabs';
 import { TabsNavigation, type TabItem } from '@/components/ui/TabsNavigation';
 import { TaskDrawer } from '@/components/shared/TaskDrawer';
 import { fetchLiteSessionContext, type LiteTask, type LiteTaskSession, type LiteSessionContext } from '@/lib/api';
+import { LiteContextContent } from '@/components/lite-tasks/LiteContextContent';
 import { useNavigate } from 'react-router-dom';
 
 type LiteTaskTab = 'lite-plan' | 'lite-fix' | 'multi-cli-plan';
@@ -223,7 +220,7 @@ function ExpandedSessionPanel({
             </div>
           )}
           {!contextLoading && !contextError && contextData && (
-            <ContextContent contextData={contextData} session={session} />
+            <LiteContextContent contextData={contextData} session={session} />
           )}
           {!contextLoading && !contextError && !contextData && !session.path && (
             <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -240,295 +237,8 @@ function ExpandedSessionPanel({
 }
 
 /**
- * ContextContent - Renders the context data sections
+ * ContextContent - Extracted to @/components/lite-tasks/LiteContextContent.tsx
  */
-function ContextContent({
-  contextData,
-  session,
-}: {
-  contextData: LiteSessionContext;
-  session: LiteTaskSession;
-}) {
-  const { formatMessage } = useIntl();
-  const plan = session.plan || {};
-  const hasExplorations = !!(contextData.explorations?.manifest);
-  const hasDiagnoses = !!(contextData.diagnoses?.manifest || contextData.diagnoses?.items?.length);
-  const hasContext = !!contextData.context;
-  const hasFocusPaths = !!(plan.focus_paths as string[] | undefined)?.length;
-  const hasSummary = !!(plan.summary as string | undefined);
-  const hasAnyContent = hasExplorations || hasDiagnoses || hasContext || hasFocusPaths || hasSummary;
-
-  if (!hasAnyContent) {
-    return (
-      <div className="flex flex-col items-center justify-center py-8 text-center">
-        <Package className="h-8 w-8 text-muted-foreground mb-2" />
-        <p className="text-sm text-muted-foreground">
-          {formatMessage({ id: 'liteTasks.contextPanel.empty' })}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {/* Explorations Section */}
-      {hasExplorations && (
-        <ContextSection
-          icon={<Compass className="h-4 w-4" />}
-          title={formatMessage({ id: 'liteTasks.contextPanel.explorations' })}
-          badge={
-            contextData.explorations?.manifest?.exploration_count
-              ? formatMessage(
-                  { id: 'liteTasks.contextPanel.explorationsCount' },
-                  { count: contextData.explorations.manifest.exploration_count as number }
-                )
-              : undefined
-          }
-        >
-          <div className="space-y-2">
-            {!!contextData.explorations?.manifest?.task_description && (
-              <div className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  {formatMessage({ id: 'liteTasks.contextPanel.taskDescription' })}:
-                </span>{' '}
-                {String(contextData.explorations.manifest.task_description)}
-              </div>
-            )}
-            {!!contextData.explorations?.manifest?.complexity && (
-              <div className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  {formatMessage({ id: 'liteTasks.contextPanel.complexity' })}:
-                </span>{' '}
-                <Badge variant="info" className="text-[10px]">
-                  {String(contextData.explorations.manifest.complexity)}
-                </Badge>
-              </div>
-            )}
-            {contextData.explorations?.data && (
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {Object.keys(contextData.explorations.data).map((angle) => (
-                  <Badge key={angle} variant="secondary" className="text-[10px] capitalize">
-                    {angle.replace(/-/g, ' ')}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-        </ContextSection>
-      )}
-
-      {/* Diagnoses Section */}
-      {hasDiagnoses && (
-        <ContextSection
-          icon={<Stethoscope className="h-4 w-4" />}
-          title={formatMessage({ id: 'liteTasks.contextPanel.diagnoses' })}
-          badge={
-            contextData.diagnoses?.items?.length
-              ? formatMessage(
-                  { id: 'liteTasks.contextPanel.diagnosesCount' },
-                  { count: contextData.diagnoses.items.length }
-                )
-              : undefined
-          }
-        >
-          {contextData.diagnoses?.items?.map((item, i) => (
-            <div key={i} className="text-xs text-muted-foreground py-1 border-b border-border/50 last:border-0">
-              {(item.title as string) || (item.description as string) || `Diagnosis ${i + 1}`}
-            </div>
-          ))}
-        </ContextSection>
-      )}
-
-      {/* Context Package Section */}
-      {hasContext && (
-        <ContextSection
-          icon={<Package className="h-4 w-4" />}
-          title={formatMessage({ id: 'liteTasks.contextPanel.contextPackage' })}
-        >
-          <div className="space-y-2 text-xs">
-            {contextData.context.task_description && (
-              <div className="text-muted-foreground">
-                <span className="font-medium text-foreground">{formatMessage({ id: 'liteTasks.contextPanel.taskDescription' })}:</span>{' '}
-                {contextData.context.task_description as string}
-              </div>
-            )}
-
-            {contextData.context.constraints && contextData.context.constraints.length > 0 && (
-              <div>
-                <div className="text-muted-foreground mb-1">
-                  <span className="font-medium text-foreground">约束:</span>
-                </div>
-                <div className="space-y-1 pl-2">
-                  {contextData.context.constraints.map((c, i) => (
-                    <div key={i} className="text-muted-foreground flex items-start gap-1">
-                      <span className="text-primary/50">•</span>
-                      <span>{c as string}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {contextData.context.focus_paths && contextData.context.focus_paths.length > 0 && (
-              <div className="text-muted-foreground">
-                <span className="font-medium text-foreground">{formatMessage({ id: 'liteTasks.contextPanel.focusPaths' })}:</span>{' '}
-                <div className="flex flex-wrap gap-1 mt-0.5">
-                  {contextData.context.focus_paths.map((p, i) => (
-                    <Badge key={i} variant="secondary" className="text-[10px] font-mono">
-                      {p as string}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {contextData.context.relevant_files && contextData.context.relevant_files.length > 0 && (
-              <div>
-                <div className="text-muted-foreground mb-1">
-                  <span className="font-medium text-foreground">相关文件:</span>{' '}
-                  <Badge variant="outline" className="text-[10px] align-middle">
-                    {contextData.context.relevant_files.length}
-                  </Badge>
-                </div>
-                <div className="space-y-0.5 pl-2 max-h-32 overflow-y-auto">
-                  {contextData.context.relevant_files.map((f, i) => {
-                    const filePath = typeof f === 'string' ? f : (f as { path: string; reason?: string }).path;
-                    const reason = typeof f === 'string' ? undefined : (f as { path: string; reason?: string }).reason;
-                    return (
-                      <div key={i} className="group flex items-start gap-1 text-muted-foreground hover:bg-muted/30 rounded px-1 py-0.5">
-                        <span className="text-primary/50 shrink-0">{i + 1}.</span>
-                        <span className="font-mono text-xs truncate flex-1" title={filePath as string}>
-                          {filePath as string}
-                        </span>
-                        {reason && (
-                          <span className="text-[10px] text-muted-foreground/60 truncate ml-1" title={reason}>
-                            ({reason})
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {contextData.context.dependencies && contextData.context.dependencies.length > 0 && (
-              <div>
-                <div className="text-muted-foreground mb-1">
-                  <span className="font-medium text-foreground">依赖:</span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {contextData.context.dependencies.map((d, i) => {
-                    const depInfo = typeof d === 'string'
-                      ? { name: d, type: '', version: '' }
-                      : d as { name: string; type?: string; version?: string };
-                    return (
-                      <Badge key={i} variant="outline" className="text-[10px]">
-                        {depInfo.name}
-                        {depInfo.version && <span className="ml-1 opacity-70">@{depInfo.version}</span>}
-                      </Badge>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {contextData.context.session_id && (
-              <div className="text-muted-foreground">
-                <span className="font-medium text-foreground">会话ID:</span>{' '}
-                <span className="font-mono bg-muted/50 px-1.5 py-0.5 rounded">{contextData.context.session_id as string}</span>
-              </div>
-            )}
-
-            {contextData.context.metadata && (
-              <div>
-                <div className="text-muted-foreground mb-1">
-                  <span className="font-medium text-foreground">元数据:</span>
-                </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 pl-2 text-muted-foreground">
-                  {Object.entries(contextData.context.metadata as Record<string, unknown>).map(([k, v]) => (
-                    <div key={k} className="flex items-center gap-1">
-                      <span className="font-mono text-[10px] text-primary/60">{k}:</span>
-                      <span className="truncate">{String(v)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </ContextSection>
-      )}
-
-      {/* Focus Paths from Plan */}
-      {hasFocusPaths && (
-        <ContextSection
-          icon={<FolderOpen className="h-4 w-4" />}
-          title={formatMessage({ id: 'liteTasks.contextPanel.focusPaths' })}
-        >
-          <div className="flex flex-wrap gap-1.5">
-            {(plan.focus_paths as string[]).map((p, i) => (
-              <Badge key={i} variant="secondary" className="text-[10px] font-mono">
-                {p}
-              </Badge>
-            ))}
-          </div>
-        </ContextSection>
-      )}
-
-      {/* Plan Summary */}
-      {hasSummary && (
-        <ContextSection
-          icon={<FileText className="h-4 w-4" />}
-          title={formatMessage({ id: 'liteTasks.contextPanel.summary' })}
-        >
-          <p className="text-xs text-muted-foreground">{plan.summary as string}</p>
-        </ContextSection>
-      )}
-    </div>
-  );
-}
-
-/**
- * ContextSection - Collapsible section wrapper for context items
- */
-function ContextSection({
-  icon,
-  title,
-  badge,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  badge?: string;
-  children: React.ReactNode;
-}) {
-  const [isOpen, setIsOpen] = React.useState(true);
-
-  return (
-    <Card className="border-border" onClick={(e) => e.stopPropagation()}>
-      <button
-        className="w-full flex items-center gap-2 p-3 text-left hover:bg-muted/50 transition-colors"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <span className="text-muted-foreground">{icon}</span>
-        <span className="text-sm font-medium text-foreground flex-1">{title}</span>
-        {badge && (
-          <Badge variant="secondary" className="text-[10px]">{badge}</Badge>
-        )}
-        {isOpen ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        )}
-      </button>
-      {isOpen && (
-        <CardContent className="px-3 pb-3 pt-0">
-          {children}
-        </CardContent>
-      )}
-    </Card>
-  );
-}
 
 type MultiCliExpandedTab = 'tasks' | 'discussion' | 'context';
 
@@ -861,7 +571,7 @@ function ExpandedMultiCliPanel({
             </div>
           )}
           {!contextLoading && !contextError && contextData && (
-            <ContextContent contextData={contextData} session={session} />
+            <LiteContextContent contextData={contextData} session={session} />
           )}
           {!contextLoading && !contextError && !contextData && !session.path && (
             <div className="flex flex-col items-center justify-center py-8 text-center">

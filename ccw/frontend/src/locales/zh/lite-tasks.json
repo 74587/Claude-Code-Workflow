@@ -71,7 +71,14 @@
     "focusPaths": "关注路径",
     "summary": "摘要",
     "taskDescription": "任务描述",
-    "complexity": "复杂度"
+    "complexity": "复杂度",
+    "constraints": "约束",
+    "relevantFiles": "相关文件",
+    "dependencies": "依赖",
+    "sessionId": "会话ID",
+    "metadata": "元数据",
+    "conflictRisks": "冲突风险",
+    "rawJson": "原始 JSON"
   },
   "status": {
     "completed": "已完成",
