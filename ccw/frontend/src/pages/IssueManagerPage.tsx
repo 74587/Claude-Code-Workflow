@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useIntl } from 'react-intl';
+import { toast } from 'sonner';
 import {
   AlertCircle,
   Plus,
@@ -24,6 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select';
 import { IssueCard } from '@/components/shared/IssueCard';
 import { useIssues, useIssueMutations } from '@/hooks';
+import { pullIssuesFromGitHub } from '@/lib/api';
 import type { Issue } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -316,6 +318,7 @@ export function IssueManagerPage() {
   const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
   const [isEditIssueOpen, setIsEditIssueOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
+  const [isGithubSyncing, setIsGithubSyncing] = useState(false);
 
   const {
     issues,
@@ -378,6 +381,20 @@ export function IssueManagerPage() {
     await updateIssue(issue.id, { status });
   };
 
+  const handleGithubSync = async () => {
+    setIsGithubSyncing(true);
+    try {
+      const result = await pullIssuesFromGitHub({ state: 'open', limit: 100 });
+      await refetch();
+      toast.success(formatMessage({ id: 'issues.messages.githubSyncSuccess' }, result));
+    } catch (err) {
+      console.error('GitHub sync failed:', err);
+      toast.error(formatMessage({ id: 'issues.messages.githubSyncError' }));
+    } finally {
+      setIsGithubSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -396,8 +413,12 @@ export function IssueManagerPage() {
             <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
             {formatMessage({ id: 'common.actions.refresh' })}
           </Button>
-          <Button variant="outline">
-            <Github className="w-4 h-4 mr-2" />
+          <Button variant="outline" onClick={handleGithubSync} disabled={isGithubSyncing}>
+            {isGithubSyncing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Github className="w-4 h-4 mr-2" />
+            )}
             {formatMessage({ id: 'issues.actions.github' })}
           </Button>
           <Button onClick={() => setIsNewIssueOpen(true)}>

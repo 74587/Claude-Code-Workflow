@@ -18,8 +18,6 @@ import {
   Tag,
   Loader2,
   Copy,
-  ChevronDown,
-  ChevronUp,
   Star,
   Archive,
   ArchiveRestore,
@@ -40,8 +38,7 @@ import { cn } from '@/lib/utils';
 
 interface MemoryCardProps {
   memory: CoreMemory;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
+  onView: (memory: CoreMemory) => void;
   onEdit: (memory: CoreMemory) => void;
   onDelete: (memory: CoreMemory) => void;
   onCopy: (content: string) => void;
@@ -50,7 +47,7 @@ interface MemoryCardProps {
   onUnarchive: (memory: CoreMemory) => void;
 }
 
-function MemoryCard({ memory, isExpanded, onToggleExpand, onEdit, onDelete, onCopy, onToggleFavorite, onArchive, onUnarchive }: MemoryCardProps) {
+function MemoryCard({ memory, onView, onEdit, onDelete, onCopy, onToggleFavorite, onArchive, onUnarchive }: MemoryCardProps) {
   const formattedDate = new Date(memory.createdAt).toLocaleDateString();
 
   // Parse metadata from memory
@@ -66,10 +63,9 @@ function MemoryCard({ memory, isExpanded, onToggleExpand, onEdit, onDelete, onCo
 
   return (
     <Card className="overflow-hidden">
-      {/* Header */}
       <div
         className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-        onClick={onToggleExpand}
+        onClick={() => onView(memory)}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-3">
@@ -172,20 +168,13 @@ function MemoryCard({ memory, isExpanded, onToggleExpand, onEdit, onDelete, onCo
             >
               <Trash2 className="w-4 h-4" />
             </Button>
-            {isExpanded ? (
-              <ChevronUp className="w-5 h-5 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="w-5 h-5 text-muted-foreground" />
-            )}
           </div>
         </div>
 
         {/* Preview */}
-        {!isExpanded && (
-          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-            {memory.content}
-          </p>
-        )}
+        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+          {memory.content}
+        </p>
 
         {/* Tags */}
         {memory.tags && memory.tags.length > 0 && (
@@ -204,16 +193,90 @@ function MemoryCard({ memory, isExpanded, onToggleExpand, onEdit, onDelete, onCo
           </div>
         )}
       </div>
+    </Card>
+  );
+}
 
-      {/* Expanded Content */}
-      {isExpanded && (
-        <div className="border-t border-border p-4 bg-muted/30">
-          <pre className="text-sm text-foreground whitespace-pre-wrap font-mono bg-background p-4 rounded-lg overflow-x-auto max-h-96">
+// ========== View Memory Dialog ==========
+
+interface ViewMemoryDialogProps {
+  memory: CoreMemory | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onEdit: (memory: CoreMemory) => void;
+  onCopy: (content: string) => void;
+}
+
+function ViewMemoryDialog({ memory, open, onOpenChange, onEdit, onCopy }: ViewMemoryDialogProps) {
+  const { formatMessage } = useIntl();
+  if (!memory) return null;
+
+  const metadata = memory.metadata ? (typeof memory.metadata === 'string' ? JSON.parse(memory.metadata) : memory.metadata) : {};
+  const priority = metadata.priority || 'medium';
+  const formattedDate = new Date(memory.createdAt).toLocaleDateString();
+  const formattedSize = memory.size
+    ? memory.size < 1024
+      ? `${memory.size} B`
+      : `${(memory.size / 1024).toFixed(1)} KB`
+    : 'Unknown';
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Brain className="w-5 h-5 text-primary" />
+            {memory.id}
+          </DialogTitle>
+          <div className="flex items-center gap-2 mt-1">
+            {memory.source && (
+              <Badge variant="outline" className="text-xs">
+                {memory.source}
+              </Badge>
+            )}
+            {priority !== 'medium' && (
+              <Badge variant={priority === 'high' ? 'destructive' : 'secondary'} className="text-xs">
+                {priority}
+              </Badge>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {formattedDate} - {formattedSize}
+            </span>
+          </div>
+        </DialogHeader>
+
+        {/* Tags */}
+        {memory.tags && memory.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {memory.tags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="text-xs">
+                <Tag className="w-3 h-3 mr-1" />
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto mt-2">
+          <pre className="text-sm text-foreground whitespace-pre-wrap font-mono bg-muted/30 p-4 rounded-lg">
             {memory.content}
           </pre>
         </div>
-      )}
-    </Card>
+
+        {/* Actions */}
+        <div className="flex justify-end gap-2 pt-2 border-t border-border">
+          <Button variant="outline" size="sm" onClick={() => onCopy(memory.content)}>
+            <Copy className="w-4 h-4 mr-2" />
+            {formatMessage({ id: 'memory.actions.copy' })}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); onEdit(memory); }}>
+            <Edit className="w-4 h-4 mr-2" />
+            {formatMessage({ id: 'memory.actions.edit' })}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -381,7 +444,7 @@ export function MemoryPage() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isNewMemoryOpen, setIsNewMemoryOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<CoreMemory | null>(null);
-  const [expandedMemories, setExpandedMemories] = useState<Set<string>>(new Set());
+  const [viewingMemory, setViewingMemory] = useState<CoreMemory | null>(null);
   const [currentTab, setCurrentTab] = useState<'memories' | 'favorites' | 'archived'>('memories');
 
   // Build filter based on current tab
@@ -408,18 +471,6 @@ export function MemoryPage() {
 
   const { createMemory, updateMemory, deleteMemory, archiveMemory, unarchiveMemory, isCreating, isUpdating } =
     useMemoryMutations();
-
-  const toggleExpand = (memoryId: string) => {
-    setExpandedMemories((prev) => {
-      const next = new Set(prev);
-      if (next.has(memoryId)) {
-        next.delete(memoryId);
-      } else {
-        next.add(memoryId);
-      }
-      return next;
-    });
-  };
 
   const handleCreateMemory = async (data: { content: string; tags?: string[]; metadata?: Record<string, any> }) => {
     if (editingMemory) {
@@ -673,8 +724,7 @@ export function MemoryPage() {
             <MemoryCard
               key={memory.id}
               memory={memory}
-              isExpanded={expandedMemories.has(memory.id)}
-              onToggleExpand={() => toggleExpand(memory.id)}
+              onView={setViewingMemory}
               onEdit={handleEdit}
               onDelete={handleDelete}
               onCopy={copyToClipboard}
@@ -685,6 +735,15 @@ export function MemoryPage() {
           ))}
         </div>
       )}
+
+      {/* View Memory Dialog */}
+      <ViewMemoryDialog
+        memory={viewingMemory}
+        open={viewingMemory !== null}
+        onOpenChange={(open) => { if (!open) setViewingMemory(null); }}
+        onEdit={handleEdit}
+        onCopy={copyToClipboard}
+      />
 
       {/* New/Edit Memory Dialog */}
       <NewMemoryDialog

@@ -37,6 +37,9 @@
     "reset": "Reset",
     "resetDesc": "Reset all user preferences to their default values. This cannot be undone.",
     "saving": "Saving...",
+    "deleting": "Deleting...",
+    "merging": "Merging...",
+    "splitting": "Splitting...",
     "resetConfirm": "Reset all settings to defaults?",
     "resetToDefaults": "Reset to Defaults",
     "enable": "Enable",
@@ -52,6 +55,7 @@
     "select": "Select",
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
+    "openMenu": "Open menu",
     "resetLayout": "Reset Layout"
   },
   "status": {

@@ -206,6 +206,16 @@
       "button": "搜索文档"
     }
   },
+  "ticker": {
+    "session_created": "会话 {name} 已创建",
+    "task_completed": "任务 {name} 已成功完成",
+    "session_failed": "会话 {name} 失败",
+    "workflow_started": "工作流 {name} 已启动",
+    "status_changed": "{name} 状态已变更为 {status}",
+    "waiting": "等待活动…",
+    "disconnected": "活动通知已断开连接",
+    "aria_label": "实时活动滚动条"
+  },
   "dashboard": {
     "config": {
       "title": "部件",

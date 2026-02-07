@@ -72,25 +72,37 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
 
   // Handle save
   const handleSave = useCallback(async () => {
-    if (!currentFlow) {
-      toast.error(formatMessage({ id: 'orchestrator.notifications.noFlow' }), formatMessage({ id: 'orchestrator.notifications.createFlowFirst' }));
-      return;
-    }
-
     setIsSaving(true);
     try {
-      // Update flow name if changed
-      if (flowName && flowName !== currentFlow.name) {
+      const name = flowName.trim() || formatMessage({ id: 'orchestrator.toolbar.placeholder' });
+
+      // Auto-create a new flow if none exists
+      if (!currentFlow) {
+        const now = new Date().toISOString();
+        const newFlow: Flow = {
+          id: `flow-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          name,
+          version: 1,
+          created_at: now,
+          updated_at: now,
+          nodes: useFlowStore.getState().nodes,
+          edges: useFlowStore.getState().edges,
+          variables: {},
+          metadata: {},
+        };
+        useFlowStore.setState({ currentFlow: newFlow });
+      } else if (flowName && flowName !== currentFlow.name) {
+        // Update flow name if changed
         useFlowStore.setState((state) => ({
           currentFlow: state.currentFlow
-            ? { ...state.currentFlow, name: flowName }
+            ? { ...state.currentFlow, name }
             : null,
         }));
       }
 
       const saved = await saveFlow();
       if (saved) {
-        toast.success(formatMessage({ id: 'orchestrator.notifications.flowSaved' }), formatMessage({ id: 'orchestrator.notifications.savedSuccessfully' }, { name: flowName || currentFlow.name }));
+        toast.success(formatMessage({ id: 'orchestrator.notifications.flowSaved' }), formatMessage({ id: 'orchestrator.notifications.savedSuccessfully' }, { name }));
       } else {
         toast.error(formatMessage({ id: 'orchestrator.notifications.saveFailed' }), formatMessage({ id: 'orchestrator.notifications.couldNotSave' }));
       }
@@ -99,7 +111,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
     } finally {
       setIsSaving(false);
     }
-  }, [currentFlow, flowName, saveFlow]);
+  }, [currentFlow, flowName, saveFlow, formatMessage]);
 
   // Handle load
   const handleLoad = useCallback(
@@ -217,7 +229,7 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
           variant="outline"
           size="sm"
           onClick={handleSave}
-          disabled={isSaving || !currentFlow}
+          disabled={isSaving}
         >
           {isSaving ? (
             <Loader2 className="w-4 h-4 mr-1 animate-spin" />

@@ -25,6 +25,10 @@
     "markResolved": "标记为已解决",
     "github": "从 GitHub 拉取"
   },
+  "messages": {
+    "githubSyncSuccess": "GitHub 同步完成：新增 {imported}、更新 {updated}、跳过 {skipped}。",
+    "githubSyncError": "GitHub 同步失败"
+  },
   "filters": {
     "all": "全部",
     "open": "开放",
@@ -147,7 +151,6 @@
     "groups": "组",
     "parallel": "并行",
     "sequential": "顺序",
-    "emptyState": "无队列数据",
     "empty": "无数据",
     "conflicts": "队列中检测到冲突",
     "noQueueData": "无队列数据",

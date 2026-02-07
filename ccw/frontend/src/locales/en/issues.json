@@ -25,6 +25,10 @@
     "markResolved": "Mark Resolved",
     "github": "Pull from GitHub"
   },
+  "messages": {
+    "githubSyncSuccess": "GitHub sync complete: {imported} imported, {updated} updated, {skipped} skipped.",
+    "githubSyncError": "GitHub sync failed"
+  },
   "filters": {
     "all": "All",
     "open": "Open",
@@ -147,7 +151,10 @@
     "groups": "groups",
     "parallel": "Parallel",
     "sequential": "Sequential",
-    "emptyState": "No queue data available",
+    "emptyState": {
+      "title": "No Queue Data",
+      "description": "No queue data available"
+    },
     "empty": "No data",
     "conflicts": "Conflicts detected in queue",
     "noQueueData": "No queue data",
@@ -257,7 +264,8 @@
         "critical": "Critical",
         "high": "High",
         "medium": "Medium",
-        "low": "Low"
+        "low": "Low",
+        "unknown": "Unknown"
       },
       "type": {
         "all": "All Types"

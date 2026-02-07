@@ -17,8 +17,6 @@ import { useWorkflowStore } from '@/stores/workflowStore';
 import { useWebSocketNotifications, useWebSocket } from '@/hooks';
 
 export interface AppShellProps {
-  /** Initial sidebar collapsed state */
-  defaultCollapsed?: boolean;
   /** Callback for refresh action */
   onRefresh?: () => void;
   /** Whether refresh is in progress */
@@ -31,7 +29,6 @@ export interface AppShellProps {
 const SIDEBAR_COLLAPSED_KEY = 'ccw-sidebar-collapsed';
 
 export function AppShell({
-  defaultCollapsed = false,
   onRefresh,
   isRefreshing = false,
   children,
@@ -74,13 +71,14 @@ export function AppShell({
     setWorkspaceInitialized(true);
   }, [isWorkspaceInitialized, projectPath, location.search, switchWorkspace]);
 
-  // Sidebar collapse state (persisted)
+  // Sidebar collapse state – default to collapsed (hidden)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-      return stored ? JSON.parse(stored) : defaultCollapsed;
+      // Default to collapsed (true) if no persisted value
+      return stored !== null ? JSON.parse(stored) : true;
     }
-    return defaultCollapsed;
+    return true;
   });
 
   // Mobile sidebar open state
@@ -117,16 +115,14 @@ export function AppShell({
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
-  // Close mobile sidebar on route change or resize
+  // Close mobile sidebar on resize
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 768) {
         setMobileOpen(false);
       }
     };
-
     window.addEventListener('resize', handleResize);
-    // Cleanup: Remove event listener on unmount to prevent memory leak
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
@@ -174,7 +170,7 @@ export function AppShell({
 
       {/* Main layout - sidebar + content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
+        {/* Sidebar - collapsed by default */}
         <Sidebar
           collapsed={sidebarCollapsed}
           onCollapsedChange={handleCollapsedChange}
@@ -186,7 +182,6 @@ export function AppShell({
         <MainContent
           className={cn(
             'transition-all duration-300',
-            // Add left margin on desktop to account for fixed sidebar
             sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'
           )}
         >

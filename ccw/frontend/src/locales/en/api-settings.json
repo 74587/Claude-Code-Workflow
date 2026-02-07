@@ -358,6 +358,7 @@
     "status": "Status",
     "provider": "Provider",
     "enableThis": "Enable this",
+    "showAll": "Show All",
     "validation": {
       "nameRequired": "Name is required"
     }

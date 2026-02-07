@@ -107,7 +107,8 @@
       "searchSuggestion": "尝试不同的搜索查询"
     },
     "footer": {
-      "templateCount": "{count} 个模板"
+      "templateCount": "{count} 个模板",
+      "templateCount_plural": "{count} 个模板"
     },
     "card": {
       "nodes": "个节点",

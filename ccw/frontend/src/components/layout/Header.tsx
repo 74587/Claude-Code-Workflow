@@ -8,7 +8,6 @@ import { Link } from 'react-router-dom';
 import { useIntl } from 'react-intl';
 import {
   Workflow,
-  Menu,
   Moon,
   Sun,
   RefreshCw,
@@ -17,6 +16,7 @@ import {
   LogOut,
   Terminal,
   Bell,
+  Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -27,8 +27,6 @@ import { useCliStreamStore, selectActiveExecutionCount } from '@/stores/cliStrea
 import { useNotificationStore } from '@/stores';
 
 export interface HeaderProps {
-  /** Callback to toggle mobile sidebar */
-  onMenuClick?: () => void;
   /** Callback for refresh action */
   onRefresh?: () => void;
   /** Whether refresh is in progress */
@@ -38,7 +36,6 @@ export interface HeaderProps {
 }
 
 export function Header({
-  onMenuClick,
   onRefresh,
   isRefreshing = false,
   onCliMonitorClick,
@@ -65,19 +62,8 @@ export function Header({
       className="flex items-center justify-between px-4 md:px-5 h-14 bg-card border-b border-border sticky top-0 z-50 shadow-sm"
       role="banner"
     >
-      {/* Left side - Menu button (mobile) and Logo */}
+      {/* Left side - Logo */}
       <div className="flex items-center gap-3">
-        {/* Mobile menu toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={onMenuClick}
-          aria-label={formatMessage({ id: 'common.aria.toggleNavigation' })}
-        >
-          <Menu className="w-5 h-5" />
-        </Button>
-
         {/* Logo / Brand */}
         <Link
           to="/"
@@ -91,6 +77,19 @@ export function Header({
 
       {/* Right side - Actions */}
       <div className="flex items-center gap-2">
+        {/* History entry */}
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+          className="gap-2"
+        >
+          <Link to="/history">
+            <Clock className="h-4 w-4" />
+            <span className="hidden sm:inline">{formatMessage({ id: 'navigation.main.history' })}</span>
+          </Link>
+        </Button>
+
         {/* CLI Monitor button */}
         <Button
           variant="ghost"
