@@ -25,9 +25,11 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select';
-import { useCliEndpoints, useToggleCliEndpoint } from '@/hooks';
+import { useCliEndpoints, useCreateCliEndpoint, useDeleteCliEndpoint, useToggleCliEndpoint, useUpdateCliEndpoint } from '@/hooks';
+import { useNotifications } from '@/hooks/useNotifications';
 import type { CliEndpoint } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { CliEndpointFormDialog, type CliEndpointFormMode, type CliEndpointSavePayload } from '@/components/cli-endpoints/CliEndpointFormDialog';
 
 // ========== Endpoint Card Component ==========
 
@@ -37,7 +39,7 @@ interface EndpointCardProps {
   onToggleExpand: () => void;
   onToggle: (endpointId: string, enabled: boolean) => void;
   onEdit: (endpoint: CliEndpoint) => void;
-  onDelete: (endpointId: string) => void;
+  onDelete: (endpointId: string) => void | Promise<void>;
 }
 
 function EndpointCard({ endpoint, isExpanded, onToggleExpand, onToggle, onEdit, onDelete }: EndpointCardProps) {
@@ -94,6 +96,7 @@ function EndpointCard({ endpoint, isExpanded, onToggleExpand, onToggle, onEdit, 
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
+              aria-label={formatMessage({ id: 'cliEndpoints.actions.toggle' })}
               onClick={(e) => {
                 e.stopPropagation();
                 onToggle(endpoint.id, !endpoint.enabled);
@@ -105,6 +108,7 @@ function EndpointCard({ endpoint, isExpanded, onToggleExpand, onToggle, onEdit, 
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
+              aria-label={formatMessage({ id: 'cliEndpoints.actions.edit' })}
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(endpoint);
@@ -116,6 +120,7 @@ function EndpointCard({ endpoint, isExpanded, onToggleExpand, onToggle, onEdit, 
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0"
+              aria-label={formatMessage({ id: 'cliEndpoints.actions.delete' })}
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(endpoint.id);
@@ -152,9 +157,13 @@ function EndpointCard({ endpoint, isExpanded, onToggleExpand, onToggle, onEdit, 
 
 export function EndpointsPage() {
   const { formatMessage } = useIntl();
+  const { success, error: showError } = useNotifications();
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'litellm' | 'custom' | 'wrapper'>('all');
   const [expandedEndpoints, setExpandedEndpoints] = useState<Set<string>>(new Set());
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<CliEndpointFormMode>('create');
+  const [editingEndpoint, setEditingEndpoint] = useState<CliEndpoint | undefined>(undefined);
 
   const {
     endpoints,
@@ -168,6 +177,9 @@ export function EndpointsPage() {
   } = useCliEndpoints();
 
   const { toggleEndpoint } = useToggleCliEndpoint();
+  const { createEndpoint, isCreating } = useCreateCliEndpoint();
+  const { updateEndpoint, isUpdating } = useUpdateCliEndpoint();
+  const { deleteEndpoint, isDeleting } = useDeleteCliEndpoint();
 
   const toggleExpand = (endpointId: string) => {
     setExpandedEndpoints((prev) => {
@@ -185,16 +197,45 @@ export function EndpointsPage() {
     toggleEndpoint(endpointId, enabled);
   };
 
-  const handleDelete = (endpointId: string) => {
-    if (confirm(formatMessage({ id: 'cliEndpoints.deleteConfirm' }, { id: endpointId }))) {
-      // TODO: Implement delete functionality
-      console.log('Delete endpoint:', endpointId);
-    }
+  const handleAdd = () => {
+    setDialogMode('create');
+    setEditingEndpoint(undefined);
+    setDialogOpen(true);
   };
 
   const handleEdit = (endpoint: CliEndpoint) => {
-    // TODO: Implement edit dialog
-    console.log('Edit endpoint:', endpoint);
+    setDialogMode('edit');
+    setEditingEndpoint(endpoint);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (endpointId: string) => {
+    if (!confirm(formatMessage({ id: 'cliEndpoints.deleteConfirm' }, { id: endpointId }))) return;
+
+    try {
+      await deleteEndpoint(endpointId);
+      success(formatMessage({ id: 'cliEndpoints.messages.deleted' }));
+    } catch (err) {
+      console.error('Failed to delete CLI endpoint:', err);
+      showError(formatMessage({ id: 'cliEndpoints.messages.deleteFailed' }));
+    }
+  };
+
+  const handleDialogSave = async (payload: CliEndpointSavePayload) => {
+    try {
+      if (dialogMode === 'edit' && editingEndpoint) {
+        await updateEndpoint(editingEndpoint.id, payload);
+        success(formatMessage({ id: 'cliEndpoints.messages.updated' }));
+        return;
+      }
+
+      await createEndpoint(payload);
+      success(formatMessage({ id: 'cliEndpoints.messages.created' }));
+    } catch (err) {
+      console.error('Failed to save CLI endpoint:', err);
+      showError(formatMessage({ id: 'cliEndpoints.messages.saveFailed' }));
+      throw err;
+    }
   };
 
   // Filter endpoints by search query and type
@@ -234,7 +275,7 @@ export function EndpointsPage() {
             <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
             {formatMessage({ id: 'common.actions.refresh' })}
           </Button>
-          <Button>
+          <Button onClick={handleAdd} disabled={isCreating || isUpdating || isDeleting}>
             <Plus className="w-4 h-4 mr-2" />
             {formatMessage({ id: 'cliEndpoints.actions.add' })}
           </Button>
@@ -327,6 +368,14 @@ export function EndpointsPage() {
           ))}
         </div>
       )}
+
+      <CliEndpointFormDialog
+        mode={dialogMode}
+        endpoint={editingEndpoint}
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSave={handleDialogSave}
+      />
     </div>
   );
 }

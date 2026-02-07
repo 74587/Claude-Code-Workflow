@@ -170,6 +170,9 @@ export type {
 export {
   useCliEndpoints,
   useToggleCliEndpoint,
+  useCreateCliEndpoint,
+  useUpdateCliEndpoint,
+  useDeleteCliEndpoint,
   cliEndpointsKeys,
   useCliInstallations,
   useInstallCliTool,

@@ -151,17 +151,12 @@ export function CcwToolsMcpCard({
   };
 
   const handleEnableAll = () => {
-    CCW_MCP_TOOLS.forEach((tool) => {
-      if (!enabledTools.includes(tool.name)) {
-        onToggleTool(tool.name, true);
-      }
-    });
+    const allToolNames = CCW_MCP_TOOLS.map((t) => t.name);
+    onUpdateConfig({ enabledTools: allToolNames });
   };
 
   const handleDisableAll = () => {
-    enabledTools.forEach((toolName) => {
-      onToggleTool(toolName, false);
-    });
+    onUpdateConfig({ enabledTools: [] });
   };
 
   const handleConfigSave = () => {

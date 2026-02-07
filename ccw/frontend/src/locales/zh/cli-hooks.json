@@ -104,7 +104,10 @@
         "hookType": "钩子类型",
         "trigger": "触发事件",
         "platform": "平台",
-        "commandPreview": "命令预览"
+        "commandPreview": "命令预览",
+        "installTo": "安装到",
+        "scopeProject": "项目",
+        "scopeGlobal": "全局"
       }
     },
     "navigation": {
@@ -117,36 +120,49 @@
       "title": "记忆更新向导",
       "description": "配置钩子以在会话结束时更新 CLAUDE.md",
       "shortDescription": "自动更新 CLAUDE.md",
-      "claudePath": "CLAUDE.md 路径",
-      "updateFrequency": "更新频率",
-      "frequency": {
-        "sessionEnd": "会话结束时",
-        "hourly": "每小时",
-        "daily": "每天"
-      }
+      "cliTool": "CLI 工具",
+      "cliToolHelp": "用于生成 CLAUDE.md 的 CLI 工具",
+      "threshold": "阈值（路径数）",
+      "thresholdHelp": "触发批量更新的路径数量（1-20）",
+      "timeout": "超时时间（秒）",
+      "timeoutHelp": "超过此时间自动刷新队列（60-1800）"
     },
     "dangerProtection": {
       "title": "危险操作保护向导",
       "description": "配置危险操作的确认钩子",
       "shortDescription": "确认危险操作",
-      "keywords": "危险关键词",
-      "keywordsHelp": "每行输入一个关键词",
-      "confirmationMessage": "确认消息",
-      "allowBypass": "允许使用 --force 标志绕过"
+      "selectProtections": "选择要启用的保护类型",
+      "selectedProtections": "已选保护",
+      "options": {
+        "bashConfirm": "危险命令",
+        "bashConfirmDesc": "执行 rm -rf、shutdown、kill、format 等命令前确认",
+        "fileProtection": "敏感文件",
+        "fileProtectionDesc": "阻止修改 .env、.git/、密钥等敏感文件",
+        "gitDestructive": "Git 操作",
+        "gitDestructiveDesc": "强制推送、硬重置、删除分支前确认",
+        "networkConfirm": "网络访问",
+        "networkConfirmDesc": "执行 curl、wget、ssh、WebFetch 请求前确认",
+        "systemPaths": "系统路径",
+        "systemPathsDesc": "阻止/确认对 /etc、/usr、C:\\Windows 的操作",
+        "permissionChange": "权限变更",
+        "permissionChangeDesc": "执行 chmod、chown、icacls 操作前确认"
+      }
     },
     "skillContext": {
       "title": "SKILL 上下文向导",
       "description": "配置钩子以根据提示关键词加载 SKILL",
       "shortDescription": "根据关键词自动加载 SKILL",
       "loadingSkills": "正在加载可用的技能...",
-      "keywordPlaceholder": "输入关键词",
       "selectSkill": "选择技能",
-      "addPair": "添加关键词-技能对",
-      "priority": "优先级",
-      "priorityHigh": "高",
-      "priorityMedium": "中",
-      "priorityLow": "低",
-      "keywordMappings": "关键词映射"
+      "addPair": "添加技能配置",
+      "keywordMappings": "关键词映射",
+      "keywordsPlaceholder": "react,workflow,api",
+      "mode": "检测模式",
+      "modeKeyword": "关键词匹配",
+      "modeKeywordDesc": "检测到关键词时加载对应 SKILL",
+      "modeAuto": "自动检测",
+      "modeAutoDesc": "自动检测并按名称加载 SKILL",
+      "autoDescription": "自动检测模式将扫描用户提示中的 SKILL 名称，并自动加载匹配的上下文。所有可用技能如下所示。"
     }
   }
 }

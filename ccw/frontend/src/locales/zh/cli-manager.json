@@ -28,6 +28,32 @@
       "delete": "删除端点",
       "toggle": "切换端点"
     },
+    "dialog": {
+      "createTitle": "添加端点",
+      "editTitle": "编辑端点（{id}）"
+    },
+    "form": {
+      "name": "名称",
+      "namePlaceholder": "我的端点",
+      "type": "类型",
+      "enabled": "启用",
+      "enabledHint": "启用或禁用该端点",
+      "configJson": "配置（JSON）",
+      "configJsonPlaceholder": "{\n  \n}"
+    },
+    "validation": {
+      "nameRequired": "名称不能为空",
+      "typeRequired": "类型不能为空",
+      "invalidJson": "JSON 格式不正确",
+      "configMustBeObject": "配置必须是 JSON 对象"
+    },
+    "messages": {
+      "created": "端点已创建",
+      "updated": "端点已更新",
+      "deleted": "端点已删除",
+      "saveFailed": "保存端点失败",
+      "deleteFailed": "删除端点失败"
+    },
     "deleteConfirm": "确定要删除端点 \"{id}\" 吗?",
     "emptyState": {
       "title": "未找到 CLI 端点",

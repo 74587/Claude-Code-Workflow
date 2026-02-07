@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/Dialog';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Textarea } from '@/components/ui/Textarea';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import {
@@ -27,7 +26,6 @@ import {
 import {
   ChevronLeft,
   ChevronRight,
-  X,
   Brain,
   Shield,
   Sparkles,
@@ -36,13 +34,12 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchSkills, type Skill, type SkillsResponse, createHook } from '@/lib/api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchSkills, type Skill, type SkillsResponse, saveHook } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import {
   detect,
   getShell,
-  getShellCommand,
   getShellName,
   checkCompatibility,
   getPlatformName,
@@ -52,59 +49,182 @@ import {
 
 // ========== Types ==========
 
-/**
- * Supported wizard types
- */
 export type WizardType = 'memory-update' | 'danger-protection' | 'skill-context';
 
-/**
- * Wizard step number
- */
 type WizardStep = 1 | 2 | 3;
 
-/**
- * Component props
- */
 export interface HookWizardProps {
-  /** Type of wizard to launch */
   wizardType: WizardType;
-  /** Whether the dialog is open */
   open: boolean;
-  /** Callback when dialog is closed */
   onClose: () => void;
 }
 
-/**
- * Memory update wizard configuration
- */
 interface MemoryUpdateConfig {
-  claudePath: string;
-  updateFrequency: 'session-end' | 'hourly' | 'daily';
-  sections: string[];
+  tool: 'gemini' | 'qwen' | 'codex' | 'opencode';
+  threshold: number;
+  timeout: number;
 }
 
-/**
- * Danger protection wizard configuration
- */
 interface DangerProtectionConfig {
-  keywords: string;
-  confirmationMessage: string;
-  allowBypass: boolean;
+  selectedOptions: string[];
 }
 
-/**
- * Skill context wizard configuration
- */
 interface SkillContextConfig {
-  keywordSkillPairs: Array<{ keyword: string; skill: string }>;
-  priority: 'high' | 'medium' | 'low';
+  mode: 'keyword' | 'auto';
+  skillConfigs: Array<{ skill: string; keywords: string }>;
+}
+
+// ========== Hook Templates (from old hook-manager.js) ==========
+
+interface HookTemplate {
+  event: string;
+  matcher: string;
+  command: string;
+  args: string[];
+  timeout?: number;
+}
+
+const HOOK_TEMPLATES: Record<string, HookTemplate> = {
+  'memory-update-queue': {
+    event: 'Stop',
+    matcher: '',
+    command: 'node',
+    args: ['-e', "require('child_process').spawnSync(process.platform==='win32'?'cmd':'ccw',process.platform==='win32'?['/c','ccw','tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'gemini'})]:['tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'gemini'})],{stdio:'inherit'})"],
+  },
+  'skill-context-keyword': {
+    event: 'UserPromptSubmit',
+    matcher: '',
+    command: 'node',
+    args: ['-e', "const p=JSON.parse(process.env.HOOK_INPUT||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify({prompt:p.user_prompt||''})],{stdio:'inherit'})"],
+  },
+  'skill-context-auto': {
+    event: 'UserPromptSubmit',
+    matcher: '',
+    command: 'node',
+    args: ['-e', "const p=JSON.parse(process.env.HOOK_INPUT||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify({mode:'auto',prompt:p.user_prompt||''})],{stdio:'inherit'})"],
+  },
+  'danger-bash-confirm': {
+    event: 'PreToolUse',
+    matcher: 'Bash',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); DANGEROUS_PATTERNS="rm -rf|rmdir|del /|format |shutdown|reboot|kill -9|pkill|mkfs|dd if=|chmod 777|chown -R|>/dev/|wget.*\\|.*sh|curl.*\\|.*bash"; if echo "$CMD" | grep -qiE "$DANGEROUS_PATTERNS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"Potentially dangerous command detected: requires user confirmation\\"}}" && exit 0; fi; exit 0'],
+    timeout: 5000,
+  },
+  'danger-file-protection': {
+    event: 'PreToolUse',
+    matcher: 'Write|Edit',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); PROTECTED=".env|.git/|package-lock.json|yarn.lock|.credentials|secrets|id_rsa|.pem$|.key$"; if echo "$FILE" | grep -qiE "$PROTECTED"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"deny\\",\\"permissionDecisionReason\\":\\"Protected file cannot be modified: $FILE\\"}}" && exit 0; fi; exit 0'],
+    timeout: 5000,
+  },
+  'danger-git-destructive': {
+    event: 'PreToolUse',
+    matcher: 'Bash',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); GIT_DANGEROUS="git push.*--force|git push.*-f|git reset --hard|git clean -fd|git checkout.*--force|git branch -D|git rebase.*-f"; if echo "$CMD" | grep -qiE "$GIT_DANGEROUS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"Destructive git operation detected: $CMD\\"}}" && exit 0; fi; exit 0'],
+    timeout: 5000,
+  },
+  'danger-network-confirm': {
+    event: 'PreToolUse',
+    matcher: 'Bash|WebFetch',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); TOOL=$(echo "$INPUT" | jq -r ".tool_name // empty"); if [ "$TOOL" = "WebFetch" ]; then URL=$(echo "$INPUT" | jq -r ".tool_input.url // empty"); echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"Network request to: $URL\\"}}" && exit 0; fi; CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); NET_CMDS="curl|wget|nc |netcat|ssh |scp |rsync|ftp "; if echo "$CMD" | grep -qiE "^($NET_CMDS)"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"Network command requires confirmation: $CMD\\"}}" && exit 0; fi; exit 0'],
+    timeout: 5000,
+  },
+  'danger-system-paths': {
+    event: 'PreToolUse',
+    matcher: 'Write|Edit|Bash',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); TOOL=$(echo "$INPUT" | jq -r ".tool_name // empty"); if [ "$TOOL" = "Bash" ]; then CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); SYS_PATHS="/etc/|/usr/|/bin/|/sbin/|/boot/|/sys/|/proc/|C:\\\\Windows|C:\\\\Program Files"; if echo "$CMD" | grep -qiE "$SYS_PATHS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"System path operation requires confirmation\\"}}" && exit 0; fi; else FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); SYS_PATHS="/etc/|/usr/|/bin/|/sbin/|C:\\\\Windows|C:\\\\Program Files"; if echo "$FILE" | grep -qiE "$SYS_PATHS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"deny\\",\\"permissionDecisionReason\\":\\"Cannot modify system file: $FILE\\"}}" && exit 0; fi; fi; exit 0'],
+    timeout: 5000,
+  },
+  'danger-permission-change': {
+    event: 'PreToolUse',
+    matcher: 'Bash',
+    command: 'bash',
+    args: ['-c', 'INPUT=$(cat); CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); PERM_CMDS="chmod|chown|chgrp|setfacl|icacls|takeown|cacls"; if echo "$CMD" | grep -qiE "^($PERM_CMDS)"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"Permission change requires confirmation: $CMD\\"}}" && exit 0; fi; exit 0'],
+    timeout: 5000,
+  },
+};
+
+// Danger protection option definitions
+const DANGER_OPTIONS = [
+  { id: 'bash-confirm', templateId: 'danger-bash-confirm', labelKey: 'cliHooks.wizards.dangerProtection.options.bashConfirm', descKey: 'cliHooks.wizards.dangerProtection.options.bashConfirmDesc' },
+  { id: 'file-protection', templateId: 'danger-file-protection', labelKey: 'cliHooks.wizards.dangerProtection.options.fileProtection', descKey: 'cliHooks.wizards.dangerProtection.options.fileProtectionDesc' },
+  { id: 'git-destructive', templateId: 'danger-git-destructive', labelKey: 'cliHooks.wizards.dangerProtection.options.gitDestructive', descKey: 'cliHooks.wizards.dangerProtection.options.gitDestructiveDesc' },
+  { id: 'network-confirm', templateId: 'danger-network-confirm', labelKey: 'cliHooks.wizards.dangerProtection.options.networkConfirm', descKey: 'cliHooks.wizards.dangerProtection.options.networkConfirmDesc' },
+  { id: 'system-paths', templateId: 'danger-system-paths', labelKey: 'cliHooks.wizards.dangerProtection.options.systemPaths', descKey: 'cliHooks.wizards.dangerProtection.options.systemPathsDesc' },
+  { id: 'permission-change', templateId: 'danger-permission-change', labelKey: 'cliHooks.wizards.dangerProtection.options.permissionChange', descKey: 'cliHooks.wizards.dangerProtection.options.permissionChangeDesc' },
+] as const;
+
+// ========== convertToClaudeCodeFormat (ported from old hook-manager.js) ==========
+
+function convertToClaudeCodeFormat(hookData: {
+  command: string;
+  args: string[];
+  matcher?: string;
+  timeout?: number;
+}): Record<string, unknown> {
+  let commandStr = hookData.command || '';
+
+  if (hookData.args && Array.isArray(hookData.args)) {
+    if (commandStr === 'bash' && hookData.args.length >= 2 && hookData.args[0] === '-c') {
+      const script = hookData.args[1];
+      const escapedScript = script.replace(/'/g, "'\\''");
+      commandStr = `bash -c '${escapedScript}'`;
+      if (hookData.args.length > 2) {
+        const additionalArgs = hookData.args.slice(2).map(arg =>
+          arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")
+            ? `"${arg.replace(/"/g, '\\"')}"`
+            : arg
+        );
+        commandStr += ' ' + additionalArgs.join(' ');
+      }
+    } else if (commandStr === 'node' && hookData.args.length >= 2 && hookData.args[0] === '-e') {
+      const script = hookData.args[1];
+      const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Win');
+      if (isWindows) {
+        const escapedScript = script.replace(/"/g, '\\"');
+        commandStr = `node -e "${escapedScript}"`;
+      } else {
+        const escapedScript = script.replace(/'/g, "'\\''");
+        commandStr = `node -e '${escapedScript}'`;
+      }
+      if (hookData.args.length > 2) {
+        const additionalArgs = hookData.args.slice(2).map(arg =>
+          arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")
+            ? `"${arg.replace(/"/g, '\\"')}"`
+            : arg
+        );
+        commandStr += ' ' + additionalArgs.join(' ');
+      }
+    } else {
+      const quotedArgs = hookData.args.map(arg =>
+        arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")
+          ? `"${arg.replace(/"/g, '\\"')}"`
+          : arg
+      );
+      commandStr = `${commandStr} ${quotedArgs.join(' ')}`.trim();
+    }
+  }
+
+  const converted: Record<string, unknown> = {
+    hooks: [{
+      type: 'command',
+      command: commandStr,
+      ...(hookData.timeout ? { timeout: Math.ceil(hookData.timeout / 1000) } : {}),
+    }],
+  };
+
+  if (hookData.matcher) {
+    converted.matcher = hookData.matcher;
+  }
+
+  return converted;
 }
 
 // ========== Wizard Definitions ==========
 
-/**
- * Wizard metadata for each type
- */
 const WIZARD_METADATA = {
   'memory-update': {
     title: 'cliHooks.wizards.memoryUpdate.title',
@@ -117,7 +237,7 @@ const WIZARD_METADATA = {
     title: 'cliHooks.wizards.dangerProtection.title',
     description: 'cliHooks.wizards.dangerProtection.description',
     icon: Shield,
-    trigger: 'UserPromptSubmit' as const,
+    trigger: 'PreToolUse' as const,
     platformRequirements: DEFAULT_PLATFORM_REQUIREMENTS['danger-protection'],
   },
   'skill-context': {
@@ -128,15 +248,6 @@ const WIZARD_METADATA = {
     platformRequirements: DEFAULT_PLATFORM_REQUIREMENTS['skill-context'],
   },
 } as const;
-
-// ========== Helper Functions ==========
-
-/**
- * Get wizard icon component
- */
-function getWizardIcon(type: WizardType) {
-  return WIZARD_METADATA[type].icon;
-}
 
 // ========== Main Component ==========
 
@@ -149,22 +260,14 @@ export function HookWizard({
   const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState<WizardStep>(1);
   const [detectedPlatform, setDetectedPlatform] = useState<Platform>('linux');
+  const [scope, setScope] = useState<'project' | 'global'>('project');
+  const [saving, setSaving] = useState(false);
 
   // Fetch available skills for skill-context wizard
   const { data: skillsData, isLoading: skillsLoading } = useQuery<SkillsResponse>({
     queryKey: ['skills'],
     queryFn: () => fetchSkills(),
     enabled: open && wizardType === 'skill-context',
-  });
-
-  // Mutation for creating hook
-  const createMutation = useMutation({
-    mutationFn: createHook,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hooks'] });
-      onClose();
-      setCurrentStep(1);
-    },
   });
 
   // Detect platform on mount
@@ -176,20 +279,18 @@ export function HookWizard({
 
   // Wizard configuration state
   const [memoryConfig, setMemoryConfig] = useState<MemoryUpdateConfig>({
-    claudePath: '.claude/CLAUDE.md',
-    updateFrequency: 'session-end',
-    sections: ['all'],
+    tool: 'gemini',
+    threshold: 5,
+    timeout: 300,
   });
 
   const [dangerConfig, setDangerConfig] = useState<DangerProtectionConfig>({
-    keywords: 'delete\nrm\nformat\ndrop\ntruncate\nshutdown',
-    confirmationMessage: 'Are you sure you want to perform this action: {action}?',
-    allowBypass: true,
+    selectedOptions: ['bash-confirm', 'file-protection', 'git-destructive'],
   });
 
   const [skillConfig, setSkillConfig] = useState<SkillContextConfig>({
-    keywordSkillPairs: [{ keyword: '', skill: '' }],
-    priority: 'medium',
+    mode: 'keyword',
+    skillConfigs: [{ skill: '', keywords: '' }],
   });
 
   // Check platform compatibility
@@ -218,60 +319,83 @@ export function HookWizard({
   };
 
   const handleComplete = async () => {
-    let hookConfig: {
-      name: string;
-      description: string;
-      trigger: string;
-      matcher?: string;
-      command: string;
-    };
+    setSaving(true);
+    try {
+      switch (wizardType) {
+        case 'memory-update': {
+          const selectedTool = memoryConfig.tool;
+          const template = HOOK_TEMPLATES['memory-update-queue'];
+          const hookData = {
+            command: template.command,
+            args: ['-e', `require('child_process').spawnSync(process.platform==='win32'?'cmd':'ccw',process.platform==='win32'?['/c','ccw','tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'${selectedTool}'})]:['tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'${selectedTool}'})],{stdio:'inherit'})`],
+          };
+          const converted = convertToClaudeCodeFormat(hookData);
+          await saveHook(scope, template.event, converted);
+          break;
+        }
 
-    const wizardName = formatMessage({ id: WIZARD_METADATA[wizardType].title });
+        case 'danger-protection': {
+          for (const optionId of dangerConfig.selectedOptions) {
+            const option = DANGER_OPTIONS.find(o => o.id === optionId);
+            if (!option) continue;
+            const template = HOOK_TEMPLATES[option.templateId];
+            if (!template) continue;
+            const hookData = {
+              command: template.command,
+              args: [...template.args],
+              matcher: template.matcher,
+              timeout: template.timeout,
+            };
+            const converted = convertToClaudeCodeFormat(hookData);
+            await saveHook(scope, template.event, converted);
+          }
+          break;
+        }
 
-    switch (wizardType) {
-      case 'memory-update':
-        hookConfig = {
-          name: `memory-update-${Date.now()}`,
-          description: `${wizardName}: Update ${memoryConfig.claudePath} on ${memoryConfig.updateFrequency}`,
-          trigger: wizardMetadata.trigger,
-          command: buildMemoryUpdateCommand(memoryConfig, detectedPlatform),
-        };
-        break;
+        case 'skill-context': {
+          if (skillConfig.mode === 'auto') {
+            const template = HOOK_TEMPLATES['skill-context-auto'];
+            const hookData = {
+              command: template.command,
+              args: [...template.args],
+            };
+            const converted = convertToClaudeCodeFormat(hookData);
+            await saveHook(scope, template.event, converted);
+          } else {
+            const validConfigs = skillConfig.skillConfigs.filter(c => c.skill && c.keywords);
+            if (validConfigs.length === 0) break;
+            const configJson = validConfigs.map(c => ({
+              skill: c.skill,
+              keywords: c.keywords.split(',').map(k => k.trim()).filter(k => k),
+            }));
+            const paramsStr = JSON.stringify({ configs: configJson });
+            const hookData = {
+              command: 'node',
+              args: ['-e', `const p=JSON.parse(process.env.HOOK_INPUT||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify(Object.assign(${paramsStr},{prompt:p.user_prompt||''}))],{stdio:'inherit'})`],
+            };
+            const converted = convertToClaudeCodeFormat(hookData);
+            await saveHook(scope, 'UserPromptSubmit', converted);
+          }
+          break;
+        }
+      }
 
-      case 'danger-protection':
-        hookConfig = {
-          name: `danger-protection-${Date.now()}`,
-          description: `${wizardName}: Confirm dangerous operations`,
-          trigger: wizardMetadata.trigger,
-          matcher: buildDangerMatcher(dangerConfig),
-          command: buildDangerProtectionCommand(dangerConfig, detectedPlatform),
-        };
-        break;
-
-      case 'skill-context':
-        hookConfig = {
-          name: `skill-context-${Date.now()}`,
-          description: `${wizardName}: Load SKILL based on keywords`,
-          trigger: wizardMetadata.trigger,
-          matcher: buildSkillMatcher(skillConfig),
-          command: buildSkillContextCommand(skillConfig, detectedPlatform),
-        };
-        break;
-
-      default:
-        return;
+      queryClient.invalidateQueries({ queryKey: ['hooks'] });
+      handleClose();
+    } catch (err) {
+      console.error('Failed to create hook:', err);
+    } finally {
+      setSaving(false);
     }
-
-    await createMutation.mutateAsync(hookConfig);
   };
 
-  // Step renderers
+  // ========== Step Renderers ==========
+
   const renderStep1 = () => {
-    const WizardIcon = getWizardIcon(wizardType);
+    const WizardIcon = WIZARD_METADATA[wizardType].icon;
 
     return (
       <div className="space-y-4">
-        {/* Introduction */}
         <div className="flex items-center gap-3 pb-4 border-b">
           <div className="p-3 rounded-lg bg-primary/10">
             <WizardIcon className="w-6 h-6 text-primary" />
@@ -286,7 +410,6 @@ export function HookWizard({
           </div>
         </div>
 
-        {/* Platform Detection */}
         <Card className="p-4">
           <div className="flex items-center gap-3">
             <CheckCircle className={cn(
@@ -309,7 +432,6 @@ export function HookWizard({
             </Badge>
           </div>
 
-          {/* Compatibility Issues */}
           {!compatibilityCheck.compatible && compatibilityCheck.issues.length > 0 && (
             <div className="mt-3 flex items-start gap-2 p-3 bg-destructive/10 rounded-lg">
               <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
@@ -319,16 +441,13 @@ export function HookWizard({
                 </p>
                 <ul className="mt-1 space-y-1">
                   {compatibilityCheck.issues.map((issue, i) => (
-                    <li key={i} className="text-xs text-destructive/80">
-                      {issue}
-                    </li>
+                    <li key={i} className="text-xs text-destructive/80">{issue}</li>
                   ))}
                 </ul>
               </div>
             </div>
           )}
 
-          {/* Compatibility Warnings */}
           {compatibilityCheck.warnings.length > 0 && (
             <div className="mt-3 flex items-start gap-2 p-3 bg-yellow-500/10 rounded-lg">
               <AlertTriangle className="w-4 h-4 text-yellow-600 shrink-0 mt-0.5" />
@@ -338,9 +457,7 @@ export function HookWizard({
                 </p>
                 <ul className="mt-1 space-y-1">
                   {compatibilityCheck.warnings.map((warning, i) => (
-                    <li key={i} className="text-xs text-yellow-600/80">
-                      {warning}
-                    </li>
+                    <li key={i} className="text-xs text-yellow-600/80">{warning}</li>
                   ))}
                 </ul>
               </div>
@@ -348,7 +465,6 @@ export function HookWizard({
           )}
         </Card>
 
-        {/* Trigger Event */}
         <Card className="p-4">
           <p className="text-sm text-muted-foreground mb-2">
             {formatMessage({ id: 'cliHooks.wizards.steps.triggerEvent' })}
@@ -387,7 +503,6 @@ export function HookWizard({
           </p>
         </div>
 
-        {/* Summary */}
         <Card className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">
@@ -416,8 +531,44 @@ export function HookWizard({
             </span>
           </div>
 
-          {/* Configuration Summary */}
           {renderConfigSummary()}
+        </Card>
+
+        {/* Scope Selection */}
+        <Card className="p-4">
+          <p className="text-sm font-medium text-foreground mb-3">
+            {formatMessage({ id: 'cliHooks.wizards.steps.review.installTo' })}
+          </p>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="wizardScope"
+                value="project"
+                checked={scope === 'project'}
+                onChange={() => setScope('project')}
+                className="accent-primary"
+              />
+              <span className="text-sm text-foreground">
+                {formatMessage({ id: 'cliHooks.wizards.steps.review.scopeProject' })}
+              </span>
+              <span className="text-xs text-muted-foreground">(.claude/settings.json)</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="wizardScope"
+                value="global"
+                checked={scope === 'global'}
+                onChange={() => setScope('global')}
+                className="accent-primary"
+              />
+              <span className="text-sm text-foreground">
+                {formatMessage({ id: 'cliHooks.wizards.steps.review.scopeGlobal' })}
+              </span>
+              <span className="text-xs text-muted-foreground">(~/.claude/settings.json)</span>
+            </label>
+          </div>
         </Card>
 
         {/* Command Preview */}
@@ -425,7 +576,7 @@ export function HookWizard({
           <p className="text-xs text-muted-foreground mb-2">
             {formatMessage({ id: 'cliHooks.wizards.steps.review.commandPreview' })}
           </p>
-          <pre className="text-xs font-mono bg-muted p-3 rounded-lg overflow-x-auto">
+          <pre className="text-xs font-mono bg-muted p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all">
             {getPreviewCommand()}
           </pre>
         </Card>
@@ -433,209 +584,267 @@ export function HookWizard({
     );
   };
 
-  // Configuration renderers
+  // ========== Configuration Renderers ==========
+
   const renderMemoryUpdateConfig = () => (
     <div className="space-y-4">
       <div>
         <label className="text-sm font-medium text-foreground">
-          {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.claudePath' })}
-        </label>
-        <Input
-          value={memoryConfig.claudePath}
-          onChange={(e) => setMemoryConfig({ ...memoryConfig, claudePath: e.target.value })}
-          placeholder=".claude/CLAUDE.md"
-          className="mt-1 font-mono"
-        />
-      </div>
-
-      <div>
-        <label className="text-sm font-medium text-foreground">
-          {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.updateFrequency' })}
+          {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.cliTool' })}
         </label>
         <Select
-          value={memoryConfig.updateFrequency}
-          onValueChange={(value: any) => setMemoryConfig({ ...memoryConfig, updateFrequency: value })}
+          value={memoryConfig.tool}
+          onValueChange={(value: MemoryUpdateConfig['tool']) => setMemoryConfig({ ...memoryConfig, tool: value })}
         >
           <SelectTrigger className="mt-1">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="session-end">
-              {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.frequency.sessionEnd' })}
-            </SelectItem>
-            <SelectItem value="hourly">
-              {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.frequency.hourly' })}
-            </SelectItem>
-            <SelectItem value="daily">
-              {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.frequency.daily' })}
-            </SelectItem>
+            <SelectItem value="gemini">Gemini</SelectItem>
+            <SelectItem value="qwen">Qwen</SelectItem>
+            <SelectItem value="codex">Codex</SelectItem>
+            <SelectItem value="opencode">OpenCode</SelectItem>
           </SelectContent>
         </Select>
-      </div>
-    </div>
-  );
-
-  const renderDangerProtectionConfig = () => (
-    <div className="space-y-4">
-      <div>
-        <label className="text-sm font-medium text-foreground">
-          {formatMessage({ id: 'cliHooks.wizards.dangerProtection.keywords' })}
-        </label>
         <p className="text-xs text-muted-foreground mt-1">
-          {formatMessage({ id: 'cliHooks.wizards.dangerProtection.keywordsHelp' })}
+          {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.cliToolHelp' })}
         </p>
-        <Textarea
-          value={dangerConfig.keywords}
-          onChange={(e) => setDangerConfig({ ...dangerConfig, keywords: e.target.value })}
-          placeholder="delete\nrm\nformat"
-          className="mt-1 font-mono text-sm"
-          rows={5}
-        />
       </div>
 
       <div>
         <label className="text-sm font-medium text-foreground">
-          {formatMessage({ id: 'cliHooks.wizards.dangerProtection.confirmationMessage' })}
+          {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.threshold' })}
         </label>
         <Input
-          value={dangerConfig.confirmationMessage}
-          onChange={(e) => setDangerConfig({ ...dangerConfig, confirmationMessage: e.target.value })}
-          placeholder="Are you sure you want to {action}?"
+          type="number"
+          value={memoryConfig.threshold}
+          onChange={(e) => setMemoryConfig({ ...memoryConfig, threshold: Math.max(1, Math.min(20, parseInt(e.target.value) || 1)) })}
+          min={1}
+          max={20}
           className="mt-1"
         />
+        <p className="text-xs text-muted-foreground mt-1">
+          {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.thresholdHelp' })}
+        </p>
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="allow-bypass"
-          checked={dangerConfig.allowBypass}
-          onChange={(e) => setDangerConfig({ ...dangerConfig, allowBypass: e.target.checked })}
-          className="rounded"
-        />
-        <label htmlFor="allow-bypass" className="text-sm text-foreground">
-          {formatMessage({ id: 'cliHooks.wizards.dangerProtection.allowBypass' })}
+      <div>
+        <label className="text-sm font-medium text-foreground">
+          {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.timeout' })}
         </label>
+        <Input
+          type="number"
+          value={memoryConfig.timeout}
+          onChange={(e) => setMemoryConfig({ ...memoryConfig, timeout: Math.max(60, Math.min(1800, parseInt(e.target.value) || 60)) })}
+          min={60}
+          max={1800}
+          step={60}
+          className="mt-1"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.timeoutHelp' })}
+        </p>
       </div>
     </div>
   );
 
-  const renderSkillContextConfig = () => {
-    const skills: Skill[] = skillsData?.skills ?? [];
-
-    const addPair = () => {
-      setSkillConfig({
-        ...skillConfig,
-        keywordSkillPairs: [...skillConfig.keywordSkillPairs, { keyword: '', skill: '' }],
+  const renderDangerProtectionConfig = () => {
+    const toggleOption = (optionId: string) => {
+      setDangerConfig(prev => {
+        const selected = prev.selectedOptions.includes(optionId)
+          ? prev.selectedOptions.filter(id => id !== optionId)
+          : [...prev.selectedOptions, optionId];
+        return { selectedOptions: selected };
       });
-    };
-
-    const removePair = (index: number) => {
-      setSkillConfig({
-        ...skillConfig,
-        keywordSkillPairs: skillConfig.keywordSkillPairs.filter((_, i) => i !== index),
-      });
-    };
-
-    const updatePair = (index: number, field: 'keyword' | 'skill', value: string) => {
-      const newPairs = [...skillConfig.keywordSkillPairs];
-      newPairs[index][field] = value;
-      setSkillConfig({ ...skillConfig, keywordSkillPairs: newPairs });
     };
 
     return (
-      <div className="space-y-4">
-        {skillsLoading ? (
-          <p className="text-sm text-muted-foreground">
-            {formatMessage({ id: 'cliHooks.wizards.skillContext.loadingSkills' })}
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {skillConfig.keywordSkillPairs.map((pair, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <Input
-                  value={pair.keyword}
-                  onChange={(e) => updatePair(index, 'keyword', e.target.value)}
-                  placeholder={formatMessage({ id: 'cliHooks.wizards.skillContext.keywordPlaceholder' })}
-                  className="flex-1"
-                />
-                <Select value={pair.skill} onValueChange={(value) => updatePair(index, 'skill', value)}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder={formatMessage({ id: 'cliHooks.wizards.skillContext.selectSkill' })} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {skills.map((skill) => (
-                      <SelectItem key={skill.name} value={skill.name}>
-                        {skill.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {skillConfig.keywordSkillPairs.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removePair(index)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button variant="outline" size="sm" onClick={addPair} className="w-full">
-              <Plus className="w-4 h-4 mr-1" />
-              {formatMessage({ id: 'cliHooks.wizards.skillContext.addPair' })}
-            </Button>
-          </div>
-        )}
-
-        <div>
-          <label className="text-sm font-medium text-foreground">
-            {formatMessage({ id: 'cliHooks.wizards.skillContext.priority' })}
-          </label>
-          <Select
-            value={skillConfig.priority}
-            onValueChange={(value: any) => setSkillConfig({ ...skillConfig, priority: value })}
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          {formatMessage({ id: 'cliHooks.wizards.dangerProtection.selectProtections' })}
+        </p>
+        {DANGER_OPTIONS.map(option => (
+          <label
+            key={option.id}
+            className={cn(
+              'flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors',
+              dangerConfig.selectedOptions.includes(option.id)
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-primary/50'
+            )}
           >
-            <SelectTrigger className="mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="high">
-                {formatMessage({ id: 'cliHooks.wizards.skillContext.priorityHigh' })}
-              </SelectItem>
-              <SelectItem value="medium">
-                {formatMessage({ id: 'cliHooks.wizards.skillContext.priorityMedium' })}
-              </SelectItem>
-              <SelectItem value="low">
-                {formatMessage({ id: 'cliHooks.wizards.skillContext.priorityLow' })}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+            <input
+              type="checkbox"
+              checked={dangerConfig.selectedOptions.includes(option.id)}
+              onChange={() => toggleOption(option.id)}
+              className="mt-0.5 accent-primary"
+            />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">
+                {formatMessage({ id: option.labelKey })}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {formatMessage({ id: option.descKey })}
+              </p>
+            </div>
+          </label>
+        ))}
       </div>
     );
   };
 
-  // Config summary for review step
+  const renderSkillContextConfig = () => {
+    const skills: Skill[] = skillsData?.skills ?? [];
+
+    const addConfig = () => {
+      setSkillConfig(prev => ({
+        ...prev,
+        skillConfigs: [...prev.skillConfigs, { skill: '', keywords: '' }],
+      }));
+    };
+
+    const removeConfig = (index: number) => {
+      setSkillConfig(prev => ({
+        ...prev,
+        skillConfigs: prev.skillConfigs.filter((_, i) => i !== index),
+      }));
+    };
+
+    const updateConfig = (index: number, field: 'skill' | 'keywords', value: string) => {
+      setSkillConfig(prev => {
+        const newConfigs = [...prev.skillConfigs];
+        newConfigs[index] = { ...newConfigs[index], [field]: value };
+        return { ...prev, skillConfigs: newConfigs };
+      });
+    };
+
+    return (
+      <div className="space-y-4">
+        {/* Mode Selection */}
+        <div>
+          <label className="text-sm font-medium text-foreground">
+            {formatMessage({ id: 'cliHooks.wizards.skillContext.mode' })}
+          </label>
+          <div className="flex gap-3 mt-2">
+            <label className={cn(
+              'flex-1 flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors',
+              skillConfig.mode === 'keyword' ? 'border-primary bg-primary/5' : 'border-border'
+            )}>
+              <input
+                type="radio"
+                name="skillMode"
+                value="keyword"
+                checked={skillConfig.mode === 'keyword'}
+                onChange={() => setSkillConfig(prev => ({ ...prev, mode: 'keyword' }))}
+                className="accent-primary"
+              />
+              <div>
+                <p className="text-sm font-medium">{formatMessage({ id: 'cliHooks.wizards.skillContext.modeKeyword' })}</p>
+                <p className="text-xs text-muted-foreground">{formatMessage({ id: 'cliHooks.wizards.skillContext.modeKeywordDesc' })}</p>
+              </div>
+            </label>
+            <label className={cn(
+              'flex-1 flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors',
+              skillConfig.mode === 'auto' ? 'border-primary bg-primary/5' : 'border-border'
+            )}>
+              <input
+                type="radio"
+                name="skillMode"
+                value="auto"
+                checked={skillConfig.mode === 'auto'}
+                onChange={() => setSkillConfig(prev => ({ ...prev, mode: 'auto' }))}
+                className="accent-primary"
+              />
+              <div>
+                <p className="text-sm font-medium">{formatMessage({ id: 'cliHooks.wizards.skillContext.modeAuto' })}</p>
+                <p className="text-xs text-muted-foreground">{formatMessage({ id: 'cliHooks.wizards.skillContext.modeAutoDesc' })}</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        {/* Keyword mode: skill config list */}
+        {skillConfig.mode === 'keyword' && (
+          <>
+            {skillsLoading ? (
+              <p className="text-sm text-muted-foreground">
+                {formatMessage({ id: 'cliHooks.wizards.skillContext.loadingSkills' })}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {skillConfig.skillConfigs.map((config, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Select value={config.skill} onValueChange={(value) => updateConfig(index, 'skill', value)}>
+                      <SelectTrigger className="w-[160px]">
+                        <SelectValue placeholder={formatMessage({ id: 'cliHooks.wizards.skillContext.selectSkill' })} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {skills.map((skill) => (
+                          <SelectItem key={skill.name} value={skill.name}>
+                            {skill.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={config.keywords}
+                      onChange={(e) => updateConfig(index, 'keywords', e.target.value)}
+                      placeholder={formatMessage({ id: 'cliHooks.wizards.skillContext.keywordsPlaceholder' })}
+                      className="flex-1"
+                    />
+                    {skillConfig.skillConfigs.length > 1 && (
+                      <Button variant="ghost" size="icon" onClick={() => removeConfig(index)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" onClick={addConfig} className="w-full">
+                  <Plus className="w-4 h-4 mr-1" />
+                  {formatMessage({ id: 'cliHooks.wizards.skillContext.addPair' })}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Auto mode: info display */}
+        {skillConfig.mode === 'auto' && (
+          <Card className="p-4 bg-muted/30">
+            <p className="text-sm text-muted-foreground">
+              {formatMessage({ id: 'cliHooks.wizards.skillContext.autoDescription' })}
+            </p>
+            {!skillsLoading && skills.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {skills.map(s => (
+                  <Badge key={s.name} variant="secondary" className="text-xs">{s.name}</Badge>
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
+      </div>
+    );
+  };
+
+  // ========== Config Summary ==========
+
   const renderConfigSummary = () => {
     switch (wizardType) {
       case 'memory-update':
         return (
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">
-                {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.claudePath' })}
-              </span>
-              <span className="font-mono">{memoryConfig.claudePath}</span>
+              <span className="text-muted-foreground">CLI Tool</span>
+              <Badge variant="secondary">{memoryConfig.tool}</Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">
-                {formatMessage({ id: 'cliHooks.wizards.memoryUpdate.updateFrequency' })}
-              </span>
-              <span>
-                {formatMessage({ id: `cliHooks.wizards.memoryUpdate.frequency.${memoryConfig.updateFrequency}` })}
-              </span>
+              <span className="text-muted-foreground">Threshold</span>
+              <span>{memoryConfig.threshold} paths</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Timeout</span>
+              <span>{memoryConfig.timeout}s</span>
             </div>
           </div>
         );
@@ -643,23 +852,18 @@ export function HookWizard({
       case 'danger-protection':
         return (
           <div className="space-y-2 text-sm">
-            <div>
-              <span className="text-muted-foreground">
-                {formatMessage({ id: 'cliHooks.wizards.dangerProtection.keywords' })}:
-              </span>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {dangerConfig.keywords.split('\n').filter(Boolean).map((kw, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs">
-                    {kw.trim()}
+            <span className="text-muted-foreground">
+              {formatMessage({ id: 'cliHooks.wizards.dangerProtection.selectedProtections' })}:
+            </span>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {dangerConfig.selectedOptions.map(id => {
+                const opt = DANGER_OPTIONS.find(o => o.id === id);
+                return opt ? (
+                  <Badge key={id} variant="secondary" className="text-xs">
+                    {formatMessage({ id: opt.labelKey })}
                   </Badge>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">
-                {formatMessage({ id: 'cliHooks.wizards.dangerProtection.allowBypass' })}
-              </span>
-              <span>{dangerConfig.allowBypass ? 'Yes' : 'No'}</span>
+                ) : null;
+              })}
             </div>
           </div>
         );
@@ -667,30 +871,35 @@ export function HookWizard({
       case 'skill-context':
         return (
           <div className="space-y-2 text-sm">
-            <div>
-              <span className="text-muted-foreground">
-                {formatMessage({ id: 'cliHooks.wizards.skillContext.keywordMappings' })}:
-              </span>
-              <div className="mt-1 space-y-1">
-                {skillConfig.keywordSkillPairs
-                  .filter((p) => p.keyword && p.skill)
-                  .map((pair, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs">
-                      <Badge variant="outline">{pair.keyword}</Badge>
-                      <span className="text-muted-foreground">{'->'}</span>
-                      <Badge variant="secondary">{pair.skill}</Badge>
-                    </div>
-                  ))}
-              </div>
-            </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">
-                {formatMessage({ id: 'cliHooks.wizards.skillContext.priority' })}
+                {formatMessage({ id: 'cliHooks.wizards.skillContext.mode' })}
               </span>
-              <span>
-                {formatMessage({ id: `cliHooks.wizards.skillContext.priority${skillConfig.priority.charAt(0).toUpperCase()}${skillConfig.priority.slice(1)}` })}
-              </span>
+              <Badge variant="secondary">
+                {skillConfig.mode === 'auto'
+                  ? formatMessage({ id: 'cliHooks.wizards.skillContext.modeAuto' })
+                  : formatMessage({ id: 'cliHooks.wizards.skillContext.modeKeyword' })
+                }
+              </Badge>
             </div>
+            {skillConfig.mode === 'keyword' && (
+              <div>
+                <span className="text-muted-foreground">
+                  {formatMessage({ id: 'cliHooks.wizards.skillContext.keywordMappings' })}:
+                </span>
+                <div className="mt-1 space-y-1">
+                  {skillConfig.skillConfigs
+                    .filter(c => c.skill && c.keywords)
+                    .map((config, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <Badge variant="outline">{config.keywords}</Badge>
+                        <span className="text-muted-foreground">{'->'}</span>
+                        <Badge variant="secondary">{config.skill}</Badge>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         );
 
@@ -699,25 +908,51 @@ export function HookWizard({
     }
   };
 
-  // Get command preview for review step
+  // ========== Command Preview ==========
+
   const getPreviewCommand = (): string => {
     switch (wizardType) {
-      case 'memory-update':
-        return buildMemoryUpdateCommand(memoryConfig, detectedPlatform);
-      case 'danger-protection':
-        return buildDangerProtectionCommand(dangerConfig, detectedPlatform);
-      case 'skill-context':
-        return buildSkillContextCommand(skillConfig, detectedPlatform);
+      case 'memory-update': {
+        const selectedTool = memoryConfig.tool;
+        return `node -e "require('child_process').spawnSync(process.platform==='win32'?'cmd':'ccw',process.platform==='win32'?['/c','ccw','tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'${selectedTool}'})]:['tool','exec','memory_queue',JSON.stringify({action:'add',path:process.env.CLAUDE_PROJECT_DIR,tool:'${selectedTool}'})],{stdio:'inherit'})"`;
+      }
+      case 'danger-protection': {
+        const templates = dangerConfig.selectedOptions
+          .map(id => DANGER_OPTIONS.find(o => o.id === id))
+          .filter(Boolean)
+          .map(opt => {
+            const tpl = HOOK_TEMPLATES[opt!.templateId];
+            return tpl ? `[${tpl.event}/${tpl.matcher || '*'}] ${tpl.command} ${tpl.args[0]} ...` : '';
+          })
+          .filter(Boolean);
+        return templates.length > 0
+          ? templates.join('\n')
+          : '# No protections selected';
+      }
+      case 'skill-context': {
+        if (skillConfig.mode === 'auto') {
+          return `node -e "const p=JSON.parse(process.env.HOOK_INPUT||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify({mode:'auto',prompt:p.user_prompt||''})],{stdio:'inherit'})"`;
+        }
+        const validConfigs = skillConfig.skillConfigs.filter(c => c.skill && c.keywords);
+        if (validConfigs.length === 0) return '# No SKILL configurations yet';
+        const configJson = validConfigs.map(c => ({
+          skill: c.skill,
+          keywords: c.keywords.split(',').map(k => k.trim()).filter(k => k),
+        }));
+        const paramsStr = JSON.stringify({ configs: configJson });
+        return `node -e "const p=JSON.parse(process.env.HOOK_INPUT||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify(Object.assign(${paramsStr},{prompt:p.user_prompt||''}))],{stdio:'inherit'})"`;
+      }
       default:
         return '';
     }
   };
 
-  // Navigation buttons
+  // ========== Navigation ==========
+
   const renderNavigation = () => (
     <DialogFooter className="gap-2">
       {currentStep > 1 && (
-        <Button variant="outline" onClick={handlePrevious} disabled={createMutation.isPending}>
+        <Button variant="outline" onClick={handlePrevious} disabled={saving}>
           <ChevronLeft className="w-4 h-4 mr-1" />
           {formatMessage({ id: 'cliHooks.wizards.navigation.previous' })}
         </Button>
@@ -728,20 +963,18 @@ export function HookWizard({
           <ChevronRight className="w-4 h-4 ml-1" />
         </Button>
       ) : (
-        <Button onClick={handleComplete} disabled={createMutation.isPending}>
-          {createMutation.isPending
+        <Button onClick={handleComplete} disabled={saving}>
+          {saving
             ? formatMessage({ id: 'cliHooks.wizards.navigation.creating' })
             : formatMessage({ id: 'cliHooks.wizards.navigation.create' })
           }
         </Button>
       )}
-      <Button variant="ghost" onClick={handleClose} disabled={createMutation.isPending}>
-        <X className="w-4 h-4" />
-      </Button>
     </DialogFooter>
   );
 
-  // Step indicator
+  // ========== Step Indicator ==========
+
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center gap-2 pb-4">
       {[1, 2, 3].map((step) => (
@@ -761,7 +994,7 @@ export function HookWizard({
           {step < 3 && (
             <div
               className={cn(
-                'w-8 h-0.5 mx-1',
+                'w-12 h-0.5 mx-1',
                 currentStep > step ? 'bg-green-500' : 'bg-muted'
               )}
             />
@@ -795,36 +1028,3 @@ export function HookWizard({
 }
 
 export default HookWizard;
-
-// ========== Command Builders ==========
-
-function buildMemoryUpdateCommand(config: MemoryUpdateConfig, platform: Platform): string {
-  const shellCmd = getShellCommand(getShell(platform));
-  const command = `echo "Updating ${config.claudePath} at ${config.updateFrequency}"`;
-  return JSON.stringify([...shellCmd, command]);
-}
-
-function buildDangerMatcher(config: DangerProtectionConfig): string {
-  const keywords = config.keywords.split('\n').filter(Boolean).join('|');
-  return `(${keywords})`;
-}
-
-function buildDangerProtectionCommand(config: DangerProtectionConfig, platform: Platform): string {
-  const shellCmd = getShellCommand(getShell(platform));
-  const command = `echo "Checking for dangerous operations: ${config.keywords.split('\n').filter(Boolean).join(', ')}"`;
-  return JSON.stringify([...shellCmd, command]);
-}
-
-function buildSkillMatcher(config: SkillContextConfig): string {
-  const keywords = config.keywordSkillPairs
-    .filter((p) => p.keyword)
-    .map((p) => p.keyword)
-    .join('|');
-  return `(${keywords})`;
-}
-
-function buildSkillContextCommand(config: SkillContextConfig, platform: Platform): string {
-  const pairs = config.keywordSkillPairs.filter((p) => p.keyword && p.skill);
-  const command = `echo "Loading SKILL based on keywords: ${pairs.map((p) => p.keyword).join(', ')}"`;
-  return JSON.stringify([...getShellCommand(getShell(platform)), command]);
-}

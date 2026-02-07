@@ -10,6 +10,9 @@ import { sanitizeErrorMessage } from '../utils/errorSanitizer';
 import {
   fetchCliEndpoints,
   toggleCliEndpoint,
+  createCliEndpoint,
+  updateCliEndpoint,
+  deleteCliEndpoint,
   type CliEndpoint,
   type CliEndpointsResponse,
 } from '../lib/api';
@@ -117,6 +120,101 @@ export function useToggleCliEndpoint() {
   return {
     toggleEndpoint: (endpointId: string, enabled: boolean) => mutation.mutateAsync({ endpointId, enabled }),
     isToggling: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export function useCreateCliEndpoint() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (endpoint: Omit<CliEndpoint, 'id'>) => createCliEndpoint(endpoint),
+    onSuccess: (created) => {
+      queryClient.setQueryData<CliEndpointsResponse>(cliEndpointsKeys.lists(), (old) => {
+        if (!old) return { endpoints: [created] };
+        return { endpoints: [created, ...old.endpoints] };
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: cliEndpointsKeys.all });
+    },
+  });
+
+  return {
+    createEndpoint: mutation.mutateAsync,
+    isCreating: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export function useUpdateCliEndpoint() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: ({ endpointId, updates }: { endpointId: string; updates: Partial<CliEndpoint> }) =>
+      updateCliEndpoint(endpointId, updates),
+    onMutate: async ({ endpointId, updates }) => {
+      await queryClient.cancelQueries({ queryKey: cliEndpointsKeys.all });
+      const previous = queryClient.getQueryData<CliEndpointsResponse>(cliEndpointsKeys.lists());
+
+      queryClient.setQueryData<CliEndpointsResponse>(cliEndpointsKeys.lists(), (old) => {
+        if (!old) return old;
+        return {
+          endpoints: old.endpoints.map((e) => (e.id === endpointId ? { ...e, ...updates } : e)),
+        };
+      });
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(cliEndpointsKeys.lists(), context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: cliEndpointsKeys.all });
+    },
+  });
+
+  return {
+    updateEndpoint: (endpointId: string, updates: Partial<CliEndpoint>) =>
+      mutation.mutateAsync({ endpointId, updates }),
+    isUpdating: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export function useDeleteCliEndpoint() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (endpointId: string) => deleteCliEndpoint(endpointId),
+    onMutate: async (endpointId) => {
+      await queryClient.cancelQueries({ queryKey: cliEndpointsKeys.all });
+      const previous = queryClient.getQueryData<CliEndpointsResponse>(cliEndpointsKeys.lists());
+
+      queryClient.setQueryData<CliEndpointsResponse>(cliEndpointsKeys.lists(), (old) => {
+        if (!old) return old;
+        return {
+          endpoints: old.endpoints.filter((e) => e.id !== endpointId),
+        };
+      });
+
+      return { previous };
+    },
+    onError: (_err, _endpointId, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(cliEndpointsKeys.lists(), context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: cliEndpointsKeys.all });
+    },
+  });
+
+  return {
+    deleteEndpoint: mutation.mutateAsync,
+    isDeleting: mutation.isPending,
     error: mutation.error,
   };
 }

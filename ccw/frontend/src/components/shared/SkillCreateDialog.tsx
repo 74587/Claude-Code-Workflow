@@ -177,7 +177,7 @@ export function SkillCreateDialog({ open, onOpenChange, onCreated, cliType = 'cl
                   <Folder className="w-5 h-5" />
                   <div>
                     <div className="font-medium text-sm">{formatMessage({ id: 'skills.create.locationProject' })}</div>
-                    <div className="text-xs text-muted-foreground">{formatMessage({ id: 'skills.create.locationProjectHint' })}</div>
+                    <div className="text-xs text-muted-foreground">{`.${cliType}/skills/`}</div>
                   </div>
                 </div>
               </button>
@@ -195,7 +195,7 @@ export function SkillCreateDialog({ open, onOpenChange, onCreated, cliType = 'cl
                   <User className="w-5 h-5" />
                   <div>
                     <div className="font-medium text-sm">{formatMessage({ id: 'skills.create.locationUser' })}</div>
-                    <div className="text-xs text-muted-foreground">{formatMessage({ id: 'skills.create.locationUserHint' })}</div>
+                    <div className="text-xs text-muted-foreground">{`~/.${cliType}/skills/`}</div>
                   </div>
                 </div>
               </button>

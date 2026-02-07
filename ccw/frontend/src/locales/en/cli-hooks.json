@@ -104,7 +104,10 @@
         "hookType": "Hook Type",
         "trigger": "Trigger Event",
         "platform": "Platform",
-        "commandPreview": "Command Preview"
+        "commandPreview": "Command Preview",
+        "installTo": "Install To",
+        "scopeProject": "Project",
+        "scopeGlobal": "Global"
       }
     },
     "navigation": {
@@ -117,36 +120,49 @@
       "title": "Memory Update Wizard",
       "description": "Configure hook to update CLAUDE.md on session end",
       "shortDescription": "Update CLAUDE.md automatically",
-      "claudePath": "CLAUDE.md Path",
-      "updateFrequency": "Update Frequency",
-      "frequency": {
-        "sessionEnd": "Session End",
-        "hourly": "Hourly",
-        "daily": "Daily"
-      }
+      "cliTool": "CLI Tool",
+      "cliToolHelp": "CLI tool for CLAUDE.md generation",
+      "threshold": "Threshold (paths)",
+      "thresholdHelp": "Number of paths to trigger batch update (1-20)",
+      "timeout": "Timeout (seconds)",
+      "timeoutHelp": "Auto-flush queue after this time (60-1800)"
     },
     "dangerProtection": {
       "title": "Danger Protection Wizard",
       "description": "Configure confirmation hook for dangerous operations",
       "shortDescription": "Confirm dangerous operations",
-      "keywords": "Dangerous Keywords",
-      "keywordsHelp": "Enter one keyword per line",
-      "confirmationMessage": "Confirmation Message",
-      "allowBypass": "Allow bypass with --force flag"
+      "selectProtections": "Select the protections you want to enable",
+      "selectedProtections": "Selected Protections",
+      "options": {
+        "bashConfirm": "Dangerous Commands",
+        "bashConfirmDesc": "Confirm before rm -rf, shutdown, kill, format, etc.",
+        "fileProtection": "Sensitive Files",
+        "fileProtectionDesc": "Block modifications to .env, .git/, secrets, keys",
+        "gitDestructive": "Git Operations",
+        "gitDestructiveDesc": "Confirm force push, hard reset, branch delete",
+        "networkConfirm": "Network Access",
+        "networkConfirmDesc": "Confirm curl, wget, ssh, WebFetch requests",
+        "systemPaths": "System Paths",
+        "systemPathsDesc": "Block/confirm operations on /etc, /usr, C:\\Windows",
+        "permissionChange": "Permission Changes",
+        "permissionChangeDesc": "Confirm chmod, chown, icacls operations"
+      }
     },
     "skillContext": {
       "title": "SKILL Context Wizard",
       "description": "Configure hook to load SKILL based on prompt keywords",
       "shortDescription": "Auto-load SKILL based on keywords",
       "loadingSkills": "Loading available skills...",
-      "keywordPlaceholder": "Enter keyword",
       "selectSkill": "Select skill",
-      "addPair": "Add Keyword-Skill Pair",
-      "priority": "Priority",
-      "priorityHigh": "High",
-      "priorityMedium": "Medium",
-      "priorityLow": "Low",
-      "keywordMappings": "Keyword Mappings"
+      "addPair": "Add Skill Configuration",
+      "keywordMappings": "Keyword Mappings",
+      "keywordsPlaceholder": "react,workflow,api",
+      "mode": "Detection Mode",
+      "modeKeyword": "Keyword Matching",
+      "modeKeywordDesc": "Load specific SKILLs when keywords are detected",
+      "modeAuto": "Auto Detection",
+      "modeAutoDesc": "Automatically detect and load SKILLs by name",
+      "autoDescription": "Auto detection mode will scan user prompts for SKILL names and automatically load matching context. All available skills are shown below."
     }
   }
 }

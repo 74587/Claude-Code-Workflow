@@ -28,6 +28,32 @@
       "delete": "Delete Endpoint",
       "toggle": "Toggle Endpoint"
     },
+    "dialog": {
+      "createTitle": "Add Endpoint",
+      "editTitle": "Edit Endpoint ({id})"
+    },
+    "form": {
+      "name": "Name",
+      "namePlaceholder": "My endpoint",
+      "type": "Type",
+      "enabled": "Enabled",
+      "enabledHint": "Enable or disable this endpoint",
+      "configJson": "Configuration (JSON)",
+      "configJsonPlaceholder": "{\n  \n}"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "typeRequired": "Type is required",
+      "invalidJson": "Invalid JSON",
+      "configMustBeObject": "Configuration must be a JSON object"
+    },
+    "messages": {
+      "created": "Endpoint created",
+      "updated": "Endpoint updated",
+      "deleted": "Endpoint deleted",
+      "saveFailed": "Failed to save endpoint",
+      "deleteFailed": "Failed to delete endpoint"
+    },
     "deleteConfirm": "Are you sure you want to delete the endpoint \"{id}\"?",
     "emptyState": {
       "title": "No CLI Endpoints Found",
