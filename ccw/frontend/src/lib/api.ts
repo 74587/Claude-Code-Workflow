@@ -3181,7 +3181,7 @@ function buildCcwMcpServerConfig(config: {
   if (config.enabledTools && config.enabledTools.length > 0) {
     env.CCW_ENABLED_TOOLS = config.enabledTools.join(',');
   } else {
-    env.CCW_ENABLED_TOOLS = 'all';
+    env.CCW_ENABLED_TOOLS = 'write_file,edit_file,read_file,core_memory,ask_question';
   }
 
   if (config.projectRoot) {
@@ -3303,13 +3303,36 @@ export async function installCcwMcp(): Promise<CcwMcpConfig> {
 }
 
 /**
- * Uninstall CCW Tools MCP server
+ * Uninstall CCW Tools MCP server from all scopes (global + projects)
  */
 export async function uninstallCcwMcp(): Promise<void> {
-  await fetchApi<{ success: boolean }>('/api/mcp-remove-global-server', {
-    method: 'POST',
-    body: JSON.stringify({ serverName: 'ccw-tools' }),
-  });
+  // 1. Remove from global scope
+  try {
+    await fetchApi<{ success: boolean }>('/api/mcp-remove-global-server', {
+      method: 'POST',
+      body: JSON.stringify({ serverName: 'ccw-tools' }),
+    });
+  } catch {
+    // May not exist in global - continue
+  }
+
+  // 2. Remove from all projects that have ccw-tools
+  try {
+    const config = await fetchMcpConfig();
+    if (config.projects) {
+      const removePromises = Object.entries(config.projects)
+        .filter(([_, proj]) => proj.mcpServers?.['ccw-tools'])
+        .map(([projectPath]) =>
+          fetchApi<{ success: boolean }>('/api/mcp-remove-server', {
+            method: 'POST',
+            body: JSON.stringify({ projectPath, serverName: 'ccw-tools' }),
+          }).catch(() => {})
+        );
+      await Promise.all(removePromises);
+    }
+  } catch {
+    // Best-effort cleanup
+  }
 }
 
 // ========== Index Management API ==========

@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/memory/memory-update-related.mdx",
   "sourceDirName": "commands/memory",
   "slug": "/commands/memory/memory-update-related",
-  "permalink": "/docs/zh/commands/memory/memory-update-related",
+  "permalink": "/docs/commands/memory/memory-update-related",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/memory/memory-update-related.mdx",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/memory:update-full",
-    "permalink": "/docs/zh/commands/memory/memory-update-full"
+    "permalink": "/docs/commands/memory/memory-update-full"
   },
   "next": {
     "title": "/memory:load",
-    "permalink": "/docs/zh/commands/memory/memory-load"
+    "permalink": "/docs/commands/memory/memory-load"
   }
 }

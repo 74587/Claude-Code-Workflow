@@ -190,6 +190,7 @@
   },
   "configType": {
     "label": "配置格式",
+    "format": "配置格式",
     "mcpJson": ".mcp.json",
     "claudeJson": ".claude.json",
     "switchWarning": "切换配置格式不会迁移现有服务器。您需要在新格式中重新配置服务器。",

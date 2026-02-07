@@ -495,4 +495,100 @@ test.describe('[API Settings] - CLI Provider Configuration Tests', () => {
     monitoring.assertClean({ ignoreAPIPatterns: ['/api/settings/cli'], allowWarnings: true });
     monitoring.stop();
   });
+
+  test('L3.31 - API Error - 401 Unauthorized', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 401
+    await page.route('**/api/settings/cli', (route) => {
+      route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Unauthorized', message: 'Authentication required' }),
+      });
+    });
+
+    await page.reload({ waitUntil: 'networkidle' as const });
+
+    // Verify auth error or redirect
+    const authError = page.getByText(/unauthorized|not authenticated|未经授权/i);
+    await page.unroute('**/api/settings/cli');
+    const hasError = await authError.isVisible().catch(() => false);
+    expect(hasError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/settings/cli'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.32 - API Error - 403 Forbidden', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 403
+    await page.route('**/api/settings/cli', (route) => {
+      route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Forbidden', message: 'Access denied' }),
+      });
+    });
+
+    await page.reload({ waitUntil: 'networkidle' as const });
+
+    // Verify forbidden message
+    const errorMessage = page.getByText(/forbidden|not allowed|禁止访问/i);
+    await page.unroute('**/api/settings/cli');
+    const hasError = await errorMessage.isVisible().catch(() => false);
+    expect(hasError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/settings/cli'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.33 - API Error - 404 Not Found', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 404
+    await page.route('**/api/settings/cli', (route) => {
+      route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Not Found', message: 'Settings not found' }),
+      });
+    });
+
+    await page.reload({ waitUntil: 'networkidle' as const });
+
+    // Verify not found message
+    const errorMessage = page.getByText(/not found|doesn't exist|未找到/i);
+    await page.unroute('**/api/settings/cli');
+    const hasError = await errorMessage.isVisible().catch(() => false);
+    expect(hasError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/settings/cli'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.34 - API Error - 500 Internal Server Error', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 500
+    await page.route('**/api/settings/cli', (route) => {
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Internal Server Error' }),
+      });
+    });
+
+    await page.reload({ waitUntil: 'networkidle' as const });
+
+    // Verify server error message
+    const errorMessage = page.getByText(/server error|try again|服务器错误/i);
+    await page.unroute('**/api/settings/cli');
+    const hasError = await errorMessage.isVisible().catch(() => false);
+    expect(hasError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/settings/cli'], allowWarnings: true });
+    monitoring.stop();
+  });
 });

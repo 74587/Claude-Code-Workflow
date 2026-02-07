@@ -5,6 +5,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
+import { execSync } from 'child_process';
 import * as McpTemplatesDb from './mcp-templates-db.js';
 import type { RouteContext } from './types.js';
 
@@ -1174,13 +1175,19 @@ export async function handleMcpRoutes(ctx: RouteContext): Promise<boolean> {
       // Check if sandbox should be disabled
       const disableSandbox = body.disableSandbox === true;
 
+      // Parse enabled tools from request body
+      const enabledTools = Array.isArray(body.enabledTools) && body.enabledTools.length > 0
+        ? (body.enabledTools as string[]).join(',')
+        : 'write_file,edit_file,read_file,core_memory,ask_question';
+
       // Generate CCW MCP server config
-      // Use cmd /c to inherit Claude Code's working directory
+      // Use cmd /c on Windows to inherit Claude Code's working directory
+      const isWin = process.platform === 'win32';
       const ccwMcpConfig: Record<string, any> = {
-        command: "cmd",
-        args: ["/c", "npx", "-y", "ccw-mcp"],
+        command: isWin ? "cmd" : "npx",
+        args: isWin ? ["/c", "npx", "-y", "ccw-mcp"] : ["-y", "ccw-mcp"],
         env: {
-          CCW_ENABLED_TOOLS: "all",
+          CCW_ENABLED_TOOLS: enabledTools,
           ...(disableSandbox && { CCW_DISABLE_SANDBOX: "1" })
         }
       };
@@ -1332,6 +1339,48 @@ export async function handleMcpRoutes(ctx: RouteContext): Promise<boolean> {
     const templates = McpTemplatesDb.getTemplatesByCategory(category);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, templates }));
+    return true;
+  }
+
+  // API: Detect Windows commands availability
+  if (pathname === '/api/mcp/detect-commands' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const commands = [
+        { name: 'npm', installUrl: 'https://docs.npmjs.com/downloading-and-installing-node-js-and-npm' },
+        { name: 'node', installUrl: 'https://nodejs.org/' },
+        { name: 'python', installUrl: 'https://www.python.org/downloads/' },
+        { name: 'npx', installUrl: 'https://docs.npmjs.com/downloading-and-installing-node-js-and-npm' },
+      ];
+
+      const results = commands.map(cmd => {
+        let available = false;
+        try {
+          const whereCmd = process.platform === 'win32' ? 'where' : 'which';
+          execSync(`${whereCmd} ${cmd.name}`, { stdio: 'ignore' });
+          available = true;
+        } catch {
+          // Command not found
+        }
+        return {
+          command: cmd.name,
+          available,
+          installUrl: available ? undefined : cmd.installUrl,
+        };
+      });
+
+      return results;
+    });
+    return true;
+  }
+
+  // API: Apply Windows auto-fix (stub - returns guidance)
+  if (pathname === '/api/mcp/apply-windows-fix' && req.method === 'POST') {
+    handlePostRequest(req, res, async () => {
+      return {
+        success: false,
+        message: 'Auto-fix is not supported. Please install missing commands manually.',
+      };
+    });
     return true;
   }
 

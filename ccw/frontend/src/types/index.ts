@@ -61,10 +61,7 @@ export type {
   FlowNodeType,
   ExecutionStatus,
   // Node Data
-  SlashCommandNodeData,
-  FileOperationNodeData,
-  ConditionalNodeData,
-  ParallelNodeData,
+  PromptTemplateNodeData,
   NodeData,
   // Flow Types
   FlowNode,

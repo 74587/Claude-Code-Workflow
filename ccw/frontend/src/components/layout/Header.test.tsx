@@ -151,7 +151,7 @@ describe('Header Component - i18n Tests', () => {
 
   describe('translated project path display', () => {
     it('should display translated fallback when no project path', () => {
-      render(<Header projectPath="" />);
+      render(<Header />);
 
       // Header should render correctly even without project path
       const header = screen.getByRole('banner');
@@ -162,20 +162,12 @@ describe('Header Component - i18n Tests', () => {
       expect(brandLink).toBeInTheDocument();
     });
 
-    it('should render workspace selector when project path is provided', () => {
-      render(<Header projectPath="/test/path" />);
+    it('should render workspace selector', () => {
+      render(<Header />);
 
       // Should render the workspace selector button with aria-label
       const workspaceButton = screen.getByRole('button', { name: /workspace selector/i });
       expect(workspaceButton).toBeInTheDocument();
-    });
-
-    it('should not render workspace selector when project path is empty', () => {
-      render(<Header projectPath="" />);
-
-      // Should NOT render the workspace selector button
-      const workspaceButton = screen.queryByRole('button', { name: /workspace selector/i });
-      expect(workspaceButton).not.toBeInTheDocument();
     });
   });
 

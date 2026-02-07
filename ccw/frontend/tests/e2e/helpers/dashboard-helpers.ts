@@ -46,8 +46,8 @@ export async function waitForDashboardLoad(page: Page, timeout = 30000): Promise
     await expect(statsCards.first()).toBeVisible({ timeout });
   }
 
-  // Small delay to ensure all animations complete
-  await page.waitForTimeout(500);
+  // Wait for animations to complete - use waitForLoadState instead of timeout
+  await page.waitForLoadState('domcontentloaded');
 }
 
 /**
@@ -146,16 +146,14 @@ export async function simulateDragDrop(
   // Perform drag-drop
   await page.mouse.move(startX, startY);
   await page.mouse.down();
-  await page.waitForTimeout(100); // Small delay to register drag start
 
   // Move to target position
   await page.mouse.move(targetX, targetY, { steps: 10 });
-  await page.waitForTimeout(100); // Small delay before release
 
   await page.mouse.up();
 
-  // Wait for layout to settle
-  await page.waitForTimeout(500);
+  // Wait for layout to settle - use waitForLoadState instead of timeout
+  await page.waitForLoadState('domcontentloaded');
 }
 
 /**
@@ -209,7 +207,11 @@ export async function toggleNavGroup(page: Page, groupName: string): Promise<voi
   await expect(groupTrigger).toBeVisible();
 
   await groupTrigger.click();
-  await page.waitForTimeout(300); // Wait for accordion animation
+  // Wait for accordion animation - use explicit wait
+  await page.waitForFunction(() => {
+    const group = document.querySelector('[aria-expanded]');
+    return group !== null;
+  }, { timeout: 3000 });
 }
 
 /**
@@ -261,7 +263,8 @@ export async function simulateTickerMessage(
     }
   }, message);
 
-  await page.waitForTimeout(100); // Wait for message to be processed
+  // Wait for message to be processed - use explicit wait
+  await page.waitForLoadState('domcontentloaded');
 }
 
 /**
@@ -296,7 +299,11 @@ export async function verifyChartTooltip(
 
   // Hover over chart
   await chartElement.hover({ position: { x: 50, y: 50 } });
-  await page.waitForTimeout(200); // Wait for tooltip animation
+  // Wait for tooltip animation - use explicit wait
+  await page.waitForFunction(() => {
+    const tooltip = document.querySelector('.recharts-tooltip-wrapper, [role="tooltip"]');
+    return tooltip !== null && window.getComputedStyle(tooltip).opacity !== '0';
+  }, { timeout: 3000 }).catch(() => true); // Don't fail if tooltip doesn't appear
 
   // Check if tooltip is visible
   const tooltip = page.locator('.recharts-tooltip-wrapper').or(
@@ -369,7 +376,8 @@ export async function verifyResponsiveLayout(
   };
 
   await page.setViewportSize(viewportSizes[breakpoint]);
-  await page.waitForTimeout(300); // Wait for layout reflow
+  // Wait for layout reflow - use explicit wait
+  await page.waitForLoadState('domcontentloaded');
 
   // Verify grid layout adjusts
   const grid = page.getByTestId('dashboard-grid-container');

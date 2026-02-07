@@ -190,6 +190,7 @@
   },
   "configType": {
     "label": "Config Format",
+    "format": "Config Format",
     "mcpJson": ".mcp.json",
     "claudeJson": ".claude.json",
     "switchWarning": "Switching config format will not migrate existing servers. You'll need to reconfigure servers in the new format.",

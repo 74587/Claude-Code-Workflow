@@ -6,15 +6,22 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@/test/i18n';
 import { QueueCard } from './QueueCard';
-import type { IssueQueue } from '@/lib/api';
+import type { IssueQueue, QueueItem } from '@/lib/api';
 
 describe('QueueCard', () => {
+  const mockQueueItems: Record<string, QueueItem[]> = {
+    'group-1': [
+      { item_id: 'issue-1', issue_id: 'issue-1', solution_id: 'sol-1', status: 'pending', execution_order: 1, execution_group: 'group-1', depends_on: [], semantic_priority: 1 },
+      { item_id: 'solution-1', issue_id: 'issue-1', solution_id: 'sol-1', status: 'ready', execution_order: 2, execution_group: 'group-1', depends_on: [], semantic_priority: 1 },
+    ],
+  };
+
   const mockQueue: IssueQueue = {
     tasks: ['task1', 'task2'],
     solutions: ['solution1'],
     conflicts: [],
-    execution_groups: { 'group-1': ['task1', 'task2'] },
-    grouped_items: { 'parallel-group': ['task1', 'task2'] },
+    execution_groups: ['group-1'],
+    grouped_items: mockQueueItems,
   };
 
   const defaultProps = {
@@ -124,8 +131,8 @@ describe('QueueCard', () => {
         tasks: [],
         solutions: [],
         conflicts: [],
-        execution_groups: {},
-        grouped_items: {},
+        execution_groups: [],
+        grouped_items: {} as Record<string, QueueItem[]>,
       };
 
       render(
@@ -144,8 +151,8 @@ describe('QueueCard', () => {
         tasks: [],
         solutions: [],
         conflicts: [],
-        execution_groups: {},
-        grouped_items: {},
+        execution_groups: [],
+        grouped_items: {} as Record<string, QueueItem[]>,
       };
 
       render(

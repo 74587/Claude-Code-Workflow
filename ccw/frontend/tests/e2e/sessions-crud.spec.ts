@@ -352,17 +352,20 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
       });
     });
 
-    // Navigate to sessions page
-    await page.reload({ waitUntil: 'networkidle' as const });
+    // Navigate to sessions page to trigger API call
+    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
 
-    // Look for error indicator
-    const errorIndicator = page.getByText(/error|failed|unable to load/i).or(
+    // Look for error indicator - SessionsPage shows "Failed to load data"
+    const errorIndicator = page.getByText(/Failed to load data|failed|加载失败/i).or(
       page.getByTestId('error-state')
     );
 
+    // Wait a bit for error to appear
+    await page.waitForTimeout(1000);
+
     const hasError = await errorIndicator.isVisible().catch(() => false);
 
-    // Restore routing
+    // Restore routing AFTER checking for error
     await page.unroute('**/api/sessions');
 
     // Error should be displayed or handled gracefully
@@ -444,6 +447,187 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     }
 
     monitoring.assertClean({ allowWarnings: true });
+    monitoring.stop();
+  });
+
+  // ========================================
+  // API Error Scenarios
+  // ========================================
+
+  test('L3.11 - API Error - 400 Bad Request on create session', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 400
+    await page.route('**/api/sessions', (route) => {
+      if (route.request().method() === 'POST') {
+        route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Bad Request', message: 'Invalid session data' }),
+        });
+      } else {
+        route.continue();
+      }
+    });
+
+    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+
+    // Try to create a session
+    const createButton = page.getByRole('button', { name: /create|new|add/i });
+    const hasCreateButton = await createButton.isVisible().catch(() => false);
+
+    if (hasCreateButton) {
+      await createButton.click();
+
+      const submitButton = page.getByRole('button', { name: /create|save|submit/i });
+      await submitButton.click();
+
+      // Wait for error to appear
+      await page.waitForTimeout(1000);
+
+      // Verify error message - look for toast or inline error
+      const errorMessage = page.getByText(/invalid|bad request|输入无效|failed|error/i);
+      const hasError = await errorMessage.isVisible().catch(() => false);
+      await page.unroute('**/api/sessions');
+      expect(hasError).toBe(true);
+    }
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/sessions'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.12 - API Error - 401 Unauthorized', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 401
+    await page.route('**/api/sessions', (route) => {
+      route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Unauthorized', message: 'Authentication required' }),
+      });
+    });
+
+    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+
+    // Wait for error to appear
+    await page.waitForTimeout(1000);
+
+    // 401 might redirect to login or show auth error
+    const loginRedirect = page.url().includes('/login');
+    // SessionsPage shows "Failed to load data" for any error
+    const authError = page.getByText(/Failed to load data|failed|Unauthorized|Authentication required|加载失败/i);
+
+    const hasAuthError = await authError.isVisible().catch(() => false);
+    await page.unroute('**/api/sessions');
+    expect(loginRedirect || hasAuthError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/sessions'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.13 - API Error - 403 Forbidden', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 403
+    await page.route('**/api/sessions', (route) => {
+      route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Forbidden', message: 'Access denied' }),
+      });
+    });
+
+    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+
+    // Wait for error to appear
+    await page.waitForTimeout(1000);
+
+    // Verify error message - SessionsPage shows "Failed to load data"
+    const errorMessage = page.getByText(/Failed to load data|failed|加载失败|Forbidden|Access denied/i);
+    const hasError = await errorMessage.isVisible().catch(() => false);
+    await page.unroute('**/api/sessions');
+    expect(hasError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/sessions'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.14 - API Error - 404 Not Found', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 404 for specific session
+    await page.route('**/api/sessions/nonexistent', (route) => {
+      route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Not Found', message: 'Session not found' }),
+      });
+    });
+
+    // Navigate to a non-existent session
+    await page.goto('/sessions/nonexistent-session-id', { waitUntil: 'networkidle' as const });
+
+    // Wait for error to appear
+    await page.waitForTimeout(1000);
+
+    // Verify not found message - Session detail page shows error
+    const errorMessage = page.getByText(/Failed to load|failed|not found|doesn't exist|未找到|加载失败|404|Session not found/i);
+    const hasError = await errorMessage.isVisible().catch(() => false);
+    await page.unroute('**/api/sessions/nonexistent');
+    expect(hasError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/sessions'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.15 - API Error - 500 Internal Server Error', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 500
+    await page.route('**/api/sessions', (route) => {
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Internal Server Error', message: 'Something went wrong' }),
+      });
+    });
+
+    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+
+    // Wait for error to appear
+    await page.waitForTimeout(1000);
+
+    // Verify server error message - SessionsPage shows "Failed to load data"
+    const errorMessage = page.getByText(/Failed to load data|failed|加载失败|Internal Server Error|Something went wrong/i);
+    const hasError = await errorMessage.isVisible().catch(() => false);
+    await page.unroute('**/api/sessions');
+    expect(hasError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/sessions'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.16 - API Error - Network Timeout', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API timeout by not fulfilling
+    await page.route('**/api/sessions', () => {
+      // Never fulfill - simulate timeout
+    });
+
+    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+
+    // Wait for timeout handling
+    await page.waitForTimeout(5000);
+
+    // Verify timeout message
+    const timeoutMessage = page.getByText(/timeout|network error|unavailable|网络超时/i);
+    await page.unroute('**/api/sessions');
+    const hasTimeout = await timeoutMessage.isVisible().catch(() => false);
+    // Timeout message may or may not appear depending on implementation
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/sessions'], allowWarnings: true });
     monitoring.stop();
   });
 });

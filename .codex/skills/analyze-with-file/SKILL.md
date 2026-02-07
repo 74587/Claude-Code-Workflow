@@ -957,6 +957,10 @@ Final synthesis:
 
 ## Best Practices
 
+### Core Principles
+
+1. **Explicit user confirmation required before code modifications**: Any operation involving code changes (including but not limited to file creation, editing, or deletion) must first present the proposed changes to the user and obtain explicit approval before execution. The analysis phase is strictly read-only — no code modifications are permitted without user consent.
+
 ### Before Starting Analysis
 
 1. **Clear Topic Definition**: Detailed topics lead to better dimension identification

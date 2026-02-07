@@ -318,7 +318,7 @@ export function McpServerDialog({
               </SelectTrigger>
               <SelectContent>
                 {templates.length === 0 ? (
-                  <SelectItem value="" disabled>
+                  <SelectItem value="__empty__" disabled>
                     {formatMessage({ id: 'mcp.templates.empty.title' })}
                   </SelectItem>
                 ) : (

@@ -166,10 +166,7 @@ export type {
 // Flow Types
 export type {
   FlowNodeType,
-  SlashCommandNodeData,
-  FileOperationNodeData,
-  ConditionalNodeData,
-  ParallelNodeData,
+  PromptTemplateNodeData,
   NodeData,
   FlowNode,
   FlowEdge,

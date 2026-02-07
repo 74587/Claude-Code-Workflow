@@ -54,15 +54,12 @@ export function AppShell({
     const urlPath = searchParams.get('path');
     const persistedPath = projectPath; // Path from rehydrated store
 
-    let pathFound = false;
-
     // Priority 1: URL parameter.
     if (urlPath) {
       console.log('[AppShell] Initializing workspace from URL parameter:', urlPath);
       switchWorkspace(urlPath).catch((error) => {
         console.error('[AppShell] Failed to initialize from URL:', error);
       });
-      pathFound = true;
     }
     // Priority 2: Rehydrated path from localStorage.
     else if (persistedPath) {
@@ -71,7 +68,6 @@ export function AppShell({
       switchWorkspace(persistedPath).catch((error) => {
         console.error('[AppShell] Failed to re-initialize from persisted state:', error);
       });
-      pathFound = true;
     }
 
     // Mark as initialized regardless of whether a path was found.

@@ -116,7 +116,8 @@ export type {
 
 // JsonFormatter
 export { JsonFormatter } from './LogBlock/JsonFormatter';
-export type { JsonFormatterProps, JsonDisplayMode } from './LogBlock/JsonFormatter';
+export type { JsonFormatterProps } from './LogBlock/JsonFormatter';
+export type { JsonDisplayMode } from './LogBlock/jsonUtils';
 
 // JSON utilities
 export {
@@ -135,7 +136,6 @@ export type { RuleDialogProps } from './RuleDialog';
 
 // Tools and utility components
 export { ThemeSelector } from './ThemeSelector';
-export type { ThemeSelectorProps } from './ThemeSelector';
 
 export { IndexManager } from './IndexManager';
 export type { IndexManagerProps } from './IndexManager';

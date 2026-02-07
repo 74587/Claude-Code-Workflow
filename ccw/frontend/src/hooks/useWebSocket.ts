@@ -49,12 +49,12 @@ function getStoreState() {
   };
 }
 
-interface UseWebSocketOptions {
+export interface UseWebSocketOptions {
   enabled?: boolean;
   onMessage?: (message: OrchestratorWebSocketMessage) => void;
 }
 
-interface UseWebSocketReturn {
+export interface UseWebSocketReturn {
   isConnected: boolean;
   send: (message: unknown) => void;
   reconnect: () => void;

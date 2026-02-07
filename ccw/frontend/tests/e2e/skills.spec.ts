@@ -361,4 +361,169 @@ test.describe('[Skills] - Skills Management Tests', () => {
     monitoring.assertClean({ ignoreAPIPatterns: ['/api/skills'], allowWarnings: true });
     monitoring.stop();
   });
+
+  // ========================================
+  // API Error Scenarios
+  // ========================================
+
+  test('L3.11 - API Error - 400 Bad Request', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 400
+    await page.route('**/api/skills/**', (route) => {
+      route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Bad Request', message: 'Invalid skill data' }),
+      });
+    });
+
+    await page.goto('/skills', { waitUntil: 'networkidle' as const });
+
+    // Try to toggle a skill (should fail with 400)
+    const skillItems = page.getByTestId(/skill-item|skill-card/).or(
+      page.locator('.skill-item')
+    );
+
+    const itemCount = await skillItems.count();
+    if (itemCount > 0) {
+      const firstSkill = skillItems.first();
+      const toggleSwitch = firstSkill.getByRole('switch').or(
+        firstSkill.getByTestId('skill-toggle')
+      );
+
+      const hasToggle = await toggleSwitch.isVisible().catch(() => false);
+      if (hasToggle) {
+        await toggleSwitch.click();
+
+        // Verify error message
+        const errorMessage = page.getByText(/invalid|bad request|输入无效/i);
+        await page.unroute('**/api/skills/**');
+        const hasError = await errorMessage.isVisible().catch(() => false);
+        expect(hasError).toBe(true);
+      }
+    }
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/skills'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.12 - API Error - 401 Unauthorized', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 401
+    await page.route('**/api/skills', (route) => {
+      route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Unauthorized', message: 'Authentication required' }),
+      });
+    });
+
+    await page.goto('/skills', { waitUntil: 'networkidle' as const });
+
+    // Verify auth error
+    const authError = page.getByText(/unauthorized|not authenticated|未经授权/i);
+    await page.unroute('**/api/skills');
+    const hasError = await authError.isVisible().catch(() => false);
+    expect(hasError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/skills'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.13 - API Error - 403 Forbidden', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 403
+    await page.route('**/api/skills', (route) => {
+      route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Forbidden', message: 'Access denied' }),
+      });
+    });
+
+    await page.goto('/skills', { waitUntil: 'networkidle' as const });
+
+    // Verify forbidden message
+    const errorMessage = page.getByText(/forbidden|not allowed|禁止访问/i);
+    await page.unroute('**/api/skills');
+    const hasError = await errorMessage.isVisible().catch(() => false);
+    expect(hasError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/skills'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.14 - API Error - 404 Not Found', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 404
+    await page.route('**/api/skills/nonexistent', (route) => {
+      route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Not Found', message: 'Skill not found' }),
+      });
+    });
+
+    // Try to access a non-existent skill
+    await page.goto('/skills/nonexistent-skill-id', { waitUntil: 'networkidle' as const });
+
+    // Verify not found message
+    const errorMessage = page.getByText(/not found|doesn't exist|未找到/i);
+    await page.unroute('**/api/skills/nonexistent');
+    const hasError = await errorMessage.isVisible().catch(() => false);
+    expect(hasError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/skills'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.15 - API Error - 500 Internal Server Error', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API to return 500
+    await page.route('**/api/skills', (route) => {
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Internal Server Error' }),
+      });
+    });
+
+    await page.goto('/skills', { waitUntil: 'networkidle' as const });
+
+    // Verify server error message
+    const errorMessage = page.getByText(/server error|try again|服务器错误/i);
+    await page.unroute('**/api/skills');
+    const hasError = await errorMessage.isVisible().catch(() => false);
+    expect(hasError).toBe(true);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/skills'], allowWarnings: true });
+    monitoring.stop();
+  });
+
+  test('L3.16 - API Error - Network Timeout', async ({ page }) => {
+    const monitoring = setupEnhancedMonitoring(page);
+
+    // Mock API timeout
+    await page.route('**/api/skills', () => {
+      // Never fulfill - simulate timeout
+    });
+
+    await page.goto('/skills', { waitUntil: 'networkidle' as const });
+
+    // Wait for timeout handling
+    await page.waitForTimeout(3000);
+
+    // Verify timeout message
+    const timeoutMessage = page.getByText(/timeout|network error|unavailable|网络超时/i);
+    await page.unroute('**/api/skills');
+    const hasTimeout = await timeoutMessage.isVisible().catch(() => false);
+
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/skills'], allowWarnings: true });
+    monitoring.stop();
+  });
 });

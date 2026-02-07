@@ -29,9 +29,12 @@ export async function switchLanguageAndVerify(
   await expectToBeVisible(targetOption);
   await targetOption.click();
 
-  // Wait for language change to take effect
-  // Note: Using hardcoded wait as per existing pattern - should be improved in future
-  await page.waitForTimeout(500);
+  // Wait for HTML lang attribute update (explicit wait instead of timeout)
+  await page.waitForFunction(
+    (expectedLocale) => document.documentElement.lang === expectedLocale,
+    locale,
+    { timeout: 5000 }
+  );
 
   // Verify the switcher text content is updated
   const expectedText = locale === 'zh' ? '中文' : 'English';
