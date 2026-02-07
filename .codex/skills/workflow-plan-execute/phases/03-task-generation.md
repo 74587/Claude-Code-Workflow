@@ -1,4 +1,4 @@
-# Phase 4: Task Generation
+# Phase 3: Task Generation
 
 Generate implementation plan documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) using action-planning-agent - produces planning artifacts, does NOT execute code implementation.
 
@@ -10,7 +10,7 @@ When `--yes` or `-y`: Skip user questions, use defaults (no materials, Agent exe
 
 - **Planning Only**: Generate planning documents (IMPL_PLAN.md, task JSONs, TODO_LIST.md) - does NOT implement code
 - **Agent-Driven Document Generation**: Delegate plan generation to action-planning-agent
-- **NO Redundant Context Sorting**: Context priority sorting is ALREADY completed in context-gather Phase 2/3
+- **NO Redundant Context Sorting**: Context priority sorting is ALREADY completed in context-gather Phase 2
   - Use `context-package.json.prioritized_context` directly
   - DO NOT re-sort files or re-compute priorities
   - `priority_tiers` and `dependency_order` are pre-computed and ready-to-use
@@ -164,7 +164,7 @@ const userConfig = {
 
 ### Phase 1: Context Preparation & Module Detection (Command Responsibility)
 
-**Command prepares session paths, metadata, detects module structure. Context priority sorting is NOT performed here - it's already completed in context-gather Phase 2/3.**
+**Command prepares session paths, metadata, detects module structure. Context priority sorting is NOT performed here - it's already completed in context-gather Phase 2.**
 
 **Session Path Structure**:
 ```
@@ -259,13 +259,13 @@ IMPORTANT: This is PLANNING ONLY - you are generating planning documents, NOT im
 
 CRITICAL: Follow the progressive loading strategy defined in agent specification (load analysis.md files incrementally due to file size)
 
-## PLANNING NOTES (PHASE 1-3 CONTEXT)
+## PLANNING NOTES (PHASE 1-2 CONTEXT)
 Load: .workflow/active/${session_id}/planning-notes.md
 
 This document contains:
 - User Intent: Original GOAL and KEY_CONSTRAINTS from Phase 1
 - Context Findings: Critical files, architecture, and constraints from Phase 2
-- Conflict Decisions: Resolved conflicts and planning constraints from Phase 3
+- Conflict Decisions: Resolved conflicts and planning constraints from Phase 2
 - Consolidated Constraints: All constraints from all phases
 
 **USAGE**: Read planning-notes.md FIRST. Use Consolidated Constraints list to guide task sequencing and dependencies.
@@ -310,7 +310,7 @@ Based on userConfig.executionMethod, set task-level meta.execution_config:
 IMPORTANT: Do NOT add command field to implementation_approach steps. Execution routing is controlled by task-level meta.execution_config.method only.
 
 ## PRIORITIZED CONTEXT (from context-package.prioritized_context) - ALREADY SORTED
-Context sorting is ALREADY COMPLETED in context-gather Phase 2/3. DO NOT re-sort.
+Context sorting is ALREADY COMPLETED in context-gather Phase 2. DO NOT re-sort.
 Direct usage:
 - **user_intent**: Use goal/scope/key_constraints for task alignment
 - **priority_tiers.critical**: These files are PRIMARY focus for task generation
@@ -396,11 +396,11 @@ After completing, update planning-notes.md:
 
 **File**: .workflow/active/${session_id}/planning-notes.md
 
-1. **Task Generation (Phase 4)**: Task count and key tasks
+1. **Task Generation (Phase 3)**: Task count and key tasks
 2. **N+1 Context**: Key decisions (with rationale) + deferred items
 
 \`\`\`markdown
-## Task Generation (Phase 4)
+## Task Generation (Phase 3)
 ### [Action-Planning Agent] YYYY-MM-DD
 - **Tasks**: [count] ([IDs])
 
@@ -459,7 +459,7 @@ IMPORTANT: Generate Task JSONs ONLY. IMPL_PLAN.md and TODO_LIST.md by Phase 3 Co
 
 CRITICAL: Follow the progressive loading strategy defined in agent specification (load analysis.md files incrementally due to file size)
 
-## PLANNING NOTES (PHASE 1-3 CONTEXT)
+## PLANNING NOTES (PHASE 1-2 CONTEXT)
 Load: .workflow/active/${session_id}/planning-notes.md
 
 This document contains consolidated constraints and user intent to guide module-scoped task generation.
@@ -509,7 +509,7 @@ Based on userConfig.executionMethod, set task-level meta.execution_config:
 IMPORTANT: Do NOT add command field to implementation_approach steps. Execution routing is controlled by task-level meta.execution_config.method only.
 
 ## PRIORITIZED CONTEXT (from context-package.prioritized_context) - ALREADY SORTED
-Context sorting is ALREADY COMPLETED in context-gather Phase 2/3. DO NOT re-sort.
+Context sorting is ALREADY COMPLETED in context-gather Phase 2. DO NOT re-sort.
 Filter by module scope (${module.paths.join(', ')}):
 - **user_intent**: Use for task alignment within module
 - **priority_tiers.critical**: Filter for files in ${module.paths.join(', ')} → PRIMARY focus
@@ -750,7 +750,7 @@ function resolveCrossModuleDependency(placeholder, allTasks) {
 
 ## Next Step
 
-Return to orchestrator. Present user with action choices:
+Return to orchestrator. Present user with action choices (or auto-continue if `--yes`):
 1. Verify Plan Quality (Recommended) → `workflow:plan-verify`
-2. Start Execution → `workflow:execute`
+2. Start Execution → Phase 4 (phases/04-execution.md)
 3. Review Status Only → `workflow:status`

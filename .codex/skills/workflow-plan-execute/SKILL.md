@@ -1,32 +1,32 @@
 ---
 name: workflow-plan
-description: 5-phase planning workflow with action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs. Triggers on "workflow:plan".
+description: 4-phase planning+execution workflow with action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs, optional Phase 4 execution. Triggers on "workflow:plan".
 allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Workflow Plan
 
-5-phase planning workflow that orchestrates session discovery, context gathering, conflict resolution, and task generation to produce implementation plans (IMPL_PLAN.md, task JSONs, TODO_LIST.md).
+4-phase workflow that orchestrates session discovery, context gathering (with inline conflict resolution), task generation, and conditional execution to produce and implement plans (IMPL_PLAN.md, task JSONs, TODO_LIST.md).
 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Workflow Plan Orchestrator (SKILL.md)                           │
-│  → Pure coordinator: Execute phases, parse outputs, pass context │
-└───────────────┬─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  Workflow Plan Orchestrator (SKILL.md)                                │
+│  → Pure coordinator: Execute phases, parse outputs, pass context     │
+└───────────────┬──────────────────────────────────────────────────────┘
                 │
     ┌───────────┼───────────┬───────────┬───────────┐
     ↓           ↓           ↓           ↓           ↓
-┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
-│ Phase 1 │ │ Phase 2 │ │ Phase 3 │ │Phase 3.5│ │ Phase 4 │
-│ Session │ │ Context │ │Conflict │ │  Gate   │ │  Task   │
-│Discovery│ │ Gather  │ │Resolve  │ │(Optional)│ │Generate │
-└─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘
-     ↓           ↓           ↓                       ↓
-  sessionId   contextPath  resolved             IMPL_PLAN.md
-              conflict_risk artifacts            task JSONs
-                                                 TODO_LIST.md
+┌─────────┐ ┌──────────────────┐ ┌─────────┐ ┌─────────┐
+│ Phase 1 │ │     Phase 2      │ │ Phase 3 │ │ Phase 4 │
+│ Session │ │ Context Gather   │ │  Task   │ │Execute  │
+│Discovery│ │& Conflict Resolve│ │Generate │ │(optional)│
+└─────────┘ └──────────────────┘ └─────────┘ └─────────┘
+     ↓              ↓                  ↓           ↓
+  sessionId     contextPath       IMPL_PLAN.md  summaries
+                conflict_risk     task JSONs    completed
+                resolved          TODO_LIST.md  tasks
 ```
 
 ## Key Design Principles
@@ -35,12 +35,14 @@ allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read
 2. **Auto-Continue**: All phases run autonomously without user intervention between phases
 3. **Subagent Lifecycle**: Explicit lifecycle management with spawn_agent → wait → close_agent
 4. **Progressive Phase Loading**: Phase docs are read on-demand, not all at once
-5. **Conditional Execution**: Phase 3 only executes when conflict_risk >= medium
+5. **Inline Conflict Resolution**: Conflicts detected and resolved within Phase 2 (not a separate phase)
 6. **Role Path Loading**: Subagent roles loaded via path reference in MANDATORY FIRST STEPS
 
 ## Auto Mode
 
-When `--yes` or `-y`: Auto-continue all phases (skip confirmations), use recommended conflict resolutions.
+When `--yes` or `-y`: Auto-continue all phases (skip confirmations), use recommended conflict resolutions, auto-execute Phase 4.
+
+When `--with-commit`: Auto-commit after each task completion in Phase 4.
 
 ## Execution Flow
 
@@ -52,24 +54,27 @@ Phase 1: Session Discovery
    └─ Ref: phases/01-session-discovery.md
       └─ Output: sessionId (WFS-xxx)
 
-Phase 2: Context Gathering
+Phase 2: Context Gathering & Conflict Resolution
    └─ Ref: phases/02-context-gathering.md
-      ├─ Tasks attached: Analyze structure → Identify integration → Generate package
-      └─ Output: contextPath + conflict_risk
+      ├─ Step 1: Context-Package Detection
+      ├─ Step 2: Complexity Assessment & Parallel Explore (conflict-aware)
+      ├─ Step 3: Inline Conflict Resolution (conditional, if significant conflicts)
+      ├─ Step 4: Invoke Context-Search Agent (with exploration + conflict results)
+      ├─ Step 5: Output Verification
+      └─ Output: contextPath + conflict_risk + optional conflict-resolution.json
 
-Phase 3: Conflict Resolution
-   └─ Decision (conflict_risk check):
-      ├─ conflict_risk ≥ medium → Ref: phases/03-conflict-resolution.md
-      │   ├─ Tasks attached: Detect conflicts → Present to user → Apply strategies
-      │   └─ Output: Modified brainstorm artifacts
-      └─ conflict_risk < medium → Skip to Phase 4
-
-Phase 4: Task Generation
-   └─ Ref: phases/04-task-generation.md
+Phase 3: Task Generation
+   └─ Ref: phases/03-task-generation.md
       └─ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
 
-Return:
-   └─ Summary with recommended next steps
+User Decision (or --yes auto):
+   └─ "Start Execution" → Phase 4
+   └─ "Verify Plan Quality" → workflow:plan-verify
+   └─ "Review Status Only" → workflow:status
+
+Phase 4: Execution (Conditional)
+   └─ Ref: phases/04-execution.md
+      └─ Output: completed tasks, summaries, session completion
 ```
 
 **Phase Reference Documents** (read on-demand when phase executes):
@@ -77,9 +82,9 @@ Return:
 | Phase | Document | Purpose |
 |-------|----------|---------|
 | 1 | [phases/01-session-discovery.md](phases/01-session-discovery.md) | Session creation/discovery with intelligent session management |
-| 2 | [phases/02-context-gathering.md](phases/02-context-gathering.md) | Project context collection via context-search-agent |
-| 3 | [phases/03-conflict-resolution.md](phases/03-conflict-resolution.md) | Conflict detection and resolution with CLI analysis |
-| 4 | [phases/04-task-generation.md](phases/04-task-generation.md) | Implementation plan and task JSON generation |
+| 2 | [phases/02-context-gathering.md](phases/02-context-gathering.md) | Context collection + inline conflict resolution |
+| 3 | [phases/03-task-generation.md](phases/03-task-generation.md) | Implementation plan and task JSON generation |
+| 4 | [phases/04-execution.md](phases/04-execution.md) | Task execution (conditional, triggered by user or --yes) |
 
 ## Core Rules
 
@@ -199,26 +204,29 @@ Phase 1: session:start --auto "structured-description"
     ↓
 Phase 2: context-gather --session sessionId "structured-description"
     ↓ Input: sessionId + structured description
-    ↓ Output: contextPath (context-package.json with prioritized_context) + conflict_risk
-    ↓ Update: planning-notes.md (Context Findings + Consolidated Constraints)
+    ↓ Step 2: Parallel exploration (with conflict detection)
+    ↓ Step 3: Inline conflict resolution (if significant conflicts detected)
+    ↓ Step 4: Context-search-agent packaging
+    ↓ Output: contextPath (context-package.json with prioritized_context)
+    ↓         + optional conflict-resolution.json
+    ↓ Update: planning-notes.md (Context Findings + Conflict Decisions + Consolidated Constraints)
     ↓
-Phase 3: conflict-resolution [AUTO-TRIGGERED if conflict_risk ≥ medium]
-    ↓ Input: sessionId + contextPath + conflict_risk
-    ↓ Output: Modified brainstorm artifacts
-    ↓ Update: planning-notes.md (Conflict Decisions + Consolidated Constraints)
-    ↓ Skip if conflict_risk is none/low → proceed directly to Phase 4
-    ↓
-Phase 4: task-generate-agent --session sessionId
+Phase 3: task-generate-agent --session sessionId
     ↓ Input: sessionId + planning-notes.md + context-package.json + brainstorm artifacts
     ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
     ↓
-Return summary to user
+User Decision: "Start Execution" / --yes auto
+    ↓
+Phase 4: Execute tasks (conditional)
+    ↓ Input: sessionId + IMPL_PLAN.md + TODO_LIST.md + .task/*.json
+    ↓ Loop: lazy load → spawn_agent → wait → close_agent → commit (optional)
+    ↓ Output: completed tasks, summaries, session completion
 ```
 
 **Session Memory Flow**: Each phase receives session ID, which provides access to:
 - Previous task summaries
 - Existing context and analysis
-- Brainstorming artifacts (potentially modified by Phase 3)
+- Brainstorming artifacts (potentially modified by Phase 2 conflict resolution)
 - Session-specific configuration
 
 ## TodoWrite Pattern
@@ -229,15 +237,15 @@ Return summary to user
 
 1. **Task Attachment** (when phase executed):
    - Sub-command's internal tasks are **attached** to orchestrator's TodoWrite
-   - **Phase 2, 3**: Multiple sub-tasks attached (e.g., Phase 2.1, 2.2, 2.3)
-   - **Phase 4**: Single agent task attached
+   - **Phase 2**: Multiple sub-tasks attached (e.g., explore, conflict resolution, context packaging)
+   - **Phase 3**: Single agent task attached
    - First attached task marked as `in_progress`, others as `pending`
    - Orchestrator **executes** these attached tasks sequentially
 
 2. **Task Collapse** (after sub-tasks complete):
-   - **Applies to Phase 2, 3**: Remove detailed sub-tasks from TodoWrite
+   - **Applies to Phase 2**: Remove detailed sub-tasks from TodoWrite
    - **Collapse** to high-level phase summary
-   - **Phase 4**: No collapse needed (single task, just mark completed)
+   - **Phase 3**: No collapse needed (single task, just mark completed)
    - Maintains clean orchestrator-level view
 
 3. **Continuous Execution**:
@@ -253,11 +261,11 @@ Return summary to user
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed"},
-  {"content": "Phase 2: Context Gathering", "status": "in_progress"},
-  {"content": "  → Analyze codebase structure", "status": "in_progress"},
-  {"content": "  → Identify integration points", "status": "pending"},
-  {"content": "  → Generate context package", "status": "pending"},
-  {"content": "Phase 4: Task Generation", "status": "pending"}
+  {"content": "Phase 2: Context Gathering & Conflict Resolution", "status": "in_progress"},
+  {"content": "  → Parallel exploration (conflict-aware)", "status": "in_progress"},
+  {"content": "  → Inline conflict resolution (if needed)", "status": "pending"},
+  {"content": "  → Context-search-agent packaging", "status": "pending"},
+  {"content": "Phase 3: Task Generation", "status": "pending"}
 ]
 ```
 
@@ -265,21 +273,21 @@ Return summary to user
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed"},
-  {"content": "Phase 2: Context Gathering", "status": "completed"},
-  {"content": "Phase 4: Task Generation", "status": "pending"}
+  {"content": "Phase 2: Context Gathering & Conflict Resolution", "status": "completed"},
+  {"content": "Phase 3: Task Generation", "status": "pending"}
 ]
 ```
 
-### Phase 3 (Conditional, Tasks Attached):
+### Phase 4 (Tasks Attached, conditional):
 ```json
 [
   {"content": "Phase 1: Session Discovery", "status": "completed"},
-  {"content": "Phase 2: Context Gathering", "status": "completed"},
-  {"content": "Phase 3: Conflict Resolution", "status": "in_progress"},
-  {"content": "  → Detect conflicts with CLI analysis", "status": "in_progress"},
-  {"content": "  → Present conflicts to user", "status": "pending"},
-  {"content": "  → Apply resolution strategies", "status": "pending"},
-  {"content": "Phase 4: Task Generation", "status": "pending"}
+  {"content": "Phase 2: Context Gathering & Conflict Resolution", "status": "completed"},
+  {"content": "Phase 3: Task Generation", "status": "completed"},
+  {"content": "Phase 4: Execution", "status": "in_progress"},
+  {"content": "  → IMPL-1: [task title]", "status": "in_progress"},
+  {"content": "  → IMPL-2: [task title]", "status": "pending"},
+  {"content": "  → IMPL-3: [task title]", "status": "pending"}
 ]
 ```
 
@@ -303,15 +311,15 @@ After Phase 1, create `planning-notes.md` with this structure:
 ## Context Findings (Phase 2)
 (To be filled by context-gather)
 
-## Conflict Decisions (Phase 3)
+## Conflict Decisions (Phase 2)
 (To be filled if conflicts detected)
 
-## Consolidated Constraints (Phase 4 Input)
+## Consolidated Constraints (Phase 3 Input)
 1. ${userConstraints}
 
 ---
 
-## Task Generation (Phase 4)
+## Task Generation (Phase 3)
 (To be filled by action-planning-agent)
 
 ## N+1 Context
@@ -329,52 +337,57 @@ After Phase 1, create `planning-notes.md` with this structure:
 
 Read context-package to extract key findings, update planning-notes.md:
 - `Context Findings (Phase 2)`: CRITICAL_FILES, ARCHITECTURE, CONFLICT_RISK, CONSTRAINTS
-- `Consolidated Constraints`: Append Phase 2 constraints
-
-### After Phase 3
-
-If executed, read conflict-resolution.json, update planning-notes.md:
-- `Conflict Decisions (Phase 3)`: RESOLVED, MODIFIED_ARTIFACTS, CONSTRAINTS
-- `Consolidated Constraints`: Append Phase 3 planning constraints
+- `Conflict Decisions (Phase 2)`: RESOLVED, CUSTOM_HANDLING, CONSTRAINTS (if conflicts were resolved inline)
+- `Consolidated Constraints`: Append Phase 2 constraints (context + conflict)
 
 ### Memory State Check
 
-After Phase 3, evaluate context window usage. If memory usage is high (>120K tokens):
+After Phase 2, evaluate context window usage. If memory usage is high (>120K tokens):
 ```javascript
 // Codex: Use compact command if available
 codex compact
 ```
 
-## Phase 4 User Decision
+## Phase 3 User Decision
 
-After Phase 4 completes, present user with action choices:
+After Phase 3 completes, present user with action choices.
+
+**Auto Mode** (`--yes`): Skip user decision, directly enter Phase 4 (Execution).
 
 ```javascript
-AskUserQuestion({
-  questions: [{
-    question: "Planning complete. What would you like to do next?",
-    header: "Next Action",
-    multiSelect: false,
-    options: [
-      {
-        label: "Verify Plan Quality (Recommended)",
-        description: "Run quality verification to catch issues before execution."
-      },
-      {
-        label: "Start Execution",
-        description: "Begin implementing tasks immediately."
-      },
-      {
-        label: "Review Status Only",
-        description: "View task breakdown and session status without taking further action."
-      }
-    ]
-  }]
-});
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+
+if (autoYes) {
+  // Auto mode: Skip decision, proceed to Phase 4
+  console.log(`[--yes] Auto-continuing to Phase 4: Execution`)
+  // Read phases/04-execution.md and execute Phase 4
+} else {
+  AskUserQuestion({
+    questions: [{
+      question: "Planning complete. What would you like to do next?",
+      header: "Next Action",
+      multiSelect: false,
+      options: [
+        {
+          label: "Verify Plan Quality (Recommended)",
+          description: "Run quality verification to catch issues before execution."
+        },
+        {
+          label: "Start Execution",
+          description: "Begin implementing tasks immediately (Phase 4)."
+        },
+        {
+          label: "Review Status Only",
+          description: "View task breakdown and session status without taking further action."
+        }
+      ]
+    }]
+  });
+}
 
 // Execute based on user choice
 // "Verify Plan Quality" → workflow:plan-verify --session sessionId
-// "Start Execution" → workflow:execute --session sessionId
+// "Start Execution" → Read phases/04-execution.md, execute Phase 4 inline
 // "Review Status Only" → workflow:status --session sessionId
 ```
 
@@ -388,16 +401,18 @@ AskUserQuestion({
 ## Coordinator Checklist
 
 - **Pre-Phase**: Convert user input to structured format (GOAL/SCOPE/CONTEXT)
-- Initialize TodoWrite before any command (Phase 3 added dynamically after Phase 2)
+- Parse flags: `--yes`, `--with-commit`
+- Initialize TodoWrite before any command
 - Execute Phase 1 immediately with structured description
 - Parse session ID from Phase 1 output, store in memory
 - Pass session ID and structured description to Phase 2 command
 - Parse context path from Phase 2 output, store in memory
-- **Extract conflict_risk from context-package.json**: Determine Phase 3 execution
-- **If conflict_risk >= medium**: Launch Phase 3 with sessionId and contextPath
-- **If conflict_risk is none/low**: Skip Phase 3, proceed directly to Phase 4
-- **Build Phase 4 command**: workflow:tools:task-generate-agent --session [sessionId]
-- Verify all Phase 4 outputs
+- **Phase 2 handles conflict resolution inline** (no separate Phase 3 decision needed)
+- **Build Phase 3 command**: workflow:tools:task-generate-agent --session [sessionId]
+- Verify all Phase 3 outputs
+- **Phase 3 User Decision**: Present choices or auto-continue if `--yes`
+- **Phase 4 (conditional)**: If user selects "Start Execution" or `--yes`, read phases/04-execution.md and execute
+- Pass `--with-commit` flag to Phase 4 if present
 - Update TodoWrite after each phase
 - After each phase, automatically continue to next phase based on TodoList status
 - **Always close_agent after wait completes**
@@ -411,4 +426,4 @@ AskUserQuestion({
 **Follow-up Commands**:
 - `workflow:plan-verify` - Recommended: Verify plan quality before execution
 - `workflow:status` - Review task breakdown and current progress
-- `workflow:execute` - Begin implementation of generated tasks
+- `workflow:execute` - Begin implementation (also available via Phase 4 inline execution)

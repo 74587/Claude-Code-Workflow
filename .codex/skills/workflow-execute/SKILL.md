@@ -8,6 +8,8 @@ allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read
 
 Orchestrates autonomous workflow execution through systematic task discovery, agent coordination, and progress tracking. **Executes entire workflow without user interruption** (except initial session selection if multiple active sessions exist), providing complete context to agents and ensuring proper flow control execution with comprehensive TodoWrite tracking.
 
+**Also available as**: `workflow:plan` Phase 4 — when running `workflow:plan` with `--yes` or selecting "Start Execution" after Phase 3, the core execution logic runs inline without needing a separate `workflow:execute` call. Use this standalone command for `--resume-session` scenarios or when invoking execution independently.
+
 **Resume Mode**: When called with `--resume-session` flag, skips discovery phase and directly enters TodoWrite generation and agent execution for the specified session.
 
 ## Architecture Overview

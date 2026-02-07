@@ -95,15 +95,15 @@ Write(planningNotesPath, `# Planning Notes
 ## Context Findings (Phase 2)
 (To be filled by context-gather)
 
-## Conflict Decisions (Phase 3)
+## Conflict Decisions (Phase 2)
 (To be filled if conflicts detected)
 
-## Consolidated Constraints (Phase 4 Input)
+## Consolidated Constraints (Phase 3 Input)
 1. ${userConstraints}
 
 ---
 
-## Task Generation (Phase 4)
+## Task Generation (Phase 3)
 (To be filled by action-planning-agent)
 
 ## N+1 Context
