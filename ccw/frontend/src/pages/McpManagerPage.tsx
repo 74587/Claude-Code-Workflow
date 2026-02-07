@@ -20,6 +20,7 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
+  BookmarkPlus,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -29,20 +30,21 @@ import { McpServerDialog } from '@/components/mcp/McpServerDialog';
 import { CliModeToggle, type CliMode } from '@/components/mcp/CliModeToggle';
 import { CodexMcpEditableCard } from '@/components/mcp/CodexMcpEditableCard';
 import { CcwToolsMcpCard } from '@/components/mcp/CcwToolsMcpCard';
-import { McpTemplatesSection } from '@/components/mcp/McpTemplatesSection';
+import { McpTemplatesSection, TemplateSaveDialog } from '@/components/mcp/McpTemplatesSection';
 import { RecommendedMcpSection } from '@/components/mcp/RecommendedMcpSection';
 import { WindowsCompatibilityWarning } from '@/components/mcp/WindowsCompatibilityWarning';
 import { CrossCliCopyButton } from '@/components/mcp/CrossCliCopyButton';
 import { AllProjectsTable } from '@/components/mcp/AllProjectsTable';
 import { OtherProjectsSection } from '@/components/mcp/OtherProjectsSection';
 import { TabsNavigation } from '@/components/ui/TabsNavigation';
-import { useMcpServers, useMcpServerMutations } from '@/hooks';
+import { useMcpServers, useMcpServerMutations, useNotifications } from '@/hooks';
 import {
   fetchCodexMcpServers,
   fetchCcwMcpConfig,
   updateCcwConfig,
   codexRemoveServer,
   codexToggleServer,
+  saveMcpTemplate,
   type McpServer,
   type CcwMcpConfig,
 } from '@/lib/api';
@@ -57,9 +59,10 @@ interface McpServerCardProps {
   onToggle: (serverName: string, enabled: boolean) => void;
   onEdit: (server: McpServer) => void;
   onDelete: (server: McpServer) => void;
+  onSaveAsTemplate: (server: McpServer) => void;
 }
 
-function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, onDelete }: McpServerCardProps) {
+function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, onDelete, onSaveAsTemplate }: McpServerCardProps) {
   const { formatMessage } = useIntl();
 
   return (
@@ -114,6 +117,18 @@ function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, o
               }}
             >
               {server.enabled ? <Power className="w-4 h-4 text-green-600" /> : <PowerOff className="w-4 h-4" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSaveAsTemplate(server);
+              }}
+              title={formatMessage({ id: 'mcp.templates.actions.saveAsTemplate' })}
+            >
+              <BookmarkPlus className="w-4 h-4 text-primary" />
             </Button>
             <Button
               variant="ghost"
@@ -206,6 +221,10 @@ export function McpManagerPage() {
   const [editingServer, setEditingServer] = useState<McpServer | undefined>(undefined);
   const [cliMode, setCliMode] = useState<CliMode>('claude');
   const [codexExpandedServers, setCodexExpandedServers] = useState<Set<string>>(new Set());
+  const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
+  const [serverToSaveAsTemplate, setServerToSaveAsTemplate] = useState<McpServer | undefined>(undefined);
+
+  const notifications = useNotifications();
 
   const {
     servers,
@@ -269,9 +288,22 @@ export function McpManagerPage() {
     toggleServer(serverName, enabled);
   };
 
-  const handleDelete = (server: McpServer) => {
+  const handleDelete = async (server: McpServer) => {
     if (confirm(formatMessage({ id: 'mcp.deleteConfirm' }, { name: server.name }))) {
-      deleteServer(server.name, server.scope);
+      try {
+        await deleteServer(server.name, server.scope);
+        notifications.success(
+          formatMessage({ id: 'mcp.actions.delete' }),
+          server.name
+        );
+        refetch();
+      } catch (error) {
+        console.error('Failed to delete MCP server:', error);
+        notifications.error(
+          formatMessage({ id: 'mcp.actions.delete' }),
+          error instanceof Error ? error.message : String(error)
+        );
+      }
     }
   };
 
@@ -339,19 +371,64 @@ export function McpManagerPage() {
     setDialogOpen(true);
   };
 
-  const handleSaveAsTemplate = (serverName: string, config: { command: string; args: string[] }) => {
-    // This would open a dialog to save current server as template
-    // For now, just log it
-    console.log('Save as template:', serverName, config);
+  const handleSaveServerAsTemplate = (server: McpServer) => {
+    setServerToSaveAsTemplate(server);
+    setSaveTemplateDialogOpen(true);
+  };
+
+  const handleSaveAsTemplate = async (
+    name: string,
+    category: string,
+    description: string,
+    serverConfig: { command: string; args: string[]; env: Record<string, string> },
+  ) => {
+    try {
+      const result = await saveMcpTemplate({
+        name,
+        description: description || undefined,
+        category: category || 'custom',
+        serverConfig: {
+          command: serverConfig.command,
+          args: serverConfig.args.length > 0 ? serverConfig.args : undefined,
+          env: Object.keys(serverConfig.env).length > 0 ? serverConfig.env : undefined,
+        },
+      });
+      if (result.success) {
+        notifications.success(
+          formatMessage({ id: 'mcp.templates.feedback.saveSuccess' }),
+          name
+        );
+        setSaveTemplateDialogOpen(false);
+        setServerToSaveAsTemplate(undefined);
+      } else {
+        notifications.error(
+          formatMessage({ id: 'mcp.templates.feedback.saveError' }),
+          result.error || ''
+        );
+      }
+    } catch (error) {
+      notifications.error(
+        formatMessage({ id: 'mcp.templates.feedback.saveError' }),
+        error instanceof Error ? error.message : String(error)
+      );
+    }
   };
 
   // Codex MCP handlers
   const handleCodexRemove = async (serverName: string) => {
     try {
       await codexRemoveServer(serverName);
+      notifications.success(
+        formatMessage({ id: 'mcp.actions.delete' }),
+        serverName
+      );
       codexQuery.refetch();
     } catch (error) {
       console.error('Failed to remove Codex MCP server:', error);
+      notifications.error(
+        formatMessage({ id: 'mcp.actions.delete' }),
+        error instanceof Error ? error.message : String(error)
+      );
     }
   };
 
@@ -592,6 +669,7 @@ export function McpManagerPage() {
                 onToggle={handleToggle}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onSaveAsTemplate={handleSaveServerAsTemplate}
               />
             )
           ))}
@@ -646,6 +724,20 @@ export function McpManagerPage() {
           onSave={handleDialogSave}
         />
       )}
+
+      {/* Save as Template Dialog */}
+      <TemplateSaveDialog
+        open={saveTemplateDialogOpen}
+        onClose={() => {
+          setSaveTemplateDialogOpen(false);
+          setServerToSaveAsTemplate(undefined);
+        }}
+        onSave={handleSaveAsTemplate}
+        defaultName={serverToSaveAsTemplate?.name}
+        defaultCommand={serverToSaveAsTemplate?.command}
+        defaultArgs={serverToSaveAsTemplate?.args}
+        defaultEnv={serverToSaveAsTemplate?.env as Record<string, string>}
+      />
     </div>
   );
 }

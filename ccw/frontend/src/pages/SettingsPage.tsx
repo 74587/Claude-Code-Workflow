@@ -18,6 +18,10 @@ import {
   ChevronUp,
   Languages,
   Plus,
+  MessageSquareText,
+  Monitor,
+  Terminal,
+  AlertTriangle,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -29,6 +33,17 @@ import { useConfigStore, selectCliTools, selectDefaultCliTool, selectUserPrefere
 import type { CliToolConfig, UserPreferences } from '@/types/store';
 import { cn } from '@/lib/utils';
 import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher';
+import {
+  useChineseResponseStatus,
+  useToggleChineseResponse,
+  useWindowsPlatformStatus,
+  useToggleWindowsPlatform,
+  useCodexCliEnhancementStatus,
+  useToggleCodexCliEnhancement,
+  useRefreshCodexCliEnhancement,
+  useCcwInstallStatus,
+  useCliToolStatus,
+} from '@/hooks/useSystemSettings';
 
 // ========== CLI Tool Card Component ==========
 
@@ -37,6 +52,7 @@ interface CliToolCardProps {
   config: CliToolConfig;
   isDefault: boolean;
   isExpanded: boolean;
+  toolAvailable?: boolean;
   onToggleExpand: () => void;
   onToggleEnabled: () => void;
   onSetDefault: () => void;
@@ -51,6 +67,7 @@ function CliToolCard({
   config,
   isDefault,
   isExpanded,
+  toolAvailable,
   onToggleExpand,
   onToggleEnabled,
   onSetDefault,
@@ -125,6 +142,12 @@ function CliToolCard({
                   <Badge variant="default" className="text-xs">{formatMessage({ id: 'settings.cliTools.default' })}</Badge>
                 )}
                 <Badge variant="outline" className="text-xs">{config.type}</Badge>
+                {toolAvailable !== undefined && (
+                  <span className={cn(
+                    'inline-block w-2 h-2 rounded-full',
+                    toolAvailable ? 'bg-green-500' : 'bg-red-400'
+                  )} title={toolAvailable ? 'Available' : 'Unavailable'} />
+                )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {config.primaryModel}
@@ -345,6 +368,266 @@ function CliToolCard({
   );
 }
 
+// ========== Response Language Section ==========
+
+function ResponseLanguageSection() {
+  const { formatMessage } = useIntl();
+  const { data: chineseStatus, isLoading: chineseLoading } = useChineseResponseStatus();
+  const { toggle: toggleChinese, isPending: chineseToggling } = useToggleChineseResponse();
+  const { data: windowsStatus, isLoading: windowsLoading } = useWindowsPlatformStatus();
+  const { toggle: toggleWindows, isPending: windowsToggling } = useToggleWindowsPlatform();
+  const { data: cliEnhStatus, isLoading: cliEnhLoading } = useCodexCliEnhancementStatus();
+  const { toggle: toggleCliEnh, isPending: cliEnhToggling } = useToggleCodexCliEnhancement();
+  const { refresh: refreshCliEnh, isPending: refreshing } = useRefreshCodexCliEnhancement();
+
+  return (
+    <Card className="p-6">
+      <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
+        <MessageSquareText className="w-5 h-5" />
+        {formatMessage({ id: 'settings.sections.responseLanguage' })}
+      </h2>
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Chinese Response - Claude */}
+        <div className="rounded-lg border border-border p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{formatMessage({ id: 'settings.responseLanguage.chineseClaude' })}</span>
+              <Badge variant="default" className="text-xs">Claude</Badge>
+            </div>
+            <Button
+              variant={chineseStatus?.claudeEnabled ? 'default' : 'outline'}
+              size="sm"
+              className="h-7"
+              disabled={chineseLoading || chineseToggling}
+              onClick={() => toggleChinese(!chineseStatus?.claudeEnabled, 'claude')}
+            >
+              {chineseStatus?.claudeEnabled
+                ? formatMessage({ id: 'settings.responseLanguage.enabled' })
+                : formatMessage({ id: 'settings.responseLanguage.disabled' })}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {formatMessage({ id: 'settings.responseLanguage.chineseClaudeDesc' })}
+          </p>
+        </div>
+
+        {/* Chinese Response - Codex */}
+        <div className="rounded-lg border border-border p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">{formatMessage({ id: 'settings.responseLanguage.chineseCodex' })}</span>
+              <Badge variant="secondary" className="text-xs">Codex</Badge>
+            </div>
+            <Button
+              variant={chineseStatus?.codexEnabled ? 'default' : 'outline'}
+              size="sm"
+              className="h-7"
+              disabled={chineseLoading || chineseToggling}
+              onClick={() => toggleChinese(!chineseStatus?.codexEnabled, 'codex')}
+            >
+              {chineseStatus?.codexEnabled
+                ? formatMessage({ id: 'settings.responseLanguage.enabled' })
+                : formatMessage({ id: 'settings.responseLanguage.disabled' })}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {formatMessage({ id: 'settings.responseLanguage.chineseCodexDesc' })}
+          </p>
+          {chineseStatus?.codexNeedsMigration && (
+            <p className="text-xs text-yellow-500">
+              <AlertTriangle className="w-3 h-3 inline mr-1" />
+              {formatMessage({ id: 'settings.responseLanguage.migrationWarning' })}
+            </p>
+          )}
+        </div>
+
+        {/* Windows Platform */}
+        <div className="rounded-lg border border-border p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Monitor className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{formatMessage({ id: 'settings.responseLanguage.windowsPlatform' })}</span>
+            </div>
+            <Button
+              variant={windowsStatus?.enabled ? 'default' : 'outline'}
+              size="sm"
+              className="h-7"
+              disabled={windowsLoading || windowsToggling}
+              onClick={() => toggleWindows(!windowsStatus?.enabled)}
+            >
+              {windowsStatus?.enabled
+                ? formatMessage({ id: 'settings.responseLanguage.enabled' })
+                : formatMessage({ id: 'settings.responseLanguage.disabled' })}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {formatMessage({ id: 'settings.responseLanguage.windowsPlatformDesc' })}
+          </p>
+        </div>
+
+        {/* CLI Enhancement - Codex */}
+        <div className="rounded-lg border border-border p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Terminal className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{formatMessage({ id: 'settings.responseLanguage.cliEnhancement' })}</span>
+              <Badge variant="secondary" className="text-xs">Codex</Badge>
+            </div>
+            <div className="flex items-center gap-1">
+              {cliEnhStatus?.enabled && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  disabled={cliEnhLoading || refreshing}
+                  onClick={() => refreshCliEnh()}
+                  title={formatMessage({ id: 'settings.responseLanguage.refreshConfig' })}
+                >
+                  <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
+                </Button>
+              )}
+              <Button
+                variant={cliEnhStatus?.enabled ? 'default' : 'outline'}
+                size="sm"
+                className="h-7"
+                disabled={cliEnhLoading || cliEnhToggling}
+                onClick={() => toggleCliEnh(!cliEnhStatus?.enabled)}
+              >
+                {cliEnhStatus?.enabled
+                  ? formatMessage({ id: 'settings.responseLanguage.enabled' })
+                  : formatMessage({ id: 'settings.responseLanguage.disabled' })}
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {formatMessage({ id: 'settings.responseLanguage.cliEnhancementDesc' })}
+          </p>
+          {cliEnhStatus?.enabled && (
+            <p className="text-xs text-muted-foreground/70">
+              {formatMessage({ id: 'settings.responseLanguage.cliEnhancementHint' })}
+            </p>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ========== System Status Section ==========
+
+function SystemStatusSection() {
+  const { formatMessage } = useIntl();
+  const { data: ccwInstall, isLoading: installLoading } = useCcwInstallStatus();
+
+  // Don't show if installed or still loading
+  if (installLoading || ccwInstall?.installed) return null;
+
+  return (
+    <Card className="p-6 border-yellow-500/50">
+      <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
+        <AlertTriangle className="w-5 h-5 text-yellow-500" />
+        {formatMessage({ id: 'settings.systemStatus.title' })}
+      </h2>
+
+      {/* CCW Install Status */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">{formatMessage({ id: 'settings.systemStatus.ccwInstall' })}</span>
+          <Badge variant="outline" className="text-yellow-500 border-yellow-500/50">
+            {formatMessage({ id: 'settings.systemStatus.incomplete' })}
+          </Badge>
+        </div>
+
+        {ccwInstall && ccwInstall.missingFiles.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              {formatMessage({ id: 'settings.systemStatus.missingFiles' })}:
+            </p>
+            <ul className="text-xs text-muted-foreground/70 list-disc list-inside">
+              {ccwInstall.missingFiles.slice(0, 5).map((file) => (
+                <li key={file}>{file}</li>
+              ))}
+              {ccwInstall.missingFiles.length > 5 && (
+                <li>+{ccwInstall.missingFiles.length - 5} more...</li>
+              )}
+            </ul>
+            <div className="bg-muted/50 rounded-md p-3 mt-2">
+              <p className="text-xs font-medium mb-1">
+                {formatMessage({ id: 'settings.systemStatus.runToFix' })}:
+              </p>
+              <code className="text-xs bg-background px-2 py-1 rounded block font-mono">
+                ccw install
+              </code>
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// ========== CLI Tools with Status Enhancement ==========
+
+interface CliToolsWithStatusProps {
+  cliTools: Record<string, CliToolConfig>;
+  defaultCliTool: string;
+  expandedTools: Set<string>;
+  onToggleExpand: (toolId: string) => void;
+  onToggleEnabled: (toolId: string) => void;
+  onSetDefault: (toolId: string) => void;
+  onUpdateModel: (toolId: string, field: 'primaryModel' | 'secondaryModel', value: string) => void;
+  onUpdateTags: (toolId: string, tags: string[]) => void;
+  onUpdateAvailableModels: (toolId: string, models: string[]) => void;
+  onUpdateSettingsFile: (toolId: string, settingsFile: string | undefined) => void;
+  formatMessage: ReturnType<typeof useIntl>['formatMessage'];
+}
+
+function CliToolsWithStatus({
+  cliTools,
+  defaultCliTool,
+  expandedTools,
+  onToggleExpand,
+  onToggleEnabled,
+  onSetDefault,
+  onUpdateModel,
+  onUpdateTags,
+  onUpdateAvailableModels,
+  onUpdateSettingsFile,
+  formatMessage,
+}: CliToolsWithStatusProps) {
+  const { data: toolStatus } = useCliToolStatus();
+
+  return (
+    <>
+      <p className="text-sm text-muted-foreground mb-4">
+        {formatMessage({ id: 'settings.cliTools.description' })} <strong className="text-foreground">{defaultCliTool}</strong>
+      </p>
+      <div className="space-y-3">
+        {Object.entries(cliTools).map(([toolId, config]) => {
+          const status = toolStatus?.[toolId];
+          return (
+            <CliToolCard
+              key={toolId}
+              toolId={toolId}
+              config={config}
+              isDefault={toolId === defaultCliTool}
+              isExpanded={expandedTools.has(toolId)}
+              toolAvailable={status?.available}
+              onToggleExpand={() => onToggleExpand(toolId)}
+              onToggleEnabled={() => onToggleEnabled(toolId)}
+              onSetDefault={() => onSetDefault(toolId)}
+              onUpdateModel={(field, value) => onUpdateModel(toolId, field, value)}
+              onUpdateTags={(tags) => onUpdateTags(toolId, tags)}
+              onUpdateAvailableModels={(models) => onUpdateAvailableModels(toolId, models)}
+              onUpdateSettingsFile={(settingsFile) => onUpdateSettingsFile(toolId, settingsFile)}
+            />
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
 // ========== Main Page Component ==========
 
 export function SettingsPage() {
@@ -466,33 +749,31 @@ export function SettingsPage() {
         </div>
       </Card>
 
+      {/* Response Language Settings */}
+      <ResponseLanguageSection />
+
+      {/* System Status */}
+      <SystemStatusSection />
+
       {/* CLI Tools Configuration */}
       <Card className="p-6">
         <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
           <Cpu className="w-5 h-5" />
           {formatMessage({ id: 'settings.sections.cliTools' })}
         </h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          {formatMessage({ id: 'settings.cliTools.description' })} <strong className="text-foreground">{defaultCliTool}</strong>
-        </p>
-        <div className="space-y-3">
-          {Object.entries(cliTools).map(([toolId, config]) => (
-            <CliToolCard
-              key={toolId}
-              toolId={toolId}
-              config={config}
-              isDefault={toolId === defaultCliTool}
-              isExpanded={expandedTools.has(toolId)}
-              onToggleExpand={() => toggleToolExpand(toolId)}
-              onToggleEnabled={() => handleToggleToolEnabled(toolId)}
-              onSetDefault={() => handleSetDefaultTool(toolId)}
-              onUpdateModel={(field, value) => handleUpdateModel(toolId, field, value)}
-              onUpdateTags={(tags) => handleUpdateTags(toolId, tags)}
-              onUpdateAvailableModels={(models) => handleUpdateAvailableModels(toolId, models)}
-              onUpdateSettingsFile={(settingsFile) => handleUpdateSettingsFile(toolId, settingsFile)}
-            />
-          ))}
-        </div>
+        <CliToolsWithStatus
+          cliTools={cliTools}
+          defaultCliTool={defaultCliTool}
+          expandedTools={expandedTools}
+          onToggleExpand={toggleToolExpand}
+          onToggleEnabled={handleToggleToolEnabled}
+          onSetDefault={handleSetDefaultTool}
+          onUpdateModel={handleUpdateModel}
+          onUpdateTags={handleUpdateTags}
+          onUpdateAvailableModels={handleUpdateAvailableModels}
+          onUpdateSettingsFile={handleUpdateSettingsFile}
+          formatMessage={formatMessage}
+        />
       </Card>
 
       {/* Data Refresh Settings */}

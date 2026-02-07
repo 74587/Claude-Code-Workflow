@@ -189,6 +189,7 @@ export function useDeleteMcpServer(): UseDeleteMcpServerReturn {
       deleteMcpServer(serverName, scope, { projectPath: projectPath ?? undefined }),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['ccwMcpConfig'] });
     },
   });
 

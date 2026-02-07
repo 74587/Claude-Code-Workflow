@@ -6,6 +6,8 @@
     "cliTools": "CLI 工具",
     "display": "显示设置",
     "language": "语言",
+    "responseLanguage": "回复语言设置",
+    "systemStatus": "系统状态",
     "hooks": "Git 钩子",
     "rules": "规则",
     "about": "关于"
@@ -47,6 +49,35 @@
     "chinese": "中文",
     "displayLanguage": "显示语言",
     "chooseLanguage": "选择界面的首选语言"
+  },
+  "responseLanguage": {
+    "title": "回复语言设置",
+    "chineseClaude": "中文回复",
+    "chineseClaudeDesc": "在 ~/.claude/CLAUDE.md 中启用中文回复准则",
+    "chineseCodex": "中文回复",
+    "chineseCodexDesc": "在 ~/.codex/AGENTS.md 中启用中文回复准则",
+    "windowsPlatform": "Windows 平台规范",
+    "windowsPlatformDesc": "在全局 CLAUDE.md 中启用 Windows 路径格式规范",
+    "cliEnhancement": "CLI 调用增强",
+    "cliEnhancementDesc": "为 Codex 启用多 CLI 工具调用功能",
+    "cliEnhancementHint": "配置文件变更后，点击刷新按钮更新内容",
+    "refreshConfig": "刷新配置",
+    "migrationWarning": "检测到旧格式，请关闭后重新启用以迁移",
+    "enabled": "已启用",
+    "disabled": "已禁用"
+  },
+  "systemStatus": {
+    "title": "系统状态",
+    "ccwInstall": "CCW 安装状态",
+    "installed": "已安装",
+    "incomplete": "不完整",
+    "notInstalled": "未安装",
+    "missingFiles": "缺失文件",
+    "runToFix": "运行以下命令修复",
+    "toolStatus": "工具可用性",
+    "available": "可用",
+    "unavailable": "不可用",
+    "checking": "检测中..."
   },
   "dataRefresh": {
     "title": "数据刷新",

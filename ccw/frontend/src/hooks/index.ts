@@ -196,6 +196,27 @@ export type {
   UseRulesReturn,
 } from './useCli';
 
+// ========== System Settings ==========
+export {
+  useChineseResponseStatus,
+  useToggleChineseResponse,
+  useWindowsPlatformStatus,
+  useToggleWindowsPlatform,
+  useCodexCliEnhancementStatus,
+  useToggleCodexCliEnhancement,
+  useRefreshCodexCliEnhancement,
+  useCcwInstallStatus,
+  useCliToolStatus,
+  systemSettingsKeys,
+} from './useSystemSettings';
+export type {
+  UseChineseResponseStatusReturn,
+  UseWindowsPlatformStatusReturn,
+  UseCodexCliEnhancementStatusReturn,
+  UseCcwInstallStatusReturn,
+  UseCliToolStatusReturn,
+} from './useSystemSettings';
+
 // ========== CLI Execution ==========
 export {
   useCliExecutionDetail,

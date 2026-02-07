@@ -27,6 +27,7 @@ import {
   createMcpServer,
   updateMcpServer,
   fetchMcpServers,
+  saveMcpTemplate,
   type McpServer,
   type McpProjectConfigType,
 } from '@/lib/api';
@@ -95,6 +96,7 @@ export function McpServerDialog({
   const [argsInput, setArgsInput] = useState('');
   const [envInput, setEnvInput] = useState('');
   const [configType, setConfigType] = useState<McpConfigType>('mcp-json');
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const projectConfigType: McpProjectConfigType = configType === 'claude-json' ? 'claude' : 'mcp';
 
   // Initialize form from server prop (edit mode)
@@ -128,6 +130,7 @@ export function McpServerDialog({
       setEnvInput('');
     }
     setSelectedTemplate('');
+    setSaveAsTemplate(false);
     setErrors({});
   }, [server, mode, open]);
 
@@ -259,6 +262,23 @@ export function McpServerDialog({
     if (await checkNameExists(formData.name)) {
       setErrors({ name: formatMessage({ id: 'mcp.dialog.validation.nameExists' }) });
       return;
+    }
+
+    // Save as template if checked
+    if (saveAsTemplate) {
+      try {
+        await saveMcpTemplate({
+          name: formData.name,
+          category: 'custom',
+          serverConfig: {
+            command: formData.command,
+            args: formData.args.length > 0 ? formData.args : undefined,
+            env: Object.keys(formData.env).length > 0 ? formData.env : undefined,
+          },
+        });
+      } catch {
+        // Template save failure should not block server creation
+      }
     }
 
     if (mode === 'add') {
@@ -499,6 +519,20 @@ export function McpServerDialog({
             />
             <label htmlFor="enabled" className="text-sm font-medium text-foreground cursor-pointer">
               {formatMessage({ id: 'mcp.dialog.form.enabled' })}
+            </label>
+          </div>
+
+          {/* Save as Template */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="save-as-template"
+              checked={saveAsTemplate}
+              onChange={(e) => setSaveAsTemplate(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="save-as-template" className="text-sm font-medium text-foreground cursor-pointer">
+              {formatMessage({ id: 'mcp.templates.actions.saveAsTemplate' })}
             </label>
           </div>
         </div>

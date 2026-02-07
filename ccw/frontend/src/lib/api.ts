@@ -993,22 +993,36 @@ export interface SkillsResponse {
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchSkills(projectPath?: string): Promise<SkillsResponse> {
+  // Response type from backend when includeDisabled=true
+  interface ExtendedSkillsResponse {
+    skills?: Skill[];
+    projectSkills?: Skill[];
+    userSkills?: Skill[];
+    disabledProjectSkills?: Skill[];
+    disabledUserSkills?: Skill[];
+  }
+
   // Helper to add location and enabled status to skills
-  // Backend only returns enabled skills (with SKILL.md), so we set enabled: true
-  const addMetadata = (skills: Skill[], location: 'project' | 'user'): Skill[] =>
+  const addEnabledMetadata = (skills: Skill[], location: 'project' | 'user'): Skill[] =>
     skills.map(skill => ({ ...skill, location, enabled: true }));
+
+  const addDisabledMetadata = (skills: Skill[], location: 'project' | 'user'): Skill[] =>
+    skills.map(skill => ({ ...skill, location, enabled: false }));
+
+  const buildSkillsList = (data: ExtendedSkillsResponse): Skill[] => {
+    const projectSkillsEnabled = addEnabledMetadata(data.projectSkills ?? [], 'project');
+    const userSkillsEnabled = addEnabledMetadata(data.userSkills ?? [], 'user');
+    const projectSkillsDisabled = addDisabledMetadata(data.disabledProjectSkills ?? [], 'project');
+    const userSkillsDisabled = addDisabledMetadata(data.disabledUserSkills ?? [], 'user');
+    return [...projectSkillsEnabled, ...userSkillsEnabled, ...projectSkillsDisabled, ...userSkillsDisabled];
+  };
 
   // Try with project path first, fall back to global on 403/404
   if (projectPath) {
     try {
-      const url = `/api/skills?path=${encodeURIComponent(projectPath)}`;
-      const data = await fetchApi<{ skills?: Skill[]; projectSkills?: Skill[]; userSkills?: Skill[] }>(url);
-      const projectSkillsWithMetadata = addMetadata(data.projectSkills ?? [], 'project');
-      const userSkillsWithMetadata = addMetadata(data.userSkills ?? [], 'user');
-      const allSkills = [...projectSkillsWithMetadata, ...userSkillsWithMetadata];
-      return {
-        skills: data.skills ?? allSkills,
-      };
+      const url = `/api/skills?path=${encodeURIComponent(projectPath)}&includeDisabled=true`;
+      const data = await fetchApi<ExtendedSkillsResponse>(url);
+      return { skills: buildSkillsList(data) };
     } catch (error: unknown) {
       const apiError = error as ApiError;
       if (apiError.status === 403 || apiError.status === 404) {
@@ -1020,13 +1034,8 @@ export async function fetchSkills(projectPath?: string): Promise<SkillsResponse>
     }
   }
   // Fallback: fetch global skills
-  const data = await fetchApi<{ skills?: Skill[]; projectSkills?: Skill[]; userSkills?: Skill[] }>('/api/skills');
-  const projectSkillsWithMetadata = addMetadata(data.projectSkills ?? [], 'project');
-  const userSkillsWithMetadata = addMetadata(data.userSkills ?? [], 'user');
-  const allSkills = [...projectSkillsWithMetadata, ...userSkillsWithMetadata];
-  return {
-    skills: data.skills ?? allSkills,
-  };
+  const data = await fetchApi<ExtendedSkillsResponse>('/api/skills?includeDisabled=true');
+  return { skills: buildSkillsList(data) };
 }
 
 /**
@@ -1072,6 +1081,38 @@ export async function fetchSkillDetail(
     ? `/api/skills/${encodeURIComponent(skillName)}?location=${location}&path=${encodeURIComponent(projectPath)}`
     : `/api/skills/${encodeURIComponent(skillName)}?location=${location}`;
   return fetchApi<{ skill: Skill }>(url);
+}
+
+/**
+ * Validate a skill folder for import
+ */
+export async function validateSkillImport(sourcePath: string): Promise<{
+  valid: boolean;
+  errors?: string[];
+  skillInfo?: { name: string; description: string; version?: string; supportingFiles?: string[] };
+}> {
+  return fetchApi('/api/skills/validate-import', {
+    method: 'POST',
+    body: JSON.stringify({ sourcePath }),
+  });
+}
+
+/**
+ * Create/import a skill
+ */
+export async function createSkill(params: {
+  mode: 'import' | 'cli-generate';
+  location: 'project' | 'user';
+  sourcePath?: string;
+  skillName?: string;
+  description?: string;
+  generationType?: 'description' | 'template';
+  projectPath?: string;
+}): Promise<{ skillName: string; path: string }> {
+  return fetchApi('/api/skills/create', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
 }
 
 // ========== Commands API ==========
@@ -5061,4 +5102,143 @@ export async function fetchExecutionLogs(
 
   const queryString = params.toString();
   return fetchApi(`/api/orchestrator/executions/${encodeURIComponent(execId)}/logs${queryString ? `?${queryString}` : ''}`);
+}
+
+// ========== System Settings API ==========
+
+/**
+ * Chinese response setting status
+ */
+export interface ChineseResponseStatus {
+  enabled: boolean;
+  claudeEnabled: boolean;
+  codexEnabled: boolean;
+  codexNeedsMigration: boolean;
+  guidelinesPath: string;
+  guidelinesExists: boolean;
+  userClaudeMdExists: boolean;
+  userCodexAgentsExists: boolean;
+}
+
+/**
+ * Fetch Chinese response setting status
+ */
+export async function fetchChineseResponseStatus(): Promise<ChineseResponseStatus> {
+  return fetchApi('/api/language/chinese-response');
+}
+
+/**
+ * Toggle Chinese response setting
+ */
+export async function toggleChineseResponse(
+  enabled: boolean,
+  target: 'claude' | 'codex' = 'claude'
+): Promise<{ success: boolean; enabled: boolean; target: string }> {
+  return fetchApi('/api/language/chinese-response', {
+    method: 'POST',
+    body: JSON.stringify({ enabled, target }),
+  });
+}
+
+/**
+ * Windows platform setting status
+ */
+export interface WindowsPlatformStatus {
+  enabled: boolean;
+  guidelinesPath: string;
+  guidelinesExists: boolean;
+  userClaudeMdExists: boolean;
+}
+
+/**
+ * Fetch Windows platform setting status
+ */
+export async function fetchWindowsPlatformStatus(): Promise<WindowsPlatformStatus> {
+  return fetchApi('/api/language/windows-platform');
+}
+
+/**
+ * Toggle Windows platform setting
+ */
+export async function toggleWindowsPlatform(
+  enabled: boolean
+): Promise<{ success: boolean; enabled: boolean }> {
+  return fetchApi('/api/language/windows-platform', {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+/**
+ * Codex CLI Enhancement setting status
+ */
+export interface CodexCliEnhancementStatus {
+  enabled: boolean;
+  guidelinesPath: string;
+  guidelinesExists: boolean;
+  userCodexAgentsExists: boolean;
+}
+
+/**
+ * Fetch Codex CLI Enhancement setting status
+ */
+export async function fetchCodexCliEnhancementStatus(): Promise<CodexCliEnhancementStatus> {
+  return fetchApi('/api/language/codex-cli-enhancement');
+}
+
+/**
+ * Toggle Codex CLI Enhancement setting
+ */
+export async function toggleCodexCliEnhancement(
+  enabled: boolean
+): Promise<{ success: boolean; enabled: boolean }> {
+  return fetchApi('/api/language/codex-cli-enhancement', {
+    method: 'POST',
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+/**
+ * Refresh Codex CLI Enhancement content
+ */
+export async function refreshCodexCliEnhancement(): Promise<{ success: boolean; refreshed: boolean }> {
+  return fetchApi('/api/language/codex-cli-enhancement', {
+    method: 'POST',
+    body: JSON.stringify({ action: 'refresh' }),
+  });
+}
+
+/**
+ * CCW Install status
+ */
+export interface CcwInstallStatus {
+  installed: boolean;
+  workflowsInstalled: boolean;
+  missingFiles: string[];
+  installPath: string;
+}
+
+/**
+ * Aggregated status response
+ */
+export interface AggregatedStatus {
+  cli: Record<string, { available: boolean; path?: string; version?: string }>;
+  codexLens: { ready: boolean };
+  semantic: { available: boolean; backend: string | null };
+  ccwInstall: CcwInstallStatus;
+  timestamp: string;
+}
+
+/**
+ * Fetch aggregated system status (includes CCW install status)
+ */
+export async function fetchAggregatedStatus(): Promise<AggregatedStatus> {
+  return fetchApi('/api/status/all');
+}
+
+/**
+ * Fetch CLI tool availability status
+ */
+export async function fetchCliToolStatus(): Promise<Record<string, { available: boolean; path?: string; version?: string }>> {
+  return fetchApi('/api/cli/status');
 }

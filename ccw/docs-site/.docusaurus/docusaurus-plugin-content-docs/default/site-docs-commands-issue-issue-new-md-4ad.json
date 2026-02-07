@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/issue/issue-new.md",
   "sourceDirName": "commands/issue",
   "slug": "/commands/issue/issue-new",
-  "permalink": "/docs/commands/issue/issue-new",
+  "permalink": "/docs/zh/commands/issue/issue-new",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/issue/issue-new.md",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/codex-coordinator",
-    "permalink": "/docs/commands/general/codex-coordinator"
+    "permalink": "/docs/zh/commands/general/codex-coordinator"
   },
   "next": {
     "title": "issue:discover",
-    "permalink": "/docs/commands/issue/issue-discover"
+    "permalink": "/docs/zh/commands/issue/issue-discover"
   }
 }

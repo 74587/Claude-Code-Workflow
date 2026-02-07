@@ -38,7 +38,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from '@/components/ui';
-import { SkillCard, SkillDetailPanel } from '@/components/shared';
+import { SkillCard, SkillDetailPanel, SkillCreateDialog } from '@/components/shared';
 import { useSkills, useSkillMutations } from '@/hooks';
 import { fetchSkillDetail } from '@/lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
@@ -117,6 +117,9 @@ export function SkillsManagerPage() {
   const [showDisabledSection, setShowDisabledSection] = useState(false);
   const [confirmDisable, setConfirmDisable] = useState<{ skill: Skill; enable: boolean } | null>(null);
   const [locationFilter, setLocationFilter] = useState<'project' | 'user'>('project');
+
+  // Skill create dialog state
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   // Skill detail panel state
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
@@ -243,7 +246,7 @@ export function SkillsManagerPage() {
               <RefreshCw className={cn('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
               {formatMessage({ id: 'common.actions.refresh' })}
             </Button>
-            <Button>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
               {formatMessage({ id: 'skills.actions.install' })}
             </Button>
@@ -469,6 +472,13 @@ export function SkillsManagerPage() {
         isOpen={isDetailPanelOpen}
         onClose={handleCloseDetailPanel}
         isLoading={isDetailLoading}
+      />
+
+      {/* Skill Create Dialog */}
+      <SkillCreateDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen}
+        onCreated={() => refetch()}
       />
     </div>
   );

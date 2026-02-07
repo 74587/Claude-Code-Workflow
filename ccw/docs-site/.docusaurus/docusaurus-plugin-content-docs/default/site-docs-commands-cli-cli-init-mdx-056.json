@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/cli/cli-init.mdx",
   "sourceDirName": "commands/cli",
   "slug": "/commands/cli/cli-init",
-  "permalink": "/docs/commands/cli/cli-init",
+  "permalink": "/docs/zh/commands/cli/cli-init",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/cli/cli-init.mdx",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "issue:convert-to-plan",
-    "permalink": "/docs/commands/issue/issue-convert-to-plan"
+    "permalink": "/docs/zh/commands/issue/issue-convert-to-plan"
   },
   "next": {
     "title": "/cli:codex-review",
-    "permalink": "/docs/commands/cli/codex-review"
+    "permalink": "/docs/zh/commands/cli/codex-review"
   }
 }

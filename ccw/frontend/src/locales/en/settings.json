@@ -6,6 +6,8 @@
     "cliTools": "CLI Tools",
     "display": "Display Settings",
     "language": "Language",
+    "responseLanguage": "Response Language",
+    "systemStatus": "System Status",
     "hooks": "Git Hooks",
     "rules": "Rules",
     "about": "About"
@@ -47,6 +49,35 @@
     "chinese": "中文",
     "displayLanguage": "Display Language",
     "chooseLanguage": "Choose your preferred language for the interface"
+  },
+  "responseLanguage": {
+    "title": "Response Language Settings",
+    "chineseClaude": "Chinese Response",
+    "chineseClaudeDesc": "Enable Chinese response guidelines in ~/.claude/CLAUDE.md",
+    "chineseCodex": "Chinese Response",
+    "chineseCodexDesc": "Enable Chinese response guidelines in ~/.codex/AGENTS.md",
+    "windowsPlatform": "Windows Platform",
+    "windowsPlatformDesc": "Enable Windows path format conventions in global CLAUDE.md",
+    "cliEnhancement": "CLI Enhancement",
+    "cliEnhancementDesc": "Enable multi-CLI tool invocation for Codex",
+    "cliEnhancementHint": "After config changes, click refresh to update content",
+    "refreshConfig": "Refresh Config",
+    "migrationWarning": "Old format detected, please disable and re-enable to migrate",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "systemStatus": {
+    "title": "System Status",
+    "ccwInstall": "CCW Installation",
+    "installed": "Installed",
+    "incomplete": "Incomplete",
+    "notInstalled": "Not Installed",
+    "missingFiles": "Missing Files",
+    "runToFix": "Run to fix",
+    "toolStatus": "Tool Availability",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "checking": "Checking..."
   },
   "dataRefresh": {
     "title": "Data Refresh",

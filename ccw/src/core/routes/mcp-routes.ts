@@ -726,13 +726,23 @@ function toggleMcpServerEnabled(projectPath: string, serverName: string, enable:
     const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
     const config = JSON.parse(content);
 
-    const normalizedPath = normalizeProjectPathForConfig(projectPath, config);
-
-    if (!config.projects || !config.projects[normalizedPath]) {
-      return { error: `Project not found: ${normalizedPath}` };
+    // Find matching project key by normalizing both input and config keys
+    const normalizedInput = normalizeProjectPathForConfig(projectPath, config);
+    let matchedKey: string | null = null;
+    if (config.projects) {
+      for (const key of Object.keys(config.projects)) {
+        if (normalizeProjectPathForConfig(key) === normalizedInput) {
+          matchedKey = key;
+          break;
+        }
+      }
     }
 
-    const projectConfig = config.projects[normalizedPath];
+    if (!matchedKey || !config.projects[matchedKey]) {
+      return { error: `Project not found: ${normalizedInput}` };
+    }
+
+    const projectConfig = config.projects[matchedKey];
 
     // Ensure disabledMcpServers array exists
     if (!projectConfig.disabledMcpServers) {
@@ -865,11 +875,20 @@ function removeMcpServerFromProject(projectPath: string, serverName: string) {
       const content = readFileSync(CLAUDE_CONFIG_PATH, 'utf8');
       const config = JSON.parse(content);
 
-      // Get normalized path that matches existing config format
-      const normalizedPath = normalizeProjectPathForConfig(projectPath, config);
+      // Find matching project key by normalizing both input path and config keys
+      const normalizedInput = normalizeProjectPathForConfig(projectPath, config);
+      let matchedKey: string | null = null;
+      if (config.projects) {
+        for (const key of Object.keys(config.projects)) {
+          if (normalizeProjectPathForConfig(key) === normalizedInput) {
+            matchedKey = key;
+            break;
+          }
+        }
+      }
 
-      if (config.projects && config.projects[normalizedPath]) {
-        const projectConfig = config.projects[normalizedPath];
+      if (matchedKey && config.projects[matchedKey]) {
+        const projectConfig = config.projects[matchedKey];
 
         if (projectConfig.mcpServers && projectConfig.mcpServers[serverName]) {
           // Remove the server

@@ -58,17 +58,18 @@ import type { McpTemplate } from '@/types/store';
 export interface McpTemplatesSectionProps {
   /** Callback when template is installed (opens McpServerDialog) */
   onInstallTemplate?: (template: McpTemplate) => void;
-  /** Callback when current server should be saved as template */
-  onSaveAsTemplate?: (serverName: string, config: { command: string; args: string[]; env?: Record<string, string> }) => void;
+  /** Callback when saving a new template */
+  onSaveAsTemplate?: (name: string, category: string, description: string, serverConfig: { command: string; args: string[]; env: Record<string, string> }) => void;
 }
 
 interface TemplateSaveDialogProps {
   open: boolean;
   onClose: () => void;
-  onSave: (name: string, category: string, description: string) => void;
+  onSave: (name: string, category: string, description: string, serverConfig: { command: string; args: string[]; env: Record<string, string> }) => void;
   defaultName?: string;
   defaultCommand?: string;
   defaultArgs?: string[];
+  defaultEnv?: Record<string, string>;
 }
 
 interface TemplateCardProps {
@@ -181,18 +182,26 @@ function TemplateCard({ template, onInstall, onDelete, isInstalling, isDeleting 
 /**
  * Template Save Dialog - Save current server configuration as template
  */
-function TemplateSaveDialog({
+export function TemplateSaveDialog({
   open,
   onClose,
   onSave,
   defaultName = '',
+  defaultCommand = '',
+  defaultArgs = [],
+  defaultEnv = {},
 }: TemplateSaveDialogProps) {
   const { formatMessage } = useIntl();
 
   const [name, setName] = useState(defaultName);
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
-  const [errors, setErrors] = useState<{ name?: string }>({});
+  const [command, setCommand] = useState(defaultCommand);
+  const [argsInput, setArgsInput] = useState(defaultArgs.join(', '));
+  const [envInput, setEnvInput] = useState(
+    Object.entries(defaultEnv).map(([k, v]) => `${k}=${v}`).join('\n')
+  );
+  const [errors, setErrors] = useState<{ name?: string; command?: string }>({});
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -200,25 +209,52 @@ function TemplateSaveDialog({
       setName(defaultName || '');
       setCategory('');
       setDescription('');
+      setCommand(defaultCommand || '');
+      setArgsInput((defaultArgs || []).join(', '));
+      setEnvInput(
+        Object.entries(defaultEnv || {}).map(([k, v]) => `${k}=${v}`).join('\n')
+      );
       setErrors({});
     }
-  }, [open, defaultName]);
+  }, [open, defaultName, defaultCommand, defaultArgs, defaultEnv]);
 
   const handleSave = () => {
+    const newErrors: { name?: string; command?: string } = {};
     if (!name.trim()) {
-      setErrors({ name: formatMessage({ id: 'mcp.templates.saveDialog.validation.nameRequired' }) });
+      newErrors.name = formatMessage({ id: 'mcp.templates.saveDialog.validation.nameRequired' });
+    }
+    if (!command.trim()) {
+      newErrors.command = formatMessage({ id: 'mcp.dialog.validation.commandRequired' });
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
-    onSave(name.trim(), category.trim(), description.trim());
-    setName('');
-    setCategory('');
-    setDescription('');
-    setErrors({});
+
+    const args = argsInput
+      .split(',')
+      .map((a) => a.trim())
+      .filter((a) => a.length > 0);
+
+    const env: Record<string, string> = {};
+    for (const line of envInput.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed && trimmed.includes('=')) {
+        const [key, ...valParts] = trimmed.split('=');
+        if (key) env[key.trim()] = valParts.join('=').trim();
+      }
+    }
+
+    onSave(name.trim(), category.trim(), description.trim(), {
+      command: command.trim(),
+      args,
+      env,
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {formatMessage({ id: 'mcp.templates.saveDialog.title' })}
@@ -235,7 +271,7 @@ function TemplateSaveDialog({
               value={name}
               onChange={(e) => {
                 setName(e.target.value);
-                if (errors.name) setErrors({});
+                if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
               }}
               placeholder={formatMessage({ id: 'mcp.templates.saveDialog.namePlaceholder' })}
               error={!!errors.name}
@@ -243,6 +279,54 @@ function TemplateSaveDialog({
             {errors.name && (
               <p className="text-sm text-destructive">{errors.name}</p>
             )}
+          </div>
+
+          {/* Command */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              {formatMessage({ id: 'mcp.dialog.form.command' })}
+              <span className="text-destructive ml-1">*</span>
+            </label>
+            <Input
+              value={command}
+              onChange={(e) => {
+                setCommand(e.target.value);
+                if (errors.command) setErrors((prev) => ({ ...prev, command: undefined }));
+              }}
+              placeholder={formatMessage({ id: 'mcp.dialog.form.commandPlaceholder' })}
+              error={!!errors.command}
+            />
+            {errors.command && (
+              <p className="text-sm text-destructive">{errors.command}</p>
+            )}
+          </div>
+
+          {/* Args */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              {formatMessage({ id: 'mcp.dialog.form.args' })}
+            </label>
+            <Input
+              value={argsInput}
+              onChange={(e) => setArgsInput(e.target.value)}
+              placeholder={formatMessage({ id: 'mcp.dialog.form.argsPlaceholder' })}
+            />
+            <p className="text-xs text-muted-foreground">
+              {formatMessage({ id: 'mcp.dialog.form.argsHint' })}
+            </p>
+          </div>
+
+          {/* Environment Variables */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              {formatMessage({ id: 'mcp.dialog.form.env' })}
+            </label>
+            <textarea
+              value={envInput}
+              onChange={(e) => setEnvInput(e.target.value)}
+              placeholder={formatMessage({ id: 'mcp.dialog.form.envPlaceholder' })}
+              className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            />
           </div>
 
           {/* Category */}
@@ -273,7 +357,7 @@ function TemplateSaveDialog({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={formatMessage({ id: 'mcp.templates.saveDialog.descriptionPlaceholder' })}
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             />
           </div>
         </div>
@@ -374,8 +458,8 @@ export function McpTemplatesSection({ onInstallTemplate, onSaveAsTemplate }: Mcp
     }
   }, [templateToDelete, deleteMutation]);
 
-  const handleSaveTemplate = useCallback((_name: string, _category: string, _description: string) => {
-    onSaveAsTemplate?.(_name, { command: '', args: [] });
+  const handleSaveTemplate = useCallback((_name: string, _category: string, _description: string, _serverConfig: { command: string; args: string[]; env: Record<string, string> }) => {
+    onSaveAsTemplate?.(_name, _category, _description, _serverConfig);
     setSaveDialogOpen(false);
   }, [onSaveAsTemplate]);
 

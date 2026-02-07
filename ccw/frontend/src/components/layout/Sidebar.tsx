@@ -56,6 +56,7 @@ interface NavGroupDef {
     icon: React.ElementType;
     badge?: number | string;
     badgeVariant?: 'default' | 'success' | 'warning' | 'info';
+    end?: boolean;
   }>;
 }
 
@@ -110,7 +111,7 @@ const navGroupDefinitions: NavGroupDef[] = [
     items: [
       { path: '/settings/codexlens', labelKey: 'navigation.main.codexlens', icon: Sparkles },
       { path: '/api-settings', labelKey: 'navigation.main.apiSettings', icon: Server },
-      { path: '/settings', labelKey: 'navigation.main.settings', icon: Settings },
+      { path: '/settings', labelKey: 'navigation.main.settings', icon: Settings, end: true },
       { path: '/help', labelKey: 'navigation.main.help', icon: HelpCircle },
     ],
   },

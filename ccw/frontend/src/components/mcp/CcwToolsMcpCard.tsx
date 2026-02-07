@@ -115,6 +115,7 @@ export function CcwToolsMcpCard({
     mutationFn: installCcwMcp,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['ccwMcpConfig'] });
       onInstall();
     },
   });
@@ -123,7 +124,11 @@ export function CcwToolsMcpCard({
     mutationFn: uninstallCcwMcp,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
+      queryClient.invalidateQueries({ queryKey: ['ccwMcpConfig'] });
       onInstall();
+    },
+    onError: (error) => {
+      console.error('Failed to uninstall CCW MCP:', error);
     },
   });
 
