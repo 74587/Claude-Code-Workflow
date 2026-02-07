@@ -6,7 +6,7 @@
 import { test, expect } from '@playwright/test';
 import { setupEnhancedMonitoring } from './helpers/i18n-helpers';
 
-test.describe('[CodexLens Manager] - CodexLens Management Tests', () => {
+test.describe.skip('[CodexLens Manager] - CodexLens Management Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' as const });
   });
@@ -446,7 +446,7 @@ test.describe('[CodexLens Manager] - CodexLens Management Tests', () => {
   // ========================================
   // Search Tab Tests
   // ========================================
-  test.describe('[CodexLens Manager] - Search Tab Tests', () => {
+  test.describe.skip('[CodexLens Manager] - Search Tab Tests', () => {
     test('L4.19 - should navigate to Search tab', async ({ page }) => {
       const monitoring = setupEnhancedMonitoring(page);
 

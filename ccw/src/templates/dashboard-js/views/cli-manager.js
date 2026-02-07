@@ -677,7 +677,7 @@ async function loadFileBrowserDirectory(path) {
   }
   
   try {
-    var response = await fetch('/api/dialog/browse', {
+    var response = await csrfFetch('/api/dialog/browse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: path, showHidden: fileBrowserState.showHidden })
@@ -2546,7 +2546,7 @@ async function runCcwUpgrade() {
     showRefreshToast(t('ccw.upgradeStarting'), 'info');
 
   try {
-    var response = await fetch('/api/ccw/upgrade', {
+    var response = await csrfFetch('/api/ccw/upgrade', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -2620,7 +2620,7 @@ async function executeCliFromDashboard() {
   if (execBtn) execBtn.disabled = true;
 
   try {
-    var response = await fetch('/api/cli/execute', {
+    var response = await csrfFetch('/api/cli/execute', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2851,7 +2851,7 @@ async function startCliInstall(toolName) {
   }, 1000);
 
   try {
-    var response = await fetch('/api/cli/install', {
+    var response = await csrfFetch('/api/cli/install', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tool: toolName })
@@ -2992,7 +2992,7 @@ async function startCliUninstall(toolName) {
   }, 500);
 
   try {
-    var response = await fetch('/api/cli/uninstall', {
+    var response = await csrfFetch('/api/cli/uninstall', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tool: toolName })
@@ -3241,7 +3241,7 @@ function initCodexLensConfigEvents(currentConfig) {
       saveBtn.innerHTML = '<span class="animate-pulse">' + t('common.saving') + '</span>';
 
       try {
-        var response = await fetch('/api/codexlens/config', {
+        var response = await csrfFetch('/api/codexlens/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ index_dir: newIndexDir })
@@ -3478,7 +3478,7 @@ async function downloadModel(profile) {
     '</div>';
 
   try {
-    var response = await fetch('/api/codexlens/models/download', {
+    var response = await csrfFetch('/api/codexlens/models/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profile: profile })
@@ -3517,7 +3517,7 @@ async function deleteModel(profile) {
     '</div>';
 
   try {
-    var response = await fetch('/api/codexlens/models/delete', {
+    var response = await csrfFetch('/api/codexlens/models/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profile: profile })
@@ -3553,7 +3553,7 @@ async function cleanCurrentWorkspaceIndex() {
     // Get current workspace path (projectPath is a global variable from state.js)
     var workspacePath = projectPath;
 
-    var response = await fetch('/api/codexlens/clean', {
+    var response = await csrfFetch('/api/codexlens/clean', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: workspacePath })
@@ -3589,7 +3589,7 @@ async function cleanCodexLensIndexes() {
   try {
     showRefreshToast(t('codexlens.cleaning'), 'info');
 
-    var response = await fetch('/api/codexlens/clean', {
+    var response = await csrfFetch('/api/codexlens/clean', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ all: true })

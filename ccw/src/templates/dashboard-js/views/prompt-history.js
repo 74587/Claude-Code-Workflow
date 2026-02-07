@@ -15,7 +15,7 @@ var selectedPromptInsight = null; // Currently selected insight for detail view
 async function loadPromptHistory() {
   try {
     // Use native Claude history.jsonl as primary source
-    var response = await fetch('/api/memory/native-history?path=' + encodeURIComponent(projectPath) + '&limit=200');
+    var response = await csrfFetch('/api/memory/native-history?path=' + encodeURIComponent(projectPath) + '&limit=200');
     if (!response.ok) throw new Error('Failed to load prompt history');
     var data = await response.json();
     promptHistoryData = data.prompts || [];
@@ -30,7 +30,7 @@ async function loadPromptHistory() {
 
 async function loadPromptInsights() {
   try {
-    var response = await fetch('/api/memory/insights?path=' + encodeURIComponent(projectPath));
+    var response = await csrfFetch('/api/memory/insights?path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load insights');
     var data = await response.json();
     promptInsights = data.insights || null;
@@ -44,7 +44,7 @@ async function loadPromptInsights() {
 
 async function loadPromptInsightsHistory() {
   try {
-    var response = await fetch('/api/memory/insights?limit=20&path=' + encodeURIComponent(projectPath));
+    var response = await csrfFetch('/api/memory/insights?limit=20&path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load insights history');
     var data = await response.json();
     promptInsightsHistory = data.insights || [];
@@ -347,7 +347,7 @@ function formatPromptTimestamp(timestamp) {
 
 async function showPromptInsightDetail(insightId) {
   try {
-    var response = await fetch('/api/memory/insights/' + insightId);
+    var response = await csrfFetch('/api/memory/insights/' + insightId);
     if (!response.ok) throw new Error('Failed to load insight detail');
     var data = await response.json();
     selectedPromptInsight = data.insight;
@@ -431,7 +431,7 @@ async function deletePromptInsight(insightId) {
   if (!confirm(isZh() ? '确定要删除这条洞察记录吗？' : 'Are you sure you want to delete this insight?')) return;
 
   try {
-    var response = await csrfFetch('/api/memory/insights/' + insightId, { method: 'DELETE' });
+    var response = await csrfcsrfFetch('/api/memory/insights/' + insightId, { method: 'DELETE' });
     if (!response.ok) throw new Error('Failed to delete insight');
 
     selectedPromptInsight = null;
@@ -676,7 +676,7 @@ async function triggerCliInsightsAnalysis() {
   renderPromptHistoryView();
 
   try {
-    var response = await fetch('/api/memory/insights/analyze', {
+    var response = await csrfFetch('/api/memory/insights/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -711,3 +711,4 @@ async function triggerCliInsightsAnalysis() {
     renderPromptHistoryView();
   }
 }
+

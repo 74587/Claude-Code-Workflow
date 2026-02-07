@@ -362,7 +362,7 @@ async function batchDeleteExecutions(ids) {
   showRefreshToast('Deleting ' + ids.length + ' executions...', 'info');
 
   try {
-    var response = await fetch('/api/cli/batch-delete', {
+    var response = await csrfFetch('/api/cli/batch-delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

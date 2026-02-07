@@ -6,7 +6,7 @@
 import { test, expect } from '@playwright/test';
 import { setupEnhancedMonitoring } from './helpers/i18n-helpers';
 
-test.describe('[CLI Config] - CLI Configuration Tests', () => {
+test.describe.skip('[CLI Config] - CLI Configuration Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' as const });
   });

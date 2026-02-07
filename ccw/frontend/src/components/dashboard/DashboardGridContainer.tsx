@@ -63,6 +63,7 @@ export function DashboardGridContainer({
       draggableHandle=".drag-handle"
       containerPadding={[0, 0]}
       margin={[16, 16]}
+      data-testid="dashboard-grid-container"
     >
       {children}
     </ResponsiveGridLayout>

@@ -8,6 +8,40 @@ import { setupEnhancedMonitoring, switchLanguageAndVerify } from './helpers/i18n
 
 test.describe('[Orchestrator] - Workflow Canvas Tests', () => {
   test.beforeEach(async ({ page }) => {
+    // Set up API mocks BEFORE page navigation to prevent 404 errors
+    await page.route('**/api/workflows**', (route) => {
+      if (route.request().method() === 'GET') {
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            workflows: [
+              {
+                id: 'wf-1',
+                name: 'Test Workflow',
+                nodes: [
+                  { id: 'node-1', type: 'start', position: { x: 100, y: 100 } },
+                  { id: 'node-2', type: 'action', position: { x: 300, y: 100 } }
+                ],
+                edges: [
+                  { id: 'edge-1', source: 'node-1', target: 'node-2' }
+                ]
+              }
+            ],
+            total: 1,
+            page: 1,
+            limit: 10
+          })
+        });
+      } else {
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true })
+        });
+      }
+    });
+
     await page.goto('/orchestrator', { waitUntil: 'networkidle' as const });
   });
 

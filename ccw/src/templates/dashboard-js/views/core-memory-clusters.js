@@ -121,7 +121,7 @@ function switchToSemanticStatus() {
 async function triggerEmbedding() {
   try {
     showNotification(t('coreMemory.embeddingInProgress'), 'info');
-    const response = await fetch(`/api/core-memory/embed?path=${encodeURIComponent(projectPath)}`, {
+    const response = await csrfFetch(`/api/core-memory/embed?path=${encodeURIComponent(projectPath)}`, {
       method: 'POST'
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -342,7 +342,7 @@ async function triggerAutoClustering(scope = 'recent') {
   try {
     showNotification(t('coreMemory.clusteringInProgress'), 'info');
 
-    const response = await fetch(`/api/core-memory/clusters/auto?path=${encodeURIComponent(projectPath)}`, {
+    const response = await csrfFetch(`/api/core-memory/clusters/auto?path=${encodeURIComponent(projectPath)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ scope })
@@ -375,7 +375,7 @@ async function createCluster() {
   if (!name) return;
 
   try {
-    const response = await fetch(`/api/core-memory/clusters?path=${encodeURIComponent(projectPath)}`, {
+    const response = await csrfFetch(`/api/core-memory/clusters?path=${encodeURIComponent(projectPath)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name })
@@ -409,7 +409,7 @@ function editCluster(clusterId) {
  */
 async function updateCluster(clusterId, updates) {
   try {
-    const response = await fetch(`/api/core-memory/clusters/${clusterId}?path=${encodeURIComponent(projectPath)}`, {
+    const response = await csrfFetch(`/api/core-memory/clusters/${clusterId}?path=${encodeURIComponent(projectPath)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
@@ -435,7 +435,7 @@ async function deleteCluster(clusterId) {
   if (!confirm(t('coreMemory.confirmDeleteCluster'))) return;
 
   try {
-    const response = await fetch(`/api/core-memory/clusters/${clusterId}?path=${encodeURIComponent(projectPath)}`, {
+    const response = await csrfFetch(`/api/core-memory/clusters/${clusterId}?path=${encodeURIComponent(projectPath)}`, {
       method: 'DELETE'
     });
 
@@ -459,7 +459,7 @@ async function deleteCluster(clusterId) {
  */
 async function removeMember(clusterId, sessionId) {
   try {
-    const response = await fetch(
+    const response = await csrfFetch(
       `/api/core-memory/clusters/${clusterId}/members/${sessionId}?path=${encodeURIComponent(projectPath)}`,
       { method: 'DELETE' }
     );

@@ -567,7 +567,7 @@ async function updateSingleTaskStatus(taskId, newStatus) {
   }
 
   try {
-    const response = await fetch('/api/update-task-status', {
+    const response = await csrfFetch('/api/update-task-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -610,7 +610,7 @@ async function bulkSetAllStatus(newStatus) {
   }
 
   try {
-    const response = await fetch('/api/bulk-update-task-status', {
+    const response = await csrfFetch('/api/bulk-update-task-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -651,7 +651,7 @@ async function bulkSetPendingToInProgress() {
   }
 
   try {
-    const response = await fetch('/api/bulk-update-task-status', {
+    const response = await csrfFetch('/api/bulk-update-task-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -691,7 +691,7 @@ async function bulkSetInProgressToCompleted() {
   }
 
   try {
-    const response = await fetch('/api/bulk-update-task-status', {
+    const response = await csrfFetch('/api/bulk-update-task-status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -779,3 +779,4 @@ function showToast(message, type = 'info') {
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
+

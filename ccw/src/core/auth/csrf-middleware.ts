@@ -132,23 +132,40 @@ export async function csrfValidation(ctx: CsrfMiddlewareContext): Promise<boolea
   const headerToken = getHeaderValue(req.headers['x-csrf-token']);
   const cookies = parseCookieHeader(getHeaderValue(req.headers.cookie));
   const cookieToken = cookies['XSRF-TOKEN'];
-
-  let bodyToken: string | null = null;
-  if (!headerToken && !cookieToken) {
-    const body = await readJsonBody(req);
-    bodyToken = extractCsrfTokenFromBody(body);
-  }
-
-  const token = headerToken || bodyToken || cookieToken || null;
   const sessionId = cookies.ccw_session_id;
 
-  if (!token || !sessionId) {
+  if (!sessionId) {
     writeJson(res, 403, { error: 'CSRF validation failed' });
     return false;
   }
 
   const tokenManager = getCsrfTokenManager();
-  const ok = tokenManager.validateToken(token, sessionId);
+
+  const validate = (token: string | null): boolean => {
+    if (!token) return false;
+    return tokenManager.validateToken(token, sessionId);
+  };
+
+  let ok = false;
+  if (headerToken) {
+    ok = validate(headerToken);
+    if (!ok && cookieToken && cookieToken !== headerToken) {
+      ok = validate(cookieToken);
+    }
+  } else if (cookieToken) {
+    ok = validate(cookieToken);
+  }
+
+  if (!ok) {
+    let bodyToken: string | null = null;
+    if (!cookieToken) {
+      const body = await readJsonBody(req);
+      bodyToken = extractCsrfTokenFromBody(body);
+    }
+
+    ok = validate(bodyToken);
+  }
+
   if (!ok) {
     writeJson(res, 403, { error: 'CSRF validation failed' });
     return false;

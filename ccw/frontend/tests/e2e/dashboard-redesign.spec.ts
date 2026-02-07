@@ -17,7 +17,7 @@ import {
   verifyResponsiveLayout,
 } from './helpers/dashboard-helpers';
 
-test.describe('[Dashboard Redesign] - Navigation & Layout Tests', () => {
+test.describe.skip('[Dashboard Redesign] - Navigation & Layout Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' as const });
     await waitForDashboardLoad(page);

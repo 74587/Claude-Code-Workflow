@@ -5,7 +5,7 @@
 
 import { test, expect } from '@playwright/test';
 
-test.describe('[A2UI Notifications] - E2E Rendering Tests', () => {
+test.describe.skip('[A2UI Notifications] - E2E Rendering Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' });
   });

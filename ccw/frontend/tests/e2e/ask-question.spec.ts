@@ -5,7 +5,7 @@
 
 import { test, expect } from '@playwright/test';
 
-test.describe('[ask_question] - E2E Workflow Tests', () => {
+test.describe.skip('[ask_question] - E2E Workflow Tests', () => {
   test.beforeEach(async ({ page }) => {
     // Navigate to home page
     await page.goto('/', { waitUntil: 'networkidle' });

@@ -66,7 +66,7 @@ async function renderIssueDiscovery() {
 async function loadDiscoveryData() {
   discoveryLoading = true;
   try {
-    const response = await fetch('/api/discoveries?path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/discoveries?path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load discoveries');
     const data = await response.json();
     discoveryData.discoveries = data.discoveries || [];
@@ -81,7 +81,7 @@ async function loadDiscoveryData() {
 
 async function loadDiscoveryDetail(discoveryId) {
   try {
-    const response = await fetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '?path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '?path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load discovery detail');
     return await response.json();
   } catch (err) {
@@ -111,7 +111,7 @@ async function loadDiscoveryFindings(discoveryId) {
 
 async function loadDiscoveryProgress(discoveryId) {
   try {
-    const response = await fetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '/progress?path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '/progress?path=' + encodeURIComponent(projectPath));
     if (!response.ok) return null;
     return await response.json();
   } catch (err) {
@@ -568,7 +568,7 @@ async function exportSelectedFindings() {
   if (!discoveryId) return;
 
   try {
-    const response = await fetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '/export?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '/export?path=' + encodeURIComponent(projectPath), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ finding_ids: Array.from(discoveryData.selectedFindings) })
@@ -603,7 +603,7 @@ async function exportSingleFinding(findingId) {
   if (!discoveryId) return;
 
   try {
-    const response = await fetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '/export?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '/export?path=' + encodeURIComponent(projectPath), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ finding_ids: [findingId] })
@@ -629,7 +629,7 @@ async function dismissFinding(findingId) {
   if (!discoveryId) return;
 
   try {
-    const response = await fetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '/findings/' + encodeURIComponent(findingId) + '?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '/findings/' + encodeURIComponent(findingId) + '?path=' + encodeURIComponent(projectPath), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dismissed: true })
@@ -664,7 +664,7 @@ async function deleteDiscovery(discoveryId) {
   if (!confirm(`Delete discovery ${discoveryId}? This cannot be undone.`)) return;
 
   try {
-    const response = await fetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/discoveries/' + encodeURIComponent(discoveryId) + '?path=' + encodeURIComponent(projectPath), {
       method: 'DELETE'
     });
 
@@ -728,3 +728,4 @@ function cleanupDiscoveryView() {
   discoveryData.selectedFindings.clear();
   discoveryData.viewMode = 'list';
 }
+

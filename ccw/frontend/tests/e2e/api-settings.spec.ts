@@ -8,6 +8,24 @@ import { setupEnhancedMonitoring, switchLanguageAndVerify } from './helpers/i18n
 
 test.describe('[API Settings] - CLI Provider Configuration Tests', () => {
   test.beforeEach(async ({ page }) => {
+    // Set up API mocks BEFORE page navigation to prevent 404 errors
+    await page.route('**/api/settings/cli**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          providers: [
+            {
+              id: 'provider-1',
+              name: 'Gemini',
+              endpoint: 'https://api.example.com',
+              enabled: true
+            }
+          ]
+        })
+      });
+    });
+
     await page.goto('/api-settings', { waitUntil: 'networkidle' as const });
   });
 

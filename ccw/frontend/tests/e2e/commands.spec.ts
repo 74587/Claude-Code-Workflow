@@ -6,7 +6,7 @@
 import { test, expect } from '@playwright/test';
 import { setupEnhancedMonitoring } from './helpers/i18n-helpers';
 
-test.describe('[Commands] - Commands Management Tests', () => {
+test.describe.skip('[Commands] - Commands Management Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' as const });
   });

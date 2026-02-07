@@ -74,6 +74,7 @@ export function WorkflowStatusPieChart({
       className={`w-full ${className}`}
       role="img"
       aria-label="Workflow status pie chart showing distribution of workflow statuses"
+      data-testid="workflow-status-pie-chart"
     >
       {title && <h3 className="text-lg font-semibold text-foreground mb-4">{title}</h3>}
       <ResponsiveContainer width="100%" height={height}>

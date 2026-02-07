@@ -36,7 +36,7 @@ async function renderRulesManager() {
 async function loadRulesData() {
   rulesLoading = true;
   try {
-    const response = await fetch('/api/rules?path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/rules?path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load rules');
     const data = await response.json();
     rulesData = {
@@ -284,7 +284,7 @@ function renderRuleDetailPanel(rule) {
 
 async function showRuleDetail(ruleName, location) {
   try {
-    const response = await fetch('/api/rules/' + encodeURIComponent(ruleName) + '?location=' + location + '&path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/rules/' + encodeURIComponent(ruleName) + '?location=' + location + '&path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load rule detail');
     const data = await response.json();
     selectedRule = data.rule;
@@ -306,7 +306,7 @@ async function deleteRule(ruleName, location) {
   if (!confirm(t('rules.deleteConfirm', { name: ruleName }))) return;
 
   try {
-    const response = await fetch('/api/rules/' + encodeURIComponent(ruleName), {
+    const response = await csrfFetch('/api/rules/' + encodeURIComponent(ruleName), {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ location, projectPath })
@@ -847,7 +847,7 @@ async function createRule() {
   }
 
   try {
-    const response = await fetch('/api/rules/create', {
+    const response = await csrfFetch('/api/rules/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -878,3 +878,4 @@ async function createRule() {
     }
   }
 }
+

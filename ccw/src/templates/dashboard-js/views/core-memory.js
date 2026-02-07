@@ -470,7 +470,7 @@ async function saveMemory() {
   }
 
   try {
-    const response = await fetch('/api/core-memory/memories', {
+    const response = await csrfFetch('/api/core-memory/memories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -491,7 +491,7 @@ async function archiveMemory(memoryId) {
   if (!confirm(t('coreMemory.confirmArchive'))) return;
 
   try {
-    const response = await fetch(`/api/core-memory/memories/${memoryId}/archive?path=${encodeURIComponent(projectPath)}`, {
+    const response = await csrfFetch(`/api/core-memory/memories/${memoryId}/archive?path=${encodeURIComponent(projectPath)}`, {
       method: 'POST'
     });
 
@@ -512,7 +512,7 @@ async function unarchiveMemory(memoryId) {
 
     memory.archived = false;
 
-    const response = await fetch('/api/core-memory/memories', {
+    const response = await csrfFetch('/api/core-memory/memories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...memory, path: projectPath })
@@ -532,7 +532,7 @@ async function deleteMemory(memoryId) {
   if (!confirm(t('coreMemory.confirmDelete'))) return;
 
   try {
-    const response = await fetch(`/api/core-memory/memories/${memoryId}?path=${encodeURIComponent(projectPath)}`, {
+    const response = await csrfFetch(`/api/core-memory/memories/${memoryId}?path=${encodeURIComponent(projectPath)}`, {
       method: 'DELETE'
     });
 
@@ -551,7 +551,7 @@ async function generateMemorySummary(memoryId) {
   try {
     showNotification(t('coreMemory.generatingSummary'), 'info');
 
-    const response = await fetch(`/api/core-memory/memories/${memoryId}/summary`, {
+    const response = await csrfFetch(`/api/core-memory/memories/${memoryId}/summary`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tool: 'gemini', path: projectPath })
@@ -861,7 +861,7 @@ async function toggleFavorite(memoryId) {
     }
     metadata.favorite = !metadata.favorite;
 
-    const response = await fetch('/api/core-memory/memories', {
+    const response = await csrfFetch('/api/core-memory/memories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...memory, metadata, path: projectPath })

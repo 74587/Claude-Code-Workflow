@@ -122,7 +122,7 @@ function renderActiveMemoryControls() {
 // ========== Data Loading ==========
 async function loadMemoryStats() {
   try {
-    var response = await fetch('/api/memory/stats?filter=' + memoryTimeFilter);
+    var response = await csrfFetch('/api/memory/stats?filter=' + memoryTimeFilter);
     if (!response.ok) throw new Error('Failed to load memory stats');
     var data = await response.json();
     memoryStats = data.stats || { mostRead: [], mostEdited: [] };
@@ -136,7 +136,7 @@ async function loadMemoryStats() {
 
 async function loadMemoryGraph() {
   try {
-    var response = await fetch('/api/memory/graph');
+    var response = await csrfFetch('/api/memory/graph');
     if (!response.ok) throw new Error('Failed to load memory graph');
     var data = await response.json();
     memoryGraphData = data.graph || { nodes: [], edges: [] };
@@ -150,7 +150,7 @@ async function loadMemoryGraph() {
 
 async function loadRecentContext() {
   try {
-    var response = await fetch('/api/memory/recent');
+    var response = await csrfFetch('/api/memory/recent');
     if (!response.ok) throw new Error('Failed to load recent context');
     var data = await response.json();
     recentContext = data.recent || [];
@@ -164,7 +164,7 @@ async function loadRecentContext() {
 
 async function loadInsightsHistory() {
   try {
-    var response = await fetch('/api/memory/insights?limit=10');
+    var response = await csrfFetch('/api/memory/insights?limit=10');
     if (!response.ok) throw new Error('Failed to load insights history');
     var data = await response.json();
     insightsHistory = data.insights || [];
@@ -206,7 +206,7 @@ function stopActiveMemorySyncTimer() {
 
 async function loadActiveMemoryStatus() {
   try {
-    var response = await fetch('/api/memory/active/status');
+    var response = await csrfFetch('/api/memory/active/status');
     if (!response.ok) throw new Error('Failed to load active memory status');
     var data = await response.json();
     activeMemoryEnabled = data.enabled || false;
@@ -232,7 +232,7 @@ async function loadActiveMemoryStatus() {
 
 async function toggleActiveMemory(enabled) {
   try {
-    var response = await fetch('/api/memory/active/toggle', {
+    var response = await csrfFetch('/api/memory/active/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -273,7 +273,7 @@ async function updateActiveMemoryConfig(key, value) {
   activeMemoryConfig[key] = value;
 
   try {
-    var response = await fetch('/api/memory/active/config', {
+    var response = await csrfFetch('/api/memory/active/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ config: activeMemoryConfig })
@@ -304,7 +304,7 @@ async function syncActiveMemory() {
   }
 
   try {
-    var response = await fetch('/api/memory/active/sync', {
+    var response = await csrfFetch('/api/memory/active/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1030,7 +1030,7 @@ function getToolIcon(tool) {
 
 async function showInsightDetail(insightId) {
   try {
-    var response = await fetch('/api/memory/insights/' + insightId);
+    var response = await csrfFetch('/api/memory/insights/' + insightId);
     if (!response.ok) throw new Error('Failed to load insight detail');
     var data = await response.json();
     selectedInsight = data.insight;
@@ -1114,7 +1114,7 @@ async function deleteInsight(insightId) {
   if (!confirm(t('memory.confirmDeleteInsight'))) return;
 
   try {
-    var response = await csrfFetch('/api/memory/insights/' + insightId, { method: 'DELETE' });
+    var response = await csrfcsrfFetch('/api/memory/insights/' + insightId, { method: 'DELETE' });
     if (!response.ok) throw new Error('Failed to delete insight');
 
     selectedInsight = null;
@@ -1219,3 +1219,4 @@ function formatTimestamp(timestamp) {
   // Otherwise show date
   return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
 }
+

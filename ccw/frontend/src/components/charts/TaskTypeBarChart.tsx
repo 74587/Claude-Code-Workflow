@@ -84,6 +84,7 @@ export function TaskTypeBarChart({
       className={`w-full ${className}`}
       role="img"
       aria-label="Task type bar chart showing distribution of task types"
+      data-testid="task-type-bar-chart"
     >
       {title && <h3 className="text-lg font-semibold text-foreground mb-4">{title}</h3>}
       <ResponsiveContainer width="100%" height={height}>

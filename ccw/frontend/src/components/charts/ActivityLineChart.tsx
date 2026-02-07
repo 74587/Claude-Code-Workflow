@@ -84,6 +84,7 @@ export function ActivityLineChart({
       className={`w-full ${className}`}
       role="img"
       aria-label="Activity timeline line chart showing sessions and tasks over time"
+      data-testid="activity-line-chart"
     >
       {title && <h3 className="text-lg font-semibold text-foreground mb-4">{title}</h3>}
       <ResponsiveContainer width="100%" height={height}>

@@ -42,7 +42,7 @@ async function getEnabledTools() {
   }
 
   try {
-    const response = await fetch('/api/cli/tools-config');
+    const response = await csrfFetch('/api/cli/tools-config');
     const result = await response.json();
 
     if (result.tools && typeof result.tools === 'object') {
@@ -238,7 +238,7 @@ function handleLoopUpdate(data) {
 async function loadLoops() {
   try {
     // Fetch v2 loops (new simplified format)
-    const v2Response = await fetch('/api/loops/v2');
+    const v2Response = await csrfFetch('/api/loops/v2');
     const v2Result = await v2Response.json();
 
     if (v2Result.success && v2Result.data) {
@@ -248,7 +248,7 @@ async function loadLoops() {
     }
 
     // Fetch v1 loops (legacy format with task_id)
-    const v1Response = await fetch('/api/loops');
+    const v1Response = await csrfFetch('/api/loops');
     const v1Result = await v1Response.json();
 
     if (v1Result.success && v1Result.data) {
@@ -276,7 +276,7 @@ async function loadLoops() {
  */
 async function showTasksTabIfAny() {
   try {
-    const response = await fetch('/api/tasks');
+    const response = await csrfFetch('/api/tasks');
     const result = await response.json();
 
     if (result.success) {
@@ -642,7 +642,7 @@ async function pauseLoop(loopId) {
   const endpoint = isV2 ? `/api/loops/v2/${loopId}/pause` : `/api/loops/${loopId}/pause`;
 
   try {
-    const response = await fetch(endpoint, { method: 'POST' });
+    const response = await csrfFetch(endpoint, { method: 'POST' });
     const result = await response.json();
 
     if (result.success) {
@@ -666,7 +666,7 @@ async function resumeLoop(loopId) {
   const endpoint = isV2 ? `/api/loops/v2/${loopId}/resume` : `/api/loops/${loopId}/resume`;
 
   try {
-    const response = await fetch(endpoint, { method: 'POST' });
+    const response = await csrfFetch(endpoint, { method: 'POST' });
     const result = await response.json();
 
     if (result.success) {
@@ -708,7 +708,7 @@ async function stopLoop(loopId) {
   const endpoint = isV2 ? `/api/loops/v2/${loopId}/stop` : `/api/loops/${loopId}/stop`;
 
   try {
-    const response = await fetch(endpoint, { method: 'POST' });
+    const response = await csrfFetch(endpoint, { method: 'POST' });
     const result = await response.json();
 
     if (result.success) {
@@ -728,7 +728,7 @@ async function stopLoop(loopId) {
  */
 async function startLoopV2(loopId) {
   try {
-    const response = await fetch(`/api/loops/v2/${loopId}/start`, { method: 'POST' });
+    const response = await csrfFetch(`/api/loops/v2/${loopId}/start`, { method: 'POST' });
     const result = await response.json();
 
     if (result.success) {
@@ -984,7 +984,7 @@ function handleTaskDrop(e) {
  */
 async function saveTaskOrder(loopId, newOrder) {
   try {
-    const response = await fetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks/reorder`, {
+    const response = await csrfFetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks/reorder`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ordered_task_ids: newOrder })
@@ -1224,7 +1224,7 @@ async function handleAddTask(event, loopId) {
 
   try {
     // Call POST /api/loops/v2/:loopId/tasks
-    const response = await fetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks`, {
+    const response = await csrfFetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1383,7 +1383,7 @@ async function handleEditTask(event, loopId, taskId) {
 
   try {
     // Call PUT /api/loops/v2/:loopId/tasks/:taskId
-    const response = await fetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks/${encodeURIComponent(taskId)}`, {
+    const response = await csrfFetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks/${encodeURIComponent(taskId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1435,7 +1435,7 @@ async function deleteTask(taskId) {
 
   try {
     // Call DELETE /api/loops/v2/:loopId/tasks/:taskId
-    const response = await fetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks/${encodeURIComponent(taskId)}`, {
+    const response = await csrfFetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks/${encodeURIComponent(taskId)}`, {
       method: 'DELETE'
     });
 
@@ -1912,7 +1912,7 @@ async function handleKanbanDrop(event, loopId, newStatus) {
  */
 async function updateLoopStatus(loopId, status) {
   try {
-    const response = await fetch(`/api/loops/v2/${encodeURIComponent(loopId)}/status`, {
+    const response = await csrfFetch(`/api/loops/v2/${encodeURIComponent(loopId)}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
@@ -1953,7 +1953,7 @@ async function updateLoopStatus(loopId, status) {
  */
 async function updateLoopMetadata(loopId, metadata) {
   try {
-    const response = await fetch(`/api/loops/v2/${encodeURIComponent(loopId)}`, {
+    const response = await csrfFetch(`/api/loops/v2/${encodeURIComponent(loopId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(metadata)
@@ -1995,7 +1995,7 @@ async function updateLoopMetadata(loopId, metadata) {
  */
 async function updateTaskStatus(loopId, taskId, newStatus) {
   try {
-    const response = await fetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks/${encodeURIComponent(taskId)}`, {
+    const response = await csrfFetch(`/api/loops/v2/${encodeURIComponent(loopId)}/tasks/${encodeURIComponent(taskId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
@@ -2493,7 +2493,7 @@ function renderGroupedLoopList() {
  */
 async function showTasksTab() {
   try {
-    const response = await fetch('/api/tasks');
+    const response = await csrfFetch('/api/tasks');
     const result = await response.json();
 
     if (!result.success) {
@@ -2578,7 +2578,7 @@ function renderTaskCard(task) {
  */
 async function startLoopFromTask(taskId) {
   try {
-    const response = await fetch('/api/loops', {
+    const response = await csrfFetch('/api/loops', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ taskId })
@@ -2750,7 +2750,7 @@ window.availableCliTools = [];
  */
 async function fetchAvailableCliTools() {
   try {
-    const response = await fetch('/api/cli/status');
+    const response = await csrfFetch('/api/cli/status');
     const data = await response.json();
     // Return only available tools (where available: true)
     return Object.entries(data)
@@ -2992,7 +2992,7 @@ async function handleSimpleCreateLoop(event) {
 
   try {
     // Call POST /api/loops/v2
-    const response = await fetch('/api/loops/v2', {
+    const response = await csrfFetch('/api/loops/v2', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -3046,7 +3046,7 @@ function closeCreateLoopModal() {
  */
 async function importFromIssue() {
   try {
-    const response = await fetch('/api/issues');
+    const response = await csrfFetch('/api/issues');
     const data = await response.json();
 
     if (!data.issues || data.issues.length === 0) {
@@ -3321,7 +3321,7 @@ async function handleCreateLoopSubmit(event) {
 
   try {
     // Create task only (don't auto-start)
-    const createResponse = await fetch('/api/tasks', {
+    const createResponse = await csrfFetch('/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(task)
@@ -3343,3 +3343,4 @@ async function handleCreateLoopSubmit(event) {
     showError(t('loop.createFailed') + ': ' + err.message);
   }
 }
+

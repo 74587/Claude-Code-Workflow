@@ -186,7 +186,7 @@ async function refreshWorkspaceIndexStatus(forceRefresh) {
     } else {
       // Fallback: direct fetch if preloadService not available
       var path = encodeURIComponent(projectPath || '');
-      var response = await fetch('/api/codexlens/workspace-status?path=' + path);
+      var response = await csrfFetch('/api/codexlens/workspace-status?path=' + path);
       if (!response.ok) throw new Error('HTTP ' + response.status);
       freshData = await response.json();
     }
@@ -341,8 +341,8 @@ async function showCodexLensConfigModal(forceRefresh) {
 
       // Fetch current config and status in parallel
       const [configResponse, statusResponse] = await Promise.all([
-        fetch('/api/codexlens/config'),
-        fetch('/api/codexlens/status')
+        csrfFetch('/api/codexlens/config'),
+        csrfFetch('/api/codexlens/status')
       ]);
       config = await configResponse.json();
       status = await statusResponse.json();
@@ -778,7 +778,7 @@ function initCodexLensConfigEvents(currentConfig) {
       saveBtn.innerHTML = '<span class="animate-pulse">' + t('common.saving') + '</span>';
 
       try {
-        var response = await fetch('/api/codexlens/config', {
+        var response = await csrfFetch('/api/codexlens/config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1147,7 +1147,7 @@ async function loadEnvVariables(forceRefresh) {
     if (!forceRefresh && isCacheValid('env')) {
       result = getCachedData('env');
     } else {
-      var envResponse = await fetch('/api/codexlens/env');
+      var envResponse = await csrfFetch('/api/codexlens/env');
       result = await envResponse.json();
       if (result.success) {
         setCacheData('env', result);
@@ -1643,7 +1643,7 @@ async function saveEnvVariables() {
   });
 
   try {
-    var response = await fetch('/api/codexlens/env', {
+    var response = await csrfFetch('/api/codexlens/env', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ env: env })
@@ -1678,7 +1678,7 @@ var cachedRerankerModels = { local: [], api: [], apiModels: [] };
  */
 async function detectGpuSupport() {
   try {
-    var response = await fetch('/api/codexlens/gpu/detect');
+    var response = await csrfFetch('/api/codexlens/gpu/detect');
     var result = await response.json();
     if (result.success) {
       detectedGpuInfo = result;
@@ -1703,7 +1703,7 @@ async function loadSemanticDepsStatus(forceRefresh) {
     if (!forceRefresh && isCacheValid('semanticStatus')) {
       result = getCachedData('semanticStatus');
     } else {
-      var response = await fetch('/api/codexlens/semantic/status');
+      var response = await csrfFetch('/api/codexlens/semantic/status');
       result = await response.json();
       setCacheData('semanticStatus', result);
     }
@@ -1870,7 +1870,7 @@ function getSelectedGpuMode() {
  */
 async function loadGpuDevices() {
   try {
-    var response = await fetch('/api/codexlens/gpu/list');
+    var response = await csrfFetch('/api/codexlens/gpu/list');
     var result = await response.json();
     if (result.success && result.result) {
       availableGpuDevices = result.result;
@@ -1949,7 +1949,7 @@ async function selectGpuDevice(deviceId) {
   try {
     showRefreshToast(t('codexlens.selectingGpu') || 'Selecting GPU...', 'info');
 
-    var response = await fetch('/api/codexlens/gpu/select', {
+    var response = await csrfFetch('/api/codexlens/gpu/select', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ device_id: deviceId })
@@ -1975,7 +1975,7 @@ async function resetGpuDevice() {
   try {
     showRefreshToast(t('codexlens.resettingGpu') || 'Resetting GPU selection...', 'info');
 
-    var response = await fetch('/api/codexlens/gpu/reset', {
+    var response = await csrfFetch('/api/codexlens/gpu/reset', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -2019,7 +2019,7 @@ async function installSemanticDepsWithGpu() {
     '</div>';
 
   try {
-    var response = await fetch('/api/codexlens/semantic/install', {
+    var response = await csrfFetch('/api/codexlens/semantic/install', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gpuMode: gpuMode })
@@ -2059,7 +2059,7 @@ async function loadSpladeStatus() {
   if (!container) return;
 
   try {
-    var response = await fetch('/api/codexlens/splade/status');
+    var response = await csrfFetch('/api/codexlens/splade/status');
     var status = await response.json();
 
     if (status.available) {
@@ -2112,7 +2112,7 @@ async function installSplade(gpu) {
   if (window.lucide) lucide.createIcons();
 
   try {
-    var response = await fetch('/api/codexlens/splade/install', {
+    var response = await csrfFetch('/api/codexlens/splade/install', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gpu: gpu })
@@ -2413,7 +2413,7 @@ async function reinstallFastEmbed(mode) {
     '</div>';
 
   try {
-    var response = await fetch('/api/codexlens/semantic/install', {
+    var response = await csrfFetch('/api/codexlens/semantic/install', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gpuMode: mode })
@@ -2455,7 +2455,7 @@ async function loadFastEmbedInstallStatus(forceRefresh) {
       result = getCachedData('semanticStatus');
       console.log('[CodexLens] Using cached semantic status');
     } else {
-      var semanticResponse = await fetch('/api/codexlens/semantic/status');
+      var semanticResponse = await csrfFetch('/api/codexlens/semantic/status');
       result = await semanticResponse.json();
       setCacheData('semanticStatus', result);
     }
@@ -2463,7 +2463,7 @@ async function loadFastEmbedInstallStatus(forceRefresh) {
     // Load GPU list and LiteLLM status (not cached - less frequently used)
     console.log('[CodexLens] Fetching GPU list and LiteLLM status...');
     var [gpuResponse, litellmResponse] = await Promise.all([
-      fetch('/api/codexlens/gpu/list'),
+      csrfFetch('/api/codexlens/gpu/list'),
       fetch('/api/litellm-api/ccw-litellm/status').catch(function() { return { ok: false }; })
     ]);
 
@@ -2551,7 +2551,7 @@ async function installFastEmbed() {
     '</div>';
 
   try {
-    var response = await fetch('/api/codexlens/semantic/install', {
+    var response = await csrfFetch('/api/codexlens/semantic/install', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ gpuMode: selectedMode })
@@ -2604,8 +2604,8 @@ async function loadModelList(forceRefresh) {
     } else {
       // Fetch config and models in parallel
       var [configResponse, modelsResponse] = await Promise.all([
-        fetch('/api/codexlens/config'),
-        fetch('/api/codexlens/models')
+        csrfFetch('/api/codexlens/config'),
+        csrfFetch('/api/codexlens/models')
       ]);
       config = await configResponse.json();
       result = await modelsResponse.json();
@@ -2854,7 +2854,7 @@ async function downloadModel(profile) {
     '</div>';
 
   try {
-    var response = await fetch('/api/codexlens/models/download', {
+    var response = await csrfFetch('/api/codexlens/models/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profile: profile })
@@ -2899,7 +2899,7 @@ async function deleteModel(profile) {
     '</div>';
 
   try {
-    var response = await fetch('/api/codexlens/models/delete', {
+    var response = await csrfFetch('/api/codexlens/models/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profile: profile })
@@ -2948,7 +2948,7 @@ async function downloadCustomModel() {
   input.value = '';
   
   try {
-    var response = await fetch('/api/codexlens/models/download-custom', {
+    var response = await csrfFetch('/api/codexlens/models/download-custom', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model_name: modelName, model_type: 'embedding' })
@@ -2981,7 +2981,7 @@ async function deleteDiscoveredModel(cachePath) {
   }
 
   try {
-    var response = await fetch('/api/codexlens/models/delete-path', {
+    var response = await csrfFetch('/api/codexlens/models/delete-path', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cache_path: cachePath })
@@ -3044,8 +3044,8 @@ async function loadRerankerModelList(forceRefresh) {
     } else {
       // Fetch both config and models list in parallel
       var [configResponse, modelsResponse] = await Promise.all([
-        fetch('/api/codexlens/reranker/config'),
-        fetch('/api/codexlens/reranker/models')
+        csrfFetch('/api/codexlens/reranker/config'),
+        csrfFetch('/api/codexlens/reranker/models')
       ]);
 
       if (!configResponse.ok) {
@@ -3218,7 +3218,7 @@ async function downloadRerankerModel(profile) {
   }
 
   try {
-    var response = await fetch('/api/codexlens/reranker/models/download', {
+    var response = await csrfFetch('/api/codexlens/reranker/models/download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profile: profile })
@@ -3248,7 +3248,7 @@ async function deleteRerankerModel(profile) {
   }
 
   try {
-    var response = await fetch('/api/codexlens/reranker/models/delete', {
+    var response = await csrfFetch('/api/codexlens/reranker/models/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profile: profile })
@@ -3272,7 +3272,7 @@ async function deleteRerankerModel(profile) {
  */
 async function updateRerankerBackend(backend) {
   try {
-    var response = await fetch('/api/codexlens/reranker/config', {
+    var response = await csrfFetch('/api/codexlens/reranker/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ backend: backend })
@@ -3296,7 +3296,7 @@ async function updateRerankerBackend(backend) {
  */
 async function selectRerankerModel(modelName) {
   try {
-    var response = await fetch('/api/codexlens/reranker/config', {
+    var response = await csrfFetch('/api/codexlens/reranker/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model_name: modelName })
@@ -3321,7 +3321,7 @@ async function selectRerankerModel(modelName) {
 async function switchToLocalReranker(modelName) {
   try {
     // First switch backend to fastembed
-    var backendResponse = await fetch('/api/codexlens/reranker/config', {
+    var backendResponse = await csrfFetch('/api/codexlens/reranker/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ backend: 'fastembed' })
@@ -3334,7 +3334,7 @@ async function switchToLocalReranker(modelName) {
     }
 
     // Then select the model
-    var modelResponse = await fetch('/api/codexlens/reranker/config', {
+    var modelResponse = await csrfFetch('/api/codexlens/reranker/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model_name: modelName })
@@ -3425,7 +3425,7 @@ async function loadGpuDevicesForModeSelector() {
   if (!gpuSelect) return;
 
   try {
-    var response = await fetch('/api/codexlens/gpu/list');
+    var response = await csrfFetch('/api/codexlens/gpu/list');
     if (!response.ok) {
       console.warn('[CodexLens] GPU list endpoint returned:', response.status);
       gpuSelect.innerHTML = '<option value="auto">Auto</option>';
@@ -3483,7 +3483,7 @@ async function toggleModelModeLock() {
     try {
       // Save embedding backend preference
       var embeddingBackend = mode === 'local' ? 'fastembed' : 'litellm';
-      await fetch('/api/codexlens/config', {
+      await csrfFetch('/api/codexlens/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3494,7 +3494,7 @@ async function toggleModelModeLock() {
 
       // Save reranker backend preference
       var rerankerBackend = mode === 'local' ? 'fastembed' : 'litellm';
-      await fetch('/api/codexlens/reranker/config', {
+      await csrfFetch('/api/codexlens/reranker/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ backend: rerankerBackend })
@@ -3529,7 +3529,7 @@ async function initModelModeFromConfig() {
   if (!modeSelect) return;
 
   try {
-    var response = await fetch('/api/codexlens/config');
+    var response = await csrfFetch('/api/codexlens/config');
     var config = await response.json();
 
     var embeddingBackend = config.embedding_backend || 'fastembed';
@@ -3550,7 +3550,7 @@ async function updateSemanticStatusBadge() {
   if (!badge) return;
 
   try {
-    var response = await fetch('/api/codexlens/semantic/status');
+    var response = await csrfFetch('/api/codexlens/semantic/status');
     var result = await response.json();
 
     if (result.available) {
@@ -3609,7 +3609,7 @@ async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend, m
   // LiteLLM backend uses remote embeddings and does not require fastembed/ONNX deps.
   if ((indexType === 'vector' || indexType === 'full') && embeddingBackend !== 'litellm') {
     try {
-      var semanticResponse = await fetch('/api/codexlens/semantic/status');
+      var semanticResponse = await csrfFetch('/api/codexlens/semantic/status');
       var semanticStatus = await semanticResponse.json();
 
       if (!semanticStatus.available) {
@@ -3623,7 +3623,7 @@ async function initCodexLensIndex(indexType, embeddingModel, embeddingBackend, m
           // Install semantic dependencies first
           showRefreshToast(t('codexlens.installingDeps') || 'Installing semantic dependencies...', 'info');
           try {
-            var installResponse = await csrfFetch('/api/codexlens/semantic/install', { method: 'POST' });
+            var installResponse = await csrfcsrfFetch('/api/codexlens/semantic/install', { method: 'POST' });
             var installResult = await installResponse.json();
 
             if (!installResult.success) {
@@ -3757,7 +3757,7 @@ async function startCodexLensIndexing(indexType, embeddingModel, embeddingBacken
 
   try {
     console.log('[CodexLens] Starting index for:', projectPath, 'type:', indexType, 'model:', embeddingModel, 'backend:', embeddingBackend, 'maxWorkers:', maxWorkers, 'incremental:', incremental);
-    var response = await fetch('/api/codexlens/init', {
+    var response = await csrfFetch('/api/codexlens/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: projectPath, indexType: indexType, embeddingModel: embeddingModel, embeddingBackend: embeddingBackend, maxWorkers: maxWorkers, incremental: incremental })
@@ -3879,7 +3879,7 @@ async function cancelCodexLensIndexing() {
   }
 
   try {
-    var response = await fetch('/api/codexlens/cancel', {
+    var response = await csrfFetch('/api/codexlens/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });
@@ -4040,7 +4040,7 @@ async function startCodexLensInstallFallback() {
   }, 1500);
 
   try {
-    var response = await fetch('/api/codexlens/bootstrap', {
+    var response = await csrfFetch('/api/codexlens/bootstrap', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -4191,7 +4191,7 @@ async function startCodexLensUninstallFallback() {
   }, 500);
 
   try {
-    var response = await fetch('/api/codexlens/uninstall', {
+    var response = await csrfFetch('/api/codexlens/uninstall', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({})
@@ -4247,7 +4247,7 @@ async function cleanCurrentWorkspaceIndex() {
     // Get current workspace path (projectPath is a global variable from state.js)
     var workspacePath = projectPath;
 
-    var response = await fetch('/api/codexlens/clean', {
+    var response = await csrfFetch('/api/codexlens/clean', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: workspacePath })
@@ -4283,7 +4283,7 @@ async function cleanCodexLensIndexes() {
   try {
     showRefreshToast(t('codexlens.cleaning'), 'info');
 
-    var response = await fetch('/api/codexlens/clean', {
+    var response = await csrfFetch('/api/codexlens/clean', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ all: true })
@@ -4346,7 +4346,7 @@ async function renderCodexLensManager() {
       // Fallback to legacy individual calls
       console.log('[CodexLens] Fallback to legacy loadCodexLensStatus...');
       await loadCodexLensStatus();
-      var response = await fetch('/api/codexlens/config');
+      var response = await csrfFetch('/api/codexlens/config');
       config = await response.json();
     }
 
@@ -4967,7 +4967,7 @@ window.runFtsIncrementalUpdate = async function runFtsIncrementalUpdate() {
 
   try {
     // Use index update endpoint for FTS incremental
-    var response = await fetch('/api/codexlens/init', {
+    var response = await csrfFetch('/api/codexlens/init', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -4998,7 +4998,7 @@ window.runVectorFullIndex = async function runVectorFullIndex() {
   
   try {
     // Fetch env settings to get the configured embedding model
-    var envResponse = await fetch('/api/codexlens/env');
+    var envResponse = await csrfFetch('/api/codexlens/env');
     var envData = await envResponse.json();
     var embeddingModel = envData.CODEXLENS_EMBEDDING_MODEL || envData.LITELLM_EMBEDDING_MODEL || 'code';
     
@@ -5020,7 +5020,7 @@ window.runVectorIncrementalUpdate = async function runVectorIncrementalUpdate() 
 
   try {
     // Fetch env settings to get the configured embedding model
-    var envResponse = await fetch('/api/codexlens/env');
+    var envResponse = await csrfFetch('/api/codexlens/env');
     var envData = await envResponse.json();
     var embeddingModel = envData.CODEXLENS_EMBEDDING_MODEL || envData.LITELLM_EMBEDDING_MODEL || null;
 
@@ -5037,7 +5037,7 @@ window.runVectorIncrementalUpdate = async function runVectorIncrementalUpdate() 
       requestBody.model = embeddingModel;
     }
 
-    var response = await fetch('/api/codexlens/embeddings/generate', {
+    var response = await csrfFetch('/api/codexlens/embeddings/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(requestBody)
@@ -5067,7 +5067,7 @@ window.runIncrementalUpdate = async function runIncrementalUpdate() {
   showRefreshToast('Starting incremental update...', 'info');
 
   try {
-    var response = await fetch('/api/codexlens/update', {
+    var response = await csrfFetch('/api/codexlens/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: projectPath })
@@ -5098,7 +5098,7 @@ window.toggleWatcher = async function toggleWatcher() {
   try {
     console.log('[CodexLens] Checking watcher status...');
     // Pass path parameter to get specific watcher status
-    var statusResponse = await fetch('/api/codexlens/watch/status?path=' + encodeURIComponent(projectPath));
+    var statusResponse = await csrfFetch('/api/codexlens/watch/status?path=' + encodeURIComponent(projectPath));
     var statusResult = await statusResponse.json();
     console.log('[CodexLens] Status result:', statusResult);
 
@@ -5121,7 +5121,7 @@ window.toggleWatcher = async function toggleWatcher() {
     var action = isRunning ? 'stop' : 'start';
     console.log('[CodexLens] Action:', action);
 
-    var response = await fetch('/api/codexlens/watch/' + action, {
+    var response = await csrfFetch('/api/codexlens/watch/' + action, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: projectPath })
@@ -5210,7 +5210,7 @@ function startWatcherPolling() {
   watcherPollInterval = setInterval(async function() {
     try {
       // Must include path parameter to get specific watcher status
-      var response = await fetch('/api/codexlens/watch/status?path=' + encodeURIComponent(projectPath));
+      var response = await csrfFetch('/api/codexlens/watch/status?path=' + encodeURIComponent(projectPath));
       var result = await response.json();
 
       if (result.success && result.running) {
@@ -5337,7 +5337,7 @@ async function initWatcherStatus() {
   try {
     var projectPath = window.CCW_PROJECT_ROOT || '.';
     // Pass path parameter to get specific watcher status
-    var response = await fetch('/api/codexlens/watch/status?path=' + encodeURIComponent(projectPath));
+    var response = await csrfFetch('/api/codexlens/watch/status?path=' + encodeURIComponent(projectPath));
     var result = await response.json();
     if (result.success) {
       // Handle both single watcher response (with path param) and array response (without path param)
@@ -5393,7 +5393,7 @@ function initCodexLensManagerPageEvents(currentConfig) {
       saveBtn.disabled = true;
       saveBtn.innerHTML = '<span class="animate-pulse">' + t('common.saving') + '</span>';
       try {
-        var response = await csrfFetch('/api/codexlens/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index_dir: newIndexDir }) });
+        var response = await csrfcsrfFetch('/api/codexlens/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ index_dir: newIndexDir }) });
         var result = await response.json();
         if (result.success) { if (window.cacheManager) { window.cacheManager.invalidate('codexlens-config'); } showRefreshToast(t('codexlens.configSaved'), 'success'); renderCodexLensManager(); }
         else { showRefreshToast(t('common.saveFailed') + ': ' + result.error, 'error'); }
@@ -5466,7 +5466,7 @@ function showIndexInitModal() {
  */
 async function loadIndexStatsForPage() {
   try {
-    var response = await fetch('/api/codexlens/indexes');
+    var response = await csrfFetch('/api/codexlens/indexes');
     if (!response.ok) throw new Error('Failed to load index stats');
     var data = await response.json();
     renderIndexStatsForPage(data);
@@ -5575,7 +5575,7 @@ async function checkIndexHealth() {
 
   try {
     // Get current workspace index info
-    var indexResponse = await fetch('/api/codexlens/indexes');
+    var indexResponse = await csrfFetch('/api/codexlens/indexes');
     var indexData = await indexResponse.json();
     var indexes = indexData.indexes || [];
 
@@ -5653,7 +5653,7 @@ async function cleanIndexProjectFromPage(projectId) {
   try {
     showRefreshToast(t('index.cleaning') || 'Cleaning index...', 'info');
 
-    var response = await fetch('/api/codexlens/clean', {
+    var response = await csrfFetch('/api/codexlens/clean', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectId: projectId })
@@ -5683,7 +5683,7 @@ async function cleanAllIndexesFromPage() {
   try {
     showRefreshToast(t('index.cleaning') || 'Cleaning indexes...', 'info');
 
-    var response = await fetch('/api/codexlens/clean', {
+    var response = await csrfFetch('/api/codexlens/clean', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ all: true })
@@ -6010,7 +6010,7 @@ async function saveRotationConfig() {
       providers: providers
     };
 
-    var response = await fetch('/api/litellm-api/codexlens/rotation', {
+    var response = await csrfFetch('/api/litellm-api/codexlens/rotation', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(rotationConfig)
@@ -6052,7 +6052,7 @@ async function showRerankerConfigModal() {
     showRefreshToast(t('codexlens.loadingRerankerConfig') || 'Loading reranker configuration...', 'info');
 
     // Fetch current reranker config
-    const response = await fetch('/api/codexlens/reranker/config');
+    const response = await csrfFetch('/api/codexlens/reranker/config');
     const config = await response.json();
 
     if (!config.success) {
@@ -6341,7 +6341,7 @@ async function saveRerankerConfig() {
       payload.litellm_endpoint = document.getElementById('rerankerLitellmEndpoint').value;
     }
 
-    var response = await fetch('/api/codexlens/reranker/config', {
+    var response = await csrfFetch('/api/codexlens/reranker/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -6373,8 +6373,8 @@ async function showWatcherControlModal() {
 
     // Fetch current watcher status and indexed projects in parallel
     const [statusResponse, indexesResponse] = await Promise.all([
-      fetch('/api/codexlens/watch/status'),
-      fetch('/api/codexlens/indexes')
+      csrfFetch('/api/codexlens/watch/status'),
+      csrfFetch('/api/codexlens/indexes')
     ]);
     const status = await statusResponse.json();
     const indexes = await indexesResponse.json();
@@ -6562,7 +6562,7 @@ async function toggleWatcher() {
       var watchPath = document.getElementById('watcherPath').value.trim();
       var debounceMs = parseInt(document.getElementById('watcherDebounce').value, 10) || 1000;
 
-      var response = await fetch('/api/codexlens/watch/start', {
+      var response = await csrfFetch('/api/codexlens/watch/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: watchPath || undefined, debounce_ms: debounceMs })
@@ -6581,7 +6581,7 @@ async function toggleWatcher() {
       }
     } else {
       // Stop watcher
-      var response = await fetch('/api/codexlens/watch/stop', {
+      var response = await csrfFetch('/api/codexlens/watch/stop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -6625,7 +6625,7 @@ function startWatcherStatusPolling() {
         return;
       }
 
-      var response = await fetch('/api/codexlens/watch/status');
+      var response = await csrfFetch('/api/codexlens/watch/status');
       var status = await response.json();
 
       if (status.running) {
@@ -6711,7 +6711,7 @@ async function flushWatcherNow() {
     var watchPath = document.getElementById('watcherPath');
     var path = watchPath ? watchPath.value.trim() : '';
 
-    var response = await fetch('/api/codexlens/watch/flush', {
+    var response = await csrfFetch('/api/codexlens/watch/flush', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: path || undefined })
@@ -6744,7 +6744,7 @@ async function showIndexHistory() {
     var watchPath = document.getElementById('watcherPath');
     var path = watchPath ? watchPath.value.trim() : '';
 
-    var response = await fetch('/api/codexlens/watch/history?limit=10&path=' + encodeURIComponent(path));
+    var response = await csrfFetch('/api/codexlens/watch/history?limit=10&path=' + encodeURIComponent(path));
     var result = await response.json();
 
     if (!result.success || !result.history || result.history.length === 0) {
@@ -6945,7 +6945,7 @@ window.toggleIgnorePatternsSection = toggleIgnorePatternsSection;
  */
 async function loadIgnorePatterns() {
   try {
-    var response = await fetch('/api/codexlens/ignore-patterns');
+    var response = await csrfFetch('/api/codexlens/ignore-patterns');
     var data = await response.json();
 
     if (data.success) {
@@ -6987,7 +6987,7 @@ async function saveIgnorePatterns() {
   var extensionFilters = filtersInput ? filtersInput.value.split('\n').map(function(p) { return p.trim(); }).filter(function(p) { return p; }) : [];
 
   try {
-    var response = await fetch('/api/codexlens/ignore-patterns', {
+    var response = await csrfFetch('/api/codexlens/ignore-patterns', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ patterns: patterns, extensionFilters: extensionFilters })
@@ -7020,7 +7020,7 @@ async function resetIgnorePatterns() {
   if (!ignorePatternsDefaults) {
     // Load defaults first if not cached
     try {
-      var response = await fetch('/api/codexlens/ignore-patterns');
+      var response = await csrfFetch('/api/codexlens/ignore-patterns');
       var data = await response.json();
       if (data.success) {
         ignorePatternsDefaults = data.defaults;
@@ -7075,7 +7075,7 @@ async function initIgnorePatternsCount() {
   var extensionFilters = fallbackDefaults.extensionFilters;
 
   try {
-    var response = await fetch('/api/codexlens/ignore-patterns');
+    var response = await csrfFetch('/api/codexlens/ignore-patterns');
     var data = await response.json();
 
     if (data.success) {
@@ -7121,3 +7121,4 @@ window.refreshCodexLensData = async function(forceRefresh) {
   await refreshWorkspaceIndexStatus(true);
   showRefreshToast(t('common.refreshed') || 'Refreshed', 'success');
 };
+

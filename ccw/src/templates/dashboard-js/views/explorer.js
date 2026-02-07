@@ -570,7 +570,7 @@ async function executeUpdateClaudeMd() {
   statusEl.innerHTML = '<div class="status-running">⏳ Running update...</div>';
 
   try {
-    const response = await fetch('/api/update-claude-md', {
+    const response = await csrfFetch('/api/update-claude-md', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path, tool, strategy })
@@ -808,7 +808,7 @@ async function executeTask(task) {
   addGlobalNotification('info', `Processing: ${folderName}`, `Strategy: ${task.strategy}, Tool: ${task.tool}`, 'Explorer');
   
   try {
-    const response = await fetch('/api/update-claude-md', {
+    const response = await csrfFetch('/api/update-claude-md', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -885,4 +885,3 @@ async function startTaskQueue() {
   // Refresh tree to show updated CLAUDE.md files
   await refreshExplorerTree();
 }
-

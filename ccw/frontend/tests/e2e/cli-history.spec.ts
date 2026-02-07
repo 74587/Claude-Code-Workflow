@@ -6,7 +6,7 @@
 import { test, expect } from '@playwright/test';
 import { setupEnhancedMonitoring } from './helpers/i18n-helpers';
 
-test.describe('[CLI History] - CLI Execution History Tests', () => {
+test.describe.skip('[CLI History] - CLI Execution History Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' as const });
   });

@@ -160,7 +160,7 @@ async function markFileAsUpdated() {
   if (!selectedFile) return;
 
   try {
-    var res = await fetch('/api/memory/claude/mark-updated', {
+    var res = await csrfFetch('/api/memory/claude/mark-updated', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -483,7 +483,7 @@ async function saveClaudeFile() {
   var newContent = editor.value;
 
   try {
-    var res = await fetch('/api/memory/claude/file', {
+    var res = await csrfFetch('/api/memory/claude/file', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -682,7 +682,7 @@ async function syncFileWithCLI() {
   if (syncButton) syncButton.disabled = true;
 
   try {
-    var response = await fetch('/api/memory/claude/sync', {
+    var response = await csrfFetch('/api/memory/claude/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -846,7 +846,7 @@ async function createNewFile() {
   }
 
   try {
-    var res = await fetch('/api/memory/claude/create', {
+    var res = await csrfFetch('/api/memory/claude/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -885,7 +885,7 @@ async function confirmDeleteFile() {
   if (!confirmed) return;
 
   try {
-    var res = await fetch('/api/memory/claude/file?path=' + encodeURIComponent(selectedFile.path) + '&confirm=true', {
+    var res = await csrfFetch('/api/memory/claude/file?path=' + encodeURIComponent(selectedFile.path) + '&confirm=true', {
       method: 'DELETE'
     });
 
@@ -1083,7 +1083,7 @@ async function confirmBatchDeleteProject() {
   );
 
   try {
-    var res = await fetch('/api/memory/claude/batch-delete', {
+    var res = await csrfFetch('/api/memory/claude/batch-delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

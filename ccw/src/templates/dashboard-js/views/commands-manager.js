@@ -399,7 +399,7 @@ async function toggleCommandEnabled(commandName, currentlyEnabled) {
   }
 
   try {
-    var response = await fetch('/api/commands/' + encodeURIComponent(commandName) + '/toggle', {
+    var response = await csrfFetch('/api/commands/' + encodeURIComponent(commandName) + '/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -453,7 +453,7 @@ async function toggleGroupEnabled(groupName, currentlyAllEnabled) {
   const enable = !currentlyAllEnabled;
 
   try {
-    const response = await fetch('/api/commands/group/' + encodeURIComponent(groupName) + '/toggle', {
+    const response = await csrfFetch('/api/commands/group/' + encodeURIComponent(groupName) + '/toggle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

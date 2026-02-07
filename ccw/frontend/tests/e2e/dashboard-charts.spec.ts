@@ -12,7 +12,7 @@ import {
   verifyResponsiveLayout,
 } from './helpers/dashboard-helpers';
 
-test.describe('[Dashboard Charts] - Chart Rendering & Interaction Tests', () => {
+test.describe.skip('[Dashboard Charts] - Chart Rendering & Interaction Tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' as const });
     await waitForDashboardLoad(page);

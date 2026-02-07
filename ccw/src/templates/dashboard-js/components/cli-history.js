@@ -453,7 +453,7 @@ async function deleteExecution(executionId, sourceDir) {
       basePath = isAbsolute ? sourceDir : projectPath + '/' + sourceDir;
     }
     
-    const response = await fetch(`/api/cli/execution?path=${encodeURIComponent(basePath)}&id=${encodeURIComponent(executionId)}`, {
+    const response = await csrfFetch(`/api/cli/execution?path=${encodeURIComponent(basePath)}&id=${encodeURIComponent(executionId)}`, {
       method: 'DELETE'
     });
 

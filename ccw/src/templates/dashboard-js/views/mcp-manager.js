@@ -1452,7 +1452,7 @@ async function copyCrossCliServer(name, config, fromCli, targetCli) {
       body = { serverName: name, serverConfig: config };
     }
 
-    const res = await fetch(endpoint, {
+    const res = await csrfFetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -2141,7 +2141,7 @@ let mcpTemplates = [];
  */
 async function loadMcpTemplates() {
   try {
-    const response = await fetch('/api/mcp-templates');
+    const response = await csrfFetch('/api/mcp-templates');
     const data = await response.json();
 
     if (data.success) {
@@ -2178,7 +2178,7 @@ async function saveMcpAsTemplate(serverName, serverConfig) {
       category: 'user'
     };
 
-    const response = await fetch('/api/mcp-templates', {
+    const response = await csrfFetch('/api/mcp-templates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -2235,7 +2235,7 @@ async function installFromTemplate(templateName, scope = 'project') {
  */
 async function deleteMcpTemplate(templateName) {
   try {
-    const response = await fetch(`/api/mcp-templates/${encodeURIComponent(templateName)}`, {
+    const response = await csrfFetch(`/api/mcp-templates/${encodeURIComponent(templateName)}`, {
       method: 'DELETE'
     });
 
@@ -2261,3 +2261,4 @@ window.closeMcpEditModal = closeMcpEditModal;
 window.saveMcpEdit = saveMcpEdit;
 window.deleteMcpFromEdit = deleteMcpFromEdit;
 window.saveMcpAsTemplate = saveMcpAsTemplate;
+

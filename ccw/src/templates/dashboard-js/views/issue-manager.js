@@ -57,7 +57,7 @@ async function renderIssueManager() {
 async function loadIssueData() {
   issueLoading = true;
   try {
-    const response = await fetch('/api/issues?path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/issues?path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load issues');
     const data = await response.json();
     issueData.issues = data.issues || [];
@@ -72,7 +72,7 @@ async function loadIssueData() {
 
 async function loadIssueHistory() {
   try {
-    const response = await fetch('/api/issues/history?path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/issues/history?path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load issue history');
     const data = await response.json();
     issueData.historyIssues = data.issues || [];
@@ -84,7 +84,7 @@ async function loadIssueHistory() {
 
 async function loadQueueData() {
   try {
-    const response = await fetch('/api/queue?path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/queue?path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load queue');
     issueData.queue = await response.json();
   } catch (err) {
@@ -95,7 +95,7 @@ async function loadQueueData() {
 
 async function loadAllQueues() {
   try {
-    const response = await fetch('/api/queue/history?path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/queue/history?path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load queue history');
     const data = await response.json();
     queueData.queues = data.queues || [];
@@ -109,7 +109,7 @@ async function loadAllQueues() {
 
 async function loadIssueDetail(issueId) {
   try {
-    const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load issue detail');
     return await response.json();
   } catch (err) {
@@ -774,7 +774,7 @@ function toggleQueueExpand(queueId) {
 
 async function activateQueue(queueId) {
   try {
-    const response = await fetch('/api/queue/switch?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/queue/switch?path=' + encodeURIComponent(projectPath), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ queueId })
@@ -795,7 +795,7 @@ async function activateQueue(queueId) {
 
 async function deactivateQueue(queueId) {
   try {
-    const response = await fetch('/api/queue/deactivate?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/queue/deactivate?path=' + encodeURIComponent(projectPath), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ queueId })
@@ -824,7 +824,7 @@ function confirmDeleteQueue(queueId) {
 
 async function deleteQueue(queueId) {
   try {
-    const response = await fetch('/api/queue/' + encodeURIComponent(queueId) + '?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/queue/' + encodeURIComponent(queueId) + '?path=' + encodeURIComponent(projectPath), {
       method: 'DELETE'
     });
     const result = await response.json();
@@ -847,7 +847,7 @@ async function renderExpandedQueueView(queueId) {
   // Fetch queue detail
   let queue;
   try {
-    const response = await fetch('/api/queue/' + encodeURIComponent(queueId) + '?path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/queue/' + encodeURIComponent(queueId) + '?path=' + encodeURIComponent(projectPath));
     queue = await response.json();
     if (queue.error) throw new Error(queue.error);
   } catch (err) {
@@ -1107,7 +1107,7 @@ async function deleteQueueItem(queueId, itemId) {
   if (!confirm('Delete this item from queue?')) return;
 
   try {
-    const response = await fetch('/api/queue/' + queueId + '/item/' + encodeURIComponent(itemId) + '?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/queue/' + queueId + '/item/' + encodeURIComponent(itemId) + '?path=' + encodeURIComponent(projectPath), {
       method: 'DELETE'
     });
     const result = await response.json();
@@ -1202,7 +1202,7 @@ async function executeQueueMerge(sourceQueueId) {
   if (!targetQueueId) return;
 
   try {
-    const response = await fetch('/api/queue/merge?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/queue/merge?path=' + encodeURIComponent(projectPath), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sourceQueueId, targetQueueId })
@@ -1237,7 +1237,7 @@ async function showSplitQueueModal(queueId) {
   // Fetch queue details
   let queue;
   try {
-    const response = await fetch('/api/queue/' + encodeURIComponent(queueId) + '?path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/queue/' + encodeURIComponent(queueId) + '?path=' + encodeURIComponent(projectPath));
     queue = await response.json();
     if (queue.error) throw new Error(queue.error);
   } catch (err) {
@@ -1384,7 +1384,7 @@ async function executeQueueSplit(sourceQueueId) {
   }
 
   try {
-    const response = await fetch('/api/queue/split?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/queue/split?path=' + encodeURIComponent(projectPath), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sourceQueueId, itemIds: selectedItemIds })
@@ -1714,7 +1714,7 @@ function handleIssueDrop(e) {
 
 async function saveQueueOrder(groupId, newOrder) {
   try {
-    const response = await fetch('/api/queue/reorder?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/queue/reorder?path=' + encodeURIComponent(projectPath), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ groupId, newOrder })
@@ -1896,7 +1896,7 @@ function confirmDeleteIssue(issueId, isArchived) {
 
 async function deleteIssue(issueId, isArchived) {
   try {
-    const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
       method: 'DELETE'
     });
     const result = await response.json();
@@ -1928,7 +1928,7 @@ function confirmArchiveIssue(issueId) {
 
 async function archiveIssue(issueId) {
   try {
-    const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '/archive?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/issues/' + encodeURIComponent(issueId) + '/archive?path=' + encodeURIComponent(projectPath), {
       method: 'POST'
     });
     const result = await response.json();
@@ -2262,7 +2262,7 @@ async function toggleSolutionBind() {
   const action = solution.is_bound ? 'unbind' : 'bind';
 
   try {
-    const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2372,7 +2372,7 @@ async function saveFieldEdit(issueId, field) {
   if (!value) return;
 
   try {
-    const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [field]: value })
@@ -2402,7 +2402,7 @@ async function saveContextEdit(issueId) {
   const value = textarea.value;
 
   try {
-    const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ context: value })
@@ -2432,7 +2432,7 @@ function cancelEdit() {
 
 async function updateTaskStatus(issueId, taskId, status) {
   try {
-    const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '/tasks/' + encodeURIComponent(taskId) + '?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/issues/' + encodeURIComponent(issueId) + '/tasks/' + encodeURIComponent(taskId) + '?path=' + encodeURIComponent(projectPath), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
@@ -2748,7 +2748,7 @@ async function pullGitHubIssues() {
     });
     if (labels) params.set('labels', labels);
 
-    const response = await fetch('/api/issues/pull?' + params.toString(), {
+    const response = await csrfFetch('/api/issues/pull?' + params.toString(), {
       method: 'POST'
     });
 
@@ -2833,7 +2833,7 @@ async function createIssue() {
   }
 
   try {
-    const response = await fetch('/api/issues?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/issues?path=' + encodeURIComponent(projectPath), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2871,7 +2871,7 @@ async function deleteIssue(issueId) {
   }
 
   try {
-    const response = await fetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
+    const response = await csrfFetch('/api/issues/' + encodeURIComponent(issueId) + '?path=' + encodeURIComponent(projectPath), {
       method: 'DELETE'
     });
 
@@ -3092,7 +3092,7 @@ function hideQueueHistoryModal() {
 
 async function switchToQueue(queueId) {
   try {
-    const response = await fetch(`/api/queue/switch?path=${encodeURIComponent(projectPath)}`, {
+    const response = await csrfFetch(`/api/queue/switch?path=${encodeURIComponent(projectPath)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ queueId })
@@ -3246,3 +3246,4 @@ function copyCommand(command) {
     showNotification(t('common.copied') || 'Copied to clipboard', 'success');
   });
 }
+

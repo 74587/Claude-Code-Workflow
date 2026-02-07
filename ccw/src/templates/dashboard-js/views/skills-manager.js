@@ -39,7 +39,7 @@ async function renderSkillsManager() {
 async function loadSkillsData() {
   skillsLoading = true;
   try {
-    const response = await fetch('/api/skills?path=' + encodeURIComponent(projectPath) + '&includeDisabled=true');
+    const response = await csrfFetch('/api/skills?path=' + encodeURIComponent(projectPath) + '&includeDisabled=true');
     if (!response.ok) throw new Error('Failed to load skills');
     const data = await response.json();
     skillsData = {
@@ -380,7 +380,7 @@ function renderSkillDetailPanel(skill) {
 
 async function showSkillDetail(skillName, location) {
   try {
-    const response = await fetch('/api/skills/' + encodeURIComponent(skillName) + '?location=' + location + '&path=' + encodeURIComponent(projectPath));
+    const response = await csrfFetch('/api/skills/' + encodeURIComponent(skillName) + '?location=' + location + '&path=' + encodeURIComponent(projectPath));
     if (!response.ok) throw new Error('Failed to load skill detail');
     const data = await response.json();
     selectedSkill = data.skill;
@@ -402,7 +402,7 @@ async function deleteSkill(skillName, location) {
   if (!confirm(t('skills.deleteConfirm', { name: skillName }))) return;
 
   try {
-    const response = await fetch('/api/skills/' + encodeURIComponent(skillName), {
+    const response = await csrfFetch('/api/skills/' + encodeURIComponent(skillName), {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ location, projectPath })
@@ -458,7 +458,7 @@ async function toggleSkillEnabled(skillName, location, currentlyEnabled) {
   }
 
   try {
-    var response = await fetch('/api/skills/' + encodeURIComponent(skillName) + '/' + action, {
+    var response = await csrfFetch('/api/skills/' + encodeURIComponent(skillName) + '/' + action, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ location: location, projectPath: projectPath })
@@ -821,7 +821,7 @@ async function validateSkillImport() {
   showValidationResult({ loading: true });
 
   try {
-    const response = await fetch('/api/skills/validate-import', {
+    const response = await csrfFetch('/api/skills/validate-import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sourcePath })
@@ -910,7 +910,7 @@ async function createSkill() {
     }
 
     try {
-      const response = await fetch('/api/skills/create', {
+      const response = await csrfFetch('/api/skills/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -975,7 +975,7 @@ async function createSkill() {
         showToast(t('skills.generating'), 'info');
       }
 
-      const response = await fetch('/api/skills/create', {
+      const response = await csrfFetch('/api/skills/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1158,7 +1158,7 @@ async function saveSkillFile() {
   const { skillName, fileName, location } = skillFileEditorState;
 
   try {
-    const response = await fetch('/api/skills/' + encodeURIComponent(skillName) + '/file', {
+    const response = await csrfFetch('/api/skills/' + encodeURIComponent(skillName) + '/file', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1279,4 +1279,5 @@ async function toggleSkillFolder(skillName, subPath, location, element) {
     }
   }
 }
+
 

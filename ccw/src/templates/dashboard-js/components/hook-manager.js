@@ -1434,7 +1434,7 @@ async function submitHookWizard() {
     const timeout = wizardConfig.timeout || 300;
     try {
       const configParams = JSON.stringify({ action: 'configure', threshold, timeout });
-      const response = await fetch('/api/tools/execute', {
+      const response = await csrfFetch('/api/tools/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: 'memory_queue', params: configParams })
