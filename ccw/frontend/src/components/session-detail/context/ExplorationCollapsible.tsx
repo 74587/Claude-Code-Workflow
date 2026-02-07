@@ -37,7 +37,7 @@ export function ExplorationCollapsible({
       <CollapsibleTrigger className="flex items-center justify-between w-full p-3 hover:bg-muted/50 transition-colors">
         <div className="flex items-center gap-2">
           {icon}
-          <span className="font-medium text-foreground">{title}</span>
+          <span className="text-sm font-medium text-foreground">{title}</span>
         </div>
         <ChevronDown
           className={cn(

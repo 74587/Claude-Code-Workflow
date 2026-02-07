@@ -3,7 +3,7 @@
 // ========================================
 // Track and manage project issues with drag-drop queue
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import {
   AlertCircle,
@@ -121,6 +121,132 @@ function NewIssueDialog({ open, onOpenChange, onSubmit, isCreating }: NewIssueDi
   );
 }
 
+// ========== Edit Issue Dialog ==========
+
+interface EditIssueDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  issue: Issue | null;
+  onSubmit: (issueId: string, data: { title: string; context?: string; priority: Issue['priority']; status: Issue['status'] }) => void;
+  isUpdating: boolean;
+}
+
+function EditIssueDialog({ open, onOpenChange, issue, onSubmit, isUpdating }: EditIssueDialogProps) {
+  const { formatMessage } = useIntl();
+  const [title, setTitle] = useState('');
+  const [context, setContext] = useState('');
+  const [priority, setPriority] = useState<Issue['priority']>('medium');
+  const [status, setStatus] = useState<Issue['status']>('open');
+
+  // Reset form when dialog opens or issue changes
+  useEffect(() => {
+    if (open && issue) {
+      setTitle(issue.title ?? '');
+      setContext(issue.context ?? '');
+      setPriority(issue.priority ?? 'medium');
+      setStatus(issue.status ?? 'open');
+    } else if (!open) {
+      setTitle('');
+      setContext('');
+      setPriority('medium');
+      setStatus('open');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, issue?.id]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!issue) return;
+    if (!title.trim()) return;
+
+    onSubmit(issue.id, {
+      title: title.trim(),
+      context: context.trim() || undefined,
+      priority,
+      status,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{formatMessage({ id: 'issues.editDialog.title' })}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div>
+            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'issues.editDialog.labels.title' })}</label>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={formatMessage({ id: 'issues.editDialog.placeholders.title' })}
+              className="mt-1"
+              required
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'issues.editDialog.labels.context' })}</label>
+            <textarea
+              value={context}
+              onChange={(e) => setContext(e.target.value)}
+              placeholder={formatMessage({ id: 'issues.editDialog.placeholders.context' })}
+              className="mt-1 w-full min-h-[100px] p-3 bg-background border border-input rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'issues.editDialog.labels.priority' })}</label>
+              <Select value={priority} onValueChange={(v) => setPriority(v as Issue['priority'])}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">{formatMessage({ id: 'issues.priority.low' })}</SelectItem>
+                  <SelectItem value="medium">{formatMessage({ id: 'issues.priority.medium' })}</SelectItem>
+                  <SelectItem value="high">{formatMessage({ id: 'issues.priority.high' })}</SelectItem>
+                  <SelectItem value="critical">{formatMessage({ id: 'issues.priority.critical' })}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground">{formatMessage({ id: 'issues.editDialog.labels.status' })}</label>
+              <Select value={status} onValueChange={(v) => setStatus(v as Issue['status'])}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">{formatMessage({ id: 'issues.status.open' })}</SelectItem>
+                  <SelectItem value="in_progress">{formatMessage({ id: 'issues.status.inProgress' })}</SelectItem>
+                  <SelectItem value="resolved">{formatMessage({ id: 'issues.status.resolved' })}</SelectItem>
+                  <SelectItem value="closed">{formatMessage({ id: 'issues.status.closed' })}</SelectItem>
+                  <SelectItem value="completed">{formatMessage({ id: 'issues.status.completed' })}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              {formatMessage({ id: 'issues.editDialog.buttons.cancel' })}
+            </Button>
+            <Button type="submit" disabled={isUpdating || !issue || !title.trim()}>
+              {isUpdating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {formatMessage({ id: 'issues.editDialog.buttons.saving' })}
+                </>
+              ) : (
+                <>
+                  {formatMessage({ id: 'issues.editDialog.buttons.save' })}
+                </>
+              )}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ========== Issue List Component ==========
 
 interface IssueListProps {
@@ -188,6 +314,8 @@ export function IssueManagerPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
+  const [isEditIssueOpen, setIsEditIssueOpen] = useState(false);
+  const [editingIssue, setEditingIssue] = useState<Issue | null>(null);
 
   const {
     issues,
@@ -205,7 +333,7 @@ export function IssueManagerPage() {
     },
   });
 
-  const { createIssue, updateIssue, deleteIssue, isCreating } = useIssueMutations();
+  const { createIssue, updateIssue, deleteIssue, isCreating, isUpdating } = useIssueMutations();
 
   // Filter counts
   const statusCounts = useMemo(() => ({
@@ -222,8 +350,22 @@ export function IssueManagerPage() {
     setIsNewIssueOpen(false);
   };
 
-  const handleEditIssue = (_issue: Issue) => {
-    // TODO: Open edit dialog
+  const handleEditIssue = (issue: Issue) => {
+    setEditingIssue(issue);
+    setIsEditIssueOpen(true);
+  };
+
+  const handleCloseEditDialog = (open: boolean) => {
+    setIsEditIssueOpen(open);
+    if (!open) {
+      setEditingIssue(null);
+    }
+  };
+
+  const handleUpdateIssue = async (issueId: string, data: { title: string; context?: string; priority: Issue['priority']; status: Issue['status'] }) => {
+    await updateIssue(issueId, data);
+    setIsEditIssueOpen(false);
+    setEditingIssue(null);
   };
 
   const handleDeleteIssue = async (issue: Issue) => {
@@ -390,6 +532,15 @@ export function IssueManagerPage() {
         onOpenChange={setIsNewIssueOpen}
         onSubmit={handleCreateIssue}
         isCreating={isCreating}
+      />
+
+      {/* Edit Issue Dialog */}
+      <EditIssueDialog
+        open={isEditIssueOpen}
+        onOpenChange={handleCloseEditDialog}
+        issue={editingIssue}
+        onSubmit={handleUpdateIssue}
+        isUpdating={isUpdating}
       />
     </div>
   );

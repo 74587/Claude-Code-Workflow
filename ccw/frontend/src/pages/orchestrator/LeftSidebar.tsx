@@ -47,7 +47,7 @@ export function LeftSidebar({ className }: LeftSidebarProps) {
   return (
     <div
       className={cn(
-        'bg-card border-r border-border flex flex-col relative',
+        'h-full bg-card border-r border-border flex flex-col relative',
         isResizing && 'select-none',
         className
       )}
@@ -87,11 +87,13 @@ export function LeftSidebar({ className }: LeftSidebarProps) {
       </div>
 
       {/* Content */}
-      {leftPanelTab === 'templates' ? (
-        <InlineTemplatePanel />
-      ) : (
-        <NodeLibrary />
-      )}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {leftPanelTab === 'templates' ? (
+          <InlineTemplatePanel />
+        ) : (
+          <NodeLibrary />
+        )}
+      </div>
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-border bg-muted/30">

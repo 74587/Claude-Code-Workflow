@@ -971,13 +971,12 @@ if (autoYes) {
 
   userSelection = {
     confirmation: "Allow",
-    execution_method: "Auto",
-    code_review_tool: "Skip"
+    executionMethod: "Auto",
+    codeReviewTool: "Skip"
   }
 } else {
   // Interactive mode: Ask user
-  // Note: Execution "Other" option allows specifying CLI tools from ~/.claude/cli-tools.json
-  userSelection = ASK_USER([
+  const rawSelection = ASK_USER([
     {
       id: "confirm",
       type: "select",
@@ -1013,6 +1012,12 @@ if (autoYes) {
       default: "Skip"
     }
   ])  // BLOCKS (wait for user response)
+
+  userSelection = {
+    confirmation: rawSelection.confirm,
+    executionMethod: rawSelection.execution,
+    codeReviewTool: rawSelection.review
+  }
 }
 ```
 
@@ -1043,11 +1048,12 @@ executionContext = {
   explorationAngles: manifest.explorations.map(e => e.angle),
   explorationManifest: manifest,
   clarificationContext: clarificationContext || null,
-  executionMethod: userSelection.execution_method,  // 全局默认，可被 executorAssignments 覆盖
-  codeReviewTool: userSelection.code_review_tool,
+  userSelection: userSelection,
+  executionMethod: userSelection.executionMethod,  // Global default; may be overridden by executorAssignments
+  codeReviewTool: userSelection.codeReviewTool,
   originalUserInput: task_description,
 
-  // 任务级 executor 分配（优先于全局 executionMethod）
+  // Task-level executor assignments (priority over global executionMethod)
   executorAssignments: executorAssignments,  // { taskId: { executor, reason } }
 
   session: {

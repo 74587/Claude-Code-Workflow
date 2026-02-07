@@ -35,6 +35,13 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/Dialog';
 import { ThemeSelector } from '@/components/shared/ThemeSelector';
 import { useTheme } from '@/hooks';
 import { toast } from 'sonner';
@@ -55,6 +62,149 @@ import {
   useCcwInstallations,
   useUpgradeCcwInstallation,
 } from '@/hooks/useSystemSettings';
+
+// ========== File Path Input with Browse Dialog ==========
+
+interface BrowseItem {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  isFile: boolean;
+}
+
+interface FilePathInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  showHidden?: boolean;
+}
+
+function FilePathInput({ value, onChange, placeholder, showHidden = true }: FilePathInputProps) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [browseItems, setBrowseItems] = useState<BrowseItem[]>([]);
+  const [currentBrowsePath, setCurrentBrowsePath] = useState('');
+  const [parentPath, setParentPath] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const browseDirectory = async (dirPath?: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/dialog/browse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: dirPath || '~', showHidden }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setBrowseItems(data.items || []);
+      setCurrentBrowsePath(data.currentPath || '');
+      setParentPath(data.parentPath || '');
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpen = () => {
+    setDialogOpen(true);
+    // If value is set, browse its parent directory; otherwise browse home
+    const startPath = value ? value.replace(/[/\\][^/\\]*$/, '') : undefined;
+    browseDirectory(startPath);
+  };
+
+  const handleSelectFile = (filePath: string) => {
+    onChange(filePath);
+    setDialogOpen(false);
+  };
+
+  return (
+    <>
+      <div className="flex gap-2">
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 h-9"
+          onClick={handleOpen}
+          title="Browse"
+        >
+          <FolderOpen className="w-4 h-4" />
+        </Button>
+      </div>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderOpen className="w-5 h-5" />
+              Browse Files
+            </DialogTitle>
+            <DialogDescription className="font-mono text-xs truncate" title={currentBrowsePath}>
+              {currentBrowsePath}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="border border-border rounded-lg overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="overflow-y-auto max-h-[350px]">
+                {/* Parent directory */}
+                {parentPath && parentPath !== currentBrowsePath && (
+                  <button
+                    type="button"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors text-left border-b border-border"
+                    onClick={() => browseDirectory(parentPath)}
+                  >
+                    <Folder className="w-4 h-4 text-primary shrink-0" />
+                    <span className="text-muted-foreground font-medium">..</span>
+                  </button>
+                )}
+                {browseItems.map((item) => (
+                  <button
+                    key={item.path}
+                    type="button"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted/50 transition-colors text-left"
+                    onClick={() => {
+                      if (item.isDirectory) {
+                        browseDirectory(item.path);
+                      } else {
+                        handleSelectFile(item.path);
+                      }
+                    }}
+                  >
+                    {item.isDirectory ? (
+                      <Folder className="w-4 h-4 text-primary shrink-0" />
+                    ) : (
+                      <File className="w-4 h-4 text-muted-foreground shrink-0" />
+                    )}
+                    <span className={cn('truncate', item.isFile && 'text-foreground font-medium')}>
+                      {item.name}
+                    </span>
+                  </button>
+                ))}
+                {browseItems.length === 0 && (
+                  <div className="px-3 py-8 text-sm text-muted-foreground text-center">
+                    Empty directory
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 
 // ========== Tool Config File Helpers ==========
 
@@ -379,9 +529,9 @@ function CliToolCard({
               <label className="text-sm font-medium text-foreground">
                 {formatMessage({ id: 'settings.cliTools.envFile' })}
               </label>
-              <Input
+              <FilePathInput
                 value={config.envFile || ''}
-                onChange={(e) => onUpdateEnvFile(e.target.value || undefined)}
+                onChange={(v) => onUpdateEnvFile(v || undefined)}
                 placeholder={formatMessage({ id: 'settings.cliTools.envFilePlaceholder' })}
               />
               <p className="text-xs text-muted-foreground">
@@ -396,9 +546,9 @@ function CliToolCard({
               <label className="text-sm font-medium text-foreground">
                 {formatMessage({ id: 'apiSettings.cliSettings.settingsFile' })}
               </label>
-              <Input
+              <FilePathInput
                 value={config.settingsFile || ''}
-                onChange={(e) => onUpdateSettingsFile(e.target.value || undefined)}
+                onChange={(v) => onUpdateSettingsFile(v || undefined)}
                 placeholder={formatMessage({ id: 'apiSettings.cliSettings.settingsFilePlaceholder' })}
               />
               <p className="text-xs text-muted-foreground">

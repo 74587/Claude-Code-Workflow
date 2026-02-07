@@ -146,10 +146,10 @@ If `isPlanJson === false`:
 Input Parsing:
    └─ Decision (mode detection):
       ├─ --in-memory flag → Mode 1: Load executionContext → Skip user selection
-      ├─ Ends with .md/.json/.txt → Mode 3: Read file → Detect format
+      ├─ Existing file path (path exists) → Mode 3: Read file → Detect format
       │   ├─ Valid plan.json → Use planObject → User selects method + review
       │   └─ Not plan.json → Treat as prompt → User selects method + review
-      └─ Other → Mode 2: Prompt description → User selects method + review
+      └─ Otherwise → Mode 2: Prompt description → User selects method + review
 
 Execution:
    ├─ Step 1: Initialize result tracking (previousExecutionResults = [])

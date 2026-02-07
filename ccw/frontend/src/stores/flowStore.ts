@@ -102,7 +102,7 @@ const initialState = {
 
   // UI state
   isPaletteOpen: true,
-  isPropertyPanelOpen: true,
+  isPropertyPanelOpen: false,
   leftPanelTab: 'nodes' as const,
 
   // Custom templates (loaded from localStorage)
@@ -465,7 +465,7 @@ export const useFlowStore = create<FlowStore>()(
       // ========== Selection ==========
 
       setSelectedNodeId: (id: string | null) => {
-        set({ selectedNodeId: id, selectedEdgeId: null }, false, 'setSelectedNodeId');
+        set({ selectedNodeId: id, selectedEdgeId: null, isPropertyPanelOpen: id !== null }, false, 'setSelectedNodeId');
       },
 
       setSelectedEdgeId: (id: string | null) => {

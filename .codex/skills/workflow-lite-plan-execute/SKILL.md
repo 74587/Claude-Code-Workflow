@@ -1,149 +1,55 @@
 ---
 name: workflow-lite-plan-execute
-description: Lightweight planning and execution skill. Exploration → Clarification → Planning → Confirmation → Execution via lite-execute.
+description: Lightweight planning + execution workflow. Exploration -> Clarification -> Planning -> Confirmation -> Execution (via lite-execute).
 allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, mcp__ace-tool__search_context
 ---
 
 # Planning Workflow
 
-Lightweight planning skill: Lite Plan produces an implementation plan, then hands off to Lite Execute for task execution.
-
-## Architecture Overview
-
-```
-┌──────────────────────────────────────────────────┐
-│  Planning Workflow Orchestrator (SKILL.md)         │
-│  → Parse args → Lite Plan → Lite Execute          │
-└────────────┬─────────────────────────────────────┘
-             │
-    ┌────────┴────────┐
-    ↓                 ↓
-┌────────┐     ┌────────────┐
-│Phase 1 │────→│  Phase 4   │
-│  Lite  │     │   Lite     │
-│  Plan  │     │  Execute   │
-└────────┘     └────────────┘
-```
+Lite Plan produces an implementation plan and an `executionContext`, then hands off to Lite Execute for task execution.
 
 ## Key Design Principles
 
-1. **Shared Execution**: Lite Plan produces `executionContext` consumed by Phase 4 (lite-execute)
+1. **Shared Execution**: Lite Plan produces `executionContext` consumed by Phase 4 (Lite Execute)
 2. **Progressive Phase Loading**: Only load phase docs when about to execute
-3. **Auto-Continue**: Planning completes → automatically loads execution phase
-4. **Default Auto Mode**: When `--yes`, skip confirmations and auto-approve plan
+3. **Auto-Continue**: After the plan is confirmed ("Allow"), automatically load execution phase
+4. **Default Auto Mode**: When `--yes`, skip confirmations and auto-approve the plan
 
 ## Auto Mode
 
-When `--yes` or `-y`: Auto-approve plan, skip clarifications, use default execution settings.
+When `--yes` or `-y`:
+- Auto-approve plan and use default execution settings
+- Skip non-critical clarifications; still ask minimal clarifications if required for safety/correctness
 
-## Usage
+## Usage (Pseudo)
 
-```bash
+This section describes the skill input shape; actual invocation depends on the host runtime.
+
+```
 $workflow-lite-plan-execute <task description>
-$workflow-lite-plan-execute [FLAGS] "<task description>"
+$workflow-lite-plan-execute [FLAGS] "<task description or file path>"
 
 # Flags
--y, --yes                              Skip all confirmations (auto mode)
+-y, --yes                              Skip confirmations (auto mode)
 -e, --explore                          Force exploration phase
+```
 
-# Examples
+Examples:
+```
 $workflow-lite-plan-execute "Implement JWT authentication"
 $workflow-lite-plan-execute -y "Add user profile page"
 $workflow-lite-plan-execute -e "Refactor payment module"
+$workflow-lite-plan-execute "docs/todo.md"
 ```
 
 > **Implementation sketch**: 编排器内部使用 `Skill(skill="workflow-lite-plan-execute", args="...")` 接口调用，此为伪代码示意，非命令行语法。
 
-## Subagent API Reference
-
-### spawn_agent
-
-Create a new subagent with task assignment.
-
-```javascript
-const agentId = spawn_agent({
-  message: `
-## TASK ASSIGNMENT
-
-### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
-
-## TASK CONTEXT
-${taskContext}
-
-## DELIVERABLES
-${deliverables}
-`
-})
-```
-
-### wait
-
-Get results from subagent (only way to retrieve results).
-
-```javascript
-const result = wait({
-  ids: [agentId],
-  timeout_ms: 600000  // 10 minutes
-})
-
-if (result.timed_out) {
-  // Handle timeout - can continue waiting or send_input to prompt completion
-}
-```
-
-### send_input
-
-Continue interaction with active subagent (for clarification or follow-up).
-
-```javascript
-send_input({
-  id: agentId,
-  message: `
-## CLARIFICATION ANSWERS
-${answers}
-
-## NEXT STEP
-Continue with plan generation.
-`
-})
-```
-
-### close_agent
-
-Clean up subagent resources (irreversible).
-
-```javascript
-close_agent({ id: agentId })
-```
-
-## Execution Flow
-
-```
-Input Parsing:
-   ├─ Extract flags: --yes, --explore
-   └─ Extract task description (string or file path)
-
-Planning Phase:
-   └─ Phase 1: Lite Plan
-       └─ Ref: phases/01-lite-plan.md
-          └─ Output: executionContext (plan.json + explorations + selections)
-
-Execution Phase:
-   └─ Phase 4: Lite Execute
-       └─ Ref: phases/04-lite-execute.md
-          └─ Input: executionContext from planning phase
-          └─ Output: Executed tasks + optional code review
-```
-
-**Phase Reference Documents** (read on-demand when phase executes):
+## Phase Reference Documents (Read On Demand)
 
 | Phase | Document | Purpose |
 |-------|----------|---------|
-| 1 | [phases/01-lite-plan.md](phases/01-lite-plan.md) | Lightweight planning with exploration, clarification, and plan generation |
-| 4 | [phases/04-lite-execute.md](phases/04-lite-execute.md) | Shared execution engine: task grouping, batch execution, code review |
+| 1 | `phases/01-lite-plan.md` | Lightweight planning with exploration, clarification, plan generation, and confirmation |
+| 4 | `phases/04-lite-execute.md` | Shared execution engine: task grouping, batch execution, optional code review |
 
 ## Orchestrator Logic
 
@@ -151,44 +57,56 @@ Execution Phase:
 // Flag parsing
 const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
 const forceExplore = $ARGUMENTS.includes('--explore') || $ARGUMENTS.includes('-e')
+
+// Task extraction rule:
+// - Strip known flags: -y/--yes, -e/--explore
+// - Remaining args are joined as the task description
+// - Treat it as a file path ONLY if (a) exactly one arg remains AND (b) the path exists
+function extractTaskDescription(args) {
+  const knownFlags = new Set(['--yes', '-y', '--explore', '-e'])
+  const rest = args.filter(a => !knownFlags.has(a))
+  if (rest.length === 1 && file_exists(rest[0])) return rest[0]
+  return rest.join(' ').trim()
+}
+
 const taskDescription = extractTaskDescription($ARGUMENTS)
 
 // Phase 1: Lite Plan
 Read('phases/01-lite-plan.md')
 // Execute planning phase...
 
-// After planning completes:
+// Gate: only continue when confirmed (or --yes)
+if (executionContext?.userSelection?.confirmation !== 'Allow' && !autoYes) {
+  // Stop: user cancelled or requested modifications
+  return
+}
+
+// Phase 4: Lite Execute
 Read('phases/04-lite-execute.md')
 // Execute execution phase with executionContext from Phase 1
 ```
 
-## Data Flow
+## executionContext Contract (High Level)
 
+`executionContext` is the only contract between Phase 1 and Phase 4.
+
+Required (minimum) fields:
+```javascript
+{
+  planObject: { summary, approach, tasks, complexity, estimated_time, recommended_execution },
+  originalUserInput: string,
+  executionMethod: "Agent" | "Codex" | "Auto",
+  codeReviewTool: "Skip" | "Gemini Review" | "Codex Review" | "Agent Review" | string,
+  userSelection: { confirmation: "Allow" | "Modify" | "Cancel" }
+}
 ```
-Phase 1: Lite Plan
-   │
-   ├─ Produces: executionContext = {
-   │     planObject: plan.json,
-   │     explorationsContext,
-   │     clarificationContext,
-   │     executionMethod: "Agent" | "Codex" | "Auto",
-   │     codeReviewTool: "Skip" | "Gemini Review" | ...,
-   │     originalUserInput: string,
-   │     session: { id, folder, artifacts }
-   │   }
-   │
-   ↓
-Phase 4: Lite Execute
-   │
-   ├─ Consumes: executionContext
-   ├─ Task grouping → Batch creation → Parallel/sequential execution
-   ├─ Optional code review
-   └─ Development index update
-```
+
+Recommended fields:
+- `explorationsContext`, `clarificationContext`, `executorAssignments`, and `session` (artifacts folder + paths)
 
 ## TodoWrite Pattern
 
-**Initialization**:
+Initialization:
 ```json
 [
   {"content": "Lite Plan - Planning", "status": "in_progress", "activeForm": "Planning"},
@@ -196,7 +114,7 @@ Phase 4: Lite Execute
 ]
 ```
 
-**After planning completes**:
+After planning completes:
 ```json
 [
   {"content": "Lite Plan - Planning", "status": "completed", "activeForm": "Planning"},
@@ -204,15 +122,14 @@ Phase 4: Lite Execute
 ]
 ```
 
-Phase-internal sub-tasks are managed by each phase document (attach/collapse pattern).
-
 ## Core Rules
 
-1. **Planning phase NEVER executes code** - all execution delegated to Phase 4
-2. **Phase 4 ALWAYS runs** after planning completes
+1. **Planning phase NEVER modifies project code** - it may write planning artifacts, but all implementation is delegated to Phase 4
+2. **Phase 4 runs only after confirmation** - execute only when confirmation is "Allow" (or `--yes` auto mode)
 3. **executionContext is the contract** between planning and execution phases
-4. **Progressive loading**: Read phase doc ONLY when about to execute
-5. **Explicit Lifecycle**: Always close_agent after wait completes to free resources
+4. **Progressive loading**: Read phase doc only when about to execute
+5. **File-path detection**: Treat input as a file path only if the path exists; do not infer from file extensions
+6. **Explicit lifecycle**: Always `close_agent` after `wait` completes
 
 ## Error Handling
 
@@ -224,5 +141,5 @@ Phase-internal sub-tasks are managed by each phase document (attach/collapse pat
 
 ## Related Skills
 
-- Full planning workflow: [workflow-plan-execute/SKILL.md](../workflow-plan-execute/SKILL.md)
-- Brainstorming: [workflow-brainstorm-auto-parallel/SKILL.md](../workflow-brainstorm-auto-parallel/SKILL.md)
+- Full planning workflow: `../workflow-plan-execute/SKILL.md`
+- Brainstorming: `../workflow-brainstorm-auto-parallel/SKILL.md`

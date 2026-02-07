@@ -55,6 +55,24 @@
       "creating": "创建中..."
     }
   },
+  "editDialog": {
+    "title": "编辑问题",
+    "labels": {
+      "title": "标题",
+      "context": "上下文",
+      "priority": "优先级",
+      "status": "状态"
+    },
+    "placeholders": {
+      "title": "输入问题标题...",
+      "context": "描述问题上下文..."
+    },
+    "buttons": {
+      "cancel": "取消",
+      "save": "保存",
+      "saving": "保存中..."
+    }
+  },
   "card": {
     "id": "ID",
     "createdAt": "创建时间",
@@ -183,7 +201,8 @@
       "filesTouched": "涉及文件"
     },
     "tasks": {
-      "comingSoon": "任务列表即将推出"
+      "comingSoon": "任务列表即将推出",
+      "empty": "该解决方案下暂无任务"
     }
   },
   "discovery": {

@@ -3,12 +3,13 @@
 // ========================================
 // Right-side solution detail drawer
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { X, FileText, CheckCircle, Circle, Loader2, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { useIssueQueue } from '@/hooks';
 import { cn } from '@/lib/utils';
 import type { QueueItem } from '@/lib/api';
 
@@ -36,17 +37,34 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
 export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
   const { formatMessage } = useIntl();
   const [activeTab, setActiveTab] = useState<TabValue>('overview');
+  const { data: queue } = useIssueQueue();
+  const itemId = item?.item_id;
+  const solutionId = item?.solution_id;
 
   // ESC key to close
-  useState(() => {
+  useEffect(() => {
+    if (!isOpen) return;
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+      if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  });
+  }, [isOpen, onClose]);
+
+  // Reset tab when switching items
+  useEffect(() => {
+    if (!isOpen || !itemId) return;
+    setActiveTab('overview');
+  }, [itemId, isOpen]);
+
+  const tasksForSolution = useMemo(() => {
+    if (!solutionId) return [];
+    const allItems = Object.values(queue?.grouped_items || {}).flat();
+    const isTaskItem = (qi: QueueItem) => Boolean(qi.task_id) || qi.item_id.startsWith('task-');
+    return allItems
+      .filter((qi) => qi.solution_id === solutionId && isTaskItem(qi))
+      .sort((a, b) => a.execution_order - b.execution_order);
+  }, [queue?.grouped_items, solutionId]);
 
   if (!item || !isOpen) {
     return null;
@@ -56,7 +74,6 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
   const StatusIcon = status.icon;
 
   // Get solution details (would need to fetch full solution data)
-  const solutionId = item.solution_id;
   const issueId = item.issue_id;
 
   return (
@@ -93,10 +110,10 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
             </div>
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'solution.issue' })}: <span className="font-mono">{issueId}</span>
+                {formatMessage({ id: 'issues.solution.issue' })}: <span className="font-mono">{issueId}</span>
               </p>
               <p className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'solution.solution' })}: <span className="font-mono">{solutionId}</span>
+                {formatMessage({ id: 'issues.solution.solution' })}: <span className="font-mono">{solutionId}</span>
               </p>
             </div>
           </div>
@@ -111,15 +128,15 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
             <TabsList className="w-full">
               <TabsTrigger value="overview" className="flex-1">
                 <FileText className="h-4 w-4 mr-2" />
-                {formatMessage({ id: 'solution.tabs.overview' })}
+                {formatMessage({ id: 'issues.solution.tabs.overview' })}
               </TabsTrigger>
               <TabsTrigger value="tasks" className="flex-1">
                 <CheckCircle className="h-4 w-4 mr-2" />
-                {formatMessage({ id: 'solution.tabs.tasks' })}
+                {formatMessage({ id: 'issues.solution.tabs.tasks' })}
               </TabsTrigger>
               <TabsTrigger value="json" className="flex-1">
                 <FileText className="h-4 w-4 mr-2" />
-                {formatMessage({ id: 'solution.tabs.json' })}
+                {formatMessage({ id: 'issues.solution.tabs.json' })}
               </TabsTrigger>
             </TabsList>
 
@@ -131,23 +148,23 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
                   {/* Execution Info */}
                   <div>
                     <h3 className="text-sm font-semibold text-foreground mb-3">
-                      {formatMessage({ id: 'solution.overview.executionInfo' })}
+                      {formatMessage({ id: 'issues.solution.overview.executionInfo' })}
                     </h3>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-3 bg-muted/50 rounded-md">
-                        <p className="text-xs text-muted-foreground">{formatMessage({ id: 'solution.overview.executionOrder' })}</p>
+                        <p className="text-xs text-muted-foreground">{formatMessage({ id: 'issues.solution.overview.executionOrder' })}</p>
                         <p className="text-lg font-semibold">{item.execution_order}</p>
                       </div>
                       <div className="p-3 bg-muted/50 rounded-md">
-                        <p className="text-xs text-muted-foreground">{formatMessage({ id: 'solution.overview.semanticPriority' })}</p>
+                        <p className="text-xs text-muted-foreground">{formatMessage({ id: 'issues.solution.overview.semanticPriority' })}</p>
                         <p className="text-lg font-semibold">{item.semantic_priority}</p>
                       </div>
                       <div className="p-3 bg-muted/50 rounded-md">
-                        <p className="text-xs text-muted-foreground">{formatMessage({ id: 'solution.overview.group' })}</p>
+                        <p className="text-xs text-muted-foreground">{formatMessage({ id: 'issues.solution.overview.group' })}</p>
                         <p className="text-sm font-mono truncate">{item.execution_group}</p>
                       </div>
                       <div className="p-3 bg-muted/50 rounded-md">
-                        <p className="text-xs text-muted-foreground">{formatMessage({ id: 'solution.overview.taskCount' })}</p>
+                        <p className="text-xs text-muted-foreground">{formatMessage({ id: 'issues.solution.overview.taskCount' })}</p>
                         <p className="text-lg font-semibold">{item.task_count || '-'}</p>
                       </div>
                     </div>
@@ -157,7 +174,7 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
                   {item.depends_on && item.depends_on.length > 0 && (
                     <div>
                       <h3 className="text-sm font-semibold text-foreground mb-2">
-                        {formatMessage({ id: 'solution.overview.dependencies' })}
+                        {formatMessage({ id: 'issues.solution.overview.dependencies' })}
                       </h3>
                       <div className="flex flex-wrap gap-2">
                         {item.depends_on.map((dep, index) => (
@@ -173,7 +190,7 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
                   {item.files_touched && item.files_touched.length > 0 && (
                     <div>
                       <h3 className="text-sm font-semibold text-foreground mb-2">
-                        {formatMessage({ id: 'solution.overview.filesTouched' })}
+                        {formatMessage({ id: 'issues.solution.overview.filesTouched' })}
                       </h3>
                       <div className="space-y-1">
                         {item.files_touched.map((file, index) => (
@@ -189,10 +206,42 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
 
               {/* Tasks Tab */}
               <TabsContent value="tasks" className="mt-4 pb-6 focus-visible:outline-none">
-                <div className="text-center py-12 text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-sm">{formatMessage({ id: 'solution.tasks.comingSoon' })}</p>
-                </div>
+                {tasksForSolution.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-sm">{formatMessage({ id: 'issues.solution.tasks.empty' })}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {tasksForSolution.map((task) => {
+                      const taskStatus = statusConfig[task.status] || statusConfig.pending;
+                      const TaskStatusIcon = taskStatus.icon;
+                      const taskId = task.task_id || task.item_id;
+
+                      return (
+                        <div
+                          key={task.item_id}
+                          className="flex items-center justify-between gap-3 p-3 bg-muted/50 rounded-md"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-mono truncate">{taskId}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {formatMessage({ id: 'issues.solution.overview.executionOrder' })}: {task.execution_order}
+                              {' · '}
+                              {formatMessage({ id: 'issues.solution.overview.group' })}: {task.execution_group}
+                            </p>
+                          </div>
+                          <Badge variant={taskStatus.variant} className="gap-1 shrink-0">
+                            <TaskStatusIcon
+                              className={cn('h-3 w-3', task.status === 'executing' && 'animate-spin')}
+                            />
+                            {formatMessage({ id: taskStatus.label })}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </TabsContent>
 
               {/* JSON Tab */}

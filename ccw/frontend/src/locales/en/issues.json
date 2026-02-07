@@ -55,6 +55,24 @@
       "creating": "Creating..."
     }
   },
+  "editDialog": {
+    "title": "Edit Issue",
+    "labels": {
+      "title": "Title",
+      "context": "Context",
+      "priority": "Priority",
+      "status": "Status"
+    },
+    "placeholders": {
+      "title": "Enter issue title...",
+      "context": "Describe the issue context..."
+    },
+    "buttons": {
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving..."
+    }
+  },
   "card": {
     "id": "ID",
     "createdAt": "Created",
@@ -179,7 +197,8 @@
       "filesTouched": "Files Touched"
     },
     "tasks": {
-      "comingSoon": "Task list coming soon"
+      "comingSoon": "Task list coming soon",
+      "empty": "No tasks found for this solution"
     }
   },
   "discovery": {
