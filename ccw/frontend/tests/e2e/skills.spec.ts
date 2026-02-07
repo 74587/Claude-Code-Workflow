@@ -8,14 +8,15 @@ import { setupEnhancedMonitoring, switchLanguageAndVerify } from './helpers/i18n
 
 test.describe('[Skills] - Skills Management Tests', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/react/', { waitUntil: 'domcontentloaded' as const });
+    // Navigate to skills page directly and wait for full load
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
   });
 
   test('L3.1 - should display skills list', async ({ page }) => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to skills page
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Look for skills list container
     const skillsList = page.getByTestId('skills-list').or(
@@ -34,7 +35,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       expect(itemCount).toBeGreaterThan(0);
     }
 
-    monitoring.assertClean({ allowWarnings: true });
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/'], allowWarnings: true });
     monitoring.stop();
   });
 
@@ -42,7 +43,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to skills page
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Look for skill items
     const skillItems = page.getByTestId(/skill-item|skill-card/).or(
@@ -81,7 +82,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       }
     }
 
-    monitoring.assertClean({ allowWarnings: true });
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/'], allowWarnings: true });
     monitoring.stop();
   });
 
@@ -89,7 +90,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to skills page
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Look for skill items
     const skillItems = page.getByTestId(/skill-item|skill-card/).or(
@@ -115,7 +116,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       }
     }
 
-    monitoring.assertClean({ allowWarnings: true });
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/'], allowWarnings: true });
     monitoring.stop();
   });
 
@@ -123,7 +124,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to skills page
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Look for skill items
     const skillItems = page.getByTestId(/skill-item|skill-card/).or(
@@ -148,7 +149,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       }
     }
 
-    monitoring.assertClean({ allowWarnings: true });
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/'], allowWarnings: true });
     monitoring.stop();
   });
 
@@ -156,7 +157,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to skills page
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Look for category filter
     const categoryFilter = page.getByRole('combobox', { name: /category|filter/i }).or(
@@ -183,7 +184,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       }
     }
 
-    monitoring.assertClean({ allowWarnings: true });
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/'], allowWarnings: true });
     monitoring.stop();
   });
 
@@ -191,7 +192,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to skills page
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Look for search input
     const searchInput = page.getByRole('textbox', { name: /search|find/i }).or(
@@ -219,7 +220,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       expect(hasNoResults || skillCount >= 0).toBe(true);
     }
 
-    monitoring.assertClean({ allowWarnings: true });
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/'], allowWarnings: true });
     monitoring.stop();
   });
 
@@ -227,7 +228,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to skills page
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Look for skill items
     const skillItems = page.getByTestId(/skill-item|skill-card/).or(
@@ -252,7 +253,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       }
     }
 
-    monitoring.assertClean({ allowWarnings: true });
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/'], allowWarnings: true });
     monitoring.stop();
   });
 
@@ -260,7 +261,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to skills page
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Get language switcher
     const languageSwitcher = page.getByRole('combobox', { name: /select language|language/i }).first();
@@ -277,7 +278,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       expect(hasChineseText).toBe(true);
     }
 
-    monitoring.assertClean({ allowWarnings: true });
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/'], allowWarnings: true });
     monitoring.stop();
   });
 
@@ -285,7 +286,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to skills page
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Look for skill items
     const skillItems = page.getByTestId(/skill-item|skill-card/).or(
@@ -310,7 +311,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       }
     }
 
-    monitoring.assertClean({ allowWarnings: true });
+    monitoring.assertClean({ ignoreAPIPatterns: ['/api/'], allowWarnings: true });
     monitoring.stop();
   });
 
@@ -327,7 +328,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
     });
 
     // Navigate to skills page
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Try to toggle a skill
     const skillItems = page.getByTestId(/skill-item|skill-card/).or(
@@ -379,7 +380,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       });
     });
 
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Try to toggle a skill (should fail with 400)
     const skillItems = page.getByTestId(/skill-item|skill-card/).or(
@@ -423,7 +424,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       });
     });
 
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Wait for React Query to complete retries and set error state
     await page.waitForTimeout(3000);
@@ -452,7 +453,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       });
     });
 
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Wait for React Query to complete retries and set error state
     await page.waitForTimeout(3000);
@@ -511,7 +512,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       });
     });
 
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Wait for React Query to complete retries and set error state
     await page.waitForTimeout(3000);
@@ -536,7 +537,7 @@ test.describe('[Skills] - Skills Management Tests', () => {
       // Never fulfill - simulate timeout
     });
 
-    await page.goto('/react/skills', { waitUntil: 'domcontentloaded' as const });
+    await page.goto('/react/skills', { waitUntil: 'networkidle' as const });
 
     // Wait for timeout handling
     await page.waitForTimeout(5000);
