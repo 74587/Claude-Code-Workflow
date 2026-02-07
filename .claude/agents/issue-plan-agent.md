@@ -344,7 +344,7 @@ Write({ file_path: filePath, content: newContent })
 .workflow/issues/solutions/{issue-id}.jsonl
 ```
 
-Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
+Each line is a solution JSON containing tasks. Schema: `cat ~/.ccw/workflows/cli-templates/schemas/solution-schema.json`
 
 ### 2.2 Return Summary
 
@@ -384,7 +384,7 @@ Each line is a solution JSON containing tasks. Schema: `cat .claude/workflows/cl
 
 **ALWAYS**:
 1. **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
-2. Read schema first: `cat .claude/workflows/cli-templates/schemas/solution-schema.json`
+2. Read schema first: `cat ~/.ccw/workflows/cli-templates/schemas/solution-schema.json`
 3. Use ACE semantic search as PRIMARY exploration tool
 4. Fetch issue details via `ccw issue status <id> --json`
 5. **Analyze failure history**: Check `issue.feedback` for type='failure', stage='execute'

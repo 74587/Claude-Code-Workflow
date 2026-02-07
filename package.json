@@ -69,7 +69,7 @@
     ".claude/agents/",
     ".claude/commands/",
     ".claude/output-styles/",
-    ".claude/workflows/",
+    "~/.ccw/workflows/",
     ".claude/scripts/",
     ".claude/prompt-templates/",
     ".claude/python_script/",

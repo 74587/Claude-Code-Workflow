@@ -8,7 +8,7 @@ import { getPackageRoot as findPackageRoot, getPackageVersion } from '../utils/p
 
 // Workflow source directories (relative to package root)
 const WORKFLOW_SOURCES = [
-  { name: '.claude/workflows', description: 'Claude workflows' },
+  { name: '~/.ccw/workflows', description: 'Claude workflows' },
   { name: '.claude/scripts', description: 'Claude scripts' },
   { name: '.claude/templates', description: 'Claude templates' },
   { name: '.codex/prompts', description: 'Codex prompts' },
@@ -314,7 +314,7 @@ function showWorkflowHelp(): void {
   console.log(chalk.white('  Examples:'));
   console.log(chalk.gray('    ccw workflow install              # Install all workflows'));
   console.log(chalk.gray('    ccw workflow install -f           # Force install'));
-  console.log(chalk.gray('    ccw workflow install --source .claude/workflows'));
+  console.log(chalk.gray('    ccw workflow install --source ~/.ccw/workflows'));
   console.log(chalk.gray('    ccw workflow list                 # List installed'));
   console.log(chalk.gray('    ccw workflow sync                 # Update workflows'));
   console.log('');

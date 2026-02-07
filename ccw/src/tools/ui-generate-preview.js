@@ -40,7 +40,7 @@ function detectMatrixDimensions(prototypesDir) {
 function loadTemplate(templatePath) {
   const defaultPath = resolve(
     process.env.HOME || process.env.USERPROFILE,
-    '.claude/workflows/_template-compare-matrix.html'
+    '~/.ccw/workflows/_template-compare-matrix.html'
   );
 
   const path = templatePath || defaultPath;

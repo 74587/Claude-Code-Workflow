@@ -150,7 +150,7 @@ function writePrototypeHtml(filePath: string, target: string, style: number, lay
 
 describe('ui_generate_preview visual regression', () => {
   const prototypesDir = mkdtempSync(join(tmpdir(), 'ccw-ui-generate-preview-'));
-  const templatePath = resolve(process.cwd(), '.claude/workflows/_template-compare-matrix.html');
+  const templatePath = resolve(process.cwd(), '~/.ccw/workflows/_template-compare-matrix.html');
 
   let server: StaticServer | undefined;
   let browser: import('playwright').Browser | undefined;

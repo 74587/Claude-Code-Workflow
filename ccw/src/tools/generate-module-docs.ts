@@ -31,7 +31,7 @@ const DEFAULT_MODELS: Record<string, string> = {
 };
 
 // Template paths (relative to user home directory)
-const TEMPLATE_BASE = '.claude/workflows/cli-templates/prompts/documentation';
+const TEMPLATE_BASE = '~/.ccw/workflows/cli-templates/prompts/documentation';
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({

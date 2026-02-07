@@ -130,7 +130,7 @@ function scanDirectoryStructure(targetPath, strategy) {
 function loadTemplate() {
   const templatePath = join(
     process.env.HOME || process.env.USERPROFILE,
-    '.claude/workflows/cli-templates/prompts/memory/02-document-module-structure.txt'
+    '~/.ccw/workflows/cli-templates/prompts/memory/02-document-module-structure.txt'
   );
 
   if (existsSync(templatePath)) {

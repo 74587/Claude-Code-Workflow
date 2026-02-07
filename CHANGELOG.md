@@ -767,10 +767,10 @@ This release introduces a comprehensive reorganization of the CLI template syste
 #### 📦 Modified Files
 
 **Templates** (19 renames, 2 directory removals):
-- `.claude/workflows/cli-templates/prompts/analysis/` - 8 templates reorganized
-- `.claude/workflows/cli-templates/prompts/development/` - 5 templates reorganized
-- `.claude/workflows/cli-templates/prompts/planning/` - 5 templates reorganized
-- `.claude/workflows/cli-templates/prompts/memory/` - 1 template reorganized
+- `~/.ccw/workflows/cli-templates/prompts/analysis/` - 8 templates reorganized
+- `~/.ccw/workflows/cli-templates/prompts/development/` - 5 templates reorganized
+- `~/.ccw/workflows/cli-templates/prompts/planning/` - 5 templates reorganized
+- `~/.ccw/workflows/cli-templates/prompts/memory/` - 1 template reorganized
 - Removed: `implementation/`, `review/` directories
 
 **Commands** (5 files, 21 references):
@@ -781,8 +781,8 @@ This release introduces a comprehensive reorganization of the CLI template syste
 - `.claude/commands/workflow/tools/test-task-generate.md`
 
 **Documentation**:
-- `.claude/workflows/intelligent-tools-strategy.md`
-- `.claude/workflows/command-template-update-summary.md` (new)
+- `~/.ccw/workflows/intelligent-tools-strategy.md`
+- `~/.ccw/workflows/command-template-update-summary.md` (new)
 
 #### 🔗 Upgrade Notes
 
@@ -1067,7 +1067,7 @@ This release consolidates the agent architecture and enhances workflow commands 
 - `.claude/agents/universal-executor.md` - New consolidated agent definition
 - `.claude/commands/workflow/session/complete.md` - Enhanced session management
 - `.claude/commands/workflow/tools/context-gather.md` - Improved context filtering
-- `.claude/workflows/cli-templates/prompts/archive/` - Legacy template archive
+- `~/.ccw/workflows/cli-templates/prompts/archive/` - Legacy template archive
 
 ---
 
