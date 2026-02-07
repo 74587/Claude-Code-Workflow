@@ -670,58 +670,206 @@ close_agent({ id: planningAgentId })
 
 **Refine Exploration Notes** (auto-executed after Plan completes):
 
-**Purpose**: Refine exploration-notes.md based on actual tasks in plan.json, keeping only execution-relevant content
+**Purpose**: Generate a self-contained execution reference from exploration-notes.md + plan.json. Execution agents should be able to implement tasks **without re-reading source files**.
+
+**Key Principle**: Each file entry must include enough structural detail (exports, key functions, types, line ranges) that an execution agent can write correct code (imports, function signatures, integration points) without opening the file.
 
 ```javascript
-// Step 1: Load plan and exploration notes
+// Step 1: Load plan, exploration notes, and exploration JSON files
 const plan = JSON.parse(Read(`${sessionFolder}/plan.json`))
 const explorationLog = Read(`${sessionFolder}/exploration-notes.md`)
+const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
+const explorations = manifest.explorations.map(exp => ({
+  angle: exp.angle,
+  data: JSON.parse(Read(exp.path))
+}))
 
-// Step 2: Extract files and modules from plan
+// Step 2: Extract ALL files referenced in plan (modification_points + reference.files)
 const planFiles = new Set()
 const planScopes = new Set()
+const fileTaskMap = {}  // file → [taskIds] mapping for cross-reference
+
 plan.tasks.forEach(task => {
   if (task.scope) planScopes.add(task.scope)
+  const taskFiles = []
   if (task.modification_points) {
-    task.modification_points.forEach(mp => planFiles.add(mp.file))
+    task.modification_points.forEach(mp => {
+      planFiles.add(mp.file)
+      taskFiles.push(mp.file)
+    })
   }
   if (task.reference?.files) {
-    task.reference.files.forEach(f => planFiles.add(f))
+    task.reference.files.forEach(f => {
+      planFiles.add(f)
+      taskFiles.push(f)
+    })
+  }
+  taskFiles.forEach(f => {
+    if (!fileTaskMap[f]) fileTaskMap[f] = []
+    fileTaskMap[f].push(task.id)
+  })
+})
+
+// Step 3: Read each plan-referenced file and extract structural details
+const fileProfiles = {}
+
+Array.from(planFiles).forEach(filePath => {
+  try {
+    const content = Read(filePath)
+    const lines = content.split('\n')
+    const totalLines = lines.length
+
+    // Extract exports (named + default)
+    const namedExports = []
+    const defaultExport = []
+    lines.forEach((line, idx) => {
+      if (/^export\s+(function|const|class|interface|type|enum|async\s+function)\s+(\w+)/.test(line)) {
+        const match = line.match(/^export\s+(?:async\s+)?(?:function|const|class|interface|type|enum)\s+(\w+)/)
+        if (match) namedExports.push({ name: match[1], line: idx + 1, declaration: line.trim().substring(0, 120) })
+      }
+      if (/^export\s+default/.test(line)) {
+        defaultExport.push({ line: idx + 1, declaration: line.trim().substring(0, 120) })
+      }
+    })
+
+    // Extract imports (first 30 lines typically)
+    const imports = []
+    lines.slice(0, 50).forEach((line, idx) => {
+      if (/^import\s/.test(line)) {
+        imports.push({ line: idx + 1, statement: line.trim() })
+      }
+    })
+
+    // Extract key function/class signatures (non-exported too)
+    const signatures = []
+    lines.forEach((line, idx) => {
+      // Function declarations
+      if (/^\s*(async\s+)?function\s+\w+/.test(line) || /^\s*(export\s+)?(async\s+)?function\s+\w+/.test(line)) {
+        signatures.push({ line: idx + 1, signature: line.trim().substring(0, 150) })
+      }
+      // Class declarations
+      if (/^\s*(export\s+)?class\s+\w+/.test(line)) {
+        signatures.push({ line: idx + 1, signature: line.trim().substring(0, 150) })
+      }
+      // Arrow function assignments (const foo = ...)
+      if (/^\s*(export\s+)?(const|let)\s+\w+\s*=\s*(async\s+)?\(/.test(line)) {
+        signatures.push({ line: idx + 1, signature: line.trim().substring(0, 150) })
+      }
+    })
+
+    // Extract modification points context (±5 lines around each modification_points.line)
+    const modificationContexts = []
+    plan.tasks.forEach(task => {
+      if (task.modification_points) {
+        task.modification_points.filter(mp => mp.file === filePath && mp.line).forEach(mp => {
+          const startLine = Math.max(0, mp.line - 6)
+          const endLine = Math.min(totalLines, mp.line + 5)
+          modificationContexts.push({
+            taskId: task.id,
+            taskTitle: task.title,
+            line: mp.line,
+            description: mp.description || '',
+            context: lines.slice(startLine, endLine).map((l, i) => `${startLine + i + 1}: ${l}`).join('\n')
+          })
+        })
+      }
+    })
+
+    fileProfiles[filePath] = {
+      totalLines,
+      imports,
+      namedExports,
+      defaultExport,
+      signatures,
+      modificationContexts,
+      relatedTasks: fileTaskMap[filePath] || []
+    }
+  } catch (e) {
+    fileProfiles[filePath] = { error: `Failed to read: ${e.message}`, relatedTasks: fileTaskMap[filePath] || [] }
   }
 })
 
-// Step 3: Build refined exploration notes
+// Step 4: Build refined exploration notes with full file profiles
 const refinedLog = `# Exploration Notes (Refined): ${task_description.slice(0, 60)}
 
 **Generated**: ${getUtc8ISOString()}
 **Task**: ${task_description}
 **Plan Tasks**: ${plan.tasks.length}
-**Refined For**: Execution phase consumption
+**Referenced Files**: ${planFiles.size}
+**Refined For**: Execution phase — self-contained, no need to re-read source files
 
 ---
 
-## Execution-Relevant File Index
+## Part 1: File Profiles (Execution Reference)
 
-The following files are directly related to plan.json tasks, prioritize these during execution:
+> Each profile contains enough detail for execution agents to write correct imports,
+> call correct functions, and integrate at the right locations WITHOUT opening the file.
 
-${Array.from(planFiles).map(f => `- \`${f}\``).join('\n')}
+${Array.from(planFiles).map(filePath => {
+  const profile = fileProfiles[filePath]
+  if (!profile || profile.error) {
+    return `### \`${filePath}\`\n\n⚠️ ${profile?.error || 'File not found'}\n**Related Tasks**: ${(profile?.relatedTasks || []).join(', ')}`
+  }
+
+  return `### \`${filePath}\`
+
+**Lines**: ${profile.totalLines} | **Related Tasks**: ${profile.relatedTasks.join(', ')}
+
+**Imports**:
+\`\`\`
+${profile.imports.map(i => i.statement).join('\n') || '(none)'}
+\`\`\`
+
+**Exports** (named):
+${profile.namedExports.length > 0
+  ? profile.namedExports.map(e => `- L${e.line}: \`${e.declaration}\``).join('\n')
+  : '(none)'}
+${profile.defaultExport.length > 0
+  ? `\n**Default Export**: L${profile.defaultExport[0].line}: \`${profile.defaultExport[0].declaration}\``
+  : ''}
+
+**Key Signatures**:
+${profile.signatures.slice(0, 15).map(s => `- L${s.line}: \`${s.signature}\``).join('\n') || '(none)'}
+
+${profile.modificationContexts.length > 0 ? `**Modification Points** (with surrounding code):
+${profile.modificationContexts.map(mc => `
+#### → Task ${mc.taskId}: ${mc.taskTitle}
+**Target Line ${mc.line}**: ${mc.description}
+\`\`\`
+${mc.context}
+\`\`\`
+`).join('\n')}` : ''}
+`
+}).join('\n---\n')}
 
 ---
 
-## Part 1: Task-Relevant Exploration Context
+## Part 2: Task-Specific Execution Context
 
 ${plan.tasks.map(task => {
-  // Extract content relevant to this task from original exploration notes
-  return `### Task: ${task.title}
+  const taskFiles = []
+  if (task.modification_points) taskFiles.push(...task.modification_points.map(mp => mp.file))
+  if (task.reference?.files) taskFiles.push(...task.reference.files)
+  const uniqueFiles = [...new Set(taskFiles)]
+
+  return `### Task ${task.id}: ${task.title}
 
 **Scope**: \`${task.scope}\`
-**Files**: ${task.modification_points?.map(mp => mp.file).join(', ') || 'N/A'}
+**Complexity**: ${task.complexity || 'N/A'}
+**Depends On**: ${task.depends_on?.join(', ') || 'None (parallel-safe)'}
+
+**Files to Modify**:
+${uniqueFiles.map(f => {
+  const profile = fileProfiles[f]
+  if (!profile || profile.error) return `- \`${f}\` — ⚠️ ${profile?.error || 'not profiled'}`
+  return `- \`${f}\` (${profile.totalLines} lines, ${profile.namedExports.length} exports)`
+}).join('\n')}
 
 **Relevant Exploration Findings**:
 ${extractRelevantExploration(explorationLog, task)}
 
 **Reference Patterns**:
-${task.reference?.pattern || 'See exploration notes Part 1 patterns'}
+${task.reference?.pattern || 'Follow existing patterns in referenced files'}
 
 **Risk Notes**:
 ${extractRelevantRisks(explorationLog, task)}
@@ -730,16 +878,7 @@ ${extractRelevantRisks(explorationLog, task)}
 
 ---
 
-## Part 2: Condensed Code Reference
-
-${Array.from(planFiles).slice(0, 8).map(filePath => {
-  // Extract file deep-dive from original exploration notes Part 2
-  return extractFileDeepDive(explorationLog, filePath) || `### ${filePath}\n\n(See original exploration notes for details)`
-}).join('\n---\n')}
-
----
-
-## Part 3: Execution Notes
+## Part 3: Cross-Cutting Concerns
 
 ### Key Constraints (from exploration)
 ${extractConstraints(explorationLog)}
@@ -747,32 +886,48 @@ ${extractConstraints(explorationLog)}
 ### Integration Points (plan-task related)
 ${extractIntegrationPoints(explorationLog, planFiles)}
 
-### Dependencies
+### Dependencies (external packages & internal modules)
 ${extractDependencies(explorationLog, planFiles)}
+
+### Shared Patterns Across Tasks
+${explorations.map(exp => {
+  if (exp.data.patterns) {
+    return `- **${exp.angle}**: ${typeof exp.data.patterns === 'string' ? exp.data.patterns.substring(0, 200) : JSON.stringify(exp.data.patterns).substring(0, 200)}`
+  }
+  return null
+}).filter(Boolean).join('\n') || '(none extracted)'}
 
 ---
 
-## Appendix: Full Exploration Notes Location
+## Appendix: Quick Lookup
 
-Original full exploration notes: \`${sessionFolder}/exploration-notes.md\`
+### File → Task Mapping
 
-For additional context, refer to:
-- Part 3: Architecture Reasoning Chains
-- Part 4: Potential Risks and Mitigations
-- Part 5: Clarification Questions Summary
+| File | Tasks | Exports Count | Lines |
+|------|-------|---------------|-------|
+${Array.from(planFiles).map(f => {
+  const p = fileProfiles[f]
+  if (!p || p.error) return `| \`${f}\` | ${(p?.relatedTasks || []).join(', ')} | — | — |`
+  return `| \`${f}\` | ${p.relatedTasks.join(', ')} | ${p.namedExports.length} | ${p.totalLines} |`
+}).join('\n')}
+
+### Original Exploration Notes
+
+Full exploration notes: \`${sessionFolder}/exploration-notes.md\`
 `
 
-// Step 4: Write refined exploration notes
+// Step 5: Write refined exploration notes
 Write(`${sessionFolder}/exploration-notes-refined.md`, refinedLog)
 
-// Step 5: Update session artifacts
+// Step 6: Update session artifacts
 console.log(`
 ## Exploration Notes Refined
 
 Original: ${sessionFolder}/exploration-notes.md (full version, for Plan reference)
-Refined:  ${sessionFolder}/exploration-notes-refined.md (condensed, for Execute consumption)
+Refined:  ${sessionFolder}/exploration-notes-refined.md (self-contained, for Execute consumption)
 
-Refined for ${plan.tasks.length} tasks, ${planFiles.size} files
+File profiles: ${Object.keys(fileProfiles).length} files with structural details
+Modification contexts: ${Object.values(fileProfiles).reduce((sum, p) => sum + (p.modificationContexts?.length || 0), 0)} code snippets
 `)
 ```
 
