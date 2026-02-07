@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/memory/memory-docs-full-cli.mdx",
   "sourceDirName": "commands/memory",
   "slug": "/commands/memory/memory-docs-full-cli",
-  "permalink": "/docs/commands/memory/memory-docs-full-cli",
+  "permalink": "/docs/zh/commands/memory/memory-docs-full-cli",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/memory/memory-docs-full-cli.mdx",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/memory:load",
-    "permalink": "/docs/commands/memory/memory-load"
+    "permalink": "/docs/zh/commands/memory/memory-load"
   },
   "next": {
     "title": "/memory:docs-related-cli",
-    "permalink": "/docs/commands/memory/memory-docs-related-cli"
+    "permalink": "/docs/zh/commands/memory/memory-docs-related-cli"
   }
 }

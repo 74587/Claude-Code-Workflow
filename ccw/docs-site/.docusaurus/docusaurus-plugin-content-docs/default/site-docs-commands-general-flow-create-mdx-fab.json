@@ -5,7 +5,7 @@
   "source": "@site/docs/commands/general/flow-create.mdx",
   "sourceDirName": "commands/general",
   "slug": "/commands/general/flow-create",
-  "permalink": "/docs/commands/general/flow-create",
+  "permalink": "/docs/zh/commands/general/flow-create",
   "draft": false,
   "unlisted": false,
   "editUrl": "https://github.com/ccw/docs/tree/main/docs/commands/general/flow-create.mdx",
@@ -21,10 +21,10 @@
   "sidebar": "docs",
   "previous": {
     "title": "/ccw-debug",
-    "permalink": "/docs/commands/general/ccw-debug"
+    "permalink": "/docs/zh/commands/general/ccw-debug"
   },
   "next": {
     "title": "/codex-coordinator",
-    "permalink": "/docs/commands/general/codex-coordinator"
+    "permalink": "/docs/zh/commands/general/codex-coordinator"
   }
 }

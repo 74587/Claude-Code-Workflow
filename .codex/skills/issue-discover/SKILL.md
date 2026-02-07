@@ -1,262 +1,345 @@
 ---
 name: issue-discover
-description: Discover potential issues from multiple perspectives (bug, UX, test, quality, security, performance, maintainability, best-practices)
-argument-hint: "<path-pattern> [--perspectives=bug,ux,...] [--external]"
+description: Unified issue discovery and creation. Create issues from GitHub/text, discover issues via multi-perspective analysis, or prompt-driven iterative exploration. Triggers on "issue:new", "issue:discover", "issue:discover-by-prompt", "create issue", "discover issues", "find issues".
+allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, mcp__ace-tool__search_context, mcp__exa__search
 ---
 
-# Issue Discovery (Codex Version)
+# Issue Discover
 
-## Goal
+Unified issue discovery and creation skill covering three entry points: manual issue creation, perspective-based discovery, and prompt-driven exploration.
 
-Multi-perspective issue discovery that explores code from different angles to identify potential bugs, UX improvements, test gaps, and other actionable items. Unlike code review (which assesses existing code quality), discovery focuses on **finding opportunities for improvement and potential problems**.
+## Architecture Overview
 
-**Discovery Scope**: Specified modules/files only
-**Output Directory**: `.workflow/issues/discoveries/{discovery-id}/`
-**Available Perspectives**: bug, ux, test, quality, security, performance, maintainability, best-practices
-
-## Inputs
-
-- **Target Pattern**: File glob pattern (e.g., `src/auth/**`)
-- **Perspectives**: Comma-separated list via `--perspectives` (or interactive selection)
-- **External Research**: `--external` flag enables Exa research for security and best-practices
-
-## Output Requirements
-
-**Generate Files:**
-1. `.workflow/issues/discoveries/{discovery-id}/discovery-state.json` - Session state
-2. `.workflow/issues/discoveries/{discovery-id}/perspectives/{perspective}.json` - Per-perspective findings
-3. `.workflow/issues/discoveries/{discovery-id}/discovery-issues.jsonl` - Generated issue candidates
-4. `.workflow/issues/discoveries/{discovery-id}/summary.md` - Summary report
-
-**Return Summary:**
-```json
-{
-  "discovery_id": "DSC-YYYYMMDD-HHmmss",
-  "target_pattern": "src/auth/**",
-  "perspectives_analyzed": ["bug", "security", "test"],
-  "total_findings": 15,
-  "issues_generated": 8,
-  "priority_distribution": { "critical": 1, "high": 3, "medium": 4 }
-}
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Issue Discover Orchestrator (SKILL.md)                          │
+│  → Action selection → Route to phase → Execute → Summary         │
+└───────────────┬─────────────────────────────────────────────────┘
+                │
+                ├─ AskUserQuestion: Select action
+                │
+    ┌───────────┼───────────┬───────────┐
+    ↓           ↓           ↓           │
+┌─────────┐ ┌─────────┐ ┌─────────┐   │
+│ Phase 1 │ │ Phase 2 │ │ Phase 3 │   │
+│  Create │ │Discover │ │Discover │   │
+│   New   │ │  Multi  │ │by Prompt│   │
+└─────────┘ └─────────┘ └─────────┘   │
+     ↓           ↓           ↓          │
+  Issue      Discoveries  Discoveries   │
+(registered)  (export)    (export)      │
+     │           │           │          │
+     └───────────┴───────────┘          │
+                  ↓                     │
+          issue-resolve (plan/queue)    │
+                  ↓                     │
+            /issue:execute              │
 ```
 
-## Workflow
+## Key Design Principles
 
-### Step 1: Initialize Discovery Session
+1. **Action-Driven Routing**: AskUserQuestion selects action, then load single phase
+2. **Progressive Phase Loading**: Only read the selected phase document
+3. **CLI-First Data Access**: All issue CRUD via `ccw issue` CLI commands
+4. **Auto Mode Support**: `-y` flag skips action selection with auto-detection
+5. **Subagent Lifecycle**: Explicit lifecycle management with spawn_agent → wait → close_agent
+6. **Role Path Loading**: Subagent roles loaded via path reference in MANDATORY FIRST STEPS
 
-```bash
-# Generate discovery ID
-DISCOVERY_ID="DSC-$(date -u +%Y%m%d-%H%M%S)"
-OUTPUT_DIR=".workflow/issues/discoveries/${DISCOVERY_ID}"
+## Auto Mode
 
-# Create directory structure
-mkdir -p "${OUTPUT_DIR}/perspectives"
+When `--yes` or `-y`: Skip action selection, auto-detect action from input type.
+
+## Usage
+
+```
+issue-discover <input>
+issue-discover [FLAGS] "<input>"
+
+# Flags
+-y, --yes              Skip all confirmations (auto mode)
+--action <type>        Pre-select action: new|discover|discover-by-prompt
+
+# Phase-specific flags
+--priority <1-5>       Issue priority (new mode)
+--perspectives <list>  Comma-separated perspectives (discover mode)
+--external             Enable Exa research (discover mode)
+--scope <pattern>      File scope (discover/discover-by-prompt mode)
+--depth <level>        standard|deep (discover-by-prompt mode)
+--max-iterations <n>   Max exploration iterations (discover-by-prompt mode)
+
+# Examples
+issue-discover https://github.com/org/repo/issues/42                              # Create from GitHub
+issue-discover "Login fails with special chars"                                    # Create from text
+issue-discover --action discover src/auth/**                                       # Multi-perspective discovery
+issue-discover --action discover src/api/** --perspectives=security,bug            # Focused discovery
+issue-discover --action discover-by-prompt "Check API contracts"                   # Prompt-driven discovery
+issue-discover -y "auth broken"                                                    # Auto mode create
 ```
 
-Resolve target files:
-```bash
-# List files matching pattern
-find <target-pattern> -type f -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx"
+## Execution Flow
+
+```
+Input Parsing:
+   └─ Parse flags (--action, -y, --perspectives, etc.) and positional args
+
+Action Selection:
+   ├─ --action flag provided → Route directly
+   ├─ Auto-detect from input:
+   │   ├─ GitHub URL or #number → Create New (Phase 1)
+   │   ├─ Path pattern (src/**, *.ts) → Discover (Phase 2)
+   │   ├─ Short text (< 80 chars) → Create New (Phase 1)
+   │   └─ Long descriptive text (≥ 80 chars) → Discover by Prompt (Phase 3)
+   └─ Otherwise → AskUserQuestion to select action
+
+Phase Execution (load one phase):
+   ├─ Phase 1: Create New          → phases/01-issue-new.md
+   ├─ Phase 2: Discover            → phases/02-discover.md
+   └─ Phase 3: Discover by Prompt  → phases/03-discover-by-prompt.md
+
+Post-Phase:
+   └─ Summary + Next steps recommendation
 ```
 
-If no files found, abort with error message.
+### Phase Reference Documents
 
-### Step 2: Select Perspectives
+| Phase | Document | Load When | Purpose |
+|-------|----------|-----------|---------|
+| Phase 1 | [phases/01-issue-new.md](phases/01-issue-new.md) | Action = Create New | Create issue from GitHub URL or text description |
+| Phase 2 | [phases/02-discover.md](phases/02-discover.md) | Action = Discover | Multi-perspective issue discovery (bug, security, test, etc.) |
+| Phase 3 | [phases/03-discover-by-prompt.md](phases/03-discover-by-prompt.md) | Action = Discover by Prompt | Prompt-driven iterative exploration with Gemini planning |
 
-**If `--perspectives` provided:**
-- Parse comma-separated list
-- Validate against available perspectives
+## Core Rules
 
-**If not provided (interactive):**
-- Present perspective groups:
-  - Quick scan: bug, test, quality
-  - Security audit: security, bug, quality
-  - Full analysis: all perspectives
-- Use first group as default or wait for user input
+1. **Action Selection First**: Always determine action before loading any phase
+2. **Single Phase Load**: Only read the selected phase document, never load all phases
+3. **CLI Data Access**: Use `ccw issue` CLI for all issue operations, NEVER read files directly
+4. **Content Preservation**: Each phase contains complete execution logic from original commands
+5. **Auto-Detect Input**: Smart input parsing reduces need for explicit --action flag
+6. **⚠️ CRITICAL: DO NOT STOP**: Continuous multi-phase workflow. After completing each phase, immediately proceed to next
+7. **Progressive Phase Loading**: Read phase docs ONLY when that phase is about to execute
+8. **Explicit Lifecycle**: Always close_agent after wait completes to free resources
 
-### Step 3: Analyze Each Perspective
+## Input Processing
 
-For each selected perspective, explore target files and identify issues.
+### Auto-Detection Logic
 
-**Perspective-Specific Focus:**
+```javascript
+function detectAction(input, flags) {
+  // 1. Explicit --action flag
+  if (flags.action) return flags.action;
 
-| Perspective | Focus Areas | Priority Guide |
-|-------------|-------------|----------------|
-| **bug** | Null checks, edge cases, resource leaks, race conditions, boundary conditions, exception handling | Critical=data corruption/crash, High=malfunction, Medium=edge case |
-| **ux** | Error messages, loading states, feedback, accessibility, interaction patterns | Critical=inaccessible, High=confusing, Medium=inconsistent |
-| **test** | Missing unit tests, edge case coverage, integration gaps, assertion quality | Critical=no security tests, High=no core logic tests |
-| **quality** | Complexity, duplication, naming, documentation, code smells | Critical=unmaintainable, High=significant issues |
-| **security** | Input validation, auth/authz, injection, XSS/CSRF, data exposure | Critical=auth bypass/injection, High=missing authz |
-| **performance** | N+1 queries, memory leaks, caching, algorithm efficiency | Critical=memory leaks, High=N+1 queries |
-| **maintainability** | Coupling, interface design, tech debt, extensibility | Critical=forced changes, High=unclear boundaries |
-| **best-practices** | Framework conventions, language patterns, anti-patterns | Critical=bug-causing anti-patterns, High=convention violations |
+  const trimmed = input.trim();
 
-**For each perspective:**
-
-1. Read target files and analyze for perspective-specific concerns
-2. Use `rg` to search for patterns indicating issues
-3. Record findings with:
-   - `id`: Finding ID (e.g., `F-001`)
-   - `title`: Brief description
-   - `priority`: critical/high/medium/low
-   - `category`: Specific category within perspective
-   - `description`: Detailed explanation
-   - `file`: File path
-   - `line`: Line number
-   - `snippet`: Code snippet
-   - `suggested_issue`: Proposed issue text
-   - `confidence`: 0.0-1.0
-
-4. Write to `{OUTPUT_DIR}/perspectives/{perspective}.json`:
-```json
-{
-  "perspective": "security",
-  "analyzed_at": "2025-01-22T...",
-  "files_analyzed": 15,
-  "findings": [
-    {
-      "id": "F-001",
-      "title": "Missing input validation",
-      "priority": "high",
-      "category": "input-validation",
-      "description": "User input is passed directly to database query",
-      "file": "src/auth/login.ts",
-      "line": 42,
-      "snippet": "db.query(`SELECT * FROM users WHERE name = '${input}'`)",
-      "suggested_issue": "Add input sanitization to prevent SQL injection",
-      "confidence": 0.95
-    }
-  ]
-}
-```
-
-### Step 4: External Research (if --external)
-
-For security and best-practices perspectives, use Exa to search for:
-- Industry best practices for the tech stack
-- Known vulnerability patterns
-- Framework-specific security guidelines
-
-Write results to `{OUTPUT_DIR}/external-research.json`.
-
-### Step 5: Aggregate and Prioritize
-
-1. Load all perspective JSON files
-2. Deduplicate findings by file+line
-3. Calculate priority scores:
-   - critical: 1.0
-   - high: 0.8
-   - medium: 0.5
-   - low: 0.2
-   - Adjust by confidence
-
-4. Sort by priority score descending
-
-### Step 6: Generate Issues
-
-Convert high-priority findings to issue format:
-
-```bash
-# Append to discovery-issues.jsonl
-echo '{"id":"ISS-DSC-001","title":"...","priority":"high",...}' >> ${OUTPUT_DIR}/discovery-issues.jsonl
-```
-
-Issue criteria:
-- `priority` is critical or high
-- OR `priority_score >= 0.7`
-- OR `confidence >= 0.9` with medium priority
-
-### Step 7: Update Discovery State
-
-Write final state to `{OUTPUT_DIR}/discovery-state.json`:
-```json
-{
-  "discovery_id": "DSC-...",
-  "target_pattern": "src/auth/**",
-  "phase": "complete",
-  "created_at": "...",
-  "updated_at": "...",
-  "perspectives": ["bug", "security", "test"],
-  "results": {
-    "total_findings": 15,
-    "issues_generated": 8,
-    "priority_distribution": {
-      "critical": 1,
-      "high": 3,
-      "medium": 4
-    }
+  // 2. GitHub URL → new
+  if (trimmed.match(/github\.com\/[\w-]+\/[\w-]+\/issues\/\d+/) || trimmed.match(/^#\d+$/)) {
+    return 'new';
   }
+
+  // 3. Path pattern (contains **, /, or --perspectives) → discover
+  if (trimmed.match(/\*\*/) || trimmed.match(/^src\//) || flags.perspectives) {
+    return 'discover';
+  }
+
+  // 4. Short text (< 80 chars, no special patterns) → new
+  if (trimmed.length > 0 && trimmed.length < 80 && !trimmed.includes('--')) {
+    return 'new';
+  }
+
+  // 5. Long descriptive text → discover-by-prompt
+  if (trimmed.length >= 80) {
+    return 'discover-by-prompt';
+  }
+
+  // Cannot auto-detect → ask user
+  return null;
 }
 ```
 
-### Step 8: Generate Summary
+### Action Selection (AskUserQuestion)
 
-Write summary to `{OUTPUT_DIR}/summary.md`:
-```markdown
-# Discovery Summary: DSC-...
+```javascript
+// When action cannot be auto-detected
+const answer = AskUserQuestion({
+  questions: [{
+    question: "What would you like to do?",
+    header: "Action",
+    multiSelect: false,
+    options: [
+      {
+        label: "Create New Issue (Recommended)",
+        description: "Create issue from GitHub URL, text description, or structured input"
+      },
+      {
+        label: "Discover Issues",
+        description: "Multi-perspective discovery: bug, security, test, quality, performance, etc."
+      },
+      {
+        label: "Discover by Prompt",
+        description: "Describe what to find — Gemini plans the exploration strategy iteratively"
+      }
+    ]
+  }]
+});
 
-**Target**: src/auth/**
-**Perspectives**: bug, security, test
-**Total Findings**: 15
-**Issues Generated**: 8
-
-## Priority Breakdown
-- Critical: 1
-- High: 3
-- Medium: 4
-
-## Top Findings
-
-1. **[Critical] SQL Injection in login.ts:42**
-   Category: security/input-validation
-   ...
-
-2. **[High] Missing null check in auth.ts:128**
-   Category: bug/null-check
-   ...
-
-## Next Steps
-- Run `/issue:plan` to plan solutions for generated issues
-- Use `ccw view` to review findings in dashboard
+// Route based on selection
+const actionMap = {
+  "Create New Issue": "new",
+  "Discover Issues": "discover",
+  "Discover by Prompt": "discover-by-prompt"
+};
 ```
 
-## Quality Checklist
+## Data Flow
 
-Before completing, verify:
+```
+User Input (URL / text / path pattern / descriptive prompt)
+    ↓
+[Parse Flags + Auto-Detect Action]
+    ↓
+[Action Selection] ← AskUserQuestion (if needed)
+    ↓
+[Read Selected Phase Document]
+    ↓
+[Execute Phase Logic]
+    ↓
+[Summary + Next Steps]
+    ├─ After Create → Suggest issue-resolve (plan solution)
+    └─ After Discover → Suggest export to issues, then issue-resolve
+```
 
-- [ ] All target files analyzed for selected perspectives
-- [ ] Findings include file:line references
-- [ ] Priority assigned to all findings
-- [ ] Issues generated from high-priority findings
-- [ ] Discovery state shows `phase: complete`
-- [ ] Summary includes actionable next steps
+## Subagent API Reference
+
+### spawn_agent
+
+Create a new subagent with task assignment.
+
+```javascript
+const agentId = spawn_agent({
+  message: `
+## TASK ASSIGNMENT
+
+### MANDATORY FIRST STEPS (Agent Execute)
+1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
+2. Read: .workflow/project-tech.json
+3. Read: .workflow/project-guidelines.json
+
+## TASK CONTEXT
+${taskContext}
+
+## DELIVERABLES
+${deliverables}
+`
+})
+```
+
+### wait
+
+Get results from subagent (only way to retrieve results).
+
+```javascript
+const result = wait({
+  ids: [agentId],
+  timeout_ms: 600000  // 10 minutes
+})
+
+if (result.timed_out) {
+  // Handle timeout - can continue waiting or send_input to prompt completion
+}
+
+// Check completion status
+if (result.status[agentId].completed) {
+  const output = result.status[agentId].completed;
+}
+```
+
+### send_input
+
+Continue interaction with active subagent (for clarification or follow-up).
+
+```javascript
+send_input({
+  id: agentId,
+  message: `
+## CLARIFICATION ANSWERS
+${answers}
+
+## NEXT STEP
+Continue with plan generation.
+`
+})
+```
+
+### close_agent
+
+Clean up subagent resources (irreversible).
+
+```javascript
+close_agent({ id: agentId })
+```
+
+## Core Guidelines
+
+**Data Access Principle**: Issues files can grow very large. To avoid context overflow:
+
+| Operation | Correct | Incorrect |
+|-----------|---------|-----------|
+| List issues (brief) | `ccw issue list --status pending --brief` | `Read('issues.jsonl')` |
+| Read issue details | `ccw issue status <id> --json` | `Read('issues.jsonl')` |
+| Create issue | `echo '...' \| ccw issue create` | Direct file write |
+| Update status | `ccw issue update <id> --status ...` | Direct file edit |
+
+**ALWAYS** use CLI commands for CRUD operations. **NEVER** read entire `issues.jsonl` directly.
 
 ## Error Handling
 
-| Situation | Action |
-|-----------|--------|
-| No files match pattern | Abort with clear error message |
-| Perspective analysis fails | Log error, continue with other perspectives |
-| No findings | Report "No issues found" (not an error) |
-| External research fails | Continue without external context |
+| Error | Resolution |
+|-------|------------|
+| No action detected | Show AskUserQuestion with all 3 options |
+| Invalid action type | Show available actions, re-prompt |
+| Phase execution fails | Report error, suggest manual intervention |
+| No files matched (discover) | Check target pattern, verify path exists |
+| Gemini planning failed (discover-by-prompt) | Retry with qwen fallback |
+| Agent lifecycle errors | Ensure close_agent in error paths to prevent resource leaks |
 
-## Schema References
+## Post-Phase Next Steps
 
-| Schema | Path | Purpose |
-|--------|------|---------|
-| Discovery State | `~/.claude/workflows/cli-templates/schemas/discovery-state-schema.json` | Session state |
-| Discovery Finding | `~/.claude/workflows/cli-templates/schemas/discovery-finding-schema.json` | Finding format |
+After successful phase execution, recommend next action:
 
-## Start Discovery
+```javascript
+// After Create New (issue created)
+AskUserQuestion({
+  questions: [{
+    question: "Issue created. What next?",
+    header: "Next",
+    multiSelect: false,
+    options: [
+      { label: "Plan Solution", description: "Generate solution via issue-resolve" },
+      { label: "Create Another", description: "Create more issues" },
+      { label: "View Issues", description: "Review all issues" },
+      { label: "Done", description: "Exit workflow" }
+    ]
+  }]
+});
 
-Begin by resolving target files:
-
-```bash
-# Parse target pattern from arguments
-TARGET_PATTERN="${1:-src/**}"
-
-# Count matching files
-find ${TARGET_PATTERN} -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" \) | wc -l
+// After Discover / Discover by Prompt (discoveries generated)
+AskUserQuestion({
+  questions: [{
+    question: "Discovery complete. What next?",
+    header: "Next",
+    multiSelect: false,
+    options: [
+      { label: "Export to Issues", description: "Convert discoveries to issues" },
+      { label: "Plan Solutions", description: "Plan solutions for exported issues via issue-resolve" },
+      { label: "Done", description: "Exit workflow" }
+    ]
+  }]
+});
 ```
 
-Then proceed with perspective selection and analysis.
+## Related Skills & Commands
+
+- `issue-resolve` - Plan solutions, convert artifacts, form queues, from brainstorm
+- `issue-manage` - Interactive issue CRUD operations
+- `/issue:execute` - Execute queue with DAG-based parallel orchestration
+- `ccw issue list` - List all issues
+- `ccw issue status <id>` - View issue details

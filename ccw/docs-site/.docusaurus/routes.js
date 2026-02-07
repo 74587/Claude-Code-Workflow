@@ -3,240 +3,205 @@ import ComponentCreator from '@docusaurus/ComponentCreator';
 
 export default [
   {
-    path: '/docs/__docusaurus/debug',
-    component: ComponentCreator('/docs/__docusaurus/debug', 'e58'),
-    exact: true
-  },
-  {
-    path: '/docs/__docusaurus/debug/config',
-    component: ComponentCreator('/docs/__docusaurus/debug/config', '2ce'),
-    exact: true
-  },
-  {
-    path: '/docs/__docusaurus/debug/content',
-    component: ComponentCreator('/docs/__docusaurus/debug/content', '11b'),
-    exact: true
-  },
-  {
-    path: '/docs/__docusaurus/debug/globalData',
-    component: ComponentCreator('/docs/__docusaurus/debug/globalData', 'f13'),
-    exact: true
-  },
-  {
-    path: '/docs/__docusaurus/debug/metadata',
-    component: ComponentCreator('/docs/__docusaurus/debug/metadata', 'bff'),
-    exact: true
-  },
-  {
-    path: '/docs/__docusaurus/debug/registry',
-    component: ComponentCreator('/docs/__docusaurus/debug/registry', '830'),
-    exact: true
-  },
-  {
-    path: '/docs/__docusaurus/debug/routes',
-    component: ComponentCreator('/docs/__docusaurus/debug/routes', '13e'),
-    exact: true
-  },
-  {
-    path: '/docs/',
-    component: ComponentCreator('/docs/', 'a3f'),
+    path: '/docs/zh/',
+    component: ComponentCreator('/docs/zh/', 'b34'),
     routes: [
       {
-        path: '/docs/',
-        component: ComponentCreator('/docs/', 'fa7'),
+        path: '/docs/zh/',
+        component: ComponentCreator('/docs/zh/', 'a8e'),
         routes: [
           {
-            path: '/docs/',
-            component: ComponentCreator('/docs/', '294'),
+            path: '/docs/zh/',
+            component: ComponentCreator('/docs/zh/', '632'),
             routes: [
               {
-                path: '/docs/commands/cli/cli-init',
-                component: ComponentCreator('/docs/commands/cli/cli-init', '159'),
+                path: '/docs/zh/commands/cli/cli-init',
+                component: ComponentCreator('/docs/zh/commands/cli/cli-init', 'fe3'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/cli/codex-review',
-                component: ComponentCreator('/docs/commands/cli/codex-review', 'c66'),
+                path: '/docs/zh/commands/cli/codex-review',
+                component: ComponentCreator('/docs/zh/commands/cli/codex-review', 'e65'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/general/ccw',
-                component: ComponentCreator('/docs/commands/general/ccw', '3c1'),
+                path: '/docs/zh/commands/general/ccw',
+                component: ComponentCreator('/docs/zh/commands/general/ccw', '83a'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/general/ccw-coordinator',
-                component: ComponentCreator('/docs/commands/general/ccw-coordinator', '3b4'),
+                path: '/docs/zh/commands/general/ccw-coordinator',
+                component: ComponentCreator('/docs/zh/commands/general/ccw-coordinator', 'f35'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/general/ccw-debug',
-                component: ComponentCreator('/docs/commands/general/ccw-debug', 'e0c'),
+                path: '/docs/zh/commands/general/ccw-debug',
+                component: ComponentCreator('/docs/zh/commands/general/ccw-debug', 'b0a'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/general/ccw-plan',
-                component: ComponentCreator('/docs/commands/general/ccw-plan', '9ae'),
+                path: '/docs/zh/commands/general/ccw-plan',
+                component: ComponentCreator('/docs/zh/commands/general/ccw-plan', '39d'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/general/ccw-test',
-                component: ComponentCreator('/docs/commands/general/ccw-test', 'e6f'),
+                path: '/docs/zh/commands/general/ccw-test',
+                component: ComponentCreator('/docs/zh/commands/general/ccw-test', '765'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/general/codex-coordinator',
-                component: ComponentCreator('/docs/commands/general/codex-coordinator', 'e7d'),
+                path: '/docs/zh/commands/general/codex-coordinator',
+                component: ComponentCreator('/docs/zh/commands/general/codex-coordinator', '486'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/general/flow-create',
-                component: ComponentCreator('/docs/commands/general/flow-create', '507'),
+                path: '/docs/zh/commands/general/flow-create',
+                component: ComponentCreator('/docs/zh/commands/general/flow-create', 'd53'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/issue/issue-convert-to-plan',
-                component: ComponentCreator('/docs/commands/issue/issue-convert-to-plan', 'a36'),
+                path: '/docs/zh/commands/issue/issue-convert-to-plan',
+                component: ComponentCreator('/docs/zh/commands/issue/issue-convert-to-plan', '0df'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/issue/issue-discover',
-                component: ComponentCreator('/docs/commands/issue/issue-discover', '5ae'),
+                path: '/docs/zh/commands/issue/issue-discover',
+                component: ComponentCreator('/docs/zh/commands/issue/issue-discover', '9b4'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/issue/issue-execute',
-                component: ComponentCreator('/docs/commands/issue/issue-execute', '20b'),
+                path: '/docs/zh/commands/issue/issue-execute',
+                component: ComponentCreator('/docs/zh/commands/issue/issue-execute', 'cfd'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/issue/issue-from-brainstorm',
-                component: ComponentCreator('/docs/commands/issue/issue-from-brainstorm', '10c'),
+                path: '/docs/zh/commands/issue/issue-from-brainstorm',
+                component: ComponentCreator('/docs/zh/commands/issue/issue-from-brainstorm', 'd2f'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/issue/issue-new',
-                component: ComponentCreator('/docs/commands/issue/issue-new', 'abb'),
+                path: '/docs/zh/commands/issue/issue-new',
+                component: ComponentCreator('/docs/zh/commands/issue/issue-new', '7f9'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/issue/issue-plan',
-                component: ComponentCreator('/docs/commands/issue/issue-plan', '57f'),
+                path: '/docs/zh/commands/issue/issue-plan',
+                component: ComponentCreator('/docs/zh/commands/issue/issue-plan', 'ed4'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/issue/issue-queue',
-                component: ComponentCreator('/docs/commands/issue/issue-queue', '316'),
+                path: '/docs/zh/commands/issue/issue-queue',
+                component: ComponentCreator('/docs/zh/commands/issue/issue-queue', 'a4b'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/memory/memory-compact',
-                component: ComponentCreator('/docs/commands/memory/memory-compact', 'fbd'),
+                path: '/docs/zh/commands/memory/memory-compact',
+                component: ComponentCreator('/docs/zh/commands/memory/memory-compact', '8dc'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/memory/memory-docs-full-cli',
-                component: ComponentCreator('/docs/commands/memory/memory-docs-full-cli', '8b8'),
+                path: '/docs/zh/commands/memory/memory-docs-full-cli',
+                component: ComponentCreator('/docs/zh/commands/memory/memory-docs-full-cli', '1a7'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/memory/memory-docs-related-cli',
-                component: ComponentCreator('/docs/commands/memory/memory-docs-related-cli', '707'),
+                path: '/docs/zh/commands/memory/memory-docs-related-cli',
+                component: ComponentCreator('/docs/zh/commands/memory/memory-docs-related-cli', 'f28'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/memory/memory-load',
-                component: ComponentCreator('/docs/commands/memory/memory-load', '1db'),
+                path: '/docs/zh/commands/memory/memory-load',
+                component: ComponentCreator('/docs/zh/commands/memory/memory-load', 'aee'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/memory/memory-update-full',
-                component: ComponentCreator('/docs/commands/memory/memory-update-full', '3fa'),
+                path: '/docs/zh/commands/memory/memory-update-full',
+                component: ComponentCreator('/docs/zh/commands/memory/memory-update-full', '2a1'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/commands/memory/memory-update-related',
-                component: ComponentCreator('/docs/commands/memory/memory-update-related', 'c50'),
+                path: '/docs/zh/commands/memory/memory-update-related',
+                component: ComponentCreator('/docs/zh/commands/memory/memory-update-related', '991'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/faq',
-                component: ComponentCreator('/docs/faq', '296'),
+                path: '/docs/zh/faq',
+                component: ComponentCreator('/docs/zh/faq', 'd6c'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/overview',
-                component: ComponentCreator('/docs/overview', 'f90'),
+                path: '/docs/zh/overview',
+                component: ComponentCreator('/docs/zh/overview', '2d1'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/workflows/faq',
-                component: ComponentCreator('/docs/workflows/faq', '58c'),
+                path: '/docs/zh/workflows/faq',
+                component: ComponentCreator('/docs/zh/workflows/faq', '319'),
                 exact: true
               },
               {
-                path: '/docs/workflows/introduction',
-                component: ComponentCreator('/docs/workflows/introduction', '702'),
+                path: '/docs/zh/workflows/introduction',
+                component: ComponentCreator('/docs/zh/workflows/introduction', 'dc8'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/workflows/level-1-ultra-lightweight',
-                component: ComponentCreator('/docs/workflows/level-1-ultra-lightweight', 'b4b'),
+                path: '/docs/zh/workflows/level-1-ultra-lightweight',
+                component: ComponentCreator('/docs/zh/workflows/level-1-ultra-lightweight', '4d3'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/workflows/level-2-rapid',
-                component: ComponentCreator('/docs/workflows/level-2-rapid', 'fe1'),
+                path: '/docs/zh/workflows/level-2-rapid',
+                component: ComponentCreator('/docs/zh/workflows/level-2-rapid', 'e2a'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/workflows/level-3-standard',
-                component: ComponentCreator('/docs/workflows/level-3-standard', '65f'),
+                path: '/docs/zh/workflows/level-3-standard',
+                component: ComponentCreator('/docs/zh/workflows/level-3-standard', '936'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/workflows/level-4-brainstorm',
-                component: ComponentCreator('/docs/workflows/level-4-brainstorm', 'fae'),
+                path: '/docs/zh/workflows/level-4-brainstorm',
+                component: ComponentCreator('/docs/zh/workflows/level-4-brainstorm', '87d'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/workflows/level-5-intelligent',
-                component: ComponentCreator('/docs/workflows/level-5-intelligent', 'fa9'),
+                path: '/docs/zh/workflows/level-5-intelligent',
+                component: ComponentCreator('/docs/zh/workflows/level-5-intelligent', 'b09'),
                 exact: true,
                 sidebar: "docs"
               },
               {
-                path: '/docs/',
-                component: ComponentCreator('/docs/', '6df'),
+                path: '/docs/zh/',
+                component: ComponentCreator('/docs/zh/', '0e3'),
                 exact: true,
                 sidebar: "docs"
               }
