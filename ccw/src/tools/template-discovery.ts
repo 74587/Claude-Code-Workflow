@@ -37,7 +37,7 @@ export interface TemplateIndex {
 // Constants
 // ============================================================================
 
-const TEMPLATES_BASE_DIR = join(homedir(), '.claude', 'workflows', 'cli-templates');
+const TEMPLATES_BASE_DIR = join(homedir(), '.ccw', 'workflows', 'cli-templates');
 const PROMPTS_DIR = join(TEMPLATES_BASE_DIR, 'prompts');
 const PROTOCOLS_DIR = join(TEMPLATES_BASE_DIR, 'protocols');
 

@@ -943,7 +943,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
       }
 
       // Find guidelines file path - always use user-level path
-      const userGuidelinesPath = join(homedir(), '.claude', 'workflows', 'chinese-response.md');
+      const userGuidelinesPath = join(homedir(), '.ccw', 'workflows', 'chinese-response.md');
 
       if (existsSync(userGuidelinesPath)) {
         guidelinesPath = userGuidelinesPath;
@@ -979,7 +979,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
 
       try {
         // Find guidelines file path - always use user-level path with ~ shorthand
-        const userGuidelinesPath = join(homedir(), '.claude', 'workflows', 'chinese-response.md');
+        const userGuidelinesPath = join(homedir(), '.ccw', 'workflows', 'chinese-response.md');
 
         if (!existsSync(userGuidelinesPath)) {
           return { error: 'Chinese response guidelines file not found at ~/.ccw/workflows/chinese-response.md', status: 404 };
@@ -1107,7 +1107,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
       }
 
       // Find guidelines file path
-      const userGuidelinesPath = join(homedir(), '.claude', 'workflows', 'cli-tools-usage.md');
+      const userGuidelinesPath = join(homedir(), '.ccw', 'workflows', 'cli-tools-usage.md');
 
       if (existsSync(userGuidelinesPath)) {
         guidelinesPath = userGuidelinesPath;
@@ -1172,7 +1172,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           if (content) content += '\n';
 
           // Read and add updated section
-          const cliToolsUsagePath = join(homedir(), '.claude', 'workflows', 'cli-tools-usage.md');
+          const cliToolsUsagePath = join(homedir(), '.ccw', 'workflows', 'cli-tools-usage.md');
           let cliToolsUsageContent = '';
           if (existsSync(cliToolsUsagePath)) {
             cliToolsUsageContent = readFileSync(cliToolsUsagePath, 'utf8');
@@ -1208,7 +1208,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           }
 
           // Read cli-tools-usage.md content
-          const cliToolsUsagePath = join(homedir(), '.claude', 'workflows', 'cli-tools-usage.md');
+          const cliToolsUsagePath = join(homedir(), '.ccw', 'workflows', 'cli-tools-usage.md');
           let cliToolsUsageContent = '';
           if (existsSync(cliToolsUsagePath)) {
             cliToolsUsageContent = readFileSync(cliToolsUsagePath, 'utf8');
@@ -1266,7 +1266,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
       }
 
       // Find guidelines file path - always use user-level path
-      const userGuidelinesPath = join(homedir(), '.claude', 'workflows', 'windows-platform.md');
+      const userGuidelinesPath = join(homedir(), '.ccw', 'workflows', 'windows-platform.md');
 
       if (existsSync(userGuidelinesPath)) {
         guidelinesPath = userGuidelinesPath;
@@ -1301,7 +1301,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         const userClaudeDir = join(homedir(), '.claude');
 
         // Find guidelines file path - always use user-level path with ~ shorthand
-        const userGuidelinesPath = join(homedir(), '.claude', 'workflows', 'windows-platform.md');
+        const userGuidelinesPath = join(homedir(), '.ccw', 'workflows', 'windows-platform.md');
 
         if (!existsSync(userGuidelinesPath)) {
           return { error: 'Windows platform guidelines file not found at ~/.ccw/workflows/windows-platform.md', status: 404 };

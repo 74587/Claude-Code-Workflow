@@ -10,7 +10,7 @@ Lite Plan produces an implementation plan and an `executionContext`, then hands 
 
 ## Key Design Principles
 
-1. **Shared Execution**: Lite Plan produces `executionContext` consumed by Phase 4 (Lite Execute)
+1. **Shared Execution**: Lite Plan produces `executionContext` consumed by Phase 2 (Lite Execute)
 2. **Progressive Phase Loading**: Only load phase docs when about to execute
 3. **Auto-Continue**: After the plan is confirmed ("Allow"), automatically load execution phase
 4. **Default Auto Mode**: When `--yes`, skip confirmations and auto-approve the plan
@@ -49,7 +49,7 @@ $workflow-lite-plan-execute "docs/todo.md"
 | Phase | Document | Purpose |
 |-------|----------|---------|
 | 1 | `phases/01-lite-plan.md` | Lightweight planning with exploration, clarification, plan generation, and confirmation |
-| 4 | `phases/04-lite-execute.md` | Shared execution engine: task grouping, batch execution, optional code review |
+| 2 | `phases/02-lite-execute.md` | Shared execution engine: task grouping, batch execution, optional code review |
 
 ## Orchestrator Logic
 
@@ -81,14 +81,14 @@ if (executionContext?.userSelection?.confirmation !== 'Allow' && !autoYes) {
   return
 }
 
-// Phase 4: Lite Execute
-Read('phases/04-lite-execute.md')
+// Phase 2: Lite Execute
+Read('phases/02-lite-execute.md')
 // Execute execution phase with executionContext from Phase 1
 ```
 
 ## executionContext Contract (High Level)
 
-`executionContext` is the only contract between Phase 1 and Phase 4.
+`executionContext` is the only contract between Phase 1 and Phase 2.
 
 Required (minimum) fields:
 ```javascript
@@ -110,7 +110,7 @@ Initialization:
 ```json
 [
   {"content": "Lite Plan - Planning", "status": "in_progress", "activeForm": "Planning"},
-  {"content": "Execution (Phase 4)", "status": "pending", "activeForm": "Executing tasks"}
+  {"content": "Execution (Phase 2)", "status": "pending", "activeForm": "Executing tasks"}
 ]
 ```
 
@@ -118,14 +118,14 @@ After planning completes:
 ```json
 [
   {"content": "Lite Plan - Planning", "status": "completed", "activeForm": "Planning"},
-  {"content": "Execution (Phase 4)", "status": "in_progress", "activeForm": "Executing tasks"}
+  {"content": "Execution (Phase 2)", "status": "in_progress", "activeForm": "Executing tasks"}
 ]
 ```
 
 ## Core Rules
 
-1. **Planning phase NEVER modifies project code** - it may write planning artifacts, but all implementation is delegated to Phase 4
-2. **Phase 4 runs only after confirmation** - execute only when confirmation is "Allow" (or `--yes` auto mode)
+1. **Planning phase NEVER modifies project code** - it may write planning artifacts, but all implementation is delegated to Phase 2
+2. **Phase 2 runs only after confirmation** - execute only when confirmation is "Allow" (or `--yes` auto mode)
 3. **executionContext is the contract** between planning and execution phases
 4. **Progressive loading**: Read phase doc only when about to execute
 5. **File-path detection**: Treat input as a file path only if the path exists; do not infer from file extensions

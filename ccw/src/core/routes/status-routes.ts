@@ -28,8 +28,8 @@ function checkCcwInstallStatus(): {
   missingFiles: string[];
   installPath: string;
 } {
-  const claudeDir = join(homedir(), '.claude');
-  const workflowsDir = join(claudeDir, 'workflows');
+  const ccwDir = join(homedir(), '.ccw');
+  const workflowsDir = join(ccwDir, 'workflows');
 
   // Required workflow files for full functionality
   const requiredFiles = [

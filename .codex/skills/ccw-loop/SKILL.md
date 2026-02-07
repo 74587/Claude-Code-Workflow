@@ -1,7 +1,7 @@
 ---
 name: ccw-loop
 description: Stateless iterative development loop with single-agent deep interaction. Supports develop, debug, validate phases with file-based state tracking. Triggers on "ccw-loop", "dev loop", "development loop", "开发循环", "迭代开发".
-allowed-tools: Task, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep
+allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # CCW Loop - Stateless Iterative Development Workflow

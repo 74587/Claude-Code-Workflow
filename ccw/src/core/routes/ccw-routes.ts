@@ -117,6 +117,70 @@ export async function handleCcwRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
+  // API: CCW Install (non-interactive)
+  if (pathname === '/api/ccw/install' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { mode = 'Global', path: installPath, force = true } = body as { mode?: string; path?: string; force?: boolean };
+
+      try {
+        const { spawn } = await import('child_process');
+
+        const args = ['install', '--mode', mode, '--force'];
+        if (mode === 'Path' && installPath) {
+          args.push('--path', installPath);
+        }
+
+        const installProcess = spawn('ccw', args, {
+          shell: true,
+          stdio: ['ignore', 'pipe', 'pipe']
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        installProcess.stdout?.on('data', (data: Buffer) => {
+          const chunk = data.toString();
+          stdout += chunk;
+          broadcastToClients({
+            type: 'CCW_INSTALL_OUTPUT',
+            payload: { data: chunk }
+          });
+        });
+
+        installProcess.stderr?.on('data', (data: Buffer) => {
+          stderr += data.toString();
+        });
+
+        return new Promise((resolve) => {
+          installProcess.on('close', (code: number | null) => {
+            if (code === 0) {
+              broadcastToClients({
+                type: 'CCW_INSTALL_COMPLETED',
+                payload: { success: true, mode }
+              });
+              resolve({ success: true, message: 'Installation completed', mode, output: stdout });
+            } else {
+              resolve({ success: false, error: stderr || 'Installation failed', output: stdout, status: 500 });
+            }
+          });
+
+          installProcess.on('error', (err: Error) => {
+            resolve({ success: false, error: err.message, status: 500 });
+          });
+
+          // Timeout after 2 minutes
+          setTimeout(() => {
+            installProcess.kill();
+            resolve({ success: false, error: 'Installation timed out', status: 504 });
+          }, 120000);
+        });
+      } catch (err: unknown) {
+        return { success: false, error: err instanceof Error ? err.message : String(err), status: 500 };
+      }
+    });
+    return true;
+  }
+
   // API: CCW Upgrade
   if (pathname === '/api/ccw/upgrade' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {

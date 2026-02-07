@@ -1,7 +1,7 @@
 ---
 name: ccw-loop-b
 description: Hybrid orchestrator pattern for iterative development. Coordinator + specialized workers with batch wait, parallel split, and two-phase clarification. Triggers on "ccw-loop-b".
-allowed-tools: Task, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep
+allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # CCW Loop-B - Hybrid Orchestrator Pattern

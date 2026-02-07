@@ -26,7 +26,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Source directories to install (includes .codex with prompts folder)
-const SOURCE_DIRS = ['.claude', '.codex', '.gemini', '.qwen'];
+const SOURCE_DIRS = ['.claude', '.codex', '.gemini', '.qwen', '.ccw'];
 
 // Subdirectories that should always be installed to global (~/.claude/)
 const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates'];
@@ -380,7 +380,10 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
     for (const dir of availableDirs) {
       const srcPath = join(sourceDir, dir);
-      const destPath = join(installPath, dir);
+
+      // .ccw always installs to global ~/.ccw/ regardless of mode
+      const destBase = (mode === 'Path' && dir === '.ccw') ? homedir() : installPath;
+      const destPath = join(destBase, dir);
 
       spinner.text = `Installing ${dir}...`;
 

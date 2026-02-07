@@ -948,10 +948,10 @@ export function updateCodeIndexMcp(
     // Only update global CLAUDE.md (consistent with Chinese response / Windows platform)
     const globalClaudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
 
-    // Define patterns for all formats
-    const codexlensPattern = /@~\/\.claude\/workflows\/context-tools\.md/g;
-    const acePattern = /@~\/\.claude\/workflows\/context-tools-ace\.md/g;
-    const nonePattern = /@~\/\.claude\/workflows\/context-tools-none\.md/g;
+    // Define patterns for all formats (match both old .claude and new .ccw paths)
+    const codexlensPattern = /@~\/\.(?:claude|ccw)\/workflows\/context-tools\.md/g;
+    const acePattern = /@~\/\.(?:claude|ccw)\/workflows\/context-tools-ace\.md/g;
+    const nonePattern = /@~\/\.(?:claude|ccw)\/workflows\/context-tools-none\.md/g;
 
     // Determine target file based on provider
     const targetFile = provider === 'ace'
