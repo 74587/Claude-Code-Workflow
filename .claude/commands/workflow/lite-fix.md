@@ -52,7 +52,7 @@ Intelligent lightweight bug fixing command with dynamic workflow adaptation base
 - Low/Medium severity → Direct Claude planning (no agent)
 - High/Critical severity → `cli-lite-planning-agent` generates `fix-plan.json`
 
-**Schema Reference**: `~/.claude/workflows/cli-templates/schemas/fix-plan-json-schema.json`
+**Schema Reference**: `~/.ccw/workflows/cli-templates/schemas/fix-plan-json-schema.json`
 
 ## Auto Mode Defaults
 
@@ -91,7 +91,7 @@ Phase 2: Clarification (optional, multi-round)
 
 Phase 3: Fix Planning (NO CODE EXECUTION - planning only)
    +- Decision (based on Phase 1 severity):
-      |- Low/Medium -> Load schema: cat ~/.claude/workflows/cli-templates/schemas/fix-plan-json-schema.json -> Direct Claude planning (following schema) -> fix-plan.json -> MUST proceed to Phase 4
+      |- Low/Medium -> Load schema: cat ~/.ccw/workflows/cli-templates/schemas/fix-plan-json-schema.json -> Direct Claude planning (following schema) -> fix-plan.json -> MUST proceed to Phase 4
       +- High/Critical -> cli-lite-planning-agent -> fix-plan.json -> MUST proceed to Phase 4
 
 Phase 4: Confirmation & Selection
@@ -223,7 +223,7 @@ Execute **${angle}** diagnosis for bug root cause analysis. Analyze codebase fro
 **You (cli-explore-agent) MUST execute these steps in order:**
 1. Run: ccw tool exec get_modules_by_depth '{}' (project structure)
 2. Run: rg -l "{error_keyword_from_bug}" --type ts (locate relevant files)
-3. Execute: cat ~/.claude/workflows/cli-templates/schemas/diagnosis-json-schema.json (get output schema reference)
+3. Execute: cat ~/.ccw/workflows/cli-templates/schemas/diagnosis-json-schema.json (get output schema reference)
 4. Read: .workflow/project-tech.json (technology stack and architecture context)
 5. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
 
@@ -426,7 +426,7 @@ if (autoYes) {
 **Low/Medium Severity** - Direct planning by Claude:
 ```javascript
 // Step 1: Read schema
-const schema = Bash(`cat ~/.claude/workflows/cli-templates/schemas/fix-plan-json-schema.json`)
+const schema = Bash(`cat ~/.ccw/workflows/cli-templates/schemas/fix-plan-json-schema.json`)
 
 // Step 2: Generate fix-plan following schema (Claude directly, no agent)
 // For Medium complexity: include rationale + verification (optional, but recommended)
@@ -520,7 +520,7 @@ Generate fix plan and write fix-plan.json.
 - ${sessionFolder}/fix-plan.json (fix plan)
 
 ## Output Schema Reference
-Execute: cat ~/.claude/workflows/cli-templates/schemas/fix-plan-json-schema.json (get schema reference before generating plan)
+Execute: cat ~/.ccw/workflows/cli-templates/schemas/fix-plan-json-schema.json (get schema reference before generating plan)
 
 ## Project Context (MANDATORY - Read Both Files)
 1. Read: .workflow/project-tech.json (technology stack, architecture, key components)

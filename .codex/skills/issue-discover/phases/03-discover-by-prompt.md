@@ -445,7 +445,7 @@ ${summarizePreviousFindings(previousFindings, dimension.name)}
 ` : ''}
 
 ## MANDATORY FIRST STEPS
-1. Read schema: ~/.codex/workflows/cli-templates/schemas/discovery-finding-schema.json
+1. Read schema: ~/.ccw/workflows/cli-templates/schemas/discovery-finding-schema.json
 2. Review ACE results above for starting points
 3. Explore files identified by ACE
 

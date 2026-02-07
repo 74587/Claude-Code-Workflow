@@ -82,7 +82,7 @@ Read the key files above, then build this structure:
 }
 ```
 
-**Lessons Generation**: Use gemini with `~/.claude/workflows/cli-templates/prompts/archive/analysis-simple.txt`
+**Lessons Generation**: Use gemini with `~/.ccw/workflows/cli-templates/prompts/archive/analysis-simple.txt`
 
 ### Phase 3: Atomic Commit (4 commands)
 

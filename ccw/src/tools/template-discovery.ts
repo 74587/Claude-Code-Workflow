@@ -2,7 +2,7 @@
  * Template Discovery Module
  *
  * Provides auto-discovery and loading of CLI templates from
- * ~/.claude/workflows/cli-templates/
+ * ~/.ccw/workflows/cli-templates/
  *
  * Features:
  * - Scan prompts/ directory (flat structure with category-function.txt naming)

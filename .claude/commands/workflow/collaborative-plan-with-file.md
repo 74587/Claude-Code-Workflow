@@ -349,7 +349,7 @@ subDomains.map(sub =>
 
 ### Task 1: Generate Complete plan.json
 Output: ${sessionFolder}/agents/${sub.focus_area}/plan.json
-Schema: ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json
+Schema: ~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json
 
 ### Task 2: Sync Summary to plan-note.md
 

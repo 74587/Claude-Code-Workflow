@@ -3,7 +3,7 @@
 // ========================================
 // Manage custom slash commands with search/filter
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   Terminal,
@@ -46,6 +46,8 @@ export function CommandsManagerPage() {
     groups,
     enabledCount,
     disabledCount,
+    projectCount,
+    userCount,
     isLoading,
     isFetching,
     error,
@@ -92,16 +94,6 @@ export function CommandsManagerPage() {
   const handleToggleGroup = (groupName: string, enable: boolean) => {
     toggleGroup(groupName, enable, locationFilter);
   };
-
-  // Calculate command counts per location
-  const projectCount = useMemo(
-    () => commands.filter((c) => c.location === 'project').length,
-    [commands]
-  );
-  const userCount = useMemo(
-    () => commands.filter((c) => c.location === 'user').length,
-    [commands]
-  );
 
   return (
     <div className="space-y-6">
@@ -159,25 +151,6 @@ export function CommandsManagerPage() {
           ]}
         />
 
-        {/* Show Disabled Controls */}
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant={showDisabledCommands ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowDisabledCommands((prev) => !prev)}
-            disabled={isToggling}
-          >
-            {showDisabledCommands ? (
-              <Eye className="w-4 h-4 mr-2" />
-            ) : (
-              <EyeOff className="w-4 h-4 mr-2" />
-            )}
-            {showDisabledCommands
-              ? formatMessage({ id: 'commands.actions.hideDisabled' })
-              : formatMessage({ id: 'commands.actions.showDisabled' })}
-            <span className="ml-1 text-xs opacity-70">({disabledCount})</span>
-          </Button>
-        </div>
       </div>
 
       {/* Summary Stats */}
@@ -223,6 +196,22 @@ export function CommandsManagerPage() {
           />
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant={showDisabledCommands ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowDisabledCommands((prev) => !prev)}
+            disabled={isToggling}
+          >
+            {showDisabledCommands ? (
+              <Eye className="w-4 h-4 mr-2" />
+            ) : (
+              <EyeOff className="w-4 h-4 mr-2" />
+            )}
+            {showDisabledCommands
+              ? formatMessage({ id: 'commands.actions.hideDisabled' })
+              : formatMessage({ id: 'commands.actions.showDisabled' })}
+            <span className="ml-1 text-xs opacity-70">({disabledCount})</span>
+          </Button>
           <Button variant="outline" size="sm" onClick={expandAll} disabled={groups.length === 0}>
             {formatMessage({ id: 'commands.actions.expandAll' })}
           </Button>

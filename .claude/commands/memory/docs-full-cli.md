@@ -459,7 +459,7 @@ Documentation Generation Summary:
 
 ## Template Reference
 
-Templates used from `~/.claude/workflows/cli-templates/prompts/documentation/`:
+Templates used from `~/.ccw/workflows/cli-templates/prompts/documentation/`:
 - `api.txt`: Code API documentation (Part A: Code API, Part B: HTTP API)
 - `module-readme.txt`: Module purpose, usage, dependencies
 - `folder-navigation.txt`: Navigation README for folders with subdirectories

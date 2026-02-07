@@ -209,7 +209,7 @@ Task({
 
     ## MANDATORY FIRST STEPS
     1. Read discovery state: ${outputDir}/discovery-state.json
-    2. Read schema: ~/.claude/workflows/cli-templates/schemas/discovery-finding-schema.json
+    2. Read schema: ~/.ccw/workflows/cli-templates/schemas/discovery-finding-schema.json
     3. Analyze target files for ${perspective} concerns
 
     ## Output Requirements
@@ -304,8 +304,8 @@ function getPerspectiveGuidance(perspective) {
 
 | Schema | Path | Purpose |
 |--------|------|---------|
-| **Discovery State** | `~/.claude/workflows/cli-templates/schemas/discovery-state-schema.json` | Session state machine |
-| **Discovery Finding** | `~/.claude/workflows/cli-templates/schemas/discovery-finding-schema.json` | Perspective analysis results |
+| **Discovery State** | `~/.ccw/workflows/cli-templates/schemas/discovery-state-schema.json` | Session state machine |
+| **Discovery Finding** | `~/.ccw/workflows/cli-templates/schemas/discovery-finding-schema.json` | Perspective analysis results |
 
 ## Error Handling
 

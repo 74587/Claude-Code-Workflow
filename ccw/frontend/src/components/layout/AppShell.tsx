@@ -162,7 +162,6 @@ export function AppShell({
     <div className="flex flex-col min-h-screen bg-background">
       {/* Header - fixed at top */}
       <Header
-        onMenuClick={handleMenuClick}
         onRefresh={onRefresh}
         isRefreshing={isRefreshing}
         onCliMonitorClick={handleCliMonitorClick}

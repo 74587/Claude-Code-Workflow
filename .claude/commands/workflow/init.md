@@ -109,7 +109,7 @@ Task(
 Analyze project for workflow initialization and generate .workflow/project-tech.json.
 
 ## MANDATORY FIRST STEPS
-1. Execute: cat ~/.claude/workflows/cli-templates/schemas/project-tech-schema.json (get schema reference)
+1. Execute: cat ~/.ccw/workflows/cli-templates/schemas/project-tech-schema.json (get schema reference)
 2. Execute: ccw tool exec get_modules_by_depth '{}' (get project structure)
 
 ## Task

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Intelligent lightweight planning command with dynamic workflow adaptation based on task complexity. Focuses on planning phases (exploration, clarification, planning, confirmation) and delegates execution to Phase 4: Lite Execute (phases/04-lite-execute.md).
+Intelligent lightweight planning command with dynamic workflow adaptation based on task complexity. Focuses on planning phases (exploration, clarification, planning, confirmation) and delegates execution to Phase 2: Lite Execute (phases/02-lite-execute.md).
 
 **Core capabilities:**
 - Intelligent task analysis with automatic exploration detection
@@ -10,7 +10,7 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 - Interactive clarification after exploration to gather missing information
 - Adaptive planning: Low complexity → Direct Claude; Medium/High → cli-lite-planning-agent
 - Two-step confirmation: plan display → multi-dimensional input collection
-- Execution execute with complete context handoff to lite-execute
+- Execution handoff with complete context to lite-execute
 
 ## Parameters
 
@@ -37,7 +37,7 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 - Low complexity → Direct Claude planning (no agent)
 - Medium/High complexity → `cli-lite-planning-agent` generates `plan.json`
 
-**Schema Reference**: `~/.claude/workflows/cli-templates/schemas/plan-json-schema.json`
+**Schema Reference**: `~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json`
 
 ## Auto Mode Defaults
 
@@ -58,7 +58,7 @@ const forceExplore = $ARGUMENTS.includes('--explore') || $ARGUMENTS.includes('-e
 ```
 Phase 1: Task Analysis & Exploration
    ├─ Parse input (description or .md file)
-   ├─ intelligent complexity assessment (Low/Medium/High)
+   ├─ Intelligent complexity assessment (Low/Medium/High)
    ├─ Exploration decision (auto-detect or --explore flag)
    ├─ Context protection: If file reading ≥50k chars → force cli-explore-agent
    └─ Decision:
@@ -74,7 +74,7 @@ Phase 2: Clarification (optional, multi-round)
 
 Phase 3: Planning (NO CODE EXECUTION - planning only)
    └─ Decision (based on Phase 1 complexity):
-      ├─ Low → Load schema: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json → Direct Claude planning (following schema) → plan.json
+      ├─ Low → Load schema: cat ~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json → Direct Claude planning (following schema) → plan.json
       └─ Medium/High → cli-lite-planning-agent → plan.json (agent internally executes quality check)
 
 Phase 4: Confirmation & Selection
@@ -86,112 +86,93 @@ Phase 4: Confirmation & Selection
 
 Phase 5: Execute
    ├─ Build executionContext (plan + explorations + clarifications + selections)
-   └─ → Hand off to Phase 4: Lite Execute (phases/04-lite-execute.md) --in-memory
+   └─ → Hand off to Phase 2: Lite Execute (phases/02-lite-execute.md) --in-memory
 ```
 
 ## Implementation
 
 ### Phase 1: Intelligent Multi-Angle Exploration
 
-**Session Setup** (MANDATORY - follow exactly):
-```javascript
-// Helper: Get UTC+8 (China Standard Time) ISO string
-const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
+#### Session Setup (MANDATORY)
 
-const taskSlug = task_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
-const dateStr = getUtc8ISOString().substring(0, 10)  // Format: 2025-11-29
+Generate session ID and create session folder:
 
-const sessionId = `${taskSlug}-${dateStr}`  // e.g., "implement-jwt-refresh-2025-11-29"
-const sessionFolder = `.workflow/.lite-plan/${sessionId}`
+- **Session ID format**: `{task-slug}-{YYYY-MM-DD}`
+  - `task-slug`: lowercase task description, non-alphanumeric replaced with `-`, max 40 chars
+  - Date: UTC+8 (China Standard Time), format `2025-11-29`
+  - Example: `implement-jwt-refresh-2025-11-29`
+- **Session Folder**: `.workflow/.lite-plan/{session-id}/`
+- Create folder via `mkdir -p` and verify existence
 
-bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${sessionFolder}" || echo "FAILED: ${sessionFolder}"`)
+#### Exploration Decision
+
+Exploration is needed when **ANY** of these conditions are met:
+
+- `--explore` / `-e` flag is set
+- Task mentions specific files
+- Task requires codebase context understanding
+- Task needs architecture understanding
+- Task modifies existing code
+
+If none apply → skip to Phase 2 (Clarification) or Phase 3 (Planning).
+
+**⚠️ Context Protection**: If file reading would exceed ≥50k chars → force exploration (delegate to cli-explore-agent).
+
+#### Complexity Assessment
+
+Analyze task complexity based on four dimensions:
+
+| Dimension | Low | Medium | High |
+|-----------|-----|--------|------|
+| **Scope** | Single file, isolated | Multiple files, some dependencies | Cross-module, architectural |
+| **Depth** | Surface change | Moderate structural impact | Architectural impact |
+| **Risk** | Minimal | Moderate | High risk of breaking |
+| **Dependencies** | None | Some interconnection | Highly interconnected |
+
+#### Exploration Angle Selection
+
+Angles are assigned based on task type keyword matching, then sliced by complexity:
+
+| Task Type | Keywords | Angle Presets (priority order) |
+|-----------|----------|-------------------------------|
+| Architecture | refactor, architect, restructure, modular | architecture, dependencies, modularity, integration-points |
+| Security | security, auth, permission, access | security, auth-patterns, dataflow, validation |
+| Performance | performance, slow, optimi, cache | performance, bottlenecks, caching, data-access |
+| Bugfix | fix, bug, error, issue, broken | error-handling, dataflow, state-management, edge-cases |
+| Feature (default) | — | patterns, integration-points, testing, dependencies |
+
+**Angle count by complexity**: Low → 1, Medium → 3, High → 4
+
+**Planning strategy**: Low → "Direct Claude Planning", Medium/High → "cli-lite-planning-agent"
+
+Display exploration plan summary (complexity, selected angles, planning strategy) before launching agents.
+
+#### Launch Parallel Explorations
+
+**⚠️ CRITICAL — SYNCHRONOUS EXECUTION**: Exploration results are REQUIRED before planning. Use `spawn_agent` + `wait` pattern.
+
+**Orchestration Flow**:
+
+```
+1. Spawn agents
+   └─ For each selected angle → create cli-explore-agent with Agent Prompt (below)
+
+2. Batch wait
+   └─ Wait for ALL agents (timeout: 10 minutes)
+
+3. Handle timeout
+   └─ If partial timeout → log warning, continue with completed results
+
+4. Collect results
+   └─ For each completed agent → store exploration data keyed by angle
+
+5. Close agents
+   └─ Close ALL exploration agents after collection
 ```
 
-**Exploration Decision Logic**:
-```javascript
-needsExploration = (
-  flags.includes('--explore') || flags.includes('-e') ||
-  task.mentions_specific_files ||
-  task.requires_codebase_context ||
-  task.needs_architecture_understanding ||
-  task.modifies_existing_code
-)
+**Agent Prompt Template** (per angle):
 
-if (!needsExploration) {
-  // Skip to Phase 2 (Clarification) or Phase 3 (Planning)
-  proceed_to_next_phase()
-}
 ```
-
-**⚠️ Context Protection**: File reading ≥50k chars → force `needsExploration=true` (delegate to cli-explore-agent)
-
-**Complexity Assessment** (Intelligent Analysis):
-```javascript
-// analyzes task complexity based on:
-// - Scope: How many systems/modules are affected?
-// - Depth: Surface change vs architectural impact?
-// - Risk: Potential for breaking existing functionality?
-// - Dependencies: How interconnected is the change?
-
-const complexity = analyzeTaskComplexity(task_description)
-// Returns: 'Low' | 'Medium' | 'High'
-// Low: Single file, isolated change, minimal risk
-// Medium: Multiple files, some dependencies, moderate risk
-// High: Cross-module, architectural, high risk
-
-// Angle assignment based on task type (orchestrator decides, not agent)
-const ANGLE_PRESETS = {
-  architecture: ['architecture', 'dependencies', 'modularity', 'integration-points'],
-  security: ['security', 'auth-patterns', 'dataflow', 'validation'],
-  performance: ['performance', 'bottlenecks', 'caching', 'data-access'],
-  bugfix: ['error-handling', 'dataflow', 'state-management', 'edge-cases'],
-  feature: ['patterns', 'integration-points', 'testing', 'dependencies']
-}
-
-function selectAngles(taskDescription, count) {
-  const text = taskDescription.toLowerCase()
-  let preset = 'feature' // default
-
-  if (/refactor|architect|restructure|modular/.test(text)) preset = 'architecture'
-  else if (/security|auth|permission|access/.test(text)) preset = 'security'
-  else if (/performance|slow|optimi|cache/.test(text)) preset = 'performance'
-  else if (/fix|bug|error|issue|broken/.test(text)) preset = 'bugfix'
-
-  return ANGLE_PRESETS[preset].slice(0, count)
-}
-
-const selectedAngles = selectAngles(task_description, complexity === 'High' ? 4 : (complexity === 'Medium' ? 3 : 1))
-
-// Planning strategy determination
-const planningStrategy = complexity === 'Low'
-  ? 'Direct Claude Planning'
-  : 'cli-lite-planning-agent'
-
-console.log(`
-## Exploration Plan
-
-Task Complexity: ${complexity}
-Selected Angles: ${selectedAngles.join(', ')}
-Planning Strategy: ${planningStrategy}
-
-Launching ${selectedAngles.length} parallel explorations...
-`)
-```
-
-**Launch Parallel Explorations** - Orchestrator assigns angle to each agent:
-
-**⚠️ CRITICAL - SYNCHRONOUS EXECUTION**:
-- **Exploration results are REQUIRED before planning**
-- Use `spawn_agent` + `wait` pattern to ensure results are collected
-
-
-```javascript
-// Step 1: Create exploration agents in parallel
-const explorationAgents = []
-
-selectedAngles.forEach((angle, index) => {
-  const agentId = spawn_agent({
-    message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
@@ -202,386 +183,224 @@ selectedAngles.forEach((angle, index) => {
 ---
 
 ## Task Objective
-Execute **${angle}** exploration for task planning context. Analyze codebase from this specific angle to discover relevant structure, patterns, and constraints.
+Execute **{angle}** exploration for task planning context. Analyze codebase from this specific angle to discover relevant structure, patterns, and constraints.
 
 ## Output Location
 
-**Session Folder**: ${sessionFolder}
-**Output File**: ${sessionFolder}/exploration-${angle}.json
+**Session Folder**: {sessionFolder}
+**Output File**: {sessionFolder}/exploration-{angle}.json
 
 ## Assigned Context
-- **Exploration Angle**: ${angle}
-- **Task Description**: ${task_description}
-- **Exploration Index**: ${index + 1} of ${selectedAngles.length}
+- **Exploration Angle**: {angle}
+- **Task Description**: {task_description}
+- **Exploration Index**: {index} of {total}
 
 ## MANDATORY STEPS (Execute by Agent)
 **You (cli-explore-agent) MUST execute these steps in order:**
 1. Run: ccw tool exec get_modules_by_depth '{}' (project structure)
 2. Run: rg -l "{keyword_from_task}" --type ts (locate relevant files)
-3. Execute: cat ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
+3. Execute: cat ~/.ccw/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
 4. Read: .workflow/project-tech.json (technology stack and architecture context)
 5. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
 
-## Exploration Strategy (${angle} focus)
+## Exploration Strategy ({angle} focus)
 
 **Step 1: Structural Scan** (Bash)
-- get_modules_by_depth.sh → identify modules related to ${angle}
-- find/rg → locate files relevant to ${angle} aspect
-- Analyze imports/dependencies from ${angle} perspective
+- get_modules_by_depth.sh → identify modules related to {angle}
+- find/rg → locate files relevant to {angle} aspect
+- Analyze imports/dependencies from {angle} perspective
 
 **Step 2: Semantic Analysis** (Gemini CLI)
-- How does existing code handle ${angle} concerns?
-- What patterns are used for ${angle}?
-- Where would new code integrate from ${angle} viewpoint?
+- How does existing code handle {angle} concerns?
+- What patterns are used for {angle}?
+- Where would new code integrate from {angle} viewpoint?
 
 **Step 3: Write Output**
-- Consolidate ${angle} findings into JSON
-- Identify ${angle}-specific clarification needs
+- Consolidate {angle} findings into JSON
+- Identify {angle}-specific clarification needs
 
 ## Expected Output
 
 **Schema Reference**: Schema obtained in MANDATORY FIRST STEPS step 3, follow schema exactly
 
-**Required Fields** (all ${angle} focused):
-- project_structure: Modules/architecture relevant to ${angle}
-- relevant_files: Files affected from ${angle} perspective
+**Required Fields** (all {angle} focused):
+- project_structure: Modules/architecture relevant to {angle}
+- relevant_files: Files affected from {angle} perspective
   **IMPORTANT**: Use object format with relevance scores for synthesis:
-  \`[{path: "src/file.ts", relevance: 0.85, rationale: "Core ${angle} logic"}]\`
+  `[{path: "src/file.ts", relevance: 0.85, rationale: "Core {angle} logic"}]`
   Scores: 0.7+ high priority, 0.5-0.7 medium, <0.5 low
-- patterns: ${angle}-related patterns to follow
-- dependencies: Dependencies relevant to ${angle}
-- integration_points: Where to integrate from ${angle} viewpoint (include file:line locations)
-- constraints: ${angle}-specific limitations/conventions
-- clarification_needs: ${angle}-related ambiguities (options array + recommended index)
-- _metadata.exploration_angle: "${angle}"
+- patterns: {angle}-related patterns to follow
+- dependencies: Dependencies relevant to {angle}
+- integration_points: Where to integrate from {angle} viewpoint (include file:line locations)
+- constraints: {angle}-specific limitations/conventions
+- clarification_needs: {angle}-related ambiguities (options array + recommended index)
+- _metadata.exploration_angle: "{angle}"
 
 ## Success Criteria
 - [ ] Schema obtained via cat explore-json-schema.json
 - [ ] get_modules_by_depth.sh executed
-- [ ] At least 3 relevant files identified with ${angle} rationale
+- [ ] At least 3 relevant files identified with {angle} rationale
 - [ ] Patterns are actionable (code examples, not generic advice)
 - [ ] Integration points include file:line locations
-- [ ] Constraints are project-specific to ${angle}
+- [ ] Constraints are project-specific to {angle}
 - [ ] JSON output follows schema exactly
 - [ ] clarification_needs includes options + recommended
 
 ## Execution
-**Write**: \`${sessionFolder}/exploration-${angle}.json\`
-**Return**: 2-3 sentence summary of ${angle} findings
-`
-  })
-  
-  explorationAgents.push({ agentId, angle, index })
-})
-
-// Step 2: Batch wait for all exploration agents
-const explorationResults = wait({
-  ids: explorationAgents.map(a => a.agentId),
-  timeout_ms: 600000  // 10 minutes
-})
-
-// Step 3: Check for timeout
-if (explorationResults.timed_out) {
-  console.log('部分探索超时，继续使用已完成结果')
-}
-
-// Step 4: Collect completed results
-const completedExplorations = {}
-explorationAgents.forEach(({ agentId, angle }) => {
-  if (explorationResults.status[agentId].completed) {
-    completedExplorations[angle] = explorationResults.status[agentId].completed
-  }
-})
-
-// Step 5: Close all exploration agents
-explorationAgents.forEach(({ agentId }) => close_agent({ id: agentId }))
+**Write**: `{sessionFolder}/exploration-{angle}.json`
+**Return**: 2-3 sentence summary of {angle} findings
 ```
 
-**Auto-discover Generated Exploration Files**:
-```javascript
-// After explorations complete, auto-discover all exploration-*.json files
-const explorationFiles = bash(`find ${sessionFolder} -name "exploration-*.json" -type f`)
-  .split('\n')
-  .filter(f => f.trim())
+#### Auto-discover & Manifest Generation
 
-// Read metadata to build manifest
-const explorationManifest = {
-  session_id: sessionId,
-  task_description: task_description,
-  timestamp: getUtc8ISOString(),
-  complexity: complexity,
-  exploration_count: explorationCount,
-  explorations: explorationFiles.map(file => {
-    const data = JSON.parse(Read(file))
-    const filename = path.basename(file)
-    return {
-      angle: data._metadata.exploration_angle,
-      file: filename,
-      path: file,
-      index: data._metadata.exploration_index
-    }
-  })
-}
+After explorations complete:
 
-Write(`${sessionFolder}/explorations-manifest.json`, JSON.stringify(explorationManifest, null, 2))
-
-console.log(`
-## Exploration Complete
-
-Generated exploration files in ${sessionFolder}:
-${explorationManifest.explorations.map(e => `- exploration-${e.angle}.json (angle: ${e.angle})`).join('\n')}
-
-Manifest: explorations-manifest.json
-Angles explored: ${explorationManifest.explorations.map(e => e.angle).join(', ')}
-`)
-```
+1. **Discover** — Find all `exploration-*.json` files in session folder
+2. **Read metadata** — Extract `_metadata.exploration_angle` and `_metadata.exploration_index` from each file
+3. **Build manifest** — Create `explorations-manifest.json` containing:
+   - `session_id`, `task_description`, `timestamp`, `complexity`, `exploration_count`
+   - `explorations[]`: array of `{ angle, file, path, index }` per exploration
+4. **Write** — Save manifest to `{sessionFolder}/explorations-manifest.json`
+5. **Display** — Summary of generated files and explored angles
 
 **Output**:
-- `${sessionFolder}/exploration-{angle1}.json`
-- `${sessionFolder}/exploration-{angle2}.json`
+- `{sessionFolder}/exploration-{angle1}.json`
+- `{sessionFolder}/exploration-{angle2}.json`
 - ... (1-4 files based on complexity)
-- `${sessionFolder}/explorations-manifest.json`
+- `{sessionFolder}/explorations-manifest.json`
 
-**Generate Exploration Notes** (auto-generated after exploration completes):
+#### Generate Exploration Notes
 
-```javascript
-// Step 1: Load all exploration JSON files
-const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
-const explorations = manifest.explorations.map(exp => ({
-  angle: exp.angle,
-  data: JSON.parse(Read(exp.path))
-}))
+Auto-generated after exploration completes.
 
-// Step 2: Extract core files (relevance ≥ 0.7)
-const coreFiles = []
-explorations.forEach(exp => {
-  if (Array.isArray(exp.data.relevant_files)) {
-    exp.data.relevant_files.forEach(f => {
-      if (typeof f === 'object' && f.relevance >= 0.7) {
-        coreFiles.push({ path: f.path, relevance: f.relevance, rationale: f.rationale, angle: exp.angle })
-      }
-    })
-  }
-})
-const uniqueCoreFiles = deduplicateByPath(coreFiles.sort((a, b) => b.relevance - a.relevance))
+**Steps**:
 
-// Step 3: Build exploration notes Markdown (6 sections)
-const explorationLog = `# Exploration Notes: ${task_description.slice(0, 60)}
+1. **Load** all exploration JSON files via manifest
+2. **Extract core files** — Filter `relevant_files` with relevance ≥ 0.7, sort by relevance descending, deduplicate by path
+3. **Build exploration notes** — 6-part Markdown document (structure below)
+4. **Write** to `{sessionFolder}/exploration-notes.md`
 
-**Generated**: ${getUtc8ISOString()}
-**Task**: ${task_description}
-**Complexity**: ${complexity}
-**Exploration Angles**: ${explorations.map(e => e.angle).join(', ')}
+**Exploration Notes Structure** (`exploration-notes.md`):
+
+```markdown
+# Exploration Notes: {task_description}
+
+**Generated**: {timestamp}  |  **Complexity**: {complexity}
+**Exploration Angles**: {angles}
 
 ---
 
 ## Part 1: Multi-Angle Exploration Summary
-
-${explorations.map(exp => `### Angle: ${exp.angle}
-
-**Key Files** (priority sorted):
-${formatFileList(exp.data.relevant_files)}
-
-**Code Patterns**: ${exp.data.patterns}
-
-**Integration Points**: ${exp.data.integration_points}
-
-**Dependencies**: ${exp.data.dependencies}
-
-**Constraints**: ${exp.data.constraints}
-`).join('\n---\n')}
-
----
+Per angle: Key Files (priority sorted), Code Patterns, Integration Points, Dependencies, Constraints
 
 ## Part 2: File Deep-Dive Summary
-
-${uniqueCoreFiles.slice(0, 10).map(file => {
-  const content = Read(file.path)
-  const refs = Bash(\`rg "from ['\"].*${path.basename(file.path, path.extname(file.path))}['\"]" --type ts -n | head -10\`)
-  return formatFileDeepDive(file, content, refs)
-}).join('\n---\n')}
-
----
+Top 10 core files: read content, find cross-references via rg, format structural details
 
 ## Part 3: Architecture Reasoning Chains
-
-${buildReasoningChains(explorations, task_description)}
-
----
+Synthesized from exploration findings and task description
 
 ## Part 4: Potential Risks and Mitigations
-
-${buildRiskMitigations(explorations, uniqueCoreFiles)}
-
----
+Derived from explorations and core file analysis
 
 ## Part 5: Clarification Questions Summary
-
-${aggregateClarifications(explorations)}
-
----
+Aggregated from all exploration angles
 
 ## Part 6: Execution Recommendations Checklist
-
-${generateExecutionChecklist(task_description, explorations, uniqueCoreFiles)}
+Generated from task description, explorations, and core files
 
 ---
 
 ## Appendix: Key Code Location Index
 
 | Component | File Path | Key Lines | Purpose |
-|-----------|-----------|-----------|---------|
-${uniqueCoreFiles.slice(0, 15).map(f => `| ${path.basename(f.path)} | ${f.path} | - | ${f.rationale} |`).join('\n')}
-`
-
-// Step 4: Write initial exploration notes
-Write(`${sessionFolder}/exploration-notes.md`, explorationLog)
-
-console.log(`
-## Exploration Notes Generated
-
-File: ${sessionFolder}/exploration-notes.md
-Core files: ${uniqueCoreFiles.length}
-Angles: ${explorations.map(e => e.angle).join(', ')}
-
-This log will be fully consumed by planning phase, then refined for execution.
-`)
 ```
 
-**Output (new)**:
-- `${sessionFolder}/exploration-notes.md` (full version, consumed by Plan phase)
+**Output**: `{sessionFolder}/exploration-notes.md` (full version, consumed by Plan phase)
 
 ---
 
 ### Phase 2: Clarification (Optional, Multi-Round)
 
-**Skip if**: No exploration or `clarification_needs` is empty across all explorations
+**Skip Conditions**: No exploration performed OR `clarification_needs` empty across all explorations
 
-**⚠️ CRITICAL**: ASK_USER tool limits max 4 questions per call. **MUST execute multiple rounds** to exhaust all clarification needs - do NOT stop at round 1.
+**⚠️ CRITICAL**: ASK_USER limits max 4 questions per call. **MUST execute multiple rounds** to exhaust all clarification needs — do NOT stop at round 1.
 
-**Aggregate clarification needs from all exploration angles**:
-```javascript
-// Load manifest and all exploration files
-const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
-const explorations = manifest.explorations.map(exp => ({
-  angle: exp.angle,
-  data: JSON.parse(Read(exp.path))
-}))
+**Flow**:
 
-// Aggregate clarification needs from all explorations
-const allClarifications = []
-explorations.forEach(exp => {
-  if (exp.data.clarification_needs?.length > 0) {
-    exp.data.clarification_needs.forEach(need => {
-      allClarifications.push({
-        ...need,
-        source_angle: exp.angle
-      })
-    })
-  }
-})
+```
+1. Load manifest + all exploration files
 
-// Intelligent deduplication: analyze allClarifications by intent
-// - Identify questions with similar intent across different angles
-// - Merge similar questions: combine options, consolidate context
-// - Produce dedupedClarifications with unique intents only
-const dedupedClarifications = intelligentMerge(allClarifications)
+2. Aggregate clarification_needs
+   └─ For each exploration → collect needs, tag each with source_angle
 
-// Parse --yes flag
-const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+3. Deduplicate
+   └─ Intelligent merge: identify similar intent across angles
+      → combine options, consolidate context
+      → produce unique-intent questions only
 
-if (autoYes) {
-  // Auto mode: Skip clarification phase
-  console.log(`[--yes] Skipping ${dedupedClarifications.length} clarification questions`)
-  console.log(`Proceeding to planning with exploration results...`)
-  // Continue to Phase 3
-} else if (dedupedClarifications.length > 0) {
-  // Interactive mode: Multi-round clarification
-  const BATCH_SIZE = 4
-  const totalRounds = Math.ceil(dedupedClarifications.length / BATCH_SIZE)
-
-  for (let i = 0; i < dedupedClarifications.length; i += BATCH_SIZE) {
-    const batch = dedupedClarifications.slice(i, i + BATCH_SIZE)
-    const currentRound = Math.floor(i / BATCH_SIZE) + 1
-
-    console.log(`### Clarification Round ${currentRound}/${totalRounds}`)
-
-    ASK_USER(batch.map(need => ({
-      id: `clarify-${need.source_angle}`,
-      type: "select",
-      prompt: `[${need.source_angle}] ${need.question}\n\nContext: ${need.context}`,
-      options: need.options.map((opt, index) => ({
-        label: need.recommended === index ? `${opt} ★` : opt,
-        description: need.recommended === index ? `Recommended` : `Use ${opt}`
-      })),
-      default: need.recommended
-    })))  // BLOCKS (wait for user response)
-
-    // Store batch responses in clarificationContext before next round
-  }
-}
+4. Route by mode:
+   ├─ --yes mode → Skip all clarifications, log count, proceed to Phase 3
+   └─ Interactive mode → Multi-round clarification:
+      ├─ Batch size: 4 questions per round
+      ├─ Per round: display "Round N/M", present via ASK_USER
+      │   └─ Each question: [source_angle] question + context
+      │      Options with recommended marked ★
+      ├─ Store responses in clarificationContext after each round
+      └─ Repeat until all questions exhausted
 ```
 
-**Output**: `clarificationContext` (in-memory)
+**Output**: `clarificationContext` (in-memory, keyed by question)
 
 ---
 
 ### Phase 3: Planning
 
-**Planning Strategy Selection** (based on Phase 1 complexity):
+**IMPORTANT**: Phase 3 is **planning only** — NO code execution. All execution happens in Phase 5 via lite-execute.
 
-**IMPORTANT**: Phase 3 is **planning only** - NO code execution. All execution happens in Phase 5 via lite-execute.
+#### Executor Assignment Rules
 
-**Executor Assignment** (Claude 智能分配，plan 生成后执行):
+Applied after plan generation. Priority (high → low):
 
+1. **User explicit** — If task description specifies tool (e.g., "用 gemini 分析...") → use that executor
+2. **Default** → agent
+
+Result: `executorAssignments` map — `{ taskId: { executor: 'gemini'|'codex'|'agent', reason: string } }`
+
+#### Low Complexity — Direct Planning by Claude
+
+1. **Read schema** — `cat ~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json`
+2. **Read ALL exploration files** (⚠️ MANDATORY) — Load manifest, read each exploration JSON, review findings
+3. **Generate plan** following schema — Claude directly generates plan incorporating exploration insights
+
+**plan.json structure** (Low complexity):
 ```javascript
-// 分配规则（优先级从高到低）：
-// 1. 用户明确指定："用 gemini 分析..." → gemini, "codex 实现..." → codex
-// 2. 默认 → agent
-
-const executorAssignments = {}  // { taskId: { executor: 'gemini'|'codex'|'agent', reason: string } }
-plan.tasks.forEach(task => {
-  // Claude 根据上述规则语义分析，为每个 task 分配 executor
-  executorAssignments[task.id] = { executor: '...', reason: '...' }
-})
-```
-
-**Low Complexity** - Direct planning by Claude:
-```javascript
-// Step 1: Read schema
-const schema = Bash(`cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json`)
-
-// Step 2: ⚠️ MANDATORY - Read and review ALL exploration files
-const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
-manifest.explorations.forEach(exp => {
-  const explorationData = Read(exp.path)
-  console.log(`\n### Exploration: ${exp.angle}\n${explorationData}`)
-})
-
-// Step 3: Generate plan following schema (Claude directly, no agent)
-// ⚠️ Plan MUST incorporate insights from exploration files read in Step 2
-const plan = {
+{
   summary: "...",
   approach: "...",
-  tasks: [...],  // Each task: { id, title, scope, ..., depends_on, execution_group, complexity }
+  tasks: [...],  // Each: { id, title, scope, ..., depends_on, execution_group, complexity }
   estimated_time: "...",
   recommended_execution: "Agent",
   complexity: "Low",
-  _metadata: { timestamp: getUtc8ISOString(), source: "direct-planning", planning_mode: "direct" }
+  _metadata: { timestamp, source: "direct-planning", planning_mode: "direct" }
 }
-
-// Step 4: Write plan to session folder
-Write(`${sessionFolder}/plan.json`, JSON.stringify(plan, null, 2))
-
-// Step 5: MUST continue to Phase 4 (Confirmation) - DO NOT execute code here
 ```
 
-**Medium/High Complexity** - Invoke cli-lite-planning-agent:
+4. **Write** `{sessionFolder}/plan.json`
+5. **Continue** to Phase 4 (Confirmation) — DO NOT execute code here
 
-```javascript
-// Step 1: Create planning agent
-const planningAgentId = spawn_agent({
-  message: `
+#### Medium/High Complexity — Invoke cli-lite-planning-agent
+
+**Orchestration**:
+
+```
+1. Spawn planning agent → with Agent Prompt (below)
+2. Wait for completion → timeout: 15 minutes
+3. Close agent → after completion
+```
+
+**Agent Prompt Template**:
+
+```
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
@@ -595,13 +414,14 @@ Generate implementation plan and write plan.json.
 
 ## Output Location
 
-**Session Folder**: ${sessionFolder}
+**Session Folder**: {sessionFolder}
 **Output Files**:
-- ${sessionFolder}/planning-context.md (evidence + understanding)
-- ${sessionFolder}/plan.json (implementation plan)
+- {sessionFolder}/planning-context.md (evidence + understanding)
+- {sessionFolder}/plan.json (implementation plan)
+- {sessionFolder}/exploration-notes-refined.md (refined exploration notes for Execute phase)
 
 ## Output Schema Reference
-Execute: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json (get schema reference before generating plan)
+Execute: cat ~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json (get schema reference before generating plan)
 
 ## Project Context (MANDATORY - Read Both Files)
 1. Read: .workflow/project-tech.json (technology stack, architecture, key components)
@@ -610,30 +430,32 @@ Execute: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json (ge
 **CRITICAL**: All generated tasks MUST comply with constraints in project-guidelines.json
 
 ## Task Description
-${task_description}
+{task_description}
 
 ## Multi-Angle Exploration Context
 
-${manifest.explorations.map(exp => `### Exploration: ${exp.angle} (${exp.file})
-Path: ${exp.path}
+{For each exploration:
+### Exploration: {angle} ({file})
+Path: {path}
 
-Read this file for detailed ${exp.angle} analysis.`).join('\n\n')}
+Read this file for detailed {angle} analysis.
+}
 
-Total explorations: ${manifest.exploration_count}
-Angles covered: ${manifest.explorations.map(e => e.angle).join(', ')}
+Total explorations: {count}
+Angles covered: {angles}
 
-Manifest: ${sessionFolder}/explorations-manifest.json
+Manifest: {sessionFolder}/explorations-manifest.json
 
 ## User Clarifications
-${JSON.stringify(clarificationContext) || "None"}
+{clarificationContext or "None"}
 
 ## Complexity Level
-${complexity}
+{complexity}
 
 ## Requirements
 Generate plan.json following the schema obtained above. Key constraints:
 - tasks: 2-7 structured tasks (**group by feature/module, NOT by file**)
-- _metadata.exploration_angles: ${JSON.stringify(manifest.explorations.map(e => e.angle))}
+- _metadata.exploration_angles: {angles}
 
 ## Task Grouping Rules
 1. **Group by feature**: All changes for one feature = one task (even if 3-5 files)
@@ -649,435 +471,97 @@ Generate plan.json following the schema obtained above. Key constraints:
 2. Execute CLI planning using Gemini (Qwen fallback)
 3. Read ALL exploration files for comprehensive context
 4. Synthesize findings and generate plan following schema
-5. **Write**: \`${sessionFolder}/planning-context.md\` (evidence paths + understanding)
-6. **Write**: \`${sessionFolder}/plan.json\`
-7. Return brief completion summary
-`
-})
-
-// Step 2: Wait for planning completion
-const planResult = wait({
-  ids: [planningAgentId],
-  timeout_ms: 900000  // 15 minutes
-})
-
-// Step 3: Close planning agent
-close_agent({ id: planningAgentId })
+5. **Write**: `{sessionFolder}/planning-context.md` (evidence paths + understanding)
+6. **Write**: `{sessionFolder}/plan.json`
+7. Execute Phase 5 (Plan Quality Check) and Phase 6 (Refine Exploration Notes) per agent role definition
+8. **Write**: `{sessionFolder}/exploration-notes-refined.md` (Phase 6 output)
+9. Return brief completion summary
 ```
 
-**Output**: `${sessionFolder}/plan.json`
+**Output**: `{sessionFolder}/plan.json` + `{sessionFolder}/exploration-notes-refined.md`
 
-**Refine Exploration Notes** (auto-executed after Plan completes):
-
-**Purpose**: Generate a self-contained execution reference from exploration-notes.md + plan.json. Execution agents should be able to implement tasks **without re-reading source files**.
-
-**Key Principle**: Each file entry must include enough structural detail (exports, key functions, types, line ranges) that an execution agent can write correct code (imports, function signatures, integration points) without opening the file.
-
-```javascript
-// Step 1: Load plan, exploration notes, and exploration JSON files
-const plan = JSON.parse(Read(`${sessionFolder}/plan.json`))
-const explorationLog = Read(`${sessionFolder}/exploration-notes.md`)
-const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
-const explorations = manifest.explorations.map(exp => ({
-  angle: exp.angle,
-  data: JSON.parse(Read(exp.path))
-}))
-
-// Step 2: Extract ALL files referenced in plan (modification_points + reference.files)
-const planFiles = new Set()
-const planScopes = new Set()
-const fileTaskMap = {}  // file → [taskIds] mapping for cross-reference
-
-plan.tasks.forEach(task => {
-  if (task.scope) planScopes.add(task.scope)
-  const taskFiles = []
-  if (task.modification_points) {
-    task.modification_points.forEach(mp => {
-      planFiles.add(mp.file)
-      taskFiles.push(mp.file)
-    })
-  }
-  if (task.reference?.files) {
-    task.reference.files.forEach(f => {
-      planFiles.add(f)
-      taskFiles.push(f)
-    })
-  }
-  taskFiles.forEach(f => {
-    if (!fileTaskMap[f]) fileTaskMap[f] = []
-    fileTaskMap[f].push(task.id)
-  })
-})
-
-// Step 3: Read each plan-referenced file and extract structural details
-const fileProfiles = {}
-
-Array.from(planFiles).forEach(filePath => {
-  try {
-    const content = Read(filePath)
-    const lines = content.split('\n')
-    const totalLines = lines.length
-
-    // Extract exports (named + default)
-    const namedExports = []
-    const defaultExport = []
-    lines.forEach((line, idx) => {
-      if (/^export\s+(function|const|class|interface|type|enum|async\s+function)\s+(\w+)/.test(line)) {
-        const match = line.match(/^export\s+(?:async\s+)?(?:function|const|class|interface|type|enum)\s+(\w+)/)
-        if (match) namedExports.push({ name: match[1], line: idx + 1, declaration: line.trim().substring(0, 120) })
-      }
-      if (/^export\s+default/.test(line)) {
-        defaultExport.push({ line: idx + 1, declaration: line.trim().substring(0, 120) })
-      }
-    })
-
-    // Extract imports (first 30 lines typically)
-    const imports = []
-    lines.slice(0, 50).forEach((line, idx) => {
-      if (/^import\s/.test(line)) {
-        imports.push({ line: idx + 1, statement: line.trim() })
-      }
-    })
-
-    // Extract key function/class signatures (non-exported too)
-    const signatures = []
-    lines.forEach((line, idx) => {
-      // Function declarations
-      if (/^\s*(async\s+)?function\s+\w+/.test(line) || /^\s*(export\s+)?(async\s+)?function\s+\w+/.test(line)) {
-        signatures.push({ line: idx + 1, signature: line.trim().substring(0, 150) })
-      }
-      // Class declarations
-      if (/^\s*(export\s+)?class\s+\w+/.test(line)) {
-        signatures.push({ line: idx + 1, signature: line.trim().substring(0, 150) })
-      }
-      // Arrow function assignments (const foo = ...)
-      if (/^\s*(export\s+)?(const|let)\s+\w+\s*=\s*(async\s+)?\(/.test(line)) {
-        signatures.push({ line: idx + 1, signature: line.trim().substring(0, 150) })
-      }
-    })
-
-    // Extract modification points context (±5 lines around each modification_points.line)
-    const modificationContexts = []
-    plan.tasks.forEach(task => {
-      if (task.modification_points) {
-        task.modification_points.filter(mp => mp.file === filePath && mp.line).forEach(mp => {
-          const startLine = Math.max(0, mp.line - 6)
-          const endLine = Math.min(totalLines, mp.line + 5)
-          modificationContexts.push({
-            taskId: task.id,
-            taskTitle: task.title,
-            line: mp.line,
-            description: mp.description || '',
-            context: lines.slice(startLine, endLine).map((l, i) => `${startLine + i + 1}: ${l}`).join('\n')
-          })
-        })
-      }
-    })
-
-    fileProfiles[filePath] = {
-      totalLines,
-      imports,
-      namedExports,
-      defaultExport,
-      signatures,
-      modificationContexts,
-      relatedTasks: fileTaskMap[filePath] || []
-    }
-  } catch (e) {
-    fileProfiles[filePath] = { error: `Failed to read: ${e.message}`, relatedTasks: fileTaskMap[filePath] || [] }
-  }
-})
-
-// Step 4: Build refined exploration notes with full file profiles
-const refinedLog = `# Exploration Notes (Refined): ${task_description.slice(0, 60)}
-
-**Generated**: ${getUtc8ISOString()}
-**Task**: ${task_description}
-**Plan Tasks**: ${plan.tasks.length}
-**Referenced Files**: ${planFiles.size}
-**Refined For**: Execution phase — self-contained, no need to re-read source files
-
----
-
-## Part 1: File Profiles (Execution Reference)
-
-> Each profile contains enough detail for execution agents to write correct imports,
-> call correct functions, and integrate at the right locations WITHOUT opening the file.
-
-${Array.from(planFiles).map(filePath => {
-  const profile = fileProfiles[filePath]
-  if (!profile || profile.error) {
-    return `### \`${filePath}\`\n\n⚠️ ${profile?.error || 'File not found'}\n**Related Tasks**: ${(profile?.relatedTasks || []).join(', ')}`
-  }
-
-  return `### \`${filePath}\`
-
-**Lines**: ${profile.totalLines} | **Related Tasks**: ${profile.relatedTasks.join(', ')}
-
-**Imports**:
-\`\`\`
-${profile.imports.map(i => i.statement).join('\n') || '(none)'}
-\`\`\`
-
-**Exports** (named):
-${profile.namedExports.length > 0
-  ? profile.namedExports.map(e => `- L${e.line}: \`${e.declaration}\``).join('\n')
-  : '(none)'}
-${profile.defaultExport.length > 0
-  ? `\n**Default Export**: L${profile.defaultExport[0].line}: \`${profile.defaultExport[0].declaration}\``
-  : ''}
-
-**Key Signatures**:
-${profile.signatures.slice(0, 15).map(s => `- L${s.line}: \`${s.signature}\``).join('\n') || '(none)'}
-
-${profile.modificationContexts.length > 0 ? `**Modification Points** (with surrounding code):
-${profile.modificationContexts.map(mc => `
-#### → Task ${mc.taskId}: ${mc.taskTitle}
-**Target Line ${mc.line}**: ${mc.description}
-\`\`\`
-${mc.context}
-\`\`\`
-`).join('\n')}` : ''}
-`
-}).join('\n---\n')}
-
----
-
-## Part 2: Task-Specific Execution Context
-
-${plan.tasks.map(task => {
-  const taskFiles = []
-  if (task.modification_points) taskFiles.push(...task.modification_points.map(mp => mp.file))
-  if (task.reference?.files) taskFiles.push(...task.reference.files)
-  const uniqueFiles = [...new Set(taskFiles)]
-
-  return `### Task ${task.id}: ${task.title}
-
-**Scope**: \`${task.scope}\`
-**Complexity**: ${task.complexity || 'N/A'}
-**Depends On**: ${task.depends_on?.join(', ') || 'None (parallel-safe)'}
-
-**Files to Modify**:
-${uniqueFiles.map(f => {
-  const profile = fileProfiles[f]
-  if (!profile || profile.error) return `- \`${f}\` — ⚠️ ${profile?.error || 'not profiled'}`
-  return `- \`${f}\` (${profile.totalLines} lines, ${profile.namedExports.length} exports)`
-}).join('\n')}
-
-**Relevant Exploration Findings**:
-${extractRelevantExploration(explorationLog, task)}
-
-**Reference Patterns**:
-${task.reference?.pattern || 'Follow existing patterns in referenced files'}
-
-**Risk Notes**:
-${extractRelevantRisks(explorationLog, task)}
-`
-}).join('\n---\n')}
-
----
-
-## Part 3: Cross-Cutting Concerns
-
-### Key Constraints (from exploration)
-${extractConstraints(explorationLog)}
-
-### Integration Points (plan-task related)
-${extractIntegrationPoints(explorationLog, planFiles)}
-
-### Dependencies (external packages & internal modules)
-${extractDependencies(explorationLog, planFiles)}
-
-### Shared Patterns Across Tasks
-${explorations.map(exp => {
-  if (exp.data.patterns) {
-    return `- **${exp.angle}**: ${typeof exp.data.patterns === 'string' ? exp.data.patterns.substring(0, 200) : JSON.stringify(exp.data.patterns).substring(0, 200)}`
-  }
-  return null
-}).filter(Boolean).join('\n') || '(none extracted)'}
-
----
-
-## Appendix: Quick Lookup
-
-### File → Task Mapping
-
-| File | Tasks | Exports Count | Lines |
-|------|-------|---------------|-------|
-${Array.from(planFiles).map(f => {
-  const p = fileProfiles[f]
-  if (!p || p.error) return `| \`${f}\` | ${(p?.relatedTasks || []).join(', ')} | — | — |`
-  return `| \`${f}\` | ${p.relatedTasks.join(', ')} | ${p.namedExports.length} | ${p.totalLines} |`
-}).join('\n')}
-
-### Original Exploration Notes
-
-Full exploration notes: \`${sessionFolder}/exploration-notes.md\`
-`
-
-// Step 5: Write refined exploration notes
-Write(`${sessionFolder}/exploration-notes-refined.md`, refinedLog)
-
-// Step 6: Update session artifacts
-console.log(`
-## Exploration Notes Refined
-
-Original: ${sessionFolder}/exploration-notes.md (full version, for Plan reference)
-Refined:  ${sessionFolder}/exploration-notes-refined.md (self-contained, for Execute consumption)
-
-File profiles: ${Object.keys(fileProfiles).length} files with structural details
-Modification contexts: ${Object.values(fileProfiles).reduce((sum, p) => sum + (p.modificationContexts?.length || 0), 0)} code snippets
-`)
-```
-
-**Output (new)**: `${sessionFolder}/exploration-notes-refined.md`
+> **Note**: `exploration-notes-refined.md` is generated by cli-lite-planning-agent (Phase 6) as part of its execution flow. See `~/.codex/agents/cli-lite-planning-agent.md` Phase 6 for structure and generation logic.
 
 ---
 
 ### Phase 4: Task Confirmation & Execution Selection
 
-**Step 4.1: Display Plan**
-```javascript
-const plan = JSON.parse(Read(`${sessionFolder}/plan.json`))
+#### Step 4.1: Display Plan
 
-console.log(`
-## Implementation Plan
+Read `{sessionFolder}/plan.json` and display summary:
 
-**Summary**: ${plan.summary}
-**Approach**: ${plan.approach}
+- **Summary**: plan.summary
+- **Approach**: plan.approach
+- **Tasks**: numbered list with title and file
+- **Complexity**: plan.complexity
+- **Estimated Time**: plan.estimated_time
+- **Recommended**: plan.recommended_execution
 
-**Tasks** (${plan.tasks.length}):
-${plan.tasks.map((t, i) => `${i+1}. ${t.title} (${t.file})`).join('\n')}
+#### Step 4.2: Collect Confirmation
 
-**Complexity**: ${plan.complexity}
-**Estimated Time**: ${plan.estimated_time}
-**Recommended**: ${plan.recommended_execution}
-`)
+**Route by mode**:
+
+```
+├─ --yes mode → Auto-confirm with defaults:
+│   ├─ Confirmation: "Allow"
+│   ├─ Execution: "Auto"
+│   └─ Review: "Skip"
+│
+└─ Interactive mode → ASK_USER with 3 questions:
 ```
 
-**Step 4.2: Collect Confirmation**
-```javascript
-// Parse --yes flag
-const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+**Interactive Questions**:
 
-let userSelection
+| Question | Options | Default |
+|----------|---------|---------|
+| Confirm plan? ({N} tasks, {complexity}) | Allow (proceed as-is), Modify (adjust before execution), Cancel (abort workflow) | Allow |
+| Execution method | Agent (@code-developer), Codex (codex CLI), Auto (Low→Agent, else→Codex) | Auto |
+| Code review after execution? | Gemini Review, Codex Review (git-aware), Agent Review, Skip | Skip |
 
-if (autoYes) {
-  // Auto mode: Use defaults
-  console.log(`[--yes] Auto-confirming plan:`)
-  console.log(`  - Confirmation: Allow`)
-  console.log(`  - Execution: Auto`)
-  console.log(`  - Review: Skip`)
-
-  userSelection = {
-    confirmation: "Allow",
-    executionMethod: "Auto",
-    codeReviewTool: "Skip"
-  }
-} else {
-  // Interactive mode: Ask user
-  const rawSelection = ASK_USER([
-    {
-      id: "confirm",
-      type: "select",
-      prompt: `Confirm plan? (${plan.tasks.length} tasks, ${plan.complexity})`,
-      options: [
-        { label: "Allow", description: "Proceed as-is" },
-        { label: "Modify", description: "Adjust before execution" },
-        { label: "Cancel", description: "Abort workflow" }
-      ],
-      default: "Allow"
-    },
-    {
-      id: "execution",
-      type: "select",
-      prompt: "Execution method:",
-      options: [
-        { label: "Agent", description: "@code-developer agent" },
-        { label: "Codex", description: "codex CLI tool" },
-        { label: "Auto", description: `Auto: ${plan.complexity === 'Low' ? 'Agent' : 'Codex'}` }
-      ],
-      default: "Auto"
-    },
-    {
-      id: "review",
-      type: "select",
-      prompt: "Code review after execution?",
-      options: [
-        { label: "Gemini Review", description: "Gemini CLI review" },
-        { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
-        { label: "Agent Review", description: "@code-reviewer agent" },
-        { label: "Skip", description: "No review" }
-      ],
-      default: "Skip"
-    }
-  ])  // BLOCKS (wait for user response)
-
-  userSelection = {
-    confirmation: rawSelection.confirm,
-    executionMethod: rawSelection.execution,
-    codeReviewTool: rawSelection.review
-  }
-}
-```
+**Output**: `userSelection` — `{ confirmation, executionMethod, codeReviewTool }`
 
 ---
 
-### Phase 5: Execute to Execution
+### Phase 5: Handoff to Execution
 
 **CRITICAL**: lite-plan NEVER executes code directly. ALL execution MUST go through lite-execute.
 
-**Step 5.1: Build executionContext**
+#### Step 5.1: Build executionContext
+
+Assemble the complete execution context from all planning phase outputs:
 
 ```javascript
-// Load manifest and all exploration files
-const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
-const explorations = {}
-
-manifest.explorations.forEach(exp => {
-  if (file_exists(exp.path)) {
-    explorations[exp.angle] = JSON.parse(Read(exp.path))
-  }
-})
-
-const plan = JSON.parse(Read(`${sessionFolder}/plan.json`))
-
-executionContext = {
-  planObject: plan,
-  explorationsContext: explorations,
-  explorationAngles: manifest.explorations.map(e => e.angle),
-  explorationManifest: manifest,
-  clarificationContext: clarificationContext || null,
-  userSelection: userSelection,
-  executionMethod: userSelection.executionMethod,  // Global default; may be overridden by executorAssignments
+{
+  planObject: plan,                                    // From plan.json
+  explorationsContext: { [angle]: explorationData },   // From exploration JSONs
+  explorationAngles: ["angle1", "angle2", ...],        // From manifest
+  explorationManifest: manifest,                       // Full manifest object
+  clarificationContext: { [question]: answer } | null,
+  userSelection: { confirmation, executionMethod, codeReviewTool },
+  executionMethod: userSelection.executionMethod,      // Global default; may be overridden by executorAssignments
   codeReviewTool: userSelection.codeReviewTool,
   originalUserInput: task_description,
 
   // Task-level executor assignments (priority over global executionMethod)
-  executorAssignments: executorAssignments,  // { taskId: { executor, reason } }
+  executorAssignments: { [taskId]: { executor, reason } },
 
   session: {
     id: sessionId,
     folder: sessionFolder,
     artifacts: {
-      explorations: manifest.explorations.map(exp => ({
-        angle: exp.angle,
-        path: exp.path
-      })),
-      explorations_manifest: `${sessionFolder}/explorations-manifest.json`,
-      exploration_log: `${sessionFolder}/exploration-notes.md`,           // Full version (Plan consumption)
-      exploration_log_refined: `${sessionFolder}/exploration-notes-refined.md`,  // Refined version (Execute consumption)
-      plan: `${sessionFolder}/plan.json`
+      explorations: [{ angle, path }],                          // Per-angle exploration paths
+      explorations_manifest: "{sessionFolder}/explorations-manifest.json",
+      exploration_log: "{sessionFolder}/exploration-notes.md",            // Full version (Plan consumption)
+      exploration_log_refined: "{sessionFolder}/exploration-notes-refined.md",  // Refined version (Execute consumption)
+      plan: "{sessionFolder}/plan.json"
     }
   }
 }
 ```
 
-**Step 5.2: Execute**
+#### Step 5.2: Execute
 
-```javascript
-// → Hand off to Phase 4: Lite Execute (phases/04-lite-execute.md) --in-memory
-```
+→ Hand off to Phase 2: Lite Execute (`phases/02-lite-execute.md`) with `--in-memory` flag
 
 ## Session Folder Structure
 
@@ -1120,5 +604,5 @@ executionContext = {
 After Phase 1 (Lite Plan) completes:
 - **Output Created**: `executionContext` with plan.json, explorations, clarifications, user selections
 - **Session Artifacts**: All files in `.workflow/.lite-plan/{session-id}/`
-- **Next Action**: Auto-continue to [Phase 4: Lite Execute](04-lite-execute.md) with --in-memory
-- **TodoWrite**: Mark "Lite Plan - Planning" as completed, start "Execution (Phase 4)"
+- **Next Action**: Auto-continue to [Phase 2: Lite Execute](02-lite-execute.md) with --in-memory
+- **TodoWrite**: Mark "Lite Plan - Planning" as completed, start "Execution (Phase 2)"

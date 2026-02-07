@@ -16,7 +16,7 @@ Before starting execution, load project context:
 
 1. **Read project tech stack**: `.workflow/project-tech.json`
 2. **Read project guidelines**: `.workflow/project-guidelines.json`
-3. **Read solution schema**: `~/.claude/workflows/cli-templates/schemas/solution-schema.json`
+3. **Read solution schema**: `~/.ccw/workflows/cli-templates/schemas/solution-schema.json`
 
 This ensures execution follows project conventions and patterns.
 

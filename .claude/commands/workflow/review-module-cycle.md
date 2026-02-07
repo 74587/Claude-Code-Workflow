@@ -375,12 +375,12 @@ done
 **Agent-produced JSON files follow standardized schemas**:
 
 1. **Dimension Results** (cli-explore-agent output from parallel reviews)
-   - Schema: `~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json`
+   - Schema: `~/.ccw/workflows/cli-templates/schemas/review-dimension-results-schema.json`
    - Output: `{output-dir}/dimensions/{dimension}.json`
    - Contains: findings array, summary statistics, cross_references
 
 2. **Deep-Dive Results** (cli-explore-agent output from iterations)
-   - Schema: `~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json`
+   - Schema: `~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json`
    - Output: `{output-dir}/iterations/iteration-{N}-finding-{uuid}.json`
    - Contains: root_cause, remediation_plan, impact_assessment, reassessed_severity
 
@@ -408,7 +408,7 @@ Task(
     1. Read review state: ${reviewStateJsonPath}
     2. Get target files: Read resolved_files from review-state.json
     3. Validate file access: bash(ls -la ${targetFiles.join(' ')})
-    4. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
+    4. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
     5. Read: .workflow/project-tech.json (technology stack and architecture context)
     6. Read: .workflow/project-guidelines.json (user-defined constraints and conventions to validate against)
 
@@ -512,13 +512,13 @@ Task(
     2. Read affected file: ${file}
     3. Identify related code: bash(grep -r "import.*${basename(file)}" ${projectDir}/src --include="*.ts")
     4. Read test files: bash(find ${projectDir}/tests -name "*${basename(file, '.ts')}*" -type f)
-    5. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
+    5. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
     6. Read: .workflow/project-tech.json (technology stack and architecture context)
     7. Read: .workflow/project-guidelines.json (user-defined constraints for remediation compliance)
 
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex
-    - Template: ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
+    - Template: ~/.ccw/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
     - Mode: analysis (READ-ONLY)
 
     ## Expected Deliverables

@@ -108,13 +108,13 @@ Task(
     2. Read affected file: ${file}
     3. Identify related code: bash(grep -r "import.*${basename(file)}" ${projectDir}/src --include="*.ts")
     4. Read test files: bash(find ${projectDir}/tests -name "*${basename(file, '.ts')}*" -type f)
-    5. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
+    5. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
     6. Read: .workflow/project-tech.json (technology stack and architecture context)
     7. Read: .workflow/project-guidelines.json (user-defined constraints for remediation compliance)
 
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex
-    - Template: ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
+    - Template: ~/.ccw/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
     - Mode: analysis (READ-ONLY)
 
     ## Expected Deliverables
@@ -192,13 +192,13 @@ Task(
     2. Read affected file: ${file}
     3. Identify related code: bash(grep -r "import.*${basename(file)}" ${workflowDir}/src --include="*.ts")
     4. Read test files: bash(find ${workflowDir}/tests -name "*${basename(file, '.ts')}*" -type f)
-    5. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
+    5. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
     6. Read: .workflow/project-tech.json (technology stack and architecture context)
     7. Read: .workflow/project-guidelines.json (user-defined constraints for remediation compliance)
 
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex
-    - Template: ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
+    - Template: ~/.ccw/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
     - Timeout: 2400000ms (40 minutes)
     - Mode: analysis (READ-ONLY)
 

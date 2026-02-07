@@ -430,4 +430,4 @@ CONTEXT_VARS:
     └── synthesis-specification.md     # Integration (Phase 3)
 ```
 
-**Template Source**: `~/.claude/workflows/cli-templates/planning-roles/`
+**Template Source**: `~/.ccw/workflows/cli-templates/planning-roles/`

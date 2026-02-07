@@ -52,7 +52,7 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 - Low complexity → Direct Claude planning (no agent)
 - Medium/High complexity → `cli-lite-planning-agent` generates `plan.json`
 
-**Schema Reference**: `~/.claude/workflows/cli-templates/schemas/plan-json-schema.json`
+**Schema Reference**: `~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json`
 
 ## Auto Mode Defaults
 
@@ -89,7 +89,7 @@ Phase 2: Clarification (optional, multi-round)
 
 Phase 3: Planning (NO CODE EXECUTION - planning only)
    └─ Decision (based on Phase 1 complexity):
-      ├─ Low → Load schema: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json → Direct Claude planning (following schema) → plan.json
+      ├─ Low → Load schema: cat ~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json → Direct Claude planning (following schema) → plan.json
       └─ Medium/High → cli-lite-planning-agent → plan.json (agent internally executes quality check)
 
 Phase 4: Confirmation & Selection
@@ -224,7 +224,7 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 **You (cli-explore-agent) MUST execute these steps in order:**
 1. Run: ccw tool exec get_modules_by_depth '{}' (project structure)
 2. Run: rg -l "{keyword_from_task}" --type ts (locate relevant files)
-3. Execute: cat ~/.claude/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
+3. Execute: cat ~/.ccw/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
 4. Read: .workflow/project-tech.json (technology stack and architecture context)
 5. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
 
@@ -425,7 +425,7 @@ plan.tasks.forEach(task => {
 **Low Complexity** - Direct planning by Claude:
 ```javascript
 // Step 1: Read schema
-const schema = Bash(`cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json`)
+const schema = Bash(`cat ~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json`)
 
 // Step 2: ⚠️ MANDATORY - Read and review ALL exploration files
 const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
@@ -470,7 +470,7 @@ Generate implementation plan and write plan.json.
 - ${sessionFolder}/plan.json (implementation plan)
 
 ## Output Schema Reference
-Execute: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json (get schema reference before generating plan)
+Execute: cat ~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json (get schema reference before generating plan)
 
 ## Project Context (MANDATORY - Read Both Files)
 1. Read: .workflow/project-tech.json (technology stack, architecture, key components)

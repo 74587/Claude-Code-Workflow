@@ -86,7 +86,7 @@ Analyze test requirements and generate comprehensive test generation strategy us
 Session: {test_session_id}
 Source Session: {source_session_id}
 Working Dir: .workflow/active/{test_session_id}/.process
-Template: ~/.claude/workflows/cli-templates/prompts/test/test-concept-analysis.txt
+Template: ~/.ccw/workflows/cli-templates/prompts/test/test-concept-analysis.txt
 
 ## EXECUTION STEPS
 1. Execute Gemini analysis:

@@ -77,24 +77,24 @@ if [[ -n "$TASK_JSON_TECH_STACK" ]]; then
     # Map tech stack names to guideline files
     # e.g., ["FastAPI", "SQLAlchemy"] → python-dev.md
     case "$TASK_JSON_TECH_STACK" in
-        *FastAPI*|*Django*|*SQLAlchemy*) TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/python-dev.md) ;;
-        *React*|*Next*) TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/react-dev.md) ;;
-        *TypeScript*) TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/typescript-dev.md) ;;
+        *FastAPI*|*Django*|*SQLAlchemy*) TECH_GUIDELINES=$(cat ~/.ccw/workflows/cli-templates/tech-stacks/python-dev.md) ;;
+        *React*|*Next*) TECH_GUIDELINES=$(cat ~/.ccw/workflows/cli-templates/tech-stacks/react-dev.md) ;;
+        *TypeScript*) TECH_GUIDELINES=$(cat ~/.ccw/workflows/cli-templates/tech-stacks/typescript-dev.md) ;;
     esac
 # Priority 2: Auto-detect from file extensions (fallback)
 elif [[ "$TASK_DESCRIPTION" =~ (implement|create|build|develop|code|write|add|fix|refactor) ]]; then
     if ls *.ts *.tsx 2>/dev/null | head -1; then
-        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/typescript-dev.md)
+        TECH_GUIDELINES=$(cat ~/.ccw/workflows/cli-templates/tech-stacks/typescript-dev.md)
     elif grep -q "react" package.json 2>/dev/null; then
-        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/react-dev.md)
+        TECH_GUIDELINES=$(cat ~/.ccw/workflows/cli-templates/tech-stacks/react-dev.md)
     elif ls *.py requirements.txt 2>/dev/null | head -1; then
-        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/python-dev.md)
+        TECH_GUIDELINES=$(cat ~/.ccw/workflows/cli-templates/tech-stacks/python-dev.md)
     elif ls *.java pom.xml build.gradle 2>/dev/null | head -1; then
-        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/java-dev.md)
+        TECH_GUIDELINES=$(cat ~/.ccw/workflows/cli-templates/tech-stacks/java-dev.md)
     elif ls *.go go.mod 2>/dev/null | head -1; then
-        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/go-dev.md)
+        TECH_GUIDELINES=$(cat ~/.ccw/workflows/cli-templates/tech-stacks/go-dev.md)
     elif ls *.js package.json 2>/dev/null | head -1; then
-        TECH_GUIDELINES=$(cat ~/.claude/workflows/cli-templates/tech-stacks/javascript-dev.md)
+        TECH_GUIDELINES=$(cat ~/.ccw/workflows/cli-templates/tech-stacks/javascript-dev.md)
     fi
 fi
 ```

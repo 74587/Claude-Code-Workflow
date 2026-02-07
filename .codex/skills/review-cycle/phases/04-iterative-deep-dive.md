@@ -88,7 +88,7 @@ selectedFindings.forEach(finding => {
 3. Read affected file: ${finding.file}
 4. Identify related code: bash(grep -r "import.*${basename(finding.file)}" ${projectDir}/src --include="*.ts")
 5. Read test files: bash(find ${projectDir}/tests -name "*${basename(finding.file, '.ts')}*" -type f)
-6. Execute: cat ~/.codex/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
+6. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
 7. Read: .workflow/project-tech.json (technology stack and architecture context)
 8. Read: .workflow/project-guidelines.json (user-defined constraints for remediation compliance)
 
@@ -120,7 +120,7 @@ Then apply **Deep Scan mode** for semantic analysis:
 
 ## CLI Configuration
 - Tool Priority: gemini → qwen → codex
-- Template: ~/.codex/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
+- Template: ~/.ccw/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
 - Mode: analysis (READ-ONLY)
 
 ## Expected Deliverables
@@ -199,7 +199,7 @@ selectedFindings.forEach(finding => {
 3. Read affected file: ${finding.file}
 4. Identify related code: bash(grep -r "import.*${basename(finding.file)}" ${workflowDir}/src --include="*.ts")
 5. Read test files: bash(find ${workflowDir}/tests -name "*${basename(finding.file, '.ts')}*" -type f)
-6. Execute: cat ~/.codex/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
+6. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
 7. Read: .workflow/project-tech.json (technology stack and architecture context)
 8. Read: .workflow/project-guidelines.json (user-defined constraints for remediation compliance)
 
@@ -231,7 +231,7 @@ Then apply **Deep Scan mode** for semantic analysis:
 
 ## CLI Configuration
 - Tool Priority: gemini → qwen → codex
-- Template: ~/.codex/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
+- Template: ~/.ccw/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
 - Timeout: 2400000ms (40 minutes)
 - Mode: analysis (READ-ONLY)
 

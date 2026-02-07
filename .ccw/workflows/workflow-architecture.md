@@ -306,7 +306,7 @@ The `[FLOW_CONTROL]` marker indicates that a task or prompt contains flow contro
 
 2. **load_role_template**
    - Action: Load role-specific planning template
-   - Command: bash($(cat "~/.claude/workflows/cli-templates/planning-roles/{role}.md"))
+   - Command: bash($(cat "~/.ccw/workflows/cli-templates/planning-roles/{role}.md"))
    - Output: role_template
 
 3. **load_session_metadata**

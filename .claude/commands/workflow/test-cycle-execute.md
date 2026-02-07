@@ -147,7 +147,7 @@ return "conservative";
 ### CLI Tool Configuration
 
 **Fallback Chain**: Gemini → Qwen → Codex
-**Template**: `~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt`
+**Template**: `~/.ccw/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt`
 **Timeout**: 40min (2400000ms)
 
 **Tool Details**:

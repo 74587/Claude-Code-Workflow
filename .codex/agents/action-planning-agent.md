@@ -186,7 +186,7 @@ if (contextPackage.brainstorm_artifacts?.role_analyses?.length > 0) {
    - Add quantified requirements and measurable acceptance criteria
 
 3. Create IMPL_PLAN.md
-   - Load template: Read(~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
+   - Load template: Read(~/.ccw/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
    - Follow template structure and validation checklist
    - Populate all 8 sections with synthesized context
    - Document CCW workflow phase progression
@@ -661,7 +661,7 @@ The `implementation_approach` defines sequential implementation steps. Execution
 **Template-Based Generation**:
 
 ```
-1. Load template: Read(~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
+1. Load template: Read(~/.ccw/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)
 2. Populate all sections following template structure
 3. Complete template validation checklist
 4. Generate at .workflow/active/{session_id}/IMPL_PLAN.md
@@ -852,7 +852,7 @@ Use `analysis_results.complexity` or task count to determine structure:
 - **Record N+1 Context**: Update `## N+1 Context` section with key decisions and deferred items
 - **Search Tool Priority**: ACE (`mcp__ace-tool__search_context`) → CCW (`mcp__ccw-tools__smart_search`) / Built-in (`Grep`, `Glob`, `Read`)
 - Apply Quantification Requirements to all requirements, acceptance criteria, and modification points
-- Load IMPL_PLAN template: `Read(~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)` before generating IMPL_PLAN.md
+- Load IMPL_PLAN template: `Read(~/.ccw/workflows/cli-templates/prompts/workflow/impl-plan-template.txt)` before generating IMPL_PLAN.md
 - Use provided context package: Extract all information from structured context
 - Respect memory-first rule: Use provided content (already loaded from memory/file)
 - Follow 6-field schema: All task JSONs must have id, title, status, context_package_path, meta, context, flow_control

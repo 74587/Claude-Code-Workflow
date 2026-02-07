@@ -49,6 +49,8 @@ export interface UseCommandsReturn {
   totalCount: number;
   enabledCount: number;
   disabledCount: number;
+  projectCount: number;
+  userCount: number;
   isLoading: boolean;
   isFetching: boolean;
   error: Error | null;
@@ -136,8 +138,12 @@ export function useCommands(options: UseCommandsOptions = {}): UseCommandsReturn
 
   const allCommands = query.data?.commands ?? [];
 
-  // Apply filters
-  const filteredCommands = (() => {
+  // Per-location total counts (unfiltered, for tab badges)
+  const projectCount = allCommands.filter(c => c.location === 'project').length;
+  const userCount = allCommands.filter(c => c.location === 'user').length;
+
+  // Apply filters (except showDisabled) for counts and grouping
+  const baseFiltered = (() => {
     let commands = allCommands;
 
     if (filter?.search) {
@@ -166,14 +172,15 @@ export function useCommands(options: UseCommandsOptions = {}): UseCommandsReturn
       commands = commands.filter((c) => c.location === filter.location);
     }
 
-    if (filter?.showDisabled === false) {
-      commands = commands.filter((c) => c.enabled !== false);
-    }
-
     return commands;
   })();
 
-  // Group by category
+  // Apply showDisabled filter for the returned commands list
+  const filteredCommands = filter?.showDisabled === false
+    ? baseFiltered.filter((c) => c.enabled !== false)
+    : baseFiltered;
+
+  // Group by category (from allCommands for global view)
   const commandsByCategory: Record<string, Command[]> = {};
   const categories = new Set<string>();
 
@@ -186,13 +193,13 @@ export function useCommands(options: UseCommandsOptions = {}): UseCommandsReturn
     commandsByCategory[category].push(command);
   }
 
-  // Group by group
+  // Group by group (from baseFiltered - respects location filter, includes disabled for accordion)
   const groupedCommands: Record<string, Command[]> = {};
   const groups = new Set<string>();
-  const enabledCount = allCommands.filter(c => c.enabled !== false).length;
-  const disabledCount = allCommands.length - enabledCount;
+  const enabledCount = baseFiltered.filter(c => c.enabled !== false).length;
+  const disabledCount = baseFiltered.length - enabledCount;
 
-  for (const command of allCommands) {
+  for (const command of baseFiltered) {
     const group = command.group || 'other';
     groups.add(group);
     if (!groupedCommands[group]) {
@@ -217,6 +224,8 @@ export function useCommands(options: UseCommandsOptions = {}): UseCommandsReturn
     groups: Array.from(groups).sort(),
     enabledCount,
     disabledCount,
+    projectCount,
+    userCount,
     totalCount: allCommands.length,
     isLoading: query.isLoading,
     isFetching: query.isFetching,

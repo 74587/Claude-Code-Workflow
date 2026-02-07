@@ -155,7 +155,7 @@ Write(testPlanningNotesPath, `# Test Planning Notes
 **Execution Steps**:
 1. Load TEST_ANALYSIS_RESULTS.md from `.workflow/active/{test-session-id}/.process/`
 2. Invoke `cli-execution-agent` with Gemini for test enhancement analysis
-3. Use template: `~/.claude/workflows/cli-templates/prompts/test-suggestions-enhancement.txt`
+3. Use template: `~/.ccw/workflows/cli-templates/prompts/test-suggestions-enhancement.txt`
 4. Gemini generates enriched test suggestions across L1-L3 layers → gemini-enriched-suggestions.md
 5. Record enriched suggestions to test-planning-notes.md (Gemini Enhancement section)
 

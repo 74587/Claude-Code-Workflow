@@ -385,12 +385,12 @@ git log --since="${sessionCreatedAt}" --name-only --pretty=format: | sort -u
 **Agent-produced JSON files follow standardized schemas**:
 
 1. **Dimension Results** (cli-explore-agent output from parallel reviews)
-   - Schema: `~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json`
+   - Schema: `~/.ccw/workflows/cli-templates/schemas/review-dimension-results-schema.json`
    - Output: `.review-cycle/dimensions/{dimension}.json`
    - Contains: findings array, summary statistics, cross_references
 
 2. **Deep-Dive Results** (cli-explore-agent output from iterations)
-   - Schema: `~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json`
+   - Schema: `~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json`
    - Output: `.review-cycle/iterations/iteration-{N}-finding-{uuid}.json`
    - Contains: root_cause, remediation_plan, impact_assessment, reassessed_severity
 
@@ -419,7 +419,7 @@ Task(
     2. Read completed task summaries: bash(find ${summariesDir} -name "IMPL-*.md" -type f)
     3. Get changed files: bash(cd ${workflowDir} && git log --since="${sessionCreatedAt}" --name-only --pretty=format: | sort -u)
     4. Read review state: ${reviewStateJsonPath}
-    5. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
+    5. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
     6. Read: .workflow/project-tech.json (technology stack and architecture context)
     7. Read: .workflow/project-guidelines.json (user-defined constraints and conventions to validate against)
 
@@ -432,7 +432,7 @@ Task(
 
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex (fallback chain)
-    - Template: ~/.claude/workflows/cli-templates/prompts/analysis/${dimensionTemplate}
+    - Template: ~/.ccw/workflows/cli-templates/prompts/analysis/${dimensionTemplate}
     - Custom Focus: ${customFocus || 'Standard dimension analysis'}
     - Timeout: ${timeout}ms
     - Mode: analysis (READ-ONLY)
@@ -523,13 +523,13 @@ Task(
     2. Read affected file: ${file}
     3. Identify related code: bash(grep -r "import.*${basename(file)}" ${workflowDir}/src --include="*.ts")
     4. Read test files: bash(find ${workflowDir}/tests -name "*${basename(file, '.ts')}*" -type f)
-    5. Execute: cat ~/.claude/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
+    5. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
     6. Read: .workflow/project-tech.json (technology stack and architecture context)
     7. Read: .workflow/project-guidelines.json (user-defined constraints for remediation compliance)
 
     ## CLI Configuration
     - Tool Priority: gemini → qwen → codex
-    - Template: ~/.claude/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
+    - Template: ~/.ccw/workflows/cli-templates/prompts/analysis/01-diagnose-bug-root-cause.txt
     - Timeout: 2400000ms (40 minutes)
     - Mode: analysis (READ-ONLY)
 

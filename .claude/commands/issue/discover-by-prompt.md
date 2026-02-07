@@ -508,7 +508,7 @@ function buildDimensionPromptWithACE(dimension, iteration, previousFindings, ace
 
     ## MANDATORY FIRST STEPS
     1. Read exploration plan: ${outputDir}/../exploration-plan.json
-    2. Read schema: ~/.claude/workflows/cli-templates/schemas/discovery-finding-schema.json
+    2. Read schema: ~/.ccw/workflows/cli-templates/schemas/discovery-finding-schema.json
     3. Review ACE results above for starting points
     4. Explore files identified by ACE
 

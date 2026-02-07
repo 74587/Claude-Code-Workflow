@@ -116,63 +116,63 @@ const roleConfig = {
     focus_area: 'User research, information architecture, user journey',
     question_categories: ['User Intent', 'Requirements', 'UX'],
     question_count: 4,
-    template: '~/.codex/workflows/cli-templates/planning-roles/ux-expert.md'
+    template: '~/.ccw/workflows/cli-templates/planning-roles/ux-expert.md'
   },
   'ui-designer': {
     title: 'UI设计师',
     focus_area: 'Visual design, high-fidelity mockups, design systems',
     question_categories: ['Requirements', 'UX', 'Feasibility'],
     question_count: 4,
-    template: '~/.codex/workflows/cli-templates/planning-roles/ui-designer.md'
+    template: '~/.ccw/workflows/cli-templates/planning-roles/ui-designer.md'
   },
   'system-architect': {
     title: '系统架构师',
     focus_area: 'Technical architecture, scalability, integration patterns',
     question_categories: ['Scale & Performance', 'Technical Constraints', 'Architecture Complexity', 'Non-Functional Requirements'],
     question_count: 5,
-    template: '~/.codex/workflows/cli-templates/planning-roles/system-architect.md'
+    template: '~/.ccw/workflows/cli-templates/planning-roles/system-architect.md'
   },
   'product-manager': {
     title: '产品经理',
     focus_area: 'Product strategy, roadmap, prioritization',
     question_categories: ['User Intent', 'Requirements', 'Process'],
     question_count: 4,
-    template: '~/.codex/workflows/cli-templates/planning-roles/product-manager.md'
+    template: '~/.ccw/workflows/cli-templates/planning-roles/product-manager.md'
   },
   'product-owner': {
     title: '产品负责人',
     focus_area: 'Backlog management, user stories, acceptance criteria',
     question_categories: ['Requirements', 'Decisions', 'Process'],
     question_count: 4,
-    template: '~/.codex/workflows/cli-templates/planning-roles/product-owner.md'
+    template: '~/.ccw/workflows/cli-templates/planning-roles/product-owner.md'
   },
   'scrum-master': {
     title: '敏捷教练',
     focus_area: 'Process facilitation, impediment removal, team dynamics',
     question_categories: ['Process', 'Risk', 'Decisions'],
     question_count: 3,
-    template: '~/.codex/workflows/cli-templates/planning-roles/scrum-master.md'
+    template: '~/.ccw/workflows/cli-templates/planning-roles/scrum-master.md'
   },
   'subject-matter-expert': {
     title: '领域专家',
     focus_area: 'Domain knowledge, business rules, compliance',
     question_categories: ['Requirements', 'Feasibility', 'Terminology'],
     question_count: 4,
-    template: '~/.codex/workflows/cli-templates/planning-roles/subject-matter-expert.md'
+    template: '~/.ccw/workflows/cli-templates/planning-roles/subject-matter-expert.md'
   },
   'data-architect': {
     title: '数据架构师',
     focus_area: 'Data models, storage strategies, data flow',
     question_categories: ['Architecture', 'Scale & Performance', 'Technical Constraints', 'Feasibility'],
     question_count: 5,
-    template: '~/.codex/workflows/cli-templates/planning-roles/data-architect.md'
+    template: '~/.ccw/workflows/cli-templates/planning-roles/data-architect.md'
   },
   'api-designer': {
     title: 'API设计师',
     focus_area: 'API contracts, versioning, integration patterns',
     question_categories: ['Architecture', 'Requirements', 'Feasibility', 'Decisions'],
     question_count: 4,
-    template: '~/.codex/workflows/cli-templates/planning-roles/api-designer.md'
+    template: '~/.ccw/workflows/cli-templates/planning-roles/api-designer.md'
   }
 };
 
@@ -747,7 +747,7 @@ try {
 ## Reference Information
 
 ### Role Template Locations
-- Templates: `~/.codex/workflows/cli-templates/planning-roles/`
+- Templates: `~/.ccw/workflows/cli-templates/planning-roles/`
 - Format: `{role-name}.md` (e.g., `ux-expert.md`, `system-architect.md`)
 
 ### Context Package

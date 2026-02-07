@@ -167,7 +167,7 @@ export function QueuePage() {
             {formatMessage({ id: 'issues.queue.pageTitle' })}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {formatMessage({ id: 'issues.queue.pageDescription' })}
+            {formatMessage({ id: 'issues.queue.description' })}
           </p>
         </div>
         <div className="flex gap-2">

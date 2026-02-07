@@ -354,7 +354,7 @@ When used in test-fix workflow, generates task:
     "requirements": "Validate generated code for AI common errors"
   },
   "flow_control": {
-    "validation_config": "~/.claude/workflows/test-quality-config.json",
+    "validation_config": "~/.ccw/workflows/test-quality-config.json",
     "max_retries": 2,
     "auto_fix_enabled": true
   },

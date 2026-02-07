@@ -24,7 +24,7 @@ ccw install
 ```
 
 `ccw install` 命令将会：
-- 安装工作流定义到 `~/.claude/workflows/`
+- 安装工作流定义到 `~/.ccw/workflows/`
 - 安装实用脚本到 `~/.claude/scripts/`
 - 安装提示模板到 `~/.claude/templates/`
 - 安装技能定义到 `~/.codex/skills/`
@@ -80,7 +80,7 @@ CCW 使用**基于配置的工具控制系统**，使外部 CLI 工具成为**�
 - ✅ **优雅降级** - 工具不可用时自动回退
 - ✅ **灵活配置** - 每个项目控制工具可用性
 
-**配置文件**：`~/.claude/workflows/tool-control.yaml`
+**配置文件**：`~/.ccw/workflows/tool-control.yaml`
 
 ```yaml
 tools:
@@ -110,7 +110,7 @@ tools:
 
 #### 外部 AI 工具
 
-在 `~/.claude/workflows/tool-control.yaml` 中配置这些工具：
+在 `~/.ccw/workflows/tool-control.yaml` 中配置这些工具：
 
 | 工具 | 用途 | 安装方式 |
 |------|------|----------|

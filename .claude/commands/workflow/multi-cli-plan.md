@@ -360,7 +360,7 @@ Task({
   description: "Generate implementation plan",
   prompt: `
 ## Schema Reference
-Execute: cat ~/.claude/workflows/cli-templates/schemas/plan-json-schema.json
+Execute: cat ~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json
 
 ## Context-Package (from orchestrator)
 ${JSON.stringify(contextPackage, null, 2)}

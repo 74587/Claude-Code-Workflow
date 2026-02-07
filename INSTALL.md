@@ -24,7 +24,7 @@ ccw install
 ```
 
 The `ccw install` command will:
-- Install workflow definitions to `~/.claude/workflows/`
+- Install workflow definitions to `~/.ccw/workflows/`
 - Install utility scripts to `~/.claude/scripts/`
 - Install prompt templates to `~/.claude/templates/`
 - Install skill definitions to `~/.codex/skills/`
@@ -80,7 +80,7 @@ CCW uses a **configuration-based tool control system** that makes external CLI t
 - ✅ **Graceful degradation** - Automatic fallback when tools are unavailable
 - ✅ **Flexible configuration** - Control tool availability per project
 
-**Configuration File**: `~/.claude/workflows/tool-control.yaml`
+**Configuration File**: `~/.ccw/workflows/tool-control.yaml`
 
 ```yaml
 tools:
@@ -110,7 +110,7 @@ While CCW works with Claude alone, installing these tools provides enhanced anal
 
 #### External AI Tools
 
-Configure these tools in `~/.claude/workflows/tool-control.yaml` after installation:
+Configure these tools in `~/.ccw/workflows/tool-control.yaml` after installation:
 
 | Tool | Purpose | Installation |
 |------|---------|--------------|

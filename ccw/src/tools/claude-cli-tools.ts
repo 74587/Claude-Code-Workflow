@@ -955,10 +955,10 @@ export function updateCodeIndexMcp(
 
     // Determine target file based on provider
     const targetFile = provider === 'ace'
-      ? '@~/.claude/workflows/context-tools-ace.md'
+      ? '@~/.ccw/workflows/context-tools-ace.md'
       : provider === 'none'
-        ? '@~/.claude/workflows/context-tools-none.md'
-        : '@~/.claude/workflows/context-tools.md';
+        ? '@~/.ccw/workflows/context-tools-none.md'
+        : '@~/.ccw/workflows/context-tools.md';
 
     if (!fs.existsSync(globalClaudeMdPath)) {
       // If global CLAUDE.md doesn't exist, check project-level

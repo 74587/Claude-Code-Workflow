@@ -439,7 +439,7 @@ IMPORTANT: Do NOT add command field to implementation_approach steps. Execution 
 
 ##### 2. IMPL_PLAN.md (TDD Variant)
 - **Location**: `.workflow/active/{session-id}/IMPL_PLAN.md`
-- **Template**: `~/.claude/workflows/cli-templates/prompts/workflow/impl-plan-template.txt`
+- **Template**: `~/.ccw/workflows/cli-templates/prompts/workflow/impl-plan-template.txt`
 - **TDD-Specific Frontmatter**: workflow_type="tdd", tdd_workflow=true, feature_count, task_breakdown
 - **TDD Implementation Tasks Section**: Feature-by-feature with internal Red-Green-Refactor cycles
 - **Context Analysis**: Artifact references and exploration insights

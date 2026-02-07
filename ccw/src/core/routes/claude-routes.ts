@@ -982,10 +982,10 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         const userGuidelinesPath = join(homedir(), '.claude', 'workflows', 'chinese-response.md');
 
         if (!existsSync(userGuidelinesPath)) {
-          return { error: 'Chinese response guidelines file not found at ~/.claude/workflows/chinese-response.md', status: 404 };
+          return { error: 'Chinese response guidelines file not found at ~/.ccw/workflows/chinese-response.md', status: 404 };
         }
 
-        const guidelinesRef = '~/.claude/workflows/chinese-response.md';
+        const guidelinesRef = '~/.ccw/workflows/chinese-response.md';
 
         // Configure based on target
         const isCodex = target === 'codex';
@@ -1177,7 +1177,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           if (existsSync(cliToolsUsagePath)) {
             cliToolsUsageContent = readFileSync(cliToolsUsagePath, 'utf8');
           } else {
-            return { error: 'CLI tools usage guidelines file not found at ~/.claude/workflows/cli-tools-usage.md', status: 404 };
+            return { error: 'CLI tools usage guidelines file not found at ~/.ccw/workflows/cli-tools-usage.md', status: 404 };
           }
 
           const cliToolsJsonPath = join(homedir(), '.claude', 'cli-tools.json');
@@ -1213,7 +1213,7 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
           if (existsSync(cliToolsUsagePath)) {
             cliToolsUsageContent = readFileSync(cliToolsUsagePath, 'utf8');
           } else {
-            return { error: 'CLI tools usage guidelines file not found at ~/.claude/workflows/cli-tools-usage.md', status: 404 };
+            return { error: 'CLI tools usage guidelines file not found at ~/.ccw/workflows/cli-tools-usage.md', status: 404 };
           }
 
           // Read and format cli-tools.json
@@ -1304,10 +1304,10 @@ export async function handleClaudeRoutes(ctx: RouteContext): Promise<boolean> {
         const userGuidelinesPath = join(homedir(), '.claude', 'workflows', 'windows-platform.md');
 
         if (!existsSync(userGuidelinesPath)) {
-          return { error: 'Windows platform guidelines file not found at ~/.claude/workflows/windows-platform.md', status: 404 };
+          return { error: 'Windows platform guidelines file not found at ~/.ccw/workflows/windows-platform.md', status: 404 };
         }
 
-        const guidelinesRef = '~/.claude/workflows/windows-platform.md';
+        const guidelinesRef = '~/.ccw/workflows/windows-platform.md';
 
         const windowsRefLine = `- **Windows Platform**: @${guidelinesRef}`;
         const windowsRefPattern = /^- \*\*Windows Platform\*\*:.*windows-platform\.md.*$/gm;
