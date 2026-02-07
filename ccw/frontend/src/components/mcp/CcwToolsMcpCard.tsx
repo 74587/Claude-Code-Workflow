@@ -18,6 +18,8 @@ import {
   MessageCircleQuestion,
   ChevronDown,
   ChevronRight,
+  Globe,
+  Folder,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -31,6 +33,7 @@ import {
 import { mcpServersKeys } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // ========== Types ==========
 
@@ -103,16 +106,19 @@ export function CcwToolsMcpCard({
 }: CcwToolsMcpCardProps) {
   const { formatMessage } = useIntl();
   const queryClient = useQueryClient();
+  const currentProjectPath = useWorkflowStore(selectProjectPath);
 
   // Local state for config inputs
   const [projectRootInput, setProjectRootInput] = useState(projectRoot || '');
   const [allowedDirsInput, setAllowedDirsInput] = useState(allowedDirs || '');
   const [disableSandboxInput, setDisableSandboxInput] = useState(disableSandbox || false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [installScope, setInstallScope] = useState<'global' | 'project'>('global');
 
   // Mutations for install/uninstall
   const installMutation = useMutation({
-    mutationFn: installCcwMcp,
+    mutationFn: (params: { scope: 'global' | 'project'; projectPath?: string }) =>
+      installCcwMcp(params.scope, params.projectPath),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
       queryClient.invalidateQueries({ queryKey: ['ccwMcpConfig'] });
@@ -167,7 +173,10 @@ export function CcwToolsMcpCard({
   };
 
   const handleInstallClick = () => {
-    installMutation.mutate();
+    installMutation.mutate({
+      scope: installScope,
+      projectPath: installScope === 'project' ? currentProjectPath : undefined,
+    });
   };
 
   const handleUninstallClick = () => {
@@ -257,7 +266,7 @@ export function CcwToolsMcpCard({
             <p className="text-xs font-medium text-muted-foreground uppercase">
               {formatMessage({ id: 'mcp.ccw.tools.label' })}
             </p>
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
               {CCW_MCP_TOOLS.map((tool) => {
                 const isEnabled = enabledTools.includes(tool.name);
                 const icon = getToolIcon(tool.name);
@@ -266,8 +275,8 @@ export function CcwToolsMcpCard({
                   <div
                     key={tool.name}
                     className={cn(
-                      'flex items-center gap-3 p-2 rounded-lg transition-colors',
-                      isEnabled ? 'bg-background' : 'bg-muted/50'
+                      'flex items-center gap-3 p-2 rounded-lg transition-colors border',
+                      isEnabled ? 'bg-background border-primary/40' : 'bg-background border-border'
                     )}
                   >
                     <input
@@ -381,7 +390,41 @@ export function CcwToolsMcpCard({
           </div>
 
           {/* Install/Uninstall Button */}
-          <div className="pt-3 border-t border-border">
+          <div className="pt-3 border-t border-border space-y-3">
+            {/* Scope Selection */}
+            {!isInstalled && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase">
+                  {formatMessage({ id: 'mcp.scope' })}
+                </p>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="ccw-install-scope"
+                      value="global"
+                      checked={installScope === 'global'}
+                      onChange={() => setInstallScope('global')}
+                      className="w-4 h-4"
+                    />
+                    <Globe className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">{formatMessage({ id: 'mcp.scope.global' })}</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="ccw-install-scope"
+                      value="project"
+                      checked={installScope === 'project'}
+                      onChange={() => setInstallScope('project')}
+                      className="w-4 h-4"
+                    />
+                    <Folder className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm">{formatMessage({ id: 'mcp.scope.project' })}</span>
+                  </label>
+                </div>
+              </div>
+            )}
             {!isInstalled ? (
               <Button
                 onClick={handleInstallClick}

@@ -37,6 +37,7 @@ export interface SkillCreateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
+  cliType?: 'claude' | 'codex';
 }
 
 type CreateMode = 'import' | 'cli-generate';
@@ -48,7 +49,7 @@ interface ValidationResult {
   skillInfo?: { name: string; description: string; version?: string; supportingFiles?: string[] };
 }
 
-export function SkillCreateDialog({ open, onOpenChange, onCreated }: SkillCreateDialogProps) {
+export function SkillCreateDialog({ open, onOpenChange, onCreated, cliType = 'claude' }: SkillCreateDialogProps) {
   const { formatMessage } = useIntl();
   const projectPath = useWorkflowStore(selectProjectPath);
 
@@ -125,6 +126,7 @@ export function SkillCreateDialog({ open, onOpenChange, onCreated }: SkillCreate
         description: mode === 'cli-generate' ? description.trim() : undefined,
         generationType: mode === 'cli-generate' ? 'description' : undefined,
         projectPath,
+        cliType,
       });
 
       handleOpenChange(false);

@@ -39,6 +39,7 @@ export interface UseSkillsOptions {
   filter?: SkillsFilter;
   staleTime?: number;
   enabled?: boolean;
+  cliType?: 'claude' | 'codex';
 }
 
 export interface UseSkillsReturn {
@@ -61,15 +62,19 @@ export interface UseSkillsReturn {
  * Hook for fetching and filtering skills
  */
 export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
-  const { filter, staleTime = STALE_TIME, enabled = true } = options;
+  const { filter, staleTime = STALE_TIME, enabled = true, cliType = 'claude' } = options;
   const queryClient = useQueryClient();
   const projectPath = useWorkflowStore(selectProjectPath);
 
+  const queryKey = cliType === 'codex'
+    ? workspaceQueryKeys.codexSkillsList(projectPath)
+    : workspaceQueryKeys.skillsList(projectPath);
+
   const query = useQuery({
-    queryKey: workspaceQueryKeys.skillsList(projectPath),
-    queryFn: () => fetchSkills(projectPath),
+    queryKey,
+    queryFn: () => fetchSkills(projectPath, cliType),
     staleTime,
-    enabled: enabled, // Remove projectPath requirement - API works without it
+    enabled: enabled,
     retry: 2,
   });
 
@@ -133,7 +138,10 @@ export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
 
   const invalidate = async () => {
     if (projectPath) {
-      await queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.skills(projectPath) });
+      const invalidateKey = cliType === 'codex'
+        ? workspaceQueryKeys.codexSkills(projectPath)
+        : workspaceQueryKeys.skills(projectPath);
+      await queryClient.invalidateQueries({ queryKey: invalidateKey });
     }
   };
 
@@ -157,7 +165,7 @@ export function useSkills(options: UseSkillsOptions = {}): UseSkillsReturn {
 // ========== Mutations ==========
 
 export interface UseToggleSkillReturn {
-  toggleSkill: (skillName: string, enabled: boolean, location: 'project' | 'user') => Promise<Skill>;
+  toggleSkill: (skillName: string, enabled: boolean, location: 'project' | 'user', cliType?: 'claude' | 'codex') => Promise<Skill>;
   isToggling: boolean;
   error: Error | null;
 }
@@ -168,10 +176,10 @@ export function useToggleSkill(): UseToggleSkillReturn {
   const { addToast, removeToast, success, error } = useNotifications();
 
   const mutation = useMutation({
-    mutationFn: ({ skillName, enabled, location }: { skillName: string; enabled: boolean; location: 'project' | 'user' }) =>
+    mutationFn: ({ skillName, enabled, location, cliType = 'claude' }: { skillName: string; enabled: boolean; location: 'project' | 'user'; cliType?: 'claude' | 'codex' }) =>
       enabled
-        ? enableSkill(skillName, location, projectPath)
-        : disableSkill(skillName, location, projectPath),
+        ? enableSkill(skillName, location, projectPath, cliType)
+        : disableSkill(skillName, location, projectPath, cliType),
     onMutate: (): { loadingId: string } => {
       const loadingId = addToast('info', formatMessage('common.loading'), undefined, { duration: 0 });
       return { loadingId };
@@ -183,7 +191,13 @@ export function useToggleSkill(): UseToggleSkillReturn {
       const operation = variables.enabled ? 'skillEnable' : 'skillDisable';
       success(formatMessage(`feedback.${operation}.success`));
 
-      queryClient.invalidateQueries({ queryKey: projectPath ? workspaceQueryKeys.skills(projectPath) : ['skills'] });
+      // Invalidate both claude and codex skills queries
+      if (projectPath) {
+        queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.skills(projectPath) });
+        queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.codexSkills(projectPath) });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['skills'] });
+      }
     },
     onError: (err, variables, context) => {
       const { loadingId } = context ?? { loadingId: '' };
@@ -196,7 +210,7 @@ export function useToggleSkill(): UseToggleSkillReturn {
   });
 
   return {
-    toggleSkill: (skillName, enabled, location) => mutation.mutateAsync({ skillName, enabled, location }),
+    toggleSkill: (skillName, enabled, location, cliType) => mutation.mutateAsync({ skillName, enabled, location, cliType }),
     isToggling: mutation.isPending,
     error: mutation.error,
   };

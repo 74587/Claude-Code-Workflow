@@ -48,6 +48,8 @@ export const workspaceQueryKeys = {
   // ========== Skills ==========
   skills: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'skills'] as const,
   skillsList: (projectPath: string) => [...workspaceQueryKeys.skills(projectPath), 'list'] as const,
+  codexSkills: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'codexSkills'] as const,
+  codexSkillsList: (projectPath: string) => [...workspaceQueryKeys.codexSkills(projectPath), 'list'] as const,
 
   // ========== Commands ==========
   commands: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'commands'] as const,

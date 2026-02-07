@@ -67,7 +67,17 @@
     "disabled": "已禁用"
   },
   "systemStatus": {
-    "title": "系统状态",
+    "title": "CCW 安装",
+    "installations": "个安装",
+    "noInstallations": "未检测到安装",
+    "installPrompt": "运行 ccw install 进行安装",
+    "global": "Global",
+    "path": "Path",
+    "version": "版本",
+    "files": "files",
+    "upgrade": "升级",
+    "upgrading": "升级中...",
+    "refresh": "刷新",
     "ccwInstall": "CCW 安装状态",
     "installed": "已安装",
     "incomplete": "不完整",

@@ -22,6 +22,12 @@ import {
   Monitor,
   Terminal,
   AlertTriangle,
+  Package,
+  Home,
+  Folder,
+  Calendar,
+  File,
+  ArrowUpCircle,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -43,6 +49,8 @@ import {
   useRefreshCodexCliEnhancement,
   useCcwInstallStatus,
   useCliToolStatus,
+  useCcwInstallations,
+  useUpgradeCcwInstallation,
 } from '@/hooks/useSystemSettings';
 
 // ========== CLI Tool Card Component ==========
@@ -517,51 +525,137 @@ function ResponseLanguageSection() {
 
 function SystemStatusSection() {
   const { formatMessage } = useIntl();
-  const { data: ccwInstall, isLoading: installLoading } = useCcwInstallStatus();
-
-  // Don't show if installed or still loading
-  if (installLoading || ccwInstall?.installed) return null;
+  const { installations, isLoading, refetch } = useCcwInstallations();
+  const { upgrade, isPending: upgrading } = useUpgradeCcwInstallation();
+  const { data: ccwInstall } = useCcwInstallStatus();
 
   return (
-    <Card className="p-6 border-yellow-500/50">
-      <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
-        <AlertTriangle className="w-5 h-5 text-yellow-500" />
-        {formatMessage({ id: 'settings.systemStatus.title' })}
-      </h2>
-
-      {/* CCW Install Status */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">{formatMessage({ id: 'settings.systemStatus.ccwInstall' })}</span>
-          <Badge variant="outline" className="text-yellow-500 border-yellow-500/50">
-            {formatMessage({ id: 'settings.systemStatus.incomplete' })}
-          </Badge>
+    <Card className="p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <Package className="w-5 h-5" />
+          {formatMessage({ id: 'settings.systemStatus.title' })}
+          {!isLoading && (
+            <span className="text-sm font-normal text-muted-foreground">
+              {installations.length} {formatMessage({ id: 'settings.systemStatus.installations' })}
+            </span>
+          )}
+        </h2>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => refetch()}
+            title={formatMessage({ id: 'settings.systemStatus.refresh' })}
+          >
+            <RefreshCw className={cn('w-3.5 h-3.5', isLoading && 'animate-spin')} />
+          </Button>
         </div>
-
-        {ccwInstall && ccwInstall.missingFiles.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground">
-              {formatMessage({ id: 'settings.systemStatus.missingFiles' })}:
-            </p>
-            <ul className="text-xs text-muted-foreground/70 list-disc list-inside">
-              {ccwInstall.missingFiles.slice(0, 5).map((file) => (
-                <li key={file}>{file}</li>
-              ))}
-              {ccwInstall.missingFiles.length > 5 && (
-                <li>+{ccwInstall.missingFiles.length - 5} more...</li>
-              )}
-            </ul>
-            <div className="bg-muted/50 rounded-md p-3 mt-2">
-              <p className="text-xs font-medium mb-1">
-                {formatMessage({ id: 'settings.systemStatus.runToFix' })}:
-              </p>
-              <code className="text-xs bg-background px-2 py-1 rounded block font-mono">
-                ccw install
-              </code>
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Installation cards */}
+      {isLoading ? (
+        <div className="text-sm text-muted-foreground py-4 text-center">
+          {formatMessage({ id: 'settings.systemStatus.checking' })}
+        </div>
+      ) : installations.length === 0 ? (
+        <div className="text-center py-6 space-y-2">
+          <p className="text-sm text-muted-foreground">
+            {formatMessage({ id: 'settings.systemStatus.noInstallations' })}
+          </p>
+          <div className="bg-muted/50 rounded-md p-3 inline-block">
+            <code className="text-xs font-mono">ccw install</code>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {installations.map((inst) => {
+            const isGlobal = inst.installation_mode === 'Global';
+            const installDate = new Date(inst.installation_date).toLocaleDateString();
+            const version = inst.application_version !== 'unknown' ? inst.application_version : inst.installer_version;
+
+            return (
+              <div
+                key={inst.manifest_id}
+                className="rounded-lg border border-border p-4 space-y-2"
+              >
+                {/* Mode + Version + Upgrade */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      'inline-flex items-center justify-center w-8 h-8 rounded-lg',
+                      isGlobal ? 'bg-primary/10 text-primary' : 'bg-orange-500/10 text-orange-500'
+                    )}>
+                      {isGlobal ? <Home className="w-4 h-4" /> : <Folder className="w-4 h-4" />}
+                    </span>
+                    <span className="text-sm font-medium">
+                      {isGlobal
+                        ? formatMessage({ id: 'settings.systemStatus.global' })
+                        : formatMessage({ id: 'settings.systemStatus.path' })}
+                    </span>
+                    <Badge variant="secondary" className="text-xs font-mono">
+                      v{version}
+                    </Badge>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7"
+                    disabled={upgrading}
+                    onClick={() => upgrade(inst.installation_path)}
+                  >
+                    <ArrowUpCircle className={cn('w-3.5 h-3.5 mr-1', upgrading && 'animate-spin')} />
+                    {upgrading
+                      ? formatMessage({ id: 'settings.systemStatus.upgrading' })
+                      : formatMessage({ id: 'settings.systemStatus.upgrade' })}
+                  </Button>
+                </div>
+
+                {/* Path */}
+                <div className="text-xs text-muted-foreground bg-muted/50 rounded px-2 py-1 font-mono truncate" title={inst.installation_path}>
+                  {inst.installation_path}
+                </div>
+
+                {/* Date + Files */}
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {installDate}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <File className="w-3 h-3" />
+                    {inst.files_count} {formatMessage({ id: 'settings.systemStatus.files' })}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Missing files warning */}
+          {ccwInstall && !ccwInstall.installed && ccwInstall.missingFiles.length > 0 && (
+            <div className="rounded-lg border border-yellow-500/50 bg-yellow-500/5 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-yellow-600 dark:text-yellow-500">
+                <AlertTriangle className="w-4 h-4" />
+                {formatMessage({ id: 'settings.systemStatus.incomplete' })} &mdash; {ccwInstall.missingFiles.length} {formatMessage({ id: 'settings.systemStatus.missingFiles' }).toLowerCase()}
+              </div>
+              <ul className="text-xs text-muted-foreground list-disc list-inside">
+                {ccwInstall.missingFiles.slice(0, 4).map((f) => (
+                  <li key={f}>{f}</li>
+                ))}
+                {ccwInstall.missingFiles.length > 4 && (
+                  <li>+{ccwInstall.missingFiles.length - 4} more...</li>
+                )}
+              </ul>
+              <div className="bg-muted/50 rounded-md p-2">
+                <p className="text-xs font-medium mb-1">{formatMessage({ id: 'settings.systemStatus.runToFix' })}:</p>
+                <code className="text-xs font-mono bg-background px-2 py-1 rounded block">ccw install</code>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   );
 }
@@ -864,31 +958,6 @@ export function SettingsPage() {
           </div>
         </div>
       </Card>
-
-      {/* Display Settings */}
-      <div className="py-4">
-        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
-          <Settings className="w-5 h-5" />
-          {formatMessage({ id: 'settings.sections.display' })}
-        </h2>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-foreground">{formatMessage({ id: 'settings.display.showCompletedTasks' })}</p>
-              <p className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'settings.display.showCompletedTasksDesc' })}
-              </p>
-            </div>
-            <Button
-              variant={userPreferences.showCompletedTasks ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handlePreferenceChange('showCompletedTasks', !userPreferences.showCompletedTasks)}
-            >
-              {userPreferences.showCompletedTasks ? formatMessage({ id: 'settings.display.show' }) : formatMessage({ id: 'settings.display.hide' })}
-            </Button>
-          </div>
-        </div>
-      </div>
 
       {/* Reset Settings */}
       <Card className="p-6 border-destructive/50">

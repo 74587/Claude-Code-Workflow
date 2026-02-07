@@ -67,7 +67,17 @@
     "disabled": "Disabled"
   },
   "systemStatus": {
-    "title": "System Status",
+    "title": "CCW Installation",
+    "installations": "installation(s)",
+    "noInstallations": "No installations detected",
+    "installPrompt": "Run ccw install to set up",
+    "global": "Global",
+    "path": "Path",
+    "version": "Version",
+    "files": "files",
+    "upgrade": "Upgrade",
+    "upgrading": "Upgrading...",
+    "refresh": "Refresh",
     "ccwInstall": "CCW Installation",
     "installed": "Installed",
     "incomplete": "Incomplete",

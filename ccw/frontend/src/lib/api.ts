@@ -992,7 +992,7 @@ export interface SkillsResponse {
  * Fetch all skills for a specific workspace
  * @param projectPath - Optional project path to filter data by workspace
  */
-export async function fetchSkills(projectPath?: string): Promise<SkillsResponse> {
+export async function fetchSkills(projectPath?: string, cliType: 'claude' | 'codex' = 'claude'): Promise<SkillsResponse> {
   // Response type from backend when includeDisabled=true
   interface ExtendedSkillsResponse {
     skills?: Skill[];
@@ -1017,10 +1017,12 @@ export async function fetchSkills(projectPath?: string): Promise<SkillsResponse>
     return [...projectSkillsEnabled, ...userSkillsEnabled, ...projectSkillsDisabled, ...userSkillsDisabled];
   };
 
+  const cliTypeParam = cliType === 'codex' ? '&cliType=codex' : '';
+
   // Try with project path first, fall back to global on 403/404
   if (projectPath) {
     try {
-      const url = `/api/skills?path=${encodeURIComponent(projectPath)}&includeDisabled=true`;
+      const url = `/api/skills?path=${encodeURIComponent(projectPath)}&includeDisabled=true${cliTypeParam}`;
       const data = await fetchApi<ExtendedSkillsResponse>(url);
       return { skills: buildSkillsList(data) };
     } catch (error: unknown) {
@@ -1034,7 +1036,7 @@ export async function fetchSkills(projectPath?: string): Promise<SkillsResponse>
     }
   }
   // Fallback: fetch global skills
-  const data = await fetchApi<ExtendedSkillsResponse>('/api/skills?includeDisabled=true');
+  const data = await fetchApi<ExtendedSkillsResponse>(`/api/skills?includeDisabled=true${cliTypeParam}`);
   return { skills: buildSkillsList(data) };
 }
 
@@ -1044,11 +1046,12 @@ export async function fetchSkills(projectPath?: string): Promise<SkillsResponse>
 export async function enableSkill(
   skillName: string,
   location: 'project' | 'user',
-  projectPath?: string
+  projectPath?: string,
+  cliType: 'claude' | 'codex' = 'claude'
 ): Promise<Skill> {
   return fetchApi<Skill>(`/api/skills/${encodeURIComponent(skillName)}/enable`, {
     method: 'POST',
-    body: JSON.stringify({ location, projectPath }),
+    body: JSON.stringify({ location, projectPath, cliType }),
   });
 }
 
@@ -1058,11 +1061,12 @@ export async function enableSkill(
 export async function disableSkill(
   skillName: string,
   location: 'project' | 'user',
-  projectPath?: string
+  projectPath?: string,
+  cliType: 'claude' | 'codex' = 'claude'
 ): Promise<Skill> {
   return fetchApi<Skill>(`/api/skills/${encodeURIComponent(skillName)}/disable`, {
     method: 'POST',
-    body: JSON.stringify({ location, projectPath }),
+    body: JSON.stringify({ location, projectPath, cliType }),
   });
 }
 
@@ -1075,11 +1079,13 @@ export async function disableSkill(
 export async function fetchSkillDetail(
   skillName: string,
   location: 'project' | 'user',
-  projectPath?: string
+  projectPath?: string,
+  cliType: 'claude' | 'codex' = 'claude'
 ): Promise<{ skill: Skill }> {
+  const cliTypeParam = cliType === 'codex' ? '&cliType=codex' : '';
   const url = projectPath
-    ? `/api/skills/${encodeURIComponent(skillName)}?location=${location}&path=${encodeURIComponent(projectPath)}`
-    : `/api/skills/${encodeURIComponent(skillName)}?location=${location}`;
+    ? `/api/skills/${encodeURIComponent(skillName)}?location=${location}&path=${encodeURIComponent(projectPath)}${cliTypeParam}`
+    : `/api/skills/${encodeURIComponent(skillName)}?location=${location}${cliTypeParam}`;
   return fetchApi<{ skill: Skill }>(url);
 }
 
@@ -1108,6 +1114,7 @@ export async function createSkill(params: {
   description?: string;
   generationType?: 'description' | 'template';
   projectPath?: string;
+  cliType?: 'claude' | 'codex';
 }): Promise<{ skillName: string; path: string }> {
   return fetchApi('/api/skills/create', {
     method: 'POST',
@@ -3031,6 +3038,21 @@ export async function createHook(
 }
 
 /**
+ * Save a hook to settings file via POST /api/hooks
+ * This writes directly to Claude Code's settings.json in the correct format
+ */
+export async function saveHook(
+  scope: 'global' | 'project',
+  event: string,
+  hookData: Record<string, unknown>
+): Promise<{ success: boolean }> {
+  return fetchApi<{ success: boolean }>('/api/hooks', {
+    method: 'POST',
+    body: JSON.stringify({ projectPath: '', scope, event, hookData }),
+  });
+}
+
+/**
  * Update hook using dedicated update endpoint with partial input
  */
 export async function updateHookConfig(
@@ -3325,14 +3347,32 @@ export async function updateCcwConfig(config: {
 /**
  * Install CCW Tools MCP server
  */
-export async function installCcwMcp(): Promise<CcwMcpConfig> {
+export async function installCcwMcp(
+  scope: 'global' | 'project' = 'global',
+  projectPath?: string
+): Promise<CcwMcpConfig> {
   const serverConfig = buildCcwMcpServerConfig({
     enabledTools: ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question'],
   });
 
-  const result = await addGlobalMcpServer('ccw-tools', serverConfig);
-  if (!result.success) {
-    throw new Error(result.error || 'Failed to install CCW MCP');
+  if (scope === 'project' && projectPath) {
+    const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-copy-server', {
+      method: 'POST',
+      body: JSON.stringify({
+        projectPath,
+        serverName: 'ccw-tools',
+        serverConfig,
+        configType: 'mcp',
+      }),
+    });
+    if (result?.error) {
+      throw new Error(result.error || 'Failed to install CCW MCP to project');
+    }
+  } else {
+    const result = await addGlobalMcpServer('ccw-tools', serverConfig);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to install CCW MCP');
+    }
   }
 
   return fetchCcwMcpConfig();
@@ -5241,4 +5281,39 @@ export async function fetchAggregatedStatus(): Promise<AggregatedStatus> {
  */
 export async function fetchCliToolStatus(): Promise<Record<string, { available: boolean; path?: string; version?: string }>> {
   return fetchApi('/api/cli/status');
+}
+
+/**
+ * CCW Installation manifest
+ */
+export interface CcwInstallationManifest {
+  manifest_id: string;
+  version: string;
+  installation_mode: string;
+  installation_path: string;
+  installation_date: string;
+  installer_version: string;
+  manifest_file: string;
+  application_version: string;
+  files_count: number;
+  directories_count: number;
+}
+
+/**
+ * Fetch CCW installation manifests
+ */
+export async function fetchCcwInstallations(): Promise<{ installations: CcwInstallationManifest[] }> {
+  return fetchApi('/api/ccw/installations');
+}
+
+/**
+ * Upgrade CCW installation
+ */
+export async function upgradeCcwInstallation(
+  path?: string
+): Promise<{ success: boolean; message?: string; error?: string; output?: string }> {
+  return fetchApi('/api/ccw/upgrade', {
+    method: 'POST',
+    body: JSON.stringify({ path }),
+  });
 }

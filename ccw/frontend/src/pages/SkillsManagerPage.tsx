@@ -39,6 +39,7 @@ import {
   AlertDialogCancel,
 } from '@/components/ui';
 import { SkillCard, SkillDetailPanel, SkillCreateDialog } from '@/components/shared';
+import { CliModeToggle, type CliMode } from '@/components/mcp/CliModeToggle';
 import { useSkills, useSkillMutations } from '@/hooks';
 import { fetchSkillDetail } from '@/lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
@@ -109,6 +110,7 @@ export function SkillsManagerPage() {
   const { formatMessage } = useIntl();
   const projectPath = useWorkflowStore(selectProjectPath);
 
+  const [cliMode, setCliMode] = useState<CliMode>('claude');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
@@ -143,6 +145,7 @@ export function SkillsManagerPage() {
       enabledOnly: enabledFilter === 'enabled',
       location: locationFilter,
     },
+    cliType: cliMode,
   });
 
   const { toggleSkill, isToggling } = useSkillMutations();
@@ -165,18 +168,19 @@ export function SkillsManagerPage() {
     const location = skill.location || 'project';
     // Use folderName for API calls (actual folder name), fallback to name if not available
     const skillIdentifier = skill.folderName || skill.name;
-    
+
     // Debug logging
-    console.log('[SkillToggle] Toggling skill:', { 
-      name: skill.name, 
-      folderName: skill.folderName, 
-      location, 
-      enabled, 
-      skillIdentifier 
+    console.log('[SkillToggle] Toggling skill:', {
+      name: skill.name,
+      folderName: skill.folderName,
+      location,
+      enabled,
+      skillIdentifier,
+      cliMode
     });
-    
+
     try {
-      await toggleSkill(skillIdentifier, enabled, location);
+      await toggleSkill(skillIdentifier, enabled, location, cliMode);
     } catch (error) {
       console.error('[SkillToggle] Toggle failed:', error);
       throw error;
@@ -211,7 +215,8 @@ export function SkillsManagerPage() {
       const data = await fetchSkillDetail(
         skill.name,
         skill.location || 'project',
-        projectPath
+        projectPath,
+        cliMode
       );
       setSelectedSkill(data.skill);
     } catch (error) {
@@ -220,7 +225,7 @@ export function SkillsManagerPage() {
     } finally {
       setIsDetailLoading(false);
     }
-  }, [projectPath]);
+  }, [projectPath, cliMode]);
 
   const handleCloseDetailPanel = useCallback(() => {
     setIsDetailPanelOpen(false);
@@ -232,14 +237,23 @@ export function SkillsManagerPage() {
       {/* Page Header */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-primary" />
-              {formatMessage({ id: 'skills.title' })}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {formatMessage({ id: 'skills.description' })}
-            </p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                <Sparkles className="w-6 h-6 text-primary" />
+                {formatMessage({ id: 'skills.title' })}
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {formatMessage({ id: 'skills.description' })}
+              </p>
+            </div>
+            {/* CLI Mode Badge Switcher */}
+            <div className="ml-3 flex-shrink-0">
+              <CliModeToggle
+                currentMode={cliMode}
+                onModeChange={setCliMode}
+              />
+            </div>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
@@ -479,6 +493,7 @@ export function SkillsManagerPage() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onCreated={() => refetch()}
+        cliType={cliMode}
       />
     </div>
   );

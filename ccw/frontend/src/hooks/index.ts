@@ -207,6 +207,8 @@ export {
   useRefreshCodexCliEnhancement,
   useCcwInstallStatus,
   useCliToolStatus,
+  useCcwInstallations,
+  useUpgradeCcwInstallation,
   systemSettingsKeys,
 } from './useSystemSettings';
 export type {
@@ -215,6 +217,7 @@ export type {
   UseCodexCliEnhancementStatusReturn,
   UseCcwInstallStatusReturn,
   UseCliToolStatusReturn,
+  UseCcwInstallationsReturn,
 } from './useSystemSettings';
 
 // ========== CLI Execution ==========

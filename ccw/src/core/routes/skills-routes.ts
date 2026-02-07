@@ -22,6 +22,12 @@ import type {
 } from '../../types/skill-types.js';
 
 type GenerationType = 'description' | 'template';
+type CliType = 'claude' | 'codex';
+
+/** Get the CLI base directory name based on cliType */
+function getCliDir(cliType: CliType): string {
+  return cliType === 'codex' ? '.codex' : '.claude';
+}
 
 interface GenerationParams {
   generationType: GenerationType;
@@ -30,6 +36,7 @@ interface GenerationParams {
   location: SkillLocation;
   projectPath: string;
   broadcastToClients?: (data: unknown) => void;
+  cliType?: CliType;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -46,7 +53,8 @@ async function disableSkill(
   location: SkillLocation,
   projectPath: string,
   initialPath: string,
-  reason?: string  // Kept for API compatibility but no longer used
+  reason?: string,  // Kept for API compatibility but no longer used
+  cliType: CliType = 'claude'
 ): Promise<SkillOperationResult> {
   try {
     // Validate skill name
@@ -54,18 +62,20 @@ async function disableSkill(
       return { success: false, message: 'Invalid skill name', status: 400 };
     }
 
+    const cliDir = getCliDir(cliType);
+
     // Get skill directory
     let skillsDir: string;
     if (location === 'project') {
       try {
         const validatedProjectPath = await validateAllowedPath(projectPath, { mustExist: true, allowedDirectories: [initialPath] });
-        skillsDir = join(validatedProjectPath, '.claude', 'skills');
+        skillsDir = join(validatedProjectPath, cliDir, 'skills');
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { success: false, message: message.includes('Access denied') ? 'Access denied' : 'Invalid path', status: 403 };
       }
     } else {
-      skillsDir = join(homedir(), '.claude', 'skills');
+      skillsDir = join(homedir(), cliDir, 'skills');
     }
 
     const skillDir = join(skillsDir, skillName);
@@ -99,7 +109,8 @@ async function enableSkill(
   skillName: string,
   location: SkillLocation,
   projectPath: string,
-  initialPath: string
+  initialPath: string,
+  cliType: CliType = 'claude'
 ): Promise<SkillOperationResult> {
   try {
     // Validate skill name
@@ -107,18 +118,20 @@ async function enableSkill(
       return { success: false, message: 'Invalid skill name', status: 400 };
     }
 
+    const cliDir = getCliDir(cliType);
+
     // Get skill directory
     let skillsDir: string;
     if (location === 'project') {
       try {
         const validatedProjectPath = await validateAllowedPath(projectPath, { mustExist: true, allowedDirectories: [initialPath] });
-        skillsDir = join(validatedProjectPath, '.claude', 'skills');
+        skillsDir = join(validatedProjectPath, cliDir, 'skills');
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { success: false, message: message.includes('Access denied') ? 'Access denied' : 'Invalid path', status: 403 };
       }
     } else {
-      skillsDir = join(homedir(), '.claude', 'skills');
+      skillsDir = join(homedir(), cliDir, 'skills');
     }
 
     const skillDir = join(skillsDir, skillName);
@@ -148,15 +161,17 @@ async function enableSkill(
 /**
  * Get list of disabled skills by checking for SKILL.md.disabled files
  */
-function getDisabledSkillsList(location: SkillLocation, projectPath: string): DisabledSkillSummary[] {
+function getDisabledSkillsList(location: SkillLocation, projectPath: string, cliType: CliType = 'claude'): DisabledSkillSummary[] {
   const result: DisabledSkillSummary[] = [];
+
+  const cliDir = getCliDir(cliType);
 
   // Get skills directory (not a separate disabled directory)
   let skillsDir: string;
   if (location === 'project') {
-    skillsDir = join(projectPath, '.claude', 'skills');
+    skillsDir = join(projectPath, cliDir, 'skills');
   } else {
-    skillsDir = join(homedir(), '.claude', 'skills');
+    skillsDir = join(homedir(), cliDir, 'skills');
   }
 
   if (!existsSync(skillsDir)) {
@@ -199,12 +214,12 @@ function getDisabledSkillsList(location: SkillLocation, projectPath: string): Di
 /**
  * Get extended skills config including disabled skills
  */
-function getExtendedSkillsConfig(projectPath: string): ExtendedSkillsConfig {
-  const baseConfig = getSkillsConfig(projectPath);
+function getExtendedSkillsConfig(projectPath: string, cliType: CliType = 'claude'): ExtendedSkillsConfig {
+  const baseConfig = getSkillsConfig(projectPath, cliType);
   return {
     ...baseConfig,
-    disabledProjectSkills: getDisabledSkillsList('project', projectPath),
-    disabledUserSkills: getDisabledSkillsList('user', projectPath)
+    disabledProjectSkills: getDisabledSkillsList('project', projectPath, cliType),
+    disabledUserSkills: getDisabledSkillsList('user', projectPath, cliType)
   };
 }
 
@@ -293,15 +308,17 @@ function getSupportingFiles(skillDir: string): string[] {
  * @param {string} projectPath
  * @returns {Object}
  */
-function getSkillsConfig(projectPath: string): SkillsConfig {
+function getSkillsConfig(projectPath: string, cliType: CliType = 'claude'): SkillsConfig {
   const result: SkillsConfig = {
     projectSkills: [],
     userSkills: []
   };
 
+  const cliDir = getCliDir(cliType);
+
   try {
-    // Project skills: .claude/skills/
-    const projectSkillsDir = join(projectPath, '.claude', 'skills');
+    // Project skills: .<cliType>/skills/
+    const projectSkillsDir = join(projectPath, cliDir, 'skills');
     if (existsSync(projectSkillsDir)) {
       const skills = readdirSync(projectSkillsDir, { withFileTypes: true });
       for (const skill of skills) {
@@ -330,8 +347,8 @@ function getSkillsConfig(projectPath: string): SkillsConfig {
       }
     }
 
-    // User skills: ~/.claude/skills/
-    const userSkillsDir = join(homedir(), '.claude', 'skills');
+    // User skills: ~/.<cliType>/skills/
+    const userSkillsDir = join(homedir(), cliDir, 'skills');
     if (existsSync(userSkillsDir)) {
       const skills = readdirSync(userSkillsDir, { withFileTypes: true });
       for (const skill of skills) {
@@ -373,7 +390,7 @@ function getSkillsConfig(projectPath: string): SkillsConfig {
  * @param {string} projectPath
  * @returns {Object}
  */
-async function getSkillDetail(skillName: string, location: SkillLocation, projectPath: string, initialPath: string) {
+async function getSkillDetail(skillName: string, location: SkillLocation, projectPath: string, initialPath: string, cliType: CliType = 'claude') {
   try {
     if (skillName.includes('/') || skillName.includes('\\')) {
       return { error: 'Access denied', status: 403 };
@@ -382,11 +399,13 @@ async function getSkillDetail(skillName: string, location: SkillLocation, projec
       return { error: 'Invalid skill name', status: 400 };
     }
 
+    const cliDir = getCliDir(cliType);
+
     let baseDir;
     if (location === 'project') {
       try {
         const validatedProjectPath = await validateAllowedPath(projectPath, { mustExist: true, allowedDirectories: [initialPath] });
-        baseDir = join(validatedProjectPath, '.claude', 'skills');
+        baseDir = join(validatedProjectPath, cliDir, 'skills');
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const status = message.includes('Access denied') ? 403 : 400;
@@ -394,7 +413,7 @@ async function getSkillDetail(skillName: string, location: SkillLocation, projec
         return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
       }
     } else {
-      baseDir = join(homedir(), '.claude', 'skills');
+      baseDir = join(homedir(), cliDir, 'skills');
     }
 
     const skillDir = join(baseDir, skillName);
@@ -442,7 +461,7 @@ async function getSkillDetail(skillName: string, location: SkillLocation, projec
  * @param {string} projectPath
  * @returns {Object}
  */
-async function deleteSkill(skillName: string, location: SkillLocation, projectPath: string, initialPath: string) {
+async function deleteSkill(skillName: string, location: SkillLocation, projectPath: string, initialPath: string, cliType: CliType = 'claude') {
   try {
     if (skillName.includes('/') || skillName.includes('\\')) {
       return { error: 'Access denied', status: 403 };
@@ -451,11 +470,13 @@ async function deleteSkill(skillName: string, location: SkillLocation, projectPa
       return { error: 'Invalid skill name', status: 400 };
     }
 
+    const cliDir = getCliDir(cliType);
+
     let baseDir;
     if (location === 'project') {
       try {
         const validatedProjectPath = await validateAllowedPath(projectPath, { mustExist: true, allowedDirectories: [initialPath] });
-        baseDir = join(validatedProjectPath, '.claude', 'skills');
+        baseDir = join(validatedProjectPath, cliDir, 'skills');
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const status = message.includes('Access denied') ? 403 : 400;
@@ -463,7 +484,7 @@ async function deleteSkill(skillName: string, location: SkillLocation, projectPa
         return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
       }
     } else {
-      baseDir = join(homedir(), '.claude', 'skills');
+      baseDir = join(homedir(), cliDir, 'skills');
     }
 
     const skillDirCandidate = join(baseDir, skillName);
@@ -585,7 +606,7 @@ async function copyDirectoryRecursive(source: string, target: string): Promise<v
  * @param {string} customName - Optional custom name for skill
  * @returns {Object}
  */
-async function importSkill(sourcePath: string, location: SkillLocation, projectPath: string, customName?: string) {
+async function importSkill(sourcePath: string, location: SkillLocation, projectPath: string, customName?: string, cliType: CliType = 'claude') {
   try {
     // Validate source folder
     const validation = validateSkillFolder(sourcePath);
@@ -593,9 +614,10 @@ async function importSkill(sourcePath: string, location: SkillLocation, projectP
       return { error: validation.errors.join(', ') };
     }
 
+    const cliDir = getCliDir(cliType);
     const baseDir = location === 'project'
-      ? join(projectPath, '.claude', 'skills')
-      : join(homedir(), '.claude', 'skills');
+      ? join(projectPath, cliDir, 'skills')
+      : join(homedir(), cliDir, 'skills');
 
     // Ensure base directory exists
     if (!existsSync(baseDir)) {
@@ -639,7 +661,7 @@ async function importSkill(sourcePath: string, location: SkillLocation, projectP
  * @param {Function} params.broadcastToClients - WebSocket broadcast function
  * @returns {Object}
  */
-async function generateSkillViaCLI({ generationType, description, skillName, location, projectPath, broadcastToClients }: GenerationParams) {
+async function generateSkillViaCLI({ generationType, description, skillName, location, projectPath, broadcastToClients, cliType = 'claude' }: GenerationParams) {
   // Generate unique execution ID for tracking
   const executionId = `skill-gen-${skillName}-${Date.now()}`;
 
@@ -652,10 +674,12 @@ async function generateSkillViaCLI({ generationType, description, skillName, loc
       return { error: 'Description is required for description-based generation' };
     }
 
+    const cliDir = getCliDir(cliType);
+
     // Determine target directory
     const baseDir = location === 'project'
-      ? join(projectPath, '.claude', 'skills')
-      : join(homedir(), '.claude', 'skills');
+      ? join(projectPath, cliDir, 'skills')
+      : join(homedir(), cliDir, 'skills');
 
     const targetPath = join(baseDir, skillName);
 
@@ -810,16 +834,18 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
   if (pathname === '/api/skills' && req.method === 'GET') {
     const projectPathParam = url.searchParams.get('path') || initialPath;
     const includeDisabled = url.searchParams.get('includeDisabled') === 'true';
+    const cliTypeParam = url.searchParams.get('cliType');
+    const cliType: CliType = cliTypeParam === 'codex' ? 'codex' : 'claude';
 
     try {
       const validatedProjectPath = await validateAllowedPath(projectPathParam, { mustExist: true, allowedDirectories: [initialPath] });
-      
+
       if (includeDisabled) {
-        const extendedData = getExtendedSkillsConfig(validatedProjectPath);
+        const extendedData = getExtendedSkillsConfig(validatedProjectPath, cliType);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(extendedData));
       } else {
-        const skillsData = getSkillsConfig(validatedProjectPath);
+        const skillsData = getSkillsConfig(validatedProjectPath, cliType);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(skillsData));
       }
@@ -836,11 +862,13 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
   // API: Get disabled skills list
   if (pathname === '/api/skills/disabled' && req.method === 'GET') {
     const projectPathParam = url.searchParams.get('path') || initialPath;
+    const cliTypeParam = url.searchParams.get('cliType');
+    const cliType: CliType = cliTypeParam === 'codex' ? 'codex' : 'claude';
 
     try {
       const validatedProjectPath = await validateAllowedPath(projectPathParam, { mustExist: true, allowedDirectories: [initialPath] });
-      const disabledProjectSkills = getDisabledSkillsList('project', validatedProjectPath);
-      const disabledUserSkills = getDisabledSkillsList('user', validatedProjectPath);
+      const disabledProjectSkills = getDisabledSkillsList('project', validatedProjectPath, cliType);
+      const disabledUserSkills = getDisabledSkillsList('user', validatedProjectPath, cliType);
       
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ disabledProjectSkills, disabledUserSkills }));
@@ -872,7 +900,9 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
       }
 
       const projectPath = projectPathParam || initialPath;
-      return disableSkill(skillName, locationValue, projectPath, initialPath, reason);
+      const cliTypeValue = typeof body.cliType === 'string' ? body.cliType : 'claude';
+      const cliType: CliType = cliTypeValue === 'codex' ? 'codex' : 'claude';
+      return disableSkill(skillName, locationValue, projectPath, initialPath, reason, cliType);
     });
     return true;
   }
@@ -895,7 +925,9 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
       }
 
       const projectPath = projectPathParam || initialPath;
-      return enableSkill(skillName, locationValue, projectPath, initialPath);
+      const cliTypeValue = typeof body.cliType === 'string' ? body.cliType : 'claude';
+      const cliType: CliType = cliTypeValue === 'codex' ? 'codex' : 'claude';
+      return enableSkill(skillName, locationValue, projectPath, initialPath, cliType);
     });
     return true;
   }
@@ -907,6 +939,9 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
     const subPath = url.searchParams.get('subpath') || '';
     const location = url.searchParams.get('location') || 'project';
     const projectPathParam = url.searchParams.get('path') || initialPath;
+    const cliTypeParam = url.searchParams.get('cliType');
+    const dirCliType: CliType = cliTypeParam === 'codex' ? 'codex' : 'claude';
+    const dirCliDir = getCliDir(dirCliType);
 
     if (skillName.includes('/') || skillName.includes('\\') || skillName.includes('..')) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -918,7 +953,7 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
     if (location === 'project') {
       try {
         const validatedProjectPath = await validateAllowedPath(projectPathParam, { mustExist: true, allowedDirectories: [initialPath] });
-        baseDir = join(validatedProjectPath, '.claude', 'skills');
+        baseDir = join(validatedProjectPath, dirCliDir, 'skills');
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const status = message.includes('Access denied') ? 403 : 400;
@@ -928,7 +963,7 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
         return true;
       }
     } else {
-      baseDir = join(homedir(), '.claude', 'skills');
+      baseDir = join(homedir(), dirCliDir, 'skills');
     }
 
     const skillRoot = join(baseDir, skillName);
@@ -988,6 +1023,9 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
     const fileName = url.searchParams.get('filename');
     const location = url.searchParams.get('location') || 'project';
     const projectPathParam = url.searchParams.get('path') || initialPath;
+    const fileCliTypeParam = url.searchParams.get('cliType');
+    const fileCliType: CliType = fileCliTypeParam === 'codex' ? 'codex' : 'claude';
+    const fileCliDir = getCliDir(fileCliType);
 
     if (!fileName) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1005,7 +1043,7 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
     if (location === 'project') {
       try {
         const validatedProjectPath = await validateAllowedPath(projectPathParam, { mustExist: true, allowedDirectories: [initialPath] });
-        baseDir = join(validatedProjectPath, '.claude', 'skills');
+        baseDir = join(validatedProjectPath, fileCliDir, 'skills');
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         const status = message.includes('Access denied') ? 403 : 400;
@@ -1015,7 +1053,7 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
         return true;
       }
     } else {
-      baseDir = join(homedir(), '.claude', 'skills');
+      baseDir = join(homedir(), fileCliDir, 'skills');
     }
 
     const skillRoot = join(baseDir, skillName);
@@ -1082,12 +1120,16 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
         return { error: 'Invalid skill name', status: 400 };
       }
 
+      const writeCliTypeValue = typeof body.cliType === 'string' ? body.cliType : 'claude';
+      const writeCliType: CliType = writeCliTypeValue === 'codex' ? 'codex' : 'claude';
+      const writeCliDir = getCliDir(writeCliType);
+
       let baseDir: string;
       if (location === 'project') {
         try {
           const projectRoot = projectPathParam || initialPath;
           const validatedProjectPath = await validateAllowedPath(projectRoot, { mustExist: true, allowedDirectories: [initialPath] });
-          baseDir = join(validatedProjectPath, '.claude', 'skills');
+          baseDir = join(validatedProjectPath, writeCliDir, 'skills');
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           const status = message.includes('Access denied') ? 403 : 400;
@@ -1095,7 +1137,7 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
           return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
         }
       } else {
-        baseDir = join(homedir(), '.claude', 'skills');
+        baseDir = join(homedir(), writeCliDir, 'skills');
       }
 
       const skillRoot = join(baseDir, skillName);
@@ -1128,7 +1170,9 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
     const locationParam = url.searchParams.get('location');
     const location: SkillLocation = locationParam === 'user' ? 'user' : 'project';
     const projectPathParam = url.searchParams.get('path') || initialPath;
-    const skillDetail = await getSkillDetail(skillName, location, projectPathParam, initialPath);
+    const cliTypeParam = url.searchParams.get('cliType');
+    const cliType: CliType = cliTypeParam === 'codex' ? 'codex' : 'claude';
+    const skillDetail = await getSkillDetail(skillName, location, projectPathParam, initialPath, cliType);
     if (skillDetail.error) {
       res.writeHead(skillDetail.status || 404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: skillDetail.error }));
@@ -1160,8 +1204,10 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
 
       const location: SkillLocation = body.location === 'project' ? 'project' : 'user';
       const projectPathParam = typeof body.projectPath === 'string' ? body.projectPath : undefined;
+      const delCliTypeValue = typeof body.cliType === 'string' ? body.cliType : 'claude';
+      const delCliType: CliType = delCliTypeValue === 'codex' ? 'codex' : 'claude';
 
-      return deleteSkill(skillName, location, projectPathParam || initialPath, initialPath);
+      return deleteSkill(skillName, location, projectPathParam || initialPath, initialPath, delCliType);
     });
     return true;
   }
@@ -1205,6 +1251,8 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
       const description = typeof body.description === 'string' ? body.description : undefined;
       const generationType = typeof body.generationType === 'string' ? body.generationType : undefined;
       const projectPathParam = typeof body.projectPath === 'string' ? body.projectPath : undefined;
+      const createCliTypeValue = typeof body.cliType === 'string' ? body.cliType : 'claude';
+      const createCliType: CliType = createCliTypeValue === 'codex' ? 'codex' : 'claude';
 
       if (typeof mode !== 'string' || !mode) {
         return { error: 'Mode is required (import or cli-generate)' };
@@ -1249,7 +1297,7 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
           return { error: status === 403 ? 'Access denied' : 'Invalid path', status };
         }
 
-        return await importSkill(validatedSourcePath, location, validatedProjectPath, skillName);
+        return await importSkill(validatedSourcePath, location, validatedProjectPath, skillName, createCliType);
       } else if (mode === 'cli-generate') {
         // CLI generate mode: use Claude to generate skill
         if (!skillName) {
@@ -1265,7 +1313,8 @@ export async function handleSkillsRoutes(ctx: RouteContext): Promise<boolean> {
           skillName,
           location,
           projectPath: validatedProjectPath,
-          broadcastToClients
+          broadcastToClients,
+          cliType: createCliType
         });
       } else {
         return { error: 'Invalid mode. Must be "import" or "cli-generate"' };

@@ -14,10 +14,13 @@ import {
   refreshCodexCliEnhancement,
   fetchAggregatedStatus,
   fetchCliToolStatus,
+  fetchCcwInstallations,
+  upgradeCcwInstallation,
   type ChineseResponseStatus,
   type WindowsPlatformStatus,
   type CodexCliEnhancementStatus,
   type CcwInstallStatus,
+  type CcwInstallationManifest,
 } from '../lib/api';
 
 // Query key factory
@@ -28,6 +31,7 @@ export const systemSettingsKeys = {
   codexCliEnhancement: () => [...systemSettingsKeys.all, 'codexCliEnhancement'] as const,
   aggregatedStatus: () => [...systemSettingsKeys.all, 'aggregatedStatus'] as const,
   cliToolStatus: () => [...systemSettingsKeys.all, 'cliToolStatus'] as const,
+  ccwInstallations: () => [...systemSettingsKeys.all, 'ccwInstallations'] as const,
 };
 
 const STALE_TIME = 60 * 1000; // 1 minute
@@ -234,5 +238,50 @@ export function useCliToolStatus(): UseCliToolStatusReturn {
     isLoading: query.isLoading,
     error: query.error,
     refetch: () => { query.refetch(); },
+  };
+}
+
+// ========================================
+// CCW Installations Hooks
+// ========================================
+
+export interface UseCcwInstallationsReturn {
+  installations: CcwInstallationManifest[];
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+
+export function useCcwInstallations(): UseCcwInstallationsReturn {
+  const query = useQuery({
+    queryKey: systemSettingsKeys.ccwInstallations(),
+    queryFn: fetchCcwInstallations,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: 1,
+  });
+
+  return {
+    installations: query.data?.installations ?? [],
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: () => { query.refetch(); },
+  };
+}
+
+export function useUpgradeCcwInstallation() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (path?: string) => upgradeCcwInstallation(path),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: systemSettingsKeys.ccwInstallations() });
+      queryClient.invalidateQueries({ queryKey: systemSettingsKeys.aggregatedStatus() });
+    },
+  });
+
+  return {
+    upgrade: mutation.mutateAsync,
+    isPending: mutation.isPending,
+    error: mutation.error,
   };
 }

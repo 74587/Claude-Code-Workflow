@@ -8,7 +8,9 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:5173/react/',
+    // E2E runs the Vite dev server with a root base to keep route URLs stable in tests.
+    // (Many tests use absolute paths like `/sessions` which should resolve to the app router.)
+    baseURL: 'http://localhost:5173/',
     trace: 'on-first-retry',
   },
   projects: [
@@ -27,7 +29,11 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:5173/react/',
+    url: 'http://localhost:5173/',
+    env: {
+      ...process.env,
+      VITE_BASE_URL: '/',
+    },
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },
