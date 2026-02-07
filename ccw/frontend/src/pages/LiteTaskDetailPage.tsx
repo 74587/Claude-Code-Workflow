@@ -141,6 +141,21 @@ interface DiscussionRound {
   };
 }
 
+interface ImplementationTask {
+  id: string;
+  title: string;
+  description?: string;
+  status?: string;
+  assignee?: string;
+}
+
+interface Milestone {
+  id: string;
+  name: string;
+  description?: string;
+  target_date?: string;
+}
+
 interface DiscussionSolution {
   id: string;
   name: string;
@@ -325,7 +340,7 @@ export function LiteTaskDetailPage() {
         </div>
         <Badge variant={isLitePlan ? 'info' : isLiteFix ? 'warning' : 'default'} className="gap-1">
           {isLitePlan ? <FileEdit className="h-3 w-3" /> : isLiteFix ? <Wrench className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
-          {formatMessage({ id: isLitePlan ? 'liteTasks.type.plan' : isLiteFix ? 'liteTasks.type.fix' : 'liteTasks.type.multiCli' })}
+          {formatMessage({ id: isLitePlan ? 'liteTasks.type.plan' : isLiteFix ? 'liteTasks.type.fix' : 'liteTasks.type.multiCli' }) as React.ReactNode}
         </Badge>
       </div>
 
@@ -564,7 +579,7 @@ export function LiteTaskDetailPage() {
                   )}
 
                   {/* Tech Stack from Session Metadata */}
-                  {session.metadata?.tech_stack && (
+                  {!!session.metadata?.tech_stack && (
                     <div>
                       <h5 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
                         <Settings className="h-4 w-4" />
@@ -579,7 +594,7 @@ export function LiteTaskDetailPage() {
                   )}
 
                   {/* Conventions from Session Metadata */}
-                  {session.metadata?.conventions && (
+                  {!!session.metadata?.conventions && (
                     <div>
                       <h5 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
                         <BookOpen className="h-4 w-4" />
@@ -604,7 +619,7 @@ export function LiteTaskDetailPage() {
       </div>
 
       {/* Session-Level Explorations (if available) */}
-      {session.metadata?.explorations && (
+      {!!session.metadata?.explorations && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">

@@ -183,7 +183,7 @@ function ExpandedSessionPanel({
                       {depsCount > 0 && (
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] text-muted-foreground">→</span>
-                          {task.context.depends_on.map((depId, idx) => (
+                          {task.context?.depends_on?.map((depId, idx) => (
                             <Badge key={idx} variant="outline" className="text-[10px] px-1.5 py-0 font-mono border-primary/30 text-primary whitespace-nowrap">
                               {depId}
                             </Badge>
@@ -514,7 +514,7 @@ function ExpandedMultiCliPanel({
                       {depsCount > 0 && (
                         <div className="flex items-center gap-1">
                           <span className="text-[10px] text-muted-foreground">→</span>
-                          {task.context.depends_on.map((depId, idx) => (
+                          {task.context?.depends_on?.map((depId, idx) => (
                             <Badge key={idx} variant="outline" className="text-[10px] px-1.5 py-0 font-mono border-primary/30 text-primary whitespace-nowrap">
                               {depId}
                             </Badge>

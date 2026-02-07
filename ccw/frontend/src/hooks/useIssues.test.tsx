@@ -67,7 +67,7 @@ describe('useIssueQueue', () => {
       grouped_items: { 'parallel-group': ['task1', 'task2'] },
     };
 
-    vi.mocked(api.fetchIssueQueue).mockResolvedValue(mockQueue);
+    vi.mocked(api.fetchIssueQueue).mockResolvedValue(mockQueue as any);
 
     const { result } = renderHook(() => useIssueQueue(), {
       wrapper: createWrapper(),
@@ -192,7 +192,7 @@ describe('useIssueDiscovery', () => {
     vi.mocked(api.fetchDiscoveries).mockResolvedValue([
       { id: '1', name: 'Session 1', status: 'completed' as const, progress: 100, findings_count: 2, created_at: '2024-01-01T00:00:00Z' },
     ]);
-    vi.mocked(api.fetchDiscoveryFindings).mockResolvedValue(mockFindings);
+    vi.mocked(api.fetchDiscoveryFindings).mockResolvedValue(mockFindings as any);
 
     const { result } = renderHook(() => useIssueDiscovery(), {
       wrapper: createWrapper(),
@@ -228,7 +228,7 @@ describe('useIssueDiscovery', () => {
     vi.mocked(api.fetchDiscoveries).mockResolvedValue([
       { id: '1', name: 'Session 1', status: 'completed' as const, progress: 100, findings_count: 2, created_at: '2024-01-01T00:00:00Z' },
     ]);
-    vi.mocked(api.fetchDiscoveryFindings).mockResolvedValue(mockFindings);
+    vi.mocked(api.fetchDiscoveryFindings).mockResolvedValue(mockFindings as any);
 
     const { result } = renderHook(() => useIssueDiscovery(), {
       wrapper: createWrapper(),
@@ -264,7 +264,7 @@ describe('useIssueDiscovery', () => {
     vi.mocked(api.fetchDiscoveries).mockResolvedValue([
       { id: '1', name: 'Session 1', status: 'completed' as const, progress: 100, findings_count: 2, created_at: '2024-01-01T00:00:00Z' },
     ]);
-    vi.mocked(api.fetchDiscoveryFindings).mockResolvedValue(mockFindings);
+    vi.mocked(api.fetchDiscoveryFindings).mockResolvedValue(mockFindings as any);
 
     const { result } = renderHook(() => useIssueDiscovery(), {
       wrapper: createWrapper(),
@@ -299,7 +299,7 @@ describe('useIssueDiscovery', () => {
     vi.mocked(api.fetchDiscoveries).mockResolvedValue([
       { id: '1', name: 'Session 1', status: 'completed' as const, progress: 100, findings_count: 1, created_at: '2024-01-01T00:00:00Z' },
     ]);
-    vi.mocked(api.fetchDiscoveryFindings).mockResolvedValue(mockFindings);
+    vi.mocked(api.fetchDiscoveryFindings).mockResolvedValue(mockFindings as any);
 
     const { result } = renderHook(() => useIssueDiscovery(), {
       wrapper: createWrapper(),

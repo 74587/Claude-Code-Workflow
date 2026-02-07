@@ -6,7 +6,7 @@
 import type { SessionMetadata, TaskData, IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion, McpTemplate, McpTemplateInstallRequest, AllProjectsResponse, OtherProjectsServersResponse, CrossCliCopyRequest, CrossCliCopyResponse } from '../types/store';
 
 // Re-export types for backward compatibility
-export type { IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion };
+export type { IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion, McpTemplate, McpTemplateInstallRequest, AllProjectsResponse, OtherProjectsServersResponse, CrossCliCopyRequest, CrossCliCopyResponse };
 
 
 /**
@@ -1152,14 +1152,9 @@ export async function fetchCommands(projectPath?: string): Promise<CommandsRespo
       userGroupsConfig: data.userGroupsConfig,
     };
   } catch (error) {
-    // If global fetch also fails, return empty data instead of throwing
-    console.warn('[fetchCommands] Failed to fetch commands, returning empty data:', error);
-    return {
-      commands: [],
-      groups: [],
-      projectGroupsConfig: {},
-      userGroupsConfig: {},
-    };
+    // Let errors propagate to React Query for proper error handling
+    console.error('[fetchCommands] Failed to fetch commands:', error);
+    throw error;
   }
 }
 

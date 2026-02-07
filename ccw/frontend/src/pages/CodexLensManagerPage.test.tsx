@@ -87,7 +87,7 @@ describe('CodexLensManagerPage', () => {
 
   describe('when installed', () => {
     beforeEach(() => {
-      vi.mocked(useCodexLensDashboard).mockReturnValue({
+      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
         installed: true,
         status: mockDashboardData.status,
         config: mockDashboardData.config,
@@ -97,7 +97,7 @@ describe('CodexLensManagerPage', () => {
         error: null,
         refetch: vi.fn(),
       });
-      vi.mocked(useCodexLensMutations).mockReturnValue(mockMutations);
+      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
     });
 
     it('should render page title and description', () => {
@@ -134,7 +134,7 @@ describe('CodexLensManagerPage', () => {
 
     it('should call refresh on button click', async () => {
       const refetch = vi.fn();
-      vi.mocked(useCodexLensDashboard).mockReturnValue({
+      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
         installed: true,
         status: mockDashboardData.status,
         config: mockDashboardData.config,
@@ -157,7 +157,7 @@ describe('CodexLensManagerPage', () => {
 
   describe('when not installed', () => {
     beforeEach(() => {
-      vi.mocked(useCodexLensDashboard).mockReturnValue({
+      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
         installed: false,
         status: undefined,
         config: undefined,
@@ -167,7 +167,7 @@ describe('CodexLensManagerPage', () => {
         error: null,
         refetch: vi.fn(),
       });
-      vi.mocked(useCodexLensMutations).mockReturnValue(mockMutations);
+      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
     });
 
     it('should show bootstrap button', () => {
@@ -184,7 +184,7 @@ describe('CodexLensManagerPage', () => {
 
     it('should call bootstrap on button click', async () => {
       const bootstrap = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useCodexLensMutations).mockReturnValue({
+      (vi.mocked(useCodexLensMutations) as any).mockReturnValue({
         ...mockMutations,
         bootstrap,
       });
@@ -203,7 +203,7 @@ describe('CodexLensManagerPage', () => {
 
   describe('uninstall flow', () => {
     beforeEach(() => {
-      vi.mocked(useCodexLensDashboard).mockReturnValue({
+      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
         installed: true,
         status: mockDashboardData.status,
         config: mockDashboardData.config,
@@ -217,7 +217,7 @@ describe('CodexLensManagerPage', () => {
 
     it('should show confirmation dialog on uninstall', async () => {
       const uninstall = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useCodexLensMutations).mockReturnValue({
+      (vi.mocked(useCodexLensMutations) as any).mockReturnValue({
         ...mockMutations,
         uninstall,
       });
@@ -233,7 +233,7 @@ describe('CodexLensManagerPage', () => {
 
     it('should call uninstall when confirmed', async () => {
       const uninstall = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useCodexLensMutations).mockReturnValue({
+      (vi.mocked(useCodexLensMutations) as any).mockReturnValue({
         ...mockMutations,
         uninstall,
       });
@@ -252,7 +252,7 @@ describe('CodexLensManagerPage', () => {
     it('should not call uninstall when cancelled', async () => {
       (global.confirm as ReturnType<typeof vi.fn>).mockReturnValue(false);
       const uninstall = vi.fn().mockResolvedValue({ success: true });
-      vi.mocked(useCodexLensMutations).mockReturnValue({
+      (vi.mocked(useCodexLensMutations) as any).mockReturnValue({
         ...mockMutations,
         uninstall,
       });
@@ -269,7 +269,7 @@ describe('CodexLensManagerPage', () => {
 
   describe('loading states', () => {
     it('should show loading skeleton when loading', () => {
-      vi.mocked(useCodexLensDashboard).mockReturnValue({
+      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
         installed: false,
         status: undefined,
         config: undefined,
@@ -279,7 +279,7 @@ describe('CodexLensManagerPage', () => {
         error: null,
         refetch: vi.fn(),
       });
-      vi.mocked(useCodexLensMutations).mockReturnValue(mockMutations);
+      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
 
       render(<CodexLensManagerPage />);
 
@@ -289,7 +289,7 @@ describe('CodexLensManagerPage', () => {
     });
 
     it('should disable refresh button when fetching', () => {
-      vi.mocked(useCodexLensDashboard).mockReturnValue({
+      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
         installed: true,
         status: mockDashboardData.status,
         config: mockDashboardData.config,
@@ -299,7 +299,7 @@ describe('CodexLensManagerPage', () => {
         error: null,
         refetch: vi.fn(),
       });
-      vi.mocked(useCodexLensMutations).mockReturnValue(mockMutations);
+      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
 
       render(<CodexLensManagerPage />);
 
@@ -310,7 +310,7 @@ describe('CodexLensManagerPage', () => {
 
   describe('i18n - Chinese locale', () => {
     beforeEach(() => {
-      vi.mocked(useCodexLensDashboard).mockReturnValue({
+      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
         installed: true,
         status: mockDashboardData.status,
         config: mockDashboardData.config,
@@ -320,7 +320,7 @@ describe('CodexLensManagerPage', () => {
         error: null,
         refetch: vi.fn(),
       });
-      vi.mocked(useCodexLensMutations).mockReturnValue(mockMutations);
+      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
     });
 
     it('should display translated text in Chinese', () => {
@@ -343,7 +343,7 @@ describe('CodexLensManagerPage', () => {
 
   describe('error states', () => {
     it('should handle API errors gracefully', () => {
-      vi.mocked(useCodexLensDashboard).mockReturnValue({
+      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
         installed: false,
         status: undefined,
         config: undefined,
@@ -353,7 +353,7 @@ describe('CodexLensManagerPage', () => {
         error: new Error('API Error'),
         refetch: vi.fn(),
       });
-      vi.mocked(useCodexLensMutations).mockReturnValue(mockMutations);
+      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
 
       render(<CodexLensManagerPage />);
 

@@ -1,34 +1,30 @@
 // ========================================
 // Execution Monitor
 // ========================================
-// Right-side slide-out panel for real-time execution monitoring
+// Right-side slide-out panel for real-time execution monitoring with multi-panel layout
 
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import {
   Play,
   Pause,
   Square,
   Clock,
-  AlertCircle,
-  CheckCircle2,
-  Loader2,
   Terminal,
   ArrowDownToLine,
   X,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useExecutionStore } from '@/stores/executionStore';
-import {
-  useExecuteFlow,
-  usePauseExecution,
-  useResumeExecution,
-  useStopExecution,
-} from '@/hooks/useFlows';
 import { useFlowStore } from '@/stores';
-import type { ExecutionStatus, LogLevel } from '@/types/execution';
+import { useExecuteFlow, usePauseExecution, useResumeExecution, useStopExecution } from '@/hooks/useFlows';
+import { ExecutionHeader } from '@/components/orchestrator/ExecutionHeader';
+import { NodeExecutionChain } from '@/components/orchestrator/NodeExecutionChain';
+import { NodeDetailPanel } from '@/components/orchestrator/NodeDetailPanel';
+import type { LogLevel } from '@/types/execution';
 
 // ========== Helper Functions ==========
 
@@ -41,36 +37,6 @@ function formatElapsedTime(ms: number): string {
     return `${hours}:${String(minutes % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
   }
   return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
-}
-
-function getStatusBadgeVariant(status: ExecutionStatus): 'default' | 'secondary' | 'destructive' | 'success' | 'warning' {
-  switch (status) {
-    case 'running':
-      return 'default';
-    case 'paused':
-      return 'warning';
-    case 'completed':
-      return 'success';
-    case 'failed':
-      return 'destructive';
-    default:
-      return 'secondary';
-  }
-}
-
-function getStatusIcon(status: ExecutionStatus) {
-  switch (status) {
-    case 'running':
-      return <Loader2 className="h-3 w-3 animate-spin" />;
-    case 'paused':
-      return <Pause className="h-3 w-3" />;
-    case 'completed':
-      return <CheckCircle2 className="h-3 w-3" />;
-    case 'failed':
-      return <AlertCircle className="h-3 w-3" />;
-    default:
-      return <Clock className="h-3 w-3" />;
-  }
 }
 
 function getLogLevelColor(level: LogLevel): string {
@@ -95,22 +61,20 @@ interface ExecutionMonitorProps {
 }
 
 export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
-  const logsEndRef = useRef<HTMLDivElement>(null);
-  const logsContainerRef = useRef<HTMLDivElement>(null);
-  const [isUserScrolling, setIsUserScrolling] = useState(false);
   const { formatMessage } = useIntl();
 
   // Execution store state
   const currentExecution = useExecutionStore((state) => state.currentExecution);
   const logs = useExecutionStore((state) => state.logs);
   const nodeStates = useExecutionStore((state) => state.nodeStates);
+  const selectedNodeId = useExecutionStore((state) => state.selectedNodeId);
+  const nodeOutputs = useExecutionStore((state) => state.nodeOutputs);
+  const nodeToolCalls = useExecutionStore((state) => state.nodeToolCalls);
   const isMonitorPanelOpen = useExecutionStore((state) => state.isMonitorPanelOpen);
-  const autoScrollLogs = useExecutionStore((state) => state.autoScrollLogs);
   const setMonitorPanelOpen = useExecutionStore((state) => state.setMonitorPanelOpen);
+  const selectNode = useExecutionStore((state) => state.selectNode);
+  const toggleToolCallExpanded = useExecutionStore((state) => state.toggleToolCallExpanded);
   const startExecution = useExecutionStore((state) => state.startExecution);
-
-  // Local state for elapsed time
-  const [elapsedMs, setElapsedMs] = useState(0);
 
   // Flow store state
   const currentFlow = useFlowStore((state) => state.currentFlow);
@@ -121,6 +85,12 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
   const pauseExecution = usePauseExecution();
   const resumeExecution = useResumeExecution();
   const stopExecution = useStopExecution();
+
+  // Local state
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [isUserScrollingLogs, setIsUserScrollingLogs] = useState(false);
+  const logsContainerRef = useRef<HTMLDivElement>(null);
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Update elapsed time every second while running
   useEffect(() => {
@@ -139,25 +109,32 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
     }
   }, [currentExecution?.status, currentExecution?.startedAt, currentExecution?.completedAt, currentExecution?.elapsedMs]);
 
-  // Auto-scroll logs
+  // Auto-scroll global logs
   useEffect(() => {
-    if (autoScrollLogs && !isUserScrolling && logsEndRef.current) {
+    if (!isUserScrollingLogs && logsEndRef.current) {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [logs, autoScrollLogs, isUserScrolling]);
+  }, [logs, isUserScrollingLogs]);
+
+  // Auto-select current executing node
+  useEffect(() => {
+    if (currentExecution?.currentNodeId && currentExecution.status === 'running') {
+      selectNode(currentExecution.currentNodeId);
+    }
+  }, [currentExecution?.currentNodeId, currentExecution?.status, selectNode]);
 
   // Handle scroll to detect user scrolling
   const handleScroll = useCallback(() => {
     if (!logsContainerRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = logsContainerRef.current;
     const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
-    setIsUserScrolling(!isAtBottom);
+    setIsUserScrollingLogs(!isAtBottom);
   }, []);
 
   // Scroll to bottom handler
   const scrollToBottom = useCallback(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    setIsUserScrolling(false);
+    setIsUserScrollingLogs(false);
   }, []);
 
   // Handle execute
@@ -201,12 +178,30 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
     }
   }, [currentExecution, stopExecution]);
 
-  // Calculate node progress
-  const completedNodes = Object.values(nodeStates).filter(
-    (state) => state.status === 'completed'
-  ).length;
-  const totalNodes = nodes.length;
-  const progressPercent = totalNodes > 0 ? (completedNodes / totalNodes) * 100 : 0;
+  // Handle node select
+  const handleNodeSelect = useCallback(
+    (nodeId: string) => {
+      selectNode(nodeId);
+    },
+    [selectNode]
+  );
+
+  // Handle toggle tool call expand
+  const handleToggleToolCallExpand = useCallback(
+    (callId: string) => {
+      if (selectedNodeId) {
+        toggleToolCallExpanded(selectedNodeId, callId);
+      }
+    },
+    [selectedNodeId, toggleToolCallExpanded]
+  );
+
+  // Get selected node data
+  const selectedNode = nodes.find((n) => n.id === selectedNodeId) ?? null;
+  const selectedNodeOutput = selectedNodeId ? nodeOutputs[selectedNodeId] : undefined;
+  const selectedNodeState = selectedNodeId ? nodeStates[selectedNodeId] : undefined;
+  const selectedNodeToolCalls = selectedNodeId ? (nodeToolCalls[selectedNodeId] ?? []) : [];
+  const isNodeExecuting = selectedNodeId ? nodeStates[selectedNodeId]?.status === 'running' : false;
 
   const isExecuting = currentExecution?.status === 'running';
   const isPaused = currentExecution?.status === 'paused';
@@ -228,11 +223,21 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
           <Terminal className="h-4 w-4 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium truncate">{formatMessage({ id: 'orchestrator.monitor.title' })}</span>
           {currentExecution && (
-            <Badge variant={getStatusBadgeVariant(currentExecution.status)} className="shrink-0">
-              <span className="flex items-center gap-1">
-                {getStatusIcon(currentExecution.status)}
-                {formatMessage({ id: `orchestrator.status.${currentExecution.status}` })}
-              </span>
+            <Badge
+              variant={
+                currentExecution.status === 'running'
+                  ? 'default'
+                  : currentExecution.status === 'completed'
+                  ? 'success'
+                  : currentExecution.status === 'failed'
+                  ? 'destructive'
+                  : currentExecution.status === 'paused'
+                  ? 'warning'
+                  : 'secondary'
+              }
+              className="shrink-0"
+            >
+              {formatMessage({ id: `orchestrator.status.${currentExecution.status}` })}
             </Badge>
           )}
         </div>
@@ -313,98 +318,85 @@ export function ExecutionMonitor({ className }: ExecutionMonitorProps) {
         )}
       </div>
 
-      {/* Progress bar */}
-      {currentExecution && (
-        <div className="h-1 bg-muted shrink-0">
+      {/* Multi-Panel Layout */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        {/* 1. Execution Overview */}
+        <ExecutionHeader execution={currentExecution} nodeStates={nodeStates} />
+
+        {/* 2. Node Execution Chain */}
+        <NodeExecutionChain
+          nodes={nodes}
+          nodeStates={nodeStates}
+          selectedNodeId={selectedNodeId}
+          onNodeSelect={handleNodeSelect}
+        />
+
+        {/* 3. Node Detail Panel */}
+        <NodeDetailPanel
+          node={selectedNode}
+          nodeOutput={selectedNodeOutput}
+          nodeState={selectedNodeState}
+          toolCalls={selectedNodeToolCalls}
+          isExecuting={isNodeExecuting}
+          onToggleToolCallExpand={handleToggleToolCallExpand}
+        />
+
+        {/* 4. Global Logs */}
+        <div className="flex-1 flex flex-col min-h-0 border-t border-border relative">
+          <div className="px-3 py-1.5 border-b border-border bg-muted/30 shrink-0 flex items-center gap-2">
+            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">
+              Global Logs ({logs.length})
+            </span>
+          </div>
           <div
-            className="h-full bg-primary transition-all duration-300"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-      )}
-
-      {/* Node status */}
-      {currentExecution && Object.keys(nodeStates).length > 0 && (
-        <div className="px-3 py-2 border-b border-border shrink-0">
-          <div className="text-xs font-medium text-muted-foreground mb-1.5">
-            {formatMessage({ id: 'orchestrator.node.statusCount' }, { completed: completedNodes, total: totalNodes })}
-          </div>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {Object.entries(nodeStates).map(([nodeId, state]) => (
-              <div
-                key={nodeId}
-                className="flex items-center gap-2 text-xs p-1 rounded hover:bg-muted"
-              >
-                {state.status === 'running' && (
-                  <Loader2 className="h-3 w-3 animate-spin text-blue-500 shrink-0" />
-                )}
-                {state.status === 'completed' && (
-                  <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
-                )}
-                {state.status === 'failed' && (
-                  <AlertCircle className="h-3 w-3 text-red-500 shrink-0" />
-                )}
-                {state.status === 'pending' && (
-                  <Clock className="h-3 w-3 text-gray-400 shrink-0" />
-                )}
-                <span className="truncate" title={nodeId}>
-                  {nodeId.slice(0, 24)}
-                </span>
+            ref={logsContainerRef}
+            className="flex-1 overflow-y-auto p-3 font-mono text-xs"
+            onScroll={handleScroll}
+          >
+            {logs.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground text-center">
+                {currentExecution
+                  ? formatMessage({ id: 'orchestrator.monitor.waitingForLogs' })
+                  : formatMessage({ id: 'orchestrator.monitor.clickExecuteToStart' })}
               </div>
-            ))}
+            ) : (
+              <div className="space-y-1">
+                {logs.map((log, index) => (
+                  <div key={index} className="flex gap-1.5">
+                    <span className="text-muted-foreground shrink-0 text-[10px]">
+                      {new Date(log.timestamp).toLocaleTimeString()}
+                    </span>
+                    <span
+                      className={cn(
+                        'uppercase w-10 shrink-0 text-[10px]',
+                        getLogLevelColor(log.level)
+                      )}
+                    >
+                      [{log.level}]
+                    </span>
+                    <span className="text-foreground break-all text-[11px]">
+                      {log.message}
+                    </span>
+                  </div>
+                ))}
+                <div ref={logsEndRef} />
+              </div>
+            )}
           </div>
-        </div>
-      )}
 
-      {/* Logs */}
-      <div className="flex-1 flex flex-col min-h-0 relative">
-        <div
-          ref={logsContainerRef}
-          className="flex-1 overflow-y-auto p-3 font-mono text-xs"
-          onScroll={handleScroll}
-        >
-          {logs.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground text-center">
-              {currentExecution
-                ? formatMessage({ id: 'orchestrator.monitor.waitingForLogs' })
-                : formatMessage({ id: 'orchestrator.monitor.clickExecuteToStart' })}
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {logs.map((log, index) => (
-                <div key={index} className="flex gap-1.5">
-                  <span className="text-muted-foreground shrink-0 text-[10px]">
-                    {new Date(log.timestamp).toLocaleTimeString()}
-                  </span>
-                  <span
-                    className={cn(
-                      'uppercase w-10 shrink-0 text-[10px]',
-                      getLogLevelColor(log.level)
-                    )}
-                  >
-                    [{log.level}]
-                  </span>
-                  <span className="text-foreground break-all text-[11px]">
-                    {log.message}
-                  </span>
-                </div>
-              ))}
-              <div ref={logsEndRef} />
-            </div>
+          {/* Scroll to bottom button */}
+          {isUserScrollingLogs && logs.length > 0 && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="absolute bottom-3 right-3"
+              onClick={scrollToBottom}
+            >
+              <ArrowDownToLine className="h-3 w-3" />
+            </Button>
           )}
         </div>
-
-        {/* Scroll to bottom button */}
-        {isUserScrolling && logs.length > 0 && (
-          <Button
-            size="sm"
-            variant="secondary"
-            className="absolute bottom-3 right-3"
-            onClick={scrollToBottom}
-          >
-            <ArrowDownToLine className="h-3 w-3" />
-          </Button>
-        )}
       </div>
     </div>
   );

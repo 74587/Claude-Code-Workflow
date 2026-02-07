@@ -56,6 +56,10 @@ export function useLocale(): UseLocaleReturn {
  * Hook to format i18n messages with the current locale
  * @returns A formatMessage function for translating message IDs
  *
+ * Supports both string and react-intl descriptor formats:
+ * - formatMessage('home.title')
+ * - formatMessage({ id: 'home.title' })
+ *
  * @example
  * ```tsx
  * const formatMessage = useFormatMessage();
@@ -63,12 +67,13 @@ export function useLocale(): UseLocaleReturn {
  * ```
  */
 export function useFormatMessage(): (
-  id: string,
+  idOrDescriptor: string | { id: string; defaultMessage?: string },
   values?: Record<string, string | number | boolean | Date | null | undefined>
 ) => string {
   // Use useMemo to avoid recreating the function on each render
   return useMemo(() => {
-    return (id: string, values?: Record<string, string | number | boolean | Date | null | undefined>) => {
+    return (idOrDescriptor: string | { id: string; defaultMessage?: string }, values?: Record<string, string | number | boolean | Date | null | undefined>) => {
+      const id = typeof idOrDescriptor === 'string' ? idOrDescriptor : idOrDescriptor.id;
       return formatMessage(id, values);
     };
   }, []);

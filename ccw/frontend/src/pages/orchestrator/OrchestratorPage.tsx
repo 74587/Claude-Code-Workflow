@@ -4,8 +4,11 @@
 // Visual workflow editor with React Flow, drag-drop node palette, and property panel
 
 import { useEffect, useState, useCallback } from 'react';
+import * as Collapsible from '@radix-ui/react-collapsible';
+import { ChevronRight, Settings } from 'lucide-react';
 import { useFlowStore } from '@/stores';
 import { useExecutionStore } from '@/stores/executionStore';
+import { Button } from '@/components/ui/Button';
 import { FlowCanvas } from './FlowCanvas';
 import { LeftSidebar } from './LeftSidebar';
 import { PropertyPanel } from './PropertyPanel';
@@ -15,6 +18,10 @@ import { ExecutionMonitor } from './ExecutionMonitor';
 
 export function OrchestratorPage() {
   const fetchFlows = useFlowStore((state) => state.fetchFlows);
+  const isPaletteOpen = useFlowStore((state) => state.isPaletteOpen);
+  const setIsPaletteOpen = useFlowStore((state) => state.setIsPaletteOpen);
+  const isPropertyPanelOpen = useFlowStore((state) => state.isPropertyPanelOpen);
+  const setIsPropertyPanelOpen = useFlowStore((state) => state.setIsPropertyPanelOpen);
   const isMonitorPanelOpen = useExecutionStore((state) => state.isMonitorPanelOpen);
   const [isTemplateLibraryOpen, setIsTemplateLibraryOpen] = useState(false);
 
@@ -35,16 +42,42 @@ export function OrchestratorPage() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Sidebar (Templates + Nodes) */}
-        <LeftSidebar />
+        {/* Left Sidebar with collapse toggle */}
+        {!isPaletteOpen && (
+          <div className="w-10 bg-card border-r border-border flex flex-col items-center py-4">
+            <Button variant="ghost" size="icon" onClick={() => setIsPaletteOpen(true)} title="Expand">
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
+        <Collapsible.Root open={isPaletteOpen} onOpenChange={setIsPaletteOpen}>
+          <Collapsible.Content className="overflow-hidden data-[state=open]:animate-collapsible-slide-down data-[state=closed]:animate-collapsible-slide-up">
+            <LeftSidebar />
+          </Collapsible.Content>
+        </Collapsible.Root>
 
-        {/* Flow Canvas (Center) */}
+        {/* Flow Canvas (Center) + PropertyPanel Overlay */}
         <div className="flex-1 relative">
           <FlowCanvas className="absolute inset-0" />
-        </div>
 
-        {/* Property Panel (Right) - hidden when monitor is open */}
-        {!isMonitorPanelOpen && <PropertyPanel />}
+          {/* Property Panel as overlay - hidden when monitor is open */}
+          {!isMonitorPanelOpen && (
+            <div className="absolute top-2 right-2 bottom-2 z-10">
+              {!isPropertyPanelOpen && (
+                <div className="w-10 h-full bg-card/90 backdrop-blur-sm border border-border rounded-lg flex flex-col items-center py-4 shadow-lg">
+                  <Button variant="ghost" size="icon" onClick={() => setIsPropertyPanelOpen(true)} title="Open">
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+              <Collapsible.Root open={isPropertyPanelOpen} onOpenChange={setIsPropertyPanelOpen}>
+                <Collapsible.Content className="overflow-hidden h-full data-[state=open]:animate-collapsible-slide-down data-[state=closed]:animate-collapsible-slide-up">
+                  <PropertyPanel className="h-full" />
+                </Collapsible.Content>
+              </Collapsible.Root>
+            </div>
+          )}
+        </div>
 
         {/* Execution Monitor Panel (Right) */}
         <ExecutionMonitor />

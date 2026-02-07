@@ -85,6 +85,7 @@ export type {
   ExecutionLog,
   // Node Execution
   NodeExecutionState,
+  NodeExecutionOutput,
   // Execution State
   ExecutionState,
   // WebSocket Messages
@@ -103,6 +104,23 @@ export type {
   TemplateInstallRequest,
   TemplateExportRequest,
 } from './execution';
+
+// ========== Tool Call Types ==========
+export type {
+  ToolCallStatus,
+  ToolCallKind,
+  ToolCallOutputBuffer,
+  ToolCallExecution,
+  ToolCallStartData,
+  ToolCallUpdate,
+  ToolCallResult,
+} from './toolCall';
+export {
+  DEFAULT_OUTPUT_BUFFER,
+  createToolCallExecution,
+  getToolCallStatusIconClass,
+  getToolCallKindLabel,
+} from './toolCall';
 
 // ========== File Explorer Types ==========
 export type {

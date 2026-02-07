@@ -1000,7 +1000,7 @@ export function useCodexLensIndexingStatus(): UseCodexLensIndexingStatusReturn {
     queryKey: codexLensKeys.indexingStatus(),
     queryFn: checkCodexLensIndexingStatus,
     staleTime: STALE_TIME_SHORT,
-    refetchInterval: (data) => (data?.inProgress ? 2000 : false), // Poll every 2s when indexing
+    refetchInterval: (query) => ((query.state.data as any)?.inProgress ? 2000 : false), // Poll every 2s when indexing
     retry: false,
   });
 

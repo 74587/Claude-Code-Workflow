@@ -23,7 +23,7 @@ export const A2UIText: ComponentRenderer = ({ component, state, onAction, resolv
   const { Text } = component as { Text: { text: unknown; usageHint?: string } };
 
   // Resolve text content
-  const text = resolveTextContent(Text.text, resolveBinding);
+  const text = resolveTextContent(Text.text as { literalString: string } | { path: string }, resolveBinding);
   const usageHint = Text.usageHint || 'span';
 
   // Map usageHint to HTML elements

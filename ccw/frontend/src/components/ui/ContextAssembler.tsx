@@ -44,9 +44,9 @@ const ContextAssembler = React.forwardRef<HTMLDivElement, ContextAssemblerProps>
       const nodeRegex = /\{\{node:([^}]+)\}\}/g;
       const varRegex = /\{\{var:([^}]+)\}\}/g;
 
-      let match;
+      let match: RegExpExecArray | null;
       while ((match = nodeRegex.exec(value)) !== null) {
-        const node = availableNodes.find((n) => n.id === match[1]);
+        const node = availableNodes.find((n) => n.id === match![1]);
         extracted.push({
           nodeId: match[1],
           label: node?.label,
@@ -98,7 +98,7 @@ const ContextAssembler = React.forwardRef<HTMLDivElement, ContextAssemblerProps>
     const addNode = (nodeId: string) => {
       const node = availableNodes.find((n) => n.id === nodeId);
       if (node && !rules.find((r) => r.nodeId === nodeId)) {
-        const newRules = [...rules, { nodeId, label: node.label, variable: node.outputVariable, includeOutput: true, transform: "raw" }];
+        const newRules: ContextRule[] = [...rules, { nodeId, label: node.label, variable: node.outputVariable, includeOutput: true, transform: "raw" as const }];
         setRules(newRules);
         updateTemplate(newRules);
       }
@@ -106,7 +106,7 @@ const ContextAssembler = React.forwardRef<HTMLDivElement, ContextAssemblerProps>
 
     const addVariable = (variableName: string) => {
       if (!rules.find((r) => r.variable === variableName && !r.nodeId)) {
-        const newRules = [...rules, { nodeId: "", variable: variableName, includeOutput: true, transform: "raw" }];
+        const newRules: ContextRule[] = [...rules, { nodeId: "", variable: variableName, includeOutput: true, transform: "raw" as const }];
         setRules(newRules);
         updateTemplate(newRules);
       }

@@ -16,7 +16,7 @@ function highlightSyntax(output: string, language?: string): React.ReactNode {
   const lines = output.split('\n');
 
   // Define syntax patterns by language
-  const patterns: Record<string, RegExp[]> = {
+  const patterns: Record<string, { regex: RegExp; className: string }[]> = {
     bash: [
       { regex: /^(\$|>|\s)(\s*)/gm, className: 'text-muted-foreground' }, // Prompt
       { regex: /\b(error|fail|failed|failure)\b/gi, className: 'text-destructive font-semibold' },
@@ -55,8 +55,8 @@ function highlightSyntax(output: string, language?: string): React.ReactNode {
 
     for (const pattern of langPatterns) {
       if (typeof result === 'string') {
-        const parts = result.split(pattern.regex);
-        result = parts.map((part, i) => {
+        const parts: string[] = result.split(pattern.regex);
+        result = parts.map((part: string, i: number) => {
           if (pattern.regex.test(part)) {
             return (
               <span key={`${key}-${i}`} className={pattern.className}>

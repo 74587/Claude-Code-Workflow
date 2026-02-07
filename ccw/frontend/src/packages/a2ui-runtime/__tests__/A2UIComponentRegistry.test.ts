@@ -5,7 +5,8 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { A2UIComponentRegistry, a2uiRegistry } from '../core/A2UIComponentRegistry';
-import type { A2UIComponent, A2UIState, ActionHandler, BindingResolver } from '../core/A2UIComponentRegistry';
+import type { A2UIState, ActionHandler, BindingResolver } from '../core/A2UIComponentRegistry';
+import type { A2UIComponent } from '../core/A2UITypes';
 
 // Import component renderers to trigger auto-registration
 import '../renderer/components';
@@ -24,15 +25,15 @@ describe('A2UIComponentRegistry', () => {
 
   describe('register()', () => {
     it('should register a component renderer', () => {
-      registry.register('TestComponent', mockRenderer);
-      expect(registry.has('TestComponent')).toBe(true);
+      registry.register('TestComponent' as any, mockRenderer);
+      expect(registry.has('TestComponent' as any)).toBe(true);
     });
 
     it('should allow overriding existing renderer', () => {
-      registry.register('TestComponent', mockRenderer);
-      registry.register('TestComponent', anotherMockRenderer);
-      
-      const retrieved = registry.get('TestComponent');
+      registry.register('TestComponent' as any, mockRenderer);
+      registry.register('TestComponent' as any, anotherMockRenderer);
+
+      const retrieved = registry.get('TestComponent' as any);
       expect(retrieved).toBe(anotherMockRenderer);
     });
 
@@ -49,57 +50,57 @@ describe('A2UIComponentRegistry', () => {
 
   describe('unregister()', () => {
     it('should remove a registered renderer', () => {
-      registry.register('TestComponent', mockRenderer);
-      expect(registry.has('TestComponent')).toBe(true);
+      registry.register('TestComponent' as any, mockRenderer);
+      expect(registry.has('TestComponent' as any)).toBe(true);
 
-      registry.unregister('TestComponent');
-      expect(registry.has('TestComponent')).toBe(false);
+      registry.unregister('TestComponent' as any);
+      expect(registry.has('TestComponent' as any)).toBe(false);
     });
 
     it('should be idempotent for non-existent components', () => {
-      expect(() => registry.unregister('NonExistent')).not.toThrow();
-      expect(registry.has('NonExistent')).toBe(false);
+      expect(() => registry.unregister('NonExistent' as any)).not.toThrow();
+      expect(registry.has('NonExistent' as any)).toBe(false);
     });
   });
 
   describe('get()', () => {
     it('should return registered renderer', () => {
-      registry.register('TestComponent', mockRenderer);
-      const retrieved = registry.get('TestComponent');
+      registry.register('TestComponent' as any, mockRenderer);
+      const retrieved = registry.get('TestComponent' as any);
 
       expect(retrieved).toBe(mockRenderer);
     });
 
     it('should return undefined for unregistered component', () => {
-      const retrieved = registry.get('NonExistent');
+      const retrieved = registry.get('NonExistent' as any);
       expect(retrieved).toBeUndefined();
     });
 
     it('should return correct renderer after multiple registrations', () => {
-      registry.register('First', mockRenderer);
-      registry.register('Second', anotherMockRenderer);
+      registry.register('First' as any, mockRenderer);
+      registry.register('Second' as any, anotherMockRenderer);
 
-      expect(registry.get('First')).toBe(mockRenderer);
-      expect(registry.get('Second')).toBe(anotherMockRenderer);
+      expect(registry.get('First' as any)).toBe(mockRenderer);
+      expect(registry.get('Second' as any)).toBe(anotherMockRenderer);
     });
   });
 
   describe('has()', () => {
     it('should return true for registered components', () => {
-      registry.register('TestComponent', mockRenderer);
-      expect(registry.has('TestComponent')).toBe(true);
+      registry.register('TestComponent' as any, mockRenderer);
+      expect(registry.has('TestComponent' as any)).toBe(true);
     });
 
     it('should return false for unregistered components', () => {
-      expect(registry.has('NonExistent')).toBe(false);
+      expect(registry.has('NonExistent' as any)).toBe(false);
     });
 
     it('should return false after unregistering', () => {
-      registry.register('TestComponent', mockRenderer);
-      expect(registry.has('TestComponent')).toBe(true);
+      registry.register('TestComponent' as any, mockRenderer);
+      expect(registry.has('TestComponent' as any)).toBe(true);
 
-      registry.unregister('TestComponent');
-      expect(registry.has('TestComponent')).toBe(false);
+      registry.unregister('TestComponent' as any);
+      expect(registry.has('TestComponent' as any)).toBe(false);
     });
   });
 
@@ -149,7 +150,7 @@ describe('A2UIComponentRegistry', () => {
     });
 
     it('should be idempotent', () => {
-      registry.register('Test', mockRenderer);
+      registry.register('Test' as any, mockRenderer);
       registry.clear();
       expect(registry.size).toBe(0);
 

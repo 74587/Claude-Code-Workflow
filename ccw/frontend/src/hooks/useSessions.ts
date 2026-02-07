@@ -298,7 +298,7 @@ export function usePrefetchSessions() {
   return (filter?: SessionsFilter) => {
     queryClient.prefetchQuery({
       queryKey: sessionsKeys.list(filter),
-      queryFn: fetchSessions,
+      queryFn: () => fetchSessions(),
       staleTime: STALE_TIME,
     });
   };

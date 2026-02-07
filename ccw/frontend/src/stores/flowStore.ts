@@ -46,6 +46,42 @@ const generateId = (prefix: string): string => {
 // API base URL
 const API_BASE = '/api/orchestrator';
 
+// Non-overlapping position calculation constants
+const OVERLAP_THRESHOLD = 50; // px distance to consider as overlap
+const OFFSET_X = 100;         // diagonal offset per attempt
+const OFFSET_Y = 80;
+const MAX_ATTEMPTS = 20;
+
+/**
+ * Calculate a position that does not overlap with existing nodes.
+ * Shifts diagonally (x+100, y+80) until a free spot is found.
+ */
+function calculateNonOverlappingPosition(
+  baseX: number,
+  baseY: number,
+  existingNodes: { position: { x: number; y: number } }[],
+): { x: number; y: number } {
+  let x = baseX;
+  let y = baseY;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    const hasOverlap = existingNodes.some((node) => {
+      const dx = Math.abs(node.position.x - x);
+      const dy = Math.abs(node.position.y - y);
+      return dx < OVERLAP_THRESHOLD && dy < OVERLAP_THRESHOLD;
+    });
+
+    if (!hasOverlap) {
+      return { x, y };
+    }
+
+    x += OFFSET_X;
+    y += OFFSET_Y;
+  }
+
+  return { x, y };
+}
+
 // Initial state
 const initialState = {
   // Current flow
@@ -71,6 +107,9 @@ const initialState = {
 
   // Custom templates (loaded from localStorage)
   customTemplates: loadCustomTemplatesFromStorage(),
+
+  // Interaction mode
+  interactionMode: 'pan' as const,
 };
 
 export const useFlowStore = create<FlowStore>()(
@@ -263,11 +302,14 @@ export const useFlowStore = create<FlowStore>()(
       addNode: (position: { x: number; y: number }): string => {
         const config = nodeConfigs['prompt-template'];
         const id = generateId('node');
+        const safePosition = calculateNonOverlappingPosition(
+          position.x, position.y, get().nodes,
+        );
 
         const newNode: FlowNode = {
           id,
           type: 'prompt-template',
-          position,
+          position: safePosition,
           data: { ...config.defaultData },
         };
 
@@ -295,6 +337,9 @@ export const useFlowStore = create<FlowStore>()(
 
         const id = generateId('node');
         const config = nodeConfigs['prompt-template'];
+        const safePosition = calculateNonOverlappingPosition(
+          position.x, position.y, get().nodes,
+        );
 
         // Merge template data with default data
         const nodeData: NodeData = {
@@ -307,7 +352,7 @@ export const useFlowStore = create<FlowStore>()(
         const newNode: FlowNode = {
           id,
           type: 'prompt-template',
-          position,
+          position: safePosition,
           data: nodeData,
         };
 
@@ -460,6 +505,22 @@ export const useFlowStore = create<FlowStore>()(
 
       setLeftPanelTab: (tab) => {
         set({ leftPanelTab: tab }, false, 'setLeftPanelTab');
+      },
+
+      // ========== Interaction Mode ==========
+
+      toggleInteractionMode: () => {
+        set(
+          (state) => ({
+            interactionMode: state.interactionMode === 'pan' ? 'selection' : 'pan',
+          }),
+          false,
+          'toggleInteractionMode'
+        );
+      },
+
+      setInteractionMode: (mode: 'pan' | 'selection') => {
+        set({ interactionMode: mode }, false, 'setInteractionMode');
       },
 
       // ========== Custom Templates ==========

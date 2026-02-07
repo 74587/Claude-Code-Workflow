@@ -20,7 +20,7 @@ function jsonResponse(body: unknown, init: ResponseInit = {}) {
   });
 }
 
-function getLastFetchCall(fetchMock: ReturnType<typeof vi.fn>) {
+function getLastFetchCall(fetchMock: any) {
   const calls = fetchMock.mock.calls;
   return calls[calls.length - 1] as [RequestInfo | URL, RequestInit | undefined];
 }

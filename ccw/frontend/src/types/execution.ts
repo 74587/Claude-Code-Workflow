@@ -4,6 +4,8 @@
 // TypeScript interfaces for Orchestrator execution monitoring
 
 import { z } from 'zod';
+import type { CliOutputLine } from '../stores/cliStreamStore';
+import type { ToolCallExecution } from './toolCall';
 
 // ========== Execution Status ==========
 
@@ -143,6 +145,19 @@ export const OrchestratorMessageSchema = z.discriminatedUnion('type', [
 
 // ========== Execution Store Types ==========
 
+/**
+ * Node execution output including all data from a node execution
+ */
+export interface NodeExecutionOutput {
+  nodeId: string;
+  outputs: CliOutputLine[];
+  toolCalls: ToolCallExecution[];
+  logs: ExecutionLog[];
+  variables: Record<string, unknown>;
+  startTime: number;
+  endTime?: number;
+}
+
 export interface ExecutionStoreState {
   // Current execution
   currentExecution: ExecutionState | null;
@@ -153,6 +168,15 @@ export interface ExecutionStoreState {
   // Execution logs
   logs: ExecutionLog[];
   maxLogs: number;
+
+  // Node output tracking (new)
+  nodeOutputs: Record<string, NodeExecutionOutput>;
+
+  // Tool call tracking (new)
+  nodeToolCalls: Record<string, ToolCallExecution[]>;
+
+  // Selected node for detail view (new)
+  selectedNodeId: string | null;
 
   // UI state
   isMonitorPanelOpen: boolean;
@@ -171,6 +195,19 @@ export interface ExecutionStoreActions {
   setNodeCompleted: (nodeId: string, result?: unknown) => void;
   setNodeFailed: (nodeId: string, error: string) => void;
   clearNodeStates: () => void;
+
+  // Node output management (new)
+  addNodeOutput: (nodeId: string, output: CliOutputLine) => void;
+  clearNodeOutputs: (nodeId: string) => void;
+
+  // Tool call management (new)
+  startToolCall: (nodeId: string, callId: string, data: { kind: ToolCallExecution['kind']; subtype?: string; description: string }) => void;
+  updateToolCall: (nodeId: string, callId: string, update: { status?: ToolCallExecution['status']; outputChunk?: string; stream?: 'stdout' | 'stderr' }) => void;
+  completeToolCall: (nodeId: string, callId: string, result: { status: ToolCallExecution['status']; exitCode?: number; error?: string; result?: unknown }) => void;
+  toggleToolCallExpanded: (nodeId: string, callId: string) => void;
+
+  // Node selection (new)
+  selectNode: (nodeId: string | null) => void;
 
   // Logs
   addLog: (log: ExecutionLog) => void;

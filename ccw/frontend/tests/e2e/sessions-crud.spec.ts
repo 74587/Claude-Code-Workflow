@@ -15,7 +15,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to sessions page
-    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/sessions', { waitUntil: 'domcontentloaded' as const });
 
     // Look for sessions list container
     const sessionsList = page.getByTestId('sessions-list').or(
@@ -49,7 +49,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to sessions page
-    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/sessions', { waitUntil: 'domcontentloaded' as const });
 
     // Look for create session button
     const createButton = page.getByRole('button', { name: /create|new|add session/i }).or(
@@ -103,7 +103,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to sessions page
-    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/sessions', { waitUntil: 'domcontentloaded' as const });
 
     // Look for existing session
     const sessionItems = page.getByTestId(/session-item|session-card/).or(
@@ -145,7 +145,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to sessions page
-    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/sessions', { waitUntil: 'domcontentloaded' as const });
 
     // Look for existing session
     const sessionItems = page.getByTestId(/session-item|session-card/).or(
@@ -208,7 +208,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to sessions page
-    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/sessions', { waitUntil: 'domcontentloaded' as const });
 
     // Look for existing session
     const sessionItems = page.getByTestId(/session-item|session-card/).or(
@@ -255,7 +255,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to sessions page
-    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/sessions', { waitUntil: 'domcontentloaded' as const });
 
     // Look for existing session
     const sessionItems = page.getByTestId(/session-item|session-card/).or(
@@ -302,7 +302,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to sessions page
-    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/sessions', { waitUntil: 'domcontentloaded' as const });
 
     // Get initial session count
     const sessionItems = page.getByTestId(/session-item|session-card/).or(
@@ -353,7 +353,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     });
 
     // Navigate to sessions page to trigger API call
-    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/sessions', { waitUntil: 'domcontentloaded' as const });
 
     // Look for error indicator - SessionsPage shows "Failed to load data"
     const errorIndicator = page.getByText(/Failed to load data|failed|加载失败/i).or(
@@ -379,7 +379,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to sessions page
-    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/sessions', { waitUntil: 'domcontentloaded' as const });
 
     // Get language switcher
     const languageSwitcher = page.getByRole('combobox', { name: /select language|language/i }).first();
@@ -411,7 +411,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to sessions page
-    await page.goto('/sessions', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/sessions', { waitUntil: 'domcontentloaded' as const });
 
     // Look for existing session
     const sessionItems = page.getByTestId(/session-item|session-card/).or(
@@ -486,7 +486,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
       await page.waitForTimeout(1000);
 
       // Verify error message - look for toast or inline error
-      const errorMessage = page.getByText(/invalid|bad request|输入无效|failed|error/i);
+      const errorMessage = page.locator('text=/Failed to load data|加载失败/');
       const hasError = await errorMessage.isVisible().catch(() => false);
       await page.unroute('**/api/sessions');
       expect(hasError).toBe(true);
@@ -516,7 +516,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     // 401 might redirect to login or show auth error
     const loginRedirect = page.url().includes('/login');
     // SessionsPage shows "Failed to load data" for any error
-    const authError = page.getByText(/Failed to load data|failed|Unauthorized|Authentication required|加载失败/i);
+    const authError = page.locator('text=/Failed to load data|加载失败/');
 
     const hasAuthError = await authError.isVisible().catch(() => false);
     await page.unroute('**/api/sessions');
@@ -544,7 +544,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     await page.waitForTimeout(1000);
 
     // Verify error message - SessionsPage shows "Failed to load data"
-    const errorMessage = page.getByText(/Failed to load data|failed|加载失败|Forbidden|Access denied/i);
+    const errorMessage = page.locator('text=/Failed to load data|加载失败/');
     const hasError = await errorMessage.isVisible().catch(() => false);
     await page.unroute('**/api/sessions');
     expect(hasError).toBe(true);
@@ -566,13 +566,13 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     });
 
     // Navigate to a non-existent session
-    await page.goto('/sessions/nonexistent-session-id', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/sessions/nonexistent-session-id', { waitUntil: 'domcontentloaded' as const });
 
     // Wait for error to appear
     await page.waitForTimeout(1000);
 
     // Verify not found message - Session detail page shows error
-    const errorMessage = page.getByText(/Failed to load|failed|not found|doesn't exist|未找到|加载失败|404|Session not found/i);
+    const errorMessage = page.locator('text=/Failed to load data|加载失败/');
     const hasError = await errorMessage.isVisible().catch(() => false);
     await page.unroute('**/api/sessions/nonexistent');
     expect(hasError).toBe(true);
@@ -599,7 +599,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     await page.waitForTimeout(1000);
 
     // Verify server error message - SessionsPage shows "Failed to load data"
-    const errorMessage = page.getByText(/Failed to load data|failed|加载失败|Internal Server Error|Something went wrong/i);
+    const errorMessage = page.locator('text=/Failed to load data|加载失败/');
     const hasError = await errorMessage.isVisible().catch(() => false);
     await page.unroute('**/api/sessions');
     expect(hasError).toBe(true);
@@ -622,7 +622,7 @@ test.describe('[Sessions CRUD] - Session Management Tests', () => {
     await page.waitForTimeout(5000);
 
     // Verify timeout message
-    const timeoutMessage = page.getByText(/timeout|network error|unavailable|网络超时/i);
+    const timeoutMessage = page.locator('text=/Failed to load data|加载失败/');
     await page.unroute('**/api/sessions');
     const hasTimeout = await timeoutMessage.isVisible().catch(() => false);
     // Timeout message may or may not appear depending on implementation

@@ -4,12 +4,14 @@
 // Container with tab switching between NodeLibrary and InlineTemplatePanel
 
 import { useIntl } from 'react-intl';
-import { ChevronRight, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { useFlowStore } from '@/stores';
 import { NodeLibrary } from './NodeLibrary';
 import { InlineTemplatePanel } from './InlineTemplatePanel';
+import { useResizablePanel } from './useResizablePanel';
+import { ResizeHandle } from './ResizeHandle';
 
 // ========== Tab Configuration ==========
 
@@ -30,30 +32,27 @@ interface LeftSidebarProps {
  */
 export function LeftSidebar({ className }: LeftSidebarProps) {
   const { formatMessage } = useIntl();
-  const isPaletteOpen = useFlowStore((state) => state.isPaletteOpen);
   const setIsPaletteOpen = useFlowStore((state) => state.setIsPaletteOpen);
   const leftPanelTab = useFlowStore((state) => state.leftPanelTab);
   const setLeftPanelTab = useFlowStore((state) => state.setLeftPanelTab);
 
-  // Collapsed state
-  if (!isPaletteOpen) {
-    return (
-      <div className={cn('w-10 bg-card border-r border-border flex flex-col items-center py-4', className)}>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsPaletteOpen(true)}
-          title={formatMessage({ id: 'orchestrator.leftSidebar.expand' })}
-        >
-          <ChevronRight className="w-4 h-4" />
-        </Button>
-      </div>
-    );
-  }
+  const { width, isResizing, handleMouseDown } = useResizablePanel({
+    minWidth: 200,
+    maxWidth: 400,
+    defaultWidth: 288, // w-72 = 18rem = 288px
+    storageKey: 'ccw-orchestrator.leftSidebar.width',
+    direction: 'right',
+  });
 
-  // Expanded state
   return (
-    <div className={cn('w-72 bg-card border-r border-border flex flex-col', className)}>
+    <div
+      className={cn(
+        'bg-card border-r border-border flex flex-col relative',
+        isResizing && 'select-none',
+        className
+      )}
+      style={{ width }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="font-semibold text-foreground">{formatMessage({ id: 'orchestrator.leftSidebar.workbench' })}</h3>
@@ -100,6 +99,9 @@ export function LeftSidebar({ className }: LeftSidebarProps) {
           <span className="font-medium">{formatMessage({ id: 'orchestrator.leftSidebar.tipLabel' })}</span> {formatMessage({ id: 'orchestrator.leftSidebar.dragOrDoubleClick' })}
         </div>
       </div>
+
+      {/* Resize handle on right edge */}
+      <ResizeHandle onMouseDown={handleMouseDown} position="right" />
     </div>
   );
 }

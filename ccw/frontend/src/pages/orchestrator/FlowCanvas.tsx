@@ -3,7 +3,7 @@
 // ========================================
 // React Flow canvas with minimap, controls, and background
 
-import { useCallback, useRef, DragEvent } from 'react';
+import { useCallback, useRef, useState, useEffect, DragEvent } from 'react';
 import { useIntl } from 'react-intl';
 import {
   ReactFlow,
@@ -20,6 +20,7 @@ import {
   Edge,
   ReactFlowProvider,
   useReactFlow,
+  Panel,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -29,6 +30,7 @@ import type { FlowNode, FlowEdge } from '@/types/flow';
 
 // Custom node types (enhanced with execution status in IMPL-A8)
 import { nodeTypes } from './nodes';
+import { InteractionModeToggle } from './InteractionModeToggle';
 
 interface FlowCanvasProps {
   className?: string;
@@ -52,6 +54,42 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
   const setSelectedNodeId = useFlowStore((state) => state.setSelectedNodeId);
   const setSelectedEdgeId = useFlowStore((state) => state.setSelectedEdgeId);
   const markModified = useFlowStore((state) => state.markModified);
+
+  // Interaction mode from store
+  const interactionMode = useFlowStore((state) => state.interactionMode);
+
+  // Ctrl key state for temporary mode reversal
+  const [isCtrlPressed, setIsCtrlPressed] = useState(false);
+
+  // Listen for Ctrl/Meta key press for temporary mode reversal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        setIsCtrlPressed(true);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control' || e.key === 'Meta') {
+        setIsCtrlPressed(false);
+      }
+    };
+    // Reset on blur (user switches window)
+    const handleBlur = () => setIsCtrlPressed(false);
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
+  // Calculate effective mode (Ctrl reverses the current mode)
+  const effectiveMode = isCtrlPressed
+    ? (interactionMode === 'pan' ? 'selection' : 'pan')
+    : interactionMode;
 
   // Handle node changes (position, selection, etc.)
   const onNodesChange = useCallback(
@@ -163,6 +201,8 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
         onDragOver={onDragOver}
         onDrop={onDrop}
         nodeTypes={nodeTypes}
+        panOnDrag={effectiveMode === 'pan'}
+        selectionOnDrag={effectiveMode === 'selection'}
         nodesDraggable={!isExecuting}
         nodesConnectable={!isExecuting}
         elementsSelectable={!isExecuting}
@@ -172,6 +212,9 @@ function FlowCanvasInner({ className }: FlowCanvasProps) {
         snapGrid={[15, 15]}
         className="bg-background"
       >
+        <Panel position="top-left" className="m-2">
+          <InteractionModeToggle disabled={isExecuting} />
+        </Panel>
         <Controls
           className="bg-card border border-border rounded-md shadow-sm"
           showZoom={true}

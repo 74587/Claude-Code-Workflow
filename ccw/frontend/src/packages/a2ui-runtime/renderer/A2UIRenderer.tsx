@@ -162,7 +162,7 @@ export function resolveLiteralOrBinding(
   const value = resolveBinding(content as Binding);
 
   // Return resolved value or empty string as fallback
-  return value ?? '';
+  return (value ?? '') as string | number | boolean;
 }
 
 /**

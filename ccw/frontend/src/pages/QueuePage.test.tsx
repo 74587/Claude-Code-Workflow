@@ -10,13 +10,13 @@ import { useWorkflowStore } from '@/stores/workflowStore';
 import type { IssueQueue } from '@/lib/api';
 
 // Mock queue data
-const mockQueueData: IssueQueue = {
+const mockQueueData = {
   tasks: ['task1', 'task2'],
   solutions: ['solution1'],
   conflicts: [],
-  execution_groups: { 'group-1': ['task1', 'task2'] },
-  grouped_items: { 'parallel-group': ['task1', 'task2'] },
-};
+  execution_groups: ['group-1'],
+  grouped_items: { 'parallel-group': [] as any[] },
+} satisfies IssueQueue;
 
 // Mock hooks at top level
 vi.mock('@/hooks', () => ({

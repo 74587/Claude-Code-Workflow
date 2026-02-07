@@ -221,7 +221,7 @@ export function SessionDetailPage() {
 
       {activeTab === 'impl-plan' && (
         <div className="mt-4">
-          <ImplPlanTab implPlan={implPlan} />
+          <ImplPlanTab implPlan={implPlan as string | undefined} />
         </div>
       )}
 

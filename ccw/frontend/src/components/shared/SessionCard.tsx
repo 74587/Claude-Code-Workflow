@@ -78,7 +78,7 @@ const statusLabelKeys: Record<SessionMetadata['status'], string> = {
 
 // Type variant configuration for session type badges (unique colors for each type)
 const typeVariantConfig: Record<
-  SessionMetadata['type'],
+  NonNullable<SessionMetadata['type']>,
   { variant: 'default' | 'secondary' | 'destructive' | 'success' | 'warning' | 'info' | 'review'; icon: React.ElementType }
 > = {
   review: { variant: 'review', icon: Search },       // Purple
@@ -91,7 +91,7 @@ const typeVariantConfig: Record<
 };
 
 // Type label keys for i18n
-const typeLabelKeys: Record<SessionMetadata['type'], string> = {
+const typeLabelKeys: Record<NonNullable<SessionMetadata['type']>, string> = {
   review: 'sessions.type.review',
   tdd: 'sessions.type.tdd',
   test: 'sessions.type.test',

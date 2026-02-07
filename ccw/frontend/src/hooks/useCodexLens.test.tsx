@@ -183,7 +183,7 @@ describe('useCodexLens Hook', () => {
 
   describe('useCodexLensModels', () => {
     it('should fetch and filter models by type', async () => {
-      vi.mocked(api.fetchCodexLensModels).mockResolvedValue(mockModelsData);
+      vi.mocked(api.fetchCodexLensModels).mockResolvedValue(mockModelsData as any);
 
       const { result } = renderHook(() => useCodexLensModels(), { wrapper });
 
@@ -203,7 +203,7 @@ describe('useCodexLens Hook', () => {
         settings: { SETTING1: 'setting1' },
         raw: 'KEY1=value1\nKEY2=value2',
       };
-      vi.mocked(api.fetchCodexLensEnv).mockResolvedValue(mockEnv);
+      vi.mocked(api.fetchCodexLensEnv).mockResolvedValue(mockEnv as any);
 
       const { result } = renderHook(() => useCodexLensEnv(), { wrapper });
 
@@ -225,8 +225,8 @@ describe('useCodexLens Hook', () => {
         ],
         selected_device_id: 0,
       };
-      vi.mocked(api.fetchCodexLensGpuDetect).mockResolvedValue(mockDetect);
-      vi.mocked(api.fetchCodexLensGpuList).mockResolvedValue(mockList);
+      vi.mocked(api.fetchCodexLensGpuDetect).mockResolvedValue(mockDetect as any);
+      vi.mocked(api.fetchCodexLensGpuList).mockResolvedValue(mockList as any);
 
       const { result } = renderHook(() => useCodexLensGpu(), { wrapper });
 
@@ -366,13 +366,13 @@ describe('useCodexLens Hook', () => {
         env: { KEY1: 'newvalue' },
         settings: {},
         raw: 'KEY1=newvalue',
-      });
+      } as any);
 
       const { result } = renderHook(() => useUpdateCodexLensEnv(), { wrapper });
 
       const updateResult = await result.current.updateEnv({
         raw: 'KEY1=newvalue',
-      });
+      } as any);
 
       expect(api.updateCodexLensEnv).toHaveBeenCalledWith({ raw: 'KEY1=newvalue' });
       expect(updateResult.success).toBe(true);

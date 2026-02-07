@@ -47,7 +47,7 @@ export interface ModalAction {
   label: string;
   icon?: React.ComponentType<{ className?: string }>;
   onClick: (content: string) => void | Promise<void>;
-  variant?: 'default' | 'outline' | 'ghost' | 'destructive' | 'success';
+  variant?: 'default' | 'outline' | 'ghost' | 'destructive' | 'secondary';
   disabled?: boolean;
 }
 

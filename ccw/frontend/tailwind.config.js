@@ -175,6 +175,14 @@ export default {
           "75%": { backgroundImage: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%)" },
           "100%": { backgroundImage: "linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%)" },
         },
+        "collapsible-slide-down": {
+          from: { width: "0", opacity: "0" },
+          to: { width: "var(--radix-collapsible-content-width)", opacity: "1" },
+        },
+        "collapsible-slide-up": {
+          from: { width: "var(--radix-collapsible-content-width)", opacity: "1" },
+          to: { width: "0", opacity: "0" },
+        },
       },
 
       animation: {
@@ -182,6 +190,8 @@ export default {
         "accordion-up": "accordion-up 0.2s ease-out",
         marquee: "marquee 30s linear infinite",
         "slow-gradient": "slow-gradient-shift 60s ease-in-out infinite alternate",
+        "collapsible-slide-down": "collapsible-slide-down 150ms ease-out",
+        "collapsible-slide-up": "collapsible-slide-up 150ms ease-out",
       },
     },
   },

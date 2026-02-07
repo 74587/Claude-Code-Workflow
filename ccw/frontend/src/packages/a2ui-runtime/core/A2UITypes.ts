@@ -41,7 +41,7 @@ export const BooleanContentSchema = z.union([
 /** Action trigger */
 export const ActionSchema = z.object({
   actionId: z.string(),
-  parameters: z.record(z.unknown()).optional(),
+  parameters: z.record(z.string(), z.unknown()).optional(),
 });
 
 /** Text component */
@@ -196,7 +196,7 @@ export const DisplayModeSchema = z.enum(['popup', 'panel']);
 export const SurfaceUpdateSchema = z.object({
   surfaceId: z.string(),
   components: z.array(SurfaceComponentSchema),
-  initialState: z.record(z.unknown()).optional(),
+  initialState: z.record(z.string(), z.unknown()).optional(),
   /** Display mode: 'popup' for centered dialog, 'panel' for notification panel */
   displayMode: DisplayModeSchema.optional(),
 });

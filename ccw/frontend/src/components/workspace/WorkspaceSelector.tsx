@@ -291,11 +291,11 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
       </DropdownMenu>
 
       {/* Hidden file input for folder selection */}
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
       <input
         ref={folderInputRef}
         type="file"
-        webkitdirectory=""
-        directory=""
+        {...({ webkitdirectory: '', directory: '' } as any)}
         style={{ display: 'none' }}
         onChange={handleFolderSelect}
         aria-hidden="true"

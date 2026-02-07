@@ -14,6 +14,7 @@ import {
   type ExecutionLog,
 } from '../types/execution';
 import { SurfaceUpdateSchema } from '../packages/a2ui-runtime/core/A2UITypes';
+import type { ToolCallKind } from '../types/toolCall';
 
 // Constants
 const RECONNECT_DELAY_BASE = 1000; // 1 second
@@ -42,6 +43,15 @@ function getStoreState() {
     addLog: execution.addLog,
     completeExecution: execution.completeExecution,
     currentExecution: execution.currentExecution,
+    // Tool call actions
+    startToolCall: execution.startToolCall,
+    updateToolCall: execution.updateToolCall,
+    completeToolCall: execution.completeToolCall,
+    toggleToolCallExpanded: execution.toggleToolCallExpanded,
+    // Tool call getters
+    getToolCallsForNode: execution.getToolCallsForNode,
+    // Node output actions
+    addNodeOutput: execution.addNodeOutput,
     // Flow store
     updateNode: flow.updateNode,
     // CLI stream store
@@ -58,6 +68,61 @@ export interface UseWebSocketReturn {
   isConnected: boolean;
   send: (message: unknown) => void;
   reconnect: () => void;
+}
+
+// ========== Tool Call Parsing Helpers ==========
+
+/**
+ * Parse tool call metadata from content
+ * Expected format: "[Tool] toolName(args)"
+ */
+function parseToolCallMetadata(content: string): { toolName: string; args: string } | null {
+  // Handle string content
+  if (typeof content === 'string') {
+    const match = content.match(/^\[Tool\]\s+(\w+)\((.*)\)$/);
+    if (match) {
+      return { toolName: match[1], args: match[2] || '' };
+    }
+  }
+
+  // Handle object content with toolName field
+  try {
+    const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+    if (parsed && typeof parsed === 'object' && 'toolName' in parsed) {
+      return {
+        toolName: String(parsed.toolName),
+        args: parsed.parameters ? JSON.stringify(parsed.parameters) : '',
+      };
+    }
+  } catch {
+    // Not valid JSON, return null
+  }
+
+  return null;
+}
+
+/**
+ * Infer tool call kind from tool name
+ */
+function inferToolCallKind(toolName: string): ToolCallKind {
+  const name = toolName.toLowerCase();
+
+  if (name === 'exec_command' || name === 'execute') return 'execute';
+  if (name === 'apply_patch' || name === 'patch') return 'patch';
+  if (name === 'web_search' || name === 'exa_search') return 'web_search';
+  if (name.startsWith('mcp_') || name.includes('mcp')) return 'mcp_tool';
+  if (name.includes('file') || name.includes('read') || name.includes('write')) return 'file_operation';
+  if (name.includes('think') || name.includes('reason')) return 'thinking';
+
+  // Default to execute
+  return 'execute';
+}
+
+/**
+ * Generate unique tool call ID
+ */
+function generateToolCallId(): string {
+  return `tool_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketReturn {
@@ -105,7 +170,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
               const unitContent = unit?.content || outputData;
               const unitType = unit?.type || chunkType;
 
-              // Special handling for tool_call type
+              // Convert content to string for display
               let content: string;
               if (unitType === 'tool_call' && typeof unitContent === 'object' && unitContent !== null) {
                 // Format tool_call display
@@ -114,7 +179,49 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
                 content = typeof unitContent === 'string' ? unitContent : JSON.stringify(unitContent);
               }
 
-              // Split by lines and add each line to store
+              // ========== Tool Call Processing ==========
+              // Parse and start new tool call if this is a tool_call type
+              if (unitType === 'tool_call') {
+                const metadata = parseToolCallMetadata(content);
+                if (metadata) {
+                  const callId = generateToolCallId();
+                  const currentNodeId = stores.currentExecution?.currentNodeId;
+
+                  if (currentNodeId) {
+                    stores.startToolCall(currentNodeId, callId, {
+                      kind: inferToolCallKind(metadata.toolName),
+                      description: metadata.args
+                        ? `${metadata.toolName}(${metadata.args})`
+                        : metadata.toolName,
+                    });
+
+                    // Also add to node output for streaming display
+                    stores.addNodeOutput(currentNodeId, {
+                      type: 'tool_call',
+                      content,
+                      timestamp: Date.now(),
+                    });
+                  }
+                }
+              }
+
+              // ========== Stream Processing ==========
+              // Update tool call output buffer if we have an active tool call for this node
+              const currentNodeId = stores.currentExecution?.currentNodeId;
+              if (currentNodeId && (unitType === 'stdout' || unitType === 'stderr')) {
+                const toolCalls = stores.getToolCallsForNode?.(currentNodeId);
+                const activeCall = toolCalls?.find(c => c.status === 'executing');
+
+                if (activeCall) {
+                  stores.updateToolCall(currentNodeId, activeCall.callId, {
+                    outputChunk: content,
+                    stream: unitType === 'stderr' ? 'stderr' : 'stdout',
+                  });
+                }
+              }
+
+              // ========== Legacy CLI Stream Output ==========
+              // Split by lines and add each line to cliStreamStore
               const lines = content.split('\n');
               lines.forEach((line: string) => {
                 // Add non-empty lines, or single line if that's all we have

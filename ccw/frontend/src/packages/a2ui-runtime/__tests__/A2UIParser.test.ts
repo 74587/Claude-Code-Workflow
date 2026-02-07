@@ -376,15 +376,13 @@ describe('A2UIParser', () => {
           code: z.ZodIssueCode.invalid_type,
           path: ['components', 0, 'id'],
           expected: 'string',
-          received: 'undefined',
           message: 'Required',
-        },
+        } as any,
         {
-          code: z.ZodIssueCode.invalid_string,
+          code: 'invalid_format' as any,
           path: ['surfaceId'],
-          validation: 'uuid',
           message: 'Invalid format',
-        },
+        } as any,
       ]);
 
       const parseError = new A2UIParseError('Validation failed', zodError);

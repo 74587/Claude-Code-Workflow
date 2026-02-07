@@ -117,8 +117,7 @@ function QuickTemplateCard({
   };
 
   const onDoubleClick = () => {
-    const position = { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 };
-    useFlowStore.getState().addNodeFromTemplate(template.id, position);
+    useFlowStore.getState().addNodeFromTemplate(template.id, { x: 250, y: 200 });
   };
 
   return (
@@ -166,8 +165,7 @@ function BasicTemplateCard() {
   };
 
   const onDoubleClick = () => {
-    const position = { x: 100 + Math.random() * 200, y: 100 + Math.random() * 200 };
-    useFlowStore.getState().addNode(position);
+    useFlowStore.getState().addNode({ x: 250, y: 200 });
   };
 
   return (

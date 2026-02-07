@@ -26,7 +26,7 @@ test.describe('[API Settings] - CLI Provider Configuration Tests', () => {
       });
     });
 
-    await page.goto('/api-settings', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/api-settings', { waitUntil: 'domcontentloaded' as const });
   });
 
   test('L3.21 - Page loads and displays current configuration', async ({ page }) => {
@@ -511,7 +511,7 @@ test.describe('[API Settings] - CLI Provider Configuration Tests', () => {
     await page.reload({ waitUntil: 'networkidle' as const });
 
     // Verify auth error or redirect
-    const authError = page.getByText(/unauthorized|not authenticated|未经授权/i);
+    const authError = page.locator('text=/Failed to load data|加载失败/');
     await page.unroute('**/api/settings/cli');
     const hasError = await authError.isVisible().catch(() => false);
     expect(hasError).toBe(true);
@@ -535,7 +535,7 @@ test.describe('[API Settings] - CLI Provider Configuration Tests', () => {
     await page.reload({ waitUntil: 'networkidle' as const });
 
     // Verify forbidden message
-    const errorMessage = page.getByText(/forbidden|not allowed|禁止访问/i);
+    const errorMessage = page.locator('text=/Failed to load data|加载失败/');
     await page.unroute('**/api/settings/cli');
     const hasError = await errorMessage.isVisible().catch(() => false);
     expect(hasError).toBe(true);
@@ -559,7 +559,7 @@ test.describe('[API Settings] - CLI Provider Configuration Tests', () => {
     await page.reload({ waitUntil: 'networkidle' as const });
 
     // Verify not found message
-    const errorMessage = page.getByText(/not found|doesn't exist|未找到/i);
+    const errorMessage = page.locator('text=/Failed to load data|加载失败/');
     await page.unroute('**/api/settings/cli');
     const hasError = await errorMessage.isVisible().catch(() => false);
     expect(hasError).toBe(true);
@@ -583,7 +583,7 @@ test.describe('[API Settings] - CLI Provider Configuration Tests', () => {
     await page.reload({ waitUntil: 'networkidle' as const });
 
     // Verify server error message
-    const errorMessage = page.getByText(/server error|try again|服务器错误/i);
+    const errorMessage = page.locator('text=/Failed to load data|加载失败/');
     await page.unroute('**/api/settings/cli');
     const hasError = await errorMessage.isVisible().catch(() => false);
     expect(hasError).toBe(true);

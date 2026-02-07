@@ -59,7 +59,7 @@ describe('Chart Hooks Integration Tests', () => {
       const { result } = renderHook(() => useWorkflowStatusCounts(), { wrapper });
 
       await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+        expect((result.current as any).isSuccess).toBe(true);
       });
 
       expect(result.current.data).toEqual(mockData);
@@ -71,12 +71,12 @@ describe('Chart Hooks Integration Tests', () => {
       mockApi.get.mockResolvedValue({ data: mockData });
 
       const { result } = renderHook(
-        () => useWorkflowStatusCounts({ projectPath: '/test/workspace' }),
+        () => useWorkflowStatusCounts({ projectPath: '/test/workspace' } as any),
         { wrapper }
       );
 
       await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+        expect((result.current as any).isSuccess).toBe(true);
       });
 
       expect(mockApi.get).toHaveBeenCalledWith('/api/session-status-counts', {
@@ -90,7 +90,7 @@ describe('Chart Hooks Integration Tests', () => {
       const { result } = renderHook(() => useWorkflowStatusCounts(), { wrapper });
 
       await waitFor(() => {
-        expect(result.current.isError).toBe(true);
+        expect((result.current as any).isError).toBe(true);
       });
 
       expect(result.current.error).toBeDefined();
@@ -102,13 +102,13 @@ describe('Chart Hooks Integration Tests', () => {
       mockApi.get.mockResolvedValue({ data: mockData });
 
       const { result: result1 } = renderHook(() => useWorkflowStatusCounts(), { wrapper });
-      await waitFor(() => expect(result1.current.isSuccess).toBe(true));
+      await waitFor(() => expect((result1.current as any).isSuccess).toBe(true));
 
       // Second render should use cache
       const { result: result2 } = renderHook(() => useWorkflowStatusCounts(), { wrapper });
 
       await waitFor(() => {
-        expect(result2.current.isSuccess).toBe(true);
+        expect((result2.current as any).isSuccess).toBe(true);
       });
 
       // API should only be called once (cached)
@@ -122,7 +122,7 @@ describe('Chart Hooks Integration Tests', () => {
 
       const { result } = renderHook(() => useWorkflowStatusCounts(), { wrapper });
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      await waitFor(() => expect((result.current as any).isSuccess).toBe(true));
 
       // Refetch
       await result.current.refetch();
@@ -143,7 +143,7 @@ describe('Chart Hooks Integration Tests', () => {
       const { result } = renderHook(() => useActivityTimeline(), { wrapper });
 
       await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+        expect((result.current as any).isSuccess).toBe(true);
       });
 
       expect(result.current.data).toEqual(mockData);
@@ -159,10 +159,10 @@ describe('Chart Hooks Integration Tests', () => {
         end: new Date('2026-01-31'),
       };
 
-      const { result } = renderHook(() => useActivityTimeline(dateRange), { wrapper });
+      const { result } = renderHook(() => (useActivityTimeline as any)(dateRange), { wrapper });
 
       await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+        expect((result.current as any).isSuccess).toBe(true);
       });
 
       expect(mockApi.get).toHaveBeenCalledWith('/api/activity-timeline', {
@@ -179,7 +179,7 @@ describe('Chart Hooks Integration Tests', () => {
       const { result } = renderHook(() => useActivityTimeline(), { wrapper });
 
       await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+        expect((result.current as any).isSuccess).toBe(true);
       });
 
       expect(result.current.data).toEqual([]);
@@ -190,12 +190,12 @@ describe('Chart Hooks Integration Tests', () => {
       mockApi.get.mockResolvedValue({ data: mockData });
 
       const { result } = renderHook(
-        () => useActivityTimeline(undefined, '/test/workspace'),
+        () => (useActivityTimeline as any)(undefined, '/test/workspace'),
         { wrapper }
       );
 
       await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+        expect((result.current as any).isSuccess).toBe(true);
       });
 
       expect(mockApi.get).toHaveBeenCalledWith('/api/activity-timeline', {
@@ -210,11 +210,11 @@ describe('Chart Hooks Integration Tests', () => {
       mockApi.get.mockResolvedValueOnce({ data: mockData1 });
 
       const { result, rerender } = renderHook(
-        ({ workspace }: { workspace?: string }) => useActivityTimeline(undefined, workspace),
+        ({ workspace }: { workspace?: string }) => (useActivityTimeline as any)(undefined, workspace),
         { wrapper, initialProps: { workspace: '/workspace1' } }
       );
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      await waitFor(() => expect((result.current as any).isSuccess).toBe(true));
       expect(result.current.data).toEqual(mockData1);
 
       // Change workspace
@@ -242,7 +242,7 @@ describe('Chart Hooks Integration Tests', () => {
       const { result } = renderHook(() => useTaskTypeCounts(), { wrapper });
 
       await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+        expect((result.current as any).isSuccess).toBe(true);
       });
 
       expect(result.current.data).toEqual(mockData);
@@ -254,12 +254,12 @@ describe('Chart Hooks Integration Tests', () => {
       mockApi.get.mockResolvedValue({ data: mockData });
 
       const { result } = renderHook(
-        () => useTaskTypeCounts({ projectPath: '/test/workspace' }),
+        () => useTaskTypeCounts({ projectPath: '/test/workspace' } as any),
         { wrapper }
       );
 
       await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+        expect((result.current as any).isSuccess).toBe(true);
       });
 
       expect(mockApi.get).toHaveBeenCalledWith('/api/task-type-counts', {
@@ -278,7 +278,7 @@ describe('Chart Hooks Integration Tests', () => {
       const { result } = renderHook(() => useTaskTypeCounts(), { wrapper });
 
       await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+        expect((result.current as any).isSuccess).toBe(true);
       });
 
       expect(result.current.data).toEqual(mockData);
@@ -294,7 +294,7 @@ describe('Chart Hooks Integration Tests', () => {
       );
 
       await waitFor(() => {
-        expect(result.current.isSuccess).toBe(true);
+        expect((result.current as any).isSuccess).toBe(true);
       });
 
       // Data should be fresh for 30s
@@ -318,9 +318,9 @@ describe('Chart Hooks Integration Tests', () => {
       const { result: result3 } = renderHook(() => useTaskTypeCounts(), { wrapper });
 
       await waitFor(() => {
-        expect(result1.current.isSuccess).toBe(true);
-        expect(result2.current.isSuccess).toBe(true);
-        expect(result3.current.isSuccess).toBe(true);
+        expect((result1.current as any).isSuccess).toBe(true);
+        expect((result2.current as any).isSuccess).toBe(true);
+        expect((result3.current as any).isSuccess).toBe(true);
       });
 
       expect(mockApi.get).toHaveBeenCalledTimes(3);
@@ -343,9 +343,9 @@ describe('Chart Hooks Integration Tests', () => {
       const { result: result3 } = renderHook(() => useTaskTypeCounts(), { wrapper });
 
       await waitFor(() => {
-        expect(result1.current.isError).toBe(true);
-        expect(result2.current.isSuccess).toBe(true);
-        expect(result3.current.isSuccess).toBe(true);
+        expect((result1.current as any).isError).toBe(true);
+        expect((result2.current as any).isSuccess).toBe(true);
+        expect((result3.current as any).isSuccess).toBe(true);
       });
     });
 
@@ -355,13 +355,13 @@ describe('Chart Hooks Integration Tests', () => {
 
       // First component
       const { result: result1 } = renderHook(() => useWorkflowStatusCounts(), { wrapper });
-      await waitFor(() => expect(result1.current.isSuccess).toBe(true));
+      await waitFor(() => expect((result1.current as any).isSuccess).toBe(true));
 
       // Second component should use cache
       const { result: result2 } = renderHook(() => useWorkflowStatusCounts(), { wrapper });
 
       await waitFor(() => {
-        expect(result2.current.isSuccess).toBe(true);
+        expect((result2.current as any).isSuccess).toBe(true);
       });
 
       // Only one API call

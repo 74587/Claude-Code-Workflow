@@ -170,15 +170,15 @@ export function PromptHistoryPage() {
       setSelectedInsight(null);
       // Show success toast
       const successMessage = locale === 'zh' ? '洞察已删除' : 'Insight deleted';
-      if (window.showToast) {
-        window.showToast(successMessage, 'success');
+      if ((window as any).showToast) {
+        (window as any).showToast(successMessage, 'success');
       }
     } catch (err) {
       console.error('Failed to delete insight:', err);
       // Show error toast
       const errorMessage = locale === 'zh' ? '删除洞察失败' : 'Failed to delete insight';
-      if (window.showToast) {
-        window.showToast(errorMessage, 'error');
+      if ((window as any).showToast) {
+        (window as any).showToast(errorMessage, 'error');
       }
     }
   };

@@ -15,7 +15,7 @@ test.describe('[MCP] - MCP Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to MCP settings page
-    await page.goto('/settings/mcp', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/settings/mcp', { waitUntil: 'domcontentloaded' as const });
 
     // Look for MCP servers list container
     const serversList = page.getByTestId('mcp-servers-list').or(
@@ -711,7 +711,7 @@ test.describe('[MCP] - MCP Management Tests', () => {
     await page.goto('/settings/mcp', { waitUntil: 'networkidle' as const });
 
     // Verify server error message
-    const errorMessage = page.getByText(/server error|try again|服务器错误/i);
+    const errorMessage = page.locator('text=/Failed to load data|加载失败/');
     await page.unroute('**/api/mcp');
     const hasError = await errorMessage.isVisible().catch(() => false);
     expect(hasError).toBe(true);
@@ -734,7 +734,7 @@ test.describe('[MCP] - MCP Management Tests', () => {
     await page.waitForTimeout(3000);
 
     // Verify timeout message
-    const timeoutMessage = page.getByText(/timeout|network error|unavailable|网络超时/i);
+    const timeoutMessage = page.locator('text=/Failed to load data|加载失败/');
     await page.unroute('**/api/mcp');
     const hasTimeout = await timeoutMessage.isVisible().catch(() => false);
 

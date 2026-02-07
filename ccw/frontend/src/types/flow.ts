@@ -219,6 +219,9 @@ export interface FlowState {
   isPaletteOpen: boolean;
   isPropertyPanelOpen: boolean;
   leftPanelTab: 'templates' | 'nodes';
+
+  // Interaction mode for canvas
+  interactionMode: 'pan' | 'selection';
 }
 
 export interface FlowActions {
@@ -254,6 +257,10 @@ export interface FlowActions {
   setIsPaletteOpen: (open: boolean) => void;
   setIsPropertyPanelOpen: (open: boolean) => void;
   setLeftPanelTab: (tab: 'templates' | 'nodes') => void;
+
+  // Interaction mode
+  toggleInteractionMode: () => void;
+  setInteractionMode: (mode: 'pan' | 'selection') => void;
 
   // Custom templates
   addCustomTemplate: (template: QuickTemplate) => void;

@@ -1238,7 +1238,6 @@ export function PropertyPanel({ className }: PropertyPanelProps) {
   const nodes = useFlowStore((state) => state.nodes);
   const updateNode = useFlowStore((state) => state.updateNode);
   const removeNode = useFlowStore((state) => state.removeNode);
-  const isPropertyPanelOpen = useFlowStore((state) => state.isPropertyPanelOpen);
   const setIsPropertyPanelOpen = useFlowStore((state) => state.setIsPropertyPanelOpen);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
@@ -1258,26 +1257,10 @@ export function PropertyPanel({ className }: PropertyPanelProps) {
     }
   }, [selectedNodeId, removeNode]);
 
-  // Collapsed state
-  if (!isPropertyPanelOpen) {
-    return (
-      <div className={cn('w-10 bg-card border-l border-border flex flex-col items-center py-4', className)}>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsPropertyPanelOpen(true)}
-          title={formatMessage({ id: 'orchestrator.propertyPanel.open' })}
-        >
-          <Settings className="w-4 h-4" />
-        </Button>
-      </div>
-    );
-  }
-
   // No node selected
   if (!selectedNode) {
     return (
-      <div className={cn('w-72 bg-card border-l border-border flex flex-col', className)}>
+      <div className={cn('w-72 bg-card/95 backdrop-blur-sm border border-border rounded-lg shadow-xl flex flex-col', className)}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="font-semibold text-foreground">{formatMessage({ id: 'orchestrator.propertyPanel.title' })}</h3>
           <Button
@@ -1301,7 +1284,7 @@ export function PropertyPanel({ className }: PropertyPanelProps) {
   }
 
   return (
-    <div className={cn('w-72 bg-card border-l border-border flex flex-col', className)}>
+    <div className={cn('w-72 bg-card/95 backdrop-blur-sm border border-border rounded-lg shadow-xl flex flex-col', className)}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">

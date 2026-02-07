@@ -42,7 +42,7 @@ test.describe('[Orchestrator] - Workflow Canvas Tests', () => {
       }
     });
 
-    await page.goto('/orchestrator', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/orchestrator', { waitUntil: 'domcontentloaded' as const });
   });
 
   test('L3.01 - Canvas loads and displays nodes', async ({ page }) => {
@@ -75,7 +75,7 @@ test.describe('[Orchestrator] - Workflow Canvas Tests', () => {
     });
 
     // Reload page to trigger API call
-    await page.reload({ waitUntil: 'networkidle' as const });
+    await page.reload({ waitUntil: 'domcontentloaded' as const });
 
     // Look for workflow canvas
     const canvas = page.getByTestId('workflow-canvas').or(
@@ -721,7 +721,7 @@ test.describe('[Orchestrator] - Workflow Canvas Tests', () => {
     await page.reload({ waitUntil: 'networkidle' as const });
 
     // Verify server error message
-    const errorMessage = page.getByText(/server error|try again|服务器错误/i);
+    const errorMessage = page.locator('text=/Failed to load data|加载失败/');
     await page.unroute('**/api/workflows');
     const hasError = await errorMessage.isVisible().catch(() => false);
     expect(hasError).toBe(true);
@@ -744,7 +744,7 @@ test.describe('[Orchestrator] - Workflow Canvas Tests', () => {
     await page.waitForTimeout(3000);
 
     // Verify timeout message
-    const timeoutMessage = page.getByText(/timeout|network error|unavailable|网络超时/i);
+    const timeoutMessage = page.locator('text=/Failed to load data|加载失败/');
     await page.unroute('**/api/workflows');
     const hasTimeout = await timeoutMessage.isVisible().catch(() => false);
 

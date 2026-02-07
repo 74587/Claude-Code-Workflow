@@ -15,7 +15,7 @@ test.describe.skip('[CodexLens Manager] - CodexLens Management Tests', () => {
     const monitoring = setupEnhancedMonitoring(page);
 
     // Navigate to CodexLens page
-    await page.goto('/settings/codexlens', { waitUntil: 'networkidle' as const });
+    await page.goto('/react/settings/codexlens', { waitUntil: 'domcontentloaded' as const });
 
     // Check page title
     const title = page.getByText(/CodexLens/i).or(page.getByRole('heading', { name: /CodexLens/i }));

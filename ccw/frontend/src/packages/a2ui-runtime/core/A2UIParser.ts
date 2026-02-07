@@ -105,14 +105,14 @@ export class A2UIParser {
    * @param json - JSON string to parse
    * @returns Result object with success flag and data or error
    */
-  safeParse(json: string): z.SafeParseReturnType<SurfaceUpdate, SurfaceUpdate> {
+  safeParse(json: string): ReturnType<typeof SurfaceUpdateSchema.safeParse> {
     try {
       const data = JSON.parse(json);
       return SurfaceUpdateSchema.safeParse(data);
     } catch (error) {
       return {
         success: false as const,
-        error: error as z.ZodError,
+        error: error as any,
       };
     }
   }
@@ -122,7 +122,7 @@ export class A2UIParser {
    * @param data - Object to validate
    * @returns Result object with success flag and data or error
    */
-  safeParseObject(data: unknown): z.SafeParseReturnType<SurfaceUpdate, SurfaceUpdate> {
+  safeParseObject(data: unknown): ReturnType<typeof SurfaceUpdateSchema.safeParse> {
     return SurfaceUpdateSchema.safeParse(data);
   }
 
