@@ -16,7 +16,7 @@ Unified issue discovery and creation skill covering three entry points: manual i
 │  → Action selection → Route to phase → Execute → Summary         │
 └───────────────┬─────────────────────────────────────────────────┘
                 │
-                ├─ AskUserQuestion: Select action
+                ├─ ASK_USER: Select action
                 │
     ┌───────────┼───────────┬───────────┐
     ↓           ↓           ↓           │
@@ -38,7 +38,7 @@ Unified issue discovery and creation skill covering three entry points: manual i
 
 ## Key Design Principles
 
-1. **Action-Driven Routing**: AskUserQuestion selects action, then load single phase
+1. **Action-Driven Routing**: ASK_USER selects action, then load single phase
 2. **Progressive Phase Loading**: Only read the selected phase document
 3. **CLI-First Data Access**: All issue CRUD via `ccw issue` CLI commands
 4. **Auto Mode Support**: `-y` flag skips action selection with auto-detection
@@ -89,7 +89,7 @@ Action Selection:
    │   ├─ Path pattern (src/**, *.ts) → Discover (Phase 2)
    │   ├─ Short text (< 80 chars) → Create New (Phase 1)
    │   └─ Long descriptive text (≥ 80 chars) → Discover by Prompt (Phase 3)
-   └─ Otherwise → AskUserQuestion to select action
+   └─ Otherwise → ASK_USER to select action
 
 Phase Execution (load one phase):
    ├─ Phase 1: Create New          → phases/01-issue-new.md
@@ -155,31 +155,29 @@ function detectAction(input, flags) {
 }
 ```
 
-### Action Selection (AskUserQuestion)
+### Action Selection (ASK_USER)
 
 ```javascript
 // When action cannot be auto-detected
-const answer = AskUserQuestion({
-  questions: [{
-    question: "What would you like to do?",
-    header: "Action",
-    multiSelect: false,
-    options: [
-      {
-        label: "Create New Issue (Recommended)",
-        description: "Create issue from GitHub URL, text description, or structured input"
-      },
-      {
-        label: "Discover Issues",
-        description: "Multi-perspective discovery: bug, security, test, quality, performance, etc."
-      },
-      {
-        label: "Discover by Prompt",
-        description: "Describe what to find — Gemini plans the exploration strategy iteratively"
-      }
-    ]
-  }]
-});
+const answer = ASK_USER([{
+  id: "action",
+  type: "select",
+  prompt: "What would you like to do?",
+  options: [
+    {
+      label: "Create New Issue (Recommended)",
+      description: "Create issue from GitHub URL, text description, or structured input"
+    },
+    {
+      label: "Discover Issues",
+      description: "Multi-perspective discovery: bug, security, test, quality, performance, etc."
+    },
+    {
+      label: "Discover by Prompt",
+      description: "Describe what to find — Gemini plans the exploration strategy iteratively"
+    }
+  ]
+}]);  // BLOCKS (wait for user response)
 
 // Route based on selection
 const actionMap = {
@@ -196,7 +194,7 @@ User Input (URL / text / path pattern / descriptive prompt)
     ↓
 [Parse Flags + Auto-Detect Action]
     ↓
-[Action Selection] ← AskUserQuestion (if needed)
+[Action Selection] ← ASK_USER (if needed)
     ↓
 [Read Selected Phase Document]
     ↓
@@ -294,7 +292,7 @@ close_agent({ id: agentId })
 
 | Error | Resolution |
 |-------|------------|
-| No action detected | Show AskUserQuestion with all 3 options |
+| No action detected | Show ASK_USER with all 3 options |
 | Invalid action type | Show available actions, re-prompt |
 | Phase execution fails | Report error, suggest manual intervention |
 | No files matched (discover) | Check target pattern, verify path exists |
@@ -307,33 +305,29 @@ After successful phase execution, recommend next action:
 
 ```javascript
 // After Create New (issue created)
-AskUserQuestion({
-  questions: [{
-    question: "Issue created. What next?",
-    header: "Next",
-    multiSelect: false,
-    options: [
-      { label: "Plan Solution", description: "Generate solution via issue-resolve" },
-      { label: "Create Another", description: "Create more issues" },
-      { label: "View Issues", description: "Review all issues" },
-      { label: "Done", description: "Exit workflow" }
-    ]
-  }]
-});
+ASK_USER([{
+  id: "next_after_create",
+  type: "select",
+  prompt: "Issue created. What next?",
+  options: [
+    { label: "Plan Solution", description: "Generate solution via issue-resolve" },
+    { label: "Create Another", description: "Create more issues" },
+    { label: "View Issues", description: "Review all issues" },
+    { label: "Done", description: "Exit workflow" }
+  ]
+}]);  // BLOCKS (wait for user response)
 
 // After Discover / Discover by Prompt (discoveries generated)
-AskUserQuestion({
-  questions: [{
-    question: "Discovery complete. What next?",
-    header: "Next",
-    multiSelect: false,
-    options: [
-      { label: "Export to Issues", description: "Convert discoveries to issues" },
-      { label: "Plan Solutions", description: "Plan solutions for exported issues via issue-resolve" },
-      { label: "Done", description: "Exit workflow" }
-    ]
-  }]
-});
+ASK_USER([{
+  id: "next_after_discover",
+  type: "select",
+  prompt: "Discovery complete. What next?",
+  options: [
+    { label: "Export to Issues", description: "Convert discoveries to issues" },
+    { label: "Plan Solutions", description: "Plan solutions for exported issues via issue-resolve" },
+    { label: "Done", description: "Exit workflow" }
+  ]
+}]);  // BLOCKS (wait for user response)
 ```
 
 ## Related Skills & Commands

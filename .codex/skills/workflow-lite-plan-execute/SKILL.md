@@ -38,19 +38,21 @@ When `--yes` or `-y`: Auto-approve plan, skip clarifications, use default execut
 
 ## Usage
 
-```
-Skill(skill="workflow-lite-plan-execute", args="<task description>")
-Skill(skill="workflow-lite-plan-execute", args="[FLAGS] \"<task description>\"")
+```bash
+$workflow-lite-plan-execute <task description>
+$workflow-lite-plan-execute [FLAGS] "<task description>"
 
 # Flags
 -y, --yes                              Skip all confirmations (auto mode)
 -e, --explore                          Force exploration phase
 
 # Examples
-Skill(skill="workflow-lite-plan-execute", args="\"Implement JWT authentication\"")
-Skill(skill="workflow-lite-plan-execute", args="-y \"Add user profile page\"")
-Skill(skill="workflow-lite-plan-execute", args="-e \"Refactor payment module\"")
+$workflow-lite-plan-execute "Implement JWT authentication"
+$workflow-lite-plan-execute -y "Add user profile page"
+$workflow-lite-plan-execute -e "Refactor payment module"
 ```
+
+> **Implementation sketch**: 编排器内部使用 `Skill(skill="workflow-lite-plan-execute", args="...")` 接口调用，此为伪代码示意，非命令行语法。
 
 ## Subagent API Reference
 

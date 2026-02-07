@@ -16,7 +16,7 @@ Unified issue resolution pipeline that orchestrates solution creation from multi
 │  → Source selection → Route to phase → Execute → Summary         │
 └───────────────┬─────────────────────────────────────────────────┘
                 │
-                ├─ AskUserQuestion: Select issue source
+                ├─ ASK_USER: Select issue source
                 │
     ┌───────────┼───────────┬───────────┬───────────┐
     ↓           ↓           ↓           ↓           │
@@ -36,7 +36,7 @@ Unified issue resolution pipeline that orchestrates solution creation from multi
 
 ## Key Design Principles
 
-1. **Source-Driven Routing**: AskUserQuestion selects workflow, then load single phase
+1. **Source-Driven Routing**: ASK_USER selects workflow, then load single phase
 2. **Progressive Phase Loading**: Only read the selected phase document
 3. **CLI-First Data Access**: All issue/solution CRUD via `ccw issue` CLI commands
 4. **Auto Mode Support**: `-y` flag skips source selection (defaults to Explore & Plan)
@@ -142,7 +142,7 @@ Source Selection:
    │   ├─ SESSION="..." → From Brainstorm
    │   ├─ File/folder path → Convert from Artifact
    │   └─ No input or --all-pending → Explore & Plan (all pending)
-   └─ Otherwise → AskUserQuestion to select source
+   └─ Otherwise → ASK_USER to select source
 
 Phase Execution (load one phase):
    ├─ Phase 1: Explore & Plan    → phases/01-issue-plan.md
@@ -210,35 +210,33 @@ function detectSource(input, flags) {
 }
 ```
 
-### Source Selection (AskUserQuestion)
+### Source Selection (ASK_USER)
 
 ```javascript
 // When source cannot be auto-detected
-const answer = AskUserQuestion({
-  questions: [{
-    question: "How would you like to create/manage issue solutions?",
-    header: "Source",
-    multiSelect: false,
-    options: [
-      {
-        label: "Explore & Plan (Recommended)",
-        description: "AI explores codebase and generates solutions for issues"
-      },
-      {
-        label: "Convert from Artifact",
-        description: "Convert existing lite-plan, workflow session, or markdown to solution"
-      },
-      {
-        label: "From Brainstorm",
-        description: "Convert brainstorm session ideas into issue with solution"
-      },
-      {
-        label: "Form Execution Queue",
-        description: "Order bound solutions into execution queue for /issue:execute"
-      }
-    ]
-  }]
-});
+const answer = ASK_USER([{
+  id: "source",
+  type: "select",
+  prompt: "How would you like to create/manage issue solutions?",
+  options: [
+    {
+      label: "Explore & Plan (Recommended)",
+      description: "AI explores codebase and generates solutions for issues"
+    },
+    {
+      label: "Convert from Artifact",
+      description: "Convert existing lite-plan, workflow session, or markdown to solution"
+    },
+    {
+      label: "From Brainstorm",
+      description: "Convert brainstorm session ideas into issue with solution"
+    },
+    {
+      label: "Form Execution Queue",
+      description: "Order bound solutions into execution queue for /issue:execute"
+    }
+  ]
+}]);  // BLOCKS (wait for user response)
 
 // Route based on selection
 const sourceMap = {
@@ -256,7 +254,7 @@ User Input (issue IDs / artifact path / session ID / flags)
     ↓
 [Parse Flags + Auto-Detect Source]
     ↓
-[Source Selection] ← AskUserQuestion (if needed)
+[Source Selection] ← ASK_USER (if needed)
     ↓
 [Read Selected Phase Document]
     ↓
@@ -305,7 +303,7 @@ Phase-specific sub-tasks are attached when the phase executes (see individual ph
 
 | Error | Resolution |
 |-------|------------|
-| No source detected | Show AskUserQuestion with all 4 options |
+| No source detected | Show ASK_USER with all 4 options |
 | Invalid source type | Show available sources, re-prompt |
 | Phase execution fails | Report error, suggest manual intervention |
 | No pending issues (plan) | Suggest creating issues first |
@@ -317,19 +315,17 @@ After successful phase execution, recommend next action:
 
 ```javascript
 // After Plan/Convert/Brainstorm (solutions created)
-AskUserQuestion({
-  questions: [{
-    question: "Solutions created. What next?",
-    header: "Next",
-    multiSelect: false,
-    options: [
-      { label: "Form Queue", description: "Order solutions for execution (/issue:queue)" },
-      { label: "Plan More Issues", description: "Continue creating solutions" },
-      { label: "View Issues", description: "Review issue details" },
-      { label: "Done", description: "Exit workflow" }
-    ]
-  }]
-});
+ASK_USER([{
+  id: "next_action",
+  type: "select",
+  prompt: "Solutions created. What next?",
+  options: [
+    { label: "Form Queue", description: "Order solutions for execution (/issue:queue)" },
+    { label: "Plan More Issues", description: "Continue creating solutions" },
+    { label: "View Issues", description: "Review issue details" },
+    { label: "Done", description: "Exit workflow" }
+  ]
+}]);  // BLOCKS (wait for user response)
 
 // After Queue (queue formed)
 // → Suggest /issue:execute directly

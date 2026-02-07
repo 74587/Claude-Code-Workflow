@@ -86,20 +86,18 @@ let selectedPerspectives = [];
 if (args.perspectives) {
   selectedPerspectives = args.perspectives.split(',').map(p => p.trim());
 } else {
-  // Interactive selection via AskUserQuestion
-  const response = AskUserQuestion({
-    questions: [{
-      question: "Select primary discovery focus:",
-      header: "Focus",
-      multiSelect: false,
-      options: [
-        { label: "Bug + Test + Quality", description: "Quick scan: potential bugs, test gaps, code quality (Recommended)" },
-        { label: "Security + Performance", description: "System audit: security issues, performance bottlenecks" },
-        { label: "Maintainability + Best-practices", description: "Long-term health: coupling, tech debt, conventions" },
-        { label: "Full analysis", description: "All 8 perspectives (comprehensive, takes longer)" }
-      ]
-    }]
-  });
+  // Interactive selection via ASK_USER
+  const response = ASK_USER([{
+    id: "focus",
+    type: "select",
+    prompt: "Select primary discovery focus:",
+    options: [
+      { label: "Bug + Test + Quality", description: "Quick scan: potential bugs, test gaps, code quality (Recommended)" },
+      { label: "Security + Performance", description: "System audit: security issues, performance bottlenecks" },
+      { label: "Maintainability + Best-practices", description: "Long-term health: coupling, tech debt, conventions" },
+      { label: "Full analysis", description: "All 8 perspectives (comprehensive, takes longer)" }
+    ]
+  }]);  // BLOCKS (wait for user response)
   selectedPerspectives = parseSelectedPerspectives(response);
 }
 ```
@@ -273,22 +271,20 @@ await updateDiscoveryState(outputDir, {
 ```javascript
 const hasHighPriority = issues.some(i => i.priority === 'critical' || i.priority === 'high');
 
-await AskUserQuestion({
-  questions: [{
-    question: `Discovery complete: ${issues.length} issues generated, ${prioritizedFindings.length} total findings. What next?`,
-    header: "Next Step",
-    multiSelect: false,
-    options: hasHighPriority ? [
-      { label: "Export to Issues (Recommended)", description: `${issues.length} high-priority issues found - export to tracker` },
-      { label: "Open Dashboard", description: "Review findings in ccw view before exporting" },
-      { label: "Skip", description: "Complete discovery without exporting" }
-    ] : [
-      { label: "Open Dashboard (Recommended)", description: "Review findings in ccw view to decide which to export" },
-      { label: "Export to Issues", description: `Export ${issues.length} issues to tracker` },
-      { label: "Skip", description: "Complete discovery without exporting" }
-    ]
-  }]
-});
+await ASK_USER([{
+  id: "next_step",
+  type: "select",
+  prompt: `Discovery complete: ${issues.length} issues generated, ${prioritizedFindings.length} total findings. What next?`,
+  options: hasHighPriority ? [
+    { label: "Export to Issues (Recommended)", description: `${issues.length} high-priority issues found - export to tracker` },
+    { label: "Open Dashboard", description: "Review findings in ccw view before exporting" },
+    { label: "Skip", description: "Complete discovery without exporting" }
+  ] : [
+    { label: "Open Dashboard (Recommended)", description: "Review findings in ccw view to decide which to export" },
+    { label: "Export to Issues", description: `Export ${issues.length} issues to tracker` },
+    { label: "Skip", description: "Complete discovery without exporting" }
+  ]
+}]);  // BLOCKS (wait for user response)
 
 if (response === "Export to Issues") {
   await appendJsonl('.workflow/issues/issues.jsonl', issues);

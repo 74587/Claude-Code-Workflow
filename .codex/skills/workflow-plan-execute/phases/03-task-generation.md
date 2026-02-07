@@ -92,57 +92,53 @@ if (autoYes) {
 
 **User Questions** (skipped if autoYes):
 ```javascript
-if (!autoYes) AskUserQuestion({
-  questions: [
-    {
-      question: "Do you have supplementary materials or guidelines to include?",
-      header: "Materials",
-      multiSelect: false,
-      options: [
-        { label: "No additional materials", description: "Use existing context only" },
-        { label: "Provide file paths", description: "I'll specify paths to include" },
-        { label: "Provide inline content", description: "I'll paste content directly" }
-      ]
-    },
-    {
-      question: "Select execution method for generated tasks:",
-      header: "Execution",
-      multiSelect: false,
-      options: [
-        { label: "Agent (Recommended)", description: "Claude agent executes tasks directly" },
-        { label: "Hybrid", description: "Agent orchestrates, calls CLI for complex steps" },
-        { label: "CLI Only", description: "All execution via CLI tools (codex/gemini/qwen)" }
-      ]
-    },
-    {
-      question: "If using CLI, which tool do you prefer?",
-      header: "CLI Tool",
-      multiSelect: false,
-      options: [
-        { label: "Codex (Recommended)", description: "Best for implementation tasks" },
-        { label: "Gemini", description: "Best for analysis and large context" },
-        { label: "Qwen", description: "Alternative analysis tool" },
-        { label: "Auto", description: "Let agent decide per-task" }
-      ]
-    }
-  ]
-})
+if (!autoYes) ASK_USER([
+  {
+    id: "materials",
+    type: "select",
+    prompt: "Do you have supplementary materials or guidelines to include?",
+    options: [
+      { label: "No additional materials", description: "Use existing context only" },
+      { label: "Provide file paths", description: "I'll specify paths to include" },
+      { label: "Provide inline content", description: "I'll paste content directly" }
+    ]
+  },
+  {
+    id: "execution-method",
+    type: "select",
+    prompt: "Select execution method for generated tasks:",
+    options: [
+      { label: "Agent (Recommended)", description: "Claude agent executes tasks directly" },
+      { label: "Hybrid", description: "Agent orchestrates, calls CLI for complex steps" },
+      { label: "CLI Only", description: "All execution via CLI tools (codex/gemini/qwen)" }
+    ]
+  },
+  {
+    id: "cli-tool",
+    type: "select",
+    prompt: "If using CLI, which tool do you prefer?",
+    options: [
+      { label: "Codex (Recommended)", description: "Best for implementation tasks" },
+      { label: "Gemini", description: "Best for analysis and large context" },
+      { label: "Qwen", description: "Alternative analysis tool" },
+      { label: "Auto", description: "Let agent decide per-task" }
+    ]
+  }
+])  // BLOCKS (wait for user response)
 ```
 
 **Handle Materials Response** (skipped if autoYes):
 ```javascript
 if (!autoYes && userConfig.materials === "Provide file paths") {
   // Follow-up question for file paths
-  const pathsResponse = AskUserQuestion({
-    questions: [{
-      question: "Enter file paths to include (comma-separated or one per line):",
-      header: "Paths",
-      multiSelect: false,
-      options: [
-        { label: "Enter paths", description: "Provide paths in text input" }
-      ]
-    }]
-  })
+  const pathsResponse = ASK_USER([{
+    id: "material-paths",
+    type: "input",
+    prompt: "Enter file paths to include (comma-separated or one per line):",
+    options: [
+      { label: "Enter paths", description: "Provide paths in text input" }
+    ]
+  }])  // BLOCKS (wait for user response)
   userConfig.supplementaryPaths = parseUserPaths(pathsResponse)
 }
 ```

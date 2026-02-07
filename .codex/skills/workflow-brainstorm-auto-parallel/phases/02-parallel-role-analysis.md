@@ -231,17 +231,14 @@ for (let i = 0; i < questions.length; i += BATCH_SIZE) {
 
   console.log(`\n[Round ${currentRound}/${totalRounds}] ${config.title} 上下文询问\n`);
 
-  AskUserQuestion({
-    questions: batch.map(q => ({
-      question: q.question,
-      header: q.category.substring(0, 12),
-      multiSelect: false,
-      options: q.options.map(opt => ({
-        label: opt.label,
-        description: opt.description
-      }))
+  ASK_USER(batch.map(q => ({
+    id: q.category.substring(0, 12), type: "select",
+    prompt: q.question,
+    options: q.options.map(opt => ({
+      label: opt.label,
+      description: opt.description
     }))
-  });
+  })));  // BLOCKS (wait for user response)
 
   // Store responses before next round
   for (const answer of responses) {

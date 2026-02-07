@@ -182,14 +182,11 @@ ${synthesis.top_ideas.map((idea, i) =>
     })
   }
 
-  const selection = AskUser({
-    questions: [{
-      question: "Which idea should be developed?",
-      header: "Idea",
-      multiSelect: false,
-      options: ideaOptions
-    }]
-  })
+  const selection = ASK_USER([{
+    id: "idea", type: "select",
+    prompt: "Which idea should be developed?",
+    options: ideaOptions
+  }])  // BLOCKS (wait for user response)
 
   // Parse selection
   if (selection.idea === "Primary Recommendation") {
@@ -292,17 +289,14 @@ Write(`${sessionFolder}/cycle-task.md`, `# Generated Task\n\n**Generated**: ${ge
 let shouldLaunch = isAutoMode
 
 if (!isAutoMode) {
-  const confirmation = AskUser({
-    questions: [{
-      question: "Launch parallel-dev-cycle with this task?",
-      header: "Launch",
-      multiSelect: false,
-      options: [
-        { label: "Yes, launch cycle (Recommended)", description: "Start parallel-dev-cycle with enriched task" },
-        { label: "No, just save task", description: "Save formatted task for manual use" }
-      ]
-    }]
-  })
+  const confirmation = ASK_USER([{
+    id: "launch", type: "select",
+    prompt: "Launch parallel-dev-cycle with this task?",
+    options: [
+      { label: "Yes, launch cycle (Recommended)", description: "Start parallel-dev-cycle with enriched task" },
+      { label: "No, just save task", description: "Save formatted task for manual use" }
+    ]
+  }])  // BLOCKS (wait for user response)
 
   shouldLaunch = confirmation.launch.includes("Yes")
 }

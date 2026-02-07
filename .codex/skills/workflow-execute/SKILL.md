@@ -84,7 +84,7 @@ Phase 1: Discovery
    └─ Decision:
       ├─ count=0 → ERROR: No active sessions
       ├─ count=1 → Auto-select session → Phase 2
-      └─ count>1 → AskUserQuestion (max 4 options) → Phase 2
+      └─ count>1 → ASK_USER (max 4 options) → Phase 2
 
 Phase 2: Planning Document Validation
    ├─ Check IMPL_PLAN.md exists
@@ -117,7 +117,7 @@ Phase 4: Execution Strategy & Task Execution
 Phase 5: Completion
    ├─ Update task statuses in JSON files
    ├─ Generate summaries
-   └─ AskUserQuestion: Choose next step
+   └─ ASK_USER: Choose next step
       ├─ "Enter Review" → workflow:review
       └─ "Complete Session" → workflow:session:complete
 
@@ -270,23 +270,20 @@ if (autoYes) {
   selectedSessionId = firstSession.id
   // Continue to Phase 2
 } else {
-  // Interactive mode: Use AskUserQuestion to present formatted options (max 4 options shown)
+  // Interactive mode: Use ASK_USER to present formatted options (max 4 options shown)
   // If more than 4 sessions, show most recent 4 with "Other" option for manual input
   const sessions = getActiveSessions()  // sorted by last modified
   const displaySessions = sessions.slice(0, 4)
 
-  AskUserQuestion({
-    questions: [{
-      question: "Multiple active sessions detected. Select one:",
-      header: "Session",
-      multiSelect: false,
-      options: displaySessions.map(s => ({
-        label: s.id,
-        description: `${s.project} | ${s.progress}`
-      }))
-      // Note: User can select "Other" to manually enter session ID
-    }]
-  })
+  ASK_USER([{
+    id: "session", type: "select",
+    prompt: "Multiple active sessions detected. Select one:",
+    options: displaySessions.map(s => ({
+      label: s.id,
+      description: `${s.project} | ${s.progress}`
+    }))
+    // Note: User can select "Other" to manually enter session ID
+  }])  // BLOCKS (wait for user response)
 }
 ```
 
@@ -415,23 +412,20 @@ if (autoYes) {
   // Execute: workflow:session:complete --yes
 } else {
   // Interactive mode: Ask user
-  AskUserQuestion({
-    questions: [{
-      question: "All tasks completed. What would you like to do next?",
-      header: "Next Step",
-      multiSelect: false,
-      options: [
-        {
-          label: "Enter Review",
-          description: "Run specialized review (security/architecture/quality/action-items)"
-        },
-        {
-          label: "Complete Session",
-          description: "Archive session and update manifest"
-        }
-      ]
-    }]
-  })
+  ASK_USER([{
+    id: "next_step", type: "select",
+    prompt: "All tasks completed. What would you like to do next?",
+    options: [
+      {
+        label: "Enter Review",
+        description: "Run specialized review (security/architecture/quality/action-items)"
+      },
+      {
+        label: "Complete Session",
+        description: "Archive session and update manifest"
+      }
+    ]
+  }])  // BLOCKS (wait for user response)
 }
 ```
 

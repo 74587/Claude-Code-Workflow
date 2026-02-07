@@ -459,7 +459,7 @@ Display current understanding and exploration findings to the user.
 - Open questions or areas needing clarification
 - Available action options
 
-**User Feedback Options** (AskUserQuestion - single select):
+**User Feedback Options** (ASK_USER - single select):
 
 | Option | Purpose | Next Action |
 |--------|---------|------------|
@@ -543,7 +543,7 @@ close_agent({ id: deepeningAgent })
 When user indicates a different focus is needed, spawn new agent with adjusted perspective.
 
 **Direction Adjustment Process**:
-1. Ask user for adjusted focus area (through AskUserQuestion)
+1. Ask user for adjusted focus area (via ASK_USER)
 2. Spawn new agent with different dimension/perspective
 3. Compare new insights with prior analysis
 4. Identify what was missed and why
@@ -592,10 +592,11 @@ When user has specific questions, address them directly.
 
 ```javascript
 // Capture user questions first
-const userQuestions = await AskUserQuestion({
-  question: "What specific questions do you have?",
+const userQuestions = ASK_USER([{
+  id: "user_questions", type: "input",
+  prompt: "What specific questions do you have?",
   options: [/* predefined + custom */]
-})
+}])  // BLOCKS (wait for user response)
 
 // Send questions to active agent
 send_input({
@@ -759,7 +760,7 @@ Append conclusions section and finalize the understanding document.
 
 Offer user follow-up actions based on analysis results.
 
-**Available Options** (AskUserQuestion - multi-select):
+**Available Options** (ASK_USER - multi-select):
 
 | Option | Purpose | Action |
 |--------|---------|--------|

@@ -362,27 +362,25 @@ if (autoYes) {
   console.log(`[--yes] Auto-continuing to Phase 4: Execution`)
   // Read phases/04-execution.md and execute Phase 4
 } else {
-  AskUserQuestion({
-    questions: [{
-      question: "Planning complete. What would you like to do next?",
-      header: "Next Action",
-      multiSelect: false,
-      options: [
-        {
-          label: "Verify Plan Quality (Recommended)",
-          description: "Run quality verification to catch issues before execution."
-        },
-        {
-          label: "Start Execution",
-          description: "Begin implementing tasks immediately (Phase 4)."
-        },
-        {
-          label: "Review Status Only",
-          description: "View task breakdown and session status without taking further action."
-        }
-      ]
-    }]
-  });
+  ASK_USER([{
+    id: "phase3-next-action",
+    type: "select",
+    prompt: "Planning complete. What would you like to do next?",
+    options: [
+      {
+        label: "Verify Plan Quality (Recommended)",
+        description: "Run quality verification to catch issues before execution."
+      },
+      {
+        label: "Start Execution",
+        description: "Begin implementing tasks immediately (Phase 4)."
+      },
+      {
+        label: "Review Status Only",
+        description: "View task breakdown and session status without taking further action."
+      }
+    ]
+  }])  // BLOCKS (wait for user response)
 }
 
 // Execute based on user choice

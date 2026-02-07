@@ -51,7 +51,7 @@ Step 3: Task Execution Loop
 Step 4: Completion
    ├─ Synchronize all statuses
    ├─ Generate summaries
-   └─ AskUserQuestion: Review or Complete Session
+   └─ ASK_USER: Review or Complete Session
 ```
 
 ## Step 1: TodoWrite Generation
@@ -284,23 +284,21 @@ if (autoYes) {
   // Execute: workflow:session:complete --yes
 } else {
   // Interactive mode: Ask user
-  AskUserQuestion({
-    questions: [{
-      question: "All tasks completed. What would you like to do next?",
-      header: "Next Step",
-      multiSelect: false,
-      options: [
-        {
-          label: "Enter Review",
-          description: "Run specialized review (security/architecture/quality/action-items)"
-        },
-        {
-          label: "Complete Session",
-          description: "Archive session and update manifest"
-        }
-      ]
-    }]
-  })
+  ASK_USER([{
+    id: "completion-next-step",
+    type: "select",
+    prompt: "All tasks completed. What would you like to do next?",
+    options: [
+      {
+        label: "Enter Review",
+        description: "Run specialized review (security/architecture/quality/action-items)"
+      },
+      {
+        label: "Complete Session",
+        description: "Archive session and update manifest"
+      }
+    ]
+  }])  // BLOCKS (wait for user response)
 }
 ```
 

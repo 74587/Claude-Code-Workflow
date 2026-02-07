@@ -81,12 +81,14 @@ Phase 2: Agent Execution (Document Generation)
 
 **User Questions**:
 ```javascript
-AskUserQuestion({
-  questions: [
+if (AUTO_YES) {
+  // --yes/-y: skip user questions, use defaults
+  userConfig = { materials: "No additional materials", execution: "Agent (Recommended)", cliTool: "Auto" }
+} else {
+  ASK_USER([
     {
-      question: "Do you have supplementary materials or guidelines to include?",
-      header: "Materials",
-      multiSelect: false,
+      id: "Materials", type: "select",
+      prompt: "Do you have supplementary materials or guidelines to include?",
       options: [
         { label: "No additional materials", description: "Use existing context only" },
         { label: "Provide file paths", description: "I'll specify paths to include" },
@@ -94,9 +96,8 @@ AskUserQuestion({
       ]
     },
     {
-      question: "Select execution method for generated TDD tasks:",
-      header: "Execution",
-      multiSelect: false,
+      id: "Execution", type: "select",
+      prompt: "Select execution method for generated TDD tasks:",
       options: [
         { label: "Agent (Recommended)", description: "Agent executes Red-Green-Refactor cycles directly" },
         { label: "Hybrid", description: "Agent orchestrates, calls CLI for complex steps (Red/Green phases)" },
@@ -104,9 +105,8 @@ AskUserQuestion({
       ]
     },
     {
-      question: "If using CLI, which tool do you prefer?",
-      header: "CLI Tool",
-      multiSelect: false,
+      id: "CLI Tool", type: "select",
+      prompt: "If using CLI, which tool do you prefer?",
       options: [
         { label: "Codex (Recommended)", description: "Best for TDD Red-Green-Refactor cycles" },
         { label: "Gemini", description: "Best for analysis and large context" },
@@ -114,24 +114,21 @@ AskUserQuestion({
         { label: "Auto", description: "Let agent decide per-task" }
       ]
     }
-  ]
-})
+  ])  // BLOCKS (wait for user response)
+}
 ```
 
 **Handle Materials Response**:
 ```javascript
 if (userConfig.materials === "Provide file paths") {
   // Follow-up question for file paths
-  const pathsResponse = AskUserQuestion({
-    questions: [{
-      question: "Enter file paths to include (comma-separated or one per line):",
-      header: "Paths",
-      multiSelect: false,
-      options: [
-        { label: "Enter paths", description: "Provide paths in text input" }
-      ]
-    }]
-  })
+  const pathsResponse = ASK_USER([{
+    id: "Paths", type: "input",
+    prompt: "Enter file paths to include (comma-separated or one per line):",
+    options: [
+      { label: "Enter paths", description: "Provide paths in text input" }
+    ]
+  }])  // BLOCKS (wait for user response)
   userConfig.supplementaryPaths = parseUserPaths(pathsResponse)
 }
 ```
@@ -244,7 +241,7 @@ const userConfig = {
 
   // User configuration from Phase 0
   "user_config": {
-    // From Phase 0 AskUserQuestion
+    // From Phase 0 ASK_USER
   }
 }
 ```

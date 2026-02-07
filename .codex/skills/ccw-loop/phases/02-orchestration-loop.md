@@ -274,20 +274,17 @@ async function displayMenuAndGetChoice(actionResult) {
     console.log('\n' + menuMatch[1])
   }
 
-  const response = await AskUserQuestion({
-    questions: [{
-      question: "Select next action:",
-      header: "Action",
-      multiSelect: false,
-      options: [
-        { label: "develop", description: "Continue development" },
-        { label: "debug", description: "Start debugging" },
-        { label: "validate", description: "Run validation" },
-        { label: "complete", description: "Complete loop" },
-        { label: "exit", description: "Exit and save" }
-      ]
-    }]
-  })
+  const response = await ASK_USER([{
+    id: "Action", type: "select",
+    prompt: "Select next action:",
+    options: [
+      { label: "develop", description: "Continue development" },
+      { label: "debug", description: "Start debugging" },
+      { label: "validate", description: "Run validation" },
+      { label: "complete", description: "Complete loop" },
+      { label: "exit", description: "Exit and save" }
+    ]
+  }])  // BLOCKS (wait for user response)
 
   return { action: response["Action"] }
 }

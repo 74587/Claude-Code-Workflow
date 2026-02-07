@@ -412,20 +412,17 @@ async function showMenuAndGetChoice(state) {
   const pendingCount = ss?.pending_tasks?.length || 0
   const completedCount = ss?.completed_tasks?.length || 0
 
-  const response = await AskUserQuestion({
-    questions: [{
-      question: `Select next action (completed: ${completedCount}, pending: ${pendingCount}):`,
-      header: "Action",
-      multiSelect: false,
-      options: [
-        { label: "develop", description: `Continue development (${pendingCount} pending)` },
-        { label: "debug", description: "Start debugging / diagnosis" },
-        { label: "validate", description: "Run tests and validation" },
-        { label: "complete", description: "Complete loop and generate summary" },
-        { label: "exit", description: "Exit and save progress" }
-      ]
-    }]
-  })
+  const response = await ASK_USER([{
+    id: "Action", type: "select",
+    prompt: `Select next action (completed: ${completedCount}, pending: ${pendingCount}):`,
+    options: [
+      { label: "develop", description: `Continue development (${pendingCount} pending)` },
+      { label: "debug", description: "Start debugging / diagnosis" },
+      { label: "validate", description: "Run tests and validation" },
+      { label: "complete", description: "Complete loop and generate summary" },
+      { label: "exit", description: "Exit and save progress" }
+    ]
+  }])  // BLOCKS (wait for user response)
 
   return response["Action"]
 }

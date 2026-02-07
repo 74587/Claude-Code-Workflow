@@ -389,19 +389,17 @@ await updateDiscoveryState(outputDir, {
 });
 
 // Prompt user for next action
-await AskUserQuestion({
-  questions: [{
-    question: `Discovery complete: ${issues.length} issues from ${cumulativeFindings.length} findings across ${iteration} iterations. What next?`,
-    header: "Next Step",
-    multiSelect: false,
-    options: [
-      { label: "Export to Issues (Recommended)", description: `Export ${issues.length} issues for planning` },
-      { label: "Review Details", description: "View comparison analysis and iteration details" },
-      { label: "Run Deeper", description: "Continue with more iterations" },
-      { label: "Skip", description: "Complete without exporting" }
-    ]
-  }]
-});
+await ASK_USER([{
+  id: "next_step",
+  type: "select",
+  prompt: `Discovery complete: ${issues.length} issues from ${cumulativeFindings.length} findings across ${iteration} iterations. What next?`,
+  options: [
+    { label: "Export to Issues (Recommended)", description: `Export ${issues.length} issues for planning` },
+    { label: "Review Details", description: "View comparison analysis and iteration details" },
+    { label: "Run Deeper", description: "Continue with more iterations" },
+    { label: "Skip", description: "Complete without exporting" }
+  ]
+}]);  // BLOCKS (wait for user response)
 ```
 
 ## Dimension Agent Prompt Template

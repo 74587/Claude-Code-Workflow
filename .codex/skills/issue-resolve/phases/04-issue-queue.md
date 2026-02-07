@@ -251,15 +251,13 @@ agentIds.forEach((agentId, i) => {
 ```javascript
 if (allClarifications.length > 0) {
   for (const clarification of allClarifications) {
-    // Present to user via AskUserQuestion
-    const answer = AskUserQuestion({
-      questions: [{
-        question: `[${clarification.queue_id}] ${clarification.question}`,
-        header: clarification.conflict_id,
-        options: clarification.options,
-        multiSelect: false
-      }]
-    });
+    // Present to user via ASK_USER
+    const answer = ASK_USER([{
+      id: clarification.conflict_id,
+      type: "select",
+      prompt: `[${clarification.queue_id}] ${clarification.question}`,
+      options: clarification.options
+    }]);  // BLOCKS (wait for user response)
 
     // Re-spawn agent with user decision (original agent already closed)
     // Create new agent with previous context + resolution
@@ -345,22 +343,20 @@ ccw issue queue list --brief
 
 **Decision:**
 - If `active_queue_id` is null → `ccw issue queue switch <new-queue-id>` (activate new queue)
-- If active queue exists → Use **AskUserQuestion** to prompt user
+- If active queue exists → Use **ASK_USER** to prompt user
 
-**AskUserQuestion:**
+**ASK_USER:**
 ```javascript
-AskUserQuestion({
-  questions: [{
-    question: "Active queue exists. How would you like to proceed?",
-    header: "Queue Action",
-    options: [
-      { label: "Merge into existing queue", description: "Add new items to active queue, delete new queue" },
-      { label: "Use new queue", description: "Switch to new queue, keep existing in history" },
-      { label: "Cancel", description: "Delete new queue, keep existing active" }
-    ],
-    multiSelect: false
-  }]
-})
+ASK_USER([{
+  id: "queue_action",
+  type: "select",
+  prompt: "Active queue exists. How would you like to proceed?",
+  options: [
+    { label: "Merge into existing queue", description: "Add new items to active queue, delete new queue" },
+    { label: "Use new queue", description: "Switch to new queue, keep existing in history" },
+    { label: "Cancel", description: "Delete new queue, keep existing active" }
+  ]
+}]);  // BLOCKS (wait for user response)
 ```
 
 **Action Commands:**

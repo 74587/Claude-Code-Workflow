@@ -4,11 +4,11 @@ Six-phase workflow to eliminate ambiguities and enhance conceptual depth in role
 
 **Phase 1-2**: Session detection → File discovery → Path preparation
 **Phase 3A**: Cross-role analysis agent → Generate recommendations
-**Phase 4**: User selects enhancements → User answers clarifications (via AskUserQuestion)
+**Phase 4**: User selects enhancements → User answers clarifications (via ASK_USER)
 **Phase 5**: Parallel update agents (one per role)
 **Phase 6**: Context package update → Metadata update → Completion report
 
-All user interactions use AskUserQuestion tool (max 4 questions per call, multi-round).
+All user interactions use ASK_USER / CONFIRM pseudo-code (implemented via AskUserQuestion tool) (max 4 questions per call, multi-round).
 
 **Document Flow**:
 - Input: `[role]/analysis*.md`, `guidance-specification.md`, session metadata
@@ -25,41 +25,35 @@ All user interactions use AskUserQuestion tool (max 4 questions per call, multi-
 | 1 | Session detection | Main flow | session_id, brainstorm_dir |
 | 2 | File discovery | Main flow | role_analysis_paths |
 | 3A | Cross-role analysis | spawn_agent | enhancement_recommendations |
-| 4 | User interaction | Main flow + AskUserQuestion | update_plan |
+| 4 | User interaction | Main flow + ASK_USER | update_plan |
 | 5 | Document updates | spawn_agent[] (parallel) | Updated analysis*.md |
 | 6 | Finalization | Main flow | context-package.json, report |
 
-### AskUserQuestion Pattern
+### ASK_USER Pattern
 
 ```javascript
 // Enhancement selection (multi-select)
-AskUserQuestion({
-  questions: [{
-    question: "请选择要应用的改进建议",
-    header: "改进选择",
-    multiSelect: true,
-    options: [
-      { label: "EP-001: API Contract", description: "添加详细的请求/响应 schema 定义" },
-      { label: "EP-002: User Intent", description: "明确用户需求优先级和验收标准" }
-    ]
-  }]
-})
+ASK_USER([{
+  id: "改进选择", type: "multi-select",
+  prompt: "请选择要应用的改进建议",
+  options: [
+    { label: "EP-001: API Contract", description: "添加详细的请求/响应 schema 定义" },
+    { label: "EP-002: User Intent", description: "明确用户需求优先级和验收标准" }
+  ]
+}])  // BLOCKS (wait for user response)
 
 // Clarification questions (single-select, multi-round)
-AskUserQuestion({
-  questions: [
-    {
-      question: "MVP 阶段的核心目标是什么？",
-      header: "用户意图",
-      multiSelect: false,
-      options: [
-        { label: "快速验证", description: "最小功能集，快速上线获取反馈" },
-        { label: "技术壁垒", description: "完善架构，为长期发展打基础" },
-        { label: "功能完整", description: "覆盖所有规划功能，延迟上线" }
-      ]
-    }
-  ]
-})
+ASK_USER([
+  {
+    id: "用户意图", type: "select",
+    prompt: "MVP 阶段的核心目标是什么？",
+    options: [
+      { label: "快速验证", description: "最小功能集，快速上线获取反馈" },
+      { label: "技术壁垒", description: "完善架构，为长期发展打基础" },
+      { label: "功能完整", description: "覆盖所有规划功能，延迟上线" }
+    ]
+  }
+])  // BLOCKS (wait for user response)
 ```
 
 ---
@@ -150,7 +144,7 @@ close_agent({ id: analysisAgentId });
 
 ### Phase 4: User Interaction
 
-**All interactions via AskUserQuestion (Chinese questions)**
+**All interactions via ASK_USER (Chinese questions)**
 
 #### Step 1: Enhancement Selection
 
@@ -163,17 +157,14 @@ const selectedEnhancements = [];
 for (let i = 0; i < enhancements.length; i += BATCH_SIZE) {
   const batch = enhancements.slice(i, i + BATCH_SIZE);
 
-  AskUserQuestion({
-    questions: [{
-      question: `请选择要应用的改进建议 (第${Math.floor(i/BATCH_SIZE)+1}轮)`,
-      header: "改进选择",
-      multiSelect: true,
-      options: batch.map(ep => ({
-        label: `${ep.id}: ${ep.title}`,
-        description: `影响: ${ep.affected_roles.join(', ')} | ${ep.enhancement}`
-      }))
-    }]
-  })
+  ASK_USER([{
+    id: "改进选择", type: "multi-select",
+    prompt: `请选择要应用的改进建议 (第${Math.floor(i/BATCH_SIZE)+1}轮)`,
+    options: batch.map(ep => ({
+      label: `${ep.id}: ${ep.title}`,
+      description: `影响: ${ep.affected_roles.join(', ')} | ${ep.enhancement}`
+    }))
+  }])  // BLOCKS (wait for user response)
 
   // Store selections before next round
   selectedEnhancements.push(...user_selections);
@@ -197,17 +188,14 @@ for (let i = 0; i < clarifications.length; i += BATCH_SIZE) {
   const currentRound = Math.floor(i / BATCH_SIZE) + 1;
   const totalRounds = Math.ceil(clarifications.length / BATCH_SIZE);
 
-  AskUserQuestion({
-    questions: batch.map(q => ({
-      question: q.question,
-      header: q.category.substring(0, 12),
-      multiSelect: false,
-      options: q.options.map(opt => ({
-        label: opt.label,
-        description: opt.description
-      }))
+  ASK_USER(batch.map(q => ({
+    id: q.category.substring(0, 12), type: "select",
+    prompt: q.question,
+    options: q.options.map(opt => ({
+      label: opt.label,
+      description: opt.description
     }))
-  })
+  })))  // BLOCKS (wait for user response)
 
   // Store answers before next round
   batch.forEach((q, idx) => {

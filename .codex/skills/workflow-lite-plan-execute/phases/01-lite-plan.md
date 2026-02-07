@@ -69,7 +69,7 @@ Phase 2: Clarification (optional, multi-round)
    ├─ Aggregate clarification_needs from all exploration angles
    ├─ Deduplicate similar questions
    └─ Decision:
-      ├─ Has clarifications → AskUserQuestion (max 4 questions per round, multiple rounds allowed)
+      ├─ Has clarifications → ASK_USER (max 4 questions per round, multiple rounds allowed)
       └─ No clarifications → Skip to Phase 3
 
 Phase 3: Planning (NO CODE EXECUTION - planning only)
@@ -79,7 +79,7 @@ Phase 3: Planning (NO CODE EXECUTION - planning only)
 
 Phase 4: Confirmation & Selection
    ├─ Display plan summary (tasks, complexity, estimated time)
-   └─ AskUserQuestion:
+   └─ ASK_USER:
       ├─ Confirm: Allow / Modify / Cancel
       ├─ Execution: Agent / Codex / Auto
       └─ Review: Gemini / Agent / Skip
@@ -457,7 +457,7 @@ This log will be fully consumed by planning phase, then refined for execution.
 
 **Skip if**: No exploration or `clarification_needs` is empty across all explorations
 
-**⚠️ CRITICAL**: AskUserQuestion tool limits max 4 questions per call. **MUST execute multiple rounds** to exhaust all clarification needs - do NOT stop at round 1.
+**⚠️ CRITICAL**: ASK_USER tool limits max 4 questions per call. **MUST execute multiple rounds** to exhaust all clarification needs - do NOT stop at round 1.
 
 **Aggregate clarification needs from all exploration angles**:
 ```javascript
@@ -506,17 +506,16 @@ if (autoYes) {
 
     console.log(`### Clarification Round ${currentRound}/${totalRounds}`)
 
-    AskUserQuestion({
-      questions: batch.map(need => ({
-        question: `[${need.source_angle}] ${need.question}\n\nContext: ${need.context}`,
-        header: need.source_angle.substring(0, 12),
-        multiSelect: false,
-        options: need.options.map((opt, index) => ({
-          label: need.recommended === index ? `${opt} ★` : opt,
-          description: need.recommended === index ? `Recommended` : `Use ${opt}`
-        }))
-      }))
-    })
+    ASK_USER(batch.map(need => ({
+      id: `clarify-${need.source_angle}`,
+      type: "select",
+      prompt: `[${need.source_angle}] ${need.question}\n\nContext: ${need.context}`,
+      options: need.options.map((opt, index) => ({
+        label: need.recommended === index ? `${opt} ★` : opt,
+        description: need.recommended === index ? `Recommended` : `Use ${opt}`
+      })),
+      default: need.recommended
+    })))  // BLOCKS (wait for user response)
 
     // Store batch responses in clarificationContext before next round
   }
@@ -978,41 +977,42 @@ if (autoYes) {
 } else {
   // Interactive mode: Ask user
   // Note: Execution "Other" option allows specifying CLI tools from ~/.claude/cli-tools.json
-  userSelection = AskUserQuestion({
-    questions: [
-      {
-        question: `Confirm plan? (${plan.tasks.length} tasks, ${plan.complexity})`,
-        header: "Confirm",
-        multiSelect: false,
-        options: [
-          { label: "Allow", description: "Proceed as-is" },
-          { label: "Modify", description: "Adjust before execution" },
-          { label: "Cancel", description: "Abort workflow" }
-        ]
-      },
-      {
-        question: "Execution method:",
-        header: "Execution",
-        multiSelect: false,
-        options: [
-          { label: "Agent", description: "@code-developer agent" },
-          { label: "Codex", description: "codex CLI tool" },
-          { label: "Auto", description: `Auto: ${plan.complexity === 'Low' ? 'Agent' : 'Codex'}` }
-        ]
-      },
-      {
-        question: "Code review after execution?",
-        header: "Review",
-        multiSelect: false,
-        options: [
-          { label: "Gemini Review", description: "Gemini CLI review" },
-          { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
-          { label: "Agent Review", description: "@code-reviewer agent" },
-          { label: "Skip", description: "No review" }
-        ]
-      }
-    ]
-  })
+  userSelection = ASK_USER([
+    {
+      id: "confirm",
+      type: "select",
+      prompt: `Confirm plan? (${plan.tasks.length} tasks, ${plan.complexity})`,
+      options: [
+        { label: "Allow", description: "Proceed as-is" },
+        { label: "Modify", description: "Adjust before execution" },
+        { label: "Cancel", description: "Abort workflow" }
+      ],
+      default: "Allow"
+    },
+    {
+      id: "execution",
+      type: "select",
+      prompt: "Execution method:",
+      options: [
+        { label: "Agent", description: "@code-developer agent" },
+        { label: "Codex", description: "codex CLI tool" },
+        { label: "Auto", description: `Auto: ${plan.complexity === 'Low' ? 'Agent' : 'Codex'}` }
+      ],
+      default: "Auto"
+    },
+    {
+      id: "review",
+      type: "select",
+      prompt: "Code review after execution?",
+      options: [
+        { label: "Gemini Review", description: "Gemini CLI review" },
+        { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
+        { label: "Agent Review", description: "@code-reviewer agent" },
+        { label: "Skip", description: "No review" }
+      ],
+      default: "Skip"
+    }
+  ])  // BLOCKS (wait for user response)
 }
 ```
 

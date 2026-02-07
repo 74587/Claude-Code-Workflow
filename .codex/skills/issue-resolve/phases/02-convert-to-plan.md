@@ -582,19 +582,9 @@ ${solution.tasks.map(t => `- ${t.id}: ${t.title} [${t.action}]`).join('\n')}
 
 // Confirm if not auto mode
 if (!flags.yes && !flags.y) {
-  const confirm = AskUserQuestion({
-    questions: [{
-      question: `Create solution for issue ${issueId} with ${solution.tasks.length} tasks?`,
-      header: 'Confirm',
-      multiSelect: false,
-      options: [
-        { label: 'Yes, create solution', description: 'Create and bind solution' },
-        { label: 'Cancel', description: 'Abort without changes' }
-      ]
-    }]
-  });
+  const confirmed = CONFIRM(`Create solution for issue ${issueId} with ${solution.tasks.length} tasks?`);  // BLOCKS (wait for user response)
 
-  if (!confirm.answers?.['Confirm']?.includes('Yes')) {
+  if (!confirmed) {
     console.log('Cancelled.');
     return;
   }

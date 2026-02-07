@@ -26,14 +26,21 @@
   },
   "cliTools": {
     "title": "CLI Tools",
-    "description": "Configure CLI tool settings",
+    "description": "Configure CLI tool settings. Current default: ",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "default": "Default",
     "setDefault": "Set as Default",
     "primaryModel": "Primary Model",
     "secondaryModel": "Secondary Model",
-    "expand": "Expand for details"
+    "expand": "Expand for details",
+    "envFile": "Environment File (.env)",
+    "envFilePlaceholder": "e.g., ~/.gemini/.env",
+    "envFileHint": "Path to .env file loaded before CLI execution for API keys and environment variables",
+    "saveToConfig": "Save to Config",
+    "saving": "Saving...",
+    "configSaved": "Configuration saved to ~/.claude/cli-tools.json",
+    "configSaveError": "Failed to save configuration"
   },
   "display": {
     "title": "Display Settings",

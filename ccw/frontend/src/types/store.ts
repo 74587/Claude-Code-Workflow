@@ -321,6 +321,9 @@ export interface CliToolConfig {
   secondaryModel: string;
   tags: string[];
   type: 'builtin' | 'cli-wrapper' | 'api-endpoint';
+  /** Path to .env file for environment variables (gemini/qwen/opencode) */
+  envFile?: string;
+  /** Path to Claude CLI settings.json, passed via --settings (claude only) */
   settingsFile?: string;
   availableModels?: string[];
 }

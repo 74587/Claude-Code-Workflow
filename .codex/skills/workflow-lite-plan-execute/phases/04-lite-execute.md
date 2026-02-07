@@ -41,8 +41,8 @@ Flexible task execution phase supporting three input modes: in-memory plan (from
 **Behavior**:
 - Store prompt as `originalUserInput`
 - Create simple execution plan from prompt
-- AskUserQuestion: Select execution method (Agent/Codex/Auto)
-- AskUserQuestion: Select code review tool (Skip/Gemini/Agent/Other)
+- ASK_USER: Select execution method (Agent/Codex/Auto)
+- ASK_USER: Select code review tool (Skip/Gemini/Agent/Other)
 - Proceed to execution with `originalUserInput` included
 
 **User Interaction**:
@@ -64,31 +64,31 @@ if (autoYes) {
   }
 } else {
   // Interactive mode: Ask user
-  userSelection = AskUserQuestion({
-    questions: [
-      {
-        question: "Select execution method:",
-        header: "Execution",
-        multiSelect: false,
-        options: [
-          { label: "Agent", description: "@code-developer agent" },
-          { label: "Codex", description: "codex CLI tool" },
-          { label: "Auto", description: "Auto-select based on complexity" }
-        ]
-      },
-      {
-        question: "Enable code review after execution?",
-        header: "Code Review",
-        multiSelect: false,
-        options: [
-          { label: "Skip", description: "No review" },
-          { label: "Gemini Review", description: "Gemini CLI tool" },
-          { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
-          { label: "Agent Review", description: "Current agent review" }
-        ]
-      }
-    ]
-  })
+  userSelection = ASK_USER([
+    {
+      id: "execution",
+      type: "select",
+      prompt: "Select execution method:",
+      options: [
+        { label: "Agent", description: "@code-developer agent" },
+        { label: "Codex", description: "codex CLI tool" },
+        { label: "Auto", description: "Auto-select based on complexity" }
+      ],
+      default: "Auto"
+    },
+    {
+      id: "review",
+      type: "select",
+      prompt: "Enable code review after execution?",
+      options: [
+        { label: "Skip", description: "No review" },
+        { label: "Gemini Review", description: "Gemini CLI tool" },
+        { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
+        { label: "Agent Review", description: "Current agent review" }
+      ],
+      default: "Skip"
+    }
+  ])  // BLOCKS (wait for user response)
 }
 ```
 
@@ -136,8 +136,8 @@ If `isPlanJson === false`:
 
 **Step 3: User Interaction**
 
-- AskUserQuestion: Select execution method (Agent/Codex/Auto)
-- AskUserQuestion: Select code review tool
+- ASK_USER: Select execution method (Agent/Codex/Auto)
+- ASK_USER: Select code review tool
 - Proceed to execution with full context
 
 ## Execution Process

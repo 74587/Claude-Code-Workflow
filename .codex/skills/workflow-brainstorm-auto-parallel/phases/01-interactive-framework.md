@@ -2,7 +2,7 @@
 
 Seven-phase workflow: **Context collection** → **Topic analysis** → **Role selection** → **Role questions** → **Conflict resolution** → **Final check** → **Generate specification**
 
-All user interactions use AskUserQuestion tool (max 4 questions per call, multi-round).
+All user interactions use ASK_USER / CONFIRM pseudo-code (implemented via AskUserQuestion tool) (max 4 questions per call, multi-round).
 
 **Input**: `"GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]" [--count N]`
 **Output**: `.workflow/active/WFS-{topic}/.brainstorming/guidance-specification.md`
@@ -18,7 +18,7 @@ All user interactions use AskUserQuestion tool (max 4 questions per call, multi-
 
 ### Phase Summary
 
-| Phase | Goal | AskUserQuestion | Storage |
+| Phase | Goal | ASK_USER | Storage |
 |-------|------|-----------------|---------|
 | 0 | Context collection | - | context-package.json |
 | 1 | Topic analysis | 2-4 questions | intent_context |
@@ -28,35 +28,30 @@ All user interactions use AskUserQuestion tool (max 4 questions per call, multi-
 | 4.5 | Final check | progressive rounds | additional_decisions |
 | 5 | Generate spec | - | guidance-specification.md |
 
-### AskUserQuestion Pattern
+### ASK_USER Pattern
 
 ```javascript
 // Single-select (Phase 1, 3, 4)
-AskUserQuestion({
-  questions: [
-    {
-      question: "{问题文本}",
-      header: "{短标签}",  // max 12 chars
-      multiSelect: false,
-      options: [
-        { label: "{选项}", description: "{说明和影响}" },
-        { label: "{选项}", description: "{说明和影响}" },
-        { label: "{选项}", description: "{说明和影响}" }
-      ]
-    }
-    // ... max 4 questions per call
-  ]
-})
+ASK_USER([
+  {
+    id: "{短标签}",  // max 12 chars
+    type: "select",
+    prompt: "{问题文本}",
+    options: [
+      { label: "{选项}", description: "{说明和影响}" },
+      { label: "{选项}", description: "{说明和影响}" },
+      { label: "{选项}", description: "{说明和影响}" }
+    ]
+  }
+  // ... max 4 questions per call
+])  // BLOCKS (wait for user response)
 
 // Multi-select (Phase 2)
-AskUserQuestion({
-  questions: [{
-    question: "请选择 {count} 个角色",
-    header: "角色选择",
-    multiSelect: true,
-    options: [/* max 4 options per call */]
-  }]
-})
+ASK_USER([{
+  id: "角色选择", type: "multi-select",
+  prompt: "请选择 {count} 个角色",
+  options: [/* max 4 options per call */]
+}])  // BLOCKS (wait for user response)
 ```
 
 ### Multi-Round Execution
@@ -65,7 +60,7 @@ AskUserQuestion({
 const BATCH_SIZE = 4;
 for (let i = 0; i < allQuestions.length; i += BATCH_SIZE) {
   const batch = allQuestions.slice(i, i + BATCH_SIZE);
-  AskUserQuestion({ questions: batch });
+  ASK_USER(batch);  // BLOCKS (wait for user response)
   // Store responses before next round
 }
 ```
@@ -143,34 +138,30 @@ if (contextResult.timed_out) {
 1. Load Phase 0 context (tech_stack, modules, conflict_risk)
 2. Deep topic analysis (entities, challenges, constraints, metrics)
 3. Generate 2-4 context-aware probing questions
-4. AskUserQuestion → Store to `session.intent_context`
+4. ASK_USER → Store to `session.intent_context`
 
 **Example**:
 ```javascript
-AskUserQuestion({
-  questions: [
-    {
-      question: "实时协作平台的主要技术挑战？",
-      header: "核心挑战",
-      multiSelect: false,
-      options: [
-        { label: "实时数据同步", description: "100+用户同时在线，状态同步复杂度高" },
-        { label: "可扩展性架构", description: "用户规模增长时的系统扩展能力" },
-        { label: "冲突解决机制", description: "多用户同时编辑的冲突处理策略" }
-      ]
-    },
-    {
-      question: "MVP阶段最关注的指标？",
-      header: "优先级",
-      multiSelect: false,
-      options: [
-        { label: "功能完整性", description: "实现所有核心功能" },
-        { label: "用户体验", description: "流畅的交互体验和响应速度" },
-        { label: "系统稳定性", description: "高可用性和数据一致性" }
-      ]
-    }
-  ]
-})
+ASK_USER([
+  {
+    id: "核心挑战", type: "select",
+    prompt: "实时协作平台的主要技术挑战？",
+    options: [
+      { label: "实时数据同步", description: "100+用户同时在线，状态同步复杂度高" },
+      { label: "可扩展性架构", description: "用户规模增长时的系统扩展能力" },
+      { label: "冲突解决机制", description: "多用户同时编辑的冲突处理策略" }
+    ]
+  },
+  {
+    id: "优先级", type: "select",
+    prompt: "MVP阶段最关注的指标？",
+    options: [
+      { label: "功能完整性", description: "实现所有核心功能" },
+      { label: "用户体验", description: "流畅的交互体验和响应速度" },
+      { label: "系统稳定性", description: "高可用性和数据一致性" }
+    ]
+  }
+])  // BLOCKS (wait for user response)
 ```
 
 **⚠️ CRITICAL**: Questions MUST reference topic keywords. Generic "Project type?" violates dynamic generation.
@@ -183,24 +174,21 @@ AskUserQuestion({
 
 **Steps**:
 1. Analyze Phase 1 keywords → Recommend count+2 roles with rationale
-2. AskUserQuestion (multiSelect=true) → Store to `session.selected_roles`
+2. ASK_USER (type=multi-select) → Store to `session.selected_roles`
 3. If count+2 > 4, split into multiple rounds
 
 **Example**:
 ```javascript
-AskUserQuestion({
-  questions: [{
-    question: "请选择 3 个角色参与头脑风暴分析",
-    header: "角色选择",
-    multiSelect: true,
-    options: [
-      { label: "system-architect", description: "实时同步架构设计和技术选型" },
-      { label: "ui-designer", description: "协作界面用户体验和状态展示" },
-      { label: "product-manager", description: "功能优先级和MVP范围决策" },
-      { label: "data-architect", description: "数据同步模型和存储方案设计" }
-    ]
-  }]
-})
+ASK_USER([{
+  id: "角色选择", type: "multi-select",
+  prompt: "请选择 3 个角色参与头脑风暴分析",
+  options: [
+    { label: "system-architect", description: "实时同步架构设计和技术选型" },
+    { label: "ui-designer", description: "协作界面用户体验和状态展示" },
+    { label: "product-manager", description: "功能优先级和MVP范围决策" },
+    { label: "data-architect", description: "数据同步模型和存储方案设计" }
+  ]
+}])  // BLOCKS (wait for user response)
 ```
 
 **⚠️ CRITICAL**: User MUST interact. NEVER auto-select without confirmation.
@@ -213,36 +201,32 @@ AskUserQuestion({
 1. FOR each selected role:
    - Map Phase 1 challenges to role domain
    - Generate 3-4 questions (implementation depth, trade-offs, edge cases)
-   - AskUserQuestion per role → Store to `session.role_decisions[role]`
+   - ASK_USER per role → Store to `session.role_decisions[role]`
 2. Process roles sequentially (one at a time for clarity)
 3. If role needs > 4 questions, split into multiple rounds
 
 **Example** (system-architect):
 ```javascript
-AskUserQuestion({
-  questions: [
-    {
-      question: "100+ 用户实时状态同步方案？",
-      header: "状态同步",
-      multiSelect: false,
-      options: [
-        { label: "Event Sourcing", description: "完整事件历史，支持回溯，存储成本高" },
-        { label: "集中式状态管理", description: "实现简单，单点瓶颈风险" },
-        { label: "CRDT", description: "去中心化，自动合并，学习曲线陡" }
-      ]
-    },
-    {
-      question: "两个用户同时编辑冲突如何解决？",
-      header: "冲突解决",
-      multiSelect: false,
-      options: [
-        { label: "自动合并", description: "用户无感知，可能产生意外结果" },
-        { label: "手动解决", description: "用户控制，增加交互复杂度" },
-        { label: "版本控制", description: "保留历史，需要分支管理" }
-      ]
-    }
-  ]
-})
+ASK_USER([
+  {
+    id: "状态同步", type: "select",
+    prompt: "100+ 用户实时状态同步方案？",
+    options: [
+      { label: "Event Sourcing", description: "完整事件历史，支持回溯，存储成本高" },
+      { label: "集中式状态管理", description: "实现简单，单点瓶颈风险" },
+      { label: "CRDT", description: "去中心化，自动合并，学习曲线陡" }
+    ]
+  },
+  {
+    id: "冲突解决", type: "select",
+    prompt: "两个用户同时编辑冲突如何解决？",
+    options: [
+      { label: "自动合并", description: "用户无感知，可能产生意外结果" },
+      { label: "手动解决", description: "用户控制，增加交互复杂度" },
+      { label: "版本控制", description: "保留历史，需要分支管理" }
+    ]
+  }
+])  // BLOCKS (wait for user response)
 ```
 
 ### Phase 4: Conflict Resolution
@@ -255,23 +239,20 @@ AskUserQuestion({
    - Missing integration (e.g., "Optimistic updates" but no conflict handling)
    - Implicit dependencies (e.g., "Live cursors" but no auth defined)
 2. Generate clarification questions referencing SPECIFIC Phase 3 choices
-3. AskUserQuestion (max 4 per call, multi-round) → Store to `session.cross_role_decisions`
+3. ASK_USER (max 4 per call, multi-round) → Store to `session.cross_role_decisions`
 4. If NO conflicts: Skip Phase 4 (inform user: "未检测到跨角色冲突，跳过Phase 4")
 
 **Example**:
 ```javascript
-AskUserQuestion({
-  questions: [{
-    question: "CRDT 与 UI 回滚期望冲突，如何解决？\n背景：system-architect选择CRDT，ui-designer期望回滚UI",
-    header: "架构冲突",
-    multiSelect: false,
-    options: [
-      { label: "采用 CRDT", description: "保持去中心化，调整UI期望" },
-      { label: "显示合并界面", description: "增加用户交互，展示冲突详情" },
-      { label: "切换到 OT", description: "支持回滚，增加服务器复杂度" }
-    ]
-  }]
-})
+ASK_USER([{
+  id: "架构冲突", type: "select",
+  prompt: "CRDT 与 UI 回滚期望冲突，如何解决？\n背景：system-architect选择CRDT，ui-designer期望回滚UI",
+  options: [
+    { label: "采用 CRDT", description: "保持去中心化，调整UI期望" },
+    { label: "显示合并界面", description: "增加用户交互，展示冲突详情" },
+    { label: "切换到 OT", description: "支持回滚，增加服务器复杂度" }
+  ]
+}])  // BLOCKS (wait for user response)
 ```
 
 ### Phase 4.5: Final Clarification
@@ -281,22 +262,13 @@ AskUserQuestion({
 **Steps**:
 1. Ask initial check:
    ```javascript
-   AskUserQuestion({
-     questions: [{
-       question: "在生成最终规范之前，是否有前面未澄清的重点需要补充？",
-       header: "补充确认",
-       multiSelect: false,
-       options: [
-         { label: "无需补充", description: "前面的讨论已经足够完整" },
-         { label: "需要补充", description: "还有重要内容需要澄清" }
-       ]
-     }]
-   })
+   CONFIRM("在生成最终规范之前，是否有前面未澄清的重点需要补充？")  // BLOCKS (wait for user response)
+   // Returns: "无需补充" (前面的讨论已经足够完整) | "需要补充" (还有重要内容需要澄清)
    ```
 2. If "需要补充":
    - Analyze user's additional points
    - Generate progressive questions (not role-bound, interconnected)
-   - AskUserQuestion (max 4 per round) → Store to `session.additional_decisions`
+   - ASK_USER (max 4 per round) → Store to `session.additional_decisions`
    - Repeat until user confirms completion
 3. If "无需补充": Proceed to Phase 5
 

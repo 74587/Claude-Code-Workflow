@@ -145,16 +145,12 @@ if (clarityScore >= 1 && clarityScore <= 2 && !issueData.affected_components?.le
 ```javascript
 // ONLY ask questions if clarity is low
 if (clarityScore < 2 && (!issueData.context || issueData.context.length < 20)) {
-  const answer = AskUserQuestion({
-    questions: [{
-      question: 'Please describe the issue in more detail:',
-      header: 'Clarify',
-      multiSelect: false,
-      options: [
-        { label: 'Provide details', description: 'Describe what, where, and expected behavior' }
-      ]
-    }]
-  });
+  const answer = ASK_USER([{
+    id: "clarify",
+    type: "input",
+    prompt: "Please describe the issue in more detail:",
+    description: "Describe what, where, and expected behavior"
+  }]);  // BLOCKS (wait for user response)
 
   if (answer.customText) {
     issueData.context = answer.customText;
@@ -176,19 +172,9 @@ if (clarityScore < 2 && (!issueData.context || issueData.context.length < 20)) {
 let publishToGitHub = false;
 
 if (issueData.source !== 'github') {
-  const publishAnswer = AskUserQuestion({
-    questions: [{
-      question: 'Would you like to publish this issue to GitHub?',
-      header: 'Publish',
-      multiSelect: false,
-      options: [
-        { label: 'Yes, publish to GitHub', description: 'Create issue on GitHub and link it' },
-        { label: 'No, keep local only', description: 'Store as local issue without GitHub sync' }
-      ]
-    }]
-  });
-
-  publishToGitHub = publishAnswer.answers?.['Publish']?.includes('Yes');
+  // Yes → Create issue on GitHub and link it
+  // No  → Store as local issue without GitHub sync
+  publishToGitHub = CONFIRM("Would you like to publish this issue to GitHub?");  // BLOCKS (wait for user response)
 }
 ```
 
@@ -242,14 +228,14 @@ Phase 2: Data Extraction (branched by clarity)
    │  Score 3   │   Score 1-2     │   Score 0    │
    │  GitHub    │   Text + ACE    │   Vague      │
    ├────────────┼─────────────────┼──────────────┤
-   │  gh CLI    │  Parse struct   │ AskQuestion  │
+   │  gh CLI    │  Parse struct   │  ASK_USER    │
    │  → parse   │  + quick hint   │ (1 question) │
    │            │  (3 files max)  │  → feedback  │
    └────────────┴─────────────────┴──────────────┘
 
 Phase 3: GitHub Publishing Decision (non-GitHub only)
    ├─ Source = github: Skip (already from GitHub)
-   └─ Source ≠ github: AskUserQuestion
+   └─ Source ≠ github: CONFIRM
       ├─ Yes → publishToGitHub = true
       └─ No  → publishToGitHub = false
 

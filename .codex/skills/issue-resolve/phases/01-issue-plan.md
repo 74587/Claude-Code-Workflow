@@ -249,14 +249,12 @@ for (const pending of pendingSelections) {
     description: sol.description || sol.approach || 'No description'
   }));
 
-  const answer = AskUserQuestion({
-    questions: [{
-      question: `Issue ${pending.issue_id}: which solution to bind?`,
-      header: pending.issue_id,
-      options: options,
-      multiSelect: false
-    }]
-  });
+  const answer = ASK_USER([{
+    id: pending.issue_id,
+    type: "select",
+    prompt: `Issue ${pending.issue_id}: which solution to bind?`,
+    options: options
+  }]);  // BLOCKS (wait for user response)
 
   const selected = answer[Object.keys(answer)[0]];
   if (!selected || selected === 'Other') continue;

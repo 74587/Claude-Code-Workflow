@@ -44,7 +44,7 @@ Phase 2: Drift Discovery (Subagent)
 Phase 3: Confirmation
    ├─ Validate manifest schema
    ├─ Display cleanup summary by category
-   ├─ AskUser: Select categories and risk level
+   ├─ ASK_USER: Select categories and risk level
    └─ Dry-run exit if --dry-run
 
 Phase 4: Execution
@@ -241,29 +241,26 @@ Manifest: ${sessionFolder}/cleanup-manifest.json
 }
 
 // User confirmation
-const selection = AskUser({
-  questions: [
-    {
-      question: "Which categories to clean?",
-      header: "Categories",
-      multiSelect: true,
-      options: [
-        { label: "Sessions", description: `${manifest.summary.by_category.stale_sessions} stale sessions` },
-        { label: "Documents", description: `${manifest.summary.by_category.drifted_documents} drifted docs` },
-        { label: "Dead Code", description: `${manifest.summary.by_category.dead_code} unused files` }
-      ]
-    },
-    {
-      question: "Risk level?",
-      header: "Risk",
-      options: [
-        { label: "Low only", description: "Safest (Recommended)" },
-        { label: "Low + Medium", description: "Includes likely unused" },
-        { label: "All", description: "Aggressive" }
-      ]
-    }
-  ]
-})
+const selection = ASK_USER([
+  {
+    id: "categories", type: "multi-select",
+    prompt: "Which categories to clean?",
+    options: [
+      { label: "Sessions", description: `${manifest.summary.by_category.stale_sessions} stale sessions` },
+      { label: "Documents", description: `${manifest.summary.by_category.drifted_documents} drifted docs` },
+      { label: "Dead Code", description: `${manifest.summary.by_category.dead_code} unused files` }
+    ]
+  },
+  {
+    id: "risk", type: "select",
+    prompt: "Risk level?",
+    options: [
+      { label: "Low only", description: "Safest (Recommended)" },
+      { label: "Low + Medium", description: "Includes likely unused" },
+      { label: "All", description: "Aggressive" }
+    ]
+  }
+])  // BLOCKS (wait for user response)
 ```
 
 ---

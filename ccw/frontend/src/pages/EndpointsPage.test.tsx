@@ -71,8 +71,7 @@ describe('EndpointsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // confirm() used for delete
-    // @ts-expect-error - test override
-    global.confirm = vi.fn(() => true);
+    vi.stubGlobal('confirm', vi.fn(() => true));
   });
 
   it('should render page title', () => {
@@ -128,4 +127,3 @@ describe('EndpointsPage', () => {
     });
   });
 });
-

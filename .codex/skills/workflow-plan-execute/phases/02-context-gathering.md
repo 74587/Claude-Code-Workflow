@@ -49,7 +49,7 @@ Step 3: Inline Conflict Resolution (conditional)
    │  └─ Gemini/Qwen CLI analysis → conflict strategies
    ├─ 3.4 Iterative user clarification (send_input loop, max 10 rounds)
    │  ├─ Display conflict + strategy ONE BY ONE
-   │  ├─ AskUserQuestion for user selection
+   │  ├─ ASK_USER for user selection
    │  └─ send_input → agent re-analysis → confirm uniqueness
    ├─ 3.5 Generate conflict-resolution.json
    └─ 3.6 Close conflict agent
@@ -419,11 +419,10 @@ FOR each conflict:
       selectedStrategy = conflict.strategies[conflict.recommended || 0]
       clarified = true  // Skip clarification loop
     } else {
-      AskUserQuestion({
-      questions: [{
-        question: formatStrategiesForDisplay(conflict.strategies),
-        header: "策略选择",
-        multiSelect: false,
+      ASK_USER([{
+        id: `conflict-${conflict.id}-strategy`,
+        type: "select",
+        prompt: formatStrategiesForDisplay(conflict.strategies),
         options: [
           ...conflict.strategies.map((s, i) => ({
             label: `${s.name}${i === conflict.recommended ? ' (推荐)' : ''}`,
@@ -431,8 +430,7 @@ FOR each conflict:
           })),
           { label: "自定义修改", description: `建议: ${conflict.modification_suggestions?.slice(0,2).join('; ')}` }
         ]
-      }]
-      })
+      }])  // BLOCKS (wait for user response)
 
       // 3. Handle selection
       if (userChoice === "自定义修改") {
@@ -446,12 +444,12 @@ FOR each conflict:
     // 4. Clarification (if needed) - using send_input for agent re-analysis
     if (!autoYes && selectedStrategy.clarification_needed?.length > 0) {
       for (batch of chunk(selectedStrategy.clarification_needed, 4)) {
-        AskUserQuestion({
-          questions: batch.map((q, i) => ({
-            question: q, header: `澄清${i+1}`, multiSelect: false,
-            options: [{ label: "详细说明", description: "提供答案" }]
-          }))
-        })
+        ASK_USER(batch.map((q, i) => ({
+          id: `clarify-${conflict.id}-${i+1}`,
+          type: "select",
+          prompt: q,
+          options: [{ label: "详细说明", description: "提供答案" }]
+        })))  // BLOCKS (wait for user response)
         userClarifications.push(...collectAnswers(batch))
       }
 
@@ -498,7 +496,7 @@ selectedStrategies = resolvedConflicts.map(r => ({
 ```
 
 **Key Points**:
-- AskUserQuestion: max 4 questions/call, batch if more
+- ASK_USER: max 4 questions/call, batch if more
 - Strategy options: 2-4 strategies + "自定义修改"
 - Clarification loop via send_input: max 10 rounds, agent determines uniqueness_confirmed
 - Agent stays active throughout interaction (no close_agent until Step 3.6)

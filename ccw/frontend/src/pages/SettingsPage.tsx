@@ -3,7 +3,7 @@
 // ========================================
 // Application settings and configuration with CLI tools management
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import {
   Settings,
@@ -28,6 +28,7 @@ import {
   Calendar,
   File,
   ArrowUpCircle,
+  Save,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -53,6 +54,21 @@ import {
   useUpgradeCcwInstallation,
 } from '@/hooks/useSystemSettings';
 
+// ========== Tool Config File Helpers ==========
+
+/** Tools that use .env file for environment variables */
+const ENV_FILE_TOOLS = new Set(['gemini', 'qwen', 'opencode']);
+/** Tools that use --settings for Claude CLI settings file */
+const SETTINGS_FILE_TOOLS = new Set(['claude']);
+/** Tools that don't need any config file */
+const NO_CONFIG_FILE_TOOLS = new Set(['codex']);
+
+function getConfigFileType(toolId: string): 'envFile' | 'settingsFile' | 'none' {
+  if (ENV_FILE_TOOLS.has(toolId)) return 'envFile';
+  if (SETTINGS_FILE_TOOLS.has(toolId)) return 'settingsFile';
+  return 'none';
+}
+
 // ========== CLI Tool Card Component ==========
 
 interface CliToolCardProps {
@@ -61,13 +77,16 @@ interface CliToolCardProps {
   isDefault: boolean;
   isExpanded: boolean;
   toolAvailable?: boolean;
+  isSaving?: boolean;
   onToggleExpand: () => void;
   onToggleEnabled: () => void;
   onSetDefault: () => void;
   onUpdateModel: (field: 'primaryModel' | 'secondaryModel', value: string) => void;
   onUpdateTags: (tags: string[]) => void;
   onUpdateAvailableModels: (models: string[]) => void;
+  onUpdateEnvFile: (envFile: string | undefined) => void;
   onUpdateSettingsFile: (settingsFile: string | undefined) => void;
+  onSaveToBackend: () => void;
 }
 
 function CliToolCard({
@@ -76,13 +95,16 @@ function CliToolCard({
   isDefault,
   isExpanded,
   toolAvailable,
+  isSaving,
   onToggleExpand,
   onToggleEnabled,
   onSetDefault,
   onUpdateModel,
   onUpdateTags,
   onUpdateAvailableModels,
+  onUpdateEnvFile,
   onUpdateSettingsFile,
+  onSaveToBackend,
 }: CliToolCardProps) {
   const { formatMessage } = useIntl();
 
@@ -122,6 +144,8 @@ function CliToolCard({
 
   // Predefined tags
   const predefinedTags = ['分析', 'Debug', 'implementation', 'refactoring', 'testing'];
+
+  const configFileType = getConfigFileType(toolId);
 
   return (
     <Card className={cn('overflow-hidden', !config.enabled && 'opacity-60')}>
@@ -350,26 +374,59 @@ function CliToolCard({
             </p>
           </div>
 
-          {/* Settings File */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">
-              {formatMessage({ id: 'apiSettings.cliSettings.settingsFile' })}
-            </label>
-            <Input
-              value={config.settingsFile || ''}
-              onChange={(e) => onUpdateSettingsFile(e.target.value || undefined)}
-              placeholder={formatMessage({ id: 'apiSettings.cliSettings.settingsFilePlaceholder' })}
-            />
-            <p className="text-xs text-muted-foreground">
-              {formatMessage({ id: 'apiSettings.cliSettings.settingsFileHint' })}
-            </p>
-          </div>
-
-          {!isDefault && config.enabled && (
-            <Button variant="outline" size="sm" onClick={onSetDefault}>
-              {formatMessage({ id: 'settings.cliTools.setDefault' })}
-            </Button>
+          {/* Env File - for gemini/qwen/opencode */}
+          {configFileType === 'envFile' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                {formatMessage({ id: 'settings.cliTools.envFile' })}
+              </label>
+              <Input
+                value={config.envFile || ''}
+                onChange={(e) => onUpdateEnvFile(e.target.value || undefined)}
+                placeholder={formatMessage({ id: 'settings.cliTools.envFilePlaceholder' })}
+              />
+              <p className="text-xs text-muted-foreground">
+                {formatMessage({ id: 'settings.cliTools.envFileHint' })}
+              </p>
+            </div>
           )}
+
+          {/* Settings File - for claude only */}
+          {configFileType === 'settingsFile' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                {formatMessage({ id: 'apiSettings.cliSettings.settingsFile' })}
+              </label>
+              <Input
+                value={config.settingsFile || ''}
+                onChange={(e) => onUpdateSettingsFile(e.target.value || undefined)}
+                placeholder={formatMessage({ id: 'apiSettings.cliSettings.settingsFilePlaceholder' })}
+              />
+              <p className="text-xs text-muted-foreground">
+                {formatMessage({ id: 'apiSettings.cliSettings.settingsFileHint' })}
+              </p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2">
+            {!isDefault && config.enabled && (
+              <Button variant="outline" size="sm" onClick={onSetDefault}>
+                {formatMessage({ id: 'settings.cliTools.setDefault' })}
+              </Button>
+            )}
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onSaveToBackend}
+              disabled={isSaving}
+            >
+              <Save className="w-4 h-4 mr-1" />
+              {isSaving
+                ? formatMessage({ id: 'settings.cliTools.saving' })
+                : formatMessage({ id: 'settings.cliTools.saveToConfig' })}
+            </Button>
+          </div>
         </div>
       )}
     </Card>
@@ -666,13 +723,16 @@ interface CliToolsWithStatusProps {
   cliTools: Record<string, CliToolConfig>;
   defaultCliTool: string;
   expandedTools: Set<string>;
+  savingTools: Set<string>;
   onToggleExpand: (toolId: string) => void;
   onToggleEnabled: (toolId: string) => void;
   onSetDefault: (toolId: string) => void;
   onUpdateModel: (toolId: string, field: 'primaryModel' | 'secondaryModel', value: string) => void;
   onUpdateTags: (toolId: string, tags: string[]) => void;
   onUpdateAvailableModels: (toolId: string, models: string[]) => void;
+  onUpdateEnvFile: (toolId: string, envFile: string | undefined) => void;
   onUpdateSettingsFile: (toolId: string, settingsFile: string | undefined) => void;
+  onSaveToBackend: (toolId: string) => void;
   formatMessage: ReturnType<typeof useIntl>['formatMessage'];
 }
 
@@ -680,13 +740,16 @@ function CliToolsWithStatus({
   cliTools,
   defaultCliTool,
   expandedTools,
+  savingTools,
   onToggleExpand,
   onToggleEnabled,
   onSetDefault,
   onUpdateModel,
   onUpdateTags,
   onUpdateAvailableModels,
+  onUpdateEnvFile,
   onUpdateSettingsFile,
+  onSaveToBackend,
   formatMessage,
 }: CliToolsWithStatusProps) {
   const { data: toolStatus } = useCliToolStatus();
@@ -707,13 +770,16 @@ function CliToolsWithStatus({
               isDefault={toolId === defaultCliTool}
               isExpanded={expandedTools.has(toolId)}
               toolAvailable={status?.available}
+              isSaving={savingTools.has(toolId)}
               onToggleExpand={() => onToggleExpand(toolId)}
               onToggleEnabled={() => onToggleEnabled(toolId)}
               onSetDefault={() => onSetDefault(toolId)}
               onUpdateModel={(field, value) => onUpdateModel(toolId, field, value)}
               onUpdateTags={(tags) => onUpdateTags(toolId, tags)}
               onUpdateAvailableModels={(models) => onUpdateAvailableModels(toolId, models)}
+              onUpdateEnvFile={(envFile) => onUpdateEnvFile(toolId, envFile)}
               onUpdateSettingsFile={(settingsFile) => onUpdateSettingsFile(toolId, settingsFile)}
+              onSaveToBackend={() => onSaveToBackend(toolId)}
             />
           );
         })}
@@ -733,6 +799,7 @@ export function SettingsPage() {
   const { updateCliTool, setDefaultCliTool, setUserPreferences, resetUserPreferences } = useConfigStore();
 
   const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+  const [savingTools, setSavingTools] = useState<Set<string>>(new Set());
 
   const toggleToolExpand = (toolId: string) => {
     setExpandedTools((prev) => {
@@ -766,9 +833,67 @@ export function SettingsPage() {
     updateCliTool(toolId, { availableModels });
   };
 
+  const handleUpdateEnvFile = (toolId: string, envFile: string | undefined) => {
+    updateCliTool(toolId, { envFile });
+  };
+
   const handleUpdateSettingsFile = (toolId: string, settingsFile: string | undefined) => {
     updateCliTool(toolId, { settingsFile });
   };
+
+  // Save tool config to backend (~/.claude/cli-tools.json)
+  const handleSaveToBackend = useCallback(async (toolId: string) => {
+    const config = cliTools[toolId];
+    if (!config) return;
+
+    setSavingTools((prev) => new Set(prev).add(toolId));
+    try {
+      const body: Record<string, unknown> = {
+        enabled: config.enabled,
+        primaryModel: config.primaryModel,
+        secondaryModel: config.secondaryModel,
+        tags: config.tags,
+        availableModels: config.availableModels,
+      };
+
+      // Only include the relevant config file field
+      const configFileType = getConfigFileType(toolId);
+      if (configFileType === 'envFile') {
+        body.envFile = config.envFile || null;
+      } else if (configFileType === 'settingsFile') {
+        body.settingsFile = config.settingsFile || null;
+      }
+
+      const res = await fetch(`/api/cli/config/${toolId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      // Show success notification via a brief visual indicator
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 z-50 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-in fade-in slide-in-from-bottom-2';
+      toast.textContent = formatMessage({ id: 'settings.cliTools.configSaved' });
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    } catch {
+      const toast = document.createElement('div');
+      toast.className = 'fixed bottom-4 right-4 z-50 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-in fade-in slide-in-from-bottom-2';
+      toast.textContent = formatMessage({ id: 'settings.cliTools.configSaveError' });
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    } finally {
+      setSavingTools((prev) => {
+        const next = new Set(prev);
+        next.delete(toolId);
+        return next;
+      });
+    }
+  }, [cliTools, formatMessage]);
 
   const handlePreferenceChange = (key: keyof UserPreferences, value: unknown) => {
     setUserPreferences({ [key]: value });
@@ -859,13 +984,16 @@ export function SettingsPage() {
           cliTools={cliTools}
           defaultCliTool={defaultCliTool}
           expandedTools={expandedTools}
+          savingTools={savingTools}
           onToggleExpand={toggleToolExpand}
           onToggleEnabled={handleToggleToolEnabled}
           onSetDefault={handleSetDefaultTool}
           onUpdateModel={handleUpdateModel}
           onUpdateTags={handleUpdateTags}
           onUpdateAvailableModels={handleUpdateAvailableModels}
+          onUpdateEnvFile={handleUpdateEnvFile}
           onUpdateSettingsFile={handleUpdateSettingsFile}
+          onSaveToBackend={handleSaveToBackend}
           formatMessage={formatMessage}
         />
       </Card>
