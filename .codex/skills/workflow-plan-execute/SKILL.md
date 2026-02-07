@@ -1,5 +1,5 @@
 ---
-name: workflow-plan
+name: workflow-plan-execute
 description: 4-phase planning+execution workflow with action-planning-agent task generation, outputs IMPL_PLAN.md and task JSONs, optional Phase 4 execution. Triggers on "workflow:plan".
 allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
 ---

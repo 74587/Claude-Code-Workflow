@@ -1,5 +1,5 @@
 ---
-name: workflow-lite-plan
+name: workflow-lite-plan-execute
 description: Unified lightweight planning skill with mode selection (Lite Plan, Multi-CLI Plan, Lite Fix). Supports exploration, diagnosis, multi-CLI collaboration, and shared execution via lite-execute.
 allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, mcp__ace-tool__search_context
 ---
@@ -43,8 +43,8 @@ When `--yes` or `-y`: Skip mode selection (use default or flag-specified mode), 
 ## Usage
 
 ```
-Skill(skill="workflow-lite-plan", args="<task description>")
-Skill(skill="workflow-lite-plan", args="[FLAGS] \"<task description>\"")
+Skill(skill="workflow-lite-plan-execute", args="<task description>")
+Skill(skill="workflow-lite-plan-execute", args="[FLAGS] \"<task description>\"")
 
 # Flags
 --mode lite-plan|multi-cli|lite-fix    Planning mode selection (default: lite-plan)
@@ -53,11 +53,11 @@ Skill(skill="workflow-lite-plan", args="[FLAGS] \"<task description>\"")
 --hotfix                               Fast hotfix mode (lite-fix only)
 
 # Examples
-Skill(skill="workflow-lite-plan", args="\"Implement JWT authentication\"")                              # Default: lite-plan
-Skill(skill="workflow-lite-plan", args="--mode multi-cli \"Refactor payment module\"")                  # Multi-CLI planning
-Skill(skill="workflow-lite-plan", args="--mode lite-fix \"Login fails with 500 error\"")                # Bug fix mode
-Skill(skill="workflow-lite-plan", args="-y \"Add user profile page\"")                                  # Auto mode
-Skill(skill="workflow-lite-plan", args="--mode lite-fix --hotfix \"Production DB timeout\"")            # Hotfix mode
+Skill(skill="workflow-lite-plan-execute", args="\"Implement JWT authentication\"")                              # Default: lite-plan
+Skill(skill="workflow-lite-plan-execute", args="--mode multi-cli \"Refactor payment module\"")                  # Multi-CLI planning
+Skill(skill="workflow-lite-plan-execute", args="--mode lite-fix \"Login fails with 500 error\"")                # Bug fix mode
+Skill(skill="workflow-lite-plan-execute", args="-y \"Add user profile page\"")                                  # Auto mode
+Skill(skill="workflow-lite-plan-execute", args="--mode lite-fix --hotfix \"Production DB timeout\"")            # Hotfix mode
 ```
 
 ## Subagent API Reference
@@ -279,5 +279,5 @@ Phase-internal sub-tasks are managed by each phase document (attach/collapse pat
 
 ## Related Skills
 
-- Full planning workflow: [workflow-plan/SKILL.md](../workflow-plan/SKILL.md)
+- Full planning workflow: [workflow-plan-execute/SKILL.md](../workflow-plan-execute/SKILL.md)
 - Brainstorming: [workflow-brainstorm-auto-parallel/SKILL.md](../workflow-brainstorm-auto-parallel/SKILL.md)

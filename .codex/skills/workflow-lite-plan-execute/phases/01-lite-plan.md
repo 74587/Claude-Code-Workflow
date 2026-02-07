@@ -1105,7 +1105,7 @@ executionContext = {
 | Planning agent failure | Fallback to direct planning by Claude |
 | Clarification timeout | Use exploration findings as-is |
 | Confirmation timeout | Save context, display resume instructions |
-| Modify loop > 3 times | Suggest breaking task or using full planning workflow (workflow-plan/SKILL.md) |
+| Modify loop > 3 times | Suggest breaking task or using full planning workflow (workflow-plan-execute/SKILL.md) |
 
 ---
 
