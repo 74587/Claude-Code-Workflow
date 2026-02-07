@@ -43,6 +43,13 @@ const defaultCliTools: Record<string, CliToolConfig> = {
     tags: [],
     type: 'builtin',
   },
+  opencode: {
+    enabled: true,
+    primaryModel: 'opencode/glm-4.7-free',
+    secondaryModel: 'opencode/glm-4.7-free',
+    tags: [],
+    type: 'builtin',
+  },
 };
 
 // Default API endpoints

@@ -58,6 +58,10 @@ function StringRenderer({ value, className }: { value: string; className?: strin
 }
 
 function ArrayRenderer({ value, className }: { value: unknown[]; className?: string }) {
+  if (!Array.isArray(value)) {
+    return <FieldRenderer value={value} type="auto" className={className} />;
+  }
+
   if (value.length === 0) {
     return <span className="text-muted-foreground italic">Empty</span>;
   }
@@ -98,6 +102,10 @@ function ObjectRenderer({ value, className }: { value: Record<string, unknown>; 
 }
 
 function FilesRenderer({ value, className }: { value: Array<{ path: string }>; className?: string }) {
+  if (!Array.isArray(value)) {
+    return <FieldRenderer value={value} type="auto" className={className} />;
+  }
+
   if (value.length === 0) {
     return <span className="text-muted-foreground italic">No files</span>;
   }
@@ -118,6 +126,10 @@ function FilesRenderer({ value, className }: { value: Array<{ path: string }>; c
 }
 
 function TagsRenderer({ value, className }: { value: string[]; className?: string }) {
+  if (!Array.isArray(value)) {
+    return <FieldRenderer value={value} type="auto" className={className} />;
+  }
+
   if (value.length === 0) {
     return <span className="text-muted-foreground italic">No tags</span>;
   }

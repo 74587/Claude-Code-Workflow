@@ -10,7 +10,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { TabsNavigation, type TabItem } from '@/components/ui/TabsNavigation';
+import { TabsNavigation } from '@/components/ui/TabsNavigation';
 import {
   ProviderList,
   ProviderModal,
@@ -25,7 +25,7 @@ import {
   ManageModelsModal,
 } from '@/components/api-settings';
 import { ConfigSync } from '@/components/shared';
-import { useProviders, useEndpoints, useModelPools, useCliSettings } from '@/hooks/useApiSettings';
+import { useProviders, useEndpoints, useModelPools, useCliSettings, useSyncApiConfig } from '@/hooks/useApiSettings';
 import { useNotifications } from '@/hooks/useNotifications';
 
 // Tab type definitions
@@ -35,6 +35,7 @@ export function ApiSettingsPage() {
   const { formatMessage } = useIntl();
   const { success, error } = useNotifications();
   const [activeTab, setActiveTab] = useState<TabType>('providers');
+  const syncMutation = useSyncApiConfig();
 
   // Get providers, endpoints, model pools, and CLI settings data
   const { providers } = useProviders();
@@ -170,10 +171,19 @@ export function ApiSettingsPage() {
 
   // Sync to CodexLens handler
   const handleSyncToCodexLens = async (providerId: string) => {
+    const providerName = providers.find((p) => p.id === providerId)?.name ?? providerId;
+
     try {
-      // TODO: Implement actual sync API call
-      // For now, just show a success message
-      success(formatMessage({ id: 'apiSettings.messages.configSynced' }));
+      const result = await syncMutation.mutateAsync();
+      const messageParts = [
+        providerName,
+        result.yamlPath ?? result.message,
+      ].filter(Boolean);
+
+      success(
+        formatMessage({ id: 'apiSettings.messages.configSynced' }),
+        messageParts.length > 0 ? messageParts.join('\n') : undefined
+      );
     } catch (err) {
       error(formatMessage({ id: 'apiSettings.providers.saveError' }));
     }

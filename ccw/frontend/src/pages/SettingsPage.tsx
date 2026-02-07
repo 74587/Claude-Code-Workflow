@@ -25,6 +25,7 @@ import {
   Package,
   Home,
   Folder,
+  FolderOpen,
   Calendar,
   File,
   ArrowUpCircle,
@@ -36,6 +37,7 @@ import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { ThemeSelector } from '@/components/shared/ThemeSelector';
 import { useTheme } from '@/hooks';
+import { toast } from 'sonner';
 import { useConfigStore, selectCliTools, selectDefaultCliTool, selectUserPreferences } from '@/stores/configStore';
 import type { CliToolConfig, UserPreferences } from '@/types/store';
 import { cn } from '@/lib/utils';
@@ -60,9 +62,6 @@ import {
 const ENV_FILE_TOOLS = new Set(['gemini', 'qwen', 'opencode']);
 /** Tools that use --settings for Claude CLI settings file */
 const SETTINGS_FILE_TOOLS = new Set(['claude']);
-/** Tools that don't need any config file */
-const NO_CONFIG_FILE_TOOLS = new Set(['codex']);
-
 function getConfigFileType(toolId: string): 'envFile' | 'settingsFile' | 'none' {
   if (ENV_FILE_TOOLS.has(toolId)) return 'envFile';
   if (SETTINGS_FILE_TOOLS.has(toolId)) return 'settingsFile';
@@ -874,18 +873,13 @@ export function SettingsPage() {
         throw new Error(`HTTP ${res.status}`);
       }
 
-      // Show success notification via a brief visual indicator
-      const toast = document.createElement('div');
-      toast.className = 'fixed bottom-4 right-4 z-50 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-in fade-in slide-in-from-bottom-2';
-      toast.textContent = formatMessage({ id: 'settings.cliTools.configSaved' });
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
+      toast.success(formatMessage({ id: 'settings.cliTools.configSaved' }), {
+        description: toolId,
+      });
     } catch {
-      const toast = document.createElement('div');
-      toast.className = 'fixed bottom-4 right-4 z-50 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm animate-in fade-in slide-in-from-bottom-2';
-      toast.textContent = formatMessage({ id: 'settings.cliTools.configSaveError' });
-      document.body.appendChild(toast);
-      setTimeout(() => toast.remove(), 4000);
+      toast.error(formatMessage({ id: 'settings.cliTools.configSaveError' }), {
+        description: toolId,
+      });
     } finally {
       setSavingTools((prev) => {
         const next = new Set(prev);
