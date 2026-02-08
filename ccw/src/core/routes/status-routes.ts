@@ -52,13 +52,13 @@ function checkCcwInstallStatus(): {
   }
 
   const workflowsInstalled = existsSync(workflowsDir) && missingFiles.length === 0;
-  const installed = existsSync(claudeDir) && workflowsInstalled;
+  const installed = existsSync(ccwDir) && workflowsInstalled;
 
   return {
     installed,
     workflowsInstalled,
     missingFiles,
-    installPath: claudeDir
+    installPath: ccwDir
   };
 }
 
