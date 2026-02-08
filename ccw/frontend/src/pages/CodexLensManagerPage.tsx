@@ -34,6 +34,7 @@ import { GpuSelector } from '@/components/codexlens/GpuSelector';
 import { ModelsTab } from '@/components/codexlens/ModelsTab';
 import { SearchTab } from '@/components/codexlens/SearchTab';
 import { SemanticInstallDialog } from '@/components/codexlens/SemanticInstallDialog';
+import { InstallProgressOverlay } from '@/components/codexlens/InstallProgressOverlay';
 import { useCodexLensDashboard, useCodexLensMutations } from '@/hooks';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +43,7 @@ export function CodexLensManagerPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [isUninstallDialogOpen, setIsUninstallDialogOpen] = useState(false);
   const [isSemanticInstallOpen, setIsSemanticInstallOpen] = useState(false);
+  const [isInstallOverlayOpen, setIsInstallOverlayOpen] = useState(false);
 
   const {
     installed,
@@ -64,11 +66,13 @@ export function CodexLensManagerPage() {
     refetch();
   };
 
-  const handleBootstrap = async () => {
+  const handleBootstrap = () => {
+    setIsInstallOverlayOpen(true);
+  };
+
+  const handleBootstrapInstall = async () => {
     const result = await bootstrap();
-    if (result.success) {
-      refetch();
-    }
+    return result;
   };
 
   const handleUninstall = async () => {
@@ -229,6 +233,14 @@ export function CodexLensManagerPage() {
       <SemanticInstallDialog
         open={isSemanticInstallOpen}
         onOpenChange={setIsSemanticInstallOpen}
+        onSuccess={() => refetch()}
+      />
+
+      {/* Install Progress Overlay */}
+      <InstallProgressOverlay
+        open={isInstallOverlayOpen}
+        onOpenChange={setIsInstallOverlayOpen}
+        onInstall={handleBootstrapInstall}
         onSuccess={() => refetch()}
       />
     </div>

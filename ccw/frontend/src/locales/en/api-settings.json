@@ -198,8 +198,9 @@
       "cacheSize": "Cache size",
       "used": "used",
       "total": "total",
-      "actions": "Cache Actions",
-      "clearCache": "Clear Cache",
+      "actions": {
+        "clearCache": "Clear Cache"
+      },
       "confirmClearCache": "Are you sure you want to clear the cache? This will remove all cached entries."
     },
     "statistics": {
@@ -295,6 +296,11 @@
     "availableModelsHint": "Models shown in CLI dropdown menus. Click × to remove.",
     "nameFormatHint": "Letters, numbers, hyphens, underscores only. Used as: ccw cli --tool [name]",
     "nameTooLong": "Name must be {max} characters or less",
+    "configJson": "Configuration (JSON)",
+    "configJsonPlaceholder": "{\n  \"env\": {\n    \"CUSTOM_VAR\": \"value\"\n  }\n}",
+    "configJsonHint": "Additional configuration in JSON format. This will be merged with the form fields above.",
+    "invalidJson": "Invalid JSON",
+    "configMustBeObject": "Configuration must be a JSON object",
     "settingsFile": "Settings File",
     "settingsFilePlaceholder": "e.g., /path/to/settings.json",
     "settingsFileHint": "Path to external Claude CLI settings file (passed via --settings parameter)",

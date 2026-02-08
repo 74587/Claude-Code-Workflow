@@ -1,0 +1,96 @@
+"""Unit tests for Config cascade settings validation.
+
+Tests cover:
+- Default cascade_strategy value
+- Valid cascade strategies accepted by load_settings
+- Invalid cascade strategy fallback behavior
+- Staged cascade config defaults
+"""
+
+from __future__ import annotations
+
+import json
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from codexlens.config import Config
+
+
+# =============================================================================
+# Test Fixtures
+# =============================================================================
+
+
+@pytest.fixture
+def temp_config_dir():
+    """Create temporary directory for config data_dir."""
+    tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+    yield Path(tmpdir.name)
+    try:
+        tmpdir.cleanup()
+    except (PermissionError, OSError):
+        pass
+
+
+# =============================================================================
+# Tests: cascade config defaults
+# =============================================================================
+
+
+class TestConfigCascadeDefaults:
+    """Tests for Config cascade-related defaults and load_settings()."""
+
+    def test_default_cascade_strategy(self, temp_config_dir):
+        """Default cascade_strategy should be 'binary'."""
+        config = Config(data_dir=temp_config_dir)
+        assert config.cascade_strategy == "binary"
+
+    def test_valid_cascade_strategies(self, temp_config_dir):
+        """load_settings should accept all valid cascade strategies."""
+        valid_strategies = ["binary", "binary_rerank", "dense_rerank", "staged"]
+
+        for strategy in valid_strategies:
+            config = Config(data_dir=temp_config_dir)
+            settings = {"cascade": {"strategy": strategy}}
+
+            settings_path = config.settings_path
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(settings_path, "w", encoding="utf-8") as f:
+                json.dump(settings, f)
+
+            with patch.object(config, "_apply_env_overrides"):
+                config.load_settings()
+
+            assert config.cascade_strategy == strategy, (
+                f"Strategy '{strategy}' should be accepted"
+            )
+
+    def test_invalid_cascade_strategy_fallback(self, temp_config_dir):
+        """Invalid cascade strategy should keep default (not crash)."""
+        config = Config(data_dir=temp_config_dir)
+        settings = {"cascade": {"strategy": "invalid_strategy"}}
+
+        settings_path = config.settings_path
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(settings_path, "w", encoding="utf-8") as f:
+            json.dump(settings, f)
+
+        with patch.object(config, "_apply_env_overrides"):
+            config.load_settings()
+
+        # Should keep the default "binary" strategy
+        assert config.cascade_strategy == "binary"
+
+    def test_staged_config_defaults(self, temp_config_dir):
+        """Staged cascade settings should have correct defaults."""
+        config = Config(data_dir=temp_config_dir)
+        assert config.staged_coarse_k == 200
+        assert config.staged_lsp_depth == 2
+        assert config.staged_clustering_strategy == "auto"
+        assert config.staged_clustering_min_size == 3
+        assert config.enable_staged_rerank is True
+        assert config.cascade_coarse_k == 100
+        assert config.cascade_fine_k == 10

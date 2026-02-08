@@ -238,5 +238,73 @@
       "title": "CodexLens 未安装",
       "description": "请先安装 CodexLens 以使用语义代码搜索功能。"
     }
+  },
+  "envGroup": {
+    "embedding": "嵌入模型",
+    "reranker": "重排序",
+    "concurrency": "并发",
+    "cascade": "级联搜索",
+    "chunking": "分块"
+  },
+  "envField": {
+    "backend": "后端",
+    "model": "模型",
+    "useGpu": "使用 GPU",
+    "highAvailability": "高可用",
+    "loadBalanceStrategy": "负载均衡策略",
+    "rateLimitCooldown": "限流冷却时间",
+    "enabled": "启用",
+    "topKResults": "Top K 结果数",
+    "maxWorkers": "最大工作线程",
+    "batchSize": "批次大小",
+    "dynamicBatchSize": "动态批次大小",
+    "batchSizeUtilization": "利用率因子",
+    "batchSizeMax": "最大批次大小",
+    "charsPerToken": "每 Token 字符数",
+    "searchStrategy": "搜索策略",
+    "coarseK": "粗筛 K 值",
+    "fineK": "精筛 K 值",
+    "stripComments": "去除注释",
+    "stripDocstrings": "去除文档字符串",
+    "testFilePenalty": "测试文件惩罚",
+    "docstringWeight": "文档字符串权重"
+  },
+  "install": {
+    "title": "安装 CodexLens",
+    "description": "设置 Python 虚拟环境并安装 CodexLens 包。",
+    "checklist": "将要安装的内容",
+    "pythonVenv": "Python 虚拟环境",
+    "pythonVenvDesc": "CodexLens 的隔离 Python 环境",
+    "codexlensPackage": "CodexLens 包",
+    "codexlensPackageDesc": "核心语义代码搜索引擎",
+    "sqliteFts": "SQLite FTS5",
+    "sqliteFtsDesc": "用于快速代码查找的全文搜索扩展",
+    "location": "安装位置",
+    "locationPath": "~/.codexlens/venv",
+    "timeEstimate": "安装可能需要 1-3 分钟，取决于网络速度。",
+    "stage": {
+      "creatingVenv": "正在创建 Python 虚拟环境...",
+      "installingPip": "正在安装 pip 依赖...",
+      "installingPackage": "正在安装 CodexLens 包...",
+      "settingUpDeps": "正在设置依赖项...",
+      "finalizing": "正在完成安装...",
+      "complete": "安装完成！"
+    },
+    "installNow": "立即安装",
+    "installing": "安装中..."
+  },
+  "watcher": {
+    "status": {
+      "running": "运行中",
+      "stopped": "已停止"
+    },
+    "eventsProcessed": "已处理事件",
+    "uptime": "运行时间",
+    "start": "启动监听",
+    "starting": "启动中...",
+    "stop": "停止监听",
+    "stopping": "停止中...",
+    "started": "文件监听器已启动",
+    "stopped": "文件监听器已停止"
   }
 }

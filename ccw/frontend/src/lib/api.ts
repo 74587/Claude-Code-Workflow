@@ -4449,6 +4449,47 @@ export async function cleanCodexLensIndexes(options: {
   });
 }
 
+// ========== CodexLens File Watcher API ==========
+
+/**
+ * CodexLens watcher status response
+ */
+export interface CodexLensWatcherStatusResponse {
+  success: boolean;
+  running: boolean;
+  root_path: string;
+  events_processed: number;
+  start_time: string | null;
+  uptime_seconds: number;
+}
+
+/**
+ * Fetch CodexLens file watcher status
+ */
+export async function fetchCodexLensWatcherStatus(): Promise<CodexLensWatcherStatusResponse> {
+  return fetchApi<CodexLensWatcherStatusResponse>('/api/codexlens/watch/status');
+}
+
+/**
+ * Start CodexLens file watcher
+ */
+export async function startCodexLensWatcher(path?: string, debounceMs?: number): Promise<{ success: boolean; message?: string; path?: string; pid?: number; error?: string }> {
+  return fetchApi('/api/codexlens/watch/start', {
+    method: 'POST',
+    body: JSON.stringify({ path, debounce_ms: debounceMs }),
+  });
+}
+
+/**
+ * Stop CodexLens file watcher
+ */
+export async function stopCodexLensWatcher(): Promise<{ success: boolean; message?: string; events_processed?: number; uptime_seconds?: number; error?: string }> {
+  return fetchApi('/api/codexlens/watch/stop', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
 // ========== LiteLLM API Settings API ==========
 
 /**

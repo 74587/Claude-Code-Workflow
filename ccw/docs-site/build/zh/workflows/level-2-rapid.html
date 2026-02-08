@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.9.2">
 <title data-rh="true">层级 2: 快速工作流 | CCW Help Documentation</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="http://localhost:3001/docs/zh/workflows/level-2-rapid"><meta data-rh="true" property="og:locale" content="zh_CN"><meta data-rh="true" property="og:locale:alternate" content="en"><meta data-rh="true" name="docusaurus_locale" content="zh"><meta data-rh="true" name="docsearch:language" content="zh"><meta data-rh="true" name="docusaurus_version" content="current"><meta data-rh="true" name="docusaurus_tag" content="docs-default-current"><meta data-rh="true" name="docsearch:version" content="current"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-current"><meta data-rh="true" property="og:title" content="层级 2: 快速工作流 | CCW Help Documentation"><meta data-rh="true" name="description" content="轻量规划和漏洞诊断工作流 - 适用于单模块功能"><meta data-rh="true" property="og:description" content="轻量规划和漏洞诊断工作流 - 适用于单模块功能"><link data-rh="true" rel="icon" href="/docs/zh/img/favicon.svg"><link data-rh="true" rel="canonical" href="http://localhost:3001/docs/zh/workflows/level-2-rapid"><link data-rh="true" rel="alternate" href="http://localhost:3001/docs/workflows/level-2-rapid" hreflang="en"><link data-rh="true" rel="alternate" href="http://localhost:3001/docs/zh/workflows/level-2-rapid" hreflang="zh-CN"><link data-rh="true" rel="alternate" href="http://localhost:3001/docs/workflows/level-2-rapid" hreflang="x-default"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"级别 2：快速","item":"http://localhost:3001/docs/zh/workflows/level-2-rapid"}]}</script><link rel="stylesheet" href="/docs/zh/assets/css/styles.b656bddd.css">
-<script src="/docs/zh/assets/js/runtime~main.526a5acf.js" defer="defer"></script>
+<script src="/docs/zh/assets/js/runtime~main.cb7f7fb4.js" defer="defer"></script>
 <script src="/docs/zh/assets/js/main.cad7fa6a.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -41,7 +41,7 @@
 </ul>
 <p><strong>阶段 3: 规划</strong></p>
 <ul>
-<li class="">加载计划 schema: <code>~/.claude/workflows/cli-templates/schemas/plan-json-schema.json</code></li>
+<li class="">加载计划 schema: <code>~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json</code></li>
 <li class="">按照生成计划 schema 生成 plan.json</li>
 </ul>
 <p><strong>阶段 4: 确认与选择</strong></p>
@@ -74,7 +74,7 @@
 <p><strong>智能诊断 + 修复 (5 阶段)</strong></p>
 <h3 class="anchor anchorTargetStickyNavbar_SAay" id="命令-1">命令<a href="#命令-1" class="hash-link" aria-label="命令的直接链接" title="命令的直接链接" translate="no">​</a></h3>
 <div class="language-bash codeBlockContainer_ZGJx theme-code-block" style="--prism-color:#bfc7d5;--prism-background-color:#292d3e"><div class="codeBlockContent_kX1v"><pre tabindex="0" class="prism-code language-bash codeBlock_TAPP thin-scrollbar" style="color:#bfc7d5;background-color:#292d3e"><code class="codeBlockLines_AdAo"><span class="token-line" style="color:#bfc7d5"><span class="token plain">/workflow:lite-fix </span><span class="token string" style="color:rgb(195, 232, 141)">&quot;Login timeout after 30 seconds&quot;</span><span class="token plain"></span><br></span><span class="token-line" style="color:#bfc7d5"><span class="token plain">/workflow:lite-execute --in-memory </span><span class="token parameter variable" style="color:rgb(191, 199, 213)">--mode</span><span class="token plain"> bugfix</span><br></span><span class="token-line" style="color:#bfc7d5"><span class="token plain" style="display:inline-block"></span><br></span><span class="token-line" style="color:#bfc7d5"><span class="token plain"></span><span class="token comment" style="color:rgb(105, 112, 152);font-style:italic"># 紧急热修复模式</span><span class="token plain"></span><br></span><span class="token-line" style="color:#bfc7d5"><span class="token plain">/workflow:lite-fix </span><span class="token parameter variable" style="color:rgb(191, 199, 213)">--hotfix</span><span class="token plain"> </span><span class="token string" style="color:rgb(195, 232, 141)">&quot;Production database connection failing&quot;</span><br></span></code></pre></div></div>
-<h3 class="anchor anchorTargetStickyNavbar_SAay" id="流程图-1">流  程图<a href="#流程图-1" class="hash-link" aria-label="流程图的直接链接" title="流程图的直接链接" translate="no">​</a></h3>
+<h3 class="anchor anchorTargetStickyNavbar_SAay" id="流程图-1">流程  图<a href="#流程图-1" class="hash-link" aria-label="流程图的直接链接" title="流程图的直接链接" translate="no">​</a></h3>
 <!-- -->
 <h3 class="anchor anchorTargetStickyNavbar_SAay" id="流程阶段-1">流程阶段<a href="#流程阶段-1" class="hash-link" aria-label="流程阶段的直接链接" title="流程阶段的直接链接" translate="no">​</a></h3>
 <p><strong>阶段 1: 漏洞分析与诊断</strong></p>

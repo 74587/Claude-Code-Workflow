@@ -38,6 +38,9 @@ import {
   updateCodexLensIndex,
   cancelCodexLensIndexing,
   checkCodexLensIndexingStatus,
+  fetchCodexLensWatcherStatus,
+  startCodexLensWatcher,
+  stopCodexLensWatcher,
   type CodexLensDashboardInitResponse,
   type CodexLensVenvStatus,
   type CodexLensConfig,
@@ -57,6 +60,7 @@ import {
   type CodexLensIndexesResponse,
   type CodexLensIndexingStatusResponse,
   type CodexLensSemanticInstallResponse,
+  type CodexLensWatcherStatusResponse,
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
@@ -79,6 +83,7 @@ export const codexLensKeys = {
   search: (params: CodexLensSearchParams) => [...codexLensKeys.all, 'search', params] as const,
   filesSearch: (params: CodexLensSearchParams) => [...codexLensKeys.all, 'filesSearch', params] as const,
   symbolSearch: (params: Pick<CodexLensSearchParams, 'query' | 'limit'>) => [...codexLensKeys.all, 'symbolSearch', params] as const,
+  watcher: () => [...codexLensKeys.all, 'watcher'] as const,
 };
 
 // Default stale times
@@ -1349,5 +1354,110 @@ export function useCodexLensSymbolSearch(
     isLoading: query.isLoading,
     error: query.error,
     refetch,
+  };
+}
+
+// ========== File Watcher Hooks ==========
+
+export interface UseCodexLensWatcherOptions {
+  enabled?: boolean;
+}
+
+export interface UseCodexLensWatcherReturn {
+  data: CodexLensWatcherStatusResponse | undefined;
+  running: boolean;
+  rootPath: string;
+  eventsProcessed: number;
+  uptimeSeconds: number;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+/**
+ * Hook for checking CodexLens file watcher status
+ * Polls every 3 seconds when watcher is running
+ */
+export function useCodexLensWatcher(options: UseCodexLensWatcherOptions = {}): UseCodexLensWatcherReturn {
+  const { enabled = true } = options;
+
+  const query = useQuery({
+    queryKey: codexLensKeys.watcher(),
+    queryFn: fetchCodexLensWatcherStatus,
+    staleTime: STALE_TIME_SHORT,
+    enabled,
+    refetchInterval: (query) => {
+      const data = query.state.data as CodexLensWatcherStatusResponse | undefined;
+      return data?.running ? 3000 : false;
+    },
+    retry: 2,
+  });
+
+  return {
+    data: query.data,
+    running: query.data?.running ?? false,
+    rootPath: query.data?.root_path ?? '',
+    eventsProcessed: query.data?.events_processed ?? 0,
+    uptimeSeconds: query.data?.uptime_seconds ?? 0,
+    isLoading: query.isLoading,
+    error: query.error,
+  };
+}
+
+export interface UseCodexLensWatcherMutationsReturn {
+  startWatcher: (path?: string, debounceMs?: number) => Promise<{ success: boolean; message?: string; error?: string }>;
+  stopWatcher: () => Promise<{ success: boolean; message?: string; error?: string }>;
+  isStarting: boolean;
+  isStopping: boolean;
+}
+
+/**
+ * Hook for file watcher start/stop mutations
+ */
+export function useCodexLensWatcherMutations(): UseCodexLensWatcherMutationsReturn {
+  const queryClient = useQueryClient();
+  const formatMessage = useFormatMessage();
+  const { success, error: errorToast } = useNotifications();
+
+  const startMutation = useMutation({
+    mutationFn: ({ path, debounceMs }: { path?: string; debounceMs?: number }) =>
+      startCodexLensWatcher(path, debounceMs),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: codexLensKeys.watcher() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'codexlens.watcher.started' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensWatcherStart');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
+    },
+  });
+
+  const stopMutation = useMutation({
+    mutationFn: () => stopCodexLensWatcher(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: codexLensKeys.watcher() });
+      success(
+        formatMessage({ id: 'common.success' }),
+        formatMessage({ id: 'codexlens.watcher.stopped' })
+      );
+    },
+    onError: (err) => {
+      const sanitized = sanitizeErrorMessage(err, 'codexLensWatcherStop');
+      const message = formatMessage({ id: sanitized.messageKey });
+      const title = formatMessage({ id: 'common.error' });
+      errorToast(title, message);
+    },
+  });
+
+  return {
+    startWatcher: (path?: string, debounceMs?: number) =>
+      startMutation.mutateAsync({ path, debounceMs }),
+    stopWatcher: () => stopMutation.mutateAsync(),
+    isStarting: startMutation.isPending,
+    isStopping: stopMutation.isPending,
   };
 }

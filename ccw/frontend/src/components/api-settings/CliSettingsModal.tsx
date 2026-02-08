@@ -35,6 +35,35 @@ export interface CliSettingsModalProps {
 
 type ModeType = 'provider-based' | 'direct';
 
+// ========== Helper Functions ==========
+
+function safeStringifyConfig(config: unknown): string {
+  try {
+    return JSON.stringify(config ?? {}, null, 2);
+  } catch {
+    return '{}';
+  }
+}
+
+function parseConfigJson(
+  configJson: string
+): { ok: true; value: Record<string, unknown> } | { ok: false; errorKey: string } {
+  const trimmed = configJson.trim();
+  if (!trimmed) {
+    return { ok: true, value: {} };
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ok: false, errorKey: 'configMustBeObject' };
+    }
+    return { ok: true, value: parsed as Record<string, unknown> };
+  } catch {
+    return { ok: false, errorKey: 'invalidJson' };
+  }
+}
+
 // ========== Main Component ==========
 
 export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModalProps) {
@@ -73,6 +102,10 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
   // Tags state
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+
+  // JSON config state
+  const [configJson, setConfigJson] = useState('{}');
+  const [showJsonInput, setShowJsonInput] = useState(false);
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -123,6 +156,8 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
       setModelInput('');
       setTags([]);
       setTagInput('');
+      setConfigJson('{}');
+      setShowJsonInput(false);
       setErrors({});
     }
   }, [cliSettings, open, providers]);
@@ -153,6 +188,14 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
       // Direct mode
       if (!authToken.trim() && !baseUrl.trim()) {
         newErrors.direct = formatMessage({ id: 'apiSettings.cliSettings.validation.authOrBaseUrlRequired' });
+      }
+    }
+
+    // Validate JSON config if shown
+    if (showJsonInput) {
+      const parsedConfig = parseConfigJson(configJson);
+      if (!parsedConfig.ok) {
+        newErrors.configJson = formatMessage({ id: `apiSettings.cliSettings.${parsedConfig.errorKey}` });
       }
     }
 
@@ -191,6 +234,15 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
         }
       }
 
+      // Parse and merge JSON config if shown
+      let extraSettings: Record<string, unknown> = {};
+      if (showJsonInput) {
+        const parsedConfig = parseConfigJson(configJson);
+        if (parsedConfig.ok) {
+          extraSettings = parsedConfig.value;
+        }
+      }
+
       const request = {
         id: cliSettings?.id,
         name: name.trim(),
@@ -203,6 +255,7 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
           settingsFile: settingsFile.trim() || undefined,
           availableModels,
           tags,
+          ...extraSettings,
         },
       };
 
@@ -585,6 +638,52 @@ export function CliSettingsModal({ open, onClose, cliSettings }: CliSettingsModa
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* JSON Config Section */}
+            <div className="space-y-2 pt-4 border-t border-border">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="configJson" className="cursor-pointer">
+                  {formatMessage({ id: 'apiSettings.cliSettings.configJson' })}
+                </Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowJsonInput(!showJsonInput)}
+                >
+                  {showJsonInput
+                    ? formatMessage({ id: 'common.actions.close' })
+                    : formatMessage({ id: 'common.actions.expand' }, { value: 'JSON' })}
+                </Button>
+              </div>
+              {showJsonInput && (
+                <div className="space-y-2">
+                  <Textarea
+                    id="configJson"
+                    value={configJson}
+                    onChange={(e) => {
+                      setConfigJson(e.target.value);
+                      if (errors.configJson) {
+                        setErrors((prev) => {
+                          const newErrors = { ...prev };
+                          delete newErrors.configJson;
+                          return newErrors;
+                        });
+                      }
+                    }}
+                    placeholder={formatMessage({ id: 'apiSettings.cliSettings.configJsonPlaceholder' })}
+                    className={errors.configJson ? 'font-mono border-destructive' : 'font-mono'}
+                    rows={8}
+                  />
+                  {errors.configJson && (
+                    <p className="text-xs text-destructive">{errors.configJson}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {formatMessage({ id: 'apiSettings.cliSettings.configJsonHint' })}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

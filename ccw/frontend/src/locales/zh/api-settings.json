@@ -198,8 +198,9 @@
       "cacheSize": "缓存大小",
       "used": "已使用",
       "total": "总计",
-      "actions": "缓存操作",
-      "clearCache": "清除缓存",
+      "actions": {
+        "clearCache": "清除缓存"
+      },
       "confirmClearCache": "确定要清除缓存吗？这将删除所有缓存条目。"
     },
     "statistics": {
@@ -295,6 +296,11 @@
     "availableModelsHint": "显示在 CLI 下拉菜单中的模型。点击 × 删除。",
     "nameFormatHint": "仅限字母、数字、连字符和下划线。用作：ccw cli --tool [名称]",
     "nameTooLong": "名称必须在 {max} 个字符以内",
+    "configJson": "配置（JSON）",
+    "configJsonPlaceholder": "{\n  \"env\": {\n    \"CUSTOM_VAR\": \"value\"\n  }\n}",
+    "configJsonHint": "JSON 格式的额外配置。将与上述表单字段合并。",
+    "invalidJson": "无效的 JSON",
+    "configMustBeObject": "配置必须是一个 JSON 对象",
     "settingsFile": "配置文件路径",
     "settingsFilePlaceholder": "例如：/path/to/settings.json",
     "settingsFileHint": "外部 Claude CLI 配置文件路径（通过 --settings 参数传递）",

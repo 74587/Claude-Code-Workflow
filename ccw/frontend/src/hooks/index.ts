@@ -267,6 +267,8 @@ export {
   useRebuildIndex,
   useUpdateIndex,
   useCancelIndexing,
+  useCodexLensWatcher,
+  useCodexLensWatcherMutations,
 } from './useCodexLens';
 export type {
   UseCodexLensDashboardOptions,
@@ -301,4 +303,7 @@ export type {
   UseRebuildIndexReturn,
   UseUpdateIndexReturn,
   UseCancelIndexingReturn,
+  UseCodexLensWatcherOptions,
+  UseCodexLensWatcherReturn,
+  UseCodexLensWatcherMutationsReturn,
 } from './useCodexLens';

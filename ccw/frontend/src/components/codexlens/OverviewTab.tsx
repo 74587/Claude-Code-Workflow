@@ -15,6 +15,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { cn } from '@/lib/utils';
 import type { CodexLensVenvStatus, CodexLensConfig } from '@/lib/api';
 import { IndexOperations } from './IndexOperations';
+import { FileWatcherCard } from './FileWatcherCard';
 
 interface OverviewTabProps {
   installed: boolean;
@@ -141,6 +142,9 @@ export function OverviewTab({ installed, status, config, isLoading, onRefresh }:
           </div>
         </Card>
       </div>
+
+      {/* File Watcher */}
+      <FileWatcherCard disabled={!isReady} />
 
       {/* Index Operations */}
       <IndexOperations disabled={!isReady} onRefresh={onRefresh} />

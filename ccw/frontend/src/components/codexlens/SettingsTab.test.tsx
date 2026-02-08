@@ -1,7 +1,7 @@
 // ========================================
 // Settings Tab Component Tests
 // ========================================
-// Tests for CodexLens Settings Tab component with form validation
+// Tests for CodexLens Settings Tab component with schema-driven form
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@/test/i18n';
@@ -15,7 +15,9 @@ vi.mock('@/hooks', async (importOriginal) => {
   return {
     ...actual,
     useCodexLensConfig: vi.fn(),
-    useUpdateCodexLensConfig: vi.fn(),
+    useCodexLensEnv: vi.fn(),
+    useUpdateCodexLensEnv: vi.fn(),
+    useCodexLensModels: vi.fn(),
     useNotifications: vi.fn(() => ({
       toasts: [],
       wsStatus: 'disconnected' as const,
@@ -41,7 +43,13 @@ vi.mock('@/hooks', async (importOriginal) => {
   };
 });
 
-import { useCodexLensConfig, useUpdateCodexLensConfig, useNotifications } from '@/hooks';
+import {
+  useCodexLensConfig,
+  useCodexLensEnv,
+  useUpdateCodexLensEnv,
+  useCodexLensModels,
+  useNotifications,
+} from '@/hooks';
 
 const mockConfig: CodexLensConfig = {
   index_dir: '~/.codexlens/indexes',
@@ -50,6 +58,52 @@ const mockConfig: CodexLensConfig = {
   api_batch_size: 8,
 };
 
+const mockEnv: Record<string, string> = {
+  CODEXLENS_EMBEDDING_BACKEND: 'local',
+  CODEXLENS_EMBEDDING_MODEL: 'fast',
+  CODEXLENS_USE_GPU: 'true',
+  CODEXLENS_RERANKER_ENABLED: 'true',
+  CODEXLENS_RERANKER_BACKEND: 'local',
+  CODEXLENS_API_MAX_WORKERS: '4',
+  CODEXLENS_API_BATCH_SIZE: '8',
+  CODEXLENS_CASCADE_STRATEGY: 'dense_rerank',
+};
+
+function setupDefaultMocks() {
+  vi.mocked(useCodexLensConfig).mockReturnValue({
+    config: mockConfig,
+    indexDir: mockConfig.index_dir,
+    indexCount: 100,
+    apiMaxWorkers: 4,
+    apiBatchSize: 8,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  });
+  vi.mocked(useCodexLensEnv).mockReturnValue({
+    data: { success: true, env: mockEnv, settings: {}, path: '~/.codexlens/.env' },
+    env: mockEnv,
+    settings: {},
+    raw: '',
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  });
+  vi.mocked(useUpdateCodexLensEnv).mockReturnValue({
+    updateEnv: vi.fn().mockResolvedValue({ success: true, message: 'Saved' }),
+    isUpdating: false,
+    error: null,
+  });
+  vi.mocked(useCodexLensModels).mockReturnValue({
+    models: [],
+    embeddingModels: [],
+    rerankerModels: [],
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  });
+}
+
 describe('SettingsTab', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -57,21 +111,7 @@ describe('SettingsTab', () => {
 
   describe('when enabled and config loaded', () => {
     beforeEach(() => {
-      vi.mocked(useCodexLensConfig).mockReturnValue({
-        config: mockConfig,
-        indexDir: mockConfig.index_dir,
-        indexCount: 100,
-        apiMaxWorkers: 4,
-        apiBatchSize: 8,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-      });
-      vi.mocked(useUpdateCodexLensConfig).mockReturnValue({
-        updateConfig: vi.fn().mockResolvedValue({ success: true, message: 'Saved' }),
-        isUpdating: false,
-        error: null,
-      });
+      setupDefaultMocks();
     });
 
     it('should render current info card', () => {
@@ -85,25 +125,29 @@ describe('SettingsTab', () => {
       expect(screen.getByText('8')).toBeInTheDocument();
     });
 
-    it('should render configuration form', () => {
+    it('should render configuration form with index directory', () => {
       render(<SettingsTab enabled={true} />);
 
       expect(screen.getByText(/Basic Configuration/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Index Directory/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Max Workers/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/Batch Size/i)).toBeInTheDocument();
     });
 
-    it('should initialize form with config values', () => {
+    it('should render env var group sections', () => {
+      render(<SettingsTab enabled={true} />);
+
+      // Schema groups should be rendered (labels come from i18n, check for group icons/sections)
+      expect(screen.getByText(/Embedding/i)).toBeInTheDocument();
+      expect(screen.getByText(/Reranker/i)).toBeInTheDocument();
+      expect(screen.getByText(/Concurrency/i)).toBeInTheDocument();
+      expect(screen.getByText(/Cascade/i)).toBeInTheDocument();
+      expect(screen.getByText(/Chunking/i)).toBeInTheDocument();
+    });
+
+    it('should initialize index dir from config', () => {
       render(<SettingsTab enabled={true} />);
 
       const indexDirInput = screen.getByLabelText(/Index Directory/i) as HTMLInputElement;
-      const maxWorkersInput = screen.getByLabelText(/Max Workers/i) as HTMLInputElement;
-      const batchSizeInput = screen.getByLabelText(/Batch Size/i) as HTMLInputElement;
-
       expect(indexDirInput.value).toBe('~/.codexlens/indexes');
-      expect(maxWorkersInput.value).toBe('4');
-      expect(batchSizeInput.value).toBe('8');
     });
 
     it('should show save button enabled when changes are made', async () => {
@@ -128,10 +172,10 @@ describe('SettingsTab', () => {
       expect(resetButton).toBeDisabled();
     });
 
-    it('should call updateConfig on save', async () => {
-      const updateConfig = vi.fn().mockResolvedValue({ success: true, message: 'Saved' });
-      vi.mocked(useUpdateCodexLensConfig).mockReturnValue({
-        updateConfig,
+    it('should call updateEnv on save', async () => {
+      const updateEnv = vi.fn().mockResolvedValue({ success: true, message: 'Saved' });
+      vi.mocked(useUpdateCodexLensEnv).mockReturnValue({
+        updateEnv,
         isUpdating: false,
         error: null,
       });
@@ -171,10 +215,11 @@ describe('SettingsTab', () => {
       await user.click(saveButton);
 
       await waitFor(() => {
-        expect(updateConfig).toHaveBeenCalledWith({
-          index_dir: '/new/index/path',
-          api_max_workers: 4,
-          api_batch_size: 8,
+        expect(updateEnv).toHaveBeenCalledWith({
+          env: expect.objectContaining({
+            CODEXLENS_EMBEDDING_BACKEND: 'local',
+            CODEXLENS_EMBEDDING_MODEL: 'fast',
+          }),
         });
       });
     });
@@ -198,21 +243,7 @@ describe('SettingsTab', () => {
 
   describe('form validation', () => {
     beforeEach(() => {
-      vi.mocked(useCodexLensConfig).mockReturnValue({
-        config: mockConfig,
-        indexDir: mockConfig.index_dir,
-        indexCount: 100,
-        apiMaxWorkers: 4,
-        apiBatchSize: 8,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-      });
-      vi.mocked(useUpdateCodexLensConfig).mockReturnValue({
-        updateConfig: vi.fn().mockResolvedValue({ success: true }),
-        isUpdating: false,
-        error: null,
-      });
+      setupDefaultMocks();
     });
 
     it('should validate index dir is required', async () => {
@@ -226,62 +257,6 @@ describe('SettingsTab', () => {
       await user.click(saveButton);
 
       expect(screen.getByText(/Index directory is required/i)).toBeInTheDocument();
-    });
-
-    it('should validate max workers range (1-32)', async () => {
-      const user = userEvent.setup();
-      render(<SettingsTab enabled={true} />);
-
-      const maxWorkersInput = screen.getByLabelText(/Max Workers/i);
-      await user.clear(maxWorkersInput);
-      await user.type(maxWorkersInput, '0');
-
-      const saveButton = screen.getByText(/Save/i);
-      await user.click(saveButton);
-
-      expect(screen.getByText(/Workers must be between 1 and 32/i)).toBeInTheDocument();
-    });
-
-    it('should validate max workers upper bound', async () => {
-      const user = userEvent.setup();
-      render(<SettingsTab enabled={true} />);
-
-      const maxWorkersInput = screen.getByLabelText(/Max Workers/i);
-      await user.clear(maxWorkersInput);
-      await user.type(maxWorkersInput, '33');
-
-      const saveButton = screen.getByText(/Save/i);
-      await user.click(saveButton);
-
-      expect(screen.getByText(/Workers must be between 1 and 32/i)).toBeInTheDocument();
-    });
-
-    it('should validate batch size range (1-64)', async () => {
-      const user = userEvent.setup();
-      render(<SettingsTab enabled={true} />);
-
-      const batchSizeInput = screen.getByLabelText(/Batch Size/i);
-      await user.clear(batchSizeInput);
-      await user.type(batchSizeInput, '0');
-
-      const saveButton = screen.getByText(/Save/i);
-      await user.click(saveButton);
-
-      expect(screen.getByText(/Batch size must be between 1 and 64/i)).toBeInTheDocument();
-    });
-
-    it('should validate batch size upper bound', async () => {
-      const user = userEvent.setup();
-      render(<SettingsTab enabled={true} />);
-
-      const batchSizeInput = screen.getByLabelText(/Batch Size/i);
-      await user.clear(batchSizeInput);
-      await user.type(batchSizeInput, '65');
-
-      const saveButton = screen.getByText(/Save/i);
-      await user.click(saveButton);
-
-      expect(screen.getByText(/Batch size must be between 1 and 64/i)).toBeInTheDocument();
     });
 
     it('should clear error when user fixes invalid input', async () => {
@@ -304,28 +279,13 @@ describe('SettingsTab', () => {
 
   describe('when disabled', () => {
     beforeEach(() => {
-      vi.mocked(useCodexLensConfig).mockReturnValue({
-        config: mockConfig,
-        indexDir: mockConfig.index_dir,
-        indexCount: 100,
-        apiMaxWorkers: 4,
-        apiBatchSize: 8,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-      });
-      vi.mocked(useUpdateCodexLensConfig).mockReturnValue({
-        updateConfig: vi.fn().mockResolvedValue({ success: true }),
-        isUpdating: false,
-        error: null,
-      });
+      setupDefaultMocks();
     });
 
     it('should not render when enabled is false', () => {
       render(<SettingsTab enabled={false} />);
 
-      // When not enabled, the component may render nothing or an empty state
-      // This test documents the expected behavior
+      // When not enabled, hooks are disabled so no config/env data
       expect(screen.queryByText(/Basic Configuration/i)).not.toBeInTheDocument();
     });
   });
@@ -342,10 +302,27 @@ describe('SettingsTab', () => {
         error: null,
         refetch: vi.fn(),
       });
-      vi.mocked(useUpdateCodexLensConfig).mockReturnValue({
-        updateConfig: vi.fn().mockResolvedValue({ success: true }),
+      vi.mocked(useCodexLensEnv).mockReturnValue({
+        data: { success: true, env: mockEnv, settings: {}, path: '' },
+        env: mockEnv,
+        settings: {},
+        raw: '',
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      vi.mocked(useUpdateCodexLensEnv).mockReturnValue({
+        updateEnv: vi.fn().mockResolvedValue({ success: true }),
         isUpdating: false,
         error: null,
+      });
+      vi.mocked(useCodexLensModels).mockReturnValue({
+        models: [],
+        embeddingModels: [],
+        rerankerModels: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
       });
 
       render(<SettingsTab enabled={true} />);
@@ -355,18 +332,9 @@ describe('SettingsTab', () => {
     });
 
     it('should show saving state when updating', async () => {
-      vi.mocked(useCodexLensConfig).mockReturnValue({
-        config: mockConfig,
-        indexDir: mockConfig.index_dir,
-        indexCount: 100,
-        apiMaxWorkers: 4,
-        apiBatchSize: 8,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-      });
-      vi.mocked(useUpdateCodexLensConfig).mockReturnValue({
-        updateConfig: vi.fn().mockResolvedValue({ success: true }),
+      setupDefaultMocks();
+      vi.mocked(useUpdateCodexLensEnv).mockReturnValue({
+        updateEnv: vi.fn().mockResolvedValue({ success: true }),
         isUpdating: true,
         error: null,
       });
@@ -385,21 +353,7 @@ describe('SettingsTab', () => {
 
   describe('i18n - Chinese locale', () => {
     beforeEach(() => {
-      vi.mocked(useCodexLensConfig).mockReturnValue({
-        config: mockConfig,
-        indexDir: mockConfig.index_dir,
-        indexCount: 100,
-        apiMaxWorkers: 4,
-        apiBatchSize: 8,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-      });
-      vi.mocked(useUpdateCodexLensConfig).mockReturnValue({
-        updateConfig: vi.fn().mockResolvedValue({ success: true }),
-        isUpdating: false,
-        error: null,
-      });
+      setupDefaultMocks();
     });
 
     it('should display translated labels', () => {
@@ -410,8 +364,6 @@ describe('SettingsTab', () => {
       expect(screen.getByText(/当前批次大小/i)).toBeInTheDocument();
       expect(screen.getByText(/基本配置/i)).toBeInTheDocument();
       expect(screen.getByText(/索引目录/i)).toBeInTheDocument();
-      expect(screen.getByText(/最大工作线程/i)).toBeInTheDocument();
-      expect(screen.getByText(/批次大小/i)).toBeInTheDocument();
       expect(screen.getByText(/保存/i)).toBeInTheDocument();
       expect(screen.getByText(/重置/i)).toBeInTheDocument();
     });
@@ -432,6 +384,7 @@ describe('SettingsTab', () => {
 
   describe('error handling', () => {
     it('should show error notification on save failure', async () => {
+      setupDefaultMocks();
       const error = vi.fn();
       vi.mocked(useNotifications).mockReturnValue({
         toasts: [],
@@ -455,18 +408,8 @@ describe('SettingsTab', () => {
         removePersistentNotification: vi.fn(),
         clearPersistentNotifications: vi.fn(),
       });
-      vi.mocked(useCodexLensConfig).mockReturnValue({
-        config: mockConfig,
-        indexDir: mockConfig.index_dir,
-        indexCount: 100,
-        apiMaxWorkers: 4,
-        apiBatchSize: 8,
-        isLoading: false,
-        error: null,
-        refetch: vi.fn(),
-      });
-      vi.mocked(useUpdateCodexLensConfig).mockReturnValue({
-        updateConfig: vi.fn().mockResolvedValue({ success: false, message: 'Save failed' }),
+      vi.mocked(useUpdateCodexLensEnv).mockReturnValue({
+        updateEnv: vi.fn().mockResolvedValue({ success: false, message: 'Save failed' }),
         isUpdating: false,
         error: null,
       });

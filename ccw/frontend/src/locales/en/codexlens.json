@@ -238,5 +238,74 @@
       "title": "CodexLens Not Installed",
       "description": "Please install CodexLens to use semantic code search features."
     }
+  },
+  "envGroup": {
+    "embedding": "Embedding",
+    "reranker": "Reranker",
+    "concurrency": "Concurrency",
+    "cascade": "Cascade Search",
+    "chunking": "Chunking"
+  },
+  "envField": {
+    "backend": "Backend",
+    "model": "Model",
+    "useGpu": "Use GPU",
+    "highAvailability": "High Availability",
+    "loadBalanceStrategy": "Load Balance Strategy",
+    "rateLimitCooldown": "Rate Limit Cooldown",
+    "enabled": "Enabled",
+    "topKResults": "Top K Results",
+    "maxWorkers": "Max Workers",
+    "batchSize": "Batch Size",
+    "dynamicBatchSize": "Dynamic Batch Size",
+    "batchSizeUtilization": "Utilization Factor",
+    "batchSizeMax": "Max Batch Size",
+    "charsPerToken": "Chars Per Token",
+    "searchStrategy": "Search Strategy",
+    "coarseK": "Coarse K",
+    "fineK": "Fine K",
+    "stripComments": "Strip Comments",
+    "stripDocstrings": "Strip Docstrings",
+    "testFilePenalty": "Test File Penalty",
+    "docstringWeight": "Docstring Weight"
+  },
+  "install": {
+    "title": "Install CodexLens",
+    "description": "Set up Python virtual environment and install CodexLens package.",
+    "checklist": "What will be installed",
+    "pythonVenv": "Python Virtual Environment",
+    "pythonVenvDesc": "Isolated Python environment for CodexLens",
+    "codexlensPackage": "CodexLens Package",
+    "codexlensPackageDesc": "Core semantic code search engine",
+    "sqliteFts": "SQLite FTS5",
+    "sqliteFtsDesc": "Full-text search extension for fast code lookup",
+    "location": "Install Location",
+    "locationPath": "~/.codexlens/venv",
+    "timeEstimate": "Installation may take 1-3 minutes depending on network speed.",
+    "stage": {
+      "creatingVenv": "Creating Python virtual environment...",
+      "installingPip": "Installing pip dependencies...",
+      "installingPackage": "Installing CodexLens package...",
+      "settingUpDeps": "Setting up dependencies...",
+      "finalizing": "Finalizing installation...",
+      "complete": "Installation complete!"
+    },
+    "installNow": "Install Now",
+    "installing": "Installing..."
+  },
+  "watcher": {
+    "title": "File Watcher",
+    "status": {
+      "running": "Running",
+      "stopped": "Stopped"
+    },
+    "eventsProcessed": "Events Processed",
+    "uptime": "Uptime",
+    "start": "Start Watcher",
+    "starting": "Starting...",
+    "stop": "Stop Watcher",
+    "stopping": "Stopping...",
+    "started": "File watcher started",
+    "stopped": "File watcher stopped"
   }
 }
