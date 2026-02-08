@@ -11,7 +11,7 @@ import { TrendingUp, TrendingDown, Minus, type LucideIcon } from 'lucide-react';
 import { Sparkline } from '@/components/charts/Sparkline';
 
 const statCardVariants = cva(
-  'transition-all duration-200 hover:shadow-md',
+  'transition-all duration-200 hover:shadow-md hover-glow',
   {
     variants: {
       variant: {

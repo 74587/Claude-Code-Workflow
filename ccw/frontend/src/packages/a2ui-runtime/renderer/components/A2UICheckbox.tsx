@@ -51,17 +51,28 @@ export const A2UICheckbox: ComponentRenderer = ({ component, state, onAction, re
     ? resolveTextContent(checkboxConfig.label, resolveBinding)
     : '';
 
+  // Resolve description text
+  const descriptionText = checkboxConfig.description
+    ? resolveTextContent(checkboxConfig.description, resolveBinding)
+    : '';
+
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-start space-x-2">
       <Checkbox
+        className="mt-0.5"
         checked={checked}
         onCheckedChange={handleChange}
       />
-      {labelText && (
-        <Label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-          {labelText}
-        </Label>
-      )}
+      <div className="grid gap-0.5">
+        {labelText && (
+          <Label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            {labelText}
+          </Label>
+        )}
+        {descriptionText && (
+          <p className="text-xs text-muted-foreground">{descriptionText}</p>
+        )}
+      </div>
     </div>
   );
 };

@@ -65,9 +65,37 @@ export const QuestionAnswerSchema = z.object({
 
 export type QuestionAnswer = z.infer<typeof QuestionAnswerSchema>;
 
+// ========== AskUserQuestion-style Types ==========
+
+/** AskUserQuestion-style option (value auto-generated from label) */
+export const SimpleOptionSchema = z.object({
+  label: z.string(),
+  description: z.string().optional(),
+});
+
+export type SimpleOption = z.infer<typeof SimpleOptionSchema>;
+
+/** AskUserQuestion-style question */
+export const SimpleQuestionSchema = z.object({
+  question: z.string(),                    // 问题文本 → 映射到 title
+  header: z.string(),                      // 短标签 → 映射到 id
+  multiSelect: z.boolean().default(false),
+  options: z.array(SimpleOptionSchema).optional(),
+});
+
+export type SimpleQuestion = z.infer<typeof SimpleQuestionSchema>;
+
+/** 新格式参数 (questions 数组) */
+export const AskQuestionSimpleParamsSchema = z.object({
+  questions: z.array(SimpleQuestionSchema).min(1).max(4),
+  timeout: z.number().optional(),
+});
+
+export type AskQuestionSimpleParams = z.infer<typeof AskQuestionSimpleParamsSchema>;
+
 // ========== Ask Question Parameters ==========
 
-/** Parameters for ask_question tool */
+/** Parameters for ask_question tool (legacy format) */
 export const AskQuestionParamsSchema = z.object({
   question: QuestionSchema,
   timeout: z.number().optional().default(300000), // 5 minutes default

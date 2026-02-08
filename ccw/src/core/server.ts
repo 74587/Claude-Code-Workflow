@@ -13,6 +13,7 @@ import { handleMemoryRoutes } from './routes/memory-routes.js';
 import { handleCoreMemoryRoutes } from './routes/core-memory-routes.js';
 import { handleMcpRoutes } from './routes/mcp-routes.js';
 import { handleHooksRoutes } from './routes/hooks-routes.js';
+import { handleUnsplashRoutes, handleBackgroundRoutes } from './routes/unsplash-routes.js';
 import { handleCodexLensRoutes } from './routes/codexlens-routes.js';
 import { handleGraphRoutes } from './routes/graph-routes.js';
 import { handleSystemRoutes } from './routes/system-routes.js';
@@ -461,7 +462,7 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
   const tokenManager = getTokenManager();
   const secretKey = tokenManager.getSecretKey();
   tokenManager.getOrCreateAuthToken();
-  const unauthenticatedPaths = new Set<string>(['/api/auth/token', '/api/csrf-token', '/api/hook', '/api/test/ask-question']);
+  const unauthenticatedPaths = new Set<string>(['/api/auth/token', '/api/csrf-token', '/api/hook', '/api/test/ask-question', '/api/a2ui/answer']);
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://localhost:${serverPort}`);
@@ -627,6 +628,16 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleHooksRoutes(routeContext)) return;
       }
 
+      // Background image upload/serve routes (/api/background/*)
+      if (pathname.startsWith('/api/background/')) {
+        if (await handleBackgroundRoutes(routeContext)) return;
+      }
+
+      // Unsplash proxy routes (/api/unsplash/*)
+      if (pathname.startsWith('/api/unsplash/')) {
+        if (await handleUnsplashRoutes(routeContext)) return;
+      }
+
       // CodexLens routes (/api/codexlens/*)
       if (pathname.startsWith('/api/codexlens/')) {
         if (await handleCodexLensRoutes(routeContext)) return;
@@ -728,11 +739,12 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleFilesRoutes(routeContext)) return;
       }
 
-      // System routes (data, health, version, paths, shutdown, notify, storage, dialog)
+      // System routes (data, health, version, paths, shutdown, notify, storage, dialog, a2ui answer broker)
       if (pathname === '/api/data' || pathname === '/api/health' ||
           pathname === '/api/version-check' || pathname === '/api/shutdown' ||
           pathname === '/api/recent-paths' || pathname === '/api/switch-path' ||
           pathname === '/api/remove-recent-path' || pathname === '/api/system/notify' ||
+          pathname === '/api/a2ui/answer' ||
           pathname.startsWith('/api/storage/') || pathname.startsWith('/api/dialog/')) {
         if (await handleSystemRoutes(routeContext)) return;
       }

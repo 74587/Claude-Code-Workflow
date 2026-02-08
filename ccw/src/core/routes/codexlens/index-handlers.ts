@@ -259,7 +259,8 @@ export async function handleCodexLensIndexRoutes(ctx: RouteContext): Promise<boo
 
       // Build CLI arguments based on index type
       // Use 'index init' subcommand (new CLI structure)
-      const args = ['index', 'init', targetPath, '--json'];
+      // --force flag ensures full reindex (not incremental)
+      const args = ['index', 'init', targetPath, '--force', '--json'];
       if (resolvedIndexType === 'normal') {
         args.push('--no-embeddings');
       } else {
@@ -380,8 +381,10 @@ export async function handleCodexLensIndexRoutes(ctx: RouteContext): Promise<boo
         }
       }
 
-      // Build CLI arguments for incremental update using 'index update' subcommand
-      const args = ['index', 'update', targetPath, '--json'];
+      // Build CLI arguments for incremental update using 'index init' without --force
+      // 'index init' defaults to incremental mode (skip unchanged files)
+      // 'index update' is only for single-file updates in hooks
+      const args = ['index', 'init', targetPath, '--json'];
       if (resolvedIndexType === 'normal') {
         args.push('--no-embeddings');
       } else {

@@ -12,6 +12,7 @@ import { MainContent } from './MainContent';
 import { CliStreamMonitor } from '@/components/shared/CliStreamMonitor';
 import { NotificationPanel } from '@/components/notification';
 import { AskQuestionDialog, A2UIPopupCard } from '@/components/a2ui';
+import { BackgroundImage } from '@/components/shared/BackgroundImage';
 import { useNotificationStore, selectCurrentQuestion, selectCurrentPopupCard } from '@/stores';
 import { useWorkflowStore } from '@/stores/workflowStore';
 import { useWebSocketNotifications, useWebSocket } from '@/hooks';
@@ -160,6 +161,9 @@ export function AppShell({
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
+      {/* Background image layer (z-index: -3 to -2) */}
+      <BackgroundImage />
+
       {/* Header - fixed at top */}
       <Header
         onRefresh={onRefresh}
@@ -180,7 +184,7 @@ export function AppShell({
         {/* Main content area */}
         <MainContent
           className={cn(
-            'transition-all duration-300',
+            'app-shell-content transition-all duration-300',
             sidebarCollapsed ? 'md:ml-16' : 'md:ml-64'
           )}
         >

@@ -7,16 +7,18 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   execute,
   handleAnswer,
+  handleMultiAnswer,
   cancelQuestion,
   getPendingQuestions,
   clearPendingQuestions,
-} from '../tools/ask-question';
+  handler,
+} from '../ask-question';
 import type {
   Question,
   QuestionAnswer,
   AskQuestionParams,
   AskQuestionResult,
-} from '../core/a2ui/A2UITypes';
+} from '../../core/a2ui/A2UITypes';
 
 describe('ask_question Tool', () => {
   beforeEach(() => {
@@ -44,8 +46,11 @@ describe('ask_question Tool', () => {
       };
 
       // Should not throw during validation
-      const result = await execute(params);
-      expect(result).toBeDefined();
+      const executePromise = execute(params);
+      expect(getPendingQuestions()).toHaveLength(1);
+
+      cancelQuestion('test-question-1');
+      await executePromise;
     });
 
     it('should validate a valid select question with options', async () => {
@@ -60,9 +65,11 @@ describe('ask_question Tool', () => {
       };
 
       const params: AskQuestionParams = { question };
-      const result = await execute(params);
+      const executePromise = execute(params);
+      expect(getPendingQuestions()).toHaveLength(1);
 
-      expect(result).toBeDefined();
+      cancelQuestion('test-select');
+      await executePromise;
     });
 
     it('should validate a valid input question', async () => {
@@ -74,9 +81,11 @@ describe('ask_question Tool', () => {
       };
 
       const params: AskQuestionParams = { question };
-      const result = await execute(params);
+      const executePromise = execute(params);
+      expect(getPendingQuestions()).toHaveLength(1);
 
-      expect(result).toBeDefined();
+      cancelQuestion('test-input');
+      await executePromise;
     });
 
     it('should validate a valid multi-select question', async () => {
@@ -92,9 +101,11 @@ describe('ask_question Tool', () => {
       };
 
       const params: AskQuestionParams = { question };
-      const result = await execute(params);
+      const executePromise = execute(params);
+      expect(getPendingQuestions()).toHaveLength(1);
 
-      expect(result).toBeDefined();
+      cancelQuestion('test-multi');
+      await executePromise;
     });
 
     it('should reject question with missing id', async () => {
@@ -162,7 +173,7 @@ describe('ask_question Tool', () => {
       const result = await execute(params);
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('options');
+      expect(result.error).toContain('option');
     });
 
     it('should reject options with missing value', async () => {
@@ -554,10 +565,9 @@ describe('ask_question Tool', () => {
         id: 'test-timeout',
         type: 'confirm',
         title: 'Test',
-        timeout: 5000, // 5 seconds
       };
 
-      const params: AskQuestionParams = { question };
+      const params: AskQuestionParams = { question, timeout: 5000 };
       const executePromise = execute(params);
 
       // Fast-forward time
@@ -658,7 +668,8 @@ describe('ask_question Tool', () => {
       };
 
       const params1: AskQuestionParams = { question };
-      const executePromise1 = execute(params1);
+      // Don't await — first promise becomes orphaned when id is reused
+      execute(params1);
 
       // Second execution with same ID should replace first
       const question2: Question = {
@@ -671,10 +682,11 @@ describe('ask_question Tool', () => {
 
       // There should still be only one pending
       expect(getPendingQuestions()).toHaveLength(1);
+      expect(getPendingQuestions()[0].question.title).toBe('Second');
 
-      // Clean up
+      // Clean up the active pending question
       cancelQuestion('duplicate-id');
-      await Promise.all([executePromise1, executePromise2]);
+      await executePromise2;
     });
 
     it('should handle answer after question is cancelled', async () => {
@@ -728,6 +740,206 @@ describe('ask_question Tool', () => {
         cancelQuestion(`test-default-${testCase.type}`);
         await executePromise;
       }
+    });
+  });
+
+  describe('AskUserQuestion-style Format (via handler)', () => {
+    it('should handle single select question', async () => {
+      const params = {
+        questions: [{
+          question: 'Which library?',
+          header: 'Library',
+          multiSelect: false,
+          options: [
+            { label: 'React', description: 'UI library' },
+            { label: 'Vue', description: 'Progressive framework' },
+          ],
+        }],
+      };
+
+      const handlerPromise = handler(params);
+
+      // Answer the normalized question (id = header)
+      const pending = getPendingQuestions();
+      expect(pending).toHaveLength(1);
+      expect(pending[0].id).toBe('Library');
+      expect(pending[0].question.type).toBe('select');
+      expect(pending[0].question.title).toBe('Which library?');
+
+      // Options should use label as value
+      expect(pending[0].question.options).toEqual([
+        { value: 'React', label: 'React', description: 'UI library' },
+        { value: 'Vue', label: 'Vue', description: 'Progressive framework' },
+      ]);
+
+      const answer: QuestionAnswer = {
+        questionId: 'Library',
+        value: 'React',
+      };
+      handleAnswer(answer);
+
+      const result = await handlerPromise;
+      expect(result.success).toBe(true);
+      expect((result.result as any).answersDict).toEqual({ Library: 'React' });
+    });
+
+    it('should handle multiSelect question', async () => {
+      const params = {
+        questions: [{
+          question: 'Which features?',
+          header: 'Features',
+          multiSelect: true,
+          options: [
+            { label: 'Auth', description: 'Authentication' },
+            { label: 'Cache', description: 'Caching layer' },
+            { label: 'Logging' },
+          ],
+        }],
+      };
+
+      const handlerPromise = handler(params);
+
+      const pending = getPendingQuestions();
+      expect(pending[0].question.type).toBe('multi-select');
+
+      const answer: QuestionAnswer = {
+        questionId: 'Features',
+        value: ['Auth', 'Logging'],
+      };
+      handleAnswer(answer);
+
+      const result = await handlerPromise;
+      expect(result.success).toBe(true);
+      expect((result.result as any).answersDict).toEqual({ Features: ['Auth', 'Logging'] });
+    });
+
+    it('should handle input question (no options)', async () => {
+      const params = {
+        questions: [{
+          question: 'What is your name?',
+          header: 'Name',
+          multiSelect: false,
+        }],
+      };
+
+      const handlerPromise = handler(params);
+
+      const pending = getPendingQuestions();
+      expect(pending[0].question.type).toBe('input');
+
+      const answer: QuestionAnswer = {
+        questionId: 'Name',
+        value: 'John',
+      };
+      handleAnswer(answer);
+
+      const result = await handlerPromise;
+      expect(result.success).toBe(true);
+      expect((result.result as any).answersDict).toEqual({ Name: 'John' });
+    });
+
+    it('should handle multiple questions in single multi-page surface', async () => {
+      const params = {
+        questions: [
+          {
+            question: 'Which library?',
+            header: 'Library',
+            multiSelect: false,
+            options: [
+              { label: 'React' },
+              { label: 'Vue' },
+            ],
+          },
+          {
+            question: 'Which level?',
+            header: 'Level',
+            multiSelect: false,
+            options: [
+              { label: 'Beginner' },
+              { label: 'Advanced' },
+            ],
+          },
+        ],
+      };
+
+      const handlerPromise = handler(params);
+
+      // A single composite question should be pending
+      const pending = getPendingQuestions();
+      expect(pending).toHaveLength(1);
+      expect(pending[0].id).toMatch(/^multi-/);
+
+      const compositeId = pending[0].id;
+
+      // Simulate submit-all with answers for all pages
+      handleMultiAnswer(compositeId, [
+        { questionId: 'Library', value: 'React', cancelled: false },
+        { questionId: 'Level', value: 'Advanced', cancelled: false },
+      ]);
+
+      const result = await handlerPromise;
+      expect(result.success).toBe(true);
+      expect((result.result as any).answersDict).toEqual({
+        Library: 'React',
+        Level: 'Advanced',
+      });
+    });
+
+    it('should cancel multi-question composite on cancel', async () => {
+      const params = {
+        questions: [
+          {
+            question: 'First?',
+            header: 'Q1',
+            multiSelect: false,
+            options: [{ label: 'A' }],
+          },
+          {
+            question: 'Second?',
+            header: 'Q2',
+            multiSelect: false,
+            options: [{ label: 'B' }],
+          },
+        ],
+      };
+
+      const handlerPromise = handler(params);
+
+      // Cancel the composite question
+      const pending = getPendingQuestions();
+      expect(pending).toHaveLength(1);
+      cancelQuestion(pending[0].id);
+
+      const result = await handlerPromise;
+      expect(result.success).toBe(true);
+      expect(result.result?.cancelled).toBe(true);
+    });
+
+    it('should still support legacy format via handler', async () => {
+      const params = {
+        question: {
+          id: 'legacy-test',
+          type: 'confirm',
+          title: 'Legacy question?',
+        },
+      };
+
+      const handlerPromise = handler(params as any);
+
+      const pending = getPendingQuestions();
+      expect(pending).toHaveLength(1);
+      expect(pending[0].id).toBe('legacy-test');
+
+      const answer: QuestionAnswer = {
+        questionId: 'legacy-test',
+        value: true,
+      };
+      handleAnswer(answer);
+
+      const result = await handlerPromise;
+      expect(result.success).toBe(true);
+      // Legacy format should NOT have answersDict
+      expect((result.result as any).answersDict).toBeUndefined();
     });
   });
 });

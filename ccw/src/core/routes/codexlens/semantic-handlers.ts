@@ -8,6 +8,8 @@ import {
   executeCodexLens,
   installSemantic,
 } from '../../../tools/codex-lens.js';
+import { getCodexLensPython } from '../../../utils/codexlens-path.js';
+import { spawn } from 'child_process';
 import type { GpuMode } from '../../../tools/codex-lens.js';
 import { loadLiteLLMApiConfig, getAvailableModelsForType, getProvider, getAllProviders } from '../../../config/litellm-api-config-manager.js';
 import {
@@ -18,6 +20,86 @@ import type { RouteContext } from '../types.js';
 import { extractJSON } from './utils.js';
 import { getDefaultTool } from '../../../tools/claude-cli-tools.js';
 import { getCodexLensDataDir } from '../../../utils/codexlens-path.js';
+
+/**
+ * Execute CodexLens Python API call directly (bypasses CLI for richer API access).
+ */
+async function executeCodexLensPythonAPI(
+  apiFunction: string,
+  args: Record<string, unknown>,
+  timeout: number = 60000
+): Promise<{ success: boolean; results?: unknown; error?: string }> {
+  return new Promise((resolve) => {
+    const pythonScript = `
+import json
+import sys
+from dataclasses import is_dataclass, asdict
+from codexlens.api import ${apiFunction}
+
+def to_serializable(obj):
+    if obj is None:
+        return None
+    if is_dataclass(obj) and not isinstance(obj, type):
+        return asdict(obj)
+    if isinstance(obj, list):
+        return [to_serializable(item) for item in obj]
+    if isinstance(obj, dict):
+        return {key: to_serializable(value) for key, value in obj.items()}
+    if isinstance(obj, tuple):
+        return tuple(to_serializable(item) for item in obj)
+    return obj
+
+try:
+    args = ${JSON.stringify(args)}
+    result = ${apiFunction}(**args)
+    output = to_serializable(result)
+    print(json.dumps({"success": True, "result": output}))
+except Exception as e:
+    print(json.dumps({"success": False, "error": str(e)}))
+    sys.exit(1)
+`;
+
+    const pythonPath = getCodexLensPython();
+    const child = spawn(pythonPath, ['-c', pythonScript], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout,
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    child.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        try {
+          const errorData = JSON.parse(stderr || stdout);
+          resolve({ success: false, error: errorData.error || 'Unknown error' });
+        } catch {
+          resolve({ success: false, error: stderr || stdout || `Process exited with code ${code}` });
+        }
+        return;
+      }
+
+      try {
+        const data = JSON.parse(stdout);
+        resolve({ success: data.success, results: data.result, error: data.error });
+      } catch (err) {
+        resolve({ success: false, error: `Failed to parse output: ${(err as Error).message}` });
+      }
+    });
+
+    child.on('error', (err) => {
+      resolve({ success: false, error: `Failed to execute: ${err.message}` });
+    });
+  });
+}
 
 export async function handleCodexLensSemanticRoutes(ctx: RouteContext): Promise<boolean> {
   const { pathname, url, req, res, initialPath, handlePostRequest } = ctx;
@@ -920,6 +1002,155 @@ except Exception as e:
             output: result.output,
             status: 500
           };
+        }
+      } catch (err: unknown) {
+        return { success: false, error: err instanceof Error ? err.message : String(err), status: 500 };
+      }
+    });
+    return true;
+  }
+
+  // ============================================================
+  // LSP / SEMANTIC SEARCH API ENDPOINTS
+  // ============================================================
+
+  // API: LSP Status - Check if LSP/semantic search capabilities are available
+  if (pathname === '/api/codexlens/lsp/status') {
+    try {
+      const venvStatus = await checkVenvStatus();
+      if (!venvStatus.ready) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          available: false,
+          semantic_available: false,
+          vector_index: false,
+          error: 'CodexLens not installed'
+        }));
+        return true;
+      }
+
+      // Check semantic deps and vector index availability in parallel
+      const [semanticStatus, workspaceResult] = await Promise.all([
+        checkSemanticStatus(),
+        executeCodexLens(['status', '--json'])
+      ]);
+
+      let hasVectorIndex = false;
+      let projectCount = 0;
+      let embeddingsInfo: Record<string, unknown> = {};
+
+      if (workspaceResult.success) {
+        try {
+          const status = extractJSON(workspaceResult.output ?? '');
+          if (status.success !== false && status.result) {
+            projectCount = status.result.projects_count || 0;
+            embeddingsInfo = status.result.embeddings || {};
+            // Check if any projects have embeddings
+            hasVectorIndex = projectCount > 0 && Object.keys(embeddingsInfo).length > 0;
+          } else if (status.projects_count !== undefined) {
+            projectCount = status.projects_count || 0;
+            embeddingsInfo = status.embeddings || {};
+            hasVectorIndex = projectCount > 0 && Object.keys(embeddingsInfo).length > 0;
+          }
+        } catch {
+          // Parse failed
+        }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        available: semanticStatus.available && hasVectorIndex,
+        semantic_available: semanticStatus.available,
+        vector_index: hasVectorIndex,
+        project_count: projectCount,
+        embeddings: embeddingsInfo,
+        modes: ['fusion', 'vector', 'structural'],
+        strategies: ['rrf', 'staged', 'binary', 'hybrid', 'dense_rerank'],
+      }));
+    } catch (err: unknown) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        available: false,
+        semantic_available: false,
+        vector_index: false,
+        error: err instanceof Error ? err.message : String(err)
+      }));
+    }
+    return true;
+  }
+
+  // API: LSP Semantic Search - Advanced semantic search via Python API
+  if (pathname === '/api/codexlens/lsp/search' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const {
+        query,
+        path: projectPath,
+        mode = 'fusion',
+        fusion_strategy = 'rrf',
+        vector_weight = 0.5,
+        structural_weight = 0.3,
+        keyword_weight = 0.2,
+        kind_filter,
+        limit = 20,
+        include_match_reason = false,
+      } = body as {
+        query?: unknown;
+        path?: unknown;
+        mode?: unknown;
+        fusion_strategy?: unknown;
+        vector_weight?: unknown;
+        structural_weight?: unknown;
+        keyword_weight?: unknown;
+        kind_filter?: unknown;
+        limit?: unknown;
+        include_match_reason?: unknown;
+      };
+
+      const resolvedQuery = typeof query === 'string' ? query.trim() : '';
+      if (!resolvedQuery) {
+        return { success: false, error: 'Query parameter is required', status: 400 };
+      }
+
+      const targetPath = typeof projectPath === 'string' && projectPath.trim().length > 0 ? projectPath : initialPath;
+      const resolvedMode = typeof mode === 'string' && ['fusion', 'vector', 'structural'].includes(mode) ? mode : 'fusion';
+      const resolvedStrategy = typeof fusion_strategy === 'string' &&
+        ['rrf', 'staged', 'binary', 'hybrid', 'dense_rerank'].includes(fusion_strategy) ? fusion_strategy : 'rrf';
+      const resolvedVectorWeight = typeof vector_weight === 'number' ? vector_weight : 0.5;
+      const resolvedStructuralWeight = typeof structural_weight === 'number' ? structural_weight : 0.3;
+      const resolvedKeywordWeight = typeof keyword_weight === 'number' ? keyword_weight : 0.2;
+      const resolvedLimit = typeof limit === 'number' ? limit : 20;
+      const resolvedIncludeReason = typeof include_match_reason === 'boolean' ? include_match_reason : false;
+
+      // Build Python API call args
+      const apiArgs: Record<string, unknown> = {
+        project_root: targetPath,
+        query: resolvedQuery,
+        mode: resolvedMode,
+        vector_weight: resolvedVectorWeight,
+        structural_weight: resolvedStructuralWeight,
+        keyword_weight: resolvedKeywordWeight,
+        fusion_strategy: resolvedStrategy,
+        limit: resolvedLimit,
+        include_match_reason: resolvedIncludeReason,
+      };
+
+      if (Array.isArray(kind_filter) && kind_filter.length > 0) {
+        apiArgs.kind_filter = kind_filter;
+      }
+
+      try {
+        const result = await executeCodexLensPythonAPI('semantic_search', apiArgs);
+        if (result.success) {
+          return {
+            success: true,
+            results: result.results,
+            query: resolvedQuery,
+            mode: resolvedMode,
+            fusion_strategy: resolvedStrategy,
+            count: Array.isArray(result.results) ? result.results.length : 0,
+          };
+        } else {
+          return { success: false, error: result.error || 'Semantic search failed', status: 500 };
         }
       } catch (err: unknown) {
         return { success: false, error: err instanceof Error ? err.message : String(err), status: 500 };

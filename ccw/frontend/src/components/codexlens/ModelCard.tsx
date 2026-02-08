@@ -68,7 +68,7 @@ export function ModelCard({
   };
 
   return (
-    <Card className={cn('overflow-hidden', !model.installed && 'opacity-80')}>
+    <Card className={cn('overflow-hidden hover-glow', !model.installed && 'opacity-80')}>
       {/* Header */}
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
@@ -105,12 +105,15 @@ export function ModelCard({
                 </Badge>
               </div>
               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                <span>Backend: {model.backend}</span>
-                <span>Size: {formatSize(model.size)}</span>
+                {model.dimensions && <span>{model.dimensions}d</span>}
+                <span>{formatSize(model.size)}</span>
+                {model.recommended && (
+                  <Badge variant="success" className="text-[10px] px-1 py-0">Rec</Badge>
+                )}
               </div>
-              {model.cache_path && (
-                <p className="text-xs text-muted-foreground mt-1 font-mono truncate">
-                  {model.cache_path}
+              {model.description && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {model.description}
                 </p>
               )}
             </div>

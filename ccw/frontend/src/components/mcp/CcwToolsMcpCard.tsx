@@ -16,6 +16,7 @@ import {
   FileText,
   HardDrive,
   MessageCircleQuestion,
+  SearchCode,
   ChevronDown,
   ChevronRight,
   Globe,
@@ -90,6 +91,7 @@ export const CCW_MCP_TOOLS: CcwTool[] = [
   { name: 'read_file', desc: 'Read file contents', core: true },
   { name: 'core_memory', desc: 'Core memory management', core: true },
   { name: 'ask_question', desc: 'Interactive questions (A2UI)', core: false },
+  { name: 'smart_search', desc: 'Intelligent code search', core: true },
 ];
 
 // ========== Component ==========
@@ -470,6 +472,8 @@ function getToolIcon(toolName: string): React.ReactElement {
       return <Settings {...iconProps} />;
     case 'ask_question':
       return <MessageCircleQuestion {...iconProps} />;
+    case 'smart_search':
+      return <SearchCode {...iconProps} />;
     default:
       return <Settings {...iconProps} />;
   }

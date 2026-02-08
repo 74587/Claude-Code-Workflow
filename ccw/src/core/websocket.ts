@@ -164,6 +164,9 @@ export function handleWebSocketUpgrade(req: IncomingMessage, socket: Duplex, _he
   wsClients.add(socket);
   console.log(`[WS] Client connected (${wsClients.size} total)`);
 
+  // Replay any buffered A2UI surfaces to the new client
+  a2uiWebSocketHandler.replayPendingSurfaces(socket);
+
   // Handle incoming messages
   let pendingBuffer = Buffer.alloc(0);
 

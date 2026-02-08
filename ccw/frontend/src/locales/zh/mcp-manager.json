@@ -132,6 +132,10 @@
       "ask_question": {
         "name": "ask_question",
         "desc": "通过 A2UI 界面发起交互式问答"
+      },
+      "smart_search": {
+        "name": "smart_search",
+        "desc": "智能代码搜索，支持模糊和语义搜索模式"
       }
     },
     "paths": {

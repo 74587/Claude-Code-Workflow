@@ -21,8 +21,8 @@ const SERVER_VERSION = '6.2.0';
 const ENV_PROJECT_ROOT = 'CCW_PROJECT_ROOT';
 const ENV_ALLOWED_DIRS = 'CCW_ALLOWED_DIRS';
 
-// Default enabled tools (core set - file operations and core memory only)
-const DEFAULT_TOOLS: string[] = ['write_file', 'edit_file', 'read_file', 'core_memory'];
+// Default enabled tools (core set - file operations, core memory, and smart search)
+const DEFAULT_TOOLS: string[] = ['write_file', 'edit_file', 'read_file', 'core_memory', 'smart_search'];
 
 /**
  * Get list of enabled tools from environment or defaults

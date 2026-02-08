@@ -177,7 +177,7 @@ export function IssueCard({
         onClick={handleClick}
         className={cn(
           'p-3 bg-card border border-border rounded-lg cursor-pointer',
-          'hover:shadow-md hover:border-primary/50 transition-all',
+          'hover:shadow-md hover:border-primary/50 transition-all hover-glow',
           className
         )}
       >
@@ -198,7 +198,7 @@ export function IssueCard({
       {...draggableProps}
       onClick={handleClick}
       className={cn(
-        'p-4 cursor-pointer hover:shadow-md hover:border-primary/50 transition-all',
+        'p-4 cursor-pointer hover:shadow-md hover:border-primary/50 transition-all hover-glow',
         className
       )}
     >

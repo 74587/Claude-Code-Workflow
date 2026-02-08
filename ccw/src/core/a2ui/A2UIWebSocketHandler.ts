@@ -4,9 +4,12 @@
 // WebSocket transport for A2UI surfaces and actions
 
 import type { Duplex } from 'stream';
+import http from 'http';
 import type { IncomingMessage } from 'http';
 import { createWebSocketFrame, parseWebSocketFrame, wsClients } from '../websocket.js';
 import type { QuestionAnswer, AskQuestionParams, Question } from './A2UITypes.js';
+
+const DASHBOARD_PORT = Number(process.env.CCW_PORT || 3456);
 
 // ========== A2UI Message Types ==========
 
@@ -60,8 +63,20 @@ export class A2UIWebSocketHandler {
 
   private multiSelectSelections = new Map<string, Set<string>>();
   private singleSelectSelections = new Map<string, string>();
+  private inputValues = new Map<string, string>();
+
+  /** Answers resolved by Dashboard but not yet consumed by MCP polling */
+  private resolvedAnswers = new Map<string, { answer: QuestionAnswer; timestamp: number }>();
+  private resolvedMultiAnswers = new Map<string, { compositeId: string; answers: QuestionAnswer[]; timestamp: number }>();
 
   private answerCallback?: (answer: QuestionAnswer) => boolean;
+  private multiAnswerCallback?: (compositeId: string, answers: QuestionAnswer[]) => boolean;
+
+  /** Buffered surfaces waiting to be replayed to newly connected clients */
+  private pendingSurfaces: Array<{
+    surfaceUpdate: { surfaceId: string; components: unknown[]; initialState: Record<string, unknown>; displayMode?: 'popup' | 'panel' };
+    message: unknown;
+  }> = [];
 
   /**
    * Register callback for handling question answers
@@ -72,10 +87,32 @@ export class A2UIWebSocketHandler {
   }
 
   /**
+   * Register callback for handling multi-question composite answers (submit-all)
+   * @param callback - Function to handle composite answers
+   */
+  registerMultiAnswerCallback(callback: (compositeId: string, answers: QuestionAnswer[]) => boolean): void {
+    this.multiAnswerCallback = callback;
+  }
+
+  /**
    * Get the registered answer callback
    */
   getAnswerCallback(): ((answer: QuestionAnswer) => boolean) | undefined {
     return this.answerCallback;
+  }
+
+  /**
+   * Initialize multi-select tracking for a question (used by multi-page surfaces)
+   */
+  initMultiSelect(questionId: string): void {
+    this.multiSelectSelections.set(questionId, new Set<string>());
+  }
+
+  /**
+   * Initialize single-select tracking for a question (used by multi-page surfaces)
+   */
+  initSingleSelect(questionId: string): void {
+    this.singleSelectSelections.set(questionId, '');
   }
 
   /**
@@ -115,6 +152,13 @@ export class A2UIWebSocketHandler {
       }
     }
 
+    // No local WebSocket clients — forward via HTTP to Dashboard server
+    // (Happens when running in MCP stdio process, separate from Dashboard)
+    if (wsClients.size === 0) {
+      this.forwardSurfaceViaDashboard(surfaceUpdate);
+      return 0;
+    }
+
     // Broadcast to all clients
     const frame = createWebSocketFrame(message);
     let sentCount = 0;
@@ -130,6 +174,72 @@ export class A2UIWebSocketHandler {
 
     console.log(`[A2UI] Sent surface ${surfaceUpdate.surfaceId} to ${sentCount} clients`);
     return sentCount;
+  }
+
+  /**
+   * Replay buffered surfaces to a newly connected client, then clear the buffer.
+   * @param client - The newly connected WebSocket client
+   * @returns Number of surfaces replayed
+   */
+  replayPendingSurfaces(client: Duplex): number {
+    if (this.pendingSurfaces.length === 0) {
+      return 0;
+    }
+
+    const count = this.pendingSurfaces.length;
+    for (const { surfaceUpdate, message } of this.pendingSurfaces) {
+      try {
+        const frame = createWebSocketFrame(message);
+        client.write(frame);
+      } catch (e) {
+        console.error(`[A2UI] Failed to replay surface ${surfaceUpdate.surfaceId}:`, e);
+      }
+    }
+
+    console.log(`[A2UI] Replayed ${count} buffered surface(s) to new client`);
+    this.pendingSurfaces = [];
+    return count;
+  }
+
+  /**
+   * Forward surface to Dashboard server via HTTP POST /api/hook.
+   * Used when running in a separate process (MCP stdio) without local WebSocket clients.
+   */
+  private forwardSurfaceViaDashboard(surfaceUpdate: {
+    surfaceId: string;
+    components: unknown[];
+    initialState: Record<string, unknown>;
+    displayMode?: 'popup' | 'panel';
+  }): void {
+    // Send flat so the hook handler wraps it as { type, payload: { ...fields } }
+    // which matches the frontend's expected format: data.type === 'a2ui-surface' && data.payload
+    const body = JSON.stringify({
+      type: 'a2ui-surface',
+      surfaceId: surfaceUpdate.surfaceId,
+      components: surfaceUpdate.components,
+      initialState: surfaceUpdate.initialState,
+      displayMode: surfaceUpdate.displayMode,
+    });
+
+    const req = http.request({
+      hostname: 'localhost',
+      port: DASHBOARD_PORT,
+      path: '/api/hook',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    });
+
+    req.on('error', (err) => {
+      console.error(`[A2UI] Failed to forward surface ${surfaceUpdate.surfaceId} to Dashboard:`, err.message);
+    });
+
+    req.write(body);
+    req.end();
+
+    console.log(`[A2UI] Forwarded surface ${surfaceUpdate.surfaceId} to Dashboard via HTTP`);
   }
 
   /**
@@ -226,12 +336,16 @@ export class A2UIWebSocketHandler {
 
     const resolveAndCleanup = (answer: QuestionAnswer): boolean => {
       const handled = answerCallback(answer);
-      if (handled) {
-        this.activeSurfaces.delete(questionId);
-        this.multiSelectSelections.delete(questionId);
-        this.singleSelectSelections.delete(questionId);
+      if (!handled) {
+        // answerCallback couldn't deliver (MCP process has no local pendingQuestions)
+        // Store answer for HTTP polling retrieval
+        this.resolvedAnswers.set(questionId, { answer, timestamp: Date.now() });
       }
-      return handled;
+      // Always clean up UI state regardless of delivery
+      this.activeSurfaces.delete(questionId);
+      this.multiSelectSelections.delete(questionId);
+      this.singleSelectSelections.delete(questionId);
+      return true;
     };
 
     switch (action.actionId) {
@@ -278,15 +392,88 @@ export class A2UIWebSocketHandler {
       }
 
       case 'submit': {
+        const otherText = this.inputValues.get(`__other__:${questionId}`);
+
         // Check if this is a single-select or multi-select
         const singleSelection = this.singleSelectSelections.get(questionId);
         if (singleSelection !== undefined) {
-          // Single-select submit
-          return resolveAndCleanup({ questionId, value: singleSelection, cancelled: false });
+          // Resolve __other__ to actual text input
+          const value = singleSelection === '__other__' && otherText ? otherText : singleSelection;
+          this.inputValues.delete(`__other__:${questionId}`);
+          return resolveAndCleanup({ questionId, value, cancelled: false });
         }
         // Multi-select submit
         const multiSelected = this.multiSelectSelections.get(questionId) ?? new Set<string>();
-        return resolveAndCleanup({ questionId, value: Array.from(multiSelected), cancelled: false });
+        // Resolve __other__ in multi-select: replace with actual text
+        const values = Array.from(multiSelected).map(v =>
+          v === '__other__' && otherText ? otherText : v
+        );
+        this.inputValues.delete(`__other__:${questionId}`);
+        return resolveAndCleanup({ questionId, value: values, cancelled: false });
+      }
+
+      case 'input-change': {
+        // Track text input value for multi-page surfaces
+        const value = params.value;
+        if (typeof value !== 'string') {
+          return false;
+        }
+        this.inputValues.set(questionId, value);
+        return true;
+      }
+
+      case 'submit-all': {
+        // Multi-question composite submit
+        const compositeId = typeof params.compositeId === 'string' ? params.compositeId : undefined;
+        const questionIds = Array.isArray(params.questionIds) ? params.questionIds as string[] : undefined;
+        if (!compositeId || !questionIds) {
+          return false;
+        }
+
+        // Collect answers for all sub-questions
+        const answers: QuestionAnswer[] = [];
+        for (const qId of questionIds) {
+          const singleSel = this.singleSelectSelections.get(qId);
+          const multiSel = this.multiSelectSelections.get(qId);
+          const inputVal = this.inputValues.get(qId);
+          const otherText = this.inputValues.get(`__other__:${qId}`);
+
+          if (singleSel !== undefined) {
+            // Resolve __other__ to actual text input
+            const value = singleSel === '__other__' && otherText ? otherText : singleSel;
+            answers.push({ questionId: qId, value, cancelled: false });
+          } else if (multiSel !== undefined) {
+            // Resolve __other__ in multi-select: replace with actual text
+            const values = Array.from(multiSel).map(v =>
+              v === '__other__' && otherText ? otherText : v
+            );
+            answers.push({ questionId: qId, value: values, cancelled: false });
+          } else if (inputVal !== undefined) {
+            answers.push({ questionId: qId, value: inputVal, cancelled: false });
+          } else {
+            // No value recorded — include empty
+            answers.push({ questionId: qId, value: '', cancelled: false });
+          }
+
+          // Cleanup per-question tracking
+          this.singleSelectSelections.delete(qId);
+          this.multiSelectSelections.delete(qId);
+          this.inputValues.delete(qId);
+          this.inputValues.delete(`__other__:${qId}`);
+        }
+
+        // Call multi-answer callback
+        let handled = false;
+        if (this.multiAnswerCallback) {
+          handled = this.multiAnswerCallback(compositeId, answers);
+        }
+        if (!handled) {
+          // Store for HTTP polling retrieval
+          this.resolvedMultiAnswers.set(compositeId, { compositeId, answers, timestamp: Date.now() });
+        }
+        // Always clean up UI state
+        this.activeSurfaces.delete(compositeId);
+        return true;
       }
 
       default:
@@ -324,6 +511,7 @@ export class A2UIWebSocketHandler {
 
     this.activeSurfaces.delete(questionId);
     this.multiSelectSelections.delete(questionId);
+    this.inputValues.delete(questionId);
     return true;
   }
 
@@ -347,6 +535,32 @@ export class A2UIWebSocketHandler {
   }
 
   /**
+   * Get and remove a resolved answer (one-shot read).
+   * Used by MCP HTTP polling to retrieve answers stored by the Dashboard.
+   */
+  getResolvedAnswer(questionId: string): QuestionAnswer | undefined {
+    const entry = this.resolvedAnswers.get(questionId);
+    if (entry) {
+      this.resolvedAnswers.delete(questionId);
+      return entry.answer;
+    }
+    return undefined;
+  }
+
+  /**
+   * Get and remove a resolved multi-answer (one-shot read).
+   * Used by MCP HTTP polling to retrieve composite answers stored by the Dashboard.
+   */
+  getResolvedMultiAnswer(compositeId: string): QuestionAnswer[] | undefined {
+    const entry = this.resolvedMultiAnswers.get(compositeId);
+    if (entry) {
+      this.resolvedMultiAnswers.delete(compositeId);
+      return entry.answers;
+    }
+    return undefined;
+  }
+
+  /**
    * Remove stale surfaces (older than specified time)
    * @param maxAge - Maximum age in milliseconds
    * @returns Number of surfaces removed
@@ -359,6 +573,18 @@ export class A2UIWebSocketHandler {
       if (now - surface.timestamp > maxAge) {
         this.activeSurfaces.delete(questionId);
         removed++;
+      }
+    }
+
+    // Clean up stale resolved answers
+    for (const [id, entry] of this.resolvedAnswers) {
+      if (now - entry.timestamp > maxAge) {
+        this.resolvedAnswers.delete(id);
+      }
+    }
+    for (const [id, entry] of this.resolvedMultiAnswers) {
+      if (now - entry.timestamp > maxAge) {
+        this.resolvedMultiAnswers.delete(id);
       }
     }
 

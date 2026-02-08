@@ -56,11 +56,16 @@ import {
   type CodexLensWorkspaceStatus,
   type CodexLensSearchParams,
   type CodexLensSearchResponse,
+  type CodexLensFileSearchResponse,
   type CodexLensSymbolSearchResponse,
   type CodexLensIndexesResponse,
   type CodexLensIndexingStatusResponse,
-  type CodexLensSemanticInstallResponse,
   type CodexLensWatcherStatusResponse,
+  type CodexLensLspStatusResponse,
+  type CodexLensSemanticSearchParams,
+  type CodexLensSemanticSearchResponse,
+  fetchCodexLensLspStatus,
+  semanticSearchCodexLens,
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
@@ -83,6 +88,8 @@ export const codexLensKeys = {
   search: (params: CodexLensSearchParams) => [...codexLensKeys.all, 'search', params] as const,
   filesSearch: (params: CodexLensSearchParams) => [...codexLensKeys.all, 'filesSearch', params] as const,
   symbolSearch: (params: Pick<CodexLensSearchParams, 'query' | 'limit'>) => [...codexLensKeys.all, 'symbolSearch', params] as const,
+  lspStatus: () => [...codexLensKeys.all, 'lspStatus'] as const,
+  semanticSearch: (params: CodexLensSemanticSearchParams) => [...codexLensKeys.all, 'semanticSearch', params] as const,
   watcher: () => [...codexLensKeys.all, 'watcher'] as const,
 };
 
@@ -1288,10 +1295,18 @@ export function useCodexLensSearch(params: CodexLensSearchParams, options: UseCo
   };
 }
 
+export interface UseCodexLensFileSearchReturn {
+  data: CodexLensFileSearchResponse | undefined;
+  files: string[] | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+
 /**
  * Hook for file search using CodexLens
  */
-export function useCodexLensFilesSearch(params: CodexLensSearchParams, options: UseCodexLensSearchOptions = {}): UseCodexLensSearchReturn {
+export function useCodexLensFilesSearch(params: CodexLensSearchParams, options: UseCodexLensSearchOptions = {}): UseCodexLensFileSearchReturn {
   const { enabled = false } = options;
 
   const query = useQuery({
@@ -1308,7 +1323,7 @@ export function useCodexLensFilesSearch(params: CodexLensSearchParams, options: 
 
   return {
     data: query.data,
-    results: query.data?.results,
+    files: query.data?.files,
     isLoading: query.isLoading,
     error: query.error,
     refetch,
@@ -1351,6 +1366,98 @@ export function useCodexLensSymbolSearch(
   return {
     data: query.data,
     symbols: query.data?.symbols,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch,
+  };
+}
+
+// ========== LSP / Semantic Search Hooks ==========
+
+export interface UseCodexLensLspStatusOptions {
+  enabled?: boolean;
+  staleTime?: number;
+}
+
+export interface UseCodexLensLspStatusReturn {
+  data: CodexLensLspStatusResponse | undefined;
+  available: boolean;
+  semanticAvailable: boolean;
+  vectorIndex: boolean;
+  modes: string[];
+  strategies: string[];
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+
+/**
+ * Hook for checking CodexLens LSP/semantic search availability
+ */
+export function useCodexLensLspStatus(options: UseCodexLensLspStatusOptions = {}): UseCodexLensLspStatusReturn {
+  const { enabled = true, staleTime = STALE_TIME_MEDIUM } = options;
+
+  const query = useQuery({
+    queryKey: codexLensKeys.lspStatus(),
+    queryFn: fetchCodexLensLspStatus,
+    staleTime,
+    enabled,
+    retry: 2,
+  });
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  return {
+    data: query.data,
+    available: query.data?.available ?? false,
+    semanticAvailable: query.data?.semantic_available ?? false,
+    vectorIndex: query.data?.vector_index ?? false,
+    modes: query.data?.modes ?? [],
+    strategies: query.data?.strategies ?? [],
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch,
+  };
+}
+
+export interface UseCodexLensSemanticSearchOptions {
+  enabled?: boolean;
+}
+
+export interface UseCodexLensSemanticSearchReturn {
+  data: CodexLensSemanticSearchResponse | undefined;
+  results: CodexLensSemanticSearchResponse['results'] | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+}
+
+/**
+ * Hook for semantic search using CodexLens Python API
+ */
+export function useCodexLensSemanticSearch(
+  params: CodexLensSemanticSearchParams,
+  options: UseCodexLensSemanticSearchOptions = {}
+): UseCodexLensSemanticSearchReturn {
+  const { enabled = false } = options;
+
+  const query = useQuery({
+    queryKey: codexLensKeys.semanticSearch(params),
+    queryFn: () => semanticSearchCodexLens(params),
+    enabled,
+    staleTime: STALE_TIME_SHORT,
+    retry: 1,
+  });
+
+  const refetch = async () => {
+    await query.refetch();
+  };
+
+  return {
+    data: query.data,
+    results: query.data?.results,
     isLoading: query.isLoading,
     error: query.error,
     refetch,

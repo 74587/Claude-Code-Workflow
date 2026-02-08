@@ -648,5 +648,104 @@ export async function handleSystemRoutes(ctx: SystemRouteContext): Promise<boole
     return true;
   }
 
+  // API: Test multi-page ask_question popup (for development testing)
+  if (pathname === '/api/test/ask-question-multi' && req.method === 'GET') {
+    try {
+      const { a2uiWebSocketHandler } = await import('../a2ui/A2UIWebSocketHandler.js');
+
+      const compositeId = `multi-${Date.now()}`;
+      const surfaceId = `question-${compositeId}`;
+
+      const testSurface = {
+        surfaceId,
+        components: [
+          // Page 0: Select question
+          { id: 'page-0-title', page: 0, component: { Text: { text: { literalString: 'Which framework?' }, usageHint: 'h3' } } },
+          { id: 'page-0-radio-group', page: 0, component: {
+            RadioGroup: {
+              options: [
+                { label: { literalString: 'React' }, value: 'React', description: { literalString: 'UI library' } },
+                { label: { literalString: 'Vue' }, value: 'Vue', description: { literalString: 'Progressive framework' } },
+                { label: { literalString: 'Other' }, value: '__other__', description: { literalString: 'Provide a custom answer' } },
+              ],
+              onChange: { actionId: 'select', parameters: { questionId: 'Framework' } },
+            },
+          }},
+          // Page 1: Multi-select question
+          { id: 'page-1-title', page: 1, component: { Text: { text: { literalString: 'Which features?' }, usageHint: 'h3' } } },
+          { id: 'page-1-checkbox-0', page: 1, component: {
+            Checkbox: { label: { literalString: 'Auth' }, description: { literalString: 'Authentication' }, onChange: { actionId: 'toggle', parameters: { questionId: 'Features', value: 'Auth' } }, checked: { literalBoolean: false } },
+          }},
+          { id: 'page-1-checkbox-1', page: 1, component: {
+            Checkbox: { label: { literalString: 'Cache' }, description: { literalString: 'Caching layer' }, onChange: { actionId: 'toggle', parameters: { questionId: 'Features', value: 'Cache' } }, checked: { literalBoolean: false } },
+          }},
+          { id: 'page-1-checkbox-other', page: 1, component: {
+            Checkbox: { label: { literalString: 'Other' }, description: { literalString: 'Provide a custom answer' }, onChange: { actionId: 'toggle', parameters: { questionId: 'Features', value: '__other__' } }, checked: { literalBoolean: false } },
+          }},
+        ],
+        initialState: {
+          questionId: compositeId,
+          questionType: 'multi-question',
+          pages: [
+            { index: 0, questionId: 'Framework', title: 'Which framework?', type: 'select' },
+            { index: 1, questionId: 'Features', title: 'Which features?', type: 'multi-select' },
+          ],
+          totalPages: 2,
+        },
+        displayMode: 'popup' as const,
+      };
+
+      const sentCount = a2uiWebSocketHandler.sendSurface(testSurface);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        message: 'Multi-page test popup sent',
+        sentToClients: sentCount,
+        surfaceId,
+        compositeId,
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to send test popup', details: String(err) }));
+    }
+    return true;
+  }
+
+  // API: A2UI answer broker — retrieve answers stored for MCP polling
+  if (pathname === '/api/a2ui/answer' && req.method === 'GET') {
+    const questionId = url.searchParams.get('questionId');
+    const isComposite = url.searchParams.get('composite') === 'true';
+
+    if (!questionId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'questionId is required' }));
+      return true;
+    }
+
+    const { a2uiWebSocketHandler } = await import('../a2ui/A2UIWebSocketHandler.js');
+
+    if (isComposite) {
+      const answers = a2uiWebSocketHandler.getResolvedMultiAnswer(questionId);
+      if (answers) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ pending: false, answers }));
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ pending: true }));
+      }
+    } else {
+      const answer = a2uiWebSocketHandler.getResolvedAnswer(questionId);
+      if (answer) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ pending: false, answer }));
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ pending: true }));
+      }
+    }
+    return true;
+  }
+
   return false;
 }

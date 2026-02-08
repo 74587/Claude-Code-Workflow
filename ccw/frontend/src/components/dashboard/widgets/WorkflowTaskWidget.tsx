@@ -253,7 +253,7 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       {/* Project Info Banner - Separate Card */}
-      <Card className="shrink-0">
+      <Card className="shrink-0 border-gradient-brand">
         {projectLoading ? (
           <div className="px-4 py-3 flex items-center gap-4">
             <div className="h-5 w-32 bg-muted rounded animate-pulse" />

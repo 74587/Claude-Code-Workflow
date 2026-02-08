@@ -47,7 +47,7 @@ function filterModels(models: CodexLensModel[], filter: FilterType, search: stri
     filtered = filtered.filter(m =>
       m.name.toLowerCase().includes(query) ||
       m.profile.toLowerCase().includes(query) ||
-      m.backend.toLowerCase().includes(query)
+      (m.description?.toLowerCase().includes(query) ?? false)
     );
   }
 

@@ -235,7 +235,7 @@ export function ProjectOverviewPage() {
           {/* Header Row */}
           <div className="flex items-start justify-between mb-4 pb-3 border-b border-border">
             <div className="flex-1">
-              <h1 className="text-lg font-semibold text-foreground mb-1">
+              <h1 className="text-lg font-semibold text-foreground gradient-text mb-1">
                 {projectOverview.projectName}
               </h1>
               <p className="text-sm text-muted-foreground">

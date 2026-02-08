@@ -102,7 +102,7 @@ export function SkillCard({
         onClick={handleClick}
         className={cn(
           'p-3 bg-card border rounded-lg cursor-pointer',
-          'hover:shadow-md transition-all',
+          'hover:shadow-md transition-all hover-glow',
           skill.enabled ? 'border-border hover:border-primary/50' : 'border-dashed border-muted-foreground/50 bg-muted/50 grayscale-[0.5]',
           className
         )}
@@ -140,7 +140,7 @@ export function SkillCard({
     <Card
       onClick={handleClick}
       className={cn(
-        'p-4 cursor-pointer hover:shadow-md transition-all',
+        'p-4 cursor-pointer hover:shadow-md transition-all hover-glow',
         skill.enabled ? 'hover:border-primary/50' : 'border-dashed border-muted-foreground/50 bg-muted/30 grayscale-[0.3]',
         className
       )}

@@ -454,6 +454,10 @@
   -webkit-text-fill-color: inherit;
 }
 
+[data-gradient="off"] .border-gradient-brand::before {
+  display: none;
+}
+
 /* Standard gradients (default) */
 [data-gradient="standard"] .bg-gradient-primary {
   background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
@@ -465,6 +469,13 @@
 
 [data-gradient="standard"] .bg-gradient-accent {
   background: linear-gradient(90deg, hsl(var(--accent)) 0%, hsl(var(--primary)) 100%);
+}
+
+[data-gradient="standard"] .gradient-text {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* Enhanced gradients - more vibrant with multiple color stops */
@@ -490,6 +501,17 @@
     hsl(var(--primary)) 50%,
     hsl(var(--accent)) 100%
   );
+}
+
+[data-gradient="enhanced"] .gradient-text {
+  background: linear-gradient(135deg,
+    hsl(var(--primary)) 0%,
+    hsl(var(--accent)) 50%,
+    hsl(var(--secondary)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 /* Hover glow effects - disabled when data-hover-glow="false" */
@@ -580,4 +602,145 @@
 @keyframes ambient-shift {
   0%, 100% { transform: translate(0, 0); }
   50% { transform: translate(-2%, -2%); }
+}
+
+/* ===========================
+   Reduced Motion System
+   data-reduced-motion attribute + prefers-reduced-motion fallback
+   =========================== */
+
+/* Disable View Transition animations when reduced motion is active */
+[data-reduced-motion="true"]::view-transition-old(*),
+[data-reduced-motion="true"]::view-transition-new(*),
+[data-reduced-motion="true"]::view-transition-group(*) {
+  animation-duration: 0s !important;
+}
+
+/* Disable background gradient animation */
+[data-reduced-motion="true"] .animate-slow-gradient {
+  animation: none;
+  background-size: 100% 100%;
+}
+
+/* Disable hover glow pulse */
+[data-reduced-motion="true"] .hover-glow:hover,
+[data-reduced-motion="true"] .hover-glow-primary:hover {
+  box-shadow: none;
+}
+
+/* Disable ambient gradient shift animation */
+[data-reduced-motion="true"] body::before {
+  animation: none !important;
+}
+
+/* Reduce gradient opacity for enhanced mode */
+[data-reduced-motion="true"][data-gradient="enhanced"] body::before {
+  opacity: 0.5;
+}
+
+/* OS-level prefers-reduced-motion fallback (applies when data attr not set) */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+  }
+
+  .animate-slow-gradient {
+    animation: none;
+    background-size: 100% 100%;
+  }
+
+  .hover-glow:hover,
+  .hover-glow-primary:hover {
+    box-shadow: none;
+  }
+
+  body::before {
+    animation: none !important;
+  }
+
+  [data-gradient="enhanced"] body::before {
+    opacity: 0.5;
+  }
+}
+
+/* ===========================
+   Background Image System
+   Layered rendering with effects
+   =========================== */
+
+/* Hide gradient layer when image-only mode */
+[data-bg-mode="image-only"] body::before {
+  display: none;
+}
+
+/* Reduce gradient opacity when overlaying on image */
+[data-bg-mode="image-gradient"] body::before {
+  opacity: 0.6;
+}
+
+/* Background image layer */
+.bg-image-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  overflow: hidden;
+  transition: opacity 0.5s ease;
+}
+
+.bg-image-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Darken overlay */
+.bg-darken-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+}
+
+/* Grain texture overlay */
+.bg-grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+[data-bg-grain="true"] .bg-grain-overlay {
+  opacity: 0.08;
+}
+
+/* Vignette overlay */
+.bg-vignette-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.5) 100%);
+}
+
+[data-bg-vignette="true"] .bg-vignette-overlay {
+  opacity: 1;
+}
+
+/* Frosted glass effect on content area */
+[data-bg-frosted="true"] .app-shell-content {
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  background-color: hsla(var(--bg), 0.75);
+}
+
+/* Disable image layer transitions when reduced motion is active */
+[data-reduced-motion="true"] .bg-image-layer {
+  transition: none !important;
 }

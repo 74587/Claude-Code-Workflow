@@ -340,6 +340,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   // Schedule reconnection with exponential backoff
   // Define this first to avoid circular dependency
   const scheduleReconnect = useCallback(() => {
+    // Don't reconnect after unmount
+    if (!mountedRef.current) return;
+
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
     }
@@ -363,7 +366,14 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
   }, []); // No dependencies - uses connectRef and getStoreState()
 
   const connect = useCallback(() => {
-    if (!enabled) return;
+    if (!enabled || !mountedRef.current) return;
+
+    // Close existing connection to avoid orphaned sockets
+    if (wsRef.current) {
+      wsRef.current.onclose = null; // Prevent onclose from triggering reconnect
+      wsRef.current.close();
+      wsRef.current = null;
+    }
 
     // Construct WebSocket URL
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -430,6 +440,9 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
 
   // Connect on mount, cleanup on unmount
   useEffect(() => {
+    // Reset mounted flag (needed after React Strict Mode remount)
+    mountedRef.current = true;
+
     if (enabled) {
       connect();
     }
@@ -455,6 +468,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         clearTimeout(reconnectTimeoutRef.current);
       }
       if (wsRef.current) {
+        wsRef.current.onclose = null; // Prevent onclose from triggering orphaned reconnect
         wsRef.current.close();
         wsRef.current = null;
       }

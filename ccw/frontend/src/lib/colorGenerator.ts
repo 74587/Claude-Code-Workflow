@@ -10,6 +10,126 @@
  * @module colorGenerator
  */
 
+import type { StyleTier } from '../types/store';
+
+// ========== Style Tier System ==========
+
+/** Per-tier adjustment factors for saturation, lightness, and contrast */
+export interface StyleTierCoefficients {
+  saturationScale: number;
+  lightnessOffset: { light: number; dark: number };
+  contrastBoost: number;
+}
+
+/**
+ * Style tier coefficient definitions.
+ * - soft: reduced saturation, lighter feel, lower contrast
+ * - standard: identity transform (no change)
+ * - high-contrast: boosted saturation, sharper text/background separation
+ */
+export const STYLE_TIER_COEFFICIENTS: Record<StyleTier, StyleTierCoefficients> = {
+  soft: {
+    saturationScale: 0.6,
+    lightnessOffset: { light: 5, dark: -3 },
+    contrastBoost: 0.9,
+  },
+  standard: {
+    saturationScale: 1.0,
+    lightnessOffset: { light: 0, dark: 0 },
+    contrastBoost: 1.0,
+  },
+  'high-contrast': {
+    saturationScale: 1.3,
+    lightnessOffset: { light: -5, dark: 3 },
+    contrastBoost: 1.2,
+  },
+};
+
+/**
+ * Parse 'H S% L%' format HSL string into numeric components.
+ * H in degrees (0-360), S and L as percentages (0-100).
+ *
+ * @param hslString - HSL string in 'H S% L%' format (e.g. '220 60% 65%')
+ * @returns Parsed components or null if parsing fails
+ */
+export function parseHSL(hslString: string): { h: number; s: number; l: number } | null {
+  const trimmed = hslString.trim();
+  const match = trimmed.match(/^([\d.]+)\s+([\d.]+)%?\s+([\d.]+)%?$/);
+  if (!match) return null;
+  const h = parseFloat(match[1]);
+  const s = parseFloat(match[2]);
+  const l = parseFloat(match[3]);
+  if (isNaN(h) || isNaN(s) || isNaN(l)) return null;
+  return { h, s, l };
+}
+
+/**
+ * Format numeric HSL values back to 'H S% L%' string.
+ * Values are clamped to valid ranges.
+ *
+ * @param h - Hue in degrees (0-360)
+ * @param s - Saturation as percentage (0-100)
+ * @param l - Lightness as percentage (0-100)
+ * @returns Formatted HSL string
+ */
+export function formatHSL(h: number, s: number, l: number): string {
+  const clampedS = Math.max(0, Math.min(100, Math.round(s * 10) / 10));
+  const clampedL = Math.max(0, Math.min(100, Math.round(l * 10) / 10));
+  return `${Math.round(h)} ${clampedS}% ${clampedL}%`;
+}
+
+/**
+ * Apply style tier coefficients to a set of CSS variable values.
+ * Adjusts saturation and lightness per tier, preserving hue.
+ *
+ * Processing pipeline per variable:
+ * 1. Scale saturation: s * saturationScale
+ * 2. Apply contrast boost: stretch lightness from midpoint (50%)
+ * 3. Apply lightness offset (mode-specific)
+ * 4. Clamp to valid ranges
+ *
+ * Standard tier is an identity transform (returns input unchanged).
+ *
+ * @param vars - Record of CSS variable names to HSL values in 'H S% L%' format
+ * @param tier - Style tier to apply
+ * @param mode - Current theme mode
+ * @returns Modified CSS variables record
+ */
+export function applyStyleTier(
+  vars: Record<string, string>,
+  tier: StyleTier,
+  mode: 'light' | 'dark'
+): Record<string, string> {
+  if (tier === 'standard') return vars;
+
+  const coeffs = STYLE_TIER_COEFFICIENTS[tier];
+  const offset = mode === 'light' ? coeffs.lightnessOffset.light : coeffs.lightnessOffset.dark;
+  const result: Record<string, string> = {};
+
+  for (const [varName, value] of Object.entries(vars)) {
+    const parsed = parseHSL(value);
+    if (!parsed) {
+      result[varName] = value;
+      continue;
+    }
+
+    // 1. Apply saturation scaling
+    let s = parsed.s * coeffs.saturationScale;
+    s = Math.max(0, Math.min(100, s));
+
+    // 2. Apply contrast boost (stretch lightness from midpoint)
+    let l = 50 + (parsed.l - 50) * coeffs.contrastBoost;
+
+    // 3. Apply lightness offset
+    l = l + offset;
+    l = Math.max(0, Math.min(100, l));
+
+    result[varName] = formatHSL(parsed.h, s, l);
+  }
+
+  return result;
+}
+
 /**
  * Generate a complete theme from a single hue value
  *

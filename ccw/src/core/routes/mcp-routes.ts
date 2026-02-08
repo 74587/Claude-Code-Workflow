@@ -1197,7 +1197,7 @@ export async function handleMcpRoutes(ctx: RouteContext): Promise<boolean> {
       // Parse enabled tools from request body
       const enabledTools = Array.isArray(body.enabledTools) && body.enabledTools.length > 0
         ? (body.enabledTools as string[]).join(',')
-        : 'write_file,edit_file,read_file,core_memory,ask_question';
+        : 'write_file,edit_file,read_file,core_memory,ask_question,smart_search';
 
       // Generate CCW MCP server config
       // Use cmd /c on Windows to inherit Claude Code's working directory

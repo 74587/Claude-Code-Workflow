@@ -3,6 +3,8 @@
  * Defines available color schemes and theme modes for the CCW application
  */
 
+import type { ThemeSlot, ThemeSlotId, BackgroundEffects, BackgroundConfig } from '../types/store';
+
 export type ColorScheme = 'blue' | 'green' | 'orange' | 'purple';
 export type ThemeMode = 'light' | 'dark';
 export type ThemeId = `${ThemeMode}-${ColorScheme}`;
@@ -112,3 +114,62 @@ export const DEFAULT_THEME: Theme = {
   mode: 'light',
   name: '经典蓝 · 浅色'
 };
+
+// ========== Background Defaults ==========
+
+export const DEFAULT_BACKGROUND_EFFECTS: BackgroundEffects = {
+  blur: 0,
+  darkenOpacity: 0,
+  saturation: 100,
+  enableFrostedGlass: false,
+  enableGrain: false,
+  enableVignette: false,
+};
+
+export const DEFAULT_BACKGROUND_CONFIG: BackgroundConfig = {
+  mode: 'gradient-only',
+  imageUrl: null,
+  attribution: null,
+  effects: DEFAULT_BACKGROUND_EFFECTS,
+};
+
+// ========== Theme Slot Constants ==========
+
+/** Maximum number of theme slots a user can have */
+export const THEME_SLOT_LIMIT = 3;
+
+/** Default theme slot with preset values */
+export const DEFAULT_SLOT: ThemeSlot = {
+  id: 'default',
+  name: 'Default',
+  colorScheme: 'blue',
+  customHue: null,
+  isCustomTheme: false,
+  gradientLevel: 'standard',
+  enableHoverGlow: true,
+  enableBackgroundAnimation: false,
+  styleTier: 'standard',
+  isDefault: true,
+};
+
+/**
+ * Factory function to create a new empty theme slot with default values.
+ *
+ * @param id - Slot identifier
+ * @param name - Display name for the slot
+ * @returns A new ThemeSlot with default theme values
+ */
+export function createEmptySlot(id: ThemeSlotId, name: string): ThemeSlot {
+  return {
+    id,
+    name,
+    colorScheme: 'blue',
+    customHue: null,
+    isCustomTheme: false,
+    gradientLevel: 'standard',
+    enableHoverGlow: true,
+    enableBackgroundAnimation: false,
+    styleTier: 'standard',
+    isDefault: false,
+  };
+}

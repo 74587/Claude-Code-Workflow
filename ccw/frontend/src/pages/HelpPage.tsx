@@ -286,7 +286,7 @@ export function HelpPage() {
       </div>
 
       {/* Search Documentation CTA */}
-      <Card className="p-6 sm:p-8 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
+      <Card className="p-6 sm:p-8 bg-gradient-accent border-primary/20">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:justify-between">
           <div className="flex items-start gap-4 flex-1 min-w-0">
             <div className="p-3 rounded-lg bg-primary/20 flex-shrink-0">

@@ -59,7 +59,7 @@ export function Header({
 
   return (
     <header
-      className="flex items-center justify-between px-4 md:px-5 h-14 bg-card border-b border-border sticky top-0 z-50 shadow-sm"
+      className="relative flex items-center justify-between px-4 md:px-5 h-14 bg-card border-b border-border sticky top-0 z-50 shadow-sm"
       role="banner"
     >
       {/* Left side - Logo */}
@@ -200,6 +200,7 @@ export function Header({
           </div>
         </div>
       </div>
+      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-accent" aria-hidden="true" />
     </header>
   );
 }

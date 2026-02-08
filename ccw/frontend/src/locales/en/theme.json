@@ -34,5 +34,87 @@
     "enhanced": "Enhanced",
     "hoverGlow": "Enable hover glow effects",
     "bgAnimation": "Enable background gradient animation"
+  },
+  "accessibility": {
+    "contrastWarning": "Some color combinations may not meet WCAG AA contrast requirements:",
+    "fixSuggestion": "Suggested fix: adjust {target} from {original} to {suggested} (ratio: {ratio}:1)",
+    "applyFix": "Apply Fix",
+    "dismiss": "Dismiss"
+  },
+  "motion": {
+    "label": "Motion Preference",
+    "system": "System",
+    "reduce": "Reduce",
+    "enable": "Enable"
+  },
+  "slot": {
+    "title": "Theme Slots",
+    "default": "Default",
+    "custom1": "Custom 1",
+    "custom2": "Custom 2",
+    "copy": "Copy Slot",
+    "rename": "Rename",
+    "delete": "Delete",
+    "undoDelete": "Slot deleted. Undo?",
+    "undo": "Undo",
+    "limitReached": "Maximum of {limit} theme slots reached",
+    "deleteConfirm": "Delete this theme slot?",
+    "cannotDeleteDefault": "Cannot delete the default slot",
+    "renameEmpty": "Slot name cannot be empty",
+    "copyOf": "Copy of {name}",
+    "active": "Active"
+  },
+  "styleTier": {
+    "label": "Style Tier",
+    "soft": "Soft",
+    "standard": "Standard",
+    "highContrast": "High Contrast",
+    "softDesc": "Reduced saturation, gentle colors",
+    "standardDesc": "Default balanced appearance",
+    "highContrastDesc": "Enhanced readability, sharper colors"
+  },
+  "background": {
+    "title": "Background Image",
+    "mode": {
+      "gradientOnly": "Gradient",
+      "imageOnly": "Image",
+      "imageGradient": "Image+Gradient"
+    },
+    "searchPlaceholder": "Search Unsplash photos...",
+    "customUrlPlaceholder": "Custom image URL...",
+    "apply": "Apply",
+    "removeImage": "Remove",
+    "effects": "Visual Effects",
+    "blur": "Blur",
+    "darken": "Darken",
+    "saturation": "Saturation",
+    "frostedGlass": "Frosted glass effect on content",
+    "grain": "Noise texture overlay",
+    "vignette": "Vignette (dark edges)",
+    "searchError": "Failed to search photos. Check if Unsplash API is configured.",
+    "noResults": "No photos found",
+    "prev": "Prev",
+    "next": "Next",
+    "loadFailed": "Image failed to load, fallback to gradient",
+    "upload": "Upload local image",
+    "uploading": "Uploading...",
+    "uploadError": "Upload failed",
+    "fileTooLarge": "File too large (max 10MB)",
+    "invalidType": "Only JPG, PNG, WebP, GIF supported"
+  },
+  "share": {
+    "label": "Theme Sharing",
+    "copyCode": "Copy Theme Code",
+    "copied": "Theme code copied to clipboard",
+    "import": "Import Theme",
+    "paste": "Paste theme code here...",
+    "preview": "Import Preview",
+    "apply": "Apply Theme",
+    "cancel": "Cancel",
+    "invalidCode": "Invalid theme code. Please check and try again.",
+    "incompatibleVersion": "This theme code is from an incompatible version and cannot be imported.",
+    "versionWarning": "This theme code is from a different version. Some settings may not be accurate.",
+    "importSuccess": "Theme imported successfully",
+    "noSlotAvailable": "No available theme slot. Delete a custom slot first."
   }
 }

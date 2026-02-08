@@ -2,10 +2,11 @@
 // CodexLens Search Tab
 // ========================================
 // Semantic code search interface with multiple search types
+// Includes LSP availability check and hybrid search mode switching
 
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
-import { Search, FileCode, Code } from 'lucide-react';
+import { Search, FileCode, Code, Sparkles, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -20,11 +21,13 @@ import {
   useCodexLensSearch,
   useCodexLensFilesSearch,
   useCodexLensSymbolSearch,
+  useCodexLensLspStatus,
+  useCodexLensSemanticSearch,
 } from '@/hooks/useCodexLens';
-import type { CodexLensSearchParams } from '@/lib/api';
+import type { CodexLensSearchParams, CodexLensSemanticSearchMode, CodexLensFusionStrategy } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-type SearchType = 'search' | 'search_files' | 'symbol';
+type SearchType = 'search' | 'search_files' | 'symbol' | 'semantic';
 type SearchMode = 'dense_rerank' | 'fts' | 'fuzzy';
 
 interface SearchTabProps {
@@ -35,14 +38,19 @@ export function SearchTab({ enabled }: SearchTabProps) {
   const { formatMessage } = useIntl();
   const [searchType, setSearchType] = useState<SearchType>('search');
   const [searchMode, setSearchMode] = useState<SearchMode>('dense_rerank');
+  const [semanticMode, setSemanticMode] = useState<CodexLensSemanticSearchMode>('fusion');
+  const [fusionStrategy, setFusionStrategy] = useState<CodexLensFusionStrategy>('rrf');
   const [query, setQuery] = useState('');
   const [hasSearched, setHasSearched] = useState(false);
+
+  // LSP status check
+  const lspStatus = useCodexLensLspStatus({ enabled });
 
   // Build search params based on search type
   const searchParams: CodexLensSearchParams = {
     query,
     limit: 20,
-    mode: searchType !== 'symbol' ? searchMode : undefined,
+    mode: searchType !== 'symbol' && searchType !== 'semantic' ? searchMode : undefined,
     max_content_length: 200,
     extra_files_count: 10,
   };
@@ -63,12 +71,25 @@ export function SearchTab({ enabled }: SearchTabProps) {
     { enabled: enabled && hasSearched && searchType === 'symbol' && query.trim().length > 0 }
   );
 
+  const semanticSearch = useCodexLensSemanticSearch(
+    {
+      query,
+      mode: semanticMode,
+      fusion_strategy: semanticMode === 'fusion' ? fusionStrategy : undefined,
+      limit: 20,
+      include_match_reason: true,
+    },
+    { enabled: enabled && hasSearched && searchType === 'semantic' && query.trim().length > 0 }
+  );
+
   // Get loading state based on search type
   const isLoading = searchType === 'search'
     ? contentSearch.isLoading
     : searchType === 'search_files'
       ? fileSearch.isLoading
-      : symbolSearch.isLoading;
+      : searchType === 'symbol'
+        ? symbolSearch.isLoading
+        : semanticSearch.isLoading;
 
   const handleSearch = () => {
     if (query.trim()) {
@@ -84,17 +105,52 @@ export function SearchTab({ enabled }: SearchTabProps) {
 
   const handleSearchTypeChange = (value: SearchType) => {
     setSearchType(value);
-    setHasSearched(false); // Reset search state when changing type
+    setHasSearched(false);
   };
 
   const handleSearchModeChange = (value: SearchMode) => {
     setSearchMode(value);
-    setHasSearched(false); // Reset search state when changing mode
+    setHasSearched(false);
+  };
+
+  const handleSemanticModeChange = (value: CodexLensSemanticSearchMode) => {
+    setSemanticMode(value);
+    setHasSearched(false);
+  };
+
+  const handleFusionStrategyChange = (value: CodexLensFusionStrategy) => {
+    setFusionStrategy(value);
+    setHasSearched(false);
   };
 
   const handleQueryChange = (value: string) => {
     setQuery(value);
-    setHasSearched(false); // Reset search state when query changes
+    setHasSearched(false);
+  };
+
+  // Get result count for display
+  const getResultCount = (): string => {
+    if (searchType === 'symbol') {
+      return symbolSearch.data?.success
+        ? `${symbolSearch.data.symbols?.length ?? 0} ${formatMessage({ id: 'codexlens.search.resultsCount' })}`
+        : '';
+    }
+    if (searchType === 'search') {
+      return contentSearch.data?.success
+        ? `${contentSearch.data.results?.length ?? 0} ${formatMessage({ id: 'codexlens.search.resultsCount' })}`
+        : '';
+    }
+    if (searchType === 'search_files') {
+      return fileSearch.data?.success
+        ? `${fileSearch.data.files?.length ?? 0} ${formatMessage({ id: 'codexlens.search.resultsCount' })}`
+        : '';
+    }
+    if (searchType === 'semantic') {
+      return semanticSearch.data?.success
+        ? `${semanticSearch.data.count ?? 0} ${formatMessage({ id: 'codexlens.search.resultsCount' })}`
+        : '';
+    }
+    return '';
   };
 
   if (!enabled) {
@@ -115,6 +171,29 @@ export function SearchTab({ enabled }: SearchTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* LSP Status Indicator */}
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{formatMessage({ id: 'codexlens.search.lspStatus' })}:</span>
+        {lspStatus.isLoading ? (
+          <span className="text-muted-foreground">...</span>
+        ) : lspStatus.available ? (
+          <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+            <CheckCircle className="w-3.5 h-3.5" />
+            {formatMessage({ id: 'codexlens.search.lspAvailable' })}
+          </span>
+        ) : !lspStatus.semanticAvailable ? (
+          <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {formatMessage({ id: 'codexlens.search.lspNoSemantic' })}
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-yellow-600 dark:text-yellow-400">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {formatMessage({ id: 'codexlens.search.lspNoVector' })}
+          </span>
+        )}
+      </div>
+
       {/* Search Options */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Search Type */}
@@ -143,12 +222,18 @@ export function SearchTab({ enabled }: SearchTabProps) {
                   {formatMessage({ id: 'codexlens.search.symbol' })}
                 </div>
               </SelectItem>
+              <SelectItem value="semantic" disabled={!lspStatus.available}>
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  {formatMessage({ id: 'codexlens.search.semantic' })}
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        {/* Search Mode - only for content and file search */}
-        {searchType !== 'symbol' && (
+        {/* Search Mode - for CLI search types (content / file) */}
+        {(searchType === 'search' || searchType === 'search_files') && (
           <div className="space-y-2">
             <Label>{formatMessage({ id: 'codexlens.search.mode' })}</Label>
             <Select value={searchMode} onValueChange={handleSearchModeChange}>
@@ -169,7 +254,59 @@ export function SearchTab({ enabled }: SearchTabProps) {
             </Select>
           </div>
         )}
+
+        {/* Semantic Search Mode - for semantic search type */}
+        {searchType === 'semantic' && (
+          <div className="space-y-2">
+            <Label>{formatMessage({ id: 'codexlens.search.semanticMode' })}</Label>
+            <Select value={semanticMode} onValueChange={handleSemanticModeChange}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fusion">
+                  {formatMessage({ id: 'codexlens.search.semanticMode.fusion' })}
+                </SelectItem>
+                <SelectItem value="vector">
+                  {formatMessage({ id: 'codexlens.search.semanticMode.vector' })}
+                </SelectItem>
+                <SelectItem value="structural">
+                  {formatMessage({ id: 'codexlens.search.semanticMode.structural' })}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
+
+      {/* Fusion Strategy - only when semantic + fusion mode */}
+      {searchType === 'semantic' && semanticMode === 'fusion' && (
+        <div className="space-y-2">
+          <Label>{formatMessage({ id: 'codexlens.search.fusionStrategy' })}</Label>
+          <Select value={fusionStrategy} onValueChange={handleFusionStrategyChange}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="rrf">
+                {formatMessage({ id: 'codexlens.search.fusionStrategy.rrf' })}
+              </SelectItem>
+              <SelectItem value="dense_rerank">
+                {formatMessage({ id: 'codexlens.search.fusionStrategy.dense_rerank' })}
+              </SelectItem>
+              <SelectItem value="binary">
+                {formatMessage({ id: 'codexlens.search.fusionStrategy.binary' })}
+              </SelectItem>
+              <SelectItem value="hybrid">
+                {formatMessage({ id: 'codexlens.search.fusionStrategy.hybrid' })}
+              </SelectItem>
+              <SelectItem value="staged">
+                {formatMessage({ id: 'codexlens.search.fusionStrategy.staged' })}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Query Input */}
       <div className="space-y-2">
@@ -205,21 +342,7 @@ export function SearchTab({ enabled }: SearchTabProps) {
               {formatMessage({ id: 'codexlens.search.results' })}
             </h3>
             <span className="text-xs text-muted-foreground">
-              {searchType === 'symbol'
-                ? (symbolSearch.data?.success
-                    ? `${symbolSearch.data.symbols?.length ?? 0} ${formatMessage({ id: 'codexlens.search.resultsCount' })}`
-                    : ''
-                  )
-                : searchType === 'search'
-                  ? (contentSearch.data?.success
-                      ? `${contentSearch.data.results?.length ?? 0} ${formatMessage({ id: 'codexlens.search.resultsCount' })}`
-                      : ''
-                    )
-                  : (fileSearch.data?.success
-                      ? `${fileSearch.data.results?.length ?? 0} ${formatMessage({ id: 'codexlens.search.resultsCount' })}`
-                      : ''
-                    )
-              }
+              {getResultCount()}
             </span>
           </div>
 
@@ -255,12 +378,26 @@ export function SearchTab({ enabled }: SearchTabProps) {
             fileSearch.data.success ? (
               <div className="rounded-lg border bg-muted/50 p-4">
                 <pre className="text-xs overflow-auto max-h-96">
-                  {JSON.stringify(fileSearch.data.results, null, 2)}
+                  {JSON.stringify(fileSearch.data.files, null, 2)}
                 </pre>
               </div>
             ) : (
               <div className="text-sm text-destructive">
                 {fileSearch.data.error || formatMessage({ id: 'common.error' })}
+              </div>
+            )
+          )}
+
+          {searchType === 'semantic' && semanticSearch.data && (
+            semanticSearch.data.success ? (
+              <div className="rounded-lg border bg-muted/50 p-4">
+                <pre className="text-xs overflow-auto max-h-96">
+                  {JSON.stringify(semanticSearch.data.results, null, 2)}
+                </pre>
+              </div>
+            ) : (
+              <div className="text-sm text-destructive">
+                {semanticSearch.data.error || formatMessage({ id: 'common.error' })}
               </div>
             )
           )}

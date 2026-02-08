@@ -107,7 +107,7 @@ export function RuleCard({
   return (
     <Card
       className={cn(
-        'group transition-all duration-200 hover:shadow-md hover:border-primary/30',
+        'group transition-all duration-200 hover:shadow-md hover:border-primary/30 hover-glow',
         !rule.enabled && 'opacity-60',
         className
       )}

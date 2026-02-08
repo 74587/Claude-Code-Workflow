@@ -3,9 +3,9 @@
 // ========================================
 // Centered popup dialog for A2UI surfaces with minimalist design
 // Used for displayMode: 'popup' surfaces (e.g., ask_question)
-// Supports markdown content parsing
+// Supports markdown content parsing and multi-page navigation
 
-import { useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -30,7 +30,14 @@ interface A2UIPopupCardProps {
   onClose: () => void;
 }
 
-type QuestionType = 'confirm' | 'select' | 'multi-select' | 'input' | 'unknown';
+type QuestionType = 'confirm' | 'select' | 'multi-select' | 'input' | 'multi-question' | 'unknown';
+
+interface PageMeta {
+  index: number;
+  questionId: string;
+  title: string;
+  type: string;
+}
 
 // ========== Helpers ==========
 
@@ -71,6 +78,37 @@ function detectQuestionType(surface: SurfaceUpdate): QuestionType {
 function isActionButton(component: SurfaceComponent): boolean {
   const comp = component.component as any;
   return 'Button' in comp;
+}
+
+// ========== "Other" Text Input Component ==========
+
+interface OtherInputProps {
+  visible: boolean;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}
+
+function OtherInput({ visible, value, onChange, placeholder }: OtherInputProps) {
+  if (!visible) return null;
+
+  return (
+    <div className="mt-2 animate-in fade-in-0 slide-in-from-top-1 duration-200">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder || 'Enter your answer...'}
+        className={cn(
+          'w-full px-3 py-2 text-sm rounded-md border border-border',
+          'bg-background text-foreground placeholder:text-muted-foreground',
+          'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
+          'transition-colors'
+        )}
+        autoFocus
+      />
+    </div>
+  );
 }
 
 // ========== Markdown Component ==========
@@ -114,14 +152,20 @@ function MarkdownContent({ content, className }: MarkdownContentProps) {
   );
 }
 
-// ========== Component ==========
+// ========== Single-Page Popup (Legacy) ==========
 
-export function A2UIPopupCard({ surface, onClose }: A2UIPopupCardProps) {
+function SinglePagePopup({ surface, onClose }: A2UIPopupCardProps) {
   const { formatMessage } = useIntl();
   const sendA2UIAction = useNotificationStore((state) => state.sendA2UIAction);
 
   // Detect question type
   const questionType = useMemo(() => detectQuestionType(surface), [surface]);
+
+  // "Other" option state
+  const [otherSelected, setOtherSelected] = useState(false);
+  const [otherText, setOtherText] = useState('');
+
+  const questionId = (surface.initialState as any)?.questionId as string | undefined;
 
   // Extract title, message, and description from surface components
   const titleComponent = surface.components.find(
@@ -171,9 +215,33 @@ export function A2UIPopupCard({ surface, onClose }: A2UIPopupCardProps) {
     [surface, actionButtons]
   );
 
+  // Handle "Other" text change
+  const handleOtherTextChange = useCallback(
+    (value: string) => {
+      setOtherText(value);
+      if (questionId) {
+        sendA2UIAction('input-change', surface.surfaceId, {
+          questionId: `__other__:${questionId}`,
+          value,
+        });
+      }
+    },
+    [sendA2UIAction, surface.surfaceId, questionId]
+  );
+
   // Handle A2UI actions
   const handleAction = useCallback(
     (actionId: string, params?: Record<string, unknown>) => {
+      // Track "Other" selection state
+      if (actionId === 'select' && params?.value === '__other__') {
+        setOtherSelected(true);
+      } else if (actionId === 'select' && params?.value !== '__other__') {
+        setOtherSelected(false);
+      }
+      if (actionId === 'toggle' && params?.value === '__other__') {
+        setOtherSelected((prev) => !prev);
+      }
+
       // Send action to backend via WebSocket
       sendA2UIAction(actionId, surface.surfaceId, params);
 
@@ -210,6 +278,9 @@ export function A2UIPopupCard({ surface, onClose }: A2UIPopupCardProps) {
         return 'sm:max-w-[420px]';
     }
   }, [questionType]);
+
+  // Check if this question type supports "Other" input
+  const hasOtherOption = questionType === 'select' || questionType === 'multi-select';
 
   return (
     <Dialog open onOpenChange={handleOpenChange}>
@@ -269,6 +340,14 @@ export function A2UIPopupCard({ surface, onClose }: A2UIPopupCardProps) {
             ) : (
               <A2UIRenderer surface={bodySurface} onAction={handleAction} />
             )}
+            {/* "Other" text input — shown when Other is selected */}
+            {hasOtherOption && (
+              <OtherInput
+                visible={otherSelected}
+                value={otherText}
+                onChange={handleOtherTextChange}
+              />
+            )}
           </div>
         )}
 
@@ -289,6 +368,310 @@ export function A2UIPopupCard({ surface, onClose }: A2UIPopupCardProps) {
       </DialogContent>
     </Dialog>
   );
+}
+
+// ========== Multi-Page Popup ==========
+
+function MultiPagePopup({ surface, onClose }: A2UIPopupCardProps) {
+  const { formatMessage } = useIntl();
+  const sendA2UIAction = useNotificationStore((state) => state.sendA2UIAction);
+
+  const state = surface.initialState as Record<string, unknown>;
+  const pages = state.pages as PageMeta[];
+  const totalPages = state.totalPages as number;
+  const compositeId = state.questionId as string;
+
+  const [currentPage, setCurrentPage] = useState(0);
+
+  // "Other" per-page state
+  const [otherSelectedPages, setOtherSelectedPages] = useState<Set<number>>(new Set());
+  const [otherTexts, setOtherTexts] = useState<Map<number, string>>(new Map());
+
+  // Group components by page
+  const pageComponentGroups = useMemo(() => {
+    const groups: SurfaceComponent[][] = [];
+    for (let i = 0; i < totalPages; i++) {
+      groups.push(
+        surface.components.filter((c) => (c as any).page === i)
+      );
+    }
+    return groups;
+  }, [surface.components, totalPages]);
+
+  // Extract current page title and body components
+  const currentPageData = useMemo(() => {
+    const comps = pageComponentGroups[currentPage] || [];
+    const titleComp = comps.find((c) => c.id.endsWith('-title'));
+    const messageComp = comps.find((c) => c.id.endsWith('-message'));
+    const descComp = comps.find((c) => c.id.endsWith('-description'));
+    const bodyComps = comps.filter(
+      (c) => !c.id.endsWith('-title') && !c.id.endsWith('-message') && !c.id.endsWith('-description')
+    );
+
+    return {
+      title: getTextContent(titleComp),
+      message: getTextContent(messageComp),
+      description: getTextContent(descComp),
+      bodyComponents: bodyComps,
+      pageMeta: pages[currentPage],
+    };
+  }, [pageComponentGroups, currentPage, pages]);
+
+  // Handle "Other" text change for a specific page
+  const handleOtherTextChange = useCallback(
+    (pageIdx: number, value: string) => {
+      setOtherTexts((prev) => {
+        const next = new Map(prev);
+        next.set(pageIdx, value);
+        return next;
+      });
+      // Send input-change to backend with __other__:{questionId}
+      const qId = pages[pageIdx]?.questionId;
+      if (qId) {
+        sendA2UIAction('input-change', surface.surfaceId, {
+          questionId: `__other__:${qId}`,
+          value,
+        });
+      }
+    },
+    [sendA2UIAction, surface.surfaceId, pages]
+  );
+
+  // Handle A2UI actions (pass through to backend without closing dialog)
+  const handleAction = useCallback(
+    (actionId: string, params?: Record<string, unknown>) => {
+      // Track "Other" selection state per page
+      if (actionId === 'select' && params?.value === '__other__') {
+        setOtherSelectedPages((prev) => new Set(prev).add(currentPage));
+      } else if (actionId === 'select' && params?.value !== '__other__') {
+        setOtherSelectedPages((prev) => {
+          const next = new Set(prev);
+          next.delete(currentPage);
+          return next;
+        });
+      }
+      if (actionId === 'toggle' && params?.value === '__other__') {
+        setOtherSelectedPages((prev) => {
+          const next = new Set(prev);
+          if (next.has(currentPage)) {
+            next.delete(currentPage);
+          } else {
+            next.add(currentPage);
+          }
+          return next;
+        });
+      }
+
+      sendA2UIAction(actionId, surface.surfaceId, params);
+    },
+    [sendA2UIAction, surface.surfaceId, currentPage]
+  );
+
+  // Handle Cancel
+  const handleCancel = useCallback(() => {
+    sendA2UIAction('cancel', surface.surfaceId, { questionId: compositeId });
+    onClose();
+  }, [sendA2UIAction, surface.surfaceId, compositeId, onClose]);
+
+  // Handle Submit All
+  const handleSubmitAll = useCallback(() => {
+    sendA2UIAction('submit-all', surface.surfaceId, {
+      compositeId,
+      questionIds: pages.map((p) => p.questionId),
+    });
+    onClose();
+  }, [sendA2UIAction, surface.surfaceId, compositeId, pages, onClose]);
+
+  // Handle dialog close
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        handleCancel();
+      }
+    },
+    [handleCancel]
+  );
+
+  // Navigation
+  const goNext = useCallback(() => {
+    setCurrentPage((p) => Math.min(p + 1, totalPages - 1));
+  }, [totalPages]);
+
+  const goPrev = useCallback(() => {
+    setCurrentPage((p) => Math.max(p - 1, 0));
+  }, []);
+
+  const isFirstPage = currentPage === 0;
+  const isLastPage = currentPage === totalPages - 1;
+
+  return (
+    <Dialog open onOpenChange={handleOpenChange}>
+      <DialogContent
+        className={cn(
+          'sm:max-w-[480px]',
+          'max-h-[80vh]',
+          'bg-card p-6 rounded-xl shadow-lg border border-border/50',
+          // Animation classes
+          'data-[state=open]:animate-in data-[state=closed]:animate-out',
+          'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
+          'data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95',
+          'data-[state=open]:duration-300 data-[state=closed]:duration-200'
+        )}
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
+        {/* Header with current page title */}
+        <DialogHeader className="space-y-2 pb-4">
+          <DialogTitle className="text-lg font-semibold leading-tight">
+            {currentPageData.title ||
+              formatMessage({ id: 'askQuestion.defaultTitle', defaultMessage: 'Question' })}
+          </DialogTitle>
+          {currentPageData.message && (
+            <div className="text-base text-foreground">
+              <MarkdownContent content={currentPageData.message} />
+            </div>
+          )}
+          {currentPageData.description && (
+            <div className="text-sm text-muted-foreground">
+              <MarkdownContent content={currentPageData.description} className="prose-muted" />
+            </div>
+          )}
+        </DialogHeader>
+
+        {/* Page content with slide animation */}
+        <div className="overflow-hidden">
+          <div
+            className="flex transition-transform duration-300 ease-in-out"
+            style={{ transform: `translateX(-${currentPage * 100}%)` }}
+          >
+            {pageComponentGroups.map((pageComps, pageIdx) => {
+              const bodyComps = pageComps.filter(
+                (c) =>
+                  !c.id.endsWith('-title') &&
+                  !c.id.endsWith('-message') &&
+                  !c.id.endsWith('-description')
+              );
+              const pageType = pages[pageIdx]?.type || 'unknown';
+              const hasOther = pageType === 'select' || pageType === 'multi-select';
+              const isOtherSelected = otherSelectedPages.has(pageIdx);
+
+              return (
+                <div key={pageIdx} className="w-full flex-shrink-0">
+                  {bodyComps.length > 0 && (
+                    <div
+                      className={cn(
+                        'py-3',
+                        pageType === 'multi-select' && 'space-y-2 max-h-[300px] overflow-y-auto px-1'
+                      )}
+                    >
+                      {pageType === 'multi-select' ? (
+                        bodyComps.map((comp) => (
+                          <div key={comp.id} className="py-1">
+                            <A2UIRenderer
+                              surface={{ ...surface, components: [comp] }}
+                              onAction={handleAction}
+                            />
+                          </div>
+                        ))
+                      ) : (
+                        <A2UIRenderer
+                          surface={{ ...surface, components: bodyComps }}
+                          onAction={handleAction}
+                        />
+                      )}
+                      {/* "Other" text input */}
+                      {hasOther && (
+                        <OtherInput
+                          visible={isOtherSelected}
+                          value={otherTexts.get(pageIdx) || ''}
+                          onChange={(v) => handleOtherTextChange(pageIdx, v)}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Dot indicator */}
+        <div className="flex justify-center gap-2 py-3">
+          {pages.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setCurrentPage(i)}
+              className={cn(
+                'rounded-full transition-all duration-200',
+                i === currentPage
+                  ? 'bg-primary w-4 h-2'
+                  : 'bg-muted-foreground/30 w-2 h-2 hover:bg-muted-foreground/50'
+              )}
+              aria-label={`Page ${i + 1}`}
+            />
+          ))}
+        </div>
+
+        {/* Footer - Navigation buttons */}
+        <DialogFooter className="pt-2">
+          <div className="flex flex-row justify-between w-full">
+            {/* Left: Cancel */}
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="px-4 py-2 text-sm rounded-md border border-border hover:bg-muted transition-colors"
+            >
+              {formatMessage({ id: 'askQuestion.cancel', defaultMessage: 'Cancel' })}
+            </button>
+
+            {/* Right: Prev / Next / Submit */}
+            <div className="flex flex-row gap-2">
+              {!isFirstPage && (
+                <button
+                  type="button"
+                  onClick={goPrev}
+                  className="px-4 py-2 text-sm rounded-md border border-border hover:bg-muted transition-colors"
+                >
+                  {formatMessage({ id: 'askQuestion.previous', defaultMessage: 'Previous' })}
+                </button>
+              )}
+              {isLastPage ? (
+                <button
+                  type="button"
+                  onClick={handleSubmitAll}
+                  className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  {formatMessage({ id: 'askQuestion.submit', defaultMessage: 'Submit' })}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={goNext}
+                  className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  {formatMessage({ id: 'askQuestion.next', defaultMessage: 'Next' })}
+                </button>
+              )}
+            </div>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ========== Main Component ==========
+
+export function A2UIPopupCard({ surface, onClose }: A2UIPopupCardProps) {
+  const state = surface.initialState as Record<string, unknown> | undefined;
+  const isMultiPage = state?.questionType === 'multi-question' && (state?.totalPages as number) > 1;
+
+  if (isMultiPage) {
+    return <MultiPagePopup surface={surface} onClose={onClose} />;
+  }
+
+  return <SinglePagePopup surface={surface} onClose={onClose} />;
 }
 
 export default A2UIPopupCard;

@@ -13,8 +13,18 @@ import type {
   AskQuestionParams,
   AskQuestionResult,
   PendingQuestion,
+  SimpleQuestion,
 } from '../core/a2ui/A2UITypes.js';
+import http from 'http';
 import { a2uiWebSocketHandler } from '../core/a2ui/A2UIWebSocketHandler.js';
+
+const DASHBOARD_PORT = Number(process.env.CCW_PORT || 3456);
+const POLL_INTERVAL_MS = 1000;
+
+// Register multi-answer callback for multi-page question surfaces
+a2uiWebSocketHandler.registerMultiAnswerCallback(
+  (compositeId: string, answers: QuestionAnswer[]) => handleMultiAnswer(compositeId, answers)
+);
 
 // ========== Constants ==========
 
@@ -114,6 +124,10 @@ function validateAnswer(question: Question, answer: QuestionAnswer): boolean {
       if (!question.options) {
         return false;
       }
+      // Accept __other__ as a valid value (custom input)
+      if (answer.value === '__other__' || answer.value.startsWith('__other__:')) {
+        return true;
+      }
       return question.options.some((opt) => opt.value === answer.value);
 
     case 'multi-select':
@@ -124,11 +138,49 @@ function validateAnswer(question: Question, answer: QuestionAnswer): boolean {
         return false;
       }
       const validValues = new Set(question.options.map((opt) => opt.value));
-      return answer.value.every((v) => validValues.has(v));
+      // Accept __other__ as a valid value (custom input)
+      validValues.add('__other__');
+      return answer.value.every((v) => typeof v === 'string' && (validValues.has(v) || v.startsWith('__other__:')));
 
     default:
       return false;
   }
+}
+
+// ========== Simple Format Normalization ==========
+
+/**
+ * Normalize a SimpleQuestion (AskUserQuestion-style) to internal Question format
+ * @param simple - SimpleQuestion to normalize
+ * @returns Normalized Question
+ */
+function normalizeSimpleQuestion(simple: SimpleQuestion): Question {
+  let type: QuestionType;
+  if (simple.options && simple.options.length > 0) {
+    type = simple.multiSelect ? 'multi-select' : 'select';
+  } else {
+    type = 'input';
+  }
+
+  const options: QuestionOption[] | undefined = simple.options?.map((opt) => ({
+    value: opt.label,
+    label: opt.label,
+    description: opt.description,
+  }));
+
+  return {
+    id: simple.header,
+    type,
+    title: simple.question,
+    options,
+  } as Question;
+}
+
+/**
+ * Detect if params use the new "questions" array format
+ */
+function isSimpleFormat(params: Record<string, unknown>): params is { questions: SimpleQuestion[]; timeout?: number } {
+  return Array.isArray(params.questions);
 }
 
 // ========== A2UI Surface Generation ==========
@@ -223,6 +275,13 @@ function generateQuestionSurface(question: Question, surfaceId: string): {
         description: opt.description ? { literalString: opt.description } : undefined,
       })) || [];
 
+      // Add "Other" option for custom input
+      options.push({
+        label: { literalString: 'Other' },
+        value: '__other__',
+        description: { literalString: 'Provide a custom answer' },
+      });
+
       // Use RadioGroup for direct selection display (not dropdown)
       components.push({
         id: 'radio-group',
@@ -267,6 +326,7 @@ function generateQuestionSurface(question: Question, surfaceId: string): {
       const options = question.options?.map((opt) => ({
         label: { literalString: opt.label },
         value: opt.value,
+        description: opt.description ? { literalString: opt.description } : undefined,
       })) || [];
 
       // Add each checkbox as a separate component for better layout control
@@ -276,11 +336,25 @@ function generateQuestionSurface(question: Question, surfaceId: string): {
           component: {
             Checkbox: {
               label: opt.label,
+              ...(opt.description && { description: opt.description }),
               onChange: { actionId: 'toggle', parameters: { questionId: question.id, value: opt.value } },
               checked: { literalBoolean: false },
             },
           },
         });
+      });
+
+      // Add "Other" checkbox for custom input
+      components.push({
+        id: 'checkbox-other',
+        component: {
+          Checkbox: {
+            label: { literalString: 'Other' },
+            description: { literalString: 'Provide a custom answer' },
+            onChange: { actionId: 'toggle', parameters: { questionId: question.id, value: '__other__' } },
+            checked: { literalBoolean: false },
+          },
+        },
       });
 
       // Submit/cancel actions for multi-select so users can choose multiple options before resolving
@@ -390,7 +464,12 @@ export async function execute(params: AskQuestionParams): Promise<ToolResult<Ask
 
     // Send A2UI surface via WebSocket to frontend
     const a2uiSurface = generateQuestionSurface(question, surfaceId);
-    a2uiWebSocketHandler.sendSurface(a2uiSurface.surfaceUpdate);
+    const sentCount = a2uiWebSocketHandler.sendSurface(a2uiSurface.surfaceUpdate);
+
+    // If no local WS clients, start HTTP polling for answer from Dashboard
+    if (sentCount === 0) {
+      startAnswerPolling(question.id);
+    }
 
     // Wait for answer
     const result = await resultPromise;
@@ -438,6 +517,85 @@ export function handleAnswer(answer: QuestionAnswer): boolean {
   pendingQuestions.delete(answer.questionId);
 
   return true;
+}
+
+/**
+ * Handle multi-question composite answer from frontend (submit-all)
+ * @param compositeId - The composite question ID (multi-xxx)
+ * @param answers - Array of answers for each page
+ * @returns True if answer was processed
+ */
+export function handleMultiAnswer(compositeId: string, answers: QuestionAnswer[]): boolean {
+  const pending = pendingQuestions.get(compositeId);
+  if (!pending) {
+    return false;
+  }
+
+  pending.resolve({
+    success: true,
+    surfaceId: pending.surfaceId,
+    cancelled: false,
+    answers,
+    timestamp: new Date().toISOString(),
+  });
+
+  pendingQuestions.delete(compositeId);
+  return true;
+}
+
+// ========== Answer Polling (MCP stdio mode) ==========
+
+/**
+ * Poll Dashboard server for answers when running in a separate MCP process.
+ * Starts polling GET /api/a2ui/answer and resolves the pending promise when an answer arrives.
+ * Automatically stops when the questionId is no longer in pendingQuestions (timeout cleanup).
+ */
+function startAnswerPolling(questionId: string, isComposite: boolean = false): void {
+  const path = `/api/a2ui/answer?questionId=${encodeURIComponent(questionId)}&composite=${isComposite}`;
+
+  const poll = () => {
+    // Stop if the question was already resolved or timed out
+    if (!pendingQuestions.has(questionId)) {
+      return;
+    }
+
+    const req = http.get({ hostname: 'localhost', port: DASHBOARD_PORT, path }, (res) => {
+      let data = '';
+      res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.pending) {
+            // No answer yet, schedule next poll
+            setTimeout(poll, POLL_INTERVAL_MS);
+            return;
+          }
+
+          if (isComposite && Array.isArray(parsed.answers)) {
+            handleMultiAnswer(questionId, parsed.answers as QuestionAnswer[]);
+          } else if (!isComposite && parsed.answer) {
+            handleAnswer(parsed.answer as QuestionAnswer);
+          } else {
+            // Unexpected shape, keep polling
+            setTimeout(poll, POLL_INTERVAL_MS);
+          }
+        } catch {
+          // Parse error, keep polling
+          setTimeout(poll, POLL_INTERVAL_MS);
+        }
+      });
+    });
+
+    req.on('error', () => {
+      // Network error (Dashboard not reachable), keep trying
+      if (pendingQuestions.has(questionId)) {
+        setTimeout(poll, POLL_INTERVAL_MS);
+      }
+    });
+  };
+
+  // Start first poll after a short delay to give the Dashboard time to receive the surface
+  setTimeout(poll, POLL_INTERVAL_MS);
 }
 
 // ========== Cleanup ==========
@@ -488,12 +646,70 @@ export function clearPendingQuestions(): void {
 
 export const schema: ToolSchema = {
   name: 'ask_question',
-  description: 'Ask the user a question through an interactive A2UI interface. Supports confirmation dialogs, selection from options, text input, and multi-select checkboxes.',
+  description: `Ask the user a question through an interactive A2UI interface. Supports two calling styles:
+
+**Style 1 - AskUserQuestion-compatible (recommended)**:
+\`\`\`json
+{
+  "questions": [{
+    "question": "Which library?",
+    "header": "Library",
+    "multiSelect": false,
+    "options": [
+      { "label": "React", "description": "UI library" },
+      { "label": "Vue", "description": "Progressive framework" }
+    ]
+  }]
+}
+\`\`\`
+Response includes \`answersDict\`: \`{ "Library": "React" }\`
+
+Type inference: options + multiSelect=true → multi-select; options + multiSelect=false → select; no options → input.
+
+**Style 2 - Legacy format**:
+\`\`\`json
+{
+  "question": {
+    "id": "q1",
+    "type": "select",
+    "title": "Which library?",
+    "options": [{ "value": "react", "label": "React" }]
+  }
+}
+\`\`\``,
   inputSchema: {
     type: 'object',
     properties: {
+      questions: {
+        type: 'array',
+        description: 'AskUserQuestion-style questions array (1-4 questions). Use this OR "question", not both.',
+        items: {
+          type: 'object',
+          properties: {
+            question: { type: 'string', description: 'The question text' },
+            header: { type: 'string', description: 'Short label, also used as response key (max 12 chars)' },
+            multiSelect: { type: 'boolean', description: 'Allow multiple selections (default: false)' },
+            options: {
+              type: 'array',
+              description: 'Available choices. Omit for text input.',
+              items: {
+                type: 'object',
+                properties: {
+                  label: { type: 'string', description: 'Display text, also used as value' },
+                  description: { type: 'string', description: 'Option description' },
+                },
+                required: ['label'],
+              },
+            },
+          },
+          required: ['question', 'header'],
+        },
+        minItems: 1,
+        maxItems: 4,
+      },
       question: {
         type: 'object',
+        description: 'Legacy format: single question object. Use this OR "questions", not both.',
         properties: {
           id: { type: 'string', description: 'Unique identifier for this question' },
           type: {
@@ -524,16 +740,343 @@ export const schema: ToolSchema = {
         required: ['id', 'type', 'title'],
       },
       timeout: { type: 'number', description: 'Timeout in milliseconds (default: 300000 / 5 minutes)' },
-      surfaceId: { type: 'string', description: 'Custom surface ID (auto-generated if not provided)' },
+      surfaceId: { type: 'string', description: 'Custom surface ID (auto-generated if not provided). Legacy format only.' },
     },
-    required: ['question'],
   },
 };
 
 /**
  * Tool handler for MCP integration
- * Wraps the execute function to match the expected handler signature
+ * Supports both legacy format (question object) and AskUserQuestion-style format (questions array)
  */
 export async function handler(params: Record<string, unknown>): Promise<ToolResult<AskQuestionResult>> {
+  if (isSimpleFormat(params)) {
+    return executeSimpleFormat(params.questions, params.timeout);
+  }
   return execute(params as AskQuestionParams);
+}
+
+// ========== Multi-Question Surface Generation ==========
+
+/**
+ * Page metadata for multi-question surfaces
+ */
+interface PageMeta {
+  index: number;
+  questionId: string;
+  title: string;
+  type: string;
+}
+
+/**
+ * Generate a single A2UI surface containing all questions, each tagged with a page index.
+ * @param questions - Array of SimpleQuestion
+ * @returns Surface update with page-tagged components and page metadata
+ */
+function generateMultiQuestionSurface(
+  questions: SimpleQuestion[],
+  surfaceId: string,
+): {
+  surfaceUpdate: {
+    surfaceId: string;
+    components: unknown[];
+    initialState: Record<string, unknown>;
+    displayMode: 'popup';
+  };
+  pages: PageMeta[];
+} {
+  const components: unknown[] = [];
+  const pages: PageMeta[] = [];
+
+  for (let pageIdx = 0; pageIdx < questions.length; pageIdx++) {
+    const simpleQ = questions[pageIdx];
+    const question = normalizeSimpleQuestion(simpleQ);
+    const qId = question.id; // header used as id
+
+    pages.push({
+      index: pageIdx,
+      questionId: qId,
+      title: question.title,
+      type: question.type,
+    });
+
+    // Title
+    components.push({
+      id: `page-${pageIdx}-title`,
+      page: pageIdx,
+      component: {
+        Text: {
+          text: { literalString: question.title },
+          usageHint: 'h3',
+        },
+      },
+    });
+
+    // Message
+    if (question.message) {
+      components.push({
+        id: `page-${pageIdx}-message`,
+        page: pageIdx,
+        component: {
+          Text: {
+            text: { literalString: question.message },
+            usageHint: 'p',
+          },
+        },
+      });
+    }
+
+    // Description
+    if (question.description) {
+      components.push({
+        id: `page-${pageIdx}-description`,
+        page: pageIdx,
+        component: {
+          Text: {
+            text: { literalString: question.description },
+            usageHint: 'small',
+          },
+        },
+      });
+    }
+
+    // Interactive components based on question type
+    switch (question.type) {
+      case 'select': {
+        const options = question.options?.map((opt) => ({
+          label: { literalString: opt.label },
+          value: opt.value,
+          description: opt.description ? { literalString: opt.description } : undefined,
+        })) || [];
+
+        // Add "Other" option for custom input
+        options.push({
+          label: { literalString: 'Other' },
+          value: '__other__',
+          description: { literalString: 'Provide a custom answer' },
+        });
+
+        components.push({
+          id: `page-${pageIdx}-radio-group`,
+          page: pageIdx,
+          component: {
+            RadioGroup: {
+              options,
+              selectedValue: question.defaultValue ? { literalString: String(question.defaultValue) } : undefined,
+              onChange: { actionId: 'select', parameters: { questionId: qId } },
+            },
+          },
+        });
+        break;
+      }
+
+      case 'multi-select': {
+        const options = question.options?.map((opt) => ({
+          label: { literalString: opt.label },
+          value: opt.value,
+          description: opt.description ? { literalString: opt.description } : undefined,
+        })) || [];
+
+        options.forEach((opt, idx) => {
+          components.push({
+            id: `page-${pageIdx}-checkbox-${idx}`,
+            page: pageIdx,
+            component: {
+              Checkbox: {
+                label: opt.label,
+                ...(opt.description && { description: opt.description }),
+                onChange: { actionId: 'toggle', parameters: { questionId: qId, value: opt.value } },
+                checked: { literalBoolean: false },
+              },
+            },
+          });
+        });
+
+        // Add "Other" checkbox for custom input
+        components.push({
+          id: `page-${pageIdx}-checkbox-other`,
+          page: pageIdx,
+          component: {
+            Checkbox: {
+              label: { literalString: 'Other' },
+              description: { literalString: 'Provide a custom answer' },
+              onChange: { actionId: 'toggle', parameters: { questionId: qId, value: '__other__' } },
+              checked: { literalBoolean: false },
+            },
+          },
+        });
+        break;
+      }
+
+      case 'input': {
+        components.push({
+          id: `page-${pageIdx}-input`,
+          page: pageIdx,
+          component: {
+            TextField: {
+              value: question.defaultValue ? { literalString: String(question.defaultValue) } : undefined,
+              onChange: { actionId: 'input-change', parameters: { questionId: qId } },
+              placeholder: question.placeholder || 'Enter your answer',
+              type: 'text',
+            },
+          },
+        });
+        break;
+      }
+
+      case 'confirm': {
+        // Confirm type gets handled as a single boolean per page
+        // No extra component — the page navigation handles yes/no
+        break;
+      }
+    }
+  }
+
+  return {
+    surfaceUpdate: {
+      surfaceId,
+      components,
+      initialState: {
+        questionId: `multi-${Date.now()}`,
+        questionType: 'multi-question',
+        pages,
+        totalPages: questions.length,
+      },
+      displayMode: 'popup',
+    },
+    pages,
+  };
+}
+
+/**
+ * Execute questions in AskUserQuestion-style format.
+ * Single question: falls back to legacy sequential popup.
+ * Multiple questions: generates a single multi-page surface.
+ */
+async function executeSimpleFormat(
+  questions: SimpleQuestion[],
+  timeout?: number,
+): Promise<ToolResult<AskQuestionResult>> {
+  // Single question: use legacy single-popup flow
+  if (questions.length === 1) {
+    const simpleQ = questions[0];
+    const question = normalizeSimpleQuestion(simpleQ);
+    const params = {
+      question,
+      timeout: timeout ?? DEFAULT_TIMEOUT_MS,
+    } satisfies AskQuestionParams;
+
+    const result = await execute(params);
+    if (!result.success || !result.result) {
+      return result;
+    }
+
+    if (result.result.cancelled) {
+      return result;
+    }
+
+    const answersDict: Record<string, string | string[]> = {};
+    if (result.result.answers.length > 0) {
+      const answer = result.result.answers[0];
+      answersDict[simpleQ.header] = answer.value as string | string[];
+    }
+
+    return {
+      success: true,
+      result: {
+        success: true,
+        surfaceId: result.result.surfaceId,
+        cancelled: false,
+        answers: result.result.answers,
+        timestamp: new Date().toISOString(),
+        answersDict,
+      } as AskQuestionResult & { answersDict: Record<string, string | string[]> },
+    };
+  }
+
+  // Multiple questions: single multi-page surface
+  const compositeId = `multi-${Date.now()}`;
+  const surfaceId = `question-${compositeId}`;
+
+  const { surfaceUpdate, pages } = generateMultiQuestionSurface(questions, surfaceId);
+
+  // Create promise for the composite answer
+  const resultPromise = new Promise<AskQuestionResult>((resolve, reject) => {
+    const pendingQuestion: PendingQuestion = {
+      id: compositeId,
+      surfaceId,
+      question: {
+        id: compositeId,
+        type: 'input', // placeholder type — multi-question uses custom answer handling
+        title: 'Multi-question',
+        required: false,
+      },
+      timestamp: Date.now(),
+      timeout: timeout ?? DEFAULT_TIMEOUT_MS,
+      resolve,
+      reject,
+    };
+    pendingQuestions.set(compositeId, pendingQuestion);
+
+    // Also register each sub-question's questionId pointing to the same pending entry
+    // so that select/toggle actions on individual questions get tracked
+    for (const page of pages) {
+      // Initialize selection tracking in the websocket handler
+      if (page.type === 'multi-select') {
+        a2uiWebSocketHandler.initMultiSelect(page.questionId);
+      } else if (page.type === 'select') {
+        a2uiWebSocketHandler.initSingleSelect(page.questionId);
+      }
+    }
+
+    setTimeout(() => {
+      if (pendingQuestions.has(compositeId)) {
+        pendingQuestions.delete(compositeId);
+        resolve({
+          success: false,
+          surfaceId,
+          cancelled: false,
+          answers: [],
+          timestamp: new Date().toISOString(),
+          error: 'Question timed out',
+        });
+      }
+    }, timeout ?? DEFAULT_TIMEOUT_MS);
+  });
+
+  // Send the surface
+  const sentCount = a2uiWebSocketHandler.sendSurface(surfaceUpdate);
+
+  // If no local WS clients, start HTTP polling for answer from Dashboard
+  if (sentCount === 0) {
+    startAnswerPolling(compositeId, true);
+  }
+
+  // Wait for answer
+  const result = await resultPromise;
+
+  // If cancelled, return as-is
+  if (result.cancelled) {
+    return { success: true, result };
+  }
+
+  // Build answersDict from the answers array
+  const answersDict: Record<string, string | string[]> = {};
+  if (result.answers) {
+    for (const answer of result.answers) {
+      // Find the matching SimpleQuestion by questionId (which maps to header)
+      const simpleQ = questions.find(q => q.header === answer.questionId);
+      if (simpleQ) {
+        answersDict[simpleQ.header] = answer.value as string | string[];
+      }
+    }
+  }
+
+  return {
+    success: true,
+    result: {
+      ...result,
+      answersDict,
+    } as AskQuestionResult & { answersDict: Record<string, string | string[]> },
+  };
 }

@@ -8,6 +8,32 @@
 export type Theme = 'light' | 'dark' | 'system';
 export type ColorScheme = 'blue' | 'green' | 'orange' | 'purple';
 export type GradientLevel = 'off' | 'standard' | 'enhanced';
+export type MotionPreference = 'system' | 'reduce' | 'enable';
+export type StyleTier = 'soft' | 'standard' | 'high-contrast';
+export type ThemeSlotId = 'default' | 'custom-1' | 'custom-2';
+export type BackgroundMode = 'gradient-only' | 'image-only' | 'image-gradient';
+
+export interface BackgroundEffects {
+  blur: number;              // 0-20 px
+  darkenOpacity: number;     // 0-80 %
+  saturation: number;        // 0-200 % (100=normal)
+  enableFrostedGlass: boolean;
+  enableGrain: boolean;
+  enableVignette: boolean;
+}
+
+export interface UnsplashAttribution {
+  photographerName: string;
+  photographerUrl: string;
+  photoUrl: string;
+}
+
+export interface BackgroundConfig {
+  mode: BackgroundMode;
+  imageUrl: string | null;
+  attribution: UnsplashAttribution | null;
+  effects: BackgroundEffects;
+}
 export type Locale = 'en' | 'zh';
 export type ViewMode = 'sessions' | 'liteTasks' | 'project-overview' | 'sessionDetail' | 'liteTaskDetail' | 'loop-monitor' | 'issue-manager' | 'orchestrator';
 export type SessionFilter = 'all' | 'active' | 'archived';
@@ -35,6 +61,20 @@ export type LiteTaskType = 'lite-plan' | 'lite-fix' | null;
  */
 export type SessionType = 'workflow' | 'review' | 'tdd' | 'test' | 'docs' | 'lite-plan' | 'lite-fix';
 
+export interface ThemeSlot {
+  id: ThemeSlotId;
+  name: string;
+  colorScheme: ColorScheme;
+  customHue: number | null;
+  isCustomTheme: boolean;
+  gradientLevel: GradientLevel;
+  enableHoverGlow: boolean;
+  enableBackgroundAnimation: boolean;
+  styleTier: StyleTier;
+  isDefault: boolean;
+  backgroundConfig?: BackgroundConfig;
+}
+
 export interface AppState {
   // Theme
   theme: Theme;
@@ -47,6 +87,9 @@ export interface AppState {
   gradientLevel: GradientLevel; // Gradient intensity: off, standard, enhanced
   enableHoverGlow: boolean; // Enable hover glow effects
   enableBackgroundAnimation: boolean; // Enable background gradient animation
+
+  // Motion preference
+  motionPreference: MotionPreference; // Reduced motion preference: system, reduce, enable
 
   // Locale
   locale: Locale;
@@ -69,6 +112,11 @@ export interface AppState {
 
   // Dashboard layout
   dashboardLayout: DashboardLayoutState | null;
+
+  // Theme slots
+  themeSlots: ThemeSlot[];
+  activeSlotId: ThemeSlotId;
+  deletedSlotBuffer: ThemeSlot | null;
 }
 
 export interface AppActions {
@@ -82,6 +130,8 @@ export interface AppActions {
   setGradientLevel: (level: GradientLevel) => void;
   setEnableHoverGlow: (enabled: boolean) => void;
   setEnableBackgroundAnimation: (enabled: boolean) => void;
+  setMotionPreference: (pref: MotionPreference) => void;
+  setStyleTier: (tier: StyleTier) => void;
 
   // Locale actions
   setLocale: (locale: Locale) => void;
@@ -107,6 +157,19 @@ export interface AppActions {
   setDashboardLayouts: (layouts: DashboardLayouts) => void;
   setDashboardWidgets: (widgets: WidgetConfig[]) => void;
   resetDashboardLayout: () => void;
+
+  // Theme slot actions
+  setActiveSlot: (slotId: ThemeSlotId) => void;
+  copySlot: () => void;
+  renameSlot: (slotId: ThemeSlotId, name: string) => void;
+  deleteSlot: (slotId: ThemeSlotId) => void;
+  undoDeleteSlot: () => void;
+
+  // Background actions
+  setBackgroundConfig: (config: BackgroundConfig) => void;
+  updateBackgroundEffect: <K extends keyof BackgroundEffects>(key: K, value: BackgroundEffects[K]) => void;
+  setBackgroundMode: (mode: BackgroundMode) => void;
+  setBackgroundImage: (url: string | null, attribution: UnsplashAttribution | null) => void;
 }
 
 export type AppStore = AppState & AppActions;

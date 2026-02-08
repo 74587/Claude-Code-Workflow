@@ -34,5 +34,87 @@
     "enhanced": "增强",
     "hoverGlow": "启用悬停光晕效果",
     "bgAnimation": "启用背景渐变动画"
+  },
+  "accessibility": {
+    "contrastWarning": "部分颜色组合可能不符合 WCAG AA 对比度要求:",
+    "fixSuggestion": "建议修复: 将{target}从 {original} 调整为 {suggested} (对比度: {ratio}:1)",
+    "applyFix": "应用修复",
+    "dismiss": "忽略"
+  },
+  "motion": {
+    "label": "动效偏好",
+    "system": "跟随系统",
+    "reduce": "减少动效",
+    "enable": "启用动效"
+  },
+  "slot": {
+    "title": "主题槽位",
+    "default": "默认",
+    "custom1": "自定义 1",
+    "custom2": "自定义 2",
+    "copy": "复制槽位",
+    "rename": "重命名",
+    "delete": "删除",
+    "undoDelete": "槽位已删除，是否撤销？",
+    "undo": "撤销",
+    "limitReached": "最多只能创建 {limit} 个主题槽位",
+    "deleteConfirm": "确定删除此主题槽位？",
+    "cannotDeleteDefault": "无法删除默认槽位",
+    "renameEmpty": "槽位名称不能为空",
+    "copyOf": "{name}的副本",
+    "active": "使用中"
+  },
+  "styleTier": {
+    "label": "风格档位",
+    "soft": "柔和",
+    "standard": "标准",
+    "highContrast": "高对比",
+    "softDesc": "降低饱和度，柔和色彩",
+    "standardDesc": "默认均衡外观",
+    "highContrastDesc": "增强可读性，色彩更鲜明"
+  },
+  "background": {
+    "title": "背景图片",
+    "mode": {
+      "gradientOnly": "仅渐变",
+      "imageOnly": "仅图片",
+      "imageGradient": "图片+渐变"
+    },
+    "searchPlaceholder": "搜索 Unsplash 图片...",
+    "customUrlPlaceholder": "自定义图片 URL...",
+    "apply": "应用",
+    "removeImage": "移除",
+    "effects": "视觉效果",
+    "blur": "模糊",
+    "darken": "暗化",
+    "saturation": "饱和度",
+    "frostedGlass": "内容区毛玻璃效果",
+    "grain": "噪点纹理叠加",
+    "vignette": "暗角效果",
+    "searchError": "搜索图片失败，请检查 Unsplash API 是否已配置。",
+    "noResults": "未找到图片",
+    "prev": "上一页",
+    "next": "下一页",
+    "loadFailed": "图片加载失败，已回退到渐变模式",
+    "upload": "上传本地图片",
+    "uploading": "上传中...",
+    "uploadError": "上传失败",
+    "fileTooLarge": "文件过大（最大 10MB）",
+    "invalidType": "仅支持 JPG、PNG、WebP、GIF"
+  },
+  "share": {
+    "label": "主题分享",
+    "copyCode": "复制主题代码",
+    "copied": "主题代码已复制到剪贴板",
+    "import": "导入主题",
+    "paste": "在此粘贴主题代码...",
+    "preview": "导入预览",
+    "apply": "应用主题",
+    "cancel": "取消",
+    "invalidCode": "无效的主题代码，请检查后重试。",
+    "incompatibleVersion": "此主题代码来自不兼容的版本，无法导入。",
+    "versionWarning": "此主题代码来自不同版本，部分设置可能不准确。",
+    "importSuccess": "主题导入成功",
+    "noSlotAvailable": "没有可用的主题槽位，请先删除一个自定义槽位。"
   }
 }

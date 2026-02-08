@@ -132,6 +132,10 @@
       "ask_question": {
         "name": "ask_question",
         "desc": "Ask interactive questions through A2UI interface"
+      },
+      "smart_search": {
+        "name": "smart_search",
+        "desc": "Intelligent code search with fuzzy and semantic modes"
       }
     },
     "paths": {

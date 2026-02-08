@@ -3239,7 +3239,7 @@ function buildCcwMcpServerConfig(config: {
   if (config.enabledTools && config.enabledTools.length > 0) {
     env.CCW_ENABLED_TOOLS = config.enabledTools.join(',');
   } else {
-    env.CCW_ENABLED_TOOLS = 'write_file,edit_file,read_file,core_memory,ask_question';
+    env.CCW_ENABLED_TOOLS = 'write_file,edit_file,read_file,core_memory,ask_question,smart_search';
   }
 
   if (config.projectRoot) {
@@ -3352,7 +3352,7 @@ export async function installCcwMcp(
   projectPath?: string
 ): Promise<CcwMcpConfig> {
   const serverConfig = buildCcwMcpServerConfig({
-    enabledTools: ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question'],
+    enabledTools: ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'],
   });
 
   if (scope === 'project' && projectPath) {
@@ -3853,7 +3853,7 @@ export interface CodexLensGpuListResponse {
 }
 
 /**
- * Model info
+ * Model info (normalized from CLI output)
  */
 export interface CodexLensModel {
   profile: string;
@@ -3863,10 +3863,26 @@ export interface CodexLensModel {
   size?: string;
   installed: boolean;
   cache_path?: string;
+  /** Original HuggingFace model name */
+  model_name?: string;
+  /** Model description */
+  description?: string;
+  /** Use case description */
+  use_case?: string;
+  /** Embedding dimensions */
+  dimensions?: number;
+  /** Whether this model is recommended */
+  recommended?: boolean;
+  /** Model source: 'predefined' | 'discovered' */
+  source?: string;
+  /** Estimated size in MB */
+  estimated_size_mb?: number;
+  /** Actual size in MB (when installed) */
+  actual_size_mb?: number | null;
 }
 
 /**
- * Model list response
+ * Model list response (normalized)
  */
 export interface CodexLensModelsResponse {
   success: boolean;
@@ -4067,9 +4083,43 @@ export async function uninstallCodexLens(): Promise<CodexLensUninstallResponse> 
 
 /**
  * Fetch CodexLens models list
+ * Normalizes the CLI response format to match the frontend interface.
+ * CLI returns: { success, result: { models: [{ model_name, estimated_size_mb, ... }] } }
+ * Frontend expects: { success, models: [{ name, size, type, backend, ... }] }
  */
 export async function fetchCodexLensModels(): Promise<CodexLensModelsResponse> {
-  return fetchApi<CodexLensModelsResponse>('/api/codexlens/models');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw = await fetchApi<any>('/api/codexlens/models');
+
+  // Handle nested result structure from CLI
+  const rawModels = raw?.result?.models ?? raw?.models ?? [];
+
+  const models: CodexLensModel[] = rawModels.map((m: Record<string, unknown>) => ({
+    profile: (m.profile as string) || '',
+    name: (m.model_name as string) || (m.name as string) || (m.profile as string) || '',
+    type: (m.type as 'embedding' | 'reranker') || 'embedding',
+    backend: (m.source as string) || 'fastembed',
+    size: m.installed && m.actual_size_mb
+      ? `${(m.actual_size_mb as number).toFixed(0)} MB`
+      : m.estimated_size_mb
+        ? `~${m.estimated_size_mb} MB`
+        : undefined,
+    installed: (m.installed as boolean) ?? false,
+    cache_path: m.cache_path as string | undefined,
+    model_name: m.model_name as string | undefined,
+    description: m.description as string | undefined,
+    use_case: m.use_case as string | undefined,
+    dimensions: m.dimensions as number | undefined,
+    recommended: m.recommended as boolean | undefined,
+    source: m.source as string | undefined,
+    estimated_size_mb: m.estimated_size_mb as number | undefined,
+    actual_size_mb: m.actual_size_mb as number | null | undefined,
+  }));
+
+  return {
+    success: raw?.success ?? true,
+    models,
+  };
 }
 
 /**
@@ -4241,6 +4291,17 @@ export interface CodexLensSymbolSearchResponse {
 }
 
 /**
+ * CodexLens file search response (returns file paths only)
+ */
+export interface CodexLensFileSearchResponse {
+  success: boolean;
+  query?: string;
+  count?: number;
+  files: string[];
+  error?: string;
+}
+
+/**
  * Perform content search using CodexLens
  */
 export async function searchCodexLens(params: CodexLensSearchParams): Promise<CodexLensSearchResponse> {
@@ -4257,7 +4318,7 @@ export async function searchCodexLens(params: CodexLensSearchParams): Promise<Co
 /**
  * Perform file search using CodexLens
  */
-export async function searchFilesCodexLens(params: CodexLensSearchParams): Promise<CodexLensSearchResponse> {
+export async function searchFilesCodexLens(params: CodexLensSearchParams): Promise<CodexLensFileSearchResponse> {
   const queryParams = new URLSearchParams();
   queryParams.append('query', params.query);
   if (params.limit) queryParams.append('limit', String(params.limit));
@@ -4265,7 +4326,7 @@ export async function searchFilesCodexLens(params: CodexLensSearchParams): Promi
   if (params.max_content_length) queryParams.append('max_content_length', String(params.max_content_length));
   if (params.extra_files_count) queryParams.append('extra_files_count', String(params.extra_files_count));
 
-  return fetchApi<CodexLensSearchResponse>(`/api/codexlens/search_files?${queryParams.toString()}`);
+  return fetchApi<CodexLensFileSearchResponse>(`/api/codexlens/search_files?${queryParams.toString()}`);
 }
 
 /**
@@ -4277,6 +4338,84 @@ export async function searchSymbolCodexLens(params: Pick<CodexLensSearchParams, 
   if (params.limit) queryParams.append('limit', String(params.limit));
 
   return fetchApi<CodexLensSymbolSearchResponse>(`/api/codexlens/symbol?${queryParams.toString()}`);
+}
+
+// ========== CodexLens LSP / Semantic Search API ==========
+
+/**
+ * CodexLens LSP status response
+ */
+export interface CodexLensLspStatusResponse {
+  available: boolean;
+  semantic_available: boolean;
+  vector_index: boolean;
+  project_count?: number;
+  embeddings?: Record<string, unknown>;
+  modes?: string[];
+  strategies?: string[];
+  error?: string;
+}
+
+/**
+ * CodexLens semantic search params (Python API)
+ */
+export type CodexLensSemanticSearchMode = 'fusion' | 'vector' | 'structural';
+export type CodexLensFusionStrategy = 'rrf' | 'staged' | 'binary' | 'hybrid' | 'dense_rerank';
+
+export interface CodexLensSemanticSearchParams {
+  query: string;
+  path?: string;
+  mode?: CodexLensSemanticSearchMode;
+  fusion_strategy?: CodexLensFusionStrategy;
+  vector_weight?: number;
+  structural_weight?: number;
+  keyword_weight?: number;
+  kind_filter?: string[];
+  limit?: number;
+  include_match_reason?: boolean;
+}
+
+/**
+ * CodexLens semantic search result
+ */
+export interface CodexLensSemanticSearchResult {
+  name?: string;
+  kind?: string;
+  file_path?: string;
+  score?: number;
+  match_reason?: string;
+  range?: { start_line: number; end_line: number };
+  [key: string]: unknown;
+}
+
+/**
+ * CodexLens semantic search response
+ */
+export interface CodexLensSemanticSearchResponse {
+  success: boolean;
+  results?: CodexLensSemanticSearchResult[];
+  query?: string;
+  mode?: string;
+  fusion_strategy?: string;
+  count?: number;
+  error?: string;
+}
+
+/**
+ * Fetch CodexLens LSP status
+ */
+export async function fetchCodexLensLspStatus(): Promise<CodexLensLspStatusResponse> {
+  return fetchApi<CodexLensLspStatusResponse>('/api/codexlens/lsp/status');
+}
+
+/**
+ * Perform semantic search using CodexLens Python API
+ */
+export async function semanticSearchCodexLens(params: CodexLensSemanticSearchParams): Promise<CodexLensSemanticSearchResponse> {
+  return fetchApi<CodexLensSemanticSearchResponse>('/api/codexlens/lsp/search', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
 }
 
 // ========== CodexLens Index Management API ==========

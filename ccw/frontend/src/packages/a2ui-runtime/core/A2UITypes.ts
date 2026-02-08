@@ -116,6 +116,7 @@ export const CheckboxComponentSchema = z.object({
     checked: BooleanContentSchema.optional(),
     onChange: ActionSchema,
     label: TextContentSchema.optional(),
+    description: TextContentSchema.optional(),
   }),
 });
 
@@ -202,6 +203,8 @@ export const ComponentSchema: z.ZodType<any> = z.union([
 export const SurfaceComponentSchema = z.object({
   id: z.string(),
   component: ComponentSchema,
+  /** Page index for multi-page surfaces (0-based) */
+  page: z.number().int().min(0).optional(),
 });
 
 /** Display mode for A2UI surfaces */
