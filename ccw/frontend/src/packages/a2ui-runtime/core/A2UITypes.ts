@@ -62,16 +62,31 @@ export const ButtonComponentSchema = z.object({
   }),
 });
 
-/** Dropdown/Select component */
+/** Dropdown option schema (enhanced with description, icon, disabled, group) */
+export const DropdownOptionSchema = z.object({
+  label: TextContentSchema,
+  value: z.string(),
+  description: TextContentSchema.optional(),
+  icon: z.string().optional(),
+  disabled: BooleanContentSchema.optional(),
+  group: z.string().optional(),
+});
+
+/** Dropdown/Select component (enhanced with search, form integration, styling) */
 export const DropdownComponentSchema = z.object({
   Dropdown: z.object({
-    options: z.array(z.object({
-      label: TextContentSchema,
-      value: z.string(),
-    })),
+    options: z.array(DropdownOptionSchema),
     selectedValue: TextContentSchema.optional(),
     onChange: ActionSchema,
     placeholder: z.string().optional(),
+    // Enhanced features
+    searchable: z.boolean().optional(),
+    clearable: z.boolean().optional(),
+    size: z.enum(['sm', 'default', 'lg']).optional(),
+    // Form integration
+    label: TextContentSchema.optional(),
+    required: z.boolean().optional(),
+    error: TextContentSchema.optional(),
   }),
 });
 
