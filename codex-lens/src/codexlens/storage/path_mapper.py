@@ -290,7 +290,7 @@ class PathMapper:
             # Check if first part is a drive letter
             if len(parts[0]) == 1 and parts[0].isalpha():
                 # D/path/to/dir → D:/path/to/dir
-                drive = f"{parts[0]}:"
+                drive = f"{parts[0]}:/"
                 if len(parts) > 1:
                     return Path(drive) / Path(*parts[1:])
                 return Path(drive)

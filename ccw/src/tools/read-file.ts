@@ -32,6 +32,14 @@ const ParamsSchema = z.object({
   maxFiles: z.number().default(MAX_FILES).describe('Max number of files to return'),
   offset: z.number().min(0).optional().describe('Line offset to start reading from (0-based, for single file only)'),
   limit: z.number().min(1).optional().describe('Number of lines to read (for single file only)'),
+}).refine((data) => {
+  // Validate: offset/limit only allowed for single file mode
+  const hasPagination = data.offset !== undefined || data.limit !== undefined;
+  const isMultiple = Array.isArray(data.paths) && data.paths.length > 1;
+  return !(hasPagination && isMultiple);
+}, {
+  message: 'offset/limit parameters are only supported for single file mode. Cannot use with multiple paths.',
+  path: ['offset', 'limit', 'paths'],
 });
 
 type Params = z.infer<typeof ParamsSchema>;
@@ -267,12 +275,12 @@ Returns compact file list with optional content. Use offset/limit for large file
       },
       offset: {
         type: 'number',
-        description: 'Line offset to start reading from (0-based, for single file only)',
+        description: 'Line offset to start reading from (0-based). **Only for single file mode** - validation error if used with multiple paths.',
         minimum: 0,
       },
       limit: {
         type: 'number',
-        description: 'Number of lines to read (for single file only)',
+        description: 'Number of lines to read. **Only for single file mode** - validation error if used with multiple paths.',
         minimum: 1,
       },
     },

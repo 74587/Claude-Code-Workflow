@@ -30,6 +30,9 @@ import {
   installCcwMcp,
   uninstallCcwMcp,
   updateCcwConfig,
+  installCcwMcpToCodex,
+  uninstallCcwMcpFromCodex,
+  updateCcwConfigForCodex,
 } from '@/lib/api';
 import { mcpServersKeys } from '@/hooks';
 import { useQueryClient } from '@tanstack/react-query';
@@ -77,6 +80,8 @@ export interface CcwToolsMcpCardProps {
   onUpdateConfig: (config: Partial<CcwConfig>) => void;
   /** Callback when install/uninstall is triggered */
   onInstall: () => void;
+  /** Installation target: Claude or Codex */
+  target?: 'claude' | 'codex';
 }
 
 // ========== Constants ==========
@@ -105,6 +110,7 @@ export function CcwToolsMcpCard({
   onToggleTool,
   onUpdateConfig,
   onInstall,
+  target = 'claude',
 }: CcwToolsMcpCardProps) {
   const { formatMessage } = useIntl();
   const queryClient = useQueryClient();
@@ -117,22 +123,36 @@ export function CcwToolsMcpCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [installScope, setInstallScope] = useState<'global' | 'project'>('global');
 
+  const isCodex = target === 'codex';
+
   // Mutations for install/uninstall
   const installMutation = useMutation({
-    mutationFn: (params: { scope: 'global' | 'project'; projectPath?: string }) =>
-      installCcwMcp(params.scope, params.projectPath),
+    mutationFn: isCodex
+      ? () => installCcwMcpToCodex()
+      : (params: { scope: 'global' | 'project'; projectPath?: string }) =>
+          installCcwMcp(params.scope, params.projectPath),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['ccwMcpConfig'] });
+      if (isCodex) {
+        queryClient.invalidateQueries({ queryKey: ['codexMcpServers'] });
+        queryClient.invalidateQueries({ queryKey: ['ccwMcpConfigCodex'] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
+        queryClient.invalidateQueries({ queryKey: ['ccwMcpConfig'] });
+      }
       onInstall();
     },
   });
 
   const uninstallMutation = useMutation({
-    mutationFn: uninstallCcwMcp,
+    mutationFn: isCodex ? uninstallCcwMcpFromCodex : uninstallCcwMcp,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
-      queryClient.invalidateQueries({ queryKey: ['ccwMcpConfig'] });
+      if (isCodex) {
+        queryClient.invalidateQueries({ queryKey: ['codexMcpServers'] });
+        queryClient.invalidateQueries({ queryKey: ['ccwMcpConfigCodex'] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
+        queryClient.invalidateQueries({ queryKey: ['ccwMcpConfig'] });
+      }
       onInstall();
     },
     onError: (error) => {
@@ -141,9 +161,13 @@ export function CcwToolsMcpCard({
   });
 
   const updateConfigMutation = useMutation({
-    mutationFn: updateCcwConfig,
+    mutationFn: isCodex ? updateCcwConfigForCodex : updateCcwConfig,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
+      if (isCodex) {
+        queryClient.invalidateQueries({ queryKey: ['codexMcpServers'] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: mcpServersKeys.all });
+      }
     },
   });
 
@@ -170,10 +194,14 @@ export function CcwToolsMcpCard({
   };
 
   const handleInstallClick = () => {
-    installMutation.mutate({
-      scope: installScope,
-      projectPath: installScope === 'project' ? currentProjectPath : undefined,
-    });
+    if (isCodex) {
+      (installMutation as any).mutate(undefined);
+    } else {
+      (installMutation as any).mutate({
+        scope: installScope,
+        projectPath: installScope === 'project' ? currentProjectPath : undefined,
+      });
+    }
   };
 
   const handleUninstallClick = () => {
@@ -213,6 +241,11 @@ export function CcwToolsMcpCard({
                 <Badge variant={isInstalled ? 'default' : 'secondary'} className="text-xs">
                   {isInstalled ? formatMessage({ id: 'mcp.ccw.status.installed' }) : formatMessage({ id: 'mcp.ccw.status.notInstalled' })}
                 </Badge>
+                {isCodex && (
+                  <Badge variant="outline" className="text-xs text-blue-500">
+                    Codex
+                  </Badge>
+                )}
                 {isInstalled && (
                   <Badge variant="outline" className="text-xs text-info">
                     {formatMessage({ id: 'mcp.ccw.status.special' })}
@@ -388,8 +421,8 @@ export function CcwToolsMcpCard({
 
           {/* Install/Uninstall Button */}
           <div className="pt-3 border-t border-border space-y-3">
-            {/* Scope Selection */}
-            {!isInstalled && (
+            {/* Scope Selection - Claude only (Codex is always global) */}
+            {!isInstalled && !isCodex && (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase">
                   {formatMessage({ id: 'mcp.scope' })}
@@ -422,6 +455,12 @@ export function CcwToolsMcpCard({
                 </div>
               </div>
             )}
+            {/* Codex note */}
+            {isCodex && !isInstalled && (
+              <p className="text-xs text-muted-foreground">
+                {formatMessage({ id: 'mcp.ccw.codexNote' })}
+              </p>
+            )}
             {!isInstalled ? (
               <Button
                 onClick={handleInstallClick}
@@ -430,7 +469,7 @@ export function CcwToolsMcpCard({
               >
                 {isPending
                   ? formatMessage({ id: 'mcp.ccw.actions.installing' })
-                  : formatMessage({ id: 'mcp.ccw.actions.install' })
+                  : formatMessage({ id: isCodex ? 'mcp.ccw.actions.installCodex' : 'mcp.ccw.actions.install' })
                 }
               </Button>
             ) : (

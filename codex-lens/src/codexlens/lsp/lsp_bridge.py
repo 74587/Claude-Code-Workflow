@@ -14,6 +14,7 @@ Features:
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 from collections import OrderedDict
@@ -21,6 +22,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from urllib.parse import unquote
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from codexlens.lsp.standalone_manager import StandaloneLspManager
@@ -362,6 +365,14 @@ class LspBridge:
                 except (KeyError, TypeError):
                     continue
 
+        logger.debug(
+            "LSP references for %s (%s:%s:%s): %d",
+            symbol.id,
+            symbol.file_path,
+            symbol.range.start_line,
+            symbol.range.start_character,
+            len(locations),
+        )
         self._cache(cache_key, symbol.file_path, locations)
         return locations
     
@@ -542,6 +553,14 @@ class LspBridge:
                         detail="Inferred from reference",
                     ))
         
+        logger.debug(
+            "LSP call hierarchy for %s (%s:%s:%s): %d",
+            symbol.id,
+            symbol.file_path,
+            symbol.range.start_line,
+            symbol.range.start_character,
+            len(items),
+        )
         self._cache(cache_key, symbol.file_path, items)
         return items
     

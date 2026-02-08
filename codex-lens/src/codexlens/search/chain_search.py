@@ -854,7 +854,7 @@ class ChainSearchEngine:
 
         # ========== Stage 2: LSP Graph Expansion ==========
         stage2_start = time.time()
-        expanded_results = self._stage2_lsp_expand(coarse_results, index_root)
+        expanded_results = self._stage2_lsp_expand(coarse_results, index_root, query=query)
         stage_times["stage2_expand_ms"] = (time.time() - stage2_start) * 1000
         stage_counts["stage2_expanded"] = len(expanded_results)
 
@@ -969,8 +969,9 @@ class ChainSearchEngine:
 
         # Try centralized BinarySearcher first (preferred for mmap indexes)
         index_root = index_paths[0].parent if index_paths else None
-        coarse_candidates: List[Tuple[int, int, Path]] = []  # (chunk_id, distance, index_path)
+        coarse_candidates: List[Tuple[int, float, Path]] = []  # (chunk_id, distance, index_path)
         used_centralized = False
+        using_dense_fallback = False
 
         if index_root:
             binary_searcher = self._get_centralized_binary_searcher(index_root)
@@ -992,30 +993,78 @@ class ChainSearchEngine:
                     self.logger.debug(f"Centralized binary search failed: {exc}")
 
         if not used_centralized:
-            # Fallback to per-directory binary indexes
-            use_gpu = True
-            if self._config is not None:
-                use_gpu = getattr(self._config, "embedding_use_gpu", True)
+            # Fallback to per-directory binary indexes (legacy BinaryANNIndex).
+            #
+            # Generating the query binary embedding can be expensive (depending on embedding backend).
+            # If no legacy binary vector files exist, skip this path and fall back to dense ANN search.
+            has_legacy_binary_vectors = any(
+                (p.parent / f"{p.stem}_binary_vectors.bin").exists() for p in index_paths
+            )
+            if not has_legacy_binary_vectors:
+                self.logger.debug(
+                    "No legacy binary vector files found; skipping legacy binary search fallback"
+                )
+            else:
+                use_gpu = True
+                if self._config is not None:
+                    use_gpu = getattr(self._config, "embedding_use_gpu", True)
 
-            try:
-                binary_backend = BinaryEmbeddingBackend(use_gpu=use_gpu)
-                query_binary = binary_backend.embed_packed([query])[0]
-            except Exception as exc:
-                self.logger.warning(f"Failed to generate binary query embedding: {exc}")
-                return [], index_root
-
-            for index_path in index_paths:
+                query_binary = None
                 try:
-                    binary_index = self._get_or_create_binary_index(index_path)
-                    if binary_index is None or binary_index.count() == 0:
-                        continue
-                    ids, distances = binary_index.search(query_binary, coarse_k)
-                    for chunk_id, dist in zip(ids, distances):
-                        coarse_candidates.append((chunk_id, dist, index_path))
+                    binary_backend = BinaryEmbeddingBackend(use_gpu=use_gpu)
+                    query_binary = binary_backend.embed_packed([query])[0]
                 except Exception as exc:
-                    self.logger.debug(
-                        "Binary search failed for %s: %s", index_path, exc
-                    )
+                    self.logger.warning(f"Failed to generate binary query embedding: {exc}")
+                    query_binary = None
+
+                if query_binary is not None:
+                    for index_path in index_paths:
+                        try:
+                            binary_index = self._get_or_create_binary_index(index_path)
+                            if binary_index is None or binary_index.count() == 0:
+                                continue
+                            ids, distances = binary_index.search(query_binary, coarse_k)
+                            for chunk_id, dist in zip(ids, distances):
+                                coarse_candidates.append((chunk_id, float(dist), index_path))
+                        except Exception as exc:
+                            self.logger.debug(
+                                "Binary search failed for %s: %s", index_path, exc
+                            )
+
+        if not coarse_candidates:
+            # Final fallback: dense ANN coarse search (HNSW) over existing dense vector indexes.
+            #
+            # This allows the staged pipeline (LSP expansion + clustering) to run even when
+            # binary vectors are not generated for the current project.
+            dense_candidates: List[Tuple[int, float, Path]] = []
+            try:
+                from codexlens.semantic.ann_index import ANNIndex
+                from codexlens.semantic.embedder import Embedder
+
+                embedder = Embedder()
+                query_dense = embedder.embed_to_numpy([query])[0]
+                dim = int(getattr(query_dense, "shape", (len(query_dense),))[0])
+
+                for index_path in index_paths:
+                    try:
+                        ann_index = ANNIndex(index_path, dim=dim)
+                        if not ann_index.load() or ann_index.count() == 0:
+                            continue
+                        ids, distances = ann_index.search(query_dense, top_k=coarse_k)
+                        for chunk_id, dist in zip(ids, distances):
+                            dense_candidates.append((chunk_id, float(dist), index_path))
+                    except Exception as exc:
+                        self.logger.debug(
+                            "Dense coarse search failed for %s: %s", index_path, exc
+                        )
+            except Exception as exc:
+                self.logger.debug("Dense coarse search fallback unavailable: %s", exc)
+                dense_candidates = []
+
+            if dense_candidates:
+                dense_candidates.sort(key=lambda x: x[1])
+                coarse_candidates = dense_candidates[:coarse_k]
+                using_dense_fallback = True
 
         if not coarse_candidates:
             return [], index_root
@@ -1086,7 +1135,11 @@ class ChainSearchEngine:
                         (d for cid, d, _ in coarse_candidates if cid == chunk_id),
                         256
                     )
-                    score = 1.0 - (distance / 256.0)
+                    if using_dense_fallback:
+                        # Cosine distance in [0, 2] -> clamp to [0, 1] score
+                        score = max(0.0, 1.0 - float(distance))
+                    else:
+                        score = 1.0 - (int(distance) / 256.0)
 
                     content = chunk.get("content", "")
 
@@ -1129,6 +1182,7 @@ class ChainSearchEngine:
         self,
         coarse_results: List[SearchResult],
         index_root: Optional[Path],
+        query: Optional[str] = None,
     ) -> List[SearchResult]:
         """Stage 2: LSP/graph expansion for staged cascade.
 
@@ -1152,7 +1206,11 @@ class ChainSearchEngine:
                 mode = (getattr(self._config, "staged_stage2_mode", "precomputed") or "precomputed").strip().lower()
 
             if mode in {"realtime", "live"}:
-                return self._stage2_realtime_lsp_expand(coarse_results, index_root=index_root)
+                return self._stage2_realtime_lsp_expand(
+                    coarse_results,
+                    index_root=index_root,
+                    query=query,
+                )
 
             return self._stage2_precomputed_graph_expand(coarse_results, index_root=index_root)
 
@@ -1209,6 +1267,7 @@ class ChainSearchEngine:
         coarse_results: List[SearchResult],
         *,
         index_root: Path,
+        query: Optional[str] = None,
     ) -> List[SearchResult]:
         """Stage 2 (realtime): compute expansion graph via live LSP servers."""
         import asyncio
@@ -1217,16 +1276,27 @@ class ChainSearchEngine:
         from codexlens.hybrid_search.data_structures import CodeSymbolNode, Range
         from codexlens.lsp import LspBridge, LspGraphBuilder
 
-        max_depth = 2
-        timeout_s = 10.0
-        max_nodes = 100
-        warmup_s = 2.0
+        max_depth = 1
+        timeout_s = 30.0
+        max_nodes = 50
+        max_seeds = 1
+        max_concurrent = 2
+        warmup_s = 3.0
         resolve_symbols = False
         if self._config is not None:
-            max_depth = int(getattr(self._config, "staged_lsp_depth", 2) or 2)
-            timeout_s = float(getattr(self._config, "staged_realtime_lsp_timeout_s", 10.0) or 10.0)
-            max_nodes = int(getattr(self._config, "staged_realtime_lsp_max_nodes", 100) or 100)
-            warmup_s = float(getattr(self._config, "staged_realtime_lsp_warmup_s", 2.0) or 0.0)
+            max_depth = int(
+                getattr(
+                    self._config,
+                    "staged_realtime_lsp_depth",
+                    getattr(self._config, "staged_lsp_depth", 1),
+                )
+                or 1
+            )
+            timeout_s = float(getattr(self._config, "staged_realtime_lsp_timeout_s", 30.0) or 30.0)
+            max_nodes = int(getattr(self._config, "staged_realtime_lsp_max_nodes", 50) or 50)
+            warmup_s = float(getattr(self._config, "staged_realtime_lsp_warmup_s", 3.0) or 0.0)
+            max_seeds = int(getattr(self._config, "staged_realtime_lsp_max_seeds", 1) or 1)
+            max_concurrent = int(getattr(self._config, "staged_realtime_lsp_max_concurrent", 2) or 2)
             resolve_symbols = bool(getattr(self._config, "staged_realtime_lsp_resolve_symbols", False))
 
         try:
@@ -1234,13 +1304,189 @@ class ChainSearchEngine:
         except Exception:
             source_root = Path(coarse_results[0].path).resolve().parent
 
-        workspace_root = self._find_lsp_workspace_root(source_root)
+        lsp_config_file = self._find_lsp_config_file(source_root)
+        workspace_root = Path(source_root).resolve()
 
-        max_expand = min(10, len(coarse_results))
+        max_expand = min(max(1, max_seeds), len(coarse_results))
         seed_nodes: List[CodeSymbolNode] = []
         seed_ids: set[str] = set()
 
-        for seed in list(coarse_results)[:max_expand]:
+        selected_results = list(coarse_results)
+        if query:
+            import re
+
+            terms = {
+                t.lower()
+                for t in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", query)
+                if t
+            }
+
+            def _priority(result: SearchResult) -> float:
+                sym = (result.symbol_name or "").strip().lower()
+                stem = Path(result.path).stem.lower() if result.path else ""
+                score = 0.0
+                if sym and sym in terms:
+                    score += 5.0
+                if sym:
+                    score += 2.0
+                if stem and stem in terms:
+                    score += 1.0
+                if result.symbol_kind:
+                    score += 0.5
+                if result.start_line:
+                    score += 0.2
+                return score
+
+            indexed = list(enumerate(selected_results))
+            indexed.sort(
+                key=lambda pair: (
+                    _priority(pair[1]),
+                    float(pair[1].score),
+                    -pair[0],
+                ),
+                reverse=True,
+            )
+            selected_results = [r for _, r in indexed]
+        else:
+            indexed = list(enumerate(selected_results))
+            indexed.sort(
+                key=lambda pair: (
+                    1.0 if pair[1].symbol_name else 0.0,
+                    float(pair[1].score),
+                    -pair[0],
+                ),
+                reverse=True,
+            )
+            selected_results = [r for _, r in indexed]
+
+        # Prefer symbol-definition seeds when possible (improves LSP reference/call-hierarchy results).
+        #
+        # NOTE: We avoid relying purely on the stored symbol index here because its ranges may be
+        # imprecise in some projects. Instead, we attempt a lightweight definition-line detection
+        # for query identifiers within the top coarse candidate files.
+        if query:
+            try:
+                import re
+
+                terms_raw = [
+                    t for t in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", query) if t
+                ]
+                stopwords = {
+                    "class", "def", "function", "method", "import", "from", "return",
+                    "async", "await", "public", "private", "protected", "static",
+                    "const", "let", "var", "new",
+                }
+                candidate_terms = [
+                    t for t in terms_raw
+                    if t.lower() not in stopwords and len(t) >= 3
+                ]
+
+                candidate_terms.sort(key=len, reverse=True)
+
+                # Candidate files (best-first): de-dupe while preserving ordering.
+                candidate_files: List[str] = []
+                seen_files: set[str] = set()
+                for r in selected_results:
+                    if r.path and r.path not in seen_files:
+                        seen_files.add(r.path)
+                        candidate_files.append(r.path)
+                    if len(candidate_files) >= 50:
+                        break
+
+                # Also consider files whose *names* match query identifiers (helps when coarse retrieval
+                # misses the defining file for a symbol like `Config`).
+                try:
+                    if source_root and candidate_terms:
+                        allow_suffix = {".py", ".ts", ".tsx", ".js", ".jsx"}
+                        name_terms = [t.lower() for t in candidate_terms[:3]]
+                        for dirpath, _, filenames in os.walk(source_root):
+                            for filename in filenames:
+                                suffix = Path(filename).suffix.lower()
+                                if suffix not in allow_suffix:
+                                    continue
+                                lowered = filename.lower()
+                                if any(t in lowered for t in name_terms):
+                                    fp = str(Path(dirpath) / filename)
+                                    if fp not in seen_files:
+                                        seen_files.add(fp)
+                                        candidate_files.append(fp)
+                            if len(candidate_files) >= 120:
+                                break
+                except Exception:
+                    pass
+
+                for term in candidate_terms[:5]:
+                    if len(seed_nodes) >= max_expand:
+                        break
+
+                    escaped = re.escape(term)
+                    py_class = re.compile(rf"^\s*class\s+{escaped}\b")
+                    py_def = re.compile(rf"^\s*(?:async\s+)?def\s+{escaped}\b")
+                    ts_class = re.compile(rf"^\s*(?:export\s+)?class\s+{escaped}\b")
+                    ts_func = re.compile(rf"^\s*(?:export\s+)?(?:async\s+)?function\s+{escaped}\b")
+
+                    for file_path in candidate_files:
+                        if len(seed_nodes) >= max_expand:
+                            break
+                        suffix = Path(file_path).suffix.lower()
+                        if suffix not in {".py", ".ts", ".tsx", ".js", ".jsx"}:
+                            continue
+
+                        try:
+                            lines = Path(file_path).read_text(encoding="utf-8", errors="ignore").splitlines()
+                        except Exception:
+                            continue
+
+                        for i, line in enumerate(lines):
+                            kind = None
+                            if suffix == ".py":
+                                if py_class.search(line):
+                                    kind = "class"
+                                elif py_def.search(line):
+                                    kind = "function"
+                            else:
+                                if ts_class.search(line):
+                                    kind = "class"
+                                elif ts_func.search(line):
+                                    kind = "function"
+
+                            if not kind:
+                                continue
+
+                            start_line = i + 1
+                            idx = line.find(term)
+                            if idx >= 0:
+                                start_character = idx + 1
+                            else:
+                                stripped = line.lstrip()
+                                start_character = (len(line) - len(stripped)) + 1 if stripped else 1
+
+                            node_id = f"{file_path}:{term}:{start_line}"
+                            if node_id in seed_ids:
+                                break
+
+                            seed_ids.add(node_id)
+                            seed_nodes.append(
+                                CodeSymbolNode(
+                                    id=node_id,
+                                    name=term,
+                                    kind=kind,
+                                    file_path=file_path,
+                                    range=Range(
+                                        start_line=start_line,
+                                        start_character=start_character,
+                                        end_line=start_line,
+                                        end_character=start_character,
+                                    ),
+                                )
+                            )
+                            break
+            except Exception:
+                pass
+
+        for seed in selected_results:
+            if len(seed_nodes) >= max_expand:
+                break
             if not seed.path:
                 continue
             name = seed.symbol_name or Path(seed.path).stem
@@ -1249,14 +1495,21 @@ class ChainSearchEngine:
             end_line = int(seed.end_line or start_line)
             start_character = 1
             try:
-                if seed.symbol_name and start_line >= 1:
+                if start_line >= 1:
                     line_text = Path(seed.path).read_text(encoding="utf-8", errors="ignore").splitlines()[start_line - 1]
-                    idx = line_text.find(seed.symbol_name)
-                    if idx >= 0:
-                        start_character = idx + 1  # 1-based for StandaloneLspManager
+                    if seed.symbol_name:
+                        idx = line_text.find(seed.symbol_name)
+                        if idx >= 0:
+                            start_character = idx + 1  # 1-based for StandaloneLspManager
+                    else:
+                        stripped = line_text.lstrip()
+                        if stripped:
+                            start_character = (len(line_text) - len(stripped)) + 1
             except Exception:
                 start_character = 1
             node_id = f"{seed.path}:{name}:{start_line}"
+            if node_id in seed_ids:
+                continue
             seed_ids.add(node_id)
             seed_nodes.append(
                 CodeSymbolNode(
@@ -1268,7 +1521,7 @@ class ChainSearchEngine:
                         start_line=start_line,
                         start_character=start_character,
                         end_line=end_line,
-                        end_character=1,
+                        end_character=start_character if end_line == start_line else 1,
                     ),
                     raw_code=seed.content or "",
                     docstring=seed.excerpt or "",
@@ -1279,7 +1532,11 @@ class ChainSearchEngine:
             return coarse_results
 
         async def expand_graph():
-            async with LspBridge(workspace_root=str(workspace_root), timeout=timeout_s) as bridge:
+            async with LspBridge(
+                workspace_root=str(workspace_root),
+                config_file=str(lsp_config_file) if lsp_config_file else None,
+                timeout=timeout_s,
+            ) as bridge:
                 # Warm up analysis: open seed docs and wait a bit so references/call hierarchy are populated.
                 if warmup_s > 0:
                     for seed in seed_nodes[:3]:
@@ -1288,12 +1545,14 @@ class ChainSearchEngine:
                         except Exception:
                             continue
                     try:
-                        await asyncio.sleep(min(warmup_s, max(0.0, timeout_s - 0.5)))
+                        warmup_budget = min(warmup_s, max(0.0, timeout_s * 0.1))
+                        await asyncio.sleep(min(warmup_budget, max(0.0, timeout_s - 0.5)))
                     except Exception:
                         pass
                 builder = LspGraphBuilder(
                     max_depth=max_depth,
                     max_nodes=max_nodes,
+                    max_concurrent=max(1, max_concurrent),
                     resolve_symbols=resolve_symbols,
                 )
                 return await builder.build_from_seeds(seed_nodes, bridge)
@@ -1314,8 +1573,20 @@ class ChainSearchEngine:
             else:
                 graph = run_coro_blocking()
         except Exception as exc:
-            self.logger.debug("Stage 2 (realtime) expansion failed: %s", exc)
+            self.logger.debug("Stage 2 (realtime) expansion failed: %r", exc)
             return coarse_results
+
+        try:
+            node_count = len(getattr(graph, "nodes", {}) or {})
+            edge_count = len(getattr(graph, "edges", []) or [])
+        except Exception:
+            node_count, edge_count = 0, 0
+        self.logger.debug(
+            "Stage 2 (realtime) graph built: seeds=%d nodes=%d edges=%d",
+            len(seed_nodes),
+            node_count,
+            edge_count,
+        )
 
         related_results: List[SearchResult] = []
         for node_id, node in getattr(graph, "nodes", {}).items():
@@ -1394,6 +1665,21 @@ class ChainSearchEngine:
                 continue
 
         return start
+
+    def _find_lsp_config_file(self, start_path: Path) -> Optional[Path]:
+        """Find a lsp-servers.json by walking up from start_path."""
+        start = Path(start_path).resolve()
+        if start.is_file():
+            start = start.parent
+
+        for current in [start, *list(start.parents)]:
+            try:
+                candidate = current / "lsp-servers.json"
+                if candidate.is_file():
+                    return candidate
+            except OSError:
+                continue
+        return None
 
     def _stage3_cluster_prune(
         self,

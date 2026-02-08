@@ -146,9 +146,12 @@ class Config:
     staged_coarse_k: int = 200  # Number of coarse candidates from Stage 1 binary search
     staged_lsp_depth: int = 2  # LSP relationship expansion depth in Stage 2
     staged_stage2_mode: str = "precomputed"  # "precomputed" (graph_neighbors) | "realtime" (LSP)
-    staged_realtime_lsp_timeout_s: float = 10.0  # Max time budget for realtime LSP expansion
-    staged_realtime_lsp_max_nodes: int = 100  # Node cap for realtime graph expansion
-    staged_realtime_lsp_warmup_s: float = 2.0  # Wait for server analysis after opening seed docs
+    staged_realtime_lsp_timeout_s: float = 30.0  # Max time budget for realtime LSP expansion
+    staged_realtime_lsp_depth: int = 1  # BFS depth for realtime LSP expansion
+    staged_realtime_lsp_max_nodes: int = 50  # Node cap for realtime graph expansion
+    staged_realtime_lsp_max_seeds: int = 1  # Seed cap for realtime graph expansion
+    staged_realtime_lsp_max_concurrent: int = 2  # Max concurrent LSP requests during graph expansion
+    staged_realtime_lsp_warmup_s: float = 3.0  # Wait for server analysis after opening seed docs
     staged_realtime_lsp_resolve_symbols: bool = False  # If True, resolves symbol names via documentSymbol (slower)
     staged_clustering_strategy: str = "auto"  # "auto", "hdbscan", "dbscan", "frequency", "noop"
     staged_clustering_min_size: int = 3  # Minimum cluster size for Stage 3 grouping

@@ -90,6 +90,7 @@ const LOCALHOST_PUBLIC_PATHS = [
   '/api/litellm-api/providers',
   '/api/litellm-api/endpoints',
   '/api/health',
+  '/api/a2ui/answer',
 ];
 
 /**

@@ -151,13 +151,15 @@
       "enableAll": "全部启用",
       "disableAll": "全部禁用",
       "install": "安装 CCW MCP",
+      "installCodex": "安装到 Codex",
       "installing": "安装中...",
       "uninstall": "卸载",
       "uninstalling": "卸载中...",
       "uninstallConfirm": "确定要卸载 CCW MCP 吗？",
       "saveConfig": "保存配置",
       "saving": "保存中..."
-    }
+    },
+    "codexNote": "需要全局安装：npm install -g claude-code-workflow"
   },
   "recommended": {
     "title": "推荐服务器",
@@ -265,6 +267,30 @@
     "selectedCount": "已选择 {count} 个服务器",
     "copying": "复制中...",
     "copyButton": "复制到 {target}"
+  },
+  "sync": {
+    "title": "MCP 服务器同步",
+    "description": "在 Claude 和 Codex 之间同步 MCP 服务器配置",
+    "claudeColumn": "Claude 服务器",
+    "codexColumn": "Codex 服务器",
+    "selectedCount": "已选: {count} / 总计: {total}",
+    "selectAll": "全选",
+    "clearAll": "清空",
+    "copyToCodex": "→ 复制到 Codex ({count})",
+    "copyFromCodex": "← 从 Codex 复制 ({count})",
+    "noServers": "没有可用的服务器",
+    "codexLoadError": "加载 Codex 服务器失败",
+    "copySuccess": "成功复制 {count} 个服务器",
+    "copyPartial": "成功 {copied} 个，失败 {failed} 个",
+    "syncInProgress": "同步中..."
+  },
+  "projects": {
+    "title": "项目概览",
+    "description": "查看所有项目的 MCP 服务器配置"
+  },
+  "crossProject": {
+    "title": "跨项目导入",
+    "description": "从其他项目导入 MCP 服务器配置"
   },
   "allProjects": {
     "title": "所有项目",

@@ -3411,6 +3411,113 @@ export async function uninstallCcwMcp(): Promise<void> {
   }
 }
 
+// ========== CCW Tools MCP - Codex API ==========
+
+/**
+ * Fetch CCW Tools MCP configuration from Codex config.toml
+ */
+export async function fetchCcwMcpConfigForCodex(): Promise<CcwMcpConfig> {
+  try {
+    const { servers } = await fetchCodexMcpServers();
+    const ccwServer = servers.find((s) => s.name === 'ccw-tools');
+
+    if (!ccwServer) {
+      return { isInstalled: false, enabledTools: [] };
+    }
+
+    const env = ccwServer.env || {};
+    const enabledToolsStr = env.CCW_ENABLED_TOOLS || 'all';
+    const enabledTools = enabledToolsStr === 'all'
+      ? ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search']
+      : enabledToolsStr.split(',').map((t: string) => t.trim());
+
+    return {
+      isInstalled: true,
+      enabledTools,
+      projectRoot: env.CCW_PROJECT_ROOT,
+      allowedDirs: env.CCW_ALLOWED_DIRS,
+      disableSandbox: env.CCW_DISABLE_SANDBOX === '1',
+    };
+  } catch {
+    return { isInstalled: false, enabledTools: [] };
+  }
+}
+
+/**
+ * Build CCW MCP server config for Codex (uses global ccw-mcp command)
+ */
+function buildCcwMcpServerConfigForCodex(config: {
+  enabledTools?: string[];
+  projectRoot?: string;
+  allowedDirs?: string;
+  disableSandbox?: boolean;
+}): { command: string; args: string[]; env: Record<string, string> } {
+  const env: Record<string, string> = {};
+
+  if (config.enabledTools && config.enabledTools.length > 0) {
+    env.CCW_ENABLED_TOOLS = config.enabledTools.join(',');
+  } else {
+    env.CCW_ENABLED_TOOLS = 'write_file,edit_file,read_file,core_memory,ask_question,smart_search';
+  }
+
+  if (config.projectRoot) {
+    env.CCW_PROJECT_ROOT = config.projectRoot;
+  }
+  if (config.allowedDirs) {
+    env.CCW_ALLOWED_DIRS = config.allowedDirs;
+  }
+  if (config.disableSandbox) {
+    env.CCW_DISABLE_SANDBOX = '1';
+  }
+
+  return { command: 'ccw-mcp', args: [], env };
+}
+
+/**
+ * Install CCW Tools MCP to Codex config.toml
+ */
+export async function installCcwMcpToCodex(): Promise<CcwMcpConfig> {
+  const serverConfig = buildCcwMcpServerConfigForCodex({
+    enabledTools: ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'],
+  });
+
+  const result = await addCodexMcpServer('ccw-tools', serverConfig);
+  if (result.error) {
+    throw new Error(result.error || 'Failed to install CCW MCP to Codex');
+  }
+
+  return fetchCcwMcpConfigForCodex();
+}
+
+/**
+ * Uninstall CCW Tools MCP from Codex config.toml
+ */
+export async function uninstallCcwMcpFromCodex(): Promise<void> {
+  const result = await codexRemoveServer('ccw-tools');
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to uninstall CCW MCP from Codex');
+  }
+}
+
+/**
+ * Update CCW Tools MCP configuration in Codex config.toml
+ */
+export async function updateCcwConfigForCodex(config: {
+  enabledTools?: string[];
+  projectRoot?: string;
+  allowedDirs?: string;
+  disableSandbox?: boolean;
+}): Promise<CcwMcpConfig> {
+  const serverConfig = buildCcwMcpServerConfigForCodex(config);
+
+  const result = await addCodexMcpServer('ccw-tools', serverConfig);
+  if (result.error) {
+    throw new Error(result.error || 'Failed to update CCW config in Codex');
+  }
+
+  return fetchCcwMcpConfigForCodex();
+}
+
 // ========== Index Management API ==========
 
 /**

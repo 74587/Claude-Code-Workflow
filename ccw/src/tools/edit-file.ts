@@ -23,24 +23,63 @@ const EditItemSchema = z.object({
   newText: z.string(),
 });
 
-const ParamsSchema = z.object({
+// Base schema with common parameters
+const BaseParamsSchema = z.object({
   path: z.string().min(1, 'Path is required'),
-  mode: z.enum(['update', 'line']).default('update'),
   dryRun: z.boolean().default(false),
-  // Update mode params
+});
+
+// Update mode schema
+const UpdateModeSchema = BaseParamsSchema.extend({
+  mode: z.literal('update').default('update'),
   oldText: z.string().optional(),
   newText: z.string().optional(),
   edits: z.array(EditItemSchema).optional(),
-  replaceAll: z.boolean().optional(),
-  // Line mode params
-  operation: z.enum(['insert_before', 'insert_after', 'replace', 'delete']).optional(),
-  line: z.number().optional(),
-  end_line: z.number().optional(),
+  replaceAll: z.boolean().default(false),
+}).refine(
+  (data) => {
+    const hasSingle = data.oldText !== undefined;
+    const hasBatch = data.edits !== undefined;
+    // XOR: Only one of oldText/newText or edits should be provided
+    return hasSingle !== hasBatch || (!hasSingle && !hasBatch);
+  },
+  {
+    message: 'Use either oldText/newText or edits array, not both',
+  }
+);
+
+// Line mode schema
+const LineModeSchema = BaseParamsSchema.extend({
+  mode: z.literal('line'),
+  operation: z.enum(['insert_before', 'insert_after', 'replace', 'delete']),
+  line: z.number().int().positive('Line must be a positive integer'),
+  end_line: z.number().int().positive().optional(),
   text: z.string().optional(),
-});
+}).refine(
+  (data) => {
+    // text is required for insert_before, insert_after, and replace operations
+    if (['insert_before', 'insert_after', 'replace'].includes(data.operation)) {
+      return data.text !== undefined;
+    }
+    return true;
+  },
+  {
+    message: 'Parameter "text" is required for insert_before, insert_after, and replace operations',
+  }
+);
+
+// Discriminated union schema
+const ParamsSchema = z.discriminatedUnion('mode', [
+  UpdateModeSchema,
+  LineModeSchema,
+]);
 
 type Params = z.infer<typeof ParamsSchema>;
 type EditItem = z.infer<typeof EditItemSchema>;
+
+// Extract specific types for each mode
+type UpdateModeParams = z.infer<typeof UpdateModeSchema>;
+type LineModeParams = z.infer<typeof LineModeSchema>;
 
 interface UpdateModeResult {
   content: string;
@@ -229,7 +268,7 @@ function createUnifiedDiff(original: string, modified: string, filePath: string)
  * Auto-adapts line endings (CRLF/LF)
  * Supports multiple edits via 'edits' array
  */
-function executeUpdateMode(content: string, params: Params, filePath: string): UpdateModeResult {
+function executeUpdateMode(content: string, params: UpdateModeParams, filePath: string): UpdateModeResult {
   const { oldText, newText, replaceAll, edits, dryRun = false } = params;
 
   // Detect original line ending
@@ -334,11 +373,10 @@ function executeUpdateMode(content: string, params: Params, filePath: string): U
  * Mode: line - Line-based operations
  * Operations: insert_before, insert_after, replace, delete
  */
-function executeLineMode(content: string, params: Params): LineModeResult {
+function executeLineMode(content: string, params: LineModeParams): LineModeResult {
   const { operation, line, text, end_line } = params;
 
-  if (!operation) throw new Error('Parameter "operation" is required for line mode');
-  if (line === undefined) throw new Error('Parameter "line" is required for line mode');
+  // No need for additional validation - Zod schema already ensures required fields
 
   // Detect original line ending and normalize for processing
   const hasCRLF = content.includes('\r\n');
@@ -418,15 +456,30 @@ export const schema: ToolSchema = {
   name: 'edit_file',
   description: `Edit file using two modes: "update" for text replacement (default) and "line" for line-based operations.
 
-Usage (update mode):
+**Update Mode** (default):
+- Use oldText/newText for single replacement OR edits for multiple replacements
+- Parameters: oldText, newText, replaceAll, dryRun
+- Cannot use line mode parameters (operation, line, end_line, text)
+- Validation: oldText/newText and edits are mutually exclusive
+
+**Line Mode**:
+- Use for precise line-based operations
+- Parameters: operation (insert_before/insert_after/replace/delete), line, end_line, text, dryRun
+- Cannot use update mode parameters (oldText, newText, edits, replaceAll)
+
+Usage (update mode - single replacement):
   edit_file(path="f.js", oldText="old", newText="new")
+
+Usage (update mode - multiple replacements):
   edit_file(path="f.js", edits=[{oldText:"a",newText:"b"},{oldText:"c",newText:"d"}])
 
 Usage (line mode):
   edit_file(path="f.js", mode="line", operation="insert_after", line=10, text="new line")
   edit_file(path="f.js", mode="line", operation="delete", line=5, end_line=8)
 
-Options: dryRun=true (preview diff), replaceAll=true (update mode only)`,
+Options: dryRun=true (preview diff), replaceAll=true (update mode only)
+
+**Important**: Each mode only accepts its own parameters. Providing parameters from both modes will cause a validation error.`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -448,7 +501,7 @@ Options: dryRun=true (preview diff), replaceAll=true (update mode only)`,
       // Update mode params
       oldText: {
         type: 'string',
-        description: '[update mode] Text to find and replace (use oldText/newText OR edits array)',
+        description: '[update mode] Text to find and replace. **Mutually exclusive with edits parameter** - use either oldText/newText or edits, not both.',
       },
       newText: {
         type: 'string',
@@ -456,7 +509,7 @@ Options: dryRun=true (preview diff), replaceAll=true (update mode only)`,
       },
       edits: {
         type: 'array',
-        description: '[update mode] Array of {oldText, newText} for multiple replacements',
+        description: '[update mode] Array of {oldText, newText} for multiple replacements. **Mutually exclusive with oldText/newText** - use either oldText/newText or edits, not both.',
         items: {
           type: 'object',
           properties: {
@@ -474,19 +527,19 @@ Options: dryRun=true (preview diff), replaceAll=true (update mode only)`,
       operation: {
         type: 'string',
         enum: ['insert_before', 'insert_after', 'replace', 'delete'],
-        description: '[line mode] Line operation type',
+        description: '[line mode] Line operation type. **Only valid in line mode** - cannot be combined with update mode parameters.',
       },
       line: {
         type: 'number',
-        description: '[line mode] Line number (1-based)',
+        description: '[line mode] Line number (1-based). **Only valid in line mode** - cannot be combined with update mode parameters.',
       },
       end_line: {
         type: 'number',
-        description: '[line mode] End line for range operations',
+        description: '[line mode] End line for range operations. **Only valid in line mode** - cannot be combined with update mode parameters.',
       },
       text: {
         type: 'string',
-        description: '[line mode] Text for insert/replace operations',
+        description: '[line mode] Text for insert/replace operations. **Only valid in line mode** - cannot be combined with update mode parameters.',
       },
     },
     required: ['path'],
@@ -522,21 +575,18 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     return { success: false, error: `Invalid params: ${parsed.error.message}` };
   }
 
-  const { path: filePath, mode = 'update', dryRun = false } = parsed.data;
+  const { path: filePath, mode, dryRun } = parsed.data;
 
   try {
     const { resolvedPath, content } = await readFile(filePath);
 
     let result: UpdateModeResult | LineModeResult;
-    switch (mode) {
-      case 'update':
-        result = executeUpdateMode(content, parsed.data, filePath);
-        break;
-      case 'line':
-        result = executeLineMode(content, parsed.data);
-        break;
-      default:
-        throw new Error(`Unknown mode: ${mode}. Valid modes: update, line`);
+    // Use discriminated union for type narrowing
+    if (mode === 'line') {
+      result = executeLineMode(content, parsed.data as LineModeParams);
+    } else {
+      // mode is 'update' (default)
+      result = executeUpdateMode(content, parsed.data as UpdateModeParams, filePath);
     }
 
     // Write if modified and not dry run

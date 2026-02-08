@@ -151,13 +151,15 @@
       "enableAll": "Enable All",
       "disableAll": "Disable All",
       "install": "Install CCW MCP",
+      "installCodex": "Install to Codex",
       "installing": "Installing...",
       "uninstall": "Uninstall",
       "uninstalling": "Uninstalling...",
       "uninstallConfirm": "Are you sure you want to uninstall CCW MCP?",
       "saveConfig": "Save Configuration",
       "saving": "Saving..."
-    }
+    },
+    "codexNote": "Requires: npm install -g claude-code-workflow"
   },
   "recommended": {
     "title": "Recommended Servers",
@@ -265,6 +267,30 @@
     "selectedCount": "{count} server(s) selected",
     "copying": "Copying...",
     "copyButton": "Copy to {target}"
+  },
+  "sync": {
+    "title": "MCP Server Sync",
+    "description": "Synchronize MCP server configurations between Claude and Codex",
+    "claudeColumn": "Claude Servers",
+    "codexColumn": "Codex Servers",
+    "selectedCount": "Selected: {count} / Total: {total}",
+    "selectAll": "Select All",
+    "clearAll": "Clear All",
+    "copyToCodex": "→ Copy to Codex ({count})",
+    "copyFromCodex": "← Copy from Codex ({count})",
+    "noServers": "No servers available",
+    "codexLoadError": "Failed to load Codex servers",
+    "copySuccess": "Successfully copied {count} server(s)",
+    "copyPartial": "{copied} succeeded, {failed} failed",
+    "syncInProgress": "Syncing..."
+  },
+  "projects": {
+    "title": "Projects Overview",
+    "description": "View MCP server configurations for all projects"
+  },
+  "crossProject": {
+    "title": "Cross-Project Import",
+    "description": "Import MCP server configurations from other projects"
   },
   "allProjects": {
     "title": "All Projects",

@@ -562,11 +562,17 @@ function startAnswerPolling(questionId: string, isComposite: boolean = false): v
       return;
     }
 
-    const req = http.get({ hostname: '127.0.0.1', port: DASHBOARD_PORT, path: pollPath }, (res) => {
+    const req = http.get({ hostname: '127.0.0.1', port: DASHBOARD_PORT, path: pollPath, timeout: 2000 }, (res) => {
       let data = '';
       res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
       res.on('end', () => {
         try {
+          if (res.statusCode && res.statusCode >= 400) {
+            console.error(`[A2UI-Poll] HTTP ${res.statusCode} from Dashboard (first 200 chars):`, data.slice(0, 200));
+            setTimeout(poll, POLL_INTERVAL_MS);
+            return;
+          }
+
           const parsed = JSON.parse(data);
           if (parsed.pending) {
             // No answer yet, schedule next poll
@@ -598,6 +604,10 @@ function startAnswerPolling(questionId: string, isComposite: boolean = false): v
       if (pendingQuestions.has(questionId)) {
         setTimeout(poll, POLL_INTERVAL_MS);
       }
+    });
+
+    req.on('timeout', () => {
+      req.destroy(new Error('Request timed out'));
     });
   };
 

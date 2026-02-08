@@ -3,7 +3,7 @@
 // ========================================
 // Table component displaying all recent projects with MCP server statistics
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 import { Folder, Clock, Database, ExternalLink } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { useProjectOperations } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import { fetchOtherProjectsServers } from '@/lib/api';
 
 // ========== Types ==========
 
@@ -32,6 +33,8 @@ export interface AllProjectsTableProps {
   className?: string;
   /** Maximum number of projects to display */
   maxProjects?: number;
+  /** Project paths to display (if not provided, fetches from useProjectOperations) */
+  projectPaths?: string[];
 }
 
 // ========== Component ==========
@@ -41,29 +44,65 @@ export function AllProjectsTable({
   onOpenNewWindow,
   className,
   maxProjects,
+  projectPaths: propProjectPaths,
 }: AllProjectsTableProps) {
   const { formatMessage } = useIntl();
   const [sortField, setSortField] = useState<'name' | 'serverCount' | 'lastModified'>('lastModified');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [projectStats, setProjectStats] = useState<ProjectServerStats[]>([]);
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
 
   const { projects, currentProject, isLoading } = useProjectOperations();
 
-  // Mock server counts since backend doesn't provide per-project stats
-  // In production, this would come from a dedicated API endpoint
-  const projectStats: ProjectServerStats[] = projects.slice(0, maxProjects).map((path) => {
-    const isCurrent = path === currentProject;
-    // Extract name from path (last segment)
-    const name = path.split(/[/\\]/).filter(Boolean).pop() || path;
+  // Use provided project paths or default to all projects
+  const targetProjectPaths = propProjectPaths ?? projects;
+  const displayProjects = maxProjects ? targetProjectPaths.slice(0, maxProjects) : targetProjectPaths;
 
-    return {
-      name,
-      path,
-      serverCount: Math.floor(Math.random() * 10), // Mock data
-      enabledCount: Math.floor(Math.random() * 8), // Mock data
-      lastModified: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      isCurrent,
+  // Fetch real project server stats on mount
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (displayProjects.length === 0) {
+        setProjectStats([]);
+        return;
+      }
+
+      setIsStatsLoading(true);
+      try {
+        const response = await fetchOtherProjectsServers(displayProjects);
+        const stats: ProjectServerStats[] = displayProjects.map((path) => {
+          const isCurrent = path === currentProject;
+          const name = path.split(/[/\\]/).filter(Boolean).pop() || path;
+          const servers = response.servers[path] ?? [];
+
+          return {
+            name,
+            path,
+            serverCount: servers.length,
+            enabledCount: servers.filter((s) => s.enabled).length,
+            lastModified: undefined, // Backend doesn't provide this yet
+            isCurrent,
+          };
+        });
+        setProjectStats(stats);
+      } catch (error) {
+        console.error('Failed to fetch project server stats:', error);
+        // Fallback to empty stats on error
+        setProjectStats(
+          displayProjects.map((path) => ({
+            name: path.split(/[/\\]/).filter(Boolean).pop() || path,
+            path,
+            serverCount: 0,
+            enabledCount: 0,
+            isCurrent: path === currentProject,
+          }))
+        );
+      } finally {
+        setIsStatsLoading(false);
+      }
     };
-  });
+
+    void fetchStats();
+  }, [displayProjects, currentProject]);
 
   // Sort projects
   const sortedProjects = [...projectStats].sort((a, b) => {
@@ -107,7 +146,7 @@ export function AllProjectsTable({
     onOpenNewWindow?.(projectPath);
   };
 
-  if (isLoading) {
+  if (isLoading || isStatsLoading) {
     return (
       <Card className={cn('p-8', className)}>
         <div className="flex items-center justify-center">

@@ -5,7 +5,8 @@
  * Tests that bash -c commands use single quotes to avoid jq escaping issues
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
 // Import the convertToClaudeCodeFormat function logic
 // Since it's in a browser JS file, we'll recreate it here for testing
@@ -58,9 +59,9 @@ describe('Hook Quoting Fix (Issue #73)', () => {
 
       const result = convertToClaudeCodeFormat(hookData);
 
-      expect(result.hooks[0].command).toMatch(/^bash -c '/);
-      expect(result.hooks[0].command).toMatch(/'$/);
-      expect(result.hooks[0].command).not.toMatch(/^bash -c "/);
+      assert.match(result.hooks[0].command, /^bash -c '/);
+      assert.match(result.hooks[0].command, /'$/);
+      assert.doesNotMatch(result.hooks[0].command, /^bash -c "/);
     });
 
     it('should preserve jq command double quotes without excessive escaping', () => {
@@ -73,9 +74,9 @@ describe('Hook Quoting Fix (Issue #73)', () => {
       const cmd = result.hooks[0].command;
 
       // The jq pattern should remain readable
-      expect(cmd).toContain('jq -r ".tool_input.command // empty"');
+      assert.ok(cmd.includes('jq -r ".tool_input.command // empty"'));
       // Should not have excessive escaping like \\\"
-      expect(cmd).not.toContain('\\\\\\"');
+      assert.ok(!cmd.includes('\\\\\\"'));
     });
 
     it('should correctly escape single quotes in script using \'\\\'\'', () => {
@@ -88,8 +89,8 @@ describe('Hook Quoting Fix (Issue #73)', () => {
       const cmd = result.hooks[0].command;
 
       // Single quotes should be escaped as '\''
-      expect(cmd).toContain("'\\''");
-      expect(cmd).toBe("bash -c 'echo '\\''hello world'\\'''");
+      assert.ok(cmd.includes("'\\''"));
+      assert.equal(cmd, "bash -c 'echo '\\''hello world'\\'''");
     });
 
     it('should handle danger-bash-confirm hook template correctly', () => {
@@ -102,11 +103,11 @@ describe('Hook Quoting Fix (Issue #73)', () => {
       const cmd = result.hooks[0].command;
 
       // Should use single quotes
-      expect(cmd).toMatch(/^bash -c '/);
+      assert.match(cmd, /^bash -c '/);
       // jq pattern should be intact
-      expect(cmd).toContain('jq -r ".tool_input.command // empty"');
+      assert.ok(cmd.includes('jq -r ".tool_input.command // empty"'));
       // JSON output should have escaped double quotes (in shell)
-      expect(cmd).toContain('{\\"hookSpecificOutput\\"');
+      assert.ok(cmd.includes('{\\"hookSpecificOutput\\"'));
     });
 
     it('should handle non-bash commands with original logic', () => {
@@ -117,7 +118,7 @@ describe('Hook Quoting Fix (Issue #73)', () => {
 
       const result = convertToClaudeCodeFormat(hookData);
 
-      expect(result.hooks[0].command).toBe('ccw memory track --type file --action read');
+      assert.equal(result.hooks[0].command, 'ccw memory track --type file --action read');
     });
 
     it('should handle bash commands without -c flag with original logic', () => {
@@ -128,7 +129,7 @@ describe('Hook Quoting Fix (Issue #73)', () => {
 
       const result = convertToClaudeCodeFormat(hookData);
 
-      expect(result.hooks[0].command).toBe('bash script.sh --arg value');
+      assert.equal(result.hooks[0].command, 'bash script.sh --arg value');
     });
 
     it('should handle args with spaces in non-bash commands', () => {
@@ -139,7 +140,7 @@ describe('Hook Quoting Fix (Issue #73)', () => {
 
       const result = convertToClaudeCodeFormat(hookData);
 
-      expect(result.hooks[0].command).toBe('echo "hello world" "another arg"');
+      assert.equal(result.hooks[0].command, 'echo "hello world" "another arg"');
     });
 
     it('should handle already formatted hook data', () => {
@@ -152,7 +153,7 @@ describe('Hook Quoting Fix (Issue #73)', () => {
 
       const result = convertToClaudeCodeFormat(hookData);
 
-      expect(result).toBe(hookData);
+      assert.equal(result, hookData);
     });
 
     it('should handle additional args after bash -c script', () => {
@@ -164,8 +165,8 @@ describe('Hook Quoting Fix (Issue #73)', () => {
       const result = convertToClaudeCodeFormat(hookData);
       const cmd = result.hooks[0].command;
 
-      expect(cmd).toMatch(/^bash -c 'echo \$1'/);
-      expect(cmd).toContain('"hello world"');
+      assert.match(cmd, /^bash -c 'echo \$1'/);
+      assert.ok(cmd.includes('"hello world"'));
     });
   });
 
@@ -195,11 +196,11 @@ describe('Hook Quoting Fix (Issue #73)', () => {
         const cmd = result.hooks[0].command;
 
         // All bash -c commands should use single quotes
-        expect(cmd).toMatch(/^bash -c '/);
-        expect(cmd).toMatch(/'$/);
+        assert.match(cmd, /^bash -c '/);
+        assert.match(cmd, /'$/);
 
         // jq patterns should be intact
-        expect(cmd).toContain('jq -r ".');
+        assert.ok(cmd.includes('jq -r ".'));
       });
     }
   });

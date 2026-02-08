@@ -33,7 +33,7 @@ import { CcwToolsMcpCard } from '@/components/mcp/CcwToolsMcpCard';
 import { McpTemplatesSection, TemplateSaveDialog } from '@/components/mcp/McpTemplatesSection';
 import { RecommendedMcpSection } from '@/components/mcp/RecommendedMcpSection';
 import { WindowsCompatibilityWarning } from '@/components/mcp/WindowsCompatibilityWarning';
-import { CrossCliCopyButton } from '@/components/mcp/CrossCliCopyButton';
+import { CrossCliSyncPanel } from '@/components/mcp/CrossCliSyncPanel';
 import { AllProjectsTable } from '@/components/mcp/AllProjectsTable';
 import { OtherProjectsSection } from '@/components/mcp/OtherProjectsSection';
 import { TabsNavigation } from '@/components/ui/TabsNavigation';
@@ -41,7 +41,9 @@ import { useMcpServers, useMcpServerMutations, useNotifications } from '@/hooks'
 import {
   fetchCodexMcpServers,
   fetchCcwMcpConfig,
+  fetchCcwMcpConfigForCodex,
   updateCcwConfig,
+  updateCcwConfigForCodex,
   codexRemoveServer,
   codexToggleServer,
   saveMcpTemplate,
@@ -255,6 +257,14 @@ export function McpManagerPage() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  // Fetch CCW Tools MCP configuration (Codex mode only)
+  const ccwMcpCodexQuery = useQuery({
+    queryKey: ['ccwMcpConfigCodex'],
+    queryFn: fetchCcwMcpConfigForCodex,
+    enabled: cliMode === 'codex',
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
   const {
     toggleServer,
     deleteServer,
@@ -356,6 +366,32 @@ export function McpManagerPage() {
 
   const handleCcwInstall = () => {
     ccwMcpQuery.refetch();
+  };
+
+  // CCW MCP handlers for Codex mode
+  const ccwCodexConfig = ccwMcpCodexQuery.data ?? {
+    isInstalled: false,
+    enabledTools: [],
+    projectRoot: undefined,
+    allowedDirs: undefined,
+    disableSandbox: undefined,
+  };
+
+  const handleToggleCcwToolCodex = async (tool: string, enabled: boolean) => {
+    const updatedTools = enabled
+      ? [...ccwCodexConfig.enabledTools, tool]
+      : ccwCodexConfig.enabledTools.filter((t) => t !== tool);
+    await updateCcwConfigForCodex({ enabledTools: updatedTools });
+    ccwMcpCodexQuery.refetch();
+  };
+
+  const handleUpdateCcwConfigCodex = async (config: Partial<CcwMcpConfig>) => {
+    await updateCcwConfigForCodex(config);
+    ccwMcpCodexQuery.refetch();
+  };
+
+  const handleCcwInstallCodex = () => {
+    ccwMcpCodexQuery.refetch();
   };
 
   // Template handlers
@@ -617,7 +653,7 @@ export function McpManagerPage() {
         </div>
       )}
 
-      {/* CCW Tools MCP Card - Claude mode only */}
+      {/* CCW Tools MCP Card */}
       {cliMode === 'claude' && (
         <CcwToolsMcpCard
           isInstalled={ccwConfig.isInstalled}
@@ -628,6 +664,19 @@ export function McpManagerPage() {
           onToggleTool={handleToggleCcwTool}
           onUpdateConfig={handleUpdateCcwConfig}
           onInstall={handleCcwInstall}
+        />
+      )}
+      {cliMode === 'codex' && (
+        <CcwToolsMcpCard
+          target="codex"
+          isInstalled={ccwCodexConfig.isInstalled}
+          enabledTools={ccwCodexConfig.enabledTools}
+          projectRoot={ccwCodexConfig.projectRoot}
+          allowedDirs={ccwCodexConfig.allowedDirs}
+          disableSandbox={ccwCodexConfig.disableSandbox}
+          onToggleTool={handleToggleCcwToolCodex}
+          onUpdateConfig={handleUpdateCcwConfigCodex}
+          onInstall={handleCcwInstallCodex}
         />
       )}
 
@@ -680,37 +729,56 @@ export function McpManagerPage() {
 
       {/* Tab Content: Cross-CLI */}
       {activeTab === 'cross-cli' && (
-        <div className="mt-4 space-y-4">
-          {/* Cross-CLI Copy Button */}
-          <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-            <div className="flex-1">
+        <div className="mt-4 space-y-6">
+          {/* Section 1: Claude ↔ Codex 同步 */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <RefreshCw className="w-4 h-4 text-muted-foreground" />
               <h3 className="text-sm font-medium text-foreground">
-                {formatMessage({ id: 'mcp.crossCli.title' })}
+                {formatMessage({ id: 'mcp.sync.title' })}
               </h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatMessage({ id: 'mcp.crossCli.selectServersHint' })}
-              </p>
             </div>
-            <CrossCliCopyButton
-              currentMode={cliMode}
-              onSuccess={() => refetch()}
+            <Card className="p-4">
+              <CrossCliSyncPanel onSuccess={(count, direction) => refetch()} />
+            </Card>
+          </section>
+
+          {/* Section 2: 项目概览 */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Folder className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium text-foreground">
+                {formatMessage({ id: 'mcp.projects.title' })}
+              </h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              {formatMessage({ id: 'mcp.projects.description' })}
+            </p>
+            <AllProjectsTable
+              maxProjects={10}
+              onProjectClick={(path) => console.log('Open project:', path)}
+              onOpenNewWindow={(path) => window.open(`/?project=${encodeURIComponent(path)}`, '_blank')}
             />
-          </div>
+          </section>
 
-          {/* All Projects Table */}
-          <AllProjectsTable
-            maxProjects={10}
-            onProjectClick={(path) => console.log('Open project:', path)}
-            onOpenNewWindow={(path) => window.open(`/?project=${encodeURIComponent(path)}`, '_blank')}
-          />
-
-          {/* Other Projects Section */}
-          <OtherProjectsSection
-            onImportSuccess={(serverName, sourceProject) => {
-              console.log('Imported server:', serverName, 'from:', sourceProject);
-              refetch();
-            }}
-          />
+          {/* Section 3: 跨项目导入 */}
+          <section>
+            <div className="flex items-center gap-2 mb-3">
+              <Globe className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-sm font-medium text-foreground">
+                {formatMessage({ id: 'mcp.crossProject.title' })}
+              </h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              {formatMessage({ id: 'mcp.crossProject.description' })}
+            </p>
+            <OtherProjectsSection
+              onImportSuccess={(serverName, sourceProject) => {
+                console.log('Imported server:', serverName, 'from:', sourceProject);
+                refetch();
+              }}
+            />
+          </section>
         </div>
       )}
 

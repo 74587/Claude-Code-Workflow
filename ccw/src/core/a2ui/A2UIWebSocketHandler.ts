@@ -222,18 +222,28 @@ export class A2UIWebSocketHandler {
     });
 
     const req = http.request({
-      hostname: 'localhost',
+      hostname: '127.0.0.1',
       port: DASHBOARD_PORT,
       path: '/api/hook',
       method: 'POST',
+      timeout: 2000,
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(body),
       },
     });
 
+    // Fire-and-forget: don't keep the process alive due to an open socket
+    req.on('socket', (socket) => {
+      socket.unref();
+    });
+
     req.on('error', (err) => {
       console.error(`[A2UI] Failed to forward surface ${surfaceUpdate.surfaceId} to Dashboard:`, err.message);
+    });
+
+    req.on('timeout', () => {
+      req.destroy(new Error('Request timed out'));
     });
 
     req.write(body);
