@@ -84,7 +84,7 @@ export function Header({
           asChild
           className="gap-2"
         >
-          <Link to="/history">
+          <Link to="/history" className="inline-flex items-center gap-2">
             <Clock className="h-4 w-4" />
             <span className="hidden sm:inline">{formatMessage({ id: 'navigation.main.history' })}</span>
           </Link>

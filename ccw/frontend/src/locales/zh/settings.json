@@ -114,6 +114,22 @@
     "on": "开启",
     "off": "关闭"
   },
+  "versionCheck": {
+    "title": "版本更新",
+    "currentVersion": "当前版本",
+    "latestVersion": "最新版本",
+    "checkNow": "立即检查",
+    "checking": "检查中...",
+    "autoCheck": "自动检查更新",
+    "autoCheckDesc": "每小时自动检查是否有新版本",
+    "upToDate": "已是最新版本",
+    "updateAvailable": "有新版本可用",
+    "updateCommand": "更新命令",
+    "viewRelease": "查看更新",
+    "lastChecked": "上次检查",
+    "checkFailed": "检查失败",
+    "never": "从未"
+  },
   "about": {
     "title": "关于",
     "version": "版本",

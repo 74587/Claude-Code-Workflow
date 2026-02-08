@@ -114,6 +114,22 @@
     "on": "On",
     "off": "Off"
   },
+  "versionCheck": {
+    "title": "Version Update",
+    "currentVersion": "Current Version",
+    "latestVersion": "Latest Version",
+    "checkNow": "Check Now",
+    "checking": "Checking...",
+    "autoCheck": "Auto-check for updates",
+    "autoCheckDesc": "Automatically check for new versions every hour",
+    "upToDate": "Up to date",
+    "updateAvailable": "Update available",
+    "updateCommand": "Update command",
+    "viewRelease": "View Release",
+    "lastChecked": "Last checked",
+    "checkFailed": "Check failed",
+    "never": "Never"
+  },
   "about": {
     "title": "About",
     "version": "Version",

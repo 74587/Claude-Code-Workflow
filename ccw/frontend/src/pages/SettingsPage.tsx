@@ -3,7 +3,7 @@
 // ========================================
 // Application settings and configuration with CLI tools management
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 import {
   Settings,
@@ -727,6 +727,181 @@ function ResponseLanguageSection() {
   );
 }
 
+// ========== Version Check Section ==========
+
+interface VersionData {
+  currentVersion: string;
+  latestVersion: string;
+  hasUpdate: boolean;
+  packageName: string;
+  updateCommand: string;
+  checkedAt: string;
+}
+
+function VersionCheckSection() {
+  const { formatMessage } = useIntl();
+  const [versionData, setVersionData] = useState<VersionData | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [autoCheck, setAutoCheck] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ccw.autoUpdate');
+      return saved === null ? true : JSON.parse(saved);
+    } catch {
+      return true;
+    }
+  });
+
+  const checkVersion = async (silent = false) => {
+    if (!silent) setChecking(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/version-check');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const data: VersionData = await response.json();
+      if (!data.currentVersion) throw new Error('Invalid response');
+
+      setVersionData(data);
+      setLastChecked(new Date());
+    } catch (err) {
+      if (!silent) setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    // Initial check
+    checkVersion(true);
+
+    if (!autoCheck) return;
+    const interval = setInterval(() => checkVersion(true), 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [autoCheck]);
+
+  const toggleAutoCheck = (enabled: boolean) => {
+    setAutoCheck(enabled);
+    localStorage.setItem('ccw.autoUpdate', JSON.stringify(enabled));
+  };
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <ArrowUpCircle className="w-5 h-5" />
+          {formatMessage({ id: 'settings.versionCheck.title' })}
+        </h2>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={checking}
+          onClick={() => checkVersion()}
+        >
+          <RefreshCw className={cn('w-3.5 h-3.5 mr-1.5', checking && 'animate-spin')} />
+          {checking
+            ? formatMessage({ id: 'settings.versionCheck.checking' })
+            : formatMessage({ id: 'settings.versionCheck.checkNow' })}
+        </Button>
+      </div>
+
+      <div className="space-y-4">
+        {/* Version info */}
+        <div className="rounded-lg border border-border p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              {formatMessage({ id: 'settings.versionCheck.currentVersion' })}
+            </span>
+            <Badge variant="secondary" className="font-mono text-xs">
+              {versionData?.currentVersion ?? '...'}
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">
+              {formatMessage({ id: 'settings.versionCheck.latestVersion' })}
+            </span>
+            <Badge
+              variant={versionData?.updateAvailable ? 'default' : 'secondary'}
+              className="font-mono text-xs"
+            >
+              {versionData?.latestVersion ?? '...'}
+            </Badge>
+          </div>
+
+          {/* Status */}
+          {versionData && (
+            <div className="flex items-center justify-between pt-2 border-t border-border">
+              <span className="text-sm font-medium">
+                {versionData.hasUpdate
+                  ? formatMessage({ id: 'settings.versionCheck.updateAvailable' })
+                  : formatMessage({ id: 'settings.versionCheck.upToDate' })}
+              </span>
+              <span className={cn(
+                'inline-block w-2.5 h-2.5 rounded-full',
+                versionData.hasUpdate ? 'bg-orange-500' : 'bg-green-500'
+              )} />
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 pt-2 border-t border-border">
+              <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
+              <span className="text-sm text-destructive">
+                {formatMessage({ id: 'settings.versionCheck.checkFailed' })}: {error}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Update action */}
+        {versionData?.hasUpdate && (
+          <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium text-foreground mb-1">
+                {formatMessage({ id: 'settings.versionCheck.updateCommand' })}
+              </p>
+              <code className="text-xs font-mono bg-muted px-3 py-1.5 rounded block">
+                {versionData.updateCommand}
+              </code>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <a
+                href="https://github.com/dyw0830/ccw/releases"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5"
+              >
+                {formatMessage({ id: 'settings.versionCheck.viewRelease' })}
+              </a>
+            </Button>
+          </div>
+        )}
+
+        {/* Auto check toggle + last checked */}
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={autoCheck}
+              onChange={(e) => toggleAutoCheck(e.target.checked)}
+              className="rounded border-input"
+            />
+            <div>
+              <span className="text-sm font-medium">{formatMessage({ id: 'settings.versionCheck.autoCheck' })}</span>
+              <p className="text-xs text-muted-foreground">{formatMessage({ id: 'settings.versionCheck.autoCheckDesc' })}</p>
+            </div>
+          </label>
+          <span className="text-xs text-muted-foreground">
+            {formatMessage({ id: 'settings.versionCheck.lastChecked' })}:{' '}
+            {lastChecked ? lastChecked.toLocaleTimeString() : formatMessage({ id: 'settings.versionCheck.never' })}
+          </span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 // ========== System Status Section ==========
 
 function SystemStatusSection() {
@@ -1117,6 +1292,9 @@ export function SettingsPage() {
 
       {/* System Status */}
       <SystemStatusSection />
+
+      {/* Version Check */}
+      <VersionCheckSection />
 
       {/* CLI Tools Configuration */}
       <Card className="p-6">
