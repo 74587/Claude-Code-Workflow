@@ -80,22 +80,45 @@ CCW 使用**基于配置的工具控制系统**，使外部 CLI 工具成为**�
 - ✅ **优雅降级** - 工具不可用时自动回退
 - ✅ **灵活配置** - 每个项目控制工具可用性
 
-**配置文件**：`~/.ccw/workflows/tool-control.yaml`
+**配置文件**：`~/.claude/cli-tools.json`
 
-```yaml
-tools:
-  gemini:
-    enabled: false  # 可选：AI 分析和文档
-  qwen:
-    enabled: true   # 可选：AI 架构和代码生成
-  codex:
-    enabled: true   # 可选：AI 开发和实现
+```json
+{
+  "version": "3.4.0",
+  "tools": {
+    "gemini": {
+      "enabled": true,
+      "primaryModel": "gemini-2.5-pro",
+      "type": "builtin"
+    },
+    "qwen": {
+      "enabled": true,
+      "primaryModel": "coder-model",
+      "type": "builtin"
+    },
+    "codex": {
+      "enabled": true,
+      "primaryModel": "gpt-5.2",
+      "type": "builtin"
+    },
+    "claude": {
+      "enabled": true,
+      "primaryModel": "sonnet",
+      "type": "builtin"
+    },
+    "opencode": {
+      "enabled": true,
+      "primaryModel": "opencode/glm-4.7-free",
+      "type": "builtin"
+    }
+  }
+}
 ```
 
 **行为**：
 - **禁用时**：CCW 自动回退到其他已启用的工具或 Claude 的原生能力
 - **启用时**：使用专门工具发挥其特定优势
-- **默认**：所有工具禁用 - 仅 Claude 模式开箱即用
+- **默认**：首次运行时自动检测已安装的工具并同步启用状态
 
 ### 可选 CLI 工具（增强功能）
 
@@ -110,13 +133,17 @@ tools:
 
 #### 外部 AI 工具
 
-在 `~/.ccw/workflows/tool-control.yaml` 中配置这些工具：
+CCW 通过 `~/.claude/cli-tools.json` 统一管理以下 CLI 工具，所有工具均可通过 npm 全局安装：
 
-| 工具 | 用途 | 安装方式 |
-|------|------|----------|
-| **Gemini CLI** | AI 分析和文档 | 遵循[官方文档](https://ai.google.dev) - 免费配额，扩展上下文 |
-| **Codex CLI** | AI 开发和实现 | 遵循[官方文档](https://github.com/openai/codex) - 自主开发 |
-| **Qwen Code** | AI 架构和代码生成 | 遵循[官方文档](https://github.com/QwenLM/qwen-code) - 大上下文窗口 |
+| 工具 | npm 包 | 用途 | 安装方式 |
+|------|--------|------|----------|
+| **Gemini CLI** | `@google/gemini-cli` | Google AI 代码分析和生成 | `npm install -g @google/gemini-cli`<br>[GitHub](https://github.com/google-gemini/gemini-cli) |
+| **Qwen Code** | `@qwen-code/qwen-code` | 阿里云 AI 编程助手 | `npm install -g @qwen-code/qwen-code`<br>[GitHub](https://github.com/QwenLM/qwen-code) |
+| **Codex CLI** | `@openai/codex` | OpenAI 代码生成和理解 | `npm install -g @openai/codex`<br>[GitHub](https://github.com/openai/codex) |
+| **Claude Code** | `@anthropic-ai/claude-code` | Anthropic AI 助手 | `npm install -g @anthropic-ai/claude-code`<br>[GitHub](https://github.com/anthropics/claude-code) |
+| **OpenCode** | `opencode` | 开源多模型 AI 编程代理 | `npm install -g opencode`<br>[官网](https://opencode.ai) \| [GitHub](https://github.com/sst/opencode) |
+
+> **提示**：也可在 CCW Dashboard 的 CLI Manager 视图中直接管理工具的安装、卸载和启用状态。
 
 ### 推荐：MCP 工具（增强分析）
 
