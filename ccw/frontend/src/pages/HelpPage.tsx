@@ -65,7 +65,7 @@ const helpSectionsConfig: HelpSectionConfig[] = [
     i18nKey: 'home.help.commands.title',
     descriptionKey: 'home.help.commands.description',
     icon: Terminal,
-    link: '/docs/commands',
+    link: '/docs/commands/general/ccw',
     isExternal: false,
     badge: 'Docs',
   },
@@ -207,7 +207,7 @@ export function HelpPage() {
             </div>
           </div>
           <Button variant="ghost" size="sm" className="w-full mt-auto" asChild>
-            <a href="/docs/commands" className="inline-flex items-center justify-center whitespace-nowrap">
+            <a href="/docs/commands/general/ccw" className="inline-flex items-center justify-center whitespace-nowrap">
               {formatMessage({ id: 'help.viewAll' })}
               <ArrowRight className="w-4 h-4 ml-1 flex-shrink-0" />
             </a>
@@ -242,7 +242,7 @@ export function HelpPage() {
             </div>
           </div>
           <Button variant="ghost" size="sm" className="w-full mt-auto" asChild>
-            <a href="/docs/workflows" className="inline-flex items-center justify-center whitespace-nowrap">
+            <a href="/docs/workflows/introduction" className="inline-flex items-center justify-center whitespace-nowrap">
               {formatMessage({ id: 'help.viewAll' })}
               <ArrowRight className="w-4 h-4 ml-1 flex-shrink-0" />
             </a>
