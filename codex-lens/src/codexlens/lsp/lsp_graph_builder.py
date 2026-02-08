@@ -28,6 +28,7 @@ class LspGraphBuilder:
         max_depth: int = 2,
         max_nodes: int = 100,
         max_concurrent: int = 10,
+        resolve_symbols: bool = True,
     ):
         """Initialize GraphBuilder.
 
@@ -35,10 +36,12 @@ class LspGraphBuilder:
             max_depth: Maximum depth for BFS expansion from seeds.
             max_nodes: Maximum number of nodes in the graph.
             max_concurrent: Maximum concurrent LSP requests.
+            resolve_symbols: If False, skip documentSymbol lookups and create lightweight nodes.
         """
         self.max_depth = max_depth
         self.max_nodes = max_nodes
         self.max_concurrent = max_concurrent
+        self.resolve_symbols = resolve_symbols
         # Cache for document symbols per file (avoids per-location hover queries)
         self._document_symbols_cache: Dict[str, List[Dict[str, Any]]] = {}
 
@@ -276,9 +279,11 @@ class LspGraphBuilder:
             start_line = location.line
 
             # Try to find symbol info from cached document symbols (fast)
-            symbol_info = await self._get_symbol_at_location(
-                file_path, start_line, lsp_bridge
-            )
+            symbol_info = None
+            if self.resolve_symbols:
+                symbol_info = await self._get_symbol_at_location(
+                    file_path, start_line, lsp_bridge
+                )
 
             if symbol_info:
                 name = symbol_info.get("name", f"symbol_L{start_line}")

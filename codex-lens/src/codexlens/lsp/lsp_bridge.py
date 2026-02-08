@@ -20,6 +20,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from urllib.parse import unquote
 
 if TYPE_CHECKING:
     from codexlens.lsp.standalone_manager import StandaloneLspManager
@@ -62,12 +63,14 @@ class Location:
         """
         # Handle VSCode URI format (file:///path/to/file)
         uri = data.get("uri", data.get("file_path", ""))
-        if uri.startswith("file:///"):
-            # Windows: file:///C:/path -> C:/path
-            # Unix: file:///path -> /path
-            file_path = uri[8:] if uri[8:9].isalpha() and uri[9:10] == ":" else uri[7:]
-        elif uri.startswith("file://"):
-            file_path = uri[7:]
+        if uri.startswith("file://"):
+            # Strip scheme and decode percent-encoding (e.g. file:///d%3A/...).
+            # Keep behavior compatible with both Windows and Unix paths.
+            raw = unquote(uri[7:])  # keep leading slash for Unix paths
+            # Windows: file:///C:/... or file:///c%3A/... -> C:/...
+            if raw.startswith("/") and len(raw) > 2 and raw[2] == ":":
+                raw = raw[1:]
+            file_path = raw
         else:
             file_path = uri
         

@@ -59,7 +59,7 @@ export async function searchUnsplash(
 export async function uploadBackgroundImage(file: File): Promise<{ url: string; filename: string }> {
   const headers: Record<string, string> = {
     'Content-Type': file.type,
-    'X-Filename': file.name,
+    'X-Filename': encodeURIComponent(file.name),
   };
   const csrfToken = getCsrfToken();
   if (csrfToken) {

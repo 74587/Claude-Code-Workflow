@@ -1,12 +1,13 @@
 // ========================================
 // Workspace Selector Component
 // ========================================
-// Dropdown for selecting recent workspaces with folder browser and manual path input
+// Dropdown for selecting recent workspaces with native folder picker and manual path input
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { ChevronDown, X, FolderOpen, Check } from 'lucide-react';
 import { useIntl } from 'react-intl';
 import { cn } from '@/lib/utils';
+import { selectFolder } from '@/lib/nativeDialog';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import {
@@ -69,7 +70,7 @@ function truncatePath(path: string, maxChars: number = 40): string {
  * Workspace selector component
  *
  * Provides a dropdown menu for selecting from recent workspace paths,
- * a manual path input dialog for entering custom paths, and delete buttons
+ * a native OS folder picker, a manual path input dialog, and delete buttons
  * for removing paths from recent history.
  *
  * @example
@@ -86,15 +87,9 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
 
   // UI state
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isBrowseOpen, setIsBrowseOpen] = useState(false);
+  const [isManualOpen, setIsManualOpen] = useState(false);
   const [manualPath, setManualPath] = useState('');
 
-  // Hidden file input for folder selection
-  const folderInputRef = useRef<HTMLInputElement>(null);
-
-  /**
-   * Handle path selection from dropdown
-   */
   const handleSelectPath = useCallback(
     async (path: string) => {
       await switchWorkspace(path);
@@ -103,77 +98,30 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
     [switchWorkspace]
   );
 
-  /**
-   * Handle remove path from recent history
-   */
   const handleRemovePath = useCallback(
     async (e: React.MouseEvent, path: string) => {
-      e.stopPropagation(); // Prevent triggering selection
+      e.stopPropagation();
       await removeRecentPath(path);
     },
     [removeRecentPath]
   );
 
-  /**
-   * Handle open folder browser - trigger hidden file input click
-   */
-  const handleBrowseFolder = useCallback(() => {
+  const handleBrowseFolder = useCallback(async () => {
     setIsDropdownOpen(false);
-    // Trigger the hidden file input click
-    folderInputRef.current?.click();
-  }, []);
+    const selected = await selectFolder(projectPath || undefined);
+    if (selected) {
+      await switchWorkspace(selected);
+    }
+  }, [projectPath, switchWorkspace]);
 
-  /**
-   * Handle folder selection from file input
-   */
-  const handleFolderSelect = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files;
-      if (files && files.length > 0) {
-        // Get the path from the first file
-        const firstFile = files[0];
-        // The webkitRelativePath contains the full path relative to the selected folder
-        // We need to get the parent directory path
-        const relativePath = firstFile.webkitRelativePath;
-        const folderPath = relativePath.substring(0, relativePath.indexOf('/'));
-
-        // In browser environment, we can't get the full absolute path
-        // We need to ask the user to confirm or use the folder name
-        // For now, open the manual dialog with the folder name as hint
-        setManualPath(folderPath);
-        setIsBrowseOpen(true);
-      }
-      // Reset input value to allow selecting the same folder again
-      e.target.value = '';
-    },
-    []
-  );
-
-  /**
-   * Handle manual path submission
-   */
   const handleManualPathSubmit = useCallback(async () => {
     const trimmedPath = manualPath.trim();
-    if (!trimmedPath) {
-      return; // TODO: Show validation error
-    }
-
+    if (!trimmedPath) return;
     await switchWorkspace(trimmedPath);
-    setIsBrowseOpen(false);
+    setIsManualOpen(false);
     setManualPath('');
   }, [manualPath, switchWorkspace]);
 
-  /**
-   * Handle dialog cancel
-   */
-  const handleDialogCancel = useCallback(() => {
-    setIsBrowseOpen(false);
-    setManualPath('');
-  }, []);
-
-  /**
-   * Handle keyboard events in dialog input
-   */
   const handleInputKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Enter') {
@@ -259,7 +207,7 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
 
           {recentPaths.length > 0 && <DropdownMenuSeparator />}
 
-          {/* Browse button to open folder selector */}
+          {/* Browse button to open native folder selector */}
           <DropdownMenuItem
             onClick={handleBrowseFolder}
             className="cursor-pointer gap-2"
@@ -279,7 +227,7 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
           <DropdownMenuItem
             onClick={() => {
               setIsDropdownOpen(false);
-              setIsBrowseOpen(true);
+              setIsManualOpen(true);
             }}
             className="cursor-pointer gap-2"
           >
@@ -290,20 +238,8 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Hidden file input for folder selection */}
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      <input
-        ref={folderInputRef}
-        type="file"
-        {...({ webkitdirectory: '', directory: '' } as any)}
-        style={{ display: 'none' }}
-        onChange={handleFolderSelect}
-        aria-hidden="true"
-        tabIndex={-1}
-      />
-
       {/* Manual path input dialog */}
-      <Dialog open={isBrowseOpen} onOpenChange={setIsBrowseOpen}>
+      <Dialog open={isManualOpen} onOpenChange={setIsManualOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -324,7 +260,10 @@ export function WorkspaceSelector({ className }: WorkspaceSelectorProps) {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={handleDialogCancel}
+              onClick={() => {
+                setIsManualOpen(false);
+                setManualPath('');
+              }}
             >
               {formatMessage({ id: 'common.actions.cancel' })}
             </Button>

@@ -12,7 +12,12 @@
     "dialog": {
       "title": "选择项目文件夹",
       "placeholder": "输入项目路径...",
-      "help": "您的项目目录路径"
+      "help": "您的项目目录路径",
+      "selectCurrent": "选择此文件夹",
+      "parentDir": "上级目录",
+      "loading": "加载中...",
+      "emptyDir": "空目录",
+      "accessDenied": "无法访问此目录"
     }
   },
   "actions": {

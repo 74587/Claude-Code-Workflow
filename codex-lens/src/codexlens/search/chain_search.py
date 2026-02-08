@@ -1094,15 +1094,15 @@ class ChainSearchEngine:
                     metadata = chunk.get("metadata")
                     symbol_name = None
                     symbol_kind = None
-                    start_line = None
-                    end_line = None
+                    start_line = chunk.get("start_line")
+                    end_line = chunk.get("end_line")
                     if metadata:
                         try:
                             meta_dict = json.loads(metadata) if isinstance(metadata, str) else metadata
                             symbol_name = meta_dict.get("symbol_name")
                             symbol_kind = meta_dict.get("symbol_kind")
-                            start_line = meta_dict.get("start_line")
-                            end_line = meta_dict.get("end_line")
+                            start_line = meta_dict.get("start_line", start_line)
+                            end_line = meta_dict.get("end_line", end_line)
                         except Exception:
                             pass
 
@@ -1130,10 +1130,11 @@ class ChainSearchEngine:
         coarse_results: List[SearchResult],
         index_root: Optional[Path],
     ) -> List[SearchResult]:
-        """Stage 2: LSP-based graph expansion using GraphExpander.
+        """Stage 2: LSP/graph expansion for staged cascade.
 
-        Expands coarse results with related symbols (definitions, references,
-        callers, callees) using precomputed graph neighbors.
+        Supports two modes via Config.staged_stage2_mode:
+        - "precomputed" (default): GraphExpander over per-dir `graph_neighbors` table
+        - "realtime": on-demand graph expansion via live LSP servers (LspBridge + LspGraphBuilder)
 
         Args:
             coarse_results: Results from Stage 1 binary search
@@ -1146,44 +1147,14 @@ class ChainSearchEngine:
             return coarse_results
 
         try:
-            from codexlens.search.graph_expander import GraphExpander
-
-            # Get expansion depth from config
-            depth = 2
+            mode = "precomputed"
             if self._config is not None:
-                depth = getattr(self._config, "graph_expansion_depth", 2)
+                mode = (getattr(self._config, "staged_stage2_mode", "precomputed") or "precomputed").strip().lower()
 
-            expander = GraphExpander(self.mapper, config=self._config)
+            if mode in {"realtime", "live"}:
+                return self._stage2_realtime_lsp_expand(coarse_results, index_root=index_root)
 
-            # Expand top results (limit expansion to avoid explosion)
-            max_expand = min(10, len(coarse_results))
-            max_related = 50
-
-            related_results = expander.expand(
-                coarse_results,
-                depth=depth,
-                max_expand=max_expand,
-                max_related=max_related,
-            )
-
-            if related_results:
-                self.logger.debug(
-                    "Stage 2 expanded %d base results to %d related symbols",
-                    len(coarse_results), len(related_results)
-                )
-
-            # Combine: original results + related results
-            # Keep original results first (higher relevance)
-            combined = list(coarse_results)
-            seen_keys = {(r.path, r.symbol_name, r.start_line) for r in coarse_results}
-
-            for related in related_results:
-                key = (related.path, related.symbol_name, related.start_line)
-                if key not in seen_keys:
-                    seen_keys.add(key)
-                    combined.append(related)
-
-            return combined
+            return self._stage2_precomputed_graph_expand(coarse_results, index_root=index_root)
 
         except ImportError as exc:
             self.logger.debug("GraphExpander not available: %s", exc)
@@ -1191,6 +1162,238 @@ class ChainSearchEngine:
         except Exception as exc:
             self.logger.debug("Stage 2 LSP expansion failed: %s", exc)
             return coarse_results
+
+    def _stage2_precomputed_graph_expand(
+        self,
+        coarse_results: List[SearchResult],
+        *,
+        index_root: Path,
+    ) -> List[SearchResult]:
+        """Stage 2 (precomputed): expand using GraphExpander over `graph_neighbors`."""
+        from codexlens.search.graph_expander import GraphExpander
+
+        depth = 2
+        if self._config is not None:
+            depth = getattr(
+                self._config,
+                "staged_lsp_depth",
+                getattr(self._config, "graph_expansion_depth", 2),
+            )
+        try:
+            depth = int(depth)
+        except Exception:
+            depth = 2
+
+        expander = GraphExpander(self.mapper, config=self._config)
+
+        max_expand = min(10, len(coarse_results))
+        max_related = 50
+
+        related_results = expander.expand(
+            coarse_results,
+            depth=depth,
+            max_expand=max_expand,
+            max_related=max_related,
+        )
+
+        if related_results:
+            self.logger.debug(
+                "Stage 2 (precomputed) expanded %d base results to %d related symbols",
+                len(coarse_results), len(related_results)
+            )
+
+        return self._combine_stage2_results(coarse_results, related_results)
+
+    def _stage2_realtime_lsp_expand(
+        self,
+        coarse_results: List[SearchResult],
+        *,
+        index_root: Path,
+    ) -> List[SearchResult]:
+        """Stage 2 (realtime): compute expansion graph via live LSP servers."""
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        from codexlens.hybrid_search.data_structures import CodeSymbolNode, Range
+        from codexlens.lsp import LspBridge, LspGraphBuilder
+
+        max_depth = 2
+        timeout_s = 10.0
+        max_nodes = 100
+        warmup_s = 2.0
+        resolve_symbols = False
+        if self._config is not None:
+            max_depth = int(getattr(self._config, "staged_lsp_depth", 2) or 2)
+            timeout_s = float(getattr(self._config, "staged_realtime_lsp_timeout_s", 10.0) or 10.0)
+            max_nodes = int(getattr(self._config, "staged_realtime_lsp_max_nodes", 100) or 100)
+            warmup_s = float(getattr(self._config, "staged_realtime_lsp_warmup_s", 2.0) or 0.0)
+            resolve_symbols = bool(getattr(self._config, "staged_realtime_lsp_resolve_symbols", False))
+
+        try:
+            source_root = self.mapper.index_to_source(index_root)
+        except Exception:
+            source_root = Path(coarse_results[0].path).resolve().parent
+
+        workspace_root = self._find_lsp_workspace_root(source_root)
+
+        max_expand = min(10, len(coarse_results))
+        seed_nodes: List[CodeSymbolNode] = []
+        seed_ids: set[str] = set()
+
+        for seed in list(coarse_results)[:max_expand]:
+            if not seed.path:
+                continue
+            name = seed.symbol_name or Path(seed.path).stem
+            kind = seed.symbol_kind or "unknown"
+            start_line = int(seed.start_line or 1)
+            end_line = int(seed.end_line or start_line)
+            start_character = 1
+            try:
+                if seed.symbol_name and start_line >= 1:
+                    line_text = Path(seed.path).read_text(encoding="utf-8", errors="ignore").splitlines()[start_line - 1]
+                    idx = line_text.find(seed.symbol_name)
+                    if idx >= 0:
+                        start_character = idx + 1  # 1-based for StandaloneLspManager
+            except Exception:
+                start_character = 1
+            node_id = f"{seed.path}:{name}:{start_line}"
+            seed_ids.add(node_id)
+            seed_nodes.append(
+                CodeSymbolNode(
+                    id=node_id,
+                    name=name,
+                    kind=kind,
+                    file_path=seed.path,
+                    range=Range(
+                        start_line=start_line,
+                        start_character=start_character,
+                        end_line=end_line,
+                        end_character=1,
+                    ),
+                    raw_code=seed.content or "",
+                    docstring=seed.excerpt or "",
+                )
+            )
+
+        if not seed_nodes:
+            return coarse_results
+
+        async def expand_graph():
+            async with LspBridge(workspace_root=str(workspace_root), timeout=timeout_s) as bridge:
+                # Warm up analysis: open seed docs and wait a bit so references/call hierarchy are populated.
+                if warmup_s > 0:
+                    for seed in seed_nodes[:3]:
+                        try:
+                            await bridge.get_document_symbols(seed.file_path)
+                        except Exception:
+                            continue
+                    try:
+                        await asyncio.sleep(min(warmup_s, max(0.0, timeout_s - 0.5)))
+                    except Exception:
+                        pass
+                builder = LspGraphBuilder(
+                    max_depth=max_depth,
+                    max_nodes=max_nodes,
+                    resolve_symbols=resolve_symbols,
+                )
+                return await builder.build_from_seeds(seed_nodes, bridge)
+
+        def run_coro_blocking():
+            return asyncio.run(asyncio.wait_for(expand_graph(), timeout=timeout_s))
+
+        try:
+            try:
+                asyncio.get_running_loop()
+                has_running_loop = True
+            except RuntimeError:
+                has_running_loop = False
+
+            if has_running_loop:
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    graph = executor.submit(run_coro_blocking).result(timeout=timeout_s + 1.0)
+            else:
+                graph = run_coro_blocking()
+        except Exception as exc:
+            self.logger.debug("Stage 2 (realtime) expansion failed: %s", exc)
+            return coarse_results
+
+        related_results: List[SearchResult] = []
+        for node_id, node in getattr(graph, "nodes", {}).items():
+            if node_id in seed_ids or getattr(node, "id", "") in seed_ids:
+                continue
+
+            try:
+                start_line = int(getattr(node.range, "start_line", 1) or 1)
+                end_line = int(getattr(node.range, "end_line", start_line) or start_line)
+            except Exception:
+                start_line, end_line = 1, 1
+
+            related_results.append(
+                SearchResult(
+                    path=node.file_path,
+                    score=0.5,
+                    excerpt=None,
+                    content=getattr(node, "raw_code", "") or None,
+                    symbol_name=node.name,
+                    symbol_kind=node.kind,
+                    start_line=start_line,
+                    end_line=end_line,
+                    metadata={"stage2_mode": "realtime", "lsp_node_id": node_id},
+                )
+            )
+
+        if related_results:
+            self.logger.debug(
+                "Stage 2 (realtime) expanded %d base results to %d related symbols",
+                len(coarse_results), len(related_results)
+            )
+
+        return self._combine_stage2_results(coarse_results, related_results)
+
+    def _combine_stage2_results(
+        self,
+        coarse_results: List[SearchResult],
+        related_results: List[SearchResult],
+    ) -> List[SearchResult]:
+        combined = list(coarse_results)
+        seen_keys = {(r.path, r.symbol_name, r.start_line) for r in coarse_results}
+
+        for related in related_results:
+            key = (related.path, related.symbol_name, related.start_line)
+            if key not in seen_keys:
+                seen_keys.add(key)
+                combined.append(related)
+
+        return combined
+
+    def _find_lsp_workspace_root(self, start_path: Path) -> Path:
+        """Best-effort workspace root selection for LSP initialization.
+
+        Many language servers (e.g. Pyright) use workspace-relative include/exclude
+        patterns, so using a deep subdir (like "src") as root can break reference
+        and call-hierarchy queries.
+        """
+        start = Path(start_path).resolve()
+        if start.is_file():
+            start = start.parent
+
+        # Prefer an explicit LSP config file in the workspace.
+        for current in [start, *list(start.parents)]:
+            try:
+                if (current / "lsp-servers.json").is_file():
+                    return current
+            except OSError:
+                continue
+
+        # Fallback heuristics for project root markers.
+        for current in [start, *list(start.parents)]:
+            try:
+                if (current / ".git").exists() or (current / "pyproject.toml").is_file():
+                    return current
+            except OSError:
+                continue
+
+        return start
 
     def _stage3_cluster_prune(
         self,

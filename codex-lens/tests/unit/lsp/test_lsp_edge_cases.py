@@ -760,6 +760,24 @@ class TestLocationParsing:
         assert loc.line == 1
         assert loc.character == 1
 
+    def test_location_from_file_uri_windows_percent_encoded_drive(self):
+        """Parse Location from percent-encoded Windows drive URIs (pyright-style)."""
+        from codexlens.lsp.lsp_bridge import Location
+
+        data = {
+            "uri": "file:///d%3A/Claude_dms3/codex-lens/src/codexlens/api/semantic.py",
+            "range": {
+                "start": {"line": 18, "character": 3},
+                "end": {"line": 18, "character": 10},
+            },
+        }
+
+        loc = Location.from_lsp_response(data)
+
+        assert loc.file_path == "d:/Claude_dms3/codex-lens/src/codexlens/api/semantic.py"
+        assert loc.line == 19  # 0-based -> 1-based
+        assert loc.character == 4
+
     def test_location_from_direct_fields(self):
         """Parse Location from direct field format."""
         from codexlens.lsp.lsp_bridge import Location

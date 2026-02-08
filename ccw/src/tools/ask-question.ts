@@ -551,15 +551,18 @@ export function handleMultiAnswer(compositeId: string, answers: QuestionAnswer[]
  * Automatically stops when the questionId is no longer in pendingQuestions (timeout cleanup).
  */
 function startAnswerPolling(questionId: string, isComposite: boolean = false): void {
-  const path = `/api/a2ui/answer?questionId=${encodeURIComponent(questionId)}&composite=${isComposite}`;
+  const pollPath = `/api/a2ui/answer?questionId=${encodeURIComponent(questionId)}&composite=${isComposite}`;
+
+  console.error(`[A2UI-Poll] Starting polling for questionId=${questionId}, composite=${isComposite}, port=${DASHBOARD_PORT}`);
 
   const poll = () => {
     // Stop if the question was already resolved or timed out
     if (!pendingQuestions.has(questionId)) {
+      console.error(`[A2UI-Poll] Stopping: questionId=${questionId} no longer pending`);
       return;
     }
 
-    const req = http.get({ hostname: 'localhost', port: DASHBOARD_PORT, path }, (res) => {
+    const req = http.get({ hostname: '127.0.0.1', port: DASHBOARD_PORT, path: pollPath }, (res) => {
       let data = '';
       res.on('data', (chunk: Buffer) => { data += chunk.toString(); });
       res.on('end', () => {
@@ -571,23 +574,27 @@ function startAnswerPolling(questionId: string, isComposite: boolean = false): v
             return;
           }
 
+          console.error(`[A2UI-Poll] Answer received for questionId=${questionId}:`, JSON.stringify(parsed).slice(0, 200));
+
           if (isComposite && Array.isArray(parsed.answers)) {
-            handleMultiAnswer(questionId, parsed.answers as QuestionAnswer[]);
+            const ok = handleMultiAnswer(questionId, parsed.answers as QuestionAnswer[]);
+            console.error(`[A2UI-Poll] handleMultiAnswer result: ${ok}`);
           } else if (!isComposite && parsed.answer) {
-            handleAnswer(parsed.answer as QuestionAnswer);
+            const ok = handleAnswer(parsed.answer as QuestionAnswer);
+            console.error(`[A2UI-Poll] handleAnswer result: ${ok}`);
           } else {
-            // Unexpected shape, keep polling
+            console.error(`[A2UI-Poll] Unexpected response shape, keep polling`);
             setTimeout(poll, POLL_INTERVAL_MS);
           }
-        } catch {
-          // Parse error, keep polling
+        } catch (e) {
+          console.error(`[A2UI-Poll] Parse error:`, e);
           setTimeout(poll, POLL_INTERVAL_MS);
         }
       });
     });
 
-    req.on('error', () => {
-      // Network error (Dashboard not reachable), keep trying
+    req.on('error', (err) => {
+      console.error(`[A2UI-Poll] Network error: ${err.message}`);
       if (pendingQuestions.has(questionId)) {
         setTimeout(poll, POLL_INTERVAL_MS);
       }

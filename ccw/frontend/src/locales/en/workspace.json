@@ -12,7 +12,12 @@
     "dialog": {
       "title": "Select Project Folder",
       "placeholder": "Enter project path...",
-      "help": "The path to your project directory"
+      "help": "The path to your project directory",
+      "selectCurrent": "Select This Folder",
+      "parentDir": "Parent Directory",
+      "loading": "Loading...",
+      "emptyDir": "Empty directory",
+      "accessDenied": "Cannot access this directory"
     }
   },
   "actions": {

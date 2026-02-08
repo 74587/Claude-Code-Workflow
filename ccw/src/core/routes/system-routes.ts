@@ -439,6 +439,119 @@ export async function handleSystemRoutes(ctx: SystemRouteContext): Promise<boole
     return true;
   }
 
+  // API: Native OS folder selection dialog
+  if (pathname === '/api/dialog/select-folder' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { initialDir } = body as { initialDir?: string };
+      const os = await import('os');
+      const { execFile } = await import('child_process');
+      const startDir = initialDir || os.homedir();
+
+      return new Promise<Record<string, unknown>>((resolve) => {
+        if (process.platform === 'win32') {
+          const script = `Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.FolderBrowserDialog; $d.SelectedPath = '${startDir.replace(/'/g, "''")}'; $d.ShowNewFolderButton = $true; if ($d.ShowDialog() -eq 'OK') { $d.SelectedPath }`;
+          execFile('powershell', ['-NoProfile', '-Command', script],
+            { timeout: 120000 },
+            (err, stdout) => {
+              if (err || !stdout.trim()) {
+                resolve({ cancelled: true });
+              } else {
+                resolve({ path: stdout.trim() });
+              }
+            }
+          );
+        } else if (process.platform === 'darwin') {
+          const escapedDir = startDir.replace(/"/g, '\\"');
+          const script = `POSIX path of (choose folder with prompt "Select Project Folder" default location POSIX file "${escapedDir}")`;
+          execFile('osascript', ['-e', script],
+            { timeout: 120000 },
+            (err, stdout) => {
+              if (err || !stdout.trim()) {
+                resolve({ cancelled: true });
+              } else {
+                resolve({ path: stdout.trim().replace(/\/$/, '') });
+              }
+            }
+          );
+        } else {
+          // Linux: try zenity, fallback to kdialog
+          execFile('zenity', ['--file-selection', '--directory', '--title=Select Project Folder', `--filename=${startDir}/`],
+            { timeout: 120000 },
+            (err, stdout) => {
+              if (err || !stdout.trim()) {
+                execFile('kdialog', ['--getexistingdirectory', startDir, '--title', 'Select Project Folder'],
+                  { timeout: 120000 },
+                  (err2, stdout2) => {
+                    resolve(err2 || !stdout2.trim() ? { cancelled: true } : { path: stdout2.trim() });
+                  }
+                );
+              } else {
+                resolve({ path: stdout.trim() });
+              }
+            }
+          );
+        }
+      });
+    });
+    return true;
+  }
+
+  // API: Native OS file selection dialog
+  if (pathname === '/api/dialog/select-file' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { initialDir } = body as { initialDir?: string };
+      const os = await import('os');
+      const { execFile } = await import('child_process');
+      const startDir = initialDir || os.homedir();
+
+      return new Promise<Record<string, unknown>>((resolve) => {
+        if (process.platform === 'win32') {
+          const script = `Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.OpenFileDialog; $d.InitialDirectory = '${startDir.replace(/'/g, "''")}'; if ($d.ShowDialog() -eq 'OK') { $d.FileName }`;
+          execFile('powershell', ['-NoProfile', '-Command', script],
+            { timeout: 120000 },
+            (err, stdout) => {
+              if (err || !stdout.trim()) {
+                resolve({ cancelled: true });
+              } else {
+                resolve({ path: stdout.trim() });
+              }
+            }
+          );
+        } else if (process.platform === 'darwin') {
+          const escapedDir = startDir.replace(/"/g, '\\"');
+          const script = `POSIX path of (choose file with prompt "Select File" default location POSIX file "${escapedDir}")`;
+          execFile('osascript', ['-e', script],
+            { timeout: 120000 },
+            (err, stdout) => {
+              if (err || !stdout.trim()) {
+                resolve({ cancelled: true });
+              } else {
+                resolve({ path: stdout.trim() });
+              }
+            }
+          );
+        } else {
+          execFile('zenity', ['--file-selection', '--title=Select File', `--filename=${startDir}/`],
+            { timeout: 120000 },
+            (err, stdout) => {
+              if (err || !stdout.trim()) {
+                execFile('kdialog', ['--getopenfilename', startDir, '--title', 'Select File'],
+                  { timeout: 120000 },
+                  (err2, stdout2) => {
+                    resolve(err2 || !stdout2.trim() ? { cancelled: true } : { path: stdout2.trim() });
+                  }
+                );
+              } else {
+                resolve({ path: stdout.trim() });
+              }
+            }
+          );
+        }
+      });
+    });
+    return true;
+  }
+
   // API: File dialog - list directory contents for file browser
   if (pathname === '/api/dialog/browse' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {

@@ -455,6 +455,12 @@ def search(
         hidden=True,
         help="[Advanced] Cascade strategy for --method cascade."
     ),
+    staged_stage2_mode: Optional[str] = typer.Option(
+        None,
+        "--staged-stage2-mode",
+        hidden=True,
+        help="[Advanced] Stage 2 expansion mode for cascade strategy 'staged': precomputed | realtime.",
+    ),
     # Hidden deprecated parameter for backward compatibility
     mode: Optional[str] = typer.Option(None, "--mode", hidden=True, help="[DEPRECATED] Use --method instead."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
@@ -545,7 +551,7 @@ def search(
 
     # Validate cascade_strategy if provided (for advanced users)
     if internal_cascade_strategy is not None:
-        valid_strategies = ["binary", "hybrid", "binary_rerank", "dense_rerank"]
+        valid_strategies = ["binary", "hybrid", "binary_rerank", "dense_rerank", "staged"]
         if internal_cascade_strategy not in valid_strategies:
             if json_mode:
                 print_json(success=False, error=f"Invalid cascade strategy: {internal_cascade_strategy}. Must be one of: {', '.join(valid_strategies)}")
@@ -605,6 +611,18 @@ def search(
         mapper = PathMapper()
 
         engine = ChainSearchEngine(registry, mapper, config=config)
+
+        # Optional staged cascade overrides (only meaningful for cascade strategy 'staged')
+        if staged_stage2_mode is not None:
+            stage2 = staged_stage2_mode.strip().lower()
+            if stage2 not in {"precomputed", "realtime"}:
+                msg = "Invalid --staged-stage2-mode. Must be: precomputed | realtime."
+                if json_mode:
+                    print_json(success=False, error=msg)
+                else:
+                    console.print(f"[red]{msg}[/red]")
+                raise typer.Exit(code=1)
+            config.staged_stage2_mode = stage2
 
         # Map method to SearchOptions flags
         # fts: FTS-only search (optionally with fuzzy)
@@ -984,6 +1002,103 @@ def status(
     finally:
         if registry is not None:
             registry.close()
+
+
+@app.command(name="lsp-status")
+def lsp_status(
+    path: Path = typer.Option(Path("."), "--path", "-p", help="Workspace root for LSP probing."),
+    probe_file: Optional[Path] = typer.Option(
+        None,
+        "--probe-file",
+        help="Optional file path to probe (starts the matching language server and prints capabilities).",
+    ),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
+) -> None:
+    """Show standalone LSP configuration and optionally probe a language server.
+
+    This exercises the existing LSP server selection/startup path in StandaloneLspManager.
+    """
+    _configure_logging(verbose, json_mode)
+
+    import asyncio
+    import shutil
+
+    from codexlens.lsp.standalone_manager import StandaloneLspManager
+
+    workspace_root = path.expanduser().resolve()
+    probe_path = probe_file.expanduser().resolve() if probe_file is not None else None
+
+    async def _run():
+        manager = StandaloneLspManager(workspace_root=str(workspace_root))
+        await manager.start()
+
+        servers = []
+        for language_id, cfg in sorted(manager._configs.items()):  # type: ignore[attr-defined]
+            cmd0 = cfg.command[0] if cfg.command else None
+            servers.append(
+                {
+                    "language_id": language_id,
+                    "display_name": cfg.display_name,
+                    "extensions": list(cfg.extensions),
+                    "command": list(cfg.command),
+                    "command_available": bool(shutil.which(cmd0)) if cmd0 else False,
+                }
+            )
+
+        probe = None
+        if probe_path is not None:
+            state = await manager._get_server(str(probe_path))
+            if state is None:
+                probe = {
+                    "file": str(probe_path),
+                    "ok": False,
+                    "error": "No language server configured/available for this file.",
+                }
+            else:
+                probe = {
+                    "file": str(probe_path),
+                    "ok": True,
+                    "language_id": state.config.language_id,
+                    "display_name": state.config.display_name,
+                    "initialized": bool(state.initialized),
+                    "capabilities": state.capabilities,
+                }
+
+        await manager.stop()
+        return {"workspace_root": str(workspace_root), "servers": servers, "probe": probe}
+
+    try:
+        payload = asyncio.run(_run())
+    except Exception as exc:
+        if json_mode:
+            print_json(success=False, error=f"LSP status failed: {exc}")
+        else:
+            console.print(f"[red]LSP status failed:[/red] {exc}")
+        raise typer.Exit(code=1)
+
+    if json_mode:
+        print_json(success=True, result=payload)
+        return
+
+    console.print("[bold]CodexLens LSP Status[/bold]")
+    console.print(f"  Workspace: {payload['workspace_root']}")
+    console.print("\n[bold]Configured Servers:[/bold]")
+    for s in payload["servers"]:
+        ok = "✓" if s["command_available"] else "✗"
+        console.print(f"  {ok} {s['display_name']} ({s['language_id']}) -> {s['command'][0] if s['command'] else ''}")
+        console.print(f"    Extensions: {', '.join(s['extensions'])}")
+
+    if payload["probe"] is not None:
+        probe = payload["probe"]
+        console.print("\n[bold]Probe:[/bold]")
+        if not probe.get("ok"):
+            console.print(f"  ✗ {probe.get('file')}")
+            console.print(f"    {probe.get('error')}")
+        else:
+            console.print(f"  ✓ {probe.get('file')}")
+            console.print(f"    Server: {probe.get('display_name')} ({probe.get('language_id')})")
+            console.print(f"    Initialized: {probe.get('initialized')}")
 
 
 @app.command()
@@ -3962,4 +4077,3 @@ def index_migrate_deprecated(
         json_mode=json_mode,
         verbose=verbose,
     )
-
