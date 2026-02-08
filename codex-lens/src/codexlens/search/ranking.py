@@ -1,7 +1,7 @@
 """Ranking algorithms for hybrid search result fusion.
 
 Implements Reciprocal Rank Fusion (RRF) and score normalization utilities
-for combining results from heterogeneous search backends (SPLADE, exact FTS, fuzzy FTS, vector search).
+for combining results from heterogeneous search backends (exact FTS, fuzzy FTS, vector search).
 """
 
 from __future__ import annotations
@@ -15,19 +15,12 @@ from typing import Any, Dict, List, Optional
 from codexlens.entities import SearchResult, AdditionalLocation
 
 
-# Default RRF weights for SPLADE-based hybrid search
+# Default RRF weights for hybrid search
 DEFAULT_WEIGHTS = {
-    "splade": 0.35,  # Replaces exact(0.3) + fuzzy(0.1)
-    "vector": 0.5,
-    "lsp_graph": 0.15,  # Real-time LSP-based graph expansion
-}
-
-# Legacy weights for FTS fallback mode (when SPLADE unavailable)
-FTS_FALLBACK_WEIGHTS = {
     "exact": 0.25,
     "fuzzy": 0.1,
     "vector": 0.5,
-    "lsp_graph": 0.15,  # Real-time LSP-based graph expansion
+    "lsp_graph": 0.15,
 }
 
 
@@ -105,22 +98,13 @@ def adjust_weights_by_intent(
     base_weights: Dict[str, float],
 ) -> Dict[str, float]:
     """Adjust RRF weights based on query intent."""
-    # Check if using SPLADE or FTS mode
-    use_splade = "splade" in base_weights
-    
     if intent == QueryIntent.KEYWORD:
-        if use_splade:
-            target = {"splade": 0.6, "vector": 0.4}
-        else:
-            target = {"exact": 0.5, "fuzzy": 0.1, "vector": 0.4}
+        target = {"exact": 0.5, "fuzzy": 0.1, "vector": 0.4}
     elif intent == QueryIntent.SEMANTIC:
-        if use_splade:
-            target = {"splade": 0.3, "vector": 0.7}
-        else:
-            target = {"exact": 0.2, "fuzzy": 0.1, "vector": 0.7}
+        target = {"exact": 0.2, "fuzzy": 0.1, "vector": 0.7}
     else:
         target = dict(base_weights)
-    
+
     # Filter to active backends
     keys = list(base_weights.keys())
     filtered = {k: float(target.get(k, 0.0)) for k in keys}
@@ -225,7 +209,7 @@ def simple_weighted_fusion(
 
     Args:
         results_map: Dictionary mapping source name to list of SearchResult objects
-                     Sources: 'exact', 'fuzzy', 'vector', 'splade'
+                     Sources: 'exact', 'fuzzy', 'vector'
         weights: Dictionary mapping source name to weight (default: equal weights)
                  Example: {'exact': 0.3, 'fuzzy': 0.1, 'vector': 0.6}
 
@@ -331,14 +315,11 @@ def reciprocal_rank_fusion(
 
     RRF formula: score(d) = Σ weight_source / (k + rank_source(d))
 
-    Supports three-way fusion with FTS, Vector, and SPLADE sources.
-
     Args:
         results_map: Dictionary mapping source name to list of SearchResult objects
-                     Sources: 'exact', 'fuzzy', 'vector', 'splade'
+                     Sources: 'exact', 'fuzzy', 'vector'
         weights: Dictionary mapping source name to weight (default: equal weights)
                  Example: {'exact': 0.3, 'fuzzy': 0.1, 'vector': 0.6}
-                 Or: {'splade': 0.4, 'vector': 0.6}
         k: Constant to avoid division by zero and control rank influence (default 60)
 
     Returns:
@@ -349,14 +330,6 @@ def reciprocal_rank_fusion(
         >>> fuzzy_results = [SearchResult(path="b.py", score=8.0, excerpt="...")]
         >>> results_map = {'exact': exact_results, 'fuzzy': fuzzy_results}
         >>> fused = reciprocal_rank_fusion(results_map)
-
-        # Three-way fusion with SPLADE
-        >>> results_map = {
-        ...     'exact': exact_results,
-        ...     'vector': vector_results,
-        ...     'splade': splade_results
-        ... }
-        >>> fused = reciprocal_rank_fusion(results_map, k=60)
     """
     if not results_map:
         return []

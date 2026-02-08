@@ -405,7 +405,7 @@ def semantic_search(
             - rrf: Reciprocal Rank Fusion (推荐，默认)
             - staged: 分阶段级联 → staged_cascade_search
             - binary: 二分重排级联 → binary_rerank_cascade_search
-            - hybrid: 混合级联 → hybrid_cascade_search
+            - hybrid: 混合级联 → hybrid_search
         kind_filter: 符号类型过滤
         limit: 最大返回数量
         include_match_reason: 是否生成匹配原因 (启发式，非 LLM)

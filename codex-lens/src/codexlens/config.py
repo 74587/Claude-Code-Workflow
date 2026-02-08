@@ -19,9 +19,6 @@ WORKSPACE_DIR_NAME = ".codexlens"
 # Settings file name
 SETTINGS_FILE_NAME = "settings.json"
 
-# SPLADE index database name (centralized storage)
-SPLADE_DB_NAME = "_splade.db"
-
 # Dense vector storage names (centralized storage)
 VECTORS_HNSW_NAME = "_vectors.hnsw"
 VECTORS_META_DB_NAME = "_vectors_meta.db"
@@ -113,15 +110,6 @@ class Config:
                                    # For litellm: model name from config (e.g., "qwen3-embedding")
     embedding_use_gpu: bool = True  # For fastembed: whether to use GPU acceleration
 
-    # SPLADE sparse retrieval configuration
-    enable_splade: bool = False  # Disable SPLADE by default (slow ~360ms, use FTS instead)
-    splade_model: str = "naver/splade-cocondenser-ensembledistil"
-    splade_threshold: float = 0.01  # Min weight to store in index
-    splade_onnx_path: Optional[str] = None  # Custom ONNX model path
-
-    # FTS fallback (disabled by default, available via --use-fts)
-    use_fts_fallback: bool = True  # Use FTS for sparse search (fast, SPLADE disabled)
-
     # Indexing/search optimizations
     global_symbol_index_enabled: bool = True  # Enable project-wide symbol index fast path
     enable_merkle_detection: bool = True  # Enable content-hash based incremental indexing
@@ -152,7 +140,7 @@ class Config:
     enable_cascade_search: bool = False  # Enable cascade search (coarse + fine ranking)
     cascade_coarse_k: int = 100  # Number of coarse candidates from first stage
     cascade_fine_k: int = 10  # Number of final results after reranking
-    cascade_strategy: str = "binary"  # "binary" (fast binary+dense) or "hybrid" (FTS+SPLADE+Vector+CrossEncoder)
+    cascade_strategy: str = "binary"  # "binary", "binary_rerank", "dense_rerank", or "staged"
 
     # Staged cascade search configuration (4-stage pipeline)
     staged_coarse_k: int = 200  # Number of coarse candidates from Stage 1 binary search
@@ -398,11 +386,11 @@ class Config:
             cascade = settings.get("cascade", {})
             if "strategy" in cascade:
                 strategy = cascade["strategy"]
-                if strategy in {"binary", "hybrid", "binary_rerank", "dense_rerank"}:
+                if strategy in {"binary", "binary_rerank", "dense_rerank", "staged"}:
                     self.cascade_strategy = strategy
                 else:
                     log.warning(
-                        "Invalid cascade strategy in %s: %r (expected 'binary', 'hybrid', 'binary_rerank', or 'dense_rerank')",
+                        "Invalid cascade strategy in %s: %r (expected 'binary', 'binary_rerank', 'dense_rerank', or 'staged')",
                         self.settings_path,
                         strategy,
                     )

@@ -576,20 +576,20 @@ class TestStagedCascadeIntegration:
                                 # Verify stage 4 was called
                                 mock_stage4.assert_called_once()
 
-    def test_staged_cascade_fallback_to_hybrid(
+    def test_staged_cascade_fallback_to_search(
         self, mock_registry, mock_mapper, mock_config, temp_paths
     ):
-        """Test staged_cascade_search falls back to hybrid when numpy unavailable."""
+        """Test staged_cascade_search falls back to standard search when numpy unavailable."""
         engine = ChainSearchEngine(mock_registry, mock_mapper, config=mock_config)
 
         with patch("codexlens.search.chain_search.NUMPY_AVAILABLE", False):
-            with patch.object(engine, "hybrid_cascade_search") as mock_hybrid:
-                mock_hybrid.return_value = MagicMock()
+            with patch.object(engine, "search") as mock_search:
+                mock_search.return_value = MagicMock()
 
                 engine.staged_cascade_search("query", temp_paths / "src")
 
-                # Should fall back to hybrid cascade
-                mock_hybrid.assert_called_once()
+                # Should fall back to standard search
+                mock_search.assert_called_once()
 
     def test_staged_cascade_deduplicates_final_results(
         self, mock_registry, mock_mapper, mock_config, temp_paths
@@ -689,10 +689,10 @@ class TestStagedCascadeGracefulDegradation:
                     # Stage 1 returns no results
                     mock_stage1.return_value = ([], None)
 
-                    with patch.object(engine, "hybrid_cascade_search") as mock_hybrid:
-                        mock_hybrid.return_value = MagicMock()
+                    with patch.object(engine, "search") as mock_search:
+                        mock_search.return_value = MagicMock()
 
                         engine.staged_cascade_search("query", temp_paths / "src")
 
-                        # Should fall back to hybrid when stage 1 fails
-                        mock_hybrid.assert_called_once()
+                        # Should fall back to standard search when stage 1 fails
+                        mock_search.assert_called_once()

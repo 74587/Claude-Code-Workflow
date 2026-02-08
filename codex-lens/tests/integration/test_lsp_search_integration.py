@@ -1,7 +1,7 @@
 """Integration tests for HybridSearchEngine LSP graph search.
 
 Tests the _search_lsp_graph method which orchestrates:
-1. Seed retrieval via vector/splade/exact fallback chain
+1. Seed retrieval via vector/exact fallback chain
 2. LSP graph expansion via LspBridge and LspGraphBuilder
 3. Result deduplication and merging
 
@@ -184,8 +184,6 @@ class TestP0CriticalLspSearch:
         with patch.object(
             engine, "_search_vector", return_value=[sample_search_result]
         ) as mock_vector, patch.object(
-            engine, "_search_splade", return_value=[]
-        ), patch.object(
             engine, "_search_exact", return_value=[]
         ):
             # Patch LSP module at the import location
@@ -251,11 +249,10 @@ class TestP0CriticalLspSearch:
         sample_search_result: SearchResult,
         sample_code_symbol_node: CodeSymbolNode,
     ) -> None:
-        """Test seed fallback chain: vector -> splade -> exact.
+        """Test seed fallback chain: vector -> exact.
 
         Input: query="init_db"
         Mock: _search_vector returns []
-        Mock: _search_splade returns []
         Mock: _search_exact returns 1 seed
         Assert: Fallback chain called in order, uses exact's seed
         """
@@ -265,10 +262,6 @@ class TestP0CriticalLspSearch:
 
         def track_vector(*args, **kwargs):
             call_order.append("vector")
-            return []
-
-        def track_splade(*args, **kwargs):
-            call_order.append("splade")
             return []
 
         def track_exact(*args, **kwargs):
@@ -284,8 +277,6 @@ class TestP0CriticalLspSearch:
         with patch.object(
             engine, "_search_vector", side_effect=track_vector
         ) as mock_vector, patch.object(
-            engine, "_search_splade", side_effect=track_splade
-        ) as mock_splade, patch.object(
             engine, "_search_exact", side_effect=track_exact
         ) as mock_exact:
             with patch("codexlens.search.hybrid_search.HAS_LSP", True):
@@ -322,12 +313,11 @@ class TestP0CriticalLspSearch:
                         max_nodes=20,
                     )
 
-        # Verify fallback chain order: vector -> splade -> exact
-        assert call_order == ["vector", "splade", "exact"]
+        # Verify fallback chain order: vector -> exact
+        assert call_order == ["vector", "exact"]
 
-        # All three methods should be called
+        # Both methods should be called
         mock_vector.assert_called_once()
-        mock_splade.assert_called_once()
         mock_exact.assert_called_once()
 
         # Should return results from graph expansion (1 related node)
@@ -357,8 +347,6 @@ class TestP1ImportantLspSearch:
         with patch.object(
             engine, "_search_vector", return_value=[]
         ) as mock_vector, patch.object(
-            engine, "_search_splade", return_value=[]
-        ) as mock_splade, patch.object(
             engine, "_search_exact", return_value=[]
         ) as mock_exact:
             with patch("codexlens.search.hybrid_search.HAS_LSP", True):
@@ -379,7 +367,6 @@ class TestP1ImportantLspSearch:
 
         # All search methods should be tried
         mock_vector.assert_called_once()
-        mock_splade.assert_called_once()
         mock_exact.assert_called_once()
 
         # Should return empty list

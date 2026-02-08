@@ -151,15 +151,6 @@ def _cleanup_fastembed_resources() -> None:
         pass
 
 
-def _cleanup_splade_resources() -> None:
-    """Release SPLADE encoder ONNX resources."""
-    try:
-        from codexlens.semantic.splade_encoder import clear_splade_cache
-        clear_splade_cache()
-    except Exception:
-        pass
-
-
 def _generate_chunks_from_cursor(
     cursor,
     chunker,
@@ -398,7 +389,6 @@ def generate_embeddings(
     endpoints: Optional[List] = None,
     strategy: Optional[str] = None,
     cooldown: Optional[float] = None,
-    splade_db_path: Optional[Path] = None,
 ) -> Dict[str, any]:
     """Generate embeddings for an index using memory-efficient batch processing.
 
@@ -428,9 +418,6 @@ def generate_embeddings(
                   Each dict has keys: model, api_key, api_base, weight.
         strategy: Selection strategy for multi-endpoint mode (round_robin, latency_aware).
         cooldown: Default cooldown seconds for rate-limited endpoints.
-        splade_db_path: Optional path to centralized SPLADE database. If None, SPLADE
-                       is written to index_path (legacy behavior). Use index_root / SPLADE_DB_NAME
-                       for centralized storage.
 
     Returns:
         Result dictionary with generation statistics
@@ -822,97 +809,10 @@ def generate_embeddings(
                 if progress_callback:
                     progress_callback(f"Finalizing index... Building ANN index for {total_chunks_created} chunks")
 
-            # --- SPLADE SPARSE ENCODING (after dense embeddings) ---
-            # Add SPLADE encoding if enabled in config
-            splade_success = False
-            splade_error = None
-
-            try:
-                from codexlens.config import Config, SPLADE_DB_NAME
-                config = Config.load()
-
-                if config.enable_splade:
-                    from codexlens.semantic.splade_encoder import check_splade_available, get_splade_encoder
-                    from codexlens.storage.splade_index import SpladeIndex
-
-                    ok, err = check_splade_available()
-                    if ok:
-                        if progress_callback:
-                            progress_callback(f"Generating SPLADE sparse vectors for {total_chunks_created} chunks...")
-
-                        # Initialize SPLADE encoder and index
-                        splade_encoder = get_splade_encoder(use_gpu=use_gpu)
-                        # Use centralized SPLADE database if provided, otherwise fallback to index_path
-                        effective_splade_path = splade_db_path if splade_db_path else index_path
-                        splade_index = SpladeIndex(effective_splade_path)
-                        splade_index.create_tables()
-
-                        # Retrieve all chunks from database for SPLADE encoding
-                        with sqlite3.connect(index_path) as conn:
-                            conn.row_factory = sqlite3.Row
-                            cursor = conn.execute("SELECT id, content FROM semantic_chunks ORDER BY id")
-
-                            # Batch encode for efficiency
-                            SPLADE_BATCH_SIZE = 32
-                            batch_postings = []
-                            chunk_batch = []
-                            chunk_ids = []
-
-                            for row in cursor:
-                                chunk_id = row["id"]
-                                content = row["content"]
-
-                                chunk_ids.append(chunk_id)
-                                chunk_batch.append(content)
-
-                                # Process batch when full
-                                if len(chunk_batch) >= SPLADE_BATCH_SIZE:
-                                    sparse_vecs = splade_encoder.encode_batch(chunk_batch, batch_size=SPLADE_BATCH_SIZE)
-                                    for cid, sparse_vec in zip(chunk_ids, sparse_vecs):
-                                        batch_postings.append((cid, sparse_vec))
-
-                                    chunk_batch = []
-                                    chunk_ids = []
-
-                            # Process remaining chunks
-                            if chunk_batch:
-                                sparse_vecs = splade_encoder.encode_batch(chunk_batch, batch_size=SPLADE_BATCH_SIZE)
-                                for cid, sparse_vec in zip(chunk_ids, sparse_vecs):
-                                    batch_postings.append((cid, sparse_vec))
-
-                            # Batch insert all postings
-                            if batch_postings:
-                                splade_index.add_postings_batch(batch_postings)
-
-                                # Set metadata
-                                splade_index.set_metadata(
-                                    model_name=splade_encoder.model_name,
-                                    vocab_size=splade_encoder.vocab_size
-                                )
-
-                                splade_success = True
-                                if progress_callback:
-                                    stats = splade_index.get_stats()
-                                    progress_callback(
-                                        f"SPLADE index created: {stats['total_postings']} postings, "
-                                        f"{stats['unique_tokens']} unique tokens"
-                                    )
-                    else:
-                        logger.debug("SPLADE not available: %s", err)
-                        splade_error = f"SPLADE not available: {err}"
-            except Exception as e:
-                splade_error = str(e)
-                logger.warning("SPLADE encoding failed: %s", e)
-
-            # Report SPLADE status after processing
-            if progress_callback and not splade_success and splade_error:
-                progress_callback(f"SPLADE index: FAILED - {splade_error}")
-
     except Exception as e:
         # Cleanup on error to prevent process hanging
         try:
             _cleanup_fastembed_resources()
-            _cleanup_splade_resources()
             gc.collect()
         except Exception:
             pass
@@ -924,7 +824,6 @@ def generate_embeddings(
     # This is critical - without it, ONNX Runtime threads prevent Python from exiting
     try:
         _cleanup_fastembed_resources()
-        _cleanup_splade_resources()
         gc.collect()
     except Exception:
         pass
@@ -1098,10 +997,6 @@ def generate_embeddings_recursive(
     if progress_callback:
         progress_callback(f"Found {len(index_files)} index databases to process")
 
-    # Calculate centralized SPLADE database path
-    from codexlens.config import SPLADE_DB_NAME
-    splade_db_path = index_root / SPLADE_DB_NAME
-
     # Process each index database
     all_results = []
     total_chunks = 0
@@ -1131,7 +1026,6 @@ def generate_embeddings_recursive(
             endpoints=endpoints,
             strategy=strategy,
             cooldown=cooldown,
-            splade_db_path=splade_db_path,  # Use centralized SPLADE storage
         )
 
         all_results.append({
@@ -1153,7 +1047,6 @@ def generate_embeddings_recursive(
     # Each generate_embeddings() call does its own cleanup, but do a final one to be safe
     try:
         _cleanup_fastembed_resources()
-        _cleanup_splade_resources()
         gc.collect()
     except Exception:
         pass
@@ -1197,7 +1090,6 @@ def generate_dense_embeddings_centralized(
     Target architecture:
         <index_root>/
         |-- _vectors.hnsw         # Centralized dense vector ANN index
-        |-- _splade.db            # Centralized sparse vector index
         |-- src/
             |-- _index.db         # No longer contains .hnsw file
 
@@ -1219,7 +1111,7 @@ def generate_dense_embeddings_centralized(
     Returns:
         Result dictionary with generation statistics
     """
-    from codexlens.config import VECTORS_HNSW_NAME, SPLADE_DB_NAME
+    from codexlens.config import VECTORS_HNSW_NAME
 
     # Get defaults from config if not specified
     (default_backend, default_model, default_gpu,
@@ -1543,90 +1435,6 @@ def generate_dense_embeddings_centralized(
         logger.warning("Binary vector generation failed: %s", e)
         # Non-fatal: continue without binary vectors
 
-    # --- SPLADE Sparse Index Generation (Centralized) ---
-    splade_success = False
-    splade_chunks_count = 0
-    try:
-        from codexlens.config import Config
-        config = Config.load()
-
-        if config.enable_splade and chunk_id_to_info:
-            from codexlens.semantic.splade_encoder import check_splade_available, get_splade_encoder
-            from codexlens.storage.splade_index import SpladeIndex
-            import json
-
-            ok, err = check_splade_available()
-            if ok:
-                if progress_callback:
-                    progress_callback(f"Generating SPLADE sparse vectors for {len(chunk_id_to_info)} chunks...")
-
-                # Initialize SPLADE encoder and index
-                splade_encoder = get_splade_encoder(use_gpu=use_gpu)
-                splade_db_path = index_root / SPLADE_DB_NAME
-                splade_index = SpladeIndex(splade_db_path)
-                splade_index.create_tables()
-
-                # Batch encode for efficiency
-                SPLADE_BATCH_SIZE = 32
-                all_postings = []
-                all_chunk_metadata = []
-
-                # Create batches from chunk_id_to_info
-                chunk_items = list(chunk_id_to_info.items())
-
-                for i in range(0, len(chunk_items), SPLADE_BATCH_SIZE):
-                    batch_items = chunk_items[i:i + SPLADE_BATCH_SIZE]
-                    chunk_ids = [item[0] for item in batch_items]
-                    chunk_contents = [item[1]["content"] for item in batch_items]
-
-                    # Generate sparse vectors
-                    sparse_vecs = splade_encoder.encode_batch(chunk_contents, batch_size=SPLADE_BATCH_SIZE)
-                    for cid, sparse_vec in zip(chunk_ids, sparse_vecs):
-                        all_postings.append((cid, sparse_vec))
-
-                    if progress_callback and (i + SPLADE_BATCH_SIZE) % 100 == 0:
-                        progress_callback(f"SPLADE encoding: {min(i + SPLADE_BATCH_SIZE, len(chunk_items))}/{len(chunk_items)}")
-
-                # Batch insert all postings
-                if all_postings:
-                    splade_index.add_postings_batch(all_postings)
-
-                # CRITICAL FIX: Populate splade_chunks table
-                for cid, info in chunk_id_to_info.items():
-                    metadata_str = json.dumps(info.get("metadata", {})) if info.get("metadata") else None
-                    all_chunk_metadata.append((
-                        cid,
-                        info["file_path"],
-                        info["content"],
-                        metadata_str,
-                        info.get("source_index_db")
-                    ))
-
-                if all_chunk_metadata:
-                    splade_index.add_chunks_metadata_batch(all_chunk_metadata)
-                    splade_chunks_count = len(all_chunk_metadata)
-
-                # Set metadata
-                splade_index.set_metadata(
-                    model_name=splade_encoder.model_name,
-                    vocab_size=splade_encoder.vocab_size
-                )
-
-                splade_index.close()
-                splade_success = True
-
-                if progress_callback:
-                    progress_callback(f"SPLADE index created: {len(all_postings)} postings, {splade_chunks_count} chunks")
-
-            else:
-                if progress_callback:
-                    progress_callback(f"SPLADE not available, skipping sparse index: {err}")
-
-    except Exception as e:
-        logger.warning("SPLADE encoding failed: %s", e)
-        if progress_callback:
-            progress_callback(f"SPLADE encoding failed: {e}")
-
     elapsed_time = time.time() - start_time
 
     # Cleanup
@@ -1647,8 +1455,6 @@ def generate_dense_embeddings_centralized(
             "model_name": embedder.model_name,
             "central_index_path": str(central_hnsw_path),
             "failed_files": failed_files[:5],
-            "splade_success": splade_success,
-            "splade_chunks": splade_chunks_count,
             "binary_success": binary_success,
             "binary_count": binary_count,
         },

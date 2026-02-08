@@ -427,12 +427,12 @@ class TestFusionStrategyMapping:
 
         mock_engine.binary_cascade_search.assert_called_once()
 
-    def test_hybrid_strategy_calls_hybrid_cascade_search(self):
-        """Test that hybrid strategy maps to hybrid_cascade_search."""
+    def test_hybrid_strategy_maps_to_binary_rerank(self):
+        """Test that hybrid strategy maps to binary_rerank_cascade_search (backward compat)."""
         from codexlens.api.semantic import _execute_search
 
         mock_engine = MagicMock()
-        mock_engine.hybrid_cascade_search.return_value = MagicMock(results=[])
+        mock_engine.binary_rerank_cascade_search.return_value = MagicMock(results=[])
         mock_options = MagicMock()
 
         _execute_search(
@@ -444,7 +444,7 @@ class TestFusionStrategyMapping:
             limit=20,
         )
 
-        mock_engine.hybrid_cascade_search.assert_called_once()
+        mock_engine.binary_rerank_cascade_search.assert_called_once()
 
     def test_unknown_strategy_defaults_to_rrf(self):
         """Test that unknown strategy defaults to standard search (rrf)."""

@@ -303,7 +303,7 @@ class TestRealHybridSearchIntegrationStandalone:
         """Test the full LSP search pipeline with real LSP."""
         print(f"\n>>> Testing full LSP search pipeline")
 
-        # Create mock seeds (normally from vector/splade search)
+        # Create mock seeds (normally from vector/FTS search)
         seeds = [
             CodeSymbolNode(
                 id=f"{TEST_PYTHON_FILE}:LspBridge:96",

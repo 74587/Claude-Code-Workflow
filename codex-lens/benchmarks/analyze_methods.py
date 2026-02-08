@@ -12,7 +12,6 @@ from codexlens.search.ranking import (
     reciprocal_rank_fusion,
     cross_encoder_rerank,
     DEFAULT_WEIGHTS,
-    FTS_FALLBACK_WEIGHTS,
 )
 
 # Use index with most data
@@ -65,12 +64,6 @@ with sqlite3.connect(index_path) as conn:
                 non_null = semantic_count - null_count
                 print(f"  {col}: {non_null}/{semantic_count} non-null")
 
-    if "splade_posting_list" in tables:
-        splade_count = conn.execute("SELECT COUNT(*) FROM splade_posting_list").fetchone()[0]
-        print(f"\n  splade_posting_list: {splade_count} postings")
-    else:
-        print("\n  splade_posting_list: NOT EXISTS")
-
 print("\n" + "=" * 60)
 print("2. METHOD CONTRIBUTION ANALYSIS")
 print("=" * 60)
@@ -87,7 +80,6 @@ results_summary = {
     "fts_exact": [],
     "fts_fuzzy": [],
     "vector": [],
-    "splade": [],
 }
 
 for query in queries:
@@ -95,10 +87,9 @@ for query in queries:
 
     # FTS Exact
     try:
-        engine = HybridSearchEngine(weights=FTS_FALLBACK_WEIGHTS)
+        engine = HybridSearchEngine(weights=DEFAULT_WEIGHTS)
         engine._config = type("obj", (object,), {
             "use_fts_fallback": True,
-            "enable_splade": False,
             "embedding_use_gpu": True,
             "symbol_boost_factor": 1.5,
             "enable_reranking": False,
@@ -117,10 +108,9 @@ for query in queries:
 
     # FTS Fuzzy
     try:
-        engine = HybridSearchEngine(weights=FTS_FALLBACK_WEIGHTS)
+        engine = HybridSearchEngine(weights=DEFAULT_WEIGHTS)
         engine._config = type("obj", (object,), {
             "use_fts_fallback": True,
-            "enable_splade": False,
             "embedding_use_gpu": True,
             "symbol_boost_factor": 1.5,
             "enable_reranking": False,
@@ -142,7 +132,6 @@ for query in queries:
         engine = HybridSearchEngine()
         engine._config = type("obj", (object,), {
             "use_fts_fallback": False,
-            "enable_splade": False,
             "embedding_use_gpu": True,
             "symbol_boost_factor": 1.5,
             "enable_reranking": False,
@@ -158,28 +147,6 @@ for query in queries:
         print(f"  Vector: {len(results)} results, {latency:.1f}ms, top: {top_file} ({top_score:.3f})")
     except Exception as e:
         print(f"  Vector: ERROR - {e}")
-
-    # SPLADE
-    try:
-        engine = HybridSearchEngine(weights={"splade": 1.0})
-        engine._config = type("obj", (object,), {
-            "use_fts_fallback": False,
-            "enable_splade": True,
-            "embedding_use_gpu": True,
-            "symbol_boost_factor": 1.5,
-            "enable_reranking": False,
-        })()
-
-        start = time.perf_counter()
-        results = engine.search(index_path, query, limit=10, enable_fuzzy=False, enable_vector=False)
-        latency = (time.perf_counter() - start) * 1000
-
-        results_summary["splade"].append({"count": len(results), "latency": latency})
-        top_file = results[0].path.split("\\")[-1] if results else "N/A"
-        top_score = results[0].score if results else 0
-        print(f"  SPLADE: {len(results)} results, {latency:.1f}ms, top: {top_file} ({top_score:.3f})")
-    except Exception as e:
-        print(f"  SPLADE: ERROR - {e}")
 
 print("\n--- Summary ---")
 for method, data in results_summary.items():
@@ -210,10 +177,9 @@ for query in test_queries:
 
     # Strategy 1: Standard Hybrid (FTS exact+fuzzy RRF)
     try:
-        engine = HybridSearchEngine(weights=FTS_FALLBACK_WEIGHTS)
+        engine = HybridSearchEngine(weights=DEFAULT_WEIGHTS)
         engine._config = type("obj", (object,), {
             "use_fts_fallback": True,
-            "enable_splade": False,
             "embedding_use_gpu": True,
             "symbol_boost_factor": 1.5,
             "enable_reranking": False,
@@ -263,7 +229,6 @@ print("""
 1. Storage Architecture:
    - semantic_chunks: Used by cascade-index (binary+dense vectors)
    - chunks: Used by legacy SQLiteStore (currently empty in this index)
-   - splade_posting_list: Used by SPLADE sparse retrieval
    - files_fts_*: Used by FTS exact/fuzzy search
 
    CONFLICT: binary_cascade_search reads from semantic_chunks,
@@ -272,7 +237,6 @@ print("""
 2. Method Contributions:
    - FTS: Fast but limited to keyword matching
    - Vector: Semantic understanding but requires embeddings
-   - SPLADE: Sparse retrieval, good for keyword+semantic hybrid
 
 3. FTS + Rerank Fusion:
    - CrossEncoder reranking can improve precision

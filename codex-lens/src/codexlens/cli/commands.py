@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import shutil
-import sqlite3
 from pathlib import Path
 from typing import Annotated, Any, Dict, Iterable, List, Optional
 
@@ -37,7 +36,7 @@ from .output import (
 app = typer.Typer(help="CodexLens CLI — local code indexing and search.")
 
 # Index subcommand group for reorganized commands
-index_app = typer.Typer(help="Index management commands (init, embeddings, splade, binary, status, migrate, all)")
+index_app = typer.Typer(help="Index management commands (init, embeddings, binary, status, migrate, all)")
 app.add_typer(index_app, name="index")
 
 
@@ -521,15 +520,15 @@ def search(
                 print_json(success=False, error=f"Invalid deprecated mode: {mode}. Use --method instead.")
             else:
                 console.print(f"[red]Invalid deprecated mode:[/red] {mode}")
-                console.print("[dim]Use --method with: fts, vector, splade, hybrid, cascade[/dim]")
+                console.print("[dim]Use --method with: fts, vector, hybrid, cascade[/dim]")
             raise typer.Exit(code=1)
 
     # Configure search (load settings from file)
     config = Config.load()
 
     # Validate method - simplified interface exposes only dense_rerank and fts
-    # Other methods (vector, splade, hybrid, cascade) are hidden but still work for backward compatibility
-    valid_methods = ["fts", "dense_rerank", "vector", "splade", "hybrid", "cascade"]
+    # Other methods (vector, hybrid, cascade) are hidden but still work for backward compatibility
+    valid_methods = ["fts", "dense_rerank", "vector", "hybrid", "cascade"]
     if actual_method not in valid_methods:
         if json_mode:
             print_json(success=False, error=f"Invalid method: {actual_method}. Use 'dense_rerank' (semantic) or 'fts' (exact keyword).")
@@ -561,7 +560,7 @@ def search(
         try:
             # Check if using key=value format (new) or legacy comma-separated format
             if "=" in weights:
-                # New format: splade=0.4,vector=0.6 or exact=0.3,fuzzy=0.1,vector=0.6
+                # New format: exact=0.3,fuzzy=0.1,vector=0.6
                 weight_dict = {}
                 for pair in weights.split(","):
                     if "=" in pair:
@@ -592,17 +591,6 @@ def search(
                         "fuzzy": weight_parts[1],
                         "vector": weight_parts[2],
                     }
-                elif len(weight_parts) == 2:
-                    # Two values: assume splade,vector
-                    weight_sum = sum(weight_parts)
-                    if abs(weight_sum - 1.0) > 0.01:
-                        if not json_mode:
-                            console.print(f"[yellow]Warning: Weights sum to {weight_sum:.2f}, should sum to 1.0. Normalizing...[/yellow]")
-                        weight_parts = [w / weight_sum for w in weight_parts]
-                    hybrid_weights = {
-                        "splade": weight_parts[0],
-                        "vector": weight_parts[1],
-                    }
                 else:
                     if not json_mode:
                         console.print("[yellow]Warning: Invalid weights format. Using defaults.[/yellow]")
@@ -621,7 +609,6 @@ def search(
         # Map method to SearchOptions flags
         # fts: FTS-only search (optionally with fuzzy)
         # vector: Pure vector semantic search
-        # splade: SPLADE sparse neural search
         # hybrid: RRF fusion of sparse + dense
         # cascade: Two-stage binary + dense retrieval
         if actual_method == "fts":
@@ -629,35 +616,24 @@ def search(
             enable_fuzzy = use_fuzzy
             enable_vector = False
             pure_vector = False
-            enable_splade = False
             enable_cascade = False
         elif actual_method == "vector":
             hybrid_mode = True
             enable_fuzzy = False
             enable_vector = True
             pure_vector = True
-            enable_splade = False
-            enable_cascade = False
-        elif actual_method == "splade":
-            hybrid_mode = True
-            enable_fuzzy = False
-            enable_vector = False
-            pure_vector = False
-            enable_splade = True
             enable_cascade = False
         elif actual_method == "hybrid":
             hybrid_mode = True
             enable_fuzzy = use_fuzzy
             enable_vector = True
             pure_vector = False
-            enable_splade = True  # SPLADE is preferred sparse in hybrid
             enable_cascade = False
         elif actual_method == "cascade":
             hybrid_mode = True
             enable_fuzzy = False
             enable_vector = True
             pure_vector = False
-            enable_splade = False
             enable_cascade = True
         else:
             raise ValueError(f"Invalid method: {actual_method}")
@@ -678,7 +654,6 @@ def search(
             enable_fuzzy=enable_fuzzy,
             enable_vector=enable_vector,
             pure_vector=pure_vector,
-            enable_splade=enable_splade,
             enable_cascade=enable_cascade,
             hybrid_weights=hybrid_weights,
         )
@@ -2857,251 +2832,8 @@ def gpu_reset(
 
 
 
-# ==================== SPLADE Commands ====================
-
-@index_app.command("splade")
-def index_splade(
-    path: Path = typer.Argument(..., help="Project path to index"),
-    rebuild: bool = typer.Option(False, "--rebuild", "-r", help="Force rebuild SPLADE index"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
-) -> None:
-    """Generate SPLADE sparse index for existing codebase.
-
-    Encodes all semantic chunks with SPLADE model and builds inverted index
-    for efficient sparse retrieval.
-
-    This command discovers all _index.db files recursively in the project's
-    index directory and builds SPLADE encodings for chunks across all of them.
-
-    Examples:
-        codexlens index splade ~/projects/my-app
-        codexlens index splade . --rebuild
-    """
-    _configure_logging(verbose)
-
-    from codexlens.semantic.splade_encoder import get_splade_encoder, check_splade_available
-    from codexlens.storage.splade_index import SpladeIndex
-    from codexlens.semantic.vector_store import VectorStore
-
-    # Check SPLADE availability
-    ok, err = check_splade_available()
-    if not ok:
-        console.print(f"[red]SPLADE not available: {err}[/red]")
-        console.print("[dim]Install with: pip install transformers torch[/dim]")
-        raise typer.Exit(1)
-
-    # Find index root directory
-    target_path = path.expanduser().resolve()
-
-    # Determine index root directory (containing _index.db files)
-    if target_path.is_file() and target_path.name == "_index.db":
-        index_root = target_path.parent
-    elif target_path.is_dir():
-        # Check for local .codexlens/_index.db
-        local_index = target_path / ".codexlens" / "_index.db"
-        if local_index.exists():
-            index_root = local_index.parent
-        else:
-            # Try to find via registry
-            registry = RegistryStore()
-            try:
-                registry.initialize()
-                mapper = PathMapper()
-                index_db = mapper.source_to_index_db(target_path)
-                if not index_db.exists():
-                    console.print(f"[red]Error:[/red] No index found for {target_path}")
-                    console.print("Run 'codexlens init' first to create an index")
-                    raise typer.Exit(1)
-                index_root = index_db.parent
-            finally:
-                registry.close()
-    else:
-        console.print(f"[red]Error:[/red] Path must be _index.db file or indexed directory")
-        raise typer.Exit(1)
-
-    # Discover all _index.db files recursively
-    all_index_dbs = sorted(index_root.rglob("_index.db"))
-    if not all_index_dbs:
-        console.print(f"[red]Error:[/red] No _index.db files found in {index_root}")
-        raise typer.Exit(1)
-
-    console.print(f"[blue]Discovered {len(all_index_dbs)} index databases[/blue]")
-
-    # SPLADE index is stored alongside the root _index.db
-    from codexlens.config import SPLADE_DB_NAME
-    splade_db = index_root / SPLADE_DB_NAME
-
-    if splade_db.exists() and not rebuild:
-        console.print("[yellow]SPLADE index exists. Use --rebuild to regenerate.[/yellow]")
-        return
-
-    # If rebuild, delete existing splade database
-    if splade_db.exists() and rebuild:
-        splade_db.unlink()
-
-    # Collect all chunks from all distributed index databases
-    # Assign globally unique IDs to avoid collisions (each DB starts with ID 1)
-    console.print(f"[blue]Loading chunks from {len(all_index_dbs)} distributed indexes...[/blue]")
-    all_chunks = []  # (global_id, chunk) pairs
-    total_files_checked = 0
-    indexes_with_chunks = 0
-    global_id = 0  # Sequential global ID across all databases
-
-    for index_db in all_index_dbs:
-        total_files_checked += 1
-        try:
-            vector_store = VectorStore(index_db)
-            chunks = vector_store.get_all_chunks()
-            if chunks:
-                indexes_with_chunks += 1
-                # Assign sequential global IDs to avoid collisions
-                for chunk in chunks:
-                    global_id += 1
-                    all_chunks.append((global_id, chunk, index_db))
-                if verbose:
-                    console.print(f"  [dim]{index_db.parent.name}: {len(chunks)} chunks[/dim]")
-            vector_store.close()
-        except Exception as e:
-            if verbose:
-                console.print(f"  [yellow]Warning: Failed to read {index_db}: {e}[/yellow]")
-
-    if not all_chunks:
-        console.print("[yellow]No chunks found in any index database[/yellow]")
-        console.print(f"[dim]Checked {total_files_checked} index files, found 0 chunks[/dim]")
-        console.print("[dim]Generate embeddings first with 'codexlens embeddings-generate --recursive'[/dim]")
-        raise typer.Exit(1)
-
-    console.print(f"[blue]Found {len(all_chunks)} chunks across {indexes_with_chunks} indexes[/blue]")
-    console.print(f"[blue]Encoding with SPLADE...[/blue]")
-
-    # Initialize SPLADE
-    encoder = get_splade_encoder()
-    splade_index = SpladeIndex(splade_db)
-    splade_index.create_tables()
-
-    # Encode in batches with progress bar
-    chunk_metadata_batch = []
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-        TimeElapsedColumn(),
-        console=console,
-    ) as progress:
-        task = progress.add_task("Encoding...", total=len(all_chunks))
-        for global_id, chunk, source_db_path in all_chunks:
-            sparse_vec = encoder.encode_text(chunk.content)
-            splade_index.add_posting(global_id, sparse_vec)
-            # Store chunk metadata for self-contained search
-            # Serialize metadata dict to JSON string
-            metadata_str = None
-            if hasattr(chunk, 'metadata') and chunk.metadata:
-                try:
-                    metadata_str = json.dumps(chunk.metadata) if isinstance(chunk.metadata, dict) else chunk.metadata
-                except Exception:
-                    pass
-            chunk_metadata_batch.append((
-                global_id,
-                chunk.file_path or "",
-                chunk.content,
-                metadata_str,
-                str(source_db_path)
-            ))
-            progress.advance(task)
-
-    # Batch insert chunk metadata
-    if chunk_metadata_batch:
-        splade_index.add_chunks_metadata_batch(chunk_metadata_batch)
-
-    # Set metadata
-    splade_index.set_metadata(
-        model_name=encoder.model_name,
-        vocab_size=encoder.vocab_size
-    )
-
-    stats = splade_index.get_stats()
-    console.print(f"[green]OK[/green] SPLADE index built: {stats['unique_chunks']} chunks, {stats['total_postings']} postings")
-    console.print(f"  Source indexes: {indexes_with_chunks}")
-    console.print(f"  Database: [dim]{splade_db}[/dim]")
 
 
-@app.command("splade-status", hidden=True, deprecated=True)
-def splade_status_command(
-    path: Path = typer.Argument(..., help="Project path"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
-) -> None:
-    """[Deprecated] Use 'codexlens index status' instead.
-
-    Show SPLADE index status and statistics.
-
-    Examples:
-        codexlens splade-status ~/projects/my-app
-        codexlens splade-status .
-    """
-    _deprecated_command_warning("splade-status", "index status")
-    _configure_logging(verbose)
-
-    from codexlens.storage.splade_index import SpladeIndex
-    from codexlens.semantic.splade_encoder import check_splade_available
-    from codexlens.config import SPLADE_DB_NAME
-
-    # Find index database
-    target_path = path.expanduser().resolve()
-
-    if target_path.is_file() and target_path.name == "_index.db":
-        splade_db = target_path.parent / SPLADE_DB_NAME
-    elif target_path.is_dir():
-        # Check for local .codexlens/_splade.db
-        local_splade = target_path / ".codexlens" / SPLADE_DB_NAME
-        if local_splade.exists():
-            splade_db = local_splade
-        else:
-            # Try to find via registry
-            registry = RegistryStore()
-            try:
-                registry.initialize()
-                mapper = PathMapper()
-                index_db = mapper.source_to_index_db(target_path)
-                splade_db = index_db.parent / SPLADE_DB_NAME
-            finally:
-                registry.close()
-    else:
-        console.print(f"[red]Error:[/red] Path must be _index.db file or indexed directory")
-        raise typer.Exit(1)
-
-    if not splade_db.exists():
-        console.print("[yellow]No SPLADE index found[/yellow]")
-        console.print(f"[dim]Run 'codexlens splade-index {path}' to create one[/dim]")
-        return
-
-    splade_index = SpladeIndex(splade_db)
-
-    if not splade_index.has_index():
-        console.print("[yellow]SPLADE tables not initialized[/yellow]")
-        return
-
-    metadata = splade_index.get_metadata()
-    stats = splade_index.get_stats()
-
-    # Create status table
-    table = Table(title="SPLADE Index Status", show_header=False)
-    table.add_column("Property", style="cyan")
-    table.add_column("Value")
-
-    table.add_row("Database", str(splade_db))
-    if metadata:
-        table.add_row("Model", metadata['model_name'])
-        table.add_row("Vocab Size", str(metadata['vocab_size']))
-    table.add_row("Chunks", str(stats['unique_chunks']))
-    table.add_row("Unique Tokens", str(stats['unique_tokens']))
-    table.add_row("Total Postings", str(stats['total_postings']))
-
-    ok, err = check_splade_available()
-    status_text = "[green]Yes[/green]" if ok else f"[red]No[/red] - {err}"
-    table.add_row("SPLADE Available", status_text)
-
-    console.print(table)
 
 
 # ==================== Watch Command ====================
@@ -3516,11 +3248,10 @@ def index_status(
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
 ) -> None:
-    """Show comprehensive index status (embeddings + SPLADE).
+    """Show comprehensive index status (embeddings).
 
     Shows combined status for all index types:
     - Dense vector embeddings (HNSW)
-    - SPLADE sparse embeddings
     - Binary cascade embeddings
 
     Examples:
@@ -3531,9 +3262,6 @@ def index_status(
     _configure_logging(verbose, json_mode)
 
     from codexlens.cli.embedding_manager import check_index_embeddings, get_embedding_stats_summary
-    from codexlens.storage.splade_index import SpladeIndex
-    from codexlens.semantic.splade_encoder import check_splade_available
-    from codexlens.config import SPLADE_DB_NAME
 
     # Determine target path and index root
     if path is None:
@@ -3571,36 +3299,11 @@ def index_status(
     # Get embeddings status
     embeddings_result = get_embedding_stats_summary(index_root)
 
-    # Get SPLADE status
-    splade_db = index_root / SPLADE_DB_NAME
-    splade_status = {
-        "available": False,
-        "has_index": False,
-        "stats": None,
-        "metadata": None,
-    }
-
-    splade_available, splade_err = check_splade_available()
-    splade_status["available"] = splade_available
-
-    if splade_db.exists():
-        try:
-            splade_index = SpladeIndex(splade_db)
-            if splade_index.has_index():
-                splade_status["has_index"] = True
-                splade_status["stats"] = splade_index.get_stats()
-                splade_status["metadata"] = splade_index.get_metadata()
-            splade_index.close()
-        except Exception as e:
-            if verbose:
-                console.print(f"[yellow]Warning: Failed to read SPLADE index: {e}[/yellow]")
-
     # Build combined result
     result = {
         "index_root": str(index_root),
         "embeddings": embeddings_result.get("result") if embeddings_result.get("success") else None,
         "embeddings_error": embeddings_result.get("error") if not embeddings_result.get("success") else None,
-        "splade": splade_status,
     }
 
     if json_mode:
@@ -3622,27 +3325,6 @@ def index_status(
             console.print(f"  Total chunks: {total_chunks:,}")
         else:
             console.print(f"  [yellow]--[/yellow] {embeddings_result.get('error', 'Not available')}")
-
-        # SPLADE section
-        console.print("\n[bold]SPLADE Sparse Index:[/bold]")
-        if splade_status["has_index"]:
-            stats = splade_status["stats"] or {}
-            metadata = splade_status["metadata"] or {}
-            console.print(f"  [green]OK[/green] SPLADE index available")
-            console.print(f"  Chunks: {stats.get('unique_chunks', 0):,}")
-            console.print(f"  Unique tokens: {stats.get('unique_tokens', 0):,}")
-            console.print(f"  Total postings: {stats.get('total_postings', 0):,}")
-            if metadata.get("model_name"):
-                console.print(f"  Model: {metadata['model_name']}")
-        elif splade_available:
-            console.print(f"  [yellow]--[/yellow] No SPLADE index found")
-            console.print(f"  [dim]Run 'codexlens index splade <path>' to create one[/dim]")
-        else:
-            console.print(f"  [yellow]--[/yellow] SPLADE not available: {splade_err}")
-
-        # Runtime availability
-        console.print("\n[bold]Runtime Availability:[/bold]")
-        console.print(f"  SPLADE encoder: {'[green]Yes[/green]' if splade_available else f'[red]No[/red] ({splade_err})'}")
 
 
 # ==================== Index Update Command ====================
@@ -3739,22 +3421,19 @@ def index_all(
     backend: str = typer.Option("fastembed", "--backend", "-b", help="Embedding backend: fastembed or litellm."),
     model: str = typer.Option("code", "--model", "-m", help="Embedding model profile or name."),
     max_workers: int = typer.Option(1, "--max-workers", min=1, help="Max concurrent API calls."),
-    skip_splade: bool = typer.Option(False, "--skip-splade", help="Skip SPLADE index generation."),
     json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
 ) -> None:
-    """Run all indexing operations in sequence (init, embeddings, splade).
+    """Run all indexing operations in sequence (init, embeddings).
 
     This is a convenience command that runs the complete indexing pipeline:
     1. FTS index initialization (index init)
     2. Dense vector embeddings (index embeddings)
-    3. SPLADE sparse index (index splade) - unless --skip-splade
 
     Examples:
         codexlens index all ~/projects/my-app
         codexlens index all . --force
         codexlens index all . --backend litellm --model text-embedding-3-small
-        codexlens index all . --skip-splade
     """
     _configure_logging(verbose, json_mode)
 
@@ -3766,7 +3445,7 @@ def index_all(
 
     # Step 1: Run init
     if not json_mode:
-        console.print(f"[bold]Step 1/3: Initializing FTS index...[/bold]")
+        console.print(f"[bold]Step 1/2: Initializing FTS index...[/bold]")
 
     try:
         # Import and call the init function directly
@@ -3810,7 +3489,7 @@ def index_all(
 
     # Step 2: Generate embeddings
     if not json_mode:
-        console.print(f"\n[bold]Step 2/3: Generating dense embeddings...[/bold]")
+        console.print(f"\n[bold]Step 2/2: Generating dense embeddings...[/bold]")
 
     try:
         from codexlens.cli.embedding_manager import generate_dense_embeddings_centralized
@@ -3851,103 +3530,6 @@ def index_all(
         if not json_mode:
             console.print(f"  [yellow]Warning:[/yellow] {e}")
 
-    # Step 3: Generate SPLADE index (unless skipped)
-    if not skip_splade:
-        if not json_mode:
-            console.print(f"\n[bold]Step 3/3: Generating SPLADE index...[/bold]")
-
-        try:
-            from codexlens.semantic.splade_encoder import get_splade_encoder, check_splade_available
-            from codexlens.storage.splade_index import SpladeIndex
-            from codexlens.semantic.vector_store import VectorStore
-            from codexlens.config import SPLADE_DB_NAME
-
-            ok, err = check_splade_available()
-            if not ok:
-                results["steps"]["splade"] = {"success": False, "error": f"SPLADE not available: {err}"}
-                if not json_mode:
-                    console.print(f"  [yellow]Skipped:[/yellow] SPLADE not available ({err})")
-            else:
-                # Discover all _index.db files
-                all_index_dbs = sorted(index_root.rglob("_index.db"))
-                if not all_index_dbs:
-                    results["steps"]["splade"] = {"success": False, "error": "No index databases found"}
-                    if not json_mode:
-                        console.print(f"  [yellow]Skipped:[/yellow] No index databases found")
-                else:
-                    # Collect chunks
-                    all_chunks = []
-                    global_id = 0
-                    for index_db in all_index_dbs:
-                        try:
-                            vector_store = VectorStore(index_db)
-                            chunks = vector_store.get_all_chunks()
-                            for chunk in chunks:
-                                global_id += 1
-                                all_chunks.append((global_id, chunk, index_db))
-                            vector_store.close()
-                        except Exception:
-                            pass
-
-                    if all_chunks:
-                        splade_db = index_root / SPLADE_DB_NAME
-                        if splade_db.exists() and force:
-                            splade_db.unlink()
-
-                        encoder = get_splade_encoder()
-                        splade_index = SpladeIndex(splade_db)
-                        splade_index.create_tables()
-
-                        chunk_metadata_batch = []
-                        import json as json_module
-                        for gid, chunk, source_db_path in all_chunks:
-                            sparse_vec = encoder.encode_text(chunk.content)
-                            splade_index.add_posting(gid, sparse_vec)
-                            metadata_str = None
-                            if hasattr(chunk, 'metadata') and chunk.metadata:
-                                try:
-                                    metadata_str = json_module.dumps(chunk.metadata) if isinstance(chunk.metadata, dict) else chunk.metadata
-                                except Exception:
-                                    pass
-                            chunk_metadata_batch.append((
-                                gid,
-                                chunk.file_path or "",
-                                chunk.content,
-                                metadata_str,
-                                str(source_db_path)
-                            ))
-
-                        if chunk_metadata_batch:
-                            splade_index.add_chunks_metadata_batch(chunk_metadata_batch)
-
-                        splade_index.set_metadata(
-                            model_name=encoder.model_name,
-                            vocab_size=encoder.vocab_size
-                        )
-
-                        stats = splade_index.get_stats()
-                        results["steps"]["splade"] = {
-                            "success": True,
-                            "chunks": stats['unique_chunks'],
-                            "postings": stats['total_postings'],
-                        }
-                        if not json_mode:
-                            console.print(f"  [green]OK[/green] SPLADE index built: {stats['unique_chunks']} chunks, {stats['total_postings']} postings")
-                    else:
-                        results["steps"]["splade"] = {"success": False, "error": "No chunks found"}
-                        if not json_mode:
-                            console.print(f"  [yellow]Skipped:[/yellow] No chunks found in indexes")
-
-        except Exception as e:
-            results["steps"]["splade"] = {"success": False, "error": str(e)}
-            if not json_mode:
-                console.print(f"  [yellow]Warning:[/yellow] {e}")
-    else:
-        results["steps"]["splade"] = {"success": True, "skipped": True}
-        if not json_mode:
-            console.print(f"\n[bold]Step 3/3: SPLADE index...[/bold]")
-            console.print(f"  [dim]Skipped (--skip-splade)[/dim]")
-
     # Summary
     if json_mode:
         print_json(success=True, result=results)
@@ -3955,10 +3537,8 @@ def index_all(
         console.print(f"\n[bold]Indexing Complete[/bold]")
         init_ok = results["steps"].get("init", {}).get("success", False)
         emb_ok = results["steps"].get("embeddings", {}).get("success", False)
-        splade_ok = results["steps"].get("splade", {}).get("success", False)
         console.print(f"  FTS Index: {'[green]OK[/green]' if init_ok else '[red]Failed[/red]'}")
         console.print(f"  Embeddings: {'[green]OK[/green]' if emb_ok else '[yellow]Partial/Skipped[/yellow]'}")
-        console.print(f"  SPLADE: {'[green]OK[/green]' if splade_ok else '[yellow]Partial/Skipped[/yellow]'}")
 
 
 # ==================== Index Migration Commands ====================
@@ -3997,50 +3577,6 @@ def _set_index_version(index_root: Path, version: str) -> None:
     version_file.write_text(version, encoding="utf-8")
 
 
-def _discover_distributed_splade(index_root: Path) -> List[Dict[str, Any]]:
-    """Discover distributed SPLADE data in _index.db files.
-
-    Scans all _index.db files for embedded splade_postings tables.
-    This is the old distributed format that needs migration.
-
-    Args:
-        index_root: Root directory to scan
-
-    Returns:
-        List of dicts with db_path, posting_count, chunk_count
-    """
-    results = []
-
-    for db_path in index_root.rglob("_index.db"):
-        try:
-            conn = sqlite3.connect(db_path, timeout=5.0)
-            conn.row_factory = sqlite3.Row
-
-            # Check if splade_postings table exists (old embedded format)
-            cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='splade_postings'"
-            )
-            if cursor.fetchone():
-                # Count postings and chunks
-                try:
-                    row = conn.execute(
-                        "SELECT COUNT(*) as postings, COUNT(DISTINCT chunk_id) as chunks FROM splade_postings"
-                    ).fetchone()
-                    results.append({
-                        "db_path": db_path,
-                        "posting_count": row["postings"] if row else 0,
-                        "chunk_count": row["chunks"] if row else 0,
-                    })
-                except Exception:
-                    pass
-
-            conn.close()
-        except Exception:
-            pass
-
-    return results
-
-
 def _discover_distributed_hnsw(index_root: Path) -> List[Dict[str, Any]]:
     """Discover distributed HNSW index files.
 
@@ -4075,32 +3611,17 @@ def _check_centralized_storage(index_root: Path) -> Dict[str, Any]:
         index_root: Root directory to check
 
     Returns:
-        Dict with has_splade, has_vectors, splade_stats, vector_stats
+        Dict with has_vectors, vector_stats
     """
-    from codexlens.config import SPLADE_DB_NAME, VECTORS_HNSW_NAME
+    from codexlens.config import VECTORS_HNSW_NAME
 
-    splade_db = index_root / SPLADE_DB_NAME
     vectors_hnsw = index_root / VECTORS_HNSW_NAME
 
     result = {
-        "has_splade": splade_db.exists(),
         "has_vectors": vectors_hnsw.exists(),
-        "splade_path": str(splade_db) if splade_db.exists() else None,
         "vectors_path": str(vectors_hnsw) if vectors_hnsw.exists() else None,
-        "splade_stats": None,
         "vector_stats": None,
     }
-
-    # Get SPLADE stats if exists
-    if splade_db.exists():
-        try:
-            from codexlens.storage.splade_index import SpladeIndex
-            splade = SpladeIndex(splade_db)
-            if splade.has_index():
-                result["splade_stats"] = splade.get_stats()
-            splade.close()
-        except Exception:
-            pass
 
     # Get vector stats if exists
     if vectors_hnsw.exists():
@@ -4125,21 +3646,19 @@ def index_migrate_cmd(
     """Migrate old distributed index to new centralized architecture.
 
     This command upgrades indexes from the old distributed storage format
-    (where SPLADE/vectors were stored in each _index.db) to the new centralized
-    format (single _splade.db and _vectors.hnsw at index root).
+    (where vectors were stored in each _index.db) to the new centralized
+    format (single _vectors.hnsw at index root).
 
     Migration Steps:
       1. Detect if migration is needed (check version marker)
-      2. Discover distributed SPLADE data in _index.db files
-      3. Discover distributed .hnsw files
-      4. Report current status
-      5. Create version marker (unless --dry-run)
+      2. Discover distributed .hnsw files
+      3. Report current status
+      4. Create version marker (unless --dry-run)
 
     Use --dry-run to preview what would be migrated without making changes.
     Use --force to re-run migration even if version marker exists.
 
-    Note: For full data migration (SPLADE/vectors consolidation), run:
-      codexlens index splade <path> --rebuild
+    Note: For full data migration (vectors consolidation), run:
       codexlens index embeddings <path> --force
 
     Examples:
@@ -4222,7 +3741,6 @@ def index_migrate_cmd(
         return
 
     # Discover distributed data
-    distributed_splade = _discover_distributed_splade(index_root)
     distributed_hnsw = _discover_distributed_hnsw(index_root)
     centralized = _check_centralized_storage(index_root)
 
@@ -4239,8 +3757,6 @@ def index_migrate_cmd(
         "needs_migration": needs_migration,
         "discovery": {
             "total_index_dbs": len(all_index_dbs),
-            "distributed_splade_count": len(distributed_splade),
-            "distributed_splade_total_postings": sum(d["posting_count"] for d in distributed_splade),
             "distributed_hnsw_count": len(distributed_hnsw),
             "distributed_hnsw_total_bytes": sum(d["size_bytes"] for d in distributed_hnsw),
         },
@@ -4249,17 +3765,12 @@ def index_migrate_cmd(
     }
 
     # Generate recommendations
-    if distributed_splade and not centralized["has_splade"]:
-        migration_report["recommendations"].append(
-            f"Run 'codexlens splade-index {target_path} --rebuild' to consolidate SPLADE data"
-        )
-
     if distributed_hnsw and not centralized["has_vectors"]:
         migration_report["recommendations"].append(
             f"Run 'codexlens embeddings-generate {target_path} --recursive --force' to consolidate vector data"
         )
 
-    if not distributed_splade and not distributed_hnsw:
+    if not distributed_hnsw:
         migration_report["recommendations"].append(
             "No distributed data found. Index may already be using centralized storage."
         )
@@ -4280,23 +3791,6 @@ def index_migrate_cmd(
         console.print(f"  Total _index.db files: {len(all_index_dbs)}")
         console.print()
 
-        # Distributed SPLADE
-        console.print("[bold]Distributed SPLADE Data:[/bold]")
-        if distributed_splade:
-            total_postings = sum(d["posting_count"] for d in distributed_splade)
-            total_chunks = sum(d["chunk_count"] for d in distributed_splade)
-            console.print(f"  Found in {len(distributed_splade)} _index.db files")
-            console.print(f"  Total postings: {total_postings:,}")
-            console.print(f"  Total chunks: {total_chunks:,}")
-            if verbose:
-                for d in distributed_splade[:5]:
-                    console.print(f"    [dim]{d['db_path'].parent.name}: {d['posting_count']} postings[/dim]")
-                if len(distributed_splade) > 5:
-                    console.print(f"    [dim]... and {len(distributed_splade) - 5} more[/dim]")
-        else:
-            console.print("  [dim]None found (already centralized or not generated)[/dim]")
-        console.print()
-
         # Distributed HNSW
         console.print("[bold]Distributed HNSW Files:[/bold]")
         if distributed_hnsw:
@@ -4314,15 +3808,6 @@ def index_migrate_cmd(
 
         # Centralized storage status
         console.print("[bold]Centralized Storage:[/bold]")
-        if centralized["has_splade"]:
-            stats = centralized.get("splade_stats") or {}
-            console.print(f"  [green]OK[/green] _splade.db exists")
-            if stats:
-                console.print(f"    Chunks: {stats.get('unique_chunks', 0):,}")
-                console.print(f"    Postings: {stats.get('total_postings', 0):,}")
-        else:
-            console.print(f"  [yellow]--[/yellow] _splade.db not found")
-
         if centralized["has_vectors"]:
             stats = centralized.get("vector_stats") or {}
             size_mb = stats.get("size_bytes", 0) / (1024 * 1024)
@@ -4439,20 +3924,6 @@ def init_deprecated(
         verbose=verbose,
     )
 
-
-@app.command("splade-index", hidden=True, deprecated=True)
-def splade_index_deprecated(
-    path: Path = typer.Argument(..., help="Project path to index"),
-    rebuild: bool = typer.Option(False, "--rebuild", "-r", help="Force rebuild SPLADE index"),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output."),
-) -> None:
-    """[Deprecated] Use 'codexlens index splade' instead."""
-    _deprecated_command_warning("splade-index", "index splade")
-    index_splade(
-        path=path,
-        rebuild=rebuild,
-        verbose=verbose,
-    )
 
 
 @app.command("cascade-index", hidden=True, deprecated=True)

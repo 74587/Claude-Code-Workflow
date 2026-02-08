@@ -1,7 +1,7 @@
 """Analysis script for hybrid search method contribution and storage architecture.
 
 This script analyzes:
-1. Individual method contribution in hybrid search (FTS/SPLADE/Vector)
+1. Individual method contribution in hybrid search (FTS/Vector)
 2. Storage architecture conflicts between different retrieval methods
 3. FTS + Rerank fusion experiment
 """
@@ -24,9 +24,7 @@ from codexlens.search.ranking import (
     reciprocal_rank_fusion,
     cross_encoder_rerank,
     DEFAULT_WEIGHTS,
-    FTS_FALLBACK_WEIGHTS,
 )
-from codexlens.search.hybrid_search import THREE_WAY_WEIGHTS
 from codexlens.entities import SearchResult
 
 
@@ -117,15 +115,7 @@ def analyze_storage_architecture(index_path: Path) -> Dict[str, Any]:
                     "binary cascade search."
                 )
 
-        # 2. Check SPLADE index status
-        if "splade_posting_list" in tables:
-            splade_count = results["tables"]["splade_posting_list"]["row_count"]
-            if splade_count == 0:
-                results["recommendations"].append(
-                    "SPLADE tables exist but empty. Run SPLADE indexing to enable sparse retrieval."
-                )
-
-        # 3. Check FTS tables
+        # 2. Check FTS tables
         fts_tables = [t for t in tables if t.startswith("files_fts")]
         if len(fts_tables) >= 2:
             results["recommendations"].append(
@@ -163,10 +153,9 @@ def analyze_method_contributions(
 
         # Run each method independently
         methods = {
-            "fts_exact": {"fuzzy": False, "vector": False, "splade": False},
-            "fts_fuzzy": {"fuzzy": True, "vector": False, "splade": False},
-            "vector": {"fuzzy": False, "vector": True, "splade": False},
-            "splade": {"fuzzy": False, "vector": False, "splade": True},
+            "fts_exact": {"fuzzy": False, "vector": False},
+            "fts_fuzzy": {"fuzzy": True, "vector": False},
+            "vector": {"fuzzy": False, "vector": True},
         }
 
         method_results: Dict[str, List[SearchResult]] = {}
@@ -178,7 +167,6 @@ def analyze_method_contributions(
                 # Set config to disable/enable specific backends
                 engine._config = type('obj', (object,), {
                     'use_fts_fallback': method_name.startswith("fts"),
-                    'enable_splade': method_name == "splade",
                     'embedding_use_gpu': True,
                 })()
 
@@ -186,13 +174,13 @@ def analyze_method_contributions(
 
                 if method_name == "fts_exact":
                     # Force FTS fallback mode with fuzzy disabled
-                    engine.weights = FTS_FALLBACK_WEIGHTS.copy()
+                    engine.weights = DEFAULT_WEIGHTS.copy()
                     results_list = engine.search(
                         index_path, query, limit=limit,
                         enable_fuzzy=False, enable_vector=False, pure_vector=False
                     )
                 elif method_name == "fts_fuzzy":
-                    engine.weights = FTS_FALLBACK_WEIGHTS.copy()
+                    engine.weights = DEFAULT_WEIGHTS.copy()
                     results_list = engine.search(
                         index_path, query, limit=limit,
                         enable_fuzzy=True, enable_vector=False, pure_vector=False
@@ -201,12 +189,6 @@ def analyze_method_contributions(
                     results_list = engine.search(
                         index_path, query, limit=limit,
                         enable_fuzzy=False, enable_vector=True, pure_vector=True
-                    )
-                elif method_name == "splade":
-                    engine.weights = {"splade": 1.0}
-                    results_list = engine.search(
-                        index_path, query, limit=limit,
-                        enable_fuzzy=False, enable_vector=False, pure_vector=False
                     )
                 else:
                     results_list = []
@@ -259,7 +241,7 @@ def analyze_method_contributions(
             # Compute RRF with each method's contribution
             rrf_map = {}
             for name, results in method_results.items():
-                if results and name in ["fts_exact", "splade", "vector"]:
+                if results and name in ["fts_exact", "vector"]:
                     # Rename for RRF
                     rrf_name = name.replace("fts_exact", "exact")
                     rrf_map[rrf_name] = results
@@ -310,7 +292,7 @@ def experiment_fts_rerank_fusion(
     """Experiment: FTS + Rerank fusion vs standard hybrid.
 
     Compares:
-    1. Standard Hybrid (SPLADE + Vector RRF)
+    1. Standard Hybrid (FTS + Vector RRF)
     2. FTS + CrossEncoder Rerank -> then fuse with Vector
     """
     results = {
@@ -336,11 +318,10 @@ def experiment_fts_rerank_fusion(
             "strategies": {}
         }
 
-        # Strategy 1: Standard Hybrid (SPLADE + Vector)
+        # Strategy 1: Standard Hybrid (FTS + Vector)
         try:
             engine = HybridSearchEngine(weights=DEFAULT_WEIGHTS)
             engine._config = type('obj', (object,), {
-                'enable_splade': True,
                 'use_fts_fallback': False,
                 'embedding_use_gpu': True,
             })()
@@ -364,10 +345,9 @@ def experiment_fts_rerank_fusion(
         # Strategy 2: FTS + Rerank -> Fuse with Vector
         try:
             # Step 1: Get FTS results (coarse)
-            fts_engine = HybridSearchEngine(weights=FTS_FALLBACK_WEIGHTS)
+            fts_engine = HybridSearchEngine(weights=DEFAULT_WEIGHTS)
             fts_engine._config = type('obj', (object,), {
                 'use_fts_fallback': True,
-                'enable_splade': False,
                 'embedding_use_gpu': True,
             })()
 

@@ -48,7 +48,8 @@ def semantic_search(
             - rrf: Reciprocal Rank Fusion (recommended, default)
             - staged: Staged cascade -> staged_cascade_search
             - binary: Binary rerank cascade -> binary_cascade_search
-            - hybrid: Hybrid cascade -> hybrid_cascade_search
+            - hybrid: Binary rerank cascade (backward compat) -> binary_rerank_cascade_search
+            - dense_rerank: Dense rerank cascade -> dense_rerank_cascade_search
         kind_filter: Symbol type filter (e.g., ["function", "class"])
         limit: Max return count (default 20)
         include_match_reason: Generate match reason (heuristic, not LLM)
@@ -215,7 +216,8 @@ def _execute_search(
     - rrf: Standard hybrid search with RRF fusion
     - staged: staged_cascade_search
     - binary: binary_cascade_search
-    - hybrid: hybrid_cascade_search
+    - hybrid: binary_rerank_cascade_search (backward compat)
+    - dense_rerank: dense_rerank_cascade_search
 
     Args:
         engine: ChainSearchEngine instance
@@ -249,8 +251,8 @@ def _execute_search(
             options=options,
         )
     elif fusion_strategy == "hybrid":
-        # Use hybrid cascade search (FTS+SPLADE+Vector + cross-encoder)
-        return engine.hybrid_cascade_search(
+        # Backward compat: hybrid now maps to binary_rerank_cascade_search
+        return engine.binary_rerank_cascade_search(
             query=query,
             source_path=source_path,
             k=limit,
@@ -342,8 +344,6 @@ def _transform_results(
                 fts_scores.append(source_scores["exact"])
             if "fuzzy" in source_scores:
                 fts_scores.append(source_scores["fuzzy"])
-            if "splade" in source_scores:
-                fts_scores.append(source_scores["splade"])
 
             if fts_scores:
                 structural_score = max(fts_scores)

@@ -1,9 +1,8 @@
-"""Compare Binary Cascade, SPLADE, and Vector semantic search methods.
+"""Compare Binary Cascade and Vector semantic search methods.
 
-This script compares the three semantic retrieval approaches:
+This script compares the two semantic retrieval approaches:
 1. Binary Cascade: 256-bit binary vectors for coarse ranking
-2. SPLADE: Sparse learned representations with inverted index
-3. Vector Dense: Full semantic embeddings with cosine similarity
+2. Vector Dense: Full semantic embeddings with cosine similarity
 """
 
 import sys
@@ -14,7 +13,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from codexlens.storage.dir_index import DirIndexStore
-from codexlens.storage.splade_index import SpladeIndex
 from codexlens.semantic.vector_store import VectorStore
 
 
@@ -25,19 +23,6 @@ def get_filename(path: str) -> str:
     elif "/" in path:
         return path.split("/")[-1]
     return path
-
-
-def find_splade_db(index_root: Path) -> Path:
-    """Find SPLADE database by searching directory tree."""
-    # Check root first
-    if (index_root / "_splade.db").exists():
-        return index_root / "_splade.db"
-
-    # Search in subdirectories
-    for splade_db in index_root.rglob("_splade.db"):
-        return splade_db
-
-    return None
 
 
 def find_binary_indexes(index_root: Path):
@@ -107,55 +92,6 @@ def test_vector_search(query: str, limit: int = 10):
     except Exception as e:
         return [], 0, str(e)
 
-
-def test_splade_search(query: str, limit: int = 10):
-    """Test SPLADE sparse search."""
-    try:
-        from codexlens.semantic.splade_encoder import get_splade_encoder, check_splade_available
-
-        ok, err = check_splade_available()
-        if not ok:
-            return [], 0, f"SPLADE not available: {err}"
-
-        splade_db_path = find_splade_db(INDEX_ROOT)
-        if not splade_db_path:
-            return [], 0, "SPLADE database not found"
-
-        splade_index = SpladeIndex(splade_db_path)
-        if not splade_index.has_index():
-            return [], 0, "SPLADE index not initialized"
-
-        start = time.perf_counter()
-        encoder = get_splade_encoder()
-        query_sparse = encoder.encode_text(query)
-        raw_results = splade_index.search(query_sparse, limit=limit, min_score=0.0)
-
-        if not raw_results:
-            elapsed = (time.perf_counter() - start) * 1000
-            return [], elapsed, None
-
-        # Get chunk details
-        chunk_ids = [chunk_id for chunk_id, _ in raw_results]
-        score_map = {chunk_id: score for chunk_id, score in raw_results}
-        rows = splade_index.get_chunks_by_ids(chunk_ids)
-
-        elapsed = (time.perf_counter() - start) * 1000
-
-        # Build result objects
-        results = []
-        for row in rows:
-            chunk_id = row["id"]
-            results.append({
-                "path": row["file_path"],
-                "score": score_map.get(chunk_id, 0.0),
-                "content": row["content"][:200] + "..." if len(row["content"]) > 200 else row["content"],
-            })
-
-        # Sort by score
-        results.sort(key=lambda x: x["score"], reverse=True)
-        return results, elapsed, None
-    except Exception as e:
-        return [], 0, str(e)
 
 
 def test_binary_cascade_search(query: str, limit: int = 10):
@@ -336,15 +272,12 @@ def compare_overlap(results1, results2, name1: str, name2: str):
 def main():
     print("=" * 70)
     print("SEMANTIC SEARCH METHODS COMPARISON")
-    print("Binary Cascade vs SPLADE vs Vector Dense")
+    print("Binary Cascade vs Vector Dense")
     print("=" * 70)
 
     # Check prerequisites
     print("\n[Prerequisites Check]")
     print(f"  Index Root: {INDEX_ROOT}")
-
-    splade_db = find_splade_db(INDEX_ROOT)
-    print(f"  SPLADE DB: {splade_db} - {'EXISTS' if splade_db else 'NOT FOUND'}")
 
     binary_indexes = find_binary_indexes(INDEX_ROOT)
     print(f"  Binary Indexes: {len(binary_indexes)} found")
@@ -356,11 +289,10 @@ def main():
     # Aggregate statistics
     all_results = {
         "binary": {"total_results": 0, "total_time": 0, "queries": 0, "errors": []},
-        "splade": {"total_results": 0, "total_time": 0, "queries": 0, "errors": []},
         "vector": {"total_results": 0, "total_time": 0, "queries": 0, "errors": []},
     }
 
-    overlap_scores = {"binary_splade": [], "binary_vector": [], "splade_vector": []}
+    overlap_scores = {"binary_vector": []}
 
     for query in TEST_QUERIES:
         print(f"\n{'#'*70}")
@@ -369,12 +301,10 @@ def main():
 
         # Test each method
         binary_results, binary_time, binary_err = test_binary_cascade_search(query)
-        splade_results, splade_time, splade_err = test_splade_search(query)
         vector_results, vector_time, vector_err = test_vector_search(query)
 
         # Print results
         print_results("Binary Cascade (256-bit + Dense Rerank)", binary_results, binary_time, binary_err)
-        print_results("SPLADE (Sparse Learned)", splade_results, splade_time, splade_err)
         print_results("Vector Dense (Semantic Embeddings)", vector_results, vector_time, vector_err)
 
         # Update statistics
@@ -385,13 +315,6 @@ def main():
         else:
             all_results["binary"]["errors"].append(binary_err)
 
-        if not splade_err:
-            all_results["splade"]["total_results"] += len(splade_results)
-            all_results["splade"]["total_time"] += splade_time
-            all_results["splade"]["queries"] += 1
-        else:
-            all_results["splade"]["errors"].append(splade_err)
-
         if not vector_err:
             all_results["vector"]["total_results"] += len(vector_results)
             all_results["vector"]["total_time"] += vector_time
@@ -401,15 +324,9 @@ def main():
 
         # Compare overlap
         print("\n[Result Overlap Analysis]")
-        if binary_results and splade_results:
-            j = compare_overlap(binary_results, splade_results, "Binary", "SPLADE")
-            overlap_scores["binary_splade"].append(j)
         if binary_results and vector_results:
             j = compare_overlap(binary_results, vector_results, "Binary", "Vector")
             overlap_scores["binary_vector"].append(j)
-        if splade_results and vector_results:
-            j = compare_overlap(splade_results, vector_results, "SPLADE", "Vector")
-            overlap_scores["splade_vector"].append(j)
 
     # Print summary
     print("\n" + "=" * 70)
@@ -447,13 +364,13 @@ def main():
     # Analyze working methods
     working_methods = [m for m, s in all_results.items() if s["queries"] > 0]
 
-    if len(working_methods) == 3:
+    if len(working_methods) == 2:
         # All methods working - compare quality
-        print("\nAll three methods working. Quality comparison:")
+        print("\nBoth methods working. Quality comparison:")
 
         # Compare avg results
         print("\n  Result Coverage (higher = more recall):")
-        for m in ["vector", "splade", "binary"]:
+        for m in ["vector", "binary"]:
             stats = all_results[m]
             if stats["queries"] > 0:
                 avg = stats["total_results"] / stats["queries"]
@@ -461,7 +378,7 @@ def main():
 
         # Compare speed
         print("\n  Speed (lower = faster):")
-        for m in ["binary", "splade", "vector"]:
+        for m in ["binary", "vector"]:
             stats = all_results[m]
             if stats["queries"] > 0:
                 avg = stats["total_time"] / stats["queries"]
@@ -470,11 +387,10 @@ def main():
         # Recommend fusion strategy
         print("\n  Recommended Fusion Strategy:")
         print("    For quality-focused hybrid search:")
-        print("    1. Run all three in parallel")
+        print("    1. Run both methods in parallel")
         print("    2. Use RRF fusion with weights:")
-        print("       - Vector: 0.4 (best semantic understanding)")
-        print("       - SPLADE: 0.35 (learned sparse representations)")
-        print("       - Binary: 0.25 (fast coarse filtering)")
+        print("       - Vector: 0.6 (best semantic understanding)")
+        print("       - Binary: 0.4 (fast coarse filtering)")
         print("    3. Apply CrossEncoder reranking on top-50")
 
     elif len(working_methods) >= 2:

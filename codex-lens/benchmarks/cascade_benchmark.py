@@ -3,7 +3,7 @@
 
 Compares:
 - binary: 256-dim binary coarse ranking + 2048-dim dense fine ranking
-- hybrid: FTS+SPLADE+Vector coarse ranking + CrossEncoder fine ranking
+- hybrid: FTS+Vector coarse ranking + CrossEncoder fine ranking
 
 Usage:
     python benchmarks/cascade_benchmark.py [--source PATH] [--queries N] [--warmup N]

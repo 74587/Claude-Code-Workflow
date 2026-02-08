@@ -35,7 +35,6 @@ from codexlens.config import VECTORS_HNSW_NAME
 from codexlens.entities import SearchResult
 from codexlens.search.ranking import (
     DEFAULT_WEIGHTS,
-    FTS_FALLBACK_WEIGHTS,
     QueryIntent,
     apply_symbol_boost,
     cross_encoder_rerank,
@@ -57,14 +56,6 @@ except ImportError:
     HAS_LSP = False
 
 
-# Three-way fusion weights (FTS + Vector + SPLADE)
-THREE_WAY_WEIGHTS = {
-    "exact": 0.2,
-    "splade": 0.3,
-    "vector": 0.5,
-}
-
-
 class HybridSearchEngine:
     """Hybrid search engine with parallel execution and RRF fusion.
 
@@ -77,8 +68,7 @@ class HybridSearchEngine:
     """
 
     # NOTE: DEFAULT_WEIGHTS imported from ranking.py - single source of truth
-    # Default RRF weights: SPLADE-based hybrid (splade: 0.4, vector: 0.6)
-    # FTS fallback mode uses FTS_FALLBACK_WEIGHTS (exact: 0.3, fuzzy: 0.1, vector: 0.6)
+    # FTS + vector hybrid mode (exact: 0.3, fuzzy: 0.1, vector: 0.6)
 
     def __init__(
         self,
@@ -119,7 +109,6 @@ class HybridSearchEngine:
         enable_fuzzy: bool = True,
         enable_vector: bool = False,
         pure_vector: bool = False,
-        enable_splade: bool = False,
         enable_lsp_graph: bool = False,
         lsp_max_depth: int = 1,
         lsp_max_nodes: int = 20,
@@ -133,7 +122,6 @@ class HybridSearchEngine:
             enable_fuzzy: Enable fuzzy FTS search (default True)
             enable_vector: Enable vector search (default False)
             pure_vector: If True, only use vector search without FTS fallback (default False)
-            enable_splade: If True, force SPLADE sparse neural search (default False)
             enable_lsp_graph: If True, enable real-time LSP graph expansion (default False)
             lsp_max_depth: Maximum depth for LSP graph BFS expansion (default 1)
             lsp_max_nodes: Maximum nodes to collect in LSP graph (default 20)
@@ -150,9 +138,6 @@ class HybridSearchEngine:
             >>> results = engine.search(Path("project/_index.db"),
             ...                         "how to authenticate users",
             ...                         enable_vector=True, pure_vector=True)
-            >>> # SPLADE sparse neural search
-            >>> results = engine.search(Path("project/_index.db"), "auth flow",
-            ...                         enable_splade=True, enable_vector=True)
             >>> # With LSP graph expansion (real-time)
             >>> results = engine.search(Path("project/_index.db"), "auth flow",
             ...                         enable_vector=True, enable_lsp_graph=True)
@@ -180,26 +165,6 @@ class HybridSearchEngine:
         # Determine which backends to use
         backends = {}
 
-        # Check if SPLADE is available
-        splade_available = False
-        # Respect config.enable_splade flag and use_fts_fallback flag
-        if self._config and getattr(self._config, 'use_fts_fallback', False):
-            # Config explicitly requests FTS fallback - disable SPLADE
-            splade_available = False
-        elif self._config and not getattr(self._config, 'enable_splade', True):
-            # Config explicitly disabled SPLADE
-            splade_available = False
-        else:
-            # Check if SPLADE dependencies are available
-            try:
-                from codexlens.semantic.splade_encoder import check_splade_available
-                ok, _ = check_splade_available()
-                if ok:
-                    # SPLADE tables are in main index database, will check table existence in _search_splade
-                    splade_available = True
-            except Exception:
-                pass
-
         if pure_vector:
             # Pure vector mode: only use vector search, no FTS fallback
             if enable_vector:
@@ -212,37 +177,13 @@ class HybridSearchEngine:
                     "To use pure vector search, enable vector search mode."
                 )
                 backends["exact"] = True
-        elif enable_splade:
-            # Explicit SPLADE mode requested via CLI --method splade
-            if splade_available:
-                backends["splade"] = True
-                if enable_vector:
-                    backends["vector"] = True
-            else:
-                # SPLADE requested but not available - warn and fallback
-                self.logger.warning(
-                    "SPLADE search requested but not available. "
-                    "Falling back to FTS. Run 'codexlens index splade' to enable."
-                )
-                backends["exact"] = True
-                if enable_fuzzy:
-                    backends["fuzzy"] = True
-                if enable_vector:
-                    backends["vector"] = True
         else:
-            # Hybrid mode: default to SPLADE if available, otherwise use FTS
-            if splade_available:
-                # Default: enable SPLADE, disable exact and fuzzy
-                backends["splade"] = True
-                if enable_vector:
-                    backends["vector"] = True
-            else:
-                # Fallback mode: enable exact+fuzzy when SPLADE unavailable
-                backends["exact"] = True
-                if enable_fuzzy:
-                    backends["fuzzy"] = True
-                if enable_vector:
-                    backends["vector"] = True
+            # Standard hybrid mode: FTS + optional vector
+            backends["exact"] = True
+            if enable_fuzzy:
+                backends["fuzzy"] = True
+            if enable_vector:
+                backends["vector"] = True
 
         # Add LSP graph expansion if requested and available
         if enable_lsp_graph and HAS_LSP:
@@ -502,13 +443,6 @@ class HybridSearchEngine:
                 )
                 future_to_source[future] = "vector"
 
-            if backends.get("splade"):
-                submit_times["splade"] = time.perf_counter()
-                future = executor.submit(
-                    self._search_splade, index_path, query, limit
-                )
-                future_to_source[future] = "splade"
-
             if backends.get("lsp_graph"):
                 submit_times["lsp_graph"] = time.perf_counter()
                 future = executor.submit(
@@ -599,8 +533,7 @@ class HybridSearchEngine:
     def _find_vectors_hnsw(self, index_path: Path) -> Optional[Path]:
         """Find the centralized _vectors.hnsw file by traversing up from index_path.
 
-        Similar to _search_splade's approach, this method searches for the
-        centralized dense vector index file in parent directories.
+        Searches for the centralized dense vector index file in parent directories.
 
         Args:
             index_path: Path to the current _index.db file
@@ -1138,124 +1071,6 @@ class HybridSearchEngine:
             self.logger.error("Vector search error: %s", exc)
             return []
 
-    def _search_splade(
-        self, index_path: Path, query: str, limit: int
-    ) -> List[SearchResult]:
-        """SPLADE sparse retrieval via inverted index.
-        
-        Args:
-            index_path: Path to _index.db file
-            query: Natural language query string
-            limit: Maximum results
-        
-        Returns:
-            List of SearchResult ordered by SPLADE score
-        """
-        try:
-            from codexlens.semantic.splade_encoder import get_splade_encoder, check_splade_available
-            from codexlens.storage.splade_index import SpladeIndex
-            from codexlens.config import SPLADE_DB_NAME
-            import sqlite3
-            import json
-
-            # Check dependencies
-            ok, err = check_splade_available()
-            if not ok:
-                self.logger.debug("SPLADE not available: %s", err)
-                return []
-
-            # SPLADE index is stored in _splade.db at the project index root
-            # Traverse up from the current index to find the root _splade.db
-            current_dir = index_path.parent
-            splade_db_path = None
-            for _ in range(10):  # Limit search depth
-                candidate = current_dir / SPLADE_DB_NAME
-                if candidate.exists():
-                    splade_db_path = candidate
-                    break
-                parent = current_dir.parent
-                if parent == current_dir:  # Reached root
-                    break
-                current_dir = parent
-
-            if not splade_db_path:
-                self.logger.debug("SPLADE index not found in ancestor directories of %s", index_path)
-                return []
-
-            splade_index = SpladeIndex(splade_db_path)
-            if not splade_index.has_index():
-                self.logger.debug("SPLADE index not initialized")
-                return []
-            
-            # Encode query to sparse vector
-            encoder = get_splade_encoder(use_gpu=self._use_gpu)
-            query_sparse = encoder.encode_text(query)
-            
-            # Search inverted index for top matches
-            raw_results = splade_index.search(query_sparse, limit=limit, min_score=0.0)
-            
-            if not raw_results:
-                return []
-
-            # Fetch chunk details from splade_chunks table (self-contained)
-            chunk_ids = [chunk_id for chunk_id, _ in raw_results]
-            score_map = {chunk_id: score for chunk_id, score in raw_results}
-
-            # Get chunk metadata from SPLADE database
-            rows = splade_index.get_chunks_by_ids(chunk_ids)
-
-            # Build SearchResult objects
-            results = []
-            for row in rows:
-                chunk_id = row["id"]
-                file_path = row["file_path"]
-                content = row["content"]
-                metadata_json = row["metadata"]
-                metadata = json.loads(metadata_json) if metadata_json else {}
-
-                score = score_map.get(chunk_id, 0.0)
-                
-                # Build excerpt (short preview)
-                excerpt = content[:200] + "..." if len(content) > 200 else content
-                
-                # Extract symbol information from metadata
-                symbol_name = metadata.get("symbol_name")
-                symbol_kind = metadata.get("symbol_kind")
-                start_line = metadata.get("start_line")
-                end_line = metadata.get("end_line")
-                
-                # Build Symbol object if we have symbol info
-                symbol = None
-                if symbol_name and symbol_kind and start_line and end_line:
-                    try:
-                        from codexlens.entities import Symbol
-                        symbol = Symbol(
-                            name=symbol_name,
-                            kind=symbol_kind,
-                            range=(start_line, end_line)
-                        )
-                    except Exception:
-                        pass
-                
-                results.append(SearchResult(
-                    path=file_path,
-                    score=score,
-                    excerpt=excerpt,
-                    content=content,
-                    symbol=symbol,
-                    metadata=metadata,
-                    start_line=start_line,
-                    end_line=end_line,
-                    symbol_name=symbol_name,
-                    symbol_kind=symbol_kind,
-                ))
-            
-            return results
-
-        except Exception as exc:
-            self.logger.debug("SPLADE search error: %s", exc)
-            return []
-
     def _search_lsp_graph(
         self,
         index_path: Path,
@@ -1295,21 +1110,14 @@ class HybridSearchEngine:
             if seeds:
                 seed_source = "vector"
 
-            # 2. Fallback to SPLADE if vector returns nothing
+            # 2. Fallback to exact FTS if vector returns nothing
             if not seeds:
-                self.logger.debug("Vector search returned no seeds, trying SPLADE")
-                seeds = self._search_splade(index_path, query, limit=3)
-                if seeds:
-                    seed_source = "splade"
-
-            # 3. Fallback to exact FTS if SPLADE also fails
-            if not seeds:
-                self.logger.debug("SPLADE returned no seeds, trying exact FTS")
+                self.logger.debug("Vector search returned no seeds, trying exact FTS")
                 seeds = self._search_exact(index_path, query, limit=3)
                 if seeds:
                     seed_source = "exact_fts"
 
-            # 4. No seeds available from any source
+            # 3. No seeds available from any source
             if not seeds:
                 self.logger.debug("No seed results available for LSP graph expansion")
                 return []

@@ -109,14 +109,6 @@ def test_cascade_search_strategy_routing(temp_paths: Path) -> None:
         engine.cascade_search("query", source_path, strategy="binary")
         mock_binary.assert_called_once()
 
-    # Test strategy='hybrid' routing
-    with patch.object(engine, "hybrid_cascade_search") as mock_hybrid:
-        mock_hybrid.return_value = ChainSearchResult(
-            query="query", results=[], symbols=[], stats=SearchStats()
-        )
-        engine.cascade_search("query", source_path, strategy="hybrid")
-        mock_hybrid.assert_called_once()
-
     # Test strategy='binary_rerank' routing
     with patch.object(engine, "binary_rerank_cascade_search") as mock_br:
         mock_br.return_value = ChainSearchResult(

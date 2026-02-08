@@ -55,7 +55,6 @@ class SearchOptions:
         enable_fuzzy: Enable fuzzy FTS in hybrid mode (default True)
         enable_vector: Enable vector semantic search (default False)
         pure_vector: If True, only use vector search without FTS fallback (default False)
-        enable_splade: Enable SPLADE sparse neural search (default False)
         enable_cascade: Enable cascade (binary+dense) two-stage retrieval (default False)
         hybrid_weights: Custom RRF weights for hybrid search (optional)
         group_results: Enable grouping of similar results (default False)
@@ -75,7 +74,6 @@ class SearchOptions:
     enable_fuzzy: bool = True
     enable_vector: bool = False
     pure_vector: bool = False
-    enable_splade: bool = False
     enable_cascade: bool = False
     hybrid_weights: Optional[Dict[str, float]] = None
     group_results: bool = False
@@ -306,154 +304,6 @@ class ChainSearchEngine:
             related_results=related_results,
         )
 
-    def hybrid_cascade_search(
-        self,
-        query: str,
-        source_path: Path,
-        k: int = 10,
-        coarse_k: int = 100,
-        options: Optional[SearchOptions] = None,
-    ) -> ChainSearchResult:
-        """Execute two-stage cascade search with hybrid coarse retrieval and cross-encoder reranking.
-
-        Hybrid cascade search process:
-        1. Stage 1 (Coarse): Fast retrieval using RRF fusion of FTS + SPLADE + Vector
-           to get coarse_k candidates
-        2. Stage 2 (Fine): CrossEncoder reranking of candidates to get final k results
-
-        This approach balances recall (from broad coarse search) with precision
-        (from expensive but accurate cross-encoder scoring).
-
-        Note: This method is the original hybrid approach. For binary vector cascade,
-        use binary_cascade_search() instead.
-
-        Args:
-            query: Natural language or keyword query string
-            source_path: Starting directory path
-            k: Number of final results to return (default 10)
-            coarse_k: Number of coarse candidates from first stage (default 100)
-            options: Search configuration (uses defaults if None)
-
-        Returns:
-            ChainSearchResult with reranked results and statistics
-
-        Examples:
-            >>> engine = ChainSearchEngine(registry, mapper, config=config)
-            >>> result = engine.hybrid_cascade_search(
-            ...     "how to authenticate users",
-            ...     Path("D:/project/src"),
-            ...     k=10,
-            ...     coarse_k=100
-            ... )
-            >>> for r in result.results:
-            ...     print(f"{r.path}: {r.score:.3f}")
-        """
-        options = options or SearchOptions()
-        start_time = time.time()
-        stats = SearchStats()
-
-        # Use config defaults if available
-        if self._config is not None:
-            if hasattr(self._config, "cascade_coarse_k"):
-                coarse_k = coarse_k or self._config.cascade_coarse_k
-            if hasattr(self._config, "cascade_fine_k"):
-                k = k or self._config.cascade_fine_k
-
-        # Step 1: Find starting index
-        start_index = self._find_start_index(source_path)
-        if not start_index:
-            self.logger.warning(f"No index found for {source_path}")
-            stats.time_ms = (time.time() - start_time) * 1000
-            return ChainSearchResult(
-                query=query,
-                results=[],
-                symbols=[],
-                stats=stats
-            )
-
-        # Step 2: Collect all index paths
-        index_paths = self._collect_index_paths(start_index, options.depth)
-        stats.dirs_searched = len(index_paths)
-
-        if not index_paths:
-            self.logger.warning(f"No indexes collected from {start_index}")
-            stats.time_ms = (time.time() - start_time) * 1000
-            return ChainSearchResult(
-                query=query,
-                results=[],
-                symbols=[],
-                stats=stats
-            )
-
-        # Stage 1: Coarse retrieval with hybrid search (FTS + SPLADE + Vector)
-        # Use hybrid mode for multi-signal retrieval
-        coarse_options = SearchOptions(
-            depth=options.depth,
-            max_workers=1,  # Single thread for GPU safety
-            limit_per_dir=max(coarse_k // len(index_paths), 20),
-            total_limit=coarse_k,
-            hybrid_mode=True,
-            enable_fuzzy=options.enable_fuzzy,
-            enable_vector=True,  # Enable vector for semantic matching
-            pure_vector=False,
-            hybrid_weights=options.hybrid_weights,
-        )
-
-        self.logger.debug(
-            "Cascade Stage 1: Coarse retrieval for %d candidates", coarse_k
-        )
-        coarse_results, search_stats = self._search_parallel(
-            index_paths, query, coarse_options
-        )
-        stats.errors = search_stats.errors
-
-        # Merge and deduplicate coarse results
-        coarse_merged = self._merge_and_rank(coarse_results, coarse_k)
-        self.logger.debug(
-            "Cascade Stage 1 complete: %d candidates retrieved", len(coarse_merged)
-        )
-
-        if not coarse_merged:
-            stats.time_ms = (time.time() - start_time) * 1000
-            return ChainSearchResult(
-                query=query,
-                results=[],
-                symbols=[],
-                stats=stats
-            )
-
-        # Stage 2: Cross-encoder reranking
-        self.logger.debug(
-            "Cascade Stage 2: Cross-encoder reranking %d candidates to top-%d",
-            len(coarse_merged),
-            k,
-        )
-
-        final_results = self._cross_encoder_rerank(query, coarse_merged, k)
-
-        # Optional: grouping of similar results
-        if options.group_results:
-            from codexlens.search.ranking import group_similar_results
-            final_results = group_similar_results(
-                final_results, score_threshold_abs=options.grouping_threshold
-            )
-
-        stats.files_matched = len(final_results)
-        stats.time_ms = (time.time() - start_time) * 1000
-
-        self.logger.debug(
-            "Cascade search complete: %d results in %.2fms",
-            len(final_results),
-            stats.time_ms,
-        )
-
-        return ChainSearchResult(
-            query=query,
-            results=final_results,
-            symbols=[],
-            stats=stats,
-        )
-
     def binary_cascade_search(
         self,
         query: str,
@@ -501,9 +351,9 @@ class ChainSearchEngine:
         """
         if not NUMPY_AVAILABLE:
             self.logger.warning(
-                "NumPy not available, falling back to hybrid cascade search"
+                "NumPy not available, falling back to standard search"
             )
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            return self.search(query, source_path, options=options)
 
         options = options or SearchOptions()
         start_time = time.time()
@@ -552,10 +402,10 @@ class ChainSearchEngine:
         except ImportError as exc:
             self.logger.warning(
                 "Binary cascade dependencies not available: %s. "
-                "Falling back to hybrid cascade search.",
+                "Falling back to standard search.",
                 exc
             )
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            return self.search(query, source_path, options=options)
 
         # Stage 1: Binary vector coarse retrieval
         self.logger.debug(
@@ -573,10 +423,10 @@ class ChainSearchEngine:
         except Exception as exc:
             self.logger.warning(
                 "Failed to generate binary query embedding: %s. "
-                "Falling back to hybrid cascade search.",
+                "Falling back to standard search.",
                 exc
             )
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            return self.search(query, source_path, options=options)
 
         # Try centralized BinarySearcher first (preferred for mmap indexes)
         # The index root is the parent of the first index path
@@ -629,8 +479,8 @@ class ChainSearchEngine:
                     stats.errors.append(f"Binary search failed for {index_path}: {exc}")
 
         if not all_candidates:
-            self.logger.debug("No binary candidates found, falling back to hybrid")
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            self.logger.debug("No binary candidates found, falling back to standard search")
+            return self.search(query, source_path, options=options)
 
         # Sort by Hamming distance and take top coarse_k
         all_candidates.sort(key=lambda x: x[1])
@@ -828,13 +678,12 @@ class ChainSearchEngine:
         k: int = 10,
         coarse_k: int = 100,
         options: Optional[SearchOptions] = None,
-        strategy: Optional[Literal["binary", "hybrid", "binary_rerank", "dense_rerank", "staged"]] = None,
+        strategy: Optional[Literal["binary", "binary_rerank", "dense_rerank", "staged"]] = None,
     ) -> ChainSearchResult:
         """Unified cascade search entry point with strategy selection.
 
         Provides a single interface for cascade search with configurable strategy:
         - "binary": Uses binary vector coarse ranking + dense fine ranking (fastest)
-        - "hybrid": Uses FTS+SPLADE+Vector coarse ranking + cross-encoder reranking (original)
         - "binary_rerank": Uses binary vector coarse ranking + cross-encoder reranking (best balance)
         - "dense_rerank": Uses dense vector coarse ranking + cross-encoder reranking
         - "staged": 4-stage pipeline: binary -> LSP expand -> clustering -> optional rerank
@@ -850,7 +699,7 @@ class ChainSearchEngine:
             k: Number of final results to return (default 10)
             coarse_k: Number of coarse candidates from first stage (default 100)
             options: Search configuration (uses defaults if None)
-            strategy: Cascade strategy - "binary", "hybrid", "binary_rerank", "dense_rerank", or "staged".
+            strategy: Cascade strategy - "binary", "binary_rerank", "dense_rerank", or "staged".
 
         Returns:
             ChainSearchResult with reranked results and statistics
@@ -859,8 +708,6 @@ class ChainSearchEngine:
             >>> engine = ChainSearchEngine(registry, mapper, config=config)
             >>> # Use binary cascade (default, fastest)
             >>> result = engine.cascade_search("auth", Path("D:/project"))
-            >>> # Use hybrid cascade (original behavior)
-            >>> result = engine.cascade_search("auth", Path("D:/project"), strategy="hybrid")
             >>> # Use binary + cross-encoder (best balance of speed and quality)
             >>> result = engine.cascade_search("auth", Path("D:/project"), strategy="binary_rerank")
             >>> # Use 4-stage pipeline (binary + LSP expand + clustering + optional rerank)
@@ -868,7 +715,7 @@ class ChainSearchEngine:
         """
         # Strategy priority: parameter > config > default
         effective_strategy = strategy
-        valid_strategies = ("binary", "hybrid", "binary_rerank", "dense_rerank", "staged")
+        valid_strategies = ("binary", "binary_rerank", "dense_rerank", "staged")
         if effective_strategy is None:
             # Not passed via parameter, check config
             if self._config is not None:
@@ -889,7 +736,7 @@ class ChainSearchEngine:
         elif effective_strategy == "staged":
             return self.staged_cascade_search(query, source_path, k, coarse_k, options)
         else:
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            return self.binary_cascade_search(query, source_path, k, coarse_k, options)
 
     def staged_cascade_search(
         self,
@@ -943,9 +790,9 @@ class ChainSearchEngine:
         """
         if not NUMPY_AVAILABLE:
             self.logger.warning(
-                "NumPy not available, falling back to hybrid cascade search"
+                "NumPy not available, falling back to standard search"
             )
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            return self.search(query, source_path, options=options)
 
         options = options or SearchOptions()
         start_time = time.time()
@@ -1002,8 +849,8 @@ class ChainSearchEngine:
         )
 
         if not coarse_results:
-            self.logger.debug("No binary candidates found, falling back to hybrid cascade")
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            self.logger.debug("No binary candidates found, falling back to standard search")
+            return self.search(query, source_path, options=options)
 
         # ========== Stage 2: LSP Graph Expansion ==========
         stage2_start = time.time()
@@ -1534,7 +1381,7 @@ class ChainSearchEngine:
         2. Stage 2 (Fine): Cross-encoder reranking for precise semantic ranking
            of candidates using query-document attention
 
-        This approach is typically faster than hybrid_cascade_search while
+        This approach is typically faster than binary_cascade_search while
         achieving similar or better quality through cross-encoder reranking.
 
         Performance characteristics:
@@ -1565,9 +1412,9 @@ class ChainSearchEngine:
         """
         if not NUMPY_AVAILABLE:
             self.logger.warning(
-                "NumPy not available, falling back to hybrid cascade search"
+                "NumPy not available, falling back to standard search"
             )
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            return self.search(query, source_path, options=options)
 
         options = options or SearchOptions()
         start_time = time.time()
@@ -1611,10 +1458,10 @@ class ChainSearchEngine:
             from codexlens.indexing.embedding import BinaryEmbeddingBackend
         except ImportError as exc:
             self.logger.warning(
-                "BinaryEmbeddingBackend not available: %s, falling back to hybrid cascade",
+                "BinaryEmbeddingBackend not available: %s, falling back to standard search",
                 exc
             )
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            return self.search(query, source_path, options=options)
 
         # Step 4: Binary coarse search (same as binary_cascade_search)
         binary_coarse_time = time.time()
@@ -1658,7 +1505,7 @@ class ChainSearchEngine:
                 query_binary = binary_backend.embed_packed([query])[0]
             except Exception as exc:
                 self.logger.warning(f"Failed to generate binary query embedding: {exc}")
-                return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+                return self.search(query, source_path, options=options)
 
             # Fallback to per-directory binary indexes
             for index_path in index_paths:
@@ -1676,9 +1523,9 @@ class ChainSearchEngine:
                     )
 
         if not coarse_candidates:
-            self.logger.info("No binary candidates found, falling back to hybrid cascade for reranking")
-            # Fall back to hybrid_cascade_search which uses FTS+Vector coarse + cross-encoder rerank
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            self.logger.info("No binary candidates found, falling back to standard search for reranking")
+            # Fall back to standard search which uses FTS+Vector
+            return self.search(query, source_path, options=options)
 
         # Sort by Hamming distance and take top coarse_k
         coarse_candidates.sort(key=lambda x: x[1])
@@ -1785,7 +1632,7 @@ class ChainSearchEngine:
             "Retrieved %d chunks for cross-encoder reranking", len(coarse_results)
         )
 
-        # Step 6: Cross-encoder reranking (same as hybrid_cascade_search)
+        # Step 6: Cross-encoder reranking
         rerank_time = time.time()
         reranked_results = self._cross_encoder_rerank(query, coarse_results, top_k=k)
 
@@ -1848,9 +1695,9 @@ class ChainSearchEngine:
         """
         if not NUMPY_AVAILABLE:
             self.logger.warning(
-                "NumPy not available, falling back to hybrid cascade search"
+                "NumPy not available, falling back to standard search"
             )
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            return self.search(query, source_path, options=options)
 
         options = options or SearchOptions()
         start_time = time.time()
@@ -1955,7 +1802,7 @@ class ChainSearchEngine:
             self.logger.debug(f"Dense query embedding: {query_dense.shape[0]}-dim via {embedding_backend}/{embedding_model}")
         except Exception as exc:
             self.logger.warning(f"Failed to generate dense query embedding: {exc}")
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            return self.search(query, source_path, options=options)
 
         # Step 5: Dense coarse search using centralized HNSW index
         coarse_candidates: List[Tuple[int, float, Path]] = []  # (chunk_id, distance, index_path)
@@ -2006,8 +1853,8 @@ class ChainSearchEngine:
                     )
 
         if not coarse_candidates:
-            self.logger.info("No dense candidates found, falling back to hybrid cascade")
-            return self.hybrid_cascade_search(query, source_path, k, coarse_k, options)
+            self.logger.info("No dense candidates found, falling back to standard search")
+            return self.search(query, source_path, options=options)
 
         # Sort by distance (ascending for cosine distance) and take top coarse_k
         coarse_candidates.sort(key=lambda x: x[1])
@@ -2972,7 +2819,6 @@ class ChainSearchEngine:
                 options.enable_fuzzy,
                 options.enable_vector,
                 options.pure_vector,
-                options.enable_splade,
                 options.hybrid_weights
             ): idx_path
             for idx_path in index_paths
@@ -3001,7 +2847,6 @@ class ChainSearchEngine:
                               enable_fuzzy: bool = True,
                               enable_vector: bool = False,
                               pure_vector: bool = False,
-                              enable_splade: bool = False,
                               hybrid_weights: Optional[Dict[str, float]] = None) -> List[SearchResult]:
         """Search a single index database.
 
@@ -3017,7 +2862,6 @@ class ChainSearchEngine:
             enable_fuzzy: Enable fuzzy FTS in hybrid mode
             enable_vector: Enable vector semantic search
             pure_vector: If True, only use vector search without FTS fallback
-            enable_splade: If True, force SPLADE sparse neural search
             hybrid_weights: Custom RRF weights for hybrid search
 
         Returns:
@@ -3034,7 +2878,6 @@ class ChainSearchEngine:
                     enable_fuzzy=enable_fuzzy,
                     enable_vector=enable_vector,
                     pure_vector=pure_vector,
-                    enable_splade=enable_splade,
                 )
             else:
                 # Single-FTS search (exact or fuzzy mode)
