@@ -64,9 +64,9 @@ IF invalid:
 ```bash
 IF --session PROVIDED:
   session_id = --session
-  brainstorm_dir = .workflow/active/{session_id}/.brainstorming/
+  brainstorm_dir = ${projectRoot}/.workflow/active/{session_id}/.brainstorming/
 ELSE:
-  FIND .workflow/active/WFS-*/
+  FIND ${projectRoot}/.workflow/active/WFS-*/
   IF multiple:
     PROMPT user to select
   ELSE IF single:
@@ -274,7 +274,7 @@ Write(
 
 **Step 3.1: Load Session Metadata**
 ```bash
-session_metadata = Read(.workflow/active/{session_id}/workflow-session.json)
+session_metadata = Read(${projectRoot}/.workflow/active/{session_id}/workflow-session.json)
 original_topic = session_metadata.topic
 selected_roles = session_metadata.selected_roles
 ```
@@ -305,8 +305,8 @@ const roleAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/conceptual-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -333,7 +333,7 @@ UPDATE_MODE: ${update_mode}
 
 3. **load_session_metadata**
    - Action: Load session metadata and user intent
-   - Command: Read(.workflow/active/${session_id}/workflow-session.json)
+   - Command: Read(${projectRoot}/.workflow/active/${session_id}/workflow-session.json)
    - Output: session_context
 
 4. **load_user_context** (if exists)
@@ -413,8 +413,8 @@ selected_roles.forEach((role_name, index) => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/conceptual-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -552,7 +552,7 @@ ${selected_roles.length > 1 ? `
 ### Directory Layout
 
 ```
-.workflow/active/WFS-{session}/.brainstorming/
+{projectRoot}/.workflow/active/WFS-{session}/.brainstorming/
 ├── guidance-specification.md          # Framework (if exists)
 └── {role-name}/
     ├── {role-name}-context.md         # Interactive Q&A responses
@@ -751,7 +751,7 @@ try {
 - Format: `{role-name}.md` (e.g., `ux-expert.md`, `system-architect.md`)
 
 ### Context Package
-- Location: `.workflow/active/WFS-{session}/.process/context-package.json`
+- Location: `{projectRoot}/.workflow/active/WFS-{session}/.process/context-package.json`
 - Used by: `context-search-agent` (Phase 0 of artifacts)
 - Contains: Project context, tech stack, conflict risks
 

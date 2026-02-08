@@ -46,7 +46,7 @@ Phase 5: Generate Analysis Report
 
 ### Phase 1: Extract Test Tasks
 ```bash
-find .workflow/active/{session_id}/.task/ -name 'TEST-*.json' -exec jq -r '.context.focus_paths[]' {} \;
+find ${projectRoot}/.workflow/active/{session_id}/.task/ -name 'TEST-*.json' -exec jq -r '.context.focus_paths[]' {} \;
 ```
 
 **Output**: List of test directories/files from all TEST tasks
@@ -54,20 +54,20 @@ find .workflow/active/{session_id}/.task/ -name 'TEST-*.json' -exec jq -r '.cont
 ### Phase 2: Run Test Suite
 ```bash
 # Node.js/JavaScript
-npm test -- --coverage --json > .workflow/active/{session_id}/.process/test-results.json
+npm test -- --coverage --json > ${projectRoot}/.workflow/active/{session_id}/.process/test-results.json
 
 # Python
-pytest --cov --json-report > .workflow/active/{session_id}/.process/test-results.json
+pytest --cov --json-report > ${projectRoot}/.workflow/active/{session_id}/.process/test-results.json
 
 # Other frameworks (detect from project)
-[test_command] --coverage --json-output .workflow/active/{session_id}/.process/test-results.json
+[test_command] --coverage --json-output ${projectRoot}/.workflow/active/{session_id}/.process/test-results.json
 ```
 
 **Output**: test-results.json with coverage data
 
 ### Phase 3: Parse Coverage Data
 ```bash
-jq '.coverage' .workflow/active/{session_id}/.process/test-results.json > .workflow/active/{session_id}/.process/coverage-report.json
+jq '.coverage' ${projectRoot}/.workflow/active/{session_id}/.process/test-results.json > ${projectRoot}/.workflow/active/{session_id}/.process/coverage-report.json
 ```
 
 **Extract**:
@@ -83,7 +83,7 @@ For each TDD chain (TEST-N.M -> IMPL-N.M -> REFACTOR-N.M):
 **1. Red Phase Verification**
 ```bash
 # Check TEST task summary
-cat .workflow/active/{session_id}/.summaries/TEST-N.M-summary.md
+cat ${projectRoot}/.workflow/active/{session_id}/.summaries/TEST-N.M-summary.md
 ```
 
 Verify:
@@ -94,7 +94,7 @@ Verify:
 **2. Green Phase Verification**
 ```bash
 # Check IMPL task summary
-cat .workflow/active/{session_id}/.summaries/IMPL-N.M-summary.md
+cat ${projectRoot}/.workflow/active/{session_id}/.summaries/IMPL-N.M-summary.md
 ```
 
 Verify:
@@ -105,7 +105,7 @@ Verify:
 **3. Refactor Phase Verification**
 ```bash
 # Check REFACTOR task summary
-cat .workflow/active/{session_id}/.summaries/REFACTOR-N.M-summary.md
+cat ${projectRoot}/.workflow/active/{session_id}/.summaries/REFACTOR-N.M-summary.md
 ```
 
 Verify:
@@ -115,7 +115,7 @@ Verify:
 
 ### Phase 5: Generate Analysis Report
 
-Create `.workflow/active/{session_id}/.process/tdd-cycle-report.md`:
+Create `${projectRoot}/.workflow/active/{session_id}/.process/tdd-cycle-report.md`:
 
 ```markdown
 # TDD Cycle Analysis - {Session ID}
@@ -171,7 +171,7 @@ Create `.workflow/active/{session_id}/.process/tdd-cycle-report.md`:
 
 ## Output Files
 ```
-.workflow/active/{session-id}/
+${projectRoot}/.workflow/active/{session-id}/
 └── .process/
     ├── test-results.json         # Raw test execution results
     ├── coverage-report.json      # Parsed coverage data

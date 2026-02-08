@@ -9,7 +9,7 @@ Multi-perspective issue discovery orchestrator that explores code from different
 **Core workflow**: Initialize → Select Perspectives → Parallel Analysis → Aggregate → Generate Issues → User Action
 
 **Discovery Scope**: Specified modules/files only
-**Output Directory**: `.workflow/issues/discoveries/{discovery-id}/`
+**Output Directory**: `{projectRoot}/.workflow/issues/discoveries/{discovery-id}/`
 **Available Perspectives**: bug, ux, test, quality, security, performance, maintainability, best-practices
 **Exa Integration**: Auto-enabled for security and best-practices perspectives
 **CLI Tools**: Gemini → Qwen → Codex (fallback chain)
@@ -60,7 +60,7 @@ if (resolvedFiles.length === 0) {
 const discoveryId = `DSC-${formatDate(new Date(), 'YYYYMMDD-HHmmss')}`;
 
 // Create output directory
-const outputDir = `.workflow/issues/discoveries/${discoveryId}`;
+const outputDir = `${projectRoot}/.workflow/issues/discoveries/${discoveryId}`;
 await mkdir(outputDir, { recursive: true });
 await mkdir(`${outputDir}/perspectives`, { recursive: true });
 
@@ -117,8 +117,8 @@ selectedPerspectives.forEach(perspective => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -195,8 +195,8 @@ if (selectedPerspectives.includes('security') || selectedPerspectives.includes('
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -204,7 +204,7 @@ if (selectedPerspectives.includes('security') || selectedPerspectives.includes('
 Research industry best practices for ${perspective} using Exa search
 
 ## Research Steps
-1. Read project tech stack: .workflow/project-tech.json
+1. Read project tech stack: {projectRoot}/.workflow/project-tech.json
 2. Use Exa to search for best practices
 3. Synthesize findings relevant to this project
 
@@ -287,7 +287,7 @@ await ASK_USER([{
 }]);  // BLOCKS (wait for user response)
 
 if (response === "Export to Issues") {
-  await appendJsonl('.workflow/issues/issues.jsonl', issues);
+  await appendJsonl(`${projectRoot}/.workflow/issues/issues.jsonl`, issues);
 }
 ```
 
@@ -320,7 +320,7 @@ function getPerspectiveGuidance(perspective) {
 ## Output File Structure
 
 ```
-.workflow/issues/discoveries/
+{projectRoot}/.workflow/issues/discoveries/
 ├── index.json                           # Discovery session index
 └── {discovery-id}/
     ├── discovery-state.json             # Unified state

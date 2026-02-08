@@ -59,6 +59,17 @@ Phase 4: Execution
 
 ### Phase 0: Initialization
 
+##### Step 0: Determine Project Root
+
+检测项目根目录，确保 `.workflow/` 产物位置正确：
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+```
+
+优先通过 git 获取仓库根目录；非 git 项目回退到 `pwd` 取当前绝对路径。
+存储为 `{projectRoot}`，后续所有 `.workflow/` 路径必须以此为前缀。
+
 ```javascript
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
@@ -71,9 +82,9 @@ const focusArea = focusMatch ? focusMatch[1] : "$FOCUS" !== "$" + "FOCUS" ? "$FO
 // Session setup
 const dateStr = getUtc8ISOString().substring(0, 10)
 const sessionId = `clean-${dateStr}`
-const sessionFolder = `.workflow/.clean/${sessionId}`
+const sessionFolder = `${projectRoot}/.workflow/.clean/${sessionId}`
 const trashFolder = `${sessionFolder}/.trash`
-const projectRoot = process.cwd()
+const projectRoot = bash('git rev-parse --show-toplevel 2>/dev/null || pwd').trim()
 
 bash(`mkdir -p ${sessionFolder}`)
 bash(`mkdir -p ${trashFolder}`)
@@ -153,7 +164,7 @@ try {
 
 ### MANDATORY FIRST STEPS
 1. Read: ~/.codex/agents/cli-explore-agent.md
-2. Read: .workflow/project-tech.json (if exists)
+2. Read: ${projectRoot}/.workflow/project-tech.json (if exists)
 
 ## Task Objective
 Discover stale artifacts for cleanup.
@@ -165,11 +176,11 @@ Discover stale artifacts for cleanup.
 ## Discovery Categories
 
 ### 1. Stale Workflow Sessions
-Scan: .workflow/active/WFS-*, .workflow/archives/WFS-*, .workflow/.lite-plan/*, .workflow/.debug/DBG-*
+Scan: ${projectRoot}/.workflow/active/WFS-*, ${projectRoot}/.workflow/archives/WFS-*, ${projectRoot}/.workflow/.lite-plan/*, ${projectRoot}/.workflow/.debug/DBG-*
 Criteria: No modification >7 days + no related git commits
 
 ### 2. Drifted Documents
-Scan: .claude/rules/tech/*, .workflow/.scratchpad/*
+Scan: .claude/rules/tech/*, ${projectRoot}/.workflow/.scratchpad/*
 Criteria: >30% broken references to non-existent files
 
 ### 3. Dead Code
@@ -355,7 +366,7 @@ Write(`${sessionFolder}/cleanup-report.json`, JSON.stringify({
 ## Session Folder
 
 ```
-.workflow/.clean/clean-{YYYY-MM-DD}/
+{projectRoot}/.workflow/.clean/clean-{YYYY-MM-DD}/
 ├── mainline-profile.json     # Git history analysis
 ├── cleanup-manifest.json     # Discovery results
 ├── cleanup-report.json       # Execution results

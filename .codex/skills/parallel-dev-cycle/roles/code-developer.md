@@ -159,7 +159,7 @@ When tests fail during implementation, the CD agent MUST initiate the hypothesis
 
 ### Debug Log Format (NDJSON)
 
-File: `.workflow/.cycle/{cycleId}.progress/cd/debug-log.ndjson`
+File: `{projectRoot}/.workflow/.cycle/{cycleId}.progress/cd/debug-log.ndjson`
 
 Schema:
 ```json
@@ -191,7 +191,7 @@ Debug workflow generates an additional file:
 
 ### Phase 3: Output
 
-Generate files in `.workflow/.cycle/{cycleId}.progress/cd/`:
+Generate files in `{projectRoot}/.workflow/.cycle/{cycleId}.progress/cd/`:
 
 **implementation.md**:
 ```markdown

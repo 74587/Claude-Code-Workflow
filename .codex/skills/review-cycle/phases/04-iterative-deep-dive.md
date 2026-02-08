@@ -89,8 +89,8 @@ selectedFindings.forEach(finding => {
 4. Identify related code: bash(grep -r "import.*${basename(finding.file)}" ${projectDir}/src --include="*.ts")
 5. Read test files: bash(find ${projectDir}/tests -name "*${basename(finding.file, '.ts')}*" -type f)
 6. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
-7. Read: .workflow/project-tech.json (technology stack and architecture context)
-8. Read: .workflow/project-guidelines.json (user-defined constraints for remediation compliance)
+7. Read: ${projectRoot}/.workflow/project-tech.json (technology stack and architecture context)
+8. Read: ${projectRoot}/.workflow/project-guidelines.json (user-defined constraints for remediation compliance)
 
 ---
 
@@ -200,8 +200,8 @@ selectedFindings.forEach(finding => {
 4. Identify related code: bash(grep -r "import.*${basename(finding.file)}" ${workflowDir}/src --include="*.ts")
 5. Read test files: bash(find ${workflowDir}/tests -name "*${basename(finding.file, '.ts')}*" -type f)
 6. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
-7. Read: .workflow/project-tech.json (technology stack and architecture context)
-8. Read: .workflow/project-guidelines.json (user-defined constraints for remediation compliance)
+7. Read: ${projectRoot}/.workflow/project-tech.json (technology stack and architecture context)
+8. Read: ${projectRoot}/.workflow/project-guidelines.json (user-defined constraints for remediation compliance)
 
 ---
 

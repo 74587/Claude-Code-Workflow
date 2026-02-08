@@ -5,7 +5,7 @@ Seven-phase workflow: **Context collection** → **Topic analysis** → **Role s
 All user interactions use ASK_USER / CONFIRM pseudo-code (implemented via AskUserQuestion tool) (max 4 questions per call, multi-round).
 
 **Input**: `"GOAL: [objective] SCOPE: [boundaries] CONTEXT: [background]" [--count N]`
-**Output**: `.workflow/active/WFS-{topic}/.brainstorming/guidance-specification.md`
+**Output**: `{projectRoot}/.workflow/active/WFS-{topic}/.brainstorming/guidance-specification.md`
 **Core Principle**: Questions dynamically generated from project context + topic keywords, NOT generic templates
 
 **Parameters**:
@@ -69,7 +69,7 @@ for (let i = 0; i < allQuestions.length; i += BATCH_SIZE) {
 
 ## Session Management
 
-- Check `.workflow/active/` for existing sessions
+- Check `{projectRoot}/.workflow/active/` for existing sessions
 - Multiple → Prompt selection | Single → Use it | None → Create `WFS-[topic-slug]`
 - Parse `--count N` parameter (default: 3)
 - Store decisions in `workflow-session.json`
@@ -85,7 +85,7 @@ for (let i = 0; i < allQuestions.length; i += BATCH_SIZE) {
 **Steps**:
 1. Check if `context-package.json` exists → Skip if valid
 2. Invoke `context-search-agent` (BRAINSTORM MODE - lightweight)
-3. Output: `.workflow/active/WFS-{session-id}/.process/context-package.json`
+3. Output: `{projectRoot}/.workflow/active/WFS-{session-id}/.process/context-package.json`
 
 **Graceful Degradation**: If agent fails, continue to Phase 1 without context
 
@@ -97,8 +97,8 @@ const contextAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/context-search-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -108,7 +108,7 @@ Execute context-search-agent in BRAINSTORM MODE (Phase 1-2 only).
 ## Assigned Context
 - **Session**: ${session_id}
 - **Task**: ${task_description}
-- **Output**: .workflow/${session_id}/.process/context-package.json
+- **Output**: ${projectRoot}/.workflow/${session_id}/.process/context-package.json
 
 ## Required Output Fields
 metadata, project_context, assets, dependencies, conflict_detection
@@ -322,7 +322,7 @@ ASK_USER([{
 
 ### Output Template
 
-**File**: `.workflow/active/WFS-{topic}/.brainstorming/guidance-specification.md`
+**File**: `{projectRoot}/.workflow/active/WFS-{topic}/.brainstorming/guidance-specification.md`
 
 ```markdown
 # [Project] - Confirmed Guidance Specification
@@ -366,7 +366,7 @@ ASK_USER([{
 ### File Structure
 
 ```
-.workflow/active/WFS-[topic]/
+{projectRoot}/.workflow/active/WFS-[topic]/
 ├── workflow-session.json              # Metadata ONLY
 ├── .process/
 │   └── context-package.json           # Phase 0 output

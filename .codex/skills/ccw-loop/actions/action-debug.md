@@ -233,7 +233,7 @@ if (confirmedHypothesis) {
 
 state.skill_state.last_action = 'DEBUG'
 state.updated_at = timestamp
-Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+Write(`${projectRoot}/.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
 ```
 
 ## Output Format
@@ -249,8 +249,8 @@ ACTION_RESULT:
   }
 
 FILES_UPDATED:
-- .workflow/.loop/{loopId}.progress/debug.md: Understanding updated
-- .workflow/.loop/{loopId}.progress/hypotheses.json: Hypotheses updated
+- {projectRoot}/.workflow/.loop/{loopId}.progress/debug.md: Understanding updated
+- {projectRoot}/.workflow/.loop/{loopId}.progress/hypotheses.json: Hypotheses updated
 - [Source files]: Instrumentation added
 
 NEXT_ACTION_NEEDED: {DEBUG | VALIDATE | DEVELOP | MENU}

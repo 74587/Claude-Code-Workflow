@@ -20,7 +20,7 @@ Complete CCW Loop session and generate summary report.
 ### Step 1: Verify Control Signals
 
 ```javascript
-const state = JSON.parse(Read(`.workflow/.loop/${loopId}.json`))
+const state = JSON.parse(Read(`${projectRoot}/.workflow/.loop/${loopId}.json`))
 
 if (state.status !== 'running') {
   return {
@@ -174,7 +174,7 @@ state.updated_at = timestamp
 state.skill_state.last_action = 'COMPLETE'
 state.skill_state.summary = stats
 
-Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+Write(`${projectRoot}/.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
 ```
 
 ## Output Format
@@ -190,8 +190,8 @@ ACTION_RESULT:
   }
 
 FILES_UPDATED:
-- .workflow/.loop/{loopId}.json: Status set to completed
-- .workflow/.loop/{loopId}.progress/summary.md: Summary report generated
+- {projectRoot}/.workflow/.loop/{loopId}.json: Status set to completed
+- {projectRoot}/.workflow/.loop/{loopId}.progress/summary.md: Summary report generated
 
 NEXT_ACTION_NEEDED: COMPLETED
 ```

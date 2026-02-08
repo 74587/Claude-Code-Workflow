@@ -29,8 +29,8 @@ Complete reference of worker actions and their capabilities.
 ```
 
 **Execution**:
-1. Read `.workflow/project-tech.json`
-2. Read `.workflow/project-guidelines.json`
+1. Read `{projectRoot}/.workflow/project-tech.json`
+2. Read `{projectRoot}/.workflow/project-guidelines.json`
 3. Parse task into phases
 4. Create task breakdown
 5. Generate execution plan

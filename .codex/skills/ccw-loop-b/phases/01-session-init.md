@@ -12,6 +12,13 @@ Create or resume a development loop, initialize state file and directory structu
 
 ## Execution
 
+### Step 0: Determine Project Root
+
+```javascript
+// Step 0: Determine Project Root
+const projectRoot = Bash('git rev-parse --show-toplevel 2>/dev/null || pwd').trim()
+```
+
 ### Step 1.1: Parse Arguments
 
 ```javascript
@@ -37,14 +44,14 @@ if (!validModes.includes(mode)) {
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
 function readState(loopId) {
-  const stateFile = `.workflow/.loop/${loopId}.json`
+  const stateFile = `${projectRoot}/.workflow/.loop/${loopId}.json`
   if (!fs.existsSync(stateFile)) return null
   return JSON.parse(Read(stateFile))
 }
 
 function saveState(loopId, state) {
   state.updated_at = getUtc8ISOString()
-  Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+  Write(`${projectRoot}/.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
 }
 ```
 
@@ -63,8 +70,8 @@ console.log(`Creating new loop: ${loopId}`)
 #### Create Directory Structure
 
 ```bash
-mkdir -p .workflow/.loop/${loopId}.workers
-mkdir -p .workflow/.loop/${loopId}.progress
+mkdir -p ${projectRoot}/.workflow/.loop/${loopId}.workers
+mkdir -p ${projectRoot}/.workflow/.loop/${loopId}.progress
 ```
 
 #### Initialize State File
@@ -95,7 +102,7 @@ function createState(loopId, taskDescription, mode) {
     }
   }
 
-  Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+  Write(`${projectRoot}/.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
   return state
 }
 ```
@@ -146,8 +153,8 @@ function checkControlSignals(loopId) {
 
 - **Variable**: `loopId` - Unique loop identifier
 - **Variable**: `state` - Initialized or resumed loop state object
-- **Variable**: `progressDir` - `.workflow/.loop/${loopId}.progress`
-- **Variable**: `workersDir` - `.workflow/.loop/${loopId}.workers`
+- **Variable**: `progressDir` - `${projectRoot}/.workflow/.loop/${loopId}.progress`
+- **Variable**: `workersDir` - `${projectRoot}/.workflow/.loop/${loopId}.workers`
 - **Variable**: `mode` - `'interactive'` / `'auto'` / `'parallel'`
 - **TodoWrite**: Mark Phase 1 completed, Phase 2 in_progress
 

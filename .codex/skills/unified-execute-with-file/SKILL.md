@@ -34,7 +34,7 @@ The key innovation is the **unified event log** that serves as both human-readab
 ## Output Structure
 
 ```
-.workflow/.execution/EXEC-{slug}-{date}-{random}/
+${projectRoot}/.workflow/.execution/EXEC-{slug}-{date}-{random}/
 ├── execution.md              # Plan overview + task table + timeline
 └── execution-events.md       # ⭐ Unified log (all executions) - SINGLE SOURCE OF TRUTH
 ```
@@ -46,7 +46,7 @@ The key innovation is the **unified event log** that serves as both human-readab
 | Artifact | Purpose |
 |----------|---------|
 | `execution.md` | Overview of plan source, task table, execution timeline |
-| Session folder | `.workflow/.execution/{sessionId}/` |
+| Session folder | `{projectRoot}/.workflow/.execution/{sessionId}/` |
 
 ### Phase 2: Pre-Execution Analysis
 
@@ -81,15 +81,15 @@ The workflow creates a unique session for tracking execution.
 - `date`: YYYY-MM-DD format (UTC+8)
 - `random`: 7-char random suffix for uniqueness
 
-**Session Directory**: `.workflow/.execution/{sessionId}/`
+**Session Directory**: `{projectRoot}/.workflow/.execution/{sessionId}/`
 
 **Plan Path Resolution**:
 1. If `$PLAN` provided explicitly, use it
 2. Otherwise, auto-detect from common locations:
-   - `.workflow/IMPL_PLAN.md`
-   - `.workflow/.planning/*/plan-note.md`
-   - `.workflow/.brainstorm/*/synthesis.json`
-   - `.workflow/.analysis/*/conclusions.json`
+   - `{projectRoot}/.workflow/IMPL_PLAN.md`
+   - `{projectRoot}/.workflow/.planning/*/plan-note.md`
+   - `{projectRoot}/.workflow/.brainstorm/*/synthesis.json`
+   - `{projectRoot}/.workflow/.analysis/*/conclusions.json`
 
 **Session Variables**:
 - `sessionId`: Unique session identifier
@@ -440,7 +440,7 @@ Complete
 ### Standard Execution
 
 ```bash
-PLAN=".workflow/.planning/CPLAN-auth-2025-01-27/plan-note.md"
+PLAN="${projectRoot}/.workflow/.planning/CPLAN-auth-2025-01-27/plan-note.md"
 ```
 
 Execute the plan with standard options.
@@ -448,7 +448,7 @@ Execute the plan with standard options.
 ### With Auto-Commit
 
 ```bash
-PLAN=".workflow/.planning/CPLAN-auth-2025-01-27/plan-note.md" \
+PLAN="${projectRoot}/.workflow/.planning/CPLAN-auth-2025-01-27/plan-note.md" \
   --auto-commit
 ```
 
@@ -457,7 +457,7 @@ Execute and automatically commit changes after each task.
 ### Dry-Run Mode
 
 ```bash
-PLAN=".workflow/.planning/CPLAN-auth-2025-01-27/plan-note.md" \
+PLAN="${projectRoot}/.workflow/.planning/CPLAN-auth-2025-01-27/plan-note.md" \
   --dry-run
 ```
 

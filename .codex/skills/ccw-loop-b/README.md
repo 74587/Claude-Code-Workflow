@@ -91,7 +91,7 @@ Spawn multiple workers simultaneously, batch wait for results.
 ## Session Structure
 
 ```
-.workflow/.loop/
+{projectRoot}/.workflow/.loop/
 +-- {loopId}.json                    # Master state
 +-- {loopId}.workers/                # Worker outputs
 |   +-- init.output.json
@@ -184,7 +184,7 @@ Coordinator adapts to mode:
 
 ### 3. State Management
 
-Unified state at `.workflow/.loop/{loopId}.json`:
+Unified state at `{projectRoot}/.workflow/.loop/{loopId}.json`:
 - **API compatible**: Works with CCW API
 - **Extension fields**: Skill-specific data in `skill_state`
 - **Worker outputs**: Structured JSON for each action

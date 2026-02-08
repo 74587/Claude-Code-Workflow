@@ -38,7 +38,7 @@ The key innovation is the **Plan Note** architecture - a shared collaborative do
 ## Output Structure
 
 ```
-.workflow/.planning/CPLAN-{slug}-{date}/
+{projectRoot}/.workflow/.planning/CPLAN-{slug}-{date}/
 ├── plan-note.md                  # ⭐ Core: Requirements + Tasks + Conflicts
 ├── requirement-analysis.json     # Phase 1: Sub-domain assignments
 ├── agents/                       # Phase 2: Per-domain plans (serial)
@@ -86,13 +86,24 @@ The key innovation is the **Plan Note** architecture - a shared collaborative do
 
 ### Session Initialization
 
+##### Step 0: Determine Project Root
+
+检测项目根目录，确保 `.workflow/` 产物位置正确：
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+```
+
+优先通过 git 获取仓库根目录；非 git 项目回退到 `pwd` 取当前绝对路径。
+存储为 `{projectRoot}`，后续所有 `.workflow/` 路径必须以此为前缀。
+
 The workflow automatically generates a unique session identifier and directory structure.
 
 **Session ID Format**: `CPLAN-{slug}-{date}`
 - `slug`: Lowercase alphanumeric, max 30 chars
 - `date`: YYYY-MM-DD format (UTC+8)
 
-**Session Directory**: `.workflow/.planning/{sessionId}/`
+**Session Directory**: `{projectRoot}/.workflow/.planning/{sessionId}/`
 
 **Auto-Detection**: If session folder exists with plan-note.md, automatically enters continue mode.
 
@@ -214,8 +225,8 @@ const agentIds = subDomains.map(sub => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-lite-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 4. Read: ${sessionFolder}/plan-note.md (understand template structure)
 5. Read: ${sessionFolder}/requirement-analysis.json (understand full context)
 

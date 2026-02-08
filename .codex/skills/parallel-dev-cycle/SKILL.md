@@ -147,7 +147,7 @@ Return: cycle_id, iterations, final_state
 ## Session Structure
 
 ```
-.workflow/.cycle/
+{projectRoot}/.workflow/.cycle/
 ├── {cycleId}.json                                 # Master state file
 ├── {cycleId}.progress/
     ├── ra/
@@ -176,7 +176,7 @@ Return: cycle_id, iterations, final_state
 
 ## State Management
 
-Master state file: `.workflow/.cycle/{cycleId}.json`
+Master state file: `{projectRoot}/.workflow/.cycle/{cycleId}.json`
 
 ```json
 {

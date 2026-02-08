@@ -135,7 +135,7 @@ workflow:brainstorm:auto-parallel "GOAL: [objective] SCOPE: [boundaries] CONTEXT
 **Parsing**:
 ```javascript
 // Read workflow-session.json after Phase 1
-const session_data = Read(".workflow/active/WFS-{topic}/workflow-session.json");
+const session_data = Read("${projectRoot}/.workflow/active/WFS-{topic}/workflow-session.json");
 const selected_roles = session_data.selected_roles;
 const session_id = session_data.session_id;
 const style_skill_package = session_data.style_skill_package || null;
@@ -189,8 +189,8 @@ const agentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -250,7 +250,7 @@ close_agent({ id: agentId })
 
 ## Session Management
 
-**⚡ FIRST ACTION**: Check `.workflow/active/` for existing sessions before Phase 1
+**⚡ FIRST ACTION**: Check `{projectRoot}/.workflow/active/` for existing sessions before Phase 1
 
 **Multiple Sessions Support**:
 - Different Codex instances can have different brainstorming sessions
@@ -266,15 +266,15 @@ close_agent({ id: agentId })
 ## Output Structure
 
 **Phase 1 Output**:
-- `.workflow/active/WFS-{topic}/.brainstorming/guidance-specification.md` (framework content)
-- `.workflow/active/WFS-{topic}/workflow-session.json` (metadata: selected_roles[], topic, timestamps, style_skill_package)
+- `{projectRoot}/.workflow/active/WFS-{topic}/.brainstorming/guidance-specification.md` (framework content)
+- `{projectRoot}/.workflow/active/WFS-{topic}/workflow-session.json` (metadata: selected_roles[], topic, timestamps, style_skill_package)
 
 **Phase 2 Output**:
-- `.workflow/active/WFS-{topic}/.brainstorming/{role}/analysis.md` (one per role)
+- `{projectRoot}/.workflow/active/WFS-{topic}/.brainstorming/{role}/analysis.md` (one per role)
 - `.superdesign/design_iterations/` (ui-designer artifacts, if --style-skill provided)
 
 **Phase 3 Output**:
-- `.workflow/active/WFS-{topic}/.brainstorming/synthesis-specification.md` (integrated analysis)
+- `{projectRoot}/.workflow/active/WFS-{topic}/.brainstorming/synthesis-specification.md` (integrated analysis)
 - Updated `[role]/analysis*.md` with Enhancements + Clarifications sections
 
 **⚠️ Storage Separation**: Guidance content in .md files, metadata in .json (no duplication)
@@ -307,7 +307,7 @@ close_agent({ id: agentId })
 
 **File Structure**:
 ```
-.workflow/active/WFS-[topic]/
+{projectRoot}/.workflow/active/WFS-[topic]/
 ├── workflow-session.json              # Session metadata ONLY
 └── .brainstorming/
     ├── guidance-specification.md      # Framework (Phase 1)
@@ -321,7 +321,7 @@ close_agent({ id: agentId })
 ```
 Brainstorming complete for session: {sessionId}
 Roles analyzed: {count}
-Synthesis: .workflow/active/WFS-{topic}/.brainstorming/synthesis-specification.md
+Synthesis: {projectRoot}/.workflow/active/WFS-{topic}/.brainstorming/synthesis-specification.md
 
 ✅ Next Steps:
 1. workflow:plan --session {sessionId}  # Generate implementation plan

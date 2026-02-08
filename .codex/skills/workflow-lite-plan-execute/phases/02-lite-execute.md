@@ -40,6 +40,7 @@ Flexible task execution phase supporting three input modes: in-memory plan (from
 
 **Behavior**:
 - Store prompt as `originalUserInput`
+- Execute `git rev-parse --show-toplevel` to determine `projectRoot`
 - Create simple execution plan from prompt
 - ASK_USER: Select execution method (Agent/Codex/Auto)
 - ASK_USER: Select code review tool (Skip/Gemini/Agent/Other)
@@ -67,8 +68,9 @@ Route by mode:
 **Format Detection**:
 
 ```
-1. Read file content
-2. Attempt JSON parsing
+1. Execute git rev-parse --show-toplevel to determine projectRoot
+2. Read file content
+3. Attempt JSON parsing
    ├─ Valid JSON with summary + approach + tasks fields → plan.json format
    │   ├─ Use parsed data as planObject
    │   └─ Set originalUserInput = summary
@@ -245,7 +247,7 @@ Contains: file index, task-relevant context, code reference, execution notes
 Plan: {plan path}
 
 ### Project Guidelines
-@.workflow/project-guidelines.json
+@{projectRoot}/.workflow/project-guidelines.json
 
 Complete each task according to its "Done when" checklist.
 ```
@@ -260,8 +262,8 @@ Complete each task according to its "Done when" checklist.
 1. Spawn code-developer agent with prompt:
    ├─ MANDATORY FIRST STEPS:
    │   ├─ Read: ~/.codex/agents/code-developer.md
-   │   ├─ Read: .workflow/project-tech.json
-   │   ├─ Read: .workflow/project-guidelines.json
+   │   ├─ Read: {projectRoot}/.workflow/project-tech.json
+   │   ├─ Read: {projectRoot}/.workflow/project-guidelines.json
    │   └─ Read: {exploration_log_refined} (execution-relevant context)
    └─ Body: {buildExecutionPrompt(batch)}
 
@@ -366,12 +368,12 @@ ccw cli -p "Clarify the security concerns" --resume {reviewId} --tool gemini --m
 
 **Trigger**: After all executions complete (regardless of code review)
 
-**Skip Condition**: Skip if `.workflow/project-tech.json` does not exist
+**Skip Condition**: Skip if `{projectRoot}/.workflow/project-tech.json` does not exist
 
 **Operations**:
 
 ```
-1. Read .workflow/project-tech.json
+1. Read {projectRoot}/.workflow/project-tech.json
    └─ If not found → silent skip
 
 2. Initialize development_index if missing
@@ -428,6 +430,7 @@ Passed from planning phase via global variable:
 
 ```javascript
 {
+  projectRoot: string,                   // 项目根目录绝对路径 (git rev-parse --show-toplevel || pwd)
   planObject: {
     summary: string,
     approach: string,
@@ -452,7 +455,7 @@ Passed from planning phase via global variable:
   // Session artifacts location (saved by planning phase)
   session: {
     id: string,                        // Session identifier: {taskSlug}-{shortTimestamp}
-    folder: string,                    // Session folder path: .workflow/.lite-plan/{session-id}
+    folder: string,                    // Session folder path: {projectRoot}/.workflow/.lite-plan/{session-id}
     artifacts: {
       explorations: [{angle, path}],   // exploration-{angle}.json paths
       explorations_manifest: string,   // explorations-manifest.json path

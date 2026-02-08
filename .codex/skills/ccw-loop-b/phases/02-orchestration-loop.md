@@ -227,8 +227,8 @@ function buildWorkerPrompt(action, loopId, state) {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ${roleFiles[action]} (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -242,9 +242,9 @@ Scope:
 Context:
 - Loop ID: ${loopId}
 - Action: ${action}
-- State File: .workflow/.loop/${loopId}.json
-- Output File: .workflow/.loop/${loopId}.workers/${action}.output.json
-- Progress File: .workflow/.loop/${loopId}.progress/${action}.md
+- State File: ${projectRoot}/.workflow/.loop/${loopId}.json
+- Output File: ${projectRoot}/.workflow/.loop/${loopId}.workers/${action}.output.json
+- Progress File: ${projectRoot}/.workflow/.loop/${loopId}.progress/${action}.md
 
 Deliverables:
 - WORKER_RESULT 格式输出
@@ -432,7 +432,7 @@ async function showMenuAndGetChoice(state) {
 
 ```javascript
 function persistWorkerOutput(loopId, action, workerResult) {
-  const outputPath = `.workflow/.loop/${loopId}.workers/${action}.output.json`
+  const outputPath = `${projectRoot}/.workflow/.loop/${loopId}.workers/${action}.output.json`
   Write(outputPath, JSON.stringify({
     ...workerResult,
     timestamp: getUtc8ISOString()

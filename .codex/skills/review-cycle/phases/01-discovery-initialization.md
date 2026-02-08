@@ -23,7 +23,7 @@ The review mode is determined by the input arguments:
 // If session ID not provided, auto-detect
 if (!providedSessionId) {
   // Check for active sessions
-  const activeSessions = Glob('.workflow/active/WFS-*');
+  const activeSessions = Glob('${projectRoot}/.workflow/active/WFS-*');
   if (activeSessions.length === 1) {
     sessionId = activeSessions[0].match(/WFS-[^/]+/)[0];
   } else if (activeSessions.length > 1) {
@@ -37,7 +37,7 @@ if (!providedSessionId) {
 }
 
 // Validate session exists
-Bash(`test -d .workflow/active/${sessionId} && echo "EXISTS"`);
+Bash(`test -d ${projectRoot}/.workflow/active/${sessionId} && echo "EXISTS"`);
 ```
 
 ### Step 1.2: Session Validation
@@ -62,11 +62,11 @@ git log --since="${sessionCreatedAt}" --name-only --pretty=format: | sort -u
 ```javascript
 // Create workflow session for this review (type: review)
 // Orchestrator handles session creation directly
-Bash(`mkdir -p .workflow/active/WFS-review-${Date.now()}`);
+Bash(`mkdir -p ${projectRoot}/.workflow/active/WFS-review-${Date.now()}`);
 
 // Initialize workflow-session.json
 const sessionId = `WFS-review-${Date.now()}`;
-Write(`.workflow/active/${sessionId}/workflow-session.json`, JSON.stringify({
+Write(`${projectRoot}/.workflow/active/${sessionId}/workflow-session.json`, JSON.stringify({
   session_id: sessionId,
   type: "review",
   description: `Code review for ${targetPattern}`,
@@ -117,7 +117,7 @@ done
 
 ### Step 1.4: Output Directory Setup
 
-- Output directory: `.workflow/active/${sessionId}/.review/`
+- Output directory: `${projectRoot}/.workflow/active/${sessionId}/.review/`
 - Create directory structure:
   ```bash
   mkdir -p ${sessionDir}/.review/{dimensions,iterations,reports}
@@ -295,7 +295,7 @@ done
 ## Output File Structure
 
 ```
-.workflow/active/WFS-{session-id}/.review/
+{projectRoot}/.workflow/active/WFS-{session-id}/.review/
 ├── review-state.json                    # Orchestrator state machine (includes metadata)
 ├── review-progress.json                 # Real-time progress for dashboard
 ├── dimensions/                          # Per-dimension results
@@ -319,7 +319,7 @@ done
 ## Session Context
 
 ```
-.workflow/active/WFS-{session-id}/
+{projectRoot}/.workflow/active/WFS-{session-id}/
 ├── workflow-session.json
 ├── IMPL_PLAN.md
 ├── TODO_LIST.md

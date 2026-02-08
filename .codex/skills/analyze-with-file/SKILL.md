@@ -10,7 +10,7 @@ argument-hint: "TOPIC=\"<question or topic>\" [--depth=quick|standard|deep] [--c
 
 Interactive collaborative analysis workflow with **documented discussion process**. Records understanding evolution, facilitates multi-round Q&A, and uses **parallel subagent exploration** for deep analysis.
 
-**Core workflow**: Topic → Parallel Explore → Discuss → Document → Refine → Conclude
+**Core workflow**: Topic → Parallel Explore → Discuss → Document → Refine → Conclude → (Optional) Quick Execute
 
 ## Overview
 
@@ -20,6 +20,7 @@ This workflow enables iterative exploration and refinement of complex topics thr
 2. **Parallel Exploration** - Gather codebase context via parallel subagents (up to 4)
 3. **Interactive Discussion** - Multi-round Q&A with user feedback and direction adjustments
 4. **Synthesis & Conclusion** - Consolidate insights and generate actionable recommendations
+5. **Quick Execute** *(Optional)* - Convert conclusions to plan.json and execute serially with logging
 
 The key innovation is **documented discussion timeline** that captures the evolution of understanding across all phases, enabling users to track how insights develop and assumptions are corrected.
 
@@ -62,13 +63,20 @@ Phase 4: Synthesis & Conclusion
    ├─ Consolidate all insights and discussion rounds
    ├─ Generate final conclusions with recommendations
    ├─ Update discussion.md with synthesis
-   └─ Offer follow-up options (create issue, generate task, export report)
+   └─ Offer follow-up options (quick execute, create issue, generate task, export report)
+
+Phase 5: Quick Execute (Optional - user selects "简要执行")
+   ├─ Convert conclusions.recommendations → quick-plan.json
+   ├─ Present plan for user confirmation
+   ├─ Serial task execution via CLI (no agent exploration)
+   ├─ Record each task result to execution-log.md
+   └─ Report completion summary with statistics
 ```
 
 ## Output Structure
 
 ```
-.workflow/.analysis/ANL-{slug}-{date}/
+{projectRoot}/.workflow/.analysis/ANL-{slug}-{date}/
 ├── discussion.md                # ⭐ Evolution of understanding & discussions
 ├── exploration-codebase.json    # Phase 2: Codebase context (single perspective)
 ├── explorations/                # Phase 2: Multi-perspective explorations (if selected)
@@ -77,7 +85,9 @@ Phase 4: Synthesis & Conclusion
 │   └── ...
 ├── explorations.json            # Phase 2: Single perspective findings
 ├── perspectives.json            # Phase 2: Multi-perspective findings with synthesis
-└── conclusions.json             # Phase 4: Final synthesis with recommendations
+├── conclusions.json             # Phase 4: Final synthesis with recommendations
+├── quick-plan.json              # Phase 5: Executable task plan (if quick execute)
+└── execution-log.md             # Phase 5: Execution history (if quick execute)
 ```
 
 ## Output Artifacts
@@ -113,11 +123,29 @@ Phase 4: Synthesis & Conclusion
 | `conclusions.json` | Final synthesis: key conclusions, recommendations, open questions |
 | Final `discussion.md` | Complete analysis timeline with conclusions and final understanding |
 
+### Phase 5: Quick Execute (Optional)
+
+| Artifact | Purpose |
+|----------|---------|
+| `quick-plan.json` | Executable task plan converted from recommendations |
+| `execution-log.md` | Unified execution history with task results and statistics |
+
 ---
 
 ## Implementation Details
 
 ### Session Initialization
+
+##### Step 0: Determine Project Root
+
+检测项目根目录，确保 `.workflow/` 产物位置正确：
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+```
+
+优先通过 git 获取仓库根目录；非 git 项目回退到 `pwd` 取当前绝对路径。
+存储为 `{projectRoot}`，后续所有 `.workflow/` 路径必须以此为前缀。
 
 The workflow automatically generates a unique session identifier and directory structure based on the topic and current date (UTC+8).
 
@@ -125,7 +153,7 @@ The workflow automatically generates a unique session identifier and directory s
 - `slug`: Lowercase alphanumeric + Chinese characters, max 40 chars (derived from topic)
 - `date`: YYYY-MM-DD format (UTC+8)
 
-**Session Directory**: `.workflow/.analysis/{sessionId}/`
+**Session Directory**: `{projectRoot}/.workflow/.analysis/{sessionId}/`
 
 **Auto-Detection**: If session folder exists with discussion.md, automatically enters continue mode. Otherwise, creates new session.
 
@@ -243,8 +271,8 @@ const explorationAgent = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -297,8 +325,8 @@ const agentIds = selectedPerspectives.map(perspective => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -515,7 +543,7 @@ const deepeningAgent = spawn_agent({
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
 2. Read: ${sessionFolder}/explorations.json (prior findings)
-3. Read: .workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-tech.json
 
 ---
 
@@ -557,7 +585,7 @@ const adjustedAgent = spawn_agent({
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
 2. Read: ${sessionFolder}/explorations.json (prior findings)
-3. Read: .workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-tech.json
 
 ---
 
@@ -764,6 +792,7 @@ Offer user follow-up actions based on analysis results.
 
 | Option | Purpose | Action |
 |--------|---------|--------|
+| **简要执行** | Quick execute from analysis | Jump to Phase 5: Generate quick-plan.json and execute serially |
 | **创建Issue** | Create actionable issue from findings | Launch `issue:new` with conclusions summary |
 | **生成任务** | Generate implementation task | Launch `workflow:lite-plan` for task breakdown |
 | **导出报告** | Generate standalone analysis report | Create formatted report document |
@@ -774,6 +803,35 @@ Offer user follow-up actions based on analysis results.
 - `discussion.md` finalized with all conclusions
 - User offered meaningful next step options
 - Session complete and all artifacts available
+
+---
+
+## Phase 5: Quick Execute (简要执行)
+
+**Objective**: Convert analysis conclusions directly into executable tasks and run them serially without additional exploration.
+
+**Trigger**: User selects "简要执行" in Phase 4 post-completion options.
+
+**Key Principle**: **No additional agent exploration** - analysis phase has already collected all necessary context.
+
+**详细规范**: 📖 [EXECUTE.md](./EXECUTE.md)
+
+**Flow Summary**:
+```
+conclusions.json → quick-plan.json → 用户确认 → 串行CLI执行 → execution-log.md
+```
+
+**Steps**:
+1. **Generate quick-plan.json** - Convert `conclusions.recommendations` to executable tasks
+2. **User Confirmation** - Present plan, user approves / adjusts / cancels
+3. **Serial Execution** - Execute tasks via CLI `--mode write`, one at a time
+4. **Record Log** - Each task result appended to `execution-log.md`
+5. **Update Plan** - Update `quick-plan.json` with execution statuses
+6. **Completion** - Report statistics, offer retry/view log/create issue
+
+**Output**:
+- `${sessionFolder}/quick-plan.json` - Executable task plan with statuses
+- `${sessionFolder}/execution-log.md` - Unified execution history
 
 ---
 
@@ -841,6 +899,9 @@ Common focus areas that guide the analysis direction:
 | **User disengaged** | Summarize progress and offer break point | Save state, keep agents alive for resume |
 | **Max rounds reached (5)** | Force synthesis phase | Highlight remaining questions in conclusions |
 | **Session folder conflict** | Append timestamp suffix to session ID | Create unique folder and continue |
+| **Quick execute: task fails** | Record failure in execution-log.md, ask user | Retry, skip, or abort remaining tasks |
+| **Quick execute: CLI timeout** | Mark task as failed with timeout reason | User can retry or skip |
+| **Quick execute: no recommendations** | Cannot generate quick-plan.json | Inform user, suggest using lite-plan instead |
 
 ### Codex-Specific Error Patterns
 
@@ -954,6 +1015,28 @@ Final synthesis:
    └─ Archive session artifacts
 ```
 
+### Quick Execute Flow (Phase 5)
+
+```
+User selects "简要执行":
+   ├─ Read conclusions.json + explorations.json/perspectives.json
+   ├─ Convert recommendations → quick-plan.json
+   │   └─ No agent exploration (context already gathered)
+   ├─ Present plan to user for confirmation
+   │   ├─ 开始执行 → proceed
+   │   ├─ 调整任务 → modify and regenerate
+   │   └─ 取消 → keep plan, exit
+   │
+   ├─ Serial task execution:
+   │   ├─ TASK-001: CLI --mode write → record to execution-log.md
+   │   ├─ TASK-002: CLI --mode write → record to execution-log.md
+   │   └─ (repeat for all tasks)
+   │
+   ├─ Update quick-plan.json with statuses
+   ├─ Finalize execution-log.md with summary
+   └─ Offer post-execution options (retry/view log/create issue/done)
+```
+
 ---
 
 ## Best Practices
@@ -1053,6 +1136,12 @@ Each discussion round follows a consistent structure:
 - Decision-making requires exploring multiple perspectives
 - Building shared understanding before implementation
 - Want to document how understanding evolved
+
+### Use Quick Execute (Phase 5) when:
+- Analysis conclusions contain clear, actionable recommendations
+- Context is already sufficient - no additional exploration needed
+- Want a streamlined analyze → plan → execute pipeline in one session
+- Tasks are relatively independent and can be executed serially
 
 ### Use direct execution when:
 - Short, focused analysis tasks (single component)

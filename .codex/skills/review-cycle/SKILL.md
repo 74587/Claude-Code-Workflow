@@ -80,7 +80,7 @@ review-cycle src/auth/**,src/payment/**                        # Module: multipl
 review-cycle src/auth/** --dimensions=security,architecture    # Module: custom dims
 review-cycle WFS-payment-integration                           # Session: specific
 review-cycle                                                   # Session: auto-detect
-review-cycle --fix .workflow/active/WFS-123/.review/           # Fix: from review dir
+review-cycle --fix ${projectRoot}/.workflow/active/WFS-123/.review/           # Fix: from review dir
 review-cycle --fix --resume                                    # Fix: resume session
 ```
 
@@ -244,8 +244,8 @@ const agentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -367,7 +367,7 @@ Gemini → Qwen → Codex → degraded mode
 ## Output File Structure
 
 ```
-.workflow/active/WFS-{session-id}/.review/
+{projectRoot}/.workflow/active/WFS-{session-id}/.review/
 ├── review-state.json                    # Orchestrator state machine
 ├── review-progress.json                 # Real-time progress
 ├── dimensions/                          # Per-dimension results (Phase 2)
@@ -408,5 +408,5 @@ ccw view
 review-cycle src/auth/**
 
 # Step 2: Fix (continue or standalone)
-review-cycle --fix .workflow/active/WFS-{session-id}/.review/
+review-cycle --fix ${projectRoot}/.workflow/active/WFS-{session-id}/.review/
 ```

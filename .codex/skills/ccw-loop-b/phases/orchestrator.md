@@ -14,7 +14,7 @@ Read state -> Select mode -> Spawn workers -> Wait results -> Merge -> Update st
 
 ```javascript
 function readState(loopId) {
-  const stateFile = `.workflow/.loop/${loopId}.json`
+  const stateFile = `${projectRoot}/.workflow/.loop/${loopId}.json`
   return fs.existsSync(stateFile)
     ? JSON.parse(Read(stateFile))
     : null
@@ -178,8 +178,8 @@ function buildWorkerPrompt(action, loopId, state) {
 
 ### MANDATORY FIRST STEPS
 1. **Read role definition**: ${roleFiles[action]}
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -252,6 +252,6 @@ function parseWorkerResult(output) {
 ## Best Practices
 
 1. **Worker 生命周期**: spawn → wait → close，不保留 worker
-2. **结果持久化**: Worker 输出写入 `.workflow/.loop/{loopId}.workers/`
+2. **结果持久化**: Worker 输出写入 `{projectRoot}/.workflow/.loop/{loopId}.workers/`
 3. **状态同步**: 每次 worker 完成后更新 state
 4. **超时处理**: send_input 请求收敛，再超时则跳过

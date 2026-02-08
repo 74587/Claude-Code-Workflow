@@ -116,7 +116,7 @@ The Validation & Archival Agent is responsible for verifying implementation qual
 
 ### Phase 4: Output
 
-Generate files in `.workflow/.cycle/{cycleId}.progress/vas/`:
+Generate files in `{projectRoot}/.workflow/.cycle/{cycleId}.progress/vas/`:
 
 **validation.md**:
 ```markdown

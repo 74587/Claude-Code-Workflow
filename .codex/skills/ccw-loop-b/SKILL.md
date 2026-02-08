@@ -142,7 +142,7 @@ return finalState
 ## Session Structure
 
 ```
-.workflow/.loop/
+{projectRoot}/.workflow/.loop/
 ├── {loopId}.json                    # Master state (API + Skill shared)
 ├── {loopId}.workers/                # Worker structured outputs
 │   ├── init.output.json
@@ -159,7 +159,7 @@ return finalState
 
 ## State Management
 
-Master state file: `.workflow/.loop/{loopId}.json`
+Master state file: `{projectRoot}/.workflow/.loop/{loopId}.json`
 
 ```json
 {
@@ -233,8 +233,8 @@ function buildWorkerPrompt(action, loopId, state) {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/ccw-loop-b-${action}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -247,9 +247,9 @@ Scope:
 
 Context:
 - Loop ID: ${loopId}
-- State: .workflow/.loop/${loopId}.json
-- Output: .workflow/.loop/${loopId}.workers/${action}.output.json
-- Progress: .workflow/.loop/${loopId}.progress/${action}.md
+- State: ${projectRoot}/.workflow/.loop/${loopId}.json
+- Output: ${projectRoot}/.workflow/.loop/${loopId}.workers/${action}.output.json
+- Progress: ${projectRoot}/.workflow/.loop/${loopId}.progress/${action}.md
 
 Deliverables:
 - 按 WORKER_RESULT 格式输出
@@ -374,7 +374,7 @@ function mergeWorkerOutputs(outputs) {
 2. **Progressive Phase Loading**: Read phase docs ONLY when that phase is about to execute
 3. **Parse Every Output**: Extract WORKER_RESULT from worker output for next decision
 4. **Worker 生命周期**: spawn → wait → [send_input if needed] → close，不长期保留 worker
-5. **结果持久化**: Worker 输出写入 `.workflow/.loop/{loopId}.workers/`
+5. **结果持久化**: Worker 输出写入 `{projectRoot}/.workflow/.loop/{loopId}.workers/`
 6. **状态同步**: 每次 worker 完成后更新 master state
 7. **超时处理**: send_input 请求收敛，再超时则使用已有结果继续
 8. **DO NOT STOP**: Continuous execution until completed, paused, or max iterations

@@ -90,8 +90,8 @@ const analysisAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -157,8 +157,8 @@ const fixAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/test-fix-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -276,7 +276,7 @@ const taskTypeSuccessCriteria = {
 ## Session File Structure
 
 ```
-.workflow/active/WFS-test-{session}/
+{projectRoot}/.workflow/active/WFS-test-{session}/
 ├── workflow-session.json           # Session metadata
 ├── IMPL_PLAN.md, TODO_LIST.md
 ├── .task/

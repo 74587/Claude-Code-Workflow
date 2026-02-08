@@ -57,8 +57,20 @@ Phase 4: Cycle Launch
 
 ### Phase 1: Session Loading
 
+##### Step 0: Determine Project Root
+
+检测项目根目录，确保 `.workflow/` 产物位置正确：
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+```
+
+优先通过 git 获取仓库根目录；非 git 项目回退到 `pwd` 取当前绝对路径。
+存储为 `{projectRoot}`，后续所有 `.workflow/` 路径必须以此为前缀。
+
 ```javascript
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
+const projectRoot = bash('git rev-parse --show-toplevel 2>/dev/null || pwd').trim()
 
 // Parse arguments
 const args = "$ARGUMENTS"
@@ -68,7 +80,7 @@ const preSelectedIdea = ideaIndexMatch ? parseInt(ideaIndexMatch[1]) : null
 const isAutoMode = args.includes('--auto')
 
 // Validate session
-const sessionFolder = `.workflow/.brainstorm/${sessionId}`
+const sessionFolder = `${projectRoot}/.workflow/.brainstorm/${sessionId}`
 const synthesisPath = `${sessionFolder}/synthesis.json`
 const brainstormPath = `${sessionFolder}/brainstorm.md`
 
@@ -85,7 +97,7 @@ Expected path: ${synthesisPath}
 
 **Available sessions**:
 `)
-  bash(`ls -1 .workflow/.brainstorm/ 2>/dev/null | head -10`)
+  bash(`ls -1 ${projectRoot}/.workflow/.brainstorm/ 2>/dev/null | head -10`)
   return { status: 'error', message: 'Session not found' }
 }
 
@@ -366,7 +378,7 @@ To launch manually:
 After execution:
 
 ```
-.workflow/.brainstorm/{session-id}/
+{projectRoot}/.workflow/.brainstorm/{session-id}/
 ├── brainstorm.md        # Original brainstorm
 ├── synthesis.json       # Synthesis data (input)
 ├── perspectives.json    # Perspectives data

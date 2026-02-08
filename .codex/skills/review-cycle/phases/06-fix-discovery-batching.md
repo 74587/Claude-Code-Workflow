@@ -10,19 +10,19 @@ Validate fix input source, create fix session structure, and perform intelligent
 
 ```bash
 # Fix from exported findings file (session-based path)
-review-cycle --fix .workflow/active/WFS-123/.review/fix-export-1706184622000.json
+review-cycle --fix ${projectRoot}/.workflow/active/WFS-123/.review/fix-export-1706184622000.json
 
 # Fix from review directory (auto-discovers latest export)
-review-cycle --fix .workflow/active/WFS-123/.review/
+review-cycle --fix ${projectRoot}/.workflow/active/WFS-123/.review/
 
 # Resume interrupted fix session
 review-cycle --fix --resume
 
 # Custom max retry attempts per finding
-review-cycle --fix .workflow/active/WFS-123/.review/ --max-iterations=5
+review-cycle --fix ${projectRoot}/.workflow/active/WFS-123/.review/ --max-iterations=5
 
 # Custom batch size for parallel planning (default: 5 findings per batch)
-review-cycle --fix .workflow/active/WFS-123/.review/ --batch-size=3
+review-cycle --fix ${projectRoot}/.workflow/active/WFS-123/.review/ --batch-size=3
 ```
 
 **Fix Source**: Exported findings from review cycle dashboard
@@ -208,7 +208,7 @@ console.log(`Created ${batches.length} batches (${batchSize} findings per batch)
 ## Output File Structure
 
 ```
-.workflow/active/WFS-{session-id}/.review/
+{projectRoot}/.workflow/active/WFS-{session-id}/.review/
 ├── fix-export-{timestamp}.json     # Exported findings (input)
 └── fixes/{fix-session-id}/
     ├── partial-plan-1.json         # Batch 1 partial plan (planning agent 1 output)

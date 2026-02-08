@@ -29,7 +29,7 @@ When `--yes` or `-y`: Auto-select highest-scored idea, skip confirmations, creat
 
 | Argument | Required | Type | Default | Description |
 |----------|----------|------|---------|-------------|
-| SESSION | Yes | String | - | Session ID or path to `.workflow/.brainstorm/BS-xxx` |
+| SESSION | Yes | String | - | Session ID or path to `{projectRoot}/.workflow/.brainstorm/BS-xxx` |
 | --idea | No | Integer | - | Pre-select idea by index (0-based) |
 | --auto | No | Flag | false | Auto-select highest-scored idea |
 | -y, --yes | No | Flag | false | Skip all confirmations |
@@ -157,7 +157,7 @@ Phase 5: Generate Solution Tasks
 
 ```
 Phase 6: Bind Solution
-   ├─ Write solution to .workflow/issues/solutions/{issue-id}.jsonl
+   ├─ Write solution to {projectRoot}/.workflow/issues/solutions/{issue-id}.jsonl
    ├─ Bind via: ccw issue bind {issue-id} {solution-id}
    ├─ Update issue status to 'planned'
    └─ Returns: SOL-{issue-id}-{uid}
@@ -277,7 +277,7 @@ EOF
 ### Solution Binding
 ```bash
 # Append solution to JSONL file
-echo '{"id":"SOL-xxx","tasks":[...]}' >> .workflow/issues/solutions/{issue-id}.jsonl
+echo '{"id":"SOL-xxx","tasks":[...]}' >> ${projectRoot}/.workflow/issues/solutions/{issue-id}.jsonl
 
 # Bind to issue
 ccw issue bind {issue-id} {solution-id}
@@ -361,7 +361,7 @@ brainstorm-with-file
 ### Input Files
 
 ```
-.workflow/.brainstorm/BS-{slug}-{date}/
+{projectRoot}/.workflow/.brainstorm/BS-{slug}-{date}/
 ├── synthesis.json           # REQUIRED - Top ideas with scores
 ├── perspectives.json        # OPTIONAL - Multi-CLI insights
 ├── brainstorm.md           # Reference only
@@ -376,7 +376,7 @@ brainstorm-with-file
 ### Output Files
 
 ```
-.workflow/issues/
+{projectRoot}/.workflow/issues/
 ├── solutions/
 │   └── ISS-YYYYMMDD-001.jsonl  # Created solution (JSONL)
 └── (managed by ccw issue CLI)

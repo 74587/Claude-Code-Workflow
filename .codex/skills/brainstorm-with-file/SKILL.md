@@ -38,7 +38,7 @@ The key innovation is **documented thought evolution** that captures how ideas d
 ## Output Structure
 
 ```
-.workflow/.brainstorm/BS-{slug}-{date}/
+{projectRoot}/.workflow/.brainstorm/BS-{slug}-{date}/
 ├── brainstorm.md                  # ⭐ Complete thought evolution timeline
 ├── exploration-codebase.json      # Phase 2: Codebase context
 ├── perspectives/                  # Phase 2: Individual perspective outputs
@@ -91,13 +91,24 @@ The key innovation is **documented thought evolution** that captures how ideas d
 
 ### Session Initialization
 
+##### Step 0: Determine Project Root
+
+检测项目根目录，确保 `.workflow/` 产物位置正确：
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+```
+
+优先通过 git 获取仓库根目录；非 git 项目回退到 `pwd` 取当前绝对路径。
+存储为 `{projectRoot}`，后续所有 `.workflow/` 路径必须以此为前缀。
+
 The workflow automatically generates a unique session identifier and directory structure based on the topic and current date (UTC+8).
 
 **Session ID Format**: `BS-{slug}-{date}`
 - `slug`: Lowercase alphanumeric + Chinese characters, max 40 chars
 - `date`: YYYY-MM-DD format (UTC+8)
 
-**Session Directory**: `.workflow/.brainstorm/{sessionId}/`
+**Session Directory**: `{projectRoot}/.workflow/.brainstorm/{sessionId}/`
 
 **Auto-Detection**: If session folder exists with brainstorm.md, automatically enters continue mode. Otherwise, creates new session.
 
@@ -271,7 +282,7 @@ Use built-in tools to understand the codebase structure before spawning perspect
 **Context Gathering Activities**:
 1. **Get project structure** - Execute `ccw tool exec get_modules_by_depth '{}'`
 2. **Search for related code** - Use Grep/Glob to find files matching topic keywords
-3. **Read project tech context** - Load `.workflow/project-tech.json` if available
+3. **Read project tech context** - Load `{projectRoot}/.workflow/project-tech.json` if available
 4. **Analyze patterns** - Identify common code patterns and architecture decisions
 
 **exploration-codebase.json Structure**:
@@ -347,8 +358,8 @@ const agentIds = perspectives.map(perspective => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -555,7 +566,7 @@ const deepDiveAgent = spawn_agent({
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
 2. Read: ${sessionFolder}/perspectives.json (prior findings)
-3. Read: .workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-tech.json
 
 ---
 

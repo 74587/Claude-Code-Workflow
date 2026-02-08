@@ -61,14 +61,26 @@ Fix & Cleanup:
 
 ### Session Setup & Mode Detection
 
+##### Step 0: Determine Project Root
+
+检测项目根目录，确保 `.workflow/` 产物位置正确：
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+```
+
+优先通过 git 获取仓库根目录；非 git 项目回退到 `pwd` 取当前绝对路径。
+存储为 `{projectRoot}`，后续所有 `.workflow/` 路径必须以此为前缀。
+
 ```javascript
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
+const projectRoot = bash('git rev-parse --show-toplevel 2>/dev/null || pwd').trim()
 
 const bugSlug = "$BUG".toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30)
 const dateStr = getUtc8ISOString().substring(0, 10)
 
 const sessionId = `DBG-${bugSlug}-${dateStr}`
-const sessionFolder = `.workflow/.debug/${sessionId}`
+const sessionFolder = `${projectRoot}/.workflow/.debug/${sessionId}`
 const debugLogPath = `${sessionFolder}/debug.log`
 const understandingPath = `${sessionFolder}/understanding.md`
 const hypothesesPath = `${sessionFolder}/hypotheses.json`
@@ -429,7 +441,7 @@ for (const file of instrumentedFiles) {
 ## Session Folder Structure
 
 ```
-.workflow/.debug/DBG-{slug}-{date}/
+{projectRoot}/.workflow/.debug/DBG-{slug}-{date}/
 ├── debug.log           # NDJSON log (execution evidence)
 ├── understanding.md    # Exploration timeline + consolidated understanding
 └── hypotheses.json     # Hypothesis history with verdicts
@@ -530,9 +542,9 @@ After Reproduction (BUG="error"):
        └─ All rejected → Assisted new hypotheses
 
 Output:
-   ├─ .workflow/.debug/DBG-{slug}-{date}/debug.log
-   ├─ .workflow/.debug/DBG-{slug}-{date}/understanding.md (evolving document)
-   └─ .workflow/.debug/DBG-{slug}-{date}/hypotheses.json (history)
+   ├─ {projectRoot}/.workflow/.debug/DBG-{slug}-{date}/debug.log
+   ├─ {projectRoot}/.workflow/.debug/DBG-{slug}-{date}/understanding.md (evolving document)
+   └─ {projectRoot}/.workflow/.debug/DBG-{slug}-{date}/hypotheses.json (history)
 ```
 
 ## Error Handling

@@ -9,7 +9,7 @@ Queue formation command using **issue-queue-agent** that analyzes all bound solu
 ## Prerequisites
 
 - Issues with `status: planned` and `bound_solution_id` exist
-- Solutions written in `.workflow/issues/solutions/{issue-id}.jsonl`
+- Solutions written in `{projectRoot}/.workflow/issues/solutions/{issue-id}.jsonl`
 - `ccw issue` CLI available
 
 ## Auto Mode
@@ -117,8 +117,8 @@ const queueIds = numQueues === 1
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/issue-queue-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -145,8 +145,8 @@ Step 6: Write queue JSON + update index
 ### Output Requirements
 
 **Write files** (exactly 2):
-- `.workflow/issues/queues/${queueId}.json` - Full queue with solutions, conflicts, groups
-- `.workflow/issues/queues/index.json` - Update with new queue entry
+- `${projectRoot}/.workflow/issues/queues/${queueId}.json` - Full queue with solutions, conflicts, groups
+- `${projectRoot}/.workflow/issues/queues/index.json` - Update with new queue entry
 
 **Return JSON**:
 \`\`\`json
@@ -267,8 +267,8 @@ if (allClarifications.length > 0) {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/issue-queue-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -278,7 +278,7 @@ if (allClarifications.length > 0) {
 **Conflict**: ${clarification.conflict_id} resolved: ${answer.selected}
 
 ### Instructions
-1. Read existing queue file: .workflow/issues/queues/${clarification.queue_id}.json
+1. Read existing queue file: ${projectRoot}/.workflow/issues/queues/${clarification.queue_id}.json
 2. Update conflict resolution with user decision
 3. Re-order affected solutions if needed
 4. Write updated queue file
@@ -370,7 +370,7 @@ ASK_USER([{
 ## Storage Structure (Queue History)
 
 ```
-.workflow/issues/
+{projectRoot}/.workflow/issues/
 ├── issues.jsonl              # All issues (one per line)
 ├── queues/                   # Queue history directory
 │   ├── index.json            # Queue index (active + history)

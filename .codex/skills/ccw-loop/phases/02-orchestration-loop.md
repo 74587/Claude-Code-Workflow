@@ -23,15 +23,15 @@ const agent = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/ccw-loop-executor.md (MUST read first)
-2. Read: .workflow/project-tech.json (if exists)
-3. Read: .workflow/project-guidelines.json (if exists)
+2. Read: ${projectRoot}/.workflow/project-tech.json (if exists)
+3. Read: ${projectRoot}/.workflow/project-guidelines.json (if exists)
 
 ---
 
 ## LOOP CONTEXT
 
 - **Loop ID**: ${loopId}
-- **State File**: .workflow/.loop/${loopId}.json
+- **State File**: ${projectRoot}/.workflow/.loop/${loopId}.json
 - **Progress Dir**: ${progressDir}
 - **Mode**: ${mode}
 
@@ -48,7 +48,7 @@ ${state.description || task}
 You are executing CCW Loop orchestrator. Your job:
 
 1. **Check Control Signals**
-   - Read .workflow/.loop/${loopId}.json
+   - Read ${projectRoot}/.workflow/.loop/${loopId}.json
    - If status === 'paused' -> Output "PAUSED" and stop
    - If status === 'failed' -> Output "STOPPED" and stop
    - If status === 'running' -> Continue
@@ -62,7 +62,7 @@ You are executing CCW Loop orchestrator. Your job:
 3. **Execute Action**
    - Follow action instructions from ~/.codex/skills/ccw-loop/actions/
    - Update progress files in ${progressDir}/
-   - Update state in .workflow/.loop/${loopId}.json
+   - Update state in ${projectRoot}/.workflow/.loop/${loopId}.json
 
 4. **Output Format**
    \`\`\`
@@ -123,7 +123,7 @@ Execution timeout reached. Please:
   state = readLoopState(loopId)
   state.current_iteration = iteration
   state.updated_at = getUtc8ISOString()
-  Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+  Write(`${projectRoot}/.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
 
   // Handle different outcomes
   switch (actionResult.next_action) {

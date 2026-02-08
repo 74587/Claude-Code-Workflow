@@ -5,8 +5,8 @@
 Converts various planning artifact formats into issue workflow solutions with intelligent detection and automatic binding.
 
 **Supported Sources** (auto-detected):
-- **lite-plan**: `.workflow/.lite-plan/{slug}/plan.json`
-- **workflow-session**: `WFS-xxx` ID or `.workflow/active/{session}/` folder
+- **lite-plan**: `{projectRoot}/.workflow/.lite-plan/{slug}/plan.json`
+- **workflow-session**: `WFS-xxx` ID or `{projectRoot}/.workflow/active/{session}/` folder
 - **markdown**: Any `.md` file with implementation/task content
 - **json**: Direct JSON files matching plan-json-schema
 
@@ -14,7 +14,7 @@ Converts various planning artifact formats into issue workflow solutions with in
 
 - Source artifact path or WFS-xxx ID provided
 - `ccw issue` CLI available
-- `.workflow/issues/` directory exists or will be created
+- `{projectRoot}/.workflow/issues/` directory exists or will be created
 
 ## Auto Mode
 
@@ -91,7 +91,7 @@ const source = extractSourceArg(input);
 function detectSourceType(source) {
   // Check for WFS-xxx pattern (workflow session ID)
   if (source.match(/^WFS-[\w-]+$/)) {
-    return { type: 'workflow-session-id', path: `.workflow/active/${source}` };
+    return { type: 'workflow-session-id', path: `${projectRoot}/.workflow/active/${source}` };
   }
 
   // Check if directory
@@ -591,9 +591,9 @@ if (!flags.yes && !flags.y) {
 }
 
 // Persist solution (following issue-plan-agent pattern)
-Bash(`mkdir -p .workflow/issues/solutions`);
+Bash(`mkdir -p ${projectRoot}/.workflow/issues/solutions`);
 
-const solutionFile = `.workflow/issues/solutions/${issueId}.jsonl`;
+const solutionFile = `${projectRoot}/.workflow/issues/solutions/${issueId}.jsonl`;
 
 if (flags.supplement) {
   // Supplement mode: update existing solution line atomically
@@ -686,6 +686,6 @@ console.log(`
 
 After conversion completion:
 - Issue created/updated with `status: planned` and `bound_solution_id` set
-- Solution persisted in `.workflow/issues/solutions/{issue-id}.jsonl`
+- Solution persisted in `{projectRoot}/.workflow/issues/solutions/{issue-id}.jsonl`
 - Report: issue ID, solution ID, task count, mode (new/supplement)
 - Recommend next step: Form execution queue via Phase 4

@@ -165,7 +165,7 @@ const userConfig = {
 
 **Session Path Structure** (Provided by Command to Agent):
 ```
-.workflow/active/WFS-{session-id}/
+${projectRoot}/.workflow/active/WFS-{session-id}/
 ├── workflow-session.json          # Session metadata
 ├── .process/
 │   ├── context-package.json       # Context package with artifact catalog
@@ -181,9 +181,9 @@ const userConfig = {
 
 **Command Preparation**:
 1. **Assemble Session Paths** for agent prompt:
-   - `session_metadata_path`: `.workflow/active/{session-id}/workflow-session.json`
-   - `context_package_path`: `.workflow/active/{session-id}/.process/context-package.json`
-   - `test_context_package_path`: `.workflow/active/{session-id}/.process/test-context-package.json`
+   - `session_metadata_path`: `${projectRoot}/.workflow/active/{session-id}/workflow-session.json`
+   - `context_package_path`: `${projectRoot}/.workflow/active/{session-id}/.process/context-package.json`
+   - `test_context_package_path`: `${projectRoot}/.workflow/active/{session-id}/.process/test-context-package.json`
    - Output directory paths
 
 2. **Provide Metadata** (simple values):
@@ -250,21 +250,21 @@ const userConfig = {
 1. **Load Session Context** (if not in memory)
    ```javascript
    if (!memory.has("workflow-session.json")) {
-     Read(.workflow/active/{session-id}/workflow-session.json)
+     Read(${projectRoot}/.workflow/active/{session-id}/workflow-session.json)
    }
    ```
 
 2. **Load Context Package** (if not in memory)
    ```javascript
    if (!memory.has("context-package.json")) {
-     Read(.workflow/active/{session-id}/.process/context-package.json)
+     Read(${projectRoot}/.workflow/active/{session-id}/.process/context-package.json)
    }
    ```
 
 3. **Load Test Context Package** (if not in memory)
    ```javascript
    if (!memory.has("test-context-package.json")) {
-     Read(.workflow/active/{session-id}/.process/test-context-package.json)
+     Read(${projectRoot}/.workflow/active/{session-id}/.process/test-context-package.json)
    }
    ```
 
@@ -319,8 +319,8 @@ const agentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/action-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -336,14 +336,14 @@ CRITICAL: Follow the progressive loading strategy (load analysis.md files increm
 
 ## SESSION PATHS
 Input:
-  - Session Metadata: .workflow/active/{session-id}/workflow-session.json
-  - Context Package: .workflow/active/{session-id}/.process/context-package.json
-  - Test Context: .workflow/active/{session-id}/.process/test-context-package.json
+  - Session Metadata: ${projectRoot}/.workflow/active/{session-id}/workflow-session.json
+  - Context Package: ${projectRoot}/.workflow/active/{session-id}/.process/context-package.json
+  - Test Context: ${projectRoot}/.workflow/active/{session-id}/.process/test-context-package.json
 
 Output:
-  - Task Dir: .workflow/active/{session-id}/.task/
-  - IMPL_PLAN: .workflow/active/{session-id}/IMPL_PLAN.md
-  - TODO_LIST: .workflow/active/{session-id}/TODO_LIST.md
+  - Task Dir: ${projectRoot}/.workflow/active/{session-id}/.task/
+  - IMPL_PLAN: ${projectRoot}/.workflow/active/{session-id}/IMPL_PLAN.md
+  - TODO_LIST: ${projectRoot}/.workflow/active/{session-id}/TODO_LIST.md
 
 ## CONTEXT METADATA
 Session ID: {session-id}
@@ -416,7 +416,7 @@ IMPORTANT: Do NOT add command field to implementation_approach steps. Execution 
 #### Required Outputs Summary
 
 ##### 1. TDD Task JSON Files (.task/IMPL-*.json)
-- **Location**: \`.workflow/active/{session-id}/.task/\`
+- **Location**: \`${projectRoot}/.workflow/active/{session-id}/.task/\`
 - **Schema**: 6-field structure with TDD-specific metadata
   - \`id, title, status, context_package_path, meta, context, flow_control\`
   - \`meta.tdd_workflow\`: true (REQUIRED)
@@ -434,7 +434,7 @@ IMPORTANT: Do NOT add command field to implementation_approach steps. Execution 
 - **Details**: See action-planning-agent.md § TDD Task JSON Generation
 
 ##### 2. IMPL_PLAN.md (TDD Variant)
-- **Location**: \`.workflow/active/{session-id}/IMPL_PLAN.md\`
+- **Location**: \`${projectRoot}/.workflow/active/{session-id}/IMPL_PLAN.md\`
 - **Template**: \`~/.ccw/workflows/cli-templates/prompts/workflow/impl-plan-template.txt\`
 - **TDD-Specific Frontmatter**: workflow_type="tdd", tdd_workflow=true, feature_count, task_breakdown
 - **TDD Implementation Tasks Section**: Feature-by-feature with internal Red-Green-Refactor cycles
@@ -442,7 +442,7 @@ IMPORTANT: Do NOT add command field to implementation_approach steps. Execution 
 - **Details**: See action-planning-agent.md § TDD Implementation Plan Creation
 
 ##### 3. TODO_LIST.md
-- **Location**: \`.workflow/active/{session-id}/TODO_LIST.md\`
+- **Location**: \`${projectRoot}/.workflow/active/{session-id}/TODO_LIST.md\`
 - **Format**: Hierarchical task list with internal TDD phase indicators (Red → Green → Refactor)
 - **Status**: ▸ (container), [ ] (pending), [x] (completed)
 - **Links**: Task JSON references and summaries
@@ -569,12 +569,12 @@ close_agent({ id: agentId });
 // Command assembles these simple values and paths for agent
 const commandProvides = {
   // Session paths
-  session_metadata_path: ".workflow/active/WFS-{id}/workflow-session.json",
-  context_package_path: ".workflow/active/WFS-{id}/.process/context-package.json",
-  test_context_package_path: ".workflow/active/WFS-{id}/.process/test-context-package.json",
-  output_task_dir: ".workflow/active/WFS-{id}/.task/",
-  output_impl_plan: ".workflow/active/WFS-{id}/IMPL_PLAN.md",
-  output_todo_list: ".workflow/active/WFS-{id}/TODO_LIST.md",
+  session_metadata_path: "${projectRoot}/.workflow/active/WFS-{id}/workflow-session.json",
+  context_package_path: "${projectRoot}/.workflow/active/WFS-{id}/.process/context-package.json",
+  test_context_package_path: "${projectRoot}/.workflow/active/WFS-{id}/.process/test-context-package.json",
+  output_task_dir: "${projectRoot}/.workflow/active/WFS-{id}/.task/",
+  output_impl_plan: "${projectRoot}/.workflow/active/WFS-{id}/IMPL_PLAN.md",
+  output_todo_list: "${projectRoot}/.workflow/active/WFS-{id}/TODO_LIST.md",
 
   // Simple metadata
   session_id: "WFS-{id}",
@@ -651,7 +651,7 @@ This section provides quick reference for TDD task JSON structure. For complete 
 
 ## Output Files Structure
 ```
-.workflow/active/{session-id}/
+${projectRoot}/.workflow/active/{session-id}/
 ├── IMPL_PLAN.md                     # Unified plan with TDD Implementation Tasks section
 ├── TODO_LIST.md                     # Progress tracking with internal TDD phase indicators
 ├── .task/

@@ -13,7 +13,7 @@ Batch plan issue resolution using **issue-plan-agent** that combines exploration
 
 - Issue IDs provided (comma-separated) or `--all-pending` flag
 - `ccw issue` CLI available
-- `.workflow/issues/` directory exists or will be created
+- `{projectRoot}/.workflow/issues/` directory exists or will be created
 
 ## Auto Mode
 
@@ -95,7 +95,7 @@ update_plan({
 ### Step 1.2: Unified Explore + Plan (issue-plan-agent) - PARALLEL
 
 ```javascript
-Bash(`mkdir -p .workflow/issues/solutions`);
+Bash(`mkdir -p ${projectRoot}/.workflow/issues/solutions`);
 const pendingSelections = [];  // Collect multi-solution issues for user selection
 const agentResults = [];       // Collect all agent results for conflict aggregation
 
@@ -109,8 +109,8 @@ const agentTasks = batches.map((batch, batchIndex) => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/issue-plan-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -122,8 +122,8 @@ ${issueList}
 **Project Root**: ${process.cwd()}
 
 ### Project Context (MANDATORY)
-1. Read: .workflow/project-tech.json (technology stack, architecture)
-2. Read: .workflow/project-guidelines.json (constraints and conventions)
+1. Read: {projectRoot}/.workflow/project-tech.json (technology stack, architecture)
+2. Read: {projectRoot}/.workflow/project-guidelines.json (constraints and conventions)
 
 ### Workflow
 1. Fetch issue details: ccw issue status <id> --json
@@ -138,7 +138,7 @@ ${issueList}
    - **If previous solution failed**: Reference failure analysis in solution.approach
    -  Add explicit verification steps to prevent same failure mode
 6. **If github_url exists**: Add final task to comment on GitHub issue
-7. Write solution to: .workflow/issues/solutions/{issue-id}.jsonl
+7. Write solution to: ${projectRoot}/.workflow/issues/solutions/{issue-id}.jsonl
 8. **CRITICAL - Binding Decision**:
    - Single solution → **MUST execute**: ccw issue bind <issue-id> <solution-id>
    - Multiple solutions → Return pending_selection only (no bind)

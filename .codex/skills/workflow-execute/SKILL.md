@@ -148,8 +148,8 @@ const agentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ## TASK CONTEXT
 ${taskContext}
@@ -232,7 +232,7 @@ close_agent({ id: agentId })
 
 #### Step 1.1: Count Active Sessions
 ```bash
-bash(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null | wc -l)
+bash(find ${projectRoot}/.workflow/active/ -name "WFS-*" -type d 2>/dev/null | wc -l)
 ```
 
 #### Step 1.2: Handle Session Selection
@@ -245,7 +245,7 @@ Run workflow:plan "task description" to create a session
 
 **Case B: Single Session** (count = 1)
 ```bash
-bash(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null | head -1 | xargs basename)
+bash(find ${projectRoot}/.workflow/active/ -name "WFS-*" -type d 2>/dev/null | head -1 | xargs basename)
 ```
 Auto-select and continue to Phase 2.
 
@@ -253,7 +253,7 @@ Auto-select and continue to Phase 2.
 
 List sessions with metadata and prompt user selection:
 ```bash
-bash(for dir in .workflow/active/WFS-*/; do [ -d "$dir" ] || continue; session=$(basename "$dir"); project=$(jq -r '.project // "Unknown"' "${dir}workflow-session.json" 2>/dev/null || echo "Unknown"); total=$(grep -c '^\- \[' "${dir}TODO_LIST.md" 2>/dev/null || echo 0); completed=$(grep -c '^\- \[x\]' "${dir}TODO_LIST.md" 2>/dev/null || echo 0); if [ "$total" -gt 0 ]; then progress=$((completed * 100 / total)); else progress=0; fi; echo "$session | $project | $completed/$total tasks ($progress%)"; done)
+bash(for dir in ${projectRoot}/.workflow/active/WFS-*/; do [ -d "$dir" ] || continue; session=$(basename "$dir"); project=$(jq -r '.project // "Unknown"' "${dir}workflow-session.json" 2>/dev/null || echo "Unknown"); total=$(grep -c '^\- \[' "${dir}TODO_LIST.md" 2>/dev/null || echo 0); completed=$(grep -c '^\- \[x\]' "${dir}TODO_LIST.md" 2>/dev/null || echo 0); if [ "$total" -gt 0 ]; then progress=$((completed * 100 / total)); else progress=0; fi; echo "$session | $project | $completed/$total tasks ($progress%)"; done)
 ```
 
 **Parse --yes flag**:
@@ -296,7 +296,7 @@ Parse user input (supports: number "1", full ID "WFS-auth-system", or partial "a
 
 #### Step 1.3: Load Session Metadata
 ```bash
-bash(cat .workflow/active/${sessionId}/workflow-session.json)
+bash(cat ${projectRoot}/.workflow/active/${sessionId}/workflow-session.json)
 ```
 
 **Output**: Store session metadata in memory
@@ -326,8 +326,8 @@ Before generating TodoWrite, update session status from "planning" to "active":
 ```bash
 # Update session status (idempotent - safe to run if already active)
 jq '.status = "active" | .execution_started_at = (.execution_started_at // now | todate)' \
-  .workflow/active/${sessionId}/workflow-session.json > tmp.json && \
-  mv tmp.json .workflow/active/${sessionId}/workflow-session.json
+  ${projectRoot}/.workflow/active/${sessionId}/workflow-session.json > tmp.json && \
+  mv tmp.json ${projectRoot}/.workflow/active/${sessionId}/workflow-session.json
 ```
 This ensures the dashboard shows the session as "ACTIVE" during execution.
 
@@ -340,7 +340,7 @@ This ensures the dashboard shows the session as "ACTIVE" during execution.
 3. **Validate Prerequisites**: Ensure IMPL_PLAN.md and TODO_LIST.md exist and are valid
 
 **Resume Mode Behavior**:
-- Load existing TODO_LIST.md directly from `.workflow/active/{session-id}/`
+- Load existing TODO_LIST.md directly from `{projectRoot}/.workflow/active/{session-id}/`
 - Extract current progress from TODO_LIST.md
 - Generate TodoWrite from TODO_LIST.md state
 - Proceed immediately to agent execution (Phase 4)
@@ -366,7 +366,7 @@ If IMPL_PLAN.md lacks execution strategy, use intelligent fallback (analyze task
 ```
 while (TODO_LIST.md has pending tasks) {
   next_task_id = getTodoWriteInProgressTask()
-  task_json = Read(.workflow/active/{session}/.task/{next_task_id}.json)  // Lazy load
+  task_json = Read(${projectRoot}/.workflow/active/{session}/.task/{next_task_id}.json)  // Lazy load
   executeTaskWithAgent(task_json)  // spawn_agent → wait → close_agent
   updateTodoListMarkCompleted(next_task_id)
   advanceTodoWriteToNextTask()
@@ -486,8 +486,8 @@ parallelTasks.forEach(task => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/${task.meta.agent}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -629,8 +629,8 @@ const agentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/${meta.agent}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -702,7 +702,7 @@ Phase 5 (Completion) → updatedStatuses, userChoice (review|complete)
 
 ## Workflow File Structure Reference
 ```
-.workflow/active/WFS-[topic-slug]/
+{projectRoot}/.workflow/active/WFS-[topic-slug]/
 ├── workflow-session.json     # Session state and metadata
 ├── IMPL_PLAN.md             # Planning document and requirements
 ├── TODO_LIST.md             # Progress tracking (updated by agents)
@@ -745,8 +745,8 @@ Phase 5 (Completion) → updatedStatuses, userChoice (review|complete)
 | Error Type | Cause | Recovery Strategy | Max Attempts |
 |-----------|-------|------------------|--------------|
 | **Discovery Errors** |
-| No active session | No sessions in `.workflow/active/` | Create or resume session: `workflow:plan "project"` | N/A |
-| Multiple sessions | Multiple sessions in `.workflow/active/` | Prompt user selection | N/A |
+| No active session | No sessions in `{projectRoot}/.workflow/active/` | Create or resume session: `workflow:plan "project"` | N/A |
+| Multiple sessions | Multiple sessions in `{projectRoot}/.workflow/active/` | Prompt user selection | N/A |
 | Corrupted session | Invalid JSON files | Recreate session structure or validate files | N/A |
 | **Execution Errors** |
 | Agent failure | Agent crash/timeout | Retry with simplified context (close_agent first, then spawn new) | 2 |

@@ -21,8 +21,8 @@ Session initialization worker. Parse requirements, create execution plan.
 ```javascript
 // MANDATORY FIRST STEPS (already in prompt)
 // 1. Read role definition
-// 2. Read .workflow/project-tech.json
-// 3. Read .workflow/project-guidelines.json
+// 2. Read ${projectRoot}/.workflow/project-tech.json
+// 3. Read ${projectRoot}/.workflow/project-guidelines.json
 ```
 
 ### Step 2: Analyze Task

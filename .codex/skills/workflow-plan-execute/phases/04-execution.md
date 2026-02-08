@@ -62,8 +62,8 @@ Before generating TodoWrite, update session status from "planning" to "active":
 ```bash
 # Update session status (idempotent - safe to run if already active)
 jq '.status = "active" | .execution_started_at = (.execution_started_at // now | todate)' \
-  .workflow/active/${sessionId}/workflow-session.json > tmp.json && \
-  mv tmp.json .workflow/active/${sessionId}/workflow-session.json
+  ${projectRoot}/.workflow/active/${sessionId}/workflow-session.json > tmp.json && \
+  mv tmp.json ${projectRoot}/.workflow/active/${sessionId}/workflow-session.json
 ```
 This ensures the dashboard shows the session as "ACTIVE" during execution.
 
@@ -127,7 +127,7 @@ If IMPL_PLAN.md lacks execution strategy, use intelligent fallback:
 ```
 while (TODO_LIST.md has pending tasks) {
   next_task_id = getTodoWriteInProgressTask()
-  task_json = Read(.workflow/active/{session}/.task/{next_task_id}.json)  // Lazy load
+  task_json = Read(${projectRoot}/.workflow/active/{session}/.task/{next_task_id}.json)  // Lazy load
   executeTaskWithAgent(task_json)  // spawn_agent → wait → close_agent
   updateTodoListMarkCompleted(next_task_id)
   advanceTodoWriteToNextTask()
@@ -159,8 +159,8 @@ const agentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/${meta.agent}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -207,8 +207,8 @@ parallelTasks.forEach(task => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/${task.meta.agent}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 

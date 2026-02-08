@@ -16,7 +16,7 @@ Generate unified summary report, update final state, close all agents, and provi
 
 ```javascript
 function generateFinalSummary(cycleId, state) {
-  const summaryFile = `.workflow/.cycle/${cycleId}.progress/coordination/summary.md`
+  const summaryFile = `${projectRoot}/.workflow/.cycle/${cycleId}.progress/coordination/summary.md`
 
   const summary = `# Cycle Summary - ${cycleId}
 
@@ -40,10 +40,10 @@ function generateFinalSummary(cycleId, state) {
 - Test Results: ${state.test_results?.pass_rate || '0'}% passing
 
 ## Generated Files
-- .workflow/.cycle/${cycleId}.progress/ra/requirements.md
-- .workflow/.cycle/${cycleId}.progress/ep/plan.json
-- .workflow/.cycle/${cycleId}.progress/cd/changes.log
-- .workflow/.cycle/${cycleId}.progress/vas/summary.md
+- ${projectRoot}/.workflow/.cycle/${cycleId}.progress/ra/requirements.md
+- ${projectRoot}/.workflow/.cycle/${cycleId}.progress/ep/plan.json
+- ${projectRoot}/.workflow/.cycle/${cycleId}.progress/cd/changes.log
+- ${projectRoot}/.workflow/.cycle/${cycleId}.progress/vas/summary.md
 
 ## Continuation Instructions
 
@@ -65,7 +65,7 @@ This will spawn agents for iteration ${state.current_iteration + 1}.
 ```javascript
 state.status = 'completed'
 state.completed_at = getUtc8ISOString()
-Write(`.workflow/.cycle/${cycleId}.json`, JSON.stringify(state, null, 2))
+Write(`${projectRoot}/.workflow/.cycle/${cycleId}.json`, JSON.stringify(state, null, 2))
 ```
 
 ### Step 4.3: Close All Agents
@@ -95,13 +95,13 @@ return {
 
 ## Output
 
-- **File**: `.workflow/.cycle/{cycleId}.progress/coordination/summary.md`
-- **File**: `.workflow/.cycle/{cycleId}.json` (final state)
+- **File**: `{projectRoot}/.workflow/.cycle/{cycleId}.progress/coordination/summary.md`
+- **File**: `{projectRoot}/.workflow/.cycle/{cycleId}.json` (final state)
 - **TodoWrite**: Mark Phase 4 completed (all tasks done)
 
 ## Completion
 
-Parallel Dev Cycle has completed. The cycle report is at `.workflow/.cycle/{cycleId}.progress/coordination/summary.md`.
+Parallel Dev Cycle has completed. The cycle report is at `{projectRoot}/.workflow/.cycle/{cycleId}.progress/coordination/summary.md`.
 
 To continue iterating:
 ```bash

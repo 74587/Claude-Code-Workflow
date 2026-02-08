@@ -19,7 +19,7 @@ Initialize CCW Loop session, create directory structure and initial state.
 ### Step 1: Verify Control Signals
 
 ```javascript
-const state = JSON.parse(Read(`.workflow/.loop/${loopId}.json`))
+const state = JSON.parse(Read(`${projectRoot}/.workflow/.loop/${loopId}.json`))
 
 if (state.status !== 'running') {
   return {
@@ -34,7 +34,7 @@ if (state.status !== 'running') {
 ### Step 2: Create Directory Structure
 
 ```javascript
-const progressDir = `.workflow/.loop/${loopId}.progress`
+const progressDir = `${projectRoot}/.workflow/.loop/${loopId}.progress`
 
 // Directories created by orchestrator, verify they exist
 // mkdir -p ${progressDir}
@@ -131,7 +131,7 @@ const skillState = {
 
 state.skill_state = skillState
 state.updated_at = getUtc8ISOString()
-Write(`.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
+Write(`${projectRoot}/.workflow/.loop/${loopId}.json`, JSON.stringify(state, null, 2))
 ```
 
 ## Output Format
@@ -143,8 +143,8 @@ ACTION_RESULT:
 - message: Session initialized with {N} development tasks
 
 FILES_UPDATED:
-- .workflow/.loop/{loopId}.json: skill_state initialized
-- .workflow/.loop/{loopId}.progress/develop.md: Progress document created
+- {projectRoot}/.workflow/.loop/{loopId}.json: skill_state initialized
+- {projectRoot}/.workflow/.loop/{loopId}.progress/develop.md: Progress document created
 
 NEXT_ACTION_NEEDED: {DEVELOP (auto) | MENU (interactive)}
 ```

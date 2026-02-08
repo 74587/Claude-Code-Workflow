@@ -159,7 +159,7 @@ review-cycle src/auth/**
 review-cycle
 
 # Step 2: Run automated fixes using dimension findings
-review-cycle --fix .workflow/active/WFS-{session-id}/.review/
+review-cycle --fix ${projectRoot}/.workflow/active/WFS-{session-id}/.review/
 ```
 
 ## Output

@@ -34,7 +34,7 @@
 if (input.startsWith("WFS-")) {
   MODE = "session"
   // Load source session to preserve original task description
-  Read(".workflow/active/[sourceSessionId]/workflow-session.json")
+  Read("${projectRoot}/.workflow/active/[sourceSessionId]/workflow-session.json")
 } else {
   MODE = "prompt"
 }
@@ -56,7 +56,7 @@ if (input.startsWith("WFS-")) {
 - Extract: `SESSION_ID: WFS-test-[slug]` (store as `testSessionId`)
 
 **Validation**:
-- Session Mode: Source session `.workflow/active/[sourceSessionId]/` exists with completed IMPL tasks
+- Session Mode: Source session `{projectRoot}/.workflow/active/[sourceSessionId]/` exists with completed IMPL tasks
 - Both Modes: New test session directory created with metadata
 
 **Progress Tracking**: Mark sub-phase 1.1 completed, sub-phase 1.2 in_progress
@@ -75,8 +75,8 @@ const contextAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/test-context-search-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -84,8 +84,8 @@ const contextAgentId = spawn_agent({
 Gather test context for session [testSessionId]
 
 ## Session Paths
-- Session Dir: .workflow/active/[testSessionId]/
-- Output: .workflow/active/[testSessionId]/.process/test-context-package.json
+- Session Dir: ${projectRoot}/.workflow/active/[testSessionId]/
+- Output: ${projectRoot}/.workflow/active/[testSessionId]/.process/test-context-package.json
 
 ## Expected Deliverables
 - test-context-package.json with coverage analysis and test framework detection
@@ -102,8 +102,8 @@ const contextAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/context-search-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -111,8 +111,8 @@ const contextAgentId = spawn_agent({
 Gather project context for session [testSessionId]: [task_description]
 
 ## Session Paths
-- Session Dir: .workflow/active/[testSessionId]/
-- Output: .workflow/active/[testSessionId]/.process/context-package.json
+- Session Dir: ${projectRoot}/.workflow/active/[testSessionId]/
+- Output: ${projectRoot}/.workflow/active/[testSessionId]/.process/context-package.json
 
 ## Expected Deliverables
 - context-package.json with codebase analysis
@@ -127,7 +127,7 @@ close_agent({ id: contextAgentId });
 
 **Parse Output**:
 - Extract: context package path (store as `contextPath`)
-- Pattern: `.workflow/active/[testSessionId]/.process/[test-]context-package.json`
+- Pattern: `${projectRoot}/.workflow/active/[testSessionId]/.process/[test-]context-package.json`
 
 **Validation**:
 - Context package file exists and is valid JSON
@@ -176,8 +176,8 @@ const analysisAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-execution-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -196,7 +196,7 @@ Analyze test requirements for session [testSessionId] using Gemini CLI
 - Generate TEST_ANALYSIS_RESULTS.md
 
 ## Output Path
-.workflow/active/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md
+${projectRoot}/.workflow/active/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md
 
 ## Expected Deliverables
 - TEST_ANALYSIS_RESULTS.md with L0-L3 requirements and AI issue scan
@@ -218,7 +218,7 @@ close_agent({ id: analysisAgentId });
 - Scan for AI code issues
 - Generate `TEST_ANALYSIS_RESULTS.md`
 
-**Output**: `.workflow/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md`
+**Output**: `${projectRoot}/.workflow/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md`
 
 **Validation** - TEST_ANALYSIS_RESULTS.md must include:
 - Project Type Detection (with confidence)
@@ -245,8 +245,8 @@ const taskGenAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/action-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -255,7 +255,7 @@ Generate test-specific IMPL_PLAN.md and task JSONs for session [testSessionId]
 
 ## Context
 - Session ID: [testSessionId]
-- TEST_ANALYSIS_RESULTS.md: .workflow/active/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md
+- TEST_ANALYSIS_RESULTS.md: ${projectRoot}/.workflow/active/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md
 
 ## Expected Output (minimum 4 tasks)
 - IMPL-001.json: Test understanding & generation (@code-developer)
@@ -266,9 +266,9 @@ Generate test-specific IMPL_PLAN.md and task JSONs for session [testSessionId]
 - TODO_LIST.md: Task checklist
 
 ## Output Paths
-- Tasks: .workflow/active/[testSessionId]/.task/
-- Plan: .workflow/active/[testSessionId]/IMPL_PLAN.md
-- Todo: .workflow/active/[testSessionId]/TODO_LIST.md
+- Tasks: ${projectRoot}/.workflow/active/[testSessionId]/.task/
+- Plan: ${projectRoot}/.workflow/active/[testSessionId]/IMPL_PLAN.md
+- Todo: ${projectRoot}/.workflow/active/[testSessionId]/TODO_LIST.md
 `
 });
 
@@ -290,12 +290,12 @@ close_agent({ id: taskGenAgentId });
 | IMPL-002 | test-fix | @test-fix-agent | Test execution & fix cycle |
 
 **Validation**:
-- `.workflow/active/[testSessionId]/.task/IMPL-001.json` exists
-- `.workflow/active/[testSessionId]/.task/IMPL-001.3-validation.json` exists
-- `.workflow/active/[testSessionId]/.task/IMPL-001.5-review.json` exists
-- `.workflow/active/[testSessionId]/.task/IMPL-002.json` exists
-- `.workflow/active/[testSessionId]/IMPL_PLAN.md` exists
-- `.workflow/active/[testSessionId]/TODO_LIST.md` exists
+- `${projectRoot}/.workflow/active/[testSessionId]/.task/IMPL-001.json` exists
+- `${projectRoot}/.workflow/active/[testSessionId]/.task/IMPL-001.3-validation.json` exists
+- `${projectRoot}/.workflow/active/[testSessionId]/.task/IMPL-001.5-review.json` exists
+- `${projectRoot}/.workflow/active/[testSessionId]/.task/IMPL-002.json` exists
+- `${projectRoot}/.workflow/active/[testSessionId]/IMPL_PLAN.md` exists
+- `${projectRoot}/.workflow/active/[testSessionId]/TODO_LIST.md` exists
 
 **Progress Tracking Update (agent task attached)**:
 ```json
@@ -335,9 +335,9 @@ Quality Thresholds:
 - Max Fix Iterations: 5
 
 Artifacts:
-- Test plan: .workflow/[testSessionId]/IMPL_PLAN.md
-- Task list: .workflow/[testSessionId]/TODO_LIST.md
-- Analysis: .workflow/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md
+- Test plan: ${projectRoot}/.workflow/[testSessionId]/IMPL_PLAN.md
+- Task list: ${projectRoot}/.workflow/[testSessionId]/TODO_LIST.md
+- Analysis: ${projectRoot}/.workflow/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md
 
 → Transitioning to Phase 2: Test-Cycle Execution
 ```

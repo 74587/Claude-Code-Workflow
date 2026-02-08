@@ -18,7 +18,7 @@ Intelligently collect project context using context-search-agent based on task d
 - **Inline Resolution**: Conflicts resolved as sub-step within this phase, not a separate phase
 - **Conditional Trigger**: Conflict resolution only executes when exploration results contain conflict indicators
 - **Plan Mode**: Full comprehensive analysis (vs lightweight brainstorm mode)
-- **Standardized Output**: Generate `.workflow/active/{session}/.process/context-package.json`
+- **Standardized Output**: Generate `{projectRoot}/.workflow/active/{session}/.process/context-package.json`
 - **Explicit Lifecycle**: Manage subagent creation, waiting, and cleanup
 
 ## Execution Process
@@ -69,7 +69,7 @@ Step 5: Output Verification (enhanced)
 **Execute First** - Check if valid package already exists:
 
 ```javascript
-const contextPackagePath = `.workflow/${session_id}/.process/context-package.json`;
+const contextPackagePath = `${projectRoot}/.workflow/${session_id}/.process/context-package.json`;
 
 if (file_exists(contextPackagePath)) {
   const existing = Read(contextPackagePath);
@@ -122,7 +122,7 @@ function selectAngles(taskDescription, complexity) {
 
 const complexity = analyzeTaskComplexity(task_description);
 const selectedAngles = selectAngles(task_description, complexity);
-const sessionFolder = `.workflow/active/${session_id}/.process`;
+const sessionFolder = `${projectRoot}/.workflow/active/${session_id}/.process`;
 
 // 2.2 Launch Parallel Explore Agents (with conflict detection)
 const explorationAgents = [];
@@ -135,8 +135,8 @@ selectedAngles.forEach((angle, index) => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -294,8 +294,8 @@ const conflictAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-execution-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -334,7 +334,7 @@ TASK:
   - Cross-validate with exploration critical_files
   - Generate clarification questions for boundary definition
 MODE: analysis
-CONTEXT: @**/*.ts @**/*.js @**/*.tsx @**/*.jsx @.workflow/active/${session_id}/**/*
+CONTEXT: @**/*.ts @**/*.js @**/*.tsx @**/*.jsx @${projectRoot}/.workflow/active/${session_id}/**/*
 EXPECTED: Conflict list with severity ratings, including:
   - Validation of exploration conflict_indicators
   - ModuleOverlap conflicts with overlap_analysis
@@ -369,7 +369,7 @@ Return JSON following the schema above. Key requirements:
 ### 5. Planning Notes Record (REQUIRED)
 After analysis complete, append a brief execution record to planning-notes.md:
 
-**File**: .workflow/active/${session_id}/planning-notes.md
+**File**: ${projectRoot}/.workflow/active/${session_id}/planning-notes.md
 **Location**: Under "## Conflict Decisions (Phase 2)" section
 **Format**:
 \`\`\`
@@ -584,7 +584,7 @@ const resolutionOutput = {
   failed_modifications: failedModifications
 };
 
-const resolutionPath = `.workflow/active/${sessionId}/.process/conflict-resolution.json`;
+const resolutionPath = `${projectRoot}/.workflow/active/${sessionId}/.process/conflict-resolution.json`;
 Write(resolutionPath, JSON.stringify(resolutionOutput, null, 2));
 
 // Output custom conflict summary (if any)
@@ -614,7 +614,7 @@ close_agent({ id: conflictAgentId });
 
 ```javascript
 // Load user intent from planning-notes.md (from Phase 1)
-const planningNotesPath = `.workflow/active/${session_id}/planning-notes.md`;
+const planningNotesPath = `${projectRoot}/.workflow/active/${session_id}/planning-notes.md`;
 let userIntent = { goal: task_description, key_constraints: "None specified" };
 
 if (file_exists(planningNotesPath)) {
@@ -637,8 +637,8 @@ const contextAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/context-search-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -648,7 +648,7 @@ const contextAgentId = spawn_agent({
 ## Session Information
 - **Session ID**: ${session_id}
 - **Task Description**: ${task_description}
-- **Output Path**: .workflow/${session_id}/.process/context-package.json
+- **Output Path**: ${projectRoot}/.workflow/${session_id}/.process/context-package.json
 
 ## User Intent (from Phase 1 - Planning Notes)
 **GOAL**: ${userIntent.goal}
@@ -674,8 +674,8 @@ Execute complete context-search-agent workflow for implementation planning:
 
 ### Phase 1: Initialization & Pre-Analysis
 1. **Project State Loading**:
-   - Read and parse \`.workflow/project-tech.json\`. Use its \`overview\` section as the foundational \`project_context\`. This is your primary source for architecture, tech stack, and key components.
-   - Read and parse \`.workflow/project-guidelines.json\`. Load \`conventions\`, \`constraints\`, and \`learnings\` into a \`project_guidelines\` section.
+   - Read and parse \`${projectRoot}/.workflow/project-tech.json\`. Use its \`overview\` section as the foundational \`project_context\`. This is your primary source for architecture, tech stack, and key components.
+   - Read and parse \`${projectRoot}/.workflow/project-guidelines.json\`. Load \`conventions\`, \`constraints\`, and \`learnings\` into a \`project_guidelines\` section.
    - If files don't exist, proceed with fresh analysis.
 2. **Detection**: Check for existing context-package (early exit if valid)
 3. **Foundation**: Initialize CodexLens, get project structure, load docs
@@ -761,7 +761,7 @@ Before completion verify:
 ## Planning Notes Record (REQUIRED)
 After completing context-package.json, append a brief execution record to planning-notes.md:
 
-**File**: .workflow/active/${session_id}/planning-notes.md
+**File**: ${projectRoot}/.workflow/active/${session_id}/planning-notes.md
 **Location**: Under "## Context Findings (Phase 2)" section
 **Format**:
 \`\`\`
@@ -790,7 +790,7 @@ After agent completes, verify output:
 
 ```javascript
 // Verify file was created
-const outputPath = `.workflow/${session_id}/.process/context-package.json`;
+const outputPath = `${projectRoot}/.workflow/${session_id}/.process/context-package.json`;
 if (!file_exists(outputPath)) {
   throw new Error("Agent failed to generate context-package.json");
 }
@@ -916,7 +916,7 @@ If Edit tool fails mid-application:
 
 ## Output
 
-- **Variable**: `contextPath` (e.g., `.workflow/active/WFS-xxx/.process/context-package.json`)
+- **Variable**: `contextPath` (e.g., `{projectRoot}/.workflow/active/WFS-xxx/.process/context-package.json`)
 - **Variable**: `conflictRisk` (none/low/medium/high/resolved)
 - **File**: Updated `planning-notes.md` with context findings + conflict decisions (if applicable)
 - **File**: Optional `conflict-resolution.json` (when conflicts resolved inline)

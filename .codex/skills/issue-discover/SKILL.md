@@ -218,8 +218,8 @@ const agentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ## TASK CONTEXT
 ${taskContext}

@@ -10,7 +10,7 @@ Orchestrator command that invokes `test-context-search-agent` to gather comprehe
 - **Detection-First**: Check for existing test-context-package before executing
 - **Coverage-First**: Analyze existing test coverage before planning new tests
 - **Source Context Loading**: Import implementation summaries from source session
-- **Standardized Output**: Generate `.workflow/active/{test_session_id}/.process/test-context-package.json`
+- **Standardized Output**: Generate `{projectRoot}/.workflow/active/{test_session_id}/.process/test-context-package.json`
 - **Explicit Lifecycle**: Always close_agent after wait completes to free resources
 
 ## Execution Process
@@ -50,7 +50,7 @@ Step 3: Output Verification
 **Execute First** - Check if valid package already exists:
 
 ```javascript
-const testContextPath = `.workflow/${test_session_id}/.process/test-context-package.json`;
+const testContextPath = `${projectRoot}/.workflow/${test_session_id}/.process/test-context-package.json`;
 
 if (file_exists(testContextPath)) {
   const existing = Read(testContextPath);
@@ -80,8 +80,8 @@ const agentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/test-context-search-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -90,7 +90,7 @@ const agentId = spawn_agent({
 
 ## Session Information
 - **Test Session ID**: ${test_session_id}
-- **Output Path**: .workflow/${test_session_id}/.process/test-context-package.json
+- **Output Path**: ${projectRoot}/.workflow/${test_session_id}/.process/test-context-package.json
 
 ## Mission
 Execute complete test-context-search-agent workflow for test generation planning:
@@ -161,7 +161,7 @@ After agent completes, verify output:
 
 ```javascript
 // Verify file was created
-const outputPath = `.workflow/${test_session_id}/.process/test-context-package.json`;
+const outputPath = `${projectRoot}/.workflow/${test_session_id}/.process/test-context-package.json`;
 if (!file_exists(outputPath)) {
   throw new Error("Agent failed to generate test-context-package.json");
 }
@@ -193,7 +193,7 @@ Refer to `test-context-search-agent.md` Phase 3.2 for complete `test-context-pac
 
 ## Success Criteria
 
-- Valid test-context-package.json generated in `.workflow/active/{test_session_id}/.process/`
+- Valid test-context-package.json generated in `{projectRoot}/.workflow/active/{test_session_id}/.process/`
 - Source session context loaded successfully
 - Test coverage gaps identified (>90% accuracy)
 - Test framework detected and documented
@@ -234,7 +234,7 @@ Refer to `test-context-search-agent.md` Phase 3.2 for complete `test-context-pac
 ## Post-Phase Update
 
 After Phase 1 (Test Context Gather) completes:
-- **Output Created**: `test-context-package.json` in `.workflow/active/{session}/.process/`
+- **Output Created**: `test-context-package.json` in `{projectRoot}/.workflow/active/{session}/.process/`
 - **Data Available**: Test coverage stats, framework info, missing tests list
 - **Next Action**: Continue to Phase 4 (Conflict Resolution, if conflict_risk >= medium) or Phase 5 (TDD Task Generation)
 - **TodoWrite**: Collapse Phase 3 sub-tasks to "Phase 3: Test Coverage Analysis: completed"

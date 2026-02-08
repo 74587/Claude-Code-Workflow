@@ -56,7 +56,7 @@
 
 ## Worker Output Structure
 
-Each worker writes to `.workflow/.loop/{loopId}.workers/{action}.output.json`:
+Each worker writes to `{projectRoot}/.workflow/.loop/{loopId}.workers/{action}.output.json`:
 
 ```json
 {
@@ -81,7 +81,7 @@ Each worker writes to `.workflow/.loop/{loopId}.workers/{action}.output.json`:
 
 ## Progress File Structure
 
-Human-readable progress in `.workflow/.loop/{loopId}.progress/{action}.md`:
+Human-readable progress in `{projectRoot}/.workflow/.loop/{loopId}.progress/{action}.md`:
 
 ```markdown
 # Develop Progress
@@ -165,7 +165,7 @@ When `mode === 'parallel'`:
 ## Directory Structure
 
 ```
-.workflow/.loop/
+{projectRoot}/.workflow/.loop/
 +-- loop-b-20260122-abc123.json          # Master state
 +-- loop-b-20260122-abc123.workers/
 |   +-- init.output.json

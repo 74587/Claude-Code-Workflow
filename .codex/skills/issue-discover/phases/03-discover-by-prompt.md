@@ -56,7 +56,7 @@ const { prompt, scope, depth, maxIterations } = parseArgs(args);
 const discoveryId = `DBP-${formatDate(new Date(), 'YYYYMMDD-HHmmss')}`;
 
 // Create output directory
-const outputDir = `.workflow/issues/discoveries/${discoveryId}`;
+const outputDir = `${projectRoot}/.workflow/issues/discoveries/${discoveryId}`;
 await mkdir(outputDir, { recursive: true });
 await mkdir(`${outputDir}/iterations`, { recursive: true });
 
@@ -415,8 +415,8 @@ function buildDimensionPromptWithACE(dimension, iteration, previousFindings, ace
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -467,7 +467,7 @@ ${dimension.agent_prompt}
 ## Output File Structure
 
 ```
-.workflow/issues/discoveries/
+{projectRoot}/.workflow/issues/discoveries/
 └── {DBP-YYYYMMDD-HHmmss}/
     ├── discovery-state.json          # Session state with iteration tracking
     ├── iterations/

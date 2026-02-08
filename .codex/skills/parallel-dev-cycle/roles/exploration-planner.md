@@ -105,7 +105,7 @@ The Exploration & Planning Agent is responsible for understanding the codebase a
 
 ### Phase 3: Output
 
-Generate files in `.workflow/.cycle/{cycleId}.progress/ep/`:
+Generate files in `{projectRoot}/.workflow/.cycle/{cycleId}.progress/ep/`:
 
 **exploration.md**:
 ```markdown

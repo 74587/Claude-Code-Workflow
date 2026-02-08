@@ -83,7 +83,7 @@ state.completed_phases.push(...['ra', 'ep', 'cd', 'vas'])
 state.updated_at = getUtc8ISOString()
 
 // Persist state
-Write(`.workflow/.cycle/${cycleId}.json`, JSON.stringify(state, null, 2))
+Write(`${projectRoot}/.workflow/.cycle/${cycleId}.json`, JSON.stringify(state, null, 2))
 ```
 
 ### Step 3.4: Issue Detection

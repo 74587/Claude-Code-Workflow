@@ -164,7 +164,7 @@ const userConfig = {
 
 **Session Path Structure**:
 ```
-.workflow/active/WFS-{session-id}/
+{projectRoot}/.workflow/active/WFS-{session-id}/
 ├── workflow-session.json          # Session metadata
 ├── planning-notes.md              # Consolidated planning notes
 ├── .process/
@@ -243,8 +243,8 @@ const planningAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/action-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -256,7 +256,7 @@ IMPORTANT: This is PLANNING ONLY - you are generating planning documents, NOT im
 CRITICAL: Follow the progressive loading strategy defined in agent specification (load analysis.md files incrementally due to file size)
 
 ## PLANNING NOTES (PHASE 1-2 CONTEXT)
-Load: .workflow/active/${session_id}/planning-notes.md
+Load: ${projectRoot}/.workflow/active/${session_id}/planning-notes.md
 
 This document contains:
 - User Intent: Original GOAL and KEY_CONSTRAINTS from Phase 1
@@ -268,14 +268,14 @@ This document contains:
 
 ## SESSION PATHS
 Input:
-  - Session Metadata: .workflow/active/${session_id}/workflow-session.json
-  - Planning Notes: .workflow/active/${session_id}/planning-notes.md
-  - Context Package: .workflow/active/${session_id}/.process/context-package.json
+  - Session Metadata: ${projectRoot}/.workflow/active/${session_id}/workflow-session.json
+  - Planning Notes: ${projectRoot}/.workflow/active/${session_id}/planning-notes.md
+  - Context Package: ${projectRoot}/.workflow/active/${session_id}/.process/context-package.json
 
 Output:
-  - Task Dir: .workflow/active/${session_id}/.task/
-  - IMPL_PLAN: .workflow/active/${session_id}/IMPL_PLAN.md
-  - TODO_LIST: .workflow/active/${session_id}/TODO_LIST.md
+  - Task Dir: ${projectRoot}/.workflow/active/${session_id}/.task/
+  - IMPL_PLAN: ${projectRoot}/.workflow/active/${session_id}/IMPL_PLAN.md
+  - TODO_LIST: ${projectRoot}/.workflow/active/${session_id}/TODO_LIST.md
 
 ## CONTEXT METADATA
 Session ID: ${session_id}
@@ -390,7 +390,7 @@ Hard Constraints:
 ## PLANNING NOTES RECORD (REQUIRED)
 After completing, update planning-notes.md:
 
-**File**: .workflow/active/${session_id}/planning-notes.md
+**File**: ${projectRoot}/.workflow/active/${session_id}/planning-notes.md
 
 1. **Task Generation (Phase 3)**: Task count and key tasks
 2. **N+1 Context**: Key decisions (with rationale) + deferred items
@@ -442,8 +442,8 @@ modules.forEach(module => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/action-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -456,7 +456,7 @@ IMPORTANT: Generate Task JSONs ONLY. IMPL_PLAN.md and TODO_LIST.md by Phase 3 Co
 CRITICAL: Follow the progressive loading strategy defined in agent specification (load analysis.md files incrementally due to file size)
 
 ## PLANNING NOTES (PHASE 1-2 CONTEXT)
-Load: .workflow/active/${session_id}/planning-notes.md
+Load: ${projectRoot}/.workflow/active/${session_id}/planning-notes.md
 
 This document contains consolidated constraints and user intent to guide module-scoped task generation.
 
@@ -469,12 +469,12 @@ This document contains consolidated constraints and user intent to guide module-
 
 ## SESSION PATHS
 Input:
-  - Session Metadata: .workflow/active/${session_id}/workflow-session.json
-  - Planning Notes: .workflow/active/${session_id}/planning-notes.md
-  - Context Package: .workflow/active/${session_id}/.process/context-package.json
+  - Session Metadata: ${projectRoot}/.workflow/active/${session_id}/workflow-session.json
+  - Planning Notes: ${projectRoot}/.workflow/active/${session_id}/planning-notes.md
+  - Context Package: ${projectRoot}/.workflow/active/${session_id}/.process/context-package.json
 
 Output:
-  - Task Dir: .workflow/active/${session_id}/.task/
+  - Task Dir: ${projectRoot}/.workflow/active/${session_id}/.task/
 
 ## CONTEXT METADATA
 Session ID: ${session_id}
@@ -645,8 +645,8 @@ const coordinatorAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/action-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -657,13 +657,13 @@ IMPORTANT: This is INTEGRATION ONLY - consolidate existing task JSONs, NOT creat
 
 ## SESSION PATHS
 Input:
-  - Session Metadata: .workflow/active/${session_id}/workflow-session.json
-  - Context Package: .workflow/active/${session_id}/.process/context-package.json
-  - Task JSONs: .workflow/active/${session_id}/.task/IMPL-*.json (from Phase 2B)
+  - Session Metadata: ${projectRoot}/.workflow/active/${session_id}/workflow-session.json
+  - Context Package: ${projectRoot}/.workflow/active/${session_id}/.process/context-package.json
+  - Task JSONs: ${projectRoot}/.workflow/active/${session_id}/.task/IMPL-*.json (from Phase 2B)
 Output:
-  - Updated Task JSONs: .workflow/active/${session_id}/.task/IMPL-*.json (resolved dependencies)
-  - IMPL_PLAN: .workflow/active/${session_id}/IMPL_PLAN.md
-  - TODO_LIST: .workflow/active/${session_id}/TODO_LIST.md
+  - Updated Task JSONs: ${projectRoot}/.workflow/active/${session_id}/.task/IMPL-*.json (resolved dependencies)
+  - IMPL_PLAN: ${projectRoot}/.workflow/active/${session_id}/IMPL_PLAN.md
+  - TODO_LIST: ${projectRoot}/.workflow/active/${session_id}/TODO_LIST.md
 
 ## CONTEXT METADATA
 Session ID: ${session_id}
@@ -739,9 +739,9 @@ function resolveCrossModuleDependency(placeholder, allTasks) {
 ## Output
 
 - **Files**:
-  - `.workflow/active/{sessionId}/IMPL_PLAN.md`
-  - `.workflow/active/{sessionId}/.task/IMPL-*.json`
-  - `.workflow/active/{sessionId}/TODO_LIST.md`
+  - `{projectRoot}/.workflow/active/{sessionId}/IMPL_PLAN.md`
+  - `{projectRoot}/.workflow/active/{sessionId}/.task/IMPL-*.json`
+  - `{projectRoot}/.workflow/active/{sessionId}/TODO_LIST.md`
 - **Updated**: `planning-notes.md` with task generation record and N+1 context
 
 ## Next Step

@@ -94,8 +94,8 @@ dimensions.forEach(dimension => {
 3. Get target files: Read resolved_files from review-state.json
 4. Validate file access: bash(ls -la ${targetFiles.join(' ')})
 5. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
-6. Read: .workflow/project-tech.json (technology stack and architecture context)
-7. Read: .workflow/project-guidelines.json (user-defined constraints and conventions to validate against)
+6. Read: ${projectRoot}/.workflow/project-tech.json (technology stack and architecture context)
+7. Read: ${projectRoot}/.workflow/project-guidelines.json (user-defined constraints and conventions to validate against)
 
 ---
 
@@ -217,8 +217,8 @@ dimensions.forEach(dimension => {
 4. Get changed files: bash(cd ${workflowDir} && git log --since="${sessionCreatedAt}" --name-only --pretty=format: | sort -u)
 5. Read review state: ${reviewStateJsonPath}
 6. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
-7. Read: .workflow/project-tech.json (technology stack and architecture context)
-8. Read: .workflow/project-guidelines.json (user-defined constraints and conventions to validate against)
+7. Read: ${projectRoot}/.workflow/project-tech.json (technology stack and architecture context)
+8. Read: ${projectRoot}/.workflow/project-guidelines.json (user-defined constraints and conventions to validate against)
 
 ---
 
@@ -336,8 +336,8 @@ const deepDiveAgentId = spawn_agent({
 4. Identify related code: bash(grep -r "import.*${basename(file)}" ${projectDir}/src --include="*.ts")
 5. Read test files: bash(find ${projectDir}/tests -name "*${basename(file, '.ts')}*" -type f)
 6. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
-7. Read: .workflow/project-tech.json (technology stack and architecture context)
-8. Read: .workflow/project-guidelines.json (user-defined constraints for remediation compliance)
+7. Read: ${projectRoot}/.workflow/project-tech.json (technology stack and architecture context)
+8. Read: ${projectRoot}/.workflow/project-guidelines.json (user-defined constraints for remediation compliance)
 
 ---
 

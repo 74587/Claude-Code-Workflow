@@ -31,7 +31,7 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 | `planning-context.md` | Evidence paths + synthesized understanding |
 | `plan.json` | Structured implementation plan (plan-json-schema.json) |
 
-**Output Directory**: `.workflow/.lite-plan/{task-slug}-{YYYY-MM-DD}/`
+**Output Directory**: `{projectRoot}/.workflow/.lite-plan/{task-slug}-{YYYY-MM-DD}/`
 
 **Agent Usage**:
 - Low complexity → Direct Claude planning (no agent)
@@ -95,13 +95,26 @@ Phase 5: Execute
 
 #### Session Setup (MANDATORY)
 
+##### Step 0: Determine Project Root
+
+检测项目根目录，确保 `.workflow/` 产物位置正确：
+
+```bash
+PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+```
+
+优先通过 git 获取仓库根目录；非 git 项目回退到 `pwd` 取当前绝对路径。
+存储为 `{projectRoot}`，后续所有 `.workflow/` 路径必须以此为前缀。
+
+##### Step 1: Generate Session ID
+
 Generate session ID and create session folder:
 
 - **Session ID format**: `{task-slug}-{YYYY-MM-DD}`
   - `task-slug`: lowercase task description, non-alphanumeric replaced with `-`, max 40 chars
   - Date: UTC+8 (China Standard Time), format `2025-11-29`
   - Example: `implement-jwt-refresh-2025-11-29`
-- **Session Folder**: `.workflow/.lite-plan/{session-id}/`
+- **Session Folder**: `{projectRoot}/.workflow/.lite-plan/{session-id}/`
 - Create folder via `mkdir -p` and verify existence
 
 #### Exploration Decision
@@ -177,8 +190,8 @@ Display exploration plan summary (complexity, selected angles, planning strategy
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -200,8 +213,8 @@ Execute **{angle}** exploration for task planning context. Analyze codebase from
 1. Run: ccw tool exec get_modules_by_depth '{}' (project structure)
 2. Run: rg -l "{keyword_from_task}" --type ts (locate relevant files)
 3. Execute: cat ~/.ccw/workflows/cli-templates/schemas/explore-json-schema.json (get output schema reference)
-4. Read: .workflow/project-tech.json (technology stack and architecture context)
-5. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
+4. Read: {projectRoot}/.workflow/project-tech.json (technology stack and architecture context)
+5. Read: {projectRoot}/.workflow/project-guidelines.json (user-defined constraints and conventions)
 
 ## Exploration Strategy ({angle} focus)
 
@@ -405,8 +418,8 @@ Result: `executorAssignments` map — `{ taskId: { executor: 'gemini'|'codex'|'a
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-lite-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -424,8 +437,8 @@ Generate implementation plan and write plan.json.
 Execute: cat ~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json (get schema reference before generating plan)
 
 ## Project Context (MANDATORY - Read Both Files)
-1. Read: .workflow/project-tech.json (technology stack, architecture, key components)
-2. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
+1. Read: {projectRoot}/.workflow/project-tech.json (technology stack, architecture, key components)
+2. Read: {projectRoot}/.workflow/project-guidelines.json (user-defined constraints and conventions)
 
 **CRITICAL**: All generated tasks MUST comply with constraints in project-guidelines.json
 
@@ -566,7 +579,7 @@ Assemble the complete execution context from all planning phase outputs:
 ## Session Folder Structure
 
 ```
-.workflow/.lite-plan/{task-slug}-{YYYY-MM-DD}/
+{projectRoot}/.workflow/.lite-plan/{task-slug}-{YYYY-MM-DD}/
 ├── exploration-{angle1}.json           # Exploration angle 1
 ├── exploration-{angle2}.json           # Exploration angle 2
 ├── exploration-{angle3}.json           # Exploration angle 3 (if applicable)
@@ -579,7 +592,7 @@ Assemble the complete execution context from all planning phase outputs:
 
 **Example**:
 ```
-.workflow/.lite-plan/implement-jwt-refresh-2025-11-25-14-30-25/
+{projectRoot}/.workflow/.lite-plan/implement-jwt-refresh-2025-11-25-14-30-25/
 ├── exploration-architecture.json
 ├── exploration-auth-patterns.json
 ├── exploration-security.json
@@ -603,6 +616,6 @@ Assemble the complete execution context from all planning phase outputs:
 
 After Phase 1 (Lite Plan) completes:
 - **Output Created**: `executionContext` with plan.json, explorations, clarifications, user selections
-- **Session Artifacts**: All files in `.workflow/.lite-plan/{session-id}/`
+- **Session Artifacts**: All files in `{projectRoot}/.workflow/.lite-plan/{session-id}/`
 - **Next Action**: Auto-continue to [Phase 2: Lite Execute](02-lite-execute.md) with --in-memory
 - **TodoWrite**: Mark "Lite Plan - Planning" as completed, start "Execution (Phase 2)"

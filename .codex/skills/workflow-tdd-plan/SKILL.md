@@ -80,8 +80,8 @@ const agentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: {projectRoot}/.workflow/project-tech.json
+3. Read: {projectRoot}/.workflow/project-guidelines.json
 
 ## TASK CONTEXT
 ${taskContext}
@@ -302,7 +302,7 @@ Read and execute: `workflow-plan-execute/phases/02-context-gathering.md` with `-
 
 **Parse Output**:
 - Extract: context-package.json path (store as `contextPath`)
-- Typical pattern: `.workflow/active/[sessionId]/.process/context-package.json`
+- Typical pattern: `{projectRoot}/.workflow/active/[sessionId]/.process/context-package.json`
 
 **Validation**:
 - Context package path extracted
@@ -326,7 +326,7 @@ Read and execute: `phases/01-test-context-gather.md` with `--session [sessionId]
 - Related components and integration points
 - Test framework detection
 
-**Parse**: Extract testContextPath (`.workflow/active/[sessionId]/.process/test-context-package.json`)
+**Parse**: Extract testContextPath (`{projectRoot}/.workflow/active/[sessionId]/.process/test-context-package.json`)
 
 **TodoWrite Update (Phase 3 - tasks attached)**:
 ```json
@@ -458,7 +458,7 @@ Read and execute: `phases/02-task-generate-tdd.md` with `--session [sessionId]`
 - Generic task names: `Warning: Vague task names suggest unclear TDD cycles`
 - Missing focus_paths: `Warning: Task lacks clear file scope for implementation`
 
-**Action**: Log warnings to `.workflow/active/[sessionId]/.process/tdd-warnings.log` (non-blocking)
+**Action**: Log warnings to `{projectRoot}/.workflow/active/[sessionId]/.process/tdd-warnings.log` (non-blocking)
 
 **TodoWrite Update (Phase 5 - tasks attached)**:
 ```json
@@ -527,15 +527,15 @@ Warning TDD Red Flag: [issue description]
 
 ```bash
 # Verify session artifacts exist
-ls -la .workflow/active/[sessionId]/{IMPL_PLAN.md,TODO_LIST.md}
-ls -la .workflow/active/[sessionId]/.task/IMPL-*.json
+ls -la ${projectRoot}/.workflow/active/[sessionId]/{IMPL_PLAN.md,TODO_LIST.md}
+ls -la ${projectRoot}/.workflow/active/[sessionId]/.task/IMPL-*.json
 
 # Count generated artifacts
-echo "IMPL tasks: $(ls .workflow/active/[sessionId]/.task/IMPL-*.json 2>/dev/null | wc -l)"
+echo "IMPL tasks: $(ls ${projectRoot}/.workflow/active/[sessionId]/.task/IMPL-*.json 2>/dev/null | wc -l)"
 
 # Sample task structure verification (first task)
 jq '{id, tdd: .meta.tdd_workflow, cli_id: .meta.cli_execution_id, phases: [.flow_control.implementation_approach[].tdd_phase]}' \
-  "$(ls .workflow/active/[sessionId]/.task/IMPL-*.json | head -1)"
+  "$(ls ${projectRoot}/.workflow/active/[sessionId]/.task/IMPL-*.json | head -1)"
 ```
 
 **Evidence Required Before Summary**:
@@ -568,11 +568,11 @@ Structure:
 [...]
 
 Plans generated:
-- Unified Implementation Plan: .workflow/active/[sessionId]/IMPL_PLAN.md
+- Unified Implementation Plan: {projectRoot}/.workflow/active/[sessionId]/IMPL_PLAN.md
   (includes TDD Implementation Tasks section with workflow_type: "tdd")
-- Task List: .workflow/active/[sessionId]/TODO_LIST.md
+- Task List: {projectRoot}/.workflow/active/[sessionId]/TODO_LIST.md
   (with internal TDD phase indicators and CLI execution strategies)
-- Task JSONs: .workflow/active/[sessionId]/.task/IMPL-*.json
+- Task JSONs: {projectRoot}/.workflow/active/[sessionId]/.task/IMPL-*.json
   (with cli_execution_id and execution strategies for resume support)
 
 TDD Configuration:

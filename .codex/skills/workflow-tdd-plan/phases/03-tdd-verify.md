@@ -4,7 +4,7 @@
 
 Verify TDD workflow execution quality by validating Red-Green-Refactor cycle compliance, test coverage completeness, and task chain structure integrity. This phase orchestrates multiple analysis steps and generates a comprehensive compliance report with quality gate recommendation.
 
-**Output**: A structured Markdown report saved to `.workflow/active/WFS-{session}/TDD_COMPLIANCE_REPORT.md` containing:
+**Output**: A structured Markdown report saved to `{projectRoot}/.workflow/active/WFS-{session}/TDD_COMPLIANCE_REPORT.md` containing:
 - Executive summary with compliance score and quality gate recommendation
 - Task chain validation (TEST → IMPL → REFACTOR structure)
 - Test coverage metrics (line, branch, function)
@@ -71,18 +71,18 @@ IF --session parameter provided:
     session_id = provided session
 ELSE:
     # Auto-detect active session
-    active_sessions = bash(find .workflow/active/ -name "WFS-*" -type d 2>/dev/null)
+    active_sessions = bash(find ${projectRoot}/.workflow/active/ -name "WFS-*" -type d 2>/dev/null)
     IF active_sessions is empty:
         ERROR: "No active workflow session found. Use --session <session-id>"
         EXIT
     ELSE IF active_sessions has multiple entries:
         # Use most recently modified session
-        session_id = bash(ls -td .workflow/active/WFS-*/ 2>/dev/null | head -1 | xargs basename)
+        session_id = bash(ls -td ${projectRoot}/.workflow/active/WFS-*/ 2>/dev/null | head -1 | xargs basename)
     ELSE:
         session_id = basename(active_sessions[0])
 
 # Derive paths
-session_dir = .workflow/active/WFS-{session_id}
+session_dir = ${projectRoot}/.workflow/active/WFS-{session_id}
 task_dir = session_dir/.task
 summaries_dir = session_dir/.summaries
 process_dir = session_dir/.process
@@ -292,7 +292,7 @@ echo "Next: Review full report for detailed findings"
 
 ### Chain Validation Algorithm
 ```
-1. Load all task JSONs from .workflow/active/{sessionId}/.task/
+1. Load all task JSONs from ${projectRoot}/.workflow/active/{sessionId}/.task/
 2. Extract task IDs and group by feature number
 3. For each feature:
    - Check TEST-N.M exists
@@ -323,7 +323,7 @@ echo "Next: Review full report for detailed findings"
 
 ## Output Files
 ```
-.workflow/active/WFS-{session-id}/
+${projectRoot}/.workflow/active/WFS-{session-id}/
 ├── TDD_COMPLIANCE_REPORT.md     # Comprehensive compliance report
 └── .process/
     ├── test-results.json         # From phases/04-tdd-coverage-analysis.md

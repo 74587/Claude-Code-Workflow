@@ -30,7 +30,7 @@ if (!existingCycleId && !task) {
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
 function readCycleState(cycleId) {
-  const stateFile = `.workflow/.cycle/${cycleId}.json`
+  const stateFile = `${projectRoot}/.workflow/.cycle/${cycleId}.json`
   if (!fs.existsSync(stateFile)) {
     return null
   }
@@ -54,18 +54,18 @@ console.log(`Creating new cycle: ${cycleId}`)
 #### Create Directory Structure
 
 ```bash
-mkdir -p .workflow/.cycle/${cycleId}.progress/{ra,ep,cd,vas,coordination}
-mkdir -p .workflow/.cycle/${cycleId}.progress/ra/history
-mkdir -p .workflow/.cycle/${cycleId}.progress/ep/history
-mkdir -p .workflow/.cycle/${cycleId}.progress/cd/history
-mkdir -p .workflow/.cycle/${cycleId}.progress/vas/history
+mkdir -p ${projectRoot}/.workflow/.cycle/${cycleId}.progress/{ra,ep,cd,vas,coordination}
+mkdir -p ${projectRoot}/.workflow/.cycle/${cycleId}.progress/ra/history
+mkdir -p ${projectRoot}/.workflow/.cycle/${cycleId}.progress/ep/history
+mkdir -p ${projectRoot}/.workflow/.cycle/${cycleId}.progress/cd/history
+mkdir -p ${projectRoot}/.workflow/.cycle/${cycleId}.progress/vas/history
 ```
 
 #### Initialize State File
 
 ```javascript
 function createCycleState(cycleId, taskDescription) {
-  const stateFile = `.workflow/.cycle/${cycleId}.json`
+  const stateFile = `${projectRoot}/.workflow/.cycle/${cycleId}.json`
   const now = getUtc8ISOString()
 
   const state = {
@@ -151,7 +151,7 @@ function checkControlSignals(cycleId) {
 
 - **Variable**: `cycleId` - Unique cycle identifier
 - **Variable**: `state` - Initialized or resumed cycle state object
-- **Variable**: `progressDir` - `.workflow/.cycle/${cycleId}.progress`
+- **Variable**: `progressDir` - `${projectRoot}/.workflow/.cycle/${cycleId}.progress`
 - **TodoWrite**: Mark Phase 1 completed, Phase 2 in_progress
 
 ## Next Phase

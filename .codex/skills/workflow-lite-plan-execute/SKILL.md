@@ -93,6 +93,7 @@ Read('phases/02-lite-execute.md')
 Required (minimum) fields:
 ```javascript
 {
+  projectRoot: string,  // 项目根目录绝对路径 (git rev-parse --show-toplevel || pwd)
   planObject: { summary, approach, tasks, complexity, estimated_time, recommended_execution },
   originalUserInput: string,
   executionMethod: "Agent" | "Codex" | "Auto",

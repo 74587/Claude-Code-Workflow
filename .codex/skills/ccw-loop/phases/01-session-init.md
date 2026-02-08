@@ -12,6 +12,13 @@ Create or resume a development loop, initialize state file and directory structu
 
 ## Execution
 
+### Step 0: Determine Project Root
+
+```javascript
+// Step 0: Determine Project Root
+const projectRoot = Bash('git rev-parse --show-toplevel 2>/dev/null || pwd').trim()
+```
+
 ### Step 1.1: Parse Arguments
 
 ```javascript
@@ -33,7 +40,7 @@ const executionMode = options['--auto'] ? 'auto' : 'interactive'
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
 function readLoopState(loopId) {
-  const stateFile = `.workflow/.loop/${loopId}.json`
+  const stateFile = `${projectRoot}/.workflow/.loop/${loopId}.json`
   if (!fs.existsSync(stateFile)) {
     return null
   }
@@ -57,14 +64,14 @@ console.log(`Creating new loop: ${loopId}`)
 #### Create Directory Structure
 
 ```bash
-mkdir -p .workflow/.loop/${loopId}.progress
+mkdir -p ${projectRoot}/.workflow/.loop/${loopId}.progress
 ```
 
 #### Initialize State File
 
 ```javascript
 function createLoopState(loopId, taskDescription) {
-  const stateFile = `.workflow/.loop/${loopId}.json`
+  const stateFile = `${projectRoot}/.workflow/.loop/${loopId}.json`
   const now = getUtc8ISOString()
 
   const state = {
@@ -129,7 +136,7 @@ function checkControlSignals(loopId) {
 
 - **Variable**: `loopId` - Unique loop identifier
 - **Variable**: `state` - Initialized or resumed loop state object
-- **Variable**: `progressDir` - `.workflow/.loop/${loopId}.progress`
+- **Variable**: `progressDir` - `${projectRoot}/.workflow/.loop/${loopId}.progress`
 - **Variable**: `mode` - `'interactive'` or `'auto'`
 - **TodoWrite**: Mark Phase 1 completed, Phase 2 in_progress
 

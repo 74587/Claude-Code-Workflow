@@ -20,8 +20,8 @@ Stateless iterative development loop using Codex single-agent deep interaction p
 +-------------------------------------------------------------+
 |              loop-v2-routes.ts (Control Plane)               |
 |                                                              |
-|  State: .workflow/.loop/{loopId}.json (MASTER)               |
-|  Tasks: .workflow/.loop/{loopId}.tasks.jsonl                 |
+|  State: {projectRoot}/.workflow/.loop/{loopId}.json (MASTER)  |
+|  Tasks: {projectRoot}/.workflow/.loop/{loopId}.tasks.jsonl   |
 |                                                              |
 |  /start  -> Trigger ccw-loop skill with --loop-id           |
 |  /pause  -> Set status='paused' (skill checks before action) |
@@ -43,9 +43,9 @@ Stateless iterative development loop using Codex single-agent deep interaction p
 ## Key Design Principles
 
 1. **Single Agent Deep Interaction**: One agent handles entire loop lifecycle via `send_input` (no multi-agent overhead)
-2. **Unified State**: API and Skill share `.workflow/.loop/{loopId}.json` state file
+2. **Unified State**: API and Skill share `{projectRoot}/.workflow/.loop/{loopId}.json` state file
 3. **Control Signals**: Skill checks `status` field before each action (paused/stopped → graceful exit)
-4. **File-Driven Progress**: All progress documented in `.workflow/.loop/{loopId}.progress/`
+4. **File-Driven Progress**: All progress documented in `{projectRoot}/.workflow/.loop/{loopId}.progress/`
 5. **Resumable**: Continue any loop with `--loop-id`
 6. **Dual Trigger**: Supports API trigger (`--loop-id`) and direct call (task description)
 
@@ -134,7 +134,7 @@ close_agent → return finalState
 ## Session Structure
 
 ```
-.workflow/.loop/
+{projectRoot}/.workflow/.loop/
 ├── {loopId}.json              # Master state file (API + Skill shared)
 ├── {loopId}.tasks.jsonl       # Task list (API managed)
 └── {loopId}.progress/         # Skill progress files
@@ -151,7 +151,7 @@ close_agent → return finalState
 
 ## State Management
 
-Master state file: `.workflow/.loop/{loopId}.json`
+Master state file: `{projectRoot}/.workflow/.loop/{loopId}.json`
 
 ```json
 {
@@ -203,7 +203,7 @@ Master state file: `.workflow/.loop/{loopId}.json`
 - `failed` → terminate
 - Other → stop
 
-**Recovery**: If state corrupted, rebuild `skill_state` from `.progress/` markdown files and logs.
+**Recovery**: If state corrupted, rebuild `skill_state` from `{projectRoot}/.workflow/.loop/{loopId}.progress/` markdown files and logs.
 
 ## Action Catalog
 

@@ -210,7 +210,7 @@ if (publishToGitHub) {
 
 **Workflow:**
 ```
-1. Create local issue (ISS-YYYYMMDD-NNN) → stored in .workflow/issues.jsonl
+1. Create local issue (ISS-YYYYMMDD-NNN) → stored in {projectRoot}/.workflow/issues.jsonl
 2. If publishToGitHub:
    a. gh issue create → returns GitHub URL
    b. Update local issue with github_url + github_number binding

@@ -62,7 +62,7 @@ ASK_USER([
 
 ### Phase 1: Discovery & Validation
 
-1. **Detect Session**: Use `--session` parameter or find `.workflow/active/WFS-*`
+1. **Detect Session**: Use `--session` parameter or find `{projectRoot}/.workflow/active/WFS-*`
 2. **Validate Files**:
    - `guidance-specification.md` (optional, warn if missing)
    - `*/analysis*.md` (required, error if empty)
@@ -73,7 +73,7 @@ ASK_USER([
 **Main flow prepares file paths for Agent**:
 
 1. **Discover Analysis Files**:
-   - Glob: `.workflow/active/WFS-{session}/.brainstorming/*/analysis*.md`
+   - Glob: `{projectRoot}/.workflow/active/WFS-{session}/.brainstorming/*/analysis*.md`
    - Supports: analysis.md + analysis-{slug}.md (max 5)
 
 2. **Extract Role Information**:
@@ -94,8 +94,8 @@ const analysisAgentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/conceptual-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -276,8 +276,8 @@ participating_roles.forEach((role, index) => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/conceptual-planning-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+2. Read: ${projectRoot}/.workflow/project-tech.json
+3. Read: ${projectRoot}/.workflow/project-guidelines.json
 
 ---
 
@@ -351,7 +351,7 @@ console.log(`Updated: ${updatedRoles.length}/${participating_roles.length} roles
 
 ```javascript
 // Sync updated analyses to context-package.json
-const context_pkg = Read(".workflow/active/WFS-{session}/.process/context-package.json")
+const context_pkg = Read("${projectRoot}/.workflow/active/WFS-{session}/.process/context-package.json")
 
 // Update guidance-specification if exists
 // Update synthesis-specification if exists
@@ -404,7 +404,7 @@ Write(context_pkg_path, JSON.stringify(context_pkg))
 
 ## Output
 
-**Location**: `.workflow/active/WFS-{session}/.brainstorming/[role]/analysis*.md`
+**Location**: `{projectRoot}/.workflow/active/WFS-{session}/.brainstorming/[role]/analysis*.md`
 
 **Updated Structure**:
 ```markdown

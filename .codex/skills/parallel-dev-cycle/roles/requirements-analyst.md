@@ -55,7 +55,7 @@ The Requirements Analyst maintains **a single file** (`requirements.md`) contain
 ### Phase 1: Initial Analysis (v1.0.0)
 
 1. **Read Context**
-   - Cycle state from `.workflow/.cycle/{cycleId}.json`
+   - Cycle state from `{projectRoot}/.workflow/.cycle/{cycleId}.json`
    - Task description from state
    - Project tech stack and guidelines
 
@@ -109,7 +109,7 @@ The Requirements Analyst maintains **a single file** (`requirements.md`) contain
 
 ### Phase 3: Output
 
-Generate/update two files in `.workflow/.cycle/{cycleId}.progress/ra/`:
+Generate/update two files in `{projectRoot}/.workflow/.cycle/{cycleId}.progress/ra/`:
 
 **requirements.md** (COMPLETE REWRITE):
 ```markdown
