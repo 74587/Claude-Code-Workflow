@@ -127,6 +127,15 @@ const sessionFolder = `${projectRoot}/.workflow/active/${session_id}/.process`;
 // 2.2 Launch Parallel Explore Agents (with conflict detection)
 const explorationAgents = [];
 
+// Load source_refs from prep-package for supplementary context
+const prepPath = `${projectRoot}/.workflow/.prep/plan-prep-package.json`
+const prepSourceRefs = fs.existsSync(prepPath)
+  ? (JSON.parse(Read(prepPath))?.task?.source_refs || []).filter(r => r.status === 'verified')
+  : []
+const sourceRefsDirective = prepSourceRefs.length > 0
+  ? `\n## SUPPLEMENTARY REQUIREMENT DOCUMENTS (from prep)\nRead these before exploration:\n${prepSourceRefs.map((r, i) => `${i + 1}. Read: ${r.path} (${r.type})`).join('\n')}\nCross-reference findings against these source documents.\n`
+  : ''
+
 // Spawn all agents in parallel
 selectedAngles.forEach((angle, index) => {
   const agentId = spawn_agent({
@@ -144,6 +153,7 @@ selectedAngles.forEach((angle, index) => {
 Execute **${angle}** exploration for task planning context. Analyze codebase from this specific angle to discover relevant structure, patterns, and constraints.
 
 **CONFLICT DETECTION**: Additionally detect conflict indicators including module overlaps, breaking changes, incompatible patterns, and scenario boundary ambiguities.
+${sourceRefsDirective}
 
 ## Assigned Context
 - **Exploration Angle**: ${angle}

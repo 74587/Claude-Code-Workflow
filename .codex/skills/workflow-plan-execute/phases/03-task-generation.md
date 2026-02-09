@@ -78,12 +78,17 @@ Phase 3: Integration (+1 Coordinator, Multi-Module Only)
 ```javascript
 const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
 
-if (autoYes) {
-  console.log(`[--yes] Using defaults: No materials, Agent executor, Codex CLI`)
+// Check for prep-package auto-configuration (from /prompts:prep-plan)
+const prepPath = `${projectRoot}/.workflow/.prep/plan-prep-package.json`
+const prepExec = fs.existsSync(prepPath) ? JSON.parse(Read(prepPath))?.execution : null
+
+if (autoYes || prepExec) {
+  const source = prepExec ? 'prep-package' : '--yes flag'
+  console.log(`[${source}] Using defaults: ${prepExec?.execution_method || 'agent'} executor, ${prepExec?.preferred_cli_tool || 'codex'} CLI`)
   userConfig = {
-    supplementaryMaterials: { type: "none", content: [] },
-    executionMethod: "agent",
-    preferredCliTool: "codex",
+    supplementaryMaterials: prepExec?.supplementary_materials || { type: "none", content: [] },
+    executionMethod: prepExec?.execution_method || "agent",
+    preferredCliTool: prepExec?.preferred_cli_tool || "codex",
     enableResume: true
   }
   // Skip to Phase 1

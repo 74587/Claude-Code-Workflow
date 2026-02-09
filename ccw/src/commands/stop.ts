@@ -16,16 +16,60 @@ interface StopOptions {
  */
 async function findProcessOnPort(port: number): Promise<string | null> {
   try {
-    const { stdout } = await execAsync(`netstat -ano | findstr :${port} | findstr LISTENING`);
-    const lines = stdout.trim().split('\n');
-    if (lines.length > 0) {
-      const parts = lines[0].trim().split(/\s+/);
-      return parts[parts.length - 1]; // PID is the last column
+    // Avoid filtering on the localized state column (e.g. not always "LISTENING").
+    const { stdout } = await execAsync(`netstat -ano | findstr :${port}`);
+    const lines = stdout.trim().split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+    for (const line of lines) {
+      // Typical format:
+      // TCP    0.0.0.0:3457    0.0.0.0:0    LISTENING    31736
+      // TCP    [::]:3457       [::]:0       LISTENING    31736
+      const parts = line.split(/\s+/);
+      if (parts.length < 4) continue;
+      const proto = parts[0]?.toUpperCase();
+      const localAddress = parts[1] || '';
+      const pidCandidate = parts[parts.length - 1] || '';
+
+      if (proto !== 'TCP') continue;
+      if (!localAddress.endsWith(`:${port}`)) continue;
+      if (!/^\d+$/.test(pidCandidate)) continue;
+
+      return pidCandidate; // PID is the last column
     }
   } catch {
     // No process found
   }
   return null;
+}
+
+async function getProcessCommandLine(pid: string): Promise<string | null> {
+  if (!/^\d+$/.test(pid)) return null;
+
+  try {
+    const probeCommand =
+      process.platform === 'win32'
+        ? `powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}').CommandLine"`
+        : `ps -p ${pid} -o command=`;
+
+    const { stdout } = await execAsync(probeCommand);
+    const commandLine = stdout.trim();
+    return commandLine.length > 0 ? commandLine : null;
+  } catch {
+    return null;
+  }
+}
+
+function isLikelyViteCommandLine(commandLine: string, port: number): boolean {
+  const lower = commandLine.toLowerCase();
+  if (!lower.includes('vite')) return false;
+
+  const portStr = String(port);
+  return (
+    lower.includes(`--port ${portStr}`) ||
+    lower.includes(`--port=${portStr}`) ||
+    // Some npm wrappers pass through the port in a slightly different shape.
+    lower.includes(`port ${portStr}`)
+  );
 }
 
 /**
@@ -34,14 +78,26 @@ async function findProcessOnPort(port: number): Promise<string | null> {
  * @returns {Promise<boolean>} Success status
  */
 async function killProcess(pid: string): Promise<boolean> {
+  if (!/^\d+$/.test(pid)) return false;
+
   try {
-    // Use PowerShell to avoid Git Bash path expansion issues with /PID
-    await execAsync(`powershell -Command "Stop-Process -Id ${pid} -Force -ErrorAction Stop"`);
+    // Prefer taskkill to terminate the entire process tree on Windows (npm/cmd wrappers can orphan children).
+    if (process.platform === 'win32') {
+      await execAsync(`cmd /c "taskkill /PID ${pid} /T /F"`);
+      return true;
+    }
+
+    // Best-effort on non-Windows platforms (mockable via child_process.exec in tests).
+    await execAsync(`kill -TERM ${pid}`);
     return true;
   } catch {
-    // Fallback to taskkill via cmd
     try {
-      await execAsync(`cmd /c "taskkill /PID ${pid} /F"`);
+      if (process.platform === 'win32') {
+        await execAsync(`powershell -NoProfile -Command "Stop-Process -Id ${pid} -Force -ErrorAction Stop"`);
+        return true;
+      }
+
+      await execAsync(`kill -KILL ${pid}`);
       return true;
     } catch {
       return false;
@@ -105,6 +161,7 @@ export async function stopCommand(options: StopOptions): Promise<void> {
         await cleanupReactFrontend(reactPort);
         console.log(chalk.green.bold('\n  Server stopped successfully!\n'));
         process.exit(0);
+        return;
       }
 
       // Best-effort verify shutdown (may still succeed even if shutdown endpoint didn't return ok)
@@ -116,6 +173,7 @@ export async function stopCommand(options: StopOptions): Promise<void> {
         await cleanupReactFrontend(reactPort);
         console.log(chalk.green.bold('\n  Server stopped successfully!\n'));
         process.exit(0);
+        return;
       }
 
       const statusHint = shutdownResponse ? `HTTP ${shutdownResponse.status}` : 'no response';
@@ -132,7 +190,11 @@ export async function stopCommand(options: StopOptions): Promise<void> {
       const reactPid = await findProcessOnPort(reactPort);
       if (reactPid) {
         console.log(chalk.yellow(`  React frontend still running on port ${reactPort} (PID: ${reactPid})`));
-        if (force) {
+
+        const commandLine = await getProcessCommandLine(reactPid);
+        const isLikelyVite = commandLine ? isLikelyViteCommandLine(commandLine, reactPort) : false;
+
+        if (force || isLikelyVite) {
           console.log(chalk.cyan('  Cleaning up React frontend...'));
           const killed = await killProcess(reactPid);
           if (killed) {
@@ -141,10 +203,12 @@ export async function stopCommand(options: StopOptions): Promise<void> {
             console.log(chalk.red('  Failed to stop React frontend.\n'));
           }
         } else {
-          console.log(chalk.gray(`\n  Use --force to clean it up:\n  ccw stop --force\n`));
+          console.log(chalk.gray(`\n  React process does not look like Vite on port ${reactPort}.`));
+          console.log(chalk.gray(`  Use --force to clean it up:\n  ccw stop --force\n`));
         }
       }
       process.exit(0);
+      return;
     }
 
     // Port is in use by another process
@@ -174,9 +238,11 @@ export async function stopCommand(options: StopOptions): Promise<void> {
 
         console.log(chalk.green.bold('\n  All processes stopped successfully!\n'));
         process.exit(0);
+        return;
       } else {
         console.log(chalk.red('\n  Failed to kill process. Try running as administrator.\n'));
         process.exit(1);
+        return;
       }
     } else {
       // Also check React frontend port
@@ -188,11 +254,13 @@ export async function stopCommand(options: StopOptions): Promise<void> {
       console.log(chalk.gray(`\n  This is not a CCW server. Use --force to kill it:`));
       console.log(chalk.white(`  ccw stop --force\n`));
       process.exit(0);
+      return;
     }
 
   } catch (err) {
     const error = err as Error;
     console.error(chalk.red(`\n  Error: ${error.message}\n`));
     process.exit(1);
+    return;
   }
 }

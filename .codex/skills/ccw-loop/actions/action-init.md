@@ -43,26 +43,36 @@ const progressDir = `${projectRoot}/.workflow/.loop/${loopId}.progress`
 ### Step 3: Analyze Task and Generate Tasks
 
 ```javascript
-// Analyze task description
-const taskDescription = state.description
+// Check if prep tasks already loaded by orchestrator (from prep-package)
+// If skill_state already has tasks (pre-populated by Phase 1), skip generation
+const existingTasks = state.skill_state?.develop?.tasks
+if (existingTasks && existingTasks.length > 0) {
+  console.log(`✓ Using ${existingTasks.length} pre-built tasks from prep-package`)
+  console.log(`  Source: ${state.prep_source?.tool || 'unknown'}`)
+  // Skip to Step 4 — tasks already available
+  tasks = existingTasks
+} else {
+  // No prep tasks — analyze task description and generate 3-7 development tasks
+  const taskDescription = state.description
 
-// Generate 3-7 development tasks based on analysis
-// Use ACE search or smart_search to find relevant patterns
+  // Generate 3-7 development tasks based on analysis
+  // Use ACE search or smart_search to find relevant patterns
 
-const tasks = [
-  {
-    id: 'task-001',
-    description: 'Task description based on analysis',
-    tool: 'gemini',
-    mode: 'write',
-    status: 'pending',
-    priority: 1,
-    files: [],
-    created_at: getUtc8ISOString(),
-    completed_at: null
-  }
-  // ... more tasks
-]
+  tasks = [
+    {
+      id: 'task-001',
+      description: 'Task description based on analysis',
+      tool: 'gemini',
+      mode: 'write',
+      status: 'pending',
+      priority: 1,
+      files: [],
+      created_at: getUtc8ISOString(),
+      completed_at: null
+    }
+    // ... more tasks
+  ]
+}
 ```
 
 ### Step 4: Initialize Progress Document

@@ -19,7 +19,7 @@ Create or resume a development loop, initialize state file and directory structu
 const projectRoot = Bash('git rev-parse --show-toplevel 2>/dev/null || pwd').trim()
 ```
 
-### Step 1.1: Parse Arguments
+### Step 1.1: Parse Arguments & Load Prep Package
 
 ```javascript
 const { loopId: existingLoopId, task, mode = 'interactive' } = options
@@ -32,6 +32,123 @@ if (!existingLoopId && !task) {
 
 // Determine mode
 const executionMode = options['--auto'] ? 'auto' : 'interactive'
+
+// ── Prep Package: Detect → Validate → Consume ──
+let prepPackage = null
+let prepTasks = null
+const prepPath = `${projectRoot}/.workflow/.loop/prep-package.json`
+
+if (fs.existsSync(prepPath)) {
+  const raw = JSON.parse(Read(prepPath))
+  const checks = validateLoopPrepPackage(raw, projectRoot)
+
+  if (checks.valid) {
+    prepPackage = raw
+
+    // Load pre-built tasks
+    const tasksPath = `${projectRoot}/.workflow/.loop/prep-tasks.jsonl`
+    prepTasks = loadPrepTasks(tasksPath)
+
+    if (prepTasks && prepTasks.length > 0) {
+      console.log(`✓ Prep package loaded: ${prepTasks.length} tasks from ${prepPackage.source.tool}`)
+      console.log(`  Checks passed: ${checks.passed.join(', ')}`)
+    } else {
+      console.warn(`⚠ Prep tasks file empty or invalid, falling back to default INIT`)
+      prepPackage = null
+      prepTasks = null
+    }
+  } else {
+    console.warn(`⚠ Prep package found but failed validation:`)
+    checks.failures.forEach(f => console.warn(`  ✗ ${f}`))
+    console.warn(`  → Falling back to default behavior (prep-package ignored)`)
+    prepPackage = null
+  }
+}
+
+/**
+ * Validate prep-package.json integrity before consumption.
+ * Returns { valid: bool, passed: string[], failures: string[] }
+ */
+function validateLoopPrepPackage(prep, projectRoot) {
+  const passed = []
+  const failures = []
+
+  // Check 1: prep_status must be "ready"
+  if (prep.prep_status === 'ready') {
+    passed.push('status=ready')
+  } else {
+    failures.push(`prep_status is "${prep.prep_status}", expected "ready"`)
+  }
+
+  // Check 2: target_skill must match
+  if (prep.target_skill === 'ccw-loop') {
+    passed.push('target_skill match')
+  } else {
+    failures.push(`target_skill is "${prep.target_skill}", expected "ccw-loop"`)
+  }
+
+  // Check 3: project_root must match current project
+  if (prep.environment?.project_root === projectRoot) {
+    passed.push('project_root match')
+  } else {
+    failures.push(`project_root mismatch: prep="${prep.environment?.project_root}", current="${projectRoot}"`)
+  }
+
+  // Check 4: generated_at must be within 24 hours
+  const generatedAt = new Date(prep.generated_at)
+  const hoursSince = (Date.now() - generatedAt.getTime()) / (1000 * 60 * 60)
+  if (hoursSince <= 24) {
+    passed.push(`age=${Math.round(hoursSince)}h`)
+  } else {
+    failures.push(`prep-package is ${Math.round(hoursSince)}h old (max 24h), may be stale`)
+  }
+
+  // Check 5: prep-tasks.jsonl must exist
+  const tasksPath = `${projectRoot}/.workflow/.loop/prep-tasks.jsonl`
+  if (fs.existsSync(tasksPath)) {
+    passed.push('prep-tasks.jsonl exists')
+  } else {
+    failures.push('prep-tasks.jsonl not found')
+  }
+
+  // Check 6: task count > 0
+  if ((prep.tasks?.total || 0) > 0) {
+    passed.push(`tasks=${prep.tasks.total}`)
+  } else {
+    failures.push('task count is 0')
+  }
+
+  return {
+    valid: failures.length === 0,
+    passed,
+    failures
+  }
+}
+
+/**
+ * Load pre-built tasks from prep-tasks.jsonl.
+ * Returns array of task objects or null on failure.
+ */
+function loadPrepTasks(tasksPath) {
+  if (!fs.existsSync(tasksPath)) return null
+
+  const content = Read(tasksPath)
+  const lines = content.trim().split('\n').filter(l => l.trim())
+  const tasks = []
+
+  for (const line of lines) {
+    try {
+      const task = JSON.parse(line)
+      if (task.id && task.description) {
+        tasks.push(task)
+      }
+    } catch (e) {
+      console.warn(`⚠ Skipping invalid task line: ${e.message}`)
+    }
+  }
+
+  return tasks.length > 0 ? tasks : null
+}
 ```
 
 ### Step 1.2: Utility Functions
@@ -79,14 +196,51 @@ function createLoopState(loopId, taskDescription) {
     loop_id: loopId,
     title: taskDescription.substring(0, 100),
     description: taskDescription,
-    max_iterations: 10,
+    max_iterations: prepPackage?.auto_loop?.max_iterations || 10,
     status: 'running',
     current_iteration: 0,
     created_at: now,
     updated_at: now,
 
-    // Skill extension fields (initialized by INIT action)
-    skill_state: null
+    // Skill extension fields
+    // When prep tasks available, pre-populate skill_state instead of null
+    skill_state: prepTasks ? {
+      current_action: 'init',
+      last_action: null,
+      completed_actions: [],
+      mode: executionMode,
+
+      develop: {
+        total: prepTasks.length,
+        completed: 0,
+        current_task: null,
+        tasks: prepTasks,
+        last_progress_at: null
+      },
+
+      debug: {
+        active_bug: null,
+        hypotheses_count: 0,
+        hypotheses: [],
+        confirmed_hypothesis: null,
+        iteration: 0,
+        last_analysis_at: null
+      },
+
+      validate: {
+        pass_rate: 0,
+        coverage: 0,
+        test_results: [],
+        passed: false,
+        failed_tests: [],
+        last_run_at: null
+      },
+
+      errors: []
+    } : null,
+
+    // Prep package metadata (for traceability)
+    prep_source: prepPackage?.source || null
   }
 
   Write(stateFile, JSON.stringify(state, null, 2))
