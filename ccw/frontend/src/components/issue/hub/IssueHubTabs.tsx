@@ -7,7 +7,7 @@ import { useIntl } from 'react-intl';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 
-export type IssueTab = 'issues' | 'queue' | 'discovery';
+export type IssueTab = 'issues' | 'board' | 'queue' | 'discovery';
 
 interface IssueHubTabsProps {
   currentTab: IssueTab;
@@ -19,6 +19,7 @@ export function IssueHubTabs({ currentTab, onTabChange }: IssueHubTabsProps) {
 
   const tabs: Array<{ value: IssueTab; label: string }> = [
     { value: 'issues', label: formatMessage({ id: 'issues.hub.tabs.issues' }) },
+    { value: 'board', label: formatMessage({ id: 'issues.hub.tabs.board' }) },
     { value: 'queue', label: formatMessage({ id: 'issues.hub.tabs.queue' }) },
     { value: 'discovery', label: formatMessage({ id: 'issues.hub.tabs.discovery' }) },
   ];

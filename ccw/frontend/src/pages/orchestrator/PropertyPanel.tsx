@@ -1122,6 +1122,84 @@ function PromptTemplateProperties({ data, onChange }: PromptTemplatePropertiesPr
             onChange={(artifacts) => onChange({ artifacts })}
           />
         </div>
+
+        {/* CLI Session Routing (tmux-like) */}
+        {!isSlashCommandMode && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                {formatMessage({ id: 'orchestrator.propertyPanel.delivery' })}
+              </label>
+              <select
+                value={(data.delivery as string) || 'newExecution'}
+                onChange={(e) => {
+                  const next = e.target.value as 'newExecution' | 'sendToSession';
+                  const updates: Partial<PromptTemplateNodeData> = { delivery: next };
+                  if (next !== 'sendToSession') {
+                    updates.targetSessionKey = undefined;
+                    updates.resumeKey = undefined;
+                    updates.resumeStrategy = undefined;
+                  }
+                  onChange(updates);
+                }}
+                className="w-full h-10 px-3 rounded-md border border-border bg-background text-foreground text-sm"
+              >
+                <option value="newExecution">
+                  {formatMessage({ id: 'orchestrator.propertyPanel.options.deliveryNewExecution' })}
+                </option>
+                <option value="sendToSession">
+                  {formatMessage({ id: 'orchestrator.propertyPanel.options.deliverySendToSession' })}
+                </option>
+              </select>
+            </div>
+
+            {((data.delivery as string) || 'newExecution') === 'sendToSession' && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    {formatMessage({ id: 'orchestrator.propertyPanel.targetSessionKey' })}
+                  </label>
+                  <Input
+                    value={(data.targetSessionKey as string) || ''}
+                    onChange={(e) => onChange({ targetSessionKey: e.target.value || undefined })}
+                    placeholder={formatMessage({ id: 'orchestrator.propertyPanel.targetSessionKeyPlaceholder' })}
+                    className="font-mono text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    {formatMessage({ id: 'orchestrator.propertyPanel.resumeKey' })}
+                  </label>
+                  <Input
+                    value={(data.resumeKey as string) || ''}
+                    onChange={(e) => onChange({ resumeKey: e.target.value || undefined })}
+                    placeholder={formatMessage({ id: 'orchestrator.propertyPanel.resumeKeyPlaceholder' })}
+                    className="font-mono text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    {formatMessage({ id: 'orchestrator.propertyPanel.resumeStrategy' })}
+                  </label>
+                  <select
+                    value={(data.resumeStrategy as string) || 'nativeResume'}
+                    onChange={(e) => onChange({ resumeStrategy: e.target.value as any })}
+                    className="w-full h-10 px-3 rounded-md border border-border bg-background text-foreground text-sm"
+                  >
+                    <option value="nativeResume">
+                      {formatMessage({ id: 'orchestrator.propertyPanel.options.resumeStrategyNative' })}
+                    </option>
+                    <option value="promptConcat">
+                      {formatMessage({ id: 'orchestrator.propertyPanel.options.resumeStrategyPromptConcat' })}
+                    </option>
+                  </select>
+                </div>
+              </>
+            )}
+          </>
+        )}
       </CollapsibleSection>
     </div>
   );

@@ -227,4 +227,4 @@ Phase 3: Result Aggregation
 ## Next Phase
 
 If iteration continues: Return to Phase 2.
-If iteration completes: Return to orchestrator, then auto-continue to [Phase 4: Completion & Summary](04-completion-summary.md).
+If iteration completes: Return to main flow, then auto-continue to [Phase 4: Completion & Summary](04-completion-summary.md).

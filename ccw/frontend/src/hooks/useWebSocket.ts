@@ -8,6 +8,7 @@ import { useNotificationStore } from '@/stores';
 import { useExecutionStore } from '@/stores/executionStore';
 import { useFlowStore } from '@/stores';
 import { useCliStreamStore } from '@/stores/cliStreamStore';
+import { useCliSessionStore } from '@/stores/cliSessionStore';
 import {
   OrchestratorMessageSchema,
   type OrchestratorWebSocketMessage,
@@ -28,6 +29,7 @@ function getStoreState() {
   const execution = useExecutionStore.getState();
   const flow = useFlowStore.getState();
   const cliStream = useCliStreamStore.getState();
+  const cliSessions = useCliSessionStore.getState();
   return {
     // Notification store
     setWsStatus: notification.setWsStatus,
@@ -56,6 +58,11 @@ function getStoreState() {
     updateNode: flow.updateNode,
     // CLI stream store
     addOutput: cliStream.addOutput,
+
+    // CLI session store (PTY-backed terminal)
+    upsertCliSession: cliSessions.upsertSession,
+    removeCliSession: cliSessions.removeSession,
+    appendCliSessionOutput: cliSessions.appendOutput,
   };
 }
 
@@ -160,6 +167,31 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
                 content: `[${new Date(timestamp).toLocaleTimeString()}] CLI execution started: ${tool} (${mode || 'default'} mode)`,
                 timestamp: Date.now(),
               });
+              break;
+            }
+
+            // ========== PTY CLI Sessions ==========
+            case 'CLI_SESSION_CREATED': {
+              const session = data.payload?.session;
+              if (session?.sessionKey) {
+                stores.upsertCliSession(session);
+              }
+              break;
+            }
+
+            case 'CLI_SESSION_OUTPUT': {
+              const { sessionKey, data: chunk } = data.payload ?? {};
+              if (typeof sessionKey === 'string' && typeof chunk === 'string') {
+                stores.appendCliSessionOutput(sessionKey, chunk);
+              }
+              break;
+            }
+
+            case 'CLI_SESSION_CLOSED': {
+              const { sessionKey } = data.payload ?? {};
+              if (typeof sessionKey === 'string') {
+                stores.removeCliSession(sessionKey);
+              }
               break;
             }
 

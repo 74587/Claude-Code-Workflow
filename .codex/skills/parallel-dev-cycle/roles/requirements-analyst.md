@@ -427,7 +427,7 @@ This section documents auto-generated requirements by the RA agent.
 
 ### Integration Notes
 
-- Self-enhancement is **internal to RA agent** - no orchestrator changes needed
+- Self-enhancement is **internal to RA agent** - no main flow changes needed
 - Read-only access to codebase and cycle state required
 - Enhanced requirements are **transparently marked** for user review
 - User can accept, modify, or reject enhanced requirements in next iteration

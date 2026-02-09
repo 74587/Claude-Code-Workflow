@@ -3,7 +3,7 @@
 // ========================================
 // Content panel for Queue tab in IssueHub
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   AlertCircle,
@@ -14,9 +14,12 @@ import {
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { QueueCard } from '@/components/issue/queue/QueueCard';
+import { QueueBoard } from '@/components/issue/queue/QueueBoard';
 import { SolutionDrawer } from '@/components/issue/queue/SolutionDrawer';
-import { useIssueQueue, useQueueMutations } from '@/hooks';
+import { useIssueQueue, useQueueHistory, useQueueMutations } from '@/hooks';
 import type { QueueItem } from '@/lib/api';
 
 // ========== Loading Skeleton ==========
@@ -73,6 +76,7 @@ export function QueuePanel() {
   const [selectedItem, setSelectedItem] = useState<QueueItem | null>(null);
 
   const { data: queueData, isLoading, error } = useIssueQueue();
+  const { data: historyIndex } = useQueueHistory();
   const {
     activateQueue,
     deactivateQueue,
@@ -93,6 +97,16 @@ export function QueuePanel() {
   const conflictCount = queue?.conflicts?.length || 0;
   const groupCount = Object.keys(queue?.grouped_items || {}).length;
   const totalItems = taskCount + solutionCount;
+  const activeQueueId = historyIndex?.active_queue_id || null;
+  const activeQueueIds = historyIndex?.active_queue_ids || [];
+  const queueId = queue?.id;
+  const [selectedQueueId, setSelectedQueueId] = useState<string>('');
+
+  // Keep selector in sync with active queue id
+  useEffect(() => {
+    if (activeQueueId) setSelectedQueueId(activeQueueId);
+    else if (queueId) setSelectedQueueId(queueId);
+  }, [activeQueueId, queueId]);
 
   const handleActivate = async (queueId: string) => {
     try {
@@ -164,11 +178,62 @@ export function QueuePanel() {
     return <QueueEmptyState />;
   }
 
-  // Check if queue is active (has items and no conflicts)
-  const isActive = totalItems > 0 && conflictCount === 0;
+  // Check if queue is active (multi-queue index preferred)
+  const isActive = queueId ? activeQueueIds.includes(queueId) : totalItems > 0 && conflictCount === 0;
 
   return (
     <div className="space-y-6">
+      {/* Queue History / Active Queue Selector */}
+      {historyIndex && (
+        <Card className="p-4">
+          <div className="flex flex-col md:flex-row md:items-center gap-3 justify-between">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-foreground">
+                {formatMessage({ id: 'issues.queue.history.title' })}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1 font-mono">
+                {formatMessage({ id: 'issues.queue.history.active' })}:{' '}
+                {activeQueueId || '—'}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={selectedQueueId} onValueChange={(v) => setSelectedQueueId(v)}>
+                <SelectTrigger className="w-[260px]">
+                  <SelectValue placeholder={formatMessage({ id: 'issues.queue.history.select' })} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(historyIndex.queues || []).length === 0 ? (
+                    <SelectItem value="" disabled>
+                      {formatMessage({ id: 'issues.queue.history.empty' })}
+                    </SelectItem>
+                  ) : (
+                    historyIndex.queues.map((q) => (
+                      <SelectItem key={q.id} value={q.id}>
+                        {q.id}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                disabled={!selectedQueueId || isActivating}
+                onClick={() => activateQueue(selectedQueueId)}
+              >
+                {formatMessage({ id: 'issues.queue.history.activate' })}
+              </Button>
+              <Button
+                variant="outline"
+                disabled={isDeactivating}
+                onClick={() => deactivateQueue()}
+              >
+                {formatMessage({ id: 'issues.queue.actions.deactivate' })}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4">
@@ -226,25 +291,26 @@ export function QueuePanel() {
         </Card>
       )}
 
-      {/* Queue Card */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <QueueCard
-          key="current"
-          queue={queue}
-          isActive={isActive}
-          onActivate={handleActivate}
-          onDeactivate={handleDeactivate}
-          onDelete={handleDelete}
-          onMerge={handleMerge}
-          onSplit={handleSplit}
-          onItemClick={handleItemClick}
-          isActivating={isActivating}
-          isDeactivating={isDeactivating}
-          isDeleting={isDeleting}
-          isMerging={isMerging}
-          isSplitting={isSplitting}
-        />
-      </div>
+      {/* Queue Card (actions + summary) */}
+      <QueueCard
+        key={queue.id || 'legacy'}
+        queue={queue}
+        isActive={isActive}
+        onActivate={handleActivate}
+        onDeactivate={handleDeactivate}
+        onDelete={handleDelete}
+        onMerge={handleMerge}
+        onSplit={handleSplit}
+        onItemClick={handleItemClick}
+        isActivating={isActivating}
+        isDeactivating={isDeactivating}
+        isDeleting={isDeleting}
+        isMerging={isMerging}
+        isSplitting={isSplitting}
+      />
+
+      {/* Queue Board (DnD reorder/move) */}
+      <QueueBoard queue={queue} onItemClick={handleItemClick} />
 
       {/* Solution Detail Drawer */}
       <SolutionDrawer

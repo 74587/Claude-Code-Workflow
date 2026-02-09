@@ -90,6 +90,28 @@ export interface PromptTemplateNodeData {
   mode?: ExecutionMode;
 
   /**
+   * Delivery target for CLI-mode execution.
+   * - newExecution: spawn a fresh CLI execution (default)
+   * - sendToSession: route to a PTY session (tmux-like send)
+   */
+  delivery?: 'newExecution' | 'sendToSession';
+
+  /**
+   * When delivery=sendToSession, route execution to this PTY session key.
+   */
+  targetSessionKey?: string;
+
+  /**
+   * Optional logical resume key for chaining executions.
+   */
+  resumeKey?: string;
+
+  /**
+   * Optional resume mapping strategy.
+   */
+  resumeStrategy?: 'nativeResume' | 'promptConcat';
+
+  /**
    * References to outputs from previous steps
    * Use the outputName values from earlier nodes
    */

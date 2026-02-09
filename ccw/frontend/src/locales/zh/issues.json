@@ -89,6 +89,7 @@
       "overview": "概览",
       "solutions": "解决方案",
       "history": "历史",
+      "terminal": "终端",
       "json": "JSON"
     },
     "overview": {
@@ -112,10 +113,40 @@
       "empty": "暂无历史记录"
     }
   },
+  "terminal": {
+    "session": {
+      "select": "选择会话",
+      "none": "暂无会话",
+      "refresh": "刷新",
+      "new": "新建会话",
+      "close": "关闭"
+    },
+    "exec": {
+      "tool": "工具",
+      "mode": "模式",
+      "resumeKey": "resumeKey",
+      "resumeStrategy": "resumeStrategy",
+      "prompt": {
+        "label": "提示词",
+        "placeholder": "输入要在该会话中执行的提示词..."
+      },
+      "run": "执行"
+    }
+  },
   "queue": {
     "title": "队列",
     "pageTitle": "问题队列",
     "description": "管理问题执行队列和执行组",
+    "history": {
+      "title": "队列历史",
+      "active": "当前",
+      "select": "选择队列",
+      "activate": "激活",
+      "empty": "暂无队列"
+    },
+    "exec": {
+      "title": "在会话中执行"
+    },
     "status": {
       "pending": "待处理",
       "ready": "就绪",
@@ -192,6 +223,7 @@
     "tabs": {
       "overview": "概览",
       "tasks": "任务",
+      "terminal": "终端",
       "json": "JSON"
     },
     "overview": {
@@ -313,8 +345,16 @@
     "description": "统一管理问题、队列和发现",
     "tabs": {
       "issues": "问题列表",
+      "board": "看板",
       "queue": "执行队列",
       "discovery": "问题发现"
+    }
+  },
+  "board": {
+    "pageTitle": "问题看板",
+    "description": "以看板方式可视化管理问题",
+    "autoStart": {
+      "label": "拖到进行中自动执行"
     }
   }
 }

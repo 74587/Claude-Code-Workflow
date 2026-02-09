@@ -51,8 +51,7 @@ export function QueueCard({
 }: QueueCardProps) {
   const { formatMessage } = useIntl();
 
-  // Use "current" for queue ID display
-  const queueId = 'current';
+  const queueId = queue.id;
 
   // Calculate item counts
   const taskCount = queue.tasks?.length || 0;
@@ -88,7 +87,7 @@ export function QueueCard({
               {formatMessage({ id: 'issues.queue.title' })}
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {queueId.substring(0, 20)}{queueId.length > 20 ? '...' : ''}
+              {(queueId || 'legacy').substring(0, 20)}{(queueId || 'legacy').length > 20 ? '...' : ''}
             </p>
           </div>
         </div>
@@ -102,6 +101,7 @@ export function QueueCard({
 
         <QueueActions
           queue={queue}
+          queueId={queueId}
           isActive={isActive}
           onActivate={onActivate}
           onDeactivate={onDeactivate}

@@ -19,6 +19,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { broadcastToClients } from '../websocket.js';
 import { executeCliTool } from '../../tools/cli-executor-core.js';
+import { getCliSessionManager } from './cli-session-manager.js';
 import type {
   Flow,
   FlowNode,
@@ -244,6 +245,44 @@ export class NodeRunner {
     const mode = this.determineCliMode(data.mode);
 
     try {
+      // Optional: route execution to a PTY session (tmux-like send)
+      if (data.delivery === 'sendToSession') {
+        const targetSessionKey = data.targetSessionKey;
+        if (!targetSessionKey) {
+          return {
+            success: false,
+            error: 'delivery=sendToSession requires targetSessionKey'
+          };
+        }
+
+        const manager = getCliSessionManager(process.cwd());
+        const routed = manager.execute(targetSessionKey, {
+          tool,
+          prompt: instruction,
+          mode,
+          workingDir: this.context.workingDir,
+          resumeKey: data.resumeKey,
+          resumeStrategy: data.resumeStrategy === 'promptConcat' ? 'promptConcat' : 'nativeResume'
+        });
+
+        const outputKey = data.outputName || `${node.id}_output`;
+        this.context.variables[outputKey] = {
+          delivery: 'sendToSession',
+          sessionKey: targetSessionKey,
+          executionId: routed.executionId,
+          command: routed.command
+        };
+        this.context.variables[`${node.id}_executionId`] = routed.executionId;
+        this.context.variables[`${node.id}_command`] = routed.command;
+        this.context.variables[`${node.id}_success`] = true;
+
+        return {
+          success: true,
+          output: routed.command,
+          exitCode: 0
+        };
+      }
+
       // Execute via CLI tool
       const result = await executeCliTool({
         tool,

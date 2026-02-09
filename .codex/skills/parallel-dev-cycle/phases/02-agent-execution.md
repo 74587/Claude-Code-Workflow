@@ -446,4 +446,4 @@ Execution timeout reached. Please:
 
 ## Next Phase
 
-Return to orchestrator, then auto-continue to [Phase 3: Result Aggregation & Iteration](03-result-aggregation.md).
+Return to main flow, then auto-continue to [Phase 3: Result Aggregation & Iteration](03-result-aggregation.md).

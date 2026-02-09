@@ -420,7 +420,7 @@ PHASE_RESULT:
 ### Sends To:
 - **CD (Developer)**: "These tests are failing, needs fixes"
   - Used for prioritizing work
-- **Orchestrator**: "Quality report and recommendations"
+- **Main Flow**: "Quality report and recommendations"
   - Used for final sign-off
 
 ## Quality Standards

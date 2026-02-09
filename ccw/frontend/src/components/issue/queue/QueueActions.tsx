@@ -33,6 +33,7 @@ import type { IssueQueue, QueueItem } from '@/lib/api';
 
 export interface QueueActionsProps {
   queue: IssueQueue;
+  queueId?: string;
   isActive?: boolean;
   onActivate?: (queueId: string) => void;
   onDeactivate?: () => void;
@@ -50,6 +51,7 @@ export interface QueueActionsProps {
 
 export function QueueActions({
   queue,
+  queueId: queueIdProp,
   isActive = false,
   onActivate,
   onDeactivate,
@@ -69,20 +71,20 @@ export function QueueActions({
   const [mergeTargetId, setMergeTargetId] = useState('');
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
-  // Use "current" as the queue ID for single-queue model
-  // This matches the API pattern where deactivate works on the current queue
-  const queueId = 'current';
+  const queueId = queueIdProp;
 
   // Get all items from grouped_items for split dialog
   const allItems: QueueItem[] = Object.values(queue.grouped_items || {}).flat();
 
   const handleDelete = () => {
+    if (!queueId) return;
     onDelete?.(queueId);
     setIsDeleteOpen(false);
   };
 
   const handleMerge = () => {
     if (mergeTargetId.trim()) {
+      if (!queueId) return;
       onMerge?.(queueId, mergeTargetId.trim());
       setIsMergeOpen(false);
       setMergeTargetId('');
@@ -91,6 +93,7 @@ export function QueueActions({
 
   const handleSplit = () => {
     if (selectedItemIds.length > 0 && selectedItemIds.length < allItems.length) {
+      if (!queueId) return;
       onSplit?.(queueId, selectedItemIds);
       setIsSplitOpen(false);
       setSelectedItemIds([]);
@@ -128,7 +131,7 @@ export function QueueActions({
             size="sm"
             className="h-8 w-8 p-0"
             onClick={() => onActivate(queueId)}
-            disabled={isActivating}
+            disabled={isActivating || !queueId}
             title={formatMessage({ id: 'issues.queue.actions.activate' })}
           >
             {isActivating ? (
@@ -161,7 +164,7 @@ export function QueueActions({
           size="sm"
           className="h-8 w-8 p-0"
           onClick={() => setIsMergeOpen(true)}
-          disabled={isMerging}
+          disabled={isMerging || !queueId}
           title={formatMessage({ id: 'issues.queue.actions.merge' })}
         >
           {isMerging ? (
@@ -178,7 +181,7 @@ export function QueueActions({
             size="sm"
             className="h-8 w-8 p-0"
             onClick={() => setIsSplitOpen(true)}
-            disabled={isSplitting}
+            disabled={isSplitting || !queueId}
             title={formatMessage({ id: 'issues.queue.actions.split' })}
           >
             {isSplitting ? (
@@ -195,7 +198,7 @@ export function QueueActions({
           size="sm"
           className="h-8 w-8 p-0"
           onClick={() => setIsDeleteOpen(true)}
-          disabled={isDeleting}
+          disabled={isDeleting || !queueId}
           title={formatMessage({ id: 'issues.queue.actions.delete' })}
         >
           {isDeleting ? (

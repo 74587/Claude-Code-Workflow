@@ -258,4 +258,4 @@ function checkControlSignals(cycleId) {
 
 ## Next Phase
 
-Return to orchestrator, then auto-continue to [Phase 2: Agent Execution](02-agent-execution.md).
+Return to main flow, then auto-continue to [Phase 2: Agent Execution](02-agent-execution.md).

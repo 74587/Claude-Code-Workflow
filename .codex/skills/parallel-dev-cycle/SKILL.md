@@ -1,6 +1,6 @@
 ---
 name: parallel-dev-cycle
-description: Multi-agent parallel development cycle with requirement analysis, exploration planning, code development, and validation. Supports continuous iteration with markdown progress documentation. Triggers on "parallel-dev-cycle".
+description: Multi-agent parallel development cycle with requirement analysis, exploration planning, code development, and validation. Orchestration runs inline in main flow (no separate orchestrator agent). Supports continuous iteration with markdown progress documentation. Triggers on "parallel-dev-cycle".
 allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -12,6 +12,8 @@ Multi-agent parallel development cycle using Codex subagent pattern with four sp
 3. **Code Development** (CD) - Code development with debug strategy support
 4. **Validation & Archival Summary** (VAS) - Validation and archival summary
 
+Orchestration logic (phase management, state updates, feedback coordination) runs **inline in the main flow** — no separate orchestrator agent is spawned. Only 4 worker agents are allocated.
+
 Each agent **maintains one main document** (e.g., requirements.md, plan.json, implementation.md) that is completely rewritten per iteration, plus auxiliary logs (changes.log, debug-log.ndjson) that are append-only.
 
 ## Architecture Overview
@@ -22,10 +24,10 @@ Each agent **maintains one main document** (e.g., requirements.md, plan.json, im
 └────────────────────────────┬────────────────────────────────┘
                              │
                              v
-                  ┌──────────────────────┐
-                  │  Orchestrator Agent  │  (Coordinator)
-                  │  (spawned once)      │
-                  └──────────────────────┘
+              ┌──────────────────────────────┐
+              │  Main Flow (Inline Orchestration)  │
+              │  Phase 1 → 2 → 3 → 4              │
+              └──────────────────────────────┘
                              │
         ┌────────────────────┼────────────────────┐
         │                    │                    │
@@ -44,10 +46,10 @@ Each agent **maintains one main document** (e.g., requirements.md, plan.json, im
                          └────────┘
                              │
                              v
-                  ┌──────────────────────┐
-                  │    Summary Report    │
-                  │  & Markdown Docs     │
-                  └──────────────────────┘
+              ┌──────────────────────────────┐
+              │    Summary Report            │
+              │  & Markdown Docs             │
+              └──────────────────────────────┘
 ```
 
 ## Key Design Principles
@@ -56,7 +58,7 @@ Each agent **maintains one main document** (e.g., requirements.md, plan.json, im
 2. **Version-Based Overwrite**: Main documents completely rewritten per version; logs append-only
 3. **Automatic Archival**: Old main document versions automatically archived to `history/` directory
 4. **Complete Audit Trail**: Changes.log (NDJSON) preserves all change history
-5. **Parallel Coordination**: Four agents launched simultaneously; coordination via shared state and orchestrator
+5. **Parallel Coordination**: Four agents launched simultaneously; coordination via shared state and inline main flow
 6. **File References**: Use short file paths instead of content passing
 7. **Self-Enhancement**: RA agent proactively extends requirements based on context
 8. **Shared Discovery Board**: All agents share exploration findings via `discoveries.ndjson` — read on start, write as you discover, eliminating redundant codebase exploration
@@ -315,7 +317,7 @@ All agents share a real-time discovery board at `coordination/discoveries.ndjson
 3. Deduplicate — check existing entries; skip if same `type` + dedup key value already exists
 4. Append-only — never modify or delete existing lines
 
-### Agent → Orchestrator Communication
+### Agent → Main Flow Communication
 ```
 PHASE_RESULT:
 - phase: ra | ep | cd | vas
@@ -325,7 +327,7 @@ PHASE_RESULT:
 - issues: []
 ```
 
-### Orchestrator → Agent Communication
+### Main Flow → Agent Communication
 
 Feedback via `send_input` (file refs + issue summary, never full content):
 ```
@@ -337,7 +339,7 @@ Feedback via `send_input` (file refs + issue summary, never full content):
 1. [Specific fix]
 ```
 
-**Rules**: Only orchestrator writes state file. Agents read state, write to own `.progress/{agent}/` directory only.
+**Rules**: Only main flow writes state file. Agents read state, write to own `.progress/{agent}/` directory only.
 
 ## Core Rules
 
@@ -346,7 +348,7 @@ Feedback via `send_input` (file refs + issue summary, never full content):
 3. **Parse Every Output**: Extract PHASE_RESULT data from each agent for next phase
 4. **Auto-Continue**: After each phase, execute next pending phase automatically
 5. **Track Progress**: Update TodoWrite dynamically with attachment/collapse pattern
-6. **Single Writer**: Only orchestrator writes to master state file; agents report via PHASE_RESULT
+6. **Single Writer**: Only main flow writes to master state file; agents report via PHASE_RESULT
 7. **File References**: Pass file paths between agents, not content
 8. **DO NOT STOP**: Continuous execution until all phases complete or max iterations reached
 
@@ -357,11 +359,11 @@ Feedback via `send_input` (file refs + issue summary, never full content):
 | Agent timeout | send_input requesting convergence, then retry |
 | State corrupted | Rebuild from progress markdown files and changes.log |
 | Agent failed | Re-spawn agent with previous context |
-| Conflicting results | Orchestrator sends reconciliation request |
+| Conflicting results | Main flow sends reconciliation request |
 | Missing files | RA/EP agents identify and request clarification |
 | Max iterations reached | Generate summary with remaining issues documented |
 
-## Coordinator Checklist
+## Coordinator Checklist (Main Flow)
 
 ### Before Each Phase
 

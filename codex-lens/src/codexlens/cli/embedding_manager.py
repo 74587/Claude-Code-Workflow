@@ -860,6 +860,294 @@ def _discover_index_dbs_internal(index_root: Path) -> List[Path]:
     return sorted(index_root.rglob("_index.db"))
 
 
+def build_centralized_binary_vectors_from_existing(
+    index_root: Path,
+    *,
+    force: bool = False,
+    embedding_dim: Optional[int] = None,
+    progress_callback: Optional[callable] = None,
+) -> Dict[str, Any]:
+    """Build centralized binary vectors + metadata from existing semantic_chunks embeddings.
+
+    This is a fast-path for enabling the staged binary coarse search without
+    regenerating embeddings (and without triggering global model locks).
+
+    It scans all distributed `_index.db` files under `index_root`, reads
+    existing `semantic_chunks.embedding` blobs, assigns new global chunk_ids,
+    and writes:
+      - `<index_root>/_binary_vectors.mmap` (+ `.meta.json`)
+      - `<index_root>/_vectors_meta.db` (chunk_metadata + binary_vectors)
+    """
+    from codexlens.config import BINARY_VECTORS_MMAP_NAME, VECTORS_META_DB_NAME
+    from codexlens.storage.vector_meta_store import VectorMetadataStore
+
+    index_root = Path(index_root).resolve()
+    vectors_meta_path = index_root / VECTORS_META_DB_NAME
+    mmap_path = index_root / BINARY_VECTORS_MMAP_NAME
+    meta_path = mmap_path.with_suffix(".meta.json")
+
+    index_files = _discover_index_dbs_internal(index_root)
+    if not index_files:
+        return {"success": False, "error": f"No _index.db files found under {index_root}"}
+
+    if progress_callback:
+        progress_callback(f"Scanning {len(index_files)} index databases for existing embeddings...")
+
+    # First pass: detect embedding dims present.
+    dims_seen: Dict[int, int] = {}
+    selected_config: Optional[Dict[str, Any]] = None
+
+    for index_path in index_files:
+        try:
+            with sqlite3.connect(index_path) as conn:
+                conn.row_factory = sqlite3.Row
+                has_table = conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='semantic_chunks'"
+                ).fetchone()
+                if not has_table:
+                    continue
+
+                dim_row = conn.execute(
+                    "SELECT backend, model_profile, model_name, embedding_dim FROM embeddings_config WHERE id=1"
+                ).fetchone()
+                if dim_row and dim_row[3]:
+                    dim_val = int(dim_row[3])
+                    dims_seen[dim_val] = dims_seen.get(dim_val, 0) + 1
+                    if selected_config is None:
+                        selected_config = {
+                            "backend": dim_row[0],
+                            "model_profile": dim_row[1],
+                            "model_name": dim_row[2],
+                            "embedding_dim": dim_val,
+                        }
+
+                # We count per-dim later after selecting a target dim.
+        except Exception:
+            continue
+
+    if not dims_seen:
+        return {"success": False, "error": "No embeddings_config found under index_root"}
+
+    if embedding_dim is None:
+        # Default: pick the most common embedding dim across indexes.
+        embedding_dim = max(dims_seen.items(), key=lambda kv: kv[1])[0]
+
+    embedding_dim = int(embedding_dim)
+
+    if progress_callback and len(dims_seen) > 1:
+        progress_callback(f"Mixed embedding dims detected, selecting dim={embedding_dim} (seen={dims_seen})")
+
+    # Re-detect the selected model config for this dim (do not reuse an arbitrary first-seen config).
+    selected_config = None
+
+    # Second pass: count only chunks matching selected dim.
+    total_chunks = 0
+    for index_path in index_files:
+        try:
+            with sqlite3.connect(index_path) as conn:
+                conn.row_factory = sqlite3.Row
+                has_table = conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='semantic_chunks'"
+                ).fetchone()
+                if not has_table:
+                    continue
+
+                dim_row = conn.execute(
+                    "SELECT backend, model_profile, model_name, embedding_dim FROM embeddings_config WHERE id=1"
+                ).fetchone()
+                dim_val = int(dim_row[3]) if dim_row and dim_row[3] else None
+                if dim_val != embedding_dim:
+                    continue
+
+                if selected_config is None:
+                    selected_config = {
+                        "backend": dim_row[0],
+                        "model_profile": dim_row[1],
+                        "model_name": dim_row[2],
+                        "embedding_dim": dim_val,
+                    }
+
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM semantic_chunks WHERE embedding IS NOT NULL AND length(embedding) > 0"
+                ).fetchone()
+                total_chunks += int(row[0] if row else 0)
+        except Exception:
+            continue
+
+    if not total_chunks:
+        return {
+            "success": False,
+            "error": f"No existing embeddings found for embedding_dim={embedding_dim}",
+            "dims_seen": dims_seen,
+        }
+
+    if progress_callback:
+        progress_callback(f"Found {total_chunks} embedded chunks (dim={embedding_dim}). Building binary vectors...")
+
+    # Prepare output files / DB.
+    try:
+        import numpy as np
+    except Exception as exc:
+        return {"success": False, "error": f"numpy required to build binary vectors: {exc}"}
+
+    store = VectorMetadataStore(vectors_meta_path)
+    store._ensure_schema()
+
+    if force:
+        try:
+            store.clear()
+        except Exception:
+            pass
+        try:
+            store.clear_binary_vectors()
+        except Exception:
+            pass
+        try:
+            if mmap_path.exists():
+                mmap_path.unlink()
+        except Exception:
+            pass
+        try:
+            if meta_path.exists():
+                meta_path.unlink()
+        except Exception:
+            pass
+
+    bytes_per_vec = (int(embedding_dim) + 7) // 8
+    mmap = np.memmap(
+        str(mmap_path),
+        dtype=np.uint8,
+        mode="w+",
+        shape=(int(total_chunks), int(bytes_per_vec)),
+    )
+
+    chunk_ids: List[int] = []
+    chunks_batch: List[Dict[str, Any]] = []
+    bin_ids_batch: List[int] = []
+    bin_vecs_batch: List[bytes] = []
+    batch_limit = 500
+
+    global_id = 1
+    write_idx = 0
+
+    skipped_indexes: Dict[str, int] = {}
+    for index_path in index_files:
+        try:
+            with sqlite3.connect(index_path) as conn:
+                conn.row_factory = sqlite3.Row
+                has_table = conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='semantic_chunks'"
+                ).fetchone()
+                if not has_table:
+                    continue
+
+                dim_row = conn.execute(
+                    "SELECT embedding_dim FROM embeddings_config WHERE id=1"
+                ).fetchone()
+                dim_val = int(dim_row[0]) if dim_row and dim_row[0] else None
+                if dim_val != embedding_dim:
+                    skipped_indexes[str(index_path)] = dim_val or -1
+                    continue
+
+                rows = conn.execute(
+                    "SELECT file_path, content, embedding, metadata, category FROM semantic_chunks "
+                    "WHERE embedding IS NOT NULL AND length(embedding) > 0"
+                ).fetchall()
+
+                for row in rows:
+                    emb = np.frombuffer(row["embedding"], dtype=np.float32)
+                    if emb.size != int(embedding_dim):
+                        continue
+
+                    packed = np.packbits((emb > 0).astype(np.uint8))
+                    if packed.size != bytes_per_vec:
+                        continue
+
+                    mmap[write_idx] = packed
+                    write_idx += 1
+
+                    cid = global_id
+                    global_id += 1
+                    chunk_ids.append(cid)
+
+                    meta_raw = row["metadata"]
+                    meta_dict: Dict[str, Any] = {}
+                    if meta_raw:
+                        try:
+                            meta_dict = json.loads(meta_raw) if isinstance(meta_raw, str) else dict(meta_raw)
+                        except Exception:
+                            meta_dict = {}
+
+                    chunks_batch.append(
+                        {
+                            "chunk_id": cid,
+                            "file_path": row["file_path"],
+                            "content": row["content"],
+                            "start_line": meta_dict.get("start_line"),
+                            "end_line": meta_dict.get("end_line"),
+                            "category": row["category"],
+                            "metadata": meta_dict,
+                            "source_index_db": str(index_path),
+                        }
+                    )
+
+                    bin_ids_batch.append(cid)
+                    bin_vecs_batch.append(packed.tobytes())
+
+                    if len(chunks_batch) >= batch_limit:
+                        store.add_chunks(chunks_batch)
+                        store.add_binary_vectors(bin_ids_batch, bin_vecs_batch)
+                        chunks_batch = []
+                        bin_ids_batch = []
+                        bin_vecs_batch = []
+
+        except Exception:
+            continue
+
+    if chunks_batch:
+        store.add_chunks(chunks_batch)
+        store.add_binary_vectors(bin_ids_batch, bin_vecs_batch)
+
+    mmap.flush()
+    del mmap
+
+    # If we skipped inconsistent vectors, truncate metadata to actual write count.
+    chunk_ids = chunk_ids[:write_idx]
+
+    # Write sidecar metadata.
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "shape": [int(write_idx), int(bytes_per_vec)],
+                "chunk_ids": chunk_ids,
+                "embedding_dim": int(embedding_dim),
+                "backend": (selected_config or {}).get("backend"),
+                "model_profile": (selected_config or {}).get("model_profile"),
+                "model_name": (selected_config or {}).get("model_name"),
+            },
+            f,
+        )
+
+    if progress_callback:
+        progress_callback(f"Binary vectors ready: {mmap_path} (rows={write_idx})")
+
+    return {
+        "success": True,
+        "result": {
+            "index_root": str(index_root),
+            "index_files_scanned": len(index_files),
+            "chunks_total": int(total_chunks),
+            "chunks_written": int(write_idx),
+            "embedding_dim": int(embedding_dim),
+            "bytes_per_vector": int(bytes_per_vec),
+            "skipped_indexes": len(skipped_indexes),
+            "vectors_meta_db": str(vectors_meta_path),
+            "binary_mmap": str(mmap_path),
+            "binary_meta_json": str(meta_path),
+        },
+    }
+
+
 def discover_all_index_dbs(index_root: Path) -> List[Path]:
     """Recursively find all _index.db files in an index tree.
 

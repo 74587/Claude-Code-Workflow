@@ -181,7 +181,7 @@ When tests fail during implementation, the CD agent MUST initiate the hypothesis
 |---------|-----------|--------|
 | **Test Failure** | Automated tests fail during implementation | Start debug workflow |
 | **Integration Conflict** | Blockers logged in `issues.md` | Start debug workflow |
-| **VAS Feedback** | Orchestrator provides validation failure feedback | Start debug workflow |
+| **VAS Feedback** | Main flow provides validation failure feedback | Start debug workflow |
 
 ### Debug Workflow Phases
 
@@ -356,7 +356,7 @@ PHASE_RESULT:
   - Used to guide development
 - **RA (Requirements Analyst)**: "Requirement FR-X means..."
   - Used for clarification
-- **Orchestrator**: "Fix these issues in next iteration"
+- **Main Flow**: "Fix these issues in next iteration"
   - Used for priority setting
 
 ### Sends To:
@@ -364,7 +364,7 @@ PHASE_RESULT:
   - Used for test generation
 - **RA (Requirements Analyst)**: "FR-X is unclear, need clarification"
   - Used for requirement updates
-- **Orchestrator**: "Found blocker X, need help"
+- **Main Flow**: "Found blocker X, need help"
   - Used for decision making
 
 ## Code Quality Standards

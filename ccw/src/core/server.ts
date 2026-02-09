@@ -8,6 +8,7 @@ import { resolvePath, getRecentPaths, normalizePathForDisplay } from '../utils/p
 import { handleStatusRoutes } from './routes/status-routes.js';
 import { handleCliRoutes, cleanupStaleExecutions } from './routes/cli-routes.js';
 import { handleCliSettingsRoutes } from './routes/cli-settings-routes.js';
+import { handleCliSessionsRoutes } from './routes/cli-sessions-routes.js';
 import { handleProviderRoutes } from './routes/provider-routes.js';
 import { handleMemoryRoutes } from './routes/memory-routes.js';
 import { handleCoreMemoryRoutes } from './routes/core-memory-routes.js';
@@ -589,6 +590,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Dashboard routes (/api/dashboard/*, /api/workflow-status-counts)
       if (pathname.startsWith('/api/dashboard/') || pathname === '/api/workflow-status-counts') {
         if (await handleDashboardRoutes(routeContext)) return;
+      }
+
+      // CLI sessions (PTY) routes (/api/cli-sessions/*) - independent from /api/cli/*
+      if (pathname.startsWith('/api/cli-sessions')) {
+        if (await handleCliSessionsRoutes(routeContext)) return;
       }
 
       // CLI routes (/api/cli/*)

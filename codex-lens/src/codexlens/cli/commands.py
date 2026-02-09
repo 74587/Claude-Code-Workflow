@@ -3486,6 +3486,81 @@ def index_binary(
                 console.print(f"    [dim]... and {len(errors_list) - 3} more[/dim]")
 
 
+@index_app.command("binary-mmap")
+def index_binary_mmap(
+    path: Annotated[Path, typer.Argument(help="Project directory (indexed) or _index.db file")],
+    force: Annotated[bool, typer.Option("--force", "-f", help="Force rebuild binary mmap + metadata")] = False,
+    embedding_dim: Annotated[Optional[int], typer.Option("--embedding-dim", help="Only use embeddings with this dimension (e.g. 768)")] = None,
+    json_mode: Annotated[bool, typer.Option("--json", help="Output JSON response")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose logging")] = False,
+) -> None:
+    """Build centralized `_binary_vectors.mmap` from existing embeddings (no model calls).
+
+    This command enables the staged binary coarse search without regenerating
+    embeddings and without triggering global model locks. It:
+      - scans distributed semantic_chunks.embedding blobs under the index root
+      - assigns global chunk_ids
+      - writes `<index_root>/_binary_vectors.mmap` (+ `.meta.json`)
+      - writes `<index_root>/_vectors_meta.db` (chunk_metadata + binary_vectors)
+    """
+    _configure_logging(verbose, json_mode)
+
+    from codexlens.cli.embedding_manager import build_centralized_binary_vectors_from_existing
+
+    target_path = path.expanduser().resolve()
+
+    # Resolve index_root similar to other index commands.
+    if target_path.is_file() and target_path.name == "_index.db":
+        index_root = target_path.parent
+    else:
+        registry = RegistryStore()
+        try:
+            registry.initialize()
+            mapper = PathMapper()
+            index_db = mapper.source_to_index_db(target_path)
+            if not index_db.exists():
+                msg = f"No index found for {target_path}"
+                if json_mode:
+                    print_json(success=False, error=msg)
+                else:
+                    console.print(f"[red]Error:[/red] {msg}")
+                    console.print("Run `codexlens index init` first to create an index.")
+                raise typer.Exit(code=1)
+            index_root = index_db.parent
+        finally:
+            registry.close()
+
+    def progress_update(message: str) -> None:
+        if json_mode:
+            return
+        console.print(f"[dim]{message}[/dim]")
+
+    result = build_centralized_binary_vectors_from_existing(
+        index_root,
+        force=force,
+        embedding_dim=embedding_dim,
+        progress_callback=progress_update,
+    )
+
+    if json_mode:
+        print_json(**result)
+        return
+
+    if not result.get("success"):
+        console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+        hint = result.get("hint")
+        if hint:
+            console.print(f"[dim]{hint}[/dim]")
+        raise typer.Exit(code=1)
+
+    data = result.get("result", {})
+    console.print("\n[green]Binary mmap build complete[/green]")
+    console.print(f"  Index root: {data.get('index_root')}")
+    console.print(f"  Chunks written: {data.get('chunks_written'):,}")
+    console.print(f"  Binary mmap: {data.get('binary_mmap')}")
+    console.print(f"  Meta DB: {data.get('vectors_meta_db')}")
+
+
 # ==================== Index Status Command ====================
 
 @index_app.command("status")

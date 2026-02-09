@@ -702,8 +702,9 @@ export interface QueueItem {
 }
 
 export interface IssueQueue {
-  tasks: string[];
-  solutions: string[];
+  id?: string;
+  tasks?: QueueItem[];
+  solutions?: QueueItem[];
   conflicts: string[];
   execution_groups: string[];
   grouped_items: Record<string, QueueItem[]>;
@@ -816,12 +817,38 @@ export async function pullIssuesFromGitHub(options: GitHubPullOptions = {}): Pro
   });
 }
 
+// ========== Queue History (Multi-Queue) ==========
+
+export interface QueueHistoryEntry {
+  id: string;
+  created_at?: string;
+  updated_at?: string;
+  status?: string;
+  issue_ids?: string[];
+  total_tasks?: number;
+  completed_tasks?: number;
+  total_solutions?: number;
+  completed_solutions?: number;
+  [key: string]: unknown;
+}
+
+export interface QueueHistoryIndex {
+  queues: QueueHistoryEntry[];
+  active_queue_id: string | null;
+  active_queue_ids: string[];
+}
+
+export async function fetchQueueHistory(projectPath: string): Promise<QueueHistoryIndex> {
+  return fetchApi<QueueHistoryIndex>(`/api/queue/history?path=${encodeURIComponent(projectPath)}`);
+}
+
 /**
  * Activate a queue
  */
 export async function activateQueue(queueId: string, projectPath: string): Promise<void> {
-  return fetchApi<void>(`/api/queue/${encodeURIComponent(queueId)}/activate?path=${encodeURIComponent(projectPath)}`, {
+  return fetchApi<void>(`/api/queue/activate?path=${encodeURIComponent(projectPath)}`, {
     method: 'POST',
+    body: JSON.stringify({ queueId }),
   });
 }
 
@@ -832,6 +859,32 @@ export async function deactivateQueue(projectPath: string): Promise<void> {
   return fetchApi<void>(`/api/queue/deactivate?path=${encodeURIComponent(projectPath)}`, {
     method: 'POST',
   });
+}
+
+/**
+ * Reorder items within a single execution group
+ */
+export async function reorderQueueGroup(
+  projectPath: string,
+  input: { groupId: string; newOrder: string[] }
+): Promise<{ success: boolean; groupId: string; reordered: number }> {
+  return fetchApi<{ success: boolean; groupId: string; reordered: number }>(
+    `/api/queue/reorder?path=${encodeURIComponent(projectPath)}`,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+}
+
+/**
+ * Move an item across execution groups (and optionally insert at index)
+ */
+export async function moveQueueItem(
+  projectPath: string,
+  input: { itemId: string; toGroupId: string; toIndex?: number }
+): Promise<{ success: boolean; itemId: string; fromGroupId: string; toGroupId: string }> {
+  return fetchApi<{ success: boolean; itemId: string; fromGroupId: string; toGroupId: string }>(
+    `/api/queue/move?path=${encodeURIComponent(projectPath)}`,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
 }
 
 /**
@@ -849,7 +902,7 @@ export async function deleteQueue(queueId: string, projectPath: string): Promise
 export async function mergeQueues(sourceId: string, targetId: string, projectPath: string): Promise<void> {
   return fetchApi<void>(`/api/queue/merge?path=${encodeURIComponent(projectPath)}`, {
     method: 'POST',
-    body: JSON.stringify({ sourceId, targetId }),
+    body: JSON.stringify({ sourceQueueId: sourceId, targetQueueId: targetId }),
   });
 }
 
@@ -5629,4 +5682,92 @@ export async function fetchTeamStatus(
   teamName: string
 ): Promise<{ members: Array<{ member: string; lastSeen: string; lastAction: string; messageCount: number }>; total_messages: number }> {
   return fetchApi(`/api/teams/${encodeURIComponent(teamName)}/status`);
+}
+
+// ========== CLI Sessions (PTY) API ==========
+
+export interface CliSession {
+  sessionKey: string;
+  shellKind: string;
+  workingDir: string;
+  tool?: string;
+  model?: string;
+  resumeKey?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCliSessionInput {
+  workingDir?: string;
+  cols?: number;
+  rows?: number;
+  preferredShell?: 'bash' | 'pwsh';
+  tool?: string;
+  model?: string;
+  resumeKey?: string;
+}
+
+export async function fetchCliSessions(): Promise<{ sessions: CliSession[] }> {
+  return fetchApi<{ sessions: CliSession[] }>('/api/cli-sessions');
+}
+
+export async function createCliSession(input: CreateCliSessionInput): Promise<{ success: boolean; session: CliSession }> {
+  return fetchApi<{ success: boolean; session: CliSession }>('/api/cli-sessions', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchCliSessionBuffer(sessionKey: string): Promise<{ session: CliSession; buffer: string }> {
+  return fetchApi<{ session: CliSession; buffer: string }>(
+    `/api/cli-sessions/${encodeURIComponent(sessionKey)}/buffer`
+  );
+}
+
+export async function sendCliSessionText(
+  sessionKey: string,
+  input: { text: string; appendNewline?: boolean }
+): Promise<{ success: boolean }> {
+  return fetchApi<{ success: boolean }>(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/send`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export interface ExecuteInCliSessionInput {
+  tool: string;
+  prompt: string;
+  mode?: 'analysis' | 'write' | 'auto';
+  model?: string;
+  workingDir?: string;
+  category?: 'user' | 'internal' | 'insight';
+  resumeKey?: string;
+  resumeStrategy?: 'nativeResume' | 'promptConcat';
+}
+
+export async function executeInCliSession(
+  sessionKey: string,
+  input: ExecuteInCliSessionInput
+): Promise<{ success: boolean; executionId: string; command: string }> {
+  return fetchApi<{ success: boolean; executionId: string; command: string }>(
+    `/api/cli-sessions/${encodeURIComponent(sessionKey)}/execute`,
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+}
+
+export async function resizeCliSession(
+  sessionKey: string,
+  input: { cols: number; rows: number }
+): Promise<{ success: boolean }> {
+  return fetchApi<{ success: boolean }>(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/resize`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function closeCliSession(sessionKey: string): Promise<{ success: boolean }> {
+  return fetchApi<{ success: boolean }>(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/close`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
 }

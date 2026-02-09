@@ -3,23 +3,25 @@
 // ========================================
 // Right-side issue detail drawer with Overview/Solutions/History tabs
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { X, FileText, CheckCircle, Circle, Loader2, Tag, History, Hash } from 'lucide-react';
+import { X, FileText, CheckCircle, Circle, Loader2, Tag, History, Hash, Terminal } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { cn } from '@/lib/utils';
 import type { Issue } from '@/lib/api';
+import { IssueTerminalTab } from './IssueTerminalTab';
 
 // ========== Types ==========
 export interface IssueDrawerProps {
   issue: Issue | null;
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: TabValue;
 }
 
-type TabValue = 'overview' | 'solutions' | 'history' | 'json';
+type TabValue = 'overview' | 'solutions' | 'history' | 'terminal' | 'json';
 
 // ========== Status Configuration ==========
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info'; icon: React.ComponentType<{ className?: string }> }> = {
@@ -39,20 +41,25 @@ const priorityConfig: Record<string, { label: string; variant: 'default' | 'seco
 
 // ========== Component ==========
 
-export function IssueDrawer({ issue, isOpen, onClose }: IssueDrawerProps) {
+export function IssueDrawer({ issue, isOpen, onClose, initialTab = 'overview' }: IssueDrawerProps) {
   const { formatMessage } = useIntl();
-  const [activeTab, setActiveTab] = useState<TabValue>('overview');
+  const [activeTab, setActiveTab] = useState<TabValue>(initialTab);
 
-  // Reset to overview when issue changes
-  useState(() => {
+  // Reset to initial tab when opening/switching issues
+  useEffect(() => {
+    if (!isOpen || !issue) return;
+    setActiveTab(initialTab);
+  }, [initialTab, isOpen, issue?.id]);
+
+  // ESC key to close
+  useEffect(() => {
+    if (!isOpen) return;
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+      if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleEsc);
     return () => window.removeEventListener('keydown', handleEsc);
-  });
+  }, [isOpen, onClose]);
 
   if (!issue || !isOpen) {
     return null;
@@ -125,6 +132,10 @@ export function IssueDrawer({ issue, isOpen, onClose }: IssueDrawerProps) {
               <TabsTrigger value="history" className="flex-1">
                 <History className="h-4 w-4 mr-2" />
                 {formatMessage({ id: 'issues.detail.tabs.history' })}
+              </TabsTrigger>
+              <TabsTrigger value="terminal" className="flex-1">
+                <Terminal className="h-4 w-4 mr-2" />
+                {formatMessage({ id: 'issues.detail.tabs.terminal' })}
               </TabsTrigger>
               <TabsTrigger value="json" className="flex-1">
                 <Hash className="h-4 w-4 mr-2" />
@@ -211,6 +222,11 @@ export function IssueDrawer({ issue, isOpen, onClose }: IssueDrawerProps) {
                     ))}
                   </div>
                 )}
+              </TabsContent>
+
+              {/* Terminal Tab */}
+              <TabsContent value="terminal" className="mt-4 pb-6 focus-visible:outline-none">
+                <IssueTerminalTab issueId={issue.id} />
               </TabsContent>
 
               {/* History Tab */}

@@ -89,6 +89,7 @@
       "overview": "Overview",
       "solutions": "Solutions",
       "history": "History",
+      "terminal": "Terminal",
       "json": "JSON"
     },
     "overview": {
@@ -112,10 +113,40 @@
       "empty": "No history yet"
     }
   },
+  "terminal": {
+    "session": {
+      "select": "Select session",
+      "none": "No sessions",
+      "refresh": "Refresh",
+      "new": "New Session",
+      "close": "Close"
+    },
+    "exec": {
+      "tool": "Tool",
+      "mode": "Mode",
+      "resumeKey": "resumeKey",
+      "resumeStrategy": "resumeStrategy",
+      "prompt": {
+        "label": "Prompt",
+        "placeholder": "Type a prompt to execute in this session..."
+      },
+      "run": "Execute"
+    }
+  },
   "queue": {
     "title": "Queue",
     "pageTitle": "Issue Queue",
     "description": "Manage issue execution queue with execution groups",
+    "history": {
+      "title": "Queue History",
+      "active": "Active",
+      "select": "Select queue",
+      "activate": "Activate",
+      "empty": "No queues"
+    },
+    "exec": {
+      "title": "Execute in Session"
+    },
     "status": {
       "pending": "Pending",
       "ready": "Ready",
@@ -192,6 +223,7 @@
     "tabs": {
       "overview": "Overview",
       "tasks": "Tasks",
+      "terminal": "Terminal",
       "json": "JSON"
     },
     "overview": {
@@ -313,8 +345,16 @@
     "description": "Unified management for issues, queues, and discoveries",
     "tabs": {
       "issues": "Issues",
+      "board": "Board",
       "queue": "Queue",
       "discovery": "Discovery"
+    }
+  },
+  "board": {
+    "pageTitle": "Issue Board",
+    "description": "Visualize and manage issues in a kanban board",
+    "autoStart": {
+      "label": "Auto-run when moved to In Progress"
     }
   }
 }

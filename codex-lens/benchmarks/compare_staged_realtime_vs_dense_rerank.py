@@ -250,6 +250,12 @@ def main() -> None:
     parser.add_argument("--coarse-k", type=int, default=100, help="Coarse candidates (default 100)")
     parser.add_argument("--warmup", type=int, default=1, help="Warmup runs per strategy (default 1)")
     parser.add_argument(
+        "--staged-cluster-strategy",
+        type=str,
+        default=None,
+        help="Override Config.staged_clustering_strategy for staged pipeline (e.g. auto, dir_rr, score, path)",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path(__file__).parent / "results" / "staged_realtime_vs_dense_rerank.json",
@@ -271,6 +277,8 @@ def main() -> None:
     config.cascade_strategy = "staged"
     config.staged_stage2_mode = "realtime"
     config.enable_staged_rerank = True
+    if args.staged_cluster_strategy:
+        config.staged_clustering_strategy = str(args.staged_cluster_strategy)
     # Stability: on some Windows setups, fastembed + DirectML can crash under load.
     # Dense_rerank uses the embedding backend that matches the index; force CPU here.
     config.embedding_use_gpu = False

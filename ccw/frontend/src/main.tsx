@@ -4,6 +4,7 @@ import App from './App.tsx'
 import './index.css'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
+import 'xterm/css/xterm.css'
 import { initMessages, getInitialLocale, getMessages, type Locale } from './lib/i18n'
 import { logWebVitals } from './lib/webVitals'
 

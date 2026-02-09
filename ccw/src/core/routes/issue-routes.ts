@@ -390,7 +390,7 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
 
   // GET /api/queue/:id or /api/issues/queue/:id - Get specific queue by ID
   const queueDetailMatch = normalizedPath?.match(/^\/api\/queue\/([^/]+)$/);
-  const reservedQueuePaths = ['history', 'reorder', 'switch', 'deactivate', 'merge', 'activate'];
+  const reservedQueuePaths = ['history', 'reorder', 'move', 'switch', 'deactivate', 'merge', 'activate'];
   if (queueDetailMatch && req.method === 'GET' && !reservedQueuePaths.includes(queueDetailMatch[1])) {
     const queueId = queueDetailMatch[1];
     const queuesDir = join(issuesDir, 'queues');
@@ -588,6 +588,89 @@ export async function handleIssueRoutes(ctx: RouteContext): Promise<boolean> {
       writeQueue(issuesDir, queue);
 
       return { success: true, groupId, reordered: newOrder.length };
+    });
+    return true;
+  }
+
+  // POST /api/queue/move - Move an item to a different execution_group (and optionally insert at index)
+  if (normalizedPath === '/api/queue/move' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: any) => {
+      const { itemId, toGroupId, toIndex } = body;
+      if (!itemId || !toGroupId) {
+        return { error: 'itemId and toGroupId required' };
+      }
+
+      const queue = readQueue(issuesDir);
+      const items = getQueueItems(queue);
+      const isSolutionBased = isSolutionBasedQueue(queue);
+
+      const itemIndex = items.findIndex((i: any) => i.item_id === itemId);
+      if (itemIndex === -1) return { error: `Item ${itemId} not found` };
+
+      const moved = { ...items[itemIndex] };
+      const fromGroupId = moved.execution_group || 'ungrouped';
+
+      // Build per-group ordered lists based on current execution_order
+      const groupToIds = new Map<string, string[]>();
+      const sorted = [...items].sort((a: any, b: any) => (a.execution_order || 0) - (b.execution_order || 0));
+      for (const it of sorted) {
+        const gid = it.execution_group || 'ungrouped';
+        if (!groupToIds.has(gid)) groupToIds.set(gid, []);
+        groupToIds.get(gid)!.push(it.item_id);
+      }
+
+      // Remove from old group
+      const fromList = groupToIds.get(fromGroupId) || [];
+      groupToIds.set(fromGroupId, fromList.filter((id) => id !== itemId));
+
+      // Insert into target group
+      const targetList = groupToIds.get(toGroupId) || [];
+      const insertAt = typeof toIndex === 'number' ? Math.max(0, Math.min(targetList.length, toIndex)) : targetList.length;
+      const nextTarget = [...targetList];
+      nextTarget.splice(insertAt, 0, itemId);
+      groupToIds.set(toGroupId, nextTarget);
+
+      moved.execution_group = toGroupId;
+
+      const itemMap = new Map(items.map((i: any) => [i.item_id, i]));
+      itemMap.set(itemId, moved);
+
+      const groupIds = Array.from(groupToIds.keys());
+      groupIds.sort((a, b) => {
+        const aGroup = parseInt(a.match(/\\d+/)?.[0] || '999');
+        const bGroup = parseInt(b.match(/\\d+/)?.[0] || '999');
+        if (aGroup !== bGroup) return aGroup - bGroup;
+        return a.localeCompare(b);
+      });
+
+      const nextItems: any[] = [];
+      const seen = new Set<string>();
+      for (const gid of groupIds) {
+        const ids = groupToIds.get(gid) || [];
+        for (const id of ids) {
+          const it = itemMap.get(id);
+          if (!it) continue;
+          if (seen.has(id)) continue;
+          seen.add(id);
+          nextItems.push(it);
+        }
+      }
+
+      // Fallback: append any missing items
+      for (const it of items) {
+        if (!seen.has(it.item_id)) nextItems.push(it);
+      }
+
+      nextItems.forEach((it, idx) => { it.execution_order = idx + 1; });
+
+      if (isSolutionBased) {
+        queue.solutions = nextItems;
+      } else {
+        queue.tasks = nextItems;
+      }
+      writeQueue(issuesDir, queue);
+
+      return { success: true, itemId, fromGroupId, toGroupId };
     });
     return true;
   }

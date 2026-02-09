@@ -333,7 +333,7 @@ PHASE_RESULT:
 ### Receives From:
 - **RA (Requirements Analyst)**: "Definitive requirements, version X.Y.Z"
   - Used to structure plan
-- **Orchestrator**: "Continue planning with iteration X"
+- **Main Flow**: "Continue planning with iteration X"
   - Used to update plan for extensions
 
 ### Sends To:

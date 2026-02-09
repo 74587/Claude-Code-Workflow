@@ -5,10 +5,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { X, FileText, CheckCircle, Circle, Loader2, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { X, FileText, CheckCircle, Circle, Loader2, XCircle, Clock, AlertTriangle, Terminal } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { QueueExecuteInSession } from '@/components/issue/queue/QueueExecuteInSession';
+import { IssueTerminalTab } from '@/components/issue/hub/IssueTerminalTab';
 import { useIssueQueue } from '@/hooks';
 import { cn } from '@/lib/utils';
 import type { QueueItem } from '@/lib/api';
@@ -20,7 +22,7 @@ export interface SolutionDrawerProps {
   onClose: () => void;
 }
 
-type TabValue = 'overview' | 'tasks' | 'json';
+type TabValue = 'overview' | 'tasks' | 'terminal' | 'json';
 
 // ========== Status Configuration ==========
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' | 'info'; icon: React.ComponentType<{ className?: string }> }> = {
@@ -134,6 +136,10 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
                 <CheckCircle className="h-4 w-4 mr-2" />
                 {formatMessage({ id: 'issues.solution.tabs.tasks' })}
               </TabsTrigger>
+              <TabsTrigger value="terminal" className="flex-1">
+                <Terminal className="h-4 w-4 mr-2" />
+                {formatMessage({ id: 'issues.solution.tabs.terminal' })}
+              </TabsTrigger>
               <TabsTrigger value="json" className="flex-1">
                 <FileText className="h-4 w-4 mr-2" />
                 {formatMessage({ id: 'issues.solution.tabs.json' })}
@@ -169,6 +175,9 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
                       </div>
                     </div>
                   </div>
+
+                  {/* Execute in Session */}
+                  <QueueExecuteInSession item={item} />
 
                   {/* Dependencies */}
                   {item.depends_on && item.depends_on.length > 0 && (
@@ -242,6 +251,11 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
                     })}
                   </div>
                 )}
+              </TabsContent>
+
+              {/* Terminal Tab */}
+              <TabsContent value="terminal" className="mt-4 pb-6 focus-visible:outline-none">
+                <IssueTerminalTab issueId={issueId} />
               </TabsContent>
 
               {/* JSON Tab */}

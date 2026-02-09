@@ -103,6 +103,7 @@ class StandaloneLspManager:
         self._configs: Dict[str, ServerConfig] = {}  # language_id -> ServerConfig
         self._read_tasks: Dict[str, asyncio.Task] = {}  # language_id -> read task
         self._stderr_tasks: Dict[str, asyncio.Task] = {}  # language_id -> stderr read task
+        self._processor_tasks: Dict[str, asyncio.Task] = {}  # language_id -> message processor task
         self._lock = asyncio.Lock()
         
     def _find_config_file(self) -> Optional[Path]:
@@ -269,7 +270,7 @@ class StandaloneLspManager:
             )
 
             # Start the message processor task to handle queued messages
-            asyncio.create_task(self._process_messages(language_id))
+            self._processor_tasks[language_id] = asyncio.create_task(self._process_messages(language_id))
 
             # Initialize the server - now uses queue for reading responses
             await self._initialize_server(state)
@@ -308,6 +309,15 @@ class StandaloneLspManager:
             stderr_task.cancel()
             try:
                 await stderr_task
+            except asyncio.CancelledError:
+                pass
+
+        # Cancel message processor task
+        processor_task = self._processor_tasks.pop(language_id, None)
+        if processor_task:
+            processor_task.cancel()
+            try:
+                await processor_task
             except asyncio.CancelledError:
                 pass
 

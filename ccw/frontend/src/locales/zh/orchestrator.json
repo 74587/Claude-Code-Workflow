@@ -238,6 +238,12 @@
     "condition": "条件",
     "conditionPlaceholder": "例如: {{prev.success}} === true",
     "artifacts": "产物",
+    "delivery": "投递方式",
+    "targetSessionKey": "目标会话",
+    "targetSessionKeyPlaceholder": "例如：cli-session-...（从 Issue 终端页复制）",
+    "resumeKey": "resumeKey",
+    "resumeKeyPlaceholder": "例如：issue-123 或任意稳定 key",
+    "resumeStrategy": "resumeStrategy",
     "available": "可用:",
     "variables": "变量:",
     "artifactsLabel": "产物:",
@@ -281,7 +287,11 @@
       "modeAnalysis": "分析 (只读)",
       "modeWrite": "写入 (修改文件)",
       "modeMainprocess": "主进程 (阻塞)",
-      "modeAsync": "异步 (非阻塞)"
+      "modeAsync": "异步 (非阻塞)",
+      "deliveryNewExecution": "新执行",
+      "deliverySendToSession": "发送到会话",
+      "resumeStrategyNative": "nativeResume",
+      "resumeStrategyPromptConcat": "promptConcat"
     }
   }
 }

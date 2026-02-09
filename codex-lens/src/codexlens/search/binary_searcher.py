@@ -66,6 +66,10 @@ class BinarySearcher:
         self._binary_matrix: Optional[np.ndarray] = None
         self._is_memmap = False
         self._loaded = False
+        self._embedding_dim: Optional[int] = None
+        self._backend: Optional[str] = None
+        self._model: Optional[str] = None
+        self._model_profile: Optional[str] = None
 
     def load(self) -> bool:
         """Load binary vectors using memory-mapped file or database fallback.
@@ -90,6 +94,10 @@ class BinarySearcher:
 
                 shape = tuple(meta['shape'])
                 self._chunk_ids = np.array(meta['chunk_ids'], dtype=np.int64)
+                self._embedding_dim = meta.get("embedding_dim")
+                self._backend = meta.get("backend")
+                self._model = meta.get("model") or meta.get("model_name")
+                self._model_profile = meta.get("model_profile")
 
                 # Memory-map the binary matrix (read-only)
                 self._binary_matrix = np.memmap(
@@ -141,6 +149,10 @@ class BinarySearcher:
             self._binary_matrix = np.vstack(binary_arrays)
             self._is_memmap = False
             self._loaded = True
+            self._embedding_dim = None
+            self._backend = None
+            self._model = None
+            self._model_profile = None
 
             logger.info(
                 "Loaded %d binary vectors from DB (%d bytes each)",
@@ -260,6 +272,26 @@ class BinarySearcher:
     def vector_count(self) -> int:
         """Get number of loaded binary vectors."""
         return len(self._chunk_ids) if self._chunk_ids is not None else 0
+
+    @property
+    def embedding_dim(self) -> Optional[int]:
+        """Embedding dimension used to build these binary vectors (if known)."""
+        return int(self._embedding_dim) if self._embedding_dim is not None else None
+
+    @property
+    def backend(self) -> Optional[str]:
+        """Embedding backend used to build these vectors (if known)."""
+        return self._backend
+
+    @property
+    def model(self) -> Optional[str]:
+        """Embedding model name used to build these vectors (if known)."""
+        return self._model
+
+    @property
+    def model_profile(self) -> Optional[str]:
+        """Embedding profile name (fastembed) used to build these vectors (if known)."""
+        return self._model_profile
 
     @property
     def is_memmap(self) -> bool:

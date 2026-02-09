@@ -83,7 +83,7 @@ Object.values(agents).forEach(id => {
 ### Step 4.4: Return Result
 
 ```javascript
-console.log('\n=== Parallel Dev Cycle Orchestrator Finished ===')
+console.log('\n=== Parallel Dev Cycle Finished ===')
 
 return {
   status: 'completed',

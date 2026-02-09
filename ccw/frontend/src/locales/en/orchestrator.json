@@ -238,6 +238,12 @@
     "condition": "Condition",
     "conditionPlaceholder": "e.g., {{prev.success}} === true",
     "artifacts": "Artifacts",
+    "delivery": "Delivery",
+    "targetSessionKey": "Target Session",
+    "targetSessionKeyPlaceholder": "e.g., cli-session-... (from Issue Terminal tab)",
+    "resumeKey": "resumeKey",
+    "resumeKeyPlaceholder": "e.g., issue-123 or any stable key",
+    "resumeStrategy": "resumeStrategy",
     "available": "Available:",
     "variables": "Variables:",
     "artifactsLabel": "Artifacts:",
@@ -282,6 +288,11 @@
       "modeWrite": "Write (modify files)",
       "modeMainprocess": "Main Process (blocking)",
       "modeAsync": "Async (non-blocking)"
+      ,
+      "deliveryNewExecution": "New execution",
+      "deliverySendToSession": "Send to session",
+      "resumeStrategyNative": "nativeResume",
+      "resumeStrategyPromptConcat": "promptConcat"
     }
   }
 }

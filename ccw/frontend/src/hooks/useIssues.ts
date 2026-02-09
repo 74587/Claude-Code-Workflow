@@ -8,6 +8,7 @@ import {
   fetchIssues,
   fetchIssueHistory,
   fetchIssueQueue,
+  fetchQueueHistory,
   createIssue,
   updateIssue,
   deleteIssue,
@@ -16,12 +17,15 @@ import {
   deleteQueue as deleteQueueApi,
   mergeQueues as mergeQueuesApi,
   splitQueue as splitQueueApi,
+  reorderQueueGroup as reorderQueueGroupApi,
+  moveQueueItem as moveQueueItemApi,
   fetchDiscoveries,
   fetchDiscoveryFindings,
   exportDiscoveryFindingsAsIssues,
   type Issue,
   type IssueQueue,
   type IssuesResponse,
+  type QueueHistoryIndex,
   type DiscoverySession,
   type Finding,
 } from '../lib/api';
@@ -309,12 +313,29 @@ export interface UseQueueMutationsReturn {
   deleteQueue: (queueId: string) => Promise<void>;
   mergeQueues: (sourceId: string, targetId: string) => Promise<void>;
   splitQueue: (sourceQueueId: string, itemIds: string[]) => Promise<void>;
+  reorderQueueGroup: (groupId: string, newOrder: string[]) => Promise<void>;
+  moveQueueItem: (itemId: string, toGroupId: string, toIndex?: number) => Promise<void>;
   isActivating: boolean;
   isDeactivating: boolean;
   isDeleting: boolean;
   isMerging: boolean;
   isSplitting: boolean;
+  isReordering: boolean;
+  isMoving: boolean;
   isMutating: boolean;
+}
+
+export function useQueueHistory(options?: { enabled?: boolean; refetchInterval?: number }): UseQueryResult<QueueHistoryIndex> {
+  const { enabled = true, refetchInterval = 0 } = options ?? {};
+  const projectPath = useWorkflowStore(selectProjectPath);
+  return useQuery({
+    queryKey: workspaceQueryKeys.issueQueueHistory(projectPath),
+    queryFn: () => fetchQueueHistory(projectPath),
+    staleTime: STALE_TIME,
+    enabled: enabled && !!projectPath,
+    refetchInterval: refetchInterval > 0 ? refetchInterval : false,
+    retry: 2,
+  });
 }
 
 export function useQueueMutations(): UseQueueMutationsReturn {
@@ -325,6 +346,7 @@ export function useQueueMutations(): UseQueueMutationsReturn {
     mutationFn: (queueId: string) => activateQueue(queueId, projectPath),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueueHistory(projectPath) });
     },
   });
 
@@ -332,6 +354,7 @@ export function useQueueMutations(): UseQueueMutationsReturn {
     mutationFn: () => deactivateQueue(projectPath),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueueHistory(projectPath) });
     },
   });
 
@@ -339,6 +362,7 @@ export function useQueueMutations(): UseQueueMutationsReturn {
     mutationFn: (queueId: string) => deleteQueueApi(queueId, projectPath),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueueHistory(projectPath) });
     },
   });
 
@@ -347,12 +371,30 @@ export function useQueueMutations(): UseQueueMutationsReturn {
       mergeQueuesApi(sourceId, targetId, projectPath),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueueHistory(projectPath) });
     },
   });
 
   const splitMutation = useMutation({
     mutationFn: ({ sourceQueueId, itemIds }: { sourceQueueId: string; itemIds: string[] }) =>
       splitQueueApi(sourceQueueId, itemIds, projectPath),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueueHistory(projectPath) });
+    },
+  });
+
+  const reorderMutation = useMutation({
+    mutationFn: ({ groupId, newOrder }: { groupId: string; newOrder: string[] }) =>
+      reorderQueueGroupApi(projectPath, { groupId, newOrder }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
+    },
+  });
+
+  const moveMutation = useMutation({
+    mutationFn: ({ itemId, toGroupId, toIndex }: { itemId: string; toGroupId: string; toIndex?: number }) =>
+      moveQueueItemApi(projectPath, { itemId, toGroupId, toIndex }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.issueQueue(projectPath) });
     },
@@ -364,12 +406,23 @@ export function useQueueMutations(): UseQueueMutationsReturn {
     deleteQueue: deleteMutation.mutateAsync,
     mergeQueues: (sourceId, targetId) => mergeMutation.mutateAsync({ sourceId, targetId }),
     splitQueue: (sourceQueueId, itemIds) => splitMutation.mutateAsync({ sourceQueueId, itemIds }),
+    reorderQueueGroup: (groupId, newOrder) => reorderMutation.mutateAsync({ groupId, newOrder }).then(() => {}),
+    moveQueueItem: (itemId, toGroupId, toIndex) => moveMutation.mutateAsync({ itemId, toGroupId, toIndex }).then(() => {}),
     isActivating: activateMutation.isPending,
     isDeactivating: deactivateMutation.isPending,
     isDeleting: deleteMutation.isPending,
     isMerging: mergeMutation.isPending,
     isSplitting: splitMutation.isPending,
-    isMutating: activateMutation.isPending || deactivateMutation.isPending || deleteMutation.isPending || mergeMutation.isPending || splitMutation.isPending,
+    isReordering: reorderMutation.isPending,
+    isMoving: moveMutation.isPending,
+    isMutating:
+      activateMutation.isPending ||
+      deactivateMutation.isPending ||
+      deleteMutation.isPending ||
+      mergeMutation.isPending ||
+      splitMutation.isPending ||
+      reorderMutation.isPending ||
+      moveMutation.isPending,
   };
 }
 

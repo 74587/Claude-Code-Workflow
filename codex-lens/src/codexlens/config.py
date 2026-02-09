@@ -153,7 +153,7 @@ class Config:
     staged_realtime_lsp_max_concurrent: int = 2  # Max concurrent LSP requests during graph expansion
     staged_realtime_lsp_warmup_s: float = 3.0  # Wait for server analysis after opening seed docs
     staged_realtime_lsp_resolve_symbols: bool = False  # If True, resolves symbol names via documentSymbol (slower)
-    staged_clustering_strategy: str = "auto"  # "auto", "hdbscan", "dbscan", "frequency", "noop"
+    staged_clustering_strategy: str = "auto"  # "auto", "hdbscan", "dbscan", "frequency", "noop", "score", "dir_rr", "path"
     staged_clustering_min_size: int = 3  # Minimum cluster size for Stage 3 grouping
     enable_staged_rerank: bool = True  # Enable optional cross-encoder reranking in Stage 4
 

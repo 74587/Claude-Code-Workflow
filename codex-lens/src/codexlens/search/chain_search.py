@@ -13,6 +13,7 @@ from typing import List, Optional, Dict, Any, Literal, Tuple, TYPE_CHECKING
 import json
 import logging
 import os
+import threading
 import time
 
 from codexlens.entities import SearchResult, Symbol
@@ -32,7 +33,7 @@ from codexlens.storage.global_index import GlobalSymbolIndex
 from codexlens.storage.path_mapper import PathMapper
 from codexlens.storage.sqlite_store import SQLiteStore
 from codexlens.storage.vector_meta_store import VectorMetadataStore
-from codexlens.config import VECTORS_META_DB_NAME
+from codexlens.config import BINARY_VECTORS_MMAP_NAME, VECTORS_META_DB_NAME
 from codexlens.search.hybrid_search import HybridSearchEngine
 
 
@@ -165,6 +166,9 @@ class ChainSearchEngine:
         self._max_workers = max_workers
         self._executor: Optional[ThreadPoolExecutor] = None
         self._config = config
+        self._realtime_lsp_keepalive_lock = threading.RLock()
+        self._realtime_lsp_keepalive = None
+        self._realtime_lsp_keepalive_key = None
 
     def _get_executor(self, max_workers: Optional[int] = None) -> ThreadPoolExecutor:
         """Get or create the shared thread pool executor.
@@ -187,6 +191,15 @@ class ChainSearchEngine:
         if self._executor is not None:
             self._executor.shutdown(wait=True)
             self._executor = None
+        with self._realtime_lsp_keepalive_lock:
+            keepalive = self._realtime_lsp_keepalive
+            self._realtime_lsp_keepalive = None
+            self._realtime_lsp_keepalive_key = None
+        if keepalive is not None:
+            try:
+                keepalive.stop()
+            except Exception:
+                pass
 
     def __enter__(self) -> "ChainSearchEngine":
         """Context manager entry."""
@@ -838,7 +851,11 @@ class ChainSearchEngine:
         # ========== Stage 1: Binary Coarse Search ==========
         stage1_start = time.time()
         coarse_results, index_root = self._stage1_binary_search(
-            query, index_paths, coarse_k, stats
+            query,
+            index_paths,
+            coarse_k,
+            stats,
+            index_root=start_index.parent,
         )
         stage_times["stage1_binary_ms"] = (time.time() - stage1_start) * 1000
         stage_counts["stage1_candidates"] = len(coarse_results)
@@ -849,14 +866,47 @@ class ChainSearchEngine:
         )
 
         if not coarse_results:
-            self.logger.debug("No binary candidates found, falling back to standard search")
-            return self.search(query, source_path, options=options)
+            # Keep the staged pipeline running even when Stage 1 yields no candidates.
+            # This makes "realtime LSP graph → clustering → rerank" comparable across queries.
+            self.logger.debug(
+                "No Stage 1 candidates found; seeding staged pipeline with FTS results"
+            )
+            stage1_fallback_start = time.time()
+            try:
+                seed_opts = SearchOptions(
+                    depth=options.depth,
+                    max_workers=options.max_workers,
+                    limit_per_dir=max(10, int(coarse_k)),
+                    total_limit=int(coarse_k),
+                    include_symbols=True,
+                    enable_vector=False,
+                    hybrid_mode=False,
+                    enable_cascade=False,
+                )
+                seed = self.search(query, source_path, options=seed_opts)
+                coarse_results = list(seed.results or [])[: int(coarse_k)]
+                stage_counts["stage1_fallback_used"] = 1
+            except Exception as exc:
+                self.logger.debug("Stage 1 fallback seeding failed: %r", exc)
+                coarse_results = []
+
+            stage_times["stage1_fallback_search_ms"] = (time.time() - stage1_fallback_start) * 1000
+            stage_counts["stage1_candidates"] = len(coarse_results)
+
+        if not coarse_results:
+            return ChainSearchResult(query=query, results=[], symbols=[], stats=stats)
 
         # ========== Stage 2: LSP Graph Expansion ==========
         stage2_start = time.time()
         expanded_results = self._stage2_lsp_expand(coarse_results, index_root, query=query)
         stage_times["stage2_expand_ms"] = (time.time() - stage2_start) * 1000
         stage_counts["stage2_expanded"] = len(expanded_results)
+        try:
+            stage2_unique_paths = len({(r.path or "").lower() for r in expanded_results if getattr(r, "path", None)})
+        except Exception:
+            stage2_unique_paths = 0
+        stage_counts["stage2_unique_paths"] = stage2_unique_paths
+        stage_counts["stage2_duplicate_paths"] = max(0, len(expanded_results) - stage2_unique_paths)
 
         self.logger.debug(
             "Staged Stage 2: LSP expansion %d -> %d results in %.2fms",
@@ -868,6 +918,11 @@ class ChainSearchEngine:
         clustered_results = self._stage3_cluster_prune(expanded_results, k * 2)
         stage_times["stage3_cluster_ms"] = (time.time() - stage3_start) * 1000
         stage_counts["stage3_clustered"] = len(clustered_results)
+        if self._config is not None:
+            try:
+                stage_counts["stage3_strategy"] = str(getattr(self._config, "staged_clustering_strategy", "auto") or "auto")
+            except Exception:
+                pass
 
         self.logger.debug(
             "Staged Stage 3: Clustering %d -> %d representatives in %.2fms",
@@ -944,6 +999,8 @@ class ChainSearchEngine:
         index_paths: List[Path],
         coarse_k: int,
         stats: SearchStats,
+        *,
+        index_root: Optional[Path] = None,
     ) -> Tuple[List[SearchResult], Optional[Path]]:
         """Stage 1: Binary vector coarse search using Hamming distance.
 
@@ -967,8 +1024,12 @@ class ChainSearchEngine:
             )
             return [], None
 
-        # Try centralized BinarySearcher first (preferred for mmap indexes)
-        index_root = index_paths[0].parent if index_paths else None
+        # Try centralized BinarySearcher first (preferred for mmap indexes).
+        # Centralized binary vectors live at a project index root (where `index binary-mmap`
+        # was run), which may be an ancestor of the nearest `_index.db` directory.
+        index_root = Path(index_root).resolve() if index_root is not None else (index_paths[0].parent if index_paths else None)
+        if index_root is not None:
+            index_root = self._find_nearest_binary_mmap_root(index_root)
         coarse_candidates: List[Tuple[int, float, Path]] = []  # (chunk_id, distance, index_path)
         used_centralized = False
         using_dense_fallback = False
@@ -977,9 +1038,26 @@ class ChainSearchEngine:
             binary_searcher = self._get_centralized_binary_searcher(index_root)
             if binary_searcher is not None:
                 try:
-                    from codexlens.semantic.embedder import Embedder
-                    embedder = Embedder()
-                    query_dense = embedder.embed_to_numpy([query])[0]
+                    use_gpu = True
+                    if self._config is not None:
+                        use_gpu = getattr(self._config, "embedding_use_gpu", True)
+
+                    query_dense = None
+                    backend = getattr(binary_searcher, "backend", None)
+                    model = getattr(binary_searcher, "model", None)
+                    profile = getattr(binary_searcher, "model_profile", None) or "code"
+
+                    if backend == "litellm":
+                        try:
+                            from codexlens.semantic.factory import get_embedder as get_factory_embedder
+                            embedder = get_factory_embedder(backend="litellm", model=model or "code")
+                            query_dense = embedder.embed_to_numpy([query])[0]
+                        except Exception:
+                            query_dense = None
+                    if query_dense is None:
+                        from codexlens.semantic.embedder import get_embedder
+                        embedder = get_embedder(profile=str(profile), use_gpu=use_gpu)
+                        query_dense = embedder.embed_to_numpy([query])[0]
 
                     results = binary_searcher.search(query_dense, top_k=coarse_k)
                     for chunk_id, distance in results:
@@ -1531,34 +1609,26 @@ class ChainSearchEngine:
         if not seed_nodes:
             return coarse_results
 
-        async def expand_graph():
-            async with LspBridge(
-                workspace_root=str(workspace_root),
-                config_file=str(lsp_config_file) if lsp_config_file else None,
-                timeout=timeout_s,
-            ) as bridge:
-                # Warm up analysis: open seed docs and wait a bit so references/call hierarchy are populated.
-                if warmup_s > 0:
-                    for seed in seed_nodes[:3]:
-                        try:
-                            await bridge.get_document_symbols(seed.file_path)
-                        except Exception:
-                            continue
+        async def expand_graph(bridge: LspBridge):
+            # Warm up analysis: open seed docs and wait a bit so references/call hierarchy are populated.
+            if warmup_s > 0:
+                for seed in seed_nodes[:3]:
                     try:
-                        warmup_budget = min(warmup_s, max(0.0, timeout_s * 0.1))
-                        await asyncio.sleep(min(warmup_budget, max(0.0, timeout_s - 0.5)))
+                        await bridge.get_document_symbols(seed.file_path)
                     except Exception:
-                        pass
-                builder = LspGraphBuilder(
-                    max_depth=max_depth,
-                    max_nodes=max_nodes,
-                    max_concurrent=max(1, max_concurrent),
-                    resolve_symbols=resolve_symbols,
-                )
-                return await builder.build_from_seeds(seed_nodes, bridge)
-
-        def run_coro_blocking():
-            return asyncio.run(asyncio.wait_for(expand_graph(), timeout=timeout_s))
+                        continue
+                try:
+                    warmup_budget = min(warmup_s, max(0.0, timeout_s * 0.1))
+                    await asyncio.sleep(min(warmup_budget, max(0.0, timeout_s - 0.5)))
+                except Exception:
+                    pass
+            builder = LspGraphBuilder(
+                max_depth=max_depth,
+                max_nodes=max_nodes,
+                max_concurrent=max(1, max_concurrent),
+                resolve_symbols=resolve_symbols,
+            )
+            return await builder.build_from_seeds(seed_nodes, bridge)
 
         try:
             try:
@@ -1569,9 +1639,43 @@ class ChainSearchEngine:
 
             if has_running_loop:
                 with ThreadPoolExecutor(max_workers=1) as executor:
-                    graph = executor.submit(run_coro_blocking).result(timeout=timeout_s + 1.0)
+                    async def _expand_once():
+                        async with LspBridge(
+                            workspace_root=str(workspace_root),
+                            config_file=str(lsp_config_file) if lsp_config_file else None,
+                            timeout=timeout_s,
+                        ) as bridge:
+                            return await expand_graph(bridge)
+
+                    def _run():
+                        return asyncio.run(asyncio.wait_for(_expand_once(), timeout=timeout_s))
+
+                    graph = executor.submit(_run).result(timeout=timeout_s + 1.0)
             else:
-                graph = run_coro_blocking()
+                from codexlens.lsp.keepalive_bridge import KeepAliveKey, KeepAliveLspBridge
+
+                key = KeepAliveKey(
+                    workspace_root=str(workspace_root),
+                    config_file=str(lsp_config_file) if lsp_config_file else None,
+                    timeout=float(timeout_s),
+                )
+                with self._realtime_lsp_keepalive_lock:
+                    keepalive = self._realtime_lsp_keepalive
+                    if keepalive is None or self._realtime_lsp_keepalive_key != key:
+                        if keepalive is not None:
+                            try:
+                                keepalive.stop()
+                            except Exception:
+                                pass
+                        keepalive = KeepAliveLspBridge(
+                            workspace_root=key.workspace_root,
+                            config_file=key.config_file,
+                            timeout=key.timeout,
+                        )
+                        self._realtime_lsp_keepalive = keepalive
+                        self._realtime_lsp_keepalive_key = key
+
+                graph = keepalive.run(expand_graph, timeout=timeout_s)
         except Exception as exc:
             self.logger.debug("Stage 2 (realtime) expansion failed: %r", exc)
             return coarse_results
@@ -1704,6 +1808,57 @@ class ChainSearchEngine:
         # If few results, skip clustering
         if len(expanded_results) <= target_count:
             return expanded_results
+
+        strategy_name = "auto"
+        if self._config is not None:
+            strategy_name = getattr(self._config, "staged_clustering_strategy", "auto") or "auto"
+        strategy_name = str(strategy_name).strip().lower()
+
+        if strategy_name in {"noop", "none", "off"}:
+            return sorted(expanded_results, key=lambda r: r.score, reverse=True)[:target_count]
+
+        if strategy_name in {"score", "top", "rank"}:
+            return sorted(expanded_results, key=lambda r: r.score, reverse=True)[:target_count]
+
+        if strategy_name in {"path", "file"}:
+            best_by_path: Dict[str, SearchResult] = {}
+            for r in expanded_results:
+                if not r.path:
+                    continue
+                key = str(r.path).lower()
+                if key not in best_by_path or r.score > best_by_path[key].score:
+                    best_by_path[key] = r
+            candidates = list(best_by_path.values()) or expanded_results
+            candidates.sort(key=lambda r: r.score, reverse=True)
+            return candidates[:target_count]
+
+        if strategy_name in {"dir_rr", "rr_dir", "round_robin_dir"}:
+            results_sorted = sorted(expanded_results, key=lambda r: r.score, reverse=True)
+            buckets: Dict[str, List[SearchResult]] = {}
+            dir_order: List[str] = []
+            for r in results_sorted:
+                try:
+                    d = str(Path(r.path).parent).lower()
+                except Exception:
+                    d = ""
+                if d not in buckets:
+                    buckets[d] = []
+                    dir_order.append(d)
+                buckets[d].append(r)
+
+            out: List[SearchResult] = []
+            while len(out) < target_count:
+                progressed = False
+                for d in dir_order:
+                    if not buckets.get(d):
+                        continue
+                    out.append(buckets[d].pop(0))
+                    progressed = True
+                    if len(out) >= target_count:
+                        break
+                if not progressed:
+                    break
+            return out
 
         try:
             from codexlens.search.clustering import (
@@ -2549,6 +2704,31 @@ class ChainSearchEngine:
         except Exception as exc:
             self.logger.debug("Failed to load centralized binary searcher: %s", exc)
             return None
+
+    def _find_nearest_binary_mmap_root(self, index_root: Path, *, max_levels: int = 10) -> Path:
+        """Walk up index_root parents to find the nearest centralized binary mmap.
+
+        Centralized staged-binary artifacts are stored at a project index root
+        (e.g. `.../project/src/_binary_vectors.mmap`), but staged search often starts
+        from the nearest ancestor `_index.db` path, which can be nested deeper.
+
+        This helper makes Stage 1 robust by locating the nearest ancestor directory
+        that contains the centralized `_binary_vectors.mmap`.
+        """
+        current_dir = Path(index_root).resolve()
+        for _ in range(max(0, int(max_levels)) + 1):
+            try:
+                if (current_dir / BINARY_VECTORS_MMAP_NAME).exists():
+                    return current_dir
+            except Exception:
+                return Path(index_root).resolve()
+
+            parent = current_dir.parent
+            if parent == current_dir:
+                break
+            current_dir = parent
+
+        return Path(index_root).resolve()
 
     def _compute_cosine_similarity(
         self,
