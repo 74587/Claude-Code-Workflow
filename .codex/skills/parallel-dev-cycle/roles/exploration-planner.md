@@ -53,6 +53,59 @@ The Exploration & Planning Agent is responsible for understanding the codebase a
 - Skip dependency analysis
 - Forget to document risks
 
+## Shared Discovery Protocol
+
+EP agent participates in the **Shared Discovery Board** (`coordination/discoveries.ndjson`). This append-only NDJSON file enables all agents to share exploration findings in real-time, eliminating redundant codebase exploration.
+
+### Board Location & Lifecycle
+
+- **Path**: `{progressDir}/coordination/discoveries.ndjson`
+- **First access**: If file does not exist, skip reading — you may be the first writer. Create it on first write.
+- **Cross-iteration**: Board carries over across iterations. Do NOT clear or recreate it. New iterations append to existing entries.
+
+### Physical Write Method
+
+Append one NDJSON line using Bash:
+```bash
+echo '{"ts":"2026-01-22T10:30:00+08:00","agent":"ep","type":"architecture","data":{"pattern":"layered","layers":["routes","services","models"],"entry":"src/index.ts"}}' >> {progressDir}/coordination/discoveries.ndjson
+```
+
+### EP Reads (from other agents)
+
+| type | Dedup Key | Use |
+|------|-----------|-----|
+| `tech_stack` | (singleton) | Skip tech stack detection, jump directly to architecture analysis |
+| `project_config` | `data.path` | Know dependencies and scripts without re-scanning config files |
+| `existing_feature` | `data.name` | Understand existing functionality as exploration starting points |
+| `test_command` | (singleton) | Know how to verify architectural assumptions |
+| `test_baseline` | (singleton) | Calibrate plan effort estimates based on current test coverage and pass rate |
+
+### EP Writes (for other agents)
+
+| type | Dedup Key | Required `data` Fields | When |
+|------|-----------|----------------------|------|
+| `architecture` | (singleton — only 1 entry) | `pattern`, `layers[]`, `entry` | After mapping overall system structure |
+| `code_pattern` | `data.name` | `name`, `description`, `example_file` | After identifying each coding convention |
+| `integration_point` | `data.file` | `file`, `description`, `exports[]` | After locating each integration target |
+| `similar_impl` | `data.feature` | `feature`, `files[]`, `relevance` (high\|medium\|low) | After finding each reference implementation |
+
+### Discovery Entry Format
+
+Each line is a self-contained JSON object with exactly these top-level fields:
+
+```jsonl
+{"ts":"<ISO8601>","agent":"ep","type":"<type>","data":{<required fields per type>}}
+```
+
+### Protocol Rules
+
+1. **Read board first** — before own exploration, read `discoveries.ndjson` (if exists) and skip already-covered areas
+2. **Write as you discover** — append new findings immediately via Bash `echo >>`, don't batch
+3. **Deduplicate** — check existing entries before writing; skip if same `type` + dedup key value already exists
+4. **Never modify existing lines** — append-only, no edits, no deletions
+
+---
+
 ## Execution Process
 
 ### Phase 1: Codebase Exploration
@@ -62,19 +115,28 @@ The Exploration & Planning Agent is responsible for understanding the codebase a
    - Requirements from RA
    - Project tech stack and guidelines
 
-2. **Explore Architecture**
+2. **Read Discovery Board**
+   - Read `{progressDir}/coordination/discoveries.ndjson` (if exists)
+   - Parse entries by type — note what's already discovered
+   - If `tech_stack` exists → skip tech stack scanning, use shared data
+   - If `project_config` exists → skip package.json/tsconfig reading
+   - If `existing_feature` entries exist → use as exploration starting points
+
+3. **Explore Architecture** (skip areas covered by board)
    - Identify existing patterns and conventions
    - Find similar feature implementations
    - Map module boundaries
    - Document current architecture
+   - **Write discoveries**: append `architecture`, `code_pattern`, `integration_point`, `similar_impl` entries to board
 
-3. **Analyze Integration Points**
+4. **Analyze Integration Points**
    - Where will new code integrate?
    - What interfaces need to match?
    - What data models exist?
    - What dependencies exist?
+   - **Write discoveries**: append `integration_point` entries for each finding
 
-4. **Generate Exploration Report**
+5. **Generate Exploration Report**
    - Write `exploration.md` documenting findings
    - Include architecture overview
    - Document identified patterns
@@ -82,7 +144,12 @@ The Exploration & Planning Agent is responsible for understanding the codebase a
 
 ### Phase 2: Planning
 
-1. **Decompose Requirements**
+1. **Re-read Discovery Board**
+   - Check for newly appeared entries since Phase 1 (other agents may have written)
+   - If `test_baseline` exists → calibrate effort estimates based on current coverage/pass rate
+   - If `blocker` entries exist → factor into risk assessment and task dependencies
+
+2. **Decompose Requirements**
    - Convert each requirement to one or more tasks
    - Identify logical grouping
    - Determine task sequencing

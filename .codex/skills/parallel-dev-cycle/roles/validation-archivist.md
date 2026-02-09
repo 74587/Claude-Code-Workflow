@@ -55,6 +55,61 @@ The Validation & Archival Agent is responsible for verifying implementation qual
 - Forget to document breaking changes
 - Skip regression testing
 
+## Shared Discovery Protocol
+
+VAS agent participates in the **Shared Discovery Board** (`coordination/discoveries.ndjson`). This append-only NDJSON file enables all agents to share exploration findings in real-time, eliminating redundant codebase exploration.
+
+### Board Location & Lifecycle
+
+- **Path**: `{progressDir}/coordination/discoveries.ndjson`
+- **First access**: If file does not exist, skip reading — you may be the first writer. Create it on first write.
+- **Cross-iteration**: Board carries over across iterations. Do NOT clear or recreate it. New iterations append to existing entries.
+
+### Physical Write Method
+
+Append one NDJSON line using Bash:
+```bash
+echo '{"ts":"2026-01-22T12:00:00+08:00","agent":"vas","type":"test_baseline","data":{"total":120,"passing":118,"coverage_pct":82,"framework":"jest","config":"jest.config.ts"}}' >> {progressDir}/coordination/discoveries.ndjson
+```
+
+### VAS Reads (from other agents)
+
+| type | Dedup Key | Use |
+|------|-----------|-----|
+| `tech_stack` | (singleton) | Know test framework without detection — skip scanning |
+| `architecture` | (singleton) | Understand system layout for validation strategy planning |
+| `code_pattern` | `data.name` | Know patterns to validate code against |
+| `code_convention` | (singleton) | Verify code follows naming/import conventions |
+| `test_command` | (singleton) | Run tests directly without figuring out commands |
+| `utility` | `data.name` | Know available validation/assertion helpers |
+| `integration_point` | `data.file` | Focus integration tests on known integration points |
+
+### VAS Writes (for other agents)
+
+| type | Dedup Key | Required `data` Fields | When |
+|------|-----------|----------------------|------|
+| `test_baseline` | (singleton — only 1 entry, overwrite by appending newer) | `total`, `passing`, `coverage_pct`, `framework`, `config` | After running initial test suite |
+| `test_pattern` | (singleton — only 1 entry) | `style`, `naming`, `fixtures` | After observing test file organization |
+| `test_command` | (singleton — only 1 entry) | `unit`, `e2e`(optional), `coverage`(optional) | After discovering test scripts (if CD hasn't written it already) |
+| `blocker` | `data.issue` | `issue`, `severity` (high\|medium\|low), `impact` | When tests reveal blocking issues |
+
+### Discovery Entry Format
+
+Each line is a self-contained JSON object with exactly these top-level fields:
+
+```jsonl
+{"ts":"<ISO8601>","agent":"vas","type":"<type>","data":{<required fields per type>}}
+```
+
+### Protocol Rules
+
+1. **Read board first** — before own exploration, read `discoveries.ndjson` (if exists) and skip already-covered areas
+2. **Write as you discover** — append new findings immediately via Bash `echo >>`, don't batch
+3. **Deduplicate** — check existing entries before writing; skip if same `type` + dedup key value already exists
+4. **Never modify existing lines** — append-only, no edits, no deletions
+
+---
+
 ## Execution Process
 
 ### Phase 1: Test Execution
@@ -64,22 +119,33 @@ The Validation & Archival Agent is responsible for verifying implementation qual
    - Requirements from RA agent
    - Project tech stack and guidelines
 
-2. **Prepare Test Environment**
+2. **Read Discovery Board**
+   - Read `{progressDir}/coordination/discoveries.ndjson` (if exists)
+   - Parse entries by type — note what's already discovered
+   - If `tech_stack` exists → skip test framework detection
+   - If `test_command` exists → use known commands directly
+   - If `architecture` exists → plan validation strategy around known structure
+   - If `code_pattern` exists → validate code follows known patterns
+   - If `integration_point` exists → focus integration tests on these points
+
+3. **Prepare Test Environment**
    - Set up test databases (clean state)
    - Configure test fixtures
    - Initialize test data
 
-3. **Run Test Suites**
+4. **Run Test Suites** (use `test_command` from board if available)
    - Execute unit tests
    - Execute integration tests
    - Execute end-to-end tests
    - Run security tests if applicable
+   - **Write discoveries**: append `test_baseline` with initial results
 
-4. **Collect Results**
+5. **Collect Results**
    - Test pass/fail status
    - Execution time
    - Error messages and stack traces
    - Coverage metrics
+   - **Write discoveries**: append `test_pattern` if test organization discovered
 
 ### Phase 2: Analysis & Validation
 

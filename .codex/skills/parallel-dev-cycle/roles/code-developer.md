@@ -55,6 +55,61 @@ The Code Developer is responsible for implementing features according to the pla
 - Leave TODO comments without context
 - Implement features not in the plan
 
+## Shared Discovery Protocol
+
+CD agent participates in the **Shared Discovery Board** (`coordination/discoveries.ndjson`). This append-only NDJSON file enables all agents to share exploration findings in real-time, eliminating redundant codebase exploration.
+
+### Board Location & Lifecycle
+
+- **Path**: `{progressDir}/coordination/discoveries.ndjson`
+- **First access**: If file does not exist, skip reading — you may be the first writer. Create it on first write.
+- **Cross-iteration**: Board carries over across iterations. Do NOT clear or recreate it. New iterations append to existing entries.
+
+### Physical Write Method
+
+Append one NDJSON line using Bash:
+```bash
+echo '{"ts":"2026-01-22T11:00:00+08:00","agent":"cd","type":"code_convention","data":{"naming":"camelCase functions, PascalCase classes","imports":"absolute paths via @/ alias","formatting":"prettier with default config"}}' >> {progressDir}/coordination/discoveries.ndjson
+```
+
+### CD Reads (from other agents)
+
+| type | Dedup Key | Use |
+|------|-----------|-----|
+| `tech_stack` | (singleton) | Know language/framework without detection — skip project scanning |
+| `architecture` | (singleton) | Understand system layout (layers, entry point) before coding |
+| `code_pattern` | `data.name` | Follow existing conventions (error handling, validation, etc.) immediately |
+| `integration_point` | `data.file` | Know exactly which files to modify and what interfaces to match |
+| `similar_impl` | `data.feature` | Read reference implementations for consistency |
+| `test_baseline` | (singleton) | Know current test count/coverage before making changes |
+| `test_command` | (singleton) | Run tests directly without figuring out commands |
+
+### CD Writes (for other agents)
+
+| type | Dedup Key | Required `data` Fields | When |
+|------|-----------|----------------------|------|
+| `code_convention` | (singleton — only 1 entry) | `naming`, `imports`, `formatting` | After observing naming/import/formatting patterns |
+| `utility` | `data.name` | `name`, `file`, `usage` | After finding each reusable helper function |
+| `test_command` | (singleton — only 1 entry) | `unit`, `integration`(optional), `coverage`(optional) | After discovering test scripts |
+| `blocker` | `data.issue` | `issue`, `severity` (high\|medium\|low), `impact` | When hitting any blocking issue |
+
+### Discovery Entry Format
+
+Each line is a self-contained JSON object with exactly these top-level fields:
+
+```jsonl
+{"ts":"<ISO8601>","agent":"cd","type":"<type>","data":{<required fields per type>}}
+```
+
+### Protocol Rules
+
+1. **Read board first** — before own exploration, read `discoveries.ndjson` (if exists) and skip already-covered areas
+2. **Write as you discover** — append new findings immediately via Bash `echo >>`, don't batch
+3. **Deduplicate** — check existing entries before writing; skip if same `type` + dedup key value already exists
+4. **Never modify existing lines** — append-only, no edits, no deletions
+
+---
+
 ## Execution Process
 
 ### Phase 1: Planning & Setup
@@ -64,12 +119,22 @@ The Code Developer is responsible for implementing features according to the pla
    - Requirements from requirements-analyst.md
    - Project tech stack and guidelines
 
-2. **Understand Project Structure**
+2. **Read Discovery Board**
+   - Read `{progressDir}/coordination/discoveries.ndjson` (if exists)
+   - Parse entries by type — note what's already discovered
+   - If `tech_stack` / `architecture` exist → skip project structure exploration
+   - If `code_pattern` / `code_convention` exist → adopt conventions directly
+   - If `integration_point` exist → know target files without searching
+   - If `similar_impl` exist → read reference files for consistency
+   - If `test_command` exist → use known commands for testing
+
+3. **Understand Project Structure** (skip areas covered by board)
    - Review similar existing implementations
    - Understand coding conventions
    - Check for relevant utilities/libraries
+   - **Write discoveries**: append `code_convention`, `utility` entries for new findings
 
-3. **Prepare Environment**
+4. **Prepare Environment**
    - Create feature branch (if using git)
    - Set up development environment
    - Prepare test environment

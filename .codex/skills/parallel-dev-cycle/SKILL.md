@@ -59,6 +59,7 @@ Each agent **maintains one main document** (e.g., requirements.md, plan.json, im
 5. **Parallel Coordination**: Four agents launched simultaneously; coordination via shared state and orchestrator
 6. **File References**: Use short file paths instead of content passing
 7. **Self-Enhancement**: RA agent proactively extends requirements based on context
+8. **Shared Discovery Board**: All agents share exploration findings via `discoveries.ndjson` — read on start, write as you discover, eliminating redundant codebase exploration
 
 ## Arguments
 
@@ -141,11 +142,15 @@ Phase 1: Session Initialization
     ↓ cycleId, state, progressDir (initialized/resumed)
 
 Phase 2: Agent Execution
-    ↓ agentOutputs {ra, ep, cd, vas}
+    ├─ All agents read coordination/discoveries.ndjson on start
+    ├─ Each agent explores → writes new discoveries to board
+    ├─ Later-finishing agents benefit from earlier agents' findings
+    ↓ agentOutputs {ra, ep, cd, vas} + shared discoveries.ndjson
 
 Phase 3: Result Aggregation
     ↓ parsedResults, hasIssues, iteration count
     ↓ [Loop back to Phase 2 if issues and iteration < max]
+    ↓ (discoveries.ndjson carries over across iterations)
 
 Phase 4: Completion & Summary
     ↓ finalState, summaryReport
@@ -179,6 +184,7 @@ Return: cycle_id, iterations, final_state
     │   ├── changes.log                            # NDJSON complete history
     │   └── history/
     └── coordination/
+        ├── discoveries.ndjson                     # Shared discovery board (all agents append)
         ├── timeline.md                            # Execution timeline
         └── decisions.log                          # Decision log
 ```
@@ -271,7 +277,45 @@ Append:  changes.log ← {"timestamp","version":"1.1.0","action":"update","descr
 
 **Execution Order**: RA → EP → CD → VAS (dependency chain, all spawned in parallel but block on dependencies)
 
-**Agent → Orchestrator**: Each agent outputs `PHASE_RESULT:` block:
+### Shared Discovery Board
+
+All agents share a real-time discovery board at `coordination/discoveries.ndjson`. Each agent reads it on start and appends findings during work. This eliminates redundant codebase exploration.
+
+**Lifecycle**:
+- Created by the first agent to write a discovery (file may not exist initially)
+- Carries over across iterations — never cleared or recreated
+- Agents use Bash `echo '...' >> discoveries.ndjson` to append entries
+
+**Format**: NDJSON, each line is a self-contained JSON with required top-level fields `ts`, `agent`, `type`, `data`:
+```jsonl
+{"ts":"2026-01-22T10:00:00+08:00","agent":"ra","type":"tech_stack","data":{"language":"TypeScript","framework":"Express","test":"Jest","build":"tsup"}}
+```
+
+**Discovery Types**:
+
+| type | Dedup Key | Writers | Readers | Required `data` Fields |
+|------|-----------|---------|---------|----------------------|
+| `tech_stack` | singleton | RA | EP, CD, VAS | `language`, `framework`, `test`, `build` |
+| `project_config` | `data.path` | RA | EP, CD | `path`, `key_deps[]`, `scripts{}` |
+| `existing_feature` | `data.name` | RA, EP | CD | `name`, `files[]`, `summary` |
+| `architecture` | singleton | EP | CD, VAS | `pattern`, `layers[]`, `entry` |
+| `code_pattern` | `data.name` | EP, CD | CD, VAS | `name`, `description`, `example_file` |
+| `integration_point` | `data.file` | EP | CD | `file`, `description`, `exports[]` |
+| `similar_impl` | `data.feature` | EP | CD | `feature`, `files[]`, `relevance` |
+| `code_convention` | singleton | CD | VAS | `naming`, `imports`, `formatting` |
+| `utility` | `data.name` | CD | VAS | `name`, `file`, `usage` |
+| `test_command` | singleton | CD, VAS | VAS, CD | `unit`, `integration`(opt), `coverage`(opt) |
+| `test_baseline` | singleton | VAS | CD | `total`, `passing`, `coverage_pct`, `framework`, `config` |
+| `test_pattern` | singleton | VAS | CD | `style`, `naming`, `fixtures` |
+| `blocker` | `data.issue` | any | all | `issue`, `severity`, `impact` |
+
+**Protocol Rules**:
+1. Read board before own exploration → skip covered areas (if file doesn't exist, skip)
+2. Write discoveries immediately via Bash `echo >>` → don't batch
+3. Deduplicate — check existing entries; skip if same `type` + dedup key value already exists
+4. Append-only — never modify or delete existing lines
+
+### Agent → Orchestrator Communication
 ```
 PHASE_RESULT:
 - phase: ra | ep | cd | vas
@@ -281,7 +325,9 @@ PHASE_RESULT:
 - issues: []
 ```
 
-**Orchestrator → Agent**: Feedback via `send_input` (file refs + issue summary, never full content):
+### Orchestrator → Agent Communication
+
+Feedback via `send_input` (file refs + issue summary, never full content):
 ```
 ## FEEDBACK FROM [Source]
 [Issue summary with file:line references]

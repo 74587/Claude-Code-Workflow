@@ -5,10 +5,37 @@ Spawn four specialized agents in parallel and wait for all to complete with time
 ## Objective
 
 - Spawn RA, EP, CD, VAS agents simultaneously using Codex subagent pattern
-- Pass cycle context and role references to each agent
+- Pass cycle context, role references, and **discovery protocol** to each agent
 - Wait for all agents with configurable timeout
 - Handle timeout with convergence request
 - Output: agentOutputs from all 4 agents
+
+## Shared Discovery Board
+
+All agents share a discovery board at `{progressDir}/coordination/discoveries.ndjson`. Each agent reads it on start and writes discoveries during execution. This eliminates redundant codebase exploration across agents.
+
+**Agent reads board → skips covered areas → explores unknowns → writes new findings → other agents benefit**
+
+### Discovery Protocol Snippet (injected into every agent prompt)
+
+```
+## SHARED DISCOVERY PROTOCOL
+
+Board: ${progressDir}/coordination/discoveries.ndjson
+
+**On Start**: Read board (if exists; if not, skip — you'll be the first writer).
+             Skip exploration for areas already covered.
+**During Work**: Append discoveries as NDJSON entries via Bash `echo '...' >> discoveries.ndjson`.
+**Format**: {"ts":"<ISO8601>","agent":"<role>","type":"<type>","data":{<required fields>}}
+**Cross-iteration**: Board persists across iterations. Never clear it.
+
+**You Write** (dedup key in parentheses):
+- `<type>` (<dedup key>) → required data: <field1>, <field2>, ...
+
+**You Read**: <comma-separated list of types from other agents>
+
+**Rules**: Read before explore. Write via `echo >>`. Dedup by type+key. Append-only.
+```
 
 ## Agent Role References
 
@@ -64,6 +91,26 @@ Cross-reference the task description against these documents for completeness.
 
 ---
 
+## SHARED DISCOVERY PROTOCOL
+
+Board: ${progressDir}/coordination/discoveries.ndjson
+
+**On Start**: Read board (if exists; if not, skip — you'll be the first writer). Skip exploration for areas already covered.
+**During Work**: Append discoveries as NDJSON entries via Bash \`echo '...' >> discoveries.ndjson\`.
+**Format**: {"ts":"<ISO8601>","agent":"ra","type":"<type>","data":{<see required fields>}}
+**Cross-iteration**: Board persists across iterations. Never clear it.
+
+**You Write** (dedup key in parentheses):
+- \`tech_stack\` (singleton) → required data: language, framework, test, build
+- \`project_config\` (data.path) → required data: path, key_deps[], scripts{}
+- \`existing_feature\` (data.name) → required data: name, files[], summary
+
+**You Read**: architecture, similar_impl, test_baseline, blocker
+
+**Rules**: Read before explore. Write via \`echo >> \`. Dedup by type+key. Append-only.
+
+---
+
 ${sourceRefsSection}
 ## CYCLE CONTEXT
 
@@ -87,6 +134,7 @@ Requirements Analyst - Analyze and refine requirements throughout the cycle.
 3. Identify edge cases and implicit requirements
 4. Track requirement changes across iterations
 5. Maintain requirements.md and changes.log
+6. **Share discoveries** to coordination/discoveries.ndjson
 ${focusDirective}
 ## DELIVERABLES
 
@@ -126,6 +174,27 @@ function spawnEPAgent(cycleId, state, progressDir) {
 
 ---
 
+## SHARED DISCOVERY PROTOCOL
+
+Board: ${progressDir}/coordination/discoveries.ndjson
+
+**On Start**: Read board (if exists; if not, skip — you'll be the first writer). Skip exploration for areas already covered.
+**During Work**: Append discoveries as NDJSON entries via Bash \`echo '...' >> discoveries.ndjson\`.
+**Format**: {"ts":"<ISO8601>","agent":"ep","type":"<type>","data":{<see required fields>}}
+**Cross-iteration**: Board persists across iterations. Never clear it.
+
+**You Write** (dedup key in parentheses):
+- \`architecture\` (singleton) → required data: pattern, layers[], entry
+- \`code_pattern\` (data.name) → required data: name, description, example_file
+- \`integration_point\` (data.file) → required data: file, description, exports[]
+- \`similar_impl\` (data.feature) → required data: feature, files[], relevance
+
+**You Read**: tech_stack, project_config, existing_feature, test_command, test_baseline
+
+**Rules**: Read before explore. Write via \`echo >> \`. Dedup by type+key. Append-only.
+
+---
+
 ## CYCLE CONTEXT
 
 - **Cycle ID**: ${cycleId}
@@ -144,6 +213,7 @@ Exploration & Planning Agent - Explore architecture and generate implementation 
 3. Design implementation approach
 4. Generate plan.json with task breakdown
 5. Update or iterate on existing plan
+6. **Share discoveries** to coordination/discoveries.ndjson
 
 ## DELIVERABLES
 
@@ -182,6 +252,27 @@ function spawnCDAgent(cycleId, state, progressDir) {
 
 ---
 
+## SHARED DISCOVERY PROTOCOL
+
+Board: ${progressDir}/coordination/discoveries.ndjson
+
+**On Start**: Read board (if exists; if not, skip — you'll be the first writer). Skip exploration for areas already covered.
+**During Work**: Append discoveries as NDJSON entries via Bash \`echo '...' >> discoveries.ndjson\`.
+**Format**: {"ts":"<ISO8601>","agent":"cd","type":"<type>","data":{<see required fields>}}
+**Cross-iteration**: Board persists across iterations. Never clear it.
+
+**You Write** (dedup key in parentheses):
+- \`code_convention\` (singleton) → required data: naming, imports, formatting
+- \`utility\` (data.name) → required data: name, file, usage
+- \`test_command\` (singleton) → required data: unit, integration(opt), coverage(opt)
+- \`blocker\` (data.issue) → required data: issue, severity, impact
+
+**You Read**: tech_stack, architecture, code_pattern, integration_point, similar_impl, test_baseline, test_command
+
+**Rules**: Read before explore. Write via \`echo >> \`. Dedup by type+key. Append-only.
+
+---
+
 ## CYCLE CONTEXT
 
 - **Cycle ID**: ${cycleId}
@@ -200,6 +291,7 @@ Code Developer - Implement features based on plan and requirements.
 3. Handle integration issues
 4. Maintain code quality
 5. Report implementation progress and issues
+6. **Share discoveries** to coordination/discoveries.ndjson
 
 ## DELIVERABLES
 
@@ -237,6 +329,27 @@ function spawnVASAgent(cycleId, state, progressDir) {
 
 ---
 
+## SHARED DISCOVERY PROTOCOL
+
+Board: ${progressDir}/coordination/discoveries.ndjson
+
+**On Start**: Read board (if exists; if not, skip — you'll be the first writer). Skip exploration for areas already covered.
+**During Work**: Append discoveries as NDJSON entries via Bash \`echo '...' >> discoveries.ndjson\`.
+**Format**: {"ts":"<ISO8601>","agent":"vas","type":"<type>","data":{<see required fields>}}
+**Cross-iteration**: Board persists across iterations. Never clear it.
+
+**You Write** (dedup key in parentheses):
+- \`test_baseline\` (singleton) → required data: total, passing, coverage_pct, framework, config
+- \`test_pattern\` (singleton) → required data: style, naming, fixtures
+- \`test_command\` (singleton) → required data: unit, e2e(opt), coverage(opt)
+- \`blocker\` (data.issue) → required data: issue, severity, impact
+
+**You Read**: tech_stack, architecture, code_pattern, code_convention, test_command, utility, integration_point
+
+**Rules**: Read before explore. Write via \`echo >> \`. Dedup by type+key. Append-only.
+
+---
+
 ## CYCLE CONTEXT
 
 - **Cycle ID**: ${cycleId}
@@ -255,6 +368,7 @@ Validation & Archival Specialist - Validate quality and create documentation.
 3. Create archival documentation
 4. Summarize cycle results
 5. Generate version history
+6. **Share discoveries** to coordination/discoveries.ndjson
 
 ## DELIVERABLES
 

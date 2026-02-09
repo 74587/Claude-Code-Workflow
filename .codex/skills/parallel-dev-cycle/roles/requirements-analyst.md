@@ -50,6 +50,57 @@ The Requirements Analyst maintains **a single file** (`requirements.md`) contain
 - Forget to increment version number
 - Skip documenting edge cases
 
+## Shared Discovery Protocol
+
+RA agent participates in the **Shared Discovery Board** (`coordination/discoveries.ndjson`). This append-only NDJSON file enables all agents to share exploration findings in real-time, eliminating redundant codebase exploration.
+
+### Board Location & Lifecycle
+
+- **Path**: `{progressDir}/coordination/discoveries.ndjson`
+- **First access**: If file does not exist, skip reading — you are the first writer. Create it on first write.
+- **Cross-iteration**: Board carries over across iterations. Do NOT clear or recreate it. New iterations append to existing entries.
+
+### Physical Write Method
+
+Append one NDJSON line using Bash:
+```bash
+echo '{"ts":"2026-01-22T10:00:00+08:00","agent":"ra","type":"tech_stack","data":{"language":"TypeScript","framework":"Express","test":"Jest","build":"tsup"}}' >> {progressDir}/coordination/discoveries.ndjson
+```
+
+### RA Reads (from other agents)
+
+| type | Dedup Key | Use |
+|------|-----------|-----|
+| `architecture` | (singleton) | Understand system structure for requirements scoping |
+| `similar_impl` | `data.feature` | Identify existing features to avoid duplicate requirements |
+| `test_baseline` | (singleton) | Calibrate NFR targets (coverage, pass rate) based on current state |
+| `blocker` | `data.issue` | Incorporate known constraints into requirements |
+
+### RA Writes (for other agents)
+
+| type | Dedup Key | Required `data` Fields | When |
+|------|-----------|----------------------|------|
+| `tech_stack` | (singleton — only 1 entry) | `language`, `framework`, `test`, `build` | After reading package.json / project config |
+| `project_config` | `data.path` | `path`, `key_deps[]`, `scripts{}` | After scanning each project config file |
+| `existing_feature` | `data.name` | `name`, `files[]`, `summary` | After identifying each existing capability |
+
+### Discovery Entry Format
+
+Each line is a self-contained JSON object with exactly these top-level fields:
+
+```jsonl
+{"ts":"<ISO8601>","agent":"ra","type":"<type>","data":{<required fields per type>}}
+```
+
+### Protocol Rules
+
+1. **Read board first** — before own exploration, read `discoveries.ndjson` (if exists) and skip already-covered areas
+2. **Write as you discover** — append new findings immediately via Bash `echo >>`, don't batch
+3. **Deduplicate** — check existing entries before writing; skip if same `type` + dedup key value already exists
+4. **Never modify existing lines** — append-only, no edits, no deletions
+
+---
+
 ## Execution Process
 
 ### Phase 1: Initial Analysis (v1.0.0)
@@ -59,24 +110,36 @@ The Requirements Analyst maintains **a single file** (`requirements.md`) contain
    - Task description from state
    - Project tech stack and guidelines
 
-2. **Analyze Explicit Requirements**
+2. **Read Discovery Board**
+   - Read `{progressDir}/coordination/discoveries.ndjson` (if exists)
+   - Parse entries by type — note what's already discovered
+   - If `tech_stack` exists → skip tech stack detection
+   - If `existing_feature` entries exist → incorporate into requirements baseline
+
+3. **Analyze Explicit Requirements**
    - Functional requirements from user task
    - Non-functional requirements (explicit)
    - Constraints and assumptions
    - Edge cases
 
-3. **Proactive Enhancement** (NEW - Self-Enhancement Phase)
+4. **Write Discoveries**
+   - Append `tech_stack` entry if not already on board (from package.json, tsconfig, etc.)
+   - Append `project_config` entry with key deps and scripts
+   - Append `existing_feature` entries for each existing capability found during analysis
+
+5. **Proactive Enhancement** (Self-Enhancement Phase)
    - Execute enhancement strategies based on triggers
    - Scan codebase for implied requirements
+   - **Read Discovery Board again** — check for `architecture`, `integration_point`, `blocker` from EP/CD/VAS (may have appeared since step 2)
    - Analyze peer agent outputs (EP, CD, VAS from previous iteration)
    - Suggest associated features and NFR scaffolding
 
-4. **Consolidate & Finalize**
+6. **Consolidate & Finalize**
    - Merge explicit requirements with proactively generated ones
    - Mark enhanced items with "(ENHANCED v1.0.0 by RA)"
    - Add optional "## Proactive Enhancements" section with justification
 
-5. **Generate Single File**
+6. **Generate Single File**
    - Write `requirements.md` v1.0.0
    - Include all sections in one document
    - Add version header
