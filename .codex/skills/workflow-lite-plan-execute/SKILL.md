@@ -1,19 +1,20 @@
 ---
 name: workflow-lite-plan-execute
-description: Lightweight planning + execution workflow. Exploration -> Clarification -> Planning -> Confirmation -> Execution (via lite-execute).
-allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, mcp__ace-tool__search_context
+description: Lightweight planning + execution workflow. Serial CLI exploration → Search verification → Clarification → Planning → Unified JSONL output → Execution via unified-execute.
+allowed-tools: AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, mcp__ace-tool__search_context
 ---
 
 # Planning Workflow
 
-Lite Plan produces an implementation plan and an `executionContext`, then hands off to Lite Execute for task execution.
+Lite Plan produces a unified JSONL (`tasks.jsonl`) implementation plan via serial CLI exploration and direct planning, then hands off to unified-execute-with-file for task execution.
 
 ## Key Design Principles
 
-1. **Shared Execution**: Lite Plan produces `executionContext` consumed by Phase 2 (Lite Execute)
-2. **Progressive Phase Loading**: Only load phase docs when about to execute
-3. **Auto-Continue**: After the plan is confirmed ("Allow"), automatically load execution phase
-4. **Default Auto Mode**: When `--yes`, skip confirmations and auto-approve the plan
+1. **Serial Execution**: All phases execute serially inline, no agent delegation
+2. **CLI Exploration**: Multi-angle codebase exploration via `ccw cli` calls (default gemini, fallback claude)
+3. **Search Verification**: Verify CLI findings with ACE search / Grep / Glob before incorporating
+4. **Unified JSONL Output**: Produces `tasks.jsonl` compatible with `collaborative-plan-with-file` and `unified-execute-with-file`
+5. **Progressive Phase Loading**: Only load phase docs when about to execute
 
 ## Auto Mode
 
@@ -42,14 +43,14 @@ $workflow-lite-plan-execute -e "Refactor payment module"
 $workflow-lite-plan-execute "docs/todo.md"
 ```
 
-> **Implementation sketch**: 编排器内部使用 `Skill(skill="workflow-lite-plan-execute", args="...")` 接口调用，此为伪代码示意，非命令行语法。
+> **Implementation sketch**: 编排器内部使用 `$workflow-lite-plan-execute "..."` 接口调用，此为伪代码示意，非命令行语法。
 
 ## Phase Reference Documents (Read On Demand)
 
 | Phase | Document | Purpose |
 |-------|----------|---------|
-| 1 | `phases/01-lite-plan.md` | Lightweight planning with exploration, clarification, plan generation, and confirmation |
-| 2 | `phases/02-lite-execute.md` | Shared execution engine: task grouping, batch execution, optional code review |
+| 1 | `phases/01-lite-plan.md` | Serial CLI exploration, clarification, plan generation → tasks.jsonl |
+| 2 | `phases/02-lite-execute.md` | Handoff to unified-execute-with-file for task execution |
 
 ## Orchestrator Logic
 
@@ -71,39 +72,68 @@ function extractTaskDescription(args) {
 
 const taskDescription = extractTaskDescription($ARGUMENTS)
 
-// Phase 1: Lite Plan
+// Phase 1: Lite Plan → tasks.jsonl
 Read('phases/01-lite-plan.md')
 // Execute planning phase...
 
 // Gate: only continue when confirmed (or --yes)
-if (executionContext?.userSelection?.confirmation !== 'Allow' && !autoYes) {
+if (planResult?.userSelection?.confirmation !== 'Allow' && !autoYes) {
   // Stop: user cancelled or requested modifications
   return
 }
 
-// Phase 2: Lite Execute
+// Phase 2: Handoff to unified-execute-with-file
 Read('phases/02-lite-execute.md')
-// Execute execution phase with executionContext from Phase 1
+// Invoke unified-execute-with-file with tasks.jsonl path
 ```
 
-## executionContext Contract (High Level)
+## Output Contract
 
-`executionContext` is the only contract between Phase 1 and Phase 2.
+Phase 1 produces `tasks.jsonl` (unified JSONL format) — compatible with `collaborative-plan-with-file` and consumable by `unified-execute-with-file`.
 
-Required (minimum) fields:
+**Output Directory**: `{projectRoot}/.workflow/.lite-plan/{session-id}/`
+
+```
+{projectRoot}/.workflow/.lite-plan/{session-id}/
+├── exploration-{angle1}.md            # Per-angle CLI exploration results
+├── exploration-{angle2}.md            # (1-4 files based on complexity)
+├── explorations-manifest.json         # Exploration index
+├── exploration-notes.md               # Synthesized exploration notes
+├── requirement-analysis.json          # Complexity assessment
+├── tasks.jsonl                        # ⭐ Unified JSONL (collaborative-plan-with-file compatible)
+└── plan.md                            # Human-readable summary
+```
+
+**Unified JSONL Task Format** (one task per line):
+
 ```javascript
 {
-  projectRoot: string,  // 项目根目录绝对路径 (git rev-parse --show-toplevel || pwd)
-  planObject: { summary, approach, tasks, complexity, estimated_time, recommended_execution },
-  originalUserInput: string,
-  executionMethod: "Agent" | "Codex" | "Auto",
-  codeReviewTool: "Skip" | "Gemini Review" | "Codex Review" | "Agent Review" | string,
-  userSelection: { confirmation: "Allow" | "Modify" | "Cancel" }
+  id: "TASK-001",
+  title: string,
+  description: string,
+  type: "feature|fix|refactor|enhancement|testing|infrastructure",
+  priority: "high|medium|low",
+  effort: "small|medium|large",
+  scope: string,
+  depends_on: ["TASK-xxx"],
+  convergence: {
+    criteria: string[],           // Testable conditions
+    verification: string,         // Executable command or manual steps
+    definition_of_done: string    // Business language
+  },
+  files: [{
+    path: string,
+    action: "modify|create|delete",
+    changes: string[],
+    conflict_risk: "low|medium|high"
+  }],
+  source: {
+    tool: "workflow-lite-plan-execute",
+    session_id: string,
+    original_id: string
+  }
 }
 ```
-
-Recommended fields:
-- `explorationsContext`, `clarificationContext`, `executorAssignments`, and `session` (artifacts folder + paths)
 
 ## TodoWrite Pattern
 
@@ -111,7 +141,7 @@ Initialization:
 ```json
 [
   {"content": "Lite Plan - Planning", "status": "in_progress", "activeForm": "Planning"},
-  {"content": "Execution (Phase 2)", "status": "pending", "activeForm": "Executing tasks"}
+  {"content": "Execution (unified-execute)", "status": "pending", "activeForm": "Executing tasks"}
 ]
 ```
 
@@ -119,28 +149,30 @@ After planning completes:
 ```json
 [
   {"content": "Lite Plan - Planning", "status": "completed", "activeForm": "Planning"},
-  {"content": "Execution (Phase 2)", "status": "in_progress", "activeForm": "Executing tasks"}
+  {"content": "Execution (unified-execute)", "status": "in_progress", "activeForm": "Executing tasks"}
 ]
 ```
 
 ## Core Rules
 
-1. **Planning phase NEVER modifies project code** - it may write planning artifacts, but all implementation is delegated to Phase 2
-2. **Phase 2 runs only after confirmation** - execute only when confirmation is "Allow" (or `--yes` auto mode)
-3. **executionContext is the contract** between planning and execution phases
-4. **Progressive loading**: Read phase doc only when about to execute
-5. **File-path detection**: Treat input as a file path only if the path exists; do not infer from file extensions
-6. **Explicit lifecycle**: Always `close_agent` after `wait` completes
+1. **Planning phase NEVER modifies project code** — it may write planning artifacts, but all implementation is delegated to unified-execute
+2. **All phases serial, no agent delegation** — everything runs inline, no spawn_agent
+3. **CLI exploration with search verification** — CLI calls produce findings, ACE/Grep/Glob verify them
+4. **tasks.jsonl is the output contract** — unified JSONL format passed to unified-execute-with-file
+5. **Progressive loading**: Read phase doc only when about to execute
+6. **File-path detection**: Treat input as a file path only if the path exists; do not infer from file extensions
 
 ## Error Handling
 
 | Error | Resolution |
 |-------|------------|
+| CLI exploration failure | Skip angle, continue with remaining; fallback gemini → claude |
 | Planning phase failure | Display error, offer retry |
-| executionContext missing | Error: planning phase did not produce context |
+| tasks.jsonl missing | Error: planning phase did not produce output |
 | Phase file not found | Error with file path for debugging |
 
 ## Related Skills
 
+- Collaborative planning: `../collaborative-plan-with-file/SKILL.md`
+- Unified execution: `../unified-execute-with-file/SKILL.md`
 - Full planning workflow: `../workflow-plan-execute/SKILL.md`
-- Brainstorming: `../workflow-brainstorm-auto-parallel/SKILL.md`

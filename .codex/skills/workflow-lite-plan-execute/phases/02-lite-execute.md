@@ -1,518 +1,636 @@
-# Phase 2: Lite Execute
+# Phase 2: Execution
 
 ## Overview
 
-Flexible task execution phase supporting three input modes: in-memory plan (from planning phases), direct prompt description, or file content. Handles execution orchestration, progress tracking, and optional code review.
+消费 Phase 1 产出的统一 JSONL (`tasks.jsonl`)，串行执行任务并进行收敛验证，通过 `execution.md` + `execution-events.md` 跟踪进度。
 
-**Core capabilities:**
-- Multi-mode input (in-memory plan, prompt description, or file path)
-- Execution orchestration (Agent or Codex) with full context
-- Live progress tracking via TodoWrite at execution call level
-- Optional code review with selected tool (Gemini, Agent, or custom)
-- Context continuity across multiple executions
-- Intelligent format detection (Enhanced Task JSON vs plain text)
+**Core workflow**: Load JSONL → Validate → Pre-Execution Analysis → Execute → Verify Convergence → Track Progress
 
-## Parameters
+**Key features**:
+- **Single format**: 只消费统一 JSONL (`tasks.jsonl`)
+- **Convergence-driven**: 每个任务执行后验证收敛标准
+- **Serial execution**: 按拓扑序串行执行，依赖跟踪
+- **Dual progress tracking**: `execution.md` (概览) + `execution-events.md` (事件流)
+- **Auto-commit**: 可选的每任务 conventional commits
+- **Dry-run mode**: 模拟执行，不做实际修改
 
-- `--in-memory`: Use plan from memory (called by planning phases)
-- `<input>`: Task description string, or path to file (required)
+## Invocation
 
-## Input Modes
+```javascript
+$unified-execute-with-file PLAN="${sessionFolder}/tasks.jsonl"
 
-### Mode 1: In-Memory Plan
-
-**Trigger**: Called by planning phase after confirmation with `--in-memory` flag
-
-**Input Source**: `executionContext` global variable set by planning phase
-
-**Content**: Complete execution context (see Data Structures section)
-
-**Behavior**:
-- Skip execution method selection (already set by planning phase)
-- Directly proceed to execution with full context
-- All planning artifacts available (exploration, clarifications, plan)
-
-### Mode 2: Prompt Description
-
-**Trigger**: User calls with task description string
-
-**Input**: Simple task description (e.g., "Add unit tests for auth module")
-
-**Behavior**:
-- Store prompt as `originalUserInput`
-- Execute `git rev-parse --show-toplevel` to determine `projectRoot`
-- Create simple execution plan from prompt
-- ASK_USER: Select execution method (Agent/Codex/Auto)
-- ASK_USER: Select code review tool (Skip/Gemini/Agent/Other)
-- Proceed to execution with `originalUserInput` included
-
-**User Interaction**:
-
-```
-Route by mode:
-├─ --yes mode → Auto-confirm with defaults:
-│   ├─ Execution method: Auto
-│   └─ Code review: Skip
-│
-└─ Interactive mode → ASK_USER with 2 questions:
-    ├─ Execution method: Agent (@code-developer) / Codex (codex CLI) / Auto (complexity-based)
-    └─ Code review: Skip / Gemini Review / Codex Review (git-aware) / Agent Review
+// With options
+$unified-execute-with-file PLAN="${sessionFolder}/tasks.jsonl" --auto-commit
+$unified-execute-with-file PLAN="${sessionFolder}/tasks.jsonl" --dry-run
 ```
 
-### Mode 3: File Content
-
-**Trigger**: User calls with file path
-
-**Input**: Path to file containing task description or plan.json
-
-**Format Detection**:
+## Output Structure
 
 ```
-1. Execute git rev-parse --show-toplevel to determine projectRoot
-2. Read file content
-3. Attempt JSON parsing
-   ├─ Valid JSON with summary + approach + tasks fields → plan.json format
-   │   ├─ Use parsed data as planObject
-   │   └─ Set originalUserInput = summary
-   └─ Not valid JSON or missing required fields → plain text format
-       └─ Set originalUserInput = file content (same as Mode 2)
-3. User selects execution method + code review (same as Mode 2)
+${projectRoot}/.workflow/.execution/EXEC-{slug}-{date}-{random}/
+├── execution.md              # Plan overview + task table + summary statistics
+└── execution-events.md       # Unified event log (single source of truth)
 ```
 
-## Execution Process
+Additionally, the source `tasks.jsonl` is updated in-place with `_execution` states.
 
-```
-Input Parsing:
-   └─ Decision (mode detection):
-      ├─ --in-memory flag → Mode 1: Load executionContext → Skip user selection
-      ├─ Existing file path (path exists) → Mode 3: Read file → Detect format
-      │   ├─ Valid plan.json → Use planObject → User selects method + review
-      │   └─ Not plan.json → Treat as prompt → User selects method + review
-      └─ Otherwise → Mode 2: Prompt description → User selects method + review
+---
 
-Execution:
-   ├─ Step 1: Initialize result tracking (previousExecutionResults = [])
-   ├─ Step 2: Task grouping & batch creation
-   │   ├─ Extract explicit depends_on (no file/keyword inference)
-   │   ├─ Group: independent tasks → single parallel batch (maximize utilization)
-   │   ├─ Group: dependent tasks → sequential phases (respect dependencies)
-   │   └─ Create TodoWrite list for batches
-   ├─ Step 3: Launch execution
-   │   ├─ Phase 1: All independent tasks (single batch, concurrent)
-   │   └─ Phase 2+: Dependent tasks by dependency order
-   ├─ Step 4: Track progress (TodoWrite updates per batch)
-   └─ Step 5: Code review (if codeReviewTool ≠ "Skip")
+## Session Initialization
 
-Output:
-   └─ Execution complete with results in previousExecutionResults[]
-```
+```javascript
+const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
+const projectRoot = Bash(`git rev-parse --show-toplevel 2>/dev/null || pwd`).trim()
 
-## Detailed Execution Steps
+// Parse arguments
+const autoCommit = $ARGUMENTS.includes('--auto-commit')
+const dryRun = $ARGUMENTS.includes('--dry-run')
+const planMatch = $ARGUMENTS.match(/PLAN="([^"]+)"/) || $ARGUMENTS.match(/PLAN=(\S+)/)
+let planPath = planMatch ? planMatch[1] : null
 
-### Step 1: Initialize Execution Tracking
+// Auto-detect if no PLAN specified
+if (!planPath) {
+  // Search in order (most recent first):
+  //   .workflow/.lite-plan/*/tasks.jsonl
+  //   .workflow/.req-plan/*/tasks.jsonl
+  //   .workflow/.planning/*/tasks.jsonl
+  //   .workflow/.analysis/*/tasks.jsonl
+  //   .workflow/.brainstorm/*/tasks.jsonl
+}
 
-**Operations**:
-- Initialize `previousExecutionResults` array for context continuity
-- **In-Memory Mode**: Echo execution strategy from planning phase for transparency
-  - Display: Method, Review tool, Task count, Complexity, Executor assignments (if present)
+// Resolve path
+planPath = path.isAbsolute(planPath) ? planPath : `${projectRoot}/${planPath}`
 
-### Step 2: Task Grouping & Batch Creation
+// Generate session ID
+const slug = path.basename(path.dirname(planPath)).toLowerCase().substring(0, 30)
+const dateStr = getUtc8ISOString().substring(0, 10)
+const random = Math.random().toString(36).substring(2, 9)
+const sessionId = `EXEC-${slug}-${dateStr}-${random}`
+const sessionFolder = `${projectRoot}/.workflow/.execution/${sessionId}`
 
-**Dependency Analysis**: Use **explicit** `depends_on` from plan.json only — no inference from file paths or keywords.
-
-```
-1. Build task ID → index mapping
-
-2. For each task:
-   └─ Resolve depends_on IDs to task indices
-       └─ Filter: only valid IDs that reference earlier tasks
-
-3. Group into execution batches:
-   ├─ Phase 1: All tasks with NO dependencies → single parallel batch
-   │   └─ Mark as processed
-   └─ Phase 2+: Iterative dependency resolution
-       ├─ Find tasks whose ALL dependencies are satisfied (processed)
-       ├─ Group ready tasks as batch (parallel within batch if multiple)
-       ├─ Mark as processed
-       ├─ Repeat until no tasks remain
-       └─ Safety: If no ready tasks found → circular dependency warning → force remaining
-
-4. Assign batch IDs:
-   ├─ Parallel batches: P1, P2, P3...
-   └─ Sequential batches: S1, S2, S3...
-
-5. Create TodoWrite list with batch indicators:
-   ├─ ⚡ for parallel batches (concurrent)
-   └─ → for sequential batches (one-by-one)
+Bash(`mkdir -p ${sessionFolder}`)
 ```
 
-### Step 3: Launch Execution
+---
 
-#### Executor Resolution
+## Phase 1: Load & Validate
 
-Task-level executor assignment takes priority over global execution method:
+**Objective**: Parse unified JSONL, validate schema and dependencies, build execution order.
 
-```
-Resolution order (per task):
-├─ 1. executorAssignments[task.id] → use assigned executor (gemini/codex/agent)
-└─ 2. Fallback to global executionMethod:
-    ├─ "Agent" → agent
-    ├─ "Codex" → codex
-    └─ "Auto" → Low complexity → agent; Medium/High → codex
-```
+### Step 1.1: Parse Unified JSONL
 
-#### Execution Flow
+```javascript
+const content = Read(planPath)
+const tasks = content.split('\n')
+  .filter(line => line.trim())
+  .map((line, i) => {
+    try { return JSON.parse(line) }
+    catch (e) { throw new Error(`Line ${i + 1}: Invalid JSON — ${e.message}`) }
+  })
 
-```
-1. Separate batches into parallel and sequential groups
-
-2. Phase 1 — Launch all parallel batches concurrently:
-   ├─ Update TodoWrite: all parallel → in_progress
-   ├─ Execute all parallel batches simultaneously (single message, multiple tool calls)
-   ├─ Collect results → append to previousExecutionResults
-   └─ Update TodoWrite: all parallel → completed
-
-3. Phase 2+ — Execute sequential batches in order:
-   ├─ For each sequential batch:
-   │   ├─ Update TodoWrite: current batch → in_progress
-   │   ├─ Execute batch
-   │   ├─ Collect result → append to previousExecutionResults
-   │   └─ Update TodoWrite: current batch → completed
-   └─ Continue until all batches completed
+if (tasks.length === 0) throw new Error('No tasks found in JSONL file')
 ```
 
-### Unified Task Prompt Builder
+### Step 1.2: Validate Schema
 
-Each task is formatted as a **self-contained checklist**. The executor only needs to know what THIS task requires. Same template for Agent and CLI.
+```javascript
+const errors = []
+tasks.forEach((task, i) => {
+  // Required fields
+  if (!task.id) errors.push(`Task ${i + 1}: missing 'id'`)
+  if (!task.title) errors.push(`Task ${i + 1}: missing 'title'`)
+  if (!task.description) errors.push(`Task ${i + 1}: missing 'description'`)
+  if (!Array.isArray(task.depends_on)) errors.push(`${task.id}: missing 'depends_on' array`)
 
-**Prompt Structure** (assembled from batch tasks):
+  // Convergence required
+  if (!task.convergence) {
+    errors.push(`${task.id}: missing 'convergence'`)
+  } else {
+    if (!task.convergence.criteria?.length) errors.push(`${task.id}: empty convergence.criteria`)
+    if (!task.convergence.verification) errors.push(`${task.id}: missing convergence.verification`)
+    if (!task.convergence.definition_of_done) errors.push(`${task.id}: missing convergence.definition_of_done`)
+  }
+})
 
+if (errors.length) {
+  // Report errors, stop execution
+}
 ```
-## Goal
-{originalUserInput}
 
-## Tasks
-(For each task in batch, separated by ---)
+### Step 1.3: Build Execution Order
 
-### {task.title}
-**Scope**: {task.scope}  |  **Action**: {task.action}
+```javascript
+// 1. Validate dependency references
+const taskIds = new Set(tasks.map(t => t.id))
+tasks.forEach(task => {
+  task.depends_on.forEach(dep => {
+    if (!taskIds.has(dep)) errors.push(`${task.id}: depends on unknown task '${dep}'`)
+  })
+})
 
-#### Modification Points
-- **{file}** → `{target}`: {change}
+// 2. Detect cycles (DFS)
+function detectCycles(tasks) {
+  const graph = new Map(tasks.map(t => [t.id, t.depends_on || []]))
+  const visited = new Set(), inStack = new Set(), cycles = []
+  function dfs(node, path) {
+    if (inStack.has(node)) { cycles.push([...path, node].join(' → ')); return }
+    if (visited.has(node)) return
+    visited.add(node); inStack.add(node)
+    ;(graph.get(node) || []).forEach(dep => dfs(dep, [...path, node]))
+    inStack.delete(node)
+  }
+  tasks.forEach(t => { if (!visited.has(t.id)) dfs(t.id, []) })
+  return cycles
+}
+const cycles = detectCycles(tasks)
+if (cycles.length) errors.push(`Circular dependencies: ${cycles.join('; ')}`)
 
-#### Why this approach (Medium/High only)
-{rationale.chosen_approach}
-Key factors: {decision_factors}
-Tradeoffs: {tradeoffs}
+// 3. Topological sort
+function topoSort(tasks) {
+  const inDegree = new Map(tasks.map(t => [t.id, 0]))
+  tasks.forEach(t => t.depends_on.forEach(dep => {
+    inDegree.set(t.id, (inDegree.get(t.id) || 0) + 1)
+  }))
+  const queue = tasks.filter(t => inDegree.get(t.id) === 0).map(t => t.id)
+  const order = []
+  while (queue.length) {
+    const id = queue.shift()
+    order.push(id)
+    tasks.forEach(t => {
+      if (t.depends_on.includes(id)) {
+        inDegree.set(t.id, inDegree.get(t.id) - 1)
+        if (inDegree.get(t.id) === 0) queue.push(t.id)
+      }
+    })
+  }
+  return order
+}
+const executionOrder = topoSort(tasks)
+```
 
-#### How to do it
-{description}
-{implementation steps}
+### Step 1.4: Initialize Execution Artifacts
 
-#### Code skeleton (High only)
-Interfaces: {interfaces}
-Functions: {key_functions}
-Classes: {classes}
+```javascript
+// execution.md
+const executionMd = `# Execution Overview
 
-#### Reference
-- Pattern: {pattern}
-- Files: {files}
-- Notes: {examples}
+## Session Info
+- **Session ID**: ${sessionId}
+- **Plan Source**: ${planPath}
+- **Started**: ${getUtc8ISOString()}
+- **Total Tasks**: ${tasks.length}
+- **Mode**: ${dryRun ? 'Dry-run (no changes)' : 'Direct inline execution'}
+- **Auto-Commit**: ${autoCommit ? 'Enabled' : 'Disabled'}
 
-#### Risk mitigations (High only)
-- {risk.description} → **{risk.mitigation}**
+## Task Overview
 
-#### Done when
-- [ ] {acceptance criteria}
-Success metrics: {verification.success_metrics}
+| # | ID | Title | Type | Priority | Effort | Dependencies | Status |
+|---|-----|-------|------|----------|--------|--------------|--------|
+${tasks.map((t, i) => `| ${i+1} | ${t.id} | ${t.title} | ${t.type || '-'} | ${t.priority || '-'} | ${t.effort || '-'} | ${t.depends_on.join(', ') || '-'} | pending |`).join('\n')}
 
-## Context
-(Assembled from available sources, reference only)
+## Pre-Execution Analysis
+> Populated in Phase 2
 
-### Exploration Notes (Refined)
-**Read first**: {exploration_log_refined path}
-Contains: file index, task-relevant context, code reference, execution notes
-**IMPORTANT**: Use to avoid re-exploring already analyzed files
+## Execution Timeline
+> Updated as tasks complete
 
-### Previous Work
-{previousExecutionResults summaries}
+## Execution Summary
+> Updated after all tasks complete
+`
+Write(`${sessionFolder}/execution.md`, executionMd)
 
-### Clarifications
-{clarificationContext entries}
+// execution-events.md
+Write(`${sessionFolder}/execution-events.md`, `# Execution Events
 
-### Data Flow
-{planObject.data_flow.diagram}
+**Session**: ${sessionId}
+**Started**: ${getUtc8ISOString()}
+**Source**: ${planPath}
 
+---
+
+`)
+```
+
+---
+
+## Phase 2: Pre-Execution Analysis
+
+**Objective**: Validate feasibility and identify issues before execution.
+
+### Step 2.1: Analyze File Conflicts
+
+```javascript
+const fileTaskMap = new Map()  // file → [taskIds]
+tasks.forEach(task => {
+  (task.files || []).forEach(f => {
+    const key = f.path
+    if (!fileTaskMap.has(key)) fileTaskMap.set(key, [])
+    fileTaskMap.get(key).push(task.id)
+  })
+})
+
+const conflicts = []
+fileTaskMap.forEach((taskIds, file) => {
+  if (taskIds.length > 1) {
+    conflicts.push({ file, tasks: taskIds, resolution: 'Execute in dependency order' })
+  }
+})
+
+// Check file existence
+const missingFiles = []
+tasks.forEach(task => {
+  (task.files || []).forEach(f => {
+    if (f.action !== 'create' && !file_exists(f.path)) {
+      missingFiles.push({ file: f.path, task: task.id })
+    }
+  })
+})
+```
+
+### Step 2.2: Append to execution.md
+
+```javascript
+// Replace "Pre-Execution Analysis" section with:
+// - File Conflicts (list or "No conflicts")
+// - Missing Files (list or "All files exist")
+// - Dependency Validation (errors or "No issues")
+// - Execution Order (numbered list)
+```
+
+### Step 2.3: User Confirmation
+
+```javascript
+if (!dryRun) {
+  AskUserQuestion({
+    questions: [{
+      question: `Execute ${tasks.length} tasks?\n\n${conflicts.length ? `⚠ ${conflicts.length} file conflicts\n` : ''}Execution order:\n${executionOrder.map((id, i) => `  ${i+1}. ${id}: ${tasks.find(t => t.id === id).title}`).join('\n')}`,
+      header: "Confirm",
+      multiSelect: false,
+      options: [
+        { label: "Execute", description: "Start serial execution" },
+        { label: "Dry Run", description: "Simulate without changes" },
+        { label: "Cancel", description: "Abort execution" }
+      ]
+    }]
+  })
+}
+```
+
+---
+
+## Phase 3: Serial Execution + Convergence Verification
+
+**Objective**: Execute tasks sequentially, verify convergence after each task, track all state.
+
+**Execution Model**: Direct inline execution — main process reads, edits, writes files directly. No CLI delegation.
+
+### Step 3.1: Execution Loop
+
+```javascript
+const completedTasks = new Set()
+const failedTasks = new Set()
+const skippedTasks = new Set()
+
+for (const taskId of executionOrder) {
+  const task = tasks.find(t => t.id === taskId)
+  const startTime = getUtc8ISOString()
+
+  // 1. Check dependencies
+  const unmetDeps = task.depends_on.filter(dep => !completedTasks.has(dep))
+  if (unmetDeps.length) {
+    appendToEvents(task, 'BLOCKED', `Unmet dependencies: ${unmetDeps.join(', ')}`)
+    skippedTasks.add(task.id)
+    task._execution = { status: 'skipped', executed_at: startTime,
+      result: { success: false, error: `Blocked by: ${unmetDeps.join(', ')}` } }
+    continue
+  }
+
+  // 2. Record START event
+  appendToEvents(`## ${getUtc8ISOString()} — ${task.id}: ${task.title}
+
+**Type**: ${task.type || '-'} | **Priority**: ${task.priority || '-'} | **Effort**: ${task.effort || '-'}
+**Status**: ⏳ IN PROGRESS
+**Files**: ${(task.files || []).map(f => f.path).join(', ') || 'To be determined'}
+**Description**: ${task.description}
+**Convergence Criteria**:
+${task.convergence.criteria.map(c => `- [ ] ${c}`).join('\n')}
+
+### Execution Log
+`)
+
+  if (dryRun) {
+    // Simulate: mark as completed without changes
+    appendToEvents(`\n**Status**: ⏭ DRY RUN (no changes)\n\n---\n`)
+    task._execution = { status: 'completed', executed_at: startTime,
+      result: { success: true, summary: 'Dry run — no changes made' } }
+    completedTasks.add(task.id)
+    continue
+  }
+
+  // 3. Execute task directly
+  //    - Read each file in task.files (if specified)
+  //    - Analyze what changes satisfy task.description + task.convergence.criteria
+  //    - If task.files has detailed changes, use them as guidance
+  //    - Apply changes using Edit (preferred) or Write (for new files)
+  //    - Use Grep/Glob/mcp__ace-tool for discovery if needed
+  //    - Use Bash for build/test commands
+
+  // 4. Verify convergence
+  const convergenceResults = verifyConvergence(task)
+
+  const endTime = getUtc8ISOString()
+  const filesModified = getModifiedFiles()
+
+  if (convergenceResults.allPassed) {
+    // 5a. Record SUCCESS
+    appendToEvents(`
+**Status**: ✅ COMPLETED
+**Duration**: ${calculateDuration(startTime, endTime)}
+**Files Modified**: ${filesModified.join(', ')}
+
+#### Changes Summary
+${changeSummary}
+
+#### Convergence Verification
+${task.convergence.criteria.map((c, i) => `- [${convergenceResults.verified[i] ? 'x' : ' '}] ${c}`).join('\n')}
+- **Verification**: ${convergenceResults.verificationOutput}
+- **Definition of Done**: ${task.convergence.definition_of_done}
+
+---
+`)
+    task._execution = {
+      status: 'completed', executed_at: endTime,
+      result: {
+        success: true,
+        files_modified: filesModified,
+        summary: changeSummary,
+        convergence_verified: convergenceResults.verified
+      }
+    }
+    completedTasks.add(task.id)
+  } else {
+    // 5b. Record FAILURE
+    handleTaskFailure(task, convergenceResults, startTime, endTime)
+  }
+
+  // 6. Auto-commit if enabled
+  if (autoCommit && task._execution.status === 'completed') {
+    autoCommitTask(task, filesModified)
+  }
+}
+```
+
+### Step 3.2: Convergence Verification
+
+```javascript
+function verifyConvergence(task) {
+  const results = {
+    verified: [],           // boolean[] per criterion
+    verificationOutput: '', // output of verification command
+    allPassed: true
+  }
+
+  // 1. Check each criterion
+  //    For each criterion in task.convergence.criteria:
+  //      - If it references a testable condition, check it
+  //      - If it's manual, mark as verified based on changes made
+  //      - Record true/false per criterion
+  task.convergence.criteria.forEach(criterion => {
+    const passed = evaluateCriterion(criterion, task)
+    results.verified.push(passed)
+    if (!passed) results.allPassed = false
+  })
+
+  // 2. Run verification command (if executable)
+  const verification = task.convergence.verification
+  if (isExecutableCommand(verification)) {
+    try {
+      const output = Bash(verification, { timeout: 120000 })
+      results.verificationOutput = `${verification} → PASS`
+    } catch (e) {
+      results.verificationOutput = `${verification} → FAIL: ${e.message}`
+      results.allPassed = false
+    }
+  } else {
+    results.verificationOutput = `Manual: ${verification}`
+  }
+
+  return results
+}
+
+function isExecutableCommand(verification) {
+  // Detect executable patterns: npm, npx, jest, tsc, curl, pytest, go test, etc.
+  return /^(npm|npx|jest|tsc|eslint|pytest|go\s+test|cargo\s+test|curl|make)/.test(verification.trim())
+}
+```
+
+### Step 3.3: Failure Handling
+
+```javascript
+function handleTaskFailure(task, convergenceResults, startTime, endTime) {
+  appendToEvents(`
+**Status**: ❌ FAILED
+**Duration**: ${calculateDuration(startTime, endTime)}
+**Error**: Convergence verification failed
+
+#### Failed Criteria
+${task.convergence.criteria.map((c, i) => `- [${convergenceResults.verified[i] ? 'x' : ' '}] ${c}`).join('\n')}
+- **Verification**: ${convergenceResults.verificationOutput}
+
+---
+`)
+
+  task._execution = {
+    status: 'failed', executed_at: endTime,
+    result: {
+      success: false,
+      error: 'Convergence verification failed',
+      convergence_verified: convergenceResults.verified
+    }
+  }
+  failedTasks.add(task.id)
+
+  // Ask user
+  AskUserQuestion({
+    questions: [{
+      question: `Task ${task.id} failed convergence verification. How to proceed?`,
+      header: "Failure",
+      multiSelect: false,
+      options: [
+        { label: "Skip & Continue", description: "Skip this task, continue with next" },
+        { label: "Retry", description: "Retry this task" },
+        { label: "Accept", description: "Mark as completed despite failure" },
+        { label: "Abort", description: "Stop execution, keep progress" }
+      ]
+    }]
+  })
+}
+```
+
+### Step 3.4: Auto-Commit
+
+```javascript
+function autoCommitTask(task, filesModified) {
+  Bash(`git add ${filesModified.join(' ')}`)
+
+  const commitType = {
+    fix: 'fix', refactor: 'refactor', feature: 'feat',
+    enhancement: 'feat', testing: 'test', infrastructure: 'chore'
+  }[task.type] || 'chore'
+
+  const scope = inferScope(filesModified)
+
+  Bash(`git commit -m "$(cat <<'EOF'
+${commitType}(${scope}): ${task.title}
+
+Task: ${task.id}
+Source: ${path.basename(planPath)}
+EOF
+)"`)
+
+  appendToEvents(`**Commit**: \`${commitType}(${scope}): ${task.title}\`\n`)
+}
+```
+
+---
+
+## Phase 4: Completion
+
+**Objective**: Finalize all artifacts, write back execution state, offer follow-up actions.
+
+### Step 4.1: Finalize execution.md
+
+Append summary statistics to execution.md:
+
+```javascript
+const summary = `
+## Execution Summary
+
+- **Completed**: ${getUtc8ISOString()}
+- **Total Tasks**: ${tasks.length}
+- **Succeeded**: ${completedTasks.size}
+- **Failed**: ${failedTasks.size}
+- **Skipped**: ${skippedTasks.size}
+- **Success Rate**: ${Math.round(completedTasks.size / tasks.length * 100)}%
+
+### Task Results
+
+| ID | Title | Status | Convergence | Files Modified |
+|----|-------|--------|-------------|----------------|
+${tasks.map(t => {
+  const ex = t._execution || {}
+  const convergenceStatus = ex.result?.convergence_verified
+    ? `${ex.result.convergence_verified.filter(v => v).length}/${ex.result.convergence_verified.length}`
+    : '-'
+  return `| ${t.id} | ${t.title} | ${ex.status || 'pending'} | ${convergenceStatus} | ${(ex.result?.files_modified || []).join(', ') || '-'} |`
+}).join('\n')}
+
+${failedTasks.size > 0 ? `### Failed Tasks
+
+${[...failedTasks].map(id => {
+  const t = tasks.find(t => t.id === id)
+  return `- **${t.id}**: ${t.title} — ${t._execution?.result?.error || 'Unknown'}`
+}).join('\n')}
+` : ''}
 ### Artifacts
-Plan: {plan path}
-
-### Project Guidelines
-@{projectRoot}/.workflow/project-guidelines.json
-
-Complete each task according to its "Done when" checklist.
+- **Plan Source**: ${planPath}
+- **Execution Overview**: ${sessionFolder}/execution.md
+- **Execution Events**: ${sessionFolder}/execution-events.md
+`
+// Append to execution.md
 ```
 
-#### Option A: Agent Execution
+### Step 4.2: Finalize execution-events.md
 
-**When to use**: `getTaskExecutor(task) === "agent"`, or global `executionMethod = "Agent"`, or `Auto AND complexity = Low`
+```javascript
+appendToEvents(`
+---
 
-**Execution Flow**:
+# Session Summary
 
-```
-1. Spawn code-developer agent with prompt:
-   ├─ MANDATORY FIRST STEPS:
-   │   ├─ Read: ~/.codex/agents/code-developer.md
-   │   ├─ Read: {projectRoot}/.workflow/project-tech.json
-   │   ├─ Read: {projectRoot}/.workflow/project-guidelines.json
-   │   └─ Read: {exploration_log_refined} (execution-relevant context)
-   └─ Body: {buildExecutionPrompt(batch)}
-
-2. Wait for completion (timeout: 10 minutes)
-
-3. Close agent after collection
-
-4. Collect result → executionResult structure
+- **Session**: ${sessionId}
+- **Completed**: ${getUtc8ISOString()}
+- **Tasks**: ${completedTasks.size} completed, ${failedTasks.size} failed, ${skippedTasks.size} skipped
+- **Total Events**: ${completedTasks.size + failedTasks.size + skippedTasks.size}
+`)
 ```
 
-#### Option B: CLI Execution (Codex)
+### Step 4.3: Write Back tasks.jsonl with _execution
 
-**When to use**: `getTaskExecutor(task) === "codex"`, or global `executionMethod = "Codex"`, or `Auto AND complexity = Medium/High`
+Update the source JSONL file with execution states:
 
-**Execution**:
-
-```bash
-ccw cli -p "{buildExecutionPrompt(batch)}" --tool codex --mode write --id {sessionId}-{groupId}
+```javascript
+const updatedJsonl = tasks.map(task => JSON.stringify(task)).join('\n')
+Write(planPath, updatedJsonl)
+// Each task now has _execution: { status, executed_at, result }
 ```
 
-**Fixed ID Pattern**: `{sessionId}-{groupId}` (e.g., `implement-auth-2025-12-13-P1`)
-
-**Execution Mode**: Background (`run_in_background=true`) → Stop output → Wait for task hook callback
-
-**Resume on Failure**:
-
-```
-If status = failed or timeout:
-├─ Display: Fixed ID, lookup command, resume command
-├─ Lookup: ccw cli detail {fixedExecutionId}
-└─ Resume: ccw cli -p "Continue tasks" --resume {fixedExecutionId} --tool codex --mode write --id {fixedExecutionId}-retry
-```
-
-#### Option C: CLI Execution (Gemini)
-
-**When to use**: `getTaskExecutor(task) === "gemini"` (analysis tasks)
-
-```bash
-ccw cli -p "{buildExecutionPrompt(batch)}" --tool gemini --mode analysis --id {sessionId}-{groupId}
-```
-
-### Step 4: Progress Tracking
-
-Progress tracked at **batch level** (not individual task level).
-
-| Icon | Meaning |
-|------|---------|
-| ⚡ | Parallel batch (concurrent execution) |
-| → | Sequential batch (one-by-one execution) |
-
-### Step 5: Code Review (Optional)
-
-**Skip Condition**: Only run if `codeReviewTool ≠ "Skip"`
-
-**Review Focus**: Verify implementation against plan acceptance criteria and verification requirements.
-
-**Review Criteria**:
-- **Acceptance Criteria**: Verify each criterion from plan.tasks[].acceptance
-- **Verification Checklist** (Medium/High): Check unit_tests, integration_tests, success_metrics from plan.tasks[].verification
-- **Code Quality**: Analyze quality, identify issues, suggest improvements
-- **Plan Alignment**: Validate implementation matches planned approach and risk mitigations
-
-**Shared Review Prompt Template**:
-
-```
-PURPOSE: Code review for implemented changes against plan acceptance criteria and verification requirements
-TASK: • Verify plan acceptance criteria fulfillment • Check verification requirements (unit tests, success metrics) • Analyze code quality • Identify issues • Suggest improvements • Validate plan adherence and risk mitigations
-MODE: analysis
-CONTEXT: @**/* @{plan.json} [@{exploration.json}] | Memory: Review lite-execute changes against plan requirements including verification checklist
-EXPECTED: Quality assessment with:
-  - Acceptance criteria verification (all tasks)
-  - Verification checklist validation (Medium/High: unit_tests, integration_tests, success_metrics)
-  - Issue identification
-  - Recommendations
-  Explicitly check each acceptance criterion and verification item from plan.json tasks.
-CONSTRAINTS: Focus on plan acceptance criteria, verification requirements, and plan adherence | analysis=READ-ONLY
-```
-
-**Tool-Specific Execution**:
-
-| Tool | Command | Notes |
-|------|---------|-------|
-| Agent Review | Direct review by current agent | Read plan.json, apply review criteria, report findings |
-| Gemini Review | `ccw cli -p "[review prompt]" --tool gemini --mode analysis` | Recommended |
-| Qwen Review | `ccw cli -p "[review prompt]" --tool qwen --mode analysis` | Alternative |
-| Codex Review (A) | `ccw cli -p "[review prompt]" --tool codex --mode review` | Complex reviews with focus areas |
-| Codex Review (B) | `ccw cli --tool codex --mode review --uncommitted` | Quick review, no custom prompt |
-
-> **IMPORTANT**: `-p` prompt and target flags (`--uncommitted`/`--base`/`--commit`) are **mutually exclusive** for codex review.
-
-**Multi-Round Review**: Generate fixed review ID (`{sessionId}-review`). If issues found, resume with follow-up:
-
-```bash
-ccw cli -p "Clarify the security concerns" --resume {reviewId} --tool gemini --mode analysis --id {reviewId}-followup
-```
-
-**Implementation Note**: Replace `[review prompt]` placeholder with actual Shared Review Prompt Template content, substituting:
-- `@{plan.json}` → `@{executionContext.session.artifacts.plan}`
-- `[@{exploration.json}]` → exploration files from artifacts (if exists)
-
-### Step 6: Update Development Index
-
-**Trigger**: After all executions complete (regardless of code review)
-
-**Skip Condition**: Skip if `{projectRoot}/.workflow/project-tech.json` does not exist
-
-**Operations**:
-
-```
-1. Read {projectRoot}/.workflow/project-tech.json
-   └─ If not found → silent skip
-
-2. Initialize development_index if missing
-   └─ Categories: feature, enhancement, bugfix, refactor, docs
-
-3. Detect category from task keywords:
-   ├─ fix/bug/error/issue/crash → bugfix
-   ├─ refactor/cleanup/reorganize → refactor
-   ├─ doc/readme/comment → docs
-   ├─ add/new/create/implement → feature
-   └─ (default) → enhancement
-
-4. Detect sub_feature from task file paths
-   └─ Extract parent directory names, return most frequent
-
-5. Create entry:
-   ├─ title: plan summary (max 60 chars)
-   ├─ sub_feature: detected from file paths
-   ├─ date: current date (YYYY-MM-DD)
-   ├─ description: plan approach (max 100 chars)
-   ├─ status: "completed" if all results completed, else "partial"
-   └─ session_id: from executionContext
-
-6. Append entry to development_index[category]
-7. Update statistics.last_updated timestamp
-8. Write updated project-tech.json
-```
-
-## Best Practices
-
-**Input Modes**: In-memory (planning phase), prompt (standalone), file (JSON/text)
-**Task Grouping**: Based on explicit depends_on only; independent tasks run in single parallel batch
-**Execution**: All independent tasks launch concurrently via single Claude message with multiple tool calls
-
-## Error Handling
-
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Missing executionContext | --in-memory without context | Error: "No execution context found. Only available when called by planning phase." |
-| File not found | File path doesn't exist | Error: "File not found: {path}. Check file path." |
-| Empty file | File exists but no content | Error: "File is empty: {path}. Provide task description." |
-| Invalid Enhanced Task JSON | JSON missing required fields | Warning: "Missing required fields. Treating as plain text." |
-| Malformed JSON | JSON parsing fails | Treat as plain text (expected for non-JSON files) |
-| Execution failure | Agent/Codex crashes | Display error, use fixed ID `{sessionId}-{groupId}` for resume |
-| Execution timeout | CLI exceeded timeout | Use fixed ID for resume with extended timeout |
-| Codex unavailable | Codex not installed | Show installation instructions, offer Agent execution |
-| Fixed ID not found | Custom ID lookup failed | Check `ccw cli history`, verify date directories |
-
-## Data Structures
-
-### executionContext (Input - Mode 1)
-
-Passed from planning phase via global variable:
+**_execution State** (added to each task):
 
 ```javascript
 {
-  projectRoot: string,                   // 项目根目录绝对路径 (git rev-parse --show-toplevel || pwd)
-  planObject: {
-    summary: string,
-    approach: string,
-    tasks: [...],
-    estimated_time: string,
-    recommended_execution: string,
-    complexity: string
-  },
-  explorationsContext: {...} | null,       // Multi-angle explorations
-  explorationAngles: string[],             // List of exploration angles
-  explorationManifest: {...} | null,       // Exploration manifest
-  clarificationContext: {...} | null,
-  executionMethod: "Agent" | "Codex" | "Auto",  // Global default
-  codeReviewTool: "Skip" | "Gemini Review" | "Agent Review" | string,
-  originalUserInput: string,
-
-  // Task-level executor assignments (priority over executionMethod)
-  executorAssignments: {
-    [taskId]: { executor: "gemini" | "codex" | "agent", reason: string }
-  },
-
-  // Session artifacts location (saved by planning phase)
-  session: {
-    id: string,                        // Session identifier: {taskSlug}-{shortTimestamp}
-    folder: string,                    // Session folder path: {projectRoot}/.workflow/.lite-plan/{session-id}
-    artifacts: {
-      explorations: [{angle, path}],   // exploration-{angle}.json paths
-      explorations_manifest: string,   // explorations-manifest.json path
-      exploration_log: string,         // exploration-notes.md (full version, Plan consumption)
-      exploration_log_refined: string, // exploration-notes-refined.md (refined version, Execute consumption)
-      plan: string                     // plan.json path (always present)
+  // ... original task fields ...
+  _execution: {
+    status: "completed" | "failed" | "skipped",
+    executed_at: "ISO timestamp",
+    result: {
+      success: boolean,
+      files_modified: string[],     // list of modified file paths
+      summary: string,              // change description
+      convergence_verified: boolean[],  // per criterion
+      error: string                 // if failed
     }
   }
 }
 ```
 
-**Artifact Usage**:
-- **exploration_log**: Full exploration notes, for Plan phase reference, contains 6 sections
-- **exploration_log_refined**: Refined exploration notes, for Execute phase consumption, task-relevant content only
-- Pass artifact paths to CLI tools and agents for enhanced context
-- See execution options above for usage examples
-
-### executionResult (Output)
-
-Collected after each execution call completes:
+### Step 4.4: Post-Completion Options
 
 ```javascript
-{
-  executionId: string,                 // e.g., "[Agent-1]", "[Codex-1]"
-  status: "completed" | "partial" | "failed",
-  tasksSummary: string,                // Brief description of tasks handled
-  completionSummary: string,           // What was completed
-  keyOutputs: string,                  // Files created/modified, key changes
-  notes: string,                       // Important context for next execution
-  fixedCliId: string | null            // Fixed CLI execution ID (e.g., "implement-auth-2025-12-13-P1")
-}
+AskUserQuestion({
+  questions: [{
+    question: `Execution complete: ${completedTasks.size}/${tasks.length} succeeded (${Math.round(completedTasks.size / tasks.length * 100)}%).\nNext step:`,
+    header: "Post-Execute",
+    multiSelect: false,
+    options: [
+      { label: "Retry Failed", description: `Re-execute ${failedTasks.size} failed tasks` },
+      { label: "View Events", description: "Display execution-events.md" },
+      { label: "Create Issue", description: "Create issue from failed tasks" },
+      { label: "Done", description: "End workflow" }
+    ]
+  }]
+})
 ```
 
-Appended to `previousExecutionResults` array for context continuity in multi-execution scenarios.
-
-## Post-Completion Expansion
-
-After completion, ask user whether to expand as issue (test/enhance/refactor/doc). Selected items create new issues accordingly.
-
-**Fixed ID Pattern**: `{sessionId}-{groupId}` enables predictable lookup without auto-generated timestamps.
-
-**Resume Usage**: If `status` is "partial" or "failed", use `fixedCliId` to resume:
-
-```bash
-# Lookup previous execution
-ccw cli detail {fixedCliId}
-
-# Resume with new fixed ID for retry
-ccw cli -p "Continue from where we left off" --resume {fixedCliId} --tool codex --mode write --id {fixedCliId}-retry
-```
+| Selection | Action |
+|-----------|--------|
+| Retry Failed | Filter tasks with `_execution.status === 'failed'`, re-execute, append `[RETRY]` events |
+| View Events | Display execution-events.md content |
+| Create Issue | `$issue:new` from failed task details |
+| Done | Display artifact paths, end workflow |
 
 ---
 
-## Post-Phase Update
+## Error Handling & Recovery
 
-After Phase 2 (Lite Execute) completes:
-- **Output Created**: Executed tasks, optional code review results, updated development index
-- **Execution Results**: `previousExecutionResults[]` with status per batch
-- **Next Action**: Workflow complete. Optionally expand to issue (test/enhance/refactor/doc)
-- **TodoWrite**: Mark all execution batches as completed
+| Situation | Action | Recovery |
+|-----------|--------|----------|
+| JSONL file not found | Report error with path | Check path, verify planning phase output |
+| Invalid JSON line | Report line number and error | Fix JSONL file manually |
+| Missing convergence | Report validation error | Add convergence fields to tasks |
+| Circular dependency | Stop, report cycle path | Fix dependencies in JSONL |
+| Task execution fails | Record in events, ask user | Retry, skip, accept, or abort |
+| Convergence verification fails | Mark task failed, ask user | Fix code and retry, or accept |
+| Verification command timeout | Mark as unverified | Manual verification needed |
+| File conflict during execution | Document in events | Resolve in dependency order |
+| All tasks fail | Report, suggest plan review | Re-analyze or manual intervention |
+
+---
+
+## Post-Completion
+
+After execution completes, the workflow is finished.
+
+- **TodoWrite**: Mark "Execution (unified-execute)" as completed
+- **Summary**: Display execution statistics (succeeded/failed/skipped counts)
+- **Artifacts**: Point user to execution.md and execution-events.md paths
