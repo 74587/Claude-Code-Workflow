@@ -304,12 +304,13 @@ if (file_exists(`${sessionFolder}/exploration-codebase.json`)) {
 ```javascript
 // Each layer must have:
 // - id: L0, L1, L2, L3
-// - name: MVP / Usable / Refined / Optimized
-// - goal: what this layer achieves
+// - title: "MVP" / "Usable" / "Refined" / "Optimized"
+// - description: what this layer achieves (goal)
 // - scope[]: features included
 // - excludes[]: features explicitly deferred
 // - convergence: { criteria[], verification, definition_of_done }
 // - risk_items[], effort (small|medium|large), depends_on[]
+// - source: { tool, session_id, original_id }
 //
 // Rules:
 // - L0 (MVP) = self-contained closed loop, no dependencies
@@ -319,15 +320,16 @@ if (file_exists(`${sessionFolder}/exploration-codebase.json`)) {
 
 const layers = [
   {
-    id: "L0", name: "MVP",
-    goal: "...",
+    id: "L0", title: "MVP",
+    description: "...",
     scope: ["..."], excludes: ["..."],
     convergence: {
       criteria: ["... (testable)"],
       verification: "... (executable command or steps)",
       definition_of_done: "... (business language)"
     },
-    risk_items: [], effort: "medium", depends_on: []
+    risk_items: [], effort: "medium", depends_on: [],
+    source: { tool: "req-plan-with-file", session_id: sessionId, original_id: "L0" }
   },
   // L1, L2, ...
 ]
@@ -338,10 +340,11 @@ const layers = [
 ```javascript
 // Each task must have:
 // - id: T1, T2, ...
-// - title, type (infrastructure|feature|enhancement|testing)
+// - title, description, type (infrastructure|feature|enhancement|testing)
 // - scope, inputs[], outputs[]
 // - convergence: { criteria[], verification, definition_of_done }
 // - depends_on[], parallel_group
+// - source: { tool, session_id, original_id }
 //
 // Rules:
 // - Inputs must come from preceding task outputs or existing resources
@@ -351,14 +354,15 @@ const layers = [
 
 const tasks = [
   {
-    id: "T1", title: "...", type: "infrastructure",
+    id: "T1", title: "...", description: "...", type: "infrastructure",
     scope: "...", inputs: [], outputs: ["..."],
     convergence: {
       criteria: ["... (testable)"],
       verification: "... (executable)",
       definition_of_done: "... (business language)"
     },
-    depends_on: [], parallel_group: 1
+    depends_on: [], parallel_group: 1,
+    source: { tool: "req-plan-with-file", session_id: sessionId, original_id: "T1" }
   },
   // T2, T3, ...
 ]
@@ -524,10 +528,10 @@ Display the decomposition as a table with convergence criteria, then run feedbac
 ```markdown
 ## Roadmap Overview
 
-| Layer | Name | Goal | Scope | Effort | Dependencies |
-|-------|------|------|-------|--------|--------------|
-| L0 | MVP | ... | ... | medium | - |
-| L1 | Usable | ... | ... | medium | L0 |
+| Layer | Title | Description | Effort | Dependencies |
+|-------|-------|-------------|--------|--------------|
+| L0 | MVP | ... | medium | - |
+| L1 | Usable | ... | medium | L0 |
 
 ### Convergence Criteria
 **L0 - MVP**:
@@ -541,10 +545,10 @@ Display the decomposition as a table with convergence criteria, then run feedbac
 ```markdown
 ## Task Sequence
 
-| Group | ID | Title | Type | Dependencies |
-|-------|----|-------|------|--------------|
-| 1 | T1 | ... | infrastructure | - |
-| 2 | T2 | ... | feature | T1 |
+| Group | ID | Title | Type | Description | Dependencies |
+|-------|----|-------|------|-------------|--------------|
+| 1 | T1 | ... | infrastructure | ... | - |
+| 2 | T2 | ... | feature | ... | T1 |
 
 ### Convergence Criteria
 **T1 - Establish Data Model**:
@@ -609,15 +613,15 @@ const roadmapMd = `# Requirement Roadmap
 
 ## Roadmap Overview
 
-| Layer | Name | Goal | Effort | Dependencies |
-|-------|------|------|--------|--------------|
-${items.map(l => `| ${l.id} | ${l.name} | ${l.goal} | ${l.effort} | ${l.depends_on.length ? l.depends_on.join(', ') : '-'} |`).join('\n')}
+| Layer | Title | Description | Effort | Dependencies |
+|-------|-------|-------------|--------|--------------|
+${items.map(l => `| ${l.id} | ${l.title} | ${l.description} | ${l.effort} | ${l.depends_on.length ? l.depends_on.join(', ') : '-'} |`).join('\n')}
 
 ## Layer Details
 
-${items.map(l => `### ${l.id}: ${l.name}
+${items.map(l => `### ${l.id}: ${l.title}
 
-**Goal**: ${l.goal}
+**Description**: ${l.description}
 
 **Scope**: ${l.scope.join(', ')}
 
@@ -641,7 +645,7 @@ ${items.flatMap(l => l.risk_items.map(r => \`- **${l.id}**: ${r}\`)).join('\n') 
 
 Each layer can be executed independently:
 \\\`\\\`\\\`bash
-/workflow:lite-plan "${items[0]?.name}: ${items[0]?.scope.join(', ')}"
+/workflow:lite-plan "${items[0]?.title}: ${items[0]?.scope.join(', ')}"
 \\\`\\\`\\\`
 
 Roadmap JSONL file: \\\`${sessionFolder}/roadmap.jsonl\\\`
@@ -665,15 +669,17 @@ const roadmapMd = `# Requirement Roadmap
 
 ## Task Sequence
 
-| Group | ID | Title | Type | Dependencies |
-|-------|----|-------|------|--------------|
-${items.map(t => `| ${t.parallel_group} | ${t.id} | ${t.title} | ${t.type} | ${t.depends_on.length ? t.depends_on.join(', ') : '-'} |`).join('\n')}
+| Group | ID | Title | Type | Description | Dependencies |
+|-------|----|-------|------|-------------|--------------|
+${items.map(t => `| ${t.parallel_group} | ${t.id} | ${t.title} | ${t.type} | ${t.description} | ${t.depends_on.length ? t.depends_on.join(', ') : '-'} |`).join('\n')}
 
 ## Task Details
 
 ${items.map(t => `### ${t.id}: ${t.title}
 
 **Type**: ${t.type} | **Parallel Group**: ${t.parallel_group}
+
+**Description**: ${t.description}
 
 **Scope**: ${t.scope}
 
@@ -748,7 +754,7 @@ if (!autoYes) {
 | `strategy-assessment.json` | 1 | Uncertainty analysis + mode recommendation + extracted goal/constraints/stakeholders/domain_keywords |
 | `roadmap.md` (skeleton) | 1 | Initial skeleton with placeholders, finalized in Phase 4 |
 | `exploration-codebase.json` | 2 | Codebase context: relevant modules, patterns, integration points (only when codebase exists) |
-| `roadmap.jsonl` | 3 | One self-contained JSON record per line with convergence criteria |
+| `roadmap.jsonl` | 3 | One self-contained JSON record per line with convergence criteria and source provenance |
 | `roadmap.md` (final) | 4 | Human-readable roadmap with tabular display + convergence details, revised per user feedback |
 
 ## JSONL Schema
@@ -765,18 +771,18 @@ Each record's `convergence` object:
 
 ### Progressive Mode (one layer per line)
 
-| Layer | Name | Typical Goal |
-|-------|------|--------------|
+| Layer | Title | Typical Description |
+|-------|-------|---------------------|
 | L0 | MVP | Minimum viable closed loop, core path end-to-end |
 | L1 | Usable | Key user paths refined, basic error handling |
 | L2 | Refined | Edge cases, performance, security hardening |
 | L3 | Optimized | Advanced features, observability, operations |
 
-**Schema**: `id, name, goal, scope[], excludes[], convergence{}, risk_items[], effort, depends_on[]`
+**Schema**: `id, title, description, scope[], excludes[], convergence{}, risk_items[], effort, depends_on[], source{}`
 
 ```jsonl
-{"id":"L0","name":"MVP","goal":"Minimum viable closed loop","scope":["User registration and login","Basic CRUD"],"excludes":["OAuth","2FA"],"convergence":{"criteria":["End-to-end register→login→operate flow works","Core API returns correct responses"],"verification":"curl/Postman manual testing or smoke test script","definition_of_done":"New user can complete register→login→perform one core operation"},"risk_items":["JWT library selection needs validation"],"effort":"medium","depends_on":[]}
-{"id":"L1","name":"Usable","goal":"Complete key user paths","scope":["Password reset","Input validation","Error messages"],"excludes":["Audit logs","Rate limiting"],"convergence":{"criteria":["All form fields have frontend+backend validation","Password reset email can be sent and reset completed","Error scenarios show user-friendly messages"],"verification":"Unit tests cover validation logic + manual test of reset flow","definition_of_done":"Users have a clear recovery path when encountering input errors or forgotten passwords"},"risk_items":[],"effort":"medium","depends_on":["L0"]}
+{"id":"L0","title":"MVP","description":"Minimum viable closed loop","scope":["User registration and login","Basic CRUD"],"excludes":["OAuth","2FA"],"convergence":{"criteria":["End-to-end register→login→operate flow works","Core API returns correct responses"],"verification":"curl/Postman manual testing or smoke test script","definition_of_done":"New user can complete register→login→perform one core operation"},"risk_items":["JWT library selection needs validation"],"effort":"medium","depends_on":[],"source":{"tool":"req-plan-with-file","session_id":"RPLAN-xxx","original_id":"L0"}}
+{"id":"L1","title":"Usable","description":"Complete key user paths","scope":["Password reset","Input validation","Error messages"],"excludes":["Audit logs","Rate limiting"],"convergence":{"criteria":["All form fields have frontend+backend validation","Password reset email can be sent and reset completed","Error scenarios show user-friendly messages"],"verification":"Unit tests cover validation logic + manual test of reset flow","definition_of_done":"Users have a clear recovery path when encountering input errors or forgotten passwords"},"risk_items":[],"effort":"medium","depends_on":["L0"],"source":{"tool":"req-plan-with-file","session_id":"RPLAN-xxx","original_id":"L1"}}
 ```
 
 **Constraints**: 2-4 layers, L0 must be a self-contained closed loop with no dependencies, each feature belongs to exactly ONE layer (no scope overlap).
@@ -790,11 +796,11 @@ Each record's `convergence` object:
 | enhancement | Validation, error handling, edge cases |
 | testing | Unit tests, integration tests, E2E |
 
-**Schema**: `id, title, type, scope, inputs[], outputs[], convergence{}, depends_on[], parallel_group`
+**Schema**: `id, title, description, type, scope, inputs[], outputs[], convergence{}, depends_on[], parallel_group, source{}`
 
 ```jsonl
-{"id":"T1","title":"Establish data model","type":"infrastructure","scope":"DB schema + TypeScript types","inputs":[],"outputs":["schema.prisma","types/user.ts"],"convergence":{"criteria":["Migration executes without errors","TypeScript types compile successfully","Fields cover all business entities"],"verification":"npx prisma migrate dev && npx tsc --noEmit","definition_of_done":"Database schema migrates correctly, type definitions can be referenced by other modules"},"depends_on":[],"parallel_group":1}
-{"id":"T2","title":"Implement core API","type":"feature","scope":"CRUD endpoints for User","inputs":["schema.prisma","types/user.ts"],"outputs":["routes/user.ts","controllers/user.ts"],"convergence":{"criteria":["GET/POST/PUT/DELETE return correct status codes","Request/response conforms to schema","No N+1 queries"],"verification":"jest --testPathPattern=user.test.ts","definition_of_done":"All User CRUD endpoints pass integration tests"},"depends_on":["T1"],"parallel_group":2}
+{"id":"T1","title":"Establish data model","description":"Create database schema and TypeScript type definitions for all business entities","type":"infrastructure","scope":"DB schema + TypeScript types","inputs":[],"outputs":["schema.prisma","types/user.ts"],"convergence":{"criteria":["Migration executes without errors","TypeScript types compile successfully","Fields cover all business entities"],"verification":"npx prisma migrate dev && npx tsc --noEmit","definition_of_done":"Database schema migrates correctly, type definitions can be referenced by other modules"},"depends_on":[],"parallel_group":1,"source":{"tool":"req-plan-with-file","session_id":"RPLAN-xxx","original_id":"T1"}}
+{"id":"T2","title":"Implement core API","description":"Build CRUD endpoints for User entity with proper validation and error handling","type":"feature","scope":"CRUD endpoints for User","inputs":["schema.prisma","types/user.ts"],"outputs":["routes/user.ts","controllers/user.ts"],"convergence":{"criteria":["GET/POST/PUT/DELETE return correct status codes","Request/response conforms to schema","No N+1 queries"],"verification":"jest --testPathPattern=user.test.ts","definition_of_done":"All User CRUD endpoints pass integration tests"},"depends_on":["T1"],"parallel_group":2,"source":{"tool":"req-plan-with-file","session_id":"RPLAN-xxx","original_id":"T2"}}
 ```
 
 **Constraints**: Inputs must come from preceding task outputs or existing resources, tasks in same parallel_group must be truly independent, no circular dependencies.
@@ -822,24 +828,26 @@ When normal decomposition fails or produces empty results, use fallback template
 ```javascript
 [
   {
-    id: "L0", name: "MVP", goal: "Minimum viable closed loop",
+    id: "L0", title: "MVP", description: "Minimum viable closed loop",
     scope: ["Core functionality"], excludes: ["Advanced features", "Optimization"],
     convergence: {
       criteria: ["Core path works end-to-end"],
       verification: "Manual test of core flow",
       definition_of_done: "User can complete one full core operation"
     },
-    risk_items: ["Tech selection needs validation"], effort: "medium", depends_on: []
+    risk_items: ["Tech selection needs validation"], effort: "medium", depends_on: [],
+    source: { tool: "req-plan-with-file", session_id: sessionId, original_id: "L0" }
   },
   {
-    id: "L1", name: "Usable", goal: "Refine key user paths",
+    id: "L1", title: "Usable", description: "Refine key user paths",
     scope: ["Error handling", "Input validation"], excludes: ["Performance optimization", "Monitoring"],
     convergence: {
       criteria: ["All user inputs validated", "Error scenarios show messages"],
       verification: "Unit tests + manual error scenario testing",
       definition_of_done: "Users have clear guidance and recovery paths when encountering problems"
     },
-    risk_items: [], effort: "medium", depends_on: ["L0"]
+    risk_items: [], effort: "medium", depends_on: ["L0"],
+    source: { tool: "req-plan-with-file", session_id: sessionId, original_id: "L1" }
   }
 ]
 ```
@@ -848,7 +856,8 @@ When normal decomposition fails or produces empty results, use fallback template
 ```javascript
 [
   {
-    id: "T1", title: "Infrastructure setup", type: "infrastructure",
+    id: "T1", title: "Infrastructure setup", description: "Project scaffolding and base configuration",
+    type: "infrastructure",
     scope: "Project scaffolding and base configuration",
     inputs: [], outputs: ["project-structure"],
     convergence: {
@@ -856,10 +865,12 @@ When normal decomposition fails or produces empty results, use fallback template
       verification: "npm run build (or equivalent build command)",
       definition_of_done: "Project foundation ready for feature development"
     },
-    depends_on: [], parallel_group: 1
+    depends_on: [], parallel_group: 1,
+    source: { tool: "req-plan-with-file", session_id: sessionId, original_id: "T1" }
   },
   {
-    id: "T2", title: "Core feature implementation", type: "feature",
+    id: "T2", title: "Core feature implementation", description: "Implement core business logic",
+    type: "feature",
     scope: "Core business logic",
     inputs: ["project-structure"], outputs: ["core-module"],
     convergence: {
@@ -867,7 +878,8 @@ When normal decomposition fails or produces empty results, use fallback template
       verification: "Run core feature tests",
       definition_of_done: "Core business functionality works as expected"
     },
-    depends_on: ["T1"], parallel_group: 2
+    depends_on: ["T1"], parallel_group: 2,
+    source: { tool: "req-plan-with-file", session_id: sessionId, original_id: "T2" }
   }
 ]
 ```
