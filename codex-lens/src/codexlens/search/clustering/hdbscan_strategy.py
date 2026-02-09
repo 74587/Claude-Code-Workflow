@@ -79,11 +79,33 @@ class HDBSCANStrategy(BaseClusteringStrategy):
             # Return each result as its own singleton cluster
             return [[i] for i in range(n_results)]
 
+        metric = self.config.metric
+        data = embeddings
+
+        # Some hdbscan builds do not recognize metric="cosine" even though it's a
+        # common need for embedding clustering. In that case, compute a precomputed
+        # cosine distance matrix and run HDBSCAN with metric="precomputed".
+        if metric == "cosine":
+            try:
+                from sklearn.metrics import pairwise_distances
+
+                data = pairwise_distances(embeddings, metric="cosine")
+                # Some hdbscan builds are strict about dtype for precomputed distances.
+                # Ensure float64 to avoid Buffer dtype mismatch errors.
+                try:
+                    data = data.astype("float64", copy=False)
+                except Exception:
+                    pass
+                metric = "precomputed"
+            except Exception:
+                # If we cannot compute distances, fall back to euclidean over raw vectors.
+                metric = "euclidean"
+
         # Configure HDBSCAN clusterer
         clusterer = hdbscan.HDBSCAN(
             min_cluster_size=self.config.min_cluster_size,
             min_samples=self.config.min_samples,
-            metric=self.config.metric,
+            metric=metric,
             cluster_selection_epsilon=self.config.cluster_selection_epsilon,
             allow_single_cluster=self.config.allow_single_cluster,
             prediction_data=self.config.prediction_data,
@@ -91,7 +113,7 @@ class HDBSCANStrategy(BaseClusteringStrategy):
 
         # Fit and get cluster labels
         # Labels: -1 = noise, 0+ = cluster index
-        labels = clusterer.fit_predict(embeddings)
+        labels = clusterer.fit_predict(data)
 
         # Group indices by cluster label
         cluster_map: dict[int, list[int]] = {}

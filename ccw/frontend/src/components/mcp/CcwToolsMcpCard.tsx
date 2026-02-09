@@ -14,8 +14,10 @@ import {
   Shield,
   Database,
   FileText,
+  Files,
   HardDrive,
   MessageCircleQuestion,
+  MessagesSquare,
   SearchCode,
   ChevronDown,
   ChevronRight,
@@ -93,10 +95,12 @@ export interface CcwToolsMcpCardProps {
 export const CCW_MCP_TOOLS: CcwTool[] = [
   { name: 'write_file', desc: 'Write/create files', core: true },
   { name: 'edit_file', desc: 'Edit/replace content', core: true },
-  { name: 'read_file', desc: 'Read file contents', core: true },
+  { name: 'read_file', desc: 'Read single file', core: true },
+  { name: 'read_many_files', desc: 'Read multiple files/dirs', core: true },
   { name: 'core_memory', desc: 'Core memory management', core: true },
   { name: 'ask_question', desc: 'Interactive questions (A2UI)', core: false },
   { name: 'smart_search', desc: 'Intelligent code search', core: true },
+  { name: 'team_msg', desc: 'Agent team message bus', core: false },
 ];
 
 // ========== Component ==========
@@ -507,12 +511,16 @@ function getToolIcon(toolName: string): React.ReactElement {
       return <Check {...iconProps} />;
     case 'read_file':
       return <Database {...iconProps} />;
+    case 'read_many_files':
+      return <Files {...iconProps} />;
     case 'core_memory':
       return <Settings {...iconProps} />;
     case 'ask_question':
       return <MessageCircleQuestion {...iconProps} />;
     case 'smart_search':
       return <SearchCode {...iconProps} />;
+    case 'team_msg':
+      return <MessagesSquare {...iconProps} />;
     default:
       return <Settings {...iconProps} />;
   }

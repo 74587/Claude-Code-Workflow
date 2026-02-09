@@ -1,0 +1,177 @@
+{
+  "summary": {
+    "timestamp": "2026-02-08 23:58:56",
+    "source": "src",
+    "k": 5,
+    "coarse_k": 50,
+    "query_count": 3,
+    "avg_jaccard_topk": 0.11574074074074074,
+    "avg_rbo_topk": 0.14601366666666662,
+    "staged": {
+      "success": 3,
+      "avg_latency_ms": 27868.044033328693
+    },
+    "dense_rerank": {
+      "success": 3,
+      "avg_latency_ms": 1339.25289999942
+    }
+  },
+  "comparisons": [
+    {
+      "query": "class Config",
+      "staged": {
+        "strategy": "staged",
+        "query": "class Config",
+        "latency_ms": 33643.06179998815,
+        "num_results": 5,
+        "topk_paths": [
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\search\\chain_search.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\cli\\embedding_manager.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\watcher\\incremental_indexer.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\dir_index.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\lsp\\server.py"
+        ],
+        "stage_stats": {
+          "stage_times": {
+            "stage1_binary_ms": 6201.4524936676025,
+            "stage2_expand_ms": 17306.61702156067,
+            "stage3_cluster_ms": 6829.557418823242,
+            "stage4_rerank_ms": 3267.071485519409
+          },
+          "stage_counts": {
+            "stage1_candidates": 50,
+            "stage2_expanded": 99,
+            "stage3_clustered": 10,
+            "stage4_reranked": 10
+          }
+        },
+        "error": null
+      },
+      "dense_rerank": {
+        "strategy": "dense_rerank",
+        "query": "class Config",
+        "latency_ms": 1520.9955999851227,
+        "num_results": 5,
+        "topk_paths": [
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\dir_index.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\migration_manager.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\registry.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\splade_index.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\sqlite_store.py"
+        ],
+        "stage_stats": null,
+        "error": null
+      },
+      "jaccard_topk": 0.1111111111111111,
+      "rbo_topk": 0.031347,
+      "staged_unique_files_topk": 5,
+      "dense_unique_files_topk": 5,
+      "staged_unique_dirs_topk": 5,
+      "dense_unique_dirs_topk": 1
+    },
+    {
+      "query": "def search",
+      "staged": {
+        "strategy": "staged",
+        "query": "def search",
+        "latency_ms": 26400.58900000155,
+        "num_results": 5,
+        "topk_paths": [
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\cli\\commands.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\semantic\\vector_store.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\index_tree.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\cli\\commands.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\semantic\\code_extractor.py"
+        ],
+        "stage_stats": {
+          "stage_times": {
+            "stage1_binary_ms": 404.60920333862305,
+            "stage2_expand_ms": 20036.258697509766,
+            "stage3_cluster_ms": 4919.439315795898,
+            "stage4_rerank_ms": 1001.8632411956787
+          },
+          "stage_counts": {
+            "stage1_candidates": 50,
+            "stage2_expanded": 51,
+            "stage3_clustered": 10,
+            "stage4_reranked": 10
+          }
+        },
+        "error": null
+      },
+      "dense_rerank": {
+        "strategy": "dense_rerank",
+        "query": "def search",
+        "latency_ms": 1264.3862999975681,
+        "num_results": 5,
+        "topk_paths": [
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\cli\\commands.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\search\\chain_search.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\search\\graph_expander.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\search\\hybrid_search.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\search\\ranking.py"
+        ],
+        "stage_stats": null,
+        "error": null
+      },
+      "jaccard_topk": 0.125,
+      "rbo_topk": 0.20334699999999994,
+      "staged_unique_files_topk": 4,
+      "dense_unique_files_topk": 5,
+      "staged_unique_dirs_topk": 3,
+      "dense_unique_dirs_topk": 2
+    },
+    {
+      "query": "LspBridge",
+      "staged": {
+        "strategy": "staged",
+        "query": "LspBridge",
+        "latency_ms": 23560.481299996376,
+        "num_results": 5,
+        "topk_paths": [
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\dir_index.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\cli\\commands.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\vector_meta_store.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\semantic\\code_extractor.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\search\\enrichment.py"
+        ],
+        "stage_stats": {
+          "stage_times": {
+            "stage1_binary_ms": 385.28990745544434,
+            "stage2_expand_ms": 17787.648677825928,
+            "stage3_cluster_ms": 4374.642372131348,
+            "stage4_rerank_ms": 974.8115539550781
+          },
+          "stage_counts": {
+            "stage1_candidates": 50,
+            "stage2_expanded": 50,
+            "stage3_clustered": 10,
+            "stage4_reranked": 10
+          }
+        },
+        "error": null
+      },
+      "dense_rerank": {
+        "strategy": "dense_rerank",
+        "query": "LspBridge",
+        "latency_ms": 1232.3768000155687,
+        "num_results": 5,
+        "topk_paths": [
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\dir_index.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\global_index.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\index_tree.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\path_mapper.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\registry.py"
+        ],
+        "stage_stats": null,
+        "error": null
+      },
+      "jaccard_topk": 0.1111111111111111,
+      "rbo_topk": 0.20334699999999994,
+      "staged_unique_files_topk": 5,
+      "dense_unique_files_topk": 5,
+      "staged_unique_dirs_topk": 4,
+      "dense_unique_dirs_topk": 1
+    }
+  ]
+}

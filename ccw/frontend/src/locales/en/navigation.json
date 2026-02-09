@@ -34,7 +34,8 @@
     "hooks": "Hooks",
     "rules": "Rules",
     "explorer": "File Explorer",
-    "graph": "Graph Explorer"
+    "graph": "Graph Explorer",
+    "teams": "Team Execution"
   },
   "sidebar": {
     "collapse": "Collapse",

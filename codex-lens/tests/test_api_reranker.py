@@ -72,7 +72,10 @@ def httpx_clients(monkeypatch: pytest.MonkeyPatch) -> list[DummyClient]:
 def test_api_reranker_requires_api_key(
     monkeypatch: pytest.MonkeyPatch, httpx_clients: list[DummyClient]
 ) -> None:
-    monkeypatch.delenv("RERANKER_API_KEY", raising=False)
+    # Force empty key in-process so the reranker does not fall back to any
+    # workspace/global .env configuration that may exist on the machine.
+    monkeypatch.setenv("RERANKER_API_KEY", "")
+    monkeypatch.setenv("CODEXLENS_RERANKER_API_KEY", "")
 
     with pytest.raises(ValueError, match="Missing API key"):
         APIReranker()
@@ -92,10 +95,37 @@ def test_api_reranker_reads_api_key_from_env(
     assert httpx_clients[0].closed is True
 
 
+def test_api_reranker_strips_v1_from_api_base_to_avoid_double_v1(
+    monkeypatch: pytest.MonkeyPatch, httpx_clients: list[DummyClient]
+) -> None:
+    monkeypatch.setenv("RERANKER_API_KEY", "test-key")
+
+    reranker = APIReranker(api_base="https://api.siliconflow.cn/v1", provider="siliconflow")
+    assert len(httpx_clients) == 1
+    # Endpoint already includes /v1, so api_base should not.
+    assert httpx_clients[0].base_url == "https://api.siliconflow.cn"
+    reranker.close()
+
+
+def test_api_reranker_strips_endpoint_from_api_base_to_avoid_double_endpoint(
+    monkeypatch: pytest.MonkeyPatch, httpx_clients: list[DummyClient]
+) -> None:
+    monkeypatch.setenv("RERANKER_API_KEY", "test-key")
+
+    reranker = APIReranker(api_base="https://api.siliconflow.cn/v1/rerank", provider="siliconflow")
+    assert len(httpx_clients) == 1
+    # If api_base already includes the endpoint suffix, strip it.
+    assert httpx_clients[0].base_url == "https://api.siliconflow.cn"
+    reranker.close()
+
+
 def test_api_reranker_scores_pairs_siliconflow(
     monkeypatch: pytest.MonkeyPatch, httpx_clients: list[DummyClient]
 ) -> None:
     monkeypatch.delenv("RERANKER_API_KEY", raising=False)
+    # Avoid picking up any machine-local default model from global .env.
+    monkeypatch.setenv("RERANKER_MODEL", "")
+    monkeypatch.setenv("CODEXLENS_RERANKER_MODEL", "")
 
     reranker = APIReranker(api_key="k", provider="siliconflow")
     client = httpx_clients[0]
@@ -168,4 +198,3 @@ def test_factory_api_backend_constructs_reranker(
     reranker = get_reranker(backend="api")
     assert isinstance(reranker, APIReranker)
     assert len(httpx_clients) == 1
-

@@ -26,6 +26,7 @@ import {
   Layers,
   Wrench,
   Cog,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -80,6 +81,7 @@ const navGroupDefinitions: NavGroupDef[] = [
       { path: '/orchestrator', labelKey: 'navigation.main.orchestrator', icon: Workflow },
       { path: '/history', labelKey: 'navigation.main.history', icon: Clock },
       { path: '/issues', labelKey: 'navigation.main.issues', icon: AlertCircle },
+      { path: '/teams', labelKey: 'navigation.main.teams', icon: Users },
     ],
   },
   {

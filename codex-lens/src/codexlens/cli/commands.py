@@ -1101,6 +1101,140 @@ def lsp_status(
             console.print(f"    Initialized: {probe.get('initialized')}")
 
 
+@app.command(name="reranker-status")
+def reranker_status(
+    probe: bool = typer.Option(
+        False,
+        "--probe",
+        help="Send a small rerank request to validate connectivity and credentials.",
+    ),
+    provider: Optional[str] = typer.Option(
+        None,
+        "--provider",
+        help="Reranker provider: siliconflow | cohere | jina (default: from env, else siliconflow).",
+    ),
+    api_base: Optional[str] = typer.Option(
+        None,
+        "--api-base",
+        help="Override API base URL (e.g. https://api.siliconflow.cn or https://api.cohere.ai).",
+    ),
+    model: Optional[str] = typer.Option(
+        None,
+        "--model",
+        help="Override reranker model name (provider-specific).",
+    ),
+    query: str = typer.Option("ping", "--query", help="Probe query text (used with --probe)."),
+    document: str = typer.Option("pong", "--document", help="Probe document text (used with --probe)."),
+    json_mode: bool = typer.Option(False, "--json", help="Output JSON response."),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging."),
+) -> None:
+    """Show reranker configuration and optionally probe the API backend.
+
+    This is the fastest way to confirm that "重排" can actually execute end-to-end.
+    """
+    _configure_logging(verbose, json_mode)
+
+    import time
+
+    from codexlens.env_config import load_global_env
+    from codexlens.semantic.reranker.api_reranker import (
+        APIReranker,
+        _normalize_api_base_for_endpoint,
+    )
+
+    env = load_global_env()
+
+    def _env_get(key: str) -> Optional[str]:
+        return (
+            os.environ.get(key)
+            or os.environ.get(f"CODEXLENS_{key}")
+            or env.get(key)
+            or env.get(f"CODEXLENS_{key}")
+        )
+
+    effective_provider = (provider or _env_get("RERANKER_PROVIDER") or "siliconflow").strip()
+    effective_api_base = (api_base or _env_get("RERANKER_API_BASE") or "").strip() or None
+    effective_model = (model or _env_get("RERANKER_MODEL") or "").strip() or None
+
+    # Do not leak secrets; only report whether a key is configured.
+    key_present = bool((_env_get("RERANKER_API_KEY") or "").strip())
+
+    provider_key = effective_provider.strip().lower()
+    defaults = getattr(APIReranker, "_PROVIDER_DEFAULTS", {}).get(provider_key, {})
+    endpoint = defaults.get("endpoint", "/v1/rerank")
+    configured_base = effective_api_base or defaults.get("api_base") or ""
+    normalized_base = _normalize_api_base_for_endpoint(api_base=configured_base, endpoint=endpoint)
+
+    payload: Dict[str, Any] = {
+        "provider": effective_provider,
+        "api_base": effective_api_base,
+        "endpoint": endpoint,
+        "normalized_api_base": normalized_base or None,
+        "request_url": f"{normalized_base}{endpoint}" if normalized_base else None,
+        "model": effective_model,
+        "api_key_configured": key_present,
+        "probe": None,
+    }
+
+    if probe:
+        t0 = time.perf_counter()
+        try:
+            reranker = APIReranker(
+                provider=effective_provider,
+                api_base=effective_api_base,
+                model_name=effective_model,
+            )
+            try:
+                scores = reranker.score_pairs([(query, document)])
+            finally:
+                reranker.close()
+            resolved_base = getattr(reranker, "api_base", None)
+            resolved_endpoint = getattr(reranker, "endpoint", None)
+            request_url = (
+                f"{resolved_base}{resolved_endpoint}"
+                if resolved_base and resolved_endpoint
+                else None
+            )
+            payload["probe"] = {
+                "ok": True,
+                "latency_ms": (time.perf_counter() - t0) * 1000.0,
+                "score": float(scores[0]) if scores else None,
+                "normalized_api_base": resolved_base,
+                "request_url": request_url,
+            }
+        except Exception as exc:
+            payload["probe"] = {
+                "ok": False,
+                "latency_ms": (time.perf_counter() - t0) * 1000.0,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
+    if json_mode:
+        print_json(success=True, result=payload)
+        return
+
+    console.print("[bold]CodexLens Reranker Status[/bold]")
+    console.print(f"  Provider: {payload['provider']}")
+    console.print(f"  API Base: {payload['api_base'] or '(default)'}")
+    if payload.get("normalized_api_base"):
+        console.print(f"  API Base (normalized): {payload['normalized_api_base']}")
+    console.print(f"  Endpoint: {payload.get('endpoint')}")
+    if payload.get("request_url"):
+        console.print(f"  Request URL: {payload['request_url']}")
+    console.print(f"  Model: {payload['model'] or '(default)'}")
+    console.print(f"  API Key: {'set' if key_present else 'missing'}")
+
+    if payload["probe"] is not None:
+        probe_payload = payload["probe"]
+        console.print("\n[bold]Probe:[/bold]")
+        if probe_payload.get("ok"):
+            console.print(f"  ✓ OK ({probe_payload.get('latency_ms'):.1f}ms)")
+            console.print(f"    Score: {probe_payload.get('score')}")
+        else:
+            console.print(f"  ✗ Failed ({probe_payload.get('latency_ms'):.1f}ms)")
+            console.print(f"    {probe_payload.get('error')}")
+
+
 @app.command()
 def projects(
     action: str = typer.Argument("list", help="Action: list, show, remove"),

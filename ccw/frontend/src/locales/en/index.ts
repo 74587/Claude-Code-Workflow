@@ -38,6 +38,7 @@ import notifications from './notifications.json';
 import workspace from './workspace.json';
 import help from './help.json';
 import cliViewer from './cli-viewer.json';
+import team from './team.json';
 
 /**
  * Flattens nested JSON object to dot-separated keys
@@ -99,4 +100,5 @@ export default {
   ...flattenMessages(workspace, 'workspace'),
   ...flattenMessages(help, 'help'),
   ...flattenMessages(cliViewer, 'cliViewer'),
+  ...flattenMessages(team, 'team'),
 } as Record<string, string>;

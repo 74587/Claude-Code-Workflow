@@ -123,7 +123,11 @@
       },
       "read_file": {
         "name": "read_file",
-        "desc": "Read file contents"
+        "desc": "Read a single file with optional line pagination"
+      },
+      "read_many_files": {
+        "name": "read_many_files",
+        "desc": "Read multiple files or directories with glob filtering and content search"
       },
       "core_memory": {
         "name": "core_memory",
@@ -136,6 +140,10 @@
       "smart_search": {
         "name": "smart_search",
         "desc": "Intelligent code search with fuzzy and semantic modes"
+      },
+      "team_msg": {
+        "name": "team_msg",
+        "desc": "Persistent JSONL message bus for Agent Team communication"
       }
     },
     "paths": {

@@ -23,10 +23,12 @@ import { executeInitWithProgress } from './smart-search.js';
 import * as codexLensLspMod from './codex-lens-lsp.js';
 import * as vscodeLspMod from './vscode-lsp.js';
 import * as readFileMod from './read-file.js';
+import * as readManyFilesMod from './read-many-files.js';
 import * as coreMemoryMod from './core-memory.js';
 import * as contextCacheMod from './context-cache.js';
 import * as skillContextLoaderMod from './skill-context-loader.js';
 import * as askQuestionMod from './ask-question.js';
+import * as teamMsgMod from './team-msg.js';
 import type { ProgressInfo } from './codex-lens.js';
 
 // Import legacy JS tools
@@ -364,10 +366,12 @@ registerTool(toLegacyTool(smartSearchMod));
 registerTool(toLegacyTool(codexLensLspMod));
 registerTool(toLegacyTool(vscodeLspMod));
 registerTool(toLegacyTool(readFileMod));
+registerTool(toLegacyTool(readManyFilesMod));
 registerTool(toLegacyTool(coreMemoryMod));
 registerTool(toLegacyTool(contextCacheMod));
 registerTool(toLegacyTool(skillContextLoaderMod));
 registerTool(toLegacyTool(askQuestionMod));
+registerTool(toLegacyTool(teamMsgMod));
 
 // Register legacy JS tools
 registerTool(uiGeneratePreviewTool);

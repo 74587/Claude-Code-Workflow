@@ -123,7 +123,11 @@
       },
       "read_file": {
         "name": "read_file",
-        "desc": "读取文件内容"
+        "desc": "读取单个文件内容"
+      },
+      "read_many_files": {
+        "name": "read_many_files",
+        "desc": "批量读取多个文件或目录，支持 glob 过滤和内容搜索"
       },
       "core_memory": {
         "name": "core_memory",
@@ -136,6 +140,10 @@
       "smart_search": {
         "name": "smart_search",
         "desc": "智能代码搜索，支持模糊和语义搜索模式"
+      },
+      "team_msg": {
+        "name": "team_msg",
+        "desc": "Agent Team 持久化消息总线，用于团队协作通信"
       }
     },
     "paths": {

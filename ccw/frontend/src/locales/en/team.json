@@ -1,0 +1,65 @@
+{
+  "title": "Team Execution",
+  "description": "Visualize agent team execution status and message flow",
+  "selectTeam": "Select Team",
+  "noTeamSelected": "Select a team to view",
+  "members": "Members",
+  "messages": "Messages",
+  "elapsed": "Elapsed",
+  "autoRefresh": "Auto-refresh",
+  "filterByType": "Filter by type",
+  "filterAll": "All Types",
+  "stage": "Stage",
+  "empty": {
+    "title": "No Active Teams",
+    "description": "Use /team:coordinate to create a team and start collaborating",
+    "noMessages": "No Messages Yet",
+    "noMessagesHint": "Team was just created, waiting for the first message"
+  },
+  "pipeline": {
+    "title": "Pipeline Progress",
+    "plan": "Plan",
+    "impl": "Implement",
+    "test": "Test",
+    "review": "Review",
+    "completed": "Completed",
+    "inProgress": "In Progress",
+    "pending": "Pending",
+    "blocked": "Blocked"
+  },
+  "membersPanel": {
+    "title": "Team Members",
+    "active": "Active",
+    "idle": "Idle",
+    "lastAction": "Last Action",
+    "messageCount": "Messages",
+    "lastSeen": "Last Seen",
+    "ago": "ago"
+  },
+  "timeline": {
+    "title": "Message Timeline",
+    "loadMore": "Load More",
+    "showing": "Showing {showing} / {total} messages",
+    "filterFrom": "From",
+    "filterTo": "To",
+    "filterType": "Type",
+    "clearFilters": "Clear Filters",
+    "expandData": "Expand Data",
+    "collapseData": "Collapse Data",
+    "noRef": "No reference"
+  },
+  "messageType": {
+    "plan_ready": "Plan Ready",
+    "plan_approved": "Plan Approved",
+    "plan_revision": "Plan Revision",
+    "task_unblocked": "Task Unblocked",
+    "impl_complete": "Impl Complete",
+    "impl_progress": "Impl Progress",
+    "test_result": "Test Result",
+    "review_result": "Review Result",
+    "fix_required": "Fix Required",
+    "error": "Error",
+    "shutdown": "Shutdown",
+    "message": "Message"
+  }
+}

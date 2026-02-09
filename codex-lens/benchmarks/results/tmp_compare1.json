@@ -1,0 +1,73 @@
+{
+  "summary": {
+    "timestamp": "2026-02-08 23:48:26",
+    "source": "src",
+    "k": 5,
+    "coarse_k": 50,
+    "query_count": 1,
+    "avg_jaccard_topk": 0.0,
+    "avg_rbo_topk": 0.0,
+    "staged": {
+      "success": 1,
+      "avg_latency_ms": 30093.97499999404
+    },
+    "dense_rerank": {
+      "success": 1,
+      "avg_latency_ms": 331.4424999952316
+    }
+  },
+  "comparisons": [
+    {
+      "query": "class Config",
+      "staged": {
+        "strategy": "staged",
+        "query": "class Config",
+        "latency_ms": 30093.97499999404,
+        "num_results": 5,
+        "topk_paths": [
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\cli\\commands.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\__init__.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\api\\references.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\search\\chain_search.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\cli\\embedding_manager.py"
+        ],
+        "stage_stats": {
+          "stage_times": {
+            "stage1_binary_ms": 6421.706914901733,
+            "stage2_expand_ms": 17591.988563537598,
+            "stage3_cluster_ms": 3700.4549503326416,
+            "stage4_rerank_ms": 2340.064525604248
+          },
+          "stage_counts": {
+            "stage1_candidates": 50,
+            "stage2_expanded": 99,
+            "stage3_clustered": 10,
+            "stage4_reranked": 10
+          }
+        },
+        "error": null
+      },
+      "dense_rerank": {
+        "strategy": "dense_rerank",
+        "query": "class Config",
+        "latency_ms": 331.4424999952316,
+        "num_results": 5,
+        "topk_paths": [
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\dir_index.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\migration_manager.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\registry.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\splade_index.py",
+          "d:\\claude_dms3\\codex-lens\\src\\codexlens\\storage\\sqlite_store.py"
+        ],
+        "stage_stats": null,
+        "error": null
+      },
+      "jaccard_topk": 0.0,
+      "rbo_topk": 0.0,
+      "staged_unique_files_topk": 5,
+      "dense_unique_files_topk": 5,
+      "staged_unique_dirs_topk": 4,
+      "dense_unique_dirs_topk": 1
+    }
+  ]
+}

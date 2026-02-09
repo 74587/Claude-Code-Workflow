@@ -38,6 +38,7 @@ import {
   CodexLensManagerPage,
   ApiSettingsPage,
   CliViewerPage,
+  TeamPage,
 } from '@/pages';
 
 /**
@@ -167,6 +168,10 @@ const routes: RouteObject[] = [
         path: 'graph',
         element: <GraphExplorerPage />,
       },
+      {
+        path: 'teams',
+        element: <TeamPage />,
+      },
       // Catch-all route for 404
       {
         path: '*',
@@ -221,6 +226,7 @@ export const ROUTES = {
   HELP: '/help',
   EXPLORER: '/explorer',
   GRAPH: '/graph',
+  TEAMS: '/teams',
 } as const;
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];

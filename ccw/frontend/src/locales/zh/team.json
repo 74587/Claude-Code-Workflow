@@ -1,0 +1,65 @@
+{
+  "title": "团队执行",
+  "description": "可视化 Agent 团队的执行状态和消息流",
+  "selectTeam": "选择团队",
+  "noTeamSelected": "请选择一个团队",
+  "members": "成员",
+  "messages": "消息",
+  "elapsed": "已用时间",
+  "autoRefresh": "自动刷新",
+  "filterByType": "按类型筛选",
+  "filterAll": "所有类型",
+  "stage": "阶段",
+  "empty": {
+    "title": "暂无活跃团队",
+    "description": "使用 /team:coordinate 创建团队以开始协作",
+    "noMessages": "暂无消息",
+    "noMessagesHint": "团队刚刚创建，等待第一条消息"
+  },
+  "pipeline": {
+    "title": "Pipeline 进度",
+    "plan": "计划",
+    "impl": "实现",
+    "test": "测试",
+    "review": "审查",
+    "completed": "已完成",
+    "inProgress": "进行中",
+    "pending": "待处理",
+    "blocked": "已阻塞"
+  },
+  "membersPanel": {
+    "title": "团队成员",
+    "active": "活跃",
+    "idle": "空闲",
+    "lastAction": "最后动作",
+    "messageCount": "消息数",
+    "lastSeen": "最后活跃",
+    "ago": "前"
+  },
+  "timeline": {
+    "title": "消息时间线",
+    "loadMore": "加载更多",
+    "showing": "显示 {showing} / {total} 条消息",
+    "filterFrom": "发送方",
+    "filterTo": "接收方",
+    "filterType": "消息类型",
+    "clearFilters": "清除筛选",
+    "expandData": "展开数据",
+    "collapseData": "折叠数据",
+    "noRef": "无引用"
+  },
+  "messageType": {
+    "plan_ready": "计划就绪",
+    "plan_approved": "计划批准",
+    "plan_revision": "计划修订",
+    "task_unblocked": "任务解锁",
+    "impl_complete": "实现完成",
+    "impl_progress": "实现进度",
+    "test_result": "测试结果",
+    "review_result": "审查结果",
+    "fix_required": "需要修复",
+    "error": "错误",
+    "shutdown": "关闭",
+    "message": "消息"
+  }
+}

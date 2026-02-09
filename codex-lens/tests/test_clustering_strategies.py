@@ -231,6 +231,26 @@ class TestHDBSCANStrategy:
 
         assert all_indices == set(range(len(sample_results)))
 
+    def test_cluster_supports_cosine_metric(
+        self, sample_results: List[SearchResult], mock_embeddings
+    ):
+        """Test HDBSCANStrategy can run with metric='cosine' (via precomputed distances)."""
+        try:
+            from codexlens.search.clustering import HDBSCANStrategy
+        except ImportError:
+            pytest.skip("hdbscan not installed")
+
+        config = ClusteringConfig(min_cluster_size=2, min_samples=1, metric="cosine")
+        strategy = HDBSCANStrategy(config)
+
+        clusters = strategy.cluster(mock_embeddings, sample_results)
+
+        all_indices = set()
+        for cluster in clusters:
+            all_indices.update(cluster)
+
+        assert all_indices == set(range(len(sample_results)))
+
     def test_cluster_empty_results(self, hdbscan_strategy):
         """Test cluster() with empty results."""
         import numpy as np

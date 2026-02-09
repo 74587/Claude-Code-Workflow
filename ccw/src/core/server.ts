@@ -38,6 +38,7 @@ import { handleTaskRoutes } from './routes/task-routes.js';
 import { handleDashboardRoutes } from './routes/dashboard-routes.js';
 import { handleOrchestratorRoutes } from './routes/orchestrator-routes.js';
 import { handleConfigRoutes } from './routes/config-routes.js';
+import { handleTeamRoutes } from './routes/team-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients, extractSessionIdFromPath } from './websocket.js';
@@ -681,6 +682,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Loop V1 routes (/api/loops/*) - backward compatibility
       if (pathname.startsWith('/api/loops')) {
         if (await handleLoopRoutes(routeContext)) return;
+      }
+
+      // Team routes (/api/teams*)
+      if (pathname.startsWith('/api/teams')) {
+        if (await handleTeamRoutes(routeContext)) return;
       }
 
       // Task routes (/api/tasks)

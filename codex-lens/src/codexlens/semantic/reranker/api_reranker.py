@@ -22,16 +22,52 @@ logger = logging.getLogger(__name__)
 _DEFAULT_ENV_API_KEY = "RERANKER_API_KEY"
 
 
+def _normalize_api_base_for_endpoint(*, api_base: str, endpoint: str) -> str:
+    """Normalize api_base to avoid duplicated version paths (e.g. /v1/v1/...).
+
+    httpx joins base_url paths with request paths even when the request path
+    starts with a leading slash. This means:
+
+        base_url="https://host/v1" + endpoint="/v1/rerank"
+        -> "https://host/v1/v1/rerank"
+
+    Many users configure OpenAI-style bases with a trailing "/v1", so we
+    defensively strip that suffix when the endpoint already includes "/v1/".
+    """
+    cleaned = (api_base or "").strip().rstrip("/")
+    if not cleaned:
+        return cleaned
+
+    endpoint_clean = endpoint or ""
+
+    # If api_base already includes the endpoint suffix (e.g. api_base ends with "/v1/rerank"),
+    # strip it so we don't end up with ".../v1/rerank/v1/rerank".
+    if endpoint_clean.startswith("/") and cleaned.lower().endswith(endpoint_clean.lower()):
+        return cleaned[: -len(endpoint_clean)]
+
+    # Strip a trailing "/v1" if endpoint already includes "/v1/...".
+    if endpoint_clean.startswith("/v1/") and cleaned.lower().endswith("/v1"):
+        return cleaned[:-3]
+
+    return cleaned
+
+
 def _get_env_with_fallback(key: str, workspace_root: Path | None = None) -> str | None:
     """Get environment variable with .env file fallback."""
     # Check os.environ first
     if key in os.environ:
         return os.environ[key]
+    prefixed_key = f"CODEXLENS_{key}"
+    if prefixed_key in os.environ:
+        return os.environ[prefixed_key]
 
     # Try loading from .env files
     try:
         from codexlens.env_config import get_env
-        return get_env(key, workspace_root=workspace_root)
+        value = get_env(key, workspace_root=workspace_root)
+        if value is not None:
+            return value
+        return get_env(prefixed_key, workspace_root=workspace_root)
     except ImportError:
         return None
 
@@ -99,8 +135,11 @@ class APIReranker(BaseReranker):
 
         # Load api_base from env with .env fallback
         env_api_base = _get_env_with_fallback("RERANKER_API_BASE", self._workspace_root)
-        self.api_base = (api_base or env_api_base or defaults["api_base"]).strip().rstrip("/")
         self.endpoint = defaults["endpoint"]
+        self.api_base = _normalize_api_base_for_endpoint(
+            api_base=(api_base or env_api_base or defaults["api_base"]),
+            endpoint=self.endpoint,
+        )
 
         # Load model from env with .env fallback
         env_model = _get_env_with_fallback("RERANKER_MODEL", self._workspace_root)

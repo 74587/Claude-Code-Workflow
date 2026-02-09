@@ -5604,3 +5604,29 @@ export async function upgradeCcwInstallation(
     body: JSON.stringify({ path }),
   });
 }
+
+// ========== Team API ==========
+
+export async function fetchTeams(): Promise<{ teams: Array<{ name: string; messageCount: number; lastActivity: string }> }> {
+  return fetchApi('/api/teams');
+}
+
+export async function fetchTeamMessages(
+  teamName: string,
+  params?: { from?: string; to?: string; type?: string; last?: number; offset?: number }
+): Promise<{ total: number; showing: number; messages: Array<Record<string, unknown>> }> {
+  const searchParams = new URLSearchParams();
+  if (params?.from) searchParams.set('from', params.from);
+  if (params?.to) searchParams.set('to', params.to);
+  if (params?.type) searchParams.set('type', params.type);
+  if (params?.last) searchParams.set('last', String(params.last));
+  if (params?.offset) searchParams.set('offset', String(params.offset));
+  const qs = searchParams.toString();
+  return fetchApi(`/api/teams/${encodeURIComponent(teamName)}/messages${qs ? `?${qs}` : ''}`);
+}
+
+export async function fetchTeamStatus(
+  teamName: string
+): Promise<{ members: Array<{ member: string; lastSeen: string; lastAction: string; messageCount: number }>; total_messages: number }> {
+  return fetchApi(`/api/teams/${encodeURIComponent(teamName)}/status`);
+}
