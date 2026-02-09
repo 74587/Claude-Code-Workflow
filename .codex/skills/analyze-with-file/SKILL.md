@@ -1,456 +1,382 @@
 ---
 name: analyze-with-file
-description: Interactive collaborative analysis with documented discussions, parallel subagent exploration, and evolving understanding. Parallel analysis for Codex.
+description: Interactive collaborative analysis with documented discussions, inline exploration, and evolving understanding. Serial execution with no agent delegation.
 argument-hint: "TOPIC=\"<question or topic>\" [--depth=quick|standard|deep] [--continue]"
 ---
 
-# Codex Analyze-With-File Workflow
-
-## Quick Start
-
-Interactive collaborative analysis workflow with **documented discussion process**. Records understanding evolution, facilitates multi-round Q&A, and uses **parallel subagent exploration** for deep analysis.
-
-**Core workflow**: Topic → Parallel Explore → Discuss → Document → Refine → Conclude → (Optional) Quick Execute
+# Codex Analyze-With-File Prompt
 
 ## Overview
 
-This workflow enables iterative exploration and refinement of complex topics through parallel-capable phases:
+Interactive collaborative analysis workflow with **documented discussion process**. Records understanding evolution, facilitates multi-round Q&A, and uses inline search tools for deep exploration.
 
-1. **Topic Understanding** - Parse the topic and identify analysis dimensions
-2. **Parallel Exploration** - Gather codebase context via parallel subagents (up to 4)
-3. **Interactive Discussion** - Multi-round Q&A with user feedback and direction adjustments
-4. **Synthesis & Conclusion** - Consolidate insights and generate actionable recommendations
-5. **Quick Execute** *(Optional)* - Convert conclusions to plan.json and execute serially with logging
+**Core workflow**: Topic → Explore → Discuss → Document → Refine → Conclude → (Optional) Quick Execute
 
-The key innovation is **documented discussion timeline** that captures the evolution of understanding across all phases, enabling users to track how insights develop and assumptions are corrected.
+**Key features**:
+- **Documented discussion timeline**: Captures understanding evolution across all phases
+- **Multi-perspective analysis**: Supports up to 4 analysis perspectives (serial, inline)
+- **Interactive discussion**: Multi-round Q&A with user feedback and direction adjustments
+- **Quick execute**: Convert conclusions directly to executable tasks
 
-**Codex-Specific Features**:
-- Parallel subagent execution via `spawn_agent` + batch `wait({ ids: [...] })`
-- Role loading via path (agent reads `~/.codex/agents/*.md` itself)
-- Deep interaction with `send_input` for multi-round within single agent
-- Explicit lifecycle management with `close_agent`
+## Auto Mode
+
+When `--yes` or `-y`: Auto-confirm exploration decisions, use recommended analysis angles, skip interactive scoping.
+
+## Quick Start
+
+```bash
+# Basic usage
+/codex:analyze-with-file TOPIC="How to optimize this project's authentication architecture"
+
+# With depth selection
+/codex:analyze-with-file TOPIC="Performance bottleneck analysis" --depth=deep
+
+# Continue existing session
+/codex:analyze-with-file TOPIC="authentication architecture" --continue
+
+# Auto mode (skip confirmations)
+/codex:analyze-with-file -y TOPIC="Caching strategy analysis"
+```
+
+## Target Topic
+
+**$TOPIC**
 
 ## Analysis Flow
 
 ```
-Session Detection
-   ├─ Check if analysis session exists for topic
-   ├─ EXISTS + discussion.md → Continue mode
-   └─ NOT_FOUND → New session mode
+Step 0: Session Setup
+   ├─ Parse topic, flags (--depth, --continue, -y)
+   ├─ Generate session ID: ANL-{slug}-{date}
+   └─ Create session folder (or detect existing → continue mode)
 
-Phase 1: Topic Understanding
-   ├─ Parse topic/question
-   ├─ Identify analysis dimensions (architecture, implementation, performance, security, concept, comparison, decision)
-   ├─ Initial scoping with user (focus areas, perspectives, analysis depth)
+Step 1: Topic Understanding
+   ├─ Parse topic, identify analysis dimensions
+   ├─ Initial scoping with user (focus areas, perspectives, depth)
    └─ Initialize discussion.md
 
-Phase 2: Parallel Exploration (Subagent Execution)
-   ├─ Determine exploration mode (single vs multi-perspective)
-   ├─ Parallel: spawn_agent × N (up to 4 perspectives)
-   ├─ Batch wait: wait({ ids: [agent1, agent2, ...] })
-   ├─ Aggregate findings from all perspectives
-   ├─ Synthesize convergent/conflicting themes (if multi-perspective)
-   └─ Write explorations.json or perspectives.json
+Step 2: Exploration (Inline, No Agents)
+   ├─ Detect codebase → search relevant modules, patterns
+   │   ├─ Read project-tech.json / project-guidelines.json (if exists)
+   │   └─ Use Grep, Glob, Read, mcp__ace-tool__search_context
+   ├─ Multi-perspective analysis (if selected, serial)
+   │   ├─ Single: Comprehensive analysis
+   │   └─ Multi (≤4): Serial per-perspective analysis with synthesis
+   ├─ Aggregate findings → explorations.json / perspectives.json
+   └─ Update discussion.md with Round 1
 
-Phase 3: Interactive Discussion (Multi-Round)
-   ├─ Present exploration findings to user
-   ├─ Gather user feedback (deepen, adjust direction, ask questions, complete)
-   ├─ Execute targeted analysis via send_input or new subagent
+Step 3: Interactive Discussion (Multi-Round, max 5)
+   ├─ Present exploration findings
+   ├─ Gather user feedback
+   ├─ Process response:
+   │   ├─ Deepen → deeper inline analysis in current direction
+   │   ├─ Adjust → new inline analysis with adjusted focus
+   │   ├─ Questions → direct answers with evidence
+   │   └─ Complete → exit loop for synthesis
    ├─ Update discussion.md with each round
-   └─ Repeat until clarity achieved (max 5 rounds)
+   └─ Repeat until user selects complete or max rounds
 
-Phase 4: Synthesis & Conclusion
-   ├─ Consolidate all insights and discussion rounds
-   ├─ Generate final conclusions with recommendations
-   ├─ Update discussion.md with synthesis
-   └─ Offer follow-up options (quick execute, create issue, generate task, export report)
+Step 4: Synthesis & Conclusion
+   ├─ Consolidate all insights → conclusions.json
+   ├─ Update discussion.md with final synthesis
+   └─ Offer options: quick execute / create issue / generate task / export / done
 
-Phase 5: Quick Execute (Optional - user selects "简要执行")
-   ├─ Convert conclusions.recommendations → quick-plan.json
-   ├─ Present plan for user confirmation
-   ├─ Serial task execution via CLI (no agent exploration)
-   ├─ Record each task result to execution-log.md
-   └─ Report completion summary with statistics
+Step 5: Quick Execute (Optional - user selects)
+   ├─ Convert conclusions.recommendations → execution-plan.jsonl (with convergence)
+   ├─ Pre-execution analysis (dependencies, file conflicts, execution order)
+   ├─ User confirmation
+   ├─ Direct inline execution (Read/Edit/Write/Grep/Glob/Bash)
+   ├─ Record events → execution-events.md, update execution.md
+   └─ Report completion summary
 ```
 
-## Output Structure
+## Configuration
 
-```
-{projectRoot}/.workflow/.analysis/ANL-{slug}-{date}/
-├── discussion.md                # ⭐ Evolution of understanding & discussions
-├── exploration-codebase.json    # Phase 2: Codebase context (single perspective)
-├── explorations/                # Phase 2: Multi-perspective explorations (if selected)
-│   ├── technical.json
-│   ├── architectural.json
-│   └── ...
-├── explorations.json            # Phase 2: Single perspective findings
-├── perspectives.json            # Phase 2: Multi-perspective findings with synthesis
-├── conclusions.json             # Phase 4: Final synthesis with recommendations
-├── quick-plan.json              # Phase 5: Executable task plan (if quick execute)
-└── execution-log.md             # Phase 5: Execution history (if quick execute)
-```
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-y, --yes` | false | Auto-confirm all decisions |
+| `--continue` | false | Continue existing session |
+| `--depth` | standard | Analysis depth: quick / standard / deep |
 
-## Output Artifacts
-
-### Phase 1: Topic Understanding
-
-| Artifact | Purpose |
-|----------|---------|
-| `discussion.md` | Initialized with session metadata and initial questions |
-| Session variables | Topic slug, dimensions, focus areas, perspectives, analysis depth |
-
-### Phase 2: Parallel Exploration
-
-| Artifact | Purpose |
-|----------|---------|
-| `exploration-codebase.json` | Single perspective: Codebase context (relevant files, patterns, constraints) |
-| `explorations/*.json` | Multi-perspective: Individual exploration results per perspective |
-| `explorations.json` | Single perspective: Aggregated findings |
-| `perspectives.json` | Multi-perspective: Findings with synthesis (convergent/conflicting themes) |
-| Updated `discussion.md` | Round 1: Exploration results and initial analysis |
-
-### Phase 3: Interactive Discussion
-
-| Artifact | Purpose |
-|----------|---------|
-| Updated `discussion.md` | Round N (2-5): User feedback, direction adjustments, corrected assumptions |
-| Subagent analysis results | Deepened analysis, adjusted perspective, or specific question answers |
-
-### Phase 4: Synthesis & Conclusion
-
-| Artifact | Purpose |
-|----------|---------|
-| `conclusions.json` | Final synthesis: key conclusions, recommendations, open questions |
-| Final `discussion.md` | Complete analysis timeline with conclusions and final understanding |
-
-### Phase 5: Quick Execute (Optional)
-
-| Artifact | Purpose |
-|----------|---------|
-| `quick-plan.json` | Executable task plan converted from recommendations |
-| `execution-log.md` | Unified execution history with task results and statistics |
-
----
+**Session ID format**: `ANL-{slug}-{YYYY-MM-DD}`
+- slug: lowercase, alphanumeric + CJK characters, max 40 chars
+- date: YYYY-MM-DD (UTC+8)
+- Auto-detect continue: session folder + discussion.md exists → continue mode
 
 ## Implementation Details
 
 ### Session Initialization
 
-##### Step 0: Determine Project Root
+##### Step 0: Initialize Session
 
-检测项目根目录，确保 `.workflow/` 产物位置正确：
+```javascript
+const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
-```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+// Parse flags
+const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+const continueMode = $ARGUMENTS.includes('--continue')
+const depthMatch = $ARGUMENTS.match(/--depth[=\s](quick|standard|deep)/)
+const analysisDepth = depthMatch ? depthMatch[1] : 'standard'
+
+// Extract topic
+const topic = $ARGUMENTS.replace(/--yes|-y|--continue|--depth[=\s]\w+|TOPIC=/g, '').replace(/^["']|["']$/g, '').trim()
+
+// Determine project root
+const projectRoot = Bash('git rev-parse --show-toplevel 2>/dev/null || pwd').trim()
+
+const slug = topic.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-').substring(0, 40)
+const dateStr = getUtc8ISOString().substring(0, 10)
+const sessionId = `ANL-${slug}-${dateStr}`
+const sessionFolder = `${projectRoot}/.workflow/.analysis/${sessionId}`
+
+// Auto-detect continue: session folder + discussion.md exists → continue mode
+// If continue → load discussion.md + explorations, resume from last round
+Bash(`mkdir -p ${sessionFolder}`)
 ```
 
-优先通过 git 获取仓库根目录；非 git 项目回退到 `pwd` 取当前绝对路径。
-存储为 `{projectRoot}`，后续所有 `.workflow/` 路径必须以此为前缀。
-
-The workflow automatically generates a unique session identifier and directory structure based on the topic and current date (UTC+8).
-
-**Session ID Format**: `ANL-{slug}-{date}`
-- `slug`: Lowercase alphanumeric + Chinese characters, max 40 chars (derived from topic)
-- `date`: YYYY-MM-DD format (UTC+8)
-
-**Session Directory**: `{projectRoot}/.workflow/.analysis/{sessionId}/`
-
-**Auto-Detection**: If session folder exists with discussion.md, automatically enters continue mode. Otherwise, creates new session.
-
-**Session Variables**:
-- `sessionId`: Unique identifier
-- `sessionFolder`: Base directory for artifacts
-- `mode`: "new" or "continue"
-- `dimensions`: Analysis focus areas
-- `focusAreas`: User-selected focus areas
-- `analysisDepth`: quick|standard|deep
-
----
-
-## Phase 1: Topic Understanding
+### Phase 1: Topic Understanding
 
 **Objective**: Parse the topic, identify relevant analysis dimensions, scope the analysis with user input, and initialize the discussion document.
 
-### Step 1.1: Parse Topic & Identify Dimensions
+##### Step 1.1: Parse Topic & Identify Dimensions
 
-The workflow analyzes the topic text against predefined analysis dimensions to determine relevant focus areas.
+Match topic keywords against analysis dimensions:
 
-**Analysis Dimensions and Keywords**:
+```javascript
+const ANALYSIS_DIMENSIONS = {
+  architecture:    ['架构', 'architecture', 'design', 'structure', '设计', 'pattern'],
+  implementation:  ['实现', 'implement', 'code', 'coding', '代码', 'logic'],
+  performance:     ['性能', 'performance', 'optimize', 'bottleneck', '优化', 'speed'],
+  security:        ['安全', 'security', 'auth', 'permission', '权限', 'vulnerability'],
+  concept:         ['概念', 'concept', 'theory', 'principle', '原理', 'understand'],
+  comparison:      ['比较', 'compare', 'vs', 'difference', '区别', 'versus'],
+  decision:        ['决策', 'decision', 'choice', 'tradeoff', '选择', 'trade-off']
+}
 
-| Dimension | Keywords |
-|-----------|----------|
-| architecture | 架构, architecture, design, structure, 设计, pattern |
-| implementation | 实现, implement, code, coding, 代码, logic |
-| performance | 性能, performance, optimize, bottleneck, 优化, speed |
-| security | 安全, security, auth, permission, 权限, vulnerability |
-| concept | 概念, concept, theory, principle, 原理, understand |
-| comparison | 比较, compare, vs, difference, 区别, versus |
-| decision | 决策, decision, choice, tradeoff, 选择, trade-off |
+// Match topic text against keyword lists
+// If multiple dimensions match, include all
+// If none match, default to "architecture" and "implementation"
+const dimensions = identifyDimensions(topic, ANALYSIS_DIMENSIONS)
+```
 
-**Matching Logic**: Compare topic text against keyword lists. If multiple dimensions match, include all. If none match, default to "architecture" and "implementation".
+##### Step 1.2: Initial Scoping (New Session Only)
 
-### Step 1.2: Initial Scoping (New Session Only)
+For new sessions, gather user preferences (skipped in auto mode or continue mode):
 
-For new analysis sessions, gather user preferences before exploration:
+```javascript
+if (!autoYes && !continueMode) {
+  // 1. Focus areas (multi-select)
+  // Generate directions dynamically from detected dimensions (see Dimension-Direction Mapping)
+  const focusAreas = AskUserQuestion({
+    questions: [{
+      question: "Select analysis focus areas:",
+      header: "Focus",
+      multiSelect: true,
+      options: generateFocusOptions(dimensions) // Dynamic based on dimensions
+    }]
+  })
 
-**Focus Areas** (Multi-select):
-- 代码实现 (Implementation details)
-- 架构设计 (Architecture design)
-- 最佳实践 (Best practices)
-- 问题诊断 (Problem diagnosis)
+  // 2. Analysis perspectives (multi-select, max 4)
+  const perspectives = AskUserQuestion({
+    questions: [{
+      question: "Select analysis perspectives (single = focused, multi = broader coverage):",
+      header: "Perspectives",
+      multiSelect: true,
+      options: [
+        { label: "Technical", description: "Implementation patterns, code structure, technical feasibility" },
+        { label: "Architectural", description: "System design, scalability, component interactions" },
+        { label: "Security", description: "Vulnerabilities, authentication, access control" },
+        { label: "Performance", description: "Bottlenecks, optimization, resource utilization" }
+      ]
+    }]
+  })
 
-**Analysis Perspectives** (Multi-select, max 4 for parallel exploration):
-- 技术视角 (Technical - implementation patterns, code structure)
-- 架构视角 (Architectural - system design, component interactions)
-- 安全视角 (Security - vulnerabilities, access control)
-- 性能视角 (Performance - bottlenecks, optimization)
+  // 3. Analysis depth (single-select, unless --depth already set)
+  // Quick: surface level | Standard: moderate depth | Deep: comprehensive
+}
+```
 
-**Selection Note**: Single perspective = 1 subagent. Multiple perspectives = parallel subagents (up to 4).
+##### Step 1.3: Initialize discussion.md
 
-**Analysis Depth** (Single-select):
-- 快速概览 (Quick overview, 10-15 minutes, 1 agent)
-- 标准分析 (Standard analysis, 30-60 minutes, 1-2 agents)
-- 深度挖掘 (Deep dive, 1-2+ hours, up to 4 parallel agents)
+```javascript
+const discussionMd = `# Analysis Discussion
 
-### Step 1.3: Initialize discussion.md
+**Session ID**: ${sessionId}
+**Topic**: ${topic}
+**Started**: ${getUtc8ISOString()}
+**Dimensions**: ${dimensions.join(', ')}
+**Depth**: ${analysisDepth}
 
-Create the main discussion document with session metadata, context, and placeholder sections.
+## Analysis Context
+- Focus areas: ${focusAreas.join(', ')}
+- Perspectives: ${selectedPerspectives.map(p => p.name).join(', ')}
+- Depth: ${analysisDepth}
 
-**discussion.md Structure**:
-- **Header**: Session ID, topic, start time, identified dimensions
-- **Analysis Context**: User-selected focus areas, depth level, scope
-- **Initial Questions**: Key questions to guide the analysis
-- **Discussion Timeline**: Round-by-round findings and insights
-- **Current Understanding**: To be populated after exploration
+## Initial Questions
+${generateInitialQuestions(topic, dimensions).map(q => `- ${q}`).join('\n')}
 
-**Key Features**:
-- Serves as the primary artifact throughout the workflow
-- Captures all rounds of discussion and findings
-- Documents assumption corrections and insight evolution
-- Enables session continuity across multiple interactions
+---
+
+## Discussion Timeline
+
+> Rounds will be appended below as analysis progresses.
+
+---
+
+## Current Understanding
+
+> To be populated after exploration.
+`
+Write(`${sessionFolder}/discussion.md`, discussionMd)
+```
 
 **Success Criteria**:
-- Session folder created successfully
-- discussion.md initialized with all metadata
+- Session folder created with discussion.md initialized
 - Analysis dimensions identified
-- User preferences captured
+- User preferences captured (focus, perspectives, depth)
 
----
+### Phase 2: Exploration
 
-## Phase 2: Parallel Exploration
+**Objective**: Gather codebase context and execute analysis to build understanding. All exploration done inline — no agent delegation.
 
-**Objective**: Gather codebase context and execute deep analysis via parallel subagents to build understanding of the topic.
+##### Step 2.1: Detect Codebase & Explore
 
-**Execution Model**: Parallel subagent execution - spawn multiple agents for different perspectives, batch wait for all results, then aggregate.
-
-**Key API Pattern**:
-```
-spawn_agent × N → wait({ ids: [...] }) → aggregate → close_agent × N
-```
-
-### Step 2.1: Determine Exploration Mode
-
-Based on user's perspective selection in Phase 1, choose exploration mode:
-
-| Mode | Condition | Subagents | Output |
-|------|-----------|-----------|--------|
-| Single | Default or 1 perspective selected | 1 agent | `exploration-codebase.json`, `explorations.json` |
-| Multi-perspective | 2-4 perspectives selected | 2-4 agents | `explorations/*.json`, `perspectives.json` |
-
-### Step 2.2: Parallel Subagent Exploration
-
-**⚠️ IMPORTANT**: Role files are NOT read by main process. Pass path in message, agent reads itself.
-
-**Single Perspective Exploration**:
+Search the codebase directly using available tools:
 
 ```javascript
-// spawn_agent with role path (agent reads itself)
-const explorationAgent = spawn_agent({
-  message: `
-## TASK ASSIGNMENT
+const hasCodebase = Bash(`
+  test -f package.json && echo "nodejs" ||
+  test -f go.mod && echo "golang" ||
+  test -f Cargo.toml && echo "rust" ||
+  test -f pyproject.toml && echo "python" ||
+  test -f pom.xml && echo "java" ||
+  test -d src && echo "generic" ||
+  echo "none"
+`).trim()
 
-### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: ${projectRoot}/.workflow/project-tech.json
-3. Read: ${projectRoot}/.workflow/project-guidelines.json
+if (hasCodebase !== 'none') {
+  // 1. Read project metadata (if exists)
+  //    - .workflow/project-tech.json (tech stack info)
+  //    - .workflow/project-guidelines.json (project conventions)
 
----
+  // 2. Search codebase for relevant content
+  //    Use: Grep, Glob, Read, or mcp__ace-tool__search_context
+  //    Search based on topic keywords and identified dimensions
+  //    Focus on:
+  //      - Modules/components related to the topic
+  //      - Existing patterns and code structure
+  //      - Integration points and constraints
+  //      - Relevant configuration and dependencies
 
-## Analysis Context
-Topic: ${topic_or_question}
-Dimensions: ${dimensions.join(', ')}
-Session: ${sessionFolder}
-
-## Exploration Tasks
-1. Run: ccw tool exec get_modules_by_depth '{}'
-2. Execute relevant searches based on topic keywords
-3. Analyze identified files for patterns and constraints
-
-## Deliverables
-Write findings to: ${sessionFolder}/exploration-codebase.json
-
-Schema: {relevant_files, patterns, constraints, integration_points, key_findings, _metadata}
-
-## Success Criteria
-- [ ] Role definition read
-- [ ] At least 5 relevant files identified
-- [ ] Patterns and constraints documented
-- [ ] JSON output follows schema
-`
-})
-
-// Wait for single agent
-const result = wait({ ids: [explorationAgent], timeout_ms: 600000 })
-
-// Clean up
-close_agent({ id: explorationAgent })
-```
-
-**Multi-Perspective Parallel Exploration** (up to 4 agents):
-
-```javascript
-// Define perspectives based on user selection
-const selectedPerspectives = [
-  { name: 'technical', focus: 'Implementation patterns and code structure' },
-  { name: 'architectural', focus: 'System design and component interactions' },
-  { name: 'security', focus: 'Security patterns and vulnerabilities' },
-  { name: 'performance', focus: 'Performance bottlenecks and optimization' }
-].slice(0, userSelectedCount)  // Max 4
-
-// Parallel spawn - all agents start immediately
-const agentIds = selectedPerspectives.map(perspective => {
-  return spawn_agent({
-    message: `
-## TASK ASSIGNMENT
-
-### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: ${projectRoot}/.workflow/project-tech.json
-3. Read: ${projectRoot}/.workflow/project-guidelines.json
-
----
-
-## Analysis Context
-Topic: ${topic_or_question}
-Perspective: ${perspective.name} - ${perspective.focus}
-Session: ${sessionFolder}
-
-## Perspective-Specific Exploration
-Focus on ${perspective.focus} aspects of the topic.
-
-## Exploration Tasks
-1. Run: ccw tool exec get_modules_by_depth '{}'
-2. Execute searches focused on ${perspective.name} patterns
-3. Identify ${perspective.name}-specific findings
-
-## Deliverables
-Write findings to: ${sessionFolder}/explorations/${perspective.name}.json
-
-Schema: {
-  perspective: "${perspective.name}",
-  relevant_files, patterns, key_findings,
-  perspective_insights, open_questions,
-  _metadata
+  // 3. Write findings
+  Write(`${sessionFolder}/exploration-codebase.json`, JSON.stringify({
+    project_type: hasCodebase,
+    relevant_files: [...],    // [{path, relevance, summary}]
+    patterns: [...],          // [{pattern, files, description}]
+    constraints: [...],       // Architectural constraints found
+    integration_points: [...], // [{location, description}]
+    key_findings: [...],      // Main insights from code search
+    _metadata: { timestamp: getUtc8ISOString(), exploration_scope: '...' }
+  }, null, 2))
 }
-
-## Success Criteria
-- [ ] Role definition read
-- [ ] Perspective-specific insights identified
-- [ ] At least 3 relevant findings
-- [ ] JSON output follows schema
-`
-  })
-})
-
-// Batch wait - TRUE PARALLELISM (key Codex advantage)
-const results = wait({
-  ids: agentIds,
-  timeout_ms: 600000  // 10 minutes for all
-})
-
-// Handle timeout
-if (results.timed_out) {
-  // Some agents may still be running
-  // Decide: continue waiting or use completed results
-}
-
-// Collect results from all perspectives
-const completedFindings = {}
-agentIds.forEach((agentId, index) => {
-  const perspective = selectedPerspectives[index]
-  if (results.status[agentId].completed) {
-    completedFindings[perspective.name] = results.status[agentId].completed
-  }
-})
-
-// Batch cleanup
-agentIds.forEach(id => close_agent({ id }))
 ```
 
-### Step 2.3: Aggregate Findings
+##### Step 2.2: Multi-Perspective Analysis (if selected)
 
-**Single Perspective Aggregation**:
+Analyze the topic from each selected perspective. All analysis done inline by the AI.
 
-Create `explorations.json` from single agent output:
-- Extract key findings from exploration-codebase.json
-- Organize by analysis dimensions
-- Generate discussion points and open questions
-
-**Multi-Perspective Synthesis**:
-
-Create `perspectives.json` from parallel agent outputs:
+**Single perspective** (default):
 
 ```javascript
-const synthesis = {
+// Analyze comprehensively across all identified dimensions
+// Use exploration-codebase.json as context
+// Focus on: patterns, anti-patterns, potential issues, opportunities
+
+const findings = {
   session_id: sessionId,
-  timestamp: new Date().toISOString(),
-  topic: topic_or_question,
+  timestamp: getUtc8ISOString(),
+  topic: topic,
   dimensions: dimensions,
+  sources: [...],            // [{type, file, summary}]
+  key_findings: [...],       // Main insights
+  discussion_points: [...],  // Questions for user engagement
+  open_questions: [...]      // Unresolved questions
+}
+Write(`${sessionFolder}/explorations.json`, JSON.stringify(findings, null, 2))
+```
 
-  // Individual perspective findings
-  perspectives: selectedPerspectives.map(p => ({
-    name: p.name,
-    findings: completedFindings[p.name]?.key_findings || [],
-    insights: completedFindings[p.name]?.perspective_insights || [],
-    questions: completedFindings[p.name]?.open_questions || []
-  })),
+**Multi-perspective** (2-4 perspectives, serial):
 
-  // Cross-perspective synthesis
-  synthesis: {
-    convergent_themes: extractConvergentThemes(completedFindings),
-    conflicting_views: extractConflicts(completedFindings),
-    unique_contributions: extractUniqueInsights(completedFindings)
-  },
+```javascript
+// Analyze each perspective sequentially
+// For each perspective:
+//   1. Focus search/analysis on that perspective's concern area
+//   2. Generate perspective-specific insights
+//   3. Write individual findings
 
-  // Aggregated for discussion
-  aggregated_findings: mergeAllFindings(completedFindings),
-  discussion_points: generateDiscussionPoints(completedFindings),
-  open_questions: mergeOpenQuestions(completedFindings)
+selectedPerspectives.forEach(perspective => {
+  // Analyze from this perspective's angle
+  // Use exploration-codebase.json + dimension focus
+  // Write to explorations/{perspective.name}.json
+  Write(`${sessionFolder}/explorations/${perspective.name}.json`, JSON.stringify({
+    perspective: perspective.name,
+    relevant_files: [...],
+    patterns: [...],
+    key_findings: [...],
+    perspective_insights: [...],
+    open_questions: [...],
+    _metadata: { timestamp: getUtc8ISOString() }
+  }, null, 2))
+})
+```
+
+##### Step 2.3: Aggregate Findings
+
+```javascript
+// Single perspective → explorations.json already written
+// Multi-perspective → synthesize into perspectives.json
+
+if (selectedPerspectives.length > 1) {
+  const synthesis = {
+    session_id: sessionId,
+    timestamp: getUtc8ISOString(),
+    topic: topic,
+    dimensions: dimensions,
+
+    // Individual perspective findings
+    perspectives: selectedPerspectives.map(p => ({
+      name: p.name,
+      findings: readJson(`${sessionFolder}/explorations/${p.name}.json`).key_findings,
+      insights: readJson(`${sessionFolder}/explorations/${p.name}.json`).perspective_insights,
+      questions: readJson(`${sessionFolder}/explorations/${p.name}.json`).open_questions
+    })),
+
+    // Cross-perspective synthesis
+    synthesis: {
+      convergent_themes: [...],   // What all perspectives agree on
+      conflicting_views: [...],   // Where perspectives differ
+      unique_contributions: [...]  // Insights unique to specific perspectives
+    },
+
+    aggregated_findings: [...],   // Main insights across all perspectives
+    discussion_points: [...],     // Questions for user engagement
+    open_questions: [...]         // Unresolved questions
+  }
+  Write(`${sessionFolder}/perspectives.json`, JSON.stringify(synthesis, null, 2))
 }
 ```
 
-**perspectives.json Schema**:
-- `session_id`: Session identifier
-- `timestamp`: Completion time
-- `topic`: Original topic/question
-- `dimensions[]`: Analysis dimensions
-- `perspectives[]`: [{name, findings, insights, questions}]
-- `synthesis`: {convergent_themes, conflicting_views, unique_contributions}
-- `aggregated_findings[]`: Main insights across all perspectives
-- `discussion_points[]`: Questions for user engagement
-- `open_questions[]`: Unresolved questions
+##### Step 2.4: Update discussion.md
 
-### Step 2.4: Update discussion.md
+Append Round 1 with exploration results:
 
-Append Round 1 with exploration results.
-
-**Single Perspective Round 1**:
+**Single perspective round 1**:
 - Sources analyzed (files, patterns)
 - Key findings with evidence
 - Discussion points for user
 - Open questions
 
-**Multi-Perspective Round 1**:
+**Multi-perspective round 1**:
 - Per-perspective summary (brief)
 - Synthesis section:
   - Convergent themes (what all perspectives agree on)
@@ -460,235 +386,95 @@ Append Round 1 with exploration results.
 - Open questions
 
 **Success Criteria**:
-- All subagents spawned and completed (or timeout handled)
-- `exploration-codebase.json` OR `explorations/*.json` created
-- `explorations.json` OR `perspectives.json` created with aggregated findings
-- `discussion.md` updated with Round 1 results
-- All agents closed properly
-- Ready for interactive discussion phase
+- exploration-codebase.json created with codebase context (if codebase exists)
+- explorations.json (single) or perspectives.json (multi) created with findings
+- discussion.md updated with Round 1 results
+- Ready for interactive discussion
 
----
-
-## Phase 3: Interactive Discussion
+### Phase 3: Interactive Discussion
 
 **Objective**: Iteratively refine understanding through multi-round user-guided discussion cycles.
 
 **Max Rounds**: 5 discussion rounds (can exit earlier if user indicates analysis is complete)
 
-**Execution Model**: Use `send_input` for deep interaction within same agent context, or spawn new agent for significantly different analysis angles.
+##### Step 3.1: Present Findings & Gather Feedback
 
-### Step 3.1: Present Findings & Gather Feedback
-
-Display current understanding and exploration findings to the user.
-
-**Presentation Content**:
-- Current understanding summary
-- Key findings from exploration
-- Open questions or areas needing clarification
-- Available action options
-
-**User Feedback Options** (ASK_USER - single select):
-
-| Option | Purpose | Next Action |
-|--------|---------|------------|
-| **继续深入** | Analysis direction is correct, deepen investigation | `send_input` to existing agent OR spawn new deepening agent |
-| **调整方向** | Different understanding or focus needed | Spawn new agent with adjusted focus |
-| **有具体问题** | Specific questions to ask about the topic | `send_input` with specific questions OR spawn Q&A agent |
-| **分析完成** | Sufficient information obtained | Exit discussion loop, proceed to synthesis |
-
-### Step 3.2: Deepen Analysis (via send_input or new agent)
-
-When user selects "continue deepening", execute more detailed investigation.
-
-**Option A: send_input to Existing Agent** (preferred if agent still active)
+Display current understanding and gather user direction:
 
 ```javascript
-// Continue with existing agent context (if not closed)
-send_input({
-  id: explorationAgent,
-  message: `
-## CONTINUATION: Deepen Analysis
+// Display current findings summary from explorations.json or perspectives.json
+// Show key points, discussion points, open questions
 
-Based on your initial exploration, the user wants deeper investigation.
-
-## Focus Areas for Deepening
-${previousFindings.discussion_points.map(p => `- ${p}`).join('\n')}
-
-## Additional Tasks
-1. Investigate edge cases and special scenarios
-2. Identify patterns not yet discussed
-3. Suggest implementation or improvement approaches
-4. Provide risk/impact assessments
-
-## Deliverables
-Append to: ${sessionFolder}/explorations.json (add "deepening_round_N" section)
-
-## Success Criteria
-- [ ] Prior findings expanded with specifics
-- [ ] Corner cases and limitations identified
-- [ ] Concrete improvement strategies proposed
-`
-})
-
-const deepenResult = wait({ ids: [explorationAgent], timeout_ms: 600000 })
+if (!autoYes) {
+  const feedback = AskUserQuestion({
+    questions: [{
+      question: `Analysis round ${round}: Feedback on current findings?`,
+      header: "Direction",
+      multiSelect: false,
+      options: [
+        { label: "Deepen", description: "Analysis direction is correct, investigate deeper" },
+        { label: "Adjust Direction", description: "Different understanding or focus needed" },
+        { label: "Specific Questions", description: "Have specific questions to ask" },
+        { label: "Analysis Complete", description: "Sufficient information obtained, proceed to synthesis" }
+      ]
+    }]
+  })
+}
 ```
 
-**Option B: Spawn New Deepening Agent** (if prior agent closed)
+##### Step 3.2: Process User Response
 
+**Deepen** — continue analysis in current direction:
 ```javascript
-const deepeningAgent = spawn_agent({
-  message: `
-## TASK ASSIGNMENT
-
-### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: ${sessionFolder}/explorations.json (prior findings)
-3. Read: ${projectRoot}/.workflow/project-tech.json
-
----
-
-## Context
-Topic: ${topic_or_question}
-Prior Findings Summary: ${previousFindings.key_findings.slice(0,3).join('; ')}
-
-## Deepening Task
-Expand on prior findings with more detailed investigation.
-
-## Focus Areas
-${previousFindings.discussion_points.map(p => `- ${p}`).join('\n')}
-
-## Deliverables
-Update: ${sessionFolder}/explorations.json (add deepening insights)
-`
-})
-
-const result = wait({ ids: [deepeningAgent], timeout_ms: 600000 })
-close_agent({ id: deepeningAgent })
+// Deeper inline analysis using search tools
+// Investigate edge cases, special scenarios
+// Identify patterns not yet discussed
+// Suggest improvement approaches
+// Provide risk/impact assessments
+// Update explorations.json with deepening findings
 ```
 
-### Step 3.3: Adjust Direction (new agent)
-
-When user indicates a different focus is needed, spawn new agent with adjusted perspective.
-
-**Direction Adjustment Process**:
-1. Ask user for adjusted focus area (via ASK_USER)
-2. Spawn new agent with different dimension/perspective
-3. Compare new insights with prior analysis
-4. Identify what was missed and why
-
+**Adjust Direction** — new focus area:
 ```javascript
-// Spawn agent with adjusted focus
-const adjustedAgent = spawn_agent({
-  message: `
-## TASK ASSIGNMENT
-
-### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: ${sessionFolder}/explorations.json (prior findings)
-3. Read: ${projectRoot}/.workflow/project-tech.json
-
----
-
-## Context
-Topic: ${topic_or_question}
-Previous Focus: ${previousDimensions.join(', ')}
-**New Focus**: ${userAdjustedFocus}
-
-## Adjusted Analysis Task
-Analyze the topic from ${userAdjustedFocus} perspective.
-
-## Tasks
-1. Identify gaps in prior analysis
-2. Generate insights specific to new focus
-3. Cross-reference with prior findings
-4. Explain what was missed and why
-
-## Deliverables
-Update: ${sessionFolder}/explorations.json (add adjusted_direction section)
-`
+// Ask user for adjusted focus
+const adjustedFocus = AskUserQuestion({
+  questions: [{
+    question: "What should the new analysis focus be?",
+    header: "New Focus",
+    multiSelect: false,
+    options: [
+      { label: "Code Details", description: "Deeper into implementation specifics" },
+      { label: "Architecture", description: "Broader structural analysis" },
+      { label: "Best Practices", description: "Industry standards and recommendations" }
+    ]
+  }]
 })
 
-const result = wait({ ids: [adjustedAgent], timeout_ms: 600000 })
-close_agent({ id: adjustedAgent })
+// Analyze from adjusted perspective using inline search
+// Compare new insights with prior analysis
+// Identify what was missed and why
+// Update explorations.json with adjusted findings
 ```
 
-### Step 3.4: Answer Specific Questions (send_input preferred)
-
-When user has specific questions, address them directly.
-
-**Preferred: send_input to Active Agent**
-
+**Specific Questions** — answer directly:
 ```javascript
-// Capture user questions first
-const userQuestions = ASK_USER([{
-  id: "user_questions", type: "input",
-  prompt: "What specific questions do you have?",
-  options: [/* predefined + custom */]
-}])  // BLOCKS (wait for user response)
-
-// Send questions to active agent
-send_input({
-  id: activeAgent,
-  message: `
-## USER QUESTIONS
-
-Please answer the following questions based on your analysis:
-
-${userQuestions.map((q, i) => `Q${i+1}: ${q}`).join('\n\n')}
-
-## Requirements
-- Answer each question directly and clearly
-- Provide evidence and file references
-- Rate confidence for each answer (high/medium/low)
-- Suggest related investigation areas
-`
-})
-
-const answerResult = wait({ ids: [activeAgent], timeout_ms: 300000 })
+// Capture user questions via AskUserQuestion (text input)
+// Answer each question based on codebase search and analysis
+// Provide evidence and file references
+// Rate confidence for each answer (high/medium/low)
+// Document Q&A in discussion.md
 ```
 
-**Alternative: Spawn Q&A Agent**
+**Analysis Complete** — exit loop, proceed to Phase 4.
 
-```javascript
-const qaAgent = spawn_agent({
-  message: `
-## TASK ASSIGNMENT
+##### Step 3.3: Document Each Round
 
-### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: ${sessionFolder}/explorations.json (context)
-
----
-
-## Q&A Task
-Answer user's specific questions:
-
-${userQuestions.map((q, i) => `Q${i+1}: ${q}`).join('\n\n')}
-
-## Requirements
-- Evidence-based answers with file references
-- Confidence rating for each answer
-- Suggest related investigation areas
-
-## Deliverables
-Append to: ${sessionFolder}/explorations.json (add qa_round_N section)
-`
-})
-
-const result = wait({ ids: [qaAgent], timeout_ms: 300000 })
-close_agent({ id: qaAgent })
-```
-
-### Step 3.5: Document Each Round
-
-Update discussion.md with results from each discussion round.
-
-**Round N Sections** (Rounds 3-5):
+Update discussion.md with results from each discussion round:
 
 | Section | Content |
 |---------|---------|
 | User Direction | Action taken (deepen/adjust/questions) and focus area |
-| Analysis Results | Key findings, insights, next steps |
+| Analysis Results | Key findings, insights, evidence with file references |
 | Insights | New learnings or clarifications from this round |
 | Corrected Assumptions | Important wrong→right transformations with explanation |
 | Open Items | Remaining questions or areas for future investigation |
@@ -700,63 +486,42 @@ Update discussion.md with results from each discussion round.
 - Organized by analysis dimension
 - Links between rounds showing understanding evolution
 
-**Consolidation Rules**:
-- Promote confirmed insights to "What We Established"
-- Track important corrections as learnings
-- Focus on current understanding, not timeline details
-- Avoid repeating discussion details
-- Highlight key insights for future reference
-
 **Success Criteria**:
 - User feedback processed for each round
-- `discussion.md` updated with all rounds
+- discussion.md updated with all discussion rounds
 - Assumptions documented and corrected
-- Exit condition reached (user selects complete or max rounds reached)
+- Exit condition reached (user selects complete or max rounds)
 
----
+### Phase 4: Synthesis & Conclusion
 
-## Phase 4: Synthesis & Conclusion
+**Objective**: Consolidate insights from all discussion rounds, generate conclusions and recommendations.
 
-**Objective**: Consolidate insights from all discussion rounds, generate final conclusions and recommendations, and offer next steps.
+##### Step 4.1: Consolidate Insights
 
-### Step 4.1: Consolidate Insights
+```javascript
+const conclusions = {
+  session_id: sessionId,
+  topic: topic,
+  completed: getUtc8ISOString(),
+  total_rounds: roundCount,
+  summary: '...',                    // Executive summary
+  key_conclusions: [                 // Main conclusions
+    { point: '...', evidence: '...', confidence: 'high|medium|low' }
+  ],
+  recommendations: [                 // Actionable recommendations
+    { action: '...', rationale: '...', priority: 'high|medium|low' }
+  ],
+  open_questions: [...],             // Unresolved questions
+  follow_up_suggestions: [           // Next steps
+    { type: 'issue|task|research', summary: '...' }
+  ]
+}
+Write(`${sessionFolder}/conclusions.json`, JSON.stringify(conclusions, null, 2))
+```
 
-Extract and synthesize all findings from the discussion timeline into coherent conclusions and recommendations.
+##### Step 4.2: Final discussion.md Update
 
-**Consolidation Activities**:
-1. Review all discussion rounds and accumulated findings
-2. Identify confirmed conclusions with evidence
-3. Extract actionable recommendations with rationale
-4. Note remaining open questions
-5. Generate follow-up suggestions
-
-**conclusions.json Structure**:
-
-| Field | Purpose |
-|-------|---------|
-| `session_id` | Reference to analysis session |
-| `topic` | Original topic/question |
-| `completed` | Completion timestamp |
-| `total_rounds` | Number of discussion rounds |
-| `summary` | Executive summary of analysis |
-| `key_conclusions[]` | Main conclusions with evidence and confidence |
-| `recommendations[]` | Actionable recommendations with rationale and priority |
-| `open_questions[]` | Unresolved questions for future investigation |
-| `follow_up_suggestions[]` | Suggested next steps (issue/task/research) |
-
-**Key Conclusions Format**:
-- `point`: Clear statement of the conclusion
-- `evidence`: Supporting evidence or code references
-- `confidence`: high|medium|low confidence level
-
-**Recommendations Format**:
-- `action`: Specific recommended action
-- `rationale`: Reasoning and benefits
-- `priority`: high|medium|low priority
-
-### Step 4.2: Final discussion.md Update
-
-Append conclusions section and finalize the understanding document.
+Append conclusions section and finalize:
 
 **Synthesis & Conclusions Section**:
 - **Executive Summary**: Overview of analysis findings
@@ -772,278 +537,337 @@ Append conclusions section and finalize the understanding document.
 | What Was Clarified | Important corrections (~~wrong→right~~) |
 | Key Insights | Valuable learnings for future reference |
 
-**Session Statistics**:
-- Total discussion rounds completed
-- Key findings identified
-- Analysis dimensions covered
-- Artifacts generated
+**Session Statistics**: Total discussion rounds, key findings count, dimensions covered, artifacts generated.
 
-**Documentation Standards**:
-- Clear evidence for conclusions
-- Actionable, specific recommendations
-- Organized by priority and confidence
-- Links to relevant code or discussions
-
-### Step 4.3: Post-Completion Options
-
-Offer user follow-up actions based on analysis results.
-
-**Available Options** (ASK_USER - multi-select):
-
-| Option | Purpose | Action |
-|--------|---------|--------|
-| **简要执行** | Quick execute from analysis | Jump to Phase 5: Generate quick-plan.json and execute serially |
-| **创建Issue** | Create actionable issue from findings | Launch `issue:new` with conclusions summary |
-| **生成任务** | Generate implementation task | Launch `workflow:lite-plan` for task breakdown |
-| **导出报告** | Generate standalone analysis report | Create formatted report document |
-| **完成** | No further action | End workflow |
-
-**Success Criteria**:
-- `conclusions.json` created with complete synthesis
-- `discussion.md` finalized with all conclusions
-- User offered meaningful next step options
-- Session complete and all artifacts available
-
----
-
-## Phase 5: Quick Execute (简要执行)
-
-**Objective**: Convert analysis conclusions directly into executable tasks and run them serially without additional exploration.
-
-**Trigger**: User selects "简要执行" in Phase 4 post-completion options.
-
-**Key Principle**: **No additional agent exploration** - analysis phase has already collected all necessary context.
-
-**详细规范**: 📖 [EXECUTE.md](./EXECUTE.md)
-
-**Flow Summary**:
-```
-conclusions.json → quick-plan.json → 用户确认 → 串行CLI执行 → execution-log.md
-```
-
-**Steps**:
-1. **Generate quick-plan.json** - Convert `conclusions.recommendations` to executable tasks
-2. **User Confirmation** - Present plan, user approves / adjusts / cancels
-3. **Serial Execution** - Execute tasks via CLI `--mode write`, one at a time
-4. **Record Log** - Each task result appended to `execution-log.md`
-5. **Update Plan** - Update `quick-plan.json` with execution statuses
-6. **Completion** - Report statistics, offer retry/view log/create issue
-
-**Output**:
-- `${sessionFolder}/quick-plan.json` - Executable task plan with statuses
-- `${sessionFolder}/execution-log.md` - Unified execution history
-
----
-
-## Configuration
-
-### Analysis Perspectives
-
-Optional multi-perspective parallel exploration (single perspective is default, max 4):
-
-| Perspective | Role File | Focus | Best For |
-|------------|-----------|-------|----------|
-| **Technical** | `~/.codex/agents/cli-explore-agent.md` | Implementation, code patterns, technical feasibility | Understanding how and technical details |
-| **Architectural** | `~/.codex/agents/cli-explore-agent.md` | System design, scalability, component interactions | Understanding structure and organization |
-| **Security** | `~/.codex/agents/cli-explore-agent.md` | Security patterns, vulnerabilities, access control | Identifying security risks |
-| **Performance** | `~/.codex/agents/cli-explore-agent.md` | Bottlenecks, optimization, resource utilization | Finding performance issues |
-
-**Selection**: User can multi-select up to 4 perspectives in Phase 1, or default to single comprehensive view.
-
-**Subagent Assignment**: Each perspective gets its own subagent for true parallel exploration.
-
-### Analysis Dimensions Reference
-
-Dimensions guide the scope and focus of analysis:
-
-| Dimension | Description | Best For |
-|-----------|-------------|----------|
-| architecture | System design, component interactions, design patterns | Understanding structure and organization |
-| implementation | Code patterns, implementation details, algorithms | Understanding how things work technically |
-| performance | Bottlenecks, optimization opportunities, resource usage | Finding and fixing performance issues |
-| security | Vulnerabilities, authentication, access control | Identifying and addressing security risks |
-| concept | Foundational ideas, principles, theory | Understanding fundamental mechanisms |
-| comparison | Comparing solutions, evaluating alternatives | Making informed technology or approach choices |
-| decision | Trade-offs, impact analysis, decision rationale | Understanding why decisions were made |
-
-### Analysis Depth Levels
-
-| Depth | Duration | Scope | Subagents |
-|-------|----------|-------|-----------|
-| Quick (快速概览) | 10-15 min | Surface level understanding | 1 agent, short timeout |
-| Standard (标准分析) | 30-60 min | Moderate depth with good coverage | 1-2 agents |
-| Deep (深度挖掘) | 1-2+ hours | Comprehensive detailed analysis | Up to 4 parallel agents |
-
-### Focus Areas
-
-Common focus areas that guide the analysis direction:
-
-| Focus | Description |
-|-------|-------------|
-| 代码实现 | Implementation details, code patterns, algorithms |
-| 架构设计 | System design, component structure, design patterns |
-| 最佳实践 | Industry standards, recommended approaches, patterns |
-| 问题诊断 | Identifying root causes, finding issues, debugging |
-
----
-
-## Error Handling & Recovery
-
-| Situation | Action | Recovery |
-|-----------|--------|----------|
-| **Subagent timeout** | Check `results.timed_out`, continue `wait()` or use partial results | Reduce scope, spawn single agent instead of parallel |
-| **Agent closed prematurely** | Cannot recover closed agent | Spawn new agent with prior context from explorations.json |
-| **Parallel agent partial failure** | Some agents complete, some fail | Use completed results, note gaps in synthesis |
-| **send_input to closed agent** | Error: agent not found | Spawn new agent with prior findings as context |
-| **No relevant findings** | Broaden search keywords or adjust scope | Ask user for clarification |
-| **User disengaged** | Summarize progress and offer break point | Save state, keep agents alive for resume |
-| **Max rounds reached (5)** | Force synthesis phase | Highlight remaining questions in conclusions |
-| **Session folder conflict** | Append timestamp suffix to session ID | Create unique folder and continue |
-| **Quick execute: task fails** | Record failure in execution-log.md, ask user | Retry, skip, or abort remaining tasks |
-| **Quick execute: CLI timeout** | Mark task as failed with timeout reason | User can retry or skip |
-| **Quick execute: no recommendations** | Cannot generate quick-plan.json | Inform user, suggest using lite-plan instead |
-
-### Codex-Specific Error Patterns
+##### Step 4.3: Post-Completion Options
 
 ```javascript
-// Safe parallel execution with error handling
-try {
-  const agentIds = perspectives.map(p => spawn_agent({ message: buildPrompt(p) }))
-
-  const results = wait({ ids: agentIds, timeout_ms: 600000 })
-
-  if (results.timed_out) {
-    // Handle partial completion
-    const completed = agentIds.filter(id => results.status[id].completed)
-    const pending = agentIds.filter(id => !results.status[id].completed)
-
-    // Option 1: Continue waiting for pending
-    // const moreResults = wait({ ids: pending, timeout_ms: 300000 })
-
-    // Option 2: Use partial results
-    // processPartialResults(completed, results)
-  }
-
-  // Process all results
-  processResults(agentIds, results)
-
-} finally {
-  // ALWAYS cleanup, even on errors
-  agentIds.forEach(id => {
-    try { close_agent({ id }) } catch (e) { /* ignore */ }
+if (!autoYes) {
+  AskUserQuestion({
+    questions: [{
+      question: "Analysis complete. Next step:",
+      header: "Next Step",
+      multiSelect: false,
+      options: [
+        { label: "Quick Execute", description: "Convert recommendations to tasks and execute serially" },
+        { label: "Create Issue", description: "Create GitHub Issue from conclusions" },
+        { label: "Generate Task", description: "Launch lite-plan for implementation planning" },
+        { label: "Export Report", description: "Generate standalone analysis report" },
+        { label: "Done", description: "Save analysis only, no further action" }
+      ]
+    }]
   })
 }
 ```
 
----
+| Selection | Action |
+|-----------|--------|
+| Quick Execute | Jump to Phase 5 |
+| Create Issue | `Skill(skill="issue:new", args="...")` |
+| Generate Task | `Skill(skill="workflow:lite-plan", args="...")` |
+| Export Report | Copy discussion.md + conclusions.json to user-specified location |
+| Done | Display artifact paths, end |
 
-## Iteration Patterns
+**Success Criteria**:
+- conclusions.json created with complete synthesis
+- discussion.md finalized with conclusions
+- User offered meaningful next step options
 
-### First Analysis Session (Parallel Mode)
+### Phase 5: Quick Execute (Optional)
 
-```
-User initiates: TOPIC="specific question"
-   ├─ No session exists → New session mode
-   ├─ Parse topic and identify dimensions
-   ├─ Scope analysis with user (focus areas, perspectives, depth)
-   ├─ Create discussion.md
-   │
-   ├─ Determine exploration mode:
-   │   ├─ Single perspective → 1 subagent
-   │   └─ Multi-perspective → 2-4 parallel subagents
-   │
-   ├─ Execute parallel exploration:
-   │   ├─ spawn_agent × N (perspectives)
-   │   ├─ wait({ ids: [...] })  ← TRUE PARALLELISM
-   │   └─ close_agent × N
-   │
-   ├─ Aggregate findings (+ synthesis if multi-perspective)
-   └─ Enter multi-round discussion loop
-```
+**Objective**: Convert analysis conclusions into JSONL execution list with convergence criteria, then execute tasks directly inline.
 
-### Continue Existing Session
+**Trigger**: User selects "Quick Execute" in Phase 4.
 
-```
-User resumes: TOPIC="same topic" with --continue flag
-   ├─ Session exists → Continue mode
-   ├─ Load previous discussion.md
-   ├─ Load explorations.json or perspectives.json
-   └─ Resume from last discussion round
-```
+**Key Principle**: No additional exploration — analysis phase has already collected all necessary context. No CLI delegation — execute directly using tools.
 
-### Discussion Loop (Rounds 2-5)
+**Flow**: `conclusions.json → execution-plan.jsonl → User Confirmation → Direct Inline Execution → execution.md + execution-events.md`
 
-```
-Each round:
-   ├─ Present current findings
-   ├─ Gather user feedback
-   ├─ Process response:
-   │   ├─ Deepen → send_input to active agent OR spawn deepening agent
-   │   ├─ Adjust → spawn new agent with adjusted focus
-   │   ├─ Questions → send_input with questions OR spawn Q&A agent
-   │   └─ Complete → Exit loop for synthesis
-   ├─ wait({ ids: [...] }) for result
-   ├─ Update discussion.md
-   └─ Repeat until user selects complete or max rounds reached
-```
+**Full specification**: See `EXECUTE.md` for detailed step-by-step implementation.
 
-### Agent Lifecycle Management
+##### Step 5.1: Generate execution-plan.jsonl
 
-```
-Subagent lifecycle:
-   ├─ spawn_agent({ message }) → Create with role path + task
-   ├─ wait({ ids, timeout_ms }) → Get results (ONLY way to get output)
-   ├─ send_input({ id, message }) → Continue interaction (if not closed)
-   └─ close_agent({ id }) → Cleanup (MUST do, cannot recover)
+Convert `conclusions.recommendations` into JSONL execution list. Each line is a self-contained task with convergence criteria:
 
-Key rules:
-   ├─ NEVER close before you're done with an agent
-   ├─ ALWAYS use wait() to get results, NOT close_agent()
-   ├─ Batch wait for parallel agents: wait({ ids: [a, b, c] })
-   └─ Delay close_agent until all rounds complete (for send_input reuse)
+```javascript
+const conclusions = JSON.parse(Read(`${sessionFolder}/conclusions.json`))
+const explorations = file_exists(`${sessionFolder}/explorations.json`)
+  ? JSON.parse(Read(`${sessionFolder}/explorations.json`))
+  : file_exists(`${sessionFolder}/perspectives.json`)
+    ? JSON.parse(Read(`${sessionFolder}/perspectives.json`))
+    : null
+
+const tasks = conclusions.recommendations.map((rec, index) => ({
+  id: `TASK-${String(index + 1).padStart(3, '0')}`,
+  title: rec.action,
+  description: rec.rationale,
+  type: inferTaskType(rec),  // fix | refactor | feature | enhancement | testing
+  priority: rec.priority,
+  files_to_modify: extractFilesFromEvidence(rec, explorations),
+  depends_on: [],
+  convergence: {
+    criteria: generateCriteria(rec),         // Testable conditions
+    verification: generateVerification(rec), // Executable command or steps
+    definition_of_done: generateDoD(rec)     // Business language
+  },
+  context: {
+    source_conclusions: conclusions.key_conclusions,
+    evidence: rec.evidence || []
+  }
+}))
+
+// Validate convergence quality (same as req-plan-with-file)
+// Write one task per line
+Write(`${sessionFolder}/execution-plan.jsonl`, tasks.map(t => JSON.stringify(t)).join('\n'))
 ```
 
-### Completion Flow
+##### Step 5.2: Pre-Execution Analysis
 
-```
-Final synthesis:
-   ├─ Consolidate all insights from all rounds
-   ├─ Generate conclusions.json
-   ├─ Update discussion.md with final synthesis
-   ├─ close_agent for any remaining active agents
-   ├─ Offer follow-up options
-   └─ Archive session artifacts
-```
+Validate feasibility: dependency detection, circular dependency check (DFS), topological sort for execution order, file conflict analysis.
 
-### Quick Execute Flow (Phase 5)
+##### Step 5.3: Initialize Execution Artifacts
 
-```
-User selects "简要执行":
-   ├─ Read conclusions.json + explorations.json/perspectives.json
-   ├─ Convert recommendations → quick-plan.json
-   │   └─ No agent exploration (context already gathered)
-   ├─ Present plan to user for confirmation
-   │   ├─ 开始执行 → proceed
-   │   ├─ 调整任务 → modify and regenerate
-   │   └─ 取消 → keep plan, exit
-   │
-   ├─ Serial task execution:
-   │   ├─ TASK-001: CLI --mode write → record to execution-log.md
-   │   ├─ TASK-002: CLI --mode write → record to execution-log.md
-   │   └─ (repeat for all tasks)
-   │
-   ├─ Update quick-plan.json with statuses
-   ├─ Finalize execution-log.md with summary
-   └─ Offer post-execution options (retry/view log/create issue/done)
+Create `execution.md` (overview with task table, pre-execution analysis, execution timeline placeholder) and `execution-events.md` (chronological event log header).
+
+##### Step 5.4: User Confirmation
+
+```javascript
+if (!autoYes) {
+  AskUserQuestion({
+    questions: [{
+      question: `Execute ${tasks.length} tasks directly?\n\nExecution: Direct inline, serial`,
+      header: "Confirm",
+      multiSelect: false,
+      options: [
+        { label: "Start Execution", description: "Execute all tasks serially" },
+        { label: "Adjust Tasks", description: "Modify, reorder, or remove tasks" },
+        { label: "Cancel", description: "Cancel execution, keep execution-plan.jsonl" }
+      ]
+    }]
+  })
+}
 ```
 
----
+##### Step 5.5: Direct Inline Execution
+
+Execute tasks one by one directly using tools (Read, Edit, Write, Grep, Glob, Bash). **No CLI delegation**.
+
+For each task in execution order:
+1. Check dependencies satisfied
+2. Record START event to `execution-events.md`
+3. Execute: read files → analyze changes → apply modifications → verify convergence
+4. Record COMPLETE/FAIL event with convergence verification checklist
+5. Update `execution.md` task status
+6. Auto-commit if enabled (conventional commit format)
+
+##### Step 5.6: Finalize & Follow-up
+
+- Update `execution.md` with final summary (statistics, task results table)
+- Finalize `execution-events.md` with session footer
+- Update `execution-plan.jsonl` with execution results per task
+
+```javascript
+if (!autoYes) {
+  AskUserQuestion({
+    questions: [{
+      question: `Execution complete: ${completedTasks.size}/${tasks.length} succeeded.\nNext step:`,
+      header: "Post-Execute",
+      multiSelect: false,
+      options: [
+        { label: "Retry Failed", description: `Re-execute ${failedTasks.size} failed tasks` },
+        { label: "View Events", description: "Display execution-events.md" },
+        { label: "Create Issue", description: "Create issue from failed tasks" },
+        { label: "Done", description: "End workflow" }
+      ]
+    }]
+  })
+}
+```
+
+**Success Criteria**:
+- `execution-plan.jsonl` generated with convergence criteria per task
+- `execution.md` contains plan overview, task table, pre-execution analysis, final summary
+- `execution-events.md` contains chronological event stream with convergence verification
+- All tasks executed (or explicitly skipped) via direct inline execution
+- User informed of results and next steps
+
+## Output Structure
+
+```
+{projectRoot}/.workflow/.analysis/ANL-{slug}-{date}/
+├── discussion.md              # Evolution of understanding & discussions
+├── exploration-codebase.json  # Phase 2: Codebase context
+├── explorations/              # Phase 2: Multi-perspective explorations (if selected)
+│   ├── technical.json
+│   ├── architectural.json
+│   └── ...
+├── explorations.json          # Phase 2: Single perspective aggregated findings
+├── perspectives.json          # Phase 2: Multi-perspective findings with synthesis
+├── conclusions.json           # Phase 4: Final synthesis with recommendations
+├── execution-plan.jsonl       # Phase 5: JSONL execution list with convergence (if quick execute)
+├── execution.md               # Phase 5: Execution overview + task table + summary (if quick execute)
+└── execution-events.md        # Phase 5: Chronological event log (if quick execute)
+```
+
+| File | Phase | Description |
+|------|-------|-------------|
+| `discussion.md` | 1 | Initialized with session metadata, finalized in Phase 4 |
+| `exploration-codebase.json` | 2 | Codebase context: relevant files, patterns, constraints |
+| `explorations/*.json` | 2 | Per-perspective exploration results (multi only) |
+| `explorations.json` | 2 | Single perspective aggregated findings |
+| `perspectives.json` | 2 | Multi-perspective findings with cross-perspective synthesis |
+| `conclusions.json` | 4 | Final synthesis: conclusions, recommendations, open questions |
+| `execution-plan.jsonl` | 5 | JSONL execution list from recommendations, each line with convergence criteria |
+| `execution.md` | 5 | Execution overview: plan source, task table, pre-execution analysis, final summary |
+| `execution-events.md` | 5 | Chronological event stream with task details and convergence verification |
+
+## Analysis Dimensions Reference
+
+Dimensions guide the scope and focus of analysis:
+
+| Dimension | Keywords | Description |
+|-----------|----------|-------------|
+| architecture | 架构, architecture, design, structure, 设计, pattern | System design, component interactions, design patterns |
+| implementation | 实现, implement, code, coding, 代码, logic | Code patterns, implementation details, algorithms |
+| performance | 性能, performance, optimize, bottleneck, 优化, speed | Bottlenecks, optimization opportunities, resource usage |
+| security | 安全, security, auth, permission, 权限, vulnerability | Vulnerabilities, authentication, access control |
+| concept | 概念, concept, theory, principle, 原理, understand | Foundational ideas, principles, theory |
+| comparison | 比较, compare, vs, difference, 区别, versus | Comparing solutions, evaluating alternatives |
+| decision | 决策, decision, choice, tradeoff, 选择, trade-off | Trade-offs, impact analysis, decision rationale |
+
+## Analysis Perspectives
+
+Optional multi-perspective analysis (single perspective is default, max 4):
+
+| Perspective | Focus | Best For |
+|------------|-------|----------|
+| **Technical** | Implementation patterns, code structure, technical feasibility | Understanding how and technical details |
+| **Architectural** | System design, scalability, component interactions | Understanding structure and organization |
+| **Security** | Security patterns, vulnerabilities, access control | Identifying security risks |
+| **Performance** | Bottlenecks, optimization, resource utilization | Finding performance issues |
+
+**Selection**: User can multi-select up to 4 perspectives in Phase 1, or default to single comprehensive view.
+
+### Analysis Depth Levels
+
+| Depth | Scope | Description |
+|-------|-------|-------------|
+| Quick | Surface level understanding | Fast overview, minimal exploration |
+| Standard | Moderate depth with good coverage | Balanced analysis (default) |
+| Deep | Comprehensive detailed analysis | Thorough multi-round investigation |
+
+## Dimension-Direction Mapping
+
+When user selects focus areas, generate directions dynamically from detected dimensions:
+
+| Dimension | Possible Directions |
+|-----------|-------------------|
+| architecture | System Design, Component Interactions, Technology Choices, Integration Points, Design Patterns, Scalability Strategy |
+| implementation | Code Structure, Implementation Details, Code Patterns, Error Handling, Testing Approach, Algorithm Analysis |
+| performance | Performance Bottlenecks, Optimization Opportunities, Resource Utilization, Caching Strategy, Concurrency Issues |
+| security | Security Vulnerabilities, Authentication/Authorization, Access Control, Data Protection, Input Validation |
+| concept | Conceptual Foundation, Core Mechanisms, Fundamental Patterns, Theory & Principles, Trade-offs & Reasoning |
+| comparison | Solution Comparison, Pros & Cons Analysis, Technology Evaluation, Approach Differences |
+| decision | Decision Criteria, Trade-off Analysis, Risk Assessment, Impact Analysis, Implementation Implications |
+
+**Implementation**: Present 2-3 top dimension-related directions, allow user to multi-select and add custom directions.
+
+## Consolidation Rules
+
+When updating "Current Understanding" in discussion.md:
+
+| Rule | Description |
+|------|-------------|
+| Promote confirmed insights | Move validated findings to "What We Established" |
+| Track corrections | Keep important wrong→right transformations |
+| Focus on current state | What do we know NOW, not the journey |
+| Avoid timeline repetition | Don't copy discussion details into consolidated section |
+| Preserve key learnings | Keep insights valuable for future reference |
+
+**Example**:
+
+Bad (cluttered):
+```markdown
+## Current Understanding
+In round 1 we discussed X, then in round 2 user said Y...
+```
+
+Good (consolidated):
+```markdown
+## Current Understanding
+
+### What We Established
+- The authentication flow uses JWT with refresh tokens
+- Rate limiting is implemented at API gateway level
+
+### What Was Clarified
+- ~~Assumed Redis for sessions~~ → Actually uses database-backed sessions
+
+### Key Insights
+- Current architecture supports horizontal scaling
+```
+
+## Templates
+
+### discussion.md Structure
+
+The discussion.md file evolves through the analysis:
+
+- **Header**: Session ID, topic, start time, identified dimensions
+- **Analysis Context**: Focus areas, perspectives, depth level
+- **Initial Questions**: Key questions to guide the analysis
+- **Discussion Timeline**: Round-by-round findings
+  - Round 1: Initial Understanding + Exploration Results
+  - Round 2-N: User feedback + direction adjustments + new insights
+- **Synthesis & Conclusions**: Summary, key conclusions, recommendations
+- **Current Understanding (Final)**: Consolidated insights
+- **Session Statistics**: Rounds completed, findings count, artifacts generated
+
+### Round Documentation Pattern
+
+Each discussion round follows a consistent structure:
+
+```markdown
+### Round N - [Deepen|Adjust|Q&A] (timestamp)
+
+#### User Input
+What the user indicated they wanted to focus on
+
+#### Analysis Results
+New findings from this round's analysis
+- Finding 1 (evidence: file:line)
+- Finding 2 (evidence: file:line)
+
+#### Insights
+Key learnings and clarifications
+
+#### Corrected Assumptions
+- ~~Previous assumption~~ → Corrected understanding
+  - Reason: Why the assumption was wrong
+
+#### Open Items
+Remaining questions or areas for investigation
+```
+
+## Error Handling
+
+| Situation | Action | Recovery |
+|-----------|--------|----------|
+| No codebase detected | Normal flow, pure topic analysis | Proceed without exploration-codebase.json |
+| Codebase search fails | Continue with available context | Note limitation in discussion.md |
+| No relevant findings | Broaden search keywords | Ask user for clarification |
+| User timeout in discussion | Save state, show resume command | Use `--continue` to resume |
+| Max rounds reached (5) | Force synthesis phase | Highlight remaining questions in conclusions |
+| Session folder conflict | Append timestamp suffix | Create unique folder and continue |
+| Quick execute: task fails | Record failure in execution-events.md | User can retry, skip, or abort |
+| Quick execute: verification fails | Mark criterion as unverified, continue | Note in events, manual check |
+| Quick execute: no recommendations | Cannot generate execution-plan.jsonl | Suggest using lite-plan instead |
 
 ## Best Practices
 
 ### Core Principles
 
-1. **Explicit user confirmation required before code modifications**: Any operation involving code changes (including but not limited to file creation, editing, or deletion) must first present the proposed changes to the user and obtain explicit approval before execution. The analysis phase is strictly read-only — no code modifications are permitted without user consent.
+1. **Explicit user confirmation required before code modifications**: The analysis phase is strictly read-only. Any code changes (Phase 5 quick execute) require user approval.
 
 ### Before Starting Analysis
 
@@ -1060,15 +884,6 @@ User selects "简要执行":
 4. **Embrace Corrections**: Track wrong→right transformations as valuable learnings
 5. **Iterate Thoughtfully**: Each discussion round should meaningfully refine understanding
 
-### Codex Subagent Best Practices
-
-1. **Role Path, Not Content**: Pass `~/.codex/agents/*.md` path in message, let agent read itself
-2. **Delay close_agent**: Keep agents active for `send_input` reuse during discussion rounds
-3. **Batch wait**: Use `wait({ ids: [a, b, c] })` for parallel agents, not sequential waits
-4. **Handle Timeouts**: Check `results.timed_out` and decide: continue waiting or use partial results
-5. **Explicit Cleanup**: Always `close_agent` when done, even on errors (use try/finally pattern)
-6. **send_input vs spawn**: Prefer `send_input` for same-context continuation, `spawn` for new angles
-
 ### Documentation Practices
 
 1. **Evidence-Based**: Every conclusion should reference specific code or patterns
@@ -1076,84 +891,29 @@ User selects "简要执行":
 3. **Timeline Clarity**: Use clear timestamps for traceability
 4. **Evolution Tracking**: Document how understanding changed across rounds
 5. **Action Items**: Generate specific, actionable recommendations
-6. **Multi-Perspective Synthesis**: When using parallel perspectives, document convergent/conflicting themes
+6. **Multi-Perspective Synthesis**: When using multiple perspectives, document convergent/conflicting themes
 
----
+## When to Use
 
-## Templates & Examples
-
-### discussion.md Structure
-
-The discussion.md file evolves through the analysis:
-
-**Header Section**:
-```
-Session ID, topic, start time, identified dimensions
-```
-
-**Context Section**:
-```
-Focus areas selected by user, analysis depth, scope
-```
-
-**Discussion Timeline**:
-```
-Round 1: Initial understanding + exploration results
-Round 2: Codebase findings + CLI analysis results
-Round 3-5: User feedback + direction adjustments + new insights
-```
-
-**Conclusions Section**:
-```
-Executive summary, key conclusions, recommendations, open questions
-```
-
-**Final Understanding Section**:
-```
-What we established (confirmed points)
-What was clarified (corrected assumptions)
-Key insights (valuable learnings)
-```
-
-### Round Documentation Pattern
-
-Each discussion round follows a consistent structure:
-
-- **Round Header**: Number, timestamp, and action taken
-- **User Input**: What the user indicated they wanted to focus on
-- **Analysis Results**: New findings from this round's analysis
-- **Insights**: Key learnings and clarifications
-- **Corrected Assumptions**: Any wrong→right transformations
-- **Next Steps**: Suggested investigation paths
-
----
-
-## When to Use This Workflow
-
-### Use analyze-with-file when:
+**Use analyze-with-file when:**
 - Exploring complex topics collaboratively with documented trail
 - Need multi-round iterative refinement of understanding
 - Decision-making requires exploring multiple perspectives
 - Building shared understanding before implementation
 - Want to document how understanding evolved
 
-### Use Quick Execute (Phase 5) when:
+**Use Quick Execute (Phase 5) when:**
 - Analysis conclusions contain clear, actionable recommendations
-- Context is already sufficient - no additional exploration needed
-- Want a streamlined analyze → plan → execute pipeline in one session
+- Context is already sufficient — no additional exploration needed
+- Want a streamlined analyze → JSONL plan → direct execute pipeline
 - Tasks are relatively independent and can be executed serially
 
-### Use direct execution when:
-- Short, focused analysis tasks (single component)
-- Clear, well-defined topics with limited scope
-- Quick information gathering without iteration
-- Quick follow-up to existing session
-
-### Consider alternatives when:
-- Specific bug diagnosis needed → use `workflow:debug-with-file`
-- Generating new ideas/solutions → use `workflow:brainstorm-with-file`
-- Complex planning with parallel perspectives → use `workflow:collaborative-plan-with-file`
-- Ready to implement → use `workflow:lite-plan`
+**Consider alternatives when:**
+- Specific bug diagnosis needed → use `debug-with-file`
+- Generating new ideas/solutions → use `brainstorm-with-file`
+- Complex planning with parallel perspectives → use `collaborative-plan-with-file`
+- Ready to implement → use `lite-plan`
+- Requirement decomposition needed → use `req-plan-with-file`
 
 ---
 

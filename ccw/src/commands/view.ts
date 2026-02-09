@@ -110,7 +110,7 @@ export async function viewCommand(options: ViewOptions): Promise<void> {
       if (frontend === 'react') {
         urlPath = '/react';
       }
-      const url = `http://${browserHost}:${port}${urlPath}/?path=${encodeURIComponent(result.path!)}`;
+      const url = `http://${browserHost}:${port}${urlPath}/?path=${encodeURIComponent(workspacePath)}`;
 
       if (options.browser !== false) {
         console.log(chalk.cyan('  Opening in browser...'));

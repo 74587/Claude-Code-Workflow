@@ -517,10 +517,11 @@ class LspBridge:
                         
                         # Parse URI
                         uri = from_item.get("uri", "")
-                        if uri.startswith("file:///"):
-                            fp = uri[8:] if uri[8:9].isalpha() and uri[9:10] == ":" else uri[7:]
-                        elif uri.startswith("file://"):
-                            fp = uri[7:]
+                        if uri.startswith("file://"):
+                            raw = unquote(uri[7:])  # keep leading slash for Unix paths
+                            if raw.startswith("/") and len(raw) > 2 and raw[2] == ":":
+                                raw = raw[1:]
+                            fp = raw
                         else:
                             fp = uri
                         

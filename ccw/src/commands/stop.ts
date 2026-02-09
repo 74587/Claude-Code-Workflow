@@ -50,9 +50,19 @@ async function killProcess(pid: string): Promise<boolean> {
 }
 
 /**
- * Stop command handler - stops the running CCW dashboard server
- * @param {Object} options - Command options
+ * Clean up React frontend process on the given port
  */
+async function cleanupReactFrontend(reactPort: number): Promise<void> {
+  const reactPid = await findProcessOnPort(reactPort);
+  if (reactPid) {
+    console.log(chalk.gray(`  Cleaning up React frontend on port ${reactPort}...`));
+    const killed = await killProcess(reactPid);
+    if (killed) {
+      console.log(chalk.green('  React frontend stopped!'));
+    }
+  }
+}
+
 export async function stopCommand(options: StopOptions): Promise<void> {
   const port = Number(options.port) || 3456;
   const reactPort = port + 1; // React frontend runs on port + 1
@@ -92,6 +102,7 @@ export async function stopCommand(options: StopOptions): Promise<void> {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       if (shutdownResponse && 'ok' in shutdownResponse && shutdownResponse.ok) {
+        await cleanupReactFrontend(reactPort);
         console.log(chalk.green.bold('\n  Server stopped successfully!\n'));
         process.exit(0);
       }
@@ -102,6 +113,7 @@ export async function stopCommand(options: StopOptions): Promise<void> {
       }).catch(() => null);
 
       if (!postCheck) {
+        await cleanupReactFrontend(reactPort);
         console.log(chalk.green.bold('\n  Server stopped successfully!\n'));
         process.exit(0);
       }

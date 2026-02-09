@@ -1,39 +1,82 @@
 ---
 name: collaborative-plan-with-file
-description: Parallel collaborative planning with Plan Note - Multi-agent parallel task generation, unified plan-note.md, conflict detection. Codex subagent-optimized.
-argument-hint: "TASK=\"<description>\" [--max-agents=5]"
+description: Serial collaborative planning with Plan Note - Multi-domain serial task generation, unified plan-note.md, conflict detection. No agent delegation.
+argument-hint: "[-y|--yes] <task description> [--max-domains=5]"
 ---
 
-# Codex Collaborative-Plan-With-File Workflow
+# Collaborative-Plan-With-File Workflow
 
 ## Quick Start
 
-Parallel collaborative planning workflow using **Plan Note** architecture. Spawns parallel subagents for each sub-domain, generates task plans concurrently, and detects conflicts across domains.
+Serial collaborative planning workflow using **Plan Note** architecture. Analyzes requirements, identifies sub-domains, generates detailed plans per domain serially, and detects conflicts across domains.
 
-**Core workflow**: Understand → Template → Parallel Subagent Planning → Conflict Detection → Completion
+```bash
+# Basic usage
+/codex:collaborative-plan-with-file "Implement real-time notification system"
+
+# With options
+/codex:collaborative-plan-with-file "Refactor authentication module" --max-domains=4
+/codex:collaborative-plan-with-file "Add payment gateway support" -y
+```
+
+**Core workflow**: Understand → Template → Serial Domain Planning → Conflict Detection → Completion
 
 **Key features**:
-- **plan-note.md**: Shared collaborative document with pre-allocated sections
-- **Parallel subagent planning**: Each sub-domain planned by its own subagent concurrently
+- **plan-note.md**: Shared collaborative document with pre-allocated sections per domain
+- **Serial domain planning**: Each sub-domain planned sequentially with full codebase context
 - **Conflict detection**: Automatic file, dependency, and strategy conflict scanning
 - **No merge needed**: Pre-allocated sections eliminate merge conflicts
 
-**Codex-Specific Features**:
-- Parallel subagent execution via `spawn_agent` + batch `wait({ ids: [...] })`
-- Role loading via path (agent reads `~/.codex/agents/*.md` itself)
-- Pre-allocated sections per agent = no write conflicts
-- Explicit lifecycle management with `close_agent`
+## Auto Mode
+
+When `--yes` or `-y`: Auto-approve splits, skip confirmations.
 
 ## Overview
 
-This workflow enables structured planning through parallel-capable phases:
+This workflow enables structured planning through sequential phases:
 
-1. **Understanding & Template** - Analyze requirements, identify sub-domains, create plan-note.md template
-2. **Parallel Planning** - Spawn subagent per sub-domain, batch wait for all results
-3. **Conflict Detection** - Scan plan-note.md for conflicts across all domains
-4. **Completion** - Generate human-readable plan.md summary
+1. **Understanding & Template** — Analyze requirements, identify sub-domains, create plan-note.md template
+2. **Serial Domain Planning** — Plan each sub-domain sequentially using direct search and analysis
+3. **Conflict Detection** — Scan plan-note.md for conflicts across all domains
+4. **Completion** — Generate human-readable plan.md summary
 
-The key innovation is the **Plan Note** architecture - a shared collaborative document with pre-allocated sections per sub-domain, eliminating merge conflicts. Combined with Codex's true parallel subagent execution, all domains are planned simultaneously.
+The key innovation is the **Plan Note** architecture — a shared collaborative document with pre-allocated sections per sub-domain, eliminating merge conflicts even in serial execution.
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    PLAN NOTE COLLABORATIVE PLANNING                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Phase 1: Understanding & Template Creation                              │
+│     ├─ Analyze requirements (inline search & analysis)                   │
+│     ├─ Identify 2-5 sub-domains (focus areas)                            │
+│     ├─ Create plan-note.md with pre-allocated sections                   │
+│     └─ Assign TASK ID ranges (no conflicts)                              │
+│                                                                          │
+│  Phase 2: Serial Domain Planning                                         │
+│     ┌──────────────┐                                                     │
+│     │   Domain 1   │→ Explore codebase → Generate plan.json              │
+│     │   Section 1  │→ Fill task pool + evidence in plan-note.md          │
+│     └──────┬───────┘                                                     │
+│     ┌──────▼───────┐                                                     │
+│     │   Domain 2   │→ Explore codebase → Generate plan.json              │
+│     │   Section 2  │→ Fill task pool + evidence in plan-note.md          │
+│     └──────┬───────┘                                                     │
+│     ┌──────▼───────┐                                                     │
+│     │   Domain N   │→ ...                                                │
+│     └──────────────┘                                                     │
+│                                                                          │
+│  Phase 3: Conflict Detection (Single Source)                             │
+│     ├─ Parse plan-note.md (all sections)                                 │
+│     ├─ Detect file/dependency/strategy conflicts                         │
+│     └─ Update plan-note.md conflict section                              │
+│                                                                          │
+│  Phase 4: Completion (No Merge)                                          │
+│     ├─ Generate plan.md (human-readable)                                 │
+│     └─ Ready for execution                                               │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
 
 ## Output Structure
 
@@ -41,7 +84,7 @@ The key innovation is the **Plan Note** architecture - a shared collaborative do
 {projectRoot}/.workflow/.planning/CPLAN-{slug}-{date}/
 ├── plan-note.md                  # ⭐ Core: Requirements + Tasks + Conflicts
 ├── requirement-analysis.json     # Phase 1: Sub-domain assignments
-├── agents/                       # Phase 2: Per-domain plans (serial)
+├── domains/                      # Phase 2: Per-domain plans
 │   ├── {domain-1}/
 │   │   └── plan.json            # Detailed plan
 │   ├── {domain-2}/
@@ -60,12 +103,12 @@ The key innovation is the **Plan Note** architecture - a shared collaborative do
 | `plan-note.md` | Collaborative template with pre-allocated task pool and evidence sections per domain |
 | `requirement-analysis.json` | Sub-domain assignments, TASK ID ranges, complexity assessment |
 
-### Phase 2: Parallel Planning
+### Phase 2: Serial Domain Planning
 
 | Artifact | Purpose |
 |----------|---------|
-| `agents/{domain}/plan.json` | Detailed implementation plan per domain (from parallel subagent) |
-| Updated `plan-note.md` | Task pool and evidence sections filled by each subagent |
+| `domains/{domain}/plan.json` | Detailed implementation plan per domain |
+| Updated `plan-note.md` | Task pool and evidence sections filled for each domain |
 
 ### Phase 3: Conflict Detection
 
@@ -86,31 +129,43 @@ The key innovation is the **Plan Note** architecture - a shared collaborative do
 
 ### Session Initialization
 
-##### Step 0: Determine Project Root
+##### Step 0: Initialize Session
 
-检测项目根目录，确保 `.workflow/` 产物位置正确：
+```javascript
+const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
 
-```bash
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+// Detect project root
+const projectRoot = Bash(`git rev-parse --show-toplevel 2>/dev/null || pwd`).trim()
+
+// Parse arguments
+const autoMode = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+const maxDomainsMatch = $ARGUMENTS.match(/--max-domains=(\d+)/)
+const maxDomains = maxDomainsMatch ? parseInt(maxDomainsMatch[1]) : 5
+
+// Clean task description
+const taskDescription = $ARGUMENTS
+  .replace(/--yes|-y|--max-domains=\d+/g, '')
+  .trim()
+
+const slug = taskDescription.toLowerCase()
+  .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
+  .substring(0, 30)
+const dateStr = getUtc8ISOString().substring(0, 10)
+const sessionId = `CPLAN-${slug}-${dateStr}`
+const sessionFolder = `${projectRoot}/.workflow/.planning/${sessionId}`
+
+// Auto-detect continue: session folder + plan-note.md exists → continue mode
+// If continue → load existing state and resume from incomplete phase
+Bash(`mkdir -p ${sessionFolder}/domains`)
 ```
-
-优先通过 git 获取仓库根目录；非 git 项目回退到 `pwd` 取当前绝对路径。
-存储为 `{projectRoot}`，后续所有 `.workflow/` 路径必须以此为前缀。
-
-The workflow automatically generates a unique session identifier and directory structure.
-
-**Session ID Format**: `CPLAN-{slug}-{date}`
-- `slug`: Lowercase alphanumeric, max 30 chars
-- `date`: YYYY-MM-DD format (UTC+8)
-
-**Session Directory**: `{projectRoot}/.workflow/.planning/{sessionId}/`
-
-**Auto-Detection**: If session folder exists with plan-note.md, automatically enters continue mode.
 
 **Session Variables**:
 - `sessionId`: Unique session identifier
 - `sessionFolder`: Base directory for all artifacts
 - `maxDomains`: Maximum number of sub-domains (default: 5)
+- `autoMode`: Boolean for auto-confirmation
+
+**Auto-Detection**: If session folder exists with plan-note.md, automatically enters continue mode.
 
 ---
 
@@ -120,13 +175,17 @@ The workflow automatically generates a unique session identifier and directory s
 
 ### Step 1.1: Analyze Task Description
 
-Use built-in tools to understand the task scope and identify sub-domains.
+Use built-in tools directly to understand the task scope and identify sub-domains.
 
 **Analysis Activities**:
-1. **Extract task keywords** - Identify key terms and concepts from the task description
-2. **Identify sub-domains** - Split into 2-5 parallelizable focus areas based on task complexity
-3. **Assess complexity** - Evaluate overall task complexity (Low/Medium/High)
-4. **Search for references** - Find related documentation, README files, and architecture guides
+1. **Search for references** — Find related documentation, README files, and architecture guides
+   - Use: `mcp__ace-tool__search_context`, Grep, Glob, Read
+   - Read: `.workflow/project-tech.json`, `.workflow/project-guidelines.json` (if exists)
+2. **Extract task keywords** — Identify key terms and concepts from the task description
+3. **Identify ambiguities** — List any unclear points or multiple possible interpretations
+4. **Clarify with user** — If ambiguities found, use AskUserQuestion for clarification
+5. **Identify sub-domains** — Split into 2-{maxDomains} parallelizable focus areas based on task complexity
+6. **Assess complexity** — Evaluate overall task complexity (Low/Medium/High)
 
 **Sub-Domain Identification Patterns**:
 
@@ -138,43 +197,59 @@ Use built-in tools to understand the task scope and identify sub-domains.
 | Testing | 测试, 验证, QA |
 | Infrastructure | 部署, 基础, 运维, 配置 |
 
-**Ambiguity Handling**: When the task description is unclear or has multiple interpretations, gather user clarification before proceeding.
+**Guideline**: Prioritize identifying latest documentation (README, design docs, architecture guides). When ambiguities exist, ask user for clarification instead of assuming interpretations.
 
 ### Step 1.2: Create plan-note.md Template
 
 Generate a structured template with pre-allocated sections for each sub-domain.
 
 **plan-note.md Structure**:
-- **YAML Frontmatter**: session_id, original_requirement, created_at, complexity, sub_domains, status
-- **Section: 需求理解**: Core objectives, key points, constraints, split strategy
-- **Section: 任务池 - {Domain N}**: Pre-allocated task section per domain (TASK-{range})
-- **Section: 依赖关系**: Auto-generated after all domains complete
-- **Section: 冲突标记**: Populated in Phase 3
-- **Section: 上下文证据 - {Domain N}**: Evidence section per domain
+
+```yaml
+---
+session_id: CPLAN-{slug}-{date}
+original_requirement: "{task description}"
+created_at: "{ISO timestamp}"
+complexity: Low | Medium | High
+sub_domains: ["{domain-1}", "{domain-2}", ...]
+domain_task_id_ranges:
+  "{domain-1}": [1, 100]
+  "{domain-2}": [101, 200]
+status: planning
+---
+```
+
+**Sections**:
+- `## 需求理解` — Core objectives, key points, constraints, split strategy
+- `## 任务池 - {Domain N}` — Pre-allocated task section per domain (TASK-{range})
+- `## 依赖关系` — Auto-generated after all domains complete
+- `## 冲突标记` — Populated in Phase 3
+- `## 上下文证据 - {Domain N}` — Evidence section per domain
 
 **TASK ID Range Allocation**: Each domain receives a non-overlapping range of 100 IDs (e.g., Domain 1: TASK-001~100, Domain 2: TASK-101~200).
 
 ### Step 1.3: Generate requirement-analysis.json
 
-Create the sub-domain configuration document.
-
-**requirement-analysis.json Structure**:
-
-| Field | Purpose |
-|-------|---------|
-| `session_id` | Session identifier |
-| `original_requirement` | Task description |
-| `complexity` | Low / Medium / High |
-| `sub_domains[]` | Array of focus areas with descriptions |
-| `sub_domains[].focus_area` | Domain name |
-| `sub_domains[].description` | Domain scope description |
-| `sub_domains[].task_id_range` | Non-overlapping TASK ID range |
-| `sub_domains[].estimated_effort` | Effort estimate |
-| `sub_domains[].dependencies` | Cross-domain dependencies |
-| `total_domains` | Number of domains identified |
+```javascript
+Write(`${sessionFolder}/requirement-analysis.json`, JSON.stringify({
+  session_id: sessionId,
+  original_requirement: taskDescription,
+  complexity: complexity,  // Low | Medium | High
+  sub_domains: subDomains.map(sub => ({
+    focus_area: sub.focus_area,
+    description: sub.description,
+    task_id_range: sub.task_id_range,
+    estimated_effort: sub.estimated_effort,
+    dependencies: sub.dependencies  // cross-domain dependencies
+  })),
+  total_domains: subDomains.length
+}, null, 2))
+```
 
 **Success Criteria**:
-- 2-5 clear sub-domains identified
+- Latest documentation identified and referenced (if available)
+- Ambiguities resolved via user clarification (if any found)
+- 2-{maxDomains} clear sub-domains identified
 - Each sub-domain can be planned independently
 - Plan Note template includes all pre-allocated sections
 - TASK ID ranges have no overlap (100 IDs per domain)
@@ -182,163 +257,134 @@ Create the sub-domain configuration document.
 
 ---
 
-## Phase 2: Parallel Sub-Domain Planning
+## Phase 2: Serial Sub-Domain Planning
 
-**Objective**: Spawn parallel subagents for each sub-domain, generating detailed plans and updating plan-note.md concurrently.
+**Objective**: Plan each sub-domain sequentially, generating detailed plans and updating plan-note.md.
 
-**Execution Model**: Parallel subagent execution - all domains planned simultaneously via `spawn_agent` + batch `wait`.
-
-**Key API Pattern**:
-```
-spawn_agent × N → wait({ ids: [...] }) → verify outputs → close_agent × N
-```
+**Execution Model**: Serial inline execution — each domain explored and planned directly using search tools, one at a time.
 
 ### Step 2.1: User Confirmation (unless autoMode)
 
-Display identified sub-domains and confirm before spawning agents.
+Display identified sub-domains and confirm before starting.
 
 ```javascript
-// User confirmation
 if (!autoMode) {
-  // Display sub-domains for user approval
-  // Options: "开始规划" / "调整拆分" / "取消"
+  AskUserQuestion({
+    questions: [{
+      question: `已识别 ${subDomains.length} 个子领域:\n${subDomains.map((s, i) =>
+        `${i+1}. ${s.focus_area}: ${s.description}`).join('\n')}\n\n确认开始规划?`,
+      header: "Confirm",
+      multiSelect: false,
+      options: [
+        { label: "开始规划", description: "逐域进行规划" },
+        { label: "调整拆分", description: "修改子领域划分" },
+        { label: "取消", description: "退出规划" }
+      ]
+    }]
+  })
 }
 ```
 
-### Step 2.2: Parallel Subagent Planning
+### Step 2.2: Serial Domain Planning
 
-**⚠️ IMPORTANT**: Role files are NOT read by main process. Pass path in message, agent reads itself.
-
-**Spawn All Domain Agents in Parallel**:
+For each sub-domain, execute the full planning cycle inline:
 
 ```javascript
-// Create agent directories first
-subDomains.forEach(sub => {
-  // mkdir: ${sessionFolder}/agents/${sub.focus_area}/
-})
+for (const sub of subDomains) {
+  // 1. Create domain directory
+  Bash(`mkdir -p ${sessionFolder}/domains/${sub.focus_area}`)
 
-// Parallel spawn - all agents start immediately
-const agentIds = subDomains.map(sub => {
-  return spawn_agent({
-    message: `
-## TASK ASSIGNMENT
+  // 2. Explore codebase for domain-relevant context
+  //    Use: mcp__ace-tool__search_context, Grep, Glob, Read
+  //    Focus on:
+  //      - Modules/components related to this domain
+  //      - Existing patterns to follow
+  //      - Integration points with other domains
+  //      - Architecture constraints
 
-### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-lite-planning-agent.md (MUST read first)
-2. Read: ${projectRoot}/.workflow/project-tech.json
-3. Read: ${projectRoot}/.workflow/project-guidelines.json
-4. Read: ${sessionFolder}/plan-note.md (understand template structure)
-5. Read: ${sessionFolder}/requirement-analysis.json (understand full context)
+  // 3. Generate detailed plan.json
+  const plan = {
+    session_id: sessionId,
+    focus_area: sub.focus_area,
+    description: sub.description,
+    task_id_range: sub.task_id_range,
+    generated_at: getUtc8ISOString(),
+    tasks: [
+      // For each task within the assigned ID range:
+      {
+        id: `TASK-${String(sub.task_id_range[0]).padStart(3, '0')}`,
+        title: "...",
+        complexity: "Low | Medium | High",
+        depends_on: [],            // TASK-xxx references
+        scope: "...",              // Brief scope description
+        modification_points: [     // file:line → change summary
+          { file: "...", location: "...", change: "..." }
+        ],
+        conflict_risk: "Low | Medium | High",
+        estimated_effort: "..."
+      }
+      // ... more tasks
+    ],
+    evidence: {
+      relevant_files: [...],
+      existing_patterns: [...],
+      constraints: [...]
+    }
+  }
+  Write(`${sessionFolder}/domains/${sub.focus_area}/plan.json`, JSON.stringify(plan, null, 2))
 
----
+  // 4. Sync summary to plan-note.md
+  //    Read current plan-note.md
+  //    Locate pre-allocated sections:
+  //      - Task Pool:  "## 任务池 - ${toTitleCase(sub.focus_area)}"
+  //      - Evidence:   "## 上下文证据 - ${toTitleCase(sub.focus_area)}"
+  //    Fill with task summaries and evidence
+  //    Write back plan-note.md
+}
+```
 
-## Sub-Domain Context
-**Focus Area**: ${sub.focus_area}
-**Description**: ${sub.description}
-**TASK ID Range**: ${sub.task_id_range[0]}-${sub.task_id_range[1]}
-**Session**: ${sessionId}
+**Task Summary Format** (for plan-note.md task pool sections):
 
-## Dual Output Tasks
-
-### Task 1: Generate Complete plan.json
-Output: ${sessionFolder}/agents/${sub.focus_area}/plan.json
-
-Include:
-- Task breakdown with IDs from assigned range (${sub.task_id_range[0]}-${sub.task_id_range[1]})
-- Dependencies within and across domains
-- Files to modify with specific locations
-- Effort and complexity estimates per task
-- Conflict risk assessment for each task
-
-### Task 2: Sync Summary to plan-note.md
-
-**Locate Your Sections** (pre-allocated, ONLY modify these):
-- Task Pool: "## 任务池 - ${toTitleCase(sub.focus_area)}"
-- Evidence: "## 上下文证据 - ${toTitleCase(sub.focus_area)}"
-
-**Task Summary Format**:
-### TASK-{ID}: {Title} [${sub.focus_area}]
+```markdown
+### TASK-{ID}: {Title} [{focus-area}]
 - **状态**: pending
 - **复杂度**: Low/Medium/High
 - **依赖**: TASK-xxx (if any)
 - **范围**: Brief scope description
-- **修改点**: file:line - change summary
+- **修改点**: `file:location`: change summary
 - **冲突风险**: Low/Medium/High
-
-**Evidence Format**:
-- 相关文件: File list with relevance
-- 现有模式: Patterns identified
-- 约束: Constraints discovered
-
-## Execution Steps
-1. Explore codebase for domain-relevant files
-2. Generate complete plan.json
-3. Extract task summaries from plan.json
-4. Read ${sessionFolder}/plan-note.md
-5. Locate and fill your pre-allocated task pool section
-6. Locate and fill your pre-allocated evidence section
-7. Write back plan-note.md
-
-## Important Rules
-- ONLY modify your pre-allocated sections (do NOT touch other domains)
-- Use assigned TASK ID range exclusively: ${sub.task_id_range[0]}-${sub.task_id_range[1]}
-- Include conflict_risk assessment for each task
-
-## Success Criteria
-- [ ] Role definition read
-- [ ] plan.json generated with detailed tasks
-- [ ] plan-note.md updated with task pool and evidence
-- [ ] All tasks within assigned ID range
-`
-  })
-})
-
-// Batch wait - TRUE PARALLELISM (key Codex advantage)
-const results = wait({
-  ids: agentIds,
-  timeout_ms: 900000  // 15 minutes for all planning agents
-})
-
-// Handle timeout
-if (results.timed_out) {
-  const completed = agentIds.filter(id => results.status[id].completed)
-  const pending = agentIds.filter(id => !results.status[id].completed)
-
-  // Option: Continue waiting or use partial results
-  // If most agents completed, proceed with partial results
-}
-
-// Verify outputs exist
-subDomains.forEach((sub, index) => {
-  const agentId = agentIds[index]
-  if (results.status[agentId].completed) {
-    // Verify: agents/${sub.focus_area}/plan.json exists
-    // Verify: plan-note.md sections populated
-  }
-})
-
-// Batch cleanup
-agentIds.forEach(id => close_agent({ id }))
 ```
+
+**Evidence Format** (for plan-note.md evidence sections):
+
+```markdown
+- **相关文件**: file list with relevance
+- **现有模式**: patterns identified
+- **约束**: constraints discovered
+```
+
+**Domain Planning Rules**:
+- Each domain modifies ONLY its pre-allocated sections in plan-note.md
+- Use assigned TASK ID range exclusively
+- Include `conflict_risk` assessment for each task
+- Reference cross-domain dependencies explicitly
 
 ### Step 2.3: Verify plan-note.md Consistency
 
-After all agents complete, verify the shared document.
+After all domains are planned, verify the shared document.
 
 **Verification Activities**:
 1. Read final plan-note.md
 2. Verify all task pool sections are populated
 3. Verify all evidence sections are populated
-4. Check for any accidental cross-section modifications
-5. Validate TASK ID uniqueness across all domains
+4. Validate TASK ID uniqueness across all domains
+5. Check for any section format inconsistencies
 
 **Success Criteria**:
-- All subagents spawned and completed (or timeout handled)
-- `agents/{domain}/plan.json` created for each domain
+- `domains/{domain}/plan.json` created for each domain
 - `plan-note.md` updated with all task pools and evidence sections
 - Task summaries follow consistent format
 - No TASK ID overlaps across domains
-- All agents closed properly
 
 ---
 
@@ -350,13 +396,28 @@ After all agents complete, verify the shared document.
 
 Extract all tasks from all "任务池" sections.
 
-**Extraction Activities**:
-1. Read plan-note.md content
-2. Parse YAML frontmatter for session metadata
-3. Identify all "任务池" sections by heading pattern
-4. Extract tasks matching pattern: `### TASK-{ID}: {Title} [{domain}]`
-5. Parse task details: status, complexity, dependencies, modification points, conflict risk
-6. Consolidate into unified task list
+```javascript
+// parsePlanNote(markdown)
+//   - Extract YAML frontmatter between `---` markers
+//   - Scan for heading patterns: /^(#{2,})\s+(.+)$/
+//   - Build sections array: { level, heading, start, content }
+//   - Return: { frontmatter, sections }
+
+// extractTasksFromSection(content, sectionHeading)
+//   - Match: /### (TASK-\d+):\s+(.+?)\s+\[(.+?)\]/
+//   - For each: extract taskId, title, author
+//   - Parse details: status, complexity, depends_on, modification_points, conflict_risk
+//   - Return: array of task objects
+
+// parseTaskDetails(content)
+//   - Extract via regex:
+//     - /\*\*状态\*\*:\s*(.+)/ → status
+//     - /\*\*复杂度\*\*:\s*(.+)/ → complexity
+//     - /\*\*依赖\*\*:\s*(.+)/ → depends_on (extract TASK-\d+ references)
+//     - /\*\*冲突风险\*\*:\s*(.+)/ → conflict_risk
+//   - Extract modification points: /- `([^`]+):\s*([^`]+)`:\s*(.+)/ → file, location, summary
+//   - Return: { status, complexity, depends_on[], modification_points[], conflict_risk }
+```
 
 ### Step 3.2: Detect Conflicts
 
@@ -370,21 +431,74 @@ Scan all tasks for three categories of conflicts.
 | dependency_cycle | critical | Circular dependencies in task graph (DFS detection) | Remove or reorganize dependencies |
 | strategy_conflict | medium | Multiple high-risk tasks in same file from different domains | Review approaches and align on single strategy |
 
-**Detection Activities**:
-1. **File Conflicts**: Group modification points by file:location, identify locations modified by multiple domains
-2. **Dependency Cycles**: Build dependency graph from task dependencies, detect cycles using depth-first search
-3. **Strategy Conflicts**: Group tasks by files they modify, identify files with high-risk tasks from multiple domains
+**Detection Functions**:
+
+```javascript
+// detectFileConflicts(tasks)
+//   Build fileMap: { "file:location": [{ task_id, task_title, source_domain, change }] }
+//   For each location with modifications from multiple domains:
+//     → conflict: type='file_conflict', severity='high'
+//     → include: location, tasks_involved, domains_involved, modifications
+//     → resolution: 'Coordinate modification order or merge changes'
+
+// detectDependencyCycles(tasks)
+//   Build dependency graph: { taskId: [dependsOn_taskIds] }
+//   DFS with recursion stack to detect cycles:
+function detectCycles(tasks) {
+  const graph = new Map(tasks.map(t => [t.id, t.depends_on || []]))
+  const visited = new Set(), inStack = new Set(), cycles = []
+  function dfs(node, path) {
+    if (inStack.has(node)) { cycles.push([...path, node].join(' → ')); return }
+    if (visited.has(node)) return
+    visited.add(node); inStack.add(node)
+    ;(graph.get(node) || []).forEach(dep => dfs(dep, [...path, node]))
+    inStack.delete(node)
+  }
+  tasks.forEach(t => { if (!visited.has(t.id)) dfs(t.id, []) })
+  return cycles
+}
+
+// detectStrategyConflicts(tasks)
+//   Group tasks by files they modify
+//   For each file with tasks from multiple domains:
+//     Filter for high/medium conflict_risk tasks
+//     If >1 high-risk from different domains:
+//       → conflict: type='strategy_conflict', severity='medium'
+//       → resolution: 'Review approaches and align on single strategy'
+```
 
 ### Step 3.3: Generate Conflict Artifacts
 
 Write conflict results and update plan-note.md.
 
-**conflicts.json Structure**:
-- `detected_at`: Detection timestamp
-- `total_conflicts`: Number of conflicts found
-- `conflicts[]`: Array of conflict objects with type, severity, tasks involved, description, suggested resolution
+```javascript
+// 1. Write conflicts.json
+Write(`${sessionFolder}/conflicts.json`, JSON.stringify({
+  detected_at: getUtc8ISOString(),
+  total_tasks: allTasks.length,
+  total_domains: subDomains.length,
+  total_conflicts: allConflicts.length,
+  conflicts: allConflicts  // { type, severity, tasks_involved, description, suggested_resolution }
+}, null, 2))
 
-**plan-note.md Update**: Locate "冲突标记" section and populate with conflict summary markdown. If no conflicts found, mark as "✅ 无冲突检测到".
+// 2. Update plan-note.md "## 冲突标记" section
+// generateConflictMarkdown(conflicts):
+//   If empty: return '✅ 无冲突检测到'
+//   For each conflict:
+//     ### CONFLICT-{padded_index}: {description}
+//     - **严重程度**: critical | high | medium
+//     - **涉及任务**: TASK-xxx, TASK-yyy
+//     - **涉及领域**: domain-a, domain-b
+//     - **问题详情**: (based on conflict type)
+//     - **建议解决方案**: ...
+//     - **决策状态**: [ ] 待解决
+
+// replaceSectionContent(markdown, sectionHeading, newContent):
+//   Find section heading position via regex
+//   Find next heading of same or higher level
+//   Replace content between heading and next section
+//   If section not found: append at end
+```
 
 **Success Criteria**:
 - All tasks extracted and analyzed
@@ -413,16 +527,85 @@ Create a human-readable summary from plan-note.md content.
 | 冲突报告 (Conflict Report) | Summary of detected conflicts or "无冲突" |
 | 执行指令 (Execution) | Command to execute the plan |
 
+```javascript
+const planMd = `# Collaborative Plan
+
+**Session**: ${sessionId}
+**Requirement**: ${taskDescription}
+**Created**: ${getUtc8ISOString()}
+**Complexity**: ${complexity}
+**Domains**: ${subDomains.length}
+
+## 需求理解
+
+${requirementSection}
+
+## 子领域拆分
+
+| # | Focus Area | Description | TASK Range | Effort |
+|---|-----------|-------------|------------|--------|
+${subDomains.map((s, i) => `| ${i+1} | ${s.focus_area} | ${s.description} | ${s.task_id_range[0]}-${s.task_id_range[1]} | ${s.estimated_effort} |`).join('\n')}
+
+## 任务概览
+
+${subDomains.map(sub => {
+  const domainTasks = allTasks.filter(t => t.source_domain === sub.focus_area)
+  return `### ${sub.focus_area}\n\n` +
+    domainTasks.map(t => `- **${t.id}**: ${t.title} (${t.complexity}) ${t.depends_on.length ? '← ' + t.depends_on.join(', ') : ''}`).join('\n')
+}).join('\n\n')}
+
+## 冲突报告
+
+${allConflicts.length === 0
+  ? '✅ 无冲突检测到'
+  : allConflicts.map(c => `- **${c.type}** (${c.severity}): ${c.description}`).join('\n')}
+
+## 执行
+
+\`\`\`bash
+/workflow:unified-execute-with-file "${sessionFolder}/plan-note.md"
+\`\`\`
+
+**Session artifacts**: \`${sessionFolder}/\`
+`
+Write(`${sessionFolder}/plan.md`, planMd)
+```
+
 ### Step 4.2: Display Completion Summary
 
 Present session statistics and next steps.
 
-**Summary Content**:
-- Session ID and directory path
-- Total domains planned
-- Total tasks generated
-- Conflict status
-- Execution command for next step
+```javascript
+// Display:
+// - Session ID and directory path
+// - Total domains planned
+// - Total tasks generated
+// - Conflict status (count and severity)
+// - Execution command for next step
+
+if (!autoMode) {
+  AskUserQuestion({
+    questions: [{
+      question: `规划完成:\n- ${subDomains.length} 个子领域\n- ${allTasks.length} 个任务\n- ${allConflicts.length} 个冲突\n\n下一步:`,
+      header: "Next Step",
+      multiSelect: false,
+      options: [
+        { label: "Execute Plan", description: "使用 unified-execute 执行计划" },
+        { label: "Review Conflicts", description: "查看并解决冲突" },
+        { label: "Export", description: "导出 plan.md" },
+        { label: "Done", description: "保存产物，稍后执行" }
+      ]
+    }]
+  })
+}
+```
+
+| Selection | Action |
+|-----------|--------|
+| Execute Plan | `Skill(skill="workflow:unified-execute-with-file", args="${sessionFolder}/plan-note.md")` |
+| Review Conflicts | Display conflicts.json content for manual resolution |
+| Export | Copy plan.md + plan-note.md to user-specified location |
+| Done | Display artifact paths, end workflow |
 
 **Success Criteria**:
 - `plan.md` generated with complete summary
@@ -433,73 +616,27 @@ Present session statistics and next steps.
 
 ## Configuration
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
+| Flag | Default | Description |
+|------|---------|-------------|
 | `--max-domains` | 5 | Maximum sub-domains to identify |
-
----
-
-## Error Handling & Recovery
-
-| Situation | Action | Recovery |
-|-----------|--------|----------|
-| **Subagent timeout** | Check `results.timed_out`, continue `wait()` or use partial results | Reduce scope, plan remaining domains with new agent |
-| **Agent closed prematurely** | Cannot recover closed agent | Spawn new agent with domain context |
-| **Parallel agent partial failure** | Some domains complete, some fail | Use completed results, re-spawn for failed domains |
-| **plan-note.md write conflict** | Multiple agents write simultaneously | Pre-allocated sections prevent this; if detected, re-read and verify |
-| **Section not found in plan-note** | Agent creates section defensively | Continue with new section |
-| **No tasks generated** | Review domain description | Retry with refined description via new agent |
-| **Conflict detection fails** | Continue with empty conflicts | Note in completion summary |
-| **Session folder conflict** | Append timestamp suffix | Create unique folder |
-
-### Codex-Specific Error Patterns
-
-```javascript
-// Safe parallel planning with error handling
-try {
-  const agentIds = subDomains.map(sub => spawn_agent({ message: buildPlanPrompt(sub) }))
-
-  const results = wait({ ids: agentIds, timeout_ms: 900000 })
-
-  if (results.timed_out) {
-    const completed = agentIds.filter(id => results.status[id].completed)
-    const pending = agentIds.filter(id => !results.status[id].completed)
-
-    // Re-spawn for timed-out domains
-    const retryIds = pending.map((id, i) => {
-      const sub = subDomains[agentIds.indexOf(id)]
-      return spawn_agent({ message: buildPlanPrompt(sub) })
-    })
-
-    const retryResults = wait({ ids: retryIds, timeout_ms: 600000 })
-    retryIds.forEach(id => { try { close_agent({ id }) } catch(e) {} })
-  }
-
-} finally {
-  // ALWAYS cleanup
-  agentIds.forEach(id => {
-    try { close_agent({ id }) } catch (e) { /* ignore */ }
-  })
-}
-```
-
----
+| `-y, --yes` | false | Auto-confirm all decisions |
 
 ## Iteration Patterns
 
-### New Planning Session (Parallel Mode)
+### New Planning Session
 
 ```
 User initiates: TASK="task description"
    ├─ No session exists → New session mode
-   ├─ Analyze task and identify sub-domains
+   ├─ Analyze task with inline search tools
+   ├─ Identify sub-domains
    ├─ Create plan-note.md template
    ├─ Generate requirement-analysis.json
    │
-   ├─ Execute parallel planning:
-   │   ├─ spawn_agent × N (one per sub-domain)
-   │   ├─ wait({ ids: [...] })  ← TRUE PARALLELISM
-   │   └─ close_agent × N
+   ├─ Serial domain planning:
+   │   ├─ Domain 1: explore → plan.json → fill plan-note.md
+   │   ├─ Domain 2: explore → plan.json → fill plan-note.md
+   │   └─ Domain N: ...
    │
    ├─ Verify plan-note.md consistency
    ├─ Detect conflicts
@@ -514,24 +651,24 @@ User resumes: TASK="same task"
    ├─ Session exists → Continue mode
    ├─ Load plan-note.md and requirement-analysis.json
    ├─ Identify incomplete domains (empty task pool sections)
-   ├─ Spawn agents for incomplete domains only
+   ├─ Plan remaining domains serially
    └─ Continue with conflict detection
 ```
 
-### Agent Lifecycle Management
+---
 
-```
-Subagent lifecycle:
-   ├─ spawn_agent({ message }) → Create with role path + task
-   ├─ wait({ ids, timeout_ms }) → Get results (ONLY way to get output)
-   └─ close_agent({ id }) → Cleanup (MUST do, cannot recover)
+## Error Handling & Recovery
 
-Key rules:
-   ├─ Pre-allocated sections = no write conflicts
-   ├─ ALWAYS use wait() to get results, NOT close_agent()
-   ├─ Batch wait for all domain agents: wait({ ids: [a, b, c, ...] })
-   └─ Verify plan-note.md after batch completion
-```
+| Situation | Action | Recovery |
+|-----------|--------|----------|
+| No codebase detected | Normal flow, pure requirement planning | Proceed without codebase context |
+| Codebase search fails | Continue with available context | Note limitation in plan-note.md |
+| Domain planning fails | Record error, continue with next domain | Retry failed domain or plan manually |
+| Section not found in plan-note | Create section defensively | Continue with new section |
+| No tasks generated for a domain | Review domain description | Refine scope and retry |
+| Conflict detection fails | Continue with empty conflicts | Note in completion summary |
+| Session folder conflict | Append timestamp suffix | Create unique folder |
+| plan-note.md format inconsistency | Validate and fix format after each domain | Re-read and normalize |
 
 ---
 
@@ -540,25 +677,17 @@ Key rules:
 ### Before Starting Planning
 
 1. **Clear Task Description**: Detailed requirements lead to better sub-domain splitting
-2. **Reference Documentation**: Ensure latest README and design docs are identified
+2. **Reference Documentation**: Ensure latest README and design docs are identified during Phase 1
 3. **Clarify Ambiguities**: Resolve unclear requirements before committing to sub-domains
 
 ### During Planning
 
-1. **Review Plan Note**: Check plan-note.md between phases to verify progress
-2. **Verify Domains**: Ensure sub-domains are truly independent and parallelizable
+1. **Review Plan Note**: Check plan-note.md between domains to verify progress
+2. **Verify Independence**: Ensure sub-domains are truly independent and have minimal overlap
 3. **Check Dependencies**: Cross-domain dependencies should be documented explicitly
-4. **Inspect Details**: Review `agents/{domain}/plan.json` for specifics when needed
-
-### Codex Subagent Best Practices
-
-1. **Role Path, Not Content**: Pass `~/.codex/agents/*.md` path in message, let agent read itself
-2. **Pre-allocated Sections**: Each agent only writes to its own sections - no write conflicts
-3. **Batch wait**: Use `wait({ ids: [a, b, c] })` for all domain agents, not sequential waits
-4. **Handle Timeouts**: Check `results.timed_out`, re-spawn for failed domains
-5. **Explicit Cleanup**: Always `close_agent` when done, even on errors (use try/finally)
-6. **Verify After Batch**: Read plan-note.md after all agents complete to verify consistency
-7. **TASK ID Isolation**: Pre-assigned non-overlapping ranges prevent ID conflicts
+4. **Inspect Details**: Review `domains/{domain}/plan.json` for specifics when needed
+5. **Consistent Format**: Follow task summary format strictly across all domains
+6. **TASK ID Isolation**: Use pre-assigned non-overlapping ranges to prevent ID conflicts
 
 ### After Planning
 
@@ -566,6 +695,26 @@ Key rules:
 2. **Review Summary**: Check plan.md for completeness and accuracy
 3. **Validate Tasks**: Ensure all tasks have clear scope and modification targets
 
+## When to Use
+
+**Use collaborative-plan-with-file when:**
+- A complex task spans multiple sub-domains (backend + frontend + database, etc.)
+- Need structured multi-domain task breakdown with conflict detection
+- Planning a feature that touches many parts of the codebase
+- Want pre-allocated section organization for clear domain separation
+
+**Use lite-plan when:**
+- Single domain, clear task with no sub-domain splitting needed
+- Quick planning without conflict detection
+
+**Use req-plan-with-file when:**
+- Requirement-level progressive roadmap needed (MVP → iterations)
+- Higher-level decomposition before detailed planning
+
+**Use analyze-with-file when:**
+- Need in-depth analysis before planning
+- Understanding and discussion, not task generation
+
 ---
 
-**Now execute collaborative-plan-with-file for**: $TASK
+**Now execute collaborative-plan-with-file for**: $ARGUMENTS

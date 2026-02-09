@@ -21,6 +21,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import unquote, urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -341,6 +342,7 @@ class StandaloneLspManager:
         Returns:
             ServerState for the appropriate language server, or None
         """
+        file_path = self._normalize_file_path(file_path)
         language_id = self.get_language_id(file_path)
         if not language_id:
             logger.debug(f"No language server configured for: {file_path}")
@@ -357,6 +359,43 @@ class StandaloneLspManager:
             
             # Start new server
             return await self._start_server(language_id)
+
+    def _normalize_file_path(self, file_path_or_uri: str) -> str:
+        """Normalize a file path that may be an LSP file URI or URI-path.
+
+        LSP responses often contain `file://` URIs with percent-encoding
+        (e.g. `file:///d%3A/...`). Some code paths may forward the parsed
+        URI path (`/d%3A/...`) without the scheme. On Windows, `Path(...)`
+        would interpret that as a root path on the current drive, producing
+        invalid paths like `D:\\d%3A\\...`.
+        """
+        if not file_path_or_uri:
+            return file_path_or_uri
+
+        raw = str(file_path_or_uri).strip()
+
+        if raw.startswith("file:"):
+            try:
+                parsed = urlparse(raw)
+                if parsed.scheme == "file":
+                    raw = unquote(parsed.path)
+                else:
+                    raw = raw.replace("file:///", "").replace("file://", "")
+            except Exception:
+                raw = raw.replace("file:///", "").replace("file://", "")
+
+        # Decode percent-encoded segments (e.g. d%3A -> d:)
+        if "%3a" in raw.lower():
+            try:
+                raw = unquote(raw)
+            except Exception:
+                pass
+
+        # Windows: file URI paths frequently look like "/C:/path"; strip the extra slash.
+        if raw.startswith("/") and len(raw) > 2 and raw[2] == ":":
+            raw = raw[1:]
+
+        return raw
     
     async def _initialize_server(self, state: ServerState) -> None:
         """Send initialize request and wait for response via the message queue.
@@ -771,6 +810,7 @@ class StandaloneLspManager:
     
     def _to_text_document_identifier(self, file_path: str) -> Dict[str, str]:
         """Create TextDocumentIdentifier from file path."""
+        file_path = self._normalize_file_path(file_path)
         uri = Path(file_path).resolve().as_uri()
         return {"uri": uri}
     
@@ -783,6 +823,7 @@ class StandaloneLspManager:
     
     async def _open_document(self, state: ServerState, file_path: str) -> None:
         """Send textDocument/didOpen notification."""
+        file_path = self._normalize_file_path(file_path)
         resolved_path = Path(file_path).resolve()
 
         try:
@@ -1044,7 +1085,7 @@ class StandaloneLspManager:
         """
         # Determine language from item's uri
         uri = item.get("uri", "")
-        file_path = uri.replace("file:///", "").replace("file://", "")
+        file_path = self._normalize_file_path(uri)
         
         state = await self._get_server(file_path)
         if not state:
@@ -1075,7 +1116,7 @@ class StandaloneLspManager:
         """
         # Determine language from item's uri
         uri = item.get("uri", "")
-        file_path = uri.replace("file:///", "").replace("file://", "")
+        file_path = self._normalize_file_path(uri)
 
         state = await self._get_server(file_path)
         if not state:
