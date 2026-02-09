@@ -33,5 +33,6 @@ export { GraphExplorerPage } from './GraphExplorerPage';
 export { CodexLensManagerPage } from './CodexLensManagerPage';
 export { ApiSettingsPage } from './ApiSettingsPage';
 export { CliViewerPage } from './CliViewerPage';
+export { CliSessionSharePage } from './CliSessionSharePage';
 export { IssueManagerPage } from './IssueManagerPage';
 export { TeamPage } from './TeamPage';

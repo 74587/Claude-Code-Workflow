@@ -8,6 +8,7 @@ export type CliSessionAuditEventType =
   | 'session_execute'
   | 'session_resize'
   | 'session_share_created'
+  | 'session_share_revoked'
   | 'session_idle_reaped';
 
 export interface CliSessionAuditEvent {

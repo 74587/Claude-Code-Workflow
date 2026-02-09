@@ -38,6 +38,7 @@ import {
   CodexLensManagerPage,
   ApiSettingsPage,
   CliViewerPage,
+  CliSessionSharePage,
   TeamPage,
 } from '@/pages';
 
@@ -46,6 +47,10 @@ import {
  * All routes are wrapped in AppShell layout
  */
 const routes: RouteObject[] = [
+  {
+    path: 'cli-sessions/share',
+    element: <CliSessionSharePage />,
+  },
   {
     path: '/',
     element: <AppShell />,

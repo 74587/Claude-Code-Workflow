@@ -6,10 +6,14 @@
  * - GET  /api/cli-sessions
  * - POST /api/cli-sessions
  * - GET  /api/cli-sessions/:sessionKey/buffer
+ * - GET  /api/cli-sessions/:sessionKey/stream (SSE, shareToken required)
  * - POST /api/cli-sessions/:sessionKey/send
  * - POST /api/cli-sessions/:sessionKey/execute
  * - POST /api/cli-sessions/:sessionKey/resize
  * - POST /api/cli-sessions/:sessionKey/close
+ * - GET  /api/cli-sessions/:sessionKey/shares
+ * - POST /api/cli-sessions/:sessionKey/share
+ * - POST /api/cli-sessions/:sessionKey/share/revoke
  */
 
 import type { RouteContext } from './types.js';
@@ -192,12 +196,23 @@ export async function handleCliSessionsRoutes(ctx: RouteContext): Promise<boolea
       res.write(`event: buffer\ndata: ${JSON.stringify({ sessionKey, buffer })}\n\n`);
     }
 
+    // Keep the SSE connection alive through proxies even when output is idle.
+    const keepAliveTimer = setInterval(() => {
+      try {
+        res.write(`: keepalive ${Date.now()}\n\n`);
+      } catch {
+        // ignore
+      }
+    }, 15_000);
+    keepAliveTimer.unref?.();
+
     const unsubscribe = manager.onOutput((event) => {
       if (event.sessionKey !== sessionKey) return;
       res.write(`event: output\ndata: ${JSON.stringify(event)}\n\n`);
     });
 
     req.on('close', () => {
+      clearInterval(keepAliveTimer);
       unsubscribe();
       try {
         res.end();
@@ -239,6 +254,25 @@ export async function handleCliSessionsRoutes(ctx: RouteContext): Promise<boolea
     return true;
   }
 
+  // GET /api/cli-sessions/:sessionKey/shares
+  const sharesMatch = pathname.match(/^\/api\/cli-sessions\/([^/]+)\/shares$/);
+  if (sharesMatch && req.method === 'GET') {
+    const sessionKey = decodeURIComponent(sharesMatch[1]);
+    const session = manager.getSession(sessionKey);
+    if (!session) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Session not found' }));
+      return true;
+    }
+    const shares = shareManager
+      .listTokensForSession(sessionKey, projectRoot)
+      .map((s) => ({ shareToken: s.token, expiresAt: s.expiresAt, mode: s.mode }));
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ shares }));
+    return true;
+  }
+
   // POST /api/cli-sessions/:sessionKey/share
   const shareMatch = pathname.match(/^\/api\/cli-sessions\/([^/]+)\/share$/);
   if (shareMatch && req.method === 'POST') {
@@ -267,6 +301,36 @@ export async function handleCliSessionsRoutes(ctx: RouteContext): Promise<boolea
       });
 
       return { success: true, shareToken: token.token, expiresAt: token.expiresAt, mode: token.mode };
+    });
+    return true;
+  }
+
+  // POST /api/cli-sessions/:sessionKey/share/revoke
+  const revokeShareMatch = pathname.match(/^\/api\/cli-sessions\/([^/]+)\/share\/revoke$/);
+  if (revokeShareMatch && req.method === 'POST') {
+    const sessionKey = decodeURIComponent(revokeShareMatch[1]);
+    handlePostRequest(req, res, async (body: unknown) => {
+      const { shareToken } = (body || {}) as any;
+      if (!shareToken || typeof shareToken !== 'string') {
+        return { error: 'shareToken is required', status: 400 };
+      }
+
+      const validated = shareManager.validateToken(shareToken, sessionKey);
+      if (!validated || validated.projectRoot !== projectRoot) {
+        return { error: describeShareAuthFailure().error, status: 403 };
+      }
+
+      const revoked = shareManager.revokeToken(shareToken);
+      appendCliSessionAudit({
+        type: 'session_share_revoked',
+        timestamp: new Date().toISOString(),
+        projectRoot,
+        sessionKey,
+        ...clientInfo(req),
+        details: { tokenTail: shareToken.slice(-6), revoked },
+      });
+
+      return { success: true, revoked };
     });
     return true;
   }

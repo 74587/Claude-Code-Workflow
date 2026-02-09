@@ -69,6 +69,7 @@ export type {
 export {
   useIssues,
   useIssueQueue,
+  useIssueQueueById,
   useQueueHistory,
   useCreateIssue,
   useUpdateIssue,

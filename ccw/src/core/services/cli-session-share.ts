@@ -22,6 +22,20 @@ function createTokenValue(): string {
 export class CliSessionShareManager {
   private tokens = new Map<string, InternalTokenRecord>();
 
+  listTokensForSession(sessionKey: string, projectRoot?: string): CliSessionShareTokenRecord[] {
+    this.cleanupExpired();
+    const records: CliSessionShareTokenRecord[] = [];
+    for (const record of this.tokens.values()) {
+      if (record.sessionKey !== sessionKey) continue;
+      if (projectRoot && record.projectRoot !== projectRoot) continue;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { expiresAtMs: _expiresAtMs, ...publicRecord } = record;
+      records.push(publicRecord);
+    }
+    records.sort((a, b) => a.expiresAt.localeCompare(b.expiresAt));
+    return records;
+  }
+
   createToken(input: {
     sessionKey: string;
     projectRoot: string;
@@ -72,9 +86,20 @@ export class CliSessionShareManager {
 }
 
 let singleton: CliSessionShareManager | null = null;
+let cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
 export function getCliSessionShareManager(): CliSessionShareManager {
-  if (!singleton) singleton = new CliSessionShareManager();
+  if (!singleton) {
+    singleton = new CliSessionShareManager();
+    cleanupTimer = setInterval(() => {
+      try {
+        singleton?.cleanupExpired();
+      } catch {
+        // ignore
+      }
+    }, 60_000);
+    cleanupTimer.unref?.();
+  }
   return singleton;
 }
 

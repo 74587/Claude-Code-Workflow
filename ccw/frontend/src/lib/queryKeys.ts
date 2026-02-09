@@ -35,6 +35,8 @@ export const workspaceQueryKeys = {
   issuesList: (projectPath: string) => [...workspaceQueryKeys.issues(projectPath), 'list'] as const,
   issuesHistory: (projectPath: string) => [...workspaceQueryKeys.issues(projectPath), 'history'] as const,
   issueQueue: (projectPath: string) => [...workspaceQueryKeys.issues(projectPath), 'queue'] as const,
+  issueQueueById: (projectPath: string, queueId: string) =>
+    [...workspaceQueryKeys.issues(projectPath), 'queueById', queueId] as const,
   issueQueueHistory: (projectPath: string) => [...workspaceQueryKeys.issues(projectPath), 'queueHistory'] as const,
 
   // ========== Discoveries ==========

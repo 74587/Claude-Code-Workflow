@@ -120,7 +120,18 @@
       "refresh": "Refresh",
       "new": "New Session",
       "close": "Close",
-      "share": "Share (Read-only)"
+      "share": "Share (Read-only)",
+      "revokeShare": "Revoke",
+      "expiresAt": "Expires at",
+      "activeShares": "Active shares"
+    },
+    "share": {
+      "pageTitle": "Shared CLI Session",
+      "missingParams": "Missing sessionKey or shareToken in URL",
+      "connecting": "Connecting",
+      "connected": "Live",
+      "error": "Error",
+      "linkLabel": "Share link"
     },
     "exec": {
       "tool": "Tool",

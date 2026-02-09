@@ -120,7 +120,18 @@
       "refresh": "刷新",
       "new": "新建会话",
       "close": "关闭",
-      "share": "分享（只读）"
+      "share": "分享（只读）",
+      "revokeShare": "撤销分享",
+      "expiresAt": "过期时间",
+      "activeShares": "分享列表"
+    },
+    "share": {
+      "pageTitle": "共享终端会话",
+      "missingParams": "链接缺少 sessionKey 或 shareToken 参数",
+      "connecting": "连接中",
+      "connected": "实时",
+      "error": "错误",
+      "linkLabel": "分享链接"
     },
     "exec": {
       "tool": "工具",

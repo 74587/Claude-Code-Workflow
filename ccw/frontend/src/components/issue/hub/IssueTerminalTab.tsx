@@ -17,6 +17,8 @@ import {
   closeCliSession,
   createCliSession,
   createCliSessionShareToken,
+  fetchCliSessionShares,
+  revokeCliSessionShareToken,
   executeInCliSession,
   fetchCliSessionBuffer,
   fetchCliSessions,
@@ -55,6 +57,11 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
   const [prompt, setPrompt] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
   const [shareUrl, setShareUrl] = useState<string>('');
+  const [shareToken, setShareToken] = useState<string>('');
+  const [shareExpiresAt, setShareExpiresAt] = useState<string>('');
+  const [shareRecords, setShareRecords] = useState<Array<{ shareToken: string; expiresAt: string; mode: 'read' | 'write' }>>([]);
+  const [isLoadingShares, setIsLoadingShares] = useState(false);
+  const [isRevokingShare, setIsRevokingShare] = useState(false);
 
   const terminalHostRef = useRef<HTMLDivElement | null>(null);
   const xtermRef = useRef<XTerm | null>(null);
@@ -102,6 +109,39 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
     if (sessions.length === 0) return;
     setSelectedSessionKey(sessions[sessions.length - 1]?.sessionKey ?? '');
   }, [sessions, selectedSessionKey]);
+
+  const buildShareLink = (sessionKey: string, token: string): string => {
+    const url = new URL(window.location.href);
+    const base = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
+    url.pathname = `${base}/cli-sessions/share`;
+    url.search = `sessionKey=${encodeURIComponent(sessionKey)}&shareToken=${encodeURIComponent(token)}`;
+    return url.toString();
+  };
+
+  const refreshShares = async (sessionKey: string) => {
+    if (!sessionKey) {
+      setShareRecords([]);
+      return;
+    }
+    setIsLoadingShares(true);
+    try {
+      const r = await fetchCliSessionShares(sessionKey, projectPath || undefined);
+      setShareRecords(r.shares || []);
+    } catch {
+      setShareRecords([]);
+    } finally {
+      setIsLoadingShares(false);
+    }
+  };
+
+  // Refresh share tokens when session changes
+  useEffect(() => {
+    setShareUrl('');
+    setShareToken('');
+    setShareExpiresAt('');
+    void refreshShares(selectedSessionKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSessionKey, projectPath]);
 
   // Init xterm
   useEffect(() => {
@@ -282,15 +322,35 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
     if (!selectedSessionKey) return;
     setError(null);
     setShareUrl('');
+    setShareToken('');
+    setShareExpiresAt('');
     try {
       const r = await createCliSessionShareToken(selectedSessionKey, { mode: 'read' }, projectPath || undefined);
-      const url = new URL(window.location.href);
-      const base = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
-      url.pathname = `${base}/cli-sessions/share`;
-      url.search = `sessionKey=${encodeURIComponent(selectedSessionKey)}&shareToken=${encodeURIComponent(r.shareToken)}`;
-      setShareUrl(url.toString());
+      setShareUrl(buildShareLink(selectedSessionKey, r.shareToken));
+      setShareToken(r.shareToken);
+      setShareExpiresAt(r.expiresAt);
+      void refreshShares(selectedSessionKey);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const handleRevokeShareLink = async (token: string) => {
+    if (!selectedSessionKey || !token) return;
+    setIsRevokingShare(true);
+    setError(null);
+    try {
+      await revokeCliSessionShareToken(selectedSessionKey, { shareToken: token }, projectPath || undefined);
+      if (token === shareToken) {
+        setShareUrl('');
+        setShareToken('');
+        setShareExpiresAt('');
+      }
+      void refreshShares(selectedSessionKey);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsRevokingShare(false);
     }
   };
 
@@ -352,12 +412,67 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
       </div>
 
       {shareUrl && (
-        <div className="flex items-center gap-2">
-          <Input value={shareUrl} readOnly />
-          <Button variant="outline" onClick={handleCopyShareLink}>
-            <Copy className="w-4 h-4 mr-2" />
-            {formatMessage({ id: 'common.actions.copy' })}
-          </Button>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Input value={shareUrl} readOnly />
+            <Button variant="outline" onClick={handleCopyShareLink}>
+              <Copy className="w-4 h-4 mr-2" />
+              {formatMessage({ id: 'common.actions.copy' })}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleRevokeShareLink(shareToken)}
+              disabled={isRevokingShare || !shareToken}
+            >
+              {formatMessage({ id: 'issues.terminal.session.revokeShare' })}
+            </Button>
+          </div>
+          {shareExpiresAt && (
+            <div className="text-xs text-muted-foreground font-mono">
+              {formatMessage({ id: 'issues.terminal.session.expiresAt' })}: {shareExpiresAt}
+            </div>
+          )}
+        </div>
+      )}
+
+      {selectedSessionKey && shareRecords.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs text-muted-foreground">
+            {formatMessage({ id: 'issues.terminal.session.activeShares' })}
+            {isLoadingShares ? '…' : ''}
+          </div>
+          <div className="space-y-1">
+            {shareRecords.map((s) => (
+              <div key={s.shareToken} className="flex items-center gap-2">
+                <div className="text-xs font-mono truncate flex-1 min-w-0">
+                  {s.shareToken.slice(0, 6)}…{s.shareToken.slice(-6)}
+                </div>
+                <div className="text-xs text-muted-foreground font-mono">{s.mode}</div>
+                <div className="text-xs text-muted-foreground font-mono truncate max-w-[220px]">{s.expiresAt}</div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(buildShareLink(selectedSessionKey, s.shareToken));
+                    } catch {
+                      // ignore
+                    }
+                  }}
+                >
+                  {formatMessage({ id: 'common.actions.copy' })}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isRevokingShare}
+                  onClick={() => handleRevokeShareLink(s.shareToken)}
+                >
+                  {formatMessage({ id: 'issues.terminal.session.revokeShare' })}
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

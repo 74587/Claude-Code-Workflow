@@ -843,6 +843,13 @@ export async function fetchQueueHistory(projectPath: string): Promise<QueueHisto
 }
 
 /**
+ * Fetch a specific queue by ID
+ */
+export async function fetchQueueById(queueId: string, projectPath: string): Promise<IssueQueue> {
+  return fetchApi<IssueQueue>(`/api/queue/${encodeURIComponent(queueId)}?path=${encodeURIComponent(projectPath)}`);
+}
+
+/**
  * Activate a queue
  */
 export async function activateQueue(queueId: string, projectPath: string): Promise<void> {
@@ -5794,6 +5801,26 @@ export async function createCliSessionShareToken(
 ): Promise<{ success: boolean; shareToken: string; expiresAt: string; mode: 'read' | 'write' }> {
   return fetchApi<{ success: boolean; shareToken: string; expiresAt: string; mode: 'read' | 'write' }>(
     withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/share`, projectPath),
+    { method: 'POST', body: JSON.stringify(input) }
+  );
+}
+
+export async function fetchCliSessionShares(
+  sessionKey: string,
+  projectPath?: string
+): Promise<{ shares: Array<{ shareToken: string; expiresAt: string; mode: 'read' | 'write' }> }> {
+  return fetchApi<{ shares: Array<{ shareToken: string; expiresAt: string; mode: 'read' | 'write' }> }>(
+    withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/shares`, projectPath)
+  );
+}
+
+export async function revokeCliSessionShareToken(
+  sessionKey: string,
+  input: { shareToken: string },
+  projectPath?: string
+): Promise<{ success: boolean; revoked: boolean }> {
+  return fetchApi<{ success: boolean; revoked: boolean }>(
+    withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/share/revoke`, projectPath),
     { method: 'POST', body: JSON.stringify(input) }
   );
 }
