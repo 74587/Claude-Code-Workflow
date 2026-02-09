@@ -103,7 +103,7 @@ export function QueueExecuteInSession({ item, className }: { item: QueueItem; cl
     setIsLoading(true);
     setError(null);
     try {
-      const r = await fetchCliSessions();
+      const r = await fetchCliSessions(projectPath || undefined);
       setSessions(r.sessions as unknown as CliSession[]);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -115,7 +115,7 @@ export function QueueExecuteInSession({ item, className }: { item: QueueItem; cl
   useEffect(() => {
     void refreshSessions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [projectPath]);
 
   useEffect(() => {
     if (selectedSessionKey) return;
@@ -130,7 +130,7 @@ export function QueueExecuteInSession({ item, className }: { item: QueueItem; cl
       workingDir: projectPath,
       preferredShell: 'bash',
       resumeKey: item.issue_id,
-    });
+    }, projectPath);
     upsertSession(created.session as unknown as CliSession);
     setSelectedSessionKey(created.session.sessionKey);
     return created.session.sessionKey;
@@ -144,7 +144,7 @@ export function QueueExecuteInSession({ item, className }: { item: QueueItem; cl
         workingDir: projectPath,
         preferredShell: 'bash',
         resumeKey: item.issue_id,
-      });
+      }, projectPath);
       upsertSession(created.session as unknown as CliSession);
       setSelectedSessionKey(created.session.sessionKey);
       await refreshSessions();
@@ -168,7 +168,7 @@ export function QueueExecuteInSession({ item, className }: { item: QueueItem; cl
         category: 'user',
         resumeKey: item.issue_id,
         resumeStrategy,
-      });
+      }, projectPath);
       setLastExecution({ executionId: result.executionId, command: result.command });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

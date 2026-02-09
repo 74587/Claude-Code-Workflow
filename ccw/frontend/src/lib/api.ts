@@ -5707,28 +5707,41 @@ export interface CreateCliSessionInput {
   resumeKey?: string;
 }
 
-export async function fetchCliSessions(): Promise<{ sessions: CliSession[] }> {
-  return fetchApi<{ sessions: CliSession[] }>('/api/cli-sessions');
+function withPath(url: string, projectPath?: string): string {
+  if (!projectPath) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}path=${encodeURIComponent(projectPath)}`;
 }
 
-export async function createCliSession(input: CreateCliSessionInput): Promise<{ success: boolean; session: CliSession }> {
-  return fetchApi<{ success: boolean; session: CliSession }>('/api/cli-sessions', {
+export async function fetchCliSessions(projectPath?: string): Promise<{ sessions: CliSession[] }> {
+  return fetchApi<{ sessions: CliSession[] }>(withPath('/api/cli-sessions', projectPath));
+}
+
+export async function createCliSession(
+  input: CreateCliSessionInput,
+  projectPath?: string
+): Promise<{ success: boolean; session: CliSession }> {
+  return fetchApi<{ success: boolean; session: CliSession }>(withPath('/api/cli-sessions', projectPath), {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
-export async function fetchCliSessionBuffer(sessionKey: string): Promise<{ session: CliSession; buffer: string }> {
+export async function fetchCliSessionBuffer(
+  sessionKey: string,
+  projectPath?: string
+): Promise<{ session: CliSession; buffer: string }> {
   return fetchApi<{ session: CliSession; buffer: string }>(
-    `/api/cli-sessions/${encodeURIComponent(sessionKey)}/buffer`
+    withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/buffer`, projectPath)
   );
 }
 
 export async function sendCliSessionText(
   sessionKey: string,
-  input: { text: string; appendNewline?: boolean }
+  input: { text: string; appendNewline?: boolean },
+  projectPath?: string
 ): Promise<{ success: boolean }> {
-  return fetchApi<{ success: boolean }>(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/send`, {
+  return fetchApi<{ success: boolean }>(withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/send`, projectPath), {
     method: 'POST',
     body: JSON.stringify(input),
   });
@@ -5747,27 +5760,40 @@ export interface ExecuteInCliSessionInput {
 
 export async function executeInCliSession(
   sessionKey: string,
-  input: ExecuteInCliSessionInput
+  input: ExecuteInCliSessionInput,
+  projectPath?: string
 ): Promise<{ success: boolean; executionId: string; command: string }> {
   return fetchApi<{ success: boolean; executionId: string; command: string }>(
-    `/api/cli-sessions/${encodeURIComponent(sessionKey)}/execute`,
+    withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/execute`, projectPath),
     { method: 'POST', body: JSON.stringify(input) }
   );
 }
 
 export async function resizeCliSession(
   sessionKey: string,
-  input: { cols: number; rows: number }
+  input: { cols: number; rows: number },
+  projectPath?: string
 ): Promise<{ success: boolean }> {
-  return fetchApi<{ success: boolean }>(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/resize`, {
+  return fetchApi<{ success: boolean }>(withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/resize`, projectPath), {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
-export async function closeCliSession(sessionKey: string): Promise<{ success: boolean }> {
-  return fetchApi<{ success: boolean }>(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/close`, {
+export async function closeCliSession(sessionKey: string, projectPath?: string): Promise<{ success: boolean }> {
+  return fetchApi<{ success: boolean }>(withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/close`, projectPath), {
     method: 'POST',
     body: JSON.stringify({}),
   });
+}
+
+export async function createCliSessionShareToken(
+  sessionKey: string,
+  input: { mode?: 'read' | 'write'; ttlMs?: number },
+  projectPath?: string
+): Promise<{ success: boolean; shareToken: string; expiresAt: string; mode: 'read' | 'write' }> {
+  return fetchApi<{ success: boolean; shareToken: string; expiresAt: string; mode: 'read' | 'write' }>(
+    withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/share`, projectPath),
+    { method: 'POST', body: JSON.stringify(input) }
+  );
 }

@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { Plus, RefreshCw, XCircle } from 'lucide-react';
+import { Copy, Plus, RefreshCw, Share2, XCircle } from 'lucide-react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { Button } from '@/components/ui/Button';
@@ -16,6 +16,7 @@ import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import {
   closeCliSession,
   createCliSession,
+  createCliSessionShareToken,
   executeInCliSession,
   fetchCliSessionBuffer,
   fetchCliSessions,
@@ -53,6 +54,7 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
   const [resumeStrategy, setResumeStrategy] = useState<ResumeStrategy>('nativeResume');
   const [prompt, setPrompt] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string>('');
 
   const terminalHostRef = useRef<HTMLDivElement | null>(null);
   const xtermRef = useRef<XTerm | null>(null);
@@ -69,7 +71,7 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
     pendingInputRef.current = '';
     if (!pending) return;
     try {
-      await sendCliSessionText(sessionKey, { text: pending, appendNewline: false });
+      await sendCliSessionText(sessionKey, { text: pending, appendNewline: false }, projectPath || undefined);
     } catch (e) {
       // Ignore transient failures (WS output still shows process state)
     }
@@ -86,13 +88,13 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
   useEffect(() => {
     setIsLoadingSessions(true);
     setError(null);
-    fetchCliSessions()
+    fetchCliSessions(projectPath || undefined)
       .then((r) => {
         setSessions(r.sessions as unknown as CliSession[]);
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)))
       .finally(() => setIsLoadingSessions(false));
-  }, [setSessions]);
+  }, [projectPath, setSessions]);
 
   // Auto-select a session if none selected yet
   useEffect(() => {
@@ -152,7 +154,7 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
     if (!selectedSessionKey) return;
     clearOutput(selectedSessionKey);
 
-    fetchCliSessionBuffer(selectedSessionKey)
+    fetchCliSessionBuffer(selectedSessionKey, projectPath || undefined)
       .then(({ buffer }) => {
         setBuffer(selectedSessionKey, buffer || '');
       })
@@ -162,7 +164,7 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
       .finally(() => {
         fitAddon.fit();
       });
-  }, [selectedSessionKey, setBuffer, clearOutput]);
+  }, [selectedSessionKey, projectPath, setBuffer, clearOutput]);
 
   // Stream new output chunks into xterm
   useEffect(() => {
@@ -192,7 +194,7 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
       if (selectedSessionKey) {
         void (async () => {
           try {
-            await resizeCliSession(selectedSessionKey, { cols: term.cols, rows: term.rows });
+            await resizeCliSession(selectedSessionKey, { cols: term.cols, rows: term.rows }, projectPath || undefined);
           } catch {
             // ignore
           }
@@ -203,7 +205,7 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
     const ro = new ResizeObserver(resize);
     ro.observe(host);
     return () => ro.disconnect();
-  }, [selectedSessionKey]);
+  }, [selectedSessionKey, projectPath]);
 
   const handleCreateSession = async () => {
     setIsCreating(true);
@@ -217,7 +219,7 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
         tool,
         model: undefined,
         resumeKey,
-      });
+      }, projectPath || undefined);
       upsertSession(created.session as unknown as CliSession);
       setSelectedSessionKey(created.session.sessionKey);
     } catch (e) {
@@ -232,7 +234,7 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
     setIsClosing(true);
     setError(null);
     try {
-      await closeCliSession(selectedSessionKey);
+      await closeCliSession(selectedSessionKey, projectPath || undefined);
       setSelectedSessionKey('');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -254,7 +256,7 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
         resumeKey: resumeKey.trim() || undefined,
         resumeStrategy,
         category: 'user',
-      });
+      }, projectPath || undefined);
       setPrompt('');
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -267,12 +269,37 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
     setIsLoadingSessions(true);
     setError(null);
     try {
-      const r = await fetchCliSessions();
+      const r = await fetchCliSessions(projectPath || undefined);
       setSessions(r.sessions as unknown as CliSession[]);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setIsLoadingSessions(false);
+    }
+  };
+
+  const handleCreateShareLink = async () => {
+    if (!selectedSessionKey) return;
+    setError(null);
+    setShareUrl('');
+    try {
+      const r = await createCliSessionShareToken(selectedSessionKey, { mode: 'read' }, projectPath || undefined);
+      const url = new URL(window.location.href);
+      const base = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
+      url.pathname = `${base}/cli-sessions/share`;
+      url.search = `sessionKey=${encodeURIComponent(selectedSessionKey)}&shareToken=${encodeURIComponent(r.shareToken)}`;
+      setShareUrl(url.toString());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {
+      // ignore
     }
   };
 
@@ -317,7 +344,22 @@ export function IssueTerminalTab({ issueId }: { issueId: string }) {
           <XCircle className="w-4 h-4 mr-2" />
           {formatMessage({ id: 'issues.terminal.session.close' })}
         </Button>
+
+        <Button variant="outline" onClick={handleCreateShareLink} disabled={!selectedSessionKey}>
+          <Share2 className="w-4 h-4 mr-2" />
+          {formatMessage({ id: 'issues.terminal.session.share' })}
+        </Button>
       </div>
+
+      {shareUrl && (
+        <div className="flex items-center gap-2">
+          <Input value={shareUrl} readOnly />
+          <Button variant="outline" onClick={handleCopyShareLink}>
+            <Copy className="w-4 h-4 mr-2" />
+            {formatMessage({ id: 'common.actions.copy' })}
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">

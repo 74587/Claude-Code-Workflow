@@ -255,7 +255,7 @@ export class NodeRunner {
           };
         }
 
-        const manager = getCliSessionManager(process.cwd());
+        const manager = getCliSessionManager(this.context.workingDir || process.cwd());
         const routed = manager.execute(targetSessionKey, {
           tool,
           prompt: instruction,

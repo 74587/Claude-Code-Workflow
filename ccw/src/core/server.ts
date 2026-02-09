@@ -53,6 +53,7 @@ import { randomBytes } from 'crypto';
 
 // Import health check service
 import { getHealthCheckService } from './services/health-check-service.js';
+import { getCliSessionShareManager } from './services/cli-session-share.js';
 
 // Import status check functions for warmup
 import { checkSemanticStatus, checkVenvStatus } from '../tools/codex-lens.js';
@@ -465,6 +466,7 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
   const secretKey = tokenManager.getSecretKey();
   tokenManager.getOrCreateAuthToken();
   const unauthenticatedPaths = new Set<string>(['/api/auth/token', '/api/csrf-token', '/api/hook', '/api/test/ask-question', '/api/a2ui/answer']);
+  const cliSessionShareManager = getCliSessionShareManager();
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://localhost:${serverPort}`);
@@ -521,8 +523,24 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
 
       // Authentication middleware for all API routes
       if (pathname.startsWith('/api/')) {
-        const ok = authMiddleware({ pathname, req, res, tokenManager, secretKey, unauthenticatedPaths });
-        if (!ok) return;
+        let shareBypass = false;
+        const shareToken = url.searchParams.get('shareToken');
+        if (shareToken) {
+          const match = pathname.match(/^\/api\/cli-sessions\/([^/]+)\/(buffer|stream)$/);
+          if (match?.[1]) {
+            const sessionKey = decodeURIComponent(match[1]);
+            const validated = cliSessionShareManager.validateToken(shareToken, sessionKey);
+            if (validated && (validated.mode === 'read' || validated.mode === 'write')) {
+              (req as any).__cliSessionShareProjectRoot = validated.projectRoot;
+              shareBypass = true;
+            }
+          }
+        }
+
+        if (!shareBypass) {
+          const ok = authMiddleware({ pathname, req, res, tokenManager, secretKey, unauthenticatedPaths });
+          if (!ok) return;
+        }
       }
 
       // CSRF validation middleware for state-changing API routes

@@ -310,14 +310,14 @@ export function IssueBoardPanel() {
                   preferredShell: 'bash',
                   tool: autoStart.tool,
                   resumeKey: issueId,
-                });
+                }, projectPath);
                 await executeInCliSession(created.session.sessionKey, {
                   tool: autoStart.tool,
                   prompt: buildIssueAutoPrompt({ ...issue, status: destStatus }),
                   mode: autoStart.mode,
                   resumeKey: issueId,
                   resumeStrategy: autoStart.resumeStrategy,
-                });
+                }, projectPath);
               } catch (e) {
                 setOptimisticError(`Auto-start failed: ${e instanceof Error ? e.message : String(e)}`);
               }
@@ -328,7 +328,7 @@ export function IssueBoardPanel() {
         }
       }
     },
-    [issues, idsByStatus, updateIssue]
+    [autoStart, issues, idsByStatus, projectPath, updateIssue]
   );
 
   if (error) {
