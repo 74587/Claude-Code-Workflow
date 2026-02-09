@@ -12,7 +12,7 @@ Create or resume a development cycle, initialize state file and directory struct
 
 ## Execution
 
-### Step 1.1: Parse Arguments
+### Step 1.1: Parse Arguments & Load Prep Package
 
 ```javascript
 const { cycleId: existingCycleId, task, mode = 'interactive', extension } = options
@@ -21,6 +21,102 @@ const { cycleId: existingCycleId, task, mode = 'interactive', extension } = opti
 if (!existingCycleId && !task) {
   console.error('Either --cycle-id or task description is required')
   return { status: 'error', message: 'Missing cycleId or task' }
+}
+
+// ── Prep Package: Detect → Validate → Consume ──
+let prepPackage = null
+const prepPath = `${projectRoot}/.workflow/.cycle/prep-package.json`
+
+if (fs.existsSync(prepPath)) {
+  const raw = JSON.parse(Read(prepPath))
+  const checks = validatePrepPackage(raw, projectRoot)
+
+  if (checks.valid) {
+    prepPackage = raw
+    task = prepPackage.task.refined
+    console.log(`✓ Prep package loaded: score=${prepPackage.task.quality_score}/10, auto=${prepPackage.auto_iteration.enabled}`)
+    console.log(`  Checks passed: ${checks.passed.join(', ')}`)
+  } else {
+    console.warn(`⚠ Prep package found but failed validation:`)
+    checks.failures.forEach(f => console.warn(`  ✗ ${f}`))
+    console.warn(`  → Falling back to default behavior (prep-package ignored)`)
+    prepPackage = null
+  }
+}
+
+/**
+ * Validate prep-package.json integrity before consumption.
+ * Returns { valid: bool, passed: string[], failures: string[] }
+ */
+function validatePrepPackage(prep, projectRoot) {
+  const passed = []
+  const failures = []
+
+  // Check 1: prep_status must be "ready"
+  if (prep.prep_status === 'ready') {
+    passed.push('status=ready')
+  } else {
+    failures.push(`prep_status is "${prep.prep_status}", expected "ready"`)
+  }
+
+  // Check 2: project_root must match current project
+  if (prep.environment?.project_root === projectRoot) {
+    passed.push('project_root match')
+  } else {
+    failures.push(`project_root mismatch: prep="${prep.environment?.project_root}", current="${projectRoot}"`)
+  }
+
+  // Check 3: quality_score must be >= 6
+  if ((prep.task?.quality_score || 0) >= 6) {
+    passed.push(`quality=${prep.task.quality_score}/10`)
+  } else {
+    failures.push(`quality_score ${prep.task?.quality_score || 0} < 6 minimum`)
+  }
+
+  // Check 4: generated_at must be within 24 hours
+  const generatedAt = new Date(prep.generated_at)
+  const hoursSince = (Date.now() - generatedAt.getTime()) / (1000 * 60 * 60)
+  if (hoursSince <= 24) {
+    passed.push(`age=${Math.round(hoursSince)}h`)
+  } else {
+    failures.push(`prep-package is ${Math.round(hoursSince)}h old (max 24h), may be stale`)
+  }
+
+  // Check 5: required fields exist
+  const requiredFields = [
+    'task.refined',
+    'auto_iteration.convergence.test_pass_rate',
+    'auto_iteration.convergence.coverage',
+    'auto_iteration.phase_gates.zero_to_one',
+    'auto_iteration.phase_gates.one_to_hundred',
+    'auto_iteration.agent_focus.zero_to_one',
+    'auto_iteration.agent_focus.one_to_hundred'
+  ]
+  const missing = requiredFields.filter(path => {
+    const val = path.split('.').reduce((obj, key) => obj?.[key], prep)
+    return val === undefined || val === null
+  })
+  if (missing.length === 0) {
+    passed.push('fields complete')
+  } else {
+    failures.push(`missing fields: ${missing.join(', ')}`)
+  }
+
+  // Check 6: convergence values are valid numbers
+  const conv = prep.auto_iteration?.convergence
+  if (conv && typeof conv.test_pass_rate === 'number' && typeof conv.coverage === 'number'
+      && conv.test_pass_rate > 0 && conv.test_pass_rate <= 100
+      && conv.coverage > 0 && conv.coverage <= 100) {
+    passed.push(`convergence valid (test≥${conv.test_pass_rate}%, cov≥${conv.coverage}%)`)
+  } else {
+    failures.push(`convergence values invalid: test_pass_rate=${conv?.test_pass_rate}, coverage=${conv?.coverage}`)
+  }
+
+  return {
+    valid: failures.length === 0,
+    passed,
+    failures
+  }
 }
 ```
 
@@ -73,7 +169,7 @@ function createCycleState(cycleId, taskDescription) {
     cycle_id: cycleId,
     title: taskDescription.substring(0, 100),
     description: taskDescription,
-    max_iterations: 5,
+    max_iterations: prepPackage?.auto_iteration?.max_iterations || 5,
     status: 'running',
     created_at: now,
     updated_at: now,
@@ -96,7 +192,13 @@ function createCycleState(cycleId, taskDescription) {
     exploration: null,
     plan: null,
     changes: [],
-    test_results: null
+    test_results: null,
+
+    // Prep package integration (from /prompts:prep-cycle)
+    convergence: prepPackage?.auto_iteration?.convergence || null,
+    phase_gates: prepPackage?.auto_iteration?.phase_gates || null,
+    agent_focus: prepPackage?.auto_iteration?.agent_focus || null,
+    source_refs: prepPackage?.task?.source_refs || null
   }
 
   Write(stateFile, JSON.stringify(state, null, 2))

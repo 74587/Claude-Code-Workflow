@@ -82,7 +82,7 @@ Step 4: Synthesis & Conclusion
    └─ Offer options: quick execute / create issue / generate task / export / done
 
 Step 5: Quick Execute (Optional - user selects)
-   ├─ Convert conclusions.recommendations → execution-plan.jsonl (with convergence)
+   ├─ Convert conclusions.recommendations → tasks.jsonl (unified JSONL with convergence)
    ├─ Pre-execution analysis (dependencies, file conflicts, execution order)
    ├─ User confirmation
    ├─ Direct inline execution (Read/Edit/Write/Grep/Glob/Bash)
@@ -581,13 +581,13 @@ if (!autoYes) {
 
 **Key Principle**: No additional exploration — analysis phase has already collected all necessary context. No CLI delegation — execute directly using tools.
 
-**Flow**: `conclusions.json → execution-plan.jsonl → User Confirmation → Direct Inline Execution → execution.md + execution-events.md`
+**Flow**: `conclusions.json → tasks.jsonl → User Confirmation → Direct Inline Execution → execution.md + execution-events.md`
 
 **Full specification**: See `EXECUTE.md` for detailed step-by-step implementation.
 
-##### Step 5.1: Generate execution-plan.jsonl
+##### Step 5.1: Generate tasks.jsonl
 
-Convert `conclusions.recommendations` into JSONL execution list. Each line is a self-contained task with convergence criteria:
+Convert `conclusions.recommendations` into unified JSONL task format. Each line is a self-contained task with convergence criteria:
 
 ```javascript
 const conclusions = JSON.parse(Read(`${sessionFolder}/conclusions.json`))
@@ -603,22 +603,28 @@ const tasks = conclusions.recommendations.map((rec, index) => ({
   description: rec.rationale,
   type: inferTaskType(rec),  // fix | refactor | feature | enhancement | testing
   priority: rec.priority,
-  files_to_modify: extractFilesFromEvidence(rec, explorations),
+  effort: inferEffort(rec),  // small | medium | large
+  files: extractFilesFromEvidence(rec, explorations).map(f => ({
+    path: f,
+    action: 'modify'
+  })),
   depends_on: [],
   convergence: {
     criteria: generateCriteria(rec),         // Testable conditions
     verification: generateVerification(rec), // Executable command or steps
     definition_of_done: generateDoD(rec)     // Business language
   },
-  context: {
-    source_conclusions: conclusions.key_conclusions,
-    evidence: rec.evidence || []
+  evidence: rec.evidence || [],
+  source: {
+    tool: 'analyze-with-file',
+    session_id: sessionId,
+    original_id: `TASK-${String(index + 1).padStart(3, '0')}`
   }
 }))
 
 // Validate convergence quality (same as req-plan-with-file)
 // Write one task per line
-Write(`${sessionFolder}/execution-plan.jsonl`, tasks.map(t => JSON.stringify(t)).join('\n'))
+Write(`${sessionFolder}/tasks.jsonl`, tasks.map(t => JSON.stringify(t)).join('\n'))
 ```
 
 ##### Step 5.2: Pre-Execution Analysis
@@ -641,7 +647,7 @@ if (!autoYes) {
       options: [
         { label: "Start Execution", description: "Execute all tasks serially" },
         { label: "Adjust Tasks", description: "Modify, reorder, or remove tasks" },
-        { label: "Cancel", description: "Cancel execution, keep execution-plan.jsonl" }
+        { label: "Cancel", description: "Cancel execution, keep tasks.jsonl" }
       ]
     }]
   })
@@ -664,7 +670,7 @@ For each task in execution order:
 
 - Update `execution.md` with final summary (statistics, task results table)
 - Finalize `execution-events.md` with session footer
-- Update `execution-plan.jsonl` with execution results per task
+- Update `tasks.jsonl` with `_execution` state per task
 
 ```javascript
 if (!autoYes) {
@@ -685,7 +691,7 @@ if (!autoYes) {
 ```
 
 **Success Criteria**:
-- `execution-plan.jsonl` generated with convergence criteria per task
+- `tasks.jsonl` generated with convergence criteria and source provenance per task
 - `execution.md` contains plan overview, task table, pre-execution analysis, final summary
 - `execution-events.md` contains chronological event stream with convergence verification
 - All tasks executed (or explicitly skipped) via direct inline execution
@@ -704,7 +710,7 @@ if (!autoYes) {
 ├── explorations.json          # Phase 2: Single perspective aggregated findings
 ├── perspectives.json          # Phase 2: Multi-perspective findings with synthesis
 ├── conclusions.json           # Phase 4: Final synthesis with recommendations
-├── execution-plan.jsonl       # Phase 5: JSONL execution list with convergence (if quick execute)
+├── tasks.jsonl                # Phase 5: Unified JSONL with convergence + source (if quick execute)
 ├── execution.md               # Phase 5: Execution overview + task table + summary (if quick execute)
 └── execution-events.md        # Phase 5: Chronological event log (if quick execute)
 ```
@@ -717,7 +723,7 @@ if (!autoYes) {
 | `explorations.json` | 2 | Single perspective aggregated findings |
 | `perspectives.json` | 2 | Multi-perspective findings with cross-perspective synthesis |
 | `conclusions.json` | 4 | Final synthesis: conclusions, recommendations, open questions |
-| `execution-plan.jsonl` | 5 | JSONL execution list from recommendations, each line with convergence criteria |
+| `tasks.jsonl` | 5 | Unified JSONL from recommendations, each line with convergence criteria and source provenance |
 | `execution.md` | 5 | Execution overview: plan source, task table, pre-execution analysis, final summary |
 | `execution-events.md` | 5 | Chronological event stream with task details and convergence verification |
 
@@ -861,7 +867,7 @@ Remaining questions or areas for investigation
 | Session folder conflict | Append timestamp suffix | Create unique folder and continue |
 | Quick execute: task fails | Record failure in execution-events.md | User can retry, skip, or abort |
 | Quick execute: verification fails | Mark criterion as unverified, continue | Note in events, manual check |
-| Quick execute: no recommendations | Cannot generate execution-plan.jsonl | Suggest using lite-plan instead |
+| Quick execute: no recommendations | Cannot generate tasks.jsonl | Suggest using lite-plan instead |
 
 ## Best Practices
 

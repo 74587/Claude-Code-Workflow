@@ -50,7 +50,7 @@ Step 3: Output Verification
 **Execute First** - Check if valid package already exists:
 
 ```javascript
-const testContextPath = `${projectRoot}/.workflow/${test_session_id}/.process/test-context-package.json`;
+const testContextPath = `${projectRoot}/.workflow/active/${test_session_id}/.process/test-context-package.json`;
 
 if (file_exists(testContextPath)) {
   const existing = Read(testContextPath);
@@ -90,7 +90,7 @@ const agentId = spawn_agent({
 
 ## Session Information
 - **Test Session ID**: ${test_session_id}
-- **Output Path**: ${projectRoot}/.workflow/${test_session_id}/.process/test-context-package.json
+- **Output Path**: ${projectRoot}/.workflow/active/${test_session_id}/.process/test-context-package.json
 
 ## Mission
 Execute complete test-context-search-agent workflow for test generation planning:
@@ -161,7 +161,7 @@ After agent completes, verify output:
 
 ```javascript
 // Verify file was created
-const outputPath = `${projectRoot}/.workflow/${test_session_id}/.process/test-context-package.json`;
+const outputPath = `${projectRoot}/.workflow/active/${test_session_id}/.process/test-context-package.json`;
 if (!file_exists(outputPath)) {
   throw new Error("Agent failed to generate test-context-package.json");
 }

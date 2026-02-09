@@ -108,7 +108,7 @@ Execute context-search-agent in BRAINSTORM MODE (Phase 1-2 only).
 ## Assigned Context
 - **Session**: ${session_id}
 - **Task**: ${task_description}
-- **Output**: ${projectRoot}/.workflow/${session_id}/.process/context-package.json
+- **Output**: ${projectRoot}/.workflow/active/${session_id}/.process/context-package.json
 
 ## Required Output Fields
 metadata, project_context, assets, dependencies, conflict_detection

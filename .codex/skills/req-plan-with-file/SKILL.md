@@ -306,6 +306,8 @@ if (file_exists(`${sessionFolder}/exploration-codebase.json`)) {
 // - id: L0, L1, L2, L3
 // - title: "MVP" / "Usable" / "Refined" / "Optimized"
 // - description: what this layer achieves (goal)
+// - type: feature (default for layers)
+// - priority: high (L0) | medium (L1) | low (L2-L3)
 // - scope[]: features included
 // - excludes[]: features explicitly deferred
 // - convergence: { criteria[], verification, definition_of_done }
@@ -322,6 +324,7 @@ const layers = [
   {
     id: "L0", title: "MVP",
     description: "...",
+    type: "feature", priority: "high",
     scope: ["..."], excludes: ["..."],
     convergence: {
       criteria: ["... (testable)"],
@@ -341,6 +344,7 @@ const layers = [
 // Each task must have:
 // - id: T1, T2, ...
 // - title, description, type (infrastructure|feature|enhancement|testing)
+// - priority (high|medium|low)
 // - scope, inputs[], outputs[]
 // - convergence: { criteria[], verification, definition_of_done }
 // - depends_on[], parallel_group
@@ -355,6 +359,7 @@ const layers = [
 const tasks = [
   {
     id: "T1", title: "...", description: "...", type: "infrastructure",
+    priority: "high",
     scope: "...", inputs: [], outputs: ["..."],
     convergence: {
       criteria: ["... (testable)"],
@@ -778,11 +783,11 @@ Each record's `convergence` object:
 | L2 | Refined | Edge cases, performance, security hardening |
 | L3 | Optimized | Advanced features, observability, operations |
 
-**Schema**: `id, title, description, scope[], excludes[], convergence{}, risk_items[], effort, depends_on[], source{}`
+**Schema**: `id, title, description, type, priority, scope[], excludes[], convergence{}, risk_items[], effort, depends_on[], source{}`
 
 ```jsonl
-{"id":"L0","title":"MVP","description":"Minimum viable closed loop","scope":["User registration and login","Basic CRUD"],"excludes":["OAuth","2FA"],"convergence":{"criteria":["End-to-end register→login→operate flow works","Core API returns correct responses"],"verification":"curl/Postman manual testing or smoke test script","definition_of_done":"New user can complete register→login→perform one core operation"},"risk_items":["JWT library selection needs validation"],"effort":"medium","depends_on":[],"source":{"tool":"req-plan-with-file","session_id":"RPLAN-xxx","original_id":"L0"}}
-{"id":"L1","title":"Usable","description":"Complete key user paths","scope":["Password reset","Input validation","Error messages"],"excludes":["Audit logs","Rate limiting"],"convergence":{"criteria":["All form fields have frontend+backend validation","Password reset email can be sent and reset completed","Error scenarios show user-friendly messages"],"verification":"Unit tests cover validation logic + manual test of reset flow","definition_of_done":"Users have a clear recovery path when encountering input errors or forgotten passwords"},"risk_items":[],"effort":"medium","depends_on":["L0"],"source":{"tool":"req-plan-with-file","session_id":"RPLAN-xxx","original_id":"L1"}}
+{"id":"L0","title":"MVP","description":"Minimum viable closed loop","type":"feature","priority":"high","scope":["User registration and login","Basic CRUD"],"excludes":["OAuth","2FA"],"convergence":{"criteria":["End-to-end register→login→operate flow works","Core API returns correct responses"],"verification":"curl/Postman manual testing or smoke test script","definition_of_done":"New user can complete register→login→perform one core operation"},"risk_items":["JWT library selection needs validation"],"effort":"medium","depends_on":[],"source":{"tool":"req-plan-with-file","session_id":"RPLAN-xxx","original_id":"L0"}}
+{"id":"L1","title":"Usable","description":"Complete key user paths","type":"feature","priority":"medium","scope":["Password reset","Input validation","Error messages"],"excludes":["Audit logs","Rate limiting"],"convergence":{"criteria":["All form fields have frontend+backend validation","Password reset email can be sent and reset completed","Error scenarios show user-friendly messages"],"verification":"Unit tests cover validation logic + manual test of reset flow","definition_of_done":"Users have a clear recovery path when encountering input errors or forgotten passwords"},"risk_items":[],"effort":"medium","depends_on":["L0"],"source":{"tool":"req-plan-with-file","session_id":"RPLAN-xxx","original_id":"L1"}}
 ```
 
 **Constraints**: 2-4 layers, L0 must be a self-contained closed loop with no dependencies, each feature belongs to exactly ONE layer (no scope overlap).
@@ -829,6 +834,7 @@ When normal decomposition fails or produces empty results, use fallback template
 [
   {
     id: "L0", title: "MVP", description: "Minimum viable closed loop",
+    type: "feature", priority: "high",
     scope: ["Core functionality"], excludes: ["Advanced features", "Optimization"],
     convergence: {
       criteria: ["Core path works end-to-end"],
@@ -840,6 +846,7 @@ When normal decomposition fails or produces empty results, use fallback template
   },
   {
     id: "L1", title: "Usable", description: "Refine key user paths",
+    type: "feature", priority: "medium",
     scope: ["Error handling", "Input validation"], excludes: ["Performance optimization", "Monitoring"],
     convergence: {
       criteria: ["All user inputs validated", "Error scenarios show messages"],
@@ -857,7 +864,7 @@ When normal decomposition fails or produces empty results, use fallback template
 [
   {
     id: "T1", title: "Infrastructure setup", description: "Project scaffolding and base configuration",
-    type: "infrastructure",
+    type: "infrastructure", priority: "high",
     scope: "Project scaffolding and base configuration",
     inputs: [], outputs: ["project-structure"],
     convergence: {
@@ -870,7 +877,7 @@ When normal decomposition fails or produces empty results, use fallback template
   },
   {
     id: "T2", title: "Core feature implementation", description: "Implement core business logic",
-    type: "feature",
+    type: "feature", priority: "high",
     scope: "Core business logic",
     inputs: ["project-structure"], outputs: ["core-module"],
     convergence: {

@@ -69,7 +69,7 @@ Step 5: Output Verification (enhanced)
 **Execute First** - Check if valid package already exists:
 
 ```javascript
-const contextPackagePath = `${projectRoot}/.workflow/${session_id}/.process/context-package.json`;
+const contextPackagePath = `${projectRoot}/.workflow/active/${session_id}/.process/context-package.json`;
 
 if (file_exists(contextPackagePath)) {
   const existing = Read(contextPackagePath);
@@ -559,7 +559,7 @@ modifications.forEach((mod, idx) => {
 
 // Generate conflict-resolution.json
 const resolutionOutput = {
-  session_id: sessionId,
+  session_id: session_id,
   resolved_at: new Date().toISOString(),
   summary: {
     total_conflicts: conflicts.length,
@@ -584,7 +584,7 @@ const resolutionOutput = {
   failed_modifications: failedModifications
 };
 
-const resolutionPath = `${projectRoot}/.workflow/active/${sessionId}/.process/conflict-resolution.json`;
+const resolutionPath = `${projectRoot}/.workflow/active/${session_id}/.process/conflict-resolution.json`;
 Write(resolutionPath, JSON.stringify(resolutionOutput, null, 2));
 
 // Output custom conflict summary (if any)
@@ -648,7 +648,7 @@ const contextAgentId = spawn_agent({
 ## Session Information
 - **Session ID**: ${session_id}
 - **Task Description**: ${task_description}
-- **Output Path**: ${projectRoot}/.workflow/${session_id}/.process/context-package.json
+- **Output Path**: ${projectRoot}/.workflow/active/${session_id}/.process/context-package.json
 
 ## User Intent (from Phase 1 - Planning Notes)
 **GOAL**: ${userIntent.goal}
@@ -790,7 +790,7 @@ After agent completes, verify output:
 
 ```javascript
 // Verify file was created
-const outputPath = `${projectRoot}/.workflow/${session_id}/.process/context-package.json`;
+const outputPath = `${projectRoot}/.workflow/active/${session_id}/.process/context-package.json`;
 if (!file_exists(outputPath)) {
   throw new Error("Agent failed to generate context-package.json");
 }

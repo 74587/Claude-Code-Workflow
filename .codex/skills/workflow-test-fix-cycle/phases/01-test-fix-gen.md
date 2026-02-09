@@ -218,7 +218,7 @@ close_agent({ id: analysisAgentId });
 - Scan for AI code issues
 - Generate `TEST_ANALYSIS_RESULTS.md`
 
-**Output**: `${projectRoot}/.workflow/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md`
+**Output**: `${projectRoot}/.workflow/active/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md`
 
 **Validation** - TEST_ANALYSIS_RESULTS.md must include:
 - Project Type Detection (with confidence)
@@ -335,9 +335,9 @@ Quality Thresholds:
 - Max Fix Iterations: 5
 
 Artifacts:
-- Test plan: ${projectRoot}/.workflow/[testSessionId]/IMPL_PLAN.md
-- Task list: ${projectRoot}/.workflow/[testSessionId]/TODO_LIST.md
-- Analysis: ${projectRoot}/.workflow/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md
+- Test plan: ${projectRoot}/.workflow/active/[testSessionId]/IMPL_PLAN.md
+- Task list: ${projectRoot}/.workflow/active/[testSessionId]/TODO_LIST.md
+- Analysis: ${projectRoot}/.workflow/active/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.md
 
 → Transitioning to Phase 2: Test-Cycle Execution
 ```

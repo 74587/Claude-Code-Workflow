@@ -302,11 +302,11 @@ if (!autoYes) {
       options: [
         { label: "Start Execution", description: "Execute all tasks serially" },
         { label: "Adjust Tasks", description: "Modify, reorder, or remove tasks" },
-        { label: "Cancel", description: "Cancel execution, keep execution-plan.jsonl" }
+        { label: "Cancel", description: "Cancel execution, keep tasks.jsonl" }
       ]
     }]
   })
-  // "Adjust Tasks": display task list, user deselects/reorders, regenerate execution-plan.jsonl
+  // "Adjust Tasks": display task list, user deselects/reorders, regenerate tasks.jsonl
   // "Cancel": end workflow, keep artifacts
 }
 ```
@@ -321,7 +321,7 @@ Execute tasks one by one directly using tools (Read, Edit, Write, Grep, Glob, Ba
 
 ```
 For each taskId in executionOrder:
-  ├─ Load task from execution-plan.jsonl
+  ├─ Load task from tasks.jsonl
   ├─ Check dependencies satisfied (all deps completed)
   ├─ Record START event to execution-events.md
   ├─ Execute task directly:

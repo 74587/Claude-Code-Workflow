@@ -292,7 +292,7 @@ echo "Next: Review full report for detailed findings"
 
 ### Chain Validation Algorithm
 ```
-1. Load all task JSONs from ${projectRoot}/.workflow/active/{sessionId}/.task/
+1. Load all task JSONs from ${projectRoot}/.workflow/active/{session_id}/.task/
 2. Extract task IDs and group by feature number
 3. For each feature:
    - Check TEST-N.M exists
@@ -373,7 +373,7 @@ ${projectRoot}/.workflow/active/WFS-{session-id}/
 # TDD Compliance Report - {Session ID}
 
 **Generated**: {timestamp}
-**Session**: WFS-{sessionId}
+**Session**: WFS-{session_id}
 **Workflow Type**: TDD
 
 ---

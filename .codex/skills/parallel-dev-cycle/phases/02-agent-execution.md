@@ -27,6 +27,31 @@ Each agent reads its detailed role definition at execution time:
 
 ```javascript
 function spawnRAAgent(cycleId, state, progressDir) {
+  // Build source references section from prep-package
+  const sourceRefsSection = (state.source_refs && state.source_refs.length > 0)
+    ? `## REQUIREMENT SOURCE DOCUMENTS
+
+Read these original requirement documents BEFORE analyzing the task:
+
+${state.source_refs
+  .filter(r => r.status === 'verified' || r.status === 'linked')
+  .map((r, i) => {
+    if (r.type === 'local_file' || r.type === 'auto_detected') {
+      return `${i + 1}. **Read**: ${r.path} (${r.type})`
+    } else if (r.type === 'url') {
+      return `${i + 1}. **Reference URL**: ${r.path} (fetch if accessible)`
+    }
+    return ''
+  }).join('\n')}
+
+Use these documents as the primary source of truth for requirements analysis.
+Cross-reference the task description against these documents for completeness.
+`
+    : ''
+
+  // Build focus directive from prep-package
+  const focusDirective = getAgentFocusDirective('ra', state)
+
   return spawn_agent({
     message: `
 ## TASK ASSIGNMENT
@@ -39,6 +64,7 @@ function spawnRAAgent(cycleId, state, progressDir) {
 
 ---
 
+${sourceRefsSection}
 ## CYCLE CONTEXT
 
 - **Cycle ID**: ${cycleId}
@@ -61,7 +87,7 @@ Requirements Analyst - Analyze and refine requirements throughout the cycle.
 3. Identify edge cases and implicit requirements
 4. Track requirement changes across iterations
 5. Maintain requirements.md and changes.log
-
+${focusDirective}
 ## DELIVERABLES
 
 Write files to ${progressDir}/ra/:
