@@ -77,6 +77,7 @@ Phase 2: Context Gathering & Conflict Resolution
 Phase 3: Task Generation
    └─ Ref: phases/03-task-generation.md
       └─ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
+      └─ Schema: .task/IMPL-*.json follows 6-field superset of task-schema.json
 
 User Decision (or --yes auto):
    └─ "Start Execution" → Phase 4
@@ -425,6 +426,20 @@ if (autoYes) {
 - Update TodoWrite after each phase
 - After each phase, automatically continue to next phase based on TodoList status
 - **Always close_agent after wait completes**
+
+## Task JSON Schema Compatibility
+
+Phase 3 generates `.task/IMPL-*.json` files using the **6-field schema** defined in `action-planning-agent.md`. These task JSONs are a **superset** of the unified `task-schema.json` (located at `.ccw/workflows/cli-templates/schemas/task-schema.json`).
+
+**Key field mappings** (6-field → unified schema):
+- `context.acceptance` → `convergence.criteria`
+- `context.requirements` → `description` + `implementation`
+- `context.depends_on` → `depends_on` (top-level)
+- `context.focus_paths` → `focus_paths` (top-level)
+- `meta.type` → `type` (top-level)
+- `flow_control.target_files` → `files[].path`
+
+All existing 6-field schema fields are preserved. The unified schema fields are accepted as optional aliases for cross-tool interoperability. See `action-planning-agent.md` Section 2.1 "Schema Compatibility" for the full mapping table.
 
 ## Related Commands
 

@@ -233,6 +233,7 @@ Phase 5: TDD Task Generation                       ← ATTACHED (3 tasks)
       ├─ Phase 5.2: Planning - design Red-Green-Refactor cycles
       └─ Phase 5.3: Output - generate IMPL tasks with internal TDD phases
       └─ Output: IMPL-*.json, IMPL_PLAN.md           ← COLLAPSED
+      └─ Schema: .task/IMPL-*.json follows 6-field superset of task-schema.json
 
 Phase 6: TDD Structure Validation (inline)
    └─ Internal validation + summary returned
@@ -765,6 +766,20 @@ After TDD tasks have been executed (via workflow:execute), run TDD compliance ve
 Read and execute: `phases/03-tdd-verify.md` with `--session [sessionId]`
 
 This generates a comprehensive TDD_COMPLIANCE_REPORT.md with quality gate recommendation.
+
+## Task JSON Schema Compatibility
+
+Phase 5 generates `.task/IMPL-*.json` files using the **6-field schema** defined in `action-planning-agent.md`. These task JSONs are a **superset** of the unified `task-schema.json` (located at `.ccw/workflows/cli-templates/schemas/task-schema.json`).
+
+**Key field mappings** (6-field → unified schema):
+- `context.acceptance` → `convergence.criteria`
+- `context.requirements` → `description` + `implementation`
+- `context.depends_on` → `depends_on` (top-level)
+- `context.focus_paths` → `focus_paths` (top-level)
+- `meta.type` → `type` (top-level)
+- `flow_control.target_files` → `files[].path`
+
+All existing 6-field schema fields are preserved. TDD-specific extensions (`meta.tdd_workflow`, `tdd_phase` in implementation_approach steps) are additive and do not conflict with the unified schema. See `action-planning-agent.md` Section 2.1 "Schema Compatibility" for the full mapping table.
 
 ## Related Skills
 

@@ -1,19 +1,21 @@
 ---
 name: workflow-lite-plan-execute
-description: Lightweight planning + execution workflow. Serial CLI exploration → Search verification → Clarification → Planning → Unified JSONL output → Execution via unified-execute.
+description: Lightweight planning + execution workflow. Serial CLI exploration → Search verification → Clarification → Planning → .task/*.json multi-file output → Execution via unified-execute.
 allowed-tools: AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, mcp__ace-tool__search_context
 ---
 
 # Planning Workflow
 
-Lite Plan produces a unified JSONL (`tasks.jsonl`) implementation plan via serial CLI exploration and direct planning, then hands off to unified-execute-with-file for task execution.
+Lite Plan produces `.task/TASK-*.json` (one file per task) implementation plan via serial CLI exploration and direct planning, then hands off to unified-execute-with-file for task execution.
+
+> **Schema**: `cat ~/.ccw/workflows/cli-templates/schemas/task-schema.json`
 
 ## Key Design Principles
 
 1. **Serial Execution**: All phases execute serially inline, no agent delegation
 2. **CLI Exploration**: Multi-angle codebase exploration via `ccw cli` calls (default gemini, fallback claude)
 3. **Search Verification**: Verify CLI findings with ACE search / Grep / Glob before incorporating
-4. **Unified JSONL Output**: Produces `tasks.jsonl` compatible with `collaborative-plan-with-file` and `unified-execute-with-file`
+4. **Multi-File Task Output**: Produces `.task/TASK-*.json` (one file per task) compatible with `collaborative-plan-with-file` and `unified-execute-with-file`
 5. **Progressive Phase Loading**: Only load phase docs when about to execute
 
 ## Auto Mode
@@ -49,7 +51,7 @@ $workflow-lite-plan-execute "docs/todo.md"
 
 | Phase | Document | Purpose |
 |-------|----------|---------|
-| 1 | `phases/01-lite-plan.md` | Serial CLI exploration, clarification, plan generation → tasks.jsonl |
+| 1 | `phases/01-lite-plan.md` | Serial CLI exploration, clarification, plan generation → .task/TASK-*.json |
 | 2 | `phases/02-lite-execute.md` | Handoff to unified-execute-with-file for task execution |
 
 ## Orchestrator Logic
@@ -72,7 +74,7 @@ function extractTaskDescription(args) {
 
 const taskDescription = extractTaskDescription($ARGUMENTS)
 
-// Phase 1: Lite Plan → tasks.jsonl
+// Phase 1: Lite Plan → .task/TASK-*.json
 Read('phases/01-lite-plan.md')
 // Execute planning phase...
 
@@ -84,12 +86,14 @@ if (planResult?.userSelection?.confirmation !== 'Allow' && !autoYes) {
 
 // Phase 2: Handoff to unified-execute-with-file
 Read('phases/02-lite-execute.md')
-// Invoke unified-execute-with-file with tasks.jsonl path
+// Invoke unified-execute-with-file with .task/ directory path
 ```
 
 ## Output Contract
 
-Phase 1 produces `tasks.jsonl` (unified JSONL format) — compatible with `collaborative-plan-with-file` and consumable by `unified-execute-with-file`.
+Phase 1 produces `.task/TASK-*.json` (one file per task) — compatible with `collaborative-plan-with-file` and consumable by `unified-execute-with-file`.
+
+> **Schema**: `cat ~/.ccw/workflows/cli-templates/schemas/task-schema.json`
 
 **Output Directory**: `{projectRoot}/.workflow/.lite-plan/{session-id}/`
 
@@ -100,37 +104,41 @@ Phase 1 produces `tasks.jsonl` (unified JSONL format) — compatible with `colla
 ├── explorations-manifest.json         # Exploration index
 ├── exploration-notes.md               # Synthesized exploration notes
 ├── requirement-analysis.json          # Complexity assessment
-├── tasks.jsonl                        # ⭐ Unified JSONL (collaborative-plan-with-file compatible)
+├── .task/                             # ⭐ Task JSON files (one per task)
+│   ├── TASK-001.json                  # Individual task definition
+│   ├── TASK-002.json
+│   └── ...
 └── plan.md                            # Human-readable summary
 ```
 
-**Unified JSONL Task Format** (one task per line):
+**Task JSON Format** (one file per task, following task-schema.json):
 
 ```javascript
+// File: .task/TASK-001.json
 {
-  id: "TASK-001",
-  title: string,
-  description: string,
-  type: "feature|fix|refactor|enhancement|testing|infrastructure",
-  priority: "high|medium|low",
-  effort: "small|medium|large",
-  scope: string,
-  depends_on: ["TASK-xxx"],
-  convergence: {
-    criteria: string[],           // Testable conditions
-    verification: string,         // Executable command or manual steps
-    definition_of_done: string    // Business language
+  "id": "TASK-001",
+  "title": "string",
+  "description": "string",
+  "type": "feature|fix|refactor|enhancement|testing|infrastructure",
+  "priority": "high|medium|low",
+  "effort": "small|medium|large",
+  "scope": "string",
+  "depends_on": ["TASK-xxx"],
+  "convergence": {
+    "criteria": ["string"],        // Testable conditions
+    "verification": "string",      // Executable command or manual steps
+    "definition_of_done": "string" // Business language
   },
-  files: [{
-    path: string,
-    action: "modify|create|delete",
-    changes: string[],
-    conflict_risk: "low|medium|high"
+  "files": [{
+    "path": "string",
+    "action": "modify|create|delete",
+    "changes": ["string"],
+    "conflict_risk": "low|medium|high"
   }],
-  source: {
-    tool: "workflow-lite-plan-execute",
-    session_id: string,
-    original_id: string
+  "source": {
+    "tool": "workflow-lite-plan-execute",
+    "session_id": "string",
+    "original_id": "string"
   }
 }
 ```
@@ -158,7 +166,7 @@ After planning completes:
 1. **Planning phase NEVER modifies project code** — it may write planning artifacts, but all implementation is delegated to unified-execute
 2. **All phases serial, no agent delegation** — everything runs inline, no spawn_agent
 3. **CLI exploration with search verification** — CLI calls produce findings, ACE/Grep/Glob verify them
-4. **tasks.jsonl is the output contract** — unified JSONL format passed to unified-execute-with-file
+4. **`.task/*.json` is the output contract** — individual task JSON files passed to unified-execute-with-file
 5. **Progressive loading**: Read phase doc only when about to execute
 6. **File-path detection**: Treat input as a file path only if the path exists; do not infer from file extensions
 
@@ -168,7 +176,7 @@ After planning completes:
 |-------|------------|
 | CLI exploration failure | Skip angle, continue with remaining; fallback gemini → claude |
 | Planning phase failure | Display error, offer retry |
-| tasks.jsonl missing | Error: planning phase did not produce output |
+| .task/ directory empty | Error: planning phase did not produce output |
 | Phase file not found | Error with file path for debugging |
 
 ## Related Skills

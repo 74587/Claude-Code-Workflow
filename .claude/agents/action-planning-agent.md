@@ -283,6 +283,34 @@ Generate individual `.task/IMPL-*.json` files with the following structure:
   - `resume_from`: Parent task's cli_execution_id (for resume/fork)
   - `merge_from`: Array of parent cli_execution_ids (for merge_fork)
 
+#### Schema Compatibility
+
+The 6-field task JSON is a **superset** of `task-schema.json` (the unified task schema at `.ccw/workflows/cli-templates/schemas/task-schema.json`). All generated `.task/IMPL-*.json` files are compatible with the unified schema via the following field mapping:
+
+| 6-Field Task JSON (this schema) | task-schema.json (unified) | Notes |
+|--------------------------------|---------------------------|-------|
+| `id` | `id` | Direct mapping |
+| `title` | `title` | Direct mapping |
+| `status` | `status` | Direct mapping |
+| `meta.type` | `type` | Flattened in unified schema |
+| `meta.agent` | `meta.agent` | Same path, preserved |
+| `meta.execution_config` | `meta.execution_config` | Same path, preserved |
+| `context.requirements` | `description` + `implementation` | Unified schema splits into goal description and step-by-step guide |
+| `context.acceptance` | `convergence.criteria` | **Key mapping**: acceptance criteria become convergence criteria |
+| `context.focus_paths` | `focus_paths` | Moved to top-level in unified schema |
+| `context.depends_on` | `depends_on` | Moved to top-level in unified schema |
+| `context.shared_context` | _(no direct equivalent)_ | 6-field extension for tech stack and conventions |
+| `context.artifacts` | `evidence` + `inputs` | Unified schema uses generic evidence/inputs arrays |
+| `flow_control.target_files` | `files[].path` | Unified schema uses structured file objects |
+| `flow_control.implementation_approach` | `implementation` | Unified schema uses flat string array |
+| `flow_control.pre_analysis` | _(no direct equivalent)_ | 6-field extension for pre-execution analysis |
+| `context_package_path` | `context_package_path` | Direct mapping |
+| `cli_execution_id` | `cli_execution.id` | Nested in unified schema |
+| `cli_execution` | `cli_execution` | Direct mapping |
+
+**Backward Compatibility**: The 6-field schema retains all existing fields. The unified schema fields (`convergence`, `depends_on` at top-level, `files`, `implementation`) are accepted as **optional aliases** when present. Consumers SHOULD check both locations (e.g., `convergence.criteria` OR `context.acceptance`).
+
+
 **CLI Execution Strategy Rules** (MANDATORY - apply to all tasks):
 
 | Dependency Pattern | Strategy | CLI Command Pattern |
@@ -418,6 +446,14 @@ userConfig.executionMethod → meta.execution_config
       "auth_strategy": "JWT with refresh tokens",
       "conventions": ["Follow existing auth patterns in src/auth/legacy/"]
     },
+    "convergence": {
+      "criteria": [
+        "3 features implemented: verify by npm test -- auth (exit code 0)",
+        "5 files created: verify by ls src/auth/*.ts | wc -l = 5"
+      ],
+      "verification": "npm test -- auth && ls src/auth/*.ts | wc -l",
+      "definition_of_done": "Authentication module fully functional with all endpoints and tests passing"
+    },
     "artifacts": [
       {
         "type": "feature_spec|cross_cutting_spec|synthesis_specification|topic_framework|individual_role_analysis",
@@ -437,6 +473,10 @@ userConfig.executionMethod → meta.execution_config
 - `requirements`: **QUANTIFIED** implementation requirements (MUST include explicit counts and enumerated lists, e.g., "5 files: [list]")
 - `focus_paths`: Target directories/files (concrete paths without wildcards)
 - `acceptance`: **MEASURABLE** acceptance criteria (MUST include verification commands, e.g., "verify by ls ... | wc -l = N")
+- `convergence`: _(Optional, unified schema alias)_ Structured completion criteria object following `task-schema.json` format. When present, `convergence.criteria` maps to `acceptance`. Use **either** `acceptance` (6-field native) **or** `convergence` (unified schema native), not both. See [Schema Compatibility](#schema-compatibility) for full mapping.
+  - `criteria`: Array of testable completion conditions (equivalent to `acceptance`)
+  - `verification`: Executable verification command or steps
+  - `definition_of_done`: Business-language completion definition (non-technical)
 - `depends_on`: Prerequisite task IDs that must complete before this task starts
 - `inherited`: Context, patterns, and dependencies passed from parent task
 - `shared_context`: Tech stack, conventions, and architectural strategies for the task
