@@ -279,6 +279,19 @@ Output:
 Session ID: {session-id}
 MCP Capabilities: {exa_code, exa_web, code_index}
 
+## FEATURE SPECIFICATIONS (conditional)
+If .workflow/active/{session-id}/.brainstorming/feature-specs/ exists:
+  Feature Index: .workflow/active/{session-id}/.brainstorming/feature-specs/feature-index.json
+  Feature Spec Dir: .workflow/active/{session-id}/.brainstorming/feature-specs/
+
+Use feature-index.json to:
+- Map features to implementation tasks (feature_id → task alignment)
+- Reference individual feature spec files (spec_path) for detailed requirements
+- Identify cross-cutting concerns (cross_cutting_specs) that span multiple tasks
+- Align task priorities with feature priorities
+
+If the directory does not exist, skip this section (backward compatible with non-brainstorm workflows).
+
 ## USER CONFIGURATION (from Phase 0)
 Execution Method: ${userConfig.executionMethod}  // agent|hybrid|cli
 Preferred CLI Tool: ${userConfig.preferredCliTool}  // codex|gemini|qwen|auto
@@ -460,6 +473,19 @@ Output:
 ## CONTEXT METADATA
 Session ID: {session-id}
 MCP Capabilities: {exa_code, exa_web, code_index}
+
+## FEATURE SPECIFICATIONS (conditional)
+If .workflow/active/{session-id}/.brainstorming/feature-specs/ exists:
+  Feature Index: .workflow/active/{session-id}/.brainstorming/feature-specs/feature-index.json
+  Feature Spec Dir: .workflow/active/{session-id}/.brainstorming/feature-specs/
+
+Use feature-index.json to:
+- Map features to module-scoped tasks (filter by ${module.paths.join(', ')})
+- Reference individual feature spec files (spec_path) for detailed requirements
+- Identify cross-cutting concerns affecting this module
+- Align task priorities with feature priorities
+
+If the directory does not exist, skip this section (backward compatible with non-brainstorm workflows).
 
 ## USER CONFIGURATION (from Phase 0)
 Execution Method: ${userConfig.executionMethod}  // agent|hybrid|cli

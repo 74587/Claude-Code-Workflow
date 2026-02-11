@@ -339,7 +339,25 @@ if (dir_exists(brainstormDir)) {
       path: `${brainstormDir}/synthesis-specification.md`,
       exists: file_exists(`${brainstormDir}/synthesis-specification.md`),
       content: Read(`${brainstormDir}/synthesis-specification.md`) || null
-    }
+    },
+    // Feature index (optional - top level, matches action-planning-agent expected access pattern)
+    feature_index: file_exists(`${brainstormDir}/feature-specs/feature-index.json`) ? {
+      path: `${brainstormDir}/feature-specs/feature-index.json`,
+      exists: true,
+      content: Read(`${brainstormDir}/feature-specs/feature-index.json`) || null
+    } : undefined,
+    // Feature spec files (optional - individual feature specifications)
+    feature_specs: dir_exists(`${brainstormDir}/feature-specs`)
+      ? glob(`${brainstormDir}/feature-specs/F-*-*.md`).map(file => ({
+          path: file,
+          content: Read(file)
+        }))
+      : undefined,
+    // Cross-cutting specs (optional - cross-cutting concern analyses from roles)
+    cross_cutting_specs: glob(`${brainstormDir}/*/analysis-cross-cutting.md`).map(file => ({
+      path: file,
+      content: Read(file)
+    }))
   };
 }
 ```
@@ -462,7 +480,24 @@ Calculate risk level based on:
       "path": ".workflow/WFS-xxx/.brainstorming/synthesis-specification.md",
       "exists": true,
       "content": "# Synthesis Specification\n\n## Cross-Role Integration\n..."
-    }
+    },
+    "feature_index": {
+      "path": ".workflow/WFS-xxx/.brainstorming/feature-specs/feature-index.json",
+      "exists": true,
+      "content": "{\"version\":\"1.0\",\"features\":[...]}"
+    },
+    "feature_specs": [
+      {
+        "path": ".workflow/WFS-xxx/.brainstorming/feature-specs/F-001-auth.md",
+        "content": "# Feature Spec: F-001 - Auth\n..."
+      }
+    ],
+    "cross_cutting_specs": [
+      {
+        "path": ".workflow/WFS-xxx/.brainstorming/system-architect/analysis-cross-cutting.md",
+        "content": "# Cross-Cutting: Architecture Decisions\n..."
+      }
+    ]
   },
   "conflict_detection": {
     "risk_level": "medium",

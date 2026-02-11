@@ -82,9 +82,17 @@ color: yellow
 4. Load brainstorming artifacts (in priority order)
    a. guidance-specification.md (Highest Priority)
       → Overall design framework and architectural decisions
-   b. Role analyses (progressive loading: load incrementally by priority)
+   b. Feature specs (on-demand via feature-index.json)
+      → If .brainstorming/feature-specs/feature-index.json exists:
+        1. Load feature-index.json → get feature catalog (id, slug, priority, spec_path)
+        2. Load only feature-specs referenced by current task (1-2 per task)
+        3. Load cross-cutting specs only when task touches shared concerns
+      → Reason: On-demand loading reduces per-task context from 40K+ to 3-5K words
+      → Backward compatibility: If feature-index.json does NOT exist →
+        Fall back to role analyses (progressive loading by priority, see 4b-fallback)
+   b-fallback. Role analyses (legacy, only when feature-index.json absent)
       → Load role analysis files one at a time as needed
-      → Reason: Each analysis.md is long; progressive loading prevents token overflow
+      → Progressive loading prevents token overflow
    c. Synthesis output (if exists)
       → Integrated view with clarifications
    d. Conflict resolution (if conflict_risk ≥ medium)
@@ -140,8 +148,21 @@ mcp__exa__get_code_context_exa(
 - `brainstorm_artifacts.guidance_specification`: Overall design framework (if exists)
   - Check: `brainstorm_artifacts?.guidance_specification?.exists === true`
   - Content: Use `content` field if present, else load from `path`
-- `brainstorm_artifacts.role_analyses[]`: Role-specific analyses (if array not empty)
+- `brainstorm_artifacts.feature_index`: Feature catalog index (if feature-mode brainstorming)
+  - Check: `brainstorm_artifacts?.feature_index?.exists === true`
+  - Content: JSON with `{features[], cross_cutting_specs[]}` - load from `path`
+  - **When present**: Use feature-index as primary entry point for on-demand spec loading
+- `brainstorm_artifacts.feature_specs[]`: Individual feature specification files (from context-package)
+  - Each spec: `feature_specs[i]` has `path` and `content`
+  - **Load on-demand**: Only load specs referenced by current task's feature mapping
+  - **Note**: For structured metadata (`feature_id`, `slug`, `priority`), use `feature_index.features[]` instead
+- `brainstorm_artifacts.cross_cutting_specs[]`: Cross-cutting concern specifications (from context-package)
+  - Each spec: `cross_cutting_specs[i]` has `path` and `content`
+  - **Load on-demand**: Only load when task touches shared/cross-cutting concerns
+  - **Note**: In feature-index.json, `cross_cutting_specs[]` is a plain string array (relative paths)
+- `brainstorm_artifacts.role_analyses[]`: Role-specific analyses (legacy fallback, if array not empty)
   - Each role: `role_analyses[i].files[j]` has `path` and `content`
+  - **Only used when**: `feature_index` does not exist (backward compatibility)
 - `brainstorm_artifacts.synthesis_output`: Synthesis results (if exists)
   - Check: `brainstorm_artifacts?.synthesis_output?.exists === true`
   - Content: Use `content` field if present, else load from `path`
@@ -160,8 +181,31 @@ if (contextPackage.brainstorm_artifacts?.guidance_specification?.exists) {
   const content = spec.content || Read(spec.path);
 }
 
-if (contextPackage.brainstorm_artifacts?.role_analyses?.length > 0) {
-  // Progressive loading: load role analyses incrementally by priority
+// Feature-index driven loading (PREFERRED - on-demand)
+if (contextPackage.brainstorm_artifacts?.feature_index?.exists) {
+  // Step 1: Load feature-index.json for catalog
+  const featureIndex = JSON.parse(Read(contextPackage.brainstorm_artifacts.feature_index.path));
+
+  // Step 2: Load only task-relevant feature specs (1-2 per task)
+  const taskFeatureIds = task.context.artifacts
+    .filter(a => a.type === 'feature_spec')
+    .map(a => a.feature_id);
+  featureIndex.features
+    .filter(f => taskFeatureIds.includes(f.id))
+    .forEach(f => {
+      const specContent = Read(f.spec_path); // On-demand: only what this task needs
+    });
+
+  // Step 3: Load cross-cutting specs only when needed
+  // Note: cross_cutting_specs in feature-index.json is a string array (relative paths)
+  featureIndex.cross_cutting_specs
+    .filter(cs => task.context.artifacts.some(a => a.type === 'cross_cutting_spec' && a.path === cs))
+    .forEach(cs => {
+      const crossCuttingContent = Read(cs);
+    });
+
+} else if (contextPackage.brainstorm_artifacts?.role_analyses?.length > 0) {
+  // FALLBACK: Legacy role analysis progressive loading (when feature-index absent)
   contextPackage.brainstorm_artifacts.role_analyses.forEach(role => {
     role.files.forEach(file => {
       const analysis = file.content || Read(file.path); // Load one at a time
@@ -376,12 +420,13 @@ userConfig.executionMethod → meta.execution_config
     },
     "artifacts": [
       {
-        "type": "synthesis_specification|topic_framework|individual_role_analysis",
-        "source": "brainstorm_clarification|brainstorm_framework|brainstorm_roles",
-        "path": "{from artifacts_inventory}",
+        "type": "feature_spec|cross_cutting_spec|synthesis_specification|topic_framework|individual_role_analysis",
+        "source": "brainstorm_feature_specs|brainstorm_cross_cutting|brainstorm_clarification|brainstorm_framework|brainstorm_roles",
+        "path": "{from feature-index.json or artifacts_inventory}",
+        "feature_id": "F-NNN (feature_spec only)",
         "priority": "highest|high|medium|low",
-        "usage": "Architecture decisions and API specifications",
-        "contains": "role_specific_requirements_and_design"
+        "usage": "Feature requirements and design specifications",
+        "contains": "feature_specific_requirements_and_design"
       }
     ]
   }
@@ -398,12 +443,27 @@ userConfig.executionMethod → meta.execution_config
 - `artifacts`: Referenced brainstorming outputs with detailed metadata
 
 **Artifact Mapping** (from context package):
-- Use `artifacts_inventory` from context package
-- **Priority levels**:
-  - **Highest**: synthesis_specification (integrated view with clarifications)
-  - **High**: topic_framework (guidance-specification.md)
-  - **Medium**: individual_role_analysis (system-architect, subject-matter-expert, etc.)
-  - **Low**: supporting documentation
+- **Feature-index mode** (when `feature_index` exists): Use feature-index.json as primary catalog
+- **Legacy mode** (fallback): Use `artifacts_inventory` from context package
+
+- **Artifact Types & Priority**:
+  - **`feature_spec`** (Highest): Feature specification from feature-index.json
+    - `{type: "feature_spec", source: "brainstorm_feature_specs", path: "<spec_path>", feature_id: "<F-NNN>", priority: "highest", usage: "<task-specific usage>", contains: "<feature scope description>"}`
+    - Each task references 1-2 feature specs based on task scope
+  - **`cross_cutting_spec`** (High): Cross-cutting concern specification
+    - `{type: "cross_cutting_spec", source: "brainstorm_cross_cutting", path: "<spec_path>", priority: "high", usage: "<why this task needs it>", contains: "<cross-cutting scope>"}`
+    - Load only when task touches shared concerns (auth, logging, error handling, etc.)
+  - **`synthesis_specification`** (High): Integrated view with clarifications
+  - **`topic_framework`** (High): guidance-specification.md
+  - **`individual_role_analysis`** (Medium): Legacy role analyses (system-architect, etc.)
+  - **Low**: Supporting documentation
+
+- **Task-Feature Mapping Rules** (feature-index mode):
+  1. Read feature-index.json `features[]` array
+  2. For each task, identify 1-2 primary features by matching task scope to feature `name`/`slug`
+  3. Add matching feature specs as `feature_spec` artifacts with `feature_id` field
+  4. Check `cross_cutting_refs` in matched features; add referenced cross-cutting specs as `cross_cutting_spec` artifacts
+  5. Result: Each task's `context.artifacts[]` contains only the specs it needs (not all specs)
 
 #### Flow Control Object
 
@@ -448,7 +508,7 @@ userConfig.executionMethod → meta.execution_config
 ##### Pre-Analysis Patterns
 
 **Dynamic Step Selection Guidelines**:
-- **Context Loading**: Always include context package and role analysis loading
+- **Context Loading**: Always include context package and feature spec loading (or role analysis fallback)
 - **Architecture Analysis**: Add module structure analysis for complex projects
 - **Pattern Discovery**: Use CLI tools (gemini/qwen/bash) based on task complexity and available tools
 - **Tech-Specific Analysis**: Add language/framework-specific searches for specialized tasks
@@ -465,18 +525,50 @@ userConfig.executionMethod → meta.execution_config
     "on_error": "fail"
   },
   {
-    "step": "load_role_analysis_artifacts",
-    "action": "Load role analyses from context-package.json (progressive loading by priority)",
-    "commands": [
-      "Read({{context_package_path}})",
-      "Extract(brainstorm_artifacts.role_analyses[].files[].path)",
-      "Read(extracted paths progressively)"
-    ],
-    "output_to": "role_analysis_artifacts",
+    "step": "load_brainstorm_artifacts",
+    "action": "Load brainstorm artifacts referenced by this task's context.artifacts[]",
+    "commands": "<<PLAN-TIME EXPANSION: Replace with concrete Read() commands>>",
+    "output_to": "brainstorm_context",
     "on_error": "skip_optional"
   }
 ]
 ```
+
+**Plan-Time Expansion Rule for `load_brainstorm_artifacts`**:
+
+When generating each task JSON, agent MUST expand this template step into concrete `Read()` commands based on the task's `context.artifacts[]` array. Since the agent writes both `context.artifacts[]` and `flow_control.pre_analysis[]` simultaneously, the artifact paths are known at plan time.
+
+**Expansion Algorithm**:
+```javascript
+function expandArtifactLoadStep(taskArtifacts) {
+  const commands = [];
+  // Expand each artifact reference into a concrete Read() command
+  for (const artifact of taskArtifacts) {
+    commands.push(`Read(${artifact.path})`);
+  }
+  // Fallback: if no artifacts, load role analyses from context-package
+  if (commands.length === 0) {
+    commands.push("Read(brainstorm_artifacts.role_analyses[0].files[0].path)");
+  }
+  return commands;
+}
+```
+
+**Example** - Task with 1 feature spec + 1 cross-cutting spec:
+```json
+{
+  "step": "load_brainstorm_artifacts",
+  "action": "Load feature spec F-001 and cross-cutting architecture spec",
+  "commands": [
+    "Read(.brainstorming/feature-specs/F-001-auth.md)",
+    "Read(.brainstorming/system-architect/analysis-cross-cutting.md)"
+  ],
+  "output_to": "brainstorm_context",
+  "on_error": "skip_optional"
+}
+```
+
+**Key**: `pre_analysis.commands[]` must only contain tool-call formats that code-developer can parse: `Read(path)`, `bash(cmd)`, `Search(pattern,path)`, `Glob(pattern)`, `mcp__xxx__yyy(args)`.
 
 **Optional Steps** (Select and adapt based on task needs):
 
@@ -528,7 +620,7 @@ The examples above demonstrate **patterns**, not fixed requirements. Agent MUST:
 
 1. **Always Include** (Required):
    - `load_context_package` - Essential for all tasks
-   - `load_role_analysis_artifacts` - Critical for accessing brainstorming insights
+   - `load_brainstorm_artifacts` - Load brainstorm artifacts referenced by task's `context.artifacts[]`; falls back to role analysis progressive loading when no feature_spec artifacts
 
 2. **Progressive Addition of Analysis Steps**:
    Include additional analysis steps as needed for comprehensive planning:
