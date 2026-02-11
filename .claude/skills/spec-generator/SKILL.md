@@ -17,11 +17,11 @@ Phase 1: Discovery           -> spec-config.json + discovery-context.json
          |
 Phase 2: Product Brief       -> product-brief.md  (multi-CLI parallel analysis)
          |
-Phase 3: Requirements (PRD)  -> requirements.md
+Phase 3: Requirements (PRD)  -> requirements/  (_index.md + REQ-*.md + NFR-*.md)
          |
-Phase 4: Architecture        -> architecture.md   (multi-CLI review)
+Phase 4: Architecture        -> architecture/  (_index.md + ADR-*.md, multi-CLI review)
          |
-Phase 5: Epics & Stories     -> epics.md
+Phase 5: Epics & Stories     -> epics/  (_index.md + EPIC-*.md)
          |
 Phase 6: Readiness Check     -> readiness-report.md + spec-summary.md
          |
@@ -91,7 +91,7 @@ Phase 3: Requirements / PRD
    |- Gemini CLI: expand goals into functional + non-functional requirements
    |- Generate acceptance criteria per requirement
    |- User priority sorting: MoSCoW (interactive, -y auto-assigns)
-   |- Output: requirements.md (from template)
+   |- Output: requirements/ directory (_index.md + REQ-*.md + NFR-*.md, from template)
 
 Phase 4: Architecture
    |- Ref: phases/04-architecture.md
@@ -99,7 +99,7 @@ Phase 4: Architecture
    |- Codebase integration mapping (conditional)
    |- Codex CLI: architecture challenge + review
    |- Interactive ADR decisions (-y auto-accepts)
-   |- Output: architecture.md (from template)
+   |- Output: architecture/ directory (_index.md + ADR-*.md, from template)
 
 Phase 5: Epics & Stories
    |- Ref: phases/05-epics-stories.md
@@ -107,7 +107,7 @@ Phase 5: Epics & Stories
    |- Story generation: As a...I want...So that...
    |- Dependency mapping (Mermaid)
    |- Interactive validation (-y skips)
-   |- Output: epics.md (from template)
+   |- Output: epics/ directory (_index.md + EPIC-*.md, from template)
 
 Phase 6: Readiness Check
    |- Ref: phases/06-readiness-check.md
@@ -146,14 +146,21 @@ Bash(`mkdir -p "${workDir}"`);
 
 ```
 .workflow/.spec/SPEC-{slug}-{YYYY-MM-DD}/
-|- spec-config.json              # Session configuration + phase state
-|- discovery-context.json        # Codebase exploration results (optional)
-|- product-brief.md              # Phase 2: Product brief
-|- requirements.md               # Phase 3: Detailed PRD
-|- architecture.md               # Phase 4: Architecture decisions
-|- epics.md                      # Phase 5: Epic/Story breakdown
-|- readiness-report.md           # Phase 6: Quality report
-|- spec-summary.md               # Phase 6: One-page executive summary
+├── spec-config.json              # Session configuration + phase state
+├── discovery-context.json        # Codebase exploration results (optional)
+├── product-brief.md              # Phase 2: Product brief
+├── requirements/                 # Phase 3: Detailed PRD (directory)
+│   ├── _index.md                 #   Summary, MoSCoW table, traceability, links
+│   ├── REQ-NNN-{slug}.md         #   Individual functional requirement
+│   └── NFR-{type}-NNN-{slug}.md  #   Individual non-functional requirement
+├── architecture/                 # Phase 4: Architecture decisions (directory)
+│   ├── _index.md                 #   Overview, components, tech stack, links
+│   └── ADR-NNN-{slug}.md         #   Individual Architecture Decision Record
+├── epics/                        # Phase 5: Epic/Story breakdown (directory)
+│   ├── _index.md                 #   Epic table, dependency map, MVP scope
+│   └── EPIC-NNN-{slug}.md        #   Individual Epic with Stories
+├── readiness-report.md           # Phase 6: Quality report
+└── spec-summary.md               # Phase 6: One-page executive summary
 ```
 
 ## State Management
@@ -178,7 +185,8 @@ Bash(`mkdir -p "${workDir}"`);
   },
   "has_codebase": false,
   "phasesCompleted": [
-    { "phase": 1, "name": "discovery", "output_file": "spec-config.json", "completed_at": "ISO8601" }
+    { "phase": 1, "name": "discovery", "output_file": "spec-config.json", "completed_at": "ISO8601" },
+    { "phase": 3, "name": "requirements", "output_dir": "requirements/", "output_index": "requirements/_index.md", "file_count": 8, "completed_at": "ISO8601" }
   ]
 }
 ```

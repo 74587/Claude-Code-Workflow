@@ -49,9 +49,9 @@ Generates a complete specification package through 6 sequential phases:
 | 1 | `spec-config.json` | Session configuration and state |
 | 1 | `discovery-context.json` | Codebase exploration (optional) |
 | 2 | `product-brief.md` | Product brief with multi-perspective synthesis |
-| 3 | `requirements.md` | Detailed PRD with acceptance criteria |
-| 4 | `architecture.md` | Architecture decisions and component design |
-| 5 | `epics.md` | Epic/Story breakdown with dependencies |
+| 3 | `requirements/` | `_index.md` + `REQ-NNN-{slug}.md` + `NFR-{type}-NNN-{slug}.md` |
+| 4 | `architecture/` | `_index.md` + `ADR-NNN-{slug}.md` |
+| 5 | `epics/` | `_index.md` + `EPIC-NNN-{slug}.md` |
 | 6 | `readiness-report.md` | Quality validation report |
 | 6 | `spec-summary.md` | One-page executive summary |
 

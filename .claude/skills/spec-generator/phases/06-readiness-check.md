@@ -13,7 +13,7 @@ Validate the complete specification package, generate quality report and executi
 
 ## Input
 
-- All Phase 2-5 outputs: `product-brief.md`, `requirements.md`, `architecture.md`, `epics.md`
+- All Phase 2-5 outputs: `product-brief.md`, `requirements/_index.md` (+ `REQ-*.md`, `NFR-*.md`), `architecture/_index.md` (+ `ADR-*.md`), `epics/_index.md` (+ `EPIC-*.md`)
 - Config: `{workDir}/spec-config.json`
 - Reference: `specs/quality-gates.md`
 
@@ -24,10 +24,16 @@ Validate the complete specification package, generate quality report and executi
 ```javascript
 const specConfig = JSON.parse(Read(`${workDir}/spec-config.json`));
 const productBrief = Read(`${workDir}/product-brief.md`);
-const requirements = Read(`${workDir}/requirements.md`);
-const architecture = Read(`${workDir}/architecture.md`);
-const epics = Read(`${workDir}/epics.md`);
+const requirementsIndex = Read(`${workDir}/requirements/_index.md`);
+const architectureIndex = Read(`${workDir}/architecture/_index.md`);
+const epicsIndex = Read(`${workDir}/epics/_index.md`);
 const qualityGates = Read('specs/quality-gates.md');
+
+// Load individual files for deep validation
+const reqFiles = Glob(`${workDir}/requirements/REQ-*.md`);
+const nfrFiles = Glob(`${workDir}/requirements/NFR-*.md`);
+const adrFiles = Glob(`${workDir}/architecture/ADR-*.md`);
+const epicFiles = Glob(`${workDir}/epics/EPIC-*.md`);
 ```
 
 ### Step 2: Cross-Document Validation via Gemini CLI
@@ -42,14 +48,14 @@ DOCUMENTS TO VALIDATE:
 === PRODUCT BRIEF ===
 ${productBrief.slice(0, 3000)}
 
-=== REQUIREMENTS ===
-${requirements.slice(0, 4000)}
+=== REQUIREMENTS INDEX (${reqFiles.length} REQ + ${nfrFiles.length} NFR files) ===
+${requirementsIndex.slice(0, 3000)}
 
-=== ARCHITECTURE ===
-${architecture.slice(0, 3000)}
+=== ARCHITECTURE INDEX (${adrFiles.length} ADR files) ===
+${architectureIndex.slice(0, 2500)}
 
-=== EPICS ===
-${epics.slice(0, 3000)}
+=== EPICS INDEX (${epicFiles.length} EPIC files) ===
+${epicsIndex.slice(0, 2500)}
 
 QUALITY CRITERIA (from quality-gates.md):
 ${qualityGates.slice(0, 2000)}
@@ -111,9 +117,9 @@ stepsCompleted: ["load-all", "cross-validation", "scoring", "report-generation"]
 version: 1
 dependencies:
   - product-brief.md
-  - requirements.md
-  - architecture.md
-  - epics.md
+  - requirements/_index.md
+  - architecture/_index.md
+  - epics/_index.md
 ---`;
 
 // Report content from CLI validation output:
@@ -139,9 +145,9 @@ stepsCompleted: ["synthesis"]
 version: 1
 dependencies:
   - product-brief.md
-  - requirements.md
-  - architecture.md
-  - epics.md
+  - requirements/_index.md
+  - architecture/_index.md
+  - epics/_index.md
   - readiness-report.md
 ---`;
 
@@ -161,13 +167,26 @@ Write(`${workDir}/spec-summary.md`, `${frontmatterSummary}\n\n${summaryContent}`
 ### Step 5: Update All Document Status
 
 ```javascript
-// Update frontmatter status to 'complete' in all documents
-const docs = ['product-brief.md', 'requirements.md', 'architecture.md', 'epics.md'];
-for (const doc of docs) {
+// Update frontmatter status to 'complete' in all documents (directories + single files)
+// product-brief.md is a single file
+const singleFiles = ['product-brief.md'];
+singleFiles.forEach(doc => {
   const content = Read(`${workDir}/${doc}`);
-  const updated = content.replace(/status: draft/, 'status: complete');
-  Write(`${workDir}/${doc}`, updated);
-}
+  Write(`${workDir}/${doc}`, content.replace(/status: draft/, 'status: complete'));
+});
+
+// Update all files in directories (index + individual files)
+const dirFiles = [
+  ...Glob(`${workDir}/requirements/*.md`),
+  ...Glob(`${workDir}/architecture/*.md`),
+  ...Glob(`${workDir}/epics/*.md`)
+];
+dirFiles.forEach(filePath => {
+  const content = Read(filePath);
+  if (content.includes('status: draft')) {
+    Write(filePath, content.replace(/status: draft/, 'status: complete'));
+  }
+});
 
 // Update spec-config.json
 specConfig.phasesCompleted.push({
@@ -214,23 +233,32 @@ AskUserQuestion({
 
 if (selection === "Execute via lite-plan") {
   // lite-plan accepts a text description directly
-  const epicsContent = Read(`${workDir}/epics.md`);
-  // Extract first MVP Epic's title + description as task input
-  const firstEpic = extractFirstMvpEpicDescription(epicsContent);
-  Skill(skill="workflow:lite-plan", args=`"${firstEpic}"`)
+  // Read first MVP Epic from individual EPIC-*.md files
+  const epicFiles = Glob(`${workDir}/epics/EPIC-*.md`);
+  const firstMvpFile = epicFiles.find(f => {
+    const content = Read(f);
+    return content.includes('mvp: true');
+  });
+  const epicContent = Read(firstMvpFile);
+  const title = extractTitle(epicContent);       // First # heading
+  const description = extractSection(epicContent, "Description");
+  Skill(skill="workflow:lite-plan", args=`"${title}: ${description}"`)
 }
 
 if (selection === "Full planning" || selection === "Create roadmap") {
   // === Bridge: Build brainstorm_artifacts compatible structure ===
-  // This enables workflow:plan's context-search-agent to discover spec artifacts
-  // via the standard .brainstorming/ directory convention.
+  // Reads from directory-based outputs (individual files), maps to .brainstorming/ format
+  // for context-search-agent auto-discovery → action-planning-agent consumption.
 
-  // Step A: Read all spec documents
+  // Step A: Read spec documents from directories
   const specSummary = Read(`${workDir}/spec-summary.md`);
   const productBrief = Read(`${workDir}/product-brief.md`);
-  const requirements = Read(`${workDir}/requirements.md`);
-  const architecture = Read(`${workDir}/architecture.md`);
-  const epics = Read(`${workDir}/epics.md`);
+  const requirementsIndex = Read(`${workDir}/requirements/_index.md`);
+  const architectureIndex = Read(`${workDir}/architecture/_index.md`);
+  const epicsIndex = Read(`${workDir}/epics/_index.md`);
+
+  // Read individual EPIC files (already split — direct mapping to feature-specs)
+  const epicFiles = Glob(`${workDir}/epics/EPIC-*.md`);
 
   // Step B: Build structured description from spec-summary
   const structuredDesc = `GOAL: ${extractGoal(specSummary)}
@@ -245,8 +273,8 @@ CONTEXT: Generated from spec session ${specConfig.session_id}. Source: ${workDir
   const brainstormDir = `.workflow/active/${sessionId}/.brainstorming`;
   Bash(`mkdir -p "${brainstormDir}/feature-specs"`);
 
-  // D.1: guidance-specification.md (highest priority - action-planning-agent reads first)
-  // Synthesized from spec-summary + product-brief key decisions + architecture decisions
+  // D.1: guidance-specification.md (highest priority — action-planning-agent reads first)
+  // Synthesized from spec-summary + product-brief + architecture/requirements indexes
   Write(`${brainstormDir}/guidance-specification.md`, `
 # ${specConfig.seed_analysis.problem_statement} - Confirmed Guidance Specification
 
@@ -259,80 +287,86 @@ ${extractSection(productBrief, "Vision")}
 ${extractSection(productBrief, "Goals")}
 
 ## 2. Requirements Summary
-${extractSection(requirements, "Requirement Summary")}
+${extractSection(requirementsIndex, "Functional Requirements")}
 
 ## 3. Architecture Decisions
-${extractSection(architecture, "Architecture Decision Records")}
-${extractSection(architecture, "Technology Stack")}
+${extractSection(architectureIndex, "Architecture Decision Records")}
+${extractSection(architectureIndex, "Technology Stack")}
 
 ## 4. Implementation Scope
-${extractSection(epics, "Epic Overview")}
-${extractSection(epics, "MVP Scope")}
+${extractSection(epicsIndex, "Epic Overview")}
+${extractSection(epicsIndex, "MVP Scope")}
 
 ## Feature Decomposition
-${extractFeatureTable(epics)}
+${extractSection(epicsIndex, "Traceability Matrix")}
 
 ## Appendix: Source Documents
 | Document | Path | Description |
 |----------|------|-------------|
 | Product Brief | ${workDir}/product-brief.md | Vision, goals, scope |
-| Requirements | ${workDir}/requirements.md | Functional + non-functional requirements |
-| Architecture | ${workDir}/architecture.md | ADRs, tech stack, components |
-| Epics | ${workDir}/epics.md | Epic/Story breakdown |
+| Requirements | ${workDir}/requirements/ | _index.md + REQ-*.md + NFR-*.md |
+| Architecture | ${workDir}/architecture/ | _index.md + ADR-*.md |
+| Epics | ${workDir}/epics/ | _index.md + EPIC-*.md |
 | Readiness Report | ${workDir}/readiness-report.md | Quality validation |
 `);
 
-  // D.2: feature-index.json (each Epic mapped to a Feature)
-  // Path: feature-specs/feature-index.json (matches context-search-agent discovery at line 344)
-  const epicsList = parseEpics(epics); // Extract: id, slug, name, description, mvp, stories[]
-  const featureIndex = {
+  // D.2: feature-index.json (each EPIC file mapped to a Feature)
+  // Path: feature-specs/feature-index.json (matches context-search-agent discovery)
+  // Directly read from individual EPIC-*.md files (no monolithic parsing needed)
+  const features = epicFiles.map(epicFile => {
+    const content = Read(epicFile);
+    const fm = parseFrontmatter(content);  // Extract YAML frontmatter
+    const basename = path.basename(epicFile, '.md');  // EPIC-001-slug
+    const epicNum = fm.id.replace('EPIC-', '');       // 001
+    const slug = basename.replace(/^EPIC-\d+-/, '');   // slug
+    return {
+      id: `F-${epicNum}`,
+      slug: slug,
+      name: extractTitle(content),
+      description: extractSection(content, "Description"),
+      priority: fm.mvp ? "High" : "Medium",
+      spec_path: `${brainstormDir}/feature-specs/F-${epicNum}-${slug}.md`,
+      source_epic: fm.id,
+      source_file: epicFile
+    };
+  });
+  Write(`${brainstormDir}/feature-specs/feature-index.json`, JSON.stringify({
     version: "1.0",
     source: "spec-generator",
     spec_session: specConfig.session_id,
-    features: epicsList.map(epic => ({
-      id: `F-${epic.id.replace('EPIC-', '')}`,
-      slug: epic.slug,
-      name: epic.name,
-      description: epic.description,
-      priority: epic.mvp ? "High" : "Medium",
-      spec_path: `${brainstormDir}/feature-specs/F-${epic.id.replace('EPIC-','')}-${epic.slug}.md`,
-      source_epic: epic.id,
-      stories: epic.stories
-    })),
+    features,
     cross_cutting_specs: []
-  };
-  Write(`${brainstormDir}/feature-specs/feature-index.json`, JSON.stringify(featureIndex, null, 2));
+  }, null, 2));
 
-  // D.3: Individual feature-spec files (one per Epic)
+  // D.3: Feature-spec files — directly adapt from individual EPIC-*.md files
+  // Since Epics are already individual documents, transform format directly
   // Filename pattern: F-{num}-{slug}.md (matches context-search-agent glob F-*-*.md)
-  epicsList.forEach(epic => {
-    const epicDetail = extractEpicDetail(epics, epic.id);
-    const relatedReqs = extractRelatedRequirements(requirements, epic.id);
-    Write(`${brainstormDir}/feature-specs/F-${epic.id.replace('EPIC-','')}-${epic.slug}.md`, `
-# Feature Spec: ${epic.id} - ${epic.name}
+  features.forEach(feature => {
+    const epicContent = Read(feature.source_file);
+    Write(feature.spec_path, `
+# Feature Spec: ${feature.source_epic} - ${feature.name}
 
-**Source**: ${workDir}/epics.md
-**Priority**: ${epic.mvp ? "MVP" : "Post-MVP"}
-**Related Requirements**: ${relatedReqs.join(', ')}
+**Source**: ${feature.source_file}
+**Priority**: ${feature.priority === "High" ? "MVP" : "Post-MVP"}
 
-## Scope
-${epicDetail.scope}
+## Description
+${extractSection(epicContent, "Description")}
 
 ## Stories
-${epicDetail.stories.map(s => `- ${s.id}: ${s.title} (${s.estimate})`).join('\n')}
+${extractSection(epicContent, "Stories")}
 
-## Acceptance Criteria
-${epicDetail.acceptanceCriteria}
+## Requirements
+${extractSection(epicContent, "Requirements")}
 
-## Architecture Notes
-${extractArchitectureNotes(architecture, epic.id)}
+## Architecture
+${extractSection(epicContent, "Architecture")}
 `);
   });
 
   // Step E: Invoke downstream workflow
   // context-search-agent will auto-discover .brainstorming/ files
   // → context-package.json.brainstorm_artifacts populated
-  // → action-planning-agent loads guidance_specification (priority 1) + feature_index (priority 2)
+  // → action-planning-agent loads guidance_specification (P1) + feature_index (P2)
   if (selection === "Full planning") {
     Skill(skill="workflow:plan", args=`"${structuredDesc}"`)
   } else {
@@ -341,11 +375,13 @@ ${extractArchitectureNotes(architecture, epic.id)}
 }
 
 if (selection === "Create Issues") {
-  // For each Epic, create an issue
-  const epics = Read(`${workDir}/epics.md`);
-  const epicsList = parseEpics(epics);
-  epicsList.forEach(epic => {
-    Skill(skill="issue:new", args=`"${epic.name}: ${epic.description}"`)
+  // For each EPIC file, create an issue (read directly from individual files)
+  const epicFiles = Glob(`${workDir}/epics/EPIC-*.md`);
+  epicFiles.forEach(epicFile => {
+    const content = Read(epicFile);
+    const title = extractTitle(content);
+    const description = extractSection(content, "Description");
+    Skill(skill="issue:new", args=`"${title}: ${description}"`)
   });
 }
 
@@ -354,12 +390,17 @@ if (selection === "Create Issues") {
 
 #### Helper Functions Reference (pseudocode)
 
-The following helper functions are used in the handoff bridge. They operate on the markdown content loaded from spec documents:
+The following helper functions are used in the handoff bridge. They operate on markdown content from individual spec files:
 
 ```javascript
-// Extract the first MVP Epic's title + scope as a one-line task description
-function extractFirstMvpEpicDescription(epicsContent) {
-  // Find first Epic marked as MVP, return: "Epic Name - Brief scope description"
+// Extract title from a markdown document (first # heading)
+function extractTitle(markdown) {
+  // Return the text after the first # heading (e.g., "# EPIC-001: Title" → "Title")
+}
+
+// Parse YAML frontmatter from markdown (between --- markers)
+function parseFrontmatter(markdown) {
+  // Return object with: id, priority, mvp, size, requirements, architecture, dependencies
 }
 
 // Extract GOAL/SCOPE from spec-summary frontmatter or ## sections
@@ -369,31 +410,6 @@ function extractScope(specSummary) { /* Return the Scope/MVP boundary */ }
 // Extract a named ## section from a markdown document
 function extractSection(markdown, sectionName) {
   // Return content between ## {sectionName} and next ## heading
-}
-
-// Build a markdown table of Epics from epics.md
-function extractFeatureTable(epicsContent) {
-  // Return: | Epic ID | Name | Priority | Story Count |
-}
-
-// Parse epics.md into structured Epic objects
-function parseEpics(epicsContent) {
-  // Returns: [{ id, slug, name, description, mvp, stories[] }]
-}
-
-// Extract detailed Epic section (scope, stories, acceptance criteria)
-function extractEpicDetail(epicsContent, epicId) {
-  // Returns: { scope, stories[], acceptanceCriteria }
-}
-
-// Find requirements related to a specific Epic
-function extractRelatedRequirements(requirementsContent, epicId) {
-  // Returns: ["REQ-001", "REQ-003"] based on traceability references
-}
-
-// Extract architecture notes relevant to a specific Epic
-function extractArchitectureNotes(architectureContent, epicId) {
-  // Returns: relevant ADRs, component references, tech stack notes
 }
 ```
 
@@ -405,14 +421,14 @@ function extractArchitectureNotes(architectureContent, epicId) {
 
 ## Quality Checklist
 
-- [ ] All 4 documents validated (product-brief, requirements, architecture, epics)
-- [ ] All frontmatter parseable and valid
-- [ ] Cross-references checked
+- [ ] All document directories validated (product-brief, requirements/, architecture/, epics/)
+- [ ] All frontmatter parseable and valid (index + individual files)
+- [ ] Cross-references checked (relative links between directories)
 - [ ] Overall quality score calculated
 - [ ] No unresolved Error-severity issues
 - [ ] Traceability matrix generated
 - [ ] spec-summary.md created
-- [ ] All document statuses updated to 'complete'
+- [ ] All document statuses updated to 'complete' (all files in all directories)
 - [ ] Handoff options presented
 
 ## Completion
@@ -421,13 +437,13 @@ This is the final phase. The specification package is ready for execution handof
 
 ### Output Files Manifest
 
-| File | Phase | Description |
+| Path | Phase | Description |
 |------|-------|-------------|
 | `spec-config.json` | 1 | Session configuration and state |
 | `discovery-context.json` | 1 | Codebase exploration (optional) |
 | `product-brief.md` | 2 | Product brief with multi-perspective synthesis |
-| `requirements.md` | 3 | Detailed PRD with MoSCoW priorities |
-| `architecture.md` | 4 | Architecture decisions and component design |
-| `epics.md` | 5 | Epic/Story breakdown with dependencies |
+| `requirements/` | 3 | Directory: `_index.md` + `REQ-*.md` + `NFR-*.md` |
+| `architecture/` | 4 | Directory: `_index.md` + `ADR-*.md` |
+| `epics/` | 5 | Directory: `_index.md` + `EPIC-*.md` |
 | `readiness-report.md` | 6 | Quality validation report |
 | `spec-summary.md` | 6 | One-page executive summary |
