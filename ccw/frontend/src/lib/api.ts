@@ -5451,6 +5451,52 @@ export interface ExecutionLogsResponse {
   hasMore: boolean;
 }
 
+// ========== Orchestrator Flow API (Create/Execute) ==========
+
+export interface OrchestratorFlowDto {
+  id: string;
+  name: string;
+  description?: string;
+  version: string;
+  created_at: string;
+  updated_at: string;
+  nodes: Array<Record<string, unknown>>;
+  edges: Array<Record<string, unknown>>;
+  variables: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+}
+
+export interface CreateOrchestratorFlowRequest {
+  name: string;
+  description?: string;
+  version?: string;
+  nodes?: Array<Record<string, unknown>>;
+  edges?: Array<Record<string, unknown>>;
+  variables?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+}
+
+export async function createOrchestratorFlow(
+  request: CreateOrchestratorFlowRequest,
+  projectPath?: string
+): Promise<{ success: boolean; data: OrchestratorFlowDto }> {
+  return fetchApi(withPath('/api/orchestrator/flows', projectPath), {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+export async function executeOrchestratorFlow(
+  flowId: string,
+  request?: { variables?: Record<string, unknown> },
+  projectPath?: string
+): Promise<{ success: boolean; data: { execId: string; flowId: string; status: string; startedAt: string } }> {
+  return fetchApi(withPath(`/api/orchestrator/flows/${encodeURIComponent(flowId)}/execute`, projectPath), {
+    method: 'POST',
+    body: JSON.stringify(request ?? {}),
+  });
+}
+
 /**
  * Fetch execution state by execId
  * @param execId - Execution ID
@@ -5822,5 +5868,64 @@ export async function revokeCliSessionShareToken(
   return fetchApi<{ success: boolean; revoked: boolean }>(
     withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/share/revoke`, projectPath),
     { method: 'POST', body: JSON.stringify(input) }
+  );
+}
+
+// ========== Audit (Observability) API ==========
+
+export type CliSessionAuditEventType =
+  | 'session_created'
+  | 'session_closed'
+  | 'session_send'
+  | 'session_execute'
+  | 'session_resize'
+  | 'session_share_created'
+  | 'session_share_revoked'
+  | 'session_idle_reaped';
+
+export interface CliSessionAuditEvent {
+  type: CliSessionAuditEventType;
+  timestamp: string;
+  projectRoot: string;
+  sessionKey?: string;
+  tool?: string;
+  resumeKey?: string;
+  workingDir?: string;
+  ip?: string;
+  userAgent?: string;
+  details?: Record<string, unknown>;
+}
+
+export interface CliSessionAuditListResponse {
+  events: CliSessionAuditEvent[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
+export async function fetchCliSessionAudit(
+  options?: {
+    projectPath?: string;
+    sessionKey?: string;
+    type?: CliSessionAuditEventType | CliSessionAuditEventType[];
+    q?: string;
+    limit?: number;
+    offset?: number;
+  }
+): Promise<{ success: boolean; data: CliSessionAuditListResponse }> {
+  const params = new URLSearchParams();
+  if (options?.sessionKey) params.set('sessionKey', options.sessionKey);
+  if (options?.q) params.set('q', options.q);
+  if (typeof options?.limit === 'number') params.set('limit', String(options.limit));
+  if (typeof options?.offset === 'number') params.set('offset', String(options.offset));
+  if (options?.type) {
+    const types = Array.isArray(options.type) ? options.type : [options.type];
+    params.set('type', types.join(','));
+  }
+
+  const queryString = params.toString();
+  return fetchApi<{ success: boolean; data: CliSessionAuditListResponse }>(
+    withPath(`/api/audit/cli-sessions${queryString ? `?${queryString}` : ''}`, options?.projectPath)
   );
 }

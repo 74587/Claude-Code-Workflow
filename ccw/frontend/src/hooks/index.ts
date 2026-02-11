@@ -91,6 +91,14 @@ export type {
   UseIssueDiscoveryReturn,
 } from './useIssues';
 
+// ========== Audit ==========
+export {
+  useCliSessionAudit,
+} from './useAudit';
+export type {
+  UseCliSessionAuditOptions,
+} from './useAudit';
+
 // ========== Skills ==========
 export {
   useSkills,

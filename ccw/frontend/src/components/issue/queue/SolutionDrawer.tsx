@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { QueueExecuteInSession } from '@/components/issue/queue/QueueExecuteInSession';
+import { QueueSendToOrchestrator } from '@/components/issue/queue/QueueSendToOrchestrator';
 import { IssueTerminalTab } from '@/components/issue/hub/IssueTerminalTab';
 import { useIssueQueue } from '@/hooks';
 import { cn } from '@/lib/utils';
@@ -178,6 +179,9 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
 
                   {/* Execute in Session */}
                   <QueueExecuteInSession item={item} />
+
+                  {/* Send to Orchestrator */}
+                  <QueueSendToOrchestrator item={item} />
 
                   {/* Dependencies */}
                   {item.depends_on && item.depends_on.length > 0 && (

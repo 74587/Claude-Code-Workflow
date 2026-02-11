@@ -116,6 +116,19 @@ export const workspaceQueryKeys = {
   cliHistoryList: (projectPath: string) => [...workspaceQueryKeys.cliHistory(projectPath), 'list'] as const,
   cliExecutionDetail: (projectPath: string, executionId: string) =>
     [...workspaceQueryKeys.cliHistory(projectPath), 'detail', executionId] as const,
+
+  // ========== Audit ==========
+  audit: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'audit'] as const,
+  cliSessionAudit: (
+    projectPath: string,
+    options?: {
+      sessionKey?: string;
+      type?: string;
+      q?: string;
+      limit?: number;
+      offset?: number;
+    }
+  ) => [...workspaceQueryKeys.audit(projectPath), 'cliSessions', options] as const,
 };
 
 // ========== API Settings Keys ==========

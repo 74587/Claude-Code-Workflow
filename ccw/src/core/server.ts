@@ -9,6 +9,7 @@ import { handleStatusRoutes } from './routes/status-routes.js';
 import { handleCliRoutes, cleanupStaleExecutions } from './routes/cli-routes.js';
 import { handleCliSettingsRoutes } from './routes/cli-settings-routes.js';
 import { handleCliSessionsRoutes } from './routes/cli-sessions-routes.js';
+import { handleAuditRoutes } from './routes/audit-routes.js';
 import { handleProviderRoutes } from './routes/provider-routes.js';
 import { handleMemoryRoutes } from './routes/memory-routes.js';
 import { handleCoreMemoryRoutes } from './routes/core-memory-routes.js';
@@ -613,6 +614,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // CLI sessions (PTY) routes (/api/cli-sessions/*) - independent from /api/cli/*
       if (pathname.startsWith('/api/cli-sessions')) {
         if (await handleCliSessionsRoutes(routeContext)) return;
+      }
+
+      // Audit routes (/api/audit/*)
+      if (pathname.startsWith('/api/audit')) {
+        if (await handleAuditRoutes(routeContext)) return;
       }
 
       // CLI routes (/api/cli/*)

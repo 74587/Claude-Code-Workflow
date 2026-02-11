@@ -177,6 +177,14 @@ export class CliSessionManager {
     return Array.from(this.sessions.values()).map(({ pty: _pty, buffer: _buffer, bufferBytes: _bytes, ...rest }) => rest);
   }
 
+  getProjectRoot(): string {
+    return this.projectRoot;
+  }
+
+  hasSession(sessionKey: string): boolean {
+    return this.sessions.has(sessionKey);
+  }
+
   getSession(sessionKey: string): CliSession | null {
     const session = this.sessions.get(sessionKey);
     if (!session) return null;
@@ -397,4 +405,16 @@ export function getCliSessionManager(projectRoot: string = process.cwd()): CliSe
   const created = new CliSessionManager(resolved);
   managersByRoot.set(resolved, created);
   return created;
+}
+
+/**
+ * Find the manager that owns a given sessionKey.
+ * Useful for cross-workspace routing (tmux-like send) where the executor
+ * may not share the same workflowDir/projectRoot as the target session.
+ */
+export function findCliSessionManager(sessionKey: string): CliSessionManager | null {
+  for (const manager of managersByRoot.values()) {
+    if (manager.hasSession(sessionKey)) return manager;
+  }
+  return null;
 }

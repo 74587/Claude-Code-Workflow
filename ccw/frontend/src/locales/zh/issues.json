@@ -159,6 +159,18 @@
     "exec": {
       "title": "在会话中执行"
     },
+    "orchestrator": {
+      "title": "发送到编排器",
+      "targetSession": "目标会话",
+      "tool": "工具",
+      "mode": "模式",
+      "resumeStrategy": "resumeStrategy",
+      "send": "发送",
+      "sending": "发送中...",
+      "sentTitle": "已发送到编排器",
+      "sentDesc": "已创建 flow: {flowId}",
+      "sendFailed": "发送失败"
+    },
     "status": {
       "pending": "待处理",
       "ready": "就绪",
@@ -359,8 +371,37 @@
       "issues": "问题列表",
       "board": "看板",
       "queue": "执行队列",
-      "discovery": "问题发现"
+      "discovery": "问题发现",
+      "observability": "可观测"
     }
+  },
+  "observability": {
+    "pageTitle": "可观测面板",
+    "description": "审计并查看自动投递与 CLI 会话活动",
+    "audit": {
+      "title": "CLI 会话审计"
+    },
+    "filters": {
+      "search": "搜索",
+      "searchPlaceholder": "搜索 type/sessionKey/resumeKey/details...",
+      "sessionKey": "会话 Key",
+      "sessionKeyPlaceholder": "例如 cli-xxxx",
+      "type": "类型",
+      "typeAll": "全部类型",
+      "limit": "条数"
+    },
+    "table": {
+      "timestamp": "时间戳",
+      "type": "类型",
+      "sessionKey": "会话",
+      "tool": "工具",
+      "resumeKey": "resumeKey",
+      "workingDir": "工作目录",
+      "ip": "IP",
+      "userAgent": "User-Agent"
+    },
+    "empty": "暂无审计事件",
+    "error": "加载审计事件失败"
   },
   "board": {
     "pageTitle": "问题看板",
