@@ -18,6 +18,7 @@ import { useIssues, useIssueMutations } from '@/hooks';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { createCliSession, executeInCliSession } from '@/lib/api';
 import type { Issue } from '@/lib/api';
+import { useTerminalPanelStore } from '@/stores/terminalPanelStore';
 
 type IssueBoardStatus = Issue['status'];
 type ToolName = 'claude' | 'codex' | 'gemini';
@@ -318,6 +319,8 @@ export function IssueBoardPanel() {
                   resumeKey: issueId,
                   resumeStrategy: autoStart.resumeStrategy,
                 }, projectPath);
+                // Auto-open terminal panel to show execution output
+                useTerminalPanelStore.getState().openTerminal(created.session.sessionKey);
               } catch (e) {
                 setOptimisticError(`Auto-start failed: ${e instanceof Error ? e.message : String(e)}`);
               }

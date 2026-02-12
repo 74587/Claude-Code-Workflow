@@ -20,6 +20,7 @@ import {
   type QueueItem,
 } from '@/lib/api';
 import { useCliSessionStore } from '@/stores/cliSessionStore';
+import { useTerminalPanelStore } from '@/stores/terminalPanelStore';
 
 type ToolName = 'claude' | 'codex' | 'gemini';
 type ResumeStrategy = 'nativeResume' | 'promptConcat';
@@ -170,6 +171,8 @@ export function QueueExecuteInSession({ item, className }: { item: QueueItem; cl
         resumeStrategy,
       }, projectPath);
       setLastExecution({ executionId: result.executionId, command: result.command });
+      // Auto-open terminal panel to show execution output
+      useTerminalPanelStore.getState().openTerminal(sessionKey);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

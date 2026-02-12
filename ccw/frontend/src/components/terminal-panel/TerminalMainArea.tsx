@@ -1,22 +1,19 @@
 // ========================================
 // TerminalMainArea Component
 // ========================================
-// Main display area for the terminal panel.
-// Shows header with session info, tab switcher (terminal/queue), and
-// embedded xterm.js terminal with command input. Reuses the xterm rendering
-// pattern from IssueTerminalTab (init, FitAddon, output streaming, PTY input).
+// Main content area inside TerminalPanel.
+// Renders terminal output (xterm.js) or queue view based on panelView.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { useIntl } from 'react-intl';
+import { X, Terminal as TerminalIcon } from 'lucide-react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
-import { X, Send } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { cn } from '@/lib/utils';
-import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { useTerminalPanelStore } from '@/stores/terminalPanelStore';
-import { useCliSessionStore } from '@/stores/cliSessionStore';
-import type { PanelView } from '@/stores/terminalPanelStore';
+import { useCliSessionStore, type CliSessionMeta } from '@/stores/cliSessionStore';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import {
   fetchCliSessionBuffer,
   sendCliSessionText,
@@ -26,48 +23,45 @@ import {
 
 // ========== Types ==========
 
-export interface TerminalMainAreaProps {
+interface TerminalMainAreaProps {
   onClose: () => void;
 }
 
 // ========== Component ==========
 
 export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
-  const projectPath = useWorkflowStore(selectProjectPath);
-
-  const activeTerminalId = useTerminalPanelStore((s) => s.activeTerminalId);
+  const { formatMessage } = useIntl();
   const panelView = useTerminalPanelStore((s) => s.panelView);
-  const setPanelView = useTerminalPanelStore((s) => s.setPanelView);
+  const activeTerminalId = useTerminalPanelStore((s) => s.activeTerminalId);
 
-  const sessionsByKey = useCliSessionStore((s) => s.sessions);
+  const sessions = useCliSessionStore((s) => s.sessions);
   const outputChunks = useCliSessionStore((s) => s.outputChunks);
   const setBuffer = useCliSessionStore((s) => s.setBuffer);
   const clearOutput = useCliSessionStore((s) => s.clearOutput);
 
-  const activeSession = activeTerminalId ? sessionsByKey[activeTerminalId] : null;
+  const projectPath = useWorkflowStore(selectProjectPath);
 
-  const [prompt, setPrompt] = useState('');
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const activeSession: CliSessionMeta | undefined = activeTerminalId
+    ? sessions[activeTerminalId]
+    : undefined;
 
-  // xterm refs
+  // ========== xterm State ==========
+
   const terminalHostRef = useRef<HTMLDivElement | null>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const lastChunkIndexRef = useRef<number>(0);
 
-  // Input batching refs (same pattern as IssueTerminalTab)
+  // PTY input batching
   const pendingInputRef = useRef<string>('');
   const flushTimerRef = useRef<number | null>(null);
-  const activeSessionKeyRef = useRef<string | null>(null);
 
-  // Keep ref in sync with activeTerminalId for closures
-  useEffect(() => {
-    activeSessionKeyRef.current = activeTerminalId;
-  }, [activeTerminalId]);
+  // Command execution
+  const [prompt, setPrompt] = useState('');
+  const [isExecuting, setIsExecuting] = useState(false);
 
-  const flushInput = async () => {
-    const sessionKey = activeSessionKeyRef.current;
+  const flushInput = useCallback(async () => {
+    const sessionKey = activeTerminalId;
     if (!sessionKey) return;
     const pending = pendingInputRef.current;
     pendingInputRef.current = '';
@@ -77,18 +71,19 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
     } catch {
       // Ignore transient failures
     }
-  };
+  }, [activeTerminalId, projectPath]);
 
-  const scheduleFlush = () => {
+  const scheduleFlush = useCallback(() => {
     if (flushTimerRef.current !== null) return;
     flushTimerRef.current = window.setTimeout(async () => {
       flushTimerRef.current = null;
       await flushInput();
     }, 30);
-  };
+  }, [flushInput]);
 
-  // ========== xterm Initialization ==========
+  // ========== xterm Lifecycle ==========
 
+  // Init xterm instance
   useEffect(() => {
     if (!terminalHostRef.current) return;
     if (xtermRef.current) return;
@@ -107,7 +102,7 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
 
     // Forward keystrokes to backend (batched)
     term.onData((data) => {
-      if (!activeSessionKeyRef.current) return;
+      if (!activeTerminalId) return;
       pendingInputRef.current += data;
       scheduleFlush();
     });
@@ -126,8 +121,7 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ========== Attach to Active Session ==========
-
+  // Attach to selected session: clear terminal and load buffer
   useEffect(() => {
     const term = xtermRef.current;
     const fitAddon = fitAddonRef.current;
@@ -152,8 +146,7 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
       });
   }, [activeTerminalId, projectPath, setBuffer, clearOutput]);
 
-  // ========== Stream Output Chunks ==========
-
+  // Stream new output chunks into xterm
   useEffect(() => {
     const term = xtermRef.current;
     if (!term) return;
@@ -169,8 +162,7 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
     lastChunkIndexRef.current = chunks.length;
   }, [outputChunks, activeTerminalId]);
 
-  // ========== Resize Observer ==========
-
+  // Resize observer -> fit + resize backend
   useEffect(() => {
     const host = terminalHostRef.current;
     const term = xtermRef.current;
@@ -179,11 +171,10 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
 
     const resize = () => {
       fitAddon.fit();
-      const sessionKey = activeSessionKeyRef.current;
-      if (sessionKey) {
+      if (activeTerminalId) {
         void (async () => {
           try {
-            await resizeCliSession(sessionKey, { cols: term.cols, rows: term.rows }, projectPath || undefined);
+            await resizeCliSession(activeTerminalId, { cols: term.cols, rows: term.rows }, projectPath || undefined);
           } catch {
             // ignore
           }
@@ -194,32 +185,30 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
     const ro = new ResizeObserver(resize);
     ro.observe(host);
     return () => ro.disconnect();
-  }, [projectPath]);
+  }, [activeTerminalId, projectPath]);
 
-  // ========== Execute Command ==========
+  // ========== Command Execution ==========
 
   const handleExecute = async () => {
-    if (!activeTerminalId) return;
-    if (!prompt.trim()) return;
+    if (!activeTerminalId || !prompt.trim()) return;
     setIsExecuting(true);
-    setError(null);
+    const sessionTool = (activeSession?.tool || 'claude') as 'claude' | 'codex' | 'gemini';
     try {
       await executeInCliSession(activeTerminalId, {
-        tool: activeSession?.tool || 'claude',
+        tool: sessionTool,
         prompt: prompt.trim(),
         mode: 'analysis',
         category: 'user',
       }, projectPath || undefined);
       setPrompt('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+    } catch {
+      // Error shown in terminal output
     } finally {
       setIsExecuting(false);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Ctrl+Enter or Cmd+Enter to execute
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       void handleExecute();
@@ -232,92 +221,82 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
     <div className="flex-1 flex flex-col min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-        <div className="flex items-center gap-3 min-w-0">
-          <h3 className="text-sm font-semibold text-foreground truncate">
-            {activeSession
-              ? `${activeSession.tool || 'cli'} - ${activeSession.sessionKey}`
-              : 'Terminal Panel'}
-          </h3>
-          {activeSession?.tool && (
-            <span className="text-xs text-muted-foreground flex-shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <TerminalIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <span className="text-sm font-semibold text-foreground truncate">
+            {panelView === 'queue'
+              ? formatMessage({ id: 'home.terminalPanel.executionQueue' })
+              : activeSession
+                ? `${activeSession.tool || 'cli'} - ${activeSession.sessionKey}`
+                : formatMessage({ id: 'home.terminalPanel.title' })}
+          </span>
+          {activeSession?.workingDir && panelView === 'terminal' && (
+            <span className="text-xs text-muted-foreground truncate hidden sm:inline">
               {activeSession.workingDir}
             </span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onClose}
-          className="flex-shrink-0 hover:bg-secondary"
-        >
-          <X className="h-4 w-4" />
+        <Button variant="ghost" size="icon" onClick={onClose} className="flex-shrink-0 hover:bg-secondary">
+          <X className="h-5 w-5" />
         </Button>
       </div>
 
-      {/* Tabs */}
-      <Tabs
-        value={panelView}
-        onValueChange={(v) => setPanelView(v as PanelView)}
-        className="flex-1 flex flex-col min-h-0"
-      >
-        <div className="px-4 pt-2 bg-card">
-          <TabsList>
-            <TabsTrigger value="terminal">Terminal</TabsTrigger>
-            <TabsTrigger value="queue">Queue</TabsTrigger>
-          </TabsList>
-        </div>
-
-        {/* Terminal View */}
-        <TabsContent value="terminal" className="flex-1 flex flex-col min-h-0 mt-0 p-0">
-          {activeTerminalId ? (
-            <div className="flex-1 flex flex-col min-h-0">
-              {/* xterm container */}
-              <div className="flex-1 min-h-0 bg-black/90">
-                <div ref={terminalHostRef} className="h-full w-full" />
-              </div>
-
-              {/* Command input area */}
-              <div className="border-t border-border p-3 bg-card">
-                {error && (
-                  <div className="text-xs text-destructive mb-2">{error}</div>
-                )}
-                <div className="flex gap-2">
-                  <textarea
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Enter command... (Ctrl+Enter to execute)"
-                    className={cn(
-                      'flex-1 min-h-[60px] max-h-[120px] p-2 bg-background border border-input rounded-md text-sm resize-none',
-                      'focus:outline-none focus:ring-2 focus:ring-primary'
-                    )}
-                  />
-                  <Button
-                    onClick={handleExecute}
-                    disabled={!activeTerminalId || isExecuting || !prompt.trim()}
-                    className="self-end"
-                  >
-                    <Send className="w-4 h-4 mr-1" />
-                    Execute
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              <p className="text-sm">No terminal selected</p>
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Queue View (placeholder for Phase 2) */}
-        <TabsContent value="queue" className="flex-1 flex items-center justify-center mt-0 p-0">
-          <div className="text-center text-muted-foreground">
-            <p className="text-sm">Execution Queue Management</p>
-            <p className="text-xs mt-1">Coming in Phase 2</p>
+      {/* Content */}
+      {panelView === 'queue' ? (
+        /* Queue View - Placeholder */
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="text-center">
+            <TerminalIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-sm">{formatMessage({ id: 'home.terminalPanel.executionQueueDesc' })}</p>
+            <p className="text-xs mt-1">{formatMessage({ id: 'home.terminalPanel.executionQueuePhase2' })}</p>
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      ) : activeTerminalId ? (
+        /* Terminal View */
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* xterm container */}
+          <div className="flex-1 min-h-0">
+            <div
+              ref={terminalHostRef}
+              className="h-full w-full bg-black/90 rounded-none"
+            />
+          </div>
+
+          {/* Command Input */}
+          <div className="border-t border-border p-3 bg-card">
+            <div className="space-y-2">
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={formatMessage({ id: 'home.terminalPanel.commandPlaceholder' })}
+                className={cn(
+                  'w-full min-h-[60px] p-2 bg-background border border-input rounded-md text-sm resize-none',
+                  'focus:outline-none focus:ring-2 focus:ring-primary'
+                )}
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={handleExecute}
+                  disabled={!activeTerminalId || isExecuting || !prompt.trim()}
+                >
+                  {formatMessage({ id: 'home.terminalPanel.execute' })}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Empty State */
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="text-center">
+            <TerminalIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-sm">{formatMessage({ id: 'home.terminalPanel.noTerminalSelected' })}</p>
+            <p className="text-xs mt-1">{formatMessage({ id: 'home.terminalPanel.selectTerminalHint' })}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

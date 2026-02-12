@@ -1,139 +1,122 @@
 // ========================================
 // TerminalNavBar Component
 // ========================================
-// Left navigation bar for the terminal panel.
-// Shows queue entry icon at top, separator, and dynamic terminal session icons
-// with status badges. Reads session data from cliSessionStore and panel state
-// from terminalPanelStore.
+// Left-side icon navigation bar (w-16) inside TerminalPanel.
+// Shows fixed queue entry icon + dynamic terminal icons with status badges.
 
-import { useMemo } from 'react';
-import {
-  ClipboardList,
-  Terminal,
-  Loader2,
-  CheckCircle,
-  XCircle,
-  Circle,
-} from 'lucide-react';
+import { useIntl } from 'react-intl';
+import { ClipboardList, Terminal, Loader2, CheckCircle, XCircle, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTerminalPanelStore } from '@/stores/terminalPanelStore';
-import { useCliSessionStore } from '@/stores/cliSessionStore';
+import { useCliSessionStore, type CliSessionMeta, type CliSessionOutputChunk } from '@/stores/cliSessionStore';
 
-// ========== Status Badge Configuration ==========
+// ========== Status Badge Mapping ==========
 
 type SessionStatus = 'running' | 'completed' | 'failed' | 'idle';
 
-interface StatusBadgeConfig {
-  icon: React.ComponentType<{ className?: string }>;
-  colorClass: string;
-}
+/** Activity detection threshold in milliseconds */
+const ACTIVITY_THRESHOLD_MS = 10_000;
 
-const statusBadgeMap: Record<SessionStatus, StatusBadgeConfig> = {
-  running: { icon: Loader2, colorClass: 'bg-blue-500' },
-  completed: { icon: CheckCircle, colorClass: 'bg-green-500' },
-  failed: { icon: XCircle, colorClass: 'bg-red-500' },
-  idle: { icon: Circle, colorClass: 'bg-gray-500' },
-};
-
-// ========== Helpers ==========
-
-/**
- * Derive a simple session status from the session metadata.
- * This is a heuristic based on available data - the shellKind and updatedAt fields
- * provide indirect clues about activity. A more precise status would require
- * backend support for explicit session state tracking.
- */
-function deriveSessionStatus(_sessionKey: string, _shellKind: string): SessionStatus {
-  // For now, default to idle. In Phase 2 we can refine this
-  // based on active execution tracking from the backend.
+function getSessionStatus(
+  session: CliSessionMeta | undefined,
+  chunks: CliSessionOutputChunk[] | undefined,
+): SessionStatus {
+  if (!session) return 'idle';
+  if (!chunks || chunks.length === 0) return 'idle';
+  const lastChunk = chunks[chunks.length - 1];
+  if (Date.now() - lastChunk.timestamp < ACTIVITY_THRESHOLD_MS) return 'running';
   return 'idle';
 }
 
-// ========== Component ==========
+const statusStyles: Record<SessionStatus, string> = {
+  running: 'bg-blue-500',
+  completed: 'bg-green-500',
+  failed: 'bg-red-500',
+  idle: 'bg-gray-500',
+};
+
+const StatusIcon: Record<SessionStatus, React.ComponentType<{ className?: string }>> = {
+  running: Loader2,
+  completed: CheckCircle,
+  failed: XCircle,
+  idle: Circle,
+};
 
 export function TerminalNavBar() {
   const panelView = useTerminalPanelStore((s) => s.panelView);
   const activeTerminalId = useTerminalPanelStore((s) => s.activeTerminalId);
   const terminalOrder = useTerminalPanelStore((s) => s.terminalOrder);
-  const setActiveTerminal = useTerminalPanelStore((s) => s.setActiveTerminal);
   const setPanelView = useTerminalPanelStore((s) => s.setPanelView);
+  const setActiveTerminal = useTerminalPanelStore((s) => s.setActiveTerminal);
 
-  const sessionsByKey = useCliSessionStore((s) => s.sessions);
-
-  // Build ordered list of sessions that exist in the store
-  const orderedSessions = useMemo(() => {
-    return terminalOrder
-      .map((key) => sessionsByKey[key])
-      .filter(Boolean);
-  }, [terminalOrder, sessionsByKey]);
+  const sessions = useCliSessionStore((s) => s.sessions);
+  const outputChunks = useCliSessionStore((s) => s.outputChunks);
+  const { formatMessage } = useIntl();
 
   const handleQueueClick = () => {
     setPanelView('queue');
   };
 
   const handleTerminalClick = (sessionKey: string) => {
-    setPanelView('terminal');
     setActiveTerminal(sessionKey);
+    setPanelView('terminal');
   };
 
   return (
-    <div className="w-16 flex-shrink-0 flex flex-col border-r border-border bg-muted/30">
-      {/* Queue entry icon */}
-      <div className="flex items-center justify-center py-3">
-        <button
-          type="button"
-          onClick={handleQueueClick}
-          className={cn(
-            'w-10 h-10 flex items-center justify-center rounded-md transition-colors',
-            'hover:bg-accent hover:text-accent-foreground',
-            panelView === 'queue' && 'bg-accent text-accent-foreground'
-          )}
-          title="Execution Queue"
-        >
-          <ClipboardList className="w-5 h-5" />
-        </button>
-      </div>
+    <div className="w-16 flex-shrink-0 border-r border-border bg-card flex flex-col items-center py-2">
+      {/* Queue Entry - Fixed at top */}
+      <button
+        className={cn(
+          'w-10 h-10 rounded-md flex items-center justify-center transition-colors hover:bg-accent',
+          panelView === 'queue' && 'bg-accent'
+        )}
+        onClick={handleQueueClick}
+        title={formatMessage({ id: 'home.terminalPanel.executionQueue' })}
+      >
+        <ClipboardList className="h-5 w-5 text-muted-foreground" />
+      </button>
 
       {/* Separator */}
-      <div className="mx-3 border-t border-border" />
+      <div className="w-8 border-t border-border my-2" />
 
-      {/* Terminal session icons (scrollable) */}
-      <div className="flex-1 overflow-y-auto py-2 space-y-1">
-        {orderedSessions.map((session) => {
-          const isActive = activeTerminalId === session.sessionKey && panelView === 'terminal';
-          const status = deriveSessionStatus(session.sessionKey, session.shellKind);
-          const badge = statusBadgeMap[status];
-          const BadgeIcon = badge.icon;
+      {/* Dynamic Terminal Icons */}
+      <div className="flex-1 overflow-y-auto flex flex-col items-center gap-1 w-full px-1">
+        {terminalOrder.map((sessionKey) => {
+          const session = sessions[sessionKey];
+          const status = getSessionStatus(session, outputChunks[sessionKey]);
+          const StatusIconComp = StatusIcon[status];
+          const isActive = activeTerminalId === sessionKey && panelView === 'terminal';
+          const label = session
+            ? `${session.tool || 'cli'} - ${session.sessionKey}`
+            : sessionKey;
 
           return (
-            <div key={session.sessionKey} className="flex items-center justify-center">
-              <button
-                type="button"
-                onClick={() => handleTerminalClick(session.sessionKey)}
+            <button
+              key={sessionKey}
+              className={cn(
+                'relative w-10 h-10 rounded-md flex items-center justify-center transition-colors hover:bg-accent',
+                isActive && 'bg-accent'
+              )}
+              onClick={() => handleTerminalClick(sessionKey)}
+              title={label}
+            >
+              <Terminal className="h-5 w-5 text-muted-foreground" />
+
+              {/* Status Badge - bottom-right overlay */}
+              <span
                 className={cn(
-                  'relative w-10 h-10 flex items-center justify-center rounded-md transition-colors',
-                  'hover:bg-accent hover:text-accent-foreground',
-                  isActive && 'bg-accent text-accent-foreground'
+                  'absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center',
+                  statusStyles[status]
                 )}
-                title={`${session.tool || 'cli'} - ${session.sessionKey}`}
               >
-                <Terminal className="w-5 h-5" />
-                {/* Status badge overlay */}
-                <span
+                <StatusIconComp
                   className={cn(
-                    'absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center',
-                    badge.colorClass
+                    'h-2 w-2 text-white',
+                    status === 'running' && 'animate-spin'
                   )}
-                >
-                  <BadgeIcon
-                    className={cn(
-                      'w-2 h-2 text-white',
-                      status === 'running' && 'animate-spin'
-                    )}
-                  />
-                </span>
-              </button>
-            </div>
+                />
+              </span>
+            </button>
           );
         })}
       </div>

@@ -1,7 +1,6 @@
 // ========================================
-// Terminal Panel - Barrel Exports
+// Terminal Panel - Barrel Export
 // ========================================
-// Re-exports all terminal panel components for convenient imports.
 
 export { TerminalPanel } from './TerminalPanel';
 export { TerminalNavBar } from './TerminalNavBar';

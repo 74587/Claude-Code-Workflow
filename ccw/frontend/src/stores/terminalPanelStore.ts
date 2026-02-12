@@ -145,3 +145,11 @@ export const selectActiveTerminalId = (state: TerminalPanelStore) => state.activ
 export const selectPanelView = (state: TerminalPanelStore) => state.panelView;
 export const selectTerminalOrder = (state: TerminalPanelStore) => state.terminalOrder;
 export const selectTerminalCount = (state: TerminalPanelStore) => state.terminalOrder.length;
+
+// ========== Convenience Hooks ==========
+
+/** Hook that returns the openTerminal action for use in event handlers */
+export function useOpenTerminalPanel() {
+  const openTerminal = useTerminalPanelStore((s) => s.openTerminal);
+  return openTerminal;
+}

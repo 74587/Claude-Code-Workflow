@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { QueueExecuteInSession } from '@/components/issue/queue/QueueExecuteInSession';
 import { QueueSendToOrchestrator } from '@/components/issue/queue/QueueSendToOrchestrator';
-import { IssueTerminalTab } from '@/components/issue/hub/IssueTerminalTab';
+import { useOpenTerminalPanel } from '@/stores/terminalPanelStore';
 import { useIssueQueue } from '@/hooks';
 import { cn } from '@/lib/utils';
 import type { QueueItem } from '@/lib/api';
@@ -39,6 +39,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
 
 export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
   const { formatMessage } = useIntl();
+  const openTerminal = useOpenTerminalPanel();
   const [activeTab, setActiveTab] = useState<TabValue>('overview');
   const { data: queue } = useIssueQueue();
   const itemId = item?.item_id;
@@ -257,9 +258,21 @@ export function SolutionDrawer({ item, isOpen, onClose }: SolutionDrawerProps) {
                 )}
               </TabsContent>
 
-              {/* Terminal Tab */}
+              {/* Terminal Tab - Link to Terminal Panel */}
               <TabsContent value="terminal" className="mt-4 pb-6 focus-visible:outline-none">
-                <IssueTerminalTab issueId={issueId} />
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Terminal className="h-12 w-12 mb-4 opacity-50" />
+                  <p className="text-sm mb-4">{formatMessage({ id: 'home.terminalPanel.openInPanel' })}</p>
+                  <Button
+                    onClick={() => {
+                      openTerminal(issueId);
+                      onClose();
+                    }}
+                  >
+                    <Terminal className="h-4 w-4 mr-2" />
+                    {formatMessage({ id: 'home.terminalPanel.openInPanel' })}
+                  </Button>
+                </div>
               </TabsContent>
 
               {/* JSON Tab */}

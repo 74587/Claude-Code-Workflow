@@ -105,5 +105,22 @@
   },
   "project": {
     "features": "features"
+  },
+  "terminalPanel": {
+    "title": "Terminal Monitor",
+    "executionQueue": "Execution Queue",
+    "executionQueueDesc": "Execution Queue Management",
+    "executionQueuePhase2": "Coming in Phase 2",
+    "noTerminalSelected": "No terminal selected",
+    "selectTerminalHint": "Select a terminal from the sidebar",
+    "commandPlaceholder": "Enter command... (Ctrl+Enter to execute)",
+    "execute": "Execute",
+    "openInPanel": "Open in Terminal Panel",
+    "status": {
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "idle": "Idle"
+    }
   }
 }
