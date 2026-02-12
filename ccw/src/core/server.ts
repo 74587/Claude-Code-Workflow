@@ -70,7 +70,6 @@ interface ServerOptions {
   open?: boolean;
   frontend?: 'js' | 'react' | 'both';
   reactPort?: number;
-  docsPort?: number;
 }
 
 type PostHandler = PostRequestHandler;
@@ -454,13 +453,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
   const host = options.host ?? '127.0.0.1';
   const frontend = options.frontend || 'js';
   const reactPort = options.reactPort || serverPort + 1;
-  const docsPort = options.docsPort || 3001;
 
   // Log frontend configuration
   console.log(`[Server] Frontend mode: ${frontend}`);
   if (frontend === 'react' || frontend === 'both') {
     console.log(`[Server] React proxy configured: /react/* -> http://localhost:${reactPort}`);
-    console.log(`[Server] Docs proxy configured: /docs/* -> http://localhost:${docsPort}`);
   }
 
   const tokenManager = getTokenManager();
@@ -873,68 +870,6 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (frontend === 'react' && (pathname === '/' || pathname === '/index.html')) {
           res.writeHead(302, { 'Location': `/react${url.search}` });
           res.end();
-          return;
-        }
-      }
-
-      // Docs site proxy - proxy requests to Docusaurus dev server (port 3001)
-      // Redirect /docs to /docs/ to match Docusaurus baseUrl
-      if (pathname === '/docs') {
-        res.writeHead(302, { 'Location': `/docs/${url.search}` });
-        res.end();
-        return;
-      }
-
-      // Proxy /docs/* requests to Docusaurus
-      if (pathname.startsWith('/docs/')) {
-        // Preserve the /docs prefix when forwarding to Docusaurus
-        const docsUrl = `http://localhost:${docsPort}${pathname}${url.search}`;
-
-        console.log(`[Docs Proxy] Proxying ${pathname} -> ${docsUrl}`);
-
-        try {
-          // Convert headers to plain object for fetch
-          const proxyHeaders: Record<string, string> = {};
-          for (const [key, value] of Object.entries(req.headers)) {
-            if (typeof value === 'string') {
-              proxyHeaders[key] = value;
-            } else if (Array.isArray(value)) {
-              proxyHeaders[key] = value.join(', ');
-            }
-          }
-          proxyHeaders['host'] = `localhost:${docsPort}`;
-
-          const docsResponse = await fetch(docsUrl, {
-            method: req.method,
-            headers: proxyHeaders,
-            body: req.method !== 'GET' && req.method !== 'HEAD' ? await readRequestBody(req) : undefined,
-          });
-
-          const contentType = docsResponse.headers.get('content-type') || 'text/html';
-          const body = await docsResponse.text();
-
-          // Forward response headers
-          const responseHeaders: Record<string, string> = {
-            'Content-Type': contentType,
-            'Cache-Control': 'no-cache',
-          };
-
-          // Forward Set-Cookie headers if present
-          const setCookieHeaders = docsResponse.headers.get('set-cookie');
-          if (setCookieHeaders) {
-            responseHeaders['Set-Cookie'] = setCookieHeaders;
-          }
-
-          console.log(`[Docs Proxy] Response ${docsResponse.status}: ${contentType}`);
-
-          res.writeHead(docsResponse.status, responseHeaders);
-          res.end(body);
-          return;
-        } catch (err) {
-          console.error(`[Docs Proxy] Failed to proxy to ${docsUrl}:`, err);
-          console.error(`[Docs Proxy] Error details:`, (err as Error).message);
-          res.writeHead(502, { 'Content-Type': 'text/plain' });
-          res.end(`Bad Gateway: Docs site not available at ${docsUrl}\nMake sure the Docusaurus server is running on port ${docsPort}.\nError: ${(err as Error).message}`);
           return;
         }
       }

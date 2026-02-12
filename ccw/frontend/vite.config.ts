@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename)
 const basePath = process.env.VITE_BASE_URL || '/react/'
 
 // Backend target for Vite proxy (used when directly opening the Vite dev server port).
-// In `ccw view`, this is set to the dashboard server port so /api, /ws, and /docs all route correctly.
+// In `ccw view`, this is set to the dashboard server port so /api and /ws route correctly.
 const backendHost = process.env.VITE_BACKEND_HOST || 'localhost'
 const backendPort = Number(process.env.VITE_BACKEND_PORT || '3456')
 const backendHttpTarget = `http://${backendHost}:${backendPort}`
@@ -43,14 +43,6 @@ export default defineConfig({
       '/ws': {
         target: backendWsTarget,
         ws: true,
-      },
-      // Docs proxy
-      // Forwards /docs requests to the dashboard server, which proxies to the docs server.
-      '/docs': {
-        target: backendHttpTarget,
-        changeOrigin: true,
-        // Preserve /docs prefix to match the dashboard's /docs proxy and Docusaurus baseUrl.
-        // Example: /docs/overview -> http://localhost:{backendPort}/docs/overview
       },
     },
   },

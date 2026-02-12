@@ -18,7 +18,6 @@ export { SkillsManagerPage } from './SkillsManagerPage';
 export { CommandsManagerPage } from './CommandsManagerPage';
 export { MemoryPage } from './MemoryPage';
 export { SettingsPage } from './SettingsPage';
-export { HelpPage } from './HelpPage';
 export { HookManagerPage } from './HookManagerPage';
 export { NotFoundPage } from './NotFoundPage';
 export { LiteTasksPage } from './LiteTasksPage';

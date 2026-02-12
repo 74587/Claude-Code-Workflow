@@ -2,7 +2,6 @@ import { startServer } from '../core/server.js';
 import { launchBrowser } from '../utils/browser-launcher.js';
 import { resolvePath, validatePath } from '../utils/path-resolver.js';
 import { startReactFrontend, stopReactFrontend } from '../utils/react-frontend.js';
-import { startDocsSite, stopDocsSite } from '../utils/docs-frontend.js';
 import chalk from 'chalk';
 import type { Server } from 'http';
 
@@ -58,31 +57,15 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     }
   }
 
-  // Start Docusaurus docs site if React frontend is enabled
-  // The docs site is proxied at /docs (via the CCW dashboard server and also via Vite in dev)
-  let docsPort: number | undefined;
-  if (frontend === 'react' || frontend === 'both') {
-    const preferredDocsPort = Number(process.env.CCW_DOCS_PORT) || 3001;
-    try {
-      docsPort = await startDocsSite(preferredDocsPort);
-    } catch (error) {
-      console.log(chalk.yellow(`\n  Warning: Failed to start docs site: ${error}`));
-      console.log(chalk.gray(`  The /docs endpoint will not be available.`));
-      console.log(chalk.gray(`  You can start it manually: cd ccw/docs-site && npm run serve -- --build --port ${preferredDocsPort} --no-open\n`));
-      docsPort = preferredDocsPort;
-    }
-  }
-
   try {
     // Start server
     console.log(chalk.cyan('  Starting server...'));
-    const server = await startServer({ 
-      port, 
-      host, 
+    const server = await startServer({
+      port,
+      host,
       initialPath,
       frontend,
-      reactPort,
-      docsPort
+      reactPort
     });
 
     const boundUrl = `http://${host}:${port}`;
@@ -99,18 +82,8 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     if (frontend === 'both') {
       console.log(chalk.gray(`  JS Frontend:    ${boundUrl}`));
       console.log(chalk.gray(`  React Frontend: http://${host}:${reactPort}`));
-      console.log(chalk.gray(`  Docs:           ${browserUrl}/docs/`));
-      console.log(chalk.gray(`  Docs (zh):      ${browserUrl}/docs/zh/`));
-      if (docsPort) {
-        console.log(chalk.gray(`  Docs server:    http://localhost:${docsPort}/docs/`));
-      }
     } else if (frontend === 'react') {
       console.log(chalk.gray(`  React Frontend: http://${host}:${reactPort}`));
-      console.log(chalk.gray(`  Docs:           ${browserUrl}/docs/`));
-      console.log(chalk.gray(`  Docs (zh):      ${browserUrl}/docs/zh/`));
-      if (docsPort) {
-        console.log(chalk.gray(`  Docs server:    http://localhost:${docsPort}/docs/`));
-      }
     }
 
     // Open browser
@@ -144,7 +117,6 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
     process.on('SIGINT', async () => {
       console.log(chalk.yellow('\n  Shutting down server...'));
       await stopReactFrontend();
-      await stopDocsSite();
       server.close(() => {
         console.log(chalk.green('  Server stopped.\n'));
         process.exit(0);
@@ -159,7 +131,6 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       console.error(chalk.gray(`  Try a different port: ccw serve --port ${port + 1}\n`));
     }
     await stopReactFrontend();
-    await stopDocsSite();
     process.exit(1);
   }
 }

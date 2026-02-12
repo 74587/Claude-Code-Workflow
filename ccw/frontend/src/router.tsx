@@ -22,7 +22,6 @@ import {
   CommandsManagerPage,
   MemoryPage,
   SettingsPage,
-  HelpPage,
   NotFoundPage,
   LiteTasksPage,
   // LiteTaskDetailPage removed - now using TaskDrawer instead
@@ -158,10 +157,6 @@ const routes: RouteObject[] = [
         element: <ApiSettingsPage />,
       },
       {
-        path: 'help',
-        element: <HelpPage />,
-      },
-      {
         path: 'hooks',
         element: <HookManagerPage />,
       },
@@ -228,7 +223,6 @@ export const ROUTES = {
   SETTINGS_RULES: '/settings/rules',
   CODEXLENS_MANAGER: '/settings/codexlens',
   API_SETTINGS: '/api-settings',
-  HELP: '/help',
   EXPLORER: '/explorer',
   GRAPH: '/graph',
   TEAMS: '/teams',
