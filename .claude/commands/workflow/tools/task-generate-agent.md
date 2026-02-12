@@ -280,7 +280,10 @@ Session ID: {session-id}
 MCP Capabilities: {exa_code, exa_web, code_index}
 
 ## FEATURE SPECIFICATIONS (conditional)
-If .workflow/active/{session-id}/.brainstorming/feature-specs/ exists:
+If context-package has brainstorm_artifacts.feature_index_path:
+  Feature Index: ${contextPackage.brainstorm_artifacts.feature_index_path}
+  Feature Spec Dir: ${contextPackage.brainstorm_artifacts.feature_index_path.replace('/feature-index.json', '/')}
+Else if .workflow/active/{session-id}/.brainstorming/feature-specs/ exists:
   Feature Index: .workflow/active/{session-id}/.brainstorming/feature-specs/feature-index.json
   Feature Spec Dir: .workflow/active/{session-id}/.brainstorming/feature-specs/
 
@@ -475,7 +478,10 @@ Session ID: {session-id}
 MCP Capabilities: {exa_code, exa_web, code_index}
 
 ## FEATURE SPECIFICATIONS (conditional)
-If .workflow/active/{session-id}/.brainstorming/feature-specs/ exists:
+If context-package has brainstorm_artifacts.feature_index_path:
+  Feature Index: ${contextPackage.brainstorm_artifacts.feature_index_path}
+  Feature Spec Dir: ${contextPackage.brainstorm_artifacts.feature_index_path.replace('/feature-index.json', '/')}
+Else if .workflow/active/{session-id}/.brainstorming/feature-specs/ exists:
   Feature Index: .workflow/active/{session-id}/.brainstorming/feature-specs/feature-index.json
   Feature Spec Dir: .workflow/active/{session-id}/.brainstorming/feature-specs/
 

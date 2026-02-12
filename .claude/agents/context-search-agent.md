@@ -338,7 +338,12 @@ if (dir_exists(brainstormDir)) {
     synthesis_output: {
       path: `${brainstormDir}/synthesis-specification.md`,
       exists: file_exists(`${brainstormDir}/synthesis-specification.md`),
-      content: Read(`${brainstormDir}/synthesis-specification.md`) || null
+      content: Read(`${brainstormDir}/synthesis-specification.md`) || null,
+      // New feature-driven artifacts (preferred over legacy synthesis-specification.md)
+      feature_driven: dir_exists(`${brainstormDir}/feature-specs`) ? {
+        feature_index: `${brainstormDir}/feature-specs/feature-index.json`,
+        feature_specs_dir: `${brainstormDir}/feature-specs/`
+      } : undefined
     },
     // Feature index (optional - top level, matches action-planning-agent expected access pattern)
     feature_index: file_exists(`${brainstormDir}/feature-specs/feature-index.json`) ? {
@@ -346,6 +351,10 @@ if (dir_exists(brainstormDir)) {
       exists: true,
       content: Read(`${brainstormDir}/feature-specs/feature-index.json`) || null
     } : undefined,
+    // Convenience: direct path to feature-index.json (avoids hardcoding in task-generate-agent)
+    feature_index_path: file_exists(`${brainstormDir}/feature-specs/feature-index.json`)
+      ? `${brainstormDir}/feature-specs/feature-index.json`
+      : undefined,
     // Feature spec files (optional - individual feature specifications)
     feature_specs: dir_exists(`${brainstormDir}/feature-specs`)
       ? glob(`${brainstormDir}/feature-specs/F-*-*.md`).map(file => ({
@@ -479,13 +488,18 @@ Calculate risk level based on:
     "synthesis_output": {
       "path": ".workflow/WFS-xxx/.brainstorming/synthesis-specification.md",
       "exists": true,
-      "content": "# Synthesis Specification\n\n## Cross-Role Integration\n..."
+      "content": "# Synthesis Specification\n\n## Cross-Role Integration\n...",
+      "feature_driven": {
+        "feature_index": ".workflow/WFS-xxx/.brainstorming/feature-specs/feature-index.json",
+        "feature_specs_dir": ".workflow/WFS-xxx/.brainstorming/feature-specs/"
+      }
     },
     "feature_index": {
       "path": ".workflow/WFS-xxx/.brainstorming/feature-specs/feature-index.json",
       "exists": true,
       "content": "{\"version\":\"1.0\",\"features\":[...]}"
     },
+    "feature_index_path": ".workflow/WFS-xxx/.brainstorming/feature-specs/feature-index.json",
     "feature_specs": [
       {
         "path": ".workflow/WFS-xxx/.brainstorming/feature-specs/F-001-auth.md",

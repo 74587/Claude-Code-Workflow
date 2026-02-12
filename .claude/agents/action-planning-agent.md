@@ -157,9 +157,9 @@ mcp__exa__get_code_context_exa(
   - **Load on-demand**: Only load specs referenced by current task's feature mapping
   - **Note**: For structured metadata (`feature_id`, `slug`, `priority`), use `feature_index.features[]` instead
 - `brainstorm_artifacts.cross_cutting_specs[]`: Cross-cutting concern specifications (from context-package)
-  - Each spec: `cross_cutting_specs[i]` has `path` and `content`
+  - Each spec: `cross_cutting_specs[i]` has `path` (full project-relative) and `content`
   - **Load on-demand**: Only load when task touches shared/cross-cutting concerns
-  - **Note**: In feature-index.json, `cross_cutting_specs[]` is a plain string array (relative paths)
+  - **Path format note**: context-package uses full paths (`.workflow/.../role/file.md`), feature-index.json uses relative paths (`role/file.md`). Match using `endsWith()`.
 - `brainstorm_artifacts.role_analyses[]`: Role-specific analyses (legacy fallback, if array not empty)
   - Each role: `role_analyses[i].files[j]` has `path` and `content`
   - **Only used when**: `feature_index` does not exist (backward compatibility)
@@ -197,11 +197,17 @@ if (contextPackage.brainstorm_artifacts?.feature_index?.exists) {
     });
 
   // Step 3: Load cross-cutting specs only when needed
-  // Note: cross_cutting_specs in feature-index.json is a string array (relative paths)
+  // Note: feature-index.json uses relative paths ("role/file.md"),
+  //       context-package uses full paths (".workflow/.../role/file.md")
+  const crossCuttingFromPackage = contextPackage.brainstorm_artifacts.cross_cutting_specs || [];
   featureIndex.cross_cutting_specs
-    .filter(cs => task.context.artifacts.some(a => a.type === 'cross_cutting_spec' && a.path === cs))
+    .filter(cs => task.context.artifacts.some(a => a.type === 'cross_cutting_spec'))
     .forEach(cs => {
-      const crossCuttingContent = Read(cs);
+      // Match by path suffix since feature-index uses relative paths
+      const matched = crossCuttingFromPackage.find(pkg => pkg.path.endsWith(cs));
+      if (matched) {
+        const crossCuttingContent = matched.content || Read(matched.path);
+      }
     });
 
 } else if (contextPackage.brainstorm_artifacts?.role_analyses?.length > 0) {
