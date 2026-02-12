@@ -739,7 +739,7 @@ export function McpManagerPage() {
               </h3>
             </div>
             <Card className="p-4">
-              <CrossCliSyncPanel onSuccess={(count, direction) => refetch()} />
+              <CrossCliSyncPanel onSuccess={() => refetch()} />
             </Card>
           </section>
 

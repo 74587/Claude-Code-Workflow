@@ -44,12 +44,13 @@
   },
   "emptyState": {
     "noSessions": {
-      "title": "未找到会话",
-      "message": "没有符合当前筛选条件的工作流会话。"
+      "title": "暂无活跃会话",
+      "message": "开始你的第一个工作流会话，追踪任务和进度。",
+      "hint": "创建一个规划会话以开始使用"
     },
     "noTasks": {
       "title": "暂无任务",
-      "message": "没有符合当前筛选条件的任务。"
+      "message": "此会话中没有可用任务。"
     },
     "noLoops": {
       "title": "无活跃循环",

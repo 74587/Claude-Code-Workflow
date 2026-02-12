@@ -2,12 +2,12 @@
 
 ## Overview
 
-消费 Phase 1 产出的统一 JSONL (`tasks.jsonl`)，串行执行任务并进行收敛验证，通过 `execution.md` + `execution-events.md` 跟踪进度。
+消费 Phase 1 产出的 `.task/*.json` (multi-file task definitions)，串行执行任务并进行收敛验证，通过 `execution.md` + `execution-events.md` 跟踪进度。
 
-**Core workflow**: Load JSONL → Validate → Pre-Execution Analysis → Execute → Verify Convergence → Track Progress
+**Core workflow**: Load .task/*.json → Validate → Pre-Execution Analysis → Execute → Verify Convergence → Track Progress
 
 **Key features**:
-- **Single format**: 只消费统一 JSONL (`tasks.jsonl`)
+- **Single format**: 只消费 `.task/*.json` (one JSON file per task)
 - **Convergence-driven**: 每个任务执行后验证收敛标准
 - **Serial execution**: 按拓扑序串行执行，依赖跟踪
 - **Dual progress tracking**: `execution.md` (概览) + `execution-events.md` (事件流)
@@ -17,11 +17,11 @@
 ## Invocation
 
 ```javascript
-$unified-execute-with-file PLAN="${sessionFolder}/tasks.jsonl"
+$unified-execute-with-file PLAN="${sessionFolder}/.task/"
 
 // With options
-$unified-execute-with-file PLAN="${sessionFolder}/tasks.jsonl" --auto-commit
-$unified-execute-with-file PLAN="${sessionFolder}/tasks.jsonl" --dry-run
+$unified-execute-with-file PLAN="${sessionFolder}/.task/" --auto-commit
+$unified-execute-with-file PLAN="${sessionFolder}/.task/" --dry-run
 ```
 
 ## Output Structure
@@ -32,7 +32,7 @@ ${projectRoot}/.workflow/.execution/EXEC-{slug}-{date}-{random}/
 └── execution-events.md       # Unified event log (single source of truth)
 ```
 
-Additionally, the source `tasks.jsonl` is updated in-place with `_execution` states.
+Additionally, the source `.task/*.json` files are updated in-place with execution states (`status`, `executed_at`, `result`).
 
 ---
 
@@ -51,11 +51,11 @@ let planPath = planMatch ? planMatch[1] : null
 // Auto-detect if no PLAN specified
 if (!planPath) {
   // Search in order (most recent first):
-  //   .workflow/.lite-plan/*/tasks.jsonl
-  //   .workflow/.req-plan/*/tasks.jsonl
-  //   .workflow/.planning/*/tasks.jsonl
-  //   .workflow/.analysis/*/tasks.jsonl
-  //   .workflow/.brainstorm/*/tasks.jsonl
+  //   .workflow/.lite-plan/*/.task/
+  //   .workflow/.req-plan/*/.task/
+  //   .workflow/.planning/*/.task/
+  //   .workflow/.analysis/*/.task/
+  //   .workflow/.brainstorm/*/.task/
 }
 
 // Resolve path
@@ -75,20 +75,19 @@ Bash(`mkdir -p ${sessionFolder}`)
 
 ## Phase 1: Load & Validate
 
-**Objective**: Parse unified JSONL, validate schema and dependencies, build execution order.
+**Objective**: Parse `.task/*.json` files, validate schema and dependencies, build execution order.
 
-### Step 1.1: Parse Unified JSONL
+### Step 1.1: Parse Task JSON Files
 
 ```javascript
-const content = Read(planPath)
-const tasks = content.split('\n')
-  .filter(line => line.trim())
-  .map((line, i) => {
-    try { return JSON.parse(line) }
-    catch (e) { throw new Error(`Line ${i + 1}: Invalid JSON — ${e.message}`) }
-  })
+// Read all JSON files from .task/ directory
+const taskFiles = Glob(`${planPath}/*.json`).sort()
+const tasks = taskFiles.map((file, i) => {
+  try { return JSON.parse(Read(file)) }
+  catch (e) { throw new Error(`File ${file}: Invalid JSON — ${e.message}`) }
+})
 
-if (tasks.length === 0) throw new Error('No tasks found in JSONL file')
+if (tasks.length === 0) throw new Error('No task files found in .task/ directory')
 ```
 
 ### Step 1.2: Validate Schema
@@ -300,8 +299,9 @@ for (const taskId of executionOrder) {
   if (unmetDeps.length) {
     appendToEvents(task, 'BLOCKED', `Unmet dependencies: ${unmetDeps.join(', ')}`)
     skippedTasks.add(task.id)
-    task._execution = { status: 'skipped', executed_at: startTime,
-      result: { success: false, error: `Blocked by: ${unmetDeps.join(', ')}` } }
+    task.status = 'skipped'
+    task.executed_at = startTime
+    task.result = { success: false, error: `Blocked by: ${unmetDeps.join(', ')}` }
     continue
   }
 
@@ -321,8 +321,9 @@ ${task.convergence.criteria.map(c => `- [ ] ${c}`).join('\n')}
   if (dryRun) {
     // Simulate: mark as completed without changes
     appendToEvents(`\n**Status**: ⏭ DRY RUN (no changes)\n\n---\n`)
-    task._execution = { status: 'completed', executed_at: startTime,
-      result: { success: true, summary: 'Dry run — no changes made' } }
+    task.status = 'completed'
+    task.executed_at = startTime
+    task.result = { success: true, summary: 'Dry run — no changes made' }
     completedTasks.add(task.id)
     continue
   }
@@ -358,15 +359,14 @@ ${task.convergence.criteria.map((c, i) => `- [${convergenceResults.verified[i] ?
 
 ---
 `)
-    task._execution = {
-      status: 'completed', executed_at: endTime,
-      result: {
+    task.status = 'completed'
+    task.executed_at = endTime
+    task.result = {
         success: true,
         files_modified: filesModified,
         summary: changeSummary,
         convergence_verified: convergenceResults.verified
       }
-    }
     completedTasks.add(task.id)
   } else {
     // 5b. Record FAILURE
@@ -374,7 +374,7 @@ ${task.convergence.criteria.map((c, i) => `- [${convergenceResults.verified[i] ?
   }
 
   // 6. Auto-commit if enabled
-  if (autoCommit && task._execution.status === 'completed') {
+  if (autoCommit && task.status === 'completed') {
     autoCommitTask(task, filesModified)
   }
 }
@@ -440,14 +440,13 @@ ${task.convergence.criteria.map((c, i) => `- [${convergenceResults.verified[i] ?
 ---
 `)
 
-  task._execution = {
-    status: 'failed', executed_at: endTime,
-    result: {
+  task.status = 'failed'
+  task.executed_at = endTime
+  task.result = {
       success: false,
       error: 'Convergence verification failed',
       convergence_verified: convergenceResults.verified
     }
-  }
   failedTasks.add(task.id)
 
   // Ask user
@@ -518,7 +517,7 @@ const summary = `
 | ID | Title | Status | Convergence | Files Modified |
 |----|-------|--------|-------------|----------------|
 ${tasks.map(t => {
-  const ex = t._execution || {}
+  const ex = t || {}
   const convergenceStatus = ex.result?.convergence_verified
     ? `${ex.result.convergence_verified.filter(v => v).length}/${ex.result.convergence_verified.length}`
     : '-'
@@ -529,7 +528,7 @@ ${failedTasks.size > 0 ? `### Failed Tasks
 
 ${[...failedTasks].map(id => {
   const t = tasks.find(t => t.id === id)
-  return `- **${t.id}**: ${t.title} — ${t._execution?.result?.error || 'Unknown'}`
+  return `- **${t.id}**: ${t.title} — ${t.result?.error || 'Unknown'}`
 }).join('\n')}
 ` : ''}
 ### Artifacts
@@ -555,31 +554,31 @@ appendToEvents(`
 `)
 ```
 
-### Step 4.3: Write Back tasks.jsonl with _execution
+### Step 4.3: Write Back .task/*.json with Execution State
 
-Update the source JSONL file with execution states:
+Update each task JSON file in-place with execution state:
 
 ```javascript
-const updatedJsonl = tasks.map(task => JSON.stringify(task)).join('\n')
-Write(planPath, updatedJsonl)
-// Each task now has _execution: { status, executed_at, result }
+tasks.forEach(task => {
+  const taskFile = `${planPath}/${task.id}.json`
+  Write(taskFile, JSON.stringify(task, null, 2))
+})
+// Each task now has status, executed_at, result fields
 ```
 
-**_execution State** (added to each task):
+**Execution State** (added to each task JSON file):
 
 ```javascript
 {
   // ... original task fields ...
-  _execution: {
-    status: "completed" | "failed" | "skipped",
-    executed_at: "ISO timestamp",
-    result: {
-      success: boolean,
-      files_modified: string[],     // list of modified file paths
-      summary: string,              // change description
-      convergence_verified: boolean[],  // per criterion
-      error: string                 // if failed
-    }
+  status: "completed" | "failed" | "skipped",
+  executed_at: "ISO timestamp",
+  result: {
+    success: boolean,
+    files_modified: string[],     // list of modified file paths
+    summary: string,              // change description
+    convergence_verified: boolean[],  // per criterion
+    error: string                 // if failed
   }
 }
 ```
@@ -604,7 +603,7 @@ AskUserQuestion({
 
 | Selection | Action |
 |-----------|--------|
-| Retry Failed | Filter tasks with `_execution.status === 'failed'`, re-execute, append `[RETRY]` events |
+| Retry Failed | Filter tasks with `status === 'failed'`, re-execute, append `[RETRY]` events |
 | View Events | Display execution-events.md content |
 | Create Issue | `$issue:new` from failed task details |
 | Done | Display artifact paths, end workflow |
@@ -615,10 +614,10 @@ AskUserQuestion({
 
 | Situation | Action | Recovery |
 |-----------|--------|----------|
-| JSONL file not found | Report error with path | Check path, verify planning phase output |
-| Invalid JSON line | Report line number and error | Fix JSONL file manually |
+| .task/ directory not found | Report error with path | Check path, verify planning phase output |
+| Invalid JSON file | Report filename and error | Fix task JSON file manually |
 | Missing convergence | Report validation error | Add convergence fields to tasks |
-| Circular dependency | Stop, report cycle path | Fix dependencies in JSONL |
+| Circular dependency | Stop, report cycle path | Fix dependencies in task files |
 | Task execution fails | Record in events, ask user | Retry, skip, accept, or abort |
 | Convergence verification fails | Mark task failed, ask user | Fix code and retry, or accept |
 | Verification command timeout | Mark as unverified | Manual verification needed |

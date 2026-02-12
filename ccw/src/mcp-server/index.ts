@@ -155,7 +155,16 @@ async function main(): Promise<void> {
   // Connect server to transport
   await server.connect(transport);
 
-  // Error handling
+  // Error handling - prevent process crashes from closing transport
+  process.on('uncaughtException', (error) => {
+    console.error(`[${SERVER_NAME}] Uncaught exception:`, error.message);
+    console.error(error.stack);
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    console.error(`[${SERVER_NAME}] Unhandled rejection:`, reason);
+  });
+
   process.on('SIGINT', async () => {
     await server.close();
     process.exit(0);

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Serial lightweight planning with CLI-powered exploration and search verification. Produces unified JSONL (`tasks.jsonl`) compatible with `collaborative-plan-with-file` output format, consumable by `unified-execute-with-file`.
+Serial lightweight planning with CLI-powered exploration and search verification. Produces `.task/TASK-*.json` (one file per task) compatible with `collaborative-plan-with-file` output format, consumable by `unified-execute-with-file`.
 
 **Core capabilities:**
 - Intelligent task analysis with automatic exploration detection
@@ -10,7 +10,7 @@ Serial lightweight planning with CLI-powered exploration and search verification
 - Search verification after each CLI exploration (ACE search, Grep, Glob)
 - Interactive clarification after exploration to gather missing information
 - Direct planning by Claude (all complexity levels, no agent delegation)
-- Unified JSONL output (`tasks.jsonl`) with convergence criteria
+- Unified multi-file task output (`.task/TASK-*.json`) with convergence criteria
 
 ## Parameters
 
@@ -28,7 +28,7 @@ Serial lightweight planning with CLI-powered exploration and search verification
 | `explorations-manifest.json` | Index of all exploration files |
 | `exploration-notes.md` | Synthesized exploration notes (all angles combined) |
 | `requirement-analysis.json` | Complexity assessment and session metadata |
-| `tasks.jsonl` | ⭐ Unified JSONL (collaborative-plan-with-file compatible) |
+| `.task/TASK-*.json` | Multi-file task output (one JSON file per task) |
 | `plan.md` | Human-readable summary with execution command |
 
 **Output Directory**: `{projectRoot}/.workflow/.lite-plan/{session-id}/`
@@ -62,10 +62,10 @@ Phase 2: Clarification (optional, multi-round)
    ├─ Deduplicate similar questions
    └─ ASK_USER (max 4 questions per round, multiple rounds)
 
-Phase 3: Planning → tasks.jsonl (NO CODE EXECUTION)
+Phase 3: Planning → .task/*.json (NO CODE EXECUTION)
    ├─ Load exploration notes + clarifications + project context
-   ├─ Direct Claude planning (following unified JSONL schema)
-   ├─ Generate tasks.jsonl (one task per line)
+   ├─ Direct Claude planning (following unified task JSON schema)
+   ├─ Generate .task/TASK-*.json (one file per task)
    └─ Generate plan.md (human-readable summary)
 
 Phase 4: Confirmation
@@ -73,7 +73,7 @@ Phase 4: Confirmation
    └─ ASK_USER: Allow / Modify / Cancel
 
 Phase 5: Handoff
-   └─ → unified-execute-with-file with tasks.jsonl
+   └─ → unified-execute-with-file with .task/ directory
 ```
 
 ## Implementation
@@ -334,7 +334,7 @@ Aggregated from all exploration angles, deduplicated
 
 ---
 
-### Phase 3: Planning → tasks.jsonl
+### Phase 3: Planning → .task/*.json
 
 **IMPORTANT**: Phase 3 is **planning only** — NO code execution. All implementation happens via unified-execute-with-file.
 
@@ -358,9 +358,9 @@ Write(`${sessionFolder}/requirement-analysis.json`, JSON.stringify({
 }, null, 2))
 ```
 
-#### Step 3.3: Generate tasks.jsonl
+#### Step 3.3: Generate .task/*.json
 
-Direct Claude planning — synthesize exploration findings and clarifications into unified JSONL tasks:
+Direct Claude planning — synthesize exploration findings and clarifications into individual task JSON files:
 
 **Task Grouping Rules**:
 1. **Group by feature**: All changes for one feature = one task (even if 3-5 files)
@@ -370,7 +370,7 @@ Direct Claude planning — synthesize exploration findings and clarifications in
 5. **True dependencies only**: Only use depends_on when Task B cannot start without Task A's output
 6. **Prefer parallel**: Most tasks should be independent (no depends_on)
 
-**Unified JSONL Task Format** (one JSON object per line):
+**Unified Task JSON Format** (one JSON file per task, stored in `.task/` directory):
 
 ```javascript
 {
@@ -406,10 +406,15 @@ Direct Claude planning — synthesize exploration findings and clarifications in
 }
 ```
 
-**Write tasks.jsonl**:
+**Write .task/*.json**:
 ```javascript
-const jsonlContent = tasks.map(t => JSON.stringify(t)).join('\n')
-Write(`${sessionFolder}/tasks.jsonl`, jsonlContent)
+// Create .task/ directory
+Bash(`mkdir -p ${sessionFolder}/.task`)
+
+// Write each task as an individual JSON file
+tasks.forEach(task => {
+  Write(`${sessionFolder}/.task/${task.id}.json`, JSON.stringify(task, null, 2))
+})
 ```
 
 #### Step 3.4: Generate plan.md
@@ -449,7 +454,7 @@ ${t.convergence.criteria.map(c => \`  - ${c}\`).join('\n')}
 ## 执行
 
 \`\`\`bash
-$unified-execute-with-file PLAN="${sessionFolder}/tasks.jsonl"
+$unified-execute-with-file PLAN="${sessionFolder}/.task/"
 \`\`\`
 
 **Session artifacts**: \`${sessionFolder}/\`
@@ -463,7 +468,7 @@ Write(`${sessionFolder}/plan.md`, planMd)
 
 #### Step 4.1: Display Plan
 
-Read `{sessionFolder}/tasks.jsonl` and display summary:
+Read `{sessionFolder}/.task/` directory and display summary:
 
 - **Summary**: Overall approach (from requirement understanding)
 - **Tasks**: Numbered list with ID, title, type, effort
@@ -488,7 +493,7 @@ Read `{sessionFolder}/tasks.jsonl` and display summary:
 
 **Output**: `userSelection` — `{ confirmation: "Allow" | "Modify" | "Cancel" }`
 
-**Modify Loop**: If "Modify" selected, display current tasks.jsonl content, accept user edits (max 3 rounds), regenerate plan.md, re-confirm.
+**Modify Loop**: If "Modify" selected, display current `.task/*.json` content, accept user edits (max 3 rounds), regenerate plan.md, re-confirm.
 
 ---
 
@@ -509,7 +514,10 @@ Read `{sessionFolder}/tasks.jsonl` and display summary:
 ├── explorations-manifest.json         # Exploration index
 ├── exploration-notes.md               # Synthesized exploration notes
 ├── requirement-analysis.json          # Complexity assessment
-├── tasks.jsonl                        # ⭐ Unified JSONL output
+├── .task/                             # ⭐ Task JSON files (one per task)
+│   ├── TASK-001.json
+│   ├── TASK-002.json
+│   └── ...
 └── plan.md                            # Human-readable summary
 ```
 
@@ -522,7 +530,10 @@ Read `{sessionFolder}/tasks.jsonl` and display summary:
 ├── explorations-manifest.json
 ├── exploration-notes.md
 ├── requirement-analysis.json
-├── tasks.jsonl
+├── .task/
+│   ├── TASK-001.json
+│   ├── TASK-002.json
+│   └── ...
 └── plan.md
 ```
 
@@ -543,7 +554,7 @@ Read `{sessionFolder}/tasks.jsonl` and display summary:
 ## Post-Phase Update
 
 After Phase 1 (Lite Plan) completes:
-- **Output Created**: `tasks.jsonl` + `plan.md` + exploration artifacts in session folder
+- **Output Created**: `.task/TASK-*.json` + `plan.md` + exploration artifacts in session folder
 - **Session Artifacts**: All files in `{projectRoot}/.workflow/.lite-plan/{session-id}/`
 - **Next Action**: Auto-continue to [Phase 2: Execution Handoff](02-lite-execute.md)
 - **TodoWrite**: Mark "Lite Plan - Planning" as completed, start "Execution (unified-execute)"
