@@ -127,10 +127,6 @@ export function AppShell({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleMenuClick = useCallback(() => {
-    setMobileOpen((prev) => !prev);
-  }, []);
-
   const handleMobileClose = useCallback(() => {
     setMobileOpen(false);
   }, []);

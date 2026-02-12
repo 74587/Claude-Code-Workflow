@@ -24,7 +24,6 @@ import {
   type McpProjectConfigType,
   type McpTemplate,
   type McpTemplateInstallRequest,
-  type AllProjectsResponse,
   type OtherProjectsServersResponse,
   type CrossCliCopyRequest,
   type CrossCliCopyResponse,
@@ -439,7 +438,7 @@ export function useCodexMutations(): UseCodexMutationsReturn {
       // Optimistic update could be added here if needed
       return { serverName, enabled };
     },
-    onError: (_error, _vars, context) => {
+    onError: (_error, _vars, _context) => {
       // Rollback on error
       console.error('Failed to toggle Codex MCP server:', _error);
     },

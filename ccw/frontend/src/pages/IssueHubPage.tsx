@@ -3,7 +3,7 @@
 // ========================================
 // Unified page for issues, queue, and discovery with tab navigation
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useIntl } from 'react-intl';
 import {

@@ -25,7 +25,6 @@ import {
   exportDiscoveryFindingsAsIssues,
   type Issue,
   type IssueQueue,
-  type IssuesResponse,
   type QueueHistoryIndex,
   type DiscoverySession,
   type Finding,

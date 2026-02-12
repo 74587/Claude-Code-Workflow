@@ -91,6 +91,24 @@ export {
   selectActiveTab,
 } from './viewerStore';
 
+// Terminal Panel Store
+export {
+  useTerminalPanelStore,
+  selectIsPanelOpen as selectIsTerminalPanelOpen,
+  selectActiveTerminalId,
+  selectPanelView,
+  selectTerminalOrder,
+  selectTerminalCount,
+} from './terminalPanelStore';
+
+// Terminal Panel Store Types
+export type {
+  PanelView,
+  TerminalPanelState,
+  TerminalPanelActions,
+  TerminalPanelStore,
+} from './terminalPanelStore';
+
 // Re-export types for convenience
 export type {
   // App Store Types

@@ -15,11 +15,8 @@ import {
   ArrowLeft,
   FileEdit,
   Wrench,
-  Calendar,
-  Loader2,
   XCircle,
   CheckCircle,
-  Clock,
   Code,
   Zap,
   ListTodo,
@@ -31,7 +28,6 @@ import {
   Folder,
   MessageSquare,
   FileText,
-  ChevronDown,
   ChevronRight,
   Ruler,
   Stethoscope,
@@ -41,10 +37,8 @@ import { Flowchart } from '@/components/shared/Flowchart';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Tabs, TabsContent } from '@/components/ui/Tabs';
 import { TabsNavigation } from '@/components/ui/TabsNavigation';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/Collapsible';
-import type { LiteTask } from '@/lib/api';
 
 // ========================================
 // Type Definitions
@@ -62,43 +56,6 @@ interface Exploration {
   name: string;
   path: string;
   content?: string;
-}
-
-interface ExplorationAngle {
-  findings: string[];
-  recommendations: string[];
-  patterns: string[];
-  risks: string[];
-}
-
-interface ImplementationTask {
-  id: string;
-  title: string;
-  description?: string;
-  status?: string;
-  assignee?: string;
-}
-
-interface Milestone {
-  id: string;
-  name: string;
-  description?: string;
-  target_date?: string;
-}
-
-interface DiscussionSolution {
-  id: string;
-  name: string;
-  summary: string | { en: string; zh: string };
-  feasibility: number;
-  effort: 'low' | 'medium' | 'high';
-  risk: 'low' | 'medium' | 'high';
-  source_cli: string[];
-  implementation_plan: {
-    approach: string;
-    tasks: ImplementationTask[];
-    milestones: Milestone[];
-  };
 }
 
 // ========================================
