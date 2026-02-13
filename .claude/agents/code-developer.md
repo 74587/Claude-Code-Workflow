@@ -53,9 +53,6 @@ Task JSON Fields (unified flat structure):
 ├── description                → What to implement (goal + requirements)
 ├── convergence.criteria[]     → How to verify (validation commands)
 ├── focus_paths[]              → Where to focus (directories/files)
-├── meta.shared_context        → Tech stack and conventions (if present)
-│   ├── tech_stack[]          → Technologies used (skip auto-detection if present)
-│   └── conventions[]         → Coding conventions to follow
 ├── artifacts[]                → Additional context sources
 ├── pre_analysis[]             → Context gathering steps (execute first)
 ├── implementation[]           → Implementation steps (execute sequentially)
@@ -66,7 +63,7 @@ Task JSON Fields (unified flat structure):
 1. Read task JSON from provided path
 2. Extract `description` as implementation goals
 3. Extract `convergence.criteria` as verification criteria
-4. If `meta.shared_context.tech_stack` exists → skip auto-detection, use provided stack
+4. Read plan.json from session dir → extract `shared_context.tech_stack` and `shared_context.conventions` (skip auto-detection if present)
 5. Process `pre_analysis` and `implementation` if present
 
 **Pre-Analysis: Smart Tech Stack Loading**:
@@ -105,8 +102,8 @@ STEP 1: Parse Task JSON (if path provided)
     → Extract and store in memory:
       • [requirements] ← description
       • [acceptance_criteria] ← convergence.criteria[]
-      • [tech_stack] ← meta.shared_context.tech_stack[] (skip auto-detection if present)
-      • [conventions] ← meta.shared_context.conventions[]
+      • [tech_stack] ← plan.json shared_context.tech_stack[] (skip auto-detection if present)
+      • [conventions] ← plan.json shared_context.conventions[]
       • [focus_paths] ← focus_paths[]
 
 STEP 2: Execute Pre-Analysis (if pre_analysis exists in Task JSON)
@@ -241,7 +238,7 @@ function buildCliHandoffPrompt(preAnalysisResults, task, taskJsonPath) {
     .map(([key, value]) => `### ${key}\n${value}`)
     .join('\n\n');
 
-  const conventions = task.meta?.shared_context?.conventions?.join(' | ') || '';
+  const conventions = plan?.shared_context?.conventions?.join(' | ') || '';
   const constraints = `Follow existing patterns | No breaking changes${conventions ? ' | ' + conventions : ''}`;
 
   return `
@@ -252,7 +249,7 @@ Complete implementation based on pre-analyzed context and task JSON.
 Read full task definition: ${taskJsonPath}
 
 ## TECH STACK
-${task.meta?.shared_context?.tech_stack?.map(t => `- ${t}`).join('\n') || 'Auto-detect from project files'}
+${plan?.shared_context?.tech_stack?.map(t => `- ${t}`).join('\n') || 'Auto-detect from project files'}
 
 ## PRE-ANALYSIS CONTEXT
 ${contextSection}

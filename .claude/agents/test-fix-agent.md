@@ -56,8 +56,8 @@ You will execute tests across multiple layers, analyze failures with layer-speci
 jq --arg ts "$(date -Iseconds)" '.status="in_progress" | .status_history += [{"from":.status,"to":"in_progress","changed_at":$ts}]' IMPL-X.json > tmp.json && mv tmp.json IMPL-X.json
 ```
 
-### Flow Control Execution
-When task JSON contains `flow_control` field, execute preparation and implementation steps systematically.
+### Task Execution Flow
+When task JSON contains `pre_analysis` and `implementation` fields, execute preparation and implementation steps systematically.
 
 **Pre-Analysis Steps** (`pre_analysis`):
 1. **Sequential Processing**: Execute steps in order, accumulating context
@@ -91,7 +91,7 @@ When task JSON contains implementation_approach array:
      - `"agent"` (default) → Agent direct execution:
        - Parse `modification_points` as files to modify
        - Follow `logic_flow` for test-fix iteration
-       - Use test_commands from flow_control for test execution
+       - Use test_commands from convergence.criteria for test execution
 
 
 ### 1. Context Assessment & Test Discovery
