@@ -452,6 +452,7 @@ When designing a new team command, verify:
 ### Infrastructure Patterns
 - [ ] YAML front matter with `group: team`
 - [ ] Message bus section with `team_msg` logging
+- [ ] CLI fallback section with `ccw team` CLI examples and parameter mapping
 - [ ] Role-specific message types defined
 - [ ] Task lifecycle: TaskList -> TaskGet -> TaskUpdate flow
 - [ ] Unique task prefix (no collision with existing PLAN/IMPL/TEST/REVIEW, scan `team/**/*.md`)

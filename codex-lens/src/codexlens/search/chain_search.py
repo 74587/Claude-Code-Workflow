@@ -1293,6 +1293,9 @@ class ChainSearchEngine:
                     query=query,
                 )
 
+            if mode == "static_global_graph":
+                return self._stage2_static_global_graph_expand(coarse_results, index_root=index_root)
+
             return self._stage2_precomputed_graph_expand(coarse_results, index_root=index_root)
 
         except ImportError as exc:
@@ -1342,6 +1345,50 @@ class ChainSearchEngine:
             )
 
         return self._combine_stage2_results(coarse_results, related_results)
+
+    def _stage2_static_global_graph_expand(
+        self,
+        coarse_results: List[SearchResult],
+        *,
+        index_root: Path,
+    ) -> List[SearchResult]:
+        """Stage 2 (static_global_graph): expand using GlobalGraphExpander over global_relationships."""
+        from codexlens.search.global_graph_expander import GlobalGraphExpander
+
+        global_db_path = index_root / GlobalSymbolIndex.DEFAULT_DB_NAME
+        if not global_db_path.exists():
+            self.logger.debug("Global symbol DB not found at %s, skipping static graph expansion", global_db_path)
+            return coarse_results
+
+        project_id = 1
+        try:
+            for p in self.registry.list_projects():
+                if p.index_root.resolve() == index_root.resolve():
+                    project_id = p.id
+                    break
+        except Exception:
+            pass
+
+        global_index = GlobalSymbolIndex(global_db_path, project_id=project_id)
+        global_index.initialize()
+
+        try:
+            expander = GlobalGraphExpander(global_index, config=self._config)
+            related_results = expander.expand(
+                coarse_results,
+                top_n=min(10, len(coarse_results)),
+                max_related=50,
+            )
+
+            if related_results:
+                self.logger.debug(
+                    "Stage 2 (static_global_graph) expanded %d base results to %d related symbols",
+                    len(coarse_results), len(related_results),
+                )
+
+            return self._combine_stage2_results(coarse_results, related_results)
+        finally:
+            global_index.close()
 
     def _stage2_realtime_lsp_expand(
         self,

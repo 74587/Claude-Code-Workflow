@@ -312,7 +312,8 @@ function transformBackendSession(
     has_review: backendData.hasReview,
     review,
     summaries: (backendSession as unknown as { summaries?: SessionMetadata['summaries'] }).summaries,
-    tasks: (backendSession as unknown as { tasks?: TaskData[] }).tasks,
+    tasks: ((backendSession as unknown as { tasks?: TaskData[] }).tasks || [])
+      .map(t => normalizeTask(t as unknown as Record<string, unknown>)),
   };
 }
 
@@ -1984,6 +1985,139 @@ export interface LiteTask {
   };
   created_at?: string;
   updated_at?: string;
+}
+
+// ========== Normalized Task (Unified Flat Format) ==========
+
+/**
+ * Normalized task type that unifies both old 6-field nested format
+ * and new unified flat format into a single interface.
+ *
+ * Old format paths → New flat paths:
+ * - context.acceptance[]        → convergence.criteria[]
+ * - context.focus_paths[]       → focus_paths[]
+ * - context.depends_on[]        → depends_on[]
+ * - context.requirements[]      → description
+ * - flow_control.pre_analysis[] → pre_analysis[]
+ * - flow_control.implementation_approach[] → implementation[]
+ * - flow_control.target_files[] → files[]
+ */
+export interface NormalizedTask extends TaskData {
+  // Promoted from context
+  focus_paths?: string[];
+  convergence?: {
+    criteria?: string[];
+    verification?: string;
+    definition_of_done?: string;
+  };
+
+  // Promoted from flow_control
+  pre_analysis?: PreAnalysisStep[];
+  implementation?: (ImplementationStep | string)[];
+  files?: Array<{ path: string; name?: string }>;
+
+  // Promoted from meta
+  type?: string;
+  scope?: string;
+  action?: string;
+
+  // Original nested objects (preserved for long-term compat)
+  flow_control?: FlowControl;
+  context?: {
+    focus_paths?: string[];
+    acceptance?: string[];
+    depends_on?: string[];
+    requirements?: string[];
+  };
+  meta?: {
+    type?: string;
+    scope?: string;
+    [key: string]: unknown;
+  };
+
+  // Raw data reference for JSON viewer / debugging
+  _raw?: unknown;
+}
+
+/**
+ * Normalize a raw task object (old 6-field or new unified flat) into NormalizedTask.
+ * Reads new flat fields first, falls back to old nested paths.
+ * Long-term compatible: handles both formats permanently.
+ */
+export function normalizeTask(raw: Record<string, unknown>): NormalizedTask {
+  if (!raw || typeof raw !== 'object') {
+    return { task_id: 'N/A', status: 'pending', _raw: raw } as NormalizedTask;
+  }
+
+  // Type-safe access helpers
+  const rawContext = raw.context as LiteTask['context'] | undefined;
+  const rawFlowControl = raw.flow_control as FlowControl | undefined;
+  const rawMeta = raw.meta as LiteTask['meta'] | undefined;
+  const rawConvergence = raw.convergence as NormalizedTask['convergence'] | undefined;
+
+  // Description: new flat field first, then join old context.requirements
+  const rawRequirements = rawContext?.requirements;
+  const description = (raw.description as string | undefined)
+    || (Array.isArray(rawRequirements) && rawRequirements.length > 0
+      ? rawRequirements.join('; ')
+      : undefined);
+
+  return {
+    // Identity
+    task_id: (raw.task_id as string) || (raw.id as string) || 'N/A',
+    title: raw.title as string | undefined,
+    description,
+    status: (raw.status as NormalizedTask['status']) || 'pending',
+    priority: raw.priority as NormalizedTask['priority'],
+    created_at: raw.created_at as string | undefined,
+    updated_at: raw.updated_at as string | undefined,
+    has_summary: raw.has_summary as boolean | undefined,
+    estimated_complexity: raw.estimated_complexity as string | undefined,
+
+    // Promoted from context (new first, old fallback)
+    depends_on: (raw.depends_on as string[]) || rawContext?.depends_on || [],
+    focus_paths: (raw.focus_paths as string[]) || rawContext?.focus_paths || [],
+    convergence: rawConvergence || (rawContext?.acceptance?.length
+      ? { criteria: rawContext.acceptance }
+      : undefined),
+
+    // Promoted from flow_control (new first, old fallback)
+    pre_analysis: (raw.pre_analysis as PreAnalysisStep[]) || rawFlowControl?.pre_analysis,
+    implementation: (raw.implementation as (ImplementationStep | string)[]) || rawFlowControl?.implementation_approach,
+    files: (raw.files as Array<{ path: string; name?: string }>) || rawFlowControl?.target_files,
+
+    // Promoted from meta (new first, old fallback)
+    type: (raw.type as string) || rawMeta?.type,
+    scope: (raw.scope as string) || rawMeta?.scope,
+    action: (raw.action as string) || (rawMeta as Record<string, unknown> | undefined)?.action as string | undefined,
+
+    // Preserve original nested objects for backward compat
+    flow_control: rawFlowControl,
+    context: rawContext,
+    meta: rawMeta,
+
+    // Raw reference
+    _raw: raw,
+  };
+}
+
+/**
+ * Build a FlowControl object from NormalizedTask for backward-compatible components (e.g. Flowchart).
+ */
+export function buildFlowControl(task: NormalizedTask): FlowControl | undefined {
+  const preAnalysis = task.pre_analysis;
+  const implementation = task.implementation;
+  const files = task.files;
+
+  if (!preAnalysis?.length && !implementation?.length && !files?.length) {
+    return task.flow_control; // Fall back to original if no flat fields
+  }
+
+  return {
+    pre_analysis: preAnalysis || task.flow_control?.pre_analysis,
+    implementation_approach: implementation || task.flow_control?.implementation_approach,
+    target_files: files || task.flow_control?.target_files,
+  };
 }
 
 export interface LiteTaskSession {

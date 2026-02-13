@@ -145,7 +145,7 @@ class Config:
     # Staged cascade search configuration (4-stage pipeline)
     staged_coarse_k: int = 200  # Number of coarse candidates from Stage 1 binary search
     staged_lsp_depth: int = 2  # LSP relationship expansion depth in Stage 2
-    staged_stage2_mode: str = "precomputed"  # "precomputed" (graph_neighbors) | "realtime" (LSP)
+    staged_stage2_mode: str = "precomputed"  # "precomputed" (graph_neighbors) | "realtime" (LSP) | "static_global_graph" (global_relationships)
 
     # Static graph configuration (write relationships to global index during build)
     static_graph_enabled: bool = False
@@ -627,7 +627,7 @@ class Config:
         staged_stage2_mode = get_env("STAGED_STAGE2_MODE")
         if staged_stage2_mode:
             mode = staged_stage2_mode.strip().lower()
-            if mode in {"precomputed", "realtime"}:
+            if mode in {"precomputed", "realtime", "static_global_graph"}:
                 self.staged_stage2_mode = mode
                 log.debug("Overriding staged_stage2_mode from .env: %s", self.staged_stage2_mode)
             elif mode in {"live"}:
