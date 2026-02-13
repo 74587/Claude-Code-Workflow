@@ -19,6 +19,7 @@ import { IssueBoardPanel } from '@/components/issue/hub/IssueBoardPanel';
 import { QueuePanel } from '@/components/issue/hub/QueuePanel';
 import { DiscoveryPanel } from '@/components/issue/hub/DiscoveryPanel';
 import { ObservabilityPanel } from '@/components/issue/hub/ObservabilityPanel';
+import { ExecutionPanel } from '@/components/issue/hub/ExecutionPanel';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
@@ -197,6 +198,9 @@ export function IssueHubPage() {
       case 'observability':
         return null; // Observability panel has its own controls
 
+      case 'executions':
+        return null; // Execution panel has its own controls
+
       default:
         return null;
     }
@@ -222,6 +226,7 @@ export function IssueHubPage() {
       {currentTab === 'queue' && <QueuePanel />}
       {currentTab === 'discovery' && <DiscoveryPanel />}
       {currentTab === 'observability' && <ObservabilityPanel />}
+      {currentTab === 'executions' && <ExecutionPanel />}
 
       <NewIssueDialog open={isNewIssueOpen} onOpenChange={setIsNewIssueOpen} onSubmit={handleCreateIssue} isCreating={isCreating} />
     </div>

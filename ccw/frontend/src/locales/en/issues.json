@@ -157,7 +157,9 @@
       "empty": "No queues"
     },
     "exec": {
-      "title": "Execute in Session"
+      "title": "Execute",
+      "sessionTab": "Session",
+      "orchestratorTab": "Orchestrator"
     },
     "orchestrator": {
       "title": "Send to Orchestrator",
@@ -372,7 +374,43 @@
       "board": "Board",
       "queue": "Queue",
       "discovery": "Discovery",
-      "observability": "Observability"
+      "observability": "Observability",
+      "executions": "Executions"
+    }
+  },
+  "executions": {
+    "pageTitle": "Executions",
+    "description": "Monitor and manage queue execution sessions",
+    "stats": {
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed",
+      "total": "Total"
+    },
+    "list": {
+      "title": "Execution List",
+      "clearCompleted": "Clear Completed"
+    },
+    "detail": {
+      "selectExecution": "Select an execution to view details",
+      "openInTerminal": "Open in Terminal",
+      "id": "Execution ID",
+      "queueItemId": "Queue Item",
+      "issueId": "Issue",
+      "solutionId": "Solution",
+      "type": "Type",
+      "tool": "Tool",
+      "mode": "Mode",
+      "status": "Status",
+      "startedAt": "Started At",
+      "completedAt": "Completed At",
+      "sessionKey": "Session Key",
+      "flowId": "Flow ID",
+      "execId": "Execution ID (Orchestrator)"
+    },
+    "emptyState": {
+      "title": "No Executions",
+      "description": "No queue executions have been started yet"
     }
   },
   "observability": {

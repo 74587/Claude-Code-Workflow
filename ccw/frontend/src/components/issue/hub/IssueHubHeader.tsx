@@ -4,9 +4,9 @@
 // Dynamic header component for IssueHub
 
 import { useIntl } from 'react-intl';
-import { AlertCircle, Radar, ListTodo, LayoutGrid, Activity } from 'lucide-react';
+import { AlertCircle, Radar, ListTodo, LayoutGrid, Activity, Terminal } from 'lucide-react';
 
-type IssueTab = 'issues' | 'board' | 'queue' | 'discovery' | 'observability';
+type IssueTab = 'issues' | 'board' | 'queue' | 'discovery' | 'observability' | 'executions';
 
 interface IssueHubHeaderProps {
   currentTab: IssueTab;
@@ -41,6 +41,11 @@ export function IssueHubHeader({ currentTab }: IssueHubHeaderProps) {
       icon: <Activity className="w-6 h-6 text-primary" />,
       title: formatMessage({ id: 'issues.observability.pageTitle' }),
       description: formatMessage({ id: 'issues.observability.description' }),
+    },
+    executions: {
+      icon: <Terminal className="w-6 h-6 text-primary" />,
+      title: formatMessage({ id: 'issues.executions.pageTitle' }),
+      description: formatMessage({ id: 'issues.executions.description' }),
     },
   };
 

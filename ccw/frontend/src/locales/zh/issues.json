@@ -157,7 +157,9 @@
       "empty": "暂无队列"
     },
     "exec": {
-      "title": "在会话中执行"
+      "title": "执行",
+      "sessionTab": "会话",
+      "orchestratorTab": "编排器"
     },
     "orchestrator": {
       "title": "发送到编排器",
@@ -372,7 +374,43 @@
       "board": "看板",
       "queue": "执行队列",
       "discovery": "问题发现",
-      "observability": "可观测"
+      "observability": "可观测",
+      "executions": "执行"
+    }
+  },
+  "executions": {
+    "pageTitle": "执行管理",
+    "description": "监控和管理队列执行会话",
+    "stats": {
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "total": "总计"
+    },
+    "list": {
+      "title": "执行列表",
+      "clearCompleted": "清除已完成"
+    },
+    "detail": {
+      "selectExecution": "选择执行以查看详情",
+      "openInTerminal": "在终端中打开",
+      "id": "执行 ID",
+      "queueItemId": "队列项",
+      "issueId": "问题",
+      "solutionId": "解决方案",
+      "type": "类型",
+      "tool": "工具",
+      "mode": "模式",
+      "status": "状态",
+      "startedAt": "开始时间",
+      "completedAt": "完成时间",
+      "sessionKey": "会话 Key",
+      "flowId": "流程 ID",
+      "execId": "执行 ID (编排器)"
+    },
+    "emptyState": {
+      "title": "暂无执行",
+      "description": "尚未启动任何队列执行"
     }
   },
   "observability": {

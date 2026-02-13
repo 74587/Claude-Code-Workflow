@@ -243,6 +243,13 @@ export type {
   UseCliExecutionReturn,
 } from './useCliExecution';
 
+// ========== CLI Session Core ==========
+export { useCliSessionCore } from './useCliSessionCore';
+export type {
+  UseCliSessionCoreOptions,
+  UseCliSessionCoreReturn,
+} from './useCliSessionCore';
+
 // ========== Workspace Query Keys ==========
 export {
   useWorkspaceQueryKeys,
