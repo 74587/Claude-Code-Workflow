@@ -954,7 +954,7 @@ function renderMultiCliContextContent(context, session) {
               <li class="file-item">
                 <span class="file-icon">📄</span>
                 <code>${escapeHtml(typeof f === 'string' ? f : f.path || f.file || '')}</code>
-                ${f.reason ? `<span class="file-reason">${escapeHtml(f.reason)}</span>` : ''}
+                ${(f.rationale || f.reason) ? `<span class="file-reason">${escapeHtml(f.rationale || f.reason)}</span>` : ''}
               </li>
             `).join('')}
           </ul>

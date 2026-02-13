@@ -52,7 +52,7 @@ mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "planner", to
 mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "planner", to: "coordinator", type: "plan_revision", summary: "已按反馈拆分task-2为两个子任务" })
 
 // 错误上报
-mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "planner", to: "coordinator", type: "error", summary: "plan-json-schema.json 未找到, 使用默认结构" })
+mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "planner", to: "coordinator", type: "error", summary: "plan-overview-base-schema.json 未找到, 使用默认结构" })
 ```
 
 ## Execution Process
@@ -73,10 +73,10 @@ Phase 2: Multi-Angle Exploration
    └─ Write exploration results to session folder
 
 Phase 3: Plan Generation
-   ├─ Read plan-json-schema.json for structure reference
+   ├─ Read plan-overview-base-schema.json + task-schema.json for structure reference
    ├─ Low complexity → Direct Claude planning
    ├─ Medium/High → cli-lite-planning-agent
-   └─ Output: plan.json
+   └─ Output: plan.json (overview with task_ids[]) + .task/TASK-*.json (independent task files)
 
 Phase 4: Submit for Approval
    ├─ SendMessage plan summary to coordinator
@@ -208,6 +208,12 @@ Execute **${angle}** exploration for task planning context.
 ## Expected Output
 Write JSON to: ${sessionFolder}/exploration-${angle}.json
 Follow explore-json-schema.json structure with ${angle}-focused findings.
+
+**MANDATORY**: Every file in relevant_files MUST have:
+- **rationale** (required): Specific selection basis tied to ${angle} topic (>10 chars, not generic)
+- **role** (required): modify_target|dependency|pattern_reference|test_target|type_definition|integration_point|config|context_only
+- **discovery_source** (recommended): bash-scan|cli-analysis|ace-search|dependency-trace|manual
+- **key_symbols** (recommended): Key functions/classes/types relevant to task
 `
     })
   })
@@ -232,7 +238,7 @@ Write(`${sessionFolder}/explorations-manifest.json`, JSON.stringify(explorationM
 
 ```javascript
 // Read schema reference
-const schema = Bash(`cat ~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json`)
+const schema = Bash(`cat ~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.json`)
 
 if (complexity === 'Low') {
   // Direct Claude planning
@@ -242,18 +248,31 @@ if (complexity === 'Low') {
     // Incorporate findings into plan
   })
 
-  // Generate plan following schema
+  // Generate task files in .task/ directory
+  Bash(`mkdir -p ${sessionFolder}/.task`)
+
+  const tasks = [/* structured tasks with dependencies, files[].change, convergence.criteria */]
+  const taskIds = tasks.map(t => t.id)
+
+  // Write individual task files following task-schema.json
+  tasks.forEach(task => {
+    Write(`${sessionFolder}/.task/${task.id}.json`, JSON.stringify(task, null, 2))
+  })
+
+  // Generate plan overview following plan-overview-base-schema.json
   const plan = {
     summary: "...",
     approach: "...",
-    tasks: [/* structured tasks with dependencies, modification points, acceptance criteria */],
+    task_ids: taskIds,
+    task_count: taskIds.length,
     estimated_time: "...",
     recommended_execution: "Agent",
     complexity: "Low",
     _metadata: {
       timestamp: new Date().toISOString(),
       source: "team-planner",
-      planning_mode: "direct"
+      planning_mode: "direct",
+      plan_type: "feature"
     }
   }
   Write(`${sessionFolder}/plan.json`, JSON.stringify(plan, null, 2))
@@ -264,16 +283,26 @@ if (complexity === 'Low') {
     run_in_background: false,
     description: "Generate detailed implementation plan",
     prompt: `
-Generate implementation plan and write plan.json.
+Generate implementation plan with two-layer output.
 
 ## Output Location
 **Session Folder**: ${sessionFolder}
 **Output Files**:
 - ${sessionFolder}/planning-context.md
-- ${sessionFolder}/plan.json
+- ${sessionFolder}/plan.json (overview with task_ids[])
+- ${sessionFolder}/.task/TASK-*.json (independent task files)
 
 ## Output Schema Reference
-Execute: cat ~/.ccw/workflows/cli-templates/schemas/plan-json-schema.json
+Execute: cat ~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.json
+Execute: cat ~/.ccw/workflows/cli-templates/schemas/task-schema.json
+
+## Output Format: Two-Layer Structure
+- plan.json: Overview with task_ids[] referencing .task/ files (NO tasks[] array)
+- .task/TASK-*.json: Independent task files following task-schema.json
+
+plan.json required: summary, approach, task_ids, task_count, _metadata (with plan_type)
+Task files required: id, title, description, depends_on, convergence (with criteria[])
+Task fields: files[].change (not modification_points), convergence.criteria (not acceptance), test (not verification)
 
 ## Task Description
 ${task.description}
@@ -286,9 +315,9 @@ Path: ${exp.path}`).join('\n\n')}
 ${complexity}
 
 ## Requirements
-Generate plan.json following schema. Key constraints:
-- tasks: 2-7 structured tasks (group by feature/module, NOT by file)
-- Each task: id, title, scope, modification_points, implementation, acceptance, depends_on
+Generate plan.json + .task/*.json following schemas. Key constraints:
+- 2-7 structured tasks (group by feature/module, NOT by file)
+- Each task file: id, title, description, files[].change, convergence.criteria, depends_on
 - Prefer parallel tasks (minimize depends_on)
 `
   })
@@ -301,6 +330,10 @@ Generate plan.json following schema. Key constraints:
 // Read generated plan
 const plan = JSON.parse(Read(`${sessionFolder}/plan.json`))
 
+// Load tasks from .task/ directory (two-layer format)
+const tasks = plan.task_ids.map(id => JSON.parse(Read(`${sessionFolder}/.task/${id}.json`)))
+const taskCount = plan.task_count || plan.task_ids.length
+
 // Send plan summary to coordinator
 SendMessage({
   type: "message",
@@ -309,19 +342,20 @@ SendMessage({
 
 **Task**: ${task.subject}
 **Complexity**: ${complexity}
-**Tasks**: ${plan.tasks.length}
+**Tasks**: ${taskCount}
 
 ### Task Summary
-${plan.tasks.map((t, i) => `${i+1}. ${t.title} (${t.scope || 'N/A'})`).join('\n')}
+${tasks.map((t, i) => `${i+1}. ${t.title} (${t.scope || 'N/A'})`).join('\n')}
 
 ### Approach
 ${plan.approach}
 
 ### Plan Location
 ${sessionFolder}/plan.json
+${plan.task_ids ? `Task Files: ${sessionFolder}/.task/` : ''}
 
 Please review and approve or request revisions.`,
-  summary: `Plan ready: ${plan.tasks.length} tasks`
+  summary: `Plan ready: ${taskCount} tasks`
 })
 
 // Wait for coordinator response
@@ -359,7 +393,11 @@ if (nextTasks.length > 0) {
 ├── exploration-{angle2}.json
 ├── explorations-manifest.json     # Exploration index
 ├── planning-context.md            # Evidence + understanding (Medium/High)
-└── plan.json                      # Implementation plan
+├── plan.json                      # Plan overview with task_ids[] (NO embedded tasks[])
+└── .task/                         # Independent task files
+    ├── TASK-001.json              # Task file following task-schema.json
+    ├── TASK-002.json
+    └── ...
 ```
 
 ## Error Handling

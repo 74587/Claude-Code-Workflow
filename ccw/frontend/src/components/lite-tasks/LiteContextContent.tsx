@@ -248,7 +248,7 @@ function ContextContent({
                 <div className="space-y-0.5 pl-2 max-h-32 overflow-y-auto">
                   {ctx.relevant_files.map((f, i) => {
                     const filePath = typeof f === 'string' ? f : f.path;
-                    const reason = typeof f === 'string' ? undefined : f.reason;
+                    const reason = typeof f === 'string' ? undefined : (f.rationale || f.reason);
                     return (
                       <div key={i} className="group flex items-start gap-1 text-muted-foreground hover:bg-muted/30 rounded px-1 py-0.5">
                         <span className="text-primary/50 shrink-0">{i + 1}.</span>
