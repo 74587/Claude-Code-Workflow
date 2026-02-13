@@ -413,9 +413,10 @@ export function McpManagerPage() {
   const handleToggleCcwToolCodex = async (tool: string, enabled: boolean) => {
     const currentConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfigCodex']) ?? ccwCodexConfig;
     const currentTools = currentConfig.enabledTools;
+    const previousConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfigCodex']);
 
     const updatedTools = enabled
-      ? [...currentTools, tool]
+      ? (currentTools.includes(tool) ? currentTools : [...currentTools, tool])
       : currentTools.filter((t) => t !== tool);
 
     queryClient.setQueryData(['ccwMcpConfigCodex'], (old: CcwMcpConfig | undefined) => {
@@ -424,34 +425,28 @@ export function McpManagerPage() {
     });
 
     try {
-      await updateCcwConfigForCodex({
-        enabledTools: updatedTools,
-        projectRoot: currentConfig.projectRoot,
-        allowedDirs: currentConfig.allowedDirs,
-        disableSandbox: currentConfig.disableSandbox,
-      });
+      await updateCcwConfigForCodex({ ...currentConfig, enabledTools: updatedTools });
     } catch (error) {
       console.error('Failed to toggle CCW tool (Codex):', error);
+      queryClient.setQueryData(['ccwMcpConfigCodex'], previousConfig);
     }
     ccwMcpCodexQuery.refetch();
   };
 
   const handleUpdateCcwConfigCodex = async (config: Partial<CcwMcpConfig>) => {
+    const currentConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfigCodex']) ?? ccwCodexConfig;
+    const previousConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfigCodex']);
+
     queryClient.setQueryData(['ccwMcpConfigCodex'], (old: CcwMcpConfig | undefined) => {
       if (!old) return old;
       return { ...old, ...config };
     });
 
     try {
-      const currentConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfigCodex']) ?? ccwCodexConfig;
-      await updateCcwConfigForCodex({
-        enabledTools: config.enabledTools ?? currentConfig.enabledTools,
-        projectRoot: config.projectRoot ?? currentConfig.projectRoot,
-        allowedDirs: config.allowedDirs ?? currentConfig.allowedDirs,
-        disableSandbox: config.disableSandbox ?? currentConfig.disableSandbox,
-      });
+      await updateCcwConfigForCodex({ ...currentConfig, ...config });
     } catch (error) {
       console.error('Failed to update CCW config (Codex):', error);
+      queryClient.setQueryData(['ccwMcpConfigCodex'], previousConfig);
     }
     ccwMcpCodexQuery.refetch();
   };
