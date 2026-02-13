@@ -1,12 +1,11 @@
 ---
-name: execute
-description: Coordinate agent execution for workflow tasks with automatic session discovery, parallel task processing, and status tracking
-argument-hint: "[-y|--yes] [--resume-session=\"session-id\"] [--with-commit]"
+name: workflow-execute
+description: Coordinate agent execution for workflow tasks with automatic session discovery, parallel task processing, and status tracking. Triggers on "workflow:execute".
+allowed-tools: Skill, Task, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, Read, Write, Edit, Bash, Glob, Grep
 ---
 
-# Workflow Execute Command
+# Workflow Execute
 
-## Overview
 Orchestrates autonomous workflow execution through systematic task discovery, agent coordination, and progress tracking. **Executes entire workflow without user interruption** (except initial session selection if multiple active sessions exist), providing complete context to agents and ensuring proper flow control execution with comprehensive TodoWrite tracking.
 
 **Resume Mode**: When called with `--resume-session` flag, skips discovery phase and directly enters TodoWrite generation and agent execution for the specified session.
@@ -366,7 +365,7 @@ if (autoYes) {
    - Serialization Requirements (which tasks must run sequentially)
    - Critical Path (priority execution order)
 3. **Use TODO_LIST.md for status tracking** only
-4. **IMPL_PLAN decides "HOW"**, execute.md implements it
+4. **IMPL_PLAN decides "HOW"**, workflow-execute implements it
 
 **Intelligent Fallback (When IMPL_PLAN lacks execution details)**:
 1. **Analyze task structure**:
@@ -595,5 +594,14 @@ meta.agent missing → Infer from meta.type:
 
 **Error Handling**: Skip commit on no changes/missing summary, log errors, continue workflow.
 
+## Related Skills
 
+**Prerequisite Skills**:
+- `/workflow:plan` - Generate implementation plan and task JSONs
 
+**Called During Execution**:
+- `/workflow:session:complete` - Archive session after all tasks complete
+- `/workflow:review` - Post-implementation review
+
+**Follow-up Skills**:
+- `/issue:new` - Create follow-up issues (test/enhance/refactor/doc)
