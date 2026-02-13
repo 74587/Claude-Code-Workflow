@@ -286,6 +286,11 @@ export {
   useCancelIndexing,
   useCodexLensWatcher,
   useCodexLensWatcherMutations,
+  useCodexLensLspStatus,
+  useCodexLensLspMutations,
+  useCodexLensRerankerConfig,
+  useUpdateRerankerConfig,
+  useCcwToolsList,
 } from './useCodexLens';
 export type {
   UseCodexLensDashboardOptions,
@@ -323,4 +328,11 @@ export type {
   UseCodexLensWatcherOptions,
   UseCodexLensWatcherReturn,
   UseCodexLensWatcherMutationsReturn,
+  UseCodexLensLspStatusOptions,
+  UseCodexLensLspStatusReturn,
+  UseCodexLensLspMutationsReturn,
+  UseCodexLensRerankerConfigOptions,
+  UseCodexLensRerankerConfigReturn,
+  UseUpdateRerankerConfigReturn,
+  UseCcwToolsListReturn,
 } from './useCodexLens';

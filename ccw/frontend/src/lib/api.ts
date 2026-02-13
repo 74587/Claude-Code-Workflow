@@ -3411,7 +3411,7 @@ export interface CcwMcpConfig {
   enabledTools: string[];
   projectRoot?: string;
   allowedDirs?: string;
-  disableSandbox?: boolean;
+  enableSandbox?: boolean;
 }
 
 /**
@@ -3426,7 +3426,7 @@ function buildCcwMcpServerConfig(config: {
   enabledTools?: string[];
   projectRoot?: string;
   allowedDirs?: string;
-  disableSandbox?: boolean;
+  enableSandbox?: boolean;
 }): { command: string; args: string[]; env: Record<string, string> } {
   const env: Record<string, string> = {};
 
@@ -3442,8 +3442,8 @@ function buildCcwMcpServerConfig(config: {
   if (config.allowedDirs) {
     env.CCW_ALLOWED_DIRS = config.allowedDirs;
   }
-  if (config.disableSandbox) {
-    env.CCW_DISABLE_SANDBOX = '1';
+  if (config.enableSandbox) {
+    env.CCW_ENABLE_SANDBOX = '1';
   }
 
   // Cross-platform config
@@ -3508,7 +3508,7 @@ export async function fetchCcwMcpConfig(): Promise<CcwMcpConfig> {
       enabledTools,
       projectRoot: env.CCW_PROJECT_ROOT,
       allowedDirs: env.CCW_ALLOWED_DIRS,
-      disableSandbox: env.CCW_DISABLE_SANDBOX === '1',
+      enableSandbox: env.CCW_ENABLE_SANDBOX === '1',
     };
   } catch {
     return {
@@ -3525,7 +3525,7 @@ export async function updateCcwConfig(config: {
   enabledTools?: string[];
   projectRoot?: string;
   allowedDirs?: string;
-  disableSandbox?: boolean;
+  enableSandbox?: boolean;
 }): Promise<CcwMcpConfig> {
   const serverConfig = buildCcwMcpServerConfig(config);
 
@@ -3630,7 +3630,7 @@ export async function fetchCcwMcpConfigForCodex(): Promise<CcwMcpConfig> {
       enabledTools,
       projectRoot: env.CCW_PROJECT_ROOT,
       allowedDirs: env.CCW_ALLOWED_DIRS,
-      disableSandbox: env.CCW_DISABLE_SANDBOX === '1',
+      enableSandbox: env.CCW_ENABLE_SANDBOX === '1',
     };
   } catch {
     return { isInstalled: false, enabledTools: [] };
@@ -3644,7 +3644,7 @@ function buildCcwMcpServerConfigForCodex(config: {
   enabledTools?: string[];
   projectRoot?: string;
   allowedDirs?: string;
-  disableSandbox?: boolean;
+  enableSandbox?: boolean;
 }): { command: string; args: string[]; env: Record<string, string> } {
   const env: Record<string, string> = {};
 
@@ -3660,8 +3660,8 @@ function buildCcwMcpServerConfigForCodex(config: {
   if (config.allowedDirs) {
     env.CCW_ALLOWED_DIRS = config.allowedDirs;
   }
-  if (config.disableSandbox) {
-    env.CCW_DISABLE_SANDBOX = '1';
+  if (config.enableSandbox) {
+    env.CCW_ENABLE_SANDBOX = '1';
   }
 
   return { command: 'ccw-mcp', args: [], env };
@@ -3700,7 +3700,7 @@ export async function updateCcwConfigForCodex(config: {
   enabledTools?: string[];
   projectRoot?: string;
   allowedDirs?: string;
-  disableSandbox?: boolean;
+  enableSandbox?: boolean;
 }): Promise<CcwMcpConfig> {
   const serverConfig = buildCcwMcpServerConfigForCodex(config);
 
@@ -4540,6 +4540,74 @@ export async function updateCodexLensIgnorePatterns(request: CodexLensUpdateIgno
   });
 }
 
+// ========== CodexLens Reranker Config API ==========
+
+/**
+ * Reranker LiteLLM model info
+ */
+export interface RerankerLitellmModel {
+  modelId: string;
+  modelName: string;
+  providers: string[];
+}
+
+/**
+ * Reranker configuration response from GET /api/codexlens/reranker/config
+ */
+export interface RerankerConfigResponse {
+  success: boolean;
+  backend: string;
+  model_name: string;
+  api_provider: string;
+  api_key_set: boolean;
+  available_backends: string[];
+  api_providers: string[];
+  litellm_endpoints: string[];
+  litellm_models?: RerankerLitellmModel[];
+  config_source: string;
+  error?: string;
+}
+
+/**
+ * Reranker configuration update request for POST /api/codexlens/reranker/config
+ */
+export interface RerankerConfigUpdateRequest {
+  backend?: string;
+  model_name?: string;
+  api_provider?: string;
+  api_key?: string;
+  litellm_endpoint?: string;
+}
+
+/**
+ * Reranker configuration update response
+ */
+export interface RerankerConfigUpdateResponse {
+  success: boolean;
+  message?: string;
+  updates?: string[];
+  error?: string;
+}
+
+/**
+ * Fetch reranker configuration (backends, models, providers)
+ */
+export async function fetchRerankerConfig(): Promise<RerankerConfigResponse> {
+  return fetchApi<RerankerConfigResponse>('/api/codexlens/reranker/config');
+}
+
+/**
+ * Update reranker configuration
+ */
+export async function updateRerankerConfig(
+  request: RerankerConfigUpdateRequest
+): Promise<RerankerConfigUpdateResponse> {
+  return fetchApi<RerankerConfigUpdateResponse>('/api/codexlens/reranker/config', {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
 // ========== CodexLens Search API ==========
 
 /**
@@ -4707,6 +4775,36 @@ export interface CodexLensSemanticSearchResponse {
  */
 export async function fetchCodexLensLspStatus(): Promise<CodexLensLspStatusResponse> {
   return fetchApi<CodexLensLspStatusResponse>('/api/codexlens/lsp/status');
+}
+
+/**
+ * Start CodexLens LSP server
+ */
+export async function startCodexLensLsp(path?: string): Promise<{ success: boolean; message?: string; workspace_root?: string; error?: string }> {
+  return fetchApi('/api/codexlens/lsp/start', {
+    method: 'POST',
+    body: JSON.stringify({ path }),
+  });
+}
+
+/**
+ * Stop CodexLens LSP server
+ */
+export async function stopCodexLensLsp(path?: string): Promise<{ success: boolean; message?: string; error?: string }> {
+  return fetchApi('/api/codexlens/lsp/stop', {
+    method: 'POST',
+    body: JSON.stringify({ path }),
+  });
+}
+
+/**
+ * Restart CodexLens LSP server
+ */
+export async function restartCodexLensLsp(path?: string): Promise<{ success: boolean; message?: string; workspace_root?: string; error?: string }> {
+  return fetchApi('/api/codexlens/lsp/restart', {
+    method: 'POST',
+    body: JSON.stringify({ path }),
+  });
 }
 
 /**
@@ -5843,6 +5941,25 @@ export async function upgradeCcwInstallation(
     method: 'POST',
     body: JSON.stringify({ path }),
   });
+}
+
+// ========== CCW Tools API ==========
+
+/**
+ * CCW tool info returned by /api/ccw/tools
+ */
+export interface CcwToolInfo {
+  name: string;
+  description: string;
+  parameters?: Record<string, unknown>;
+}
+
+/**
+ * Fetch all registered CCW tools
+ */
+export async function fetchCcwTools(): Promise<CcwToolInfo[]> {
+  const data = await fetchApi<{ tools: CcwToolInfo[] }>('/api/ccw/tools');
+  return data.tools;
 }
 
 // ========== Team API ==========
