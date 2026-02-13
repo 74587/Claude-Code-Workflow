@@ -12,7 +12,7 @@ Analyze applicable patterns for each role in the team.
 ## Input
 
 - Dependency: `team-config.json` (Phase 1)
-- Specification: `../team-command-designer/specs/team-design-patterns.md` (read in Phase 0)
+- Specification: `specs/team-design-patterns.md` (read in Phase 0)
 
 ## Execution Steps
 

@@ -473,6 +473,8 @@ export interface UseProjectOperationsReturn {
   isFetchingServers: boolean;
 }
 
+const EMPTY_PROJECTS: string[] = [];
+
 /**
  * Combined hook for project operations (all projects, cross-CLI copy, other projects' servers)
  */
@@ -519,7 +521,7 @@ export function useProjectOperations(): UseProjectOperationsReturn {
   };
 
   return {
-    projects: projectsQuery.data?.projects ?? [],
+    projects: projectsQuery.data?.projects ?? EMPTY_PROJECTS,
     currentProject: projectsQuery.data?.currentProject ?? projectPath ?? undefined,
     isLoading: projectsQuery.isLoading,
     error: projectsQuery.error,

@@ -120,13 +120,13 @@ Phase 1 collects ALL roles at once (not one at a time):
 - Coordinator is always generated
 - Worker roles collected as a batch
 
-### Pattern 5: Spec Reference (No Duplication)
+### Pattern 5: Self-Contained Specs
 
-Design pattern specs are referenced from team-command-designer:
+Design pattern specs are included locally in `specs/`:
 ```
-specs → ../team-command-designer/specs/team-design-patterns.md
-specs → ../team-command-designer/specs/collaboration-patterns.md
-specs → ../team-command-designer/specs/quality-standards.md
+specs/team-design-patterns.md    # Infrastructure patterns (8) + collaboration index
+specs/collaboration-patterns.md  # 10 collaboration patterns with convergence control
+specs/quality-standards.md       # Quality criteria
 ```
 
 ---
@@ -139,9 +139,9 @@ specs → ../team-command-designer/specs/quality-standards.md
 
 | Document | Purpose | When |
 |----------|---------|------|
-| [../team-command-designer/specs/team-design-patterns.md](../team-command-designer/specs/team-design-patterns.md) | Infrastructure patterns (8) + collaboration index | **Must read** |
-| [../team-command-designer/specs/collaboration-patterns.md](../team-command-designer/specs/collaboration-patterns.md) | 10 collaboration patterns with convergence control | **Must read** |
-| [../team-command-designer/specs/quality-standards.md](../team-command-designer/specs/quality-standards.md) | Quality criteria | Must read before generation |
+| [specs/team-design-patterns.md](specs/team-design-patterns.md) | Infrastructure patterns (8) + collaboration index | **Must read** |
+| [specs/collaboration-patterns.md](specs/collaboration-patterns.md) | 10 collaboration patterns with convergence control | **Must read** |
+| [specs/quality-standards.md](specs/quality-standards.md) | Quality criteria | Must read before generation |
 
 ### Template Files (Must read before generation)
 
@@ -166,8 +166,8 @@ specs → ../team-command-designer/specs/quality-standards.md
 
 ```
 Phase 0: Specification Study (MANDATORY)
-   -> Read: ../team-command-designer/specs/team-design-patterns.md
-   -> Read: ../team-command-designer/specs/collaboration-patterns.md
+   -> Read: specs/team-design-patterns.md
+   -> Read: specs/collaboration-patterns.md
    -> Read: templates/skill-router-template.md + templates/role-template.md
    -> Read: 1-2 existing team commands for reference
    -> Output: Internalized requirements (in-memory)

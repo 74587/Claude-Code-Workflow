@@ -12,7 +12,7 @@ Verify quality and deliver the final skill package.
 ## Input
 
 - Dependency: `{workDir}/preview/` (Phase 3), `integration-report.json` (Phase 4)
-- Specification: `../team-command-designer/specs/quality-standards.md`
+- Specification: `specs/quality-standards.md`
 
 ## Execution Steps
 

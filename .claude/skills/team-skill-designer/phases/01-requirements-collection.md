@@ -13,7 +13,7 @@ Collect team definition and ALL role definitions in one pass.
 ## Input
 
 - User request (`$ARGUMENTS` or interactive input)
-- Specification: `../team-command-designer/specs/team-design-patterns.md` (read in Phase 0)
+- Specification: `specs/team-design-patterns.md` (read in Phase 0)
 
 ## Execution Steps
 

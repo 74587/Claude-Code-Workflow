@@ -1,16 +1,17 @@
-## Overview
+# Phase 3: Role Analysis
 
-**Unified command for generating and updating role-specific analysis** with interactive context gathering, framework alignment, and incremental update support. Replaces 9 individual role commands with single parameterized workflow.
+Unified role-specific analysis generation with interactive context gathering, framework alignment, and incremental update support. Supports both parallel execution (auto mode, N roles simultaneously) and single-role execution.
 
-### Core Function
-- **Multi-Role Support**: Single command supports all 9 brainstorming roles
-- **Interactive Context**: Dynamic question generation based on role and framework
-- **Incremental Updates**: Merge new insights into existing analyses
-- **Framework Alignment**: Address guidance-specification.md discussion points
-- **Agent Delegation**: Use conceptual-planning-agent with role-specific templates
-- **Explicit Lifecycle**: Manage subagent creation, waiting, and cleanup
+## Objective
 
-### Supported Roles
+- Validate role name and detect session
+- Gather interactive context via role-specific questions (optional)
+- Execute conceptual-planning-agent with role template and framework
+- Support feature-point output organization when feature list available
+- Support incremental updates to existing analyses
+- Validate output and update session metadata
+
+## Supported Roles
 
 | Role ID | Title | Focus Area | Context Questions |
 |---------|-------|------------|-------------------|
@@ -24,31 +25,26 @@
 | `data-architect` | 数据架构师 | Data models, storage strategies, data flow | 5 |
 | `api-designer` | API设计师 | API contracts, versioning, integration patterns | 4 |
 
----
+## Execution
 
-## Usage
+### Auto Mode Parallel Execution
 
-```bash
-# Generate new analysis with interactive context
-role-analysis ux-expert
+When called from auto mode, launch N role-analysis calls simultaneously:
 
-# Generate with existing framework + context questions
-role-analysis system-architect --session WFS-xxx --include-questions
+```javascript
+// Single message with multiple Skill invokes for parallelism
+// For each selected role:
+Skill(skill="workflow:brainstorm:role-analysis", args="{role-name} --session {session-id} --skip-questions")
 
-# Update existing analysis (incremental merge)
-role-analysis ui-designer --session WFS-xxx --update
-
-# Quick generation (skip interactive context)
-role-analysis product-manager --session WFS-xxx --skip-questions
+// For ui-designer with style-skill:
+Skill(skill="workflow:brainstorm:role-analysis", args="ui-designer --session {session-id} --skip-questions --style-skill {style_skill_package}")
 ```
 
----
+**Parallel Safety**: Each role operates independently on its own directory. No cross-agent dependencies.
 
-## Execution Protocol
+### Step 3.1: Detection & Validation
 
-### Phase 1: Detection & Validation
-
-**Step 1.1: Role Validation**
+**Step 3.1.1: Role Validation**
 ```bash
 VALIDATE role_name IN [
   ux-expert, ui-designer, system-architect, product-manager,
@@ -60,36 +56,44 @@ IF invalid:
   EXIT
 ```
 
-**Step 1.2: Session Detection**
+**Step 3.1.2: Session Detection**
 ```bash
 IF --session PROVIDED:
   session_id = --session
-  brainstorm_dir = ${projectRoot}/.workflow/active/{session_id}/.brainstorming/
+  brainstorm_dir = .workflow/active/{session_id}/.brainstorming/
 ELSE:
-  FIND ${projectRoot}/.workflow/active/WFS-*/
+  FIND .workflow/active/WFS-*/
   IF multiple:
     PROMPT user to select
   ELSE IF single:
     USE existing
   ELSE:
-    ERROR: "No active session. Run Phase 1 (artifacts) first"
+    ERROR: "No active session. Run /brainstorm 'topic' first"
     EXIT
 
 VALIDATE brainstorm_dir EXISTS
 ```
 
-**Step 1.3: Framework Detection**
+**Step 3.1.3: Framework Detection & Feature List Extraction**
 ```bash
 framework_file = {brainstorm_dir}/guidance-specification.md
 IF framework_file EXISTS:
   framework_mode = true
   LOAD framework_content
+  # Extract Feature Decomposition table from guidance-specification.md
+  feature_list = EXTRACT_TABLE(framework_content, "Feature Decomposition")
+  # feature_list format: [{id: "F-001", slug: "real-time-sync", description: "...", roles: [...], priority: "High"}, ...]
+  IF feature_list NOT EMPTY:
+    feature_mode = true   # Use feature-point organization for sub-documents
+  ELSE:
+    feature_mode = false  # Fall back to arbitrary-topic organization
 ELSE:
   WARN: "No framework found - will create standalone analysis"
   framework_mode = false
+  feature_mode = false
 ```
 
-**Step 1.4: Update Mode Detection**
+**Step 3.1.4: Update Mode Detection**
 ```bash
 existing_analysis = {brainstorm_dir}/{role_name}/analysis*.md
 IF --update FLAG OR existing_analysis EXISTS:
@@ -101,14 +105,14 @@ ELSE:
   update_mode = false
 ```
 
-### Phase 2: Interactive Context Gathering
+### Step 3.2: Interactive Context Gathering
 
 **Trigger Conditions**:
 - Default: Always ask unless `--skip-questions` provided
 - `--include-questions`: Force context gathering even if analysis exists
 - `--skip-questions`: Skip all interactive questions
 
-**Step 2.1: Load Role Configuration**
+**Step 3.2.1: Load Role Configuration**
 ```javascript
 const roleConfig = {
   'ux-expert': {
@@ -179,7 +183,7 @@ const roleConfig = {
 config = roleConfig[role_name];
 ```
 
-**Step 2.2: Generate Role-Specific Questions**
+**Step 3.2.2: Generate Role-Specific Questions**
 
 **9-Category Taxonomy**:
 
@@ -218,7 +222,7 @@ async function generateQuestions(role_name, framework_content) {
 }
 ```
 
-**Step 2.3: Multi-Round Question Execution**
+**Step 3.2.3: Multi-Round Question Execution**
 
 ```javascript
 const BATCH_SIZE = 4;
@@ -231,14 +235,17 @@ for (let i = 0; i < questions.length; i += BATCH_SIZE) {
 
   console.log(`\n[Round ${currentRound}/${totalRounds}] ${config.title} 上下文询问\n`);
 
-  ASK_USER(batch.map(q => ({
-    id: q.category.substring(0, 12), type: "select",
-    prompt: q.question,
-    options: q.options.map(opt => ({
-      label: opt.label,
-      description: opt.description
+  AskUserQuestion({
+    questions: batch.map(q => ({
+      question: q.question,
+      header: q.category.substring(0, 12),
+      multiSelect: false,
+      options: q.options.map(opt => ({
+        label: opt.label,
+        description: opt.description
+      }))
     }))
-  })));  // BLOCKS (wait for user response)
+  });
 
   // Store responses before next round
   for (const answer of responses) {
@@ -270,22 +277,24 @@ Write(
 - ❌ 过度抽象的通用问题
 - ❌ 脱离框架的重复询问
 
-### Phase 3: Agent Execution
+### Step 3.3: Agent Execution
 
-**Step 3.1: Load Session Metadata**
+**Step 3.3.1: Load Session Metadata**
 ```bash
-session_metadata = Read(${projectRoot}/.workflow/active/{session_id}/workflow-session.json)
+session_metadata = Read(.workflow/active/{session_id}/workflow-session.json)
 original_topic = session_metadata.topic
 selected_roles = session_metadata.selected_roles
 ```
 
-**Step 3.2: Prepare Agent Context**
+**Step 3.3.2: Prepare Agent Context**
 ```javascript
 const agentContext = {
   role_name: role_name,
   role_config: roleConfig[role_name],
   output_location: `${brainstorm_dir}/${role_name}/`,
   framework_mode: framework_mode,
+  feature_mode: feature_mode,
+  feature_list: feature_mode ? feature_list : null,
   framework_path: framework_mode ? `${brainstorm_dir}/guidance-specification.md` : null,
   update_mode: update_mode,
   user_context: user_context,
@@ -294,22 +303,33 @@ const agentContext = {
 };
 ```
 
-**Step 3.3: Execute Conceptual Planning Agent**
+**Step 3.3.3: Execute Conceptual Planning Agent**
 
 **Framework-Based Analysis** (when guidance-specification.md exists):
 ```javascript
-// Spawn conceptual-planning-agent
-const roleAgentId = spawn_agent({
-  message: `
-## TASK ASSIGNMENT
+// Build feature list injection block (only when feature_mode is true)
+const featureListBlock = feature_mode ? `
+## Feature Point List (from guidance-specification.md Feature Decomposition)
+${feature_list.map(f => `- **${f.id}** (${f.slug}): ${f.description} [Priority: ${f.priority}]`).join('\n')}
 
-### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/conceptual-planning-agent.md (MUST read first)
-2. Read: ${projectRoot}/.workflow/project-tech.json
-3. Read: ${projectRoot}/.workflow/project-guidelines.json
+**IMPORTANT - Feature-Point Output Organization**:
+- Generate ONE sub-document per feature: analysis-F-{id}-{slug}.md (e.g., analysis-${feature_list[0].id}-${feature_list[0].slug}.md)
+- Generate ONE cross-cutting document: analysis-cross-cutting.md
+- analysis.md is a role overview INDEX only (< 1500 words), NOT a full analysis
+- Each feature sub-document < 2000 words, cross-cutting < 2000 words
+- Total across all files < 15000 words
+` : `
+## Output Organization (fallback: no feature list available)
+- Generate analysis.md as main document (< 3000 words)
+- Optionally split into analysis-{slug}.md sub-documents (max 5, < 2000 words each)
+- Total < 15000 words
+`;
 
----
-
+Task(
+  subagent_type="conceptual-planning-agent",
+  run_in_background=false,
+  description=`Generate ${role_name} analysis`,
+  prompt=`
 [FLOW_CONTROL]
 
 Execute ${role_name} analysis for existing topic framework
@@ -318,6 +338,7 @@ Execute ${role_name} analysis for existing topic framework
 ASSIGNED_ROLE: ${role_name}
 OUTPUT_LOCATION: ${agentContext.output_location}
 ANALYSIS_MODE: ${framework_mode ? "framework_based" : "standalone"}
+FEATURE_MODE: ${feature_mode}
 UPDATE_MODE: ${update_mode}
 
 ## Flow Control Steps
@@ -333,7 +354,7 @@ UPDATE_MODE: ${update_mode}
 
 3. **load_session_metadata**
    - Action: Load session metadata and user intent
-   - Command: Read(${projectRoot}/.workflow/active/${session_id}/workflow-session.json)
+   - Command: Read(.workflow/active/${session_id}/workflow-session.json)
    - Output: session_context
 
 4. **load_user_context** (if exists)
@@ -348,18 +369,30 @@ UPDATE_MODE: ${update_mode}
    - Output: existing_analysis_content
    ` : ''}
 
+${featureListBlock}
+
 ## Analysis Requirements
 **Primary Reference**: Original user prompt from workflow-session.json is authoritative
 **Framework Source**: Address all discussion points in guidance-specification.md from ${role_name} perspective
 **User Context Integration**: Incorporate interactive Q&A responses into analysis
 **Role Focus**: ${roleConfig[role_name].focus_area}
 **Template Integration**: Apply role template guidelines within framework structure
+${feature_mode ? `**Feature Organization**: Organize analysis by feature points - each feature gets its own sub-document. Cross-cutting concerns go into analysis-cross-cutting.md.` : ''}
 
 ## Expected Deliverables
+${feature_mode ? `
+1. **analysis.md** - Role overview index (< 1500 words): role perspective summary, feature point index with @-references to sub-documents, cross-cutting summary
+2. **analysis-cross-cutting.md** - Cross-feature decisions (< 2000 words): architecture decisions, technology choices, shared patterns that span multiple features
+3. **analysis-F-{id}-{slug}.md** - One per feature (< 2000 words each): role-specific analysis, recommendations, considerations for that feature
+4. **Framework Reference**: @../guidance-specification.md (if framework_mode)
+5. **User Context Reference**: @./${role_name}-context.md (if user context exists)
+6. **User Intent Alignment**: Validate against session_context
+` : `
 1. **analysis.md** (main document, optionally with analysis-{slug}.md sub-documents)
 2. **Framework Reference**: @../guidance-specification.md (if framework_mode)
 3. **User Context Reference**: @./${role_name}-context.md (if user context exists)
 4. **User Intent Alignment**: Validate against session_context
+`}
 
 ## Update Requirements (if UPDATE_MODE)
 - **Preserve Structure**: Maintain existing analysis structure
@@ -371,123 +404,18 @@ UPDATE_MODE: ${update_mode}
 - Address each discussion point from guidance-specification.md with ${role_name} expertise
 - Provide actionable recommendations from ${role_name} perspective within analysis files
 - All output files MUST start with "analysis" prefix (no recommendations.md or other naming)
+${feature_mode ? `- Each feature from the feature list has a corresponding analysis-F-{id}-{slug}.md file
+- analysis-cross-cutting.md exists with cross-feature decisions
+- analysis.md serves as index (< 1500 words), NOT a full analysis document` : ''}
 - Reference framework document using @ notation for integration
 - Update workflow-session.json with completion status
 `
-});
-
-// Wait for agent completion
-const roleResult = wait({
-  ids: [roleAgentId],
-  timeout_ms: 600000  // 10 minutes
-});
-
-// Check result and cleanup
-if (roleResult.timed_out) {
-  console.warn(`${role_name} analysis timed out`);
-}
-
-// Always close agent
-close_agent({ id: roleAgentId });
+);
 ```
 
-### Phase 3 (Parallel Mode): Execute Multiple Roles Concurrently
+### Step 3.4: Validation & Finalization
 
-**When called from auto-parallel orchestrator**, execute all selected roles in parallel:
-
-```javascript
-// Step 1: Spawn all role agents in parallel
-const roleAgents = [];
-
-selected_roles.forEach((role_name, index) => {
-  const config = roleConfig[role_name];
-
-  // For ui-designer, append style-skill if provided
-  const styleContext = (role_name === 'ui-designer' && style_skill_package)
-    ? `\n## Style Reference\n**Style SKILL Package**: .codex/skills/style-${style_skill_package}/\n**Load First**: Read SKILL.md from style package for design tokens`
-    : '';
-
-  const agentId = spawn_agent({
-    message: `
-## TASK ASSIGNMENT
-
-### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/conceptual-planning-agent.md (MUST read first)
-2. Read: ${projectRoot}/.workflow/project-tech.json
-3. Read: ${projectRoot}/.workflow/project-guidelines.json
-
----
-
-## Task Objective
-Execute **${role_name}** (${config.title}) analysis for brainstorming session.
-
-## Assigned Context
-- **Role**: ${role_name}
-- **Role Focus**: ${config.focus_area}
-- **Session ID**: ${session_id}
-- **Framework Path**: ${brainstorm_dir}/guidance-specification.md
-- **Output Location**: ${brainstorm_dir}/${role_name}/
-- **Role Index**: ${index + 1} of ${selected_roles.length}
-${styleContext}
-
-## Analysis Requirements
-**Primary Reference**: Original user prompt from workflow-session.json is authoritative
-**Framework Source**: Address all discussion points in guidance-specification.md from ${role_name} perspective
-**Role Focus**: ${config.focus_area}
-
-## Expected Deliverables
-1. **analysis.md** (main document)
-2. **analysis-{slug}.md** (optional sub-documents, max 5)
-3. **Framework Reference**: @../guidance-specification.md
-
-## Completion Criteria
-- Address each framework discussion point with ${role_name} expertise
-- Provide actionable recommendations within analysis files
-- All output files MUST start with "analysis" prefix
-`
-  });
-
-  roleAgents.push({ agentId, role_name });
-});
-
-// Step 2: Batch wait for all agents
-const agentIds = roleAgents.map(a => a.agentId);
-const parallelResults = wait({
-  ids: agentIds,
-  timeout_ms: 900000  // 15 minutes for all agents
-});
-
-// Step 3: Process results and check completion
-const completedRoles = [];
-const failedRoles = [];
-
-roleAgents.forEach(({ agentId, role_name }) => {
-  if (parallelResults.status[agentId]?.completed) {
-    completedRoles.push(role_name);
-  } else {
-    failedRoles.push(role_name);
-  }
-});
-
-if (parallelResults.timed_out) {
-  console.warn('Some role analyses timed out:', failedRoles);
-}
-
-// Step 4: Batch cleanup - IMPORTANT: always close all agents
-roleAgents.forEach(({ agentId }) => {
-  close_agent({ id: agentId });
-});
-
-console.log(`Completed: ${completedRoles.length}/${selected_roles.length} roles`);
-console.log(`Completed roles: ${completedRoles.join(', ')}`);
-if (failedRoles.length > 0) {
-  console.warn(`Failed roles: ${failedRoles.join(', ')}`);
-}
-```
-
-### Phase 4: Validation & Finalization
-
-**Step 4.1: Validate Output**
+**Step 3.4.1: Validate Output**
 ```bash
 VERIFY EXISTS: ${brainstorm_dir}/${role_name}/analysis.md
 VERIFY CONTAINS: "@../guidance-specification.md" (if framework_mode)
@@ -495,7 +423,7 @@ IF user_context EXISTS:
   VERIFY CONTAINS: "@./${role_name}-context.md" OR "## Clarifications" section
 ```
 
-**Step 4.2: Update Session Metadata**
+**Step 3.4.2: Update Session Metadata**
 ```json
 {
   "phases": {
@@ -504,13 +432,13 @@ IF user_context EXISTS:
         "status": "${update_mode ? 'updated' : 'completed'}",
         "completed_at": "timestamp",
         "framework_addressed": true,
-        "context_gathered": user_context ? true : false,
+        "context_gathered": true,
         "output_location": "${brainstorm_dir}/${role_name}/analysis.md",
         "update_history": [
           {
             "timestamp": "ISO8601",
             "mode": "${update_mode ? 'incremental' : 'initial'}",
-            "context_questions": question_count
+            "context_questions": "question_count"
           }
         ]
       }
@@ -519,7 +447,7 @@ IF user_context EXISTS:
 }
 ```
 
-**Step 4.3: Completion Report**
+**Step 3.4.3: Completion Report**
 ```markdown
 ✅ ${roleConfig[role_name].title} Analysis Complete
 
@@ -538,29 +466,106 @@ ${update_mode ? '
 **Next Steps**:
 ${selected_roles.length > 1 ? `
   - Continue with other roles: ${selected_roles.filter(r => r !== role_name).join(', ')}
-  - Run synthesis: Phase 3 (synthesis integration)
+  - Run synthesis: /brainstorm --session ${session_id} (auto mode)
 ` : `
-  - Clarify insights: Phase 3 (synthesis integration)
-  - Generate plan: workflow:plan --session ${session_id}
+  - Clarify insights: /brainstorm --session ${session_id} (auto mode)
+  - Generate plan: /workflow:plan --session ${session_id}
 `}
 ```
 
----
-
-## Output Structure
+## Output
 
 ### Directory Layout
 
+**Feature-point mode** (when `feature_list` available):
 ```
-{projectRoot}/.workflow/active/WFS-{session}/.brainstorming/
-├── guidance-specification.md          # Framework (if exists)
+.workflow/active/WFS-{session}/.brainstorming/
+├── guidance-specification.md
+└── {role-name}/
+    ├── {role-name}-context.md             # Interactive Q&A responses
+    ├── analysis.md                        # Role overview INDEX (< 1500 words)
+    ├── analysis-cross-cutting.md          # Cross-feature decisions (< 2000 words)
+    ├── analysis-F-001-{slug}.md           # Per-feature analysis (< 2000 words)
+    ├── analysis-F-002-{slug}.md
+    └── analysis-F-00N-{slug}.md           # One per feature (max 8)
+```
+
+**Fallback mode** (when `feature_list` NOT available):
+```
+.workflow/active/WFS-{session}/.brainstorming/
+├── guidance-specification.md
 └── {role-name}/
     ├── {role-name}-context.md         # Interactive Q&A responses
     ├── analysis.md                    # Main analysis (REQUIRED)
-    └── analysis-{slug}.md             # Section documents (optional, max 5)
+    └── analysis-{slug}.md            # Section documents (optional, max 5)
 ```
 
-### Analysis Document Structure (New Generation)
+### Document Structure Templates
+
+#### Feature-Point Mode: analysis.md (Role Overview Index, < 1500 words)
+
+```markdown
+# ${roleConfig[role_name].title} Analysis: [Topic from Framework]
+
+## Framework Reference
+**Topic Framework**: @../guidance-specification.md
+**Role Focus**: ${roleConfig[role_name].focus_area}
+**User Context**: @./${role_name}-context.md
+
+## Role Perspective Overview
+[Brief summary of this role's perspective on the overall project]
+
+## Feature Point Index
+| Feature | Sub-document | Key Insight |
+|---------|-------------|-------------|
+| F-001: [name] | @./analysis-F-001-{slug}.md | [One-line summary] |
+| F-002: [name] | @./analysis-F-002-{slug}.md | [One-line summary] |
+
+## Cross-Cutting Summary
+**Full analysis**: @./analysis-cross-cutting.md
+[Brief overview of cross-feature decisions and shared patterns]
+
+---
+*Generated by ${role_name} analysis addressing structured framework*
+```
+
+#### Feature-Point Mode: analysis-cross-cutting.md (< 2000 words)
+
+```markdown
+# Cross-Cutting Analysis: ${roleConfig[role_name].title}
+
+## Architecture Decisions
+[Decisions that span multiple features]
+
+## Technology Choices
+[Shared technology selections and rationale]
+
+## Shared Patterns
+[Common patterns, constraints, and conventions across features]
+
+## ${roleConfig[role_name].title} Recommendations
+[Role-wide strategic recommendations]
+```
+
+#### Feature-Point Mode: analysis-F-{id}-{slug}.md (< 2000 words each)
+
+```markdown
+# Feature ${id}: [Feature Name] - ${roleConfig[role_name].title} Analysis
+
+## Feature Overview
+[Role-specific perspective on this feature's scope and goals]
+
+## Analysis
+[Detailed role-specific analysis for this feature]
+
+## Recommendations
+[Actionable recommendations for this feature from role perspective]
+
+## Dependencies & Risks
+[Cross-feature dependencies and risks from role viewpoint]
+```
+
+#### Fallback Mode: analysis.md (New Generation)
 
 ```markdown
 # ${roleConfig[role_name].title} Analysis: [Topic from Framework]
@@ -602,7 +607,7 @@ ${user_context ? formatContextSummary(user_context) : ''}
 *Context gathered: ${new Date().toISOString()}*
 ```
 
-### Analysis Document Structure (Incremental Update)
+#### Incremental Update Structure
 
 ```markdown
 # ${roleConfig[role_name].title} Analysis: [Topic]
@@ -626,142 +631,88 @@ ${Object.entries(user_context).map(([q, a]) => `
 [Rest of sections updated based on clarifications]
 ```
 
----
+### Parameter Combinations
 
-## Integration with Other Phases
+| Scenario | Command | Behavior |
+|----------|---------|----------|
+| New analysis | `/brainstorm ux-expert` | Generate + ask context questions |
+| Quick generation | `/brainstorm ux-expert --skip-questions` | Generate without context |
+| Update existing | `/brainstorm ux-expert --update` | Ask clarifications + merge |
+| Force questions | `/brainstorm ux-expert --include-questions` | Ask even if exists |
+| Specific session | `/brainstorm ux-expert --session WFS-xxx` | Target specific session |
 
-### Called By
-- Auto-parallel orchestrator (Phase 2 - parallel role execution)
-- Manual invocation for single-role analysis
+### Quality Assurance
 
-### Spawns
-- `conceptual-planning-agent` (via spawn_agent → wait → close_agent)
-
-### Coordinates With
-- Phase 1 (artifacts) - creates framework for role analysis
-- Phase 3 (synthesis) - reads role analyses for integration
-
----
-
-## Quality Assurance
-
-### Required Analysis Elements
+**Required Analysis Elements**:
 - [ ] Framework discussion points addressed (if framework_mode)
 - [ ] User context integrated (if context gathered)
 - [ ] Role template guidelines applied
 - [ ] Output files follow naming convention (analysis*.md only)
 - [ ] Framework reference using @ notation
 - [ ] Session metadata updated
+- [ ] Feature-point organization used when feature_list available (if feature_mode)
+- [ ] analysis.md is index only (< 1500 words) when in feature_mode
+- [ ] analysis-cross-cutting.md exists when in feature_mode
+- [ ] One analysis-F-{id}-{slug}.md per feature when in feature_mode
 
-### Context Quality
+**Context Quality**:
 - [ ] Questions in Chinese with business context
 - [ ] Options include technical trade-offs
 - [ ] Categories aligned with role focus
 - [ ] No generic questions unrelated to framework
 
-### Update Quality (if update_mode)
+**Update Quality** (if update_mode):
 - [ ] "Clarifications" section added with timestamp
 - [ ] New insights merged without content loss
 - [ ] Conflicts documented and resolved
 - [ ] Framework alignment maintained
 
-### Agent Lifecycle Quality
-- [ ] All spawn_agent have corresponding close_agent
-- [ ] All wait calls have reasonable timeout
-- [ ] Parallel agents use batch wait
-- [ ] Error paths include agent cleanup
-
----
-
-## Command Parameters
-
-### Required Parameters
-- `[role-name]`: Role identifier (ux-expert, ui-designer, system-architect, etc.)
-
-### Optional Parameters
-- `--session [session-id]`: Specify brainstorming session (auto-detect if omitted)
-- `--update`: Force incremental update mode (auto-detect if analysis exists)
-- `--include-questions`: Force context gathering even if analysis exists
-- `--skip-questions`: Skip all interactive context gathering
-- `--style-skill [package]`: For ui-designer only, load style SKILL package
-
-### Parameter Combinations
-
-| Scenario | Command | Behavior |
-|----------|---------|----------|
-| New analysis | `role-analysis ux-expert` | Generate + ask context questions |
-| Quick generation | `role-analysis ux-expert --skip-questions` | Generate without context |
-| Update existing | `role-analysis ux-expert --update` | Ask clarifications + merge |
-| Force questions | `role-analysis ux-expert --include-questions` | Ask even if exists |
-| Specific session | `role-analysis ux-expert --session WFS-xxx` | Target specific session |
-
----
+- **TodoWrite**: Mark Phase 3 completed (auto mode: collapse N parallel sub-tasks to summary)
 
 ## Error Handling
 
-### Invalid Role Name
-```
-ERROR: Unknown role: "ui-expert"
-Valid roles: ux-expert, ui-designer, system-architect, product-manager,
-            product-owner, scrum-master, subject-matter-expert,
-            data-architect, api-designer
-```
+| Error | Recovery |
+|-------|----------|
+| Invalid role name | Show valid roles list, exit |
+| No active session | Error with guidance to run /brainstorm first |
+| Missing framework | Warn and generate standalone analysis |
+| Agent execution failure | Check error.log, retry with --skip-questions |
 
-### No Active Session
-```
-ERROR: No active brainstorming session found
-Run: Phase 1 (artifacts) to create session
-```
+## Advanced Usage
 
-### Missing Framework (with warning)
-```
-WARN: No guidance-specification.md found
-Generating standalone analysis without framework alignment
-Recommend: Run Phase 1 (artifacts) first for better results
+### Batch Role Generation (via auto mode)
+```bash
+# Auto mode handles multiple roles in parallel
+/brainstorm "topic" --count 3
+# → Internally calls role-analysis for each selected role with --skip-questions
 ```
 
-### Agent Execution Failure
-```
-ERROR: Conceptual planning agent failed
-Check: ${brainstorm_dir}/${role_name}/error.log
-Action: Retry with --skip-questions or check framework validity
-```
+### Manual Multi-Role Workflow
+```bash
+# 1. Create framework
+/brainstorm "Build real-time collaboration platform" --count 3
 
-### Agent Lifecycle Errors
-```javascript
-// Always ensure cleanup in error paths
-try {
-  const agentId = spawn_agent({ message: "..." });
-  const result = wait({ ids: [agentId], timeout_ms: 600000 });
-  // ... process result ...
-  close_agent({ id: agentId });
-} catch (error) {
-  // Ensure cleanup even on error
-  if (agentId) close_agent({ id: agentId });
-  throw error;
-}
+# 2. Generate each role with context
+/brainstorm system-architect --include-questions
+/brainstorm ui-designer --include-questions
+/brainstorm product-manager --include-questions
+
+# 3. Synthesize insights
+/brainstorm --session WFS-xxx
 ```
 
----
+### Iterative Refinement
+```bash
+# Initial generation
+/brainstorm ux-expert
 
-## Reference Information
+# User reviews and wants more depth
+/brainstorm ux-expert --update --include-questions
+# → Asks clarification questions, merges new insights
+```
 
-### Role Template Locations
-- Templates: `~/.ccw/workflows/cli-templates/planning-roles/`
-- Format: `{role-name}.md` (e.g., `ux-expert.md`, `system-architect.md`)
+## Next Phase
 
-### Context Package
-- Location: `{projectRoot}/.workflow/active/WFS-{session}/.process/context-package.json`
-- Used by: `context-search-agent` (Phase 0 of artifacts)
-- Contains: Project context, tech stack, conflict risks
-
----
-
-## Post-Phase Update
-
-After Phase 2 completes:
-- **Output Created**: `[role]/analysis*.md` for each selected role
-- **Parallel Execution**: All N roles executed concurrently via spawn_agent + batch wait
-- **Agent Cleanup**: All agents closed after wait completes
-- **Next Action**: Auto-continue to Phase 3 (synthesis integration)
-- **State Update**: Update workflow-session.json with role completion status
+Return to orchestrator:
+- If auto mode → Continue to [Phase 4: Synthesis](04-synthesis.md)
+- If single-role mode → Workflow complete, report results
