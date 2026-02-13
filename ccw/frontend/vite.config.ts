@@ -8,9 +8,9 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // Get base path from environment variable
-// Default to /react/ for development (CCW server proxies /react/* to Vite)
+// Default to / for development (CCW server proxies /* to Vite)
 // Can be overridden by VITE_BASE_URL environment variable
-const basePath = process.env.VITE_BASE_URL || '/react/'
+const basePath = process.env.VITE_BASE_URL || '/'
 
 // Backend target for Vite proxy (used when directly opening the Vite dev server port).
 // In `ccw view`, this is set to the dashboard server port so /api and /ws route correctly.

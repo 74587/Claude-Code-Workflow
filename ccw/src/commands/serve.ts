@@ -1,17 +1,14 @@
 import { startServer } from '../core/server.js';
 import { launchBrowser } from '../utils/browser-launcher.js';
-import { resolvePath, validatePath } from '../utils/path-resolver.js';
+import { validatePath } from '../utils/path-resolver.js';
 import { startReactFrontend, stopReactFrontend } from '../utils/react-frontend.js';
 import chalk from 'chalk';
-import type { Server } from 'http';
 
 interface ServeOptions {
   port?: number;
   path?: string;
   host?: string;
   browser?: boolean;
-  frontend?: 'js' | 'react' | 'both';
-  new?: boolean;
 }
 
 /**
@@ -21,11 +18,8 @@ interface ServeOptions {
 export async function serveCommand(options: ServeOptions): Promise<void> {
   const port = Number(options.port) || 3456;
   const host = options.host || '127.0.0.1';
-  // --new flag is shorthand for --frontend react
-  const frontend = options.new ? 'react' : (options.frontend || 'js');
 
-  // Keep Vite dev-server proxy aligned with the dashboard server port for direct access
-  // (e.g. when opening http://localhost:{reactPort} instead of the proxied /react/ path).
+  // Keep Vite dev-server proxy aligned with the dashboard server port.
   process.env.VITE_BACKEND_PORT = port.toString();
 
   // Validate project path
@@ -42,19 +36,15 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
   console.log(chalk.blue.bold('\n  CCW Dashboard Server\n'));
   console.log(chalk.gray(`  Initial project: ${initialPath}`));
   console.log(chalk.gray(`  Host: ${host}`));
-  console.log(chalk.gray(`  Port: ${port}`));
-  console.log(chalk.gray(`  Frontend: ${frontend}\n`));
+  console.log(chalk.gray(`  Port: ${port}\n`));
 
-  // Start React frontend if needed
-  let reactPort: number | undefined;
-  if (frontend === 'react' || frontend === 'both') {
-    reactPort = port + 1;
-    try {
-      await startReactFrontend(reactPort);
-    } catch (error) {
-      console.error(chalk.red(`\n  Failed to start React frontend: ${error}\n`));
-      process.exit(1);
-    }
+  // Start React frontend
+  const reactPort = port + 1;
+  try {
+    await startReactFrontend(reactPort);
+  } catch (error) {
+    console.error(chalk.red(`\n  Failed to start React frontend: ${error}\n`));
+    process.exit(1);
   }
 
   try {
@@ -64,7 +54,6 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
       port,
       host,
       initialPath,
-      frontend,
       reactPort
     });
 
@@ -78,31 +67,12 @@ export async function serveCommand(options: ServeOptions): Promise<void> {
 
     console.log(chalk.green(`  Server running at ${boundUrl}`));
 
-    // Display frontend URLs
-    if (frontend === 'both') {
-      console.log(chalk.gray(`  JS Frontend:    ${boundUrl}`));
-      console.log(chalk.gray(`  React Frontend: http://${host}:${reactPort}`));
-    } else if (frontend === 'react') {
-      console.log(chalk.gray(`  React Frontend: http://${host}:${reactPort}`));
-    }
-
     // Open browser
     if (options.browser !== false) {
       console.log(chalk.cyan('  Opening in browser...'));
       try {
-        // Determine which URL to open based on frontend setting
-        let openUrl = browserUrl;
-        if (frontend === 'react' && reactPort) {
-          // React frontend: access via proxy path /react/
-          openUrl = `http://${host}:${port}/react/`;
-        } else if (frontend === 'both') {
-          // Both frontends: default to JS frontend at root
-          openUrl = browserUrl;
-        }
-
-        // Add path query parameter for workspace switching
         const pathParam = initialPath ? `?path=${encodeURIComponent(initialPath)}` : '';
-        await launchBrowser(openUrl + pathParam);
+        await launchBrowser(browserUrl + pathParam);
         console.log(chalk.green.bold('\n  Dashboard opened in browser!'));
       } catch (err) {
         const error = err as Error;
