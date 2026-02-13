@@ -267,7 +267,7 @@ export function QueueSendToOrchestrator({ item, className }: { item: QueueItem; 
             </SelectTrigger>
             <SelectContent>
               {sessions.length === 0 ? (
-                <SelectItem value="" disabled>
+                <SelectItem value="__none__" disabled>
                   {formatMessage({ id: 'issues.terminal.session.none' })}
                 </SelectItem>
               ) : (

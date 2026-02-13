@@ -6,7 +6,7 @@
 
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Server,
   Plus,
@@ -226,6 +226,7 @@ export function McpManagerPage() {
   const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
   const [serverToSaveAsTemplate, setServerToSaveAsTemplate] = useState<McpServer | undefined>(undefined);
 
+  const queryClient = useQueryClient();
   const notifications = useNotifications();
 
   const {
@@ -352,15 +353,47 @@ export function McpManagerPage() {
   };
 
   const handleToggleCcwTool = async (tool: string, enabled: boolean) => {
+    // Read latest from cache to avoid stale closures
+    const currentConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfig']) ?? ccwConfig;
+    const currentTools = currentConfig.enabledTools;
+    const previousConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfig']);
+
     const updatedTools = enabled
-      ? [...ccwConfig.enabledTools, tool]
-      : ccwConfig.enabledTools.filter((t) => t !== tool);
-    await updateCcwConfig({ enabledTools: updatedTools });
+      ? (currentTools.includes(tool) ? currentTools : [...currentTools, tool])
+      : currentTools.filter((t) => t !== tool);
+
+    // Optimistic cache update for immediate UI response
+    queryClient.setQueryData(['ccwMcpConfig'], (old: CcwMcpConfig | undefined) => {
+      if (!old) return old;
+      return { ...old, enabledTools: updatedTools };
+    });
+
+    try {
+      await updateCcwConfig({ ...currentConfig, enabledTools: updatedTools });
+    } catch (error) {
+      console.error('Failed to toggle CCW tool:', error);
+      queryClient.setQueryData(['ccwMcpConfig'], previousConfig);
+    }
     ccwMcpQuery.refetch();
   };
 
   const handleUpdateCcwConfig = async (config: Partial<CcwMcpConfig>) => {
-    await updateCcwConfig(config);
+    // Read BEFORE optimistic update to capture actual server state
+    const currentConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfig']) ?? ccwConfig;
+    const previousConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfig']);
+
+    // Optimistic cache update for immediate UI response
+    queryClient.setQueryData(['ccwMcpConfig'], (old: CcwMcpConfig | undefined) => {
+      if (!old) return old;
+      return { ...old, ...config };
+    });
+
+    try {
+      await updateCcwConfig({ ...currentConfig, ...config });
+    } catch (error) {
+      console.error('Failed to update CCW config:', error);
+      queryClient.setQueryData(['ccwMcpConfig'], previousConfig);
+    }
     ccwMcpQuery.refetch();
   };
 
@@ -378,15 +411,48 @@ export function McpManagerPage() {
   };
 
   const handleToggleCcwToolCodex = async (tool: string, enabled: boolean) => {
+    const currentConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfigCodex']) ?? ccwCodexConfig;
+    const currentTools = currentConfig.enabledTools;
+
     const updatedTools = enabled
-      ? [...ccwCodexConfig.enabledTools, tool]
-      : ccwCodexConfig.enabledTools.filter((t) => t !== tool);
-    await updateCcwConfigForCodex({ enabledTools: updatedTools });
+      ? [...currentTools, tool]
+      : currentTools.filter((t) => t !== tool);
+
+    queryClient.setQueryData(['ccwMcpConfigCodex'], (old: CcwMcpConfig | undefined) => {
+      if (!old) return old;
+      return { ...old, enabledTools: updatedTools };
+    });
+
+    try {
+      await updateCcwConfigForCodex({
+        enabledTools: updatedTools,
+        projectRoot: currentConfig.projectRoot,
+        allowedDirs: currentConfig.allowedDirs,
+        disableSandbox: currentConfig.disableSandbox,
+      });
+    } catch (error) {
+      console.error('Failed to toggle CCW tool (Codex):', error);
+    }
     ccwMcpCodexQuery.refetch();
   };
 
   const handleUpdateCcwConfigCodex = async (config: Partial<CcwMcpConfig>) => {
-    await updateCcwConfigForCodex(config);
+    queryClient.setQueryData(['ccwMcpConfigCodex'], (old: CcwMcpConfig | undefined) => {
+      if (!old) return old;
+      return { ...old, ...config };
+    });
+
+    try {
+      const currentConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfigCodex']) ?? ccwCodexConfig;
+      await updateCcwConfigForCodex({
+        enabledTools: config.enabledTools ?? currentConfig.enabledTools,
+        projectRoot: config.projectRoot ?? currentConfig.projectRoot,
+        allowedDirs: config.allowedDirs ?? currentConfig.allowedDirs,
+        disableSandbox: config.disableSandbox ?? currentConfig.disableSandbox,
+      });
+    } catch (error) {
+      console.error('Failed to update CCW config (Codex):', error);
+    }
     ccwMcpCodexQuery.refetch();
   };
 

@@ -15,7 +15,7 @@ Team executor role command. Operates as a teammate within an Agent Team, respons
 **Core capabilities:**
 - Task discovery from shared team task list (IMPL-* tasks)
 - Plan loading and task decomposition
-- Code implementation following plan modification points
+- Code implementation following plan files list
 - Self-validation: syntax checks, acceptance criteria verification
 - Progress reporting to coordinator
 - Sub-agent delegation for complex tasks
@@ -71,7 +71,7 @@ Phase 2: Task Grouping
 
 Phase 3: Code Implementation
    ├─ For each task in plan:
-   │   ├─ Read modification points
+   │   ├─ Read files list
    │   ├─ Read reference patterns
    │   ├─ Implement changes (Edit/Write)
    │   ├─ Complex tasks → code-developer sub-agent
@@ -186,8 +186,8 @@ function buildExecutionPrompt(planTask) {
 
 **Scope**: \`${planTask.scope}\`  |  **Action**: ${planTask.action || 'implement'}
 
-### Modification Points
-${(planTask.modification_points || []).map(p => `- **${p.file}** → \`${p.target}\`: ${p.change}`).join('\n')}
+### Files
+${(planTask.files || []).map(f => `- **${f.path}** → \`${f.target}\`: ${f.change}`).join('\n')}
 
 ### How to do it
 ${planTask.description}
@@ -199,7 +199,7 @@ ${(planTask.implementation || []).map(step => `- ${step}`).join('\n')}
 - Files: ${planTask.reference?.files?.join(', ') || 'N/A'}
 
 ### Done when
-${(planTask.acceptance || []).map(c => `- [ ] ${c}`).join('\n')}
+${(planTask.convergence?.criteria || []).map(c => `- [ ] ${c}`).join('\n')}
 `
 }
 
@@ -212,11 +212,11 @@ for (const batch of batches) {
     // Simple task: direct implementation
     const t = batch.tasks[0]
     // Read target files, apply modifications using Edit/Write
-    for (const mp of (t.modification_points || [])) {
-      const content = Read(mp.file)
-      // Apply change based on modification point description
-      Edit({ file_path: mp.file, old_string: "...", new_string: "..." })
-      changedFiles.push(mp.file)
+    for (const f of (t.files || [])) {
+      const content = Read(f.path)
+      // Apply change based on file entry description
+      Edit({ file_path: f.path, old_string: "...", new_string: "..." })
+      changedFiles.push(f.path)
     }
   } else {
     // Complex task(s): delegate to code-developer sub-agent
@@ -241,7 +241,7 @@ Complete each task according to its "Done when" checklist.`
 
     // Collect changed files from sub-agent results
     batch.tasks.forEach(t => {
-      (t.modification_points || []).forEach(mp => changedFiles.push(mp.file))
+      (t.files || []).forEach(f => changedFiles.push(f.path))
     })
   }
 
@@ -269,7 +269,7 @@ if (hasSyntaxErrors) {
 // Step 2: Verify acceptance criteria
 const acceptanceStatus = plan.tasks.map(t => ({
   title: t.title,
-  criteria: (t.acceptance || []).map(c => ({
+  criteria: (t.convergence?.criteria || []).map(c => ({
     criterion: c,
     met: true // Evaluate based on implementation
   }))
@@ -341,7 +341,7 @@ if (nextTasks.length > 0) {
 
 ```javascript
 function isSimpleTask(task) {
-  return (task.modification_points || []).length <= 2 &&
+  return (task.files || []).length <= 2 &&
     !task.code_skeleton &&
     (task.risks || []).length === 0
 }

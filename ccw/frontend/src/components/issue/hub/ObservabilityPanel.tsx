@@ -142,12 +142,12 @@ export function ObservabilityPanel() {
               <label className="block text-xs font-medium text-muted-foreground mb-1">
                 {formatMessage({ id: 'issues.observability.filters.type' })}
               </label>
-              <Select value={type} onValueChange={(v) => setType(v)}>
+              <Select value={type || '__all__'} onValueChange={(v) => setType(v === '__all__' ? '' : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder={formatMessage({ id: 'issues.observability.filters.typeAll' })} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">{formatMessage({ id: 'issues.observability.filters.typeAll' })}</SelectItem>
+                  <SelectItem value="__all__">{formatMessage({ id: 'issues.observability.filters.typeAll' })}</SelectItem>
                   {EVENT_TYPES.map((t) => (
                     <SelectItem key={t} value={t}>
                       {t}

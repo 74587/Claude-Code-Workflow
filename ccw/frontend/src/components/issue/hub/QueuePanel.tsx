@@ -209,7 +209,7 @@ export function QueuePanel() {
                 </SelectTrigger>
                 <SelectContent>
                   {(historyIndex.queues || []).length === 0 ? (
-                    <SelectItem value="" disabled>
+                    <SelectItem value="__none__" disabled>
                       {formatMessage({ id: 'issues.queue.history.empty' })}
                     </SelectItem>
                   ) : (

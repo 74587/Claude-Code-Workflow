@@ -215,7 +215,7 @@ export function QueueExecuteInSession({ item, className }: { item: QueueItem; cl
             </SelectTrigger>
             <SelectContent>
               {sessions.length === 0 ? (
-                <SelectItem value="" disabled>
+                <SelectItem value="__none__" disabled>
                   {formatMessage({ id: 'issues.terminal.session.none' })}
                 </SelectItem>
               ) : (
