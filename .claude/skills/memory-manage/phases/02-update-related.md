@@ -1,22 +1,23 @@
----
-name: update-related
-description: Update CLAUDE.md for git-changed modules using batched agent execution (4 modules/agent) with gemini→qwen→codex fallback, <15 modules uses direct execution
-argument-hint: "[--tool gemini|qwen|codex]"
----
+# Phase 2: Related CLAUDE.md Update (update-related)
 
-# Related Documentation Update (/memory:update-related)
+仅更新 git 变更模块的 CLAUDE.md，使用深度优先执行和自动 tool fallback。
 
-## Overview
+## Objective
 
-Orchestrates context-aware CLAUDE.md updates for changed modules using batched agent execution with automatic tool fallback (gemini→qwen→codex).
+- 检测 git 变更，识别受影响模块
+- 按深度 N→0 顺序更新变更模块及其父级上下文
+- <15 模块直接并行，≥15 模块使用 agent 批处理
+- 自动 tool fallback (gemini→qwen→codex)
 
-**Parameters**:
+## Parameters
+
 - `--tool <gemini|qwen|codex>`: Primary tool (default: gemini)
 
-**Execution Flow**:
-1. Change Detection → 2. Plan Presentation → 3. Batched Agent Execution → 4. Safety Verification
+## Execution
 
-## Core Rules
+**Execution Flow**: Change Detection → Plan Presentation → Batched Execution → Safety Verification
+
+### Core Rules
 
 1. **Detect Changes First**: Use git diff to identify affected modules
 2. **Wait for Approval**: Present plan, no execution without user confirmation
@@ -27,7 +28,7 @@ Orchestrates context-aware CLAUDE.md updates for changed modules using batched a
 5. **Depth Sequential**: Process depths N→0, parallel batches within depth (both modes)
 6. **Related Mode**: Update only changed modules and their parent contexts
 
-## Tool Fallback Hierarchy
+### Tool Fallback Hierarchy
 
 ```javascript
 --tool gemini  →  [gemini, qwen, codex]  // default
@@ -37,7 +38,7 @@ Orchestrates context-aware CLAUDE.md updates for changed modules using batched a
 
 **Trigger**: Non-zero exit code from update script
 
-## Phase 1: Change Detection & Analysis
+### Step 2.1: Change Detection & Analysis
 
 ```javascript
 // Detect changed modules
@@ -53,7 +54,7 @@ Bash({command: "git add -A 2>/dev/null || true", run_in_background: false});
 
 **Fallback**: If no changes detected, use recent modules (first 10 by depth).
 
-## Phase 2: Plan Presentation
+### Step 2.2: Plan Presentation
 
 **Present filtered plan**:
 ```
@@ -87,7 +88,7 @@ Related Update Plan:
 - <15 modules: Direct execution
 - ≥15 modules: Agent batch execution
 
-## Phase 3A: Direct Execution (<15 modules)
+### Step 2.3A: Direct Execution (<15 modules)
 
 **Strategy**: Parallel execution within depth (max 4 concurrent), no agent overhead.
 
@@ -119,11 +120,9 @@ for (let depth of sorted_depths.reverse()) {  // N → 0
 }
 ```
 
----
+### Step 2.3B: Agent Batch Execution (≥15 modules)
 
-## Phase 3B: Agent Batch Execution (≥15 modules)
-
-### Batching Strategy
+#### Batching Strategy
 
 ```javascript
 // Batch modules into groups of 4
@@ -137,7 +136,7 @@ function batch_modules(modules, batch_size = 4) {
 // Examples: 10→[4,4,2] | 8→[4,4] | 3→[3]
 ```
 
-### Coordinator Orchestration
+#### Coordinator Orchestration
 
 ```javascript
 let modules_by_depth = group_by_depth(changed_modules);
@@ -161,7 +160,7 @@ for (let depth of sorted_depths.reverse()) {  // N → 0
 }
 ```
 
-### Batch Worker Prompt Template
+#### Batch Worker Prompt Template
 
 ```
 PURPOSE: Update CLAUDE.md for assigned modules with tool fallback (related mode)
@@ -212,7 +211,7 @@ Report final summary with:
 - Tool usage: {{tool_1}}:X, {{tool_2}}:Y, {{tool_3}}:Z
 ```
 
-## Phase 4: Safety Verification
+### Step 2.4: Safety Verification
 
 ```javascript
 // Check only CLAUDE.md modified
@@ -240,16 +239,6 @@ Update Summary:
   4 files changed, 82 insertions(+), 6 deletions(-)
 ```
 
-## Execution Summary
-
-**Module Count Threshold**:
-- **<15 modules**: Coordinator executes Phase 3A (Direct Execution)
-- **≥15 modules**: Coordinator executes Phase 3B (Agent Batch Execution)
-
-**Agent Hierarchy** (for ≥15 modules):
-- **Coordinator**: Handles batch division, spawns worker agents per depth
-- **Worker Agents**: Each processes 4 modules with tool fallback (related mode)
-
 ## Error Handling
 
 **Batch Worker**:
@@ -268,65 +257,11 @@ Update Summary:
 - Script timeout
 - Unexpected output
 
-## Tool Reference
+## Output
 
-| Tool   | Best For                       | Fallback To    |
-|--------|--------------------------------|----------------|
-| gemini | Documentation, patterns        | qwen → codex   |
-| qwen   | Architecture, system design    | gemini → codex |
-| codex  | Implementation, code quality   | gemini → qwen  |
+- **Files**: Updated CLAUDE.md files for changed modules and their parents
+- **Report**: Summary with success/failure counts, tool usage, and git diff statistics
 
-## Usage Examples
+## Next Phase
 
-```bash
-# Daily development update
-/memory:update-related
-
-# After feature work with specific tool
-/memory:update-related --tool qwen
-
-# Code quality review after implementation
-/memory:update-related --tool codex
-```
-
-## Key Advantages
-
-**Efficiency**: 30 modules → 8 agents (73% reduction)
-**Resilience**: 3-tier fallback per module
-**Performance**: Parallel batches, no concurrency limits
-**Context-aware**: Updates based on actual git changes
-**Fast**: Only affected modules, not entire project
-
-## Coordinator Checklist
-
-- Parse `--tool` (default: gemini)
-- Refresh code index for accurate change detection
-- Detect changed modules via detect_changed_modules.sh
-- **Smart filter modules** (auto-detect tech stack, skip tests/build/config/docs)
-- Cache git changes
-- Apply fallback if no changes (recent 10 modules)
-- Construct tool fallback order
-- **Present filtered plan** with skip reasons and change types
-- **Wait for y/n confirmation**
-- Determine execution mode:
-  - **<15 modules**: Direct execution (Phase 3A)
-    - For each depth (N→0): Sequential module updates with tool fallback
-  - **≥15 modules**: Agent batch execution (Phase 3B)
-    - For each depth (N→0): Batch modules (4 per batch), spawn batch workers in parallel
-- Wait for depth/batch completion
-- Aggregate results
-- Safety check (only CLAUDE.md modified)
-- Display git diff statistics + summary
-
-## Comparison with Full Update
-
-| Aspect | Related Update | Full Update |
-|--------|----------------|-------------|
-| **Scope** | Changed modules only | All project modules |
-| **Speed** | Fast (minutes) | Slower (10-30 min) |
-| **Use case** | Daily development | Major refactoring |
-| **Mode** | `"related"` | `"full"` |
-| **Trigger** | After commits | After major changes |
-| **Batching** | 4 modules/agent | 4 modules/agent |
-| **Fallback** | gemini→qwen→codex | gemini→qwen→codex |
-| **Complexity threshold** | ≤15 modules | ≤20 modules |
+Return to [manage.md](../manage.md) router.

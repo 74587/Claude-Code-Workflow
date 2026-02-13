@@ -38,6 +38,7 @@ import {
 } from '@/components/shared/CliExecutionSettings';
 import { buildQueueItemContext } from '@/lib/queue-prompt';
 import { useQueueExecutionStore, type QueueExecution } from '@/stores/queueExecutionStore';
+import type { Flow } from '@/types/flow';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -70,7 +71,7 @@ export function QueueItemExecutor({ item, className }: QueueItemExecutorProps) {
   // Resolve the parent issue for context building
   const { issues } = useIssues();
   const issue = useMemo(
-    () => issues.find((i) => i.id === item.issue_id) as any,
+    () => issues.find((i) => i.id === item.issue_id),
     [issues, item.issue_id]
   );
 
@@ -203,13 +204,13 @@ export function QueueItemExecutor({ item, className }: QueueItemExecutorProps) {
         throw new Error('Failed to create flow');
       }
 
-      // Hydrate Orchestrator stores
-      const flowDto = created.data as any;
+      // Hydrate Orchestrator stores -- convert OrchestratorFlowDto to Flow
+      const flowDto = created.data;
       const parsedVersion = parseInt(String(flowDto.version ?? '1'), 10);
-      const flowForStore = {
+      const flowForStore: Flow = {
         ...flowDto,
         version: Number.isFinite(parsedVersion) ? parsedVersion : 1,
-      } as any;
+      } as Flow;
       useFlowStore.getState().setCurrentFlow(flowForStore);
 
       // Execute the flow

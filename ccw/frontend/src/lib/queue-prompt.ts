@@ -7,6 +7,34 @@
 
 import type { QueueItem } from '@/lib/api';
 
+// ---------------------------------------------------------------------------
+// Minimal interfaces for the issue data consumed by buildQueueItemContext.
+// The backend may return solution.tasks[] which is not part of the core
+// IssueSolution interface, so we define a local superset here.
+// ---------------------------------------------------------------------------
+
+/** A lightweight task entry nested inside a solution from the backend. */
+interface SolutionTask {
+  id: string;
+  title?: string;
+  description?: string;
+}
+
+/** Solution shape as consumed by the prompt builder (superset of IssueSolution). */
+interface PromptSolution {
+  id: string;
+  description?: string;
+  approach?: string;
+  tasks?: SolutionTask[];
+}
+
+/** Minimal issue shape consumed by the prompt builder. */
+export interface QueueItemIssue {
+  title?: string;
+  context?: string;
+  solutions?: PromptSolution[];
+}
+
 /**
  * Build a context string for executing a queue item.
  *
@@ -18,7 +46,7 @@ import type { QueueItem } from '@/lib/api';
  */
 export function buildQueueItemContext(
   item: QueueItem,
-  issue: any | undefined
+  issue: QueueItemIssue | undefined
 ): string {
   const lines: string[] = [];
 
@@ -38,7 +66,7 @@ export function buildQueueItemContext(
     }
 
     const solution = Array.isArray(issue.solutions)
-      ? issue.solutions.find((s: any) => s?.id === item.solution_id)
+      ? issue.solutions.find((s) => s?.id === item.solution_id)
       : undefined;
 
     if (solution) {
@@ -54,7 +82,7 @@ export function buildQueueItemContext(
       // Include matched task from solution.tasks when available
       const tasks = Array.isArray(solution.tasks) ? solution.tasks : [];
       const task = item.task_id
-        ? tasks.find((t: any) => t?.id === item.task_id)
+        ? tasks.find((t) => t?.id === item.task_id)
         : undefined;
       if (task) {
         lines.push('');

@@ -201,8 +201,9 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
         category: 'user',
       }, projectPath || undefined);
       setPrompt('');
-    } catch {
-      // Error shown in terminal output
+    } catch (err) {
+      // Error shown in terminal output; log for DevTools debugging
+      console.error('[TerminalMainArea] executeInCliSession failed:', err);
     } finally {
       setIsExecuting(false);
     }

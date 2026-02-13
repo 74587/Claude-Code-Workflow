@@ -1,24 +1,26 @@
----
-name: update-full
-description: Update all CLAUDE.md files using layer-based execution (Layer 3→1) with batched agents (4 modules/agent) and gemini→qwen→codex fallback, <20 modules uses direct parallel
-argument-hint: "[--tool gemini|qwen|codex] [--path <directory>]"
----
+# Phase 1: Full CLAUDE.md Update (update-full)
 
-# Full Documentation Update (/memory:update-full)
+全项目 CLAUDE.md 更新，使用 3 层架构 (Layer 3→1)，批量 agent 执行，自动 tool fallback。
 
-## Overview
+## Objective
 
-Orchestrates project-wide CLAUDE.md updates using batched agent execution with automatic tool fallback and 3-layer architecture support.
+- 发现所有项目模块并按深度分层
+- 按 Layer 3→2→1 顺序 bottom-up 更新所有模块的 CLAUDE.md
+- <20 模块直接并行，≥20 模块使用 agent 批处理 (4 modules/agent)
+- 自动 tool fallback (gemini→qwen→codex)
 
-**Parameters**:
+## Parameters
+
 - `--tool <gemini|qwen|codex>`: Primary tool (default: gemini)
 - `--path <directory>`: Target specific directory (default: entire project)
 
+## Execution
+
 **Execution Flow**: Discovery → Plan Presentation → Execution → Safety Verification
 
-## 3-Layer Architecture & Auto-Strategy Selection
+### 3-Layer Architecture & Auto-Strategy Selection
 
-### Layer Definition & Strategy Assignment
+#### Layer Definition & Strategy Assignment
 
 | Layer | Depth | Strategy | Purpose | Context Pattern |
 |-------|-------|----------|---------|----------------|
@@ -30,20 +32,17 @@ Orchestrates project-wide CLAUDE.md updates using batched agent execution with a
 
 **Strategy Auto-Selection**: Strategies are automatically determined by directory depth - no user configuration needed.
 
-### Strategy Details
-
 #### Multi-Layer Strategy (Layer 3 Only)
 - **Use Case**: Deepest directories with unstructured file layouts
 - **Behavior**: Generates CLAUDE.md for current directory AND each subdirectory containing files
 - **Context**: All files in current directory tree (`@**/*`)
-
 
 #### Single-Layer Strategy (Layers 1-2)
 - **Use Case**: Upper layers that aggregate from existing documentation
 - **Behavior**: Generates CLAUDE.md only for current directory
 - **Context**: Direct children CLAUDE.md files + current directory code files
 
-### Example Flow
+#### Example Flow
 ```
 src/auth/handlers/ (depth 3) → MULTI-LAYER STRATEGY
   CONTEXT: @**/* (all files in handlers/ and subdirs)
@@ -62,7 +61,7 @@ src/ (depth 1) → SINGLE-LAYER STRATEGY
   GENERATES: ./CLAUDE.md only
 ```
 
-## Core Execution Rules
+### Core Execution Rules
 
 1. **Analyze First**: Git cache + module discovery before updates
 2. **Wait for Approval**: Present plan, no execution without user confirmation
@@ -74,7 +73,7 @@ src/ (depth 1) → SINGLE-LAYER STRATEGY
 6. **Safety Check**: Verify only CLAUDE.md files modified
 7. **Layer-based Grouping**: Group modules by LAYER (not depth) for execution
 
-## Tool Fallback Hierarchy
+### Tool Fallback Hierarchy
 
 ```javascript
 --tool gemini  →  [gemini, qwen, codex]  // default
@@ -90,9 +89,7 @@ src/ (depth 1) → SINGLE-LAYER STRATEGY
 | qwen   | Architecture, system design    | gemini → codex |
 | codex  | Implementation, code quality   | gemini → qwen  |
 
-## Execution Phases
-
-### Phase 1: Discovery & Analysis
+### Step 1.1: Discovery & Analysis
 
 ```javascript
 // Cache git changes
@@ -109,7 +106,7 @@ Bash({command: "cd <target-path> && ccw tool exec get_modules_by_depth '{\"forma
 
 **Smart filter**: Auto-detect and skip tests/build/config/docs based on project tech stack.
 
-### Phase 2: Plan Presentation
+### Step 1.2: Plan Presentation
 
 **For <20 modules**:
 ```
@@ -168,7 +165,7 @@ Update Plan:
   Confirm execution? (y/n)
 ```
 
-### Phase 3A: Direct Execution (<20 modules)
+### Step 1.3A: Direct Execution (<20 modules)
 
 **Strategy**: Parallel execution within layer (max 4 concurrent), no agent overhead.
 
@@ -202,7 +199,7 @@ for (let layer of [3, 2, 1]) {
 }
 ```
 
-### Phase 3B: Agent Batch Execution (≥20 modules)
+### Step 1.3B: Agent Batch Execution (≥20 modules)
 
 **Strategy**: Batch modules into groups of 4, spawn memory-bridge agents per batch.
 
@@ -284,7 +281,8 @@ REPORTING FORMAT:
     ⚠️  path/to/module failed with {tool}, trying next...
     ❌ FAILED: path/to/module - all tools exhausted
 ```
-### Phase 4: Safety Verification
+
+### Step 1.4: Safety Verification
 
 ```javascript
 // Check only CLAUDE.md files modified
@@ -308,25 +306,11 @@ Update Summary:
 **Coordinator**: Invalid path abort, user decline handling, safety check with auto-revert
 **Fallback Triggers**: Non-zero exit code, script timeout, unexpected output
 
-## Usage Examples
+## Output
 
-```bash
-# Full project update (auto-strategy selection)
-/memory:update-full
+- **Files**: Updated CLAUDE.md files across all project modules
+- **Report**: Summary with success/failure counts and tool usage statistics
 
-# Target specific directory
-/memory:update-full --path .claude
-/memory:update-full --path src/features/auth
+## Next Phase
 
-# Use specific tool
-/memory:update-full --tool qwen
-/memory:update-full --path .claude --tool qwen
-```
-
-## Key Advantages
-
-- **Efficiency**: 30 modules → 8 agents (73% reduction from sequential)
-- **Resilience**: 3-tier tool fallback per module
-- **Performance**: Parallel batches, no concurrency limits
-- **Observability**: Per-module tool usage, batch-level metrics
-- **Automation**: Zero configuration - strategy auto-selected by directory depth
+Return to [manage.md](../manage.md) router.

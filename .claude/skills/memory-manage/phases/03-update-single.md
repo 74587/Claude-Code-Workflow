@@ -1,81 +1,47 @@
----
-name: update-single
-description: Update single module CLAUDE.md using Explore agent for deep codebase understanding, producing manual-style documentation (handbook, not API reference)
-argument-hint: "<path> [--tool gemini|qwen|codex]"
-allowed-tools: Task(*), Bash(*), AskUserQuestion(*)
----
+# Phase 3: Single Module CLAUDE.md Update (update-single)
 
-# Single Module Documentation Update (/memory:update-single)
+使用 Explore agent 深度分析后，为单个目标模块生成手册式 (说明书) CLAUDE.md。
 
-## Overview
+## Objective
 
-Generates a manual-style CLAUDE.md for a single target directory using Explore agent for deep semantic codebase understanding. The output reads like a module handbook — explaining what it does, how to use it, and how it integrates — rather than dry API documentation.
-
-**Core capabilities:**
-- Explore agent for semantic codebase exploration (not just file scanning)
-- Manual/handbook-style output (usage guide, not reference docs)
-- Interactive confirmation with exploration summary preview
+- 验证目标路径并扫描结构
+- 使用 Explore agent 进行 7 维度深度探索
+- 交互确认后通过 CLI tool 生成手册式 CLAUDE.md
 - Tool fallback (gemini→qwen→codex)
 
-## Usage
+## Parameters
 
-```bash
-/memory:update-single <path> [--tool gemini|qwen|codex]
+- `<path>`: Target directory path (required)
+- `--tool <gemini|qwen|codex>`: Primary CLI tool (default: gemini)
 
-# Arguments
-<path>                         Target directory path (required)
-
-# Options
---tool <gemini|qwen|codex>     Primary CLI tool (default: gemini)
-
-# Examples
-/memory:update-single src/auth
-/memory:update-single .claude/commands --tool qwen
-/memory:update-single ccw/frontend/src/components/issue
-```
-
-## Output Artifacts
-
-| Artifact | Description |
-|----------|-------------|
-| `<path>/CLAUDE.md` | Manual-style module handbook |
-
-**CLAUDE.md Style** — "说明书" not "文档":
-- What this module does (purpose & responsibility)
-- How to use it (patterns, conventions, examples)
-- How it integrates (dependencies, exports, data flow)
-- Important constraints (gotchas, rules, limitations)
-
-## Execution Process
+## Execution
 
 ```
-Phase 1: Target Validation & Scan
+Step 3.1: Target Validation & Scan
    ├─ Parse arguments (path, --tool)
    ├─ Validate target directory exists
    └─ Quick structure scan (file count, types, depth)
 
-Phase 2: Deep Exploration (Explore Agent)
+Step 3.2: Deep Exploration (Explore Agent)
    ├─ Launch Explore agent with "very thorough" level
    ├─ Analyze purpose, structure, patterns, exports, dependencies
    └─ Build comprehensive module understanding
 
-Phase 3: Confirmation
+Step 3.3: Confirmation
    ├─ Display exploration summary (key findings)
    └─ AskUserQuestion: Generate / Cancel
 
-Phase 4: Generate CLAUDE.md (CLI Tool)
+Step 3.4: Generate CLAUDE.md (CLI Tool)
    ├─ Construct manual-style prompt from exploration results
    ├─ Execute ccw cli with --mode write
    ├─ Tool fallback on failure
    └─ Write to <path>/CLAUDE.md
 
-Phase 5: Verification
+Step 3.5: Verification
    └─ Display generated CLAUDE.md preview + stats
 ```
 
-## Implementation
-
-### Phase 1: Target Validation & Scan
+### Step 3.1: Target Validation & Scan
 
 ```javascript
 // Parse arguments
@@ -86,7 +52,7 @@ const primaryTool = toolFlagIdx !== -1 ? parts[toolFlagIdx + 1] : 'gemini'
 const targetPath = parts.find(p => !p.startsWith('--') && p !== primaryTool)
 
 if (!targetPath) {
-  console.log('ERROR: <path> is required. Usage: /memory:update-single <path> [--tool gemini|qwen|codex]')
+  console.log('ERROR: <path> is required. Usage: /memory:manage update-single <path> [--tool gemini|qwen|codex]')
   return
 }
 
@@ -112,9 +78,9 @@ Launching deep exploration...
 `)
 ```
 
-### Phase 2: Deep Exploration (Explore Agent)
+### Step 3.2: Deep Exploration (Explore Agent)
 
-**⚠️ CRITICAL**: Use `run_in_background: false` — exploration results are REQUIRED before generation.
+**CRITICAL**: Use `run_in_background: false` — exploration results are REQUIRED before generation.
 
 ```javascript
 const explorationResult = Task(
@@ -173,7 +139,7 @@ Return a structured summary covering all 7 dimensions above. Include specific fi
 )
 ```
 
-### Phase 3: Confirmation
+### Step 3.3: Confirmation
 
 ```javascript
 console.log(`
@@ -203,7 +169,7 @@ AskUserQuestion({
 // Cancel → abort
 ```
 
-### Phase 4: Generate CLAUDE.md (CLI Tool)
+### Step 3.4: Generate CLAUDE.md (CLI Tool)
 
 **Tool fallback hierarchy**:
 ```javascript
@@ -285,7 +251,7 @@ CONSTRAINTS: Only write CLAUDE.md, no other files" --tool ${tool} --mode write -
 }
 ```
 
-### Phase 5: Verification
+### Step 3.5: Verification
 
 ```javascript
 // Check file was created/updated
@@ -311,8 +277,8 @@ console.log(`
 
 The generated CLAUDE.md is a **说明书 (handbook)**, NOT a reference doc:
 
-| Aspect | Handbook Style ✅ | Reference Doc Style ❌ |
-|--------|-------------------|----------------------|
+| Aspect | Handbook Style | Reference Doc Style |
+|--------|---------------|---------------------|
 | Purpose | "This module handles user auth" | "Authentication module" |
 | Content | How to work with it | What every function does |
 | Patterns | "Always use `createAuthMiddleware()`" | "List of all exports" |
@@ -330,18 +296,11 @@ The generated CLAUDE.md is a **说明书 (handbook)**, NOT a reference doc:
 | Empty directory | Abort — nothing to document |
 | Existing CLAUDE.md | Overwrite entirely (full regeneration) |
 
-## Usage Examples
+## Output
 
-```bash
-# Generate handbook for a module
-/memory:update-single src/auth
+- **File**: `<path>/CLAUDE.md` — Manual-style module handbook
+- **Preview**: First 30 lines displayed after generation
 
-# Use specific tool
-/memory:update-single .claude/commands --tool qwen
+## Next Phase
 
-# Deep nested module
-/memory:update-single ccw/frontend/src/components/issue
-
-# Root-level documentation
-/memory:update-single .
-```
+Return to [manage.md](../manage.md) router.

@@ -22,6 +22,8 @@ export interface UseCliSessionCoreOptions {
   autoSelectLast?: boolean;
   /** Default resumeKey used when creating sessions via ensureSession/handleCreateSession. */
   resumeKey?: string;
+  /** Shell to use when creating new sessions. Defaults to 'bash'. */
+  preferredShell?: string;
   /** Additional createCliSession fields (cols, rows, tool, model). */
   createSessionDefaults?: {
     cols?: number;
@@ -60,6 +62,7 @@ export function useCliSessionCore(options: UseCliSessionCoreOptions = {}): UseCl
   const {
     autoSelectLast = true,
     resumeKey,
+    preferredShell = 'bash',
     createSessionDefaults,
   } = options;
 
@@ -92,7 +95,7 @@ export function useCliSessionCore(options: UseCliSessionCoreOptions = {}): UseCl
     setError(null);
     try {
       const r = await fetchCliSessions(projectPath || undefined);
-      setSessions(r.sessions as unknown as CliSession[]);
+      setSessions(r.sessions);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -120,16 +123,16 @@ export function useCliSessionCore(options: UseCliSessionCoreOptions = {}): UseCl
     const created = await createCliSession(
       {
         workingDir: projectPath,
-        preferredShell: 'bash',
+        preferredShell,
         resumeKey,
         ...createSessionDefaults,
       },
       projectPath
     );
-    upsertSession(created.session as unknown as CliSession);
+    upsertSession(created.session);
     setSelectedSessionKey(created.session.sessionKey);
     return created.session.sessionKey;
-  }, [selectedSessionKey, projectPath, resumeKey, createSessionDefaults, upsertSession]);
+  }, [selectedSessionKey, projectPath, resumeKey, preferredShell, createSessionDefaults, upsertSession]);
 
   // ------- handleCreateSession -------
   const handleCreateSession = useCallback(async () => {
@@ -139,21 +142,21 @@ export function useCliSessionCore(options: UseCliSessionCoreOptions = {}): UseCl
       const created = await createCliSession(
         {
           workingDir: projectPath,
-          preferredShell: 'bash',
+          preferredShell,
           resumeKey,
           ...createSessionDefaults,
         },
         projectPath
       );
-      upsertSession(created.session as unknown as CliSession);
+      upsertSession(created.session);
       setSelectedSessionKey(created.session.sessionKey);
       // Refresh full list so store stays consistent
       const r = await fetchCliSessions(projectPath || undefined);
-      setSessions(r.sessions as unknown as CliSession[]);
+      setSessions(r.sessions);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [projectPath, resumeKey, createSessionDefaults, upsertSession, setSessions]);
+  }, [projectPath, resumeKey, preferredShell, createSessionDefaults, upsertSession, setSessions]);
 
   return {
     sessions,

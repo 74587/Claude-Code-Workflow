@@ -1,18 +1,18 @@
 ---
-name: load
+name: prepare
 description: Delegate to universal-executor agent to analyze project via Gemini/Qwen CLI and return JSON core content package for task context
 argument-hint: "[--tool gemini|qwen] \"task context description\""
 allowed-tools: Task(*), Bash(*)
 examples:
-  - /memory:load "在当前前端基础上开发用户认证功能"
-  - /memory:load --tool qwen "重构支付模块API"
+  - /memory:prepare "在当前前端基础上开发用户认证功能"
+  - /memory:prepare --tool qwen "重构支付模块API"
 ---
 
-# Memory Load Command (/memory:load)
+# Memory Prepare Command (/memory:prepare)
 
 ## 1. Overview
 
-The `memory:load` command **delegates to a universal-executor agent** to analyze the project and return a structured "Core Content Pack". This pack is loaded into the main thread's memory, providing essential context for subsequent agent operations while minimizing token consumption.
+The `memory:prepare` command **delegates to a universal-executor agent** to analyze the project and return a structured "Core Content Pack". This pack is loaded into the main thread's memory, providing essential context for subsequent agent operations while minimizing token consumption.
 
 **Core Philosophy**:
 - **Agent-Driven**: Fully delegates execution to universal-executor agent
@@ -95,11 +95,11 @@ The command fully delegates to **universal-executor agent**, which autonomously:
 ```javascript
 Task(
   subagent_type="universal-executor",
-  description="Load project memory: ${task_description}",
+  description="Prepare project memory: ${task_description}",
   prompt=`
-## Mission: Load Project Memory Context
+## Mission: Prepare Project Memory Context
 
-**Task**: Load project memory context for: "${task_description}"
+**Task**: Prepare project memory context for: "${task_description}"
 **Mode**: analysis
 **Tool Preference**: ${tool || 'gemini'}
 
@@ -186,7 +186,7 @@ Before returning:
 ### Example 1: Load Context for New Feature
 
 ```bash
-/memory:load "在当前前端基础上开发用户认证功能"
+/memory:prepare "在当前前端基础上开发用户认证功能"
 ```
 
 **Agent Execution**:
@@ -212,7 +212,7 @@ Before returning:
 ### Example 2: Using Qwen Tool
 
 ```bash
-/memory:load --tool qwen "重构支付模块API"
+/memory:prepare --tool qwen "重构支付模块API"
 ```
 
 Agent uses Qwen CLI for analysis, returns same structured package.
@@ -220,7 +220,7 @@ Agent uses Qwen CLI for analysis, returns same structured package.
 ### Example 3: Bug Fix Context
 
 ```bash
-/memory:load "修复登录验证错误"
+/memory:prepare "修复登录验证错误"
 ```
 
 Returns core context related to login validation, including test files and validation logic.
@@ -229,7 +229,7 @@ Returns core context related to login validation, including test files and valid
 
 - **Session-Scoped**: Content package valid for current session
 - **Subsequent Reference**: All subsequent agents/commands can access
-- **Reload Required**: New sessions need to re-execute /memory:load
+- **Reload Required**: New sessions need to re-execute /memory:prepare
 
 ## 8. Notes
 

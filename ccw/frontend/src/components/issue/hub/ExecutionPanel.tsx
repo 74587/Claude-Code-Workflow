@@ -11,9 +11,7 @@ import {
   Play,
   CheckCircle,
   XCircle,
-  Clock,
   Terminal,
-  Loader2,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -23,50 +21,9 @@ import {
   selectExecutionStats,
   useTerminalPanelStore,
 } from '@/stores';
-import type { QueueExecution, QueueExecutionStatus } from '@/stores/queueExecutionStore';
+import type { QueueExecution } from '@/stores/queueExecutionStore';
 import { cn } from '@/lib/utils';
-
-// ========== Helpers ==========
-
-function statusBadgeVariant(status: QueueExecutionStatus): 'info' | 'success' | 'destructive' | 'secondary' {
-  switch (status) {
-    case 'running':
-      return 'info';
-    case 'completed':
-      return 'success';
-    case 'failed':
-      return 'destructive';
-    case 'pending':
-    default:
-      return 'secondary';
-  }
-}
-
-function statusIcon(status: QueueExecutionStatus) {
-  switch (status) {
-    case 'running':
-      return <Loader2 className="w-3.5 h-3.5 animate-spin" />;
-    case 'completed':
-      return <CheckCircle className="w-3.5 h-3.5" />;
-    case 'failed':
-      return <XCircle className="w-3.5 h-3.5" />;
-    case 'pending':
-    default:
-      return <Clock className="w-3.5 h-3.5" />;
-  }
-}
-
-function formatRelativeTime(isoString: string): string {
-  const diff = Date.now() - new Date(isoString).getTime();
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
+import { statusIcon, statusBadgeVariant, formatRelativeTime } from '@/lib/execution-display-utils';
 
 // ========== Empty State ==========
 

@@ -349,7 +349,7 @@ export function McpManagerPage() {
     enabledTools: [],
     projectRoot: undefined,
     allowedDirs: undefined,
-    disableSandbox: undefined,
+    enableSandbox: undefined,
   };
 
   const handleToggleCcwTool = async (tool: string, enabled: boolean) => {
@@ -407,7 +407,7 @@ export function McpManagerPage() {
     enabledTools: [],
     projectRoot: undefined,
     allowedDirs: undefined,
-    disableSandbox: undefined,
+    enableSandbox: undefined,
   };
 
   const handleToggleCcwToolCodex = async (tool: string, enabled: boolean) => {
@@ -721,7 +721,7 @@ export function McpManagerPage() {
           enabledTools={ccwConfig.enabledTools}
           projectRoot={ccwConfig.projectRoot}
           allowedDirs={ccwConfig.allowedDirs}
-          disableSandbox={ccwConfig.disableSandbox}
+          enableSandbox={ccwConfig.enableSandbox}
           onToggleTool={handleToggleCcwTool}
           onUpdateConfig={handleUpdateCcwConfig}
           onInstall={handleCcwInstall}
@@ -734,7 +734,7 @@ export function McpManagerPage() {
           enabledTools={ccwCodexConfig.enabledTools}
           projectRoot={ccwCodexConfig.projectRoot}
           allowedDirs={ccwCodexConfig.allowedDirs}
-          disableSandbox={ccwCodexConfig.disableSandbox}
+          enableSandbox={ccwCodexConfig.enableSandbox}
           onToggleTool={handleToggleCcwToolCodex}
           onUpdateConfig={handleUpdateCcwConfigCodex}
           onInstall={handleCcwInstallCodex}

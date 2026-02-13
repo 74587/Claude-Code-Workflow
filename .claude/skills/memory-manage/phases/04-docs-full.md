@@ -1,24 +1,27 @@
----
-name: docs-full-cli
-description: Generate full project documentation using CLI execution (Layer 3→1) with batched agents (4 modules/agent) and gemini→qwen→codex fallback, <20 modules uses direct parallel
-argument-hint: "[path] [--tool <gemini|qwen|codex>]"
----
+# Phase 4: Full Documentation Generation (docs-full)
 
-# Full Documentation Generation - CLI Mode (/memory:docs-full-cli)
+全项目 API.md + README.md 文档生成，使用 CLI 执行、3 层架构和自动 tool fallback，输出到 .workflow/docs/。
 
-## Overview
+## Objective
 
-Orchestrates project-wide documentation generation using CLI-based execution with batched agents and automatic tool fallback.
+- 发现所有项目模块并按深度分层
+- 按 Layer 3→2→1 顺序生成 API.md + README.md 文档
+- <20 模块直接并行，≥20 模块使用 agent 批处理
+- 生成项目级文档 (README.md, ARCHITECTURE.md, EXAMPLES.md)
+- 自动 tool fallback (gemini→qwen→codex)
 
-**Parameters**:
+## Parameters
+
 - `path`: Target directory (default: current directory)
 - `--tool <gemini|qwen|codex>`: Primary tool (default: gemini)
 
-**Execution Flow**: Discovery → Plan Presentation → Execution → Verification
+## Execution
 
-## 3-Layer Architecture & Auto-Strategy Selection
+**Execution Flow**: Discovery → Plan Presentation → Execution → Project-Level Docs → Verification
 
-### Layer Definition & Strategy Assignment
+### 3-Layer Architecture & Auto-Strategy Selection
+
+#### Layer Definition & Strategy Assignment
 
 | Layer | Depth | Strategy | Purpose | Context Pattern |
 |-------|-------|----------|---------|----------------|
@@ -28,16 +31,11 @@ Orchestrates project-wide documentation generation using CLI-based execution wit
 
 **Generation Direction**: Layer 3 → Layer 2 → Layer 1 (bottom-up dependency flow)
 
-**Strategy Auto-Selection**: Strategies are automatically determined by directory depth - no user configuration needed.
-
-### Strategy Details
-
 #### Full Strategy (Layer 3 Only)
 - **Use Case**: Deepest directories with comprehensive file coverage
 - **Behavior**: Generates API.md + README.md for current directory AND subdirectories containing code
 - **Context**: All files in current directory tree (`@**/*`)
 - **Output**: `.workflow/docs/{project_name}/{path}/API.md` + `README.md`
-
 
 #### Single Strategy (Layers 1-2)
 - **Use Case**: Upper layers that aggregate from existing documentation
@@ -45,7 +43,7 @@ Orchestrates project-wide documentation generation using CLI-based execution wit
 - **Context**: Direct children docs + current directory code files
 - **Output**: `.workflow/docs/{project_name}/{path}/API.md` + `README.md`
 
-### Example Flow
+#### Example Flow
 ```
 src/auth/handlers/ (depth 3) → FULL STRATEGY
   CONTEXT: @**/* (all files in handlers/ and subdirs)
@@ -64,7 +62,7 @@ src/ (depth 1) → SINGLE STRATEGY
   GENERATES: .workflow/docs/project/{API.md,README.md} only
 ```
 
-## Core Execution Rules
+### Core Execution Rules
 
 1. **Analyze First**: Module discovery + folder classification before generation
 2. **Wait for Approval**: Present plan, no execution without user confirmation
@@ -76,7 +74,7 @@ src/ (depth 1) → SINGLE STRATEGY
 6. **Safety Check**: Verify only docs files modified in .workflow/docs/
 7. **Layer-based Grouping**: Group modules by LAYER (not depth) for execution
 
-## Tool Fallback Hierarchy
+### Tool Fallback Hierarchy
 
 ```javascript
 --tool gemini  →  [gemini, qwen, codex]  // default
@@ -84,17 +82,7 @@ src/ (depth 1) → SINGLE STRATEGY
 --tool codex   →  [codex, gemini, qwen]
 ```
 
-**Trigger**: Non-zero exit code from generation script
-
-| Tool   | Best For                       | Fallback To    |
-|--------|--------------------------------|----------------|
-| gemini | Documentation, patterns        | qwen → codex   |
-| qwen   | Architecture, system design    | gemini → codex |
-| codex  | Implementation, code quality   | gemini → qwen  |
-
-## Execution Phases
-
-### Phase 1: Discovery & Analysis
+### Step 4.1: Discovery & Analysis
 
 ```javascript
 // Get project metadata
@@ -111,7 +99,7 @@ Bash({command: "cd <target-path> && ccw tool exec get_modules_by_depth '{\"forma
 
 **Smart filter**: Auto-detect and skip tests/build/config/vendor based on project tech stack.
 
-### Phase 2: Plan Presentation
+### Step 4.2: Plan Presentation
 
 **For <20 modules**:
 ```
@@ -139,7 +127,6 @@ Documentation Generation Plan:
 
   Auto-skipped: ./tests, __pycache__, node_modules (15 paths)
   Execution order: Layer 2 → Layer 1
-  Estimated time: ~5-10 minutes
 
   Confirm execution? (y/n)
 ```
@@ -176,12 +163,10 @@ Documentation Generation Plan:
   - Layer 2 (15 modules, depth 1-2): 4 agents [4, 4, 4, 3]
   - Layer 1 (2 modules, depth 0): 1 agent [2]
 
-  Estimated time: ~15-25 minutes
-
   Confirm execution? (y/n)
 ```
 
-### Phase 3A: Direct Execution (<20 modules)
+### Step 4.3A: Direct Execution (<20 modules)
 
 **Strategy**: Parallel execution within layer (max 4 concurrent), no agent overhead.
 
@@ -217,7 +202,7 @@ for (let layer of [3, 2, 1]) {
 }
 ```
 
-### Phase 3B: Agent Batch Execution (≥20 modules)
+### Step 4.3B: Agent Batch Execution (≥20 modules)
 
 **Strategy**: Batch modules into groups of 4, spawn memory-bridge agents per batch.
 
@@ -290,7 +275,6 @@ EXECUTION FLOW (for each module):
   2. Handle complete failure (all tools failed):
      if [ $exit_code -ne 0 ]; then
        report "❌ FAILED: {{module_path}} - all tools exhausted"
-       # Continue to next module (do not abort batch)
      fi
 
 FOLDER TYPE HANDLING:
@@ -310,7 +294,7 @@ REPORTING FORMAT:
     ❌ FAILED: path/to/module - all tools exhausted
 ```
 
-### Phase 4: Project-Level Documentation
+### Step 4.4: Project-Level Documentation
 
 **After all module documentation is generated, create project-level documentation files.**
 
@@ -370,7 +354,7 @@ Project-Level Documentation:
   ✅ api/README.md (HTTP API reference) [optional]
 ```
 
-### Phase 5: Verification
+### Step 4.5: Verification
 
 ```javascript
 // Check documentation files created
@@ -398,12 +382,6 @@ Documentation Generation Summary:
     └── README.md
 ```
 
-## Error Handling
-
-**Batch Worker**: Tool fallback per module, batch isolation, clear status reporting
-**Coordinator**: Invalid path abort, user decline handling, verification with cleanup
-**Fallback Triggers**: Non-zero exit code, script timeout, unexpected output
-
 ## Output Structure
 
 ```
@@ -426,36 +404,18 @@ Documentation Generation Summary:
 │   └── core/
 │       ├── API.md
 │       └── README.md
-├── README.md                      # ✨ Project root overview (auto-generated)
-├── ARCHITECTURE.md                # ✨ System design (auto-generated)
-├── EXAMPLES.md                    # ✨ Usage examples (auto-generated)
-└── api/                           # ✨ Optional (auto-generated if HTTP API detected)
+├── README.md                      # Project root overview (auto-generated)
+├── ARCHITECTURE.md                # System design (auto-generated)
+├── EXAMPLES.md                    # Usage examples (auto-generated)
+└── api/                           # Optional (auto-generated if HTTP API detected)
     └── README.md                  # HTTP API reference
 ```
 
-## Usage Examples
+## Error Handling
 
-```bash
-# Full project documentation generation
-/memory:docs-full-cli
-
-# Target specific directory
-/memory:docs-full-cli src/features/auth
-/memory:docs-full-cli .claude
-
-# Use specific tool
-/memory:docs-full-cli --tool qwen
-/memory:docs-full-cli src --tool qwen
-```
-
-## Key Advantages
-
-- **Efficiency**: 30 modules → 8 agents (73% reduction from sequential)
-- **Resilience**: 3-tier tool fallback per module
-- **Performance**: Parallel batches, no concurrency limits
-- **Observability**: Per-module tool usage, batch-level metrics
-- **Automation**: Zero configuration - strategy auto-selected by directory depth
-- **Path Mirroring**: Clear 1:1 mapping between source and documentation structure
+**Batch Worker**: Tool fallback per module, batch isolation, clear status reporting
+**Coordinator**: Invalid path abort, user decline handling, verification with cleanup
+**Fallback Triggers**: Non-zero exit code, script timeout, unexpected output
 
 ## Template Reference
 
@@ -464,8 +424,12 @@ Templates used from `~/.ccw/workflows/cli-templates/prompts/documentation/`:
 - `module-readme.txt`: Module purpose, usage, dependencies
 - `folder-navigation.txt`: Navigation README for folders with subdirectories
 
-## Related Commands
+## Output
 
-- `/memory:docs` - Agent-based documentation planning workflow
-- `/memory:docs-related-cli` - Update docs for changed modules only
-- `/workflow:execute` - Execute documentation tasks (when using agent mode)
+- **Directory**: `.workflow/docs/{project_name}/` — Complete documentation tree
+- **Project-Level**: README.md, ARCHITECTURE.md, EXAMPLES.md, api/README.md (optional)
+- **Report**: Summary with success/failure counts and tool usage statistics
+
+## Next Phase
+
+Return to [manage.md](../manage.md) router.
