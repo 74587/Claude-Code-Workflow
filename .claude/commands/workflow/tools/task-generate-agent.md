@@ -179,6 +179,7 @@ const userConfig = {
 │   ├── IMPL-A2.json
 │   ├── IMPL-B1.json
 │   └── ...
+├── plan.json                      # Output: Structured plan overview
 ├── IMPL_PLAN.md                   # Output: Implementation plan (grouped by module)
 └── TODO_LIST.md                   # Output: TODO list (hierarchical)
 ```
@@ -305,7 +306,7 @@ Based on userConfig.executionMethod, set task-level meta.execution_config:
 
 "agent" →
   meta.execution_config = { method: "agent", cli_tool: null, enable_resume: false }
-  Agent executes implementation_approach steps directly
+  Agent executes implementation steps directly
 
 "cli" →
   meta.execution_config = { method: "cli", cli_tool: userConfig.preferredCliTool, enable_resume: true }
@@ -317,7 +318,7 @@ Based on userConfig.executionMethod, set task-level meta.execution_config:
   - Complex tasks (>3 files, complex logic, refactoring) → method: "cli"
   CLI tool: userConfig.preferredCliTool, enable_resume: true
 
-IMPORTANT: Do NOT add command field to implementation_approach steps. Execution routing is controlled by task-level meta.execution_config.method only.
+IMPORTANT: Do NOT add command field to implementation steps. Execution routing is controlled by task-level meta.execution_config.method only.
 
 ## PRIORITIZED CONTEXT (from context-package.prioritized_context) - ALREADY SORTED
 Context sorting is ALREADY COMPLETED in context-gather Phase 2/3. DO NOT re-sort.
@@ -346,13 +347,13 @@ If prioritized_context is incomplete, fall back to exploration_results:
 
 ## EXPECTED DELIVERABLES
 1. Task JSON Files (.task/IMPL-*.json)
-   - 6-field schema (id, title, status, context_package_path, meta, context, flow_control)
+   - Unified flat schema (task-schema.json)
    - Quantified requirements with explicit counts
    - Artifacts integration from context package
    - **focus_paths generated directly from prioritized_context.priority_tiers (critical + high)**
      - NO re-sorting or re-prioritization - use pre-computed tiers as-is
      - Critical files are PRIMARY focus, High files are SECONDARY
-   - Flow control with pre_analysis steps (use prioritized_context.dependency_order for task sequencing)
+   - Pre-analysis steps (use prioritized_context.dependency_order for task sequencing)
    - **CLI Execution IDs and strategies (MANDATORY)**
 
 2. Implementation Plan (IMPL_PLAN.md)
@@ -360,14 +361,18 @@ If prioritized_context is incomplete, fall back to exploration_results:
    - Task breakdown and execution strategy
    - Complete structure per agent definition
 
-3. TODO List (TODO_LIST.md)
+3. Plan Overview (plan.json)
+   - Structured plan overview (plan-overview-base-schema)
+   - Machine-readable task IDs, shared context, metadata
+
+4. TODO List (TODO_LIST.md)
    - Hierarchical structure (containers, pending, completed markers)
    - Links to task JSONs and summaries
    - Matches task JSON hierarchy
 
 ## CLI EXECUTION ID REQUIREMENTS (MANDATORY)
 Each task JSON MUST include:
-- **cli_execution_id**: Unique ID for CLI execution (format: `{session_id}-{task_id}`)
+- **cli_execution.id**: Unique ID for CLI execution (format: `{session_id}-{task_id}`)
 - **cli_execution**: Strategy object based on depends_on:
   - No deps → `{ "strategy": "new" }`
   - 1 dep (single child) → `{ "strategy": "resume", "resume_from": "parent-cli-id" }`
@@ -503,7 +508,7 @@ Based on userConfig.executionMethod, set task-level meta.execution_config:
 
 "agent" →
   meta.execution_config = { method: "agent", cli_tool: null, enable_resume: false }
-  Agent executes implementation_approach steps directly
+  Agent executes implementation steps directly
 
 "cli" →
   meta.execution_config = { method: "cli", cli_tool: userConfig.preferredCliTool, enable_resume: true }
@@ -515,7 +520,7 @@ Based on userConfig.executionMethod, set task-level meta.execution_config:
   - Complex tasks (>3 files, complex logic, refactoring) → method: "cli"
   CLI tool: userConfig.preferredCliTool, enable_resume: true
 
-IMPORTANT: Do NOT add command field to implementation_approach steps. Execution routing is controlled by task-level meta.execution_config.method only.
+IMPORTANT: Do NOT add command field to implementation steps. Execution routing is controlled by task-level meta.execution_config.method only.
 
 ## PRIORITIZED CONTEXT (from context-package.prioritized_context) - ALREADY SORTED
 Context sorting is ALREADY COMPLETED in context-gather Phase 2/3. DO NOT re-sort.
@@ -549,20 +554,20 @@ If prioritized_context is incomplete for this module, fall back to exploration_r
 
 ## EXPECTED DELIVERABLES
 Task JSON Files (.task/IMPL-${module.prefix}*.json):
-  - 6-field schema (id, title, status, context_package_path, meta, context, flow_control)
+  - Unified flat schema (task-schema.json)
   - Task ID format: IMPL-${module.prefix}1, IMPL-${module.prefix}2, ...
   - Quantified requirements with explicit counts
   - Artifacts integration from context package (filtered for ${module.name})
   - **focus_paths generated directly from prioritized_context.priority_tiers filtered by ${module.paths.join(', ')}**
     - NO re-sorting - use pre-computed tiers filtered for this module
     - Critical files are PRIMARY focus, High files are SECONDARY
-  - Flow control with pre_analysis steps (use prioritized_context.dependency_order for module task sequencing)
+  - Pre-analysis steps (use prioritized_context.dependency_order for module task sequencing)
   - **CLI Execution IDs and strategies (MANDATORY)**
   - Focus ONLY on ${module.name} module scope
 
 ## CLI EXECUTION ID REQUIREMENTS (MANDATORY)
 Each task JSON MUST include:
-- **cli_execution_id**: Unique ID for CLI execution (format: `{session_id}-IMPL-${module.prefix}{seq}`)
+- **cli_execution.id**: Unique ID for CLI execution (format: `{session_id}-IMPL-${module.prefix}{seq}`)
 - **cli_execution**: Strategy object based on depends_on:
   - No deps → `{ "strategy": "new" }`
   - 1 dep (single child) → `{ "strategy": "resume", "resume_from": "parent-cli-id" }`
@@ -595,7 +600,7 @@ Hard Constraints:
 
 ## SUCCESS CRITERIA
 - Task JSONs saved to .task/ with IMPL-${module.prefix}* naming
-- All task JSONs include cli_execution_id and cli_execution strategy
+- All task JSONs include cli_execution.id and cli_execution strategy
 - Cross-module dependencies use CROSS:: placeholder format consistently
 - Focus paths scoped to ${module.paths.join(', ')} only
 - Return: task count, task IDs, dependency summary (internal + cross-module)
@@ -717,7 +722,7 @@ function resolveCrossModuleDependency(placeholder, allTasks) {
   const candidates = allTasks.filter(t =>
     t.id.startsWith(`IMPL-${targetModule}`) &&
     (t.title.toLowerCase().includes(pattern.toLowerCase()) ||
-     t.context?.description?.toLowerCase().includes(pattern.toLowerCase()))
+     t.description?.toLowerCase().includes(pattern.toLowerCase()))
   );
   return candidates.length > 0
     ? candidates.sort((a, b) => a.id.localeCompare(b.id))[0].id

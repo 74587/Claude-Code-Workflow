@@ -59,7 +59,7 @@ jq --arg ts "$(date -Iseconds)" '.status="in_progress" | .status_history += [{"f
 ### Flow Control Execution
 When task JSON contains `flow_control` field, execute preparation and implementation steps systematically.
 
-**Pre-Analysis Steps** (`flow_control.pre_analysis`):
+**Pre-Analysis Steps** (`pre_analysis`):
 1. **Sequential Processing**: Execute steps in order, accumulating context
 2. **Variable Substitution**: Use `[variable_name]` to reference previous outputs
 3. **Error Handling**: Follow step-specific strategies (`skip_optional`, `fail`, `retry_once`)
@@ -72,7 +72,7 @@ When task JSON contains `flow_control` field, execute preparation and implementa
 "Glob(pattern)"         → Glob tool: Glob(pattern=pattern)
 ```
 
-**Implementation Approach** (`flow_control.implementation_approach`):
+**Implementation Approach** (`implementation`):
 When task JSON contains implementation_approach array:
 1. **Sequential Execution**: Process steps in order, respecting `depends_on` dependencies
 2. **Dependency Resolution**: Wait for all steps listed in `depends_on` before starting
@@ -162,7 +162,7 @@ run_test_layer "L1-unit" "$UNIT_CMD"
 
 ### 3. Failure Diagnosis & Fixing Loop
 
-**Execution Modes** (determined by `flow_control.implementation_approach`):
+**Execution Modes** (determined by `implementation`):
 
 **A. Agent Mode (Default, no `command` field in steps)**:
 ```

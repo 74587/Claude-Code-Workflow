@@ -118,6 +118,28 @@
     },
 
 
+    "shared_context": {
+      "type": "object",
+      "description": "Project-level shared context (tech stack, conventions).",
+      "properties": {
+        "tech_stack": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "技术栈列表"
+        },
+        "conventions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "编码约定"
+        },
+        "auth_strategy": {
+          "type": "string",
+          "description": "认证策略"
+        }
+      },
+      "additionalProperties": true
+    },
+
     "_metadata": {
       "type": "object",
       "required": ["timestamp", "source", "plan_type"],

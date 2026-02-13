@@ -141,8 +141,30 @@
     "_comment_IMPLEMENTATION": "IMPLEMENTATION 区块 (可选) — 实施指南",
     "implementation": {
       "type": "array",
-      "items": { "type": "string" },
-      "description": "步骤化实施指南 (来自 Solution Schema)"
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "required": ["step", "description"],
+            "properties": {
+              "step": { "type": "string", "description": "步骤编号/名称" },
+              "description": { "type": "string", "description": "步骤描述" },
+              "tdd_phase": { "type": "string", "enum": ["red", "green", "refactor"], "description": "TDD 阶段" },
+              "actions": { "type": "array", "items": { "type": "string" }, "description": "具体操作列表" },
+              "test_fix_cycle": {
+                "type": "object",
+                "properties": {
+                  "max_iterations": { "type": "integer", "default": 3 }
+                },
+                "description": "测试修复循环配置"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "description": "步骤化实施指南 — 支持字符串 (简单步骤) 或对象 (含 TDD 阶段等详情)"
     },
     "test": {
       "type": "object",
@@ -177,6 +199,11 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "量化成功指标 (如 '响应时间 <200ms', '覆盖率 >80%'，合并自 verification_detail)"
+        },
+        "reusable_tools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "可复用测试工具/脚本"
         }
       },
       "additionalProperties": false,
@@ -376,6 +403,50 @@
       "description": "CLI 执行配置"
     },
 
+    "_comment_EXTENDED_CONTEXT": "EXTENDED CONTEXT 区块 (可选) — 扩展执行上下文",
+    "pre_analysis": {
+      "type": "array",
+      "description": "Pre-execution analysis steps. Agent executes these before implementation.",
+      "items": {
+        "type": "object",
+        "required": ["step", "action"],
+        "properties": {
+          "step": { "type": "string", "description": "步骤名称" },
+          "action": { "type": "string", "description": "执行动作描述" },
+          "commands": { "type": "array", "items": { "type": "string" }, "description": "执行命令列表" },
+          "command": { "type": "string", "description": "单条执行命令" },
+          "output_to": { "type": "string", "description": "输出存储位置" },
+          "on_error": { "type": "string", "enum": ["fail", "skip_optional", "continue"], "description": "错误处理策略" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "Brainstorming artifact references for context.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string", "description": "产物类型" },
+          "source": { "type": "string", "description": "产物来源" },
+          "path": { "type": "string", "description": "产物路径" },
+          "feature_id": { "type": "string", "description": "关联功能 ID" },
+          "priority": { "type": "string", "description": "优先级" },
+          "usage": { "type": "string", "description": "使用说明" }
+        },
+        "additionalProperties": true
+      }
+    },
+    "inherited": {
+      "type": "object",
+      "description": "Context inherited from parent task.",
+      "properties": {
+        "from": { "type": "string", "description": "父任务 ID" },
+        "context": { "type": "array", "items": { "type": "string" }, "description": "继承的上下文条目" }
+      },
+      "additionalProperties": false
+    },
+
     "_comment_CONTEXT": "CONTEXT 区块 (可选) — 来源与上下文",
     "source": {
       "type": "object",
@@ -489,7 +560,7 @@
   "additionalProperties": true,
 
   "_field_usage_by_producer": {
-    "workflow-plan": "IDENTITY + CLASSIFICATION + SCOPE + DEPENDENCIES + CONVERGENCE + FILES + EXECUTION(meta+cli_execution) + CONTEXT(context_package_path)",
+    "workflow-plan": "IDENTITY + CLASSIFICATION + SCOPE + DEPENDENCIES + CONVERGENCE + FILES + IMPLEMENTATION + EXECUTION(pre_analysis + artifacts + inherited + cli_execution + meta) + PLANNING(reference + rationale + risks + code_skeleton) + CONTEXT(context_package_path)",
     "lite-plan": "IDENTITY + CLASSIFICATION + DEPENDENCIES + CONVERGENCE + FILES",
     "lite-plan (v2)": "IDENTITY + CLASSIFICATION + SCOPE + DEPENDENCIES + CONVERGENCE + FILES(+change) + IMPLEMENTATION(+manual_checks +success_metrics) + PLANNING(reference + rationale + risks + code_skeleton)",
     "req-plan": "IDENTITY + CLASSIFICATION + SCOPE + DEPENDENCIES + CONVERGENCE + PLANNING(risks) + CONTEXT(inputs/outputs)",
