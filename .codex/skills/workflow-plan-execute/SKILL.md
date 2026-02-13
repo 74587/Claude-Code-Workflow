@@ -76,8 +76,8 @@ Phase 2: Context Gathering & Conflict Resolution
 
 Phase 3: Task Generation
    └─ Ref: phases/03-task-generation.md
-      └─ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
-      └─ Schema: .task/IMPL-*.json follows 6-field superset of task-schema.json
+      └─ Output: plan.json, IMPL_PLAN.md, task JSONs, TODO_LIST.md
+      └─ Schema: plan.json follows plan-overview-base-schema.json; .task/IMPL-*.json follows task-schema.json
 
 User Decision (or --yes auto):
    └─ "Start Execution" → Phase 4
@@ -225,7 +225,7 @@ Phase 2: context-gather --session sessionId "structured-description"
     ↓
 Phase 3: task-generate-agent --session sessionId
     ↓ Input: sessionId + planning-notes.md + context-package.json + brainstorm artifacts
-    ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
+    ↓ Output: plan.json, IMPL_PLAN.md, task JSONs, TODO_LIST.md
     ↓
 User Decision: "Start Execution" / --yes auto
     ↓

@@ -210,6 +210,14 @@ tasks.forEach((task, i) => {
     if (task.flow_control.target_files && !Array.isArray(task.flow_control.target_files))
       errors.push(`${task.id}: flow_control.target_files must be array`)
   }
+
+  // New unified schema fields (backward compatible addition)
+  if (task.focus_paths && !Array.isArray(task.focus_paths))
+    errors.push(`${task.id}: focus_paths must be array`)
+  if (task.implementation && !Array.isArray(task.implementation))
+    errors.push(`${task.id}: implementation must be array`)
+  if (task.files && !Array.isArray(task.files))
+    errors.push(`${task.id}: files must be array`)
 })
 
 if (errors.length) {
@@ -434,6 +442,12 @@ ${task.convergence.criteria.map(c => `- [ ] ${c}`).join('\n')}
   //    - Apply changes using Edit (preferred) or Write (for new files)
   //    - Use Grep/Glob/mcp__ace-tool for discovery if needed
   //    - Use Bash for build/test commands
+
+  // Dual-path field access (supports both unified and legacy 6-field schema)
+  // const targetFiles = task.files?.map(f => f.path) || task.flow_control?.target_files || []
+  // const acceptanceCriteria = task.convergence?.criteria || task.context?.acceptance || []
+  // const requirements = task.implementation || task.context?.requirements || []
+  // const focusPaths = task.focus_paths || task.context?.focus_paths || []
 
   // 4. Verify convergence
   const convergenceResults = verifyConvergence(task)

@@ -595,7 +595,7 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
                     <div key={item.status} className="flex items-center gap-1.5 min-w-0">
                       <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', colors.dot)} />
                       <span className="text-xs text-muted-foreground truncate">
-                        {formatMessage({ id: statusLabelKeys[item.status] })}
+                        {formatMessage({ id: statusLabelKeys[item.status] ?? 'sessions.status.inProgress' })}
                       </span>
                       <span className="text-xs font-medium text-foreground ml-auto">
                         {percentage}%

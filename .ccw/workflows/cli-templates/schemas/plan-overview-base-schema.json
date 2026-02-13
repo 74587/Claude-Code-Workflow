@@ -129,8 +129,8 @@
         },
         "source": {
           "type": "string",
-          "enum": ["cli-lite-planning-agent", "direct-planning"],
-          "description": "规划来源"
+          "enum": ["cli-lite-planning-agent", "direct-planning", "action-planning-agent", "review-cycle-agent", "issue-plan-agent", "tdd-planning-agent"],
+          "description": "规划来源 — 标识产生此 plan 的实际规划引擎"
         },
         "planning_mode": {
           "type": "string",

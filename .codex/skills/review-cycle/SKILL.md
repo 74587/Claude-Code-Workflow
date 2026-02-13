@@ -173,6 +173,47 @@ Phase 7.5: Export to Task JSON (auto with --fix, or explicit --export-tasks)
       ├─ Output path: {projectRoot}/.workflow/active/WFS-{id}/.review/.task/FIX-{seq}.json
       ├─ Each file follows task-schema.json (IDENTITY + CONVERGENCE + FILES required)
       └─ source.tool = "review-cycle", source.session_id = WFS-{id}
+      │
+      ├─ Generate plan.json (plan-overview-fix-schema) after FIX task export:
+      │   ```javascript
+      │   const fixTaskFiles = Glob(`${reviewDir}/.task/FIX-*.json`)
+      │   const taskIds = fixTaskFiles.map(f => JSON.parse(Read(f)).id).sort()
+      │
+      │   // Guard: skip plan.json if no fix tasks generated
+      │   if (taskIds.length === 0) {
+      │     console.warn('No fix tasks generated; skipping plan.json')
+      │   } else {
+      │
+      │   const planOverview = {
+      │     summary: `Fix plan from review cycle: ${reviewSummary}`,
+      │     approach: "Review-driven fix pipeline",
+      │     task_ids: taskIds,
+      │     task_count: taskIds.length,
+      │     complexity: taskIds.length > 5 ? "High" : taskIds.length > 2 ? "Medium" : "Low",
+      │     fix_context: {
+      │       root_cause: "Multiple review findings",
+      │       strategy: "comprehensive_fix",
+      │       severity: aggregatedFindings.maxSeverity || "Medium",  // Derived from max finding severity
+      │       risk_level: aggregatedFindings.overallRisk || "medium" // Derived from combined risk assessment
+      │     },
+      │     test_strategy: {
+      │       scope: "unit",
+      │       specific_tests: [],
+      │       manual_verification: ["Verify all review findings addressed"]
+      │     },
+      │     _metadata: {
+      │       timestamp: getUtc8ISOString(),
+      │       source: "review-cycle-agent",
+      │       planning_mode: "agent-based",
+      │       plan_type: "fix",
+      │       schema_version: "2.0"
+      │     }
+      │   }
+      │   Write(`${reviewDir}/plan.json`, JSON.stringify(planOverview, null, 2))
+      │
+      │   } // end guard
+      │   ```
+      └─ Output path: {reviewDir}/plan.json
 
 Phase 8: Fix Execution
    └─ Ref: phases/08-fix-execution.md
@@ -409,6 +450,7 @@ Gemini → Qwen → Codex → degraded mode
 │   ├── FIX-001.json                    # Per-finding task (task-schema.json)
 │   ├── FIX-002.json
 │   └── ...
+├── plan.json                           # Plan overview (plan-overview-fix-schema, Phase 7.5)
 └── fixes/{fix-session-id}/             # Fix results (Phase 6-9)
     ├── partial-plan-*.json
     ├── fix-plan.json

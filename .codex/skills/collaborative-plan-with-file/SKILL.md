@@ -97,6 +97,7 @@ The key innovation is the **Plan Note** architecture — a shared collaborative 
 │   │       ├── TASK-101.json
 │   │       └── ...
 │   └── ...
+├── plan.json                     # Plan overview (plan-overview-base-schema.json)
 ├── .task/                        # ⭐ Merged task JSON files (all domains)
 │   ├── TASK-001.json
 │   ├── TASK-101.json
@@ -133,6 +134,7 @@ The key innovation is the **Plan Note** architecture — a shared collaborative 
 | Artifact | Purpose |
 |----------|---------|
 | `.task/TASK-*.json` | Merged task JSON files from all domains (consumable by unified-execute) |
+| `plan.json` | Plan overview following plan-overview-base-schema.json |
 | `plan.md` | Human-readable summary with requirements, tasks, and conflicts |
 
 ---
@@ -575,7 +577,41 @@ for (const sub of subDomains) {
 }
 ```
 
-### Step 4.2: Generate plan.md
+### Step 4.2: Generate plan.json
+
+Generate a plan overview following the plan-overview-base-schema.
+
+```javascript
+// Generate plan.json (plan-overview-base-schema)
+const allTaskFiles = Glob(`${sessionFolder}/.task/TASK-*.json`)
+const taskIds = allTaskFiles.map(f => JSON.parse(Read(f)).id).sort()
+
+// Guard: skip plan.json if no tasks generated
+if (taskIds.length === 0) {
+  console.warn('No tasks generated; skipping plan.json')
+} else {
+
+const planOverview = {
+  summary: `Collaborative plan for: ${taskDescription}`,
+  approach: `Multi-domain planning across ${subDomains.length} sub-domains: ${subDomains.map(s => s.focus_area).join(', ')}`,
+  task_ids: taskIds,
+  task_count: taskIds.length,
+  complexity: complexity,
+  recommended_execution: "Agent",
+  _metadata: {
+    timestamp: getUtc8ISOString(),
+    source: "direct-planning",
+    planning_mode: "direct",
+    plan_type: "collaborative",
+    schema_version: "2.0"
+  }
+}
+Write(`${sessionFolder}/plan.json`, JSON.stringify(planOverview, null, 2))
+
+} // end guard
+```
+
+### Step 4.3: Generate plan.md
 
 Create a human-readable summary from plan-note.md content.
 
@@ -634,7 +670,7 @@ ${allConflicts.length === 0
 Write(`${sessionFolder}/plan.md`, planMd)
 ```
 
-### Step 4.3: Display Completion Summary
+### Step 4.4: Display Completion Summary
 
 Present session statistics and next steps.
 

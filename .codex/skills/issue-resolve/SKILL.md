@@ -157,7 +157,8 @@ Phase Execution (load one phase):
 
 Post-Phase:
    ├─ Export to Task JSON (optional, with --export-tasks flag)
-   │   └─ For each solution.tasks[] → write .task/TASK-{T-id}.json
+   │   ├─ For each solution.tasks[] → write .task/TASK-{T-id}.json
+   │   └─ Generate plan.json (plan-overview-base-schema) from exported tasks
    └─ Summary + Next steps recommendation
 ```
 
@@ -292,7 +293,36 @@ User Input (issue IDs / artifact path / session ID / flags)
     │   └─ solution.task.priority       → priority (1→critical, 2→high, 3→medium, 4-5→low)
     ├─ Output path: .workflow/issues/{issue-id}/.task/TASK-{T-id}.json
     ├─ Each file follows task-schema.json (IDENTITY + CONVERGENCE + FILES required)
-    └─ source.tool = "issue-resolve", source.issue_id = {issue-id}
+    ├─ source.tool = "issue-resolve", source.issue_id = {issue-id}
+    │
+    └─ Generate plan.json (after all TASK-*.json exported):
+        const issueDir = `.workflow/issues/${issueId}`
+        const taskFiles = Glob(`${issueDir}/.task/TASK-*.json`)
+        const taskIds = taskFiles.map(f => JSON.parse(Read(f)).id).sort()
+
+        // Guard: skip plan.json if no tasks generated
+        if (taskIds.length === 0) {
+          console.warn('No tasks generated; skipping plan.json')
+        } else {
+
+        const planOverview = {
+          summary: `Issue resolution plan for ${issueId}: ${issueTitle}`,
+          approach: solution.approach || "AI-explored resolution strategy",
+          task_ids: taskIds,
+          task_count: taskIds.length,
+          complexity: taskIds.length > 5 ? "High" : taskIds.length > 2 ? "Medium" : "Low",
+          _metadata: {
+            timestamp: getUtc8ISOString(),
+            source: "issue-plan-agent",
+            planning_mode: "agent-based",
+            plan_type: "feature",
+            schema_version: "2.0"
+          }
+        }
+        Write(`${issueDir}/plan.json`, JSON.stringify(planOverview, null, 2))
+
+        } // end guard
+        Output path: .workflow/issues/{issue-id}/plan.json
 ```
 
 ## Task Tracking Pattern

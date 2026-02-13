@@ -232,7 +232,7 @@ Phase 5: TDD Task Generation                       ← ATTACHED (3 tasks)
       ├─ Phase 5.1: Discovery - analyze TDD requirements
       ├─ Phase 5.2: Planning - design Red-Green-Refactor cycles
       └─ Phase 5.3: Output - generate IMPL tasks with internal TDD phases
-      └─ Output: IMPL-*.json, IMPL_PLAN.md           ← COLLAPSED
+      └─ Output: IMPL-*.json, IMPL_PLAN.md, plan.json  ← COLLAPSED
       └─ Schema: .task/IMPL-*.json follows 6-field superset of task-schema.json
 
 Phase 6: TDD Structure Validation (inline)
@@ -486,6 +486,45 @@ Read and execute: `phases/02-task-generate-tdd.md` with `--session [sessionId]`
 ]
 ```
 
+**Step 5.4: Generate plan.json** (plan-overview-base-schema)
+
+After task generation completes, generate `plan.json` as a machine-readable plan overview:
+
+```javascript
+// Generate plan.json after task generation
+const sessionFolder = `${projectRoot}/.workflow/active/${sessionId}`
+const taskFiles = Glob(`${sessionFolder}/.task/IMPL-*.json`)
+const taskIds = taskFiles.map(f => JSON.parse(Read(f)).id).sort()
+
+// Guard: skip plan.json if no tasks generated
+if (taskIds.length === 0) {
+  console.warn('No tasks generated; skipping plan.json')
+} else {
+
+const planOverview = {
+  summary: `TDD plan for: ${taskDescription}`,
+  approach: `Red-Green-Refactor cycles across ${taskIds.length} implementation tasks`,
+  task_ids: taskIds,
+  task_count: taskIds.length,
+  complexity: complexity,
+  recommended_execution: "Agent",
+  _metadata: {
+    timestamp: getUtc8ISOString(),
+    source: "tdd-planning-agent",
+    planning_mode: "agent-based",
+    plan_type: "tdd",
+    schema_version: "2.0"
+  }
+}
+Write(`${sessionFolder}/plan.json`, JSON.stringify(planOverview, null, 2))
+
+} // end guard
+```
+
+**Validate**: `plan.json` exists and contains valid JSON with `task_ids` matching generated IMPL-*.json files.
+
+---
+
 ### Phase 6: TDD Structure Validation & Action Plan Verification (RECOMMENDED)
 
 **Internal validation first, then recommend external verification**
@@ -528,7 +567,7 @@ Warning TDD Red Flag: [issue description]
 
 ```bash
 # Verify session artifacts exist
-ls -la ${projectRoot}/.workflow/active/[sessionId]/{IMPL_PLAN.md,TODO_LIST.md}
+ls -la ${projectRoot}/.workflow/active/[sessionId]/{IMPL_PLAN.md,TODO_LIST.md,plan.json}
 ls -la ${projectRoot}/.workflow/active/[sessionId]/.task/IMPL-*.json
 
 # Count generated artifacts
@@ -543,6 +582,7 @@ jq '{id, tdd: .meta.tdd_workflow, cli_id: .meta.cli_execution_id, phases: [.flow
 | Evidence Type | Verification Method | Pass Criteria |
 |---------------|---------------------|---------------|
 | File existence | `ls -la` artifacts | All files present |
+| Plan overview | `jq .task_count plan.json` | plan.json exists with valid task_ids |
 | Task count | Count IMPL-*.json | Count matches claims (<=18) |
 | TDD structure | jq sample extraction | Shows red/green/refactor + cli_execution_id |
 | CLI execution IDs | jq extraction | All tasks have cli_execution_id assigned |
@@ -571,6 +611,8 @@ Structure:
 Plans generated:
 - Unified Implementation Plan: {projectRoot}/.workflow/active/[sessionId]/IMPL_PLAN.md
   (includes TDD Implementation Tasks section with workflow_type: "tdd")
+- Plan Overview: {projectRoot}/.workflow/active/[sessionId]/plan.json
+  (plan-overview-base-schema with task IDs, complexity, and execution metadata)
 - Task List: {projectRoot}/.workflow/active/[sessionId]/TODO_LIST.md
   (with internal TDD phase indicators and CLI execution strategies)
 - Task JSONs: {projectRoot}/.workflow/active/[sessionId]/.task/IMPL-*.json
@@ -634,7 +676,7 @@ Phase 4: conflict-resolution [AUTO-TRIGGERED if conflict_risk >= medium]
     ↓ Skip if conflict_risk is none/low → proceed directly to Phase 5
     ↓
 Phase 5: task-generate-tdd --session sessionId
-    ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md
+    ↓ Output: IMPL_PLAN.md, task JSONs, TODO_LIST.md, plan.json
     ↓
 Phase 6: Internal validation + summary
     ↓
@@ -707,7 +749,7 @@ TDD Workflow Orchestrator
 │     ├─ Phase 5.1: Discovery - analyze TDD requirements
 │     ├─ Phase 5.2: Planning - design Red-Green-Refactor cycles
 │     └─ Phase 5.3: Output - generate IMPL tasks with internal TDD phases
-│     └─ Returns: IMPL-*.json, IMPL_PLAN.md           ← COLLAPSED
+│     └─ Returns: IMPL-*.json, IMPL_PLAN.md, plan.json ← COLLAPSED
 │        (Each IMPL task contains internal Red-Green-Refactor cycle)
 │
 └─ Phase 6: TDD Structure Validation

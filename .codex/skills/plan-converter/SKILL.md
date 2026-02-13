@@ -36,14 +36,16 @@ Converts any planning artifact to **`.task/*.json` multi-file format** — the s
 **Producer 使用的字段集** (plan-converter 输出):
 
 ```
-IDENTITY (必填):      id, title, description
-CLASSIFICATION (可选): type, priority, effort
-SCOPE (可选):          scope, excludes
-DEPENDENCIES (必填):   depends_on, parallel_group, inputs, outputs
-CONVERGENCE (必填):    convergence.criteria, convergence.verification, convergence.definition_of_done
-FILES (可选):          files[].path, files[].action, files[].changes, files[].conflict_risk
-CONTEXT (可选):        source.tool, source.session_id, source.original_id, evidence, risk_items
-RUNTIME (执行时填充):  status, executed_at, result
+IDENTITY (必填):        id, title, description
+CLASSIFICATION (可选):   type, priority, effort, action
+SCOPE (可选):            scope, excludes, focus_paths
+DEPENDENCIES (必填):     depends_on, parallel_group, inputs, outputs
+CONVERGENCE (必填):      convergence.criteria, convergence.verification, convergence.definition_of_done
+FILES (可选):            files[].path, files[].action, files[].changes, files[].change, files[].target, files[].conflict_risk
+IMPLEMENTATION (可选):   implementation[], test.manual_checks, test.success_metrics
+PLANNING (可选):         reference, rationale, risks
+CONTEXT (可选):          source.tool, source.session_id, source.original_id, evidence, risk_items
+RUNTIME (执行时填充):    status, executed_at, result
 ```
 
 **文件命名**: `TASK-{id}.json` (保留原有 ID 前缀: L0-, T1-, IDEA- 等)
@@ -237,7 +239,9 @@ function transformPlanNote(parsed) {
     files: task.files?.map(f => ({
       path: f.path || f.file,
       action: f.action || 'modify',
-      changes: f.changes || [f.change],
+      changes: f.changes || (f.change ? [f.change] : undefined),
+      change: f.change,
+      target: f.target,
       conflict_risk: f.conflict_risk
     })),
     source: {

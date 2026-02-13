@@ -46,7 +46,7 @@ Phase 5: Generate Analysis Report
 
 ### Phase 1: Extract Test Tasks
 ```bash
-find ${projectRoot}/.workflow/active/{session_id}/.task/ -name 'TEST-*.json' -exec jq -r '.context.focus_paths[]' {} \;
+find ${projectRoot}/.workflow/active/{session_id}/.task/ -name 'TEST-*.json' -exec jq -r '(.focus_paths // .context.focus_paths // [])[]' {} \;
 ```
 
 **Output**: List of test directories/files from all TEST tasks

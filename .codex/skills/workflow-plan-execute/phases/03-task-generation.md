@@ -179,6 +179,7 @@ const userConfig = {
 │   ├── IMPL-A2.json
 │   ├── IMPL-B1.json
 │   └── ...
+├── plan.json                      # Output: Plan overview (plan-overview-base-schema.json)
 ├── IMPL_PLAN.md                   # Output: Implementation plan (grouped by module)
 └── TODO_LIST.md                   # Output: TODO list (hierarchical)
 ```
@@ -741,9 +742,44 @@ function resolveCrossModuleDependency(placeholder, allTasks) {
 }
 ```
 
+## Generate plan.json (plan-overview-base-schema)
+
+After all task JSONs and IMPL_PLAN.md are generated (both single-agent and multi-module paths), generate `plan.json` as structured index:
+
+```javascript
+// Scan generated task files
+const taskFiles = Glob(`${sessionFolder}/.task/IMPL-*.json`)
+const taskIds = taskFiles.map(f => JSON.parse(Read(f)).id).sort()
+
+// Guard: skip plan.json if no tasks generated
+if (taskIds.length === 0) {
+  console.warn('No tasks generated; skipping plan.json')
+} else {
+
+const planOverview = {
+  summary: implPlanSummary,                // From IMPL_PLAN.md overview section
+  approach: implPlanApproach,              // From IMPL_PLAN.md approach/strategy
+  task_ids: taskIds,                       // ["IMPL-001", "IMPL-002", ...] or ["IMPL-A1", "IMPL-B1", ...]
+  task_count: taskIds.length,
+  complexity: complexity,                  // From Phase 1 assessment
+  recommended_execution: userConfig.executionMethod === "cli" ? "Codex" : "Agent",
+  _metadata: {
+    timestamp: getUtc8ISOString(),
+    source: "action-planning-agent",
+    planning_mode: "agent-based",
+    plan_type: "feature",
+    schema_version: "2.0"
+  }
+}
+Write(`${sessionFolder}/plan.json`, JSON.stringify(planOverview, null, 2))
+
+} // end guard
+```
+
 ## Output
 
 - **Files**:
+  - `{projectRoot}/.workflow/active/{sessionId}/plan.json`
   - `{projectRoot}/.workflow/active/{sessionId}/IMPL_PLAN.md`
   - `{projectRoot}/.workflow/active/{sessionId}/.task/IMPL-*.json`
   - `{projectRoot}/.workflow/active/{sessionId}/TODO_LIST.md`

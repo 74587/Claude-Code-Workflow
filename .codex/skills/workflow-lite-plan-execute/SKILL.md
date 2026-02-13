@@ -6,7 +6,7 @@ allowed-tools: AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, mcp__ace-to
 
 # Planning Workflow
 
-Lite Plan produces `.task/TASK-*.json` (one file per task) implementation plan via serial CLI exploration and direct planning, then hands off to unified-execute-with-file for task execution.
+Lite Plan produces `plan.json` (plan overview) + `.task/TASK-*.json` (one file per task) implementation plan via serial CLI exploration and direct planning, then hands off to unified-execute-with-file for task execution.
 
 > **Schema**: `cat ~/.ccw/workflows/cli-templates/schemas/task-schema.json`
 
@@ -91,7 +91,7 @@ Read('phases/02-lite-execute.md')
 
 ## Output Contract
 
-Phase 1 produces `.task/TASK-*.json` (one file per task) — compatible with `collaborative-plan-with-file` and consumable by `unified-execute-with-file`.
+Phase 1 produces `plan.json` (plan overview, following `plan-overview-base-schema.json`) + `.task/TASK-*.json` (one file per task) — compatible with `collaborative-plan-with-file` and consumable by `unified-execute-with-file`.
 
 > **Schema**: `cat ~/.ccw/workflows/cli-templates/schemas/task-schema.json`
 
@@ -104,7 +104,8 @@ Phase 1 produces `.task/TASK-*.json` (one file per task) — compatible with `co
 ├── explorations-manifest.json         # Exploration index
 ├── exploration-notes.md               # Synthesized exploration notes
 ├── requirement-analysis.json          # Complexity assessment
-├── .task/                             # ⭐ Task JSON files (one per task)
+├── plan.json                          # ⭐ Plan overview (plan-overview-base-schema.json)
+├── .task/                             # Task JSON files (one per task)
 │   ├── TASK-001.json                  # Individual task definition
 │   ├── TASK-002.json
 │   └── ...

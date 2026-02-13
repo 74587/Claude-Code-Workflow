@@ -28,6 +28,7 @@ Serial lightweight planning with CLI-powered exploration and search verification
 | `explorations-manifest.json` | Index of all exploration files |
 | `exploration-notes.md` | Synthesized exploration notes (all angles combined) |
 | `requirement-analysis.json` | Complexity assessment and session metadata |
+| `plan.json` | Plan overview (plan-overview-base-schema) |
 | `.task/TASK-*.json` | Multi-file task output (one JSON file per task) |
 | `plan.md` | Human-readable summary with execution command |
 
@@ -417,6 +418,38 @@ tasks.forEach(task => {
 })
 ```
 
+#### Step 3.3.5: Generate plan.json (plan-overview-base-schema)
+
+Generate plan overview as structured index for `.task/` directory:
+
+```javascript
+// Guard: skip plan.json if no tasks generated
+if (tasks.length === 0) {
+  console.warn('No tasks generated; skipping plan.json')
+} else {
+
+// Build plan overview following plan-overview-base-schema.json
+const planOverview = {
+  summary: requirementUnderstanding,       // 2-3 sentence overview from exploration synthesis
+  approach: approach,                      // High-level implementation strategy
+  task_ids: tasks.map(t => t.id),          // ["TASK-001", "TASK-002", ...]
+  task_count: tasks.length,
+  complexity: complexity,                  // "Low" | "Medium" | "High"
+  recommended_execution: "Agent",
+  _metadata: {
+    timestamp: getUtc8ISOString(),
+    source: "direct-planning",
+    planning_mode: "direct",
+    plan_type: "feature",
+    schema_version: "2.0",
+    exploration_angles: selectedAngles
+  }
+}
+Write(`${sessionFolder}/plan.json`, JSON.stringify(planOverview, null, 2))
+
+} // end guard
+```
+
 #### Step 3.4: Generate plan.md
 
 Create human-readable summary:
@@ -514,7 +547,8 @@ Read `{sessionFolder}/.task/` directory and display summary:
 ├── explorations-manifest.json         # Exploration index
 ├── exploration-notes.md               # Synthesized exploration notes
 ├── requirement-analysis.json          # Complexity assessment
-├── .task/                             # ⭐ Task JSON files (one per task)
+├── plan.json                          # ⭐ Plan overview (plan-overview-base-schema.json)
+├── .task/                             # Task JSON files (one per task)
 │   ├── TASK-001.json
 │   ├── TASK-002.json
 │   └── ...
@@ -530,6 +564,7 @@ Read `{sessionFolder}/.task/` directory and display summary:
 ├── explorations-manifest.json
 ├── exploration-notes.md
 ├── requirement-analysis.json
+├── plan.json
 ├── .task/
 │   ├── TASK-001.json
 │   ├── TASK-002.json
