@@ -105,22 +105,47 @@ When designing a new role, define role-specific message types following the conv
 - `{action}_complete` - Work phase finished
 - `{action}_progress` - Intermediate progress update
 
+### CLI Fallback
+
+When `mcp__ccw-tools__team_msg` MCP is unavailable, use `ccw team` CLI as equivalent fallback:
+
+```javascript
+// Fallback: Replace MCP call with Bash CLI (parameters map 1:1)
+Bash(`ccw team log --team "${teamName}" --from "<role>" --to "coordinator" --type "<type>" --summary "<summary>" [--ref <path>] [--data '<json>'] --json`)
+```
+
+**Parameter mapping**: `team_msg(params)` → `ccw team <operation> --team <team> [--from/--to/--type/--summary/--ref/--data/--id/--last] [--json]`
+
+**Coordinator** uses all 4 operations: `log`, `list`, `status`, `read`
+**Teammates** primarily use: `log`
+
 ### Message Bus Section Template
 
 ```markdown
-## Message Bus
+## 消息总线
 
-Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
+每次 SendMessage **前**，必须调用 `mcp__ccw-tools__team_msg` 记录消息：
 
 \`\`\`javascript
 mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "<role>", to: "coordinator", type: "<type>", summary: "<summary>" })
 \`\`\`
 
-### Supported Message Types
+### 支持的 Message Types
 
-| Type | Direction | Trigger | Description |
-|------|-----------|---------|-------------|
-| `<type>` | <role> -> coordinator | <when> | <what> |
+| Type | 方向 | 触发时机 | 说明 |
+|------|------|----------|------|
+| `<type>` | <role> → coordinator | <when> | <what> |
+
+### CLI 回退
+
+当 `mcp__ccw-tools__team_msg` MCP 不可用时，使用 `ccw team` CLI 作为等效回退：
+
+\`\`\`javascript
+// 回退: 将 MCP 调用替换为 Bash CLI（参数一一对应）
+Bash(\`ccw team log --team "${teamName}" --from "<role>" --to "coordinator" --type "<type>" --summary "<summary>" --json\`)
+\`\`\`
+
+**参数映射**: `team_msg(params)` → `ccw team log --team <team> --from <role> --to coordinator --type <type> --summary "<text>" [--ref <path>] [--data '<json>'] [--json]`
 ```
 
 ---

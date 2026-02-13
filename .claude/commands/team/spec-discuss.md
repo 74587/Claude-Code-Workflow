@@ -56,6 +56,20 @@ mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "spec-discuss
 mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "spec-discuss", to: "coordinator", type: "error", summary: "DISCUSS-001: 找不到 discovery-context.json" })
 ```
 
+### CLI 回退
+
+当 `mcp__ccw-tools__team_msg` MCP 不可用时，使用 `ccw team` CLI 作为等效回退：
+
+```javascript
+// 回退: 将 MCP 调用替换为 Bash CLI（参数一一对应）
+Bash(`ccw team log --team "${teamName}" --from "spec-discuss" --to "coordinator" --type "discussion_ready" --summary "DISCUSS-002: 共识达成, 3个改进建议" --ref "${sessionFolder}/discussions/discuss-002-brief.md" --json`)
+
+// 带 data 参数（讨论阻塞时）
+Bash(`ccw team log --team "${teamName}" --from "spec-discuss" --to "coordinator" --type "discussion_blocked" --summary "技术选型分歧" --data '{"reason":"微服务 vs 单体","options":[{"label":"微服务"},{"label":"单体"}]}' --json`)
+```
+
+**参数映射**: `team_msg(params)` → `ccw team log --team <team> --from spec-discuss --to coordinator --type <type> --summary "<text>" [--ref <path>] [--data '<json>'] [--json]`
+
 ## 讨论维度模型
 
 每个讨论轮次从4个视角进行结构化分析：

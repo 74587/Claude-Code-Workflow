@@ -68,7 +68,18 @@ ${config.message_types.filter(mt => mt.type !== 'error').map(mt =>
   `// ${mt.trigger}
 mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "${config.role_name}", to: "coordinator", type: "${mt.type}", summary: "${mt.trigger}" })`
 ).join('\n\n')}
-\`\`\``
+\`\`\`
+
+### CLI 回退
+
+当 \`mcp__ccw-tools__team_msg\` MCP 不可用时，使用 \`ccw team\` CLI 作为等效回退：
+
+\\\`\\\`\\\`javascript
+// 回退: 将 MCP 调用替换为 Bash CLI（参数一一对应）
+Bash(\\\`ccw team log --team "\${teamName}" --from "${config.role_name}" --to "coordinator" --type "${config.message_types[0]?.type || 'result'}" --summary "<摘要>" --json\\\`)
+\\\`\\\`\\\`
+
+**参数映射**: \`team_msg(params)\` → \`ccw team log --team <team> --from ${config.role_name} --to coordinator --type <type> --summary "<text>" [--ref <path>] [--data '<json>'] [--json]\``
 ```
 
 ### Step 4: Generate Phase Implementations

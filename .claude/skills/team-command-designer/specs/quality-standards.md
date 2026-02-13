@@ -50,6 +50,7 @@ Quality assessment criteria for generated team command .md files.
 
 **Infrastructure Pattern Checklist:**
 - [ ] Pattern 1: Message bus - team_msg before every SendMessage
+- [ ] Pattern 1b: CLI fallback - `ccw team` CLI fallback section with parameter mapping
 - [ ] Pattern 2: YAML front matter - all fields present, group: team
 - [ ] Pattern 3: Task lifecycle - TaskList/Get/Update flow
 - [ ] Pattern 4: Five-phase structure - all 5 phases present
@@ -114,6 +115,7 @@ Quality assessment criteria for generated team command .md files.
 - Missing error handling table
 - Incomplete Phase implementation (skeleton only)
 - Missing team_msg before some SendMessage calls
+- Missing CLI fallback section (`### CLI 回退` with `ccw team` examples)
 - No complexity-adaptive routing when role is complex
 
 ### Info (Nice to Have)

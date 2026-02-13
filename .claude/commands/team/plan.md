@@ -55,6 +55,17 @@ mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "planner", to
 mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "planner", to: "coordinator", type: "error", summary: "plan-overview-base-schema.json 未找到, 使用默认结构" })
 ```
 
+### CLI 回退
+
+当 `mcp__ccw-tools__team_msg` MCP 不可用时，使用 `ccw team` CLI 作为等效回退：
+
+```javascript
+// 回退: 将 MCP 调用替换为 Bash CLI（参数一一对应）
+Bash(`ccw team log --team "${teamName}" --from "planner" --to "coordinator" --type "plan_ready" --summary "Plan就绪: 3个task" --ref "${sessionFolder}/plan.json" --json`)
+```
+
+**参数映射**: `team_msg(params)` → `ccw team log --team <team> --from planner --to coordinator --type <type> --summary "<text>" [--ref <path>] [--data '<json>'] [--json]`
+
 ## Execution Process
 
 ```

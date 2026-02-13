@@ -42,6 +42,8 @@ const requiredSections = [
   { name: "TaskGet Usage", pattern: /TaskGet/ },
   { name: "TaskUpdate Usage", pattern: /TaskUpdate/ },
   { name: "SendMessage to Coordinator", pattern: /SendMessage.*coordinator/i },
+  { name: "CLI Fallback Section", pattern: /CLI 回退|CLI Fallback/ },
+  { name: "ccw team CLI Example", pattern: /ccw team log/ },
   { name: "Error Handling Table", pattern: /## Error Handling/ },
   { name: "Implementation Section", pattern: /## Implementation/ }
 ]
@@ -110,6 +112,14 @@ const patternChecks = [
       return command.includes('idle') || command.includes('return')
     },
     severity: "medium"
+  },
+  {
+    name: "CLI Fallback Present",
+    check: () => {
+      return (command.includes('CLI 回退') || command.includes('CLI Fallback')) &&
+             command.includes('ccw team log')
+    },
+    severity: "high"
   }
 ]
 

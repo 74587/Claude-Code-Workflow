@@ -146,6 +146,11 @@ class Config:
     staged_coarse_k: int = 200  # Number of coarse candidates from Stage 1 binary search
     staged_lsp_depth: int = 2  # LSP relationship expansion depth in Stage 2
     staged_stage2_mode: str = "precomputed"  # "precomputed" (graph_neighbors) | "realtime" (LSP)
+
+    # Static graph configuration (write relationships to global index during build)
+    static_graph_enabled: bool = False
+    static_graph_relationship_types: List[str] = field(default_factory=lambda: ["imports", "inherits"])
+
     staged_realtime_lsp_timeout_s: float = 30.0  # Max time budget for realtime LSP expansion
     staged_realtime_lsp_depth: int = 1  # BFS depth for realtime LSP expansion
     staged_realtime_lsp_max_nodes: int = 50  # Node cap for realtime graph expansion

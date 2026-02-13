@@ -55,6 +55,20 @@ mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "executor", t
 mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "executor", to: "coordinator", type: "error", summary: "plan.json路径无效, 无法加载实现计划" })
 ```
 
+### CLI 回退
+
+当 `mcp__ccw-tools__team_msg` MCP 不可用时，使用 `ccw team` CLI 作为等效回退：
+
+```javascript
+// 回退: 将 MCP 调用替换为 Bash CLI（参数一一对应）
+Bash(`ccw team log --team "${teamName}" --from "executor" --to "coordinator" --type "impl_complete" --summary "IMPL-001完成: 5个文件变更" --json`)
+
+// 带 data 参数
+Bash(`ccw team log --team "${teamName}" --from "executor" --to "coordinator" --type "impl_progress" --summary "Batch 1/3 完成" --data '{"batch":1,"total":3}' --json`)
+```
+
+**参数映射**: `team_msg(params)` → `ccw team log --team <team> --from executor --to coordinator --type <type> --summary "<text>" [--ref <path>] [--data '<json>'] [--json]`
+
 ## Execution Process
 
 ```

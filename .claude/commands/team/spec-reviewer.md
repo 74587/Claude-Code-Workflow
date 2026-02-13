@@ -55,6 +55,17 @@ mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "spec-reviewe
 mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "spec-reviewer", to: "coordinator", type: "fix_required", summary: "质量 FAIL: 55分, 缺少架构 ADR + PRD 验收标准不可测", data: { gate: "FAIL", score: 55, issues: ["missing ADRs", "untestable AC"] } })
 ```
 
+### CLI 回退
+
+当 `mcp__ccw-tools__team_msg` MCP 不可用时，使用 `ccw team` CLI 作为等效回退：
+
+```javascript
+// 回退: 将 MCP 调用替换为 Bash CLI（参数一一对应）
+Bash(`ccw team log --team "${teamName}" --from "spec-reviewer" --to "coordinator" --type "quality_result" --summary "质量检查 PASS: 85分" --data '{"gate":"PASS","score":85}' --json`)
+```
+
+**参数映射**: `team_msg(params)` → `ccw team log --team <team> --from spec-reviewer --to coordinator --type <type> --summary "<text>" [--data '<json>'] [--json]`
+
 ## Execution Process
 
 ```

@@ -58,6 +58,17 @@ mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "tester", to:
 mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "tester", to: "coordinator", type: "error", summary: "plan.json未找到, 无法进行需求验证" })
 ```
 
+### CLI 回退
+
+当 `mcp__ccw-tools__team_msg` MCP 不可用时，使用 `ccw team` CLI 作为等效回退：
+
+```javascript
+// 回退: 将 MCP 调用替换为 Bash CLI（参数一一对应）
+Bash(`ccw team log --team "${teamName}" --from "tester" --to "coordinator" --type "review_result" --summary "REVIEW-001: APPROVE, 2 medium findings" --data '{"verdict":"APPROVE","critical":0}' --json`)
+```
+
+**参数映射**: `team_msg(params)` → `ccw team log --team <team> --from tester --to coordinator --type <type> --summary "<text>" [--data '<json>'] [--json]`
+
 ## Execution Process
 
 ```

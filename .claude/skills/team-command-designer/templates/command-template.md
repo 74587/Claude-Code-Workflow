@@ -71,6 +71,17 @@ mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "{{../role_na
 {{/each}}
 \`\`\`
 
+### CLI 回退
+
+当 `mcp__ccw-tools__team_msg` MCP 不可用时，使用 `ccw team` CLI 作为等效回退：
+
+\`\`\`javascript
+// 回退: 将 MCP 调用替换为 Bash CLI（参数一一对应）
+Bash(\`ccw team log --team "${teamName}" --from "{{role_name}}" --to "coordinator" --type "{{primary_message_type}}" --summary "<摘要>" --json\`)
+\`\`\`
+
+**参数映射**: `team_msg(params)` → `ccw team log --team <team> --from {{role_name}} --to coordinator --type <type> --summary "<text>" [--ref <path>] [--data '<json>'] [--json]`
+
 ## Execution Process
 
 \`\`\`

@@ -59,6 +59,17 @@ mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "tester", to:
 mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "tester", to: "coordinator", type: "error", summary: "jest命令未找到, 请确认测试框架已安装" })
 ```
 
+### CLI 回退
+
+当 `mcp__ccw-tools__team_msg` MCP 不可用时，使用 `ccw team` CLI 作为等效回退：
+
+```javascript
+// 回退: 将 MCP 调用替换为 Bash CLI（参数一一对应）
+Bash(`ccw team log --team "${teamName}" --from "tester" --to "coordinator" --type "test_result" --summary "TEST-001通过: 98% pass rate" --data '{"passRate":98,"iterations":3}' --json`)
+```
+
+**参数映射**: `team_msg(params)` → `ccw team log --team <team> --from tester --to coordinator --type <type> --summary "<text>" [--data '<json>'] [--json]`
+
 ## Execution Process
 
 ```

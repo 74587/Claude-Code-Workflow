@@ -31,6 +31,26 @@ mcp__ccw-tools__team_msg({ operation: "status", team: teamName })
 **日志位置**: `.workflow/.team-msg/{team-name}/messages.jsonl`
 **消息类型**: `research_ready | research_progress | draft_ready | draft_revision | quality_result | discussion_ready | discussion_blocked | fix_required | error | shutdown`
 
+### CLI 回退
+
+当 `mcp__ccw-tools__team_msg` MCP 不可用时，使用 `ccw team` CLI 作为等效回退：
+
+```javascript
+// 回退: 将 MCP 调用替换为 Bash CLI（参数一一对应）
+// log
+Bash(`ccw team log --team "${teamName}" --from "coordinator" --to "spec-analyst" --type "plan_approved" --summary "研究结果已确认" --json`)
+// list
+Bash(`ccw team list --team "${teamName}" --last 10 --json`)
+// list (带过滤)
+Bash(`ccw team list --team "${teamName}" --from "spec-discuss" --last 5 --json`)
+// status
+Bash(`ccw team status --team "${teamName}" --json`)
+// read
+Bash(`ccw team read --team "${teamName}" --id "MSG-003" --json`)
+```
+
+**参数映射**: `team_msg(params)` → `ccw team <operation> --team <team> [--from/--to/--type/--summary/--ref/--data/--id/--last] [--json]`
+
 ## Pipeline
 
 ```
