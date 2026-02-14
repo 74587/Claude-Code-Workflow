@@ -3,7 +3,7 @@
 // ========================================
 // Manages allotment-based split panes for CLI viewer
 
-import { useCallback, useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, useCallback } from 'react';
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
 import { cn } from '@/lib/utils';
@@ -46,13 +46,6 @@ function isPaneId(child: PaneId | AllotmentLayoutGroup): child is PaneId {
 function LayoutGroupRenderer({ group, minSize, onSizeChange }: LayoutGroupRendererProps) {
   const panes = useViewerPanes();
 
-  const handleChange = useCallback(
-    (sizes: number[]) => {
-      onSizeChange(sizes);
-    },
-    [onSizeChange]
-  );
-
   // Check if all panes in this group exist
   const validChildren = useMemo(() => {
     return group.children.filter(child => {
@@ -71,7 +64,7 @@ function LayoutGroupRenderer({ group, minSize, onSizeChange }: LayoutGroupRender
     <Allotment
       vertical={group.direction === 'vertical'}
       defaultSizes={group.sizes}
-      onChange={handleChange}
+      onChange={onSizeChange}
       className="h-full"
     >
       {validChildren.map((child, index) => (

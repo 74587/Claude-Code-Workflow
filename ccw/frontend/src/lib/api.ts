@@ -2173,6 +2173,75 @@ export interface LiteTaskSession {
   status?: string;
   createdAt?: string;
   updatedAt?: string;
+  // Multi-cli-plan specific fields
+  rounds?: RoundSynthesis[];
+}
+
+// Multi-cli-plan synthesis types
+export interface SolutionFileAction {
+  file: string;
+  line: number;
+  action: 'modify' | 'create' | 'delete';
+}
+
+export interface SolutionTask {
+  id: string;
+  name: string;
+  depends_on: string[];
+  files: SolutionFileAction[];
+  key_point: string | null;
+}
+
+export interface Solution {
+  name: string;
+  source_cli: string[];
+  feasibility: number;
+  effort: string;
+  risk: string;
+  summary: string;
+  pros: string[];
+  cons: string[];
+  affected_files: SolutionFileAction[];
+  implementation_plan: {
+    approach: string;
+    tasks: SolutionTask[];
+    execution_flow: string;
+    milestones: string[];
+  };
+  dependencies: {
+    internal: string[];
+    external: string[];
+  };
+  technical_concerns: string[];
+}
+
+export interface SynthesisConvergence {
+  score: number;
+  new_insights: boolean;
+  recommendation: 'converged' | 'continue' | 'user_input_needed';
+  rationale: string;
+}
+
+export interface SynthesisCrossVerification {
+  agreements: string[];
+  disagreements: Array<{
+    topic: string;
+    gemini: string;
+    codex: string;
+    resolution: string | null;
+  }>;
+  resolution: string;
+}
+
+export interface RoundSynthesis {
+  round: number;
+  timestamp: string;
+  cli_executions: Record<string, { status: string; duration_ms: number; model: string }>;
+  solutions: Solution[];
+  convergence: SynthesisConvergence;
+  cross_verification: SynthesisCrossVerification;
+  clarification_questions: string[];
+  user_feedback_incorporated?: string;
 }
 
 export interface LiteTasksResponse {

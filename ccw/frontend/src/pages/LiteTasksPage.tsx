@@ -30,6 +30,17 @@ import {
   Clock,
   AlertCircle,
   FileCode,
+  ThumbsUp,
+  ThumbsDown,
+  Target,
+  GitCompare,
+  HelpCircle,
+  Cpu,
+  Timer,
+  Sparkles,
+  Layers,
+  CheckCheck,
+  ArrowRight,
 } from 'lucide-react';
 import { useLiteTasks } from '@/hooks/useLiteTasks';
 import { Button } from '@/components/ui/Button';
@@ -37,7 +48,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Card, CardContent } from '@/components/ui/Card';
 import { TabsNavigation } from '@/components/ui/TabsNavigation';
 import { TaskDrawer } from '@/components/shared/TaskDrawer';
-import { fetchLiteSessionContext, type LiteTask, type LiteTaskSession, type LiteSessionContext } from '@/lib/api';
+import { fetchLiteSessionContext, type LiteTask, type LiteTaskSession, type LiteSessionContext, type RoundSynthesis } from '@/lib/api';
 import { LiteContextContent } from '@/components/lite-tasks/LiteContextContent';
 import { useNavigate } from 'react-router-dom';
 
@@ -532,25 +543,36 @@ function ExpandedMultiCliPanel({
       {/* Discussion Tab */}
       {activeTab === 'discussion' && (
         <div className="space-y-3">
-          <Card className="border-border">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <MessagesSquare className="h-5 w-5 text-primary" />
-                <h4 className="font-medium text-foreground">
-                  {formatMessage({ id: 'liteTasks.multiCli.discussionRounds' })}
-                </h4>
-                <Badge variant="secondary" className="text-xs">{roundCount} {formatMessage({ id: 'liteTasks.rounds' })}</Badge>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {formatMessage({ id: 'liteTasks.multiCli.discussionDescription' })}
-              </p>
-              {goal && (
-                <div className="mt-3 p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-foreground">{goal}</p>
+          {/* Rounds Detail */}
+          {session.rounds && session.rounds.length > 0 ? (
+            session.rounds.map((round, idx) => (
+              <RoundDetailCard
+                key={round.round || idx}
+                round={round}
+                isLast={idx === session.rounds!.length - 1}
+              />
+            ))
+          ) : (
+            <Card className="border-border">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <MessagesSquare className="h-5 w-5 text-primary" />
+                  <h4 className="font-medium text-foreground">
+                    {formatMessage({ id: 'liteTasks.multiCli.discussionRounds' })}
+                  </h4>
+                  <Badge variant="secondary" className="text-xs">{roundCount} {formatMessage({ id: 'liteTasks.rounds' })}</Badge>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <p className="text-sm text-muted-foreground">
+                  {formatMessage({ id: 'liteTasks.multiCli.discussionDescription' })}
+                </p>
+                {goal && (
+                  <div className="mt-3 p-3 bg-muted/50 rounded-lg">
+                    <p className="text-sm text-foreground">{goal}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 

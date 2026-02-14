@@ -82,15 +82,16 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose]);
 
-  if (!task || !isOpen) {
-    return null;
-  }
-
   // Normalize task to unified flat format (handles old nested, new flat, and raw LiteTask/TaskData)
+  // MUST be called before early return to satisfy React hooks rules
   const nt = React.useMemo(
-    () => normalizeTask(task as unknown as Record<string, unknown>),
+    () => task ? normalizeTask(task as unknown as Record<string, unknown>) : null,
     [task],
   );
+
+  if (!task || !isOpen || !nt) {
+    return null;
+  }
   const taskId = nt.task_id || 'N/A';
   const taskTitle = nt.title || 'Untitled Task';
   const taskDescription = nt.description;

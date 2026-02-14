@@ -32,7 +32,7 @@ function EmptyTabState() {
   const { formatMessage } = useIntl();
 
   return (
-    <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
+    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4">
       <Terminal className="h-12 w-12 opacity-30" />
       <div className="text-center">
         <p className="text-sm font-medium">
@@ -56,7 +56,7 @@ function ExecutionNotFoundState({ executionId }: { executionId: string }) {
   const { formatMessage } = useIntl();
 
   return (
-    <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
+    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4">
       <Terminal className="h-12 w-12 opacity-30" />
       <div className="text-center">
         <p className="text-sm font-medium">
@@ -113,7 +113,7 @@ function CliOutputDisplay({ execution, executionId }: { execution: CliExecutionS
 
   if (!execution.output || execution.output.length === 0) {
     return (
-      <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-4">
+      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4">
         <Terminal className="h-12 w-12 opacity-30" />
         <div className="text-center">
           <p className="text-sm">
@@ -185,7 +185,7 @@ export function ContentArea({ paneId, className }: ContentAreaProps) {
   return (
     <div
       className={cn(
-        'flex-1 overflow-hidden',
+        'flex-1 min-h-0 flex flex-col overflow-hidden',
         'bg-background',
         className
       )}

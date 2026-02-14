@@ -118,6 +118,9 @@ interface LiteTaskDetail {
   explorations: unknown[];
   clarifications: unknown | null;
   diagnoses?: Diagnoses;
+  // Multi-cli-plan specific
+  rounds?: RoundSynthesis[];
+  latestSynthesis?: RoundSynthesis | null;
 }
 
 /**
@@ -923,6 +926,9 @@ export async function getLiteTaskDetail(workflowDir: string, type: string, sessi
       tasks: extractTasksFromSyntheses(syntheses),
       explorations,
       clarifications,
+      // Multi-cli-plan specific fields
+      rounds: syntheses,
+      latestSynthesis,
     };
 
     return detail;
