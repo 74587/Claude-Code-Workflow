@@ -1,10 +1,11 @@
 // ========================================
 // Terminal Dashboard Page (V2)
 // ========================================
-// Terminal-first layout with floating panels.
+// Terminal-first layout with fixed session sidebar + floating panels.
+// Left sidebar: SessionGroupTree + AgentList (always visible)
 // Main area: TerminalGrid (tmux-style split panes)
 // Top: DashboardToolbar with panel toggles and layout presets
-// Floating panels: Sessions, Issues, Queue, Inspector (overlay, mutually exclusive)
+// Floating panels: Issues, Queue, Inspector (overlay, mutually exclusive)
 
 import { useState, useCallback } from 'react';
 import { useIntl } from 'react-intl';
@@ -33,7 +34,7 @@ export function TerminalDashboardPage() {
   }, []);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
+    <div className="-m-4 md:-m-6 flex flex-col h-[calc(100vh-56px)] overflow-hidden">
       <AssociationHighlightProvider>
         {/* Global toolbar */}
         <DashboardToolbar
@@ -41,20 +42,10 @@ export function TerminalDashboardPage() {
           onTogglePanel={togglePanel}
         />
 
-        {/* Terminal grid (flex-1, takes all remaining space) */}
-        <div className="flex-1 min-h-0">
-          <TerminalGrid />
-        </div>
-
-        {/* Floating panels (conditional, overlay) */}
-        <FloatingPanel
-          isOpen={activePanel === 'sessions'}
-          onClose={closePanel}
-          title={formatMessage({ id: 'terminalDashboard.toolbar.sessions' })}
-          side="left"
-          width={280}
-        >
-          <div className="flex flex-col h-full">
+        {/* Main content: session sidebar + terminal grid */}
+        <div className="flex flex-1 min-h-0">
+          {/* Fixed session sidebar */}
+          <div className="w-[240px] shrink-0 flex flex-col">
             <div className="flex-1 min-h-0 overflow-y-auto">
               <SessionGroupTree />
             </div>
@@ -62,8 +53,14 @@ export function TerminalDashboardPage() {
               <AgentList />
             </div>
           </div>
-        </FloatingPanel>
 
+          {/* Terminal grid (takes remaining space) */}
+          <div className="flex-1 min-h-0">
+            <TerminalGrid />
+          </div>
+        </div>
+
+        {/* Floating panels (conditional, overlay) */}
         <FloatingPanel
           isOpen={activePanel === 'issues'}
           onClose={closePanel}

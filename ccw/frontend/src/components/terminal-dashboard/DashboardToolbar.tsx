@@ -2,13 +2,12 @@
 // DashboardToolbar Component
 // ========================================
 // Top toolbar for Terminal Dashboard V2.
-// Provides toggle buttons for floating panels (Sessions/Issues/Queue/Inspector)
-// and layout preset controls.
+// Provides toggle buttons for floating panels (Issues/Queue/Inspector)
+// and layout preset controls. Sessions sidebar is always visible.
 
 import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import {
-  FolderTree,
   AlertCircle,
   ListChecks,
   Info,
@@ -20,21 +19,15 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/Badge';
 import {
-  useSessionManagerStore,
-  selectGroups,
-  selectTerminalMetas,
-} from '@/stores/sessionManagerStore';
-import {
   useIssueQueueIntegrationStore,
   selectAssociationChain,
 } from '@/stores/issueQueueIntegrationStore';
 import { useIssues, useIssueQueue } from '@/hooks/useIssues';
 import { useTerminalGridStore } from '@/stores/terminalGridStore';
-import type { TerminalStatus } from '@/types/terminal-dashboard';
 
 // ========== Types ==========
 
-export type PanelId = 'sessions' | 'issues' | 'queue' | 'inspector';
+export type PanelId = 'issues' | 'queue' | 'inspector';
 
 interface DashboardToolbarProps {
   activePanel: PanelId | null;
@@ -54,20 +47,6 @@ const LAYOUT_PRESETS = [
 
 export function DashboardToolbar({ activePanel, onTogglePanel }: DashboardToolbarProps) {
   const { formatMessage } = useIntl();
-
-  // Session count
-  const groups = useSessionManagerStore(selectGroups);
-  const terminalMetas = useSessionManagerStore(selectTerminalMetas);
-  const sessionCount = useMemo(() => {
-    const allSessionIds = groups.flatMap((g) => g.sessionIds);
-    let activeCount = 0;
-    for (const sid of allSessionIds) {
-      const meta = terminalMetas[sid];
-      const status: TerminalStatus = meta?.status ?? 'idle';
-      if (status === 'active') activeCount++;
-    }
-    return activeCount > 0 ? activeCount : allSessionIds.length;
-  }, [groups, terminalMetas]);
 
   // Issues count
   const { openCount } = useIssues();
@@ -100,13 +79,6 @@ export function DashboardToolbar({ activePanel, onTogglePanel }: DashboardToolba
   return (
     <div className="flex items-center gap-1 px-2 h-[40px] border-b border-border bg-muted/30 shrink-0">
       {/* Panel toggle buttons */}
-      <ToolbarButton
-        icon={FolderTree}
-        label={formatMessage({ id: 'terminalDashboard.toolbar.sessions' })}
-        isActive={activePanel === 'sessions'}
-        onClick={() => onTogglePanel('sessions')}
-        badge={sessionCount > 0 ? sessionCount : undefined}
-      />
       <ToolbarButton
         icon={AlertCircle}
         label={formatMessage({ id: 'terminalDashboard.toolbar.issues' })}

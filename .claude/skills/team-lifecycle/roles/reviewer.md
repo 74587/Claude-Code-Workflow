@@ -101,6 +101,10 @@ if (reviewMode === 'spec') {
   const sessionMatch = task.description.match(/Session:\s*(.+)/)
   const sessionFolder = sessionMatch ? sessionMatch[1].trim() : ''
 
+  // 加载质量门禁标准（引用 spec-generator 共享资源）
+  let qualityGates = null
+  try { qualityGates = Read('../specs/quality-gates.md') } catch {}
+
   // Load all spec documents
   const documents = {
     config: null, discoveryContext: null, productBrief: null,
@@ -227,6 +231,7 @@ if (reviewMode === 'spec') {
   // Completeness (25%): all sections present with content
   function scoreCompleteness(docs) {
     let score = 0
+    const issues = []
     const checks = [
       { name: 'spec-config.json', present: !!docs.config, weight: 5 },
       { name: 'discovery-context.json', present: !!docs.discoveryContext, weight: 10 },
@@ -238,8 +243,54 @@ if (reviewMode === 'spec') {
       { name: 'epics/_index.md', present: !!docs.epicsIndex, weight: 10 },
       { name: 'EPIC-* files', present: docs.epics.length > 0, weight: 5 }
     ]
-    checks.forEach(c => { if (c.present) score += c.weight })
-    return { score, issues: checks.filter(c => !c.present).map(c => `Missing: ${c.name}`) }
+    checks.forEach(c => { if (c.present) score += c.weight; else issues.push(`Missing: ${c.name}`) })
+
+    // 增强: section 内容检查（不仅检查文件是否存在，还检查关键 section 是否有实质内容）
+    if (docs.productBrief) {
+      const briefSections = ['## Vision', '## Problem Statement', '## Target Users', '## Goals', '## Scope']
+      const missingSections = briefSections.filter(s => !docs.productBrief.includes(s))
+      if (missingSections.length > 0) {
+        score -= missingSections.length * 3
+        issues.push(`Product Brief missing sections: ${missingSections.join(', ')}`)
+      }
+    }
+
+    if (docs.requirementsIndex) {
+      const reqSections = ['## Functional Requirements', '## Non-Functional Requirements', '## MoSCoW Summary']
+      const missingReqSections = reqSections.filter(s => !docs.requirementsIndex.includes(s))
+      if (missingReqSections.length > 0) {
+        score -= missingReqSections.length * 3
+        issues.push(`Requirements index missing sections: ${missingReqSections.join(', ')}`)
+      }
+    }
+
+    if (docs.architectureIndex) {
+      const archSections = ['## Architecture Decision Records', '## Technology Stack']
+      const missingArchSections = archSections.filter(s => !docs.architectureIndex.includes(s))
+      if (missingArchSections.length > 0) {
+        score -= missingArchSections.length * 3
+        issues.push(`Architecture index missing sections: ${missingArchSections.join(', ')}`)
+      }
+      if (!docs.architectureIndex.includes('```mermaid')) {
+        score -= 5
+        issues.push('Architecture index missing Mermaid component diagram')
+      }
+    }
+
+    if (docs.epicsIndex) {
+      const epicsSections = ['## Epic Overview', '## MVP Scope']
+      const missingEpicsSections = epicsSections.filter(s => !docs.epicsIndex.includes(s))
+      if (missingEpicsSections.length > 0) {
+        score -= missingEpicsSections.length * 3
+        issues.push(`Epics index missing sections: ${missingEpicsSections.join(', ')}`)
+      }
+      if (!docs.epicsIndex.includes('```mermaid')) {
+        score -= 5
+        issues.push('Epics index missing Mermaid dependency diagram')
+      }
+    }
+
+    return { score: Math.max(0, score), issues }
   }
 
   // Consistency (25%): terminology, format, references
@@ -390,6 +441,31 @@ version: 1
 | **Overall** | **${overallScore.toFixed(1)}%** | **100%** |
 
 ## Quality Gate: ${qualityGate}
+
+## Per-Phase Quality Gates
+${qualityGates ? `_(Applied from ../specs/quality-gates.md)_
+
+### Phase 2 (Product Brief)
+- Vision statement: ${docs.productBrief?.includes('## Vision') ? 'PASS' : 'MISSING'}
+- Problem statement specificity: ${docs.productBrief?.match(/## Problem/)?.length ? 'PASS' : 'MISSING'}
+- Target users >= 1: ${docs.productBrief?.includes('## Target Users') ? 'PASS' : 'MISSING'}
+- Measurable goals >= 2: ${docs.productBrief?.includes('## Goals') ? 'PASS' : 'MISSING'}
+
+### Phase 3 (Requirements)
+- Functional requirements >= 3: ${docs.requirements.length >= 3 ? 'PASS' : 'FAIL (' + docs.requirements.length + ')'}
+- Acceptance criteria present: ${docs.requirements.some(r => /acceptance|criteria/i.test(r)) ? 'PASS' : 'MISSING'}
+- MoSCoW priority tags: ${docs.requirementsIndex?.includes('Must') ? 'PASS' : 'MISSING'}
+
+### Phase 4 (Architecture)
+- Component diagram: ${docs.architectureIndex?.includes('mermaid') ? 'PASS' : 'MISSING'}
+- ADR with alternatives: ${docs.adrs.some(a => /alternative|option/i.test(a)) ? 'PASS' : 'MISSING'}
+- Tech stack specified: ${docs.architectureIndex?.includes('Technology') ? 'PASS' : 'MISSING'}
+
+### Phase 5 (Epics)
+- MVP subset tagged: ${docs.epics.some(e => /mvp:\s*true/i.test(e)) ? 'PASS' : 'MISSING'}
+- Dependency map: ${docs.epicsIndex?.includes('mermaid') ? 'PASS' : 'MISSING'}
+- Story sizing: ${docs.epics.some(e => /\b[SMLX]{1,2}\b|Small|Medium|Large/.test(e)) ? 'PASS' : 'MISSING'}
+` : '_(quality-gates.md not loaded)_'}
 
 ## Issues Found
 ${allSpecIssues.map(i => '- ' + i).join('\n') || 'None'}

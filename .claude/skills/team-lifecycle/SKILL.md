@@ -310,6 +310,22 @@ Task({
 })
 ```
 
+## Shared Spec Resources
+
+Writer 和 Reviewer 角色在 spec 模式下使用本 skill 内置的标准和模板（从 spec-generator 复制，独立维护）：
+
+| Resource | Path | Usage |
+|----------|------|-------|
+| Document Standards | `specs/document-standards.md` | YAML frontmatter、命名规范、内容结构 |
+| Quality Gates | `specs/quality-gates.md` | Per-phase 质量门禁、评分标尺 |
+| Product Brief Template | `templates/product-brief.md` | DRAFT-001 文档生成 |
+| Requirements Template | `templates/requirements-prd.md` | DRAFT-002 文档生成 |
+| Architecture Template | `templates/architecture-doc.md` | DRAFT-003 文档生成 |
+| Epics Template | `templates/epics-template.md` | DRAFT-004 文档生成 |
+
+> Writer 在执行每个 DRAFT-* 任务前 **必须先 Read** 对应的 template 文件和 document-standards.md。
+> 从 `roles/` 子目录引用时路径为 `../specs/` 和 `../templates/`。
+
 ## Error Handling
 
 | Scenario | Resolution |

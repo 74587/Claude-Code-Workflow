@@ -65,7 +65,12 @@ const sessionFolder = sessionMatch ? sessionMatch[1].trim() : '.workflow/.spec-t
 
 // Parse topic from task description
 const topicLines = task.description.split('\n').filter(l => !l.startsWith('Session:') && !l.startsWith('输出:') && l.trim())
-const topic = topicLines[0] || task.subject.replace('RESEARCH-001: ', '')
+const rawTopic = topicLines[0] || task.subject.replace('RESEARCH-001: ', '')
+
+// 支持文件引用输入（与 spec-generator Phase 1 一致）
+const topic = (rawTopic.startsWith('@') || rawTopic.endsWith('.md') || rawTopic.endsWith('.txt'))
+  ? Read(rawTopic.replace(/^@/, ''))
+  : rawTopic
 
 // Use Gemini CLI for seed analysis
 Bash({
@@ -122,6 +127,9 @@ const specConfig = {
   topic: topic,
   status: "research_complete",
   complexity: seedAnalysis.complexity_assessment || "moderate",
+  depth: task.description.match(/讨论深度:\s*(.+)/)?.[1] || "standard",
+  focus_areas: seedAnalysis.exploration_dimensions || [],
+  mode: "interactive",  // team 模式始终交互
   phases_completed: ["discovery"],
   created_at: new Date().toISOString(),
   session_folder: sessionFolder,

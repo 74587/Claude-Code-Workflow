@@ -321,9 +321,184 @@ AskUserQuestion({
     ]
   }]
 })
-// 新需求 → 回到 Phase 1（复用 team，新建任务链）
-// 交付执行 → 提示可用的执行 workflow
-// 关闭 → shutdown 给每个 teammate → TeamDelete()
+
+// === 新需求 → 回到 Phase 1（复用 team，新建任务链）===
+
+// === 交付执行 → Handoff 逻辑 ===
+if (userChoice === '交付执行') {
+  AskUserQuestion({
+    questions: [{
+      question: "选择交付方式：",
+      header: "Handoff",
+      multiSelect: false,
+      options: [
+        { label: "lite-plan", description: "逐 Epic 轻量执行" },
+        { label: "full-plan", description: "完整规划（创建 WFS session + .brainstorming/ 桥接）" },
+        { label: "req-plan", description: "需求级路线图规划" },
+        { label: "create-issues", description: "每个 Epic 创建 issue" }
+      ]
+    }]
+  })
+
+  // 读取 spec 文档
+  const specConfig = JSON.parse(Read(`${specSessionFolder}/spec-config.json`))
+  const specSummary = Read(`${specSessionFolder}/spec-summary.md`)
+  const productBrief = Read(`${specSessionFolder}/product-brief.md`)
+  const requirementsIndex = Read(`${specSessionFolder}/requirements/_index.md`)
+  const architectureIndex = Read(`${specSessionFolder}/architecture/_index.md`)
+  const epicsIndex = Read(`${specSessionFolder}/epics/_index.md`)
+  const epicFiles = Glob(`${specSessionFolder}/epics/EPIC-*.md`)
+
+  if (handoffChoice === 'lite-plan') {
+    // 读取首个 MVP Epic → 调用 lite-plan
+    const firstMvpFile = epicFiles.find(f => {
+      const content = Read(f)
+      return content.includes('mvp: true')
+    })
+    const epicContent = Read(firstMvpFile)
+    const title = epicContent.match(/^#\s+(.+)/m)?.[1] || ''
+    const description = epicContent.match(/## Description\n([\s\S]*?)(?=\n## )/)?.[1]?.trim() || ''
+    Skill({ skill: "workflow:lite-plan", args: `"${title}: ${description}"` })
+  }
+
+  if (handoffChoice === 'full-plan' || handoffChoice === 'req-plan') {
+    // === 桥接: 构建 .brainstorming/ 兼容结构 ===
+    // 从 spec-generator Phase 6 Step 6 适配
+
+    // Step A: 构建结构化描述
+    const structuredDesc = `GOAL: ${specConfig.seed_analysis?.problem_statement || specConfig.topic}
+SCOPE: ${specConfig.complexity} complexity
+CONTEXT: Generated from spec team session ${specConfig.session_id}. Source: ${specSessionFolder}/`
+
+    // Step B: 创建 WFS session
+    Skill({ skill: "workflow:session:start", args: `--auto "${structuredDesc}"` })
+    // → 产出 sessionId (WFS-xxx) 和 session 目录
+
+    // Step C: 创建 .brainstorming/ 桥接文件
+    const brainstormDir = `.workflow/active/${sessionId}/.brainstorming`
+    Bash(`mkdir -p "${brainstormDir}/feature-specs"`)
+
+    // C.1: guidance-specification.md（action-planning-agent 最高优先读取）
+    Write(`${brainstormDir}/guidance-specification.md`, `
+# ${specConfig.seed_analysis?.problem_statement || specConfig.topic} - Confirmed Guidance Specification
+
+**Source**: spec-team session ${specConfig.session_id}
+**Generated**: ${new Date().toISOString()}
+**Spec Directory**: ${specSessionFolder}
+
+## 1. Project Positioning & Goals
+${extractSection(productBrief, "Vision")}
+${extractSection(productBrief, "Goals")}
+
+## 2. Requirements Summary
+${extractSection(requirementsIndex, "Functional Requirements")}
+
+## 3. Architecture Decisions
+${extractSection(architectureIndex, "Architecture Decision Records")}
+${extractSection(architectureIndex, "Technology Stack")}
+
+## 4. Implementation Scope
+${extractSection(epicsIndex, "Epic Overview")}
+${extractSection(epicsIndex, "MVP Scope")}
+
+## Feature Decomposition
+${extractSection(epicsIndex, "Traceability Matrix")}
+
+## Appendix: Source Documents
+| Document | Path | Description |
+|----------|------|-------------|
+| Product Brief | ${specSessionFolder}/product-brief.md | Vision, goals, scope |
+| Requirements | ${specSessionFolder}/requirements/ | _index.md + REQ-*.md + NFR-*.md |
+| Architecture | ${specSessionFolder}/architecture/ | _index.md + ADR-*.md |
+| Epics | ${specSessionFolder}/epics/ | _index.md + EPIC-*.md |
+| Readiness Report | ${specSessionFolder}/readiness-report.md | Quality validation |
+`)
+
+    // C.2: feature-index.json（EPIC → Feature 映射）
+    const features = epicFiles.map(epicFile => {
+      const content = Read(epicFile)
+      const fmMatch = content.match(/^---\n([\s\S]*?)\n---/)
+      const fm = fmMatch ? parseYAML(fmMatch[1]) : {}
+      const basename = epicFile.replace(/.*[/\\]/, '').replace('.md', '')
+      const epicNum = (fm.id || '').replace('EPIC-', '')
+      const slug = basename.replace(/^EPIC-\d+-/, '')
+      return {
+        id: `F-${epicNum}`, slug, name: content.match(/^#\s+(.+)/m)?.[1] || '',
+        priority: fm.mvp ? "High" : "Medium",
+        spec_path: `${brainstormDir}/feature-specs/F-${epicNum}-${slug}.md`,
+        source_epic: fm.id, source_file: epicFile
+      }
+    })
+    Write(`${brainstormDir}/feature-specs/feature-index.json`, JSON.stringify({
+      version: "1.0", source: "spec-team",
+      spec_session: specConfig.session_id, features, cross_cutting_specs: []
+    }, null, 2))
+
+    // C.3: Feature-spec 文件（EPIC → F-*.md 转换）
+    features.forEach(feature => {
+      const epicContent = Read(feature.source_file)
+      Write(feature.spec_path, `
+# Feature Spec: ${feature.source_epic} - ${feature.name}
+
+**Source**: ${feature.source_file}
+**Priority**: ${feature.priority === "High" ? "MVP" : "Post-MVP"}
+
+## Description
+${extractSection(epicContent, "Description")}
+
+## Stories
+${extractSection(epicContent, "Stories")}
+
+## Requirements
+${extractSection(epicContent, "Requirements")}
+
+## Architecture
+${extractSection(epicContent, "Architecture")}
+`)
+    })
+
+    // Step D: 调用下游 workflow
+    if (handoffChoice === 'full-plan') {
+      Skill({ skill: "workflow:plan", args: `"${structuredDesc}"` })
+    } else {
+      Skill({ skill: "workflow:req-plan-with-file", args: `"${specConfig.seed_analysis?.problem_statement || specConfig.topic}"` })
+    }
+  }
+
+  if (handoffChoice === 'create-issues') {
+    // 逐 EPIC 文件创建 issue
+    epicFiles.forEach(epicFile => {
+      const content = Read(epicFile)
+      const title = content.match(/^#\s+(.+)/m)?.[1] || ''
+      const description = content.match(/## Description\n([\s\S]*?)(?=\n## )/)?.[1]?.trim() || ''
+      Skill({ skill: "issue:new", args: `"${title}: ${description}"` })
+    })
+  }
+}
+
+// === 关闭 → shutdown 给每个 teammate → TeamDelete() ===
+```
+
+#### Helper Functions Reference (pseudocode)
+
+```javascript
+// Extract a named ## section from a markdown document
+function extractSection(markdown, sectionName) {
+  // Return content between ## {sectionName} and next ## heading
+  const regex = new RegExp(`## ${sectionName}\\n([\\s\\S]*?)(?=\\n## |$)`)
+  return markdown.match(regex)?.[1]?.trim() || ''
+}
+
+// Parse YAML frontmatter string into object
+function parseYAML(yamlStr) {
+  // Simple key-value parsing from YAML frontmatter
+  const result = {}
+  yamlStr.split('\n').forEach(line => {
+    const match = line.match(/^(\w+):\s*(.+)/)
+    if (match) result[match[1]] = match[2].replace(/^["']|["']$/g, '')
+  })
+  return result
+}
 ```
 
 ## Session File Structure
