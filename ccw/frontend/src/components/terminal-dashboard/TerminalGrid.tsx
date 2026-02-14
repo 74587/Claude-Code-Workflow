@@ -80,13 +80,13 @@ function GridGroupRenderer({ group, minSize, onSizeChange }: GridGroupRendererPr
 export function TerminalGrid({ className }: { className?: string }) {
   const layout = useTerminalGridStore(selectTerminalGridLayout);
   const panes = useTerminalGridStore(selectTerminalGridPanes);
-  const setLayout = useTerminalGridStore((s) => s.setLayout);
+  const updateLayoutSizes = useTerminalGridStore((s) => s.updateLayoutSizes);
 
   const handleSizeChange = useCallback(
     (sizes: number[]) => {
-      setLayout({ ...layout, sizes });
+      updateLayoutSizes(sizes);
     },
-    [layout, setLayout]
+    [updateLayoutSizes]
   );
 
   const content = useMemo(() => {

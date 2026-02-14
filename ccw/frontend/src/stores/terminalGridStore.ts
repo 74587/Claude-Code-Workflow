@@ -31,6 +31,7 @@ export interface TerminalGridState {
 
 export interface TerminalGridActions {
   setLayout: (layout: AllotmentLayoutGroup) => void;
+  updateLayoutSizes: (sizes: number[]) => void;
   splitPane: (paneId: PaneId, direction: 'horizontal' | 'vertical') => PaneId;
   closePane: (paneId: PaneId) => void;
   assignSession: (paneId: PaneId, sessionId: string | null) => void;
@@ -80,6 +81,14 @@ export const useTerminalGridStore = create<TerminalGridStore>()(
 
         setLayout: (layout) => {
           set({ layout }, false, 'terminalGrid/setLayout');
+        },
+
+        updateLayoutSizes: (sizes) => {
+          const currentLayout = get().layout;
+          // Only update if sizes actually changed
+          if (JSON.stringify(currentLayout.sizes) !== JSON.stringify(sizes)) {
+            set({ layout: { ...currentLayout, sizes } }, false, 'terminalGrid/updateLayoutSizes');
+          }
         },
 
         splitPane: (paneId, direction) => {
