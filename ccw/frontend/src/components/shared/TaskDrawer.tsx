@@ -10,14 +10,14 @@ import { Flowchart } from './Flowchart';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/Tabs';
-import type { NormalizedTask } from '@/lib/api';
+import type { NormalizedTask, LiteTask } from '@/lib/api';
 import { buildFlowControl } from '@/lib/api';
 import type { TaskData } from '@/types/store';
 
 // ========== Types ==========
 
 export interface TaskDrawerProps {
-  task: NormalizedTask | TaskData | null;
+  task: NormalizedTask | TaskData | LiteTask | null;
   isOpen: boolean;
   onClose: () => void;
 }

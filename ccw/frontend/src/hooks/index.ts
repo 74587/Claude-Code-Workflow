@@ -20,6 +20,8 @@ export type { UseWebSocketOptions, UseWebSocketReturn } from './useWebSocket';
 
 export { useWebSocketNotifications } from './useWebSocketNotifications';
 
+export { useCompletionCallbackChain } from './useCompletionCallbackChain';
+
 export { useSystemNotifications } from './useSystemNotifications';
 export type { UseSystemNotificationsReturn, SystemNotificationOptions } from './useSystemNotifications';
 
@@ -54,7 +56,6 @@ export {
   useUpdateLoopStatus,
   useDeleteLoop,
   useLoopMutations,
-  loopsKeys,
 } from './useLoops';
 export type {
   LoopsFilter,
@@ -118,7 +119,6 @@ export {
   useCommands,
   useCommandSearch,
   useCommandMutations,
-  commandsKeys,
 } from './useCommands';
 export type {
   CommandsFilter,

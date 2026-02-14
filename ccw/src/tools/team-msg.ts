@@ -12,9 +12,75 @@
 
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
-import { existsSync, mkdirSync, readFileSync, appendFileSync, writeFileSync, rmSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, appendFileSync, writeFileSync, rmSync, statSync } from 'fs';
 import { join, dirname } from 'path';
 import { getProjectRoot } from '../utils/path-validator.js';
+
+// --- Team Metadata ---
+
+export interface TeamMeta {
+  status: 'active' | 'completed' | 'archived';
+  created_at: string;
+  updated_at: string;
+  archived_at?: string;
+  pipeline_mode?: string;
+}
+
+export function getMetaPath(team: string): string {
+  return join(getLogDir(team), 'meta.json');
+}
+
+export function readTeamMeta(team: string): TeamMeta | null {
+  const metaPath = getMetaPath(team);
+  if (!existsSync(metaPath)) return null;
+  try {
+    return JSON.parse(readFileSync(metaPath, 'utf-8')) as TeamMeta;
+  } catch {
+    return null;
+  }
+}
+
+export function writeTeamMeta(team: string, meta: TeamMeta): void {
+  const dir = getLogDir(team);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  writeFileSync(getMetaPath(team), JSON.stringify(meta, null, 2), 'utf-8');
+}
+
+/**
+ * Infer team status when no meta.json exists.
+ * If last message is 'shutdown' → 'completed', otherwise 'active'.
+ */
+export function inferTeamStatus(team: string): TeamMeta['status'] {
+  const messages = readAllMessages(team);
+  if (messages.length === 0) return 'active';
+  const lastMsg = messages[messages.length - 1];
+  return lastMsg.type === 'shutdown' ? 'completed' : 'active';
+}
+
+/**
+ * Get effective team meta: reads meta.json or infers from messages.
+ */
+export function getEffectiveTeamMeta(team: string): TeamMeta {
+  const meta = readTeamMeta(team);
+  if (meta) return meta;
+
+  // Infer from messages and directory stat
+  const status = inferTeamStatus(team);
+  const dir = getLogDir(team);
+  let created_at = new Date().toISOString();
+  try {
+    const stat = statSync(dir);
+    created_at = stat.birthtime.toISOString();
+  } catch { /* use now as fallback */ }
+
+  const messages = readAllMessages(team);
+  const lastMsg = messages[messages.length - 1];
+  const updated_at = lastMsg?.ts || created_at;
+
+  return { status, created_at, updated_at };
+}
 
 // --- Types ---
 

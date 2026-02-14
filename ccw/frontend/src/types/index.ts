@@ -105,6 +105,21 @@ export type {
   TemplateExportRequest,
 } from './execution';
 
+// ========== Orchestrator Types ==========
+export type {
+  SessionStrategy,
+  ErrorHandlingStrategy,
+  ErrorHandling,
+  OrchestrationStatus,
+  StepStatus,
+  ExecutionType,
+  OrchestrationMetadata,
+  OrchestrationSource,
+  OrchestrationStep,
+  OrchestrationPlan,
+  ManualOrchestrationParams,
+} from './orchestrator';
+
 // ========== Tool Call Types ==========
 export type {
   ToolCallStatus,

@@ -434,8 +434,8 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         scheduleReconnect();
       };
 
-      ws.onerror = (error) => {
-        console.error('[WebSocket] Error:', error);
+      ws.onerror = () => {
+        console.warn('[WebSocket] Connection error');
         getStoreState().setWsStatus('error');
       };
     } catch (error) {

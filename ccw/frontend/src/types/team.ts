@@ -35,10 +35,22 @@ export interface TeamMember {
   messageCount: number;
 }
 
+export type TeamStatus = 'active' | 'completed' | 'archived';
+
 export interface TeamSummary {
   name: string;
   messageCount: number;
   lastActivity: string;
+}
+
+export interface TeamSummaryExtended extends TeamSummary {
+  status: TeamStatus;
+  created_at: string;
+  updated_at: string;
+  archived_at?: string;
+  pipeline_mode?: string;
+  memberCount: number;
+  members?: string[];
 }
 
 export interface TeamMessagesResponse {
@@ -53,7 +65,7 @@ export interface TeamStatusResponse {
 }
 
 export interface TeamsListResponse {
-  teams: TeamSummary[];
+  teams: TeamSummaryExtended[];
 }
 
 export interface TeamMessageFilter {

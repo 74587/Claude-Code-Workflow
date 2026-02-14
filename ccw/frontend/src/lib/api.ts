@@ -2040,6 +2040,14 @@ export interface NormalizedTask extends TaskData {
 }
 
 /**
+ * Normalize files field: handles both old string[] format and new {path}[] format.
+ */
+function normalizeFilesField(files: unknown): Array<{ path: string; name?: string }> | undefined {
+  if (!Array.isArray(files) || files.length === 0) return undefined;
+  return files.map((f: unknown) => typeof f === 'string' ? { path: f } : f) as Array<{ path: string; name?: string }>;
+}
+
+/**
  * Normalize a raw task object (old 6-field or new unified flat) into NormalizedTask.
  * Reads new flat fields first, falls back to old nested paths.
  * Long-term compatible: handles both formats permanently.
@@ -2049,18 +2057,23 @@ export function normalizeTask(raw: Record<string, unknown>): NormalizedTask {
     return { task_id: 'N/A', status: 'pending', _raw: raw } as NormalizedTask;
   }
 
-  // Type-safe access helpers
-  const rawContext = raw.context as LiteTask['context'] | undefined;
+  // Type-safe access helpers (use intersection for broad compat with old/new schemas)
+  const rawContext = raw.context as (LiteTask['context'] & { requirements?: string[] }) | undefined;
   const rawFlowControl = raw.flow_control as FlowControl | undefined;
   const rawMeta = raw.meta as LiteTask['meta'] | undefined;
   const rawConvergence = raw.convergence as NormalizedTask['convergence'] | undefined;
 
-  // Description: new flat field first, then join old context.requirements
+  // Description: new flat field first, then join old context.requirements, then old details/scope
   const rawRequirements = rawContext?.requirements;
+  const rawDetails = raw.details as string[] | undefined;
   const description = (raw.description as string | undefined)
     || (Array.isArray(rawRequirements) && rawRequirements.length > 0
       ? rawRequirements.join('; ')
-      : undefined);
+      : undefined)
+    || (Array.isArray(rawDetails) && rawDetails.length > 0
+      ? rawDetails.join('; ')
+      : undefined)
+    || (raw.scope as string | undefined);
 
   return {
     // Identity
@@ -2084,7 +2097,7 @@ export function normalizeTask(raw: Record<string, unknown>): NormalizedTask {
     // Promoted from flow_control (new first, old fallback)
     pre_analysis: (raw.pre_analysis as PreAnalysisStep[]) || rawFlowControl?.pre_analysis,
     implementation: (raw.implementation as (ImplementationStep | string)[]) || rawFlowControl?.implementation_approach,
-    files: (raw.files as Array<{ path: string; name?: string }>) || rawFlowControl?.target_files,
+    files: normalizeFilesField(raw.files) || rawFlowControl?.target_files,
 
     // Promoted from meta (new first, old fallback)
     type: (raw.type as string) || rawMeta?.type,
@@ -5964,8 +5977,23 @@ export async function fetchCcwTools(): Promise<CcwToolInfo[]> {
 
 // ========== Team API ==========
 
-export async function fetchTeams(): Promise<{ teams: Array<{ name: string; messageCount: number; lastActivity: string }> }> {
-  return fetchApi('/api/teams');
+export async function fetchTeams(location?: string): Promise<{ teams: Array<{ name: string; messageCount: number; lastActivity: string; status: string; created_at: string; updated_at: string; archived_at?: string; pipeline_mode?: string; memberCount: number; members?: string[] }> }> {
+  const params = new URLSearchParams();
+  if (location) params.set('location', location);
+  const qs = params.toString();
+  return fetchApi(`/api/teams${qs ? `?${qs}` : ''}`);
+}
+
+export async function archiveTeam(teamName: string): Promise<{ success: boolean; team: string; status: string }> {
+  return fetchApi(`/api/teams/${encodeURIComponent(teamName)}/archive`, { method: 'POST' });
+}
+
+export async function unarchiveTeam(teamName: string): Promise<{ success: boolean; team: string; status: string }> {
+  return fetchApi(`/api/teams/${encodeURIComponent(teamName)}/unarchive`, { method: 'POST' });
+}
+
+export async function deleteTeam(teamName: string): Promise<void> {
+  return fetchApi<void>(`/api/teams/${encodeURIComponent(teamName)}`, { method: 'DELETE' });
 }
 
 export async function fetchTeamMessages(

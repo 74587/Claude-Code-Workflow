@@ -79,41 +79,65 @@ function FixProgressCarousel({ sessionId }: { sessionId: string }) {
   const [currentSlide, setCurrentSlide] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(false);
 
-  // Fetch fix progress data
-  const fetchFixProgress = React.useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/fix-progress?sessionId=${encodeURIComponent(sessionId)}`);
-      if (!response.ok) {
-        if (response.status === 404) {
-          setFixProgressData(null);
-        }
-        return;
-      }
-      const data = await response.json();
-      setFixProgressData(data);
-    } catch (err) {
-      console.error('Failed to fetch fix progress:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [sessionId]);
-
-  // Poll for fix progress updates
+  // Sequential polling with AbortController — no concurrent requests possible
   React.useEffect(() => {
-    fetchFixProgress();
+    const abortController = new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let stopped = false;
+    let errorCount = 0;
 
-    // Stop polling if phase is completion
-    if (fixProgressData?.phase === 'completion') {
-      return;
-    }
+    const poll = async () => {
+      if (stopped) return;
 
-    const interval = setInterval(() => {
-      fetchFixProgress();
-    }, 5000);
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `/api/fix-progress?sessionId=${encodeURIComponent(sessionId)}`,
+          { signal: abortController.signal }
+        );
+        if (!response.ok) {
+          errorCount += 1;
+          if (response.status === 404 || errorCount >= 3) {
+            stopped = true;
+            setFixProgressData(null);
+            return;
+          }
+        } else {
+          errorCount = 0;
+          const data = await response.json();
+          setFixProgressData(data);
+          if (data?.phase === 'completion') {
+            stopped = true;
+            return;
+          }
+        }
+      } catch {
+        if (abortController.signal.aborted) return;
+        errorCount += 1;
+        if (errorCount >= 3) {
+          stopped = true;
+          return;
+        }
+      } finally {
+        if (!abortController.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
 
-    return () => clearInterval(interval);
-  }, [fetchFixProgress, fixProgressData?.phase]);
+      // Schedule next poll only after current request completes
+      if (!stopped) {
+        timeoutId = setTimeout(poll, 5000);
+      }
+    };
+
+    poll();
+
+    return () => {
+      stopped = true;
+      abortController.abort();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [sessionId]);
 
   // Navigate carousel
   const navigateSlide = (direction: 'prev' | 'next' | number) => {

@@ -111,6 +111,18 @@ export {
   selectHasActiveExecution,
 } from './queueExecutionStore';
 
+// Orchestrator Store
+export {
+  useOrchestratorStore,
+  selectActivePlans,
+  selectPlan,
+  selectStepStatuses,
+  selectStepRunState,
+  selectHasRunningPlan,
+  selectActivePlanCount,
+  selectPlanStepByExecutionId,
+} from './orchestratorStore';
+
 // Terminal Panel Store Types
 export type {
   PanelView,
@@ -130,6 +142,15 @@ export type {
   QueueExecutionActions,
   QueueExecutionStore,
 } from './queueExecutionStore';
+
+// Orchestrator Store Types
+export type {
+  StepRunState,
+  OrchestrationRunState,
+  OrchestratorState,
+  OrchestratorActions,
+  OrchestratorStore,
+} from './orchestratorStore';
 
 // Re-export types for convenience
 export type {

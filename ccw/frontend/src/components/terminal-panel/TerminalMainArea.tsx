@@ -6,19 +6,27 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useIntl } from 'react-intl';
-import { X, Terminal as TerminalIcon } from 'lucide-react';
+import {
+  X,
+  Terminal as TerminalIcon,
+  Plus,
+  Trash2,
+  RotateCcw,
+  Loader2,
+} from 'lucide-react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { Button } from '@/components/ui/Button';
-import { cn } from '@/lib/utils';
 import { useTerminalPanelStore } from '@/stores/terminalPanelStore';
 import { useCliSessionStore, type CliSessionMeta } from '@/stores/cliSessionStore';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { QueueExecutionListView } from './QueueExecutionListView';
 import {
+  createCliSession,
   fetchCliSessionBuffer,
   sendCliSessionText,
   resizeCliSession,
-  executeInCliSession,
+  closeCliSession,
 } from '@/lib/api';
 
 // ========== Types ==========
@@ -33,11 +41,15 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
   const { formatMessage } = useIntl();
   const panelView = useTerminalPanelStore((s) => s.panelView);
   const activeTerminalId = useTerminalPanelStore((s) => s.activeTerminalId);
+  const openTerminal = useTerminalPanelStore((s) => s.openTerminal);
+  const removeTerminal = useTerminalPanelStore((s) => s.removeTerminal);
 
   const sessions = useCliSessionStore((s) => s.sessions);
   const outputChunks = useCliSessionStore((s) => s.outputChunks);
   const setBuffer = useCliSessionStore((s) => s.setBuffer);
   const clearOutput = useCliSessionStore((s) => s.clearOutput);
+  const upsertSession = useCliSessionStore((s) => s.upsertSession);
+  const removeSessionFromStore = useCliSessionStore((s) => s.removeSession);
 
   const projectPath = useWorkflowStore(selectProjectPath);
 
@@ -56,9 +68,12 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
   const pendingInputRef = useRef<string>('');
   const flushTimerRef = useRef<number | null>(null);
 
-  // Command execution
-  const [prompt, setPrompt] = useState('');
-  const [isExecuting, setIsExecuting] = useState(false);
+  // Toolbar state
+  const [isCreating, setIsCreating] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  // Available CLI tools
+  const CLI_TOOLS = ['claude', 'gemini', 'qwen', 'codex', 'opencode'] as const;
 
   const flushInput = useCallback(async () => {
     const sessionKey = activeTerminalId;
@@ -187,34 +202,44 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
     return () => ro.disconnect();
   }, [activeTerminalId, projectPath]);
 
-  // ========== Command Execution ==========
+  // ========== CLI Session Actions ==========
 
-  const handleExecute = async () => {
-    if (!activeTerminalId || !prompt.trim()) return;
-    setIsExecuting(true);
-    const sessionTool = (activeSession?.tool || 'claude') as 'claude' | 'codex' | 'gemini';
+  const handleCreateSession = useCallback(async (tool: string) => {
+    if (!projectPath || isCreating) return;
+    setIsCreating(true);
     try {
-      await executeInCliSession(activeTerminalId, {
-        tool: sessionTool,
-        prompt: prompt.trim(),
-        mode: 'analysis',
-        category: 'user',
-      }, projectPath || undefined);
-      setPrompt('');
+      const created = await createCliSession(
+        { workingDir: projectPath, tool },
+        projectPath
+      );
+      upsertSession(created.session);
+      openTerminal(created.session.sessionKey);
     } catch (err) {
-      // Error shown in terminal output; log for DevTools debugging
-      console.error('[TerminalMainArea] executeInCliSession failed:', err);
+      console.error('[TerminalMainArea] createCliSession failed:', err);
     } finally {
-      setIsExecuting(false);
+      setIsCreating(false);
     }
-  };
+  }, [projectPath, isCreating, upsertSession, openTerminal]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      void handleExecute();
+  const handleCloseSession = useCallback(async () => {
+    if (!activeTerminalId || isClosing) return;
+    setIsClosing(true);
+    try {
+      await closeCliSession(activeTerminalId, projectPath || undefined);
+      removeTerminal(activeTerminalId);
+      removeSessionFromStore(activeTerminalId);
+    } catch (err) {
+      console.error('[TerminalMainArea] closeCliSession failed:', err);
+    } finally {
+      setIsClosing(false);
     }
-  };
+  }, [activeTerminalId, isClosing, projectPath, removeTerminal, removeSessionFromStore]);
+
+  const handleClearTerminal = useCallback(() => {
+    const term = xtermRef.current;
+    if (!term) return;
+    term.clear();
+  }, []);
 
   // ========== Render ==========
 
@@ -242,59 +267,90 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
         </Button>
       </div>
 
+      {/* Toolbar */}
+      {panelView === 'terminal' && (
+        <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border bg-muted/30">
+          {/* New CLI session buttons */}
+          {CLI_TOOLS.map((tool) => (
+            <Button
+              key={tool}
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs gap-1"
+              disabled={isCreating || !projectPath}
+              onClick={() => handleCreateSession(tool)}
+              title={`New ${tool} session`}
+            >
+              {isCreating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+              {tool}
+            </Button>
+          ))}
+
+          <div className="flex-1" />
+
+          {/* Terminal actions */}
+          {activeTerminalId && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={handleClearTerminal}
+                title="Clear terminal"
+              >
+                <RotateCcw className="h-3 w-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                disabled={isClosing}
+                onClick={handleCloseSession}
+                title="Close session"
+              >
+                {isClosing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Content */}
       {panelView === 'queue' ? (
-        /* Queue View - Placeholder */
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          <div className="text-center">
-            <TerminalIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p className="text-sm">{formatMessage({ id: 'home.terminalPanel.executionQueueDesc' })}</p>
-            <p className="text-xs mt-1">{formatMessage({ id: 'home.terminalPanel.executionQueuePhase2' })}</p>
-          </div>
-        </div>
+        /* Queue View */
+        <QueueExecutionListView />
       ) : activeTerminalId ? (
         /* Terminal View */
-        <div className="flex-1 flex flex-col min-h-0">
-          {/* xterm container */}
-          <div className="flex-1 min-h-0">
-            <div
-              ref={terminalHostRef}
-              className="h-full w-full bg-black/90 rounded-none"
-            />
-          </div>
-
-          {/* Command Input */}
-          <div className="border-t border-border p-3 bg-card">
-            <div className="space-y-2">
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={formatMessage({ id: 'home.terminalPanel.commandPlaceholder' })}
-                className={cn(
-                  'w-full min-h-[60px] p-2 bg-background border border-input rounded-md text-sm resize-none',
-                  'focus:outline-none focus:ring-2 focus:ring-primary'
-                )}
-              />
-              <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  onClick={handleExecute}
-                  disabled={!activeTerminalId || isExecuting || !prompt.trim()}
-                >
-                  {formatMessage({ id: 'home.terminalPanel.execute' })}
-                </Button>
-              </div>
-            </div>
-          </div>
+        <div className="flex-1 min-h-0">
+          <div
+            ref={terminalHostRef}
+            className="h-full w-full bg-black/90 rounded-none"
+          />
         </div>
       ) : (
-        /* Empty State */
+        /* Empty State - with quick launch */
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <div className="text-center">
             <TerminalIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p className="text-sm">{formatMessage({ id: 'home.terminalPanel.noTerminalSelected' })}</p>
-            <p className="text-xs mt-1">{formatMessage({ id: 'home.terminalPanel.selectTerminalHint' })}</p>
+            <p className="text-xs mt-1 mb-4">{formatMessage({ id: 'home.terminalPanel.selectTerminalHint' })}</p>
+            {projectPath && (
+              <div className="flex items-center justify-center gap-2">
+                {CLI_TOOLS.map((tool) => (
+                  <Button
+                    key={tool}
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    disabled={isCreating}
+                    onClick={() => handleCreateSession(tool)}
+                  >
+                    {isCreating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                    {tool}
+                  </Button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -17,6 +17,8 @@ import {
   Terminal,
   Bell,
   Clock,
+  Monitor,
+  SquareTerminal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -25,6 +27,7 @@ import { useTheme } from '@/hooks';
 import { WorkspaceSelector } from '@/components/workspace/WorkspaceSelector';
 import { useCliStreamStore, selectActiveExecutionCount } from '@/stores/cliStreamStore';
 import { useNotificationStore } from '@/stores';
+import { useTerminalPanelStore, selectTerminalCount } from '@/stores/terminalPanelStore';
 
 export interface HeaderProps {
   /** Callback for refresh action */
@@ -43,6 +46,8 @@ export function Header({
   const { formatMessage } = useIntl();
   const { isDark, toggleTheme } = useTheme();
   const activeCliCount = useCliStreamStore(selectActiveExecutionCount);
+  const terminalCount = useTerminalPanelStore(selectTerminalCount);
+  const toggleTerminalPanel = useTerminalPanelStore((s) => s.togglePanel);
 
   // Notification state for badge
   const persistentNotifications = useNotificationStore((state) => state.persistentNotifications);
@@ -104,6 +109,35 @@ export function Header({
               {activeCliCount}
             </Badge>
           )}
+        </Button>
+
+        {/* Terminal Panel toggle */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleTerminalPanel}
+          className="gap-2"
+        >
+          <SquareTerminal className="h-4 w-4" />
+          <span className="hidden sm:inline">{formatMessage({ id: 'home.terminalPanel.title' })}</span>
+          {terminalCount > 0 && (
+            <Badge variant="default" className="h-5 px-1.5 text-xs">
+              {terminalCount}
+            </Badge>
+          )}
+        </Button>
+
+        {/* CLI Viewer page link */}
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+          className="gap-2"
+        >
+          <Link to="/cli-viewer" className="inline-flex items-center gap-2">
+            <Monitor className="h-4 w-4" />
+            <span className="hidden sm:inline">{formatMessage({ id: 'navigation.main.cliViewer' })}</span>
+          </Link>
         </Button>
 
         {/* Workspace selector */}

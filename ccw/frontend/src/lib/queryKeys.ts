@@ -92,6 +92,7 @@ export const workspaceQueryKeys = {
   prompts: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'prompts'] as const,
   promptsList: (projectPath: string) => [...workspaceQueryKeys.prompts(projectPath), 'list'] as const,
   promptsInsights: (projectPath: string) => [...workspaceQueryKeys.prompts(projectPath), 'insights'] as const,
+  promptsInsightsHistory: (projectPath: string) => [...workspaceQueryKeys.prompts(projectPath), 'insightsHistory'] as const,
 
   // ========== Index ==========
   index: (projectPath: string) => [...workspaceQueryKeys.all(projectPath), 'index'] as const,

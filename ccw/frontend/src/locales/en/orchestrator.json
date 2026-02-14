@@ -29,6 +29,15 @@
     "completed": "Completed",
     "failed": "Failed"
   },
+  "controlPanel": {
+    "progress": "{completed}/{total} steps",
+    "noPlan": "No orchestration plan found",
+    "completedMessage": "Orchestration completed successfully",
+    "failedMessage": "Orchestration stopped",
+    "cancelled": "Cancelled",
+    "retry": "Retry",
+    "skip": "Skip"
+  },
   "node": {
     "title": "Node",
     "nodes": "Nodes",

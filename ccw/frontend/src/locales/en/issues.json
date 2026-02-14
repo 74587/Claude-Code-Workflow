@@ -114,6 +114,7 @@
     }
   },
   "terminal": {
+    "launch": "Launch Session",
     "session": {
       "select": "Select session",
       "none": "No sessions",

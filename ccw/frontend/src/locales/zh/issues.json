@@ -114,6 +114,7 @@
     }
   },
   "terminal": {
+    "launch": "启动会话",
     "session": {
       "select": "选择会话",
       "none": "暂无会话",

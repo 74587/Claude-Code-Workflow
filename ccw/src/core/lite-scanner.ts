@@ -20,6 +20,7 @@ interface TaskFlowControl {
     step: string;
     action: string;
   }>;
+  target_files?: Array<{ path: string }>;
 }
 
 interface NormalizedTask {
@@ -777,18 +778,28 @@ function normalizeTask(task: unknown): NormalizedTask | null {
       acceptance: (context.acceptance as string[]) || [],
       depends_on: (context.depends_on as string[]) || []
     } : {
-      requirements: (taskObj.requirements as string[]) || (taskObj.description ? [taskObj.description as string] : []),
-      focus_paths: (taskObj.focus_paths as string[]) || modificationPoints?.map(m => m.file).filter((f): f is string => !!f) || [],
+      requirements: (taskObj.requirements as string[])
+        || (taskObj.details as string[])
+        || (taskObj.description ? [taskObj.description as string] : taskObj.scope ? [taskObj.scope as string] : []),
+      focus_paths: (taskObj.focus_paths as string[])
+        || (Array.isArray(taskObj.files) && taskObj.files.length > 0 && typeof taskObj.files[0] === 'string'
+          ? taskObj.files as string[] : undefined)
+        || modificationPoints?.map(m => m.file).filter((f): f is string => !!f)
+        || [],
       acceptance: (taskObj.acceptance as string[]) || [],
       depends_on: (taskObj.depends_on as string[]) || []
     },
     flow_control: flowControl ? {
-      implementation_approach: (flowControl.implementation_approach as Array<{ step: string; action: string }>) || []
+      implementation_approach: (flowControl.implementation_approach as Array<{ step: string; action: string }>) || [],
+      target_files: (flowControl.target_files as Array<{ path: string }>) || undefined
     } : {
       implementation_approach: implementation?.map((step, i) => ({
         step: `Step ${i + 1}`,
         action: step as string
-      })) || []
+      })) || [],
+      target_files: Array.isArray(taskObj.files) && taskObj.files.length > 0 && typeof taskObj.files[0] === 'string'
+        ? (taskObj.files as string[]).map(f => ({ path: f }))
+        : undefined
     },
     // Keep all original fields for raw JSON view
     _raw: task

@@ -29,6 +29,15 @@
     "completed": "已完成",
     "failed": "失败"
   },
+  "controlPanel": {
+    "progress": "{completed}/{total} 步",
+    "noPlan": "未找到编排计划",
+    "completedMessage": "编排已成功完成",
+    "failedMessage": "编排已停止",
+    "cancelled": "已取消",
+    "retry": "重试",
+    "skip": "跳过"
+  },
   "node": {
     "title": "节点",
     "nodes": "节点列表",

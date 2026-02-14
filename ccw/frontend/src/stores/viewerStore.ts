@@ -4,6 +4,7 @@
 // Zustand store for managing CLI Viewer layout and tab state
 
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import { devtools, persist } from 'zustand/middleware';
 
 // ========== Types ==========
@@ -909,6 +910,9 @@ export const useViewerStore = create<ViewerState>()(
 
 // ========== Selectors ==========
 
+/** Stable empty array to avoid new references */
+const EMPTY_TABS: TabState[] = [];
+
 /**
  * Select the current layout
  */
@@ -940,11 +944,12 @@ export const selectPane = (state: ViewerState, paneId: PaneId) => state.panes[pa
 export const selectTab = (state: ViewerState, tabId: TabId) => state.tabs[tabId];
 
 /**
- * Select tabs for a specific pane, sorted by order
+ * Select tabs for a specific pane, sorted by order.
+ * WARNING: Returns new array each call — use with useMemo or useShallow in components.
  */
 export const selectPaneTabs = (state: ViewerState, paneId: PaneId): TabState[] => {
   const pane = state.panes[paneId];
-  if (!pane) return [];
+  if (!pane) return EMPTY_TABS;
   return [...pane.tabs].sort((a, b) => a.order - b.order);
 };
 
@@ -964,7 +969,7 @@ export const selectActiveTab = (state: ViewerState, paneId: PaneId): TabState | 
  * Useful for components that only need actions, not the full state
  */
 export const useViewerActions = () => {
-  return useViewerStore((state) => ({
+  return useViewerStore(useShallow((state) => ({
     setLayout: state.setLayout,
     addPane: state.addPane,
     removePane: state.removePane,
@@ -976,5 +981,5 @@ export const useViewerActions = () => {
     setFocusedPane: state.setFocusedPane,
     initializeDefaultLayout: state.initializeDefaultLayout,
     reset: state.reset,
-  }));
+  })));
 };
