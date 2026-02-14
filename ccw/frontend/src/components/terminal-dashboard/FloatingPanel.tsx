@@ -53,10 +53,10 @@ export function FloatingPanel({
       {/* Backdrop */}
       <div
         className={cn(
-          'fixed inset-0 z-40 transition-opacity duration-200',
+          'fixed z-40 transition-opacity duration-200',
           isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         )}
-        style={{ top: '40px' }} // Below toolbar
+        style={{ top: '40px', bottom: 0, left: 0, right: 0 }}
         onClick={handleBackdropClick}
       >
         <div className="absolute inset-0 bg-black/20" />
@@ -76,7 +76,7 @@ export function FloatingPanel({
         )}
         style={{
           top: '40px', // Below toolbar
-          height: 'calc(100vh - 56px - 40px)', // Subtract both app header and toolbar
+          height: 'calc(100vh - 40px)', // Full height below toolbar
           width: `${width}px`,
         }}
       >

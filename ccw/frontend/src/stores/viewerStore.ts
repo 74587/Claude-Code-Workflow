@@ -73,7 +73,7 @@ export interface ViewerState {
   nextTabIdCounter: number;
 
   // Actions
-  setLayout: (newLayout: AllotmentLayout) => void;
+  setLayout: (newLayout: AllotmentLayout | ((prev: AllotmentLayout) => AllotmentLayout)) => void;
   addPane: (parentPaneId?: PaneId, direction?: 'horizontal' | 'vertical') => PaneId;
   removePane: (paneId: PaneId) => void;
   addTab: (paneId: PaneId, executionId: CliExecutionId, title: string) => TabId;
@@ -373,8 +373,14 @@ export const useViewerStore = create<ViewerState>()(
 
         // ========== Layout Actions ==========
 
-        setLayout: (newLayout: AllotmentLayout) => {
-          set({ layout: newLayout }, false, 'viewer/setLayout');
+        setLayout: (newLayout: AllotmentLayout | ((prev: AllotmentLayout) => AllotmentLayout)) => {
+          if (typeof newLayout === 'function') {
+            const currentLayout = get().layout;
+            const result = newLayout(currentLayout);
+            set({ layout: result }, false, 'viewer/setLayout');
+          } else {
+            set({ layout: newLayout }, false, 'viewer/setLayout');
+          }
         },
 
         addPane: (parentPaneId?: PaneId, direction: 'horizontal' | 'vertical' = 'horizontal') => {
