@@ -116,14 +116,21 @@ Phase 5: Completion
    ├─ Update task statuses in JSON files
    ├─ Generate summaries
    └─ AskUserQuestion: Choose next step
-      ├─ "Enter Review" → /workflow:review
+      ├─ "Enter Review" → Phase 6
       └─ "Complete Session" → /workflow:session:complete
+
+Phase 6: Post-Implementation Review (Optional)
+   └─ Ref: phases/06-review.md
+      ├─ Select review type (quality/security/architecture/action-items)
+      ├─ CLI-assisted analysis (Gemini/Qwen)
+      ├─ Generate REVIEW-{type}.md report
+      └─ Post-review: another review or complete session
 
 Resume Mode (--resume-session):
    ├─ Skip Phase 1 & Phase 2
    └─ Entry Point: Phase 3 (TodoWrite Generation)
       ├─ Update session status to "active" (if not already)
-      └─ Continue: Phase 4 → Phase 5
+      └─ Continue: Phase 4 → Phase 5 → [Phase 6]
 ```
 
 ## Execution Lifecycle
@@ -346,7 +353,7 @@ if (autoYes) {
 ```
 
 **Based on user selection**:
-- **"Enter Review"**: Execute `/workflow:review`
+- **"Enter Review"**: Execute Phase 6 → `Ref: phases/06-review.md`
 - **"Complete Session"**: Execute `/workflow:session:complete`
 
 ### Post-Completion Expansion
@@ -531,6 +538,12 @@ meta.agent missing → Infer from meta.type:
   - "review" → @universal-executor
   - "docs" → @doc-generator
 ```
+
+## Phase Reference Documents
+
+| Phase | Document | Purpose |
+|-------|----------|---------|
+| 6 | [phases/06-review.md](phases/06-review.md) | Post-implementation specialized review (security/architecture/quality/action-items) |
 
 ## Workflow File Structure Reference
 ```

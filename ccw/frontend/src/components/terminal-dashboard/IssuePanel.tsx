@@ -85,7 +85,7 @@ function IssueItem({
     <button
       type="button"
       className={cn(
-        'w-full text-left px-3 py-2 rounded-md transition-colors',
+        'w-full text-left px-2.5 py-1.5 rounded-md transition-colors',
         'hover:bg-muted/60 focus:outline-none focus:ring-1 focus:ring-primary/30',
         isSelected && 'bg-primary/10 ring-1 ring-primary/30',
         isHighlighted && !isSelected && 'bg-accent/50'
@@ -120,7 +120,7 @@ function IssueItem({
           {issue.context}
         </p>
       )}
-      <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground pl-5">
+      <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground pl-5">
         <span className="font-mono">{issue.id}</span>
         {issue.labels && issue.labels.length > 0 && (
           <>
@@ -140,7 +140,7 @@ function IssueEmptyState() {
   return (
     <div className="flex-1 flex items-center justify-center text-muted-foreground p-4">
       <div className="text-center">
-        <AlertCircle className="h-10 w-10 mx-auto mb-3 opacity-40" />
+        <AlertCircle className="h-6 w-6 mx-auto mb-1.5 opacity-30" />
         <p className="text-sm">{formatMessage({ id: 'terminalDashboard.issuePanel.noIssues' })}</p>
         <p className="text-xs mt-1 opacity-70">
           {formatMessage({ id: 'terminalDashboard.issuePanel.noIssuesDesc' })}
@@ -157,7 +157,7 @@ function IssueErrorState({ error }: { error: Error }) {
   return (
     <div className="flex-1 flex items-center justify-center text-destructive p-4">
       <div className="text-center">
-        <AlertTriangle className="h-10 w-10 mx-auto mb-3 opacity-60" />
+        <AlertTriangle className="h-6 w-6 mx-auto mb-1.5 opacity-30" />
         <p className="text-sm">{formatMessage({ id: 'terminalDashboard.issuePanel.error' })}</p>
         <p className="text-xs mt-1 opacity-70">{error.message}</p>
       </div>

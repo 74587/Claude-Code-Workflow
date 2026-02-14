@@ -4,8 +4,9 @@
 // Horizontal tab strip for terminal sessions in the Terminal Dashboard.
 // Renders tabs from sessionManagerStore groups with status indicators and alert badges.
 
+import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
-import { Terminal } from 'lucide-react';
+import { Terminal, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   useSessionManagerStore,
@@ -34,6 +35,15 @@ export function TerminalTabBar() {
 
   // Flatten all sessionIds from all groups
   const allSessionIds = groups.flatMap((g) => g.sessionIds);
+
+  // Total alerts across all terminals
+  const totalAlerts = useMemo(() => {
+    let count = 0;
+    for (const meta of Object.values(terminalMetas)) {
+      count += meta.alertCount;
+    }
+    return count;
+  }, [terminalMetas]);
 
   if (allSessionIds.length === 0) {
     return (
@@ -88,6 +98,16 @@ export function TerminalTabBar() {
           </button>
         );
       })}
+
+      {/* Total alerts indicator at right end */}
+      {totalAlerts > 0 && (
+        <div className="ml-auto flex items-center gap-1 px-3 py-2 shrink-0 text-destructive">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          <span className="text-[10px] font-semibold tabular-nums">
+            {totalAlerts > 99 ? '99+' : totalAlerts}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

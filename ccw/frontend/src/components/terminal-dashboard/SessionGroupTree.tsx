@@ -96,8 +96,8 @@ export function SessionGroupTree() {
             {formatMessage({ id: 'terminalDashboard.sessionTree.createGroup' })}
           </button>
         </div>
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-muted-foreground p-4">
-          <Folder className="w-8 h-8 opacity-50" />
+        <div className="flex-1 flex flex-col items-center justify-center gap-1.5 text-muted-foreground p-4">
+          <Folder className="w-6 h-6 opacity-30" />
           <p className="text-xs text-center">
             {formatMessage({ id: 'terminalDashboard.sessionTree.noGroups' })}
           </p>

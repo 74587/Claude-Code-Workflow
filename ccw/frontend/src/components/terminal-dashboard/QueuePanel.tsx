@@ -164,7 +164,7 @@ function QueueErrorState({ error }: { error: Error }) {
   return (
     <div className="flex-1 flex items-center justify-center text-destructive p-4">
       <div className="text-center">
-        <AlertTriangle className="h-10 w-10 mx-auto mb-3 opacity-60" />
+        <AlertTriangle className="h-6 w-6 mx-auto mb-1.5 opacity-30" />
         <p className="text-sm">{formatMessage({ id: 'terminalDashboard.queuePanel.error' })}</p>
         <p className="text-xs mt-1 opacity-70">{error.message}</p>
       </div>

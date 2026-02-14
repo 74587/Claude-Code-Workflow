@@ -382,7 +382,7 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
               {/* Flowchart Tab */}
               {hasFlowchart && (
                 <TabsContent value="flowchart" className="mt-4 pb-6">
-                  <Flowchart flowControl={flowControl!} className="min-h-[400px]" />
+                  <Flowchart flowControl={flowControl!} className="min-h-[400px]" showStepStatus={hasStatusTracking} />
                 </TabsContent>
               )}
 

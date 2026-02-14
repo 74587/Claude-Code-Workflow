@@ -95,8 +95,8 @@ export function AgentList() {
 
   return (
     <div className="flex flex-col">
-      {/* Section header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-t border-border shrink-0">
+      {/* Section header with visual separation */}
+      <div className="flex items-center gap-2 px-3 py-2 border-t border-border bg-muted/20 shrink-0">
         <Bot className="w-4 h-4 text-muted-foreground" />
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           {formatMessage({ id: 'terminalDashboard.agentList.title' })}
@@ -110,8 +110,8 @@ export function AgentList() {
 
       {/* Plan list or empty state */}
       {planEntries.length === 0 ? (
-        <div className="flex items-center justify-center py-4 px-3">
-          <p className="text-xs text-muted-foreground">
+        <div className="flex items-center justify-center py-3 px-3">
+          <p className="text-[10px] text-muted-foreground">
             {formatMessage({ id: 'terminalDashboard.agentList.noAgents' })}
           </p>
         </div>

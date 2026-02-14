@@ -20,6 +20,12 @@
     "noSelection": "选择一个项目以查看详情",
     "associationChain": "关联链路"
   },
+  "bottomPanel": {
+    "queueTab": "队列",
+    "inspectorTab": "检查器",
+    "collapse": "折叠面板",
+    "expand": "展开面板"
+  },
   "sessionTree": {
     "createGroup": "新建分组",
     "groupNamePrompt": "输入分组名称",
@@ -67,7 +73,9 @@
   },
   "workbench": {
     "noTerminal": "未选择终端",
-    "noTerminalHint": "从标签栏选择会话或创建新会话"
+    "noTerminalHint": "从标签栏选择会话或创建新会话",
+    "issuePreview": "问题预览",
+    "issuePreviewHint": "选择终端会话或将此问题发送到队列以开始工作"
   },
   "placeholder": {
     "sessionTree": "会话分组将在此显示",

@@ -20,6 +20,12 @@
     "noSelection": "Select an item to view details",
     "associationChain": "Association Chain"
   },
+  "bottomPanel": {
+    "queueTab": "Queue",
+    "inspectorTab": "Inspector",
+    "collapse": "Collapse panel",
+    "expand": "Expand panel"
+  },
   "sessionTree": {
     "createGroup": "New Group",
     "groupNamePrompt": "Enter group name",
@@ -67,7 +73,9 @@
   },
   "workbench": {
     "noTerminal": "No terminal selected",
-    "noTerminalHint": "Select a session from the tab bar or create a new one"
+    "noTerminalHint": "Select a session from the tab bar or create a new one",
+    "issuePreview": "Issue Preview",
+    "issuePreviewHint": "Select a terminal session or send this issue to the queue to begin work"
   },
   "placeholder": {
     "sessionTree": "Session groups will appear here",
