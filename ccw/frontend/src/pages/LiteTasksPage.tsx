@@ -38,9 +38,7 @@ import {
   Cpu,
   Timer,
   Sparkles,
-  Layers,
   CheckCheck,
-  ArrowRight,
 } from 'lucide-react';
 import { useLiteTasks } from '@/hooks/useLiteTasks';
 import { Button } from '@/components/ui/Button';
@@ -249,6 +247,298 @@ function ExpandedSessionPanel({
 /**
  * ContextContent - Extracted to @/components/lite-tasks/LiteContextContent.tsx
  */
+
+/**
+ * RoundDetailCard - Display detailed information for a single discussion round
+ */
+function RoundDetailCard({ round, isLast }: { round: RoundSynthesis; isLast: boolean }) {
+  const { formatMessage } = useIntl();
+  const [expanded, setExpanded] = React.useState(isLast);
+
+  const solutions = round.solutions || [];
+  const convergence = round.convergence;
+  const crossVerification = round.cross_verification;
+  const clarificationQuestions = round.clarification_questions || [];
+  const cliExecutions = round.cli_executions || {};
+
+  // Format duration
+  const formatDuration = (ms: number) => {
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  };
+
+  // Get convergence badge variant
+  const getConvergenceVariant = (recommendation?: string) => {
+    switch (recommendation) {
+      case 'converged': return 'success';
+      case 'continue': return 'warning';
+      case 'user_input_needed': return 'destructive';
+      default: return 'secondary';
+    }
+  };
+
+  return (
+    <Card className="border-border">
+      <CardContent className="p-4">
+        {/* Round Header */}
+        <div
+          className="flex items-center justify-between cursor-pointer"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
+              {round.round}
+            </div>
+            <div>
+              <h4 className="font-medium text-foreground flex items-center gap-2">
+                {formatMessage({ id: 'liteTasks.multiCli.round' })} {round.round}
+                {convergence && (
+                  <Badge variant={getConvergenceVariant(convergence.recommendation)} className="text-[10px]">
+                    {convergence.recommendation === 'converged' && <CheckCheck className="h-3 w-3 mr-1" />}
+                    {convergence.recommendation === 'converged' && formatMessage({ id: 'liteTasks.multiCli.converged' })}
+                    {convergence.recommendation === 'continue' && formatMessage({ id: 'liteTasks.multiCli.continuing' })}
+                    {convergence.recommendation === 'user_input_needed' && formatMessage({ id: 'liteTasks.multiCli.needsInput' })}
+                  </Badge>
+                )}
+              </h4>
+              <p className="text-xs text-muted-foreground">
+                {round.timestamp ? new Date(round.timestamp).toLocaleString() : ''}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* CLI Status Summary */}
+            <div className="flex items-center gap-1">
+              {Object.entries(cliExecutions).map(([cli, exec]) => (
+                <Badge
+                  key={cli}
+                  variant={exec.status === 'success' ? 'success' : 'destructive'}
+                  className="text-[10px] px-1.5 py-0"
+                >
+                  {cli}
+                </Badge>
+              ))}
+            </div>
+            {expanded ? (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            )}
+          </div>
+        </div>
+
+        {/* Expanded Content */}
+        {expanded && (
+          <div className="mt-4 space-y-4">
+            {/* User Feedback Incorporated */}
+            {round.user_feedback_incorporated && (
+              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                <div className="flex items-center gap-2 text-sm font-medium text-primary mb-1">
+                  <MessageCircle className="h-4 w-4" />
+                  {formatMessage({ id: 'liteTasks.multiCli.userFeedback' })}
+                </div>
+                <p className="text-sm text-foreground">{round.user_feedback_incorporated}</p>
+              </div>
+            )}
+
+            {/* CLI Executions */}
+            {Object.keys(cliExecutions).length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Cpu className="h-4 w-4" />
+                  {formatMessage({ id: 'liteTasks.multiCli.cliExecutions' })}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(cliExecutions).map(([cli, exec]) => (
+                    <div key={cli} className="flex items-center justify-between p-2 bg-muted/50 rounded-md text-xs">
+                      <span className="font-medium">{cli}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">{exec.model}</span>
+                        <Badge variant={exec.status === 'success' ? 'success' : 'destructive'} className="text-[10px] px-1 py-0">
+                          <Timer className="h-3 w-3 mr-1" />
+                          {formatDuration(exec.duration_ms)}
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Solutions */}
+            {solutions.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Sparkles className="h-4 w-4" />
+                  {formatMessage({ id: 'liteTasks.multiCli.solutions' })} ({solutions.length})
+                </div>
+                <div className="space-y-3">
+                  {solutions.map((solution, idx) => (
+                    <div key={idx} className="p-3 bg-muted/30 rounded-lg border border-border/50">
+                      <div className="flex items-start justify-between mb-2">
+                        <h5 className="font-medium text-foreground text-sm">{solution.name}</h5>
+                        <div className="flex items-center gap-1">
+                          {solution.source_cli.map((cli) => (
+                            <Badge key={cli} variant="outline" className="text-[10px] px-1.5 py-0">
+                              {cli}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground mb-2">{solution.summary}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <Badge variant="success" className="text-[10px]">
+                          {Math.round(solution.feasibility * 100)}% {formatMessage({ id: 'liteTasks.multiCli.feasible' })}
+                        </Badge>
+                        <Badge variant="warning" className="text-[10px]">{solution.effort}</Badge>
+                        <Badge variant={solution.risk === 'high' ? 'destructive' : solution.risk === 'low' ? 'success' : 'warning'} className="text-[10px]">
+                          {solution.risk} {formatMessage({ id: 'liteTasks.multiCli.risk' })}
+                        </Badge>
+                      </div>
+                      {/* Pros/Cons */}
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {solution.pros.length > 0 && (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1 text-xs text-success">
+                              <ThumbsUp className="h-3 w-3" />
+                              {formatMessage({ id: 'liteTasks.multiCli.pros' })}
+                            </div>
+                            <ul className="text-[10px] text-muted-foreground space-y-0.5">
+                              {solution.pros.slice(0, 3).map((pro, i) => (
+                                <li key={i} className="truncate">• {pro}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {solution.cons.length > 0 && (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1 text-xs text-destructive">
+                              <ThumbsDown className="h-3 w-3" />
+                              {formatMessage({ id: 'liteTasks.multiCli.cons' })}
+                            </div>
+                            <ul className="text-[10px] text-muted-foreground space-y-0.5">
+                              {solution.cons.slice(0, 3).map((con, i) => (
+                                <li key={i} className="truncate">• {con}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Convergence Analysis */}
+            {convergence && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Target className="h-4 w-4" />
+                  {formatMessage({ id: 'liteTasks.multiCli.convergence' })}
+                </div>
+                <div className="p-3 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          convergence.score >= 0.9 ? 'bg-success' :
+                          convergence.score >= 0.7 ? 'bg-warning' : 'bg-destructive'
+                        }`}
+                        style={{ width: `${convergence.score * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium">{Math.round(convergence.score * 100)}%</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{convergence.rationale}</p>
+                </div>
+              </div>
+            )}
+
+            {/* Cross Verification */}
+            {crossVerification && (crossVerification.agreements.length > 0 || crossVerification.disagreements.length > 0) && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <GitCompare className="h-4 w-4" />
+                  {formatMessage({ id: 'liteTasks.multiCli.crossVerification' })}
+                </div>
+                <div className="space-y-2">
+                  {/* Agreements */}
+                  {crossVerification.agreements.length > 0 && (
+                    <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
+                      <div className="flex items-center gap-2 text-xs font-medium text-success mb-2">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {formatMessage({ id: 'liteTasks.multiCli.agreements' })} ({crossVerification.agreements.length})
+                      </div>
+                      <ul className="text-[10px] text-muted-foreground space-y-1">
+                        {crossVerification.agreements.slice(0, 5).map((agreement, i) => (
+                          <li key={i} className="flex items-start gap-1">
+                            <CheckCircle2 className="h-3 w-3 text-success shrink-0 mt-0.5" />
+                            <span>{agreement}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {/* Disagreements */}
+                  {crossVerification.disagreements.length > 0 && (
+                    <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                      <div className="flex items-center gap-2 text-xs font-medium text-warning mb-2">
+                        <AlertCircle className="h-3 w-3" />
+                        {formatMessage({ id: 'liteTasks.multiCli.disagreements' })} ({crossVerification.disagreements.length})
+                      </div>
+                      <div className="space-y-2">
+                        {crossVerification.disagreements.map((disagreement, i) => (
+                          <div key={i} className="text-[10px]">
+                            <div className="font-medium text-foreground mb-1">{disagreement.topic}</div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="flex items-center gap-1">
+                                <Badge variant="outline" className="text-[9px] px-1 py-0">gemini</Badge>
+                                <span className="text-muted-foreground truncate">{disagreement.gemini}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Badge variant="outline" className="text-[9px] px-1 py-0">codex</Badge>
+                                <span className="text-muted-foreground truncate">{disagreement.codex}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Resolution */}
+                  {crossVerification.resolution && (
+                    <div className="text-xs text-muted-foreground italic">
+                      {formatMessage({ id: 'liteTasks.multiCli.resolution' })}: {crossVerification.resolution}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Clarification Questions */}
+            {clarificationQuestions.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <HelpCircle className="h-4 w-4" />
+                  {formatMessage({ id: 'liteTasks.multiCli.clarificationQuestions' })} ({clarificationQuestions.length})
+                </div>
+                <ul className="space-y-1">
+                  {clarificationQuestions.map((question, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <HelpCircle className="h-3 w-3 shrink-0 mt-0.5 text-info" />
+                      <span>{question}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 type MultiCliExpandedTab = 'tasks' | 'discussion' | 'context';
 
