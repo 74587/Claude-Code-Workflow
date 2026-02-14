@@ -9,7 +9,6 @@ import { useIntl } from 'react-intl';
 import {
   X,
   Terminal as TerminalIcon,
-  Plus,
   Trash2,
   RotateCcw,
   Loader2,
@@ -22,7 +21,6 @@ import { useCliSessionStore, type CliSessionMeta } from '@/stores/cliSessionStor
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { QueueExecutionListView } from './QueueExecutionListView';
 import {
-  createCliSession,
   fetchCliSessionBuffer,
   sendCliSessionText,
   resizeCliSession,
@@ -41,14 +39,12 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
   const { formatMessage } = useIntl();
   const panelView = useTerminalPanelStore((s) => s.panelView);
   const activeTerminalId = useTerminalPanelStore((s) => s.activeTerminalId);
-  const openTerminal = useTerminalPanelStore((s) => s.openTerminal);
   const removeTerminal = useTerminalPanelStore((s) => s.removeTerminal);
 
   const sessions = useCliSessionStore((s) => s.sessions);
   const outputChunks = useCliSessionStore((s) => s.outputChunks);
   const setBuffer = useCliSessionStore((s) => s.setBuffer);
   const clearOutput = useCliSessionStore((s) => s.clearOutput);
-  const upsertSession = useCliSessionStore((s) => s.upsertSession);
   const removeSessionFromStore = useCliSessionStore((s) => s.removeSession);
 
   const projectPath = useWorkflowStore(selectProjectPath);
@@ -69,11 +65,7 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
   const flushTimerRef = useRef<number | null>(null);
 
   // Toolbar state
-  const [isCreating, setIsCreating] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-
-  // Available CLI tools
-  const CLI_TOOLS = ['claude', 'gemini', 'qwen', 'codex', 'opencode'] as const;
 
   const flushInput = useCallback(async () => {
     const sessionKey = activeTerminalId;
@@ -204,23 +196,6 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
 
   // ========== CLI Session Actions ==========
 
-  const handleCreateSession = useCallback(async (tool: string) => {
-    if (!projectPath || isCreating) return;
-    setIsCreating(true);
-    try {
-      const created = await createCliSession(
-        { workingDir: projectPath, tool },
-        projectPath
-      );
-      upsertSession(created.session);
-      openTerminal(created.session.sessionKey);
-    } catch (err) {
-      console.error('[TerminalMainArea] createCliSession failed:', err);
-    } finally {
-      setIsCreating(false);
-    }
-  }, [projectPath, isCreating, upsertSession, openTerminal]);
-
   const handleCloseSession = useCallback(async () => {
     if (!activeTerminalId || isClosing) return;
     setIsClosing(true);
@@ -268,50 +243,30 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
       </div>
 
       {/* Toolbar */}
-      {panelView === 'terminal' && (
+      {panelView === 'terminal' && activeTerminalId && (
         <div className="flex items-center gap-1 px-3 py-1.5 border-b border-border bg-muted/30">
-          {/* New CLI session buttons */}
-          {CLI_TOOLS.map((tool) => (
-            <Button
-              key={tool}
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs gap-1"
-              disabled={isCreating || !projectPath}
-              onClick={() => handleCreateSession(tool)}
-              title={`New ${tool} session`}
-            >
-              {isCreating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-              {tool}
-            </Button>
-          ))}
-
           <div className="flex-1" />
 
           {/* Terminal actions */}
-          {activeTerminalId && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
-                onClick={handleClearTerminal}
-                title="Clear terminal"
-              >
-                <RotateCcw className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-                disabled={isClosing}
-                onClick={handleCloseSession}
-                title="Close session"
-              >
-                {isClosing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-              </Button>
-            </>
-          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={handleClearTerminal}
+            title="Clear terminal"
+          >
+            <RotateCcw className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+            disabled={isClosing}
+            onClick={handleCloseSession}
+            title="Close session"
+          >
+            {isClosing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+          </Button>
         </div>
       )}
 
@@ -328,29 +283,12 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
           />
         </div>
       ) : (
-        /* Empty State - with quick launch */
+        /* Empty State */
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <div className="text-center">
             <TerminalIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p className="text-sm">{formatMessage({ id: 'home.terminalPanel.noTerminalSelected' })}</p>
-            <p className="text-xs mt-1 mb-4">{formatMessage({ id: 'home.terminalPanel.selectTerminalHint' })}</p>
-            {projectPath && (
-              <div className="flex items-center justify-center gap-2">
-                {CLI_TOOLS.map((tool) => (
-                  <Button
-                    key={tool}
-                    variant="outline"
-                    size="sm"
-                    className="gap-1"
-                    disabled={isCreating}
-                    onClick={() => handleCreateSession(tool)}
-                  >
-                    {isCreating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
-                    {tool}
-                  </Button>
-                ))}
-              </div>
-            )}
+            <p className="text-xs mt-1">{formatMessage({ id: 'home.terminalPanel.selectTerminalHint' })}</p>
           </div>
         </div>
       )}

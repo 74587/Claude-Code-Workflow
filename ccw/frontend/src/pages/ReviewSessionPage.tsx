@@ -607,8 +607,9 @@ export function ReviewSessionPage() {
         </CardContent>
       </Card>
 
-      {/* Fix Progress Carousel */}
-      {sessionId && <FixProgressCarousel sessionId={sessionId} />}
+      {/* Fix Progress Carousel — disabled: backend /api/fix-progress not implemented yet
+         See FRONTEND_BACKEND_ALIGNMENT_AUDIT.md for details */}
+      {/* {sessionId && <FixProgressCarousel sessionId={sessionId} />} */}
 
       {/* Unified Filter Card with Dimension Tabs */}
       <Card>

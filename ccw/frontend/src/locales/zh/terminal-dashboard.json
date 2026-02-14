@@ -1,0 +1,81 @@
+{
+  "page": {
+    "title": "终端仪表板"
+  },
+  "columns": {
+    "sessions": "会话",
+    "workflow": "工作流",
+    "terminal": "终端工作台"
+  },
+  "kpi": {
+    "title": "仪表板 KPI",
+    "activeSessions": "活跃会话",
+    "queueSize": "队列大小",
+    "alertCount": "告警数",
+    "errorCount": "错误数",
+    "idleCount": "空闲数"
+  },
+  "inspector": {
+    "title": "检查器",
+    "noSelection": "选择一个项目以查看详情",
+    "associationChain": "关联链路"
+  },
+  "sessionTree": {
+    "createGroup": "新建分组",
+    "groupNamePrompt": "输入分组名称",
+    "defaultGroupName": "未命名分组",
+    "emptyGroup": "此分组暂无会话",
+    "noGroups": "暂无会话分组",
+    "sessionCount": "{count} 个会话",
+    "dragHint": "拖拽会话至其他分组"
+  },
+  "agentList": {
+    "title": "代理",
+    "noAgents": "暂无活跃代理",
+    "stepLabel": "步骤 {current}/{total}",
+    "statusRunning": "运行中",
+    "statusCompleted": "已完成",
+    "statusFailed": "已失败",
+    "statusPaused": "已暂停",
+    "statusPending": "等待中"
+  },
+  "issuePanel": {
+    "title": "问题",
+    "sendToQueue": "发送到队列",
+    "noIssues": "暂无问题",
+    "noIssuesDesc": "发现问题时将在此显示",
+    "error": "加载问题失败"
+  },
+  "queuePanel": {
+    "title": "队列",
+    "noItems": "队列为空",
+    "noItemsDesc": "将问题发送到队列以启动工作流",
+    "error": "加载队列失败",
+    "order": "#{order}",
+    "dependsOn": "依赖: {deps}",
+    "status": {
+      "pending": "等待中",
+      "ready": "就绪",
+      "executing": "执行中",
+      "completed": "已完成",
+      "failed": "已失败",
+      "blocked": "已阻塞"
+    }
+  },
+  "tabBar": {
+    "noTabs": "暂无终端会话"
+  },
+  "workbench": {
+    "noTerminal": "未选择终端",
+    "noTerminalHint": "从标签栏选择会话或创建新会话"
+  },
+  "placeholder": {
+    "sessionTree": "会话分组将在此显示",
+    "agentList": "Agent 列表将在此显示",
+    "issuePanel": "问题面板将在此显示",
+    "queuePanel": "队列面板将在此显示",
+    "terminalWorkbench": "终端工作台将在此显示",
+    "kpiBar": "KPI 指标将在此显示",
+    "inspector": "检查器详情将在此显示"
+  }
+}

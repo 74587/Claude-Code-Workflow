@@ -1,0 +1,81 @@
+{
+  "page": {
+    "title": "Terminal Dashboard"
+  },
+  "columns": {
+    "sessions": "Sessions",
+    "workflow": "Workflow",
+    "terminal": "Terminal Workbench"
+  },
+  "kpi": {
+    "title": "Dashboard KPI",
+    "activeSessions": "Active Sessions",
+    "queueSize": "Queue Size",
+    "alertCount": "Alerts",
+    "errorCount": "Errors",
+    "idleCount": "Idle"
+  },
+  "inspector": {
+    "title": "Inspector",
+    "noSelection": "Select an item to view details",
+    "associationChain": "Association Chain"
+  },
+  "sessionTree": {
+    "createGroup": "New Group",
+    "groupNamePrompt": "Enter group name",
+    "defaultGroupName": "Untitled Group",
+    "emptyGroup": "No sessions in this group",
+    "noGroups": "No session groups yet",
+    "sessionCount": "{count} sessions",
+    "dragHint": "Drag sessions between groups"
+  },
+  "agentList": {
+    "title": "Agents",
+    "noAgents": "No active agents",
+    "stepLabel": "Step {current}/{total}",
+    "statusRunning": "Running",
+    "statusCompleted": "Completed",
+    "statusFailed": "Failed",
+    "statusPaused": "Paused",
+    "statusPending": "Pending"
+  },
+  "issuePanel": {
+    "title": "Issues",
+    "sendToQueue": "Send to Queue",
+    "noIssues": "No issues found",
+    "noIssuesDesc": "Issues will appear here when discovered",
+    "error": "Failed to load issues"
+  },
+  "queuePanel": {
+    "title": "Queue",
+    "noItems": "Queue is empty",
+    "noItemsDesc": "Send issues to queue to start workflow",
+    "error": "Failed to load queue",
+    "order": "#{order}",
+    "dependsOn": "Depends on: {deps}",
+    "status": {
+      "pending": "Pending",
+      "ready": "Ready",
+      "executing": "Executing",
+      "completed": "Completed",
+      "failed": "Failed",
+      "blocked": "Blocked"
+    }
+  },
+  "tabBar": {
+    "noTabs": "No terminal sessions"
+  },
+  "workbench": {
+    "noTerminal": "No terminal selected",
+    "noTerminalHint": "Select a session from the tab bar or create a new one"
+  },
+  "placeholder": {
+    "sessionTree": "Session groups will appear here",
+    "agentList": "Agent list will appear here",
+    "issuePanel": "Issue panel will appear here",
+    "queuePanel": "Queue panel will appear here",
+    "terminalWorkbench": "Terminal workbench will appear here",
+    "kpiBar": "KPI metrics will appear here",
+    "inspector": "Inspector details will appear here"
+  }
+}

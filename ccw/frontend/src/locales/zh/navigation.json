@@ -35,7 +35,8 @@
     "rules": "规则",
     "explorer": "文件浏览器",
     "graph": "图浏览器",
-    "teams": "团队执行"
+    "teams": "团队执行",
+    "terminalDashboard": "终端仪表板"
   },
   "sidebar": {
     "collapse": "收起",

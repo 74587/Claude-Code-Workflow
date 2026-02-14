@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { useTerminalPanelStore } from '@/stores/terminalPanelStore';
 import { useCliSessionStore, type CliSessionMeta, type CliSessionOutputChunk } from '@/stores/cliSessionStore';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
-import { createCliSession } from '@/lib/api';
+import { createCliSession, sendCliSessionText } from '@/lib/api';
 
 // ========== Status Badge Mapping ==========
 
@@ -45,6 +45,16 @@ const StatusIcon: Record<SessionStatus, React.ComponentType<{ className?: string
   idle: Circle,
 };
 
+type LaunchMode = 'default' | 'yolo';
+
+const LAUNCH_COMMANDS: Record<string, Record<LaunchMode, string>> = {
+  claude:   { default: 'claude',   yolo: 'claude --permission-mode bypassPermissions' },
+  gemini:   { default: 'gemini',   yolo: 'gemini --approval-mode yolo' },
+  qwen:     { default: 'qwen',     yolo: 'qwen --approval-mode yolo' },
+  codex:    { default: 'codex',    yolo: 'codex --full-auto' },
+  opencode: { default: 'opencode', yolo: 'opencode' },
+};
+
 export function TerminalNavBar() {
   const panelView = useTerminalPanelStore((s) => s.panelView);
   const activeTerminalId = useTerminalPanelStore((s) => s.activeTerminalId);
@@ -61,6 +71,7 @@ export function TerminalNavBar() {
   const projectPath = useWorkflowStore(selectProjectPath);
   const [isCreating, setIsCreating] = useState(false);
   const [showToolMenu, setShowToolMenu] = useState(false);
+  const [launchMode, setLaunchMode] = useState<LaunchMode>('yolo');
 
   const CLI_TOOLS = ['claude', 'gemini', 'qwen', 'codex', 'opencode'] as const;
 
@@ -75,12 +86,24 @@ export function TerminalNavBar() {
       );
       upsertSession(created.session);
       openTerminal(created.session.sessionKey);
+
+      // Auto-launch CLI tool after PTY is ready
+      const command = LAUNCH_COMMANDS[tool]?.[launchMode] ?? tool;
+      setTimeout(() => {
+        sendCliSessionText(
+          created.session.sessionKey,
+          { text: command, appendNewline: true },
+          projectPath
+        ).catch((err) =>
+          console.error('[TerminalNavBar] auto-launch failed:', err)
+        );
+      }, 300);
     } catch (err) {
       console.error('[TerminalNavBar] createCliSession failed:', err);
     } finally {
       setIsCreating(false);
     }
-  }, [projectPath, isCreating, upsertSession, openTerminal]);
+  }, [projectPath, isCreating, launchMode, upsertSession, openTerminal]);
 
   const handleQueueClick = () => {
     setPanelView('queue');
@@ -173,7 +196,25 @@ export function TerminalNavBar() {
         {showToolMenu && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowToolMenu(false)} />
-            <div className="absolute left-full bottom-0 ml-1 z-50 bg-card border border-border rounded-md shadow-lg py-1 min-w-[120px]">
+            <div className="absolute left-full bottom-0 ml-1 z-50 bg-card border border-border rounded-md shadow-lg min-w-[140px]">
+              {/* Mode Toggle */}
+              <div className="flex items-center gap-1 px-2 py-1.5 border-b border-border">
+                {(['default', 'yolo'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    className={cn(
+                      'flex-1 text-xs px-2 py-1 rounded transition-colors',
+                      launchMode === mode
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-accent'
+                    )}
+                    onClick={() => setLaunchMode(mode)}
+                  >
+                    {mode === 'default' ? 'Default' : 'Yolo'}
+                  </button>
+                ))}
+              </div>
+              {/* Tool List */}
               {CLI_TOOLS.map((tool) => (
                 <button
                   key={tool}

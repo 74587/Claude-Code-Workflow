@@ -39,6 +39,7 @@ import workspace from './workspace.json';
 import help from './help.json';
 import cliViewer from './cli-viewer.json';
 import team from './team.json';
+import terminalDashboard from './terminal-dashboard.json';
 
 /**
  * Flattens nested JSON object to dot-separated keys
@@ -101,4 +102,5 @@ export default {
   ...flattenMessages(help, 'help'),
   ...flattenMessages(cliViewer, 'cliViewer'),
   ...flattenMessages(team, 'team'),
+  ...flattenMessages(terminalDashboard, 'terminalDashboard'),
 } as Record<string, string>;

@@ -183,3 +183,21 @@ export type {
   NodeComplexity,
   GraphAnalysis,
 } from './graph-explorer';
+
+// ========== Terminal Dashboard Types ==========
+export type {
+  // Session Manager
+  SessionGridLayout,
+  SessionLayout,
+  TerminalStatus,
+  TerminalMeta,
+  SessionGroup,
+  SessionManagerState,
+  SessionManagerActions,
+  SessionManagerStore,
+  // Issue Queue Integration
+  AssociationChain,
+  IssueQueueIntegrationState,
+  IssueQueueIntegrationActions,
+  IssueQueueIntegrationStore,
+} from './terminal-dashboard';

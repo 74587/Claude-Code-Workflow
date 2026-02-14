@@ -36,6 +36,7 @@ import {
   CliViewerPage,
   CliSessionSharePage,
   TeamPage,
+  TerminalDashboardPage,
 } from '@/pages';
 
 /**
@@ -169,6 +170,10 @@ const routes: RouteObject[] = [
         path: 'teams',
         element: <TeamPage />,
       },
+      {
+        path: 'terminal-dashboard',
+        element: <TerminalDashboardPage />,
+      },
       // Catch-all route for 404
       {
         path: '*',
@@ -223,6 +228,7 @@ export const ROUTES = {
   EXPLORER: '/explorer',
   GRAPH: '/graph',
   TEAMS: '/teams',
+  TERMINAL_DASHBOARD: '/terminal-dashboard',
 } as const;
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];
