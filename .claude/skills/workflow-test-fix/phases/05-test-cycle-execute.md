@@ -53,7 +53,7 @@ Load session, tasks, and iteration state.
    └─ Load session, tasks, iteration state
 ```
 
-**For full-pipeline entry (from Phase 1)**: Use `testSessionId` passed from Phase 1.
+**For full-pipeline entry (from Phase 1-4)**: Use `testSessionId` passed from Phase 4.
 
 **For direct entry (/workflow:test-cycle-execute)**:
 - `--resume-session="WFS-xxx"` → Use specified session
@@ -526,7 +526,7 @@ The orchestrator automatically creates git commits at key checkpoints to enable 
 - **Variable**: `finalPassRate` (percentage)
 - **File**: `test-results.json` (final results)
 - **File**: `iteration-state.json` (full iteration history)
-- **TodoWrite**: Mark Phase 2 completed
+- **TodoWrite**: Mark Phase 5 completed
 
 ## Next Phase
 

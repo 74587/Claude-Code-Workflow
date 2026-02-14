@@ -131,12 +131,23 @@ function QueueItemRow({
 
 // ========== Empty State ==========
 
-function QueueEmptyState() {
+function QueueEmptyState({ compact = false }: { compact?: boolean }) {
   const { formatMessage } = useIntl();
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground px-3 py-2">
+        <ListChecks className="h-4 w-4 opacity-30 shrink-0" />
+        <span className="text-xs">{formatMessage({ id: 'terminalDashboard.queuePanel.noItems' })}</span>
+        <span className="text-[10px] opacity-70">{formatMessage({ id: 'terminalDashboard.queuePanel.noItemsDesc' })}</span>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex items-center justify-center text-muted-foreground p-4">
       <div className="text-center">
-        <ListChecks className="h-10 w-10 mx-auto mb-3 opacity-40" />
+        <ListChecks className="h-6 w-6 mx-auto mb-1.5 opacity-30" />
         <p className="text-sm">{formatMessage({ id: 'terminalDashboard.queuePanel.noItems' })}</p>
         <p className="text-xs mt-1 opacity-70">
           {formatMessage({ id: 'terminalDashboard.queuePanel.noItemsDesc' })}
@@ -163,7 +174,7 @@ function QueueErrorState({ error }: { error: Error }) {
 
 // ========== Main Component ==========
 
-export function QueuePanel() {
+export function QueuePanel({ embedded = false }: { embedded?: boolean }) {
   const { formatMessage } = useIntl();
   const queueQuery = useIssueQueue();
   const associationChain = useIssueQueueIntegrationStore(selectAssociationChain);
@@ -200,12 +211,14 @@ export function QueuePanel() {
   if (queueQuery.isLoading) {
     return (
       <div className="flex flex-col h-full">
-        <div className="px-3 py-2 border-b border-border shrink-0">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <ListChecks className="w-4 h-4" />
-            {formatMessage({ id: 'terminalDashboard.queuePanel.title' })}
-          </h3>
-        </div>
+        {!embedded && (
+          <div className="px-3 py-2 border-b border-border shrink-0">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <ListChecks className="w-4 h-4" />
+              {formatMessage({ id: 'terminalDashboard.queuePanel.title' })}
+            </h3>
+          </div>
+        )}
         <div className="flex-1 flex items-center justify-center">
           <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
@@ -217,12 +230,14 @@ export function QueuePanel() {
   if (queueQuery.error) {
     return (
       <div className="flex flex-col h-full">
-        <div className="px-3 py-2 border-b border-border shrink-0">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <ListChecks className="w-4 h-4" />
-            {formatMessage({ id: 'terminalDashboard.queuePanel.title' })}
-          </h3>
-        </div>
+        {!embedded && (
+          <div className="px-3 py-2 border-b border-border shrink-0">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <ListChecks className="w-4 h-4" />
+              {formatMessage({ id: 'terminalDashboard.queuePanel.title' })}
+            </h3>
+          </div>
+        )}
         <QueueErrorState error={queueQuery.error} />
       </div>
     );
@@ -230,23 +245,25 @@ export function QueuePanel() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header with flow indicator */}
-      <div className="px-3 py-2 border-b border-border shrink-0 flex items-center justify-between">
-        <h3 className="text-sm font-semibold flex items-center gap-2">
-          <ArrowDownToLine className="w-4 h-4 text-muted-foreground" />
-          <ListChecks className="w-4 h-4" />
-          {formatMessage({ id: 'terminalDashboard.queuePanel.title' })}
-        </h3>
-        {activeCount > 0 && (
-          <Badge variant="info" className="text-[10px] px-1.5 py-0">
-            {activeCount}
-          </Badge>
-        )}
-      </div>
+      {/* Header with flow indicator (hidden when embedded) */}
+      {!embedded && (
+        <div className="px-3 py-2 border-b border-border shrink-0 flex items-center justify-between">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <ArrowDownToLine className="w-4 h-4 text-muted-foreground" />
+            <ListChecks className="w-4 h-4" />
+            {formatMessage({ id: 'terminalDashboard.queuePanel.title' })}
+          </h3>
+          {activeCount > 0 && (
+            <Badge variant="info" className="text-[10px] px-1.5 py-0">
+              {activeCount}
+            </Badge>
+          )}
+        </div>
+      )}
 
       {/* Queue Item List */}
       {allItems.length === 0 ? (
-        <QueueEmptyState />
+        <QueueEmptyState compact={embedded} />
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto p-1.5 space-y-0.5">
           {allItems.map((item) => (

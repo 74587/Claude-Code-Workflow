@@ -1,10 +1,9 @@
 // ========================================
 // BottomInspector Component
 // ========================================
-// Collapsible bottom panel showing the full association chain
-// (Issue -> Queue -> Session) for the currently selected entity.
-// Consumes issueQueueIntegrationStore for association chain data
-// and useAssociationHighlight context for the highlighted chain.
+// Association chain visualization (Issue -> Queue -> Session).
+// Exports InspectorContent (pure content) for embedding in BottomPanel,
+// and BottomInspector (legacy standalone collapsible wrapper).
 
 import { useState, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
@@ -90,7 +89,86 @@ function formatTimestamp(ts: string): string {
   }
 }
 
-// ========== Main Component ==========
+// ========== InspectorContent (Pure content, no collapsible wrapper) ==========
+
+export function InspectorContent() {
+  const { formatMessage } = useIntl();
+  const associationChain = useIssueQueueIntegrationStore(selectAssociationChain);
+  const { chain: highlightedChain } = useAssociationHighlight();
+
+  const activeChain = highlightedChain ?? associationChain;
+
+  const chainDetails = useMemo(() => {
+    if (!activeChain) return null;
+
+    const executions = Object.values(useQueueExecutionStore.getState().executions);
+    const sessions = useCliSessionStore.getState().sessions;
+
+    let queueStatus: string | undefined;
+    let executionTimestamp: string | undefined;
+    if (activeChain.queueItemId) {
+      const exec = executions.find((e) => e.queueItemId === activeChain.queueItemId);
+      if (exec) {
+        queueStatus = exec.status;
+        executionTimestamp = exec.startedAt;
+      }
+    }
+
+    let sessionStatus: string | undefined;
+    let sessionTimestamp: string | undefined;
+    if (activeChain.sessionId) {
+      const session = sessions[activeChain.sessionId];
+      if (session) {
+        sessionStatus = 'active';
+        sessionTimestamp = session.createdAt;
+      }
+    }
+
+    return { queueStatus, executionTimestamp, sessionStatus, sessionTimestamp };
+  }, [activeChain]);
+
+  const hasChain = activeChain !== null;
+
+  return (
+    <div className="h-full overflow-y-auto px-4 py-3">
+      {hasChain ? (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            {formatMessage({ id: 'terminalDashboard.inspector.associationChain' })}
+          </p>
+          <div className="flex items-center gap-1 flex-wrap">
+            <ChainNode
+              icon={AlertCircle}
+              label="Issue"
+              entityId={activeChain.issueId}
+            />
+            <ChainNode
+              icon={ListChecks}
+              label="Queue"
+              entityId={activeChain.queueItemId}
+              status={chainDetails?.queueStatus}
+              timestamp={chainDetails?.executionTimestamp}
+            />
+            <ChainNode
+              icon={Terminal}
+              label="Session"
+              entityId={activeChain.sessionId}
+              status={chainDetails?.sessionStatus}
+              timestamp={chainDetails?.sessionTimestamp}
+              isLast
+            />
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {formatMessage({ id: 'terminalDashboard.inspector.noSelection' })}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ========== Legacy Standalone Component ==========
 
 export function BottomInspector() {
   const { formatMessage } = useIntl();

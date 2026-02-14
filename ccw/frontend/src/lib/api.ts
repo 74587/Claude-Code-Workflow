@@ -2062,6 +2062,7 @@ export function normalizeTask(raw: Record<string, unknown>): NormalizedTask {
   const rawFlowControl = raw.flow_control as FlowControl | undefined;
   const rawMeta = raw.meta as LiteTask['meta'] | undefined;
   const rawConvergence = raw.convergence as NormalizedTask['convergence'] | undefined;
+  const rawModPoints = raw.modification_points as Array<{ file?: string; target?: string; change?: string }> | undefined;
 
   // Description: new flat field first, then join old context.requirements, then old details/scope
   const rawRequirements = rawContext?.requirements;
@@ -2074,6 +2075,25 @@ export function normalizeTask(raw: Record<string, unknown>): NormalizedTask {
       ? rawDetails.join('; ')
       : undefined)
     || (raw.scope as string | undefined);
+
+  // Normalize files: new flat files > flow_control.target_files > modification_points
+  const normalizedFiles = normalizeFilesField(raw.files)
+    || rawFlowControl?.target_files
+    || (rawModPoints?.length
+      ? rawModPoints.filter(m => m.file).map(m => ({ path: m.file!, name: m.target, change: m.change }))
+      : undefined);
+
+  // Normalize focus_paths: top-level > context > files paths
+  const focusPaths = (raw.focus_paths as string[])
+    || rawContext?.focus_paths
+    || (normalizedFiles?.length ? normalizedFiles.map(f => f.path).filter(Boolean) : undefined)
+    || [];
+
+  // Normalize acceptance: convergence > context.acceptance > top-level acceptance
+  const rawAcceptance = raw.acceptance as string[] | undefined;
+  const convergence = rawConvergence
+    || (rawContext?.acceptance?.length ? { criteria: rawContext.acceptance } : undefined)
+    || (rawAcceptance?.length ? { criteria: rawAcceptance } : undefined);
 
   return {
     // Identity
@@ -2089,15 +2109,13 @@ export function normalizeTask(raw: Record<string, unknown>): NormalizedTask {
 
     // Promoted from context (new first, old fallback)
     depends_on: (raw.depends_on as string[]) || rawContext?.depends_on || [],
-    focus_paths: (raw.focus_paths as string[]) || rawContext?.focus_paths || [],
-    convergence: rawConvergence || (rawContext?.acceptance?.length
-      ? { criteria: rawContext.acceptance }
-      : undefined),
+    focus_paths: focusPaths,
+    convergence,
 
     // Promoted from flow_control (new first, old fallback)
     pre_analysis: (raw.pre_analysis as PreAnalysisStep[]) || rawFlowControl?.pre_analysis,
     implementation: (raw.implementation as (ImplementationStep | string)[]) || rawFlowControl?.implementation_approach,
-    files: normalizeFilesField(raw.files) || rawFlowControl?.target_files,
+    files: normalizedFiles,
 
     // Promoted from meta (new first, old fallback)
     type: (raw.type as string) || rawMeta?.type,

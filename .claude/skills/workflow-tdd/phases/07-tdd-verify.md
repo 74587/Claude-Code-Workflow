@@ -1,82 +1,28 @@
----
-name: tdd-verify
-description: Verify TDD workflow compliance against Red-Green-Refactor cycles. Generates quality report with coverage analysis and quality gate recommendation. Orchestrates sub-commands for comprehensive validation.
-argument-hint: "[optional: --session WFS-session-id]"
-allowed-tools: Skill(*), TodoWrite(*), Read(*), Write(*), Bash(*), Glob(*)
----
+# Phase 7: TDD Verification
 
-# TDD Verification Command (/workflow:tdd-verify)
+Full TDD compliance verification with quality gate reporting. Generates comprehensive TDD_COMPLIANCE_REPORT.md.
 
-## Goal
+## Objective
 
-Verify TDD workflow execution quality by validating Red-Green-Refactor cycle compliance, test coverage completeness, and task chain structure integrity. This command orchestrates multiple analysis phases and generates a comprehensive compliance report with quality gate recommendation.
-
-**Output**: A structured Markdown report saved to `.workflow/active/WFS-{session}/TDD_COMPLIANCE_REPORT.md` containing:
-- Executive summary with compliance score and quality gate recommendation
-- Task chain validation (TEST → IMPL → REFACTOR structure)
-- Test coverage metrics (line, branch, function)
-- Red-Green-Refactor cycle verification
-- Best practices adherence assessment
-- Actionable improvement recommendations
+- Verify TDD task chain structure (TEST → IMPL → REFACTOR or internal Red-Green-Refactor)
+- Analyze test coverage metrics
+- Validate TDD cycle execution quality
+- Generate compliance report with quality gate recommendation
 
 ## Operating Constraints
 
 **ORCHESTRATOR MODE**:
-- This command coordinates multiple sub-commands (`/workflow:tools:tdd-coverage-analysis`, `ccw cli`)
+- This phase coordinates sub-steps and `/workflow:tools:tdd-coverage-analysis`
 - MAY write output files: TDD_COMPLIANCE_REPORT.md (primary report), .process/*.json (intermediate artifacts)
 - MUST NOT modify source task files or implementation code
 - MUST NOT create or delete tasks in the workflow
 
 **Quality Gate Authority**: The compliance report provides a binding recommendation (BLOCK_MERGE / REQUIRE_FIXES / PROCEED_WITH_CAVEATS / APPROVED) based on objective compliance criteria.
 
-## Coordinator Role
+## 4-Step Execution
 
-**This command is a pure orchestrator**: Execute 4 phases to verify TDD workflow compliance, test coverage, and Red-Green-Refactor cycle execution.
+### Step 7.1: Session Discovery & Validation
 
-## Core Responsibilities
-- Verify TDD task chain structure (TEST → IMPL → REFACTOR)
-- Analyze test coverage metrics
-- Validate TDD cycle execution quality
-- Generate compliance report with quality gate recommendation
-
-## Execution Process
-
-```
-Input Parsing:
-   └─ Decision (session argument):
-      ├─ --session provided → Use provided session
-      └─ No session → Auto-detect active session
-
-Phase 1: Session Discovery & Validation
-   ├─ Detect or validate session directory
-   ├─ Check required artifacts exist (.task/*.json, .summaries/*)
-   └─ ERROR if invalid or incomplete
-
-Phase 2: Task Chain Structure Validation
-   ├─ Load all task JSONs from .task/
-   ├─ Validate TDD structure: TEST-N.M → IMPL-N.M → REFACTOR-N.M
-   ├─ Verify dependencies (depends_on)
-   ├─ Validate meta fields (tdd_phase, agent)
-   └─ Extract chain validation data
-
-Phase 3: Coverage & Cycle Analysis
-   ├─ Call: /workflow:tools:tdd-coverage-analysis
-   ├─ Parse: test-results.json, coverage-report.json, tdd-cycle-report.md
-   └─ Extract coverage metrics and TDD cycle verification
-
-Phase 4: Compliance Report Generation
-   ├─ Aggregate findings from Phases 1-3
-   ├─ Calculate compliance score (0-100)
-   ├─ Determine quality gate recommendation
-   ├─ Generate TDD_COMPLIANCE_REPORT.md
-   └─ Display summary to user
-```
-
-## 4-Phase Execution
-
-### Phase 1: Session Discovery & Validation
-
-**Step 1.1: Detect Session**
 ```bash
 IF --session parameter provided:
     session_id = provided session
@@ -99,7 +45,7 @@ summaries_dir = session_dir/.summaries
 process_dir = session_dir/.process
 ```
 
-**Step 1.2: Validate Required Artifacts**
+**Validate Required Artifacts**:
 ```bash
 # Check task files exist
 task_files = Glob(task_dir/*.json)
@@ -117,13 +63,11 @@ IF NOT summaries_exist:
 
 ---
 
-### Phase 2: Task Chain Structure Validation
+### Step 7.2: Task Chain Structure Validation
 
-**Step 2.1: Load and Parse Task JSONs**
+**Load and Parse Task JSONs**:
 ```bash
 # Single-pass JSON extraction using jq
-validation_data = bash("""
-# Load all tasks and extract structured data
 cd '{session_dir}/.task'
 
 # Extract all task IDs
@@ -140,16 +84,15 @@ meta_tdd=$(jq -r '.id + ":" + (.meta.tdd_phase // "missing")' *.json 2>/dev/null
 meta_agent=$(jq -r '.id + ":" + (.meta.agent // "missing")' *.json 2>/dev/null)
 
 # Output as JSON
-jq -n --arg ids "$task_ids" \\
-       --arg impl "$impl_deps" \\
-       --arg refactor "$refactor_deps" \\
-       --arg tdd "$meta_tdd" \\
-       --arg agent "$meta_agent" \\
+jq -n --arg ids "$task_ids" \
+       --arg impl "$impl_deps" \
+       --arg refactor "$refactor_deps" \
+       --arg tdd "$meta_tdd" \
+       --arg agent "$meta_agent" \
        '{ids: $ids, impl_deps: $impl, refactor_deps: $refactor, tdd: $tdd, agent: $agent}'
-""")
 ```
 
-**Step 2.2: Validate TDD Chain Structure**
+**Validate TDD Chain Structure**:
 ```
 Parse validation_data JSON and validate:
 
@@ -175,14 +118,14 @@ Calculate:
 
 ---
 
-### Phase 3: Coverage & Cycle Analysis
+### Step 7.3: Coverage & Cycle Analysis
 
-**Step 3.1: Call Coverage Analysis Sub-command**
-```bash
+**Call Coverage Analysis Sub-command**:
+```javascript
 Skill(skill="workflow:tools:tdd-coverage-analysis", args="--session {session_id}")
 ```
 
-**Step 3.2: Parse Output Files**
+**Parse Output Files**:
 ```bash
 # Check required outputs exist
 IF NOT EXISTS(process_dir/test-results.json):
@@ -204,7 +147,7 @@ ELSE:
     cycle_data = Read(process_dir/tdd-cycle-report.md)
 ```
 
-**Step 3.3: Extract Coverage Metrics**
+**Extract Coverage Metrics**:
 ```
 If coverage_data exists:
    - line_coverage_percent
@@ -224,9 +167,9 @@ If cycle_data exists:
 
 ---
 
-### Phase 4: Compliance Report Generation
+### Step 7.4: Compliance Report Generation
 
-**Step 4.1: Calculate Compliance Score**
+**Calculate Compliance Score**:
 ```
 Base Score: 100 points
 
@@ -254,7 +197,7 @@ Coverage Quality:
 Final Score: Max(0, Base Score - Total Deductions)
 ```
 
-**Step 4.2: Determine Quality Gate**
+**Determine Quality Gate**:
 ```
 IF score >= 90 AND no_critical_violations:
     recommendation = "APPROVED"
@@ -266,57 +209,7 @@ ELSE:
     recommendation = "BLOCK_MERGE"
 ```
 
-**Step 4.3: Generate Report**
-```bash
-report_content = Generate markdown report (see structure below)
-report_path = "{session_dir}/TDD_COMPLIANCE_REPORT.md"
-Write(report_path, report_content)
-```
-
-**Step 4.4: Display Summary to User**
-```bash
-echo "=== TDD Verification Complete ==="
-echo "Session: {session_id}"
-echo "Report: {report_path}"
-echo ""
-echo "Quality Gate: {recommendation}"
-echo "Compliance Score: {score}/100"
-echo ""
-echo "Chain Validation: {chain_completeness_score}%"
-echo "Line Coverage: {line_coverage}%"
-echo "Branch Coverage: {branch_coverage}%"
-echo ""
-echo "Next: Review full report for detailed findings"
-```
-
-## TodoWrite Pattern (Optional)
-
-**Note**: As an orchestrator command, TodoWrite tracking is optional and primarily useful for long-running verification processes. For most cases, the 4-phase execution is fast enough that progress tracking adds noise without value.
-
-```javascript
-// Only use TodoWrite for complex multi-session verification
-// Skip for single-session verification
-```
-
-## Validation Logic
-
-### Chain Validation Algorithm
-```
-1. Load all task JSONs from .workflow/active/{sessionId}/.task/
-2. Extract task IDs and group by feature number
-3. For each feature:
-   - Check TEST-N.M exists
-   - Check IMPL-N.M exists
-   - Check REFACTOR-N.M exists (optional but recommended)
-   - Verify IMPL-N.M depends_on TEST-N.M
-   - Verify REFACTOR-N.M depends_on IMPL-N.M
-   - Verify meta.tdd_phase values
-   - Verify meta.agent assignments
-4. Calculate chain completeness score
-5. Report incomplete or invalid chains
-```
-
-### Quality Gate Criteria
+**Quality Gate Criteria**:
 
 | Recommendation | Score Range | Critical Violations | Action |
 |----------------|-------------|---------------------|--------|
@@ -331,62 +224,30 @@ echo "Next: Review full report for detailed findings"
 - Tests didn't pass after IMPL (Green phase violation)
 - Tests broke during REFACTOR (Refactor phase violation)
 
-## Output Files
-```
-.workflow/active/WFS-{session-id}/
-├── TDD_COMPLIANCE_REPORT.md     # Comprehensive compliance report ⭐
-└── .process/
-    ├── test-results.json         # From tdd-coverage-analysis
-    ├── coverage-report.json      # From tdd-coverage-analysis
-    └── tdd-cycle-report.md       # From tdd-coverage-analysis
+**Generate Report**:
+```javascript
+const report_content = generateComplianceReport(/* see template below */)
+const report_path = `${session_dir}/TDD_COMPLIANCE_REPORT.md`
+Write(report_path, report_content)
 ```
 
-## Error Handling
+**Display Summary to User**:
+```
+=== TDD Verification Complete ===
+Session: {session_id}
+Report: {report_path}
 
-### Session Discovery Errors
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| No active session | No WFS-* directories | Provide --session explicitly |
-| Multiple active sessions | Multiple WFS-* directories | Provide --session explicitly |
-| Session not found | Invalid session-id | Check available sessions |
+Quality Gate: {recommendation}
+Compliance Score: {score}/100
 
-### Validation Errors
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Task files missing | Incomplete planning | Run /workflow:tdd-plan first |
-| Invalid JSON | Corrupted task files | Regenerate tasks |
-| Missing summaries | Tasks not executed | Execute tasks before verify |
+Chain Validation: {chain_completeness_score}%
+Line Coverage: {line_coverage}%
+Branch Coverage: {branch_coverage}%
 
-### Analysis Errors
-| Error | Cause | Resolution |
-|-------|-------|------------|
-| Coverage tool missing | No test framework | Configure testing first |
-| Tests fail to run | Code errors | Fix errors before verify |
-| Sub-command fails | tdd-coverage-analysis error | Check sub-command logs |
-
-## Integration & Usage
-
-### Command Chain
-- **Called After**: `/workflow:execute` (when TDD tasks completed)
-- **Calls**: `/workflow:tools:tdd-coverage-analysis`
-- **Related**: `/workflow:tdd-plan`, `/workflow:status`
-
-### Basic Usage
-```bash
-# Auto-detect active session
-/workflow:tdd-verify
-
-# Specify session
-/workflow:tdd-verify --session WFS-auth
+Next: Review full report for detailed findings
 ```
 
-### When to Use
-- After completing all TDD tasks in a workflow
-- Before merging TDD workflow branch
-- For TDD process quality assessment
-- To identify missing TDD steps
-
-## TDD Compliance Report Structure
+## TDD Compliance Report Template
 
 ```markdown
 # TDD Compliance Report - {Session ID}
@@ -436,20 +297,6 @@ echo "Next: Review full report for detailed findings"
 | Green | IMPL-1.1 | ✅ Pass | Minimal implementation made test pass |
 | Refactor | REFACTOR-1.1 | ✅ Pass | Code improved, tests remained green |
 
-### Feature 2: {Feature Name}
-**Status**: ⚠️ Incomplete
-**Chain**: TEST-2.1 → IMPL-2.1 (Missing REFACTOR-2.1)
-
-| Phase | Task | Status | Details |
-|-------|------|--------|---------|
-| Red | TEST-2.1 | ✅ Pass | Test created and failed |
-| Green | IMPL-2.1 | ⚠️ Warning | Implementation seems over-engineered |
-| Refactor | REFACTOR-2.1 | ❌ Missing | Task not completed |
-
-**Issues**:
-- REFACTOR-2.1 task not completed (-10 points)
-- IMPL-2.1 implementation exceeded minimal scope (-10 points)
-
 ### Chain Validation Summary
 
 | Metric | Value |
@@ -479,8 +326,7 @@ echo "Next: Review full report for detailed findings"
 
 | File | Lines | Issue | Priority |
 |------|-------|-------|----------|
-| src/auth/service.ts | 45-52 | Uncovered error handling | HIGH |
-| src/utils/parser.ts | 78-85 | Uncovered edge case | MEDIUM |
+| {file} | {lines} | {issue} | {priority} |
 
 ---
 
@@ -491,39 +337,25 @@ echo "Next: Review full report for detailed findings"
 - ✅ Compliant features: {list}
 - ❌ Non-compliant features: {list}
 
-**Violations**:
-- Feature 3: No evidence of initial test failure (-10 points)
-
 ### Green Phase (Make Test Pass)
 - {N}/{total} implementations made tests pass ({percent}%)
 - ✅ Compliant features: {list}
 - ❌ Non-compliant features: {list}
-
-**Violations**:
-- Feature 2: Implementation over-engineered (-10 points)
 
 ### Refactor Phase (Improve Quality)
 - {N}/{total} features completed refactoring ({percent}%)
 - ✅ Compliant features: {list}
 - ❌ Non-compliant features: {list}
 
-**Violations**:
-- Feature 2, 4: Refactoring step skipped (-20 points total)
-
 ---
 
 ## Best Practices Assessment
 
 ### Strengths
-- Clear test descriptions
-- Good test coverage
-- Consistent naming conventions
-- Well-structured code
+- {strengths}
 
 ### Areas for Improvement
-- Some implementations over-engineered in Green phase
-- Missing refactoring steps
-- Test failure messages could be more descriptive
+- {improvements}
 
 ---
 
@@ -533,33 +365,26 @@ echo "Next: Review full report for detailed findings"
 {List of critical issues with impact and remediation}
 
 ### High Priority Issues ({count})
-{List of high priority issues with impact and remediation}
+{List of high priority issues}
 
 ### Medium Priority Issues ({count})
-{List of medium priority issues with impact and remediation}
+{List of medium priority issues}
 
 ### Low Priority Issues ({count})
-{List of low priority issues with impact and remediation}
+{List of low priority issues}
 
 ---
 
 ## Recommendations
 
 ### Required Fixes (Before Merge)
-1. Complete missing REFACTOR tasks (Features 2, 4)
-2. Verify initial test failures for Feature 3
-3. Fix tests that broke during refactoring
+1. {required fixes}
 
 ### Recommended Improvements
-1. Simplify over-engineered implementations
-2. Add edge case tests for Features 1, 3
-3. Improve test failure message clarity
-4. Increase branch coverage to >85%
+1. {recommended improvements}
 
 ### Optional Enhancements
-1. Add more descriptive test names
-2. Consider parameterized tests for similar scenarios
-3. Document TDD process learnings
+1. {optional enhancements}
 
 ---
 
@@ -583,3 +408,54 @@ echo "Next: Review full report for detailed findings"
 **Report End**
 ```
 
+## Error Handling
+
+### Session Discovery Errors
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| No active session | No WFS-* directories | Provide --session explicitly |
+| Multiple active sessions | Multiple WFS-* directories | Provide --session explicitly |
+| Session not found | Invalid session-id | Check available sessions |
+
+### Validation Errors
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| Task files missing | Incomplete planning | Run /workflow:tdd-plan first |
+| Invalid JSON | Corrupted task files | Regenerate tasks |
+| Missing summaries | Tasks not executed | Execute tasks before verify |
+
+### Analysis Errors
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| Coverage tool missing | No test framework | Configure testing first |
+| Tests fail to run | Code errors | Fix errors before verify |
+| Sub-command fails | tdd-coverage-analysis error | Check sub-command logs |
+
+## Output
+
+- **File**: `TDD_COMPLIANCE_REPORT.md` (comprehensive compliance report)
+- **Files**: `.process/test-results.json`, `.process/coverage-report.json`, `.process/tdd-cycle-report.md`
+
+## Output Files Structure
+
+```
+.workflow/active/WFS-{session-id}/
+├── TDD_COMPLIANCE_REPORT.md     # Comprehensive compliance report ⭐
+└── .process/
+    ├── test-results.json         # From tdd-coverage-analysis
+    ├── coverage-report.json      # From tdd-coverage-analysis
+    └── tdd-cycle-report.md       # From tdd-coverage-analysis
+```
+
+## Next Steps Decision Table
+
+| Situation | Recommended Command | Purpose |
+|-----------|---------------------|---------|
+| APPROVED | `/workflow:execute` | Start TDD implementation |
+| PROCEED_WITH_CAVEATS | `/workflow:execute` | Start with noted caveats |
+| REQUIRE_FIXES | Review report, refine tasks | Address issues before proceed |
+| BLOCK_MERGE | `/workflow:replan` | Significant restructuring needed |
+| After implementation | Re-run `/workflow:tdd-verify` | Verify post-execution compliance |

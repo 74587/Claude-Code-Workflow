@@ -31,6 +31,7 @@ interface FlowchartNodeData extends Record<string, unknown> {
   type: 'pre-analysis' | 'implementation' | 'section';
   dependsOn?: string[];
   status?: 'pending' | 'in_progress' | 'completed' | 'blocked' | 'skipped';
+  showStepStatus?: boolean;
 }
 
 // Status icon component

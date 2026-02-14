@@ -11,7 +11,7 @@ import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/Tabs';
 import type { NormalizedTask, LiteTask } from '@/lib/api';
-import { buildFlowControl } from '@/lib/api';
+import { buildFlowControl, normalizeTask } from '@/lib/api';
 import type { TaskData } from '@/types/store';
 
 // ========== Types ==========
@@ -86,8 +86,11 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
     return null;
   }
 
-  // Use NormalizedTask fields (works for both old nested and new flat formats)
-  const nt = task as NormalizedTask;
+  // Normalize task to unified flat format (handles old nested, new flat, and raw LiteTask/TaskData)
+  const nt = React.useMemo(
+    () => normalizeTask(task as unknown as Record<string, unknown>),
+    [task],
+  );
   const taskId = nt.task_id || 'N/A';
   const taskTitle = nt.title || 'Untitled Task';
   const taskDescription = nt.description;
@@ -102,6 +105,13 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
   const implSteps = nt.implementation || flowControl?.implementation_approach || [];
   const taskFiles = nt.files || flowControl?.target_files || [];
   const taskScope = nt.scope;
+
+  // Detect if task supports status tracking (new format has explicit status/status_history)
+  const rawData = nt._raw as Record<string, unknown> | undefined;
+  const sourceRaw = (rawData?._raw as Record<string, unknown>) || rawData;
+  const hasStatusTracking = sourceRaw
+    ? (sourceRaw.status !== undefined || sourceRaw.status_history !== undefined)
+    : false;
 
   const statusConfig = taskStatusConfig[taskStatus] || taskStatusConfig.pending;
   const StatusIcon = statusConfig.icon;
@@ -135,10 +145,12 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
           <div className="flex-1 min-w-0 mr-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-semibold bg-primary/10 text-primary border border-primary/20">{taskId}</span>
-              <Badge variant={statusConfig.variant} className="gap-1">
-                <StatusIcon className="h-3 w-3" />
-                {formatMessage({ id: statusConfig.label })}
-              </Badge>
+              {hasStatusTracking && (
+                <Badge variant={statusConfig.variant} className="gap-1">
+                  <StatusIcon className="h-3 w-3" />
+                  {formatMessage({ id: statusConfig.label })}
+                </Badge>
+              )}
             </div>
             <h2 id="drawer-title" className="text-lg font-semibold text-foreground">
               {taskTitle}
@@ -352,9 +364,9 @@ export function TaskDrawer({ task, isOpen, onClose }: TaskDrawerProps) {
 
                   {/* Empty State */}
                   {!taskDescription &&
-                    !(task as LiteTask).meta?.scope &&
-                    !((task as LiteTask).context?.acceptance?.length) &&
-                    !((task as LiteTask).context?.focus_paths?.length) &&
+                    !taskScope &&
+                    !acceptanceCriteria.length &&
+                    !focusPaths.length &&
                     !(flowControl?.pre_analysis?.length) &&
                     !(flowControl?.implementation_approach?.length) && (
                       <div className="text-center py-12">
