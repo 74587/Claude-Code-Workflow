@@ -36,7 +36,22 @@
     "agreements": "Agreements",
     "disagreements": "Disagreements",
     "resolution": "Resolution",
-    "clarificationQuestions": "Clarification Questions"
+    "clarificationQuestions": "Clarification Questions",
+    "context": {
+      "solution": "Selected Solution",
+      "implementationPlan": "Implementation Plan",
+      "approach": "Approach",
+      "tasks": "Tasks",
+      "milestones": "Milestones",
+      "dependencies": "Dependencies",
+      "internal": "Internal",
+      "external": "External",
+      "consensus": "CLI Consensus",
+      "resolvedConflicts": "Resolved Conflicts",
+      "technicalConcerns": "Technical Concerns",
+      "constraints": "Constraints",
+      "sessionInfo": "Session Info"
+    }
   },
   "createdAt": "Created",
   "rounds": "rounds",

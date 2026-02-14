@@ -36,7 +36,22 @@
     "agreements": "共识",
     "disagreements": "分歧",
     "resolution": "解决方式",
-    "clarificationQuestions": "澄清问题"
+    "clarificationQuestions": "澄清问题",
+    "context": {
+      "solution": "选定方案",
+      "implementationPlan": "实现计划",
+      "approach": "实现路径",
+      "tasks": "任务列表",
+      "milestones": "里程碑",
+      "dependencies": "依赖项",
+      "internal": "内部依赖",
+      "external": "外部依赖",
+      "consensus": "CLI 共识",
+      "resolvedConflicts": "已解决分歧",
+      "technicalConcerns": "技术关注点",
+      "constraints": "约束条件",
+      "sessionInfo": "会话信息"
+    }
   },
   "createdAt": "创建时间",
   "rounds": "轮",

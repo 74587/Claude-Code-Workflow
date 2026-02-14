@@ -2244,6 +2244,42 @@ export interface RoundSynthesis {
   user_feedback_incorporated?: string;
 }
 
+// Multi-cli-plan context-package.json structure
+export interface MultiCliContextPackage {
+  solution?: {
+    name: string;
+    source_cli: string[];
+    feasibility: number;
+    effort: string;
+    risk: string;
+    summary: string;
+  };
+  implementation_plan?: {
+    approach: string;
+    tasks: Array<{
+      id: string;
+      name: string;
+      depends_on: string[];
+      files: SolutionFileAction[];
+      key_point: string | null;
+    }>;
+    execution_flow: string;
+    milestones: string[];
+  };
+  dependencies?: {
+    internal: string[];
+    external: string[];
+  };
+  technical_concerns?: string[];
+  consensus?: {
+    agreements: string[];
+    resolved_conflicts?: string;
+  };
+  constraints?: string[];
+  task_description?: string;
+  session_id?: string;
+}
+
 export interface LiteTasksResponse {
   litePlan?: LiteTaskSession[];
   liteFix?: LiteTaskSession[];
