@@ -1,104 +1,98 @@
 // ========================================
-// Terminal Dashboard Page
+// Terminal Dashboard Page (V2)
 // ========================================
-// Three-column Allotment layout for terminal execution management.
-// Left: session groups + agent list (with active session count badge)
-// Middle: full-height IssuePanel
-// Right: terminal workbench (or issue detail preview)
-// Bottom: collapsible BottomPanel (Queue + Inspector tabs)
-// Cross-cutting: AssociationHighlightProvider wraps the layout
+// Terminal-first layout with floating panels.
+// Main area: TerminalGrid (tmux-style split panes)
+// Top: DashboardToolbar with panel toggles and layout presets
+// Floating panels: Sessions, Issues, Queue, Inspector (overlay, mutually exclusive)
 
-import { useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { useIntl } from 'react-intl';
-import { Allotment } from 'allotment';
-import 'allotment/dist/style.css';
-import { FolderTree, Activity } from 'lucide-react';
+import { AssociationHighlightProvider } from '@/components/terminal-dashboard/AssociationHighlight';
+import { DashboardToolbar, type PanelId } from '@/components/terminal-dashboard/DashboardToolbar';
+import { TerminalGrid } from '@/components/terminal-dashboard/TerminalGrid';
+import { FloatingPanel } from '@/components/terminal-dashboard/FloatingPanel';
 import { SessionGroupTree } from '@/components/terminal-dashboard/SessionGroupTree';
 import { AgentList } from '@/components/terminal-dashboard/AgentList';
 import { IssuePanel } from '@/components/terminal-dashboard/IssuePanel';
-import { TerminalWorkbench } from '@/components/terminal-dashboard/TerminalWorkbench';
-import { BottomPanel } from '@/components/terminal-dashboard/BottomPanel';
-import { AssociationHighlightProvider } from '@/components/terminal-dashboard/AssociationHighlight';
-import { Badge } from '@/components/ui/Badge';
-import {
-  useSessionManagerStore,
-  selectGroups,
-  selectTerminalMetas,
-} from '@/stores/sessionManagerStore';
-import type { TerminalStatus } from '@/types/terminal-dashboard';
+import { QueuePanel } from '@/components/terminal-dashboard/QueuePanel';
+import { InspectorContent } from '@/components/terminal-dashboard/BottomInspector';
 
 // ========== Main Page Component ==========
 
 export function TerminalDashboardPage() {
   const { formatMessage } = useIntl();
-  const groups = useSessionManagerStore(selectGroups);
-  const terminalMetas = useSessionManagerStore(selectTerminalMetas);
+  const [activePanel, setActivePanel] = useState<PanelId | null>(null);
 
-  // Active session count for left column header badge
-  const sessionCount = useMemo(() => {
-    const allSessionIds = groups.flatMap((g) => g.sessionIds);
-    let activeCount = 0;
-    for (const sid of allSessionIds) {
-      const meta = terminalMetas[sid];
-      const status: TerminalStatus = meta?.status ?? 'idle';
-      if (status === 'active') {
-        activeCount++;
-      }
-    }
-    return activeCount > 0 ? activeCount : allSessionIds.length;
-  }, [groups, terminalMetas]);
+  const togglePanel = useCallback((panelId: PanelId) => {
+    setActivePanel((prev) => (prev === panelId ? null : panelId));
+  }, []);
+
+  const closePanel = useCallback(() => {
+    setActivePanel(null);
+  }, []);
 
   return (
     <div className="flex flex-col h-[calc(100vh-56px)] overflow-hidden">
-      {/* AssociationHighlightProvider wraps the three-column layout + bottom panel */}
       <AssociationHighlightProvider>
-        {/* Three-column Allotment layout (flex-1) */}
+        {/* Global toolbar */}
+        <DashboardToolbar
+          activePanel={activePanel}
+          onTogglePanel={togglePanel}
+        />
+
+        {/* Terminal grid (flex-1, takes all remaining space) */}
         <div className="flex-1 min-h-0">
-          <Allotment proportionalLayout={true}>
-            {/* Left column: Sessions + Agents */}
-            <Allotment.Pane preferredSize={220} minSize={180} maxSize={320}>
-              <div className="h-full border-r border-border bg-background flex flex-col">
-                <div className="px-3 py-2 border-b border-border shrink-0 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold flex items-center gap-2">
-                    <FolderTree className="w-4 h-4" />
-                    {formatMessage({ id: 'terminalDashboard.columns.sessions' })}
-                  </h2>
-                  {sessionCount > 0 && (
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 flex items-center gap-1">
-                      <Activity className="w-3 h-3" />
-                      {sessionCount}
-                    </Badge>
-                  )}
-                </div>
-                {/* SessionGroupTree takes remaining space */}
-                <div className="flex-1 min-h-0 overflow-y-auto">
-                  <SessionGroupTree />
-                </div>
-                {/* AgentList at bottom with max height */}
-                <div className="shrink-0">
-                  <AgentList />
-                </div>
-              </div>
-            </Allotment.Pane>
-
-            {/* Middle column: Full-height IssuePanel */}
-            <Allotment.Pane minSize={280}>
-              <div className="h-full border-r border-border bg-background overflow-hidden">
-                <IssuePanel />
-              </div>
-            </Allotment.Pane>
-
-            {/* Right column: Terminal Workbench */}
-            <Allotment.Pane minSize={300}>
-              <div className="h-full bg-background overflow-hidden">
-                <TerminalWorkbench />
-              </div>
-            </Allotment.Pane>
-          </Allotment>
+          <TerminalGrid />
         </div>
 
-        {/* BottomPanel: collapsible Queue + Inspector tabs (full-width) */}
-        <BottomPanel />
+        {/* Floating panels (conditional, overlay) */}
+        <FloatingPanel
+          isOpen={activePanel === 'sessions'}
+          onClose={closePanel}
+          title={formatMessage({ id: 'terminalDashboard.toolbar.sessions' })}
+          side="left"
+          width={280}
+        >
+          <div className="flex flex-col h-full">
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <SessionGroupTree />
+            </div>
+            <div className="shrink-0">
+              <AgentList />
+            </div>
+          </div>
+        </FloatingPanel>
+
+        <FloatingPanel
+          isOpen={activePanel === 'issues'}
+          onClose={closePanel}
+          title={formatMessage({ id: 'terminalDashboard.toolbar.issues' })}
+          side="left"
+          width={380}
+        >
+          <IssuePanel />
+        </FloatingPanel>
+
+        <FloatingPanel
+          isOpen={activePanel === 'queue'}
+          onClose={closePanel}
+          title={formatMessage({ id: 'terminalDashboard.toolbar.queue' })}
+          side="right"
+          width={400}
+        >
+          <QueuePanel />
+        </FloatingPanel>
+
+        <FloatingPanel
+          isOpen={activePanel === 'inspector'}
+          onClose={closePanel}
+          title={formatMessage({ id: 'terminalDashboard.toolbar.inspector' })}
+          side="right"
+          width={360}
+        >
+          <InspectorContent />
+        </FloatingPanel>
       </AssociationHighlightProvider>
     </div>
   );

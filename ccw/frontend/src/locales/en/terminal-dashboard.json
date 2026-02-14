@@ -68,6 +68,25 @@
       "blocked": "Blocked"
     }
   },
+  "toolbar": {
+    "sessions": "Sessions",
+    "issues": "Issues",
+    "queue": "Queue",
+    "inspector": "Inspector",
+    "layoutSingle": "Single",
+    "layoutSplitH": "Split Horizontal",
+    "layoutSplitV": "Split Vertical",
+    "layoutGrid": "Grid 2×2"
+  },
+  "pane": {
+    "selectSession": "Select a session",
+    "selectSessionHint": "Choose a terminal session from the dropdown",
+    "splitHorizontal": "Split Right",
+    "splitVertical": "Split Down",
+    "clearTerminal": "Clear Terminal",
+    "closePane": "Close Pane",
+    "linkedIssue": "Linked Issue"
+  },
   "tabBar": {
     "noTabs": "No terminal sessions"
   },

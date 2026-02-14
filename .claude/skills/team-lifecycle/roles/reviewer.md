@@ -222,7 +222,7 @@ function verifyRequirements(plan, fileContents) {
 
 ```javascript
 if (reviewMode === 'spec') {
-  const scores = { completeness: 0, consistency: 0, traceability: 0, depth: 0 }
+  const scores = { completeness: 0, consistency: 0, traceability: 0, depth: 0, requirementCoverage: 0 }
 
   // Completeness (25%): all sections present with content
   function scoreCompleteness(docs) {
@@ -297,19 +297,55 @@ if (reviewMode === 'spec') {
     return { score: Math.max(0, score), issues }
   }
 
+  // Requirement Coverage (20%): original requirements → document mapping
+  function scoreRequirementCoverage(docs) {
+    let score = 100
+    const issues = []
+    if (!docs.discoveryContext) {
+      return { score: 0, issues: ['discovery-context.json missing, cannot verify requirement coverage'] }
+    }
+    const context = typeof docs.discoveryContext === 'string' ? JSON.parse(docs.discoveryContext) : docs.discoveryContext
+    const dimensions = context.seed_analysis?.exploration_dimensions || []
+    const constraints = context.seed_analysis?.constraints || []
+    const userSupplements = context.seed_analysis?.user_supplements || ''
+    const allRequirements = [...dimensions, ...constraints]
+    if (userSupplements) allRequirements.push(userSupplements)
+
+    if (allRequirements.length === 0) {
+      return { score: 100, issues: [] } // No requirements to check
+    }
+
+    const allDocContent = [docs.productBrief, docs.requirementsIndex, docs.architectureIndex, docs.epicsIndex,
+      ...docs.requirements, ...docs.adrs, ...docs.epics].filter(Boolean).join('\n').toLowerCase()
+
+    let covered = 0
+    for (const req of allRequirements) {
+      const keywords = req.toLowerCase().split(/[\s,;]+/).filter(w => w.length > 2)
+      const isCovered = keywords.some(kw => allDocContent.includes(kw))
+      if (isCovered) { covered++ }
+      else { issues.push(`Requirement not covered in documents: "${req}"`) }
+    }
+
+    score = Math.round((covered / allRequirements.length) * 100)
+    return { score, issues }
+  }
+
   const completenessResult = scoreCompleteness(documents)
   const consistencyResult = scoreConsistency(documents)
   const traceabilityResult = scoreTraceability(documents)
   const depthResult = scoreDepth(documents)
+  const coverageResult = scoreRequirementCoverage(documents)
 
   scores.completeness = completenessResult.score
   scores.consistency = consistencyResult.score
   scores.traceability = traceabilityResult.score
   scores.depth = depthResult.score
+  scores.requirementCoverage = coverageResult.score
 
-  const overallScore = (scores.completeness + scores.consistency + scores.traceability + scores.depth) / 4
-  const qualityGate = overallScore >= 80 ? 'PASS' : overallScore >= 60 ? 'REVIEW' : 'FAIL'
-  const allSpecIssues = [...completenessResult.issues, ...consistencyResult.issues, ...traceabilityResult.issues, ...depthResult.issues]
+  const overallScore = (scores.completeness + scores.consistency + scores.traceability + scores.depth + scores.requirementCoverage) / 5
+  const qualityGate = (overallScore >= 80 && scores.requirementCoverage >= 70) ? 'PASS' :
+    (overallScore < 60 || scores.requirementCoverage < 50) ? 'FAIL' : 'REVIEW'
+  const allSpecIssues = [...completenessResult.issues, ...consistencyResult.issues, ...traceabilityResult.issues, ...depthResult.issues, ...coverageResult.issues]
 }
 ```
 
@@ -346,10 +382,11 @@ version: 1
 ## Quality Scores
 | Dimension | Score | Weight |
 |-----------|-------|--------|
-| Completeness | ${scores.completeness}% | 25% |
-| Consistency | ${scores.consistency}% | 25% |
-| Traceability | ${scores.traceability}% | 25% |
-| Depth | ${scores.depth}% | 25% |
+| Completeness | ${scores.completeness}% | 20% |
+| Consistency | ${scores.consistency}% | 20% |
+| Traceability | ${scores.traceability}% | 20% |
+| Depth | ${scores.depth}% | 20% |
+| Requirement Coverage | ${scores.requirementCoverage}% | 20% |
 | **Overall** | **${overallScore.toFixed(1)}%** | **100%** |
 
 ## Quality Gate: ${qualityGate}
@@ -448,7 +485,7 @@ if (reviewMode === 'spec') {
     operation: "log", team: teamName,
     from: "reviewer", to: "coordinator",
     type: qualityGate === 'FAIL' ? "fix_required" : "quality_result",
-    summary: `质量检查 ${qualityGate}: ${overallScore.toFixed(1)}分 (完整性${scores.completeness}/一致性${scores.consistency}/追溯${scores.traceability}/深度${scores.depth})`,
+    summary: `质量检查 ${qualityGate}: ${overallScore.toFixed(1)}分 (完整性${scores.completeness}/一致性${scores.consistency}/追溯${scores.traceability}/深度${scores.depth}/覆盖率${scores.requirementCoverage})`,
     data: { gate: qualityGate, score: overallScore, issues: allSpecIssues }
   })
 
@@ -468,6 +505,7 @@ if (reviewMode === 'spec') {
 | 一致性 | ${scores.consistency}% |
 | 可追溯性 | ${scores.traceability}% |
 | 深度 | ${scores.depth}% |
+| 需求覆盖率 | ${scores.requirementCoverage}% |
 
 ### 问题列表 (${allSpecIssues.length})
 ${allSpecIssues.map(i => '- ' + i).join('\n') || '无问题'}

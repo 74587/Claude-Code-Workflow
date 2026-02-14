@@ -169,7 +169,7 @@ TaskCreate({ subject: "DISCUSS-005: 执行计划与MVP范围讨论", description
 TaskUpdate({ taskId: discuss5Id, owner: "discussant", addBlockedBy: [draft4Id] })
 
 // QUALITY-001: Readiness Check (blockedBy DISCUSS-005)
-TaskCreate({ subject: "QUALITY-001: 规格就绪度检查", description: `全文档交叉验证和质量评分\n\nSession: ${specSessionFolder}\n输入: 全部文档\n输出: ${specSessionFolder}/readiness-report.md + spec-summary.md\n\n评分维度: 完整性(25%) + 一致性(25%) + 可追溯性(25%) + 深度(25%)`, activeForm: "质量检查中" })
+TaskCreate({ subject: "QUALITY-001: 规格就绪度检查", description: `全文档交叉验证和质量评分\n\nSession: ${specSessionFolder}\n输入: 全部文档\n输出: ${specSessionFolder}/readiness-report.md + spec-summary.md\n\n评分维度: 完整性(20%) + 一致性(20%) + 可追溯性(20%) + 深度(20%) + 需求覆盖率(20%)`, activeForm: "质量检查中" })
 TaskUpdate({ taskId: qualityId, owner: "reviewer", addBlockedBy: [discuss5Id] })
 
 // DISCUSS-006: 最终签收 (blockedBy QUALITY-001)
@@ -217,7 +217,7 @@ Receive teammate messages and make dispatch decisions. **Before each decision: `
 
 | Received Message | Action |
 |-----------------|--------|
-| Analyst: research_ready | Read discovery-context.json → team_msg log → TaskUpdate RESEARCH completed (auto-unblocks DISCUSS-001) |
+| Analyst: research_ready | Read discovery-context.json → **用户确认检查点** → team_msg log → TaskUpdate RESEARCH completed (auto-unblocks DISCUSS-001) |
 | Discussant: discussion_ready | Read discussion.md → judge if revision needed → unblock next DRAFT task |
 | Discussant: discussion_blocked | Intervene → AskUserQuestion for user decision → write decision to discussion record → manually unblock |
 | Writer: draft_ready | Read document summary → team_msg log → TaskUpdate DRAFT completed (auto-unblocks next DISCUSS) |
@@ -241,6 +241,46 @@ Receive teammate messages and make dispatch decisions. **Before each decision: `
 #### Full-lifecycle Handoff
 
 When DISCUSS-006 completes in full-lifecycle mode, PLAN-001 is auto-unblocked via the dependency chain.
+
+#### Research Confirmation Checkpoint
+
+When receiving `research_ready` from analyst, confirm extracted requirements with user before unblocking:
+
+```javascript
+if (msgType === 'research_ready') {
+  const discoveryContext = JSON.parse(Read(`${specSessionFolder}/discovery-context.json`))
+  const dimensions = discoveryContext.seed_analysis?.exploration_dimensions || []
+  const constraints = discoveryContext.seed_analysis?.constraints || []
+  const problemStatement = discoveryContext.seed_analysis?.problem_statement || ''
+
+  // Present extracted requirements for user confirmation
+  AskUserQuestion({
+    questions: [{
+      question: `研究阶段提取到以下需求，请确认是否完整：\n\n**问题定义**: ${problemStatement}\n**探索维度**: ${dimensions.join('、')}\n**约束条件**: ${constraints.join('、')}\n\n是否有遗漏？`,
+      header: "需求确认",
+      multiSelect: false,
+      options: [
+        { label: "确认完整", description: "提取的需求已覆盖所有关键点，继续推进" },
+        { label: "需要补充", description: "有遗漏的需求，我来补充" },
+        { label: "需要重新研究", description: "提取方向有偏差，重新执行研究" }
+      ]
+    }]
+  })
+
+  if (userChoice === '需要补充') {
+    // User provides additional requirements via free text
+    // Merge into discovery-context.json, then unblock DISCUSS-001
+    discoveryContext.seed_analysis.user_supplements = userInput
+    Write(`${specSessionFolder}/discovery-context.json`, JSON.stringify(discoveryContext, null, 2))
+  } else if (userChoice === '需要重新研究') {
+    // Reset RESEARCH-001 to pending, notify analyst
+    TaskUpdate({ taskId: researchId, status: 'pending' })
+    team_msg({ type: 'fix_required', summary: 'User requests re-research with revised scope' })
+    return // Do not unblock DISCUSS-001
+  }
+  // '确认完整' → proceed normally: TaskUpdate RESEARCH completed
+}
+```
 
 #### Discussion Blocked Handling
 

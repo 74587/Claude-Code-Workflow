@@ -275,6 +275,22 @@ export type {
   MonitorAlert,
 } from '../types/terminal-dashboard';
 
+// Terminal Grid Store
+export {
+  useTerminalGridStore,
+  selectTerminalGridLayout,
+  selectTerminalGridPanes,
+  selectTerminalGridFocusedPaneId,
+  selectTerminalPane,
+} from './terminalGridStore';
+
+export type {
+  TerminalPaneState,
+  TerminalGridState,
+  TerminalGridActions,
+  TerminalGridStore,
+} from './terminalGridStore';
+
 // Issue Queue Integration Store Types
 export type {
   AssociationChain,
