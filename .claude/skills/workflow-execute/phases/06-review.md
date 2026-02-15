@@ -27,8 +27,7 @@ Optional specialized review for completed implementations. In the standard workf
 | `action-items` | Requirements met, acceptance criteria verified | Pre-deployment verification |
 
 **Notes**:
-- For documentation generation, use `/workflow:tools:docs`
-- For CLAUDE.md updates, use `/update-memory-related`
+- For CLAUDE.md updates, use `memory-manage` skill
 
 ## Execution
 

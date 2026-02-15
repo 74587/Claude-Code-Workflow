@@ -35,7 +35,7 @@ Unified TDD workflow skill combining TDD planning (Red-Green-Refactor task chain
                        ┌───────────┐
                        │ Confirm   │─── Verify ──→ Phase 7
                        │ (choice)  │─── Execute ─→ Skill("workflow-execute")
-                       └───────────┘─── Review ──→ /workflow:status
+                       └───────────┘─── Review ──→ Display session status inline
 ```
 
 ## Key Design Principles
@@ -128,7 +128,7 @@ Plan Confirmation (User Decision Gate):
    └─ Decision (user choice):
       ├─ "Verify TDD Compliance" (Recommended) → Route to Phase 7 (tdd-verify)
       ├─ "Start Execution" → Skill(skill="workflow-execute")
-      └─ "Review Status Only" → Route to /workflow:status
+      └─ "Review Status Only" → Display session status inline
 ```
 
 ### Verify Mode
@@ -273,7 +273,7 @@ Phase 6: TDD Structure Validation (internal)
 Plan Confirmation (User Decision Gate):
     ├─ "Verify TDD Compliance" (Recommended) → Route to Phase 7
     ├─ "Start Execution" → Skill(skill="workflow-execute")
-    └─ "Review Status Only" → Route to /workflow:status
+    └─ "Review Status Only" → Display session status inline
 ```
 
 ### Verify Mode
@@ -401,11 +401,11 @@ Similar to workflow-plan, a `planning-notes.md` can accumulate context across ph
 | Error Type | Detection | Recovery Action |
 |------------|-----------|-----------------|
 | Parsing failure | Empty/malformed output | Retry once, then report |
-| Missing context-package | File read error | Re-run `/workflow:tools:context-gather` |
+| Missing context-package | File read error | Re-run Phase 2 (context-gathering) |
 | Invalid task JSON | jq parse error | Report malformed file path |
 | Task count exceeds 18 | Count validation ≥19 | Request re-scope, split into multiple sessions |
 | Missing cli_execution.id | All tasks lack ID | Regenerate tasks with phase 0 user config |
-| Test-context missing | File not found | Re-run `/workflow:tools:test-context-gather` |
+| Test-context missing | File not found | Re-run Phase 3 (test-coverage-analysis) |
 | Phase timeout | No response | Retry phase, check CLI connectivity |
 | CLI tool not available | Tool not in cli-tools.json | Fall back to alternative preferred tool |
 
@@ -447,7 +447,7 @@ Similar to workflow-plan, a `planning-notes.md` can accumulate context across ph
 - **Plan Confirmation Gate**: Present user with choice (Verify → Phase 7 / Execute / Review Status)
 - **If user selects Verify**: Read phases/07-tdd-verify.md, execute Phase 7 in-process
 - **If user selects Execute**: Skill(skill="workflow-execute")
-- **If user selects Review**: Route to /workflow:status
+- **If user selects Review**: Display session status inline
 - **Auto mode (workflowPreferences.autoYes)**: Auto-select "Verify TDD Compliance", then auto-continue to execute if APPROVED
 - Update TaskCreate/TaskUpdate after each phase
 - After each phase, automatically continue to next phase based on TaskList status
@@ -465,17 +465,17 @@ Similar to workflow-plan, a `planning-notes.md` can accumulate context across ph
 
 **Called by Plan Mode** (6 phases):
 - `/workflow:session:start` - Phase 1: Create or discover TDD workflow session
-- `/workflow:tools:context-gather` - Phase 2: Gather project context and analyze codebase
-- `/workflow:tools:test-context-gather` - Phase 3: Analyze existing test patterns and coverage
-- `/workflow:tools:conflict-resolution` - Phase 4: Detect and resolve conflicts (conditional)
+- `phases/02-context-gathering.md` - Phase 2: Gather project context and analyze codebase (inline)
+- `phases/03-test-coverage-analysis.md` - Phase 3: Analyze existing test patterns and coverage (inline)
+- `phases/04-conflict-resolution.md` - Phase 4: Detect and resolve conflicts (inline, conditional)
 - `/compact` - Phase 4: Memory optimization (if context approaching limits)
-- `/workflow:tools:task-generate-tdd` - Phase 5: Generate TDD tasks with Red-Green-Refactor cycles
+- `phases/05-tdd-task-generation.md` - Phase 5: Generate TDD tasks with Red-Green-Refactor cycles (inline)
 
 **Called by Verify Mode**:
-- `/workflow:tools:tdd-coverage-analysis` - Phase 7: Test coverage and cycle analysis
+- `phases/07-tdd-verify.md` - Phase 7: Test coverage and cycle analysis (inline)
 
 **Follow-up Skills**:
 - `/workflow:tdd-verify` - Verify TDD compliance (can also invoke via verify mode)
 - `/workflow:plan-verify` - Verify plan quality and dependencies
-- `/workflow:status` - Review TDD task breakdown
+- Display session status inline - Review TDD task breakdown
 - `Skill(skill="workflow-execute")` - Begin TDD implementation

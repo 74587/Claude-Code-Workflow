@@ -35,7 +35,7 @@ Unified planning skill combining 4-phase planning workflow, plan quality verific
               ┌───────────┐
               │ Confirm   │─── Verify ──→ Phase 5
               │ (choice)  │─── Execute ─→ Skill("workflow-execute")
-              └───────────┘─── Review ──→ /workflow:status
+              └───────────┘─── Review ──→ Display session status inline
 ```
 
 ## Key Design Principles
@@ -137,7 +137,7 @@ Plan Confirmation (User Decision Gate):
    └─ Decision (user choice):
       ├─ "Verify Plan Quality" (Recommended) → Route to Phase 5 (plan-verify)
       ├─ "Start Execution" → Skill(skill="workflow-execute")
-      └─ "Review Status Only" → Route to /workflow:status
+      └─ "Review Status Only" → Display session status inline
 ```
 
 ### Verify Mode
@@ -242,7 +242,7 @@ Phase 4: task-generate-agent --session sessionId
 Plan Confirmation (User Decision Gate):
     ├─ "Verify Plan Quality" (Recommended) → Route to Phase 5
     ├─ "Start Execution" → Skill(skill="workflow-execute")
-    └─ "Review Status Only" → Route to /workflow:status
+    └─ "Review Status Only" → Display session status inline
 ```
 
 **Session Memory Flow**: Each phase receives session ID, which provides access to:
@@ -365,7 +365,7 @@ See phase files for detailed update code.
 - **Plan Confirmation Gate**: Present user with choice (Verify → Phase 5 / Execute / Review Status)
 - **If user selects Verify**: Read phases/05-plan-verify.md, execute Phase 5 in-process
 - **If user selects Execute**: Skill(skill="workflow-execute")
-- **If user selects Review**: Route to /workflow:status
+- **If user selects Review**: Display session status inline
 - **Auto mode (workflowPreferences.autoYes)**: Auto-select "Verify Plan Quality", then auto-continue to execute if PROCEED
 - Update TodoWrite after each phase
 - After each phase, automatically continue to next phase based on TodoList status
@@ -408,13 +408,13 @@ CONSTRAINTS: [Limitations or boundaries]
 
 **Called by Plan Mode** (4 phases):
 - `/workflow:session:start` - Phase 1: Create or discover workflow session
-- `/workflow:tools:context-gather` - Phase 2: Gather project context and analyze codebase
-- `/workflow:tools:conflict-resolution` - Phase 3: Detect and resolve conflicts (conditional)
+- `phases/02-context-gathering.md` - Phase 2: Gather project context and analyze codebase (inline)
+- `phases/03-conflict-resolution.md` - Phase 3: Detect and resolve conflicts (inline, conditional)
 - `/compact` - Phase 3: Memory optimization (if context approaching limits)
-- `/workflow:tools:task-generate-agent` - Phase 4: Generate task JSON files
+- `phases/04-task-generation.md` - Phase 4: Generate task JSON files (inline)
 
 **Follow-up Skills**:
 - `/workflow:plan-verify` - Verify plan quality (can also invoke via verify mode)
-- `/workflow:status` - Review task breakdown and current progress
+- Display session status inline - Review task breakdown and current progress
 - `Skill(skill="workflow-execute")` - Begin implementation of generated tasks (skill: workflow-execute)
 - `/workflow:replan` - Modify plan (can also invoke via replan mode)

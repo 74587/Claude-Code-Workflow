@@ -319,13 +319,13 @@ function getPerspectiveGuidance(perspective) {
 
 ```bash
 # Quick scan with default perspectives
-Skill(skill="issue-lifecycle", args="--action discover src/auth/**")
+Skill(skill="issue-discover", args="--action discover src/auth/**")
 
 # Security-focused audit
-Skill(skill="issue-lifecycle", args="--action discover src/payment/** --perspectives=security,bug")
+Skill(skill="issue-discover", args="--action discover src/payment/** --perspectives=security,bug")
 
 # Full analysis with external research
-Skill(skill="issue-lifecycle", args="--action discover src/api/** --external")
+Skill(skill="issue-discover", args="--action discover src/api/** --external")
 ```
 
 ## Post-Phase Update

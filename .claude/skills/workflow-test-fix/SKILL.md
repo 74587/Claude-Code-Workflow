@@ -430,6 +430,6 @@ After completion, ask user if they want to expand into issues (test/enhance/refa
 - None for Prompt Mode
 
 **Follow-up Skills**:
-- `/workflow:status` - Review workflow state
-- `/workflow:review` - Post-implementation review
+- Display session status inline - Review workflow state
+- `/workflow:review-session-cycle` - Post-implementation review
 - `/issue:new` - Create follow-up issues

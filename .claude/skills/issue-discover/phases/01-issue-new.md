@@ -323,17 +323,17 @@ function parseMarkdownBody(body) {
 ### Clear Input (No Questions)
 
 ```bash
-Skill(skill="issue-lifecycle", args="https://github.com/org/repo/issues/42")
+Skill(skill="issue-discover", args="https://github.com/org/repo/issues/42")
 # → Fetches, parses, creates immediately
 
-Skill(skill="issue-lifecycle", args="\"Login fails with special chars. Expected: success. Actual: 500\"")
+Skill(skill="issue-discover", args="\"Login fails with special chars. Expected: success. Actual: 500\"")
 # → Parses structure, creates immediately
 ```
 
 ### Vague Input (1 Question)
 
 ```bash
-Skill(skill="issue-lifecycle", args="\"auth broken\"")
+Skill(skill="issue-discover", args="\"auth broken\"")
 # → Asks: "Please describe the issue in more detail"
 # → User provides details → saved to feedback[]
 # → Creates issue
