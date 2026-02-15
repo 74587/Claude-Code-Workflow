@@ -1,19 +1,19 @@
 # Phase 3: Skill Package Generation
 
-Generate the unified team skill package: SKILL.md (role router) + roles/*.md (per-role execution).
+Generate the unified team skill package: SKILL.md (role router) + roles/{name}/role.md (per-role orchestrator) + roles/{name}/commands/*.md (command modules).
 
 ## Objective
 
 - Generate SKILL.md with role router and shared infrastructure
-- Generate roles/coordinator.md
-- Generate roles/{worker-role}.md for each worker role
+- Generate roles/coordinator/role.md + commands/
+- Generate roles/{worker-role}/role.md + commands/ for each worker role
 - Generate specs/team-config.json
 - All files written to preview directory first
 
 ## Input
 
 - Dependency: `team-config.json` (Phase 1), `pattern-analysis.json` (Phase 2)
-- Templates: `templates/skill-router-template.md`, `templates/role-template.md`
+- Templates: `templates/skill-router-template.md`, `templates/role-template.md`, `templates/role-command-template.md`
 - Reference: existing team commands (read in Phase 0)
 
 ## Execution Steps
@@ -25,10 +25,12 @@ const config = JSON.parse(Read(`${workDir}/team-config.json`))
 const analysis = JSON.parse(Read(`${workDir}/pattern-analysis.json`))
 const routerTemplate = Read(`${skillDir}/templates/skill-router-template.md`)
 const roleTemplate = Read(`${skillDir}/templates/role-template.md`)
+const commandTemplate = Read(`${skillDir}/templates/role-command-template.md`)
 
-// Create preview directory
+// Create preview directory with folder-based role structure
 const previewDir = `${workDir}/preview`
-Bash(`mkdir -p "${previewDir}/roles" "${previewDir}/specs"`)
+const roleDirs = config.roles.map(r => `"${previewDir}/roles/${r.name}/commands"`).join(' ')
+Bash(`mkdir -p ${roleDirs} "${previewDir}/specs"`)
 ```
 
 ### Step 2: Generate SKILL.md (Role Router)
@@ -37,11 +39,11 @@ This is the unified entry point. All roles invoke this skill with `--role=xxx`.
 
 ```javascript
 const rolesTable = config.roles.map(r =>
-  `| \`${r.name}\` | ${r.task_prefix || 'N/A'} | ${r.description} | [roles/${r.name}.md](roles/${r.name}.md) |`
+  `| \`${r.name}\` | ${r.task_prefix || 'N/A'} | ${r.description} | [roles/${r.name}/role.md](roles/${r.name}/role.md) |`
 ).join('\n')
 
 const roleDispatchEntries = config.roles.map(r =>
-  `  "${r.name}": { file: "roles/${r.name}.md", prefix: "${r.task_prefix || 'N/A'}" }`
+  `  "${r.name}": { file: "roles/${r.name}/role.md", prefix: "${r.task_prefix || 'N/A'}" }`
 ).join(',\n')
 
 const messageBusTable = config.worker_roles.map(r =>
@@ -328,10 +330,20 @@ AskUserQuestion({
 | Review finds critical | Create fix task for executor |
 `
 
-Write(`${previewDir}/roles/coordinator.md`, coordinatorMd)
+Write(`${previewDir}/roles/coordinator/role.md`, coordinatorMd)
+
+// Generate coordinator command files
+const coordinatorCommands = config.roles[0].commands || ["dispatch", "monitor"]
+for (const cmd of coordinatorCommands) {
+  // Read pre-built command pattern from template
+  const cmdTemplate = commandTemplate  // templates/role-command-template.md
+  // Extract matching pre-built pattern section and customize for this team
+  const cmdContent = generateCommandFile(cmd, "coordinator", config)
+  Write(`${previewDir}/roles/coordinator/commands/${cmd}.md`, cmdContent)
+}
 ```
 
-### Step 4: Generate Worker Role Files
+### Step 4: Generate Worker Role Files (Folder Structure)
 
 For each worker role, generate a complete role file with 5-phase execution.
 
@@ -620,7 +632,126 @@ ${role.adaptive_routing ? '| Sub-agent failure | Retry once, fallback to direct 
 | Unexpected error | Log via team_msg, report |
 `
 
-  Write(`${previewDir}/roles/${role.name}.md`, roleMd)
+  Write(`${previewDir}/roles/${role.name}/role.md`, roleMd)
+
+  // Generate command files for this role
+  const roleCommands = role.commands || []
+  for (const cmd of roleCommands) {
+    const cmdContent = generateCommandFile(cmd, role.name, config)
+    Write(`${previewDir}/roles/${role.name}/commands/${cmd}.md`, cmdContent)
+  }
+}
+
+// Helper: Generate command file from pre-built patterns
+function generateCommandFile(cmdName, roleName, config) {
+  // 7 pre-built command patterns (from templates/role-command-template.md)
+  const prebuiltPatterns = {
+    "explore": {
+      description: "Multi-angle codebase exploration using parallel cli-explore-agent instances.",
+      delegation: "Subagent Fan-out",
+      agentType: "cli-explore-agent",
+      phase: 2
+    },
+    "analyze": {
+      description: "Multi-perspective code analysis using parallel ccw cli calls.",
+      delegation: "CLI Fan-out",
+      cliTool: "gemini",
+      phase: 3
+    },
+    "implement": {
+      description: "Code implementation via code-developer subagent delegation with batch routing.",
+      delegation: "Sequential Delegation",
+      agentType: "code-developer",
+      phase: 3
+    },
+    "validate": {
+      description: "Iterative test-fix cycle with max iteration control.",
+      delegation: "Sequential Delegation",
+      agentType: "code-developer",
+      phase: 3
+    },
+    "review": {
+      description: "4-dimensional code review with optional codex review integration.",
+      delegation: "CLI Fan-out",
+      cliTool: "gemini",
+      phase: 3
+    },
+    "dispatch": {
+      description: "Task chain creation with dependency management for coordinator.",
+      delegation: "Direct",
+      phase: 3
+    },
+    "monitor": {
+      description: "Message bus polling and coordination loop for coordinator.",
+      delegation: "Direct",
+      phase: 4
+    }
+  }
+
+  const pattern = prebuiltPatterns[cmdName]
+  if (!pattern) {
+    // Custom command: generate from template skeleton
+    return `# Command: ${cmdName}\n\n> Custom command for ${roleName}\n\n## When to Use\n\n- Custom trigger conditions\n\n## Strategy\n\n### Delegation Mode\n\n**Mode**: TBD\n\n## Execution Steps\n\n### Step 1: Context Preparation\n\n### Step 2: Execute Strategy\n\n### Step 3: Result Processing\n\n## Output Format\n\n## Error Handling\n\n| Scenario | Resolution |\n|----------|------------|\n| Agent/CLI failure | Retry once, then fallback to inline execution |\n`
+  }
+
+  // Read full pattern from template file and customize
+  // The template contains all 7 patterns with complete implementation
+  // Extract and customize the matching pattern section
+  const cmdContent = `# Command: ${cmdName}
+
+> ${pattern.description}
+
+## When to Use
+
+- Phase ${pattern.phase} of ${roleName} role in team "${config.team_name}"
+- See templates/role-command-template.md for full pattern specification
+
+## Strategy
+
+### Delegation Mode
+
+**Mode**: ${pattern.delegation}
+${pattern.agentType ? `**Agent Type**: \`${pattern.agentType}\`` : ''}
+${pattern.cliTool ? `**CLI Tool**: \`${pattern.cliTool}\`\n**CLI Mode**: \`analysis\`` : ''}
+
+## Execution Steps
+
+### Step 1: Context Preparation
+
+\`\`\`javascript
+// Load task context
+const task = TaskGet({ taskId: currentTaskId })
+\`\`\`
+
+### Step 2: Execute Strategy
+
+\`\`\`javascript
+// See templates/role-command-template.md → "${cmdName}" pattern for full implementation
+\`\`\`
+
+### Step 3: Result Processing
+
+\`\`\`javascript
+// Aggregate and format results
+\`\`\`
+
+## Output Format
+
+\`\`\`
+## ${cmdName.charAt(0).toUpperCase() + cmdName.slice(1)} Results
+### Summary
+### Details
+\`\`\`
+
+## Error Handling
+
+| Scenario | Resolution |
+|----------|------------|
+| Agent/CLI failure | Retry once, then fallback to inline execution |
+| Timeout (>5 min) | Report partial results, notify coordinator |
+| No results | Report empty, suggest alternative approach |
+`
+  return cmdContent
 }
 ```
 
@@ -647,20 +778,27 @@ Write(`${previewDir}/specs/team-config.json`, JSON.stringify({
 
 - **Directory**: `{workDir}/preview/`
 - **Files**:
-  - `preview/SKILL.md` - Role router + shared infrastructure
-  - `preview/roles/coordinator.md` - Coordinator execution
-  - `preview/roles/{role}.md` - Per-worker role execution
+  - `preview/SKILL.md` - Role router + shared infrastructure + command architecture
+  - `preview/roles/coordinator/role.md` - Coordinator orchestrator
+  - `preview/roles/coordinator/commands/*.md` - Coordinator command files (dispatch, monitor)
+  - `preview/roles/{role}/role.md` - Per-worker role orchestrator
+  - `preview/roles/{role}/commands/*.md` - Per-worker command files
   - `preview/specs/team-config.json` - Team configuration
 
 ## Quality Checklist
 
-- [ ] SKILL.md contains role router with all roles
+- [ ] SKILL.md contains role router with all roles (dispatch to `roles/{name}/role.md`)
+- [ ] SKILL.md contains command architecture section
 - [ ] SKILL.md contains shared infrastructure (message bus, task lifecycle)
 - [ ] SKILL.md contains coordinator spawn template
-- [ ] Every role has a file in roles/
-- [ ] Every role file has 5-phase execution
-- [ ] Every role file has message types table
-- [ ] Every role file has error handling
+- [ ] Every role has a folder in roles/ with role.md
+- [ ] Every role.md has 5-phase execution (Phase 1/5 inline, Phase 2-4 delegate or inline)
+- [ ] Every role.md has Toolbox section (commands, subagents, cli_tools)
+- [ ] Every role.md has message types table
+- [ ] Every role.md has error handling
+- [ ] Command files exist for each entry in role.md Toolbox
+- [ ] Command files are self-contained (Strategy, Execution Steps, Error Handling)
+- [ ] No cross-command references between command files
 - [ ] team-config.json is valid JSON
 
 ## Next Phase

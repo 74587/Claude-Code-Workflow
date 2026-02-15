@@ -94,6 +94,46 @@ for (const [name, content] of Object.entries(roleContents)) {
 }
 ```
 
+### Step 3b: Command File Quality Check
+
+```javascript
+const commandQuality = {}
+for (const [name, content] of Object.entries(roleContents)) {
+  if (!content) continue
+
+  // Check if role has commands directory
+  const role = config.roles.find(r => r.name === name)
+  const commands = role?.commands || []
+  if (commands.length === 0) {
+    commandQuality[name] = { status: 'N/A', score: 100 }
+    continue
+  }
+
+  const cmdChecks = commands.map(cmd => {
+    let cmdContent = null
+    try { cmdContent = Read(`${previewDir}/roles/${name}/commands/${cmd}.md`) } catch {}
+
+    if (!cmdContent) return { command: cmd, score: 0 }
+
+    const checks = [
+      { name: "When to Use section", pass: /## When to Use/.test(cmdContent) },
+      { name: "Strategy section", pass: /## Strategy/.test(cmdContent) },
+      { name: "Delegation mode declared", pass: /Delegation Mode/.test(cmdContent) },
+      { name: "Execution Steps section", pass: /## Execution Steps/.test(cmdContent) },
+      { name: "Error Handling section", pass: /## Error Handling/.test(cmdContent) },
+      { name: "Output Format section", pass: /## Output Format/.test(cmdContent) },
+      { name: "Self-contained (no cross-ref)", pass: !/Read\("\.\.\//.test(cmdContent) }
+    ]
+
+    const score = checks.filter(c => c.pass).length / checks.length * 100
+    return { command: cmd, checks, score }
+  })
+
+  const avgScore = cmdChecks.reduce((sum, c) => sum + c.score, 0) / cmdChecks.length
+  commandQuality[name] = { status: avgScore >= 80 ? 'PASS' : 'PARTIAL', checks: cmdChecks, score: avgScore }
+}
+```
+
 ### Step 4: Quality Scoring
 
 ```javascript
@@ -101,7 +141,8 @@ const scores = {
   skill_md: skillScore,
   roles_avg: Object.values(roleResults).reduce((sum, r) => sum + r.score, 0) / Object.keys(roleResults).length,
   integration: integration.overall === 'PASS' ? 100 : 50,
-  consistency: checkConsistency()
+  consistency: checkConsistency(),
+  command_quality: Object.values(commandQuality).reduce((sum, c) => sum + c.score, 0) / Math.max(Object.keys(commandQuality).length, 1)
 }
 
 function checkConsistency() {

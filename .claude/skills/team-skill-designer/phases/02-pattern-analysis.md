@@ -117,6 +117,33 @@ roleAnalysis.forEach(ra => {
 })
 ```
 
+### Step 4b: Command-to-Phase Mapping
+
+```javascript
+// Map commands to phases and determine extraction criteria
+roleAnalysis.forEach(ra => {
+  const role = config.worker_roles.find(r => r.name === ra.role_name)
+
+  ra.command_mapping = {
+    commands: role.commands || [],
+    phase_commands: role.phase_commands || {},
+    extraction_reasons: []
+  }
+
+  // Determine extraction reasons per command
+  for (const cmd of (role.commands || [])) {
+    const reasons = []
+    if ((role.subagents || []).length > 0) reasons.push("subagent-delegation")
+    if ((role.cli_tools || []).length > 0) reasons.push("cli-fan-out")
+    if (role.adaptive_routing) reasons.push("complexity-adaptive")
+    ra.command_mapping.extraction_reasons.push({ command: cmd, reasons })
+  }
+
+  // Pattern 9 selection
+  ra.uses_pattern_9 = (role.subagents || []).length > 0 || (role.cli_tools || []).length > 0
+})
+```
+
 ### Step 5: Collaboration Pattern Selection
 
 ```javascript
@@ -191,6 +218,15 @@ const analysis = {
     role_router: "Parse --role from $ARGUMENTS → dispatch to roles/{role}.md",
     shared_infrastructure: "Message bus + task lifecycle defined once in SKILL.md",
     progressive_loading: "Only read roles/{role}.md when that role executes"
+  },
+  command_architecture: {
+    enabled: true,
+    role_commands: roleAnalysis.map(ra => ({
+      role: ra.role_name,
+      commands: ra.command_mapping?.commands || [],
+      phase_commands: ra.command_mapping?.phase_commands || {},
+      uses_pattern_9: ra.uses_pattern_9 || false
+    }))
   }
 }
 

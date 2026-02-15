@@ -46,11 +46,21 @@ Meta-skill for creating unified team skills where all team members invoke ONE sk
 .claude/skills/team-{name}/
 ├── SKILL.md          →  Skill(skill="team-{name}", args="--role=xxx")
 ├── roles/
-│   ├── coordinator.md
-│   ├── planner.md
-│   ├── executor.md
-│   ├── tester.md
-│   └── reviewer.md
+│   ├── coordinator/
+│   │   ├── role.md           # Orchestrator
+│   │   └── commands/         # Modular command files
+│   ├── planner/
+│   │   ├── role.md
+│   │   └── commands/
+│   ├── executor/
+│   │   ├── role.md
+│   │   └── commands/
+│   ├── tester/
+│   │   ├── role.md
+│   │   └── commands/
+│   └── reviewer/
+│       ├── role.md
+│       └── commands/
 └── specs/
     └── team-config.json
 ```
@@ -70,15 +80,25 @@ Task({
 ├── SKILL.md                    # Role router + shared infrastructure
 │   ├─ Frontmatter
 │   ├─ Architecture Overview (role routing diagram)
-│   ├─ Role Router (parse --role → Read roles/{role}.md → execute)
+│   ├─ Command Architecture (folder structure explanation)
+│   ├─ Role Router (parse --role → Read roles/{role}/role.md → execute)
 │   ├─ Shared Infrastructure (message bus, task lifecycle)
 │   ├─ Coordinator Spawn Template
 │   └─ Error Handling
-├── roles/                      # Role-specific execution detail
-│   ├── coordinator.md          # Orchestration logic
-│   ├── {role-1}.md             # First worker role
-│   ├── {role-2}.md             # Second worker role
-│   └── ...
+├── roles/                      # Role-specific execution detail (folder-based)
+│   ├── coordinator/
+│   │   ├── role.md             # Orchestrator (Phase 1/5 inline, Phase 2-4 delegate)
+│   │   └── commands/
+│   │       ├── dispatch.md     # Task chain creation
+│   │       └── monitor.md      # Progress monitoring
+│   ├── {role-1}/
+│   │   ├── role.md             # Worker orchestrator
+│   │   └── commands/
+│   │       └── *.md            # Role-specific command files
+│   └── {role-2}/
+│       ├── role.md
+│       └── commands/
+│           └── *.md
 └── specs/                      # [Optional] Team-specific config
     └── team-config.json
 ```
@@ -91,7 +111,7 @@ SKILL.md parses `$ARGUMENTS` to extract `--role`:
 ```
 Input: Skill(skill="team-{name}", args="--role=planner")
   ↓ Parse --role=planner
-  ↓ Read roles/planner.md
+  ↓ Read roles/planner/role.md
   ↓ Execute planner-specific 5-phase logic
 ```
 
@@ -107,11 +127,13 @@ SKILL.md defines ONCE, all roles inherit:
 
 ### Pattern 3: Role Files = Full Execution Detail
 
-Each `roles/{role}.md` contains:
-- Role-specific 5-phase implementation
+Each `roles/{role}/role.md` contains:
+- Toolbox section (available commands, subagent capabilities, CLI capabilities)
+- Role-specific 5-phase implementation (Phase 1/5 inline, Phase 2-4 delegate or inline)
 - Per-role message types
 - Per-role task prefix
 - Complete code (no `Ref:` back to SKILL.md)
+- Command files in `commands/` for complex phases (subagent delegation, CLI fan-out)
 
 ### Pattern 4: Batch Role Generation
 
@@ -124,9 +146,9 @@ Phase 1 collects ALL roles at once (not one at a time):
 
 Design pattern specs are included locally in `specs/`:
 ```
-specs/team-design-patterns.md    # Infrastructure patterns (8) + collaboration index
+specs/team-design-patterns.md    # Infrastructure patterns (9) + collaboration index
 specs/collaboration-patterns.md  # 10 collaboration patterns with convergence control
-specs/quality-standards.md       # Quality criteria
+specs/quality-standards.md       # Quality criteria (incl. command file standards)
 ```
 
 ---
@@ -147,8 +169,9 @@ specs/quality-standards.md       # Quality criteria
 
 | Document | Purpose |
 |----------|---------|
-| [templates/skill-router-template.md](templates/skill-router-template.md) | Generated SKILL.md template with role router |
-| [templates/role-template.md](templates/role-template.md) | Generated role file template |
+| [templates/skill-router-template.md](templates/skill-router-template.md) | Generated SKILL.md template with role router + command architecture |
+| [templates/role-template.md](templates/role-template.md) | Generated role file template with Toolbox + command delegation |
+| [templates/role-command-template.md](templates/role-command-template.md) | Command file template with 7 pre-built patterns |
 
 ### Existing Reference
 
@@ -188,8 +211,9 @@ Phase 2: Pattern Analysis
 
 Phase 3: Skill Package Generation
    -> Ref: phases/03-skill-generation.md
-   - Generate SKILL.md (role router + shared infrastructure)
-   - Generate roles/*.md (per-role execution detail)
+   - Generate SKILL.md (role router + command architecture + shared infrastructure)
+   - Generate roles/{name}/role.md (per-role orchestrator with Toolbox)
+   - Generate roles/{name}/commands/*.md (modular command files)
    - Generate specs/team-config.json
    - Output: .claude/skills/team-{name}/ complete package
 
@@ -238,8 +262,15 @@ Bash(`mkdir -p "${workDir}"`);
 └── preview/                     # Phase 3 output (preview before delivery)
     ├── SKILL.md
     ├── roles/
-    │   ├── coordinator.md
-    │   └── {role-N}.md
+    │   ├── coordinator/
+    │   │   ├── role.md
+    │   │   └── commands/
+    │   │       ├── dispatch.md
+    │   │       └── monitor.md
+    │   └── {role-N}/
+    │       ├── role.md
+    │       └── commands/
+    │           └── *.md
     └── specs/
         └── team-config.json
 
@@ -247,8 +278,12 @@ Final delivery:
 .claude/skills/team-{name}/
 ├── SKILL.md
 ├── roles/
-│   ├── coordinator.md
-│   └── ...
+│   ├── coordinator/
+│   │   ├── role.md
+│   │   └── commands/
+│   └── {role-N}/
+│       ├── role.md
+│       └── commands/
 └── specs/
     └── team-config.json
 ```
@@ -281,5 +316,7 @@ Final delivery:
 |-------|----------|
 | Generated SKILL.md missing router | Check templates/skill-router-template.md |
 | Role file missing message bus | Check templates/role-template.md |
+| Command file not found | Check templates/role-command-template.md |
+| Role folder structure wrong | Verify roles/{name}/role.md + commands/ layout |
 | Integration check fails | Review phases/04-integration-verification.md |
 | Quality score below threshold | Review specs/quality-standards.md |

@@ -27,7 +27,7 @@ const skillMd = Read(`${previewDir}/SKILL.md`)
 const roleFiles = {}
 for (const role of config.roles) {
   try {
-    roleFiles[role.name] = Read(`${previewDir}/roles/${role.name}.md`)
+    roleFiles[role.name] = Read(`${previewDir}/roles/${role.name}/role.md`)
   } catch {
     roleFiles[role.name] = null
   }
@@ -40,7 +40,7 @@ for (const role of config.roles) {
 const routerChecks = config.roles.map(role => {
   const hasRouterEntry = skillMd.includes(`"${role.name}"`)
   const hasRoleFile = roleFiles[role.name] !== null
-  const hasRoleLink = skillMd.includes(`roles/${role.name}.md`)
+  const hasRoleLink = skillMd.includes(`roles/${role.name}/role.md`)
 
   return {
     role: role.name,
@@ -127,6 +127,42 @@ const patternChecks = Object.entries(roleFiles).map(([name, content]) => {
 })
 ```
 
+### Step 6b: Command File Verification
+
+```javascript
+const commandChecks = config.worker_roles.map(role => {
+  const commands = role.commands || []
+  if (commands.length === 0) return { role: role.name, status: 'SKIP', reason: 'No commands' }
+
+  const checks = commands.map(cmd => {
+    const cmdPath = `${previewDir}/roles/${role.name}/commands/${cmd}.md`
+    let content = null
+    try { content = Read(cmdPath) } catch {}
+
+    if (!content) return { command: cmd, status: 'MISSING' }
+
+    const requiredSections = {
+      has_strategy: /## Strategy/.test(content),
+      has_execution_steps: /## Execution Steps/.test(content),
+      has_error_handling: /## Error Handling/.test(content),
+      has_when_to_use: /## When to Use/.test(content),
+      is_self_contained: !/Read\("\.\.\//.test(content) // No cross-command references
+    }
+
+    const passCount = Object.values(requiredSections).filter(Boolean).length
+    return {
+      command: cmd,
+      checks: requiredSections,
+      pass_count: passCount,
+      total: Object.keys(requiredSections).length,
+      status: passCount === Object.keys(requiredSections).length ? 'PASS' : 'PARTIAL'
+    }
+  })
+
+  return { role: role.name, commands: checks, status: checks.every(c => c.status === 'PASS') ? 'PASS' : 'NEEDS_ATTENTION' }
+})
+```
+
 ### Step 7: Generate Report
 
 ```javascript
@@ -134,7 +170,8 @@ const overallStatus = [
   ...routerChecks.map(c => c.status),
   prefixCheck.status,
   ...spawnChecks.map(c => c.status),
-  ...patternChecks.map(c => c.status)
+  ...patternChecks.map(c => c.status),
+  ...commandChecks.filter(c => c.status !== 'SKIP').map(c => c.status)
 ].every(s => s === 'PASS') ? 'PASS' : 'NEEDS_ATTENTION'
 
 const report = {
@@ -145,7 +182,8 @@ const report = {
     prefix_uniqueness: prefixCheck,
     message_types: msgChecks,
     spawn_template: spawnChecks,
-    pattern_compliance: patternChecks
+    pattern_compliance: patternChecks,
+    command_files: commandChecks
   },
   overall: overallStatus,
   file_count: {

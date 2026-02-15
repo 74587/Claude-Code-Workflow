@@ -88,7 +88,10 @@
     "splitVertical": "向下分割",
     "clearTerminal": "清屏",
     "closePane": "关闭窗格",
-    "linkedIssue": "关联问题"
+    "linkedIssue": "关联问题",
+    "restart": "重启会话",
+    "pause": "暂停会话",
+    "resume": "恢复会话"
   },
   "tabBar": {
     "noTabs": "暂无终端会话"

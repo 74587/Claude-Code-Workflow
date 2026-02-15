@@ -470,3 +470,101 @@ When designing a new team command, verify:
 - [ ] Timeout/fallback behavior specified
 - [ ] Pattern-specific message types registered
 - [ ] Coordinator aware of pattern (can route messages accordingly)
+
+---
+
+## Pattern 9: Parallel Subagent Orchestration
+
+Roles that need to perform complex, multi-perspective work can delegate to subagents or CLI tools rather than executing everything inline. This pattern defines three delegation modes and context management rules.
+
+### Delegation Modes
+
+#### Mode A: Subagent Fan-out
+
+Launch multiple Task agents in parallel for independent work streams.
+
+```javascript
+// Launch 2-4 parallel agents for different perspectives
+const agents = [
+  Task({
+    subagent_type: "cli-explore-agent",
+    run_in_background: false,
+    description: "Explore angle 1",
+    prompt: `Analyze from perspective 1: ${taskDescription}`
+  }),
+  Task({
+    subagent_type: "cli-explore-agent",
+    run_in_background: false,
+    description: "Explore angle 2",
+    prompt: `Analyze from perspective 2: ${taskDescription}`
+  })
+]
+// Aggregate results after all complete
+```
+
+**When to use**: Multi-angle exploration, parallel code analysis, independent subtask execution.
+
+#### Mode B: CLI Fan-out
+
+Launch multiple `ccw cli` calls for multi-perspective analysis.
+
+```javascript
+// Parallel CLI calls for different analysis angles
+Bash(`ccw cli -p "PURPOSE: Analyze from security angle..." --tool gemini --mode analysis`, { run_in_background: true })
+Bash(`ccw cli -p "PURPOSE: Analyze from performance angle..." --tool gemini --mode analysis`, { run_in_background: true })
+// Wait for all CLI results, then synthesize
+```
+
+**When to use**: Multi-dimensional code review, architecture analysis, security + performance audits.
+
+#### Mode C: Sequential Delegation
+
+Delegate a single heavy task to a specialized agent.
+
+```javascript
+Task({
+  subagent_type: "code-developer",
+  run_in_background: false,
+  description: "Implement complex feature",
+  prompt: `## Goal\n${plan.summary}\n\n## Tasks\n${taskDetails}`
+})
+```
+
+**When to use**: Complex implementation, test-fix cycles, large-scope refactoring.
+
+### Context Management Hierarchy
+
+| Level | Location | Context Size | Use Case |
+|-------|----------|-------------|----------|
+| Small | role.md inline | < 200 lines | Simple logic, direct execution |
+| Medium | commands/*.md | 200-500 lines | Structured delegation with strategy |
+| Large | Subagent prompt | Unlimited | Full autonomous execution |
+
+**Rule**: role.md Phase 1/5 are always inline (standardized). Phases 2-4 either inline (small) or delegate to commands (medium/large).
+
+### Command File Extraction Criteria
+
+Extract a phase into a command file when ANY of these conditions are met:
+
+1. **Subagent delegation**: Phase launches Task() agents
+2. **CLI fan-out**: Phase runs parallel `ccw cli` calls
+3. **Complex strategy**: Phase has >3 conditional branches
+4. **Reusable logic**: Same logic used by multiple roles
+
+If none apply, keep the phase inline in role.md.
+
+### Relationship to Other Patterns
+
+- **Pattern 5 (Complexity-Adaptive)**: Pattern 9 provides the delegation mechanisms that Pattern 5 routes to. Low complexity → inline, Medium → CLI agent, High → Subagent fan-out.
+- **CP-3 (Parallel Fan-out)**: Pattern 9 Mode A/B are the implementation mechanisms for CP-3 at the role level.
+- **Pattern 4 (Five-Phase)**: Pattern 9 does NOT replace the 5-phase structure. It provides delegation options WITHIN phases 2-4.
+
+### Checklist
+
+- [ ] Delegation mode selected based on task characteristics
+- [ ] Context management level appropriate (small/medium/large)
+- [ ] Command files extracted only when criteria met
+- [ ] Subagent prompts include mandatory first steps (read project config)
+- [ ] CLI fan-out uses `--mode analysis` by default
+- [ ] Results aggregated after parallel completion
+- [ ] Error handling covers agent/CLI failure with fallback

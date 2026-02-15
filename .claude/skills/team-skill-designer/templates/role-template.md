@@ -1,6 +1,6 @@
 # Role File Template
 
-Template for generating per-role execution detail files in `roles/{role-name}.md`.
+Template for generating per-role execution detail files in `roles/{role-name}/role.md`.
 
 ## Purpose
 
@@ -24,6 +24,24 @@ Template for generating per-role execution detail files in `roles/{role-name}.md
 - **Task Prefix**: `{{task_prefix}}-*`
 - **Responsibility**: {{responsibility_type}}
 - **Communication**: SendMessage to coordinator only
+- **Output Tag**: `[{{role_name}}]`
+
+## Role Boundaries
+
+### MUST
+
+- 仅处理 `{{task_prefix}}-*` 前缀的任务
+- 所有输出（SendMessage、team_msg、日志）必须带 `[{{role_name}}]` 标识
+- 仅通过 SendMessage 与 coordinator 通信
+- 严格在 {{responsibility_type}} 职责范围内工作
+
+### MUST NOT
+
+- ❌ 执行其他角色职责范围内的工作
+- ❌ 直接与其他 worker 角色通信（必须经过 coordinator）
+- ❌ 为其他角色创建任务（TaskCreate 是 coordinator 专属）
+- ❌ 修改不属于本角色职责的文件或资源
+- ❌ 在输出中省略 `[{{role_name}}]` 标识
 
 ## Message Types
 
@@ -31,6 +49,36 @@ Template for generating per-role execution detail files in `roles/{role-name}.md
 |------|-----------|---------|-------------|
 {{#each message_types}}
 | `{{this.type}}` | {{../role_name}} → coordinator | {{this.trigger}} | {{this.description}} |
+{{/each}}
+
+## Toolbox
+
+### Available Commands
+
+| Command | File | Phase | Description |
+|---------|------|-------|-------------|
+{{#each commands}}
+| `{{this.name}}` | [commands/{{this.name}}.md](commands/{{this.name}}.md) | Phase {{this.phase}} | {{this.description}} |
+{{/each}}
+
+{{#if has_no_commands}}
+> No command files — all phases execute inline.
+{{/if}}
+
+### Subagent Capabilities
+
+| Agent Type | Used By | Purpose |
+|------------|---------|---------|
+{{#each subagents}}
+| `{{this.type}}` | {{this.used_by}} | {{this.purpose}} |
+{{/each}}
+
+### CLI Capabilities
+
+| CLI Tool | Mode | Used By | Purpose |
+|----------|------|---------|---------|
+{{#each cli_tools}}
+| `{{this.tool}}` | {{this.mode}} | {{this.used_by}} | {{this.purpose}} |
 {{/each}}
 
 ## Execution (5-Phase)
@@ -54,33 +102,75 @@ TaskUpdate({ taskId: task.id, status: 'in_progress' })
 
 ### Phase 2: {{phase2_name}}
 
+{{#if phase2_command}}
+\`\`\`javascript
+// Delegate to command file
+try {
+  const commandContent = Read("commands/{{phase2_command}}.md")
+  // Execute strategy defined in command file
+} catch {
+  // Fallback: inline execution
+}
+\`\`\`
+
+**Command**: [commands/{{phase2_command}}.md](commands/{{phase2_command}}.md)
+{{else}}
 {{phase2_content}}
+{{/if}}
 
 ### Phase 3: {{phase3_name}}
 
+{{#if phase3_command}}
+\`\`\`javascript
+// Delegate to command file
+try {
+  const commandContent = Read("commands/{{phase3_command}}.md")
+  // Execute strategy defined in command file
+} catch {
+  // Fallback: inline execution
+}
+\`\`\`
+
+**Command**: [commands/{{phase3_command}}.md](commands/{{phase3_command}}.md)
+{{else}}
 {{phase3_content}}
+{{/if}}
 
 ### Phase 4: {{phase4_name}}
 
+{{#if phase4_command}}
+\`\`\`javascript
+// Delegate to command file
+try {
+  const commandContent = Read("commands/{{phase4_command}}.md")
+  // Execute strategy defined in command file
+} catch {
+  // Fallback: inline execution
+}
+\`\`\`
+
+**Command**: [commands/{{phase4_command}}.md](commands/{{phase4_command}}.md)
+{{else}}
 {{phase4_content}}
+{{/if}}
 
 ### Phase 5: Report to Coordinator
 
 \`\`\`javascript
-// Log message before SendMessage
+// Log message before SendMessage — 所有输出必须带 [{{role_name}}] 标识
 mcp__ccw-tools__team_msg({
   operation: "log",
   team: teamName,
   from: "{{role_name}}",
   to: "coordinator",
   type: "{{primary_message_type}}",
-  summary: \`{{task_prefix}} complete: \${task.subject}\`
+  summary: \`[{{role_name}}] {{task_prefix}} complete: \${task.subject}\`
 })
 
 SendMessage({
   type: "message",
   recipient: "coordinator",
-  content: \`## {{display_name}} Results
+  content: \`## [{{role_name}}] {{display_name}} Results
 
 **Task**: \${task.subject}
 **Status**: \${resultStatus}
@@ -90,7 +180,7 @@ SendMessage({
 
 ### Details
 \${resultDetails}\`,
-  summary: \`{{task_prefix}} complete\`
+  summary: \`[{{role_name}}] {{task_prefix}} complete\`
 })
 
 // Mark task completed
@@ -115,6 +205,9 @@ if (nextTasks.length > 0) {
 |----------|------------|
 | No {{task_prefix}}-* tasks available | Idle, wait for coordinator assignment |
 | Context/Plan file not found | Notify coordinator, request location |
+{{#if has_commands}}
+| Command file not found | Fall back to inline execution |
+{{/if}}
 {{#if adaptive_routing}}
 | Sub-agent failure | Retry once, then fallback to direct execution |
 {{/if}}
@@ -270,6 +363,26 @@ Team coordinator. Orchestrates the pipeline: requirement clarification → task 
 - **Task Prefix**: N/A (coordinator creates tasks, doesn't receive them)
 - **Responsibility**: Orchestration
 - **Communication**: SendMessage to all teammates
+- **Output Tag**: `[coordinator]`
+
+## Role Boundaries
+
+### MUST
+
+- 所有输出（SendMessage、team_msg、日志）必须带 `[coordinator]` 标识
+- 仅负责需求澄清、任务创建/分发、进度监控、结果汇报
+- 通过 TaskCreate 创建任务并分配给 worker 角色
+- 通过消息总线监控 worker 进度并路由消息
+
+### MUST NOT
+
+- ❌ **直接执行任何业务任务**（代码编写、分析、测试、审查等）
+- ❌ 直接调用 code-developer、cli-explore-agent 等实现类 subagent
+- ❌ 直接修改源代码或生成产物文件
+- ❌ 绕过 worker 角色自行完成应委派的工作
+- ❌ 在输出中省略 `[coordinator]` 标识
+
+> **核心原则**: coordinator 是指挥者，不是执行者。所有实际工作必须通过 TaskCreate 委派给 worker 角色。
 
 ## Execution
 
@@ -331,3 +444,11 @@ Summarize results. AskUserQuestion for next requirement or shutdown.
 | `{{message_types}}` | config.message_types | Array of message types |
 | `{{primary_message_type}}` | config.message_types[0].type | Primary type |
 | `{{adaptive_routing}}` | config.adaptive_routing | Boolean |
+| `{{commands}}` | config.commands | Array of command definitions |
+| `{{has_commands}}` | config.commands.length > 0 | Boolean: has extracted commands |
+| `{{has_no_commands}}` | config.commands.length === 0 | Boolean: all phases inline |
+| `{{subagents}}` | config.subagents | Array of subagent capabilities |
+| `{{cli_tools}}` | config.cli_tools | Array of CLI tool capabilities |
+| `{{phase2_command}}` | config.phase2_command | Command name for Phase 2 (if extracted) |
+| `{{phase3_command}}` | config.phase3_command | Command name for Phase 3 (if extracted) |
+| `{{phase4_command}}` | config.phase4_command | Command name for Phase 4 (if extracted) |

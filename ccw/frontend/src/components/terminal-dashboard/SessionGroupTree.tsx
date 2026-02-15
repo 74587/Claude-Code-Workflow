@@ -22,9 +22,21 @@ import {
   GripVertical,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSessionManagerStore, selectGroups, selectSessionManagerActiveTerminalId } from '@/stores';
+import { useSessionManagerStore, selectGroups, selectSessionManagerActiveTerminalId, selectTerminalMetas } from '@/stores';
 import { useCliSessionStore } from '@/stores/cliSessionStore';
+import { useTerminalGridStore, selectTerminalGridPanes } from '@/stores/terminalGridStore';
 import { Badge } from '@/components/ui/Badge';
+import type { TerminalStatus } from '@/types/terminal-dashboard';
+
+// ========== Status Dot Styles ==========
+
+const statusDotStyles: Record<TerminalStatus, string> = {
+  active: 'bg-green-500',
+  idle: 'bg-gray-400',
+  error: 'bg-red-500',
+  paused: 'bg-yellow-500',
+  resuming: 'bg-blue-400 animate-pulse',
+};
 
 // ========== SessionGroupTree Component ==========
 
@@ -32,10 +44,16 @@ export function SessionGroupTree() {
   const { formatMessage } = useIntl();
   const groups = useSessionManagerStore(selectGroups);
   const activeTerminalId = useSessionManagerStore(selectSessionManagerActiveTerminalId);
+  const terminalMetas = useSessionManagerStore(selectTerminalMetas);
   const createGroup = useSessionManagerStore((s) => s.createGroup);
   const moveSessionToGroup = useSessionManagerStore((s) => s.moveSessionToGroup);
   const setActiveTerminal = useSessionManagerStore((s) => s.setActiveTerminal);
   const sessions = useCliSessionStore((s) => s.sessions);
+
+  // Grid store for pane management
+  const panes = useTerminalGridStore(selectTerminalGridPanes);
+  const assignSession = useTerminalGridStore((s) => s.assignSession);
+  const setFocused = useTerminalGridStore((s) => s.setFocused);
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
@@ -58,9 +76,28 @@ export function SessionGroupTree() {
 
   const handleSessionClick = useCallback(
     (sessionId: string) => {
+      // Set active terminal in session manager
       setActiveTerminal(sessionId);
+
+      // Find pane that already has this session, or switch focused pane
+      const paneWithSession = Object.entries(panes).find(
+        ([, pane]) => pane.sessionId === sessionId
+      );
+
+      if (paneWithSession) {
+        // Focus the pane that has this session
+        setFocused(paneWithSession[0]);
+      } else {
+        // Find focused pane or first pane, and assign session to it
+        const focusedPaneId = useTerminalGridStore.getState().focusedPaneId;
+        const targetPaneId = focusedPaneId || Object.keys(panes)[0];
+        if (targetPaneId) {
+          assignSession(targetPaneId, sessionId);
+          setFocused(targetPaneId);
+        }
+      }
     },
-    [setActiveTerminal]
+    [setActiveTerminal, panes, setFocused, assignSession]
   );
 
   const handleDragEnd = useCallback(
@@ -168,38 +205,47 @@ export function SessionGroupTree() {
                             {formatMessage({ id: 'terminalDashboard.sessionTree.emptyGroup' })}
                           </p>
                         ) : (
-                          group.sessionIds.map((sessionId, index) => (
-                            <Draggable
-                              key={sessionId}
-                              draggableId={sessionId}
-                              index={index}
-                            >
-                              {(dragProvided, dragSnapshot) => (
-                                <div
-                                  ref={dragProvided.innerRef}
-                                  {...dragProvided.draggableProps}
-                                  className={cn(
-                                    'flex items-center gap-1.5 mx-1 px-2 py-1.5 rounded-sm cursor-pointer',
-                                    'hover:bg-muted/50 transition-colors text-sm',
-                                    activeTerminalId === sessionId && 'bg-primary/10 text-primary',
-                                    dragSnapshot.isDragging && 'bg-muted shadow-md'
-                                  )}
-                                  onClick={() => handleSessionClick(sessionId)}
-                                >
-                                  <span
-                                    {...dragProvided.dragHandleProps}
-                                    className="text-muted-foreground/50 hover:text-muted-foreground shrink-0"
+                          group.sessionIds.map((sessionId, index) => {
+                            const meta = terminalMetas[sessionId];
+                            const sessionStatus: TerminalStatus = meta?.status ?? 'idle';
+                            return (
+                              <Draggable
+                                key={sessionId}
+                                draggableId={sessionId}
+                                index={index}
+                              >
+                                {(dragProvided, dragSnapshot) => (
+                                  <div
+                                    ref={dragProvided.innerRef}
+                                    {...dragProvided.draggableProps}
+                                    className={cn(
+                                      'flex items-center gap-1.5 mx-1 px-2 py-1.5 rounded-sm cursor-pointer',
+                                      'hover:bg-muted/50 transition-colors text-sm',
+                                      activeTerminalId === sessionId && 'bg-primary/10 text-primary',
+                                      dragSnapshot.isDragging && 'bg-muted shadow-md'
+                                    )}
+                                    onClick={() => handleSessionClick(sessionId)}
                                   >
-                                    <GripVertical className="w-3 h-3" />
-                                  </span>
-                                  <Terminal className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                                  <span className="flex-1 truncate text-xs">
-                                    {sessionNames[sessionId] ?? sessionId}
-                                  </span>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))
+                                    <span
+                                      {...dragProvided.dragHandleProps}
+                                      className="text-muted-foreground/50 hover:text-muted-foreground shrink-0"
+                                    >
+                                      <GripVertical className="w-3 h-3" />
+                                    </span>
+                                    {/* Status indicator dot */}
+                                    <span
+                                      className={cn('w-2 h-2 rounded-full shrink-0', statusDotStyles[sessionStatus])}
+                                      title={sessionStatus}
+                                    />
+                                    <Terminal className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                    <span className="flex-1 truncate text-xs">
+                                      {sessionNames[sessionId] ?? sessionId}
+                                    </span>
+                                  </div>
+                                )}
+                              </Draggable>
+                            );
+                          })
                         )}
                         {provided.placeholder}
                       </div>

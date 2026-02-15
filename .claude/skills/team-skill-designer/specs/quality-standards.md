@@ -23,20 +23,20 @@ Quality assessment criteria for generated team command .md files.
 | 40% | Missing critical sections |
 | 0% | Skeleton only |
 
-**Required Sections Checklist:**
-- [ ] YAML front matter with `group: team`
-- [ ] Overview with core capabilities
-- [ ] Role Definition (name, responsibility, communication)
+**Required Sections Checklist (role.md files):**
+- [ ] Role Identity (name, responsibility, communication)
 - [ ] Message Bus section with team_msg examples
 - [ ] Message Types table
-- [ ] Execution Process overview diagram
+- [ ] Toolbox section (Available Commands, Subagent Capabilities, CLI Capabilities)
 - [ ] Phase 1: Task Discovery implementation
-- [ ] Phase 2: Context Loading implementation
-- [ ] Phase 3: Core Work implementation
-- [ ] Phase 4: Validation/Summary implementation
+- [ ] Phase 2: Context Loading / delegation to commands
+- [ ] Phase 3: Core Work / delegation to commands
+- [ ] Phase 4: Validation/Summary / delegation to commands
 - [ ] Phase 5: Report + Loop implementation
 - [ ] Error Handling table
 - [ ] Code examples in all phases
+
+> **Note**: For `commands/*.md` file quality criteria, see [Command File Quality Standards](#command-file-quality-standards) below.
 
 ### 2. Pattern Compliance (25%)
 
@@ -124,3 +124,48 @@ Quality assessment criteria for generated team command .md files.
 - Additional message type examples
 - Session file structure documentation
 - CLI integration examples
+
+---
+
+## Command File Quality Standards
+
+Quality assessment criteria for generated command `.md` files in `roles/{name}/commands/`.
+
+### 5. Command File Quality (Applies to folder-based roles)
+
+| Score | Criteria |
+|-------|----------|
+| 100% | All 4 dimensions pass, all command files self-contained |
+| 80% | 3/4 dimensions pass, minor gaps in one area |
+| 60% | 2/4 dimensions pass, some cross-references or missing sections |
+| 40% | Missing required sections or broken references |
+| 0% | No command files or non-functional |
+
+#### Dimension 1: Structural Completeness
+
+Each command file MUST contain:
+- [ ] `## When to Use` - Trigger conditions
+- [ ] `## Strategy` with `### Delegation Mode` (Subagent Fan-out / CLI Fan-out / Sequential Delegation / Direct)
+- [ ] `## Execution Steps` with numbered steps and code blocks
+- [ ] `## Error Handling` table with Scenario/Resolution
+
+#### Dimension 2: Self-Containment
+
+- [ ] No `Ref:` or cross-references to other command files
+- [ ] No imports or dependencies on sibling commands
+- [ ] All context loaded within the command (task, plan, files)
+- [ ] Any subagent can `Read()` the command and execute independently
+
+#### Dimension 3: Toolbox Consistency
+
+- [ ] Every command listed in role.md Toolbox has a corresponding file in `commands/`
+- [ ] Every file in `commands/` is listed in role.md Toolbox
+- [ ] Phase mapping in Toolbox matches command's `## When to Use` phase reference
+- [ ] Delegation mode in command matches role's subagent/CLI capabilities
+
+#### Dimension 4: Pattern Compliance
+
+- [ ] Pre-built command patterns (explore, analyze, implement, validate, review, dispatch, monitor) follow templates/role-command-template.md
+- [ ] Custom commands follow the template skeleton structure
+- [ ] Delegation mode is appropriate for the command's complexity
+- [ ] Output format is structured and parseable by the calling role.md

@@ -4,7 +4,7 @@
 // Single terminal pane = PaneToolbar + TerminalInstance.
 // Renders within the TerminalGrid recursive layout.
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   SplitSquareHorizontal,
@@ -14,6 +14,10 @@ import {
   X,
   Terminal,
   ChevronDown,
+  RotateCcw,
+  Pause,
+  Play,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TerminalInstance } from './TerminalInstance';
@@ -76,6 +80,15 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   const terminalMetas = useSessionManagerStore(selectTerminalMetas);
   const sessions = useCliSessionStore((s) => s.sessions);
 
+  // Session lifecycle actions
+  const pauseSession = useSessionManagerStore((s) => s.pauseSession);
+  const resumeSession = useSessionManagerStore((s) => s.resumeSession);
+  const restartSession = useSessionManagerStore((s) => s.restartSession);
+
+  // Action loading states
+  const [isRestarting, setIsRestarting] = useState(false);
+  const [isTogglingPause, setIsTogglingPause] = useState(false);
+
   // Association chain for linked issue badge
   const associationChain = useIssueQueueIntegrationStore(selectAssociationChain);
   const linkedIssueId = useMemo(() => {
@@ -132,6 +145,34 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
       queueMicrotask(() => assignSession(paneId, sessionId));
     }
   }, [paneId, sessionId, assignSession]);
+
+  const handleRestart = useCallback(async () => {
+    if (!sessionId || isRestarting) return;
+    setIsRestarting(true);
+    try {
+      await restartSession(sessionId);
+    } catch (error) {
+      console.error('[TerminalPane] Restart failed:', error);
+    } finally {
+      setIsRestarting(false);
+    }
+  }, [sessionId, isRestarting, restartSession]);
+
+  const handleTogglePause = useCallback(async () => {
+    if (!sessionId || isTogglingPause) return;
+    setIsTogglingPause(true);
+    try {
+      if (status === 'paused') {
+        await resumeSession(sessionId);
+      } else if (status === 'active' || status === 'idle') {
+        await pauseSession(sessionId);
+      }
+    } catch (error) {
+      console.error('[TerminalPane] Toggle pause failed:', error);
+    } finally {
+      setIsTogglingPause(false);
+    }
+  }, [sessionId, isTogglingPause, status, pauseSession, resumeSession]);
 
   return (
     <div
@@ -197,13 +238,58 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
             <SplitSquareVertical className="w-3.5 h-3.5" />
           </button>
           {sessionId && (
-            <button
-              onClick={handleClear}
-              className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-              title={formatMessage({ id: 'terminalDashboard.pane.clearTerminal' })}
-            >
-              <Eraser className="w-3.5 h-3.5" />
-            </button>
+            <>
+              {/* Restart button */}
+              <button
+                onClick={handleRestart}
+                disabled={isRestarting}
+                className={cn(
+                  'p-1 rounded hover:bg-muted transition-colors',
+                  isRestarting ? 'text-muted-foreground/50' : 'text-muted-foreground hover:text-foreground'
+                )}
+                title={formatMessage({ id: 'terminalDashboard.pane.restart' })}
+              >
+                {isRestarting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-3.5 h-3.5" />
+                )}
+              </button>
+              {/* Pause/Resume toggle button */}
+              <button
+                onClick={handleTogglePause}
+                disabled={isTogglingPause || status === 'resuming'}
+                className={cn(
+                  'p-1 rounded hover:bg-muted transition-colors',
+                  isTogglingPause || status === 'resuming'
+                    ? 'text-muted-foreground/50'
+                    : status === 'paused'
+                    ? 'text-yellow-500 hover:text-yellow-600'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+                title={formatMessage({
+                  id: status === 'paused'
+                    ? 'terminalDashboard.pane.resume'
+                    : 'terminalDashboard.pane.pause',
+                })}
+              >
+                {isTogglingPause || status === 'resuming' ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : status === 'paused' ? (
+                  <Play className="w-3.5 h-3.5" />
+                ) : (
+                  <Pause className="w-3.5 h-3.5" />
+                )}
+              </button>
+              {/* Clear terminal button */}
+              <button
+                onClick={handleClear}
+                className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                title={formatMessage({ id: 'terminalDashboard.pane.clearTerminal' })}
+              >
+                <Eraser className="w-3.5 h-3.5" />
+              </button>
+            </>
           )}
           {alertCount > 0 && (
             <span className="flex items-center gap-0.5 px-1 text-destructive">
