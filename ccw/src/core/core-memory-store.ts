@@ -7,6 +7,8 @@ import Database from 'better-sqlite3';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { StoragePaths, ensureStorageDir } from '../config/storage-paths.js';
+import { UnifiedVectorIndex, isUnifiedEmbedderAvailable } from './unified-vector-index.js';
+import type { ChunkMetadata } from './unified-vector-index.js';
 
 // Types
 export interface CoreMemory {
@@ -101,6 +103,7 @@ export class CoreMemoryStore {
   private db: Database.Database;
   private dbPath: string;
   private projectPath: string;
+  private vectorIndex: UnifiedVectorIndex | null = null;
 
   constructor(projectPath: string) {
     this.projectPath = projectPath;
@@ -329,6 +332,38 @@ export class CoreMemoryStore {
   }
 
   /**
+   * Get or create the UnifiedVectorIndex instance (lazy initialization).
+   * Returns null if the embedder is not available.
+   */
+  private getVectorIndex(): UnifiedVectorIndex | null {
+    if (this.vectorIndex) return this.vectorIndex;
+    if (!isUnifiedEmbedderAvailable()) return null;
+    this.vectorIndex = new UnifiedVectorIndex(this.projectPath);
+    return this.vectorIndex;
+  }
+
+  /**
+   * Fire-and-forget: sync content to the vector index.
+   * Logs errors but never throws, to avoid disrupting the synchronous write path.
+   */
+  private syncToVectorIndex(content: string, sourceId: string): void {
+    const idx = this.getVectorIndex();
+    if (!idx) return;
+
+    const metadata: ChunkMetadata = {
+      source_id: sourceId,
+      source_type: 'core_memory',
+      category: 'core_memory',
+    };
+
+    idx.indexContent(content, metadata).catch((err) => {
+      if (process.env.DEBUG) {
+        console.error(`[CoreMemoryStore] Vector index sync failed for ${sourceId}:`, (err as Error).message);
+      }
+    });
+  }
+
+  /**
    * Generate timestamp-based ID for core memory
    */
   private generateId(): string {
@@ -387,6 +422,9 @@ export class CoreMemoryStore {
         id
       );
 
+      // Sync updated content to vector index
+      this.syncToVectorIndex(memory.content, id);
+
       return this.getMemory(id)!;
     } else {
       // Insert new memory
@@ -405,6 +443,9 @@ export class CoreMemoryStore {
         memory.archived ? 1 : 0,
         memory.metadata || null
       );
+
+      // Sync new content to vector index
+      this.syncToVectorIndex(memory.content, id);
 
       return this.getMemory(id)!;
     }

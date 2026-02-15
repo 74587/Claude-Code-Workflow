@@ -17,6 +17,7 @@ import type {
 } from '../core/a2ui/A2UITypes.js';
 import http from 'http';
 import { a2uiWebSocketHandler } from '../core/a2ui/A2UIWebSocketHandler.js';
+import { remoteNotificationService } from '../core/services/remote-notification-service.js';
 
 const DASHBOARD_PORT = Number(process.env.CCW_PORT || 3456);
 const POLL_INTERVAL_MS = 1000;
@@ -465,6 +466,14 @@ export async function execute(params: AskQuestionParams): Promise<ToolResult<Ask
     // Send A2UI surface via WebSocket to frontend
     const a2uiSurface = generateQuestionSurface(question, surfaceId);
     const sentCount = a2uiWebSocketHandler.sendSurface(a2uiSurface.surfaceUpdate);
+
+    // Trigger remote notification for ask-user-question event (if enabled)
+    if (remoteNotificationService.shouldNotify('ask-user-question')) {
+      remoteNotificationService.sendNotification('ask-user-question', {
+        sessionId: surfaceId,
+        questionText: question.title,
+      });
+    }
 
     // If no local WS clients, start HTTP polling for answer from Dashboard
     if (sentCount === 0) {
@@ -1063,6 +1072,15 @@ async function executeSimpleFormat(
 
   // Send the surface
   const sentCount = a2uiWebSocketHandler.sendSurface(surfaceUpdate);
+
+  // Trigger remote notification for ask-user-question event (if enabled)
+  if (remoteNotificationService.shouldNotify('ask-user-question')) {
+    const questionTexts = questions.map(q => q.question).join('\n');
+    remoteNotificationService.sendNotification('ask-user-question', {
+      sessionId: compositeId,
+      questionText: questionTexts,
+    });
+  }
 
   // If no local WS clients, start HTTP polling for answer from Dashboard
   if (sentCount === 0) {

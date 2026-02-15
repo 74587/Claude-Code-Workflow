@@ -6360,3 +6360,149 @@ export async function fetchCliSessionAudit(
     withPath(`/api/audit/cli-sessions${queryString ? `?${queryString}` : ''}`, options?.projectPath)
   );
 }
+
+// ========== Unified Memory API ==========
+
+export interface UnifiedSearchResult {
+  source_id: string;
+  source_type: string;
+  score: number;
+  content: string;
+  category: string;
+  rank_sources: {
+    vector_rank?: number;
+    vector_score?: number;
+    fts_rank?: number;
+    heat_score?: number;
+  };
+}
+
+export interface UnifiedSearchResponse {
+  success: boolean;
+  query: string;
+  total: number;
+  results: UnifiedSearchResult[];
+}
+
+export interface UnifiedMemoryStats {
+  core_memories: {
+    total: number;
+    archived: number;
+  };
+  stage1_outputs: number;
+  entities: number;
+  prompts: number;
+  conversations: number;
+  vector_index: {
+    available: boolean;
+    total_chunks: number;
+    hnsw_available: boolean;
+    hnsw_count: number;
+    dimension: number;
+    categories?: Record<string, number>;
+  };
+}
+
+export interface RecommendationResult {
+  source_id: string;
+  source_type: string;
+  score: number;
+  content: string;
+  category: string;
+}
+
+export interface ReindexResponse {
+  success: boolean;
+  hnsw_count?: number;
+  elapsed_time?: number;
+  error?: string;
+}
+
+/**
+ * Search unified memory using vector + FTS5 fusion (RRF)
+ * @param query - Search query text
+ * @param options - Search options (topK, minScore, category)
+ * @param projectPath - Optional project path for workspace isolation
+ */
+export async function fetchUnifiedSearch(
+  query: string,
+  options?: {
+    topK?: number;
+    minScore?: number;
+    category?: string;
+  },
+  projectPath?: string
+): Promise<UnifiedSearchResponse> {
+  const params = new URLSearchParams();
+  params.set('q', query);
+  if (options?.topK) params.set('topK', String(options.topK));
+  if (options?.minScore) params.set('minScore', String(options.minScore));
+  if (options?.category) params.set('category', options.category);
+
+  const data = await fetchApi<UnifiedSearchResponse & { error?: string }>(
+    withPath(`/api/unified-memory/search?${params.toString()}`, projectPath)
+  );
+  if (data.success === false) {
+    throw new Error(data.error || 'Search failed');
+  }
+  return data;
+}
+
+/**
+ * Fetch unified memory statistics (core memories, entities, vectors, etc.)
+ * @param projectPath - Optional project path for workspace isolation
+ */
+export async function fetchUnifiedStats(
+  projectPath?: string
+): Promise<{ success: boolean; stats: UnifiedMemoryStats }> {
+  const data = await fetchApi<{ success: boolean; stats: UnifiedMemoryStats; error?: string }>(
+    withPath('/api/unified-memory/stats', projectPath)
+  );
+  if (data.success === false) {
+    throw new Error(data.error || 'Failed to load unified stats');
+  }
+  return data;
+}
+
+/**
+ * Get KNN-based recommendations for a specific memory
+ * @param memoryId - Core memory ID (CMEM-*)
+ * @param limit - Number of recommendations (default: 5)
+ * @param projectPath - Optional project path for workspace isolation
+ */
+export async function fetchRecommendations(
+  memoryId: string,
+  limit?: number,
+  projectPath?: string
+): Promise<{ success: boolean; memory_id: string; total: number; recommendations: RecommendationResult[] }> {
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', String(limit));
+  const queryString = params.toString();
+
+  const data = await fetchApi<{ success: boolean; memory_id: string; total: number; recommendations: RecommendationResult[]; error?: string }>(
+    withPath(
+      `/api/unified-memory/recommendations/${encodeURIComponent(memoryId)}${queryString ? `?${queryString}` : ''}`,
+      projectPath
+    )
+  );
+  if (data.success === false) {
+    throw new Error(data.error || 'Failed to load recommendations');
+  }
+  return data;
+}
+
+/**
+ * Trigger vector index rebuild
+ * @param projectPath - Optional project path for workspace isolation
+ */
+export async function triggerReindex(
+  projectPath?: string
+): Promise<ReindexResponse> {
+  return fetchApi<ReindexResponse>(
+    '/api/unified-memory/reindex',
+    {
+      method: 'POST',
+      body: JSON.stringify({ path: projectPath }),
+    }
+  );
+}

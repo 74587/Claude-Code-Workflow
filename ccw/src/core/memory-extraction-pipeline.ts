@@ -13,6 +13,10 @@ import type { ConversationRecord } from '../tools/cli-history-store.js';
 import { getHistoryStore } from '../tools/cli-history-store.js';
 import { getCoreMemoryStore, type Stage1Output } from './core-memory-store.js';
 import { MemoryJobScheduler } from './memory-job-scheduler.js';
+import { UnifiedVectorIndex, isUnifiedEmbedderAvailable } from './unified-vector-index.js';
+import type { ChunkMetadata } from './unified-vector-index.js';
+import { SessionClusteringService } from './session-clustering-service.js';
+import { PatternDetector } from './pattern-detector.js';
 import {
   MAX_SESSION_AGE_DAYS,
   MIN_IDLE_HOURS,
@@ -384,7 +388,36 @@ export class MemoryExtractionPipeline {
     const store = getCoreMemoryStore(this.projectPath);
     store.upsertStage1Output(output);
 
+    // Sync extracted content to vector index (fire-and-forget)
+    this.syncExtractionToVectorIndex(output);
+
     return output;
+  }
+
+  /**
+   * Sync extraction output to the vector index.
+   * Indexes both raw_memory and rollout_summary with category='cli_history'.
+   * Fire-and-forget: errors are logged but never thrown.
+   */
+  private syncExtractionToVectorIndex(output: Stage1Output): void {
+    if (!isUnifiedEmbedderAvailable()) return;
+
+    const vectorIndex = new UnifiedVectorIndex(this.projectPath);
+    const combinedContent = `${output.raw_memory}\n\n---\n\n${output.rollout_summary}`;
+    const metadata: ChunkMetadata = {
+      source_id: output.thread_id,
+      source_type: 'cli_history',
+      category: 'cli_history',
+    };
+
+    vectorIndex.indexContent(combinedContent, metadata).catch((err) => {
+      if (process.env.DEBUG) {
+        console.error(
+          `[MemoryExtractionPipeline] Vector index sync failed for ${output.thread_id}:`,
+          (err as Error).message
+        );
+      }
+    });
   }
 
   // ========================================================================
@@ -461,6 +494,76 @@ export class MemoryExtractionPipeline {
       await Promise.all(promises);
     }
 
+    // Post-extraction: trigger incremental clustering and pattern detection
+    // These are fire-and-forget to avoid blocking the main extraction flow.
+    if (result.succeeded > 0) {
+      this.triggerPostExtractionHooks(
+        eligibleSessions.filter((_, i) => i < result.processed).map(s => s.id)
+      );
+    }
+
     return result;
+  }
+
+  /**
+   * Fire-and-forget: trigger incremental clustering and pattern detection
+   * after Phase 1 extraction completes.
+   *
+   * - incrementalCluster: processes each newly extracted session
+   * - detectPatterns: runs pattern detection across all chunks
+   *
+   * Errors are logged but never thrown, to avoid disrupting the caller.
+   */
+  private triggerPostExtractionHooks(extractedSessionIds: string[]): void {
+    const clusteringService = new SessionClusteringService(this.projectPath);
+    const patternDetector = new PatternDetector(this.projectPath);
+
+    // Incremental clustering for each extracted session (fire-and-forget)
+    (async () => {
+      try {
+        // Check frequency control before running clustering
+        const shouldCluster = await clusteringService.shouldRunClustering();
+        if (!shouldCluster) {
+          if (process.env.DEBUG) {
+            console.log('[PostExtraction] Clustering skipped: frequency control not met');
+          }
+          return;
+        }
+
+        for (const sessionId of extractedSessionIds) {
+          try {
+            await clusteringService.incrementalCluster(sessionId);
+          } catch (err) {
+            if (process.env.DEBUG) {
+              console.warn(
+                `[PostExtraction] Incremental clustering failed for ${sessionId}:`,
+                (err as Error).message
+              );
+            }
+          }
+        }
+      } catch (err) {
+        if (process.env.DEBUG) {
+          console.warn('[PostExtraction] Clustering hook failed:', (err as Error).message);
+        }
+      }
+    })();
+
+    // Pattern detection (fire-and-forget)
+    (async () => {
+      try {
+        const result = await patternDetector.detectPatterns();
+        if (result.patterns.length > 0) {
+          console.log(
+            `[PostExtraction] Pattern detection: ${result.patterns.length} patterns found, ` +
+            `${result.solidified.length} solidified (${result.elapsedMs}ms)`
+          );
+        }
+      } catch (err) {
+        if (process.env.DEBUG) {
+          console.warn('[PostExtraction] Pattern detection failed:', (err as Error).message);
+        }
+      }
+    })();
   }
 }

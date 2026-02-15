@@ -114,6 +114,45 @@
     "on": "On",
     "off": "Off"
   },
+  "remoteNotifications": {
+    "title": "Remote Notifications",
+    "description": "Send notifications to external platforms like Discord, Telegram, or custom webhooks when events occur.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "platforms": "Platform Configuration",
+    "events": "Event Triggers",
+    "noPlatforms": "No platforms",
+    "configured": "Configured",
+    "save": "Save",
+    "saving": "Saving...",
+    "saved": "Configuration saved",
+    "saveError": "Failed to save configuration",
+    "reset": "Reset to Defaults",
+    "resetConfirm": "Reset all remote notification settings to defaults?",
+    "resetSuccess": "Settings reset to defaults",
+    "resetError": "Failed to reset settings",
+    "testConnection": "Test Connection",
+    "testSuccess": "Test notification sent successfully",
+    "testFailed": "Test notification failed",
+    "testError": "Failed to send test notification",
+    "discord": {
+      "webhookUrl": "Webhook URL",
+      "webhookUrlHint": "Create a webhook in your Discord channel settings",
+      "username": "Custom Username (optional)"
+    },
+    "telegram": {
+      "botToken": "Bot Token",
+      "botTokenHint": "Get from @BotFather on Telegram",
+      "chatId": "Chat ID",
+      "chatIdHint": "User or group chat ID (use @userinfobot to find it)"
+    },
+    "webhook": {
+      "url": "Webhook URL",
+      "method": "HTTP Method",
+      "headers": "Custom Headers (JSON)",
+      "headersHint": "Optional JSON object with custom headers"
+    }
+  },
   "versionCheck": {
     "title": "Version Update",
     "currentVersion": "Current Version",

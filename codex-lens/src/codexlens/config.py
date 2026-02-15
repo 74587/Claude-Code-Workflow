@@ -189,6 +189,9 @@ class Config:
     api_batch_size_max: int = 2048  # Absolute upper limit for batch size
     chars_per_token_estimate: int = 4  # Characters per token estimation ratio
 
+    # Parser configuration
+    use_astgrep: bool = False  # Use ast-grep for Python relationship extraction (tree-sitter is default)
+
     def __post_init__(self) -> None:
         try:
             self.data_dir = self.data_dir.expanduser().resolve()

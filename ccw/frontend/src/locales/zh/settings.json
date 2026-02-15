@@ -114,6 +114,45 @@
     "on": "开启",
     "off": "关闭"
   },
+  "remoteNotifications": {
+    "title": "远程通知",
+    "description": "当事件发生时，发送通知到 Discord、Telegram 或自定义 Webhook 等外部平台。",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "platforms": "平台配置",
+    "events": "事件触发器",
+    "noPlatforms": "无平台",
+    "configured": "已配置",
+    "save": "保存",
+    "saving": "保存中...",
+    "saved": "配置已保存",
+    "saveError": "保存配置失败",
+    "reset": "重置为默认值",
+    "resetConfirm": "确定要将所有远程通知设置重置为默认值吗？",
+    "resetSuccess": "设置已重置为默认值",
+    "resetError": "重置设置失败",
+    "testConnection": "测试连接",
+    "testSuccess": "测试通知发送成功",
+    "testFailed": "测试通知发送失败",
+    "testError": "发送测试通知失败",
+    "discord": {
+      "webhookUrl": "Webhook URL",
+      "webhookUrlHint": "在 Discord 频道设置中创建 Webhook",
+      "username": "自定义用户名（可选）"
+    },
+    "telegram": {
+      "botToken": "Bot Token",
+      "botTokenHint": "从 Telegram 的 @BotFather 获取",
+      "chatId": "Chat ID",
+      "chatIdHint": "用户或群组 Chat ID（使用 @userinfobot 查找）"
+    },
+    "webhook": {
+      "url": "Webhook URL",
+      "method": "HTTP 方法",
+      "headers": "自定义请求头（JSON）",
+      "headersHint": "可选的 JSON 对象，包含自定义请求头"
+    }
+  },
   "versionCheck": {
     "title": "版本更新",
     "currentVersion": "当前版本",

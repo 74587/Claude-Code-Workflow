@@ -35,6 +35,10 @@ interface CommandOptions {
   delete?: boolean;
   merge?: string;
   dedup?: boolean;
+  unified?: boolean;
+  topK?: string;
+  minScore?: string;
+  category?: string;
 }
 
 /**
@@ -845,6 +849,114 @@ async function jobsAction(options: CommandOptions): Promise<void> {
 }
 
 /**
+ * Unified vector+FTS search across all memory stores
+ */
+async function unifiedSearchAction(keyword: string, options: CommandOptions): Promise<void> {
+  if (!keyword || keyword.trim() === '') {
+    console.error(chalk.red('Error: Query is required'));
+    console.error(chalk.gray('Usage: ccw core-memory search --unified <query> [--topK 20] [--minScore 0] [--category <cat>]'));
+    process.exit(1);
+  }
+
+  try {
+    const { UnifiedMemoryService } = await import('../core/unified-memory-service.js');
+    const service = new UnifiedMemoryService(getProjectPath());
+
+    const topK = parseInt(options.topK || '20', 10);
+    const minScore = parseFloat(options.minScore || '0');
+    const category = options.category || undefined;
+
+    console.log(chalk.cyan(`\n  Unified search: "${keyword}" (topK=${topK}, minScore=${minScore})\n`));
+
+    const results = await service.search(keyword, {
+      limit: topK,
+      minScore,
+      category: category as any,
+    });
+
+    if (results.length === 0) {
+      console.log(chalk.yellow('  No results found.\n'));
+      return;
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify({ query: keyword, total: results.length, results }, null, 2));
+      return;
+    }
+
+    console.log(chalk.gray('  -----------------------------------------------------------------------'));
+
+    for (const result of results) {
+      const sources: string[] = [];
+      if (result.rank_sources.vector_rank) sources.push(`vec:#${result.rank_sources.vector_rank}`);
+      if (result.rank_sources.fts_rank) sources.push(`fts:#${result.rank_sources.fts_rank}`);
+      if (result.rank_sources.heat_score) sources.push(`heat:${result.rank_sources.heat_score.toFixed(1)}`);
+
+      const snippet = result.content.substring(0, 120).replace(/\n/g, ' ');
+
+      console.log(
+        chalk.cyan(`  ${result.source_id}`) +
+        chalk.gray(` [${result.source_type}/${result.category}]`) +
+        chalk.white(` score=${result.score.toFixed(4)}`)
+      );
+      console.log(chalk.gray(`    Sources: ${sources.join(' | ')}`));
+      console.log(chalk.white(`    ${snippet}${result.content.length > 120 ? '...' : ''}`));
+      console.log(chalk.gray('  -----------------------------------------------------------------------'));
+    }
+
+    console.log(chalk.gray(`\n  Total: ${results.length}\n`));
+
+  } catch (error) {
+    console.error(chalk.red(`Error: ${(error as Error).message}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * Rebuild the unified HNSW vector index from scratch
+ */
+async function reindexAction(options: CommandOptions): Promise<void> {
+  try {
+    const { UnifiedVectorIndex, isUnifiedEmbedderAvailable } = await import('../core/unified-vector-index.js');
+
+    if (!isUnifiedEmbedderAvailable()) {
+      console.error(chalk.red('Error: Unified embedder is not available.'));
+      console.error(chalk.gray('Ensure Python venv and embedder script are set up.'));
+      process.exit(1);
+    }
+
+    const index = new UnifiedVectorIndex(getProjectPath());
+
+    console.log(chalk.cyan('\n  Rebuilding unified vector index...\n'));
+
+    const result = await index.reindexAll();
+
+    if (!result.success) {
+      console.error(chalk.red(`  Reindex failed: ${result.error}\n`));
+      process.exit(1);
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    console.log(chalk.green('  Reindex complete.'));
+    if (result.hnsw_count !== undefined) {
+      console.log(chalk.white(`  HNSW vectors: ${result.hnsw_count}`));
+    }
+    if (result.elapsed_time !== undefined) {
+      console.log(chalk.white(`  Elapsed: ${result.elapsed_time.toFixed(2)}s`));
+    }
+    console.log();
+
+  } catch (error) {
+    console.error(chalk.red(`Error: ${(error as Error).message}`));
+    process.exit(1);
+  }
+}
+
+/**
  * Core Memory command entry point
  */
 export async function coreMemoryCommand(
@@ -889,7 +1001,11 @@ export async function coreMemoryCommand(
       break;
 
     case 'search':
-      await searchAction(textArg, options);
+      if (options.unified) {
+        await unifiedSearchAction(textArg, options);
+      } else {
+        await searchAction(textArg, options);
+      }
       break;
 
     case 'projects':
@@ -921,6 +1037,10 @@ export async function coreMemoryCommand(
       await jobsAction(options);
       break;
 
+    case 'reindex':
+      await reindexAction(options);
+      break;
+
     default:
       console.log(chalk.bold.cyan('\n  CCW Core Memory\n'));
       console.log('  Manage core memory entries and session clusters.\n');
@@ -945,12 +1065,14 @@ export async function coreMemoryCommand(
       console.log(chalk.white('    context                     ') + chalk.gray('Get progressive index'));
       console.log(chalk.white('    load-cluster <id>           ') + chalk.gray('Load cluster context'));
       console.log(chalk.white('    search <keyword>            ') + chalk.gray('Search sessions'));
+      console.log(chalk.white('    search --unified <query>    ') + chalk.gray('Unified vector+FTS search'));
       console.log();
       console.log(chalk.bold('  Memory V2 Pipeline:'));
       console.log(chalk.white('    extract                     ') + chalk.gray('Run batch memory extraction'));
       console.log(chalk.white('    extract-status              ') + chalk.gray('Show extraction pipeline status'));
       console.log(chalk.white('    consolidate                 ') + chalk.gray('Run memory consolidation'));
       console.log(chalk.white('    jobs                        ') + chalk.gray('List all pipeline jobs'));
+      console.log(chalk.white('    reindex                     ') + chalk.gray('Rebuild unified vector index'));
       console.log();
       console.log(chalk.bold('  Options:'));
       console.log(chalk.gray('    --id <id>                   Memory ID (for export/summary)'));

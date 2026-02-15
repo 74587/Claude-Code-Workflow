@@ -55,6 +55,7 @@ import {
   useCcwInstallations,
   useUpgradeCcwInstallation,
 } from '@/hooks/useSystemSettings';
+import { RemoteNotificationSection } from '@/components/settings/RemoteNotificationSection';
 
 // ========== File Path Input with Native File Picker ==========
 
@@ -1298,6 +1299,9 @@ export function SettingsPage() {
           </div>
         </div>
       </Card>
+
+      {/* Remote Notifications */}
+      <RemoteNotificationSection />
 
       {/* Reset Settings */}
       <Card className="p-6 border-destructive/50">

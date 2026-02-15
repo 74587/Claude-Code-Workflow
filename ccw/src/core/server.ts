@@ -9,6 +9,7 @@ import { handleAuditRoutes } from './routes/audit-routes.js';
 import { handleProviderRoutes } from './routes/provider-routes.js';
 import { handleMemoryRoutes } from './routes/memory-routes.js';
 import { handleCoreMemoryRoutes } from './routes/core-memory-routes.js';
+import { handleUnifiedMemoryRoutes } from './routes/unified-memory-routes.js';
 import { handleMcpRoutes } from './routes/mcp-routes.js';
 import { handleHooksRoutes } from './routes/hooks-routes.js';
 import { handleUnsplashRoutes, handleBackgroundRoutes } from './routes/unsplash-routes.js';
@@ -37,6 +38,7 @@ import { handleDashboardRoutes } from './routes/dashboard-routes.js';
 import { handleOrchestratorRoutes } from './routes/orchestrator-routes.js';
 import { handleConfigRoutes } from './routes/config-routes.js';
 import { handleTeamRoutes } from './routes/team-routes.js';
+import { handleNotificationRoutes } from './routes/notification-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients, extractSessionIdFromPath } from './websocket.js';
@@ -462,6 +464,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleCoreMemoryRoutes(routeContext)) return;
       }
 
+      // Unified Memory routes (/api/unified-memory/*)
+      if (pathname.startsWith('/api/unified-memory/')) {
+        if (await handleUnifiedMemoryRoutes(routeContext)) return;
+      }
+
 
       // MCP routes (/api/mcp*, /api/codex-mcp*)
       if (pathname.startsWith('/api/mcp') || pathname.startsWith('/api/codex-mcp')) {
@@ -531,6 +538,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Team routes (/api/teams*)
       if (pathname.startsWith('/api/teams')) {
         if (await handleTeamRoutes(routeContext)) return;
+      }
+
+      // Remote notification routes (/api/notifications/remote/*)
+      if (pathname.startsWith('/api/notifications/remote')) {
+        if (await handleNotificationRoutes(req, res, pathname)) return;
       }
 
       // Task routes (/api/tasks)

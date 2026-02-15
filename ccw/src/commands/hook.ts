@@ -12,7 +12,7 @@ interface HookOptions {
   stdin?: boolean;
   sessionId?: string;
   prompt?: string;
-  type?: 'session-start' | 'context';
+  type?: 'session-start' | 'context' | 'session-end';
   path?: string;
 }
 
@@ -96,9 +96,31 @@ function getProjectPath(hookCwd?: string): string {
 }
 
 /**
+ * Check if UnifiedContextBuilder is available (embedder dependencies present).
+ * Returns the builder instance or null if not available.
+ */
+async function tryCreateContextBuilder(projectPath: string): Promise<any | null> {
+  try {
+    const { isUnifiedEmbedderAvailable } = await import('../core/unified-vector-index.js');
+    if (!isUnifiedEmbedderAvailable()) {
+      return null;
+    }
+    const { UnifiedContextBuilder } = await import('../core/unified-context-builder.js');
+    return new UnifiedContextBuilder(projectPath);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Session context action - provides progressive context loading
- * First prompt: returns session overview with clusters
- * Subsequent prompts: returns intent-matched sessions
+ *
+ * Uses UnifiedContextBuilder when available (embedder present):
+ *   - session-start: MEMORY.md summary + clusters + hot entities + patterns
+ *   - per-prompt: vector search across all memory categories
+ *
+ * Falls back to SessionClusteringService.getProgressiveIndex() when
+ * the embedder is unavailable, preserving backward compatibility.
  */
 async function sessionContextAction(options: HookOptions): Promise<void> {
   let { stdin, sessionId, prompt } = options;
@@ -154,29 +176,43 @@ async function sessionContextAction(options: HookOptions): Promise<void> {
     let contextType: 'session-start' | 'context';
     let content = '';
 
-    // Dynamic import to avoid circular dependencies
-    const { SessionClusteringService } = await import('../core/session-clustering-service.js');
-    const clusteringService = new SessionClusteringService(projectPath);
+    // Try UnifiedContextBuilder first; fall back to getProgressiveIndex
+    const contextBuilder = await tryCreateContextBuilder(projectPath);
 
-    if (isFirstPrompt) {
-      // First prompt: return session overview with clusters
-      contextType = 'session-start';
-      content = await clusteringService.getProgressiveIndex({
-        type: 'session-start',
-        sessionId
-      });
-    } else if (prompt && prompt.trim().length > 0) {
-      // Subsequent prompts with content: return intent-matched sessions
-      contextType = 'context';
-      content = await clusteringService.getProgressiveIndex({
-        type: 'context',
-        sessionId,
-        prompt
-      });
+    if (contextBuilder) {
+      // Use UnifiedContextBuilder
+      if (isFirstPrompt) {
+        contextType = 'session-start';
+        content = await contextBuilder.buildSessionStartContext();
+      } else if (prompt && prompt.trim().length > 0) {
+        contextType = 'context';
+        content = await contextBuilder.buildPromptContext(prompt);
+      } else {
+        contextType = 'context';
+        content = '';
+      }
     } else {
-      // Subsequent prompts without content: return minimal context
-      contextType = 'context';
-      content = ''; // No context needed for empty prompts
+      // Fallback: use legacy SessionClusteringService.getProgressiveIndex()
+      const { SessionClusteringService } = await import('../core/session-clustering-service.js');
+      const clusteringService = new SessionClusteringService(projectPath);
+
+      if (isFirstPrompt) {
+        contextType = 'session-start';
+        content = await clusteringService.getProgressiveIndex({
+          type: 'session-start',
+          sessionId
+        });
+      } else if (prompt && prompt.trim().length > 0) {
+        contextType = 'context';
+        content = await clusteringService.getProgressiveIndex({
+          type: 'context',
+          sessionId,
+          prompt
+        });
+      } else {
+        contextType = 'context';
+        content = '';
+      }
     }
 
     if (stdin) {
@@ -194,6 +230,7 @@ async function sessionContextAction(options: HookOptions): Promise<void> {
     console.log(chalk.cyan('Type:'), contextType);
     console.log(chalk.cyan('First Prompt:'), isFirstPrompt ? 'Yes' : 'No');
     console.log(chalk.cyan('Load Count:'), newState.loadCount);
+    console.log(chalk.cyan('Builder:'), contextBuilder ? 'UnifiedContextBuilder' : 'Legacy (getProgressiveIndex)');
     console.log(chalk.gray('─'.repeat(40)));
     if (content) {
       console.log(content);
@@ -203,6 +240,81 @@ async function sessionContextAction(options: HookOptions): Promise<void> {
   } catch (error) {
     if (stdin) {
       // Silent failure for hooks
+      process.exit(0);
+    }
+    console.error(chalk.red(`Error: ${(error as Error).message}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * Session end action - triggers async background tasks for memory maintenance.
+ *
+ * Tasks executed:
+ *   1. Incremental vector embedding (index new/updated content)
+ *   2. Incremental clustering (cluster unclustered sessions)
+ *   3. Heat score updates (recalculate entity heat scores)
+ *
+ * All tasks run best-effort; failures are logged but do not affect exit code.
+ */
+async function sessionEndAction(options: HookOptions): Promise<void> {
+  let { stdin, sessionId } = options;
+  let hookCwd: string | undefined;
+
+  if (stdin) {
+    try {
+      const stdinData = await readStdin();
+      if (stdinData) {
+        const hookData = JSON.parse(stdinData) as HookData;
+        sessionId = hookData.session_id || sessionId;
+        hookCwd = hookData.cwd;
+      }
+    } catch {
+      // Silently continue if stdin parsing fails
+    }
+  }
+
+  if (!sessionId) {
+    if (!stdin) {
+      console.error(chalk.red('Error: --session-id is required'));
+    }
+    process.exit(stdin ? 0 : 1);
+  }
+
+  try {
+    const projectPath = getProjectPath(hookCwd);
+    const contextBuilder = await tryCreateContextBuilder(projectPath);
+
+    if (!contextBuilder) {
+      // UnifiedContextBuilder not available - skip session-end tasks
+      if (!stdin) {
+        console.log(chalk.gray('(UnifiedContextBuilder not available, skipping session-end tasks)'));
+      }
+      process.exit(0);
+    }
+
+    const tasks: Array<{ name: string; execute: () => Promise<void> }> = contextBuilder.buildSessionEndTasks(sessionId);
+
+    if (!stdin) {
+      console.log(chalk.green(`Session End: executing ${tasks.length} background tasks...`));
+    }
+
+    // Execute all tasks concurrently (best-effort)
+    const results = await Promise.allSettled(
+      tasks.map((task: { name: string; execute: () => Promise<void> }) => task.execute())
+    );
+
+    if (!stdin) {
+      for (let i = 0; i < tasks.length; i++) {
+        const status = results[i].status === 'fulfilled' ? 'OK' : 'FAIL';
+        const color = status === 'OK' ? chalk.green : chalk.yellow;
+        console.log(color(`  [${status}] ${tasks[i].name}`));
+      }
+    }
+
+    process.exit(0);
+  } catch (error) {
+    if (stdin) {
       process.exit(0);
     }
     console.error(chalk.red(`Error: ${(error as Error).message}`));
@@ -311,6 +423,7 @@ ${chalk.bold('USAGE')}
 ${chalk.bold('SUBCOMMANDS')}
   parse-status      Parse CCW status.json and display current/next command
   session-context   Progressive session context loading (replaces curl/bash hook)
+  session-end       Trigger background memory maintenance tasks
   notify            Send notification to ccw view dashboard
 
 ${chalk.bold('OPTIONS')}
@@ -362,6 +475,9 @@ export async function hookCommand(
     case 'session-context':
     case 'context':
       await sessionContextAction(options);
+      break;
+    case 'session-end':
+      await sessionEndAction(options);
       break;
     case 'notify':
       await notifyAction(options);

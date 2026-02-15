@@ -145,6 +145,22 @@ export type {
   UseDeleteMemoryReturn,
 } from './useMemory';
 
+// ========== Unified Memory ==========
+export {
+  useUnifiedSearch,
+  useUnifiedStats,
+  useRecommendations,
+  useReindex,
+} from './useUnifiedSearch';
+export type {
+  UseUnifiedSearchOptions,
+  UseUnifiedSearchReturn,
+  UseUnifiedStatsReturn,
+  UseRecommendationsOptions,
+  UseRecommendationsReturn,
+  UseReindexReturn,
+} from './useUnifiedSearch';
+
 // ========== MCP Servers ==========
 export {
   useMcpServers,
