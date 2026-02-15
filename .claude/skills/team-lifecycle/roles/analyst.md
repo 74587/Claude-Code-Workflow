@@ -23,7 +23,7 @@ Before every `SendMessage`, MUST call `mcp__ccw-tools__team_msg` to log:
 
 ```javascript
 // Research complete
-mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "analyst", to: "coordinator", type: "research_ready", summary: "Research done: 5 exploration dimensions", ref: `${sessionFolder}/discovery-context.json` })
+mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "analyst", to: "coordinator", type: "research_ready", summary: "Research done: 5 exploration dimensions", ref: `${sessionFolder}/spec/discovery-context.json` })
 
 // Error report
 mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "analyst", to: "coordinator", type: "error", summary: "Codebase access failed" })
@@ -61,7 +61,7 @@ TaskUpdate({ taskId: task.id, status: 'in_progress' })
 ```javascript
 // Extract session folder from task description
 const sessionMatch = task.description.match(/Session:\s*(.+)/)
-const sessionFolder = sessionMatch ? sessionMatch[1].trim() : '.workflow/.spec-team/default'
+const sessionFolder = sessionMatch ? sessionMatch[1].trim() : '.workflow/.team/default'
 
 // Parse topic from task description
 const topicLines = task.description.split('\n').filter(l => !l.startsWith('Session:') && !l.startsWith('输出:') && l.trim())
@@ -135,7 +135,7 @@ const specConfig = {
   session_folder: sessionFolder,
   discussion_depth: task.description.match(/讨论深度:\s*(.+)/)?.[1] || "standard"
 }
-Write(`${sessionFolder}/spec-config.json`, JSON.stringify(specConfig, null, 2))
+Write(`${sessionFolder}/spec/spec-config.json`, JSON.stringify(specConfig, null, 2))
 
 // Generate discovery-context.json
 const discoveryContext = {
@@ -155,7 +155,7 @@ const discoveryContext = {
   codebase_context: codebaseContext,
   recommendations: { focus_areas: [], risks: [], open_questions: [] }
 }
-Write(`${sessionFolder}/discovery-context.json`, JSON.stringify(discoveryContext, null, 2))
+Write(`${sessionFolder}/spec/discovery-context.json`, JSON.stringify(discoveryContext, null, 2))
 ```
 
 ### Phase 5: Report to Coordinator
@@ -191,8 +191,8 @@ ${(discoveryContext.seed_analysis.target_users || []).map(u => '- ' + u).join('\
 ${(discoveryContext.seed_analysis.exploration_dimensions || []).map((d, i) => (i+1) + '. ' + d).join('\n')}
 
 ### 输出位置
-- Config: ${sessionFolder}/spec-config.json
-- Context: ${sessionFolder}/discovery-context.json
+- Config: ${sessionFolder}/spec/spec-config.json
+- Context: ${sessionFolder}/spec/discovery-context.json
 
 研究已就绪，可进入讨论轮次 DISCUSS-001。`,
   summary: `研究就绪: ${dimensionCount}维度, ${specConfig.complexity}`

@@ -163,7 +163,7 @@ if (userChoice === "Verify TDD Compliance (Recommended)") {
 }
 ```
 
-**Auto Mode (--yes)**: Auto-select "Verify TDD Compliance", then auto-continue to execute if quality gate is APPROVED.
+**Auto Mode**: When `workflowPreferences.autoYes` is true, auto-select "Verify TDD Compliance", then auto-continue to execute if quality gate is APPROVED.
 
 ## Output
 

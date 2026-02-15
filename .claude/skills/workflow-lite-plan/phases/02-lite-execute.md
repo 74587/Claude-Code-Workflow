@@ -2,8 +2,6 @@
 
 Complete execution engine: multi-mode input, task grouping, batch execution, code review, and development index update.
 
-**Source**: Converted from `.claude/commands/workflow/lite-execute.md` - all execution detail preserved verbatim.
-
 ---
 
 ## Overview
@@ -20,22 +18,19 @@ Flexible task execution command supporting three input modes: in-memory plan (fr
 
 ## Usage
 
-### Command Syntax
-```bash
-/workflow:lite-execute [FLAGS] <INPUT>
-
-# Flags
---in-memory                Use plan from memory (called by lite-plan)
-
-# Arguments
+### Input
+```
 <input>                    Task description string, or path to file (required)
 ```
+
+Mode 1 (In-Memory) is triggered by lite-plan direct handoff when `executionContext` is available.
+Workflow preferences (`autoYes`) are passed from SKILL.md via `workflowPreferences` context variable.
 
 ## Input Modes
 
 ### Mode 1: In-Memory Plan
 
-**Trigger**: Called by lite-plan after Phase 4 approval with `--in-memory` flag
+**Trigger**: Called by lite-plan direct handoff after Phase 4 approval (executionContext available)
 
 **Input Source**: `executionContext` global variable set by lite-plan
 
@@ -61,14 +56,13 @@ Flexible task execution command supporting three input modes: in-memory plan (fr
 
 **User Interaction**:
 ```javascript
-// Parse --yes flag
-const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+const autoYes = workflowPreferences.autoYes
 
 let userSelection
 
 if (autoYes) {
   // Auto mode: Use defaults
-  console.log(`[--yes] Auto-confirming execution:`)
+  console.log(`[Auto] Auto-confirming execution:`)
   console.log(`  - Execution method: Auto`)
   console.log(`  - Code review: Skip`)
 
@@ -180,7 +174,7 @@ function getTasks(planObject) {
 ```
 Input Parsing:
    └─ Decision (mode detection):
-      ├─ --in-memory flag → Mode 1: Load executionContext → Skip user selection
+      ├─ executionContext exists → Mode 1: Load executionContext → Skip user selection
       ├─ Ends with .md/.json/.txt → Mode 3: Read file → Detect format
       │   ├─ Valid plan.json → Use planObject → User selects method + review
       │   └─ Not plan.json → Treat as prompt → User selects method + review
@@ -672,7 +666,7 @@ console.log(`✓ Development index: [${category}] ${entry.title}`)
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| Missing executionContext | --in-memory without context | Error: "No execution context found. Only available when called by lite-plan." |
+| Missing executionContext | In-memory mode without context | Error: "No execution context found. Only available when called by lite-plan." |
 | File not found | File path doesn't exist | Error: "File not found: {path}. Check file path." |
 | Empty file | File exists but no content | Error: "File is empty: {path}. Provide task description." |
 | Invalid Enhanced Task JSON | JSON missing required fields | Warning: "Missing required fields. Treating as plain text." |

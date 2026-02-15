@@ -59,7 +59,7 @@ const task = TaskGet({ taskId: myTasks[0].id })
 TaskUpdate({ taskId: task.id, status: 'in_progress' })
 
 // Extract plan path from task description
-const planPathMatch = task.description.match(/\.workflow\/\.team-plan\/[^\s]+\/plan\.json/)
+const planPathMatch = task.description.match(/\.workflow\/\.team\/[^\s]+\/plan\/plan\.json/)
 const planPath = planPathMatch ? planPathMatch[0] : null
 
 if (!planPath) {

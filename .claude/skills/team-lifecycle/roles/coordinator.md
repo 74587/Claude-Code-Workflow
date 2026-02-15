@@ -22,6 +22,74 @@ Team lifecycle coordinator. Orchestrates the full pipeline across three modes: s
 
 ## Execution
 
+### Phase 0: Session Resume Check
+
+Before any new session setup, check if resuming an existing session:
+
+```javascript
+const args = "$ARGUMENTS"
+const isResume = /--resume|--continue/.test(args)
+
+if (isResume) {
+  // Scan for active/paused sessions
+  const sessionDirs = Glob({ pattern: '.workflow/.team/TLS-*/team-session.json' })
+  const resumable = sessionDirs.map(f => {
+    try {
+      const session = JSON.parse(Read(f))
+      if (session.status === 'active' || session.status === 'paused') return session
+    } catch {}
+    return null
+  }).filter(Boolean)
+
+  if (resumable.length === 0) {
+    // No resumable sessions → fall through to Phase 1
+  } else if (resumable.length === 1) {
+    var resumedSession = resumable[0]
+  } else {
+    // Multiple matches → user selects
+    AskUserQuestion({
+      questions: [{
+        question: "检测到多个可恢复的会话，请选择：",
+        header: "Resume",
+        multiSelect: false,
+        options: resumable.slice(0, 4).map(s => ({
+          label: s.session_id,
+          description: `${s.topic} (${s.current_phase}, ${s.status})`
+        }))
+      }]
+    })
+    var resumedSession = resumable.find(s => s.session_id === userChoice)
+  }
+
+  if (resumedSession) {
+    // Restore session state
+    const teamName = resumedSession.team_name
+    const mode = resumedSession.mode
+    const sessionFolder = `.workflow/.team/${resumedSession.session_id}`
+    const taskDescription = resumedSession.topic
+
+    // Rebuild team
+    TeamCreate({ team_name: teamName })
+    // Spawn workers based on mode (see Phase 2)
+
+    // Update session status
+    resumedSession.status = 'active'
+    resumedSession.resumed_at = new Date().toISOString()
+    resumedSession.updated_at = new Date().toISOString()
+    Write(`${sessionFolder}/team-session.json`, JSON.stringify(resumedSession, null, 2))
+
+    // Create only uncompleted tasks from pipeline
+    const completedTasks = new Set(resumedSession.completed_tasks || [])
+    const pipeline = resumedSession.mode === 'spec-only' ? SPEC_CHAIN
+      : resumedSession.mode === 'impl-only' ? IMPL_CHAIN
+      : [...SPEC_CHAIN, ...IMPL_CHAIN]
+    const remainingTasks = pipeline.filter(t => !completedTasks.has(t))
+
+    // → Skip to Phase 3 with remainingTasks, then Phase 4 coordination loop
+  }
+}
+```
+
 ### Phase 1: Requirement Clarification
 
 Parse `$ARGUMENTS` to extract `--team-name` and task description.
@@ -30,7 +98,7 @@ Parse `$ARGUMENTS` to extract `--team-name` and task description.
 const args = "$ARGUMENTS"
 const teamNameMatch = args.match(/--team-name[=\s]+([\w-]+)/)
 const teamName = teamNameMatch ? teamNameMatch[1] : `lifecycle-${Date.now().toString(36)}`
-const taskDescription = args.replace(/--team-name[=\s]+[\w-]+/, '').replace(/--role[=\s]+\w+/, '').trim()
+const taskDescription = args.replace(/--team-name[=\s]+[\w-]+/, '').replace(/--role[=\s]+\w+/, '').replace(/--resume|--continue/, '').trim()
 ```
 
 Use AskUserQuestion to collect mode and constraints:
@@ -97,18 +165,42 @@ Simple tasks can skip clarification.
 ```javascript
 TeamCreate({ team_name: teamName })
 
-// Session setup
+// Unified session setup
 const topicSlug = taskDescription.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
 const dateStr = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().substring(0, 10)
-const specSessionFolder = `.workflow/.spec-team/${topicSlug}-${dateStr}`
-const implSessionFolder = `.workflow/.team-plan/${topicSlug}-${dateStr}`
+const sessionId = `TLS-${topicSlug}-${dateStr}`
+const sessionFolder = `.workflow/.team/${sessionId}`
 
+// Create unified directory structure
 if (mode === 'spec-only' || mode === 'full-lifecycle') {
-  Bash(`mkdir -p ${specSessionFolder}/discussions`)
+  Bash(`mkdir -p "${sessionFolder}/spec" "${sessionFolder}/discussions"`)
 }
 if (mode === 'impl-only' || mode === 'full-lifecycle') {
-  Bash(`mkdir -p ${implSessionFolder}`)
+  Bash(`mkdir -p "${sessionFolder}/plan"`)
 }
+
+// Create team-session.json
+const teamSession = {
+  session_id: sessionId,
+  team_name: teamName,
+  topic: taskDescription,
+  mode: mode,
+  status: "active",
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+  paused_at: null,
+  resumed_at: null,
+  completed_at: null,
+  current_phase: mode === 'impl-only' ? 'plan' : 'spec',
+  completed_tasks: [],
+  pipeline_progress: {
+    spec: mode !== 'impl-only' ? { total: 12, completed: 0 } : null,
+    impl: mode !== 'spec-only' ? { total: 4, completed: 0 } : null
+  },
+  user_preferences: { scope: scope || '', focus: focus || '', discussion_depth: discussionDepth || '' },
+  messages_team: teamName
+}
+Write(`${sessionFolder}/team-session.json`, JSON.stringify(teamSession, null, 2))
 ```
 
 **Conditional spawn based on mode** (see SKILL.md Coordinator Spawn Template for full prompts):
@@ -129,51 +221,51 @@ Task chain creation depends on the selected mode.
 
 ```javascript
 // RESEARCH Phase
-TaskCreate({ subject: "RESEARCH-001: 主题发现与上下文研究", description: `${taskDescription}\n\nSession: ${specSessionFolder}\n输出: ${specSessionFolder}/spec-config.json + discovery-context.json`, activeForm: "研究中" })
+TaskCreate({ subject: "RESEARCH-001: 主题发现与上下文研究", description: `${taskDescription}\n\nSession: ${sessionFolder}\n输出: ${sessionFolder}/spec/spec-config.json + spec/discovery-context.json`, activeForm: "研究中" })
 TaskUpdate({ taskId: researchId, owner: "analyst" })
 
 // DISCUSS-001: 范围讨论 (blockedBy RESEARCH-001)
-TaskCreate({ subject: "DISCUSS-001: 研究结果讨论 - 范围确认与方向调整", description: `讨论 RESEARCH-001 的发现结果\n\nSession: ${specSessionFolder}\n输入: ${specSessionFolder}/discovery-context.json\n输出: ${specSessionFolder}/discussions/discuss-001-scope.md\n\n讨论维度: 范围确认、方向调整、风险预判、探索缺口`, activeForm: "讨论范围中" })
+TaskCreate({ subject: "DISCUSS-001: 研究结果讨论 - 范围确认与方向调整", description: `讨论 RESEARCH-001 的发现结果\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/discovery-context.json\n输出: ${sessionFolder}/discussions/discuss-001-scope.md\n\n讨论维度: 范围确认、方向调整、风险预判、探索缺口`, activeForm: "讨论范围中" })
 TaskUpdate({ taskId: discuss1Id, owner: "discussant", addBlockedBy: [researchId] })
 
 // DRAFT-001: Product Brief (blockedBy DISCUSS-001)
-TaskCreate({ subject: "DRAFT-001: 撰写 Product Brief", description: `基于研究和讨论共识撰写产品简报\n\nSession: ${specSessionFolder}\n输入: discovery-context.json + discuss-001-scope.md\n输出: ${specSessionFolder}/product-brief.md\n\n使用多视角分析: 产品/技术/用户`, activeForm: "撰写 Brief 中" })
+TaskCreate({ subject: "DRAFT-001: 撰写 Product Brief", description: `基于研究和讨论共识撰写产品简报\n\nSession: ${sessionFolder}\n输入: discovery-context.json + discuss-001-scope.md\n输出: ${sessionFolder}/product-brief.md\n\n使用多视角分析: 产品/技术/用户`, activeForm: "撰写 Brief 中" })
 TaskUpdate({ taskId: draft1Id, owner: "writer", addBlockedBy: [discuss1Id] })
 
 // DISCUSS-002: Brief 评审 (blockedBy DRAFT-001)
-TaskCreate({ subject: "DISCUSS-002: Product Brief 多视角评审", description: `评审 Product Brief 文档\n\nSession: ${specSessionFolder}\n输入: ${specSessionFolder}/product-brief.md\n输出: ${specSessionFolder}/discussions/discuss-002-brief.md\n\n讨论维度: 产品定位、目标用户、成功指标、竞品差异`, activeForm: "评审 Brief 中" })
+TaskCreate({ subject: "DISCUSS-002: Product Brief 多视角评审", description: `评审 Product Brief 文档\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/product-brief.md\n输出: ${sessionFolder}/discussions/discuss-002-brief.md\n\n讨论维度: 产品定位、目标用户、成功指标、竞品差异`, activeForm: "评审 Brief 中" })
 TaskUpdate({ taskId: discuss2Id, owner: "discussant", addBlockedBy: [draft1Id] })
 
 // DRAFT-002: Requirements/PRD (blockedBy DISCUSS-002)
-TaskCreate({ subject: "DRAFT-002: 撰写 Requirements/PRD", description: `基于 Brief 和讨论反馈撰写需求文档\n\nSession: ${specSessionFolder}\n输入: product-brief.md + discuss-002-brief.md\n输出: ${specSessionFolder}/requirements/\n\n包含: 功能需求(REQ-*) + 非功能需求(NFR-*) + MoSCoW 优先级`, activeForm: "撰写 PRD 中" })
+TaskCreate({ subject: "DRAFT-002: 撰写 Requirements/PRD", description: `基于 Brief 和讨论反馈撰写需求文档\n\nSession: ${sessionFolder}\n输入: product-brief.md + discuss-002-brief.md\n输出: ${sessionFolder}/requirements/\n\n包含: 功能需求(REQ-*) + 非功能需求(NFR-*) + MoSCoW 优先级`, activeForm: "撰写 PRD 中" })
 TaskUpdate({ taskId: draft2Id, owner: "writer", addBlockedBy: [discuss2Id] })
 
 // DISCUSS-003: 需求完整性 (blockedBy DRAFT-002)
-TaskCreate({ subject: "DISCUSS-003: 需求完整性与优先级讨论", description: `讨论 PRD 需求完整性\n\nSession: ${specSessionFolder}\n输入: ${specSessionFolder}/requirements/_index.md\n输出: ${specSessionFolder}/discussions/discuss-003-requirements.md\n\n讨论维度: 需求遗漏、MoSCoW合理性、验收标准可测性、非功能需求充分性`, activeForm: "讨论需求中" })
+TaskCreate({ subject: "DISCUSS-003: 需求完整性与优先级讨论", description: `讨论 PRD 需求完整性\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/requirements/_index.md\n输出: ${sessionFolder}/discussions/discuss-003-requirements.md\n\n讨论维度: 需求遗漏、MoSCoW合理性、验收标准可测性、非功能需求充分性`, activeForm: "讨论需求中" })
 TaskUpdate({ taskId: discuss3Id, owner: "discussant", addBlockedBy: [draft2Id] })
 
 // DRAFT-003: Architecture (blockedBy DISCUSS-003)
-TaskCreate({ subject: "DRAFT-003: 撰写 Architecture Document", description: `基于需求和讨论反馈撰写架构文档\n\nSession: ${specSessionFolder}\n输入: requirements/ + discuss-003-requirements.md\n输出: ${specSessionFolder}/architecture/\n\n包含: 架构风格 + 组件图 + 技术选型 + ADR-* + 数据模型`, activeForm: "撰写架构中" })
+TaskCreate({ subject: "DRAFT-003: 撰写 Architecture Document", description: `基于需求和讨论反馈撰写架构文档\n\nSession: ${sessionFolder}\n输入: requirements/ + discuss-003-requirements.md\n输出: ${sessionFolder}/architecture/\n\n包含: 架构风格 + 组件图 + 技术选型 + ADR-* + 数据模型`, activeForm: "撰写架构中" })
 TaskUpdate({ taskId: draft3Id, owner: "writer", addBlockedBy: [discuss3Id] })
 
 // DISCUSS-004: 技术可行性 (blockedBy DRAFT-003)
-TaskCreate({ subject: "DISCUSS-004: 架构决策与技术可行性讨论", description: `讨论架构设计合理性\n\nSession: ${specSessionFolder}\n输入: ${specSessionFolder}/architecture/_index.md\n输出: ${specSessionFolder}/discussions/discuss-004-architecture.md\n\n讨论维度: 技术选型风险、可扩展性、安全架构、ADR替代方案`, activeForm: "讨论架构中" })
+TaskCreate({ subject: "DISCUSS-004: 架构决策与技术可行性讨论", description: `讨论架构设计合理性\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/architecture/_index.md\n输出: ${sessionFolder}/discussions/discuss-004-architecture.md\n\n讨论维度: 技术选型风险、可扩展性、安全架构、ADR替代方案`, activeForm: "讨论架构中" })
 TaskUpdate({ taskId: discuss4Id, owner: "discussant", addBlockedBy: [draft3Id] })
 
 // DRAFT-004: Epics & Stories (blockedBy DISCUSS-004)
-TaskCreate({ subject: "DRAFT-004: 撰写 Epics & Stories", description: `基于架构和讨论反馈撰写史诗和用户故事\n\nSession: ${specSessionFolder}\n输入: architecture/ + discuss-004-architecture.md\n输出: ${specSessionFolder}/epics/\n\n包含: EPIC-* + STORY-* + 依赖图 + MVP定义 + 执行顺序`, activeForm: "撰写 Epics 中" })
+TaskCreate({ subject: "DRAFT-004: 撰写 Epics & Stories", description: `基于架构和讨论反馈撰写史诗和用户故事\n\nSession: ${sessionFolder}\n输入: architecture/ + discuss-004-architecture.md\n输出: ${sessionFolder}/epics/\n\n包含: EPIC-* + STORY-* + 依赖图 + MVP定义 + 执行顺序`, activeForm: "撰写 Epics 中" })
 TaskUpdate({ taskId: draft4Id, owner: "writer", addBlockedBy: [discuss4Id] })
 
 // DISCUSS-005: 执行就绪 (blockedBy DRAFT-004)
-TaskCreate({ subject: "DISCUSS-005: 执行计划与MVP范围讨论", description: `讨论执行计划就绪性\n\nSession: ${specSessionFolder}\n输入: ${specSessionFolder}/epics/_index.md\n输出: ${specSessionFolder}/discussions/discuss-005-epics.md\n\n讨论维度: Epic粒度、故事估算、MVP范围、执行顺序、依赖风险`, activeForm: "讨论执行计划中" })
+TaskCreate({ subject: "DISCUSS-005: 执行计划与MVP范围讨论", description: `讨论执行计划就绪性\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/epics/_index.md\n输出: ${sessionFolder}/discussions/discuss-005-epics.md\n\n讨论维度: Epic粒度、故事估算、MVP范围、执行顺序、依赖风险`, activeForm: "讨论执行计划中" })
 TaskUpdate({ taskId: discuss5Id, owner: "discussant", addBlockedBy: [draft4Id] })
 
 // QUALITY-001: Readiness Check (blockedBy DISCUSS-005)
-TaskCreate({ subject: "QUALITY-001: 规格就绪度检查", description: `全文档交叉验证和质量评分\n\nSession: ${specSessionFolder}\n输入: 全部文档\n输出: ${specSessionFolder}/readiness-report.md + spec-summary.md\n\n评分维度: 完整性(20%) + 一致性(20%) + 可追溯性(20%) + 深度(20%) + 需求覆盖率(20%)`, activeForm: "质量检查中" })
+TaskCreate({ subject: "QUALITY-001: 规格就绪度检查", description: `全文档交叉验证和质量评分\n\nSession: ${sessionFolder}\n输入: 全部文档\n输出: ${sessionFolder}/spec/readiness-report.md + spec/spec-summary.md\n\n评分维度: 完整性(20%) + 一致性(20%) + 可追溯性(20%) + 深度(20%) + 需求覆盖率(20%)`, activeForm: "质量检查中" })
 TaskUpdate({ taskId: qualityId, owner: "reviewer", addBlockedBy: [discuss5Id] })
 
 // DISCUSS-006: 最终签收 (blockedBy QUALITY-001)
-TaskCreate({ subject: "DISCUSS-006: 最终签收与交付确认", description: `最终讨论和签收\n\nSession: ${specSessionFolder}\n输入: ${specSessionFolder}/readiness-report.md\n输出: ${specSessionFolder}/discussions/discuss-006-final.md\n\n讨论维度: 质量报告审查、遗留问题处理、交付确认、下一步建议`, activeForm: "最终签收讨论中" })
+TaskCreate({ subject: "DISCUSS-006: 最终签收与交付确认", description: `最终讨论和签收\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/readiness-report.md\n输出: ${sessionFolder}/discussions/discuss-006-final.md\n\n讨论维度: 质量报告审查、遗留问题处理、交付确认、下一步建议`, activeForm: "最终签收讨论中" })
 TaskUpdate({ taskId: discuss6Id, owner: "discussant", addBlockedBy: [qualityId] })
 ```
 
@@ -181,11 +273,11 @@ TaskUpdate({ taskId: discuss6Id, owner: "discussant", addBlockedBy: [qualityId] 
 
 ```javascript
 // PLAN-001
-TaskCreate({ subject: "PLAN-001: 探索和规划实现", description: `${taskDescription}\n\n写入: ${implSessionFolder}/`, activeForm: "规划中" })
+TaskCreate({ subject: "PLAN-001: 探索和规划实现", description: `${taskDescription}\n\nSession: ${sessionFolder}\n写入: ${sessionFolder}/plan/`, activeForm: "规划中" })
 TaskUpdate({ taskId: planId, owner: "planner" })
 
 // IMPL-001 (blockedBy PLAN-001)
-TaskCreate({ subject: "IMPL-001: 实现已批准的计划", description: `${taskDescription}\n\nPlan: ${implSessionFolder}/plan.json`, activeForm: "实现中" })
+TaskCreate({ subject: "IMPL-001: 实现已批准的计划", description: `${taskDescription}\n\nSession: ${sessionFolder}\nPlan: ${sessionFolder}/plan/plan.json`, activeForm: "实现中" })
 TaskUpdate({ taskId: implId, owner: "executor", addBlockedBy: [planId] })
 
 // TEST-001 (blockedBy IMPL-001)
@@ -193,7 +285,7 @@ TaskCreate({ subject: "TEST-001: 测试修复循环", description: `${taskDescri
 TaskUpdate({ taskId: testId, owner: "tester", addBlockedBy: [implId] })
 
 // REVIEW-001 (blockedBy IMPL-001, parallel with TEST-001)
-TaskCreate({ subject: "REVIEW-001: 代码审查与需求验证", description: `${taskDescription}\n\nPlan: ${implSessionFolder}/plan.json`, activeForm: "审查中" })
+TaskCreate({ subject: "REVIEW-001: 代码审查与需求验证", description: `${taskDescription}\n\nSession: ${sessionFolder}\nPlan: ${sessionFolder}/plan/plan.json`, activeForm: "审查中" })
 TaskUpdate({ taskId: reviewId, owner: "reviewer", addBlockedBy: [implId] })
 ```
 
@@ -204,7 +296,7 @@ Create both spec and impl chains, with PLAN-001 blockedBy DISCUSS-006:
 ```javascript
 // [All spec-only tasks as above]
 // Then:
-TaskCreate({ subject: "PLAN-001: 探索和规划实现", description: `${taskDescription}\n\nSpec: ${specSessionFolder}\n写入: ${implSessionFolder}/`, activeForm: "规划中" })
+TaskCreate({ subject: "PLAN-001: 探索和规划实现", description: `${taskDescription}\n\nSession: ${sessionFolder}\n写入: ${sessionFolder}/plan/`, activeForm: "规划中" })
 TaskUpdate({ taskId: planId, owner: "planner", addBlockedBy: [discuss6Id] })
 // [Rest of impl-only tasks as above]
 ```
@@ -248,7 +340,7 @@ When receiving `research_ready` from analyst, confirm extracted requirements wit
 
 ```javascript
 if (msgType === 'research_ready') {
-  const discoveryContext = JSON.parse(Read(`${specSessionFolder}/discovery-context.json`))
+  const discoveryContext = JSON.parse(Read(`${sessionFolder}/spec/discovery-context.json`))
   const dimensions = discoveryContext.seed_analysis?.exploration_dimensions || []
   const constraints = discoveryContext.seed_analysis?.constraints || []
   const problemStatement = discoveryContext.seed_analysis?.problem_statement || ''
@@ -271,7 +363,7 @@ if (msgType === 'research_ready') {
     // User provides additional requirements via free text
     // Merge into discovery-context.json, then unblock DISCUSS-001
     discoveryContext.seed_analysis.user_supplements = userInput
-    Write(`${specSessionFolder}/discovery-context.json`, JSON.stringify(discoveryContext, null, 2))
+    Write(`${sessionFolder}/spec/discovery-context.json`, JSON.stringify(discoveryContext, null, 2))
   } else if (userChoice === '需要重新研究') {
     // Reset RESEARCH-001 to pending, notify analyst
     TaskUpdate({ taskId: researchId, status: 'pending' })
@@ -341,13 +433,13 @@ if (userChoice === '交付执行') {
   })
 
   // 读取 spec 文档
-  const specConfig = JSON.parse(Read(`${specSessionFolder}/spec-config.json`))
-  const specSummary = Read(`${specSessionFolder}/spec-summary.md`)
-  const productBrief = Read(`${specSessionFolder}/product-brief.md`)
-  const requirementsIndex = Read(`${specSessionFolder}/requirements/_index.md`)
-  const architectureIndex = Read(`${specSessionFolder}/architecture/_index.md`)
-  const epicsIndex = Read(`${specSessionFolder}/epics/_index.md`)
-  const epicFiles = Glob(`${specSessionFolder}/epics/EPIC-*.md`)
+  const specConfig = JSON.parse(Read(`${sessionFolder}/spec/spec-config.json`))
+  const specSummary = Read(`${sessionFolder}/spec/spec-summary.md`)
+  const productBrief = Read(`${sessionFolder}/spec/product-brief.md`)
+  const requirementsIndex = Read(`${sessionFolder}/spec/requirements/_index.md`)
+  const architectureIndex = Read(`${sessionFolder}/spec/architecture/_index.md`)
+  const epicsIndex = Read(`${sessionFolder}/spec/epics/_index.md`)
+  const epicFiles = Glob(`${sessionFolder}/spec/epics/EPIC-*.md`)
 
   if (handoffChoice === 'lite-plan') {
     // 读取首个 MVP Epic → 调用 lite-plan
@@ -368,7 +460,7 @@ if (userChoice === '交付执行') {
     // Step A: 构建结构化描述
     const structuredDesc = `GOAL: ${specConfig.seed_analysis?.problem_statement || specConfig.topic}
 SCOPE: ${specConfig.complexity} complexity
-CONTEXT: Generated from spec team session ${specConfig.session_id}. Source: ${specSessionFolder}/`
+CONTEXT: Generated from spec team session ${specConfig.session_id}. Source: ${sessionFolder}/`
 
     // Step B: 创建 WFS session
     Skill({ skill: "workflow:session:start", args: `--auto "${structuredDesc}"` })
@@ -384,7 +476,7 @@ CONTEXT: Generated from spec team session ${specConfig.session_id}. Source: ${sp
 
 **Source**: spec-team session ${specConfig.session_id}
 **Generated**: ${new Date().toISOString()}
-**Spec Directory**: ${specSessionFolder}
+**Spec Directory**: ${sessionFolder}
 
 ## 1. Project Positioning & Goals
 ${extractSection(productBrief, "Vision")}
@@ -407,11 +499,11 @@ ${extractSection(epicsIndex, "Traceability Matrix")}
 ## Appendix: Source Documents
 | Document | Path | Description |
 |----------|------|-------------|
-| Product Brief | ${specSessionFolder}/product-brief.md | Vision, goals, scope |
-| Requirements | ${specSessionFolder}/requirements/ | _index.md + REQ-*.md + NFR-*.md |
-| Architecture | ${specSessionFolder}/architecture/ | _index.md + ADR-*.md |
-| Epics | ${specSessionFolder}/epics/ | _index.md + EPIC-*.md |
-| Readiness Report | ${specSessionFolder}/readiness-report.md | Quality validation |
+| Product Brief | ${sessionFolder}/spec/product-brief.md | Vision, goals, scope |
+| Requirements | ${sessionFolder}/spec/requirements/ | _index.md + REQ-*.md + NFR-*.md |
+| Architecture | ${sessionFolder}/spec/architecture/ | _index.md + ADR-*.md |
+| Epics | ${sessionFolder}/spec/epics/ | _index.md + EPIC-*.md |
+| Readiness Report | ${sessionFolder}/spec/readiness-report.md | Quality validation |
 `)
 
     // C.2: feature-index.json（EPIC → Feature 映射）
@@ -501,30 +593,58 @@ function parseYAML(yamlStr) {
 }
 ```
 
+## Session State Tracking
+
+At each key transition, update `team-session.json`:
+
+```javascript
+// Helper: update session state
+function updateSession(sessionFolder, updates) {
+  const session = JSON.parse(Read(`${sessionFolder}/team-session.json`))
+  Object.assign(session, updates, { updated_at: new Date().toISOString() })
+  Write(`${sessionFolder}/team-session.json`, JSON.stringify(session, null, 2))
+}
+
+// On task completion:
+updateSession(sessionFolder, {
+  completed_tasks: [...session.completed_tasks, taskPrefix],
+  pipeline_progress: { ...session.pipeline_progress,
+    [phase]: { ...session.pipeline_progress[phase], completed: session.pipeline_progress[phase].completed + 1 }
+  }
+})
+
+// On phase transition (spec → plan):
+updateSession(sessionFolder, { current_phase: 'plan' })
+
+// On completion:
+updateSession(sessionFolder, { status: 'completed', completed_at: new Date().toISOString() })
+
+// On user closes team:
+updateSession(sessionFolder, { status: 'completed', completed_at: new Date().toISOString() })
+```
+
 ## Session File Structure
 
 ```
-# Spec session
-.workflow/.spec-team/{topic-slug}-{YYYY-MM-DD}/
-├── spec-config.json
-├── discovery-context.json
-├── product-brief.md
-├── requirements/
-├── architecture/
-├── epics/
-├── readiness-report.md
-├── spec-summary.md
-└── discussions/
-    └── discuss-001..006.md
-
-# Impl session
-.workflow/.team-plan/{task-slug}-{YYYY-MM-DD}/
-├── exploration-*.json
-├── explorations-manifest.json
-├── planning-context.md
-├── plan.json
-└── .task/
-    └── TASK-*.json
+.workflow/.team/TLS-{slug}-{YYYY-MM-DD}/
+├── team-session.json           # Session state (resume support)
+├── spec/                       # Spec artifacts
+│   ├── spec-config.json
+│   ├── discovery-context.json
+│   ├── product-brief.md
+│   ├── requirements/           # _index.md + REQ-*.md + NFR-*.md
+│   ├── architecture/           # _index.md + ADR-*.md
+│   ├── epics/                  # _index.md + EPIC-*.md
+│   ├── readiness-report.md
+│   └── spec-summary.md
+├── discussions/                 # Discussion records
+│   └── discuss-001..006.md
+└── plan/                        # Plan artifacts
+    ├── exploration-{angle}.json
+    ├── explorations-manifest.json
+    ├── plan.json
+    └── .task/
+        └── TASK-*.json
 ```
 
 ## Error Handling

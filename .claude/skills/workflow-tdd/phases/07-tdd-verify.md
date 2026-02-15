@@ -12,7 +12,7 @@ Full TDD compliance verification with quality gate reporting. Generates comprehe
 ## Operating Constraints
 
 **ORCHESTRATOR MODE**:
-- This phase coordinates sub-steps and `/workflow:tools:tdd-coverage-analysis`
+- This phase coordinates sub-steps and inline TDD coverage analysis
 - MAY write output files: TDD_COMPLIANCE_REPORT.md (primary report), .process/*.json (intermediate artifacts)
 - MUST NOT modify source task files or implementation code
 - MUST NOT create or delete tasks in the workflow
@@ -120,9 +120,183 @@ Calculate:
 
 ### Step 7.3: Coverage & Cycle Analysis
 
-**Call Coverage Analysis Sub-command**:
-```javascript
-Skill(skill="workflow:tools:tdd-coverage-analysis", args="--session {session_id}")
+**Execute TDD Coverage Analysis**:
+
+#### Phase 3a: Extract Test Tasks
+
+```bash
+# Find TEST task files and extract focus_paths
+find .workflow/active/{session_id}/.task/ -name 'TEST-*.json' -exec jq -r '.context.focus_paths[]' {} \;
+```
+
+**Output**: List of test directories/files from all TEST tasks
+
+#### Phase 3b: Run Test Suite
+
+```bash
+# Auto-detect test framework from project
+if [ -f "package.json" ] && grep -q "jest\|mocha\|vitest" package.json; then
+    TEST_CMD="npm test -- --coverage --json"
+elif [ -f "pytest.ini" ] || [ -f "setup.py" ]; then
+    TEST_CMD="pytest --cov --json-report"
+elif [ -f "Cargo.toml" ]; then
+    TEST_CMD="cargo test -- --test-threads=1 --nocapture"
+elif [ -f "go.mod" ]; then
+    TEST_CMD="go test -coverprofile=coverage.out -json ./..."
+else
+    TEST_CMD="echo 'No supported test framework found'"
+fi
+
+# Execute test suite with coverage
+$TEST_CMD > .workflow/active/{session_id}/.process/test-results.json
+```
+
+**Output**: test-results.json with coverage data
+
+#### Phase 3c: Parse Coverage Data
+
+```bash
+jq '.coverage' .workflow/active/{session_id}/.process/test-results.json > .workflow/active/{session_id}/.process/coverage-report.json
+```
+
+**Extract**:
+- Line coverage percentage
+- Branch coverage percentage
+- Function coverage percentage
+- Uncovered lines/branches
+
+#### Phase 3d: Verify TDD Cycle
+
+For each TDD chain (TEST-N.M -> IMPL-N.M -> REFACTOR-N.M):
+
+**1. Red Phase Verification**
+```bash
+cat .workflow/active/{session_id}/.summaries/TEST-N.M-summary.md
+```
+
+Verify:
+- Tests were created
+- Tests failed initially
+- Failure messages were clear
+
+**2. Green Phase Verification**
+```bash
+cat .workflow/active/{session_id}/.summaries/IMPL-N.M-summary.md
+```
+
+Verify:
+- Implementation was completed
+- Tests now pass
+- Implementation was minimal
+
+**3. Refactor Phase Verification**
+```bash
+cat .workflow/active/{session_id}/.summaries/REFACTOR-N.M-summary.md
+```
+
+Verify:
+- Refactoring was completed
+- Tests still pass
+- Code quality improved
+
+#### TDD Cycle Verification Algorithm
+
+```
+For each feature N:
+  1. Load TEST-N.M-summary.md
+     IF summary missing:
+       Mark: "Red phase incomplete"
+       SKIP to next feature
+
+     CHECK: Contains "test" AND "fail"
+     IF NOT found:
+       Mark: "Red phase verification failed"
+     ELSE:
+       Mark: "Red phase [PASS]"
+
+  2. Load IMPL-N.M-summary.md
+     IF summary missing:
+       Mark: "Green phase incomplete"
+       SKIP to next feature
+
+     CHECK: Contains "pass" OR "green"
+     IF NOT found:
+       Mark: "Green phase verification failed"
+     ELSE:
+       Mark: "Green phase [PASS]"
+
+  3. Load REFACTOR-N.M-summary.md
+     IF summary missing:
+       Mark: "Refactor phase incomplete"
+       CONTINUE (refactor is optional)
+
+     CHECK: Contains "refactor" AND "pass"
+     IF NOT found:
+       Mark: "Refactor phase verification failed"
+     ELSE:
+       Mark: "Refactor phase [PASS]"
+
+  4. Calculate chain score:
+     - Red + Green + Refactor all [PASS] = 100%
+     - Red + Green [PASS], Refactor missing = 80%
+     - Red [PASS], Green missing = 40%
+     - All missing = 0%
+```
+
+#### Phase 3e: Generate Analysis Report
+
+Create `.workflow/active/{session_id}/.process/tdd-cycle-report.md`:
+
+```markdown
+# TDD Cycle Analysis - {Session ID}
+
+## Coverage Metrics
+- **Line Coverage**: {percentage}%
+- **Branch Coverage**: {percentage}%
+- **Function Coverage**: {percentage}%
+
+## Coverage Details
+### Covered
+- {covered_lines} lines
+- {covered_branches} branches
+- {covered_functions} functions
+
+### Uncovered
+- Lines: {uncovered_line_numbers}
+- Branches: {uncovered_branch_locations}
+
+## TDD Cycle Verification
+
+### Feature 1: {Feature Name}
+**Chain**: TEST-1.1 -> IMPL-1.1 -> REFACTOR-1.1
+
+- [PASS] **Red Phase**: Tests created and failed initially
+- [PASS] **Green Phase**: Implementation made tests pass
+- [PASS] **Refactor Phase**: Refactoring maintained green tests
+
+[Repeat for all features]
+
+## TDD Compliance Summary
+- **Total Chains**: {N}
+- **Complete Cycles**: {N}
+- **Incomplete Cycles**: {0}
+- **Compliance Score**: {score}/100
+
+## Gaps Identified
+- {gap descriptions}
+
+## Recommendations
+- {improvement suggestions}
+```
+
+#### Coverage Metrics Calculation
+
+```bash
+line_coverage=$(jq '.coverage.lineCoverage' test-results.json)
+branch_coverage=$(jq '.coverage.branchCoverage' test-results.json)
+function_coverage=$(jq '.coverage.functionCoverage' test-results.json)
+
+overall_score=$(echo "($line_coverage + $branch_coverage + $function_coverage) / 3" | bc)
 ```
 
 **Parse Output Files**:
@@ -432,7 +606,7 @@ Next: Review full report for detailed findings
 |-------|-------|------------|
 | Coverage tool missing | No test framework | Configure testing first |
 | Tests fail to run | Code errors | Fix errors before verify |
-| Sub-command fails | tdd-coverage-analysis error | Check sub-command logs |
+| Coverage analysis fails | Test framework or coverage tool error | Check test framework configuration |
 
 ## Output
 
@@ -445,9 +619,9 @@ Next: Review full report for detailed findings
 .workflow/active/WFS-{session-id}/
 ├── TDD_COMPLIANCE_REPORT.md     # Comprehensive compliance report ⭐
 └── .process/
-    ├── test-results.json         # From tdd-coverage-analysis
-    ├── coverage-report.json      # From tdd-coverage-analysis
-    └── tdd-cycle-report.md       # From tdd-coverage-analysis
+    ├── test-results.json         # From coverage analysis (Step 7.3)
+    ├── coverage-report.json      # From coverage analysis (Step 7.3)
+    └── tdd-cycle-report.md       # From coverage analysis (Step 7.3)
 ```
 
 ## Next Steps Decision Table

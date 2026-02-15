@@ -92,12 +92,12 @@ const roundMatch = task.subject.match(/DISCUSS-(\d+)/)
 const roundNumber = roundMatch ? parseInt(roundMatch[1]) : 0
 
 const roundConfig = {
-  1: { artifact: 'discovery-context.json', type: 'json', outputFile: 'discuss-001-scope.md', perspectives: ['product', 'risk', 'coverage'], label: '范围讨论' },
-  2: { artifact: 'product-brief.md', type: 'md', outputFile: 'discuss-002-brief.md', perspectives: ['product', 'technical', 'quality', 'coverage'], label: 'Brief评审' },
-  3: { artifact: 'requirements/_index.md', type: 'md', outputFile: 'discuss-003-requirements.md', perspectives: ['quality', 'product', 'coverage'], label: '需求讨论' },
-  4: { artifact: 'architecture/_index.md', type: 'md', outputFile: 'discuss-004-architecture.md', perspectives: ['technical', 'risk'], label: '架构讨论' },
-  5: { artifact: 'epics/_index.md', type: 'md', outputFile: 'discuss-005-epics.md', perspectives: ['product', 'technical', 'quality', 'coverage'], label: 'Epics讨论' },
-  6: { artifact: 'readiness-report.md', type: 'md', outputFile: 'discuss-006-final.md', perspectives: ['product', 'technical', 'quality', 'risk', 'coverage'], label: '最终签收' }
+  1: { artifact: 'spec/discovery-context.json', type: 'json', outputFile: 'discuss-001-scope.md', perspectives: ['product', 'risk', 'coverage'], label: '范围讨论' },
+  2: { artifact: 'spec/product-brief.md', type: 'md', outputFile: 'discuss-002-brief.md', perspectives: ['product', 'technical', 'quality', 'coverage'], label: 'Brief评审' },
+  3: { artifact: 'spec/requirements/_index.md', type: 'md', outputFile: 'discuss-003-requirements.md', perspectives: ['quality', 'product', 'coverage'], label: '需求讨论' },
+  4: { artifact: 'spec/architecture/_index.md', type: 'md', outputFile: 'discuss-004-architecture.md', perspectives: ['technical', 'risk'], label: '架构讨论' },
+  5: { artifact: 'spec/epics/_index.md', type: 'md', outputFile: 'discuss-005-epics.md', perspectives: ['product', 'technical', 'quality', 'coverage'], label: 'Epics讨论' },
+  6: { artifact: 'spec/readiness-report.md', type: 'md', outputFile: 'discuss-006-final.md', perspectives: ['product', 'technical', 'quality', 'risk', 'coverage'], label: '最终签收' }
 }
 
 const config = roundConfig[roundNumber]

@@ -47,9 +47,49 @@ Unified planning skill combining 4-phase planning workflow, plan quality verific
 5. **Auto-Continue**: After each phase completes, automatically execute next pending phase
 6. **Accumulated State**: planning-notes.md carries context across phases for N+1 decisions
 
-## Auto Mode
+## Interactive Preference Collection
 
-When `--yes` or `-y`: Auto-continue all phases (skip confirmations), use recommended conflict resolutions, use safe defaults for replan.
+Before dispatching to phase execution, collect workflow preferences via AskUserQuestion:
+
+```javascript
+const prefResponse = AskUserQuestion({
+  questions: [
+    {
+      question: "是否跳过所有确认步骤（自动模式）？",
+      header: "Auto Mode",
+      multiSelect: false,
+      options: [
+        { label: "Interactive (Recommended)", description: "交互模式，包含确认步骤" },
+        { label: "Auto", description: "跳过所有确认，自动执行" }
+      ]
+    }
+  ]
+})
+
+workflowPreferences = {
+  autoYes: prefResponse.autoMode === 'Auto'
+}
+
+// For replan mode, also collect interactive preference
+if (mode === 'replan') {
+  const replanPref = AskUserQuestion({
+    questions: [
+      {
+        question: "是否使用交互式澄清模式？",
+        header: "Replan Mode",
+        multiSelect: false,
+        options: [
+          { label: "Standard (Recommended)", description: "使用安全默认值" },
+          { label: "Interactive", description: "通过提问交互式澄清修改范围" }
+        ]
+      }
+    ]
+  })
+  workflowPreferences.interactive = replanPref.replanMode === 'Interactive'
+}
+```
+
+**workflowPreferences** is passed to phase execution as context variable, referenced as `workflowPreferences.autoYes`, `workflowPreferences.interactive` within phases.
 
 ## Mode Detection
 
@@ -326,18 +366,18 @@ See phase files for detailed update code.
 - **If user selects Verify**: Read phases/05-plan-verify.md, execute Phase 5 in-process
 - **If user selects Execute**: Skill(skill="workflow-execute")
 - **If user selects Review**: Route to /workflow:status
-- **Auto mode (--yes)**: Auto-select "Verify Plan Quality", then auto-continue to execute if PROCEED
+- **Auto mode (workflowPreferences.autoYes)**: Auto-select "Verify Plan Quality", then auto-continue to execute if PROCEED
 - Update TodoWrite after each phase
 - After each phase, automatically continue to next phase based on TodoList status
 
 ### Verify Mode
-- Detect/validate session (from --session flag or auto-detect)
+- Detect/validate session (auto-detect from active sessions)
 - Initialize TodoWrite with single verification task
 - Execute Phase 5 verification agent
 - Present quality gate result and next step options
 
 ### Replan Mode
-- Parse flags (--session, --interactive, task-id)
+- Parse task ID from $ARGUMENTS (IMPL-N format, if present)
 - Detect operation mode (task vs session)
 - Initialize TodoWrite with replan-specific tasks
 - Execute Phase 6 through all sub-phases (clarification → impact → backup → apply → verify)

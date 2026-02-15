@@ -47,9 +47,31 @@ Unified TDD workflow skill combining TDD planning (Red-Green-Refactor task chain
 5. **Auto-Continue**: After each phase completes, automatically execute next pending phase
 6. **TDD Iron Law**: NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST - enforced in task structure
 
-## Auto Mode
+## Interactive Preference Collection
 
-When `--yes` or `-y`: Auto-continue all phases (skip confirmations), use recommended conflict resolutions, auto-select "Verify Plan Quality" after plan completion.
+Before dispatching to phase execution, collect workflow preferences via AskUserQuestion:
+
+```javascript
+const prefResponse = AskUserQuestion({
+  questions: [
+    {
+      question: "是否跳过所有确认步骤（自动模式）？",
+      header: "Auto Mode",
+      multiSelect: false,
+      options: [
+        { label: "Interactive (Recommended)", description: "交互模式，包含确认步骤" },
+        { label: "Auto", description: "跳过所有确认，自动执行" }
+      ]
+    }
+  ]
+})
+
+workflowPreferences = {
+  autoYes: prefResponse.autoMode === 'Auto'
+}
+```
+
+**workflowPreferences** is passed to phase execution as context variable, referenced as `workflowPreferences.autoYes` within phases.
 
 ## Mode Detection
 
@@ -426,7 +448,7 @@ Similar to workflow-plan, a `planning-notes.md` can accumulate context across ph
 - **If user selects Verify**: Read phases/07-tdd-verify.md, execute Phase 7 in-process
 - **If user selects Execute**: Skill(skill="workflow-execute")
 - **If user selects Review**: Route to /workflow:status
-- **Auto mode (--yes)**: Auto-select "Verify TDD Compliance", then auto-continue to execute if APPROVED
+- **Auto mode (workflowPreferences.autoYes)**: Auto-select "Verify TDD Compliance", then auto-continue to execute if APPROVED
 - Update TaskCreate/TaskUpdate after each phase
 - After each phase, automatically continue to next phase based on TaskList status
 

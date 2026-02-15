@@ -69,7 +69,7 @@ const sessionFolder = sessionMatch ? sessionMatch[1].trim() : ''
 
 // Load session config
 let specConfig = null
-try { specConfig = JSON.parse(Read(`${sessionFolder}/spec-config.json`)) } catch {}
+try { specConfig = JSON.parse(Read(`${sessionFolder}/spec/spec-config.json`)) } catch {}
 
 // Determine document type from task subject
 const docType = task.subject.includes('Product Brief') ? 'product-brief'
@@ -91,16 +91,16 @@ try { discussionFeedback = Read(`${sessionFolder}/${discussionFiles[docType]}`) 
 // Load prior documents progressively
 const priorDocs = {}
 if (docType !== 'product-brief') {
-  try { priorDocs.discoveryContext = Read(`${sessionFolder}/discovery-context.json`) } catch {}
+  try { priorDocs.discoveryContext = Read(`${sessionFolder}/spec/discovery-context.json`) } catch {}
 }
 if (['requirements', 'architecture', 'epics'].includes(docType)) {
-  try { priorDocs.productBrief = Read(`${sessionFolder}/product-brief.md`) } catch {}
+  try { priorDocs.productBrief = Read(`${sessionFolder}/spec/product-brief.md`) } catch {}
 }
 if (['architecture', 'epics'].includes(docType)) {
-  try { priorDocs.requirementsIndex = Read(`${sessionFolder}/requirements/_index.md`) } catch {}
+  try { priorDocs.requirementsIndex = Read(`${sessionFolder}/spec/requirements/_index.md`) } catch {}
 }
 if (docType === 'epics') {
-  try { priorDocs.architectureIndex = Read(`${sessionFolder}/architecture/_index.md`) } catch {}
+  try { priorDocs.architectureIndex = Read(`${sessionFolder}/spec/architecture/_index.md`) } catch {}
 }
 ```
 
@@ -246,8 +246,8 @@ dependencies:
   // 填充 template 中所有 section: Vision, Problem Statement, Target Users, Goals, Scope
   // 应用 document-standards.md 格式规范
 
-  Write(`${sessionFolder}/product-brief.md`, `${frontmatter}\n\n${filledContent}`)
-  outputPath = 'product-brief.md'
+  Write(`${sessionFolder}/spec/product-brief.md`, `${frontmatter}\n\n${filledContent}`)
+  outputPath = 'spec/product-brief.md'
 }
 ```
 
@@ -299,7 +299,7 @@ CONSTRAINTS: Every requirement must be specific enough to estimate and test. No 
   }
 
   // === 生成 requirements/ 目录 ===
-  Bash(`mkdir -p "${sessionFolder}/requirements"`)
+  Bash(`mkdir -p "${sessionFolder}/spec/requirements"`)
 
   const timestamp = new Date().toISOString()
 
@@ -330,7 +330,7 @@ ${req.user_story}
 ## Acceptance Criteria
 ${req.acceptance_criteria.map((ac, i) => `${i+1}. ${ac}`).join('\n')}
 `
-    Write(`${sessionFolder}/requirements/REQ-${req.id}-${req.slug}.md`, reqContent)
+    Write(`${sessionFolder}/spec/requirements/REQ-${req.id}-${req.slug}.md`, reqContent)
   })
 
   // 写入独立 NFR-*.md 文件
@@ -353,7 +353,7 @@ ${nfr.requirement}
 ## Metric & Target
 ${nfr.metric} — Target: ${nfr.target}
 `
-    Write(`${sessionFolder}/requirements/NFR-${nfr.type}-${nfr.id}-${nfr.slug}.md`, nfrContent)
+    Write(`${sessionFolder}/spec/requirements/NFR-${nfr.type}-${nfr.id}-${nfr.slug}.md`, nfrContent)
   })
 
   // 写入 _index.md（汇总 + 链接）
@@ -390,8 +390,8 @@ ${nfReqs.map(n => `| [NFR-${n.type}-${n.id}](NFR-${n.type}-${n.id}-${n.slug}.md)
 - **Could**: ${funcReqs.filter(r => r.priority === 'Could').length}
 - **Won't**: ${funcReqs.filter(r => r.priority === "Won't").length}
 `
-  Write(`${sessionFolder}/requirements/_index.md`, indexContent)
-  outputPath = 'requirements/_index.md'
+  Write(`${sessionFolder}/spec/requirements/_index.md`, indexContent)
+  outputPath = 'spec/requirements/_index.md'
 }
 ```
 
@@ -485,7 +485,7 @@ CONSTRAINTS: Be genuinely critical, not just validating. Focus on actionable imp
   }
 
   // === 生成 architecture/ 目录 ===
-  Bash(`mkdir -p "${sessionFolder}/architecture"`)
+  Bash(`mkdir -p "${sessionFolder}/spec/architecture"`)
 
   const timestamp = new Date().toISOString()
   const adrs = parseADRs(geminiArchitectureOutput, codexReviewOutput)
@@ -518,7 +518,7 @@ ${adr.consequences}
 ## Review Feedback
 ${adr.reviewFeedback || 'N/A'}
 `
-    Write(`${sessionFolder}/architecture/ADR-${adr.id}-${adr.slug}.md`, adrContent)
+    Write(`${sessionFolder}/spec/architecture/ADR-${adr.id}-${adr.slug}.md`, adrContent)
   })
 
   // 写入 _index.md（含 Mermaid 组件图 + ER图 + 链接）
@@ -535,8 +535,8 @@ dependencies:
 ---`
   // 包含: system overview, component diagram (Mermaid), tech stack table,
   // ADR links table, data model (Mermaid erDiagram), API design, security controls
-  Write(`${sessionFolder}/architecture/_index.md`, archIndexContent)
-  outputPath = 'architecture/_index.md'
+  Write(`${sessionFolder}/spec/architecture/_index.md`, archIndexContent)
+  outputPath = 'spec/architecture/_index.md'
 }
 ```
 
@@ -596,7 +596,7 @@ CONSTRAINTS: Every Must-have requirement must appear in at least one Story. Stor
   }
 
   // === 生成 epics/ 目录 ===
-  Bash(`mkdir -p "${sessionFolder}/epics"`)
+  Bash(`mkdir -p "${sessionFolder}/spec/epics"`)
 
   const timestamp = new Date().toISOString()
   const epicsList = parseEpics(cliOutput)
@@ -643,7 +643,7 @@ ${epic.reqs.map(r => `- [${r}](../requirements/${r}.md)`).join('\n')}
 ## Architecture
 ${epic.adrs.map(a => `- [${a}](../architecture/${a}.md)`).join('\n')}
 `
-    Write(`${sessionFolder}/epics/EPIC-${epic.id}-${epic.slug}.md`, epicContent)
+    Write(`${sessionFolder}/spec/epics/EPIC-${epic.id}-${epic.slug}.md`, epicContent)
   })
 
   // 写入 _index.md（含 Mermaid 依赖图 + MVP + 链接）
@@ -660,8 +660,8 @@ dependencies:
 ---`
   // 包含: Epic overview table (with links), dependency Mermaid diagram,
   // execution order, MVP scope, traceability matrix
-  Write(`${sessionFolder}/epics/_index.md`, epicsIndexContent)
-  outputPath = 'epics/_index.md'
+  Write(`${sessionFolder}/spec/epics/_index.md`, epicsIndexContent)
+  outputPath = 'spec/epics/_index.md'
 }
 ```
 

@@ -159,6 +159,45 @@ Full-lifecycle:
   [Spec pipeline] → PLAN-001(blockedBy: DISCUSS-006) → IMPL-001 → TEST-001 + REVIEW-001
 ```
 
+## Unified Session Directory
+
+All session artifacts are stored under a single session folder:
+
+```
+.workflow/.team/TLS-{slug}-{YYYY-MM-DD}/
+├── team-session.json           # Session state (status, progress, completed_tasks)
+├── spec/                       # Spec artifacts (analyst, writer, reviewer output)
+│   ├── spec-config.json
+│   ├── discovery-context.json
+│   ├── product-brief.md
+│   ├── requirements/           # _index.md + REQ-*.md + NFR-*.md
+│   ├── architecture/           # _index.md + ADR-*.md
+│   ├── epics/                  # _index.md + EPIC-*.md
+│   ├── readiness-report.md
+│   └── spec-summary.md
+├── discussions/                # Discussion records (discussant output)
+│   └── discuss-001..006.md
+└── plan/                       # Plan artifacts (planner output)
+    ├── exploration-{angle}.json
+    ├── explorations-manifest.json
+    ├── plan.json
+    └── .task/
+        └── TASK-*.json
+```
+
+Messages remain at `.workflow/.team-msg/{team-name}/` (unchanged).
+
+## Session Resume
+
+Coordinator supports `--resume` / `--continue` flags to resume interrupted sessions:
+
+1. Scans `.workflow/.team/TLS-*/team-session.json` for `status: "active"` or `"paused"`
+2. Multiple matches → `AskUserQuestion` for user selection
+3. Loads session state: `teamName`, `mode`, `sessionFolder`, `completed_tasks`
+4. Rebuilds team (`TeamCreate` + worker spawns)
+5. Creates only uncompleted tasks in the task chain
+6. Jumps to Phase 4 coordination loop
+
 ## Coordinator Spawn Template
 
 When coordinator creates teammates:
@@ -237,6 +276,7 @@ Task({
 当你收到 PLAN-* 任务时，调用 Skill(skill="team-lifecycle", args="--role=planner") 执行。
 当前需求: ${taskDescription}
 约束: ${constraints}
+Session: ${sessionFolder}
 
 ## 消息总线（必须）
 每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。

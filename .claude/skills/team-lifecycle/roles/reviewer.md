@@ -73,7 +73,7 @@ const reviewMode = task.subject.startsWith('REVIEW-') ? 'code' : 'spec'
 ```javascript
 if (reviewMode === 'code') {
   // Load plan for acceptance criteria
-  const planPathMatch = task.description.match(/\.workflow\/\.team-plan\/[^\s]+\/plan\.json/)
+  const planPathMatch = task.description.match(/\.workflow\/\.team\/[^\s]+\/plan\/plan\.json/)
   let plan = null
   if (planPathMatch) {
     try { plan = JSON.parse(Read(planPathMatch[0])) } catch {}
@@ -112,18 +112,18 @@ if (reviewMode === 'spec') {
     adrs: [], epicsIndex: null, epics: [], discussions: []
   }
 
-  try { documents.config = JSON.parse(Read(`${sessionFolder}/spec-config.json`)) } catch {}
-  try { documents.discoveryContext = JSON.parse(Read(`${sessionFolder}/discovery-context.json`)) } catch {}
-  try { documents.productBrief = Read(`${sessionFolder}/product-brief.md`) } catch {}
-  try { documents.requirementsIndex = Read(`${sessionFolder}/requirements/_index.md`) } catch {}
-  try { documents.architectureIndex = Read(`${sessionFolder}/architecture/_index.md`) } catch {}
-  try { documents.epicsIndex = Read(`${sessionFolder}/epics/_index.md`) } catch {}
+  try { documents.config = JSON.parse(Read(`${sessionFolder}/spec/spec-config.json`)) } catch {}
+  try { documents.discoveryContext = JSON.parse(Read(`${sessionFolder}/spec/discovery-context.json`)) } catch {}
+  try { documents.productBrief = Read(`${sessionFolder}/spec/product-brief.md`) } catch {}
+  try { documents.requirementsIndex = Read(`${sessionFolder}/spec/requirements/_index.md`) } catch {}
+  try { documents.architectureIndex = Read(`${sessionFolder}/spec/architecture/_index.md`) } catch {}
+  try { documents.epicsIndex = Read(`${sessionFolder}/spec/epics/_index.md`) } catch {}
 
   // Load individual documents
-  Glob({ pattern: `${sessionFolder}/requirements/REQ-*.md` }).forEach(f => { try { documents.requirements.push(Read(f)) } catch {} })
-  Glob({ pattern: `${sessionFolder}/requirements/NFR-*.md` }).forEach(f => { try { documents.requirements.push(Read(f)) } catch {} })
-  Glob({ pattern: `${sessionFolder}/architecture/ADR-*.md` }).forEach(f => { try { documents.adrs.push(Read(f)) } catch {} })
-  Glob({ pattern: `${sessionFolder}/epics/EPIC-*.md` }).forEach(f => { try { documents.epics.push(Read(f)) } catch {} })
+  Glob({ pattern: `${sessionFolder}/spec/requirements/REQ-*.md` }).forEach(f => { try { documents.requirements.push(Read(f)) } catch {} })
+  Glob({ pattern: `${sessionFolder}/spec/requirements/NFR-*.md` }).forEach(f => { try { documents.requirements.push(Read(f)) } catch {} })
+  Glob({ pattern: `${sessionFolder}/spec/architecture/ADR-*.md` }).forEach(f => { try { documents.adrs.push(Read(f)) } catch {} })
+  Glob({ pattern: `${sessionFolder}/spec/epics/EPIC-*.md` }).forEach(f => { try { documents.epics.push(Read(f)) } catch {} })
   Glob({ pattern: `${sessionFolder}/discussions/discuss-*.md` }).forEach(f => { try { documents.discussions.push(Read(f)) } catch {} })
 
   const docInventory = {
@@ -473,7 +473,7 @@ ${allSpecIssues.map(i => '- ' + i).join('\n') || 'None'}
 ## Document Inventory
 ${Object.entries(docInventory).map(([k, v]) => '- ' + k + ': ' + (v === true ? '✓' : v === false ? '✗' : v)).join('\n')}
 `
-  Write(`${sessionFolder}/readiness-report.md`, readinessReport)
+  Write(`${sessionFolder}/spec/readiness-report.md`, readinessReport)
 
   // Generate spec-summary.md
   const specSummary = `---
@@ -503,7 +503,7 @@ ${qualityGate === 'PASS' ? '- Ready for handoff to execution workflows' :
   qualityGate === 'REVIEW' ? '- Address review items, then proceed to execution' :
   '- Fix critical issues before proceeding'}
 `
-  Write(`${sessionFolder}/spec-summary.md`, specSummary)
+  Write(`${sessionFolder}/spec/spec-summary.md`, specSummary)
 }
 ```
 
@@ -590,8 +590,8 @@ ${allSpecIssues.map(i => '- ' + i).join('\n') || '无问题'}
 ${Object.entries(docInventory).map(([k, v]) => '- ' + k + ': ' + (typeof v === 'boolean' ? (v ? '✓' : '✗') : v)).join('\n')}
 
 ### 输出位置
-- 就绪报告: ${sessionFolder}/readiness-report.md
-- 执行摘要: ${sessionFolder}/spec-summary.md
+- 就绪报告: ${sessionFolder}/spec/readiness-report.md
+- 执行摘要: ${sessionFolder}/spec/spec-summary.md
 
 ${qualityGate === 'PASS' ? '质量达标，可进入最终讨论轮次 DISCUSS-006。' :
   qualityGate === 'REVIEW' ? '质量基本达标但有改进空间，建议在讨论中审查。' :

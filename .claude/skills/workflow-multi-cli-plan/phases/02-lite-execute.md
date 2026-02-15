@@ -1,10 +1,11 @@
 # Phase 2: Lite Execute
 
-Complete execution engine supporting multiple input modes: in-memory plan, prompt description, or file content. This phase document preserves the full content of the original `workflow:lite-execute` command.
+Complete execution engine supporting multiple input modes: in-memory plan, prompt description, or file content.
 
-> **Source**: Converted from `.claude/commands/workflow/lite-execute.md`. Frontmatter moved to SKILL.md.
+## Objective
 
-# Workflow Lite-Execute Command (/workflow:lite-execute)
+- Execute implementation tasks from in-memory plan, prompt description, or file content
+- Support batch execution with grouped tasks and code review
 
 ## Overview
 
@@ -61,14 +62,14 @@ Flexible task execution command supporting three input modes: in-memory plan (fr
 
 **User Interaction**:
 ```javascript
-// Parse --yes flag
-const autoYes = $ARGUMENTS.includes('--yes') || $ARGUMENTS.includes('-y')
+// Reference workflowPreferences (set by SKILL.md via AskUserQuestion)
+const autoYes = workflowPreferences.autoYes
 
 let userSelection
 
 if (autoYes) {
   // Auto mode: Use defaults
-  console.log(`[--yes] Auto-confirming execution:`)
+  console.log(`[Auto] Auto-confirming execution:`)
   console.log(`  - Execution method: Auto`)
   console.log(`  - Code review: Skip`)
 
@@ -753,7 +754,7 @@ Appended to `previousExecutionResults` array for context continuity in multi-exe
 
 ## Post-Completion Expansion
 
-完成后询问用户是否扩展为issue(test/enhance/refactor/doc)，选中项调用 `/issue:new "{summary} - {dimension}"`
+完成后询问用户是否扩展为issue(test/enhance/refactor/doc)，选中项调用 `Skill(skill="issue:new", args="{summary} - {dimension}")`
 
 **Fixed ID Pattern**: `${sessionId}-${groupId}` enables predictable lookup without auto-generated timestamps.
 
