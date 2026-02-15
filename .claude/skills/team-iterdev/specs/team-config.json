@@ -1,0 +1,94 @@
+{
+  "team_name": "team-iterdev",
+  "team_display_name": "Team IterDev",
+  "description": "Iterative development team with Generator-Critic loop, task ledger, sprint learning, and dynamic pipeline",
+  "version": "1.0.0",
+
+  "roles": {
+    "coordinator": {
+      "task_prefix": null,
+      "responsibility": "Sprint planning, backlog management, task ledger maintenance, GC loop control",
+      "message_types": ["sprint_started", "gc_loop_trigger", "sprint_complete", "task_unblocked", "error", "shutdown"]
+    },
+    "architect": {
+      "task_prefix": "DESIGN",
+      "responsibility": "Technical design, task decomposition, architecture decisions",
+      "message_types": ["design_ready", "design_revision", "error"]
+    },
+    "developer": {
+      "task_prefix": "DEV",
+      "responsibility": "Code implementation, incremental delivery",
+      "message_types": ["dev_complete", "dev_progress", "error"]
+    },
+    "tester": {
+      "task_prefix": "VERIFY",
+      "responsibility": "Test execution, fix cycle, regression detection",
+      "message_types": ["verify_passed", "verify_failed", "fix_required", "error"]
+    },
+    "reviewer": {
+      "task_prefix": "REVIEW",
+      "responsibility": "Code review, quality scoring, improvement suggestions",
+      "message_types": ["review_passed", "review_revision", "review_critical", "error"]
+    }
+  },
+
+  "pipelines": {
+    "patch": {
+      "description": "Simple fix: implement → verify",
+      "task_chain": ["DEV-001", "VERIFY-001"],
+      "gc_loops": 0
+    },
+    "sprint": {
+      "description": "Standard feature: design → implement → verify + review (parallel)",
+      "task_chain": ["DESIGN-001", "DEV-001", "VERIFY-001", "REVIEW-001"],
+      "gc_loops": 3,
+      "parallel_groups": [["VERIFY-001", "REVIEW-001"]]
+    },
+    "multi-sprint": {
+      "description": "Large feature: multiple sprint cycles with incremental delivery",
+      "task_chain": "dynamic — coordinator creates per-sprint chains",
+      "gc_loops": 3,
+      "sprint_count": "dynamic"
+    }
+  },
+
+  "innovation_patterns": {
+    "generator_critic": {
+      "generator": "developer",
+      "critic": "reviewer",
+      "max_rounds": 3,
+      "convergence_trigger": "review.critical_count === 0 && review.score >= 7"
+    },
+    "task_ledger": {
+      "file": "task-ledger.json",
+      "updated_by": "coordinator",
+      "tracks": ["status", "gc_rounds", "review_score", "test_pass_rate", "velocity"]
+    },
+    "shared_memory": {
+      "file": "shared-memory.json",
+      "fields": {
+        "architect": "architecture_decisions",
+        "developer": "implementation_context",
+        "tester": "test_patterns",
+        "reviewer": "review_feedback_trends"
+      },
+      "persistent_fields": ["sprint_history", "what_worked", "what_failed", "patterns_learned"]
+    },
+    "dynamic_pipeline": {
+      "selector": "coordinator",
+      "criteria": "file_count + module_count + complexity_assessment",
+      "downgrade_rule": "velocity >= expected && review_avg >= 8 → simplify next sprint"
+    }
+  },
+
+  "collaboration_patterns": ["CP-1", "CP-3", "CP-5", "CP-6"],
+
+  "session_dirs": {
+    "base": ".workflow/.team/IDS-{slug}-{YYYY-MM-DD}/",
+    "design": "design/",
+    "code": "code/",
+    "verify": "verify/",
+    "review": "review/",
+    "messages": ".workflow/.team-msg/{team-name}/"
+  }
+}
