@@ -751,6 +751,7 @@ Type inference: options + multiSelect=true → multi-select; options + multiSele
                 properties: {
                   label: { type: 'string', description: 'Display text, also used as value' },
                   description: { type: 'string', description: 'Option description' },
+                  isDefault: { type: 'boolean', description: 'Mark as default/recommended option' },
                 },
                 required: ['label'],
               },
@@ -830,6 +831,7 @@ interface PageMeta {
 function generateMultiQuestionSurface(
   questions: SimpleQuestion[],
   surfaceId: string,
+  timeoutMs: number,
 ): {
   surfaceUpdate: {
     surfaceId: string;
@@ -997,6 +999,7 @@ function generateMultiQuestionSurface(
         questionType: 'multi-question',
         pages,
         totalPages: questions.length,
+        timeoutAt: new Date(Date.now() + timeoutMs).toISOString(),
       },
       displayMode: 'popup',
     },
@@ -1055,7 +1058,7 @@ async function executeSimpleFormat(
   const compositeId = `multi-${Date.now()}`;
   const surfaceId = `question-${compositeId}`;
 
-  const { surfaceUpdate, pages } = generateMultiQuestionSurface(questions, surfaceId);
+  const { surfaceUpdate, pages } = generateMultiQuestionSurface(questions, surfaceId, timeout ?? DEFAULT_TIMEOUT_MS);
 
   // Create promise for the composite answer
   const resultPromise = new Promise<AskQuestionResult>((resolve, reject) => {

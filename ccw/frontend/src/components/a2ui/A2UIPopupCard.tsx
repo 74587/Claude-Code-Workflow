@@ -5,7 +5,7 @@
 // Used for displayMode: 'popup' surfaces (e.g., ask_question)
 // Supports markdown content parsing and multi-page navigation
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -166,6 +166,23 @@ function SinglePagePopup({ surface, onClose }: A2UIPopupCardProps) {
   const [otherText, setOtherText] = useState('');
 
   const questionId = (surface.initialState as any)?.questionId as string | undefined;
+
+  // Countdown timer for auto-selection
+  const timeoutAt = (surface.initialState as any)?.timeoutAt as string | undefined;
+  const defaultLabel = (surface.initialState as any)?.defaultValue as string | undefined;
+  const [remaining, setRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!timeoutAt || !defaultLabel) return;
+    const target = new Date(timeoutAt).getTime();
+    const tick = () => {
+      const secs = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+      setRemaining(secs);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [timeoutAt, defaultLabel]);
 
   // Extract title, message, and description from surface components
   const titleComponent = surface.components.find(
@@ -351,6 +368,15 @@ function SinglePagePopup({ surface, onClose }: A2UIPopupCardProps) {
           </div>
         )}
 
+        {/* Countdown for auto-selection */}
+        {remaining !== null && defaultLabel && (
+          <div className="text-xs text-muted-foreground text-center pt-2">
+            {remaining > 0
+              ? `${remaining}s 后将自动选择「${defaultLabel}」`
+              : `即将自动选择「${defaultLabel}」`}
+          </div>
+        )}
+
         {/* Footer - Action buttons */}
         {actionButtons.length > 0 && (
           <DialogFooter className="pt-4">
@@ -382,6 +408,22 @@ function MultiPagePopup({ surface, onClose }: A2UIPopupCardProps) {
   const compositeId = state.questionId as string;
 
   const [currentPage, setCurrentPage] = useState(0);
+
+  // Countdown timer for auto-selection
+  const timeoutAt = (state as any)?.timeoutAt as string | undefined;
+  const [remaining, setRemaining] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!timeoutAt) return;
+    const target = new Date(timeoutAt).getTime();
+    const tick = () => {
+      const secs = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+      setRemaining(secs);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [timeoutAt]);
 
   // "Other" per-page state
   const [otherSelectedPages, setOtherSelectedPages] = useState<Set<number>>(new Set());
@@ -612,6 +654,15 @@ function MultiPagePopup({ surface, onClose }: A2UIPopupCardProps) {
             />
           ))}
         </div>
+
+        {/* Countdown for auto-selection */}
+        {remaining !== null && (
+          <div className="text-xs text-muted-foreground text-center">
+            {remaining > 0
+              ? `${remaining}s 后将自动提交默认选项`
+              : '即将自动提交默认选项'}
+          </div>
+        )}
 
         {/* Footer - Navigation buttons */}
         <DialogFooter className="pt-2">

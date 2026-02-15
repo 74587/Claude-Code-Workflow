@@ -595,7 +595,7 @@ class TreeSitterSymbolParser:
         targets: List[str] = []
 
         if node.type == "import_statement":
-            for child in node.children:
+            for i, child in enumerate(node.children):
                 if child.type == "aliased_import":
                     name_node = child.child_by_field_name("name")
                     alias_node = child.child_by_field_name("alias")
@@ -632,7 +632,7 @@ class TreeSitterSymbolParser:
             if module_node is not None:
                 module_name = self._node_text(source_bytes, module_node).strip()
 
-            for child in node.children:
+            for i, child in enumerate(node.children):
                 if child.type == "aliased_import":
                     name_node = child.child_by_field_name("name")
                     alias_node = child.child_by_field_name("alias")
@@ -650,7 +650,18 @@ class TreeSitterSymbolParser:
                     if bound_name:
                         aliases[bound_name] = target
                     targets.append(target)
-                elif child.type == "identifier":
+                elif child.type == "dotted_name" and node.field_name_for_child(i) == "name":
+                    # tree-sitter-python represents `from X import A, B, C` as
+                    # multiple dotted_name nodes (field: "name").
+                    imported_name = self._node_text(source_bytes, child).strip()
+                    if not imported_name:
+                        continue
+                    target = (
+                        f"{module_name}.{imported_name}" if module_name else imported_name
+                    )
+                    aliases[imported_name] = target
+                    targets.append(target)
+                elif child.type == "identifier" and node.field_name_for_child(i) == "name":
                     imported_name = self._node_text(source_bytes, child).strip()
                     if not imported_name or imported_name in {"from", "import", "*"}:
                         continue

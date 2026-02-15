@@ -324,6 +324,15 @@ class AstGrepPythonProcessor(BaseAstGrepProcessor):
         for node in from_matches:
             module = self._get_match(node, "MODULE")
             names = self._get_match(node, "NAMES")
+            # Prefer parsing from full node text to handle multiple imports
+            # (ast-grep-py capture may only include the first name).
+            try:
+                node_text = self._binding._get_node_text(node) if self._binding else ""
+            except Exception:
+                node_text = ""
+            parsed_names = self._extract_import_names_from_text(node_text) if node_text else ""
+            if parsed_names:
+                names = parsed_names
             start_line, end_line = self._get_line_range(node)
             if module:
                 all_matches.append((start_line, end_line, "from_import", f"{module}:{names}", node))
@@ -478,29 +487,46 @@ class AstGrepPythonProcessor(BaseAstGrepProcessor):
                 module = parts[0]
                 names = parts[1] if len(parts) > 1 else ""
 
-                # Record the import relationship
-                relationships.append(CodeRelationship(
-                    source_symbol=get_current_scope(),
-                    target_symbol=module,
-                    relationship_type=RelationshipType.IMPORTS,
-                    source_file=source_file,
-                    target_file=None,
-                    source_line=start_line,
-                ))
+                names = (names or "").strip()
+                if names.startswith("(") and names.endswith(")"):
+                    names = names[1:-1].strip()
 
-                # Add aliases for imported names
+                # Record IMPORTS edges for the imported names (module.symbol), and
+                # update aliases for call/usage resolution.
                 if names and names != "*":
                     for name in names.split(","):
                         name = name.strip()
-                        # Handle "name as alias" syntax
+                        if not name or name == "*":
+                            continue
+
                         if " as " in name:
-                            as_parts = name.split(" as ")
+                            as_parts = name.split(" as ", 1)
                             original = as_parts[0].strip()
                             alias = as_parts[1].strip()
+                            if not original:
+                                continue
+                            target = f"{module}.{original}" if module else original
                             if alias:
-                                update_aliases({alias: f"{module}.{original}"})
-                        elif name:
-                            update_aliases({name: f"{module}.{name}"})
+                                update_aliases({alias: target})
+                            relationships.append(CodeRelationship(
+                                source_symbol=get_current_scope(),
+                                target_symbol=target,
+                                relationship_type=RelationshipType.IMPORTS,
+                                source_file=source_file,
+                                target_file=None,
+                                source_line=start_line,
+                            ))
+                        else:
+                            target = f"{module}.{name}" if module else name
+                            update_aliases({name: target})
+                            relationships.append(CodeRelationship(
+                                source_symbol=get_current_scope(),
+                                target_symbol=target,
+                                relationship_type=RelationshipType.IMPORTS,
+                                source_file=source_file,
+                                target_file=None,
+                                source_line=start_line,
+                            ))
 
             elif match_type == "call":
                 # Resolve alias for call target
