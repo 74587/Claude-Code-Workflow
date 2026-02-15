@@ -5,7 +5,7 @@
 // Provides toggle buttons for floating panels (Issues/Queue/Inspector)
 // and layout preset controls. Sessions sidebar is always visible.
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   AlertCircle,
@@ -15,15 +15,28 @@ import {
   Columns2,
   Rows2,
   Square,
+  Terminal,
+  ChevronDown,
+  Zap,
+  Settings,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/Badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/Dropdown';
 import {
   useIssueQueueIntegrationStore,
   selectAssociationChain,
 } from '@/stores/issueQueueIntegrationStore';
 import { useIssues, useIssueQueue } from '@/hooks/useIssues';
-import { useTerminalGridStore } from '@/stores/terminalGridStore';
+import { useTerminalGridStore, selectTerminalGridFocusedPaneId } from '@/stores/terminalGridStore';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 // ========== Types ==========
 
@@ -76,8 +89,76 @@ export function DashboardToolbar({ activePanel, onTogglePanel }: DashboardToolba
     [resetLayout]
   );
 
+  // Launch CLI handlers
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const focusedPaneId = useTerminalGridStore(selectTerminalGridFocusedPaneId);
+  const createSessionAndAssign = useTerminalGridStore((s) => s.createSessionAndAssign);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleQuickCreate = useCallback(async () => {
+    if (!focusedPaneId || !projectPath) return;
+    setIsCreating(true);
+    try {
+      await createSessionAndAssign(focusedPaneId, {
+        workingDir: projectPath,
+        preferredShell: 'bash',
+      }, projectPath);
+    } finally {
+      setIsCreating(false);
+    }
+  }, [focusedPaneId, projectPath, createSessionAndAssign]);
+
+  const handleConfigure = useCallback(() => {
+    // TODO: Open configuration modal (future implementation)
+    console.log('Configure CLI session - modal to be implemented');
+  }, []);
+
   return (
     <div className="flex items-center gap-1 px-2 h-[40px] border-b border-border bg-muted/30 shrink-0">
+      {/* Launch CLI dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className={cn(
+              'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors',
+              'text-muted-foreground hover:text-foreground hover:bg-muted',
+              isCreating && 'opacity-50 cursor-wait'
+            )}
+            disabled={isCreating || !projectPath}
+          >
+            {isCreating ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Terminal className="w-3.5 h-3.5" />
+            )}
+            <span>{formatMessage({ id: 'terminalDashboard.toolbar.launchCli' })}</span>
+            <ChevronDown className="w-3 h-3" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" sideOffset={4}>
+          <DropdownMenuItem
+            onClick={handleQuickCreate}
+            disabled={isCreating || !projectPath || !focusedPaneId}
+            className="gap-2"
+          >
+            <Zap className="w-4 h-4" />
+            <span>{formatMessage({ id: 'terminalDashboard.toolbar.quickCreate' })}</span>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={handleConfigure}
+            disabled={isCreating}
+            className="gap-2"
+          >
+            <Settings className="w-4 h-4" />
+            <span>{formatMessage({ id: 'terminalDashboard.toolbar.configure' })}</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Separator */}
+      <div className="w-px h-5 bg-border mx-1" />
+
       {/* Panel toggle buttons */}
       <ToolbarButton
         icon={AlertCircle}

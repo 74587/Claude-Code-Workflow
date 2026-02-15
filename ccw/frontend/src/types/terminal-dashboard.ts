@@ -18,7 +18,7 @@ export interface SessionLayout {
 }
 
 /** Terminal status indicator */
-export type TerminalStatus = 'active' | 'idle' | 'error';
+export type TerminalStatus = 'active' | 'idle' | 'error' | 'paused' | 'resuming';
 
 /** Metadata for a terminal instance in the dashboard */
 export interface TerminalMeta {
@@ -83,6 +83,12 @@ export interface SessionManagerActions {
   terminateMonitor: () => void;
   /** Forward a terminal output chunk to the monitor worker */
   feedMonitor: (sessionId: string, text: string) => void;
+  /** Pause a terminal session (SIGSTOP) */
+  pauseSession: (terminalId: string) => Promise<void>;
+  /** Resume a paused terminal session (SIGCONT) */
+  resumeSession: (terminalId: string) => Promise<void>;
+  /** Restart a terminal session (close and recreate with same config) */
+  restartSession: (terminalId: string) => Promise<void>;
 }
 
 export type SessionManagerStore = SessionManagerState & SessionManagerActions;

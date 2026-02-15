@@ -63,6 +63,7 @@ function getStoreState() {
     upsertCliSession: cliSessions.upsertSession,
     removeCliSession: cliSessions.removeSession,
     appendCliSessionOutput: cliSessions.appendOutput,
+    updateCliSessionPausedState: cliSessions.updateSessionPausedState,
   };
 }
 
@@ -191,6 +192,22 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
               const { sessionKey } = data.payload ?? {};
               if (typeof sessionKey === 'string') {
                 stores.removeCliSession(sessionKey);
+              }
+              break;
+            }
+
+            case 'CLI_SESSION_PAUSED': {
+              const { sessionKey } = data.payload ?? {};
+              if (typeof sessionKey === 'string') {
+                stores.updateCliSessionPausedState(sessionKey, true);
+              }
+              break;
+            }
+
+            case 'CLI_SESSION_RESUMED': {
+              const { sessionKey } = data.payload ?? {};
+              if (typeof sessionKey === 'string') {
+                stores.updateCliSessionPausedState(sessionKey, false);
               }
               break;
             }

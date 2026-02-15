@@ -17,6 +17,9 @@ import type {
   TerminalMeta,
   TerminalStatus,
 } from '../types/terminal-dashboard';
+import { pauseCliSession, resumeCliSession, closeCliSession, createCliSession } from '../lib/api';
+import { useCliSessionStore } from './cliSessionStore';
+import { useWorkflowStore, selectProjectPath } from './workflowStore';
 
 // ========== Initial State ==========
 
@@ -176,6 +179,150 @@ export const useSessionManagerStore = create<SessionManagerStore>()(
         }
         if (_workerRef) {
           _workerRef.postMessage({ type: 'output', sessionId, text });
+        }
+      },
+
+      // ========== Session Lifecycle Actions ==========
+
+      pauseSession: async (terminalId: string) => {
+        const projectPath = selectProjectPath(useWorkflowStore.getState());
+        try {
+          await pauseCliSession(terminalId, projectPath ?? undefined);
+          set(
+            (state) => {
+              const existing = state.terminalMetas[terminalId];
+              if (!existing) return state;
+              return {
+                terminalMetas: {
+                  ...state.terminalMetas,
+                  [terminalId]: { ...existing, status: 'paused' as TerminalStatus },
+                },
+              };
+            },
+            false,
+            'pauseSession'
+          );
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error('[SessionManager] pauseSession error:', error);
+          }
+          throw error;
+        }
+      },
+
+      resumeSession: async (terminalId: string) => {
+        const projectPath = selectProjectPath(useWorkflowStore.getState());
+        // First update to 'resuming' status
+        set(
+          (state) => {
+            const existing = state.terminalMetas[terminalId];
+            if (!existing) return state;
+            return {
+              terminalMetas: {
+                ...state.terminalMetas,
+                [terminalId]: { ...existing, status: 'resuming' as TerminalStatus },
+              },
+            };
+          },
+          false,
+          'resumeSession/pending'
+        );
+        try {
+          await resumeCliSession(terminalId, projectPath ?? undefined);
+          // On success, update to 'active' status
+          set(
+            (state) => {
+              const existing = state.terminalMetas[terminalId];
+              if (!existing) return state;
+              return {
+                terminalMetas: {
+                  ...state.terminalMetas,
+                  [terminalId]: { ...existing, status: 'active' as TerminalStatus },
+                },
+              };
+            },
+            false,
+            'resumeSession/fulfilled'
+          );
+        } catch (error) {
+          // On error, revert to 'paused' status
+          set(
+            (state) => {
+              const existing = state.terminalMetas[terminalId];
+              if (!existing) return state;
+              return {
+                terminalMetas: {
+                  ...state.terminalMetas,
+                  [terminalId]: { ...existing, status: 'paused' as TerminalStatus },
+                },
+              };
+            },
+            false,
+            'resumeSession/rejected'
+          );
+          if (import.meta.env.DEV) {
+            console.error('[SessionManager] resumeSession error:', error);
+          }
+          throw error;
+        }
+      },
+
+      restartSession: async (terminalId: string) => {
+        const projectPath = selectProjectPath(useWorkflowStore.getState());
+        const cliStore = useCliSessionStore.getState();
+        const session = cliStore.sessions[terminalId];
+
+        if (!session) {
+          throw new Error(`Session not found: ${terminalId}`);
+        }
+
+        // Store session config for recreation
+        const sessionConfig = {
+          workingDir: session.workingDir,
+          tool: session.tool,
+          model: session.model,
+          resumeKey: session.resumeKey,
+          shellKind: session.shellKind,
+        };
+
+        try {
+          // Close existing session
+          await closeCliSession(terminalId, projectPath ?? undefined);
+
+          // Create new session with same config
+          const result = await createCliSession(
+            {
+              workingDir: sessionConfig.workingDir,
+              preferredShell: sessionConfig.shellKind === 'powershell' ? 'pwsh' : 'bash',
+              tool: sessionConfig.tool,
+              model: sessionConfig.model,
+              resumeKey: sessionConfig.resumeKey,
+            },
+            projectPath ?? undefined
+          );
+
+          // Update terminal meta to active status
+          set(
+            (state) => {
+              const existing = state.terminalMetas[terminalId];
+              if (!existing) return state;
+              return {
+                terminalMetas: {
+                  ...state.terminalMetas,
+                  [terminalId]: { ...existing, status: 'active' as TerminalStatus, alertCount: 0 },
+                },
+              };
+            },
+            false,
+            'restartSession'
+          );
+
+          return result;
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error('[SessionManager] restartSession error:', error);
+          }
+          throw error;
         }
       },
     }),

@@ -444,5 +444,59 @@ export async function handleCliSessionsRoutes(ctx: RouteContext): Promise<boolea
     return true;
   }
 
+  // POST /api/cli-sessions/:sessionKey/pause
+  const pauseMatch = pathname.match(/^\/api\/cli-sessions\/([^/]+)\/pause$/);
+  if (pauseMatch && req.method === 'POST') {
+    const sessionKey = decodeURIComponent(pauseMatch[1]);
+    try {
+      manager.pauseSession(sessionKey);
+      appendCliSessionAudit({
+        type: 'session_paused',
+        timestamp: new Date().toISOString(),
+        projectRoot,
+        sessionKey,
+        ...clientInfo(req),
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      const message = (err as Error).message;
+      if (message.includes('not found')) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+      } else {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+      }
+      res.end(JSON.stringify({ error: message }));
+    }
+    return true;
+  }
+
+  // POST /api/cli-sessions/:sessionKey/resume
+  const resumeMatch = pathname.match(/^\/api\/cli-sessions\/([^/]+)\/resume$/);
+  if (resumeMatch && req.method === 'POST') {
+    const sessionKey = decodeURIComponent(resumeMatch[1]);
+    try {
+      manager.resumeSession(sessionKey);
+      appendCliSessionAudit({
+        type: 'session_resumed',
+        timestamp: new Date().toISOString(),
+        projectRoot,
+        sessionKey,
+        ...clientInfo(req),
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (err) {
+      const message = (err as Error).message;
+      if (message.includes('not found')) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+      } else {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+      }
+      res.end(JSON.stringify({ error: message }));
+    }
+    return true;
+  }
+
   return false;
 }

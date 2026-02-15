@@ -23,6 +23,7 @@ export interface CliSession {
   resumeKey?: string;
   createdAt: string;
   updatedAt: string;
+  isPaused: boolean;
 }
 
 export interface CreateCliSessionOptions {
@@ -57,6 +58,7 @@ interface CliSessionInternal extends CliSession {
   buffer: string[];
   bufferBytes: number;
   lastActivityAt: number;
+  isPaused: boolean;
 }
 
 function nowIso(): string {
@@ -227,6 +229,7 @@ export class CliSessionManager {
       buffer: [],
       bufferBytes: 0,
       lastActivityAt: Date.now(),
+      isPaused: false,
     };
 
     pty.onData((data) => {
@@ -315,6 +318,57 @@ export class CliSessionManager {
     } finally {
       this.sessions.delete(sessionKey);
       broadcastToClients({ type: 'CLI_SESSION_CLOSED', payload: { sessionKey, timestamp: nowIso() } });
+    }
+  }
+
+  pauseSession(sessionKey: string): void {
+    const session = this.sessions.get(sessionKey);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionKey}`);
+    }
+    if (session.isPaused) {
+      throw new Error(`Session already paused: ${sessionKey}`);
+    }
+    const pid = session.pty.pid;
+    if (pid === undefined) {
+      throw new Error(`Session PTY has no PID: ${sessionKey}`);
+    }
+    try {
+      process.kill(pid, 'SIGSTOP');
+      session.isPaused = true;
+      session.updatedAt = nowIso();
+      broadcastToClients({
+        type: 'CLI_SESSION_PAUSED',
+        payload: { sessionKey, timestamp: nowIso() }
+      });
+    } catch (err) {
+      throw new Error(`Failed to pause session ${sessionKey}: ${(err as Error).message}`);
+    }
+  }
+
+  resumeSession(sessionKey: string): void {
+    const session = this.sessions.get(sessionKey);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionKey}`);
+    }
+    if (!session.isPaused) {
+      throw new Error(`Session is not paused: ${sessionKey}`);
+    }
+    const pid = session.pty.pid;
+    if (pid === undefined) {
+      throw new Error(`Session PTY has no PID: ${sessionKey}`);
+    }
+    try {
+      process.kill(pid, 'SIGCONT');
+      session.isPaused = false;
+      session.updatedAt = nowIso();
+      session.lastActivityAt = Date.now();
+      broadcastToClients({
+        type: 'CLI_SESSION_RESUMED',
+        payload: { sessionKey, timestamp: nowIso() }
+      });
+    } catch (err) {
+      throw new Error(`Failed to resume session ${sessionKey}: ${(err as Error).message}`);
     }
   }
 

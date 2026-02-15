@@ -6150,6 +6150,7 @@ export interface CliSession {
   resumeKey?: string;
   createdAt: string;
   updatedAt: string;
+  isPaused: boolean;
 }
 
 export interface CreateCliSessionInput {
@@ -6237,6 +6238,20 @@ export async function resizeCliSession(
 
 export async function closeCliSession(sessionKey: string, projectPath?: string): Promise<{ success: boolean }> {
   return fetchApi<{ success: boolean }>(withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/close`, projectPath), {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function pauseCliSession(sessionKey: string, projectPath?: string): Promise<{ success: boolean }> {
+  return fetchApi<{ success: boolean }>(withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/pause`, projectPath), {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
+}
+
+export async function resumeCliSession(sessionKey: string, projectPath?: string): Promise<{ success: boolean }> {
+  return fetchApi<{ success: boolean }>(withPath(`/api/cli-sessions/${encodeURIComponent(sessionKey)}/resume`, projectPath), {
     method: 'POST',
     body: JSON.stringify({}),
   });

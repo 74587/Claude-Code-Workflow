@@ -76,7 +76,10 @@
     "layoutSingle": "Single",
     "layoutSplitH": "Split Horizontal",
     "layoutSplitV": "Split Vertical",
-    "layoutGrid": "Grid 2×2"
+    "layoutGrid": "Grid 2x2",
+    "launchCli": "Launch CLI",
+    "quickCreate": "Quick Create",
+    "configure": "Configure..."
   },
   "pane": {
     "selectSession": "Select a session",

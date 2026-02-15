@@ -42,6 +42,8 @@ const statusDotStyles: Record<TerminalStatus, string> = {
   active: 'bg-green-500',
   idle: 'bg-gray-400',
   error: 'bg-red-500',
+  paused: 'bg-yellow-500',
+  resuming: 'bg-blue-400 animate-pulse',
 };
 
 // ========== Props ==========

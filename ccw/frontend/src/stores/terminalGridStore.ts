@@ -13,6 +13,8 @@ import {
   removePaneFromLayout,
   getAllPaneIds,
 } from '@/lib/layout-utils';
+import type { CreateCliSessionInput, CliSession } from '@/lib/api';
+import { createCliSession } from '@/lib/api';
 
 // ========== Types ==========
 
@@ -37,6 +39,12 @@ export interface TerminalGridActions {
   assignSession: (paneId: PaneId, sessionId: string | null) => void;
   setFocused: (paneId: PaneId) => void;
   resetLayout: (preset: 'single' | 'split-h' | 'split-v' | 'grid-2x2') => void;
+  /** Create a new CLI session and assign it to a new pane (auto-split from specified pane) */
+  createSessionAndAssign: (
+    paneId: PaneId,
+    config: CreateCliSessionInput,
+    projectPath: string | null
+  ) => Promise<{ paneId: PaneId; session: CliSession } | null>;
 }
 
 export type TerminalGridStore = TerminalGridState & TerminalGridActions;
@@ -230,6 +238,60 @@ export const useTerminalGridStore = create<TerminalGridStore>()(
             false,
             'terminalGrid/resetLayout'
           );
+        },
+
+        createSessionAndAssign: async (paneId, config, projectPath) => {
+          try {
+            // 1. Create the CLI session via API
+            const result = await createCliSession(config, projectPath ?? undefined);
+            const session = result.session;
+
+            // 2. Get current state
+            const state = get();
+
+            // 3. Check if the current pane is empty (no session assigned)
+            const currentPane = state.panes[paneId];
+            const isCurrentPaneEmpty = !currentPane?.sessionId;
+
+            if (isCurrentPaneEmpty) {
+              // Assign session to current empty pane
+              set(
+                {
+                  panes: {
+                    ...state.panes,
+                    [paneId]: { ...currentPane, sessionId: session.sessionKey },
+                  },
+                  focusedPaneId: paneId,
+                },
+                false,
+                'terminalGrid/createSessionAndAssign'
+              );
+              return { paneId, session };
+            }
+
+            // 4. Current pane has session, auto-split and assign to new pane
+            const newPaneId = generatePaneId(state.nextPaneIdCounter);
+            const newLayout = addPaneToLayout(state.layout, newPaneId, paneId, 'horizontal');
+
+            set(
+              {
+                layout: newLayout,
+                panes: {
+                  ...state.panes,
+                  [newPaneId]: { id: newPaneId, sessionId: session.sessionKey },
+                },
+                focusedPaneId: newPaneId,
+                nextPaneIdCounter: state.nextPaneIdCounter + 1,
+              },
+              false,
+              'terminalGrid/createSessionAndAssign'
+            );
+
+            return { paneId: newPaneId, session };
+          } catch (error) {
+            console.error('Failed to create CLI session:', error);
+            return null;
+          }
         },
       }),
       { name: 'TerminalGridStore' }

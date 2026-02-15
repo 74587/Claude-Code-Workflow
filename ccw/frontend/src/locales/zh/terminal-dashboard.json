@@ -76,7 +76,10 @@
     "layoutSingle": "单窗格",
     "layoutSplitH": "左右分割",
     "layoutSplitV": "上下分割",
-    "layoutGrid": "2×2 网格"
+    "layoutGrid": "2x2 网格",
+    "launchCli": "启动 CLI",
+    "quickCreate": "快速创建",
+    "configure": "配置..."
   },
   "pane": {
     "selectSession": "选择会话",
