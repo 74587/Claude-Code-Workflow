@@ -159,7 +159,12 @@ if (userChoice === "Verify TDD Compliance (Recommended)") {
 } else if (userChoice === "Start Execution") {
   Skill(skill="workflow-execute", args="--session " + sessionId);
 } else if (userChoice === "Review Status Only") {
-  Skill(skill="workflow:status", args="--session " + sessionId);
+  // Display session status inline
+  const sessionMeta = JSON.parse(Read(`.workflow/active/${sessionId}/workflow-session.json`));
+  const todoList = Read(`.workflow/active/${sessionId}/TODO_LIST.md`);
+  console.log(`\nSession: ${sessionId}`);
+  console.log(`Status: ${sessionMeta.status}`);
+  console.log(`\n--- TODO List ---\n${todoList}`);
 }
 ```
 
@@ -176,4 +181,4 @@ if (userChoice === "Verify TDD Compliance (Recommended)") {
 Based on user's plan confirmation choice:
 - If "Verify" → [Phase 7: TDD Verification](07-tdd-verify.md)
 - If "Execute" → Skill(skill="workflow-execute")
-- If "Review" → External: /workflow:status
+- If "Review" -> Display session status inline

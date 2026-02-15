@@ -185,8 +185,20 @@ Dependencies: ${explorerContext.dependencies?.join(', ') || 'N/A'}
 ### Phase 4: Verify & Commit
 
 ```javascript
+// Detect test command from package.json or project config
+let testCmd = 'npm test'
+try {
+  const pkgJson = JSON.parse(Read('package.json'))
+  if (pkgJson.scripts?.test) testCmd = 'npm test'
+  else if (pkgJson.scripts?.['test:unit']) testCmd = 'npm run test:unit'
+} catch {
+  // Fallback: try common test runners
+  const hasYarn = Bash('test -f yarn.lock && echo yes || echo no').trim() === 'yes'
+  if (hasYarn) testCmd = 'yarn test'
+}
+
 // Verify implementation
-const testResult = Bash(`npm test 2>&1 || echo "TEST_FAILED"`)
+const testResult = Bash(`${testCmd} 2>&1 || echo "TEST_FAILED"`)
 const testPassed = !testResult.includes('TEST_FAILED') && !testResult.includes('FAIL')
 
 if (!testPassed) {

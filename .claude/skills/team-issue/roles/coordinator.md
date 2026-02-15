@@ -101,7 +101,8 @@ function detectMode(issueIds, userMode) {
     const hasHighPriority = issues.some(i => i.priority >= 4)
     return hasHighPriority ? 'full' : 'quick'
   }
-  return count <= 5 ? 'full' : 'batch'
+  // 3-4 issues with review, 5+ triggers batch parallel processing
+  return count >= 5 ? 'batch' : 'full'
 }
 ```
 
@@ -228,19 +229,25 @@ for (const issueId of issueIds) {
 const exploreBatches = chunkArray(issueIds, 5)  // max 5 parallel
 const solveBatches = chunkArray(issueIds, 3)    // max 3 parallel
 
-// Create EXPLORE tasks (parallel within batch)
+// Create EXPLORE tasks — all parallel within each batch, batches run in rolling window
+// Each batch of ≤5 runs concurrently; next batch starts when current batch completes
 const exploreTaskIds = []
+let prevBatchLastId = null
 for (const [batchIdx, batch] of exploreBatches.entries()) {
+  const batchTaskIds = []
   for (const issueId of batch) {
     const id = TaskCreate({
       subject: `EXPLORE-${String(exploreTaskIds.length + 1).padStart(3, '0')}: Context for ${issueId}`,
       description: `Batch ${batchIdx + 1}: Explore codebase context for issue ${issueId}.`,
       activeForm: `Exploring ${issueId}`,
       owner: "explorer",
-      addBlockedBy: batchIdx > 0 ? [exploreTaskIds[exploreTaskIds.length - 1]] : []
+      // Only block on previous batch's LAST task (not within same batch)
+      addBlockedBy: prevBatchLastId ? [prevBatchLastId] : []
     })
+    batchTaskIds.push(id)
     exploreTaskIds.push(id)
   }
+  prevBatchLastId = batchTaskIds[batchTaskIds.length - 1]
 }
 
 // Create SOLVE tasks (blocked by corresponding EXPLORE)

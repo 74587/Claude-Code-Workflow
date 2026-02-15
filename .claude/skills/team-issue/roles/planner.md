@@ -71,6 +71,9 @@ TaskUpdate({ taskId: task.id, status: 'in_progress' })
 ### Phase 2: Context Loading
 
 ```javascript
+// Resolve project root from working directory
+const projectRoot = Bash('pwd').trim()
+
 // Extract issue ID
 const issueIdMatch = task.description.match(/(?:GH-\d+|ISS-\d{8}-\d{6})/)
 const issueId = issueIdMatch ? issueIdMatch[0] : null

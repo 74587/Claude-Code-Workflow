@@ -113,7 +113,7 @@ const userConfig = {
 }
 ```
 
-**Auto Mode**: When `--yes` or `-y`: Skip user questions, use defaults (no materials, Agent executor).
+**Auto Mode**: When `workflowPreferences.autoYes` is true, skip user questions, use defaults (no materials, Agent executor).
 
 ---
 

@@ -468,7 +468,12 @@ if (userChoice.answers["Next Action"] === "Verify Plan Quality (Recommended)") {
   Skill(skill="workflow-execute", args="--session " + sessionId);
 } else if (userChoice.answers["Next Action"] === "Review Status Only") {
   console.log("\nDisplaying session status...\n");
-  Skill(skill="workflow:status", args="--session " + sessionId);
+  // Display session status inline
+  const sessionMeta = JSON.parse(Read(`.workflow/active/${sessionId}/workflow-session.json`));
+  const todoList = Read(`.workflow/active/${sessionId}/TODO_LIST.md`);
+  console.log(`Session: ${sessionId}`);
+  console.log(`Status: ${sessionMeta.status}`);
+  console.log(`\n--- TODO List ---\n${todoList}`);
 }
 ```
 
@@ -477,7 +482,7 @@ if (userChoice.answers["Next Action"] === "Verify Plan Quality (Recommended)") {
 **Return to Orchestrator**: Based on user's choice:
 - **Verify** -> Orchestrator reads phases/05-plan-verify.md and executes Phase 5 in-process
 - **Execute** -> Skill(skill="workflow-execute")
-- **Review** -> Route to /workflow:status
+- **Review** -> Display session status inline
 
 ## Output
 
@@ -492,4 +497,4 @@ if (userChoice.answers["Next Action"] === "Verify Plan Quality (Recommended)") {
 Based on user's plan confirmation choice:
 - If "Verify" -> [Phase 5: Plan Verification](05-plan-verify.md)
 - If "Execute" -> Skill(skill="workflow-execute")
-- If "Review" -> External: /workflow:status
+- If "Review" -> Display session status inline

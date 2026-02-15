@@ -54,20 +54,14 @@ Task Pipeline (generated in Phase 4, executed in Phase 5):
 5. **Progressive Phase Loading**: Phase docs read **only** when that phase executes, not upfront
 6. **Adaptive Strategy**: Fix loop auto-selects strategy (conservative/aggressive/surgical) based on iteration context
 7. **Quality Gate**: Pass rate >= 95% (criticality-aware) terminates the fix loop
-8. **Original Commands Preserved**: Phase files preserve full original command content and Skill() calls
+8. **Phase File Hygiene**: Phase files reference `workflowPreferences.*` for preferences, no CLI flag parsing
 
 ## Usage
 
-```bash
-# Full pipeline: generate + execute
-/workflow:test-fix-gen "Test the user authentication API"
-/workflow:test-fix-gen WFS-user-auth-v2
+Full pipeline and execute-only modes are triggered by skill name routing (see Mode Detection). Workflow preferences (auto mode) are collected interactively via AskUserQuestion before dispatching to phases.
 
-# Execute only (resume from existing test session with generated tasks)
-/workflow:test-cycle-execute
-/workflow:test-cycle-execute --resume-session="WFS-test-user-auth"
-/workflow:test-cycle-execute --max-iterations=15
-```
+**Full pipeline** (workflow:test-fix-gen): Task description or session ID as arguments → interactive preference collection → generate + execute pipeline
+**Execute only** (workflow:test-cycle-execute): Auto-discovers active session → interactive preference collection → execution loop
 
 ## Interactive Preference Collection
 

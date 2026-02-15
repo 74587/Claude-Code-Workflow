@@ -163,7 +163,7 @@ for (const issueId of issueIds) {
     completeness: { score: 0, findings: [] }
   }
   
-  // 1. Technical Feasibility — verify solution references real files
+  // 1. Technical Feasibility — verify solution references real files + semantic validation
   if (context && context.relevant_files) {
     const solutionFiles = solution.bound.tasks?.flatMap(t => t.files || []) || []
     const contextFiles = context.relevant_files.map(f => f.path || f)
@@ -176,6 +176,24 @@ for (const issueId of issueIds) {
       review.technical_feasibility.findings.push(
         `Uncovered files: ${uncovered.join(', ')}`
       )
+    }
+    
+    // Semantic validation via ACE — verify solution references exist in codebase
+    const projectRoot = Bash('pwd').trim()
+    const aceResults = mcp__ace-tool__search_context({
+      project_root_path: projectRoot,
+      query: `${solution.bound.title || issue.title}. Verify patterns: ${solutionFiles.slice(0, 5).join(', ')}`
+    })
+    if (aceResults && aceResults.length > 0) {
+      // Cross-check ACE results against solution's assumed patterns
+      const aceFiles = aceResults.map(r => r.file || r.path).filter(Boolean)
+      const missedByAce = solutionFiles.filter(sf => !aceFiles.some(af => af.includes(sf)))
+      if (missedByAce.length > solutionFiles.length * 0.5) {
+        review.technical_feasibility.score = Math.max(50, review.technical_feasibility.score - 10)
+        review.technical_feasibility.findings.push(
+          `ACE semantic search found divergent patterns — solution may reference outdated code`
+        )
+      }
     }
   } else {
     review.technical_feasibility.score = 70  // No context to validate against
