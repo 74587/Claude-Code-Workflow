@@ -11,6 +11,23 @@ Interactive orchestration tool: analyze task → discover commands → recommend
 
 **Execution Model**: Pseudocode guidance. Claude intelligently executes each phase based on context.
 
+## Skill 映射
+
+命令端口定义中的 workflow 操作通过 `Skill()` 调用。
+
+| Skill | 包含操作 |
+|-------|---------|
+| `workflow-lite-plan` | lite-plan, lite-execute |
+| `workflow-plan` | plan, plan-verify, replan |
+| `workflow-execute` | execute |
+| `workflow-multi-cli-plan` | multi-cli-plan |
+| `workflow-test-fix` | test-fix-gen, test-cycle-execute |
+| `workflow-tdd` | tdd-plan, tdd-verify |
+| `review-cycle` | review-session-cycle, review-module-cycle, review-cycle-fix |
+| `brainstorm` | auto-parallel, artifacts, role-analysis, synthesis |
+
+独立命令：workflow:brainstorm-with-file, workflow:debug-with-file, workflow:analyze-with-file, issue:*
+
 ## Core Concept: Minimum Execution Units (最小执行单元)
 
 ### What is a Minimum Execution Unit?
@@ -30,7 +47,7 @@ Interactive orchestration tool: analyze task → discover commands → recommend
 |-----------|----------|---------|--------|
 | **Quick Implementation** | lite-plan → lite-execute | Lightweight plan and immediate execution | Working code |
 | **Multi-CLI Planning** | multi-cli-plan → lite-execute | Multi-perspective analysis and execution | Working code |
-| **Bug Fix** | lite-fix → lite-execute | Quick bug diagnosis and fix execution | Fixed code |
+| **Bug Fix** | lite-plan (--bugfix) → lite-execute | Quick bug diagnosis and fix execution | Fixed code |
 | **Full Planning + Execution** | plan → execute | Detailed planning and execution | Working code |
 | **Verified Planning + Execution** | plan → plan-verify → execute | Planning with verification and execution | Working code |
 | **Replanning + Execution** | replan → execute | Update plan and execute changes | Working code |
@@ -70,9 +87,8 @@ Interactive orchestration tool: analyze task → discover commands → recommend
 
 | Command | Can Precede | Atomic Units |
 |---------|-----------|--------------|
-| lite-plan | lite-execute, convert-to-plan | Quick Implementation, Rapid-to-Issue |
+| lite-plan | lite-execute, convert-to-plan | Quick Implementation, Rapid-to-Issue, Bug Fix |
 | multi-cli-plan | lite-execute | Multi-CLI Planning |
-| lite-fix | lite-execute | Bug Fix |
 | plan | plan-verify, execute | Full Planning + Execution, Verified Planning + Execution |
 | plan-verify | execute | Verified Planning + Execution |
 | replan | execute | Replanning + Execution |
@@ -173,6 +189,16 @@ Each command has input/output ports (tags) for pipeline composition:
 
 ```javascript
 // Port labels represent data types flowing through the pipeline
+// Type classification:
+//   skill:   workflow-lite-plan (lite-plan, lite-execute),
+//            workflow-plan (plan, plan-verify, replan),
+//            workflow-execute (execute),
+//            workflow-multi-cli-plan (multi-cli-plan),
+//            workflow-test-fix (test-fix-gen, test-cycle-execute),
+//            workflow-tdd (tdd-plan, tdd-verify),
+//            review-cycle (review-session-cycle, review-module-cycle, review-cycle-fix)
+//   command: debug, test-gen, review, workflow:brainstorm-with-file,
+//            workflow:debug-with-file, workflow:analyze-with-file, issue:*
 const commandPorts = {
   'lite-plan': {
     name: 'lite-plan',
@@ -183,13 +209,13 @@ const commandPorts = {
   },
   'lite-execute': {
     name: 'lite-execute',
-    input: ['plan', 'multi-cli-plan', 'lite-fix'], // 输入端口：可接受多种规划输出
+    input: ['plan', 'multi-cli-plan'],             // 输入端口：可接受多种规划输出
     output: ['code'],                           // 输出端口：代码
     tags: ['execution'],
     atomic_groups: [                           // 可参与多个最小单元
       'quick-implementation',                  // lite-plan → lite-execute
       'multi-cli-planning',                    // multi-cli-plan → lite-execute
-      'bug-fix'                                // lite-fix → lite-execute
+      'bug-fix'                                // lite-plan (--bugfix) → lite-execute
     ]
   },
   'plan': {
@@ -250,12 +276,15 @@ const commandPorts = {
     output: ['tdd-verified'],
     tags: ['testing']
   },
-  'lite-fix': {
-    name: 'lite-fix',
+  // Bug Fix (使用 lite-plan 的 bugfix 变体，lite-fix 已移除)
+  'lite-plan-bugfix': {
+    name: 'lite-plan',
     input: ['bug-report'],                      // 输入端口：bug 报告
-    output: ['lite-fix'],                       // 输出端口：修复计划（供 lite-execute 执行）
-    tags: ['bugfix'],
-    atomic_group: 'bug-fix'                    // 最小单元：与 lite-execute 绑定
+    output: ['plan'],                            // 输出端口：修复计划（供 lite-execute 执行）
+    tags: ['bugfix', 'planning'],
+    atomic_group: 'bug-fix',                    // 最小单元：与 lite-execute 绑定
+    type: 'skill',                              // Skill 触发器: workflow-lite-plan
+    note: '通过 --bugfix 参数传递 bugfix 语义'
   },
   'debug': {
     name: 'debug',
@@ -291,11 +320,12 @@ const commandPorts = {
     tags: ['review'],
     atomic_group: 'code-review'                // 最小单元：与 review-session-cycle/review-module-cycle 绑定
   },
-  'brainstorm:auto-parallel': {
-    name: 'brainstorm:auto-parallel',
+  'brainstorm': {
+    name: 'brainstorm',
     input: ['exploration-topic'],               // 输入端口：探索主题
     output: ['brainstorm-analysis'],
-    tags: ['brainstorm']
+    tags: ['brainstorm'],
+    type: 'skill'                               // 统一 Skill：brainstorm (auto-parallel, artifacts, role-analysis, synthesis)
   },
   'multi-cli-plan': {
     name: 'multi-cli-plan',
@@ -618,14 +648,18 @@ function formatCommand(cmd, previousResults, analysis) {
     const plan = previousResults.find(r => r.command.includes('plan'));
     if (plan?.session_id) prompt += ` --resume-session="${plan.session_id}"`;
 
-  // Bug fix commands - take bug description
-  } else if (['lite-fix', 'debug'].includes(name)) {
+  // Bug fix commands - use lite-plan with bugfix flag (lite-fix removed)
+  } else if (name === 'lite-plan' && analysis.task_type === 'bugfix') {
+    prompt += ` --bugfix "${analysis.goal}"`;
+
+  // Debug commands - take bug description
+  } else if (name === 'debug') {
     prompt += ` "${analysis.goal}"`;
 
-  // Brainstorm - take topic description
-  } else if (name === 'brainstorm:auto-parallel' || name === 'auto-parallel') {
+  // Brainstorm - take topic description (unified brainstorm skill)
+  } else if (name === 'brainstorm') {
     prompt += ` "${analysis.goal}"`;
-
+    prompt = `/brainstorm -y ${prompt.trim()}`;
   // Test generation from session - needs source session
   } else if (name === 'test-gen') {
     const impl = previousResults.find(r =>
@@ -859,26 +893,19 @@ failed ←───────────────────────�
 - `completed`: Successfully finished
 - `failed`: Failed to execute
 
-## CommandRegistry Integration
+## Skill & Command Discovery
 
-Sole CCW tool for command discovery:
+workflow 操作通过 `Skill()` 调用对应的 Skill。
 
 ```javascript
-import { CommandRegistry } from 'ccw/tools/command-registry';
+// Skill 调用方式
+Skill({ skill: 'workflow-lite-plan', args: '"task description"' });
+Skill({ skill: 'workflow-execute', args: '--resume-session="WFS-xxx"' });
+Skill({ skill: 'brainstorm', args: '"exploration topic"' });
 
-const registry = new CommandRegistry();
-
-// Get all commands
-const allCommands = registry.getAllCommandsSummary();
-// Map<"/workflow:lite-plan" => {name, description}>
-
-// Get categorized
-const byCategory = registry.getAllCommandsByCategory();
-// {planning, execution, testing, review, other}
-
-// Get single command metadata
-const cmd = registry.getCommand('lite-plan');
-// {name, command, description, argumentHint, allowedTools, filePath}
+// 独立命令调用方式
+Skill({ skill: 'workflow:brainstorm-with-file', args: '"topic"' });
+Skill({ skill: 'issue:discover', args: '' });
 ```
 
 ## Universal Prompt Template
@@ -917,7 +944,7 @@ Task: <task_description>
 | **Execution (with plan)** | `--resume-session="WFS-xxx"` | `/workflow:execute -y --resume-session="WFS-plan-001"` |
 | **Execution (standalone)** | `--in-memory` or `"task"` | `/workflow:lite-execute -y --in-memory` |
 | **Session-based** | `--session="WFS-xxx"` | `/workflow:test-fix-gen -y --session="WFS-impl-001"` |
-| **Fix/Debug** | `"problem description"` | `/workflow:lite-fix -y "Fix timeout bug"` |
+| **Fix/Debug** | `--bugfix "problem description"` | `/workflow:lite-plan -y --bugfix "Fix timeout bug"` |
 
 ### Complete Examples
 
@@ -940,7 +967,7 @@ Previous results:
 
 **Standalone Lite Execution**:
 ```bash
-ccw cli -p '/workflow:lite-fix -y "Fix login timeout in auth module"
+ccw cli -p '/workflow:lite-plan -y --bugfix "Fix login timeout in auth module"
 
 Task: Fix login timeout' --tool claude --mode write
 ```
@@ -1048,34 +1075,40 @@ break; // ⚠️ STOP HERE - DO NOT use TaskOutput polling
 ```
 
 
-## Available Commands
+## Available Skills & Commands
 
-All from `~/.claude/commands/workflow/` and `~/.claude/commands/issue/`:
+### Skills
 
-**Planning**: lite-plan, plan, multi-cli-plan, plan-verify, tdd-plan
-**Execution**: lite-execute, execute, develop-with-file
-**Testing**: test-cycle-execute, test-gen, test-fix-gen, tdd-verify
-**Review**: review, review-session-cycle, review-module-cycle, review-cycle-fix
-**Bug Fixes**: lite-fix, debug, debug-with-file
-**Brainstorming**: brainstorm:auto-parallel, brainstorm:artifacts, brainstorm:synthesis
-**Design**: ui-design:*, animation-extract, layout-extract, style-extract, codify-style
-**Session Management**: session:start, session:resume, session:complete, session:solidify, session:list
-**Tools**: context-gather, test-context-gather, task-generate, conflict-resolution, action-plan-verify
-**Utility**: clean, init, replan
-**Issue Workflow**: issue:discover, issue:plan, issue:queue, issue:execute, issue:convert-to-plan, issue:from-brainstorm
-**With-File Workflows**: brainstorm-with-file, debug-with-file, analyze-with-file
+| Skill | 包含操作 |
+|-------|---------|
+| `workflow-lite-plan` | lite-plan, lite-execute |
+| `workflow-plan` | plan, plan-verify, replan |
+| `workflow-execute` | execute |
+| `workflow-multi-cli-plan` | multi-cli-plan |
+| `workflow-test-fix` | test-fix-gen, test-cycle-execute |
+| `workflow-tdd` | tdd-plan, tdd-verify |
+| `review-cycle` | review-session-cycle, review-module-cycle, review-cycle-fix |
+
+### Commands（命名空间 Skill）
+
+**With-File Workflows**: workflow:brainstorm-with-file, workflow:debug-with-file, workflow:analyze-with-file
+**Design**: workflow:ui-design:*
+**Session Management**: workflow:session:start, workflow:session:resume, workflow:session:complete, workflow:session:solidify, workflow:session:list
+**Tools**: workflow:tools:context-gather, workflow:tools:test-context-gather, workflow:tools:task-generate-agent, workflow:tools:conflict-resolution
+**Utility**: workflow:clean, workflow:init
+**Issue Workflow**: issue:discover, issue:plan, issue:queue, issue:execute, issue:convert-to-plan, issue:from-brainstorm, issue:new
 
 ### Testing Commands Distinction
 
 | Command | Purpose | Output | Follow-up |
 |---------|---------|--------|-----------|
-| **test-gen** | 广泛测试示例生成并进行测试 | test-tasks (IMPL-001, IMPL-002) | `/workflow:execute` |
-| **test-fix-gen** | 针对特定问题生成测试并在测试中修正 | test-tasks | `/workflow:test-cycle-execute` |
+| **test-gen** | 广泛测试示例生成并进行测试 | test-tasks (IMPL-001, IMPL-002) | Skill(workflow-execute) |
+| **test-fix-gen** | 针对特定问题生成测试并在测试中修正 | test-tasks | Skill(workflow-test-fix) → test-cycle-execute |
 | **test-cycle-execute** | 执行测试周期（迭代测试和修复） | test-passed | N/A (终点) |
 
 **流程说明**:
-- **test-gen → execute**: 生成全面的测试套件，execute 执行生成和测试
-- **test-fix-gen → test-cycle-execute**: 针对特定问题生成修复任务，test-cycle-execute 迭代测试和修复直到通过
+- **test-gen → Skill(workflow-execute)**: 生成全面的测试套件，execute 执行生成和测试
+- **test-fix-gen → test-cycle-execute**: 同属 Skill(workflow-test-fix)，针对特定问题生成修复任务并迭代测试和修复直到通过
 
 ### Task Type Routing (Pipeline Summary)
 
@@ -1085,7 +1118,7 @@ All from `~/.claude/commands/workflow/` and `~/.claude/commands/issue/`:
 |-----------|----------|---|
 | **feature** (simple) | 需求 →【lite-plan → lite-execute】→ 代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Quick Implementation + Test Validation |
 | **feature** (complex) | 需求 →【plan → plan-verify】→ validate → execute → 代码 → review → fix | Full Planning + Code Review + Testing |
-| **bugfix** | Bug报告 → lite-fix → 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Bug Fix + Test Validation |
+| **bugfix** | Bug报告 → lite-plan (--bugfix) → 修复代码 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Bug Fix + Test Validation |
 | **tdd** | 需求 → tdd-plan → TDD任务 → execute → 代码 → tdd-verify | TDD Planning + Execution |
 | **test-fix** | 失败测试 →【test-fix-gen → test-cycle-execute】→ 测试通过 | Test Validation |
 | **test-gen** | 代码/会话 →【test-gen → execute】→ 测试通过 | Test Generation + Execution |
@@ -1099,4 +1132,4 @@ All from `~/.claude/commands/workflow/` and `~/.claude/commands/issue/`:
 | **debug-file** | Bug报告 → debug-with-file → understanding.md (自包含) | Debug With File |
 | **analyze-file** | 分析主题 → analyze-with-file → discussion.md (自包含) | Analyze With File |
 
-Use `CommandRegistry.getAllCommandsSummary()` to discover all commands dynamically.
+Refer to the Skill 映射 section above for available Skills and Commands.

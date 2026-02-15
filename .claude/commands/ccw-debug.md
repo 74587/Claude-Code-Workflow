@@ -9,6 +9,14 @@ allowed-tools: Skill(*), TodoWrite(*), AskUserQuestion(*), Read(*), Bash(*)
 
 Debug orchestrator: issue analysis → strategy selection → debug execution.
 
+## Skill 映射
+
+| Skill | 包含操作 |
+|-------|---------|
+| `workflow-test-fix` | test-fix-gen, test-cycle-execute |
+
+独立命令：workflow:debug-with-file
+
 ## Core Concept: Debug Units (调试单元)
 
 **Definition**: Debug commands grouped into logical units for different root cause strategies.

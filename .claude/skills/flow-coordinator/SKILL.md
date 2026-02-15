@@ -494,7 +494,7 @@ Select workflow template:
 
 ○ rapid      lite-plan → lite-execute → test-cycle-execute
 ○ coupled    plan → plan-verify → execute → review → test
-○ bugfix     lite-fix → lite-execute → test-cycle-execute
+○ bugfix     lite-plan --bugfix → lite-execute → test-cycle-execute
 ○ tdd        tdd-plan → execute → tdd-verify
 ○ Other      (more templates or custom)
 ```
@@ -546,13 +546,13 @@ Templates discovered from `templates/*.json`:
 |----------|----------|-------|
 | rapid | Simple feature | /workflow:lite-plan → /workflow:lite-execute → /workflow:test-cycle-execute |
 | coupled | Complex feature | /workflow:plan → /workflow:plan-verify → /workflow:execute → /workflow:review-session-cycle → /workflow:test-fix-gen |
-| bugfix | Bug fix | /workflow:lite-fix → /workflow:lite-execute → /workflow:test-cycle-execute |
+| bugfix | Bug fix | /workflow:lite-plan --bugfix → /workflow:lite-execute → /workflow:test-cycle-execute |
 | tdd | Test-driven | /workflow:tdd-plan → /workflow:execute → /workflow:tdd-verify |
 | test-fix | Fix failing tests | /workflow:test-fix-gen → /workflow:test-cycle-execute |
 | brainstorm | Exploration | /workflow:brainstorm-with-file |
 | debug | Debug with docs | /workflow:debug-with-file |
 | analyze | Collaborative analysis | /workflow:analyze-with-file |
-| issue | Issue workflow | /workflow:issue:plan → /workflow:issue:queue → /workflow:issue:execute |
+| issue | Issue workflow | /issue:discover → /issue:plan → /issue:queue → /issue:execute |
 
 ---
 

@@ -101,7 +101,7 @@ export function TeamPage() {
 
       {/* Artifacts Tab */}
       {detailTab === 'artifacts' && (
-        <TeamArtifacts messages={messages} />
+        <TeamArtifacts teamName={selectedTeam} />
       )}
 
       {/* Messages Tab */}

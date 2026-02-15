@@ -9,6 +9,17 @@ allowed-tools: Skill(*), TodoWrite(*), AskUserQuestion(*), Read(*), Grep(*), Glo
 
 Planning orchestrator: requirement analysis → strategy selection → planning execution.
 
+## Skill 映射
+
+| Skill | 包含操作 |
+|-------|---------|
+| `workflow-lite-plan` | lite-plan, lite-execute |
+| `workflow-plan` | plan, plan-verify, replan |
+| `workflow-multi-cli-plan` | multi-cli-plan |
+| `brainstorm` | brainstorm |
+
+独立命令：workflow:brainstorm-with-file, workflow:analyze-with-file, issue:*
+
 ## Core Concept: Planning Units (规划单元)
 
 **Definition**: Planning commands are grouped into logical units based on verification requirements and collaboration strategies.
@@ -255,7 +266,7 @@ CCWP:lite: [1/1] /workflow:lite-plan            [in_progress]
 CCWP:multi-cli: [1/1] /workflow:multi-cli-plan  [in_progress]
 
 // Full mode (brainstorm + planning with optional verification)
-CCWP:full: [1/2] /workflow:brainstorm           [in_progress]
+CCWP:full: [1/2] /brainstorm                    [in_progress]
 CCWP:full: [2/2] /workflow:plan                 [pending]
 ```
 

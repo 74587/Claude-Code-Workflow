@@ -9,6 +9,23 @@ allowed-tools: Skill(*), TodoWrite(*), AskUserQuestion(*), Read(*), Grep(*), Glo
 
 Main process orchestrator: intent analysis → workflow selection → command chain execution.
 
+## Skill 映射
+
+命令链中的 workflow 操作通过 `Skill()` 调用。
+
+| Skill | 包含操作 |
+|-------|---------|
+| `workflow-lite-plan` | lite-plan, lite-execute |
+| `workflow-plan` | plan, plan-verify, replan |
+| `workflow-execute` | execute |
+| `workflow-multi-cli-plan` | multi-cli-plan |
+| `workflow-test-fix` | test-fix-gen, test-cycle-execute |
+| `workflow-tdd` | tdd-plan, tdd-verify |
+| `review-cycle` | review-session-cycle, review-module-cycle, review-cycle-fix |
+| `brainstorm` | auto-parallel, artifacts, role-analysis, synthesis |
+
+独立命令：workflow:brainstorm-with-file, workflow:debug-with-file, workflow:analyze-with-file, issue:*
+
 ## Core Concept: Minimum Execution Units (最小执行单元)
 
 **Definition**: A set of commands that must execute together as an atomic group to achieve a meaningful workflow milestone.
@@ -127,7 +144,7 @@ function selectWorkflow(analysis) {
     'issue-batch':       { level: 'Issue', flow: 'issue' },
     'issue-transition':  { level: 2.5, flow: 'rapid-to-issue' },  // Bridge workflow
     'exploration':       { level: 4, flow: 'full' },
-    'quick-task':        { level: 1, flow: 'lite-lite-lite' },
+    'quick-task':        { level: 2, flow: 'rapid' },
     'ui-design':         { level: analysis.complexity === 'high' ? 4 : 3, flow: 'ui' },
     'tdd':               { level: 3, flow: 'tdd' },
     'test-fix':          { level: 3, flow: 'test-fix-gen' },
@@ -143,11 +160,6 @@ function selectWorkflow(analysis) {
 // Build command chain (port-based matching with Minimum Execution Units)
 function buildCommandChain(workflow, analysis) {
   const chains = {
-    // Level 1 - Rapid
-    'lite-lite-lite': [
-      { cmd: '/workflow:lite-lite-lite', args: `"${analysis.goal}"` }
-    ],
-
     // Level 2 - Lightweight
     'rapid': [
       // Unit: Quick Implementation【lite-plan → lite-execute】
@@ -171,8 +183,8 @@ function buildCommandChain(workflow, analysis) {
     ],
 
     'bugfix.standard': [
-      // Unit: Bug Fix【lite-fix → lite-execute】
-      { cmd: '/workflow:lite-fix', args: `"${analysis.goal}"`, unit: 'bug-fix' },
+      // Unit: Bug Fix【lite-plan → lite-execute】
+      { cmd: '/workflow:lite-plan', args: `--bugfix "${analysis.goal}"`, unit: 'bug-fix' },
       { cmd: '/workflow:lite-execute', args: '--in-memory', unit: 'bug-fix' },
       // Unit: Test Validation【test-fix-gen → test-cycle-execute】
       ...(analysis.constraints?.includes('skip-tests') ? [] : [
@@ -182,7 +194,7 @@ function buildCommandChain(workflow, analysis) {
     ],
 
     'bugfix.hotfix': [
-      { cmd: '/workflow:lite-fix', args: `--hotfix "${analysis.goal}"` }
+      { cmd: '/workflow:lite-plan', args: `--hotfix "${analysis.goal}"` }
     ],
 
     'multi-cli-plan': [
@@ -275,7 +287,7 @@ function buildCommandChain(workflow, analysis) {
 
     // Level 4 - Brainstorm
     'full': [
-      { cmd: '/workflow:brainstorm:auto-parallel', args: `"${analysis.goal}"` },
+      { cmd: '/brainstorm', args: `"${analysis.goal}"` },
       // Unit: Verified Planning【plan → plan-verify】
       { cmd: '/workflow:plan', args: '', unit: 'verified-planning' },
       { cmd: '/workflow:plan-verify', args: '', unit: 'verified-planning' },
@@ -516,7 +528,7 @@ Phase 5: Execute Command Chain
 | Input | Type | Level | Pipeline (with Units) |
 |-------|------|-------|-----------------------|
 | "Add API endpoint" | feature (low) | 2 |【lite-plan → lite-execute】→【test-fix-gen → test-cycle-execute】|
-| "Fix login timeout" | bugfix | 2 |【lite-fix → lite-execute】→【test-fix-gen → test-cycle-execute】|
+| "Fix login timeout" | bugfix | 2 |【lite-plan → lite-execute】→【test-fix-gen → test-cycle-execute】|
 | "Use issue workflow" | issue-transition | 2.5 |【lite-plan → convert-to-plan】→ queue → execute |
 | "头脑风暴: 通知系统重构" | brainstorm | 4 | brainstorm-with-file → (built-in post-completion) |
 | "从头脑风暴创建 issue" | brainstorm-to-issue | 4 | from-brainstorm → queue → execute |
@@ -524,7 +536,7 @@ Phase 5: Execute Command Chain
 | "协作分析: 认证架构优化" | analyze-file | 3 | analyze-with-file → (multi-round discussion) |
 | "OAuth2 system" | feature (high) | 3 |【plan → plan-verify】→ execute →【review-session-cycle → review-cycle-fix】→【test-fix-gen → test-cycle-execute】|
 | "Implement with TDD" | tdd | 3 |【tdd-plan → execute】→ tdd-verify |
-| "Uncertain: real-time arch" | exploration | 4 | brainstorm:auto-parallel →【plan → plan-verify】→ execute →【test-fix-gen → test-cycle-execute】|
+| "Uncertain: real-time arch" | exploration | 4 | brainstorm →【plan → plan-verify】→ execute →【test-fix-gen → test-cycle-execute】|
 
 ---
 

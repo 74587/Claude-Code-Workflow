@@ -4,7 +4,7 @@
   "level": 4,
   "steps": [
     {
-      "cmd": "/workflow:brainstorm:auto-parallel",
+      "cmd": "/brainstorm",
       "args": "\"{{goal}}\"",
       "execution": {
         "type": "slash-command",

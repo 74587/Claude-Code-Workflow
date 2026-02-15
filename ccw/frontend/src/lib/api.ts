@@ -4,6 +4,7 @@
 // Typed fetch functions for API communication with CSRF token handling
 
 import type { SessionMetadata, TaskData, IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion, McpTemplate, McpTemplateInstallRequest, AllProjectsResponse, OtherProjectsServersResponse, CrossCliCopyRequest, CrossCliCopyResponse } from '../types/store';
+import type { TeamArtifactsResponse } from '../types/team';
 
 // Re-export types for backward compatibility
 export type { IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion, McpTemplate, McpTemplateInstallRequest, AllProjectsResponse, OtherProjectsServersResponse, CrossCliCopyRequest, CrossCliCopyResponse };
@@ -6137,6 +6138,19 @@ export async function fetchTeamStatus(
   teamName: string
 ): Promise<{ members: Array<{ member: string; lastSeen: string; lastAction: string; messageCount: number }>; total_messages: number }> {
   return fetchApi(`/api/teams/${encodeURIComponent(teamName)}/status`);
+}
+
+export async function fetchTeamArtifacts(
+  teamName: string
+): Promise<TeamArtifactsResponse> {
+  return fetchApi(`/api/teams/${encodeURIComponent(teamName)}/artifacts`);
+}
+
+export async function fetchArtifactContent(
+  teamName: string,
+  artifactPath: string
+): Promise<{ content: string; contentType: string; path: string }> {
+  return fetchApi(`/api/teams/${encodeURIComponent(teamName)}/artifacts/${encodeURIComponent(artifactPath)}`);
 }
 
 // ========== CLI Sessions (PTY) API ==========

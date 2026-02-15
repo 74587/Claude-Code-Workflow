@@ -50,7 +50,7 @@ export interface TeamSummaryExtended extends TeamSummary {
   archived_at?: string;
   pipeline_mode?: string;
   memberCount: number;
-  members?: string[];
+  members: string[];  // Always provided by backend
 }
 
 export interface TeamMessagesResponse {
@@ -76,3 +76,33 @@ export interface TeamMessageFilter {
 
 export type PipelineStage = 'plan' | 'impl' | 'test' | 'review';
 export type PipelineStageStatus = 'completed' | 'in_progress' | 'pending' | 'blocked';
+
+// ========================================
+// Team Artifacts Types
+// ========================================
+// Types for team artifacts tree visualization
+
+export type ArtifactNodeType = 'file' | 'directory';
+
+export type ContentType = 'markdown' | 'json' | 'text' | 'unknown';
+
+export interface ArtifactNode {
+  type: ArtifactNodeType;
+  name: string;
+  path: string;
+  contentType: ContentType;  // Always provided by backend
+  size?: number;
+  modifiedAt?: string;
+  children?: ArtifactNode[];
+}
+
+export interface TeamArtifactsResponse {
+  teamName: string;
+  sessionId: string;
+  sessionPath: string;
+  pipelineMode?: string;
+  tree: ArtifactNode[];
+  totalFiles: number;
+  totalDirectories: number;
+  totalSize: number;
+}

@@ -9,6 +9,14 @@ allowed-tools: Skill(*), TodoWrite(*), AskUserQuestion(*), Read(*), Bash(*)
 
 Test orchestrator: testing needs analysis → strategy selection → test execution.
 
+## Skill 映射
+
+| Skill | 包含操作 |
+|-------|---------|
+| `workflow-test-fix` | test-fix-gen, test-cycle-execute |
+| `workflow-tdd` | tdd-plan, tdd-verify |
+| `workflow-execute` | execute |
+
 ## Core Concept: Test Units (测试单元)
 
 **Definition**: Test commands grouped into logical units based on testing objectives.

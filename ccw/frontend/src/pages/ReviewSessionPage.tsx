@@ -73,6 +73,7 @@ interface FixProgressData {
  * Fix Progress Carousel Component
  * Displays fix progress with polling and carousel navigation
  */
+// @ts-expect-error Component is defined for future use when backend implements /api/fix-progress
 function FixProgressCarousel({ sessionId }: { sessionId: string }) {
   const { formatMessage } = useIntl();
   const [fixProgressData, setFixProgressData] = React.useState<FixProgressData | null>(null);

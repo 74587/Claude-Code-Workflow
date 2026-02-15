@@ -4,8 +4,8 @@
   "level": 2,
   "steps": [
     {
-      "cmd": "/workflow:lite-fix",
-      "args": "\"{{goal}}\"",
+      "cmd": "/workflow:lite-plan",
+      "args": "--bugfix \"{{goal}}\"",
       "unit": "bug-fix",
       "execution": {
         "type": "slash-command",
@@ -21,7 +21,7 @@
         "type": "slash-command",
         "mode": "async"
       },
-      "contextHint": "Implement fix based on diagnosis. Execute against in-memory state from lite-fix analysis."
+      "contextHint": "Implement fix based on diagnosis. Execute against in-memory state from lite-plan analysis."
     },
     {
       "cmd": "/workflow:test-fix-gen",

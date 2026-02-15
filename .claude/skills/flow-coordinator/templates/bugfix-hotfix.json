@@ -4,7 +4,7 @@
   "level": 1,
   "steps": [
     {
-      "cmd": "/workflow:lite-fix",
+      "cmd": "/workflow:lite-plan",
       "args": "--hotfix \"{{goal}}\"",
       "execution": {
         "type": "slash-command",
