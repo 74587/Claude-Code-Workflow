@@ -11,6 +11,7 @@ import {
   AlertCircle,
   ListChecks,
   Info,
+  FolderOpen,
   LayoutGrid,
   Columns2,
   Rows2,
@@ -47,7 +48,7 @@ import { CliConfigModal, type CliSessionConfig } from './CliConfigModal';
 
 // ========== Types ==========
 
-export type PanelId = 'issues' | 'queue' | 'inspector';
+export type PanelId = 'issues' | 'queue' | 'inspector' | 'files';
 
 interface DashboardToolbarProps {
   activePanel: PanelId | null;
@@ -291,6 +292,12 @@ export function DashboardToolbar({ activePanel, onTogglePanel }: DashboardToolba
           isActive={activePanel === 'inspector'}
           onClick={() => onTogglePanel('inspector')}
           dot={hasChain}
+        />
+        <ToolbarButton
+          icon={FolderOpen}
+          label={formatMessage({ id: 'terminalDashboard.toolbar.files', defaultMessage: 'Files' })}
+          isActive={activePanel === 'files'}
+          onClick={() => onTogglePanel('files')}
         />
 
         {/* Separator */}

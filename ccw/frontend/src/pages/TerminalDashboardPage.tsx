@@ -18,12 +18,20 @@ import { AgentList } from '@/components/terminal-dashboard/AgentList';
 import { IssuePanel } from '@/components/terminal-dashboard/IssuePanel';
 import { QueuePanel } from '@/components/terminal-dashboard/QueuePanel';
 import { InspectorContent } from '@/components/terminal-dashboard/BottomInspector';
+import { FloatingFileBrowser } from '@/components/terminal-dashboard/FloatingFileBrowser';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { useTerminalGridStore, selectTerminalGridFocusedPaneId } from '@/stores/terminalGridStore';
+import { sendCliSessionText } from '@/lib/api';
 
 // ========== Main Page Component ==========
 
 export function TerminalDashboardPage() {
   const { formatMessage } = useIntl();
   const [activePanel, setActivePanel] = useState<PanelId | null>(null);
+
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const focusedPaneId = useTerminalGridStore(selectTerminalGridFocusedPaneId);
+  const panes = useTerminalGridStore((s) => s.panes);
 
   const togglePanel = useCallback((panelId: PanelId) => {
     setActivePanel((prev) => (prev === panelId ? null : panelId));
@@ -32,6 +40,20 @@ export function TerminalDashboardPage() {
   const closePanel = useCallback(() => {
     setActivePanel(null);
   }, []);
+
+  const handleInsertPath = useCallback(
+    (path: string) => {
+      if (!focusedPaneId) return;
+      const sessionId = panes[focusedPaneId]?.sessionId;
+      if (!sessionId) return;
+      sendCliSessionText(
+        sessionId,
+        { text: path, appendNewline: false },
+        projectPath ?? undefined
+      ).catch((err) => console.error('[TerminalDashboard] insert path failed:', err));
+    },
+    [focusedPaneId, panes, projectPath]
+  );
 
   return (
     <div className="-m-4 md:-m-6 flex flex-col h-[calc(100vh-56px)] overflow-hidden">
@@ -90,6 +112,15 @@ export function TerminalDashboardPage() {
         >
           <InspectorContent />
         </FloatingPanel>
+
+        {/* File browser (half screen, right side) */}
+        <FloatingFileBrowser
+          isOpen={activePanel === 'files'}
+          onClose={closePanel}
+          rootPath={projectPath ?? '/'}
+          onInsertPath={focusedPaneId ? handleInsertPath : undefined}
+          width="50vw"
+        />
       </AssociationHighlightProvider>
     </div>
   );

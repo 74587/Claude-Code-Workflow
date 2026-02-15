@@ -160,6 +160,43 @@ if (mode === 'spec-only' || mode === 'full-lifecycle') {
 
 Simple tasks can skip clarification.
 
+#### Execution Method Selection (impl/full-lifecycle modes)
+
+When mode includes implementation, select execution backend before team creation:
+
+```javascript
+if (mode === 'impl-only' || mode === 'full-lifecycle') {
+  const execSelection = AskUserQuestion({
+    questions: [
+      {
+        question: "选择代码执行方式:",
+        header: "Execution",
+        multiSelect: false,
+        options: [
+          { label: "Agent", description: "code-developer agent（同步，适合简单任务）" },
+          { label: "Codex", description: "Codex CLI（后台，适合复杂任务）" },
+          { label: "Gemini", description: "Gemini CLI（后台，适合分析类任务）" },
+          { label: "Auto", description: "根据任务复杂度自动选择（默认）" }
+        ]
+      },
+      {
+        question: "实现后是否进行代码审查?",
+        header: "Code Review",
+        multiSelect: false,
+        options: [
+          { label: "Skip", description: "不审查（Reviewer 角色独立负责）" },
+          { label: "Gemini Review", description: "Gemini CLI 审查" },
+          { label: "Codex Review", description: "Git-aware review（--uncommitted）" }
+        ]
+      }
+    ]
+  })
+
+  var executionMethod = execSelection.Execution || 'Auto'
+  var codeReviewTool = execSelection['Code Review'] || 'Skip'
+}
+```
+
 ### Phase 2: Create Team + Spawn Workers
 
 ```javascript
@@ -277,7 +314,7 @@ TaskCreate({ subject: "PLAN-001: 探索和规划实现", description: `${taskDes
 TaskUpdate({ taskId: planId, owner: "planner" })
 
 // IMPL-001 (blockedBy PLAN-001)
-TaskCreate({ subject: "IMPL-001: 实现已批准的计划", description: `${taskDescription}\n\nSession: ${sessionFolder}\nPlan: ${sessionFolder}/plan/plan.json`, activeForm: "实现中" })
+TaskCreate({ subject: "IMPL-001: 实现已批准的计划", description: `${taskDescription}\n\nSession: ${sessionFolder}\nPlan: ${sessionFolder}/plan/plan.json\nexecution_method: ${executionMethod || 'Auto'}\ncode_review: ${codeReviewTool || 'Skip'}`, activeForm: "实现中" })
 TaskUpdate({ taskId: implId, owner: "executor", addBlockedBy: [planId] })
 
 // TEST-001 (blockedBy IMPL-001)

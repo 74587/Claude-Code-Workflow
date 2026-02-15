@@ -89,6 +89,36 @@ if (issueIds.length === 0) {
 
 // Auto-detect mode
 const mode = detectMode(issueIds, explicitMode)
+
+// Execution method selection (for BUILD phase)
+const execSelection = AskUserQuestion({
+  questions: [
+    {
+      question: "选择代码执行方式:",
+      header: "Execution",
+      multiSelect: false,
+      options: [
+        { label: "Agent", description: "code-developer agent（同步，适合简单任务）" },
+        { label: "Codex", description: "Codex CLI（后台，适合复杂任务）" },
+        { label: "Gemini", description: "Gemini CLI（后台，适合分析类任务）" },
+        { label: "Auto", description: "根据 solution task_count 自动选择（默认）" }
+      ]
+    },
+    {
+      question: "实现后是否进行代码审查?",
+      header: "Code Review",
+      multiSelect: false,
+      options: [
+        { label: "Skip", description: "不审查" },
+        { label: "Gemini Review", description: "Gemini CLI 审查" },
+        { label: "Codex Review", description: "Git-aware review（--uncommitted）" }
+      ]
+    }
+  ]
+})
+
+const executionMethod = execSelection.Execution || 'Auto'
+const codeReviewTool = execSelection['Code Review'] || 'Skip'
 ```
 
 **Mode Auto-Detection**:
@@ -171,7 +201,7 @@ for (const issueId of issueIds) {
 
   TaskCreate({
     subject: `BUILD-001: Implement solution for ${issueId}`,
-    description: `Implement solution for issue ${issueId}. Load via ccw issue detail <item-id>, execute tasks, report via ccw issue done.`,
+    description: `Implement solution for issue ${issueId}. Load via ccw issue detail <item-id>, execute tasks, report via ccw issue done.\nexecution_method: ${executionMethod}\ncode_review: ${codeReviewTool}`,
     activeForm: `Implementing ${issueId}`,
     owner: "implementer",
     addBlockedBy: [marshalId]
@@ -215,7 +245,7 @@ for (const issueId of issueIds) {
 
   TaskCreate({
     subject: `BUILD-001: Implement solution for ${issueId}`,
-    description: `Implement approved solution for issue ${issueId}.`,
+    description: `Implement approved solution for issue ${issueId}.\nexecution_method: ${executionMethod}\ncode_review: ${codeReviewTool}`,
     activeForm: `Implementing ${issueId}`,
     owner: "implementer",
     addBlockedBy: [marshalId]
@@ -282,6 +312,9 @@ const marshalId = TaskCreate({
 })
 
 // BUILD tasks created dynamically after MARSHAL completes (based on DAG)
+// Each BUILD-* task description MUST include:
+//   execution_method: ${executionMethod}
+//   code_review: ${codeReviewTool}
 ```
 
 ### Phase 4: Coordination Loop

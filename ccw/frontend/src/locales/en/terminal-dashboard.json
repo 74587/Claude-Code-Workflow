@@ -73,6 +73,7 @@
     "issues": "Issues",
     "queue": "Queue",
     "inspector": "Inspector",
+    "files": "Files",
     "layoutSingle": "Single",
     "layoutSplitH": "Split Horizontal",
     "layoutSplitV": "Split Vertical",

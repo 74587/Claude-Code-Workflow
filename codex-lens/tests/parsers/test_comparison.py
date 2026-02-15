@@ -442,9 +442,8 @@ import sys
     def test_imports_inside_function(self) -> None:
         """Test simple import inside a function scope is recorded.
 
-        Note: tree-sitter parser requires a scope to record imports.
-        Module-level imports without any function/class are not recorded
-        because scope_stack is empty at module level.
+        Note: module-level imports are recorded under a synthetic "<module>" scope.
+        This test ensures imports inside a function scope are also recorded.
         """
         code = """
 def my_function():

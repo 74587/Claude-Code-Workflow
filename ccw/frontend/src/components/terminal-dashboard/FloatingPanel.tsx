@@ -15,7 +15,7 @@ interface FloatingPanelProps {
   onClose: () => void;
   title: string;
   side?: 'left' | 'right';
-  width?: number;
+  width?: number | string;
   children: React.ReactNode;
 }
 
@@ -77,7 +77,7 @@ export function FloatingPanel({
         style={{
           top: '40px', // Below toolbar
           height: 'calc(100vh - 40px)', // Full height below toolbar
-          width: `${width}px`,
+          width: typeof width === 'number' ? `${width}px` : width,
         }}
       >
         {/* Panel header */}

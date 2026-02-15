@@ -20,6 +20,7 @@ export interface FloatingFileBrowserProps {
   rootPath: string;
   onInsertPath?: (path: string) => void;
   initialSelectedPath?: string | null;
+  width?: number | string;
 }
 
 export function FloatingFileBrowser({
@@ -28,6 +29,7 @@ export function FloatingFileBrowser({
   rootPath,
   onInsertPath,
   initialSelectedPath = null,
+  width = 400,
 }: FloatingFileBrowserProps) {
   const { formatMessage } = useIntl();
 
@@ -89,7 +91,7 @@ export function FloatingFileBrowser({
       onClose={onClose}
       title={formatMessage({ id: 'terminalDashboard.fileBrowser.title' })}
       side="right"
-      width={400}
+      width={width}
     >
       <div className="flex flex-col h-full">
         {/* Toolbar */}
@@ -148,7 +150,7 @@ export function FloatingFileBrowser({
         {/* Body */}
         <div className="flex-1 min-h-0 flex overflow-hidden">
           {/* Tree */}
-          <div className="w-[180px] shrink-0 border-r border-border overflow-y-auto">
+          <div className="w-[240px] shrink-0 border-r border-border overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-8 text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin" />

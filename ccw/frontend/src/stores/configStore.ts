@@ -235,6 +235,10 @@ export const useConfigStore = create<ConfigStore>()(
                       secondaryModel: t.secondaryModel || '',
                       tags: t.tags || [],
                       type: t.type || 'builtin',
+                      // Load additional fields from backend (fixes cross-browser config sync)
+                      envFile: t.envFile,
+                      settingsFile: t.settingsFile,
+                      availableModels: t.availableModels,
                     };
                   }
                   if (Object.keys(cliTools).length > 0) {

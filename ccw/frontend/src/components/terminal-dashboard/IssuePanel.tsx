@@ -82,8 +82,9 @@ function IssueItem({
   );
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       className={cn(
         'w-full text-left px-2.5 py-1.5 rounded-md transition-colors',
         'hover:bg-muted/60 focus:outline-none focus:ring-1 focus:ring-primary/30',
@@ -91,6 +92,7 @@ function IssueItem({
         isHighlighted && !isSelected && 'bg-accent/50'
       )}
       onClick={onSelect}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); } }}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
@@ -129,7 +131,7 @@ function IssueItem({
           </>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
