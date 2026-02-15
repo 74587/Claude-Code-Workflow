@@ -2,12 +2,12 @@
 // Remote Notification Types
 // ========================================
 // Type definitions for remote notification system
-// Supports Discord, Telegram, and Generic Webhook platforms
+// Supports Discord, Telegram, Feishu, DingTalk, WeCom, Email, and Generic Webhook platforms
 
 /**
  * Supported notification platforms
  */
-export type NotificationPlatform = 'discord' | 'telegram' | 'webhook';
+export type NotificationPlatform = 'discord' | 'telegram' | 'feishu' | 'dingtalk' | 'wecom' | 'email' | 'webhook';
 
 /**
  * Event types that can trigger notifications
@@ -48,6 +48,66 @@ export interface TelegramConfig {
 }
 
 /**
+ * Feishu (Lark) platform configuration
+ */
+export interface FeishuConfig {
+  /** Whether Feishu notifications are enabled */
+  enabled: boolean;
+  /** Feishu webhook URL */
+  webhookUrl: string;
+  /** Use rich card format (default: true) */
+  useCard?: boolean;
+  /** Custom title for notifications */
+  title?: string;
+}
+
+/**
+ * DingTalk platform configuration
+ */
+export interface DingTalkConfig {
+  /** Whether DingTalk notifications are enabled */
+  enabled: boolean;
+  /** DingTalk webhook URL */
+  webhookUrl: string;
+  /** Optional keywords for security check */
+  keywords?: string[];
+}
+
+/**
+ * WeCom (WeChat Work) platform configuration
+ */
+export interface WeComConfig {
+  /** Whether WeCom notifications are enabled */
+  enabled: boolean;
+  /** WeCom webhook URL */
+  webhookUrl: string;
+  /** Mentioned user IDs (@all for all members) */
+  mentionedList?: string[];
+}
+
+/**
+ * Email SMTP platform configuration
+ */
+export interface EmailConfig {
+  /** Whether Email notifications are enabled */
+  enabled: boolean;
+  /** SMTP server host */
+  host: string;
+  /** SMTP server port */
+  port: number;
+  /** Use secure connection (TLS) */
+  secure?: boolean;
+  /** SMTP username */
+  username: string;
+  /** SMTP password */
+  password: string;
+  /** Sender email address */
+  from: string;
+  /** Recipient email addresses */
+  to: string[];
+}
+
+/**
  * Generic Webhook platform configuration
  */
 export interface WebhookConfig {
@@ -85,6 +145,10 @@ export interface RemoteNotificationConfig {
   platforms: {
     discord?: DiscordConfig;
     telegram?: TelegramConfig;
+    feishu?: FeishuConfig;
+    dingtalk?: DingTalkConfig;
+    wecom?: WeComConfig;
+    email?: EmailConfig;
     webhook?: WebhookConfig;
   };
   /** Event-to-platform mappings */
@@ -191,6 +255,22 @@ export function maskSensitiveConfig(config: RemoteNotificationConfig): RemoteNot
       telegram: config.platforms.telegram ? {
         ...config.platforms.telegram,
         botToken: maskToken(config.platforms.telegram.botToken),
+      } : undefined,
+      feishu: config.platforms.feishu ? {
+        ...config.platforms.feishu,
+        webhookUrl: maskWebhookUrl(config.platforms.feishu.webhookUrl),
+      } : undefined,
+      dingtalk: config.platforms.dingtalk ? {
+        ...config.platforms.dingtalk,
+        webhookUrl: maskWebhookUrl(config.platforms.dingtalk.webhookUrl),
+      } : undefined,
+      wecom: config.platforms.wecom ? {
+        ...config.platforms.wecom,
+        webhookUrl: maskWebhookUrl(config.platforms.wecom.webhookUrl),
+      } : undefined,
+      email: config.platforms.email ? {
+        ...config.platforms.email,
+        password: maskToken(config.platforms.email.password),
       } : undefined,
       webhook: config.platforms.webhook ? {
         ...config.platforms.webhook,

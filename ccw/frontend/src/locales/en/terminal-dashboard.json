@@ -78,8 +78,50 @@
     "layoutSplitV": "Split Vertical",
     "layoutGrid": "Grid 2x2",
     "launchCli": "Launch CLI",
+    "tool": "Tool",
+    "mode": "Mode",
+    "modeDefault": "Default",
+    "modeYolo": "Yolo",
     "quickCreate": "Quick Create",
     "configure": "Configure..."
+  },
+  "cliConfig": {
+    "title": "Create CLI Session",
+    "description": "Configure tool, model, mode, shell, and working directory.",
+    "tool": "Tool",
+    "model": "Model",
+    "modelAuto": "Auto",
+    "mode": "Mode",
+    "modeDefault": "Default",
+    "modeYolo": "Yolo",
+    "shell": "Shell",
+    "workingDir": "Working Directory",
+    "workingDirPlaceholder": "e.g. /path/to/project",
+    "browse": "Browse",
+    "errors": {
+      "workingDirRequired": "Working directory is required.",
+      "createFailed": "Failed to create session."
+    }
+  },
+  "fileBrowser": {
+    "title": "File Browser",
+    "open": "Open file browser",
+    "selected": "Selected file",
+    "noSelection": "No file selected",
+    "copyPath": "Copy path",
+    "copied": "Copied",
+    "insertPath": "Insert into terminal",
+    "loading": "Loading...",
+    "loadFailed": "Failed to load file tree"
+  },
+  "artifacts": {
+    "types": {
+      "workflowSession": "Workflow",
+      "liteSession": "Lite",
+      "claudeMd": "CLAUDE.md",
+      "ccwConfig": "CCW Config",
+      "issue": "Issue"
+    }
   },
   "pane": {
     "selectSession": "Select a session",

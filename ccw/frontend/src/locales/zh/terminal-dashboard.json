@@ -78,8 +78,50 @@
     "layoutSplitV": "上下分割",
     "layoutGrid": "2x2 网格",
     "launchCli": "启动 CLI",
+    "tool": "工具",
+    "mode": "模式",
+    "modeDefault": "默认",
+    "modeYolo": "Yolo",
     "quickCreate": "快速创建",
     "configure": "配置..."
+  },
+  "cliConfig": {
+    "title": "创建 CLI 会话",
+    "description": "配置工具、模型、模式、Shell 与工作目录。",
+    "tool": "工具",
+    "model": "模型",
+    "modelAuto": "自动",
+    "mode": "模式",
+    "modeDefault": "默认",
+    "modeYolo": "Yolo",
+    "shell": "Shell",
+    "workingDir": "工作目录",
+    "workingDirPlaceholder": "例如：/path/to/project",
+    "browse": "浏览",
+    "errors": {
+      "workingDirRequired": "工作目录不能为空。",
+      "createFailed": "创建会话失败。"
+    }
+  },
+  "fileBrowser": {
+    "title": "文件浏览器",
+    "open": "打开文件浏览器",
+    "selected": "已选文件",
+    "noSelection": "未选择文件",
+    "copyPath": "复制路径",
+    "copied": "已复制",
+    "insertPath": "插入到终端",
+    "loading": "加载中...",
+    "loadFailed": "加载文件树失败"
+  },
+  "artifacts": {
+    "types": {
+      "workflowSession": "工作流",
+      "liteSession": "Lite",
+      "claudeMd": "CLAUDE.md",
+      "ccwConfig": "配置",
+      "issue": "问题"
+    }
   },
   "pane": {
     "selectSession": "选择会话",

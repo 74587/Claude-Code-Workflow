@@ -4,7 +4,7 @@
 // Manage MCP servers (Model Context Protocol) with tabbed interface
 // Supports Templates, Servers, and Cross-CLI tabs
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
   BookmarkPlus,
+  AlertTriangle,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -38,16 +39,20 @@ import { AllProjectsTable } from '@/components/mcp/AllProjectsTable';
 import { OtherProjectsSection } from '@/components/mcp/OtherProjectsSection';
 import { TabsNavigation } from '@/components/ui/TabsNavigation';
 import { useMcpServers, useMcpServerMutations, useNotifications } from '@/hooks';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import {
   fetchCodexMcpServers,
   fetchCcwMcpConfig,
   fetchCcwMcpConfigForCodex,
   updateCcwConfig,
   updateCcwConfigForCodex,
+  installCcwMcp,
+  uninstallCcwMcpFromScope,
   codexRemoveServer,
   codexToggleServer,
   saveMcpTemplate,
   type McpServer,
+  type McpServerConflict,
   type CcwMcpConfig,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -62,9 +67,10 @@ interface McpServerCardProps {
   onEdit: (server: McpServer) => void;
   onDelete: (server: McpServer) => void;
   onSaveAsTemplate: (server: McpServer) => void;
+  conflictInfo?: McpServerConflict;
 }
 
-function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, onDelete, onSaveAsTemplate }: McpServerCardProps) {
+function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, onDelete, onSaveAsTemplate, conflictInfo }: McpServerCardProps) {
   const { formatMessage } = useIntl();
 
   return (
@@ -97,6 +103,12 @@ function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, o
                     <><Folder className="w-3 h-3 mr-1" />{formatMessage({ id: 'mcp.scope.project' })}</>
                   )}
                 </Badge>
+                {conflictInfo && (
+                  <Badge variant="outline" className="text-xs text-orange-500 border-orange-300">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    {formatMessage({ id: 'mcp.conflict.badge' })}
+                  </Badge>
+                )}
                 {server.enabled && (
                   <Badge variant="outline" className="text-xs text-green-600">
                     {formatMessage({ id: 'mcp.status.enabled' })}
@@ -205,6 +217,22 @@ function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, o
               </div>
             </div>
           )}
+
+          {/* Conflict warning panel */}
+          {conflictInfo && (
+            <div className="p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-lg space-y-1">
+              <div className="flex items-center gap-2 text-orange-700 dark:text-orange-400">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="text-sm font-medium">{formatMessage({ id: 'mcp.conflict.title' })}</span>
+              </div>
+              <p className="text-xs text-orange-600 dark:text-orange-400/80">
+                {formatMessage({ id: 'mcp.conflict.description' }, { scope: formatMessage({ id: `mcp.scope.${conflictInfo.effectiveScope}` }) })}
+              </p>
+              <p className="text-xs text-orange-600 dark:text-orange-400/80">
+                {formatMessage({ id: 'mcp.conflict.resolution' })}
+              </p>
+            </div>
+          )}
         </div>
       )}
     </Card>
@@ -233,6 +261,7 @@ export function McpManagerPage() {
     servers,
     projectServers,
     globalServers,
+    conflicts,
     totalCount,
     enabledCount,
     isLoading,
@@ -350,6 +379,7 @@ export function McpManagerPage() {
     projectRoot: undefined,
     allowedDirs: undefined,
     enableSandbox: undefined,
+    installedScopes: [] as ('global' | 'project')[],
   };
 
   const handleToggleCcwTool = async (tool: string, enabled: boolean) => {
@@ -401,13 +431,43 @@ export function McpManagerPage() {
     ccwMcpQuery.refetch();
   };
 
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  // Build conflict map for quick lookup
+  const conflictMap = useMemo(() => {
+    const map = new Map<string, McpServerConflict>();
+    for (const c of conflicts) map.set(c.name, c);
+    return map;
+  }, [conflicts]);
+
+  // CCW scope-specific handlers
+  const handleCcwInstallToScope = async (scope: 'global' | 'project') => {
+    try {
+      await installCcwMcp(scope, scope === 'project' ? projectPath ?? undefined : undefined);
+      ccwMcpQuery.refetch();
+    } catch (error) {
+      console.error('Failed to install CCW MCP to scope:', error);
+    }
+  };
+
+  const handleCcwUninstallFromScope = async (scope: 'global' | 'project') => {
+    try {
+      await uninstallCcwMcpFromScope(scope, scope === 'project' ? projectPath ?? undefined : undefined);
+      ccwMcpQuery.refetch();
+      queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
+    } catch (error) {
+      console.error('Failed to uninstall CCW MCP from scope:', error);
+    }
+  };
+
   // CCW MCP handlers for Codex mode
   const ccwCodexConfig = ccwMcpCodexQuery.data ?? {
     isInstalled: false,
-    enabledTools: [],
+    enabledTools: [] as string[],
     projectRoot: undefined,
     allowedDirs: undefined,
     enableSandbox: undefined,
+    installedScopes: [] as ('global' | 'project')[],
   };
 
   const handleToggleCcwToolCodex = async (tool: string, enabled: boolean) => {
@@ -725,6 +785,9 @@ export function McpManagerPage() {
           onToggleTool={handleToggleCcwTool}
           onUpdateConfig={handleUpdateCcwConfig}
           onInstall={handleCcwInstall}
+          installedScopes={ccwConfig.installedScopes}
+          onInstallToScope={handleCcwInstallToScope}
+          onUninstallScope={handleCcwUninstallFromScope}
         />
       )}
       {cliMode === 'codex' && (
@@ -761,7 +824,7 @@ export function McpManagerPage() {
           {currentServers.map((server) => (
             cliMode === 'codex' ? (
               <CodexMcpEditableCard
-                key={server.name}
+                key={`${server.name}-${server.scope}`}
                 server={server as McpServer}
                 enabled={server.enabled}
                 isExpanded={currentExpanded.has(server.name)}
@@ -772,14 +835,15 @@ export function McpManagerPage() {
               />
             ) : (
               <McpServerCard
-                key={server.name}
+                key={`${server.name}-${server.scope}`}
                 server={server}
-                isExpanded={currentExpanded.has(server.name)}
-                onToggleExpand={() => currentToggleExpand(server.name)}
+                isExpanded={currentExpanded.has(`${server.name}-${server.scope}`)}
+                onToggleExpand={() => currentToggleExpand(`${server.name}-${server.scope}`)}
                 onToggle={handleToggle}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onSaveAsTemplate={handleSaveServerAsTemplate}
+                conflictInfo={conflictMap.get(server.name)}
               />
             )
           ))}

@@ -704,7 +704,7 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
                       const isLastOdd = currentSession.tasks!.length % 2 === 1 && index === currentSession.tasks!.length - 1;
                       return (
                         <div
-                          key={`${currentSession.session_id}-${task.task_id}`}
+                          key={`${currentSession.session_id}-${task.task_id}-${index}`}
                           className={cn(
                             'flex items-center gap-2 p-2 rounded hover:bg-background/50 transition-colors',
                             isLastOdd && 'col-span-2'

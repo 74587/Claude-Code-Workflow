@@ -9,6 +9,7 @@ import { useIntl } from 'react-intl';
 import {
   SplitSquareHorizontal,
   SplitSquareVertical,
+  FolderOpen,
   Eraser,
   AlertTriangle,
   X,
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TerminalInstance } from './TerminalInstance';
+import { FloatingFileBrowser } from './FloatingFileBrowser';
 import {
   useTerminalGridStore,
   selectTerminalGridPanes,
@@ -37,6 +39,8 @@ import {
 } from '@/stores/issueQueueIntegrationStore';
 import { useCliSessionStore } from '@/stores/cliSessionStore';
 import { getAllPaneIds } from '@/lib/layout-utils';
+import { sendCliSessionText } from '@/lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import type { PaneId } from '@/stores/viewerStore';
 import type { TerminalStatus } from '@/types/terminal-dashboard';
 
@@ -74,6 +78,10 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   const sessionId = pane?.sessionId ?? null;
   const isFocused = focusedPaneId === paneId;
   const canClose = getAllPaneIds(layout).length > 1;
+
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const [isFileBrowserOpen, setIsFileBrowserOpen] = useState(false);
+  const [initialFileBrowserPath, setInitialFileBrowserPath] = useState<string | null>(null);
 
   // Session data
   const groups = useSessionManagerStore(selectGroups);
@@ -145,6 +153,25 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
       queueMicrotask(() => assignSession(paneId, sessionId));
     }
   }, [paneId, sessionId, assignSession]);
+
+  const handleOpenFileBrowser = useCallback(() => {
+    setInitialFileBrowserPath(null);
+    setIsFileBrowserOpen(true);
+  }, []);
+
+  const handleRevealPath = useCallback((path: string) => {
+    setInitialFileBrowserPath(path);
+    setIsFileBrowserOpen(true);
+  }, []);
+
+  const handleInsertPath = useCallback((path: string) => {
+    if (!sessionId) return;
+    sendCliSessionText(
+      sessionId,
+      { text: path, appendNewline: false },
+      projectPath ?? undefined
+    ).catch((err) => console.error('[TerminalPane] insert path failed:', err));
+  }, [sessionId, projectPath]);
 
   const handleRestart = useCallback(async () => {
     if (!sessionId || isRestarting) return;
@@ -291,6 +318,19 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
               </button>
             </>
           )}
+          <button
+            onClick={handleOpenFileBrowser}
+            disabled={!projectPath}
+            className={cn(
+              'p-1 rounded hover:bg-muted transition-colors',
+              projectPath
+                ? 'text-muted-foreground hover:text-foreground'
+                : 'text-muted-foreground/40 cursor-not-allowed'
+            )}
+            title={formatMessage({ id: 'terminalDashboard.fileBrowser.open' })}
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+          </button>
           {alertCount > 0 && (
             <span className="flex items-center gap-0.5 px-1 text-destructive">
               <AlertTriangle className="w-3 h-3" />
@@ -314,7 +354,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
       {/* Terminal content */}
       {sessionId ? (
         <div className="flex-1 min-h-0">
-          <TerminalInstance sessionId={sessionId} />
+          <TerminalInstance sessionId={sessionId} onRevealPath={handleRevealPath} />
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
@@ -329,6 +369,17 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
           </div>
         </div>
       )}
+
+      <FloatingFileBrowser
+        isOpen={isFileBrowserOpen}
+        onClose={() => {
+          setIsFileBrowserOpen(false);
+          setInitialFileBrowserPath(null);
+        }}
+        rootPath={projectPath ?? '/'}
+        onInsertPath={sessionId ? handleInsertPath : undefined}
+        initialSelectedPath={initialFileBrowserPath}
+      />
     </div>
   );
 }

@@ -12,7 +12,7 @@ import {
 } from '../../config/remote-notification-config.js';
 import {
   remoteNotificationService,
-} from '../../services/remote-notification-service.js';
+} from '../services/remote-notification-service.js';
 import {
   maskSensitiveConfig,
   type RemoteNotificationConfig,
@@ -21,6 +21,10 @@ import {
   type DiscordConfig,
   type TelegramConfig,
   type WebhookConfig,
+  type FeishuConfig,
+  type DingTalkConfig,
+  type WeComConfig,
+  type EmailConfig,
 } from '../../types/remote-notification.js';
 import { deepMerge } from '../../types/util.js';
 
@@ -111,12 +115,71 @@ function isValidHeaders(headers: unknown): { valid: boolean; error?: string } {
 }
 
 /**
+ * Validate Feishu webhook URL format
+ */
+function isValidFeishuWebhookUrl(url: string): boolean {
+  if (!isValidUrl(url)) return false;
+  try {
+    const parsed = new URL(url);
+    // Feishu webhooks are typically: open.feishu.cn/open-apis/bot/v2/hook/{token}
+    // or: open.larksuite.com/open-apis/bot/v2/hook/{token}
+    const validHosts = ['open.feishu.cn', 'open.larksuite.com'];
+    return validHosts.includes(parsed.hostname) && parsed.pathname.includes('/bot/');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate DingTalk webhook URL format
+ */
+function isValidDingTalkWebhookUrl(url: string): boolean {
+  if (!isValidUrl(url)) return false;
+  try {
+    const parsed = new URL(url);
+    // DingTalk webhooks are typically: oapi.dingtalk.com/robot/send?access_token=xxx
+    return parsed.hostname.includes('dingtalk.com') && parsed.pathname.includes('robot');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate WeCom webhook URL format
+ */
+function isValidWeComWebhookUrl(url: string): boolean {
+  if (!isValidUrl(url)) return false;
+  try {
+    const parsed = new URL(url);
+    // WeCom webhooks are typically: qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx
+    return parsed.hostname.includes('qyapi.weixin.qq.com') && parsed.pathname.includes('webhook');
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate email address format
+ */
+function isValidEmail(email: string): boolean {
+  // Basic email validation regex
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+/**
+ * Validate SMTP port number
+ */
+function isValidSmtpPort(port: number): boolean {
+  return Number.isInteger(port) && port > 0 && port <= 65535;
+}
+
+/**
  * Validate configuration updates
  */
 function validateConfigUpdates(updates: Partial<RemoteNotificationConfig>): { valid: boolean; error?: string } {
   // Validate platforms if present
   if (updates.platforms) {
-    const { discord, telegram, webhook } = updates.platforms;
+    const { discord, telegram, webhook, feishu, dingtalk, wecom, email } = updates.platforms;
 
     // Validate Discord config
     if (discord) {
@@ -165,6 +228,99 @@ function validateConfigUpdates(updates: Partial<RemoteNotificationConfig>): { va
         return { valid: false, error: 'Webhook timeout must be between 1000ms and 60000ms' };
       }
     }
+
+    // Validate Feishu config
+    if (feishu) {
+      if (feishu.webhookUrl !== undefined && feishu.webhookUrl !== '') {
+        if (!isValidUrl(feishu.webhookUrl)) {
+          return { valid: false, error: 'Invalid Feishu webhook URL format' };
+        }
+        if (!isValidFeishuWebhookUrl(feishu.webhookUrl)) {
+          console.warn('[RemoteNotification] Webhook URL does not match Feishu format');
+        }
+      }
+      if (feishu.title !== undefined && feishu.title.length > 100) {
+        return { valid: false, error: 'Feishu title too long (max 100 chars)' };
+      }
+    }
+
+    // Validate DingTalk config
+    if (dingtalk) {
+      if (dingtalk.webhookUrl !== undefined && dingtalk.webhookUrl !== '') {
+        if (!isValidUrl(dingtalk.webhookUrl)) {
+          return { valid: false, error: 'Invalid DingTalk webhook URL format' };
+        }
+        if (!isValidDingTalkWebhookUrl(dingtalk.webhookUrl)) {
+          console.warn('[RemoteNotification] Webhook URL does not match DingTalk format');
+        }
+      }
+      if (dingtalk.keywords !== undefined) {
+        if (!Array.isArray(dingtalk.keywords)) {
+          return { valid: false, error: 'DingTalk keywords must be an array' };
+        }
+        if (dingtalk.keywords.length > 10) {
+          return { valid: false, error: 'Too many DingTalk keywords (max 10)' };
+        }
+      }
+    }
+
+    // Validate WeCom config
+    if (wecom) {
+      if (wecom.webhookUrl !== undefined && wecom.webhookUrl !== '') {
+        if (!isValidUrl(wecom.webhookUrl)) {
+          return { valid: false, error: 'Invalid WeCom webhook URL format' };
+        }
+        if (!isValidWeComWebhookUrl(wecom.webhookUrl)) {
+          console.warn('[RemoteNotification] Webhook URL does not match WeCom format');
+        }
+      }
+      if (wecom.mentionedList !== undefined) {
+        if (!Array.isArray(wecom.mentionedList)) {
+          return { valid: false, error: 'WeCom mentionedList must be an array' };
+        }
+        if (wecom.mentionedList.length > 100) {
+          return { valid: false, error: 'Too many mentioned users (max 100)' };
+        }
+      }
+    }
+
+    // Validate Email config
+    if (email) {
+      if (email.host !== undefined && email.host !== '') {
+        if (email.host.length > 255) {
+          return { valid: false, error: 'Email host too long (max 255 chars)' };
+        }
+      }
+      if (email.port !== undefined) {
+        if (!isValidSmtpPort(email.port)) {
+          return { valid: false, error: 'Invalid SMTP port (must be 1-65535)' };
+        }
+      }
+      if (email.username !== undefined && email.username.length > 255) {
+        return { valid: false, error: 'Email username too long (max 255 chars)' };
+      }
+      if (email.from !== undefined && email.from !== '') {
+        if (!isValidEmail(email.from)) {
+          return { valid: false, error: 'Invalid sender email address' };
+        }
+      }
+      if (email.to !== undefined) {
+        if (!Array.isArray(email.to)) {
+          return { valid: false, error: 'Email recipients must be an array' };
+        }
+        if (email.to.length === 0) {
+          return { valid: false, error: 'At least one email recipient is required' };
+        }
+        if (email.to.length > 50) {
+          return { valid: false, error: 'Too many email recipients (max 50)' };
+        }
+        for (const addr of email.to) {
+          if (!isValidEmail(addr)) {
+            return { valid: false, error: `Invalid email address: ${addr}` };
+          }
+        }
+      }
+    }
   }
 
   // Validate timeout
@@ -183,7 +339,7 @@ function validateTestRequest(request: TestNotificationRequest): { valid: boolean
     return { valid: false, error: 'Missing platform' };
   }
 
-  const validPlatforms: NotificationPlatform[] = ['discord', 'telegram', 'webhook'];
+  const validPlatforms: NotificationPlatform[] = ['discord', 'telegram', 'webhook', 'feishu', 'dingtalk', 'wecom', 'email'];
   if (!validPlatforms.includes(request.platform as NotificationPlatform)) {
     return { valid: false, error: `Invalid platform: ${request.platform}` };
   }
@@ -233,6 +389,66 @@ function validateTestRequest(request: TestNotificationRequest): { valid: boolean
         if (!headerValidation.valid) {
           return { valid: false, error: headerValidation.error };
         }
+      }
+      break;
+    }
+    case 'feishu': {
+      const config = request.config as Partial<FeishuConfig>;
+      if (!config.webhookUrl) {
+        return { valid: false, error: 'Feishu webhook URL is required' };
+      }
+      if (!isValidUrl(config.webhookUrl)) {
+        return { valid: false, error: 'Invalid Feishu webhook URL format' };
+      }
+      break;
+    }
+    case 'dingtalk': {
+      const config = request.config as Partial<DingTalkConfig>;
+      if (!config.webhookUrl) {
+        return { valid: false, error: 'DingTalk webhook URL is required' };
+      }
+      if (!isValidUrl(config.webhookUrl)) {
+        return { valid: false, error: 'Invalid DingTalk webhook URL format' };
+      }
+      break;
+    }
+    case 'wecom': {
+      const config = request.config as Partial<WeComConfig>;
+      if (!config.webhookUrl) {
+        return { valid: false, error: 'WeCom webhook URL is required' };
+      }
+      if (!isValidUrl(config.webhookUrl)) {
+        return { valid: false, error: 'Invalid WeCom webhook URL format' };
+      }
+      break;
+    }
+    case 'email': {
+      const config = request.config as Partial<EmailConfig>;
+      if (!config.host) {
+        return { valid: false, error: 'SMTP host is required' };
+      }
+      if (!config.username) {
+        return { valid: false, error: 'SMTP username is required' };
+      }
+      if (!config.password) {
+        return { valid: false, error: 'SMTP password is required' };
+      }
+      if (!config.from) {
+        return { valid: false, error: 'Sender email address is required' };
+      }
+      if (!isValidEmail(config.from)) {
+        return { valid: false, error: 'Invalid sender email address' };
+      }
+      if (!config.to || config.to.length === 0) {
+        return { valid: false, error: 'At least one recipient email is required' };
+      }
+      for (const addr of config.to) {
+        if (!isValidEmail(addr)) {
+          return { valid: false, error: `Invalid recipient email: ${addr}` };
+        }
+      }
+      if (config.port !== undefined && !isValidSmtpPort(config.port)) {
+        return { valid: false, error: 'Invalid SMTP port' };
       }
       break;
     }

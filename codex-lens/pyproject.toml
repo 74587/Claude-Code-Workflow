@@ -23,8 +23,8 @@ dependencies = [
     "pathspec>=0.11",
     "watchdog>=3.0",
     # ast-grep for pattern-based AST matching (PyO3 bindings)
-    # Note: May have compatibility issues with Python 3.13
-    "ast-grep-py>=0.3.0; python_version < '3.13'",
+    # ast-grep-py 0.40+ supports Python 3.13
+    "ast-grep-py>=0.40.0",
 ]
 
 [project.optional-dependencies]

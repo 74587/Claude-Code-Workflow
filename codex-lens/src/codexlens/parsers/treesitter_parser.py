@@ -291,7 +291,9 @@ class TreeSitterSymbolParser:
         source_file = str(path.resolve())
         relationships: List[CodeRelationship] = []
 
-        scope_stack: List[str] = []
+        # Use a synthetic module scope so module-level imports/calls can be recorded
+        # (useful for static global graph persistence).
+        scope_stack: List[str] = ["<module>"]
         alias_stack: List[Dict[str, str]] = [{}]
 
         def record_import(target_symbol: str, source_line: int) -> None:
@@ -398,7 +400,9 @@ class TreeSitterSymbolParser:
         source_file = str(path.resolve())
         relationships: List[CodeRelationship] = []
 
-        scope_stack: List[str] = []
+        # Use a synthetic module scope so module-level imports/calls can be recorded
+        # (useful for static global graph persistence).
+        scope_stack: List[str] = ["<module>"]
         alias_stack: List[Dict[str, str]] = [{}]
 
         def record_import(target_symbol: str, source_line: int) -> None:

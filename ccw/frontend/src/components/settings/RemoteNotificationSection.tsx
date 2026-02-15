@@ -11,15 +11,13 @@ import {
   RefreshCw,
   Check,
   X,
+  Save,
   ChevronDown,
   ChevronUp,
-  TestTube,
-  Save,
-  AlertTriangle,
+  Plus,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -30,6 +28,10 @@ import type {
   DiscordConfig,
   TelegramConfig,
   WebhookConfig,
+  FeishuConfig,
+  DingTalkConfig,
+  WeComConfig,
+  EmailConfig,
 } from '@/types/remote-notification';
 import { PLATFORM_INFO, EVENT_INFO, getDefaultConfig } from '@/types/remote-notification';
 import { PlatformConfigCards } from './PlatformConfigCards';
@@ -45,6 +47,7 @@ export function RemoteNotificationSection({ className }: RemoteNotificationSecti
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState<NotificationPlatform | null>(null);
   const [expandedPlatform, setExpandedPlatform] = useState<NotificationPlatform | null>(null);
+  const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
 
   // Load configuration
   const loadConfig = useCallback(async () => {
@@ -97,7 +100,7 @@ export function RemoteNotificationSection({ className }: RemoteNotificationSecti
   // Test platform
   const testPlatform = useCallback(async (
     platform: NotificationPlatform,
-    platformConfig: DiscordConfig | TelegramConfig | WebhookConfig
+    platformConfig: DiscordConfig | TelegramConfig | WebhookConfig | FeishuConfig | DingTalkConfig | WeComConfig | EmailConfig
   ) => {
     setTesting(platform);
     try {
@@ -136,7 +139,7 @@ export function RemoteNotificationSection({ className }: RemoteNotificationSecti
   // Update platform config
   const updatePlatformConfig = (
     platform: NotificationPlatform,
-    updates: Partial<DiscordConfig | TelegramConfig | WebhookConfig>
+    updates: Partial<DiscordConfig | TelegramConfig | WebhookConfig | FeishuConfig | DingTalkConfig | WeComConfig | EmailConfig>
   ) => {
     if (!config) return;
     const newConfig = {
@@ -159,6 +162,19 @@ export function RemoteNotificationSection({ className }: RemoteNotificationSecti
     newEvents[eventIndex] = { ...newEvents[eventIndex], ...updates };
     setConfig({ ...config, events: newEvents });
   };
+
+  // Toggle platform for event
+  const toggleEventPlatform = (eventIndex: number, platform: NotificationPlatform) => {
+    if (!config) return;
+    const eventConfig = config.events[eventIndex];
+    const platforms = eventConfig.platforms.includes(platform)
+      ? eventConfig.platforms.filter((p) => p !== platform)
+      : [...eventConfig.platforms, platform];
+    updateEventConfig(eventIndex, { platforms });
+  };
+
+  // All available platforms
+  const allPlatforms: NotificationPlatform[] = ['discord', 'telegram', 'feishu', 'dingtalk', 'wecom', 'email', 'webhook'];
 
   // Reset to defaults
   const resetConfig = async () => {
@@ -266,51 +282,107 @@ export function RemoteNotificationSection({ className }: RemoteNotificationSecti
             <div className="grid gap-3">
               {config.events.map((eventConfig, index) => {
                 const info = EVENT_INFO[eventConfig.event];
+                const isExpanded = expandedEvent === index;
                 return (
                   <div
                     key={eventConfig.event}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30"
+                    className="rounded-lg border border-border bg-muted/30 overflow-hidden"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        'p-2 rounded-lg',
-                        eventConfig.enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-                      )}>
-                        <span className="text-sm">{info.icon}</span>
+                    {/* Event Header */}
+                    <div
+                      className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => setExpandedEvent(isExpanded ? null : index)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          'p-2 rounded-lg',
+                          eventConfig.enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                        )}>
+                          <span className="text-sm">{info.icon}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{info.name}</p>
+                          <p className="text-xs text-muted-foreground">{info.description}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">{info.name}</p>
-                        <p className="text-xs text-muted-foreground">{info.description}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {/* Platform badges */}
-                      <div className="flex gap-1">
-                        {eventConfig.platforms.map((platform) => (
-                          <Badge key={platform} variant="secondary" className="text-xs">
-                            {PLATFORM_INFO[platform].name}
-                          </Badge>
-                        ))}
-                        {eventConfig.platforms.length === 0 && (
-                          <Badge variant="outline" className="text-xs text-muted-foreground">
-                            {formatMessage({ id: 'settings.remoteNotifications.noPlatforms' })}
-                          </Badge>
-                        )}
-                      </div>
-                      {/* Toggle */}
-                      <Button
-                        variant={eventConfig.enabled ? 'default' : 'outline'}
-                        size="sm"
-                        className="h-7"
-                        onClick={() => updateEventConfig(index, { enabled: !eventConfig.enabled })}
-                      >
-                        {eventConfig.enabled ? (
-                          <Check className="w-3.5 h-3.5" />
+                      <div className="flex items-center gap-2">
+                        {/* Platform badges */}
+                        <div className="flex gap-1 flex-wrap max-w-xs">
+                          {eventConfig.platforms.slice(0, 3).map((platform) => (
+                            <Badge key={platform} variant="secondary" className="text-xs">
+                              {PLATFORM_INFO[platform].name}
+                            </Badge>
+                          ))}
+                          {eventConfig.platforms.length > 3 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{eventConfig.platforms.length - 3}
+                            </Badge>
+                          )}
+                          {eventConfig.platforms.length === 0 && (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">
+                              {formatMessage({ id: 'settings.remoteNotifications.noPlatforms' })}
+                            </Badge>
+                          )}
+                        </div>
+                        {/* Toggle */}
+                        <Button
+                          variant={eventConfig.enabled ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-7"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateEventConfig(index, { enabled: !eventConfig.enabled });
+                          }}
+                        >
+                          {eventConfig.enabled ? (
+                            <Check className="w-3.5 h-3.5" />
+                          ) : (
+                            <X className="w-3.5 h-3.5" />
+                          )}
+                        </Button>
+                        {/* Expand icon */}
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4 text-muted-foreground" />
                         ) : (
-                          <X className="w-3.5 h-3.5" />
+                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         )}
-                      </Button>
+                      </div>
                     </div>
+
+                    {/* Expanded Content - Platform Selection */}
+                    {isExpanded && (
+                      <div className="border-t border-border p-4 space-y-3 bg-muted/20">
+                        <p className="text-xs text-muted-foreground">
+                          {formatMessage({ id: 'settings.remoteNotifications.selectPlatforms' })}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {allPlatforms.map((platform) => {
+                            const isSelected = eventConfig.platforms.includes(platform);
+                            const platformInfo = PLATFORM_INFO[platform];
+                            const platformConfig = config.platforms[platform];
+                            const isConfigured = platformConfig?.enabled;
+                            return (
+                              <Button
+                                key={platform}
+                                variant={isSelected ? 'default' : 'outline'}
+                                size="sm"
+                                className={cn(
+                                  'h-8',
+                                  !isConfigured && !isSelected && 'opacity-50'
+                                )}
+                                onClick={() => toggleEventPlatform(index, platform)}
+                              >
+                                {isSelected && <Check className="w-3 h-3 mr-1" />}
+                                {platformInfo.name}
+                                {!isConfigured && !isSelected && (
+                                  <Plus className="w-3 h-3 ml-1 opacity-50" />
+                                )}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

@@ -2507,9 +2507,18 @@ export interface McpServer {
   scope: 'project' | 'global';
 }
 
+export interface McpServerConflict {
+  name: string;
+  projectServer: McpServer;
+  globalServer: McpServer;
+  /** Runtime effective scope */
+  effectiveScope: 'global' | 'project';
+}
+
 export interface McpServersResponse {
   project: McpServer[];
   global: McpServer[];
+  conflicts: McpServerConflict[];
 }
 
 /**
@@ -2618,7 +2627,6 @@ export async function fetchMcpServers(projectPath?: string): Promise<McpServersR
   const disabledSet = new Set(disabledServers);
 
   const userServers = isUnknownRecord(config.userServers) ? (config.userServers as UnknownRecord) : {};
-  const enterpriseServers = isUnknownRecord(config.enterpriseServers) ? (config.enterpriseServers as UnknownRecord) : {};
 
   const projectServersRecord = projectConfig && isUnknownRecord(projectConfig.mcpServers)
     ? (projectConfig.mcpServers as UnknownRecord)
@@ -2635,21 +2643,34 @@ export async function fetchMcpServers(projectPath?: string): Promise<McpServersR
   });
 
   const project: McpServer[] = Object.entries(projectServersRecord)
-    // Avoid duplicates: if defined globally/enterprise, treat it as global
-    .filter(([name]) => !(name in userServers) && !(name in enterpriseServers))
     .map(([name, raw]) => {
       const normalized = normalizeServerConfig(raw);
       return {
         name,
         ...normalized,
         enabled: !disabledSet.has(name),
-        scope: 'project',
+        scope: 'project' as const,
       };
     });
+
+  // Detect conflicts: same name exists in both project and global
+  const conflicts: McpServerConflict[] = [];
+  for (const ps of project) {
+    const gs = global.find(g => g.name === ps.name);
+    if (gs) {
+      conflicts.push({
+        name: ps.name,
+        projectServer: ps,
+        globalServer: gs,
+        effectiveScope: 'global',
+      });
+    }
+  }
 
   return {
     project,
     global,
+    conflicts,
   };
 }
 
@@ -3549,6 +3570,7 @@ export interface CcwMcpConfig {
   projectRoot?: string;
   allowedDirs?: string;
   enableSandbox?: boolean;
+  installedScopes: ('global' | 'project')[];
 }
 
 /**
@@ -3605,22 +3627,24 @@ export async function fetchCcwMcpConfig(): Promise<CcwMcpConfig> {
   try {
     const config = await fetchMcpConfig();
 
-    // Check if ccw-tools server exists in any config
+    const installedScopes: ('global' | 'project')[] = [];
     let ccwServer: any = null;
 
-    // Check global servers
+    // Check global/user servers
     if (config.globalServers?.['ccw-tools']) {
+      installedScopes.push('global');
       ccwServer = config.globalServers['ccw-tools'];
-    }
-    // Check user servers
-    if (!ccwServer && config.userServers?.['ccw-tools']) {
+    } else if (config.userServers?.['ccw-tools']) {
+      installedScopes.push('global');
       ccwServer = config.userServers['ccw-tools'];
     }
+
     // Check project servers
-    if (!ccwServer && config.projects) {
+    if (config.projects) {
       for (const proj of Object.values(config.projects)) {
         if (proj.mcpServers?.['ccw-tools']) {
-          ccwServer = proj.mcpServers['ccw-tools'];
+          installedScopes.push('project');
+          if (!ccwServer) ccwServer = proj.mcpServers['ccw-tools'];
           break;
         }
       }
@@ -3630,6 +3654,7 @@ export async function fetchCcwMcpConfig(): Promise<CcwMcpConfig> {
       return {
         isInstalled: false,
         enabledTools: [],
+        installedScopes: [],
       };
     }
 
@@ -3646,11 +3671,13 @@ export async function fetchCcwMcpConfig(): Promise<CcwMcpConfig> {
       projectRoot: env.CCW_PROJECT_ROOT,
       allowedDirs: env.CCW_ALLOWED_DIRS,
       enableSandbox: env.CCW_ENABLE_SANDBOX === '1',
+      installedScopes,
     };
   } catch {
     return {
       isInstalled: false,
       enabledTools: [],
+      installedScopes: [],
     };
   }
 }
@@ -3742,6 +3769,27 @@ export async function uninstallCcwMcp(): Promise<void> {
   }
 }
 
+/**
+ * Uninstall CCW Tools MCP server from a specific scope
+ */
+export async function uninstallCcwMcpFromScope(
+  scope: 'global' | 'project',
+  projectPath?: string
+): Promise<void> {
+  if (scope === 'global') {
+    await fetchApi('/api/mcp-remove-global-server', {
+      method: 'POST',
+      body: JSON.stringify({ serverName: 'ccw-tools' }),
+    });
+  } else {
+    if (!projectPath) throw new Error('projectPath required for project scope uninstall');
+    await fetchApi('/api/mcp-remove-server', {
+      method: 'POST',
+      body: JSON.stringify({ projectPath, serverName: 'ccw-tools' }),
+    });
+  }
+}
+
 // ========== CCW Tools MCP - Codex API ==========
 
 /**
@@ -3753,7 +3801,7 @@ export async function fetchCcwMcpConfigForCodex(): Promise<CcwMcpConfig> {
     const ccwServer = servers.find((s) => s.name === 'ccw-tools');
 
     if (!ccwServer) {
-      return { isInstalled: false, enabledTools: [] };
+      return { isInstalled: false, enabledTools: [], installedScopes: [] };
     }
 
     const env = ccwServer.env || {};
@@ -3768,9 +3816,10 @@ export async function fetchCcwMcpConfigForCodex(): Promise<CcwMcpConfig> {
       projectRoot: env.CCW_PROJECT_ROOT,
       allowedDirs: env.CCW_ALLOWED_DIRS,
       enableSandbox: env.CCW_ENABLE_SANDBOX === '1',
+      installedScopes: ['global'],
     };
   } catch {
-    return { isInstalled: false, enabledTools: [] };
+    return { isInstalled: false, enabledTools: [], installedScopes: [] };
   }
 }
 
@@ -3856,18 +3905,39 @@ export async function updateCcwConfigForCodex(config: {
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchIndexStatus(projectPath?: string): Promise<IndexStatus> {
-  const url = projectPath ? `/api/index/status?path=${encodeURIComponent(projectPath)}` : '/api/index/status';
-  return fetchApi<IndexStatus>(url);
+  const url = projectPath
+    ? `/api/codexlens/workspace-status?path=${encodeURIComponent(projectPath)}`
+    : '/api/codexlens/workspace-status';
+  const resp = await fetchApi<{
+    success: boolean;
+    hasIndex: boolean;
+    fts?: { indexedFiles: number; totalFiles: number };
+  }>(url);
+  return {
+    totalFiles: resp.fts?.totalFiles ?? 0,
+    lastUpdated: new Date().toISOString(),
+    buildTime: 0,
+    status: resp.hasIndex ? 'completed' : 'idle',
+  };
 }
 
 /**
  * Rebuild index
  */
 export async function rebuildIndex(request: IndexRebuildRequest = {}): Promise<IndexStatus> {
-  return fetchApi<IndexStatus>('/api/index/rebuild', {
+  await fetchApi<{ success: boolean }>('/api/codexlens/init', {
     method: 'POST',
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      path: request.paths?.[0],
+      indexType: 'vector',
+    }),
   });
+  return {
+    totalFiles: 0,
+    lastUpdated: new Date().toISOString(),
+    buildTime: 0,
+    status: 'building',
+  };
 }
 
 // ========== Prompt History API ==========

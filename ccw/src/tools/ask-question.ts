@@ -163,17 +163,22 @@ function normalizeSimpleQuestion(simple: SimpleQuestion): Question {
     type = 'input';
   }
 
-  const options: QuestionOption[] | undefined = simple.options?.map((opt) => ({
-    value: opt.label,
-    label: opt.label,
-    description: opt.description,
-  }));
+  let defaultValue: string | undefined;
+  const options: QuestionOption[] | undefined = simple.options?.map((opt) => {
+    const isDefault = opt.isDefault === true
+      || /\(Recommended\)/i.test(opt.label);
+    if (isDefault && !defaultValue) {
+      defaultValue = opt.label;
+    }
+    return { value: opt.label, label: opt.label, description: opt.description };
+  });
 
   return {
     id: simple.header,
     type,
     title: simple.question,
     options,
+    ...(defaultValue !== undefined && { defaultValue }),
   } as Question;
 }
 
@@ -192,7 +197,7 @@ function isSimpleFormat(params: Record<string, unknown>): params is { questions:
  * @param surfaceId - Surface ID for the question
  * @returns A2UI surface update object
  */
-function generateQuestionSurface(question: Question, surfaceId: string): {
+function generateQuestionSurface(question: Question, surfaceId: string, timeoutMs: number): {
   surfaceUpdate: {
     surfaceId: string;
     components: unknown[];
@@ -274,6 +279,7 @@ function generateQuestionSurface(question: Question, surfaceId: string): {
         label: { literalString: opt.label },
         value: opt.value,
         description: opt.description ? { literalString: opt.description } : undefined,
+        isDefault: question.defaultValue !== undefined && opt.value === String(question.defaultValue),
       })) || [];
 
       // Add "Other" option for custom input
@@ -281,6 +287,7 @@ function generateQuestionSurface(question: Question, surfaceId: string): {
         label: { literalString: 'Other' },
         value: '__other__',
         description: { literalString: 'Provide a custom answer' },
+        isDefault: false,
       });
 
       // Use RadioGroup for direct selection display (not dropdown)
@@ -411,6 +418,8 @@ function generateQuestionSurface(question: Question, surfaceId: string): {
         questionType: question.type,
         options: question.options,
         required: question.required,
+        timeoutAt: new Date(Date.now() + timeoutMs).toISOString(),
+        ...(question.defaultValue !== undefined && { defaultValue: question.defaultValue }),
       },
       /** Display mode: 'popup' for centered dialog (interactive questions) */
       displayMode: 'popup' as const,
@@ -451,20 +460,31 @@ export async function execute(params: AskQuestionParams): Promise<ToolResult<Ask
       setTimeout(() => {
         if (pendingQuestions.has(question.id)) {
           pendingQuestions.delete(question.id);
-          resolve({
-            success: false,
-            surfaceId,
-            cancelled: false,
-            answers: [],
-            timestamp: new Date().toISOString(),
-            error: 'Question timed out',
-          });
+          if (question.defaultValue !== undefined) {
+            resolve({
+              success: true,
+              surfaceId,
+              cancelled: false,
+              answers: [{ questionId: question.id, value: question.defaultValue as string | string[] | boolean, cancelled: false }],
+              timestamp: new Date().toISOString(),
+              autoSelected: true,
+            });
+          } else {
+            resolve({
+              success: false,
+              surfaceId,
+              cancelled: false,
+              answers: [],
+              timestamp: new Date().toISOString(),
+              error: 'Question timed out',
+            });
+          }
         }
       }, params.timeout || DEFAULT_TIMEOUT_MS);
     });
 
     // Send A2UI surface via WebSocket to frontend
-    const a2uiSurface = generateQuestionSurface(question, surfaceId);
+    const a2uiSurface = generateQuestionSurface(question, surfaceId, params.timeout || DEFAULT_TIMEOUT_MS);
     const sentCount = a2uiWebSocketHandler.sendSurface(a2uiSurface.surfaceUpdate);
 
     // Trigger remote notification for ask-user-question event (if enabled)
@@ -594,9 +614,17 @@ function startAnswerPolling(questionId: string, isComposite: boolean = false): v
           if (isComposite && Array.isArray(parsed.answers)) {
             const ok = handleMultiAnswer(questionId, parsed.answers as QuestionAnswer[]);
             console.error(`[A2UI-Poll] handleMultiAnswer result: ${ok}`);
+            if (!ok && pendingQuestions.has(questionId)) {
+              // Answer consumed but delivery failed; keep polling for a new answer
+              setTimeout(poll, POLL_INTERVAL_MS);
+            }
           } else if (!isComposite && parsed.answer) {
             const ok = handleAnswer(parsed.answer as QuestionAnswer);
             console.error(`[A2UI-Poll] handleAnswer result: ${ok}`);
+            if (!ok && pendingQuestions.has(questionId)) {
+              // Answer consumed but validation/delivery failed; keep polling for a new answer
+              setTimeout(poll, POLL_INTERVAL_MS);
+            }
           } else {
             console.error(`[A2UI-Poll] Unexpected response shape, keep polling`);
             setTimeout(poll, POLL_INTERVAL_MS);
@@ -873,6 +901,7 @@ function generateMultiQuestionSurface(
           label: { literalString: opt.label },
           value: opt.value,
           description: opt.description ? { literalString: opt.description } : undefined,
+          isDefault: question.defaultValue !== undefined && opt.value === String(question.defaultValue),
         })) || [];
 
         // Add "Other" option for custom input
@@ -880,6 +909,7 @@ function generateMultiQuestionSurface(
           label: { literalString: 'Other' },
           value: '__other__',
           description: { literalString: 'Provide a custom answer' },
+          isDefault: false,
         });
 
         components.push({
@@ -997,7 +1027,8 @@ async function executeSimpleFormat(
       return result;
     }
 
-    if (result.result.cancelled) {
+    // Propagate inner failures (e.g. timeout) — don't mask them as success
+    if (result.result.cancelled || !result.result.success) {
       return result;
     }
 
@@ -1058,14 +1089,33 @@ async function executeSimpleFormat(
     setTimeout(() => {
       if (pendingQuestions.has(compositeId)) {
         pendingQuestions.delete(compositeId);
-        resolve({
-          success: false,
-          surfaceId,
-          cancelled: false,
-          answers: [],
-          timestamp: new Date().toISOString(),
-          error: 'Question timed out',
-        });
+        // Collect default values from each sub-question
+        const defaultAnswers: QuestionAnswer[] = [];
+        for (const simpleQ of questions) {
+          const q = normalizeSimpleQuestion(simpleQ);
+          if (q.defaultValue !== undefined) {
+            defaultAnswers.push({ questionId: q.id, value: q.defaultValue as string | string[] | boolean, cancelled: false });
+          }
+        }
+        if (defaultAnswers.length > 0) {
+          resolve({
+            success: true,
+            surfaceId,
+            cancelled: false,
+            answers: defaultAnswers,
+            timestamp: new Date().toISOString(),
+            autoSelected: true,
+          });
+        } else {
+          resolve({
+            success: false,
+            surfaceId,
+            cancelled: false,
+            answers: [],
+            timestamp: new Date().toISOString(),
+            error: 'Question timed out',
+          });
+        }
       }
     }, timeout ?? DEFAULT_TIMEOUT_MS);
   });

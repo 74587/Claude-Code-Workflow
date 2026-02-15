@@ -8,6 +8,7 @@ import { homedir } from 'os';
 import { spawn } from 'child_process';
 
 import type { RouteContext } from './types.js';
+import { a2uiWebSocketHandler } from '../a2ui/A2UIWebSocketHandler.js';
 
 interface HooksRouteContext extends RouteContext {
   extractSessionIdFromPath: (filePath: string) => string | null;
@@ -312,6 +313,20 @@ export async function handleHooksRoutes(ctx: HooksRouteContext): Promise<boolean
           ...extraData  // Pass through toolName, status, result, params, error, etc.
         }
       };
+
+      // When an A2UI surface is forwarded from the MCP process, initialize
+      // selection tracking on the Dashboard so that submit actions resolve
+      // to the correct value type (single-select string vs multi-select array).
+      if (type === 'a2ui-surface' && extraData?.initialState) {
+        const initState = extraData.initialState as Record<string, unknown>;
+        const questionId = initState.questionId as string | undefined;
+        const questionType = initState.questionType as string | undefined;
+        if (questionId && questionType === 'select') {
+          a2uiWebSocketHandler.initSingleSelect(questionId);
+        } else if (questionId && questionType === 'multi-select') {
+          a2uiWebSocketHandler.initMultiSelect(questionId);
+        }
+      }
 
       broadcastToClients(notification);
 

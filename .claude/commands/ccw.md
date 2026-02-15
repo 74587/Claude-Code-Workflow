@@ -11,42 +11,39 @@ Main process orchestrator: intent analysis → workflow selection → command ch
 
 ## Skill 映射
 
-命令链中的 workflow 操作通过 `Skill()` 调用。
+命令链中的 workflow 操作通过 `Skill()` 调用。每个 Skill 是自包含的执行单元，内部处理完整流水线。
 
-| Skill | 包含操作 |
-|-------|---------|
-| `workflow-lite-plan` | lite-plan, lite-execute |
-| `workflow-plan` | plan, plan-verify, replan |
-| `workflow-execute` | execute |
-| `workflow-multi-cli-plan` | multi-cli-plan |
-| `workflow-test-fix` | test-fix-gen, test-cycle-execute |
-| `workflow-tdd` | tdd-plan, tdd-verify |
-| `review-cycle` | review-session-cycle, review-module-cycle, review-cycle-fix |
-| `brainstorm` | auto-parallel, artifacts, role-analysis, synthesis |
+| Skill | 内部流水线 |
+|-------|-----------|
+| `workflow-lite-plan` | explore → plan → confirm → execute |
+| `workflow-plan` | session → context → convention → gen → verify/replan |
+| `workflow-execute` | session discovery → task processing → commit |
+| `workflow-tdd` | 6-phase TDD plan → verify |
+| `workflow-test-fix` | session → context → analysis → gen → cycle |
+| `workflow-multi-cli-plan` | ACE context → CLI discussion → plan → execute |
+| `review-cycle` | session/module review → fix orchestration |
+| `brainstorm` | auto/single-role → artifacts → analysis → synthesis |
 
-独立命令：workflow:brainstorm-with-file, workflow:debug-with-file, workflow:analyze-with-file, issue:*
+独立命令（仍使用 colon 格式）：workflow:brainstorm-with-file, workflow:debug-with-file, workflow:analyze-with-file, workflow:ui-design:*, issue:*, workflow:session:*
 
-## Core Concept: Minimum Execution Units (最小执行单元)
+## Core Concept: Self-Contained Skills (自包含 Skill)
 
-**Definition**: A set of commands that must execute together as an atomic group to achieve a meaningful workflow milestone.
+**Definition**: 每个 Skill 内部处理完整流水线，是天然的最小执行单元。单次 Skill 调用即完成一个有意义的工作里程碑。
 
 **Why This Matters**:
-- **Prevents Incomplete States**: Avoid stopping after task generation without execution
+- **Prevents Incomplete States**: 每个 Skill 内部保证端到端完整性
 - **User Experience**: User gets complete results, not intermediate artifacts requiring manual follow-up
-- **Workflow Integrity**: Maintains logical coherence of multi-step operations
+- **Simplified Orchestration**: 命令链只需组合独立 Skill，无需关注内部步骤
 
 **Key Units in CCW**:
 
-| Unit Type | Pattern | Example |
-|-----------|---------|---------|
-| **Planning + Execution** | plan-cmd → execute-cmd | lite-plan → lite-execute |
-| **Testing** | test-gen-cmd → test-exec-cmd | test-fix-gen → test-cycle-execute |
-| **Review** | review-cmd → fix-cmd | review-session-cycle → review-cycle-fix |
-
-**Atomic Rules**:
-1. CCW automatically groups commands into minimum units - never splits them
-2. Pipeline visualization shows units with `【 】` markers
-3. Error handling preserves unit boundaries (retry/skip affects whole unit)
+| 单元类型 | Skill | 说明 |
+|---------|-------|------|
+| 轻量 Plan+Execute | `workflow-lite-plan` | 内部完成 plan→execute |
+| 标准 Planning | `workflow-plan` → `workflow-execute` | plan 和 execute 是独立 Skill |
+| TDD Planning | `workflow-tdd` → `workflow-execute` | tdd-plan 和 execute 是独立 Skill |
+| 测试流水线 | `workflow-test-fix` | 内部完成 gen→cycle |
+| 代码审查 | `review-cycle` | 内部完成 review→fix |
 
 ## Execution Model
 
@@ -157,153 +154,119 @@ function selectWorkflow(analysis) {
   return buildCommandChain(selected, analysis);
 }
 
-// Build command chain (port-based matching with Minimum Execution Units)
+// Build command chain (Skill-based composition)
 function buildCommandChain(workflow, analysis) {
   const chains = {
     // Level 2 - Lightweight
     'rapid': [
-      // Unit: Quick Implementation【lite-plan → lite-execute】
-      { cmd: '/workflow:lite-plan', args: `"${analysis.goal}"`, unit: 'quick-impl' },
-      { cmd: '/workflow:lite-execute', args: '--in-memory', unit: 'quick-impl' },
-      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
+      { cmd: 'workflow-lite-plan', args: `"${analysis.goal}"` },
       ...(analysis.constraints?.includes('skip-tests') ? [] : [
-        { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
-        { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
+        { cmd: 'workflow-test-fix', args: '' }
       ])
     ],
 
     // Level 2 Bridge - Lightweight to Issue Workflow
     'rapid-to-issue': [
-      // Unit: Quick Implementation【lite-plan → convert-to-plan】
-      { cmd: '/workflow:lite-plan', args: `"${analysis.goal}"`, unit: 'quick-impl-to-issue' },
-      { cmd: '/issue:convert-to-plan', args: '--latest-lite-plan -y', unit: 'quick-impl-to-issue' },
-      // Auto-continue to issue workflow
-      { cmd: '/issue:queue', args: '' },
-      { cmd: '/issue:execute', args: '--queue auto' }
+      { cmd: 'workflow-lite-plan', args: `"${analysis.goal}" --plan-only` },
+      { cmd: 'issue:convert-to-plan', args: '--latest-lite-plan -y' },
+      { cmd: 'issue:queue', args: '' },
+      { cmd: 'issue:execute', args: '--queue auto' }
     ],
 
     'bugfix.standard': [
-      // Unit: Bug Fix【lite-plan → lite-execute】
-      { cmd: '/workflow:lite-plan', args: `--bugfix "${analysis.goal}"`, unit: 'bug-fix' },
-      { cmd: '/workflow:lite-execute', args: '--in-memory', unit: 'bug-fix' },
-      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
+      { cmd: 'workflow-lite-plan', args: `--bugfix "${analysis.goal}"` },
       ...(analysis.constraints?.includes('skip-tests') ? [] : [
-        { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
-        { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
+        { cmd: 'workflow-test-fix', args: '' }
       ])
     ],
 
     'bugfix.hotfix': [
-      { cmd: '/workflow:lite-plan', args: `--hotfix "${analysis.goal}"` }
+      { cmd: 'workflow-lite-plan', args: `--hotfix "${analysis.goal}"` }
     ],
 
     'multi-cli-plan': [
-      // Unit: Multi-CLI Planning【multi-cli-plan → lite-execute】
-      { cmd: '/workflow:multi-cli-plan', args: `"${analysis.goal}"`, unit: 'multi-cli' },
-      { cmd: '/workflow:lite-execute', args: '--in-memory', unit: 'multi-cli' },
-      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
+      { cmd: 'workflow-multi-cli-plan', args: `"${analysis.goal}"` },
       ...(analysis.constraints?.includes('skip-tests') ? [] : [
-        { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
-        { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
+        { cmd: 'workflow-test-fix', args: '' }
       ])
     ],
 
     'docs': [
-      // Unit: Quick Implementation【lite-plan → lite-execute】
-      { cmd: '/workflow:lite-plan', args: `"${analysis.goal}"`, unit: 'quick-impl' },
-      { cmd: '/workflow:lite-execute', args: '--in-memory', unit: 'quick-impl' }
+      { cmd: 'workflow-lite-plan', args: `"${analysis.goal}"` }
     ],
 
     // With-File workflows (documented exploration with multi-CLI collaboration)
     'brainstorm-with-file': [
-      { cmd: '/workflow:brainstorm-with-file', args: `"${analysis.goal}"` }
+      { cmd: 'workflow:brainstorm-with-file', args: `"${analysis.goal}"` }
       // Note: Has built-in post-completion options (create plan, create issue, deep analysis)
     ],
 
     // Brainstorm-to-Issue workflow (bridge from brainstorm to issue execution)
     'brainstorm-to-issue': [
       // Note: Assumes brainstorm session already exists, or run brainstorm first
-      { cmd: '/issue:from-brainstorm', args: `SESSION="${extractBrainstormSession(analysis)}" --auto` },
-      { cmd: '/issue:queue', args: '' },
-      { cmd: '/issue:execute', args: '--queue auto' }
+      { cmd: 'issue:from-brainstorm', args: `SESSION="${extractBrainstormSession(analysis)}" --auto` },
+      { cmd: 'issue:queue', args: '' },
+      { cmd: 'issue:execute', args: '--queue auto' }
     ],
 
     'debug-with-file': [
-      { cmd: '/workflow:debug-with-file', args: `"${analysis.goal}"` }
+      { cmd: 'workflow:debug-with-file', args: `"${analysis.goal}"` }
       // Note: Self-contained with hypothesis-driven iteration and Gemini validation
     ],
 
     'analyze-with-file': [
-      { cmd: '/workflow:analyze-with-file', args: `"${analysis.goal}"` }
+      { cmd: 'workflow:analyze-with-file', args: `"${analysis.goal}"` }
       // Note: Self-contained with multi-round discussion and CLI exploration
     ],
 
     // Level 3 - Standard
     'coupled': [
-      // Unit: Verified Planning【plan → plan-verify】
-      { cmd: '/workflow:plan', args: `"${analysis.goal}"`, unit: 'verified-planning' },
-      { cmd: '/workflow:plan-verify', args: '', unit: 'verified-planning' },
-      // Execution
-      { cmd: '/workflow:execute', args: '' },
-      // Unit: Code Review【review-session-cycle → review-cycle-fix】
-      { cmd: '/workflow:review-session-cycle', args: '', unit: 'code-review' },
-      { cmd: '/workflow:review-cycle-fix', args: '', unit: 'code-review' },
-      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
+      { cmd: 'workflow-plan', args: `"${analysis.goal}"` },
+      { cmd: 'workflow-execute', args: '' },
+      { cmd: 'review-cycle', args: '' },
       ...(analysis.constraints?.includes('skip-tests') ? [] : [
-        { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
-        { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
+        { cmd: 'workflow-test-fix', args: '' }
       ])
     ],
 
     'tdd': [
-      // Unit: TDD Planning + Execution【tdd-plan → execute】
-      { cmd: '/workflow:tdd-plan', args: `"${analysis.goal}"`, unit: 'tdd-planning' },
-      { cmd: '/workflow:execute', args: '', unit: 'tdd-planning' },
-      // TDD Verification
-      { cmd: '/workflow:tdd-verify', args: '' }
+      { cmd: 'workflow-tdd', args: `"${analysis.goal}"` },
+      { cmd: 'workflow-execute', args: '' }
     ],
 
     'test-fix-gen': [
-      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
-      { cmd: '/workflow:test-fix-gen', args: `"${analysis.goal}"`, unit: 'test-validation' },
-      { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
+      { cmd: 'workflow-test-fix', args: `"${analysis.goal}"` }
     ],
 
     'review-cycle-fix': [
-      // Unit: Code Review【review-session-cycle → review-cycle-fix】
-      { cmd: '/workflow:review-session-cycle', args: '', unit: 'code-review' },
-      { cmd: '/workflow:review-cycle-fix', args: '', unit: 'code-review' },
-      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
-      { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
-      { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
+      { cmd: 'review-cycle', args: '' },
+      ...(analysis.constraints?.includes('skip-tests') ? [] : [
+        { cmd: 'workflow-test-fix', args: '' }
+      ])
     ],
 
     'ui': [
-      { cmd: '/workflow:ui-design:explore-auto', args: `"${analysis.goal}"` },
-      // Unit: Planning + Execution【plan → execute】
-      { cmd: '/workflow:plan', args: '', unit: 'plan-execute' },
-      { cmd: '/workflow:execute', args: '', unit: 'plan-execute' }
+      { cmd: 'workflow:ui-design:explore-auto', args: `"${analysis.goal}"` },
+      { cmd: 'workflow-plan', args: '' },
+      { cmd: 'workflow-execute', args: '' }
     ],
 
-    // Level 4 - Brainstorm
+    // Level 4 - Full
     'full': [
-      { cmd: '/brainstorm', args: `"${analysis.goal}"` },
-      // Unit: Verified Planning【plan → plan-verify】
-      { cmd: '/workflow:plan', args: '', unit: 'verified-planning' },
-      { cmd: '/workflow:plan-verify', args: '', unit: 'verified-planning' },
-      // Execution
-      { cmd: '/workflow:execute', args: '' },
-      // Unit: Test Validation【test-fix-gen → test-cycle-execute】
-      { cmd: '/workflow:test-fix-gen', args: '', unit: 'test-validation' },
-      { cmd: '/workflow:test-cycle-execute', args: '', unit: 'test-validation' }
+      { cmd: 'brainstorm', args: `"${analysis.goal}"` },
+      { cmd: 'workflow-plan', args: '' },
+      { cmd: 'workflow-execute', args: '' },
+      ...(analysis.constraints?.includes('skip-tests') ? [] : [
+        { cmd: 'workflow-test-fix', args: '' }
+      ])
     ],
 
     // Issue Workflow
     'issue': [
-      { cmd: '/issue:discover', args: '' },
-      { cmd: '/issue:plan', args: '--all-pending' },
-      { cmd: '/issue:queue', args: '' },
-      { cmd: '/issue:execute', args: '' }
+      { cmd: 'issue:discover', args: '' },
+      { cmd: 'issue:plan', args: '--all-pending' },
+      { cmd: 'issue:queue', args: '' },
+      { cmd: 'issue:execute', args: '' }
     ]
   };
 
@@ -311,7 +274,7 @@ function buildCommandChain(workflow, analysis) {
 }
 ```
 
-**Output**: `Level [X] - [flow] | Pipeline: [...] | Commands: [1. /cmd1 2. /cmd2 ...]`
+**Output**: `Level [X] - [flow] | Pipeline: [...] | Commands: [1. cmd1 2. cmd2 ...]`
 
 ---
 
@@ -377,7 +340,7 @@ function setupTodoTracking(chain, workflow, analysis) {
 ```
 
 **Output**:
-- TODO: `-> CCW:rapid: [1/3] /workflow:lite-plan | CCW:rapid: [2/3] /workflow:lite-execute | ...`
+- TODO: `-> CCW:rapid: [1/2] workflow-lite-plan | CCW:rapid: [2/2] workflow-test-fix | ...`
 - Status File: `.workflow/.ccw/{session_id}/status.json`
 
 ---
@@ -397,8 +360,8 @@ async function executeCommandChain(chain, workflow, trackingState) {
       state.updated_at = new Date().toISOString();
       Write(`${stateDir}/status.json`, JSON.stringify(state, null, 2));
 
-      const fullCommand = assembleCommand(chain[i], previousResult);
-      const result = await Skill({ skill: fullCommand });
+      const assembled = assembleCommand(chain[i], previousResult);
+      const result = await Skill(assembled);
 
       previousResult = { ...result, success: true };
 
@@ -442,15 +405,13 @@ async function executeCommandChain(chain, workflow, trackingState) {
   return { success: true, completed: chain.length, sessionId };
 }
 
-// Assemble full command with session/plan parameters
+// Assemble Skill call with session/plan parameters
 function assembleCommand(step, previousResult) {
-  let command = step.cmd;
-  if (step.args) {
-    command += ` ${step.args}`;
-  } else if (previousResult?.session_id) {
-    command += ` --session="${previousResult.session_id}"`;
+  let args = step.args || '';
+  if (!args && previousResult?.session_id) {
+    args = `--session="${previousResult.session_id}"`;
   }
-  return command;
+  return { skill: step.cmd, args };
 }
 
 // Update TODO: mark current as complete, next as in-progress
@@ -498,7 +459,7 @@ Phase 1: Analyze Intent
 Phase 2: Select Workflow & Build Chain
     |-- Map task_type -> Level (1/2/3/4/Issue)
     |-- Select flow based on complexity
-    +-- Build command chain (port-based)
+    +-- Build command chain (Skill-based)
     |
 Phase 3: User Confirmation (optional)
     |-- Show pipeline visualization
@@ -511,7 +472,7 @@ Phase 4: Setup TODO Tracking & Status File
 Phase 5: Execute Command Chain
     |-- For each command:
     |   |-- Update status.json (current=running)
-    |   |-- Assemble full command
+    |   |-- Assemble Skill call
     |   |-- Execute via Skill
     |   |-- Update status.json (current=completed, next=running)
     |   |-- Update TODO status
@@ -521,22 +482,20 @@ Phase 5: Execute Command Chain
 
 ---
 
-## Pipeline Examples (with Minimum Execution Units)
+## Pipeline Examples
 
-**Note**: `【 】` marks Minimum Execution Units - commands execute together as atomic groups.
-
-| Input | Type | Level | Pipeline (with Units) |
-|-------|------|-------|-----------------------|
-| "Add API endpoint" | feature (low) | 2 |【lite-plan → lite-execute】→【test-fix-gen → test-cycle-execute】|
-| "Fix login timeout" | bugfix | 2 |【lite-plan → lite-execute】→【test-fix-gen → test-cycle-execute】|
-| "Use issue workflow" | issue-transition | 2.5 |【lite-plan → convert-to-plan】→ queue → execute |
-| "头脑风暴: 通知系统重构" | brainstorm | 4 | brainstorm-with-file → (built-in post-completion) |
-| "从头脑风暴创建 issue" | brainstorm-to-issue | 4 | from-brainstorm → queue → execute |
-| "深度调试 WebSocket 连接断开" | debug-file | 3 | debug-with-file → (hypothesis iteration) |
-| "协作分析: 认证架构优化" | analyze-file | 3 | analyze-with-file → (multi-round discussion) |
-| "OAuth2 system" | feature (high) | 3 |【plan → plan-verify】→ execute →【review-session-cycle → review-cycle-fix】→【test-fix-gen → test-cycle-execute】|
-| "Implement with TDD" | tdd | 3 |【tdd-plan → execute】→ tdd-verify |
-| "Uncertain: real-time arch" | exploration | 4 | brainstorm →【plan → plan-verify】→ execute →【test-fix-gen → test-cycle-execute】|
+| Input | Type | Level | Pipeline |
+|-------|------|-------|----------|
+| "Add API endpoint" | feature (low) | 2 | workflow-lite-plan → workflow-test-fix |
+| "Fix login timeout" | bugfix | 2 | workflow-lite-plan → workflow-test-fix |
+| "Use issue workflow" | issue-transition | 2.5 | workflow-lite-plan(plan-only) → convert-to-plan → queue → execute |
+| "头脑风暴: 通知系统重构" | brainstorm | 4 | workflow:brainstorm-with-file |
+| "从头脑风暴创建 issue" | brainstorm-to-issue | 4 | issue:from-brainstorm → issue:queue → issue:execute |
+| "深度调试 WebSocket" | debug-file | 3 | workflow:debug-with-file |
+| "协作分析: 认证架构优化" | analyze-file | 3 | workflow:analyze-with-file |
+| "OAuth2 system" | feature (high) | 3 | workflow-plan → workflow-execute → review-cycle → workflow-test-fix |
+| "Implement with TDD" | tdd | 3 | workflow-tdd → workflow-execute |
+| "Uncertain: real-time" | exploration | 4 | brainstorm → workflow-plan → workflow-execute → workflow-test-fix |
 
 ---
 
@@ -544,11 +503,11 @@ Phase 5: Execute Command Chain
 
 1. **Main Process Execution** - Use Skill in main process, no external CLI
 2. **Intent-Driven** - Auto-select workflow based on task intent
-3. **Port-Based Chaining** - Build command chain using port matching
-4. **Minimum Execution Units** - Commands grouped into atomic units, never split (e.g., lite-plan → lite-execute)
+3. **Skill-Based Chaining** - Build command chain by composing independent Skills
+4. **Self-Contained Skills** - 每个 Skill 内部处理完整流水线，是天然的最小执行单元
 5. **Progressive Clarification** - Low clarity triggers clarification phase
 6. **TODO Tracking** - Use CCW prefix to isolate workflow todos
-7. **Unit-Aware Error Handling** - Retry/skip/abort affects whole unit, not individual commands
+7. **Error Handling** - Retry/skip/abort at Skill level
 8. **User Control** - Optional user confirmation at each phase
 
 ---
@@ -560,18 +519,16 @@ Phase 5: Execute Command Chain
 **1. TodoWrite-Based Tracking** (UI Display): All execution state tracked via TodoWrite with `CCW:` prefix.
 
 ```javascript
-// Initial state
+// Initial state (rapid workflow: 2 steps)
 todos = [
-  { content: "CCW:rapid: [1/3] /workflow:lite-plan", status: "in_progress" },
-  { content: "CCW:rapid: [2/3] /workflow:lite-execute", status: "pending" },
-  { content: "CCW:rapid: [3/3] /workflow:test-cycle-execute", status: "pending" }
+  { content: "CCW:rapid: [1/2] workflow-lite-plan", status: "in_progress" },
+  { content: "CCW:rapid: [2/2] workflow-test-fix", status: "pending" }
 ];
 
-// After command 1 completes
+// After step 1 completes
 todos = [
-  { content: "CCW:rapid: [1/3] /workflow:lite-plan", status: "completed" },
-  { content: "CCW:rapid: [2/3] /workflow:lite-execute", status: "in_progress" },
-  { content: "CCW:rapid: [3/3] /workflow:test-cycle-execute", status: "pending" }
+  { content: "CCW:rapid: [1/2] workflow-lite-plan", status: "completed" },
+  { content: "CCW:rapid: [2/2] workflow-test-fix", status: "in_progress" }
 ];
 ```
 
@@ -597,18 +554,13 @@ todos = [
   "command_chain": [
     {
       "index": 0,
-      "command": "/workflow:lite-plan",
+      "command": "workflow-lite-plan",
       "status": "completed"
     },
     {
       "index": 1,
-      "command": "/workflow:lite-execute",
+      "command": "workflow-test-fix",
       "status": "running"
-    },
-    {
-      "index": 2,
-      "command": "/workflow:test-cycle-execute",
-      "status": "pending"
     }
   ],
   "current_index": 1

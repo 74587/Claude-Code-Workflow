@@ -121,6 +121,7 @@
     "disabled": "Disabled",
     "platforms": "Platform Configuration",
     "events": "Event Triggers",
+    "selectPlatforms": "Select which platforms to notify for this event:",
     "noPlatforms": "No platforms",
     "configured": "Configured",
     "save": "Save",
@@ -151,6 +152,36 @@
       "method": "HTTP Method",
       "headers": "Custom Headers (JSON)",
       "headersHint": "Optional JSON object with custom headers"
+    },
+    "feishu": {
+      "webhookUrl": "Webhook URL",
+      "webhookUrlHint": "Get from Feishu robot settings",
+      "useCard": "Use Card Format",
+      "useCardHint": "Send as rich interactive card",
+      "title": "Card Title (optional)"
+    },
+    "dingtalk": {
+      "webhookUrl": "Webhook URL",
+      "webhookUrlHint": "Get from DingTalk robot settings",
+      "keywords": "Security Keywords",
+      "keywordsHint": "Comma-separated keywords for security check"
+    },
+    "wecom": {
+      "webhookUrl": "Webhook URL",
+      "webhookUrlHint": "Get from WeCom robot settings",
+      "mentionedList": "Mention Users",
+      "mentionedListHint": "User IDs to mention, use '@all' for everyone"
+    },
+    "email": {
+      "host": "SMTP Host",
+      "hostHint": "e.g., smtp.gmail.com",
+      "port": "Port",
+      "secure": "Use TLS",
+      "username": "Username",
+      "password": "Password",
+      "from": "Sender Email",
+      "to": "Recipients",
+      "toHint": "Comma-separated email addresses"
     }
   },
   "versionCheck": {

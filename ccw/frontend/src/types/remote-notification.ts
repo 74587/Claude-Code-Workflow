@@ -7,7 +7,7 @@
 /**
  * Supported notification platforms
  */
-export type NotificationPlatform = 'discord' | 'telegram' | 'webhook';
+export type NotificationPlatform = 'discord' | 'telegram' | 'feishu' | 'dingtalk' | 'wecom' | 'email' | 'webhook';
 
 /**
  * Event types that can trigger notifications
@@ -40,6 +40,48 @@ export interface TelegramConfig {
 }
 
 /**
+ * Feishu (Lark) platform configuration
+ */
+export interface FeishuConfig {
+  enabled: boolean;
+  webhookUrl: string;
+  useCard?: boolean;
+  title?: string;
+}
+
+/**
+ * DingTalk platform configuration
+ */
+export interface DingTalkConfig {
+  enabled: boolean;
+  webhookUrl: string;
+  keywords?: string[];
+}
+
+/**
+ * WeCom (WeChat Work) platform configuration
+ */
+export interface WeComConfig {
+  enabled: boolean;
+  webhookUrl: string;
+  mentionedList?: string[];
+}
+
+/**
+ * Email SMTP platform configuration
+ */
+export interface EmailConfig {
+  enabled: boolean;
+  host: string;
+  port: number;
+  secure?: boolean;
+  username: string;
+  password: string;
+  from: string;
+  to: string[];
+}
+
+/**
  * Generic Webhook platform configuration
  */
 export interface WebhookConfig {
@@ -67,6 +109,10 @@ export interface RemoteNotificationConfig {
   platforms: {
     discord?: DiscordConfig;
     telegram?: TelegramConfig;
+    feishu?: FeishuConfig;
+    dingtalk?: DingTalkConfig;
+    wecom?: WeComConfig;
+    email?: EmailConfig;
     webhook?: WebhookConfig;
   };
   events: EventConfig[];
@@ -78,7 +124,7 @@ export interface RemoteNotificationConfig {
  */
 export interface TestNotificationRequest {
   platform: NotificationPlatform;
-  config: DiscordConfig | TelegramConfig | WebhookConfig;
+  config: DiscordConfig | TelegramConfig | FeishuConfig | DingTalkConfig | WeComConfig | EmailConfig | WebhookConfig;
 }
 
 /**
@@ -128,6 +174,34 @@ export const PLATFORM_INFO: Record<NotificationPlatform, PlatformInfo> = {
     icon: 'send',
     description: 'Send notifications to Telegram chats via bot',
     requiredFields: ['botToken', 'chatId'],
+  },
+  feishu: {
+    id: 'feishu',
+    name: 'Feishu',
+    icon: 'message-square',
+    description: 'Send notifications to Feishu (Lark) via webhook with rich card support',
+    requiredFields: ['webhookUrl'],
+  },
+  dingtalk: {
+    id: 'dingtalk',
+    name: 'DingTalk',
+    icon: 'bell',
+    description: 'Send notifications to DingTalk via webhook',
+    requiredFields: ['webhookUrl'],
+  },
+  wecom: {
+    id: 'wecom',
+    name: 'WeCom',
+    icon: 'users',
+    description: 'Send notifications to WeCom (WeChat Work) via webhook',
+    requiredFields: ['webhookUrl'],
+  },
+  email: {
+    id: 'email',
+    name: 'Email',
+    icon: 'mail',
+    description: 'Send notifications via SMTP email',
+    requiredFields: ['host', 'username', 'password', 'from', 'to'],
   },
   webhook: {
     id: 'webhook',

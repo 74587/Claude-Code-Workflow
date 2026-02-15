@@ -6,7 +6,7 @@
 // XTerm instance in ref, FitAddon, ResizeObserver, batched PTY input (30ms),
 // output chunk streaming from cliSessionStore.
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Terminal as XTerm } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import { useCliSessionStore } from '@/stores/cliSessionStore';
@@ -18,6 +18,8 @@ import {
   resizeCliSession,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { detectCcArtifacts, type CcArtifact } from '@/lib/ccw-artifacts';
+import { ArtifactTag } from './ArtifactTag';
 
 // ========== Types ==========
 
@@ -26,11 +28,54 @@ interface TerminalInstanceProps {
   sessionId: string;
   /** Additional CSS classes */
   className?: string;
+  /** Optional callback to reveal a detected artifact path (e.g. open file browser) */
+  onRevealPath?: (path: string) => void;
 }
 
 // ========== Component ==========
 
-export function TerminalInstance({ sessionId, className }: TerminalInstanceProps) {
+const ARTIFACT_DEBOUNCE_MS = 250;
+const MAX_ARTIFACT_TAGS = 12;
+
+function isAbsolutePath(p: string): boolean {
+  if (!p) return false;
+  if (p.startsWith('/') || p.startsWith('\\')) return true;
+  if (/^[A-Za-z]:[\\/]/.test(p)) return true;
+  if (p.startsWith('~')) return true;
+  return false;
+}
+
+function joinPath(base: string, relative: string): string {
+  const sep = base.includes('\\') ? '\\' : '/';
+  const b = base.replace(/[\\/]+$/, '');
+  const r = relative.replace(/^[\\/]+/, '');
+  return `${b}${sep}${r}`;
+}
+
+function resolveArtifactPath(path: string, projectPath: string | null): string {
+  if (!path) return path;
+  if (isAbsolutePath(path)) return path;
+  if (!projectPath) return path;
+  return joinPath(projectPath, path);
+}
+
+function mergeArtifacts(prev: CcArtifact[], next: CcArtifact[]): CcArtifact[] {
+  if (next.length === 0) return prev;
+  const map = new Map<string, CcArtifact>();
+  for (const a of prev) map.set(`${a.type}:${a.path}`, a);
+  let changed = false;
+  for (const a of next) {
+    const key = `${a.type}:${a.path}`;
+    if (map.has(key)) continue;
+    map.set(key, a);
+    changed = true;
+  }
+  if (!changed) return prev;
+  const merged = Array.from(map.values());
+  return merged.length > MAX_ARTIFACT_TAGS ? merged.slice(merged.length - MAX_ARTIFACT_TAGS) : merged;
+}
+
+export function TerminalInstance({ sessionId, className, onRevealPath }: TerminalInstanceProps) {
   const projectPath = useWorkflowStore(selectProjectPath);
 
   // cliSessionStore selectors
@@ -38,12 +83,18 @@ export function TerminalInstance({ sessionId, className }: TerminalInstanceProps
   const setBuffer = useCliSessionStore((s) => s.setBuffer);
   const clearOutput = useCliSessionStore((s) => s.clearOutput);
 
+  const [artifacts, setArtifacts] = useState<CcArtifact[]>([]);
+
   // ========== xterm Refs ==========
 
   const terminalHostRef = useRef<HTMLDivElement | null>(null);
   const xtermRef = useRef<XTerm | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const lastChunkIndexRef = useRef<number>(0);
+
+  // Debounced artifact detection
+  const pendingArtifactTextRef = useRef<string>('');
+  const artifactTimerRef = useRef<number | null>(null);
 
   // PTY input batching (30ms, matching TerminalMainArea)
   const pendingInputRef = useRef<string>('');
@@ -55,6 +106,37 @@ export function TerminalInstance({ sessionId, className }: TerminalInstanceProps
 
   const projectPathRef = useRef<string | null>(projectPath);
   projectPathRef.current = projectPath;
+
+  const handleArtifactClick = useCallback((path: string) => {
+    const resolved = resolveArtifactPath(path, projectPathRef.current);
+    navigator.clipboard.writeText(resolved).catch((err) => {
+      console.error('[TerminalInstance] copy artifact path failed:', err);
+    });
+    onRevealPath?.(resolved);
+  }, [onRevealPath]);
+
+  const scheduleArtifactParse = useCallback((text: string) => {
+    if (!text) return;
+    pendingArtifactTextRef.current += text;
+    if (artifactTimerRef.current !== null) return;
+    artifactTimerRef.current = window.setTimeout(() => {
+      artifactTimerRef.current = null;
+      const pending = pendingArtifactTextRef.current;
+      pendingArtifactTextRef.current = '';
+      const detected = detectCcArtifacts(pending);
+      if (detected.length === 0) return;
+      setArtifacts((prev) => mergeArtifacts(prev, detected));
+    }, ARTIFACT_DEBOUNCE_MS);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (artifactTimerRef.current !== null) {
+        window.clearTimeout(artifactTimerRef.current);
+        artifactTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // ========== PTY Input Batching ==========
 
@@ -139,6 +221,14 @@ export function TerminalInstance({ sessionId, className }: TerminalInstanceProps
     term.reset();
     term.clear();
 
+    // Reset artifact detection state per session
+    setArtifacts([]);
+    pendingArtifactTextRef.current = '';
+    if (artifactTimerRef.current !== null) {
+      window.clearTimeout(artifactTimerRef.current);
+      artifactTimerRef.current = null;
+    }
+
     if (!sessionId) return;
     clearOutput(sessionId);
 
@@ -164,12 +254,18 @@ export function TerminalInstance({ sessionId, className }: TerminalInstanceProps
     if (start >= chunks.length) return;
 
     const { feedMonitor } = useSessionManagerStore.getState();
+    const newTextParts: string[] = [];
     for (let i = start; i < chunks.length; i++) {
       term.write(chunks[i].data);
       feedMonitor(sessionId, chunks[i].data);
+      newTextParts.push(chunks[i].data);
     }
     lastChunkIndexRef.current = chunks.length;
-  }, [outputChunks, sessionId]);
+
+    if (newTextParts.length > 0) {
+      scheduleArtifactParse(newTextParts.join(''));
+    }
+  }, [outputChunks, sessionId, scheduleArtifactParse]);
 
   // ResizeObserver -> fit + resize backend
   useEffect(() => {
@@ -203,9 +299,21 @@ export function TerminalInstance({ sessionId, className }: TerminalInstanceProps
   // ========== Render ==========
 
   return (
-    <div
-      ref={terminalHostRef}
-      className={cn('h-full w-full bg-black/90', className)}
-    />
+    <div className={cn('relative h-full w-full', className)}>
+      {artifacts.length > 0 && (
+        <div className="absolute top-2 left-2 right-2 z-10 flex flex-wrap gap-1 pointer-events-none">
+          {artifacts.map((a) => (
+            <ArtifactTag
+              key={`${a.type}:${a.path}`}
+              type={a.type}
+              path={a.path}
+              onClick={handleArtifactClick}
+              className="pointer-events-auto"
+            />
+          ))}
+        </div>
+      )}
+      <div ref={terminalHostRef} className="h-full w-full bg-black/90" />
+    </div>
   );
 }

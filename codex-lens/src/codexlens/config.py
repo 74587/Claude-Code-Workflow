@@ -294,6 +294,15 @@ class Config:
                 "timeout_ms": self.llm_timeout_ms,
                 "batch_size": self.llm_batch_size,
             },
+            "parsing": {
+                # Prefer ast-grep processors when available (experimental).
+                "use_astgrep": self.use_astgrep,
+            },
+            "indexing": {
+                # Persist global relationship edges during index build for static graph expansion.
+                "static_graph_enabled": self.static_graph_enabled,
+                "static_graph_relationship_types": self.static_graph_relationship_types,
+            },
             "reranker": {
                 "enabled": self.enable_cross_encoder_rerank,
                 "backend": self.reranker_backend,
@@ -412,6 +421,34 @@ class Config:
                     self.cascade_coarse_k = cascade["coarse_k"]
                 if "fine_k" in cascade:
                     self.cascade_fine_k = cascade["fine_k"]
+
+                # Load parsing settings
+                parsing = settings.get("parsing", {})
+                if isinstance(parsing, dict) and "use_astgrep" in parsing:
+                    self.use_astgrep = bool(parsing["use_astgrep"])
+
+                # Load indexing settings
+                indexing = settings.get("indexing", {})
+                if isinstance(indexing, dict):
+                    if "static_graph_enabled" in indexing:
+                        self.static_graph_enabled = bool(indexing["static_graph_enabled"])
+                    if "static_graph_relationship_types" in indexing:
+                        raw_types = indexing["static_graph_relationship_types"]
+                        if isinstance(raw_types, list):
+                            allowed = {"imports", "inherits", "calls"}
+                            cleaned = []
+                            for item in raw_types:
+                                val = str(item).strip().lower()
+                                if val and val in allowed:
+                                    cleaned.append(val)
+                            if cleaned:
+                                self.static_graph_relationship_types = cleaned
+                        else:
+                            log.warning(
+                                "Invalid indexing.static_graph_relationship_types in %s: %r (expected list)",
+                                self.settings_path,
+                                raw_types,
+                            )
 
                 # Load API settings
                 api = settings.get("api", {})

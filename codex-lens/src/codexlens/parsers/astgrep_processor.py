@@ -299,12 +299,25 @@ class AstGrepPythonProcessor(BaseAstGrepProcessor):
             if func_name:
                 all_matches.append((start_line, end_line, "func_def", func_name, node))
 
-        # Get import matches
+        # Get import matches (process import_with_alias first to avoid duplicates)
+        import_alias_positions: set = set()
+
+        # Process import with alias: import X as Y
+        import_alias_matches = self.run_ast_grep(source_code, get_pattern("import_with_alias"))
+        for node in import_alias_matches:
+            module = self._get_match(node, "MODULE")
+            alias = self._get_match(node, "ALIAS")
+            start_line, end_line = self._get_line_range(node)
+            if module and alias:
+                import_alias_positions.add(start_line)
+                all_matches.append((start_line, end_line, "import_alias", f"{module}:{alias}", node))
+
+        # Process simple imports: import X (skip lines with aliases)
         import_matches = self.run_ast_grep(source_code, get_pattern("import_stmt"))
         for node in import_matches:
             module = self._get_match(node, "MODULE")
             start_line, end_line = self._get_line_range(node)
-            if module:
+            if module and start_line not in import_alias_positions:
                 all_matches.append((start_line, end_line, "import", module, node))
 
         from_matches = self.run_ast_grep(source_code, get_pattern("import_from"))
@@ -429,11 +442,27 @@ class AstGrepPythonProcessor(BaseAstGrepProcessor):
                         ))
 
             elif match_type == "import":
-                # Process import statement
+                # Process simple import statement
                 module = symbol
                 # Simple import: add base name to alias map
                 base_name = module.split(".", 1)[0]
                 update_aliases({base_name: module})
+                relationships.append(CodeRelationship(
+                    source_symbol=get_current_scope(),
+                    target_symbol=module,
+                    relationship_type=RelationshipType.IMPORTS,
+                    source_file=source_file,
+                    target_file=None,
+                    source_line=start_line,
+                ))
+
+            elif match_type == "import_alias":
+                # Process import with alias: import X as Y
+                parts = symbol.split(":", 1)
+                module = parts[0]
+                alias = parts[1] if len(parts) > 1 else ""
+                if alias:
+                    update_aliases({alias: module})
                 relationships.append(CodeRelationship(
                     source_symbol=get_current_scope(),
                     target_symbol=module,
@@ -647,6 +676,22 @@ class AstGrepPythonProcessor(BaseAstGrepProcessor):
             return match.group(1).strip()
         return ""
 
+    def _extract_import_names_from_text(self, import_text: str) -> str:
+        """Extract imported names from from-import statement.
+
+        Args:
+            import_text: Full text of import statement (e.g., "from typing import List, Dict")
+
+        Returns:
+            Names text (e.g., "List, Dict") or empty string
+        """
+        import re
+        # Match "from MODULE import NAMES" - extract NAMES
+        match = re.search(r'from\s+[\w.]+\s+import\s+(.+)$', import_text, re.MULTILINE)
+        if match:
+            return match.group(1).strip()
+        return ""
+
     def extract_calls(
         self,
         source_code: str,
@@ -736,16 +781,19 @@ class AstGrepPythonProcessor(BaseAstGrepProcessor):
         relationships: List[CodeRelationship] = []
         alias_map: Dict[str, str] = {}
 
-        # Process simple imports: import X
-        import_matches = self.run_ast_grep(source_code, get_pattern("import_stmt"))
-        for node in import_matches:
+        # Track processed lines to avoid duplicates
+        processed_lines: set = set()
+
+        # Process import with alias FIRST: import X as Y
+        alias_matches = self.run_ast_grep(source_code, get_pattern("import_with_alias"))
+        for node in alias_matches:
             module = self._get_match(node, "MODULE")
+            alias = self._get_match(node, "ALIAS")
             line = self._get_line_number(node)
 
-            if module:
-                # Add to alias map: first part of module
-                base_name = module.split(".", 1)[0]
-                alias_map[base_name] = module
+            if module and alias:
+                alias_map[alias] = module
+                processed_lines.add(line)
 
                 relationships.append(CodeRelationship(
                     source_symbol=source_symbol,
@@ -756,15 +804,16 @@ class AstGrepPythonProcessor(BaseAstGrepProcessor):
                     source_line=line,
                 ))
 
-        # Process import with alias: import X as Y
-        alias_matches = self.run_ast_grep(source_code, get_pattern("import_with_alias"))
-        for node in alias_matches:
+        # Process simple imports: import X (skip lines already processed)
+        import_matches = self.run_ast_grep(source_code, get_pattern("import_stmt"))
+        for node in import_matches:
             module = self._get_match(node, "MODULE")
-            alias = self._get_match(node, "ALIAS")
             line = self._get_line_number(node)
 
-            if module and alias:
-                alias_map[alias] = module
+            if module and line not in processed_lines:
+                # Add to alias map: first part of module
+                base_name = module.split(".", 1)[0]
+                alias_map[base_name] = module
 
                 relationships.append(CodeRelationship(
                     source_symbol=source_symbol,
@@ -779,7 +828,6 @@ class AstGrepPythonProcessor(BaseAstGrepProcessor):
         from_matches = self.run_ast_grep(source_code, get_pattern("import_from"))
         for node in from_matches:
             module = self._get_match(node, "MODULE")
-            names = self._get_match(node, "NAMES")
             line = self._get_line_number(node)
 
             if module:
@@ -792,6 +840,10 @@ class AstGrepPythonProcessor(BaseAstGrepProcessor):
                     target_file=None,
                     source_line=line,
                 ))
+
+                # Parse names from node text (ast-grep-py 0.40+ doesn't capture $$$ multi-match)
+                node_text = self._binding._get_node_text(node) if self._binding else ""
+                names = self._extract_import_names_from_text(node_text)
 
                 # Add aliases for imported names
                 if names and names != "*":
