@@ -4,7 +4,7 @@
   "level": 3,
   "steps": [
     {
-      "cmd": "/workflow:plan",
+      "cmd": "workflow-plan",
       "args": "\"{{goal}}\"",
       "unit": "verified-planning-execution",
       "execution": {
@@ -14,7 +14,8 @@
       "contextHint": "Create detailed implementation plan with architecture design, file structure, dependencies, and milestones"
     },
     {
-      "cmd": "/workflow:plan-verify",
+      "cmd": "workflow-plan",
+      "route": "plan-verify",
       "unit": "verified-planning-execution",
       "execution": {
         "type": "slash-command",
@@ -23,7 +24,7 @@
       "contextHint": "Verify IMPL_PLAN.md against requirements, check for missing details, conflicts, and quality gates"
     },
     {
-      "cmd": "/workflow:execute",
+      "cmd": "workflow-execute",
       "unit": "verified-planning-execution",
       "execution": {
         "type": "slash-command",
@@ -32,7 +33,8 @@
       "contextHint": "Execute implementation based on verified plan. Resume from planning session with all context preserved."
     },
     {
-      "cmd": "/workflow:review-session-cycle",
+      "cmd": "review-cycle",
+      "route": "session",
       "unit": "code-review",
       "execution": {
         "type": "slash-command",
@@ -41,7 +43,8 @@
       "contextHint": "Perform multi-dimensional code review across correctness, security, performance, maintainability. Reference execution session for full code context."
     },
     {
-      "cmd": "/workflow:review-cycle-fix",
+      "cmd": "review-cycle",
+      "route": "fix",
       "unit": "code-review",
       "execution": {
         "type": "slash-command",
@@ -50,7 +53,7 @@
       "contextHint": "Fix issues identified in review findings with prioritization by severity levels"
     },
     {
-      "cmd": "/workflow:test-fix-gen",
+      "cmd": "workflow-test-fix",
       "unit": "test-validation",
       "execution": {
         "type": "slash-command",
@@ -59,7 +62,8 @@
       "contextHint": "Generate comprehensive test tasks for the implementation with coverage analysis"
     },
     {
-      "cmd": "/workflow:test-cycle-execute",
+      "cmd": "workflow-test-fix",
+      "route": "test-cycle-execute",
       "unit": "test-validation",
       "execution": {
         "type": "slash-command",

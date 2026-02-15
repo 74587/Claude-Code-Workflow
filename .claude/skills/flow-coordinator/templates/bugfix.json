@@ -4,7 +4,7 @@
   "level": 2,
   "steps": [
     {
-      "cmd": "/workflow:lite-plan",
+      "cmd": "workflow-lite-plan",
       "args": "--bugfix \"{{goal}}\"",
       "unit": "bug-fix",
       "execution": {
@@ -14,7 +14,8 @@
       "contextHint": "Analyze bug report, trace execution flow, identify root cause with fix strategy"
     },
     {
-      "cmd": "/workflow:lite-execute",
+      "cmd": "workflow-lite-plan",
+      "route": "lite-execute",
       "args": "--in-memory",
       "unit": "bug-fix",
       "execution": {
@@ -24,7 +25,7 @@
       "contextHint": "Implement fix based on diagnosis. Execute against in-memory state from lite-plan analysis."
     },
     {
-      "cmd": "/workflow:test-fix-gen",
+      "cmd": "workflow-test-fix",
       "unit": "test-validation",
       "optional": true,
       "execution": {
@@ -34,7 +35,8 @@
       "contextHint": "Generate test tasks to verify bug fix and prevent regression"
     },
     {
-      "cmd": "/workflow:test-cycle-execute",
+      "cmd": "workflow-test-fix",
+      "route": "test-cycle-execute",
       "unit": "test-validation",
       "optional": true,
       "execution": {

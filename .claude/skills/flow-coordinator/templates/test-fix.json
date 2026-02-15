@@ -4,7 +4,7 @@
   "level": 2,
   "steps": [
     {
-      "cmd": "/workflow:test-fix-gen",
+      "cmd": "workflow-test-fix",
       "args": "\"{{goal}}\"",
       "unit": "test-validation",
       "execution": {
@@ -14,7 +14,8 @@
       "contextHint": "Analyze failing tests, generate targeted test tasks with root cause and fix strategy"
     },
     {
-      "cmd": "/workflow:test-cycle-execute",
+      "cmd": "workflow-test-fix",
+      "route": "test-cycle-execute",
       "unit": "test-validation",
       "execution": {
         "type": "slash-command",

@@ -4,8 +4,9 @@
   "level": 3,
   "steps": [
     {
-      "cmd": "/workflow:debug-with-file",
+      "cmd": "workflow:debug-with-file",
       "args": "\"{{goal}}\"",
+      "unit": "debug-with-file",
       "execution": {
         "type": "slash-command",
         "mode": "mainprocess"

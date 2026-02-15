@@ -4,7 +4,7 @@
   "level": 3,
   "steps": [
     {
-      "cmd": "/workflow:multi-cli-plan",
+      "cmd": "workflow-multi-cli-plan",
       "args": "\"{{goal}}\"",
       "unit": "multi-cli-planning",
       "execution": {
@@ -14,7 +14,8 @@
       "contextHint": "Multi-perspective analysis comparing different implementation approaches with trade-off analysis"
     },
     {
-      "cmd": "/workflow:lite-execute",
+      "cmd": "workflow-lite-plan",
+      "route": "lite-execute",
       "args": "--in-memory",
       "unit": "multi-cli-planning",
       "execution": {
@@ -24,7 +25,7 @@
       "contextHint": "Execute best approach selected from multi-perspective analysis"
     },
     {
-      "cmd": "/workflow:test-fix-gen",
+      "cmd": "workflow-test-fix",
       "unit": "test-validation",
       "optional": true,
       "execution": {
@@ -34,7 +35,8 @@
       "contextHint": "Generate test tasks for the implementation"
     },
     {
-      "cmd": "/workflow:test-cycle-execute",
+      "cmd": "workflow-test-fix",
+      "route": "test-cycle-execute",
       "unit": "test-validation",
       "optional": true,
       "execution": {

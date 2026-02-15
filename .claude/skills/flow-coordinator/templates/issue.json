@@ -4,7 +4,7 @@
   "level": "issue",
   "steps": [
     {
-      "cmd": "/issue:discover",
+      "cmd": "issue:discover",
       "execution": {
         "type": "slash-command",
         "mode": "mainprocess"
@@ -12,7 +12,7 @@
       "contextHint": "Discover pending issues from codebase for potential fixes"
     },
     {
-      "cmd": "/issue:plan",
+      "cmd": "issue:plan",
       "args": "--all-pending",
       "unit": "issue-workflow",
       "execution": {
@@ -22,7 +22,7 @@
       "contextHint": "Create execution plans for all discovered pending issues"
     },
     {
-      "cmd": "/issue:queue",
+      "cmd": "issue:queue",
       "unit": "issue-workflow",
       "execution": {
         "type": "slash-command",
@@ -31,7 +31,7 @@
       "contextHint": "Build execution queue with issue prioritization and dependencies"
     },
     {
-      "cmd": "/issue:execute",
+      "cmd": "issue:execute",
       "unit": "issue-workflow",
       "execution": {
         "type": "slash-command",

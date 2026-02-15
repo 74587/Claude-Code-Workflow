@@ -4,7 +4,8 @@
   "level": 3,
   "steps": [
     {
-      "cmd": "/workflow:review-session-cycle",
+      "cmd": "review-cycle",
+      "route": "session",
       "unit": "code-review",
       "execution": {
         "type": "slash-command",
@@ -13,16 +14,17 @@
       "contextHint": "Perform comprehensive multi-dimensional code review across correctness, security, performance, maintainability dimensions"
     },
     {
-      "cmd": "/workflow:review-cycle-fix",
+      "cmd": "review-cycle",
+      "route": "fix",
       "unit": "code-review",
       "execution": {
         "type": "slash-command",
         "mode": "mainprocess"
       },
-      "contextHint": "Fix all review findings prioritized by severity level (critical → high → medium → low)"
+      "contextHint": "Fix all review findings prioritized by severity level (critical -> high -> medium -> low)"
     },
     {
-      "cmd": "/workflow:test-fix-gen",
+      "cmd": "workflow-test-fix",
       "unit": "test-validation",
       "execution": {
         "type": "slash-command",
@@ -31,7 +33,8 @@
       "contextHint": "Generate test tasks for fixed code with coverage analysis"
     },
     {
-      "cmd": "/workflow:test-cycle-execute",
+      "cmd": "workflow-test-fix",
+      "route": "test-cycle-execute",
       "unit": "test-validation",
       "execution": {
         "type": "slash-command",

@@ -4,8 +4,9 @@
   "level": 1,
   "steps": [
     {
-      "cmd": "/workflow:lite-plan",
+      "cmd": "workflow-lite-plan",
       "args": "--hotfix \"{{goal}}\"",
+      "unit": "standalone",
       "execution": {
         "type": "slash-command",
         "mode": "async"

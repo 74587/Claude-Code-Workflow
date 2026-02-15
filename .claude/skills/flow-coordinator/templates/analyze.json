@@ -4,8 +4,9 @@
   "level": 3,
   "steps": [
     {
-      "cmd": "/workflow:analyze-with-file",
+      "cmd": "workflow:analyze-with-file",
       "args": "\"{{goal}}\"",
+      "unit": "analyze-with-file",
       "execution": {
         "type": "slash-command",
         "mode": "mainprocess"

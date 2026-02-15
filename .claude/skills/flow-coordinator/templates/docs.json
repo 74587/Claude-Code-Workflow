@@ -4,7 +4,7 @@
   "level": 2,
   "steps": [
     {
-      "cmd": "/workflow:lite-plan",
+      "cmd": "workflow-lite-plan",
       "args": "\"{{goal}}\"",
       "unit": "quick-documentation",
       "execution": {
@@ -14,7 +14,8 @@
       "contextHint": "Plan documentation structure and content organization"
     },
     {
-      "cmd": "/workflow:lite-execute",
+      "cmd": "workflow-lite-plan",
+      "route": "lite-execute",
       "args": "--in-memory",
       "unit": "quick-documentation",
       "execution": {

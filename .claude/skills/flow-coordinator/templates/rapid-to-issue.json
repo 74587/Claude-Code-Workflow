@@ -4,7 +4,7 @@
   "level": 2.5,
   "steps": [
     {
-      "cmd": "/workflow:lite-plan",
+      "cmd": "workflow-lite-plan",
       "args": "\"{{goal}}\"",
       "unit": "rapid-to-issue",
       "execution": {
@@ -14,7 +14,7 @@
       "contextHint": "Create lightweight plan for the task"
     },
     {
-      "cmd": "/issue:convert-to-plan",
+      "cmd": "issue:convert-to-plan",
       "args": "--latest-lite-plan -y",
       "unit": "rapid-to-issue",
       "execution": {
@@ -24,7 +24,7 @@
       "contextHint": "Convert lite plan to structured issue plan"
     },
     {
-      "cmd": "/issue:queue",
+      "cmd": "issue:queue",
       "unit": "rapid-to-issue",
       "execution": {
         "type": "slash-command",
@@ -33,7 +33,7 @@
       "contextHint": "Build execution queue from converted plan"
     },
     {
-      "cmd": "/issue:execute",
+      "cmd": "issue:execute",
       "args": "--queue auto",
       "unit": "rapid-to-issue",
       "execution": {

@@ -4,8 +4,9 @@
   "level": 4,
   "steps": [
     {
-      "cmd": "/workflow:brainstorm-with-file",
+      "cmd": "workflow:brainstorm-with-file",
       "args": "\"{{goal}}\"",
+      "unit": "brainstorm-with-file",
       "execution": {
         "type": "slash-command",
         "mode": "mainprocess"

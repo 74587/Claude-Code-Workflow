@@ -344,14 +344,29 @@ async function selectTemplate(templates) {
 **Templates stored in**: `templates/*.json` (discovered at runtime via Glob)
 
 **TemplateStep Fields**:
-- `cmd`: Full command path (e.g., `/workflow:lite-plan`, `/workflow:execute`)
+- `cmd`: Skill name or command path (e.g., `workflow-lite-plan`, `workflow:debug-with-file`, `issue:discover`)
+- `route?`: Sub-mode for multi-mode Skills (e.g., `lite-execute`, `plan-verify`, `test-cycle-execute`)
 - `args?`: Arguments with `{{goal}}` and `{{prev}}` placeholders
 - `unit?`: Minimum execution unit name (groups related commands)
 - `optional?`: Can be skipped by user
 - `execution`: Type and mode configuration
-  - `type`: Always `'slash-command'` (for all workflow commands)
+  - `type`: Always `'slash-command'` (invoked via Skill tool)
   - `mode`: `'mainprocess'` (blocking) or `'async'` (background)
 - `contextHint?`: Natural language guidance for context assembly
+
+**cmd 命名规则**:
+- **Skills（已迁移）**: 使用连字符格式 Skill 名称，如 `workflow-lite-plan`、`review-cycle`
+- **Commands（仍存在）**: 使用冒号格式命令路径，如 `workflow:brainstorm-with-file`、`issue:discover`
+
+**route 字段**:
+多模式 Skill 通过 `route` 区分子模式。同一 Skill 的不同步骤共享 `cmd`，通过 `route` 路由：
+| Skill | 默认模式 (无 route) | route 值 |
+|-------|-------------------|----------|
+| `workflow-lite-plan` | lite-plan | `lite-execute` |
+| `workflow-plan` | plan | `plan-verify`, `replan` |
+| `workflow-test-fix` | test-fix-gen | `test-cycle-execute` |
+| `workflow-tdd` | tdd-plan | `tdd-verify` |
+| `review-cycle` | - | `session`, `module`, `fix` |
 
 **Template Example**:
 ```json
@@ -359,14 +374,15 @@ async function selectTemplate(templates) {
   "name": "rapid",
   "steps": [
     {
-      "cmd": "/workflow:lite-plan",
+      "cmd": "workflow-lite-plan",
       "args": "\"{{goal}}\"",
       "unit": "quick-implementation",
       "execution": { "type": "slash-command", "mode": "mainprocess" },
       "contextHint": "Create lightweight implementation plan"
     },
     {
-      "cmd": "/workflow:lite-execute",
+      "cmd": "workflow-lite-plan",
+      "route": "lite-execute",
       "args": "--in-memory",
       "unit": "quick-implementation",
       "execution": { "type": "slash-command", "mode": "async" },
@@ -384,9 +400,11 @@ async function selectTemplate(templates) {
 
 ```javascript
 async function executeSlashCommandSync(step, status) {
-  // Build command: /workflow:cmd -y args
-  const cmd = buildCommand(step, status);
-  const result = await SlashCommand({ command: cmd });
+  // Build Skill invocation args
+  const args = buildSkillArgs(step, status);
+
+  // Invoke via Skill tool: step.cmd is skill name or command path
+  const result = await Skill({ skill: step.cmd, args: args });
 
   step.session = result.session_id;
   step.status = 'done';
@@ -398,7 +416,7 @@ async function executeSlashCommandSync(step, status) {
 
 ```javascript
 async function executeSlashCommandAsync(step, status, statusPath) {
-  // Build prompt: /workflow:cmd -y args + context
+  // Build prompt for ccw cli: /<cmd> [--route <route>] args + context
   const prompt = buildCommandPrompt(step, status);
 
   step.status = 'running';
@@ -413,7 +431,7 @@ async function executeSlashCommandAsync(step, status, statusPath) {
   step.taskId = taskId;
   write(statusPath, JSON.stringify(status, null, 2));
 
-  console.log(`Executing: ${step.cmd} (async)`);
+  console.log(`Executing: ${step.cmd}${step.route ? ' --route ' + step.route : ''} (async)`);
   console.log(`Resume: /flow-coordinator --resume ${status.id}`);
 }
 ```
@@ -422,12 +440,19 @@ async function executeSlashCommandAsync(step, status, statusPath) {
 
 ## Prompt Building
 
-Prompts are built in format: `/workflow:cmd -y args` + context
+Prompts are built in format: `/<cmd> [--route <route>] -y args` + context
 
 ```javascript
 function buildCommandPrompt(step, status) {
-  // step.cmd already contains full path: /workflow:lite-plan, /workflow:execute, etc.
-  let prompt = `${step.cmd} -y`;
+  // step.cmd is skill name or command path
+  let prompt = `/${step.cmd}`;
+
+  // Add route for multi-mode Skills
+  if (step.route) {
+    prompt += ` --route ${step.route}`;
+  }
+
+  prompt += ' -y';
 
   // Add arguments (with placeholder replacement)
   if (step.args) {
@@ -452,13 +477,32 @@ function buildCommandPrompt(step, status) {
   return prompt;
 }
 
+/**
+ * Build args for Skill() invocation (mainprocess mode)
+ */
+function buildSkillArgs(step, status) {
+  let args = '';
+
+  // Add route for multi-mode Skills
+  if (step.route) {
+    args += `--route ${step.route} `;
+  }
+
+  args += '-y';
+
+  // Add step arguments
+  if (step.args) {
+    const resolvedArgs = step.args
+      .replace('{{goal}}', status.goal)
+      .replace('{{prev}}', getPreviousSessionId(status));
+    args += ` ${resolvedArgs}`;
+  }
+
+  return args;
+}
+
 function buildContextFromHint(hint, status) {
   // Parse contextHint instruction and build context accordingly
-  // Examples:
-  // "Summarize IMPL_PLAN.md" → read and summarize plan
-  // "List test coverage gaps" → analyze previous test results
-  // "Pass session ID" → just return session reference
-
   return parseAndBuildContext(hint, status);
 }
 ```
@@ -466,7 +510,7 @@ function buildContextFromHint(hint, status) {
 ### Example Prompt Output
 
 ```
-/workflow:lite-plan -y "Implement user registration"
+/workflow-lite-plan -y "Implement user registration"
 
 Context:
 Task: Implement user registration
@@ -475,7 +519,7 @@ Previous results:
 ```
 
 ```
-/workflow:execute -y --in-memory
+/workflow-lite-plan --route lite-execute -y --in-memory
 
 Context:
 Task: Implement user registration
@@ -504,13 +548,13 @@ Select workflow template:
 ```
 Template: coupled
 Steps:
-  1. /workflow:plan (slash-command mainprocess)
-  2. /workflow:plan-verify (slash-command mainprocess)
-  3. /workflow:execute (slash-command async)
-  4. /workflow:review-session-cycle (slash-command mainprocess)
-  5. /workflow:review-cycle-fix (slash-command mainprocess)
-  6. /workflow:test-fix-gen (slash-command mainprocess)
-  7. /workflow:test-cycle-execute (slash-command async)
+  1. workflow-plan (mainprocess)
+  2. workflow-plan --route plan-verify (mainprocess)
+  3. workflow-execute (async)
+  4. review-cycle --route session (mainprocess)
+  5. review-cycle --route fix (mainprocess)
+  6. workflow-test-fix (mainprocess)
+  7. workflow-test-fix --route test-cycle-execute (async)
 
 Proceed? [Confirm / Cancel]
 ```
@@ -544,15 +588,24 @@ Templates discovered from `templates/*.json`:
 
 | Template | Use Case | Steps |
 |----------|----------|-------|
-| rapid | Simple feature | /workflow:lite-plan → /workflow:lite-execute → /workflow:test-cycle-execute |
-| coupled | Complex feature | /workflow:plan → /workflow:plan-verify → /workflow:execute → /workflow:review-session-cycle → /workflow:test-fix-gen |
-| bugfix | Bug fix | /workflow:lite-plan --bugfix → /workflow:lite-execute → /workflow:test-cycle-execute |
-| tdd | Test-driven | /workflow:tdd-plan → /workflow:execute → /workflow:tdd-verify |
-| test-fix | Fix failing tests | /workflow:test-fix-gen → /workflow:test-cycle-execute |
-| brainstorm | Exploration | /workflow:brainstorm-with-file |
-| debug | Debug with docs | /workflow:debug-with-file |
-| analyze | Collaborative analysis | /workflow:analyze-with-file |
-| issue | Issue workflow | /issue:discover → /issue:plan → /issue:queue → /issue:execute |
+| rapid | Simple feature | workflow-lite-plan → workflow-lite-plan[lite-execute] → workflow-test-fix → workflow-test-fix[test-cycle-execute] |
+| coupled | Complex feature | workflow-plan → workflow-plan[plan-verify] → workflow-execute → review-cycle[session] → review-cycle[fix] → workflow-test-fix → workflow-test-fix[test-cycle-execute] |
+| bugfix | Bug fix | workflow-lite-plan --bugfix → workflow-lite-plan[lite-execute] → workflow-test-fix → workflow-test-fix[test-cycle-execute] |
+| bugfix-hotfix | Urgent hotfix | workflow-lite-plan --hotfix |
+| tdd | Test-driven | workflow-tdd → workflow-execute → workflow-tdd[tdd-verify] |
+| test-fix | Fix failing tests | workflow-test-fix → workflow-test-fix[test-cycle-execute] |
+| review | Code review | review-cycle[session] → review-cycle[fix] → workflow-test-fix → workflow-test-fix[test-cycle-execute] |
+| multi-cli-plan | Multi-perspective planning | workflow-multi-cli-plan → workflow-lite-plan[lite-execute] → workflow-test-fix → workflow-test-fix[test-cycle-execute] |
+| full | Complete workflow | brainstorm → workflow-plan → workflow-plan[plan-verify] → workflow-execute → workflow-test-fix → workflow-test-fix[test-cycle-execute] |
+| docs | Documentation | workflow-lite-plan → workflow-lite-plan[lite-execute] |
+| brainstorm | Exploration | workflow:brainstorm-with-file |
+| debug | Debug with docs | workflow:debug-with-file |
+| analyze | Collaborative analysis | workflow:analyze-with-file |
+| issue | Issue workflow | issue:discover → issue:plan → issue:queue → issue:execute |
+| rapid-to-issue | Plan to issue bridge | workflow-lite-plan → issue:convert-to-plan → issue:queue → issue:execute |
+| brainstorm-to-issue | Brainstorm to issue | issue:from-brainstorm → issue:queue → issue:execute |
+
+**注**: `[route]` 表示该步骤使用 `route` 字段路由到多模式 Skill 的特定子模式。
 
 ---
 
