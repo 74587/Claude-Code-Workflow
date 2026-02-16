@@ -67,25 +67,247 @@ if (isResume) {
     const mode = resumedSession.mode
     const sessionFolder = `.workflow/.team/${resumedSession.session_id}`
     const taskDescription = resumedSession.topic
+    const executionMethod = resumedSession.user_preferences?.execution_method || 'Auto'
+    const codeReviewTool = resumedSession.user_preferences?.code_review || 'Skip'
 
-    // Rebuild team
+    // ============================================================
+    // Pipeline Constants
+    // ============================================================
+    const SPEC_CHAIN = [
+      'RESEARCH-001', 'DISCUSS-001', 'DRAFT-001', 'DISCUSS-002',
+      'DRAFT-002', 'DISCUSS-003', 'DRAFT-003', 'DISCUSS-004',
+      'DRAFT-004', 'DISCUSS-005', 'QUALITY-001', 'DISCUSS-006'
+    ]
+    const IMPL_CHAIN = ['PLAN-001', 'IMPL-001', 'TEST-001', 'REVIEW-001']
+
+    // Task metadata: prefix → { subject, owner, description template, activeForm }
+    const TASK_METADATA = {
+      'RESEARCH-001': { owner: 'analyst', subject: 'RESEARCH-001: 主题发现与上下文研究', activeForm: '研究中',
+        desc: () => `${taskDescription}\n\nSession: ${sessionFolder}\n输出: ${sessionFolder}/spec/spec-config.json + spec/discovery-context.json` },
+      'DISCUSS-001': { owner: 'discussant', subject: 'DISCUSS-001: 研究结果讨论 - 范围确认与方向调整', activeForm: '讨论范围中',
+        desc: () => `讨论 RESEARCH-001 的发现结果\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/discovery-context.json\n输出: ${sessionFolder}/discussions/discuss-001-scope.md` },
+      'DRAFT-001': { owner: 'writer', subject: 'DRAFT-001: 撰写 Product Brief', activeForm: '撰写 Brief 中',
+        desc: () => `基于研究和讨论共识撰写产品简报\n\nSession: ${sessionFolder}\n输入: discovery-context.json + discuss-001-scope.md\n输出: ${sessionFolder}/spec/product-brief.md` },
+      'DISCUSS-002': { owner: 'discussant', subject: 'DISCUSS-002: Product Brief 多视角评审', activeForm: '评审 Brief 中',
+        desc: () => `评审 Product Brief 文档\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/product-brief.md\n输出: ${sessionFolder}/discussions/discuss-002-brief.md` },
+      'DRAFT-002': { owner: 'writer', subject: 'DRAFT-002: 撰写 Requirements/PRD', activeForm: '撰写 PRD 中',
+        desc: () => `基于 Brief 和讨论反馈撰写需求文档\n\nSession: ${sessionFolder}\n输入: product-brief.md + discuss-002-brief.md\n输出: ${sessionFolder}/spec/requirements/` },
+      'DISCUSS-003': { owner: 'discussant', subject: 'DISCUSS-003: 需求完整性与优先级讨论', activeForm: '讨论需求中',
+        desc: () => `讨论 PRD 需求完整性\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/requirements/_index.md\n输出: ${sessionFolder}/discussions/discuss-003-requirements.md` },
+      'DRAFT-003': { owner: 'writer', subject: 'DRAFT-003: 撰写 Architecture Document', activeForm: '撰写架构中',
+        desc: () => `基于需求和讨论反馈撰写架构文档\n\nSession: ${sessionFolder}\n输入: requirements/ + discuss-003-requirements.md\n输出: ${sessionFolder}/spec/architecture/` },
+      'DISCUSS-004': { owner: 'discussant', subject: 'DISCUSS-004: 架构决策与技术可行性讨论', activeForm: '讨论架构中',
+        desc: () => `讨论架构设计合理性\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/architecture/_index.md\n输出: ${sessionFolder}/discussions/discuss-004-architecture.md` },
+      'DRAFT-004': { owner: 'writer', subject: 'DRAFT-004: 撰写 Epics & Stories', activeForm: '撰写 Epics 中',
+        desc: () => `基于架构和讨论反馈撰写史诗和用户故事\n\nSession: ${sessionFolder}\n输入: architecture/ + discuss-004-architecture.md\n输出: ${sessionFolder}/spec/epics/` },
+      'DISCUSS-005': { owner: 'discussant', subject: 'DISCUSS-005: 执行计划与MVP范围讨论', activeForm: '讨论执行计划中',
+        desc: () => `讨论执行计划就绪性\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/epics/_index.md\n输出: ${sessionFolder}/discussions/discuss-005-epics.md` },
+      'QUALITY-001': { owner: 'reviewer', subject: 'QUALITY-001: 规格就绪度检查', activeForm: '质量检查中',
+        desc: () => `全文档交叉验证和质量评分\n\nSession: ${sessionFolder}\n输入: 全部文档\n输出: ${sessionFolder}/spec/readiness-report.md + spec/spec-summary.md` },
+      'DISCUSS-006': { owner: 'discussant', subject: 'DISCUSS-006: 最终签收与交付确认', activeForm: '最终签收讨论中',
+        desc: () => `最终讨论和签收\n\nSession: ${sessionFolder}\n输入: ${sessionFolder}/spec/readiness-report.md\n输出: ${sessionFolder}/discussions/discuss-006-final.md` },
+      'PLAN-001': { owner: 'planner', subject: 'PLAN-001: 探索和规划实现', activeForm: '规划中',
+        desc: () => `${taskDescription}\n\nSession: ${sessionFolder}\n写入: ${sessionFolder}/plan/` },
+      'IMPL-001': { owner: 'executor', subject: 'IMPL-001: 实现已批准的计划', activeForm: '实现中',
+        desc: () => `${taskDescription}\n\nSession: ${sessionFolder}\nPlan: ${sessionFolder}/plan/plan.json\nexecution_method: ${executionMethod}\ncode_review: ${codeReviewTool}` },
+      'TEST-001': { owner: 'tester', subject: 'TEST-001: 测试修复循环', activeForm: '测试中',
+        desc: () => taskDescription },
+      'REVIEW-001': { owner: 'reviewer', subject: 'REVIEW-001: 代码审查与需求验证', activeForm: '审查中',
+        desc: () => `${taskDescription}\n\nSession: ${sessionFolder}\nPlan: ${sessionFolder}/plan/plan.json` }
+    }
+
+    // Pipeline dependency: prefix → predecessor prefix (special: TEST-001 & REVIEW-001 both depend on IMPL-001)
+    function getPredecessor(prefix, pipeline) {
+      if (prefix === 'TEST-001' || prefix === 'REVIEW-001') return 'IMPL-001'
+      const idx = pipeline.indexOf(prefix)
+      return idx > 0 ? pipeline[idx - 1] : null
+    }
+
+    // ============================================================
+    // Step 1: Audit TaskList — 审计当前任务清单状态
+    // ============================================================
+    const allTasks = TaskList()
+    const pipeline = mode === 'spec-only' ? SPEC_CHAIN
+      : mode === 'impl-only' ? IMPL_CHAIN
+      : [...SPEC_CHAIN, ...IMPL_CHAIN]
+    const sessionCompleted = new Set(resumedSession.completed_tasks || [])
+
+    // Build prefix → task mapping from existing TaskList
+    const existingByPrefix = {}
+    allTasks.forEach(t => {
+      const prefixMatch = t.subject.match(/^([A-Z]+-\d+)/)
+      if (prefixMatch) existingByPrefix[prefixMatch[1]] = t
+    })
+
+    // ============================================================
+    // Step 2: Reconcile — 同步 session 与 TaskList 状态
+    // ============================================================
+    const reconciledCompleted = new Set(sessionCompleted)
+    const statusFixes = []
+
+    for (const prefix of pipeline) {
+      const existing = existingByPrefix[prefix]
+      if (!existing) continue
+
+      // Case A: session 记录已完成，但 TaskList 状态不是 completed → 修正 TaskList
+      if (sessionCompleted.has(prefix) && existing.status !== 'completed') {
+        TaskUpdate({ taskId: existing.id, status: 'completed' })
+        statusFixes.push(`${prefix}: ${existing.status} → completed (sync from session)`)
+      }
+
+      // Case B: TaskList 已 completed，但 session 未记录 → 补录 session
+      if (existing.status === 'completed' && !sessionCompleted.has(prefix)) {
+        reconciledCompleted.add(prefix)
+        statusFixes.push(`${prefix}: completed (sync to session)`)
+      }
+
+      // Case C: TaskList 是 in_progress（暂停时可能中断）→ 重置为 pending
+      if (existing.status === 'in_progress' && !sessionCompleted.has(prefix)) {
+        TaskUpdate({ taskId: existing.id, status: 'pending' })
+        statusFixes.push(`${prefix}: in_progress → pending (reset for retry)`)
+      }
+    }
+
+    // Update session with reconciled completed_tasks
+    resumedSession.completed_tasks = [...reconciledCompleted]
+
+    // ============================================================
+    // Step 3: Determine remaining pipeline — 确定剩余任务顺序
+    // ============================================================
+    const remainingPipeline = pipeline.filter(p => !reconciledCompleted.has(p))
+
+    // ============================================================
+    // Step 4: Rebuild team + Spawn workers — 重建团队
+    // ============================================================
     TeamCreate({ team_name: teamName })
-    // Spawn workers based on mode (see Phase 2)
 
-    // Update session status
+    // Determine which worker roles are needed based on remaining tasks
+    const neededRoles = new Set()
+    remainingPipeline.forEach(prefix => {
+      const meta = TASK_METADATA[prefix]
+      if (meta) neededRoles.add(meta.owner)
+    })
+
+    // Spawn only needed workers using Phase 2 spawn template (see SKILL.md Coordinator Spawn Template)
+    // Each worker is spawned with prompt that:
+    // 1. Identifies their role
+    // 2. Instructs to call Skill(skill="team-lifecycle", args="--role=<name>")
+    // 3. Includes session context: taskDescription, sessionFolder, constraints
+    // 4. Instructs immediate TaskList polling on startup
+    neededRoles.forEach(role => {
+      // → Use SKILL.md Coordinator Spawn Template for each role
+      // → Worker prompt includes: "Session: ${sessionFolder}", "需求: ${taskDescription}"
+    })
+
+    // ============================================================
+    // Step 5: Create missing tasks with correct dependencies
+    // ============================================================
+    // In a new conversation, TaskList is EMPTY — all remaining tasks must be created.
+    // In a same-conversation resume, some tasks may already exist.
+    const missingPrefixes = remainingPipeline.filter(p => !existingByPrefix[p])
+
+    for (const prefix of missingPrefixes) {
+      const meta = TASK_METADATA[prefix]
+      if (!meta) continue
+
+      // Create task
+      const newTask = TaskCreate({
+        subject: meta.subject,
+        description: meta.desc(),
+        activeForm: meta.activeForm
+      })
+      TaskUpdate({ taskId: newTask.id, owner: meta.owner })
+
+      // Register in existingByPrefix for dependency wiring
+      existingByPrefix[prefix] = { id: newTask.id, status: 'pending', blockedBy: [] }
+
+      // Wire dependency: find predecessor
+      const predPrefix = getPredecessor(prefix, pipeline)
+      if (predPrefix && !reconciledCompleted.has(predPrefix)) {
+        const predTask = existingByPrefix[predPrefix]
+        if (predTask) {
+          TaskUpdate({ taskId: newTask.id, addBlockedBy: [predTask.id] })
+        }
+      }
+
+      statusFixes.push(`${prefix}: created (missing in TaskList)`)
+    }
+
+    // ============================================================
+    // Step 6: Verify dependency chain integrity for existing tasks
+    // ============================================================
+    for (const prefix of remainingPipeline) {
+      // Skip tasks we just created (already wired)
+      if (missingPrefixes.includes(prefix)) continue
+      const task = existingByPrefix[prefix]
+      if (!task || task.status === 'completed') continue
+
+      const predPrefix = getPredecessor(prefix, pipeline)
+      if (!predPrefix || reconciledCompleted.has(predPrefix)) continue
+
+      const predTask = existingByPrefix[predPrefix]
+      if (predTask && task.blockedBy && !task.blockedBy.includes(predTask.id)) {
+        TaskUpdate({ taskId: task.id, addBlockedBy: [predTask.id] })
+        statusFixes.push(`${prefix}: added missing blockedBy → ${predPrefix}`)
+      }
+    }
+
+    // ============================================================
+    // Step 7: Update session file — 写入恢复状态
+    // ============================================================
     resumedSession.status = 'active'
     resumedSession.resumed_at = new Date().toISOString()
     resumedSession.updated_at = new Date().toISOString()
+    if (remainingPipeline.length > 0) {
+      const firstRemaining = remainingPipeline[0]
+      if (/^(RESEARCH|DISCUSS|DRAFT|QUALITY)/.test(firstRemaining)) {
+        resumedSession.current_phase = 'spec'
+      } else if (firstRemaining.startsWith('PLAN')) {
+        resumedSession.current_phase = 'plan'
+      } else {
+        resumedSession.current_phase = 'impl'
+      }
+    }
     Write(`${sessionFolder}/team-session.json`, JSON.stringify(resumedSession, null, 2))
 
-    // Create only uncompleted tasks from pipeline
-    const completedTasks = new Set(resumedSession.completed_tasks || [])
-    const pipeline = resumedSession.mode === 'spec-only' ? SPEC_CHAIN
-      : resumedSession.mode === 'impl-only' ? IMPL_CHAIN
-      : [...SPEC_CHAIN, ...IMPL_CHAIN]
-    const remainingTasks = pipeline.filter(t => !completedTasks.has(t))
+    // ============================================================
+    // Step 8: Report reconciliation — 输出恢复摘要
+    // ============================================================
+    // Output to user:
+    // - Session: {session_id} resumed
+    // - Completed: {reconciledCompleted.size}/{pipeline.length} tasks
+    // - Remaining: {remainingPipeline.join(' → ')}
+    // - Status fixes: {statusFixes.length} corrections applied
+    // - Next task: {remainingPipeline[0]}
+    // - Workers spawned: {[...neededRoles].join(', ')}
 
-    // → Skip to Phase 3 with remainingTasks, then Phase 4 coordination loop
+    // ============================================================
+    // Step 9: Kick — 通知首个可执行任务的 worker 启动
+    // ============================================================
+    // 解决 resume 后的死锁：coordinator 等 worker 消息 ↔ worker 等任务
+    // 找到第一个 pending + blockedBy 为空的任务，向其 owner 发送 task_unblocked
+    const firstActionable = remainingPipeline.find(prefix => {
+      const task = existingByPrefix[prefix]
+      return task && task.status === 'pending' && (!task.blockedBy || task.blockedBy.length === 0)
+    })
+
+    if (firstActionable) {
+      const meta = TASK_METADATA[firstActionable]
+      mcp__ccw-tools__team_msg({
+        operation: "log", team: teamName,
+        from: "coordinator", to: meta.owner,
+        type: "task_unblocked",
+        summary: `Resume: ${firstActionable} is ready for execution`
+      })
+      SendMessage({
+        type: "message",
+        recipient: meta.owner,
+        content: `Session 已恢复。你的任务 ${firstActionable} 已就绪，请立即执行 TaskList 检查并开始工作。`,
+        summary: `Resume kick: ${firstActionable}`
+      })
+    }
+
+    // → Skip to Phase 4 coordination loop
   }
 }
 ```
