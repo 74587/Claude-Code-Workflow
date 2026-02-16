@@ -21,6 +21,9 @@ import {
   Zap,
   Settings,
   Loader2,
+  Folder,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/Badge';
@@ -57,6 +60,14 @@ interface DashboardToolbarProps {
   isFileSidebarOpen?: boolean;
   /** Callback to toggle file sidebar */
   onToggleFileSidebar?: () => void;
+  /** Whether the session sidebar is open */
+  isSessionSidebarOpen?: boolean;
+  /** Callback to toggle session sidebar */
+  onToggleSessionSidebar?: () => void;
+  /** Whether fullscreen mode is active */
+  isFullscreen?: boolean;
+  /** Callback to toggle fullscreen mode */
+  onToggleFullscreen?: () => void;
 }
 
 // ========== Layout Presets ==========
@@ -83,7 +94,7 @@ const LAUNCH_COMMANDS: Record<CliTool, Record<LaunchMode, string>> = {
 
 // ========== Component ==========
 
-export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen, onToggleFileSidebar }: DashboardToolbarProps) {
+export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen, onToggleFileSidebar, isSessionSidebarOpen, onToggleSessionSidebar, isFullscreen, onToggleFullscreen }: DashboardToolbarProps) {
   const { formatMessage } = useIntl();
 
   // Issues count
@@ -117,17 +128,30 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
   // Launch CLI handlers
   const projectPath = useWorkflowStore(selectProjectPath);
   const focusedPaneId = useTerminalGridStore(selectTerminalGridFocusedPaneId);
+  const panes = useTerminalGridStore((s) => s.panes);
   const createSessionAndAssign = useTerminalGridStore((s) => s.createSessionAndAssign);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedTool, setSelectedTool] = useState<CliTool>('gemini');
   const [launchMode, setLaunchMode] = useState<LaunchMode>('yolo');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
+  // Helper to get or create a focused pane
+  const getOrCreateFocusedPane = useCallback(() => {
+    if (focusedPaneId) return focusedPaneId;
+    // No focused pane - reset layout to create a single pane
+    resetLayout('single');
+    // Get the new focused pane id from store
+    return useTerminalGridStore.getState().focusedPaneId;
+  }, [focusedPaneId]);
+
   const handleQuickCreate = useCallback(async () => {
-    if (!focusedPaneId || !projectPath) return;
+    if (!projectPath) return;
     setIsCreating(true);
     try {
-      const created = await createSessionAndAssign(focusedPaneId, {
+      const targetPaneId = getOrCreateFocusedPane();
+      if (!targetPaneId) return;
+
+      const created = await createSessionAndAssign(targetPaneId, {
         workingDir: projectPath,
         preferredShell: 'bash',
         tool: selectedTool,
@@ -146,18 +170,21 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
     } finally {
       setIsCreating(false);
     }
-  }, [focusedPaneId, projectPath, createSessionAndAssign, selectedTool, launchMode]);
+  }, [projectPath, createSessionAndAssign, selectedTool, launchMode, getOrCreateFocusedPane]);
 
   const handleConfigure = useCallback(() => {
     setIsConfigOpen(true);
   }, []);
 
   const handleCreateConfiguredSession = useCallback(async (config: CliSessionConfig) => {
-    if (!focusedPaneId || !projectPath) throw new Error('No focused pane or project path');
+    if (!projectPath) throw new Error('No project path');
     setIsCreating(true);
     try {
+      const targetPaneId = getOrCreateFocusedPane();
+      if (!targetPaneId) throw new Error('Failed to create pane');
+
       const created = await createSessionAndAssign(
-        focusedPaneId,
+        targetPaneId,
         {
           workingDir: config.workingDir || projectPath,
           preferredShell: config.preferredShell,
@@ -182,7 +209,7 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
     } finally {
       setIsCreating(false);
     }
-  }, [focusedPaneId, projectPath, createSessionAndAssign]);
+  }, [projectPath, createSessionAndAssign, getOrCreateFocusedPane]);
 
   return (
     <>
@@ -254,7 +281,7 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleQuickCreate}
-              disabled={isCreating || !projectPath || !focusedPaneId}
+              disabled={isCreating || !projectPath}
               className="gap-2"
             >
               <Zap className="w-4 h-4" />
@@ -263,7 +290,7 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleConfigure}
-              disabled={isCreating || !projectPath || !focusedPaneId}
+              disabled={isCreating || !projectPath}
               className="gap-2"
             >
               <Settings className="w-4 h-4" />
@@ -271,6 +298,17 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Separator */}
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Session sidebar toggle */}
+        <ToolbarButton
+          icon={Folder}
+          label={formatMessage({ id: 'terminalDashboard.toolbar.sessions', defaultMessage: 'Sessions' })}
+          isActive={isSessionSidebarOpen ?? true}
+          onClick={() => onToggleSessionSidebar?.()}
+        />
 
         {/* Separator */}
         <div className="w-px h-5 bg-border mx-1" />
@@ -321,6 +359,30 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
             <preset.icon className="w-3.5 h-3.5" />
           </button>
         ))}
+
+        {/* Separator */}
+        <div className="w-px h-5 bg-border mx-1" />
+
+        {/* Fullscreen toggle */}
+        <button
+          onClick={onToggleFullscreen}
+          className={cn(
+            'p-1.5 rounded transition-colors',
+            isFullscreen
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          )}
+          title={isFullscreen
+            ? formatMessage({ id: 'terminalDashboard.toolbar.exitFullscreen', defaultMessage: 'Exit Fullscreen' })
+            : formatMessage({ id: 'terminalDashboard.toolbar.fullscreen', defaultMessage: 'Fullscreen' })
+          }
+        >
+          {isFullscreen ? (
+            <Minimize2 className="w-3.5 h-3.5" />
+          ) : (
+            <Maximize2 className="w-3.5 h-3.5" />
+          )}
+        </button>
 
         {/* Right-aligned title */}
         <span className="ml-auto text-xs text-muted-foreground font-medium">

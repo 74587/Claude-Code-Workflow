@@ -5015,12 +5015,14 @@ export interface CodexLensLspStatusResponse {
  */
 export type CodexLensSemanticSearchMode = 'fusion' | 'vector' | 'structural';
 export type CodexLensFusionStrategy = 'rrf' | 'staged' | 'binary' | 'hybrid' | 'dense_rerank';
+export type CodexLensStagedStage2Mode = 'precomputed' | 'realtime' | 'static_global_graph';
 
 export interface CodexLensSemanticSearchParams {
   query: string;
   path?: string;
   mode?: CodexLensSemanticSearchMode;
   fusion_strategy?: CodexLensFusionStrategy;
+  staged_stage2_mode?: CodexLensStagedStage2Mode;
   vector_weight?: number;
   structural_weight?: number;
   keyword_weight?: number;

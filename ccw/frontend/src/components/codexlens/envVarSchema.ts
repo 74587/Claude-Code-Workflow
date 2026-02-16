@@ -2,7 +2,7 @@
 // CodexLens Environment Variable Schema
 // ========================================
 // TypeScript port of ENV_VAR_GROUPS from codexlens-manager.js
-// Defines the 5 structured groups: embedding, reranker, concurrency, cascade, chunking
+// Defines structured groups for CodexLens configuration
 
 import type { EnvVarGroupsSchema } from '@/types/codexlens';
 
@@ -303,6 +303,36 @@ export const envVarGroupsSchema: EnvVarGroupsSchema = {
         settingsPath: 'cascade.fine_k',
         min: 1,
         max: 100,
+      },
+    },
+  },
+  indexing: {
+    id: 'indexing',
+    labelKey: 'codexlens.envGroup.indexing',
+    icon: 'git-branch',
+    vars: {
+      CODEXLENS_USE_ASTGREP: {
+        key: 'CODEXLENS_USE_ASTGREP',
+        labelKey: 'codexlens.envField.useAstGrep',
+        type: 'checkbox',
+        default: 'false',
+        settingsPath: 'parsing.use_astgrep',
+      },
+      CODEXLENS_STATIC_GRAPH_ENABLED: {
+        key: 'CODEXLENS_STATIC_GRAPH_ENABLED',
+        labelKey: 'codexlens.envField.staticGraphEnabled',
+        type: 'checkbox',
+        default: 'false',
+        settingsPath: 'indexing.static_graph_enabled',
+      },
+      CODEXLENS_STATIC_GRAPH_RELATIONSHIP_TYPES: {
+        key: 'CODEXLENS_STATIC_GRAPH_RELATIONSHIP_TYPES',
+        labelKey: 'codexlens.envField.staticGraphRelationshipTypes',
+        type: 'text',
+        placeholder: 'imports,inherits,calls',
+        default: 'imports,inherits',
+        settingsPath: 'indexing.static_graph_relationship_types',
+        showWhen: (env) => env['CODEXLENS_STATIC_GRAPH_ENABLED'] === 'true',
       },
     },
   },

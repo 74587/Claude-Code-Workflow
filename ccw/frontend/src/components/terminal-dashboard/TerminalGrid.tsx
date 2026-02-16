@@ -23,19 +23,20 @@ import { TerminalPane } from './TerminalPane';
 interface GridGroupRendererProps {
   group: AllotmentLayoutGroup;
   minSize: number;
-  onSizeChange: (sizes: number[]) => void;
+  depth?: number;
 }
 
 // ========== Recursive Group Renderer ==========
 
-function GridGroupRenderer({ group, minSize, onSizeChange }: GridGroupRendererProps) {
+function GridGroupRenderer({ group, minSize, depth = 0 }: GridGroupRendererProps) {
   const panes = useTerminalGridStore(selectTerminalGridPanes);
+  const updateLayoutSizes = useTerminalGridStore((s) => s.updateLayoutSizes);
 
   const handleChange = useCallback(
     (sizes: number[]) => {
-      onSizeChange(sizes);
+      updateLayoutSizes(sizes);
     },
-    [onSizeChange]
+    [updateLayoutSizes]
   );
 
   const validChildren = useMemo(() => {
@@ -51,22 +52,27 @@ function GridGroupRenderer({ group, minSize, onSizeChange }: GridGroupRendererPr
     return null;
   }
 
+  // Generate stable key based on children
+  const groupKey = useMemo(() => {
+    return validChildren.map(c => isPaneId(c) ? c : 'group').join('-');
+  }, [validChildren]);
+
   return (
     <Allotment
+      key={groupKey}
       vertical={group.direction === 'vertical'}
       defaultSizes={group.sizes}
       onChange={handleChange}
-      className="h-full"
     >
       {validChildren.map((child, index) => (
-        <Allotment.Pane key={isPaneId(child) ? child : `group-${index}`} minSize={minSize}>
+        <Allotment.Pane key={isPaneId(child) ? child : `group-${depth}-${index}`} minSize={minSize}>
           {isPaneId(child) ? (
             <TerminalPane paneId={child} />
           ) : (
             <GridGroupRenderer
               group={child}
               minSize={minSize}
-              onSizeChange={onSizeChange}
+              depth={depth + 1}
             />
           )}
         </Allotment.Pane>
@@ -80,14 +86,6 @@ function GridGroupRenderer({ group, minSize, onSizeChange }: GridGroupRendererPr
 export function TerminalGrid({ className }: { className?: string }) {
   const layout = useTerminalGridStore(selectTerminalGridLayout);
   const panes = useTerminalGridStore(selectTerminalGridPanes);
-  const updateLayoutSizes = useTerminalGridStore((s) => s.updateLayoutSizes);
-
-  const handleSizeChange = useCallback(
-    (sizes: number[]) => {
-      updateLayoutSizes(sizes);
-    },
-    [updateLayoutSizes]
-  );
 
   const content = useMemo(() => {
     if (!layout.children || layout.children.length === 0) {
@@ -105,10 +103,10 @@ export function TerminalGrid({ className }: { className?: string }) {
       <GridGroupRenderer
         group={layout}
         minSize={150}
-        onSizeChange={handleSizeChange}
+        depth={0}
       />
     );
-  }, [layout, panes, handleSizeChange]);
+  }, [layout, panes]);
 
   return (
     <div className={cn('h-full w-full overflow-hidden bg-background', className)}>

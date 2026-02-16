@@ -4,13 +4,13 @@
 // Single terminal pane = PaneToolbar + content area.
 // Content can be terminal output or file preview based on displayMode.
 // Renders within the TerminalGrid recursive layout.
+// File preview is triggered from right sidebar FileSidebarPanel.
 
 import { useCallback, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   SplitSquareHorizontal,
   SplitSquareVertical,
-  FolderOpen,
   Eraser,
   AlertTriangle,
   X,
@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TerminalInstance } from './TerminalInstance';
-import { FloatingFileBrowser } from './FloatingFileBrowser';
 import { FilePreview } from '@/components/shared/FilePreview';
 import {
   useTerminalGridStore,
@@ -43,7 +42,6 @@ import {
 } from '@/stores/issueQueueIntegrationStore';
 import { useCliSessionStore } from '@/stores/cliSessionStore';
 import { getAllPaneIds } from '@/lib/layout-utils';
-import { sendCliSessionText } from '@/lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { useFileContent } from '@/hooks/useFileExplorer';
 import type { PaneId } from '@/stores/viewerStore';
@@ -89,8 +87,6 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   const isFileMode = displayMode === 'file' && filePath;
 
   const projectPath = useWorkflowStore(selectProjectPath);
-  const [isFileBrowserOpen, setIsFileBrowserOpen] = useState(false);
-  const [initialFileBrowserPath, setInitialFileBrowserPath] = useState<string | null>(null);
 
   // Session data
   const groups = useSessionManagerStore(selectGroups);
@@ -168,25 +164,6 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
     }
   }, [paneId, sessionId, assignSession]);
 
-  const handleOpenFileBrowser = useCallback(() => {
-    setInitialFileBrowserPath(null);
-    setIsFileBrowserOpen(true);
-  }, []);
-
-  const handleRevealPath = useCallback((path: string) => {
-    setInitialFileBrowserPath(path);
-    setIsFileBrowserOpen(true);
-  }, []);
-
-  const handleInsertPath = useCallback((path: string) => {
-    if (!sessionId) return;
-    sendCliSessionText(
-      sessionId,
-      { text: path, appendNewline: false },
-      projectPath ?? undefined
-    ).catch((err) => console.error('[TerminalPane] insert path failed:', err));
-  }, [sessionId, projectPath]);
-
   const handleRestart = useCallback(async () => {
     if (!sessionId || isRestarting) return;
     setIsRestarting(true);
@@ -229,9 +206,9 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
       onClick={handleFocus}
     >
       {/* PaneToolbar */}
-      <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-muted/30 shrink-0">
+      <div className="flex items-center justify-between gap-1 px-2 py-1 border-b border-border bg-muted/30 shrink-0 overflow-hidden">
         {/* Left: Session selector + status (or file path in file mode) */}
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
           {isFileMode ? (
             // File mode header
             <>
@@ -255,13 +232,13 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
                   className={cn('w-2 h-2 rounded-full shrink-0', statusDotStyles[status])}
                 />
               )}
-              <div className="relative min-w-0 flex-1 max-w-[180px]">
+              <div className="relative min-w-0 overflow-hidden">
                 <select
                   value={sessionId ?? ''}
                   onChange={handleSessionChange}
                   className={cn(
-                    'w-full text-xs bg-transparent border-none outline-none cursor-pointer',
-                    'appearance-none pr-5 truncate',
+                    'text-xs bg-transparent border-none outline-none cursor-pointer',
+                    'appearance-none pr-4 max-w-[140px] truncate',
                     !sessionId && 'text-muted-foreground'
                   )}
                 >
@@ -282,7 +259,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
 
         {/* Center: Linked issue badge */}
         {linkedIssueId && !isFileMode && (
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0 hidden sm:inline-flex">
             {linkedIssueId}
           </span>
         )}
@@ -357,21 +334,6 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
               </button>
             </>
           )}
-          {!isFileMode && (
-            <button
-              onClick={handleOpenFileBrowser}
-              disabled={!projectPath}
-              className={cn(
-                'p-1 rounded hover:bg-muted transition-colors',
-                projectPath
-                  ? 'text-muted-foreground hover:text-foreground'
-                  : 'text-muted-foreground/40 cursor-not-allowed'
-              )}
-              title={formatMessage({ id: 'terminalDashboard.fileBrowser.open' })}
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-            </button>
-          )}
           {alertCount > 0 && !isFileMode && (
             <span className="flex items-center gap-0.5 px-1 text-destructive">
               <AlertTriangle className="w-3 h-3" />
@@ -406,7 +368,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
       ) : sessionId ? (
         // Terminal mode with session
         <div className="flex-1 min-h-0">
-          <TerminalInstance sessionId={sessionId} onRevealPath={handleRevealPath} />
+          <TerminalInstance sessionId={sessionId} />
         </div>
       ) : (
         // Empty terminal state
@@ -422,17 +384,6 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
           </div>
         </div>
       )}
-
-      <FloatingFileBrowser
-        isOpen={isFileBrowserOpen}
-        onClose={() => {
-          setIsFileBrowserOpen(false);
-          setInitialFileBrowserPath(null);
-        }}
-        rootPath={projectPath ?? '/'}
-        onInsertPath={sessionId ? handleInsertPath : undefined}
-        initialSelectedPath={initialFileBrowserPath}
-      />
     </div>
   );
 }

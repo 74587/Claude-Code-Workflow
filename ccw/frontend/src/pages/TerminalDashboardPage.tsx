@@ -7,6 +7,7 @@
 // Right sidebar: FileSidebarPanel (file tree, resizable)
 // Top: DashboardToolbar with panel toggles and layout presets
 // Floating panels: Issues, Queue, Inspector (overlay, mutually exclusive)
+// Fullscreen mode: Hides all sidebars for maximum terminal space
 
 import { useState, useCallback } from 'react';
 import { useIntl } from 'react-intl';
@@ -30,6 +31,8 @@ export function TerminalDashboardPage() {
   const { formatMessage } = useIntl();
   const [activePanel, setActivePanel] = useState<PanelId | null>(null);
   const [isFileSidebarOpen, setIsFileSidebarOpen] = useState(true);
+  const [isSessionSidebarOpen, setIsSessionSidebarOpen] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const projectPath = useWorkflowStore(selectProjectPath);
 
@@ -41,8 +44,17 @@ export function TerminalDashboardPage() {
     setActivePanel(null);
   }, []);
 
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen((prev) => !prev);
+  }, []);
+
+  // In fullscreen mode, hide all sidebars and panels
+  const showSessionSidebar = isSessionSidebarOpen && !isFullscreen;
+  const showFileSidebar = isFileSidebarOpen && !isFullscreen;
+  const showFloatingPanels = !isFullscreen;
+
   return (
-    <div className="-m-4 md:-m-6 flex flex-col h-[calc(100vh-56px)] overflow-hidden">
+    <div className={`flex flex-col overflow-hidden ${isFullscreen ? 'h-screen -m-0' : 'h-[calc(100vh-56px)] -m-4 md:-m-6'}`}>
       <AssociationHighlightProvider>
         {/* Global toolbar */}
         <DashboardToolbar
@@ -50,30 +62,36 @@ export function TerminalDashboardPage() {
           onTogglePanel={togglePanel}
           isFileSidebarOpen={isFileSidebarOpen}
           onToggleFileSidebar={() => setIsFileSidebarOpen((prev) => !prev)}
+          isSessionSidebarOpen={isSessionSidebarOpen}
+          onToggleSessionSidebar={() => setIsSessionSidebarOpen((prev) => !prev)}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
         />
 
         {/* Main content with three-column layout */}
         <div className="flex-1 min-h-0">
-          <Allotment>
-            {/* Fixed session sidebar (240px) */}
-            <Allotment.Pane preferredSize={240} minSize={180} maxSize={320}>
-              <div className="h-full flex flex-col border-r border-border">
-                <div className="flex-1 min-h-0 overflow-y-auto">
-                  <SessionGroupTree />
+          <Allotment className="h-full">
+            {/* Session sidebar (conditional) */}
+            {showSessionSidebar && (
+              <Allotment.Pane preferredSize={240} minSize={180} maxSize={320}>
+                <div className="h-full flex flex-col border-r border-border">
+                  <div className="flex-1 min-h-0 overflow-y-auto">
+                    <SessionGroupTree />
+                  </div>
+                  <div className="shrink-0">
+                    <AgentList />
+                  </div>
                 </div>
-                <div className="shrink-0">
-                  <AgentList />
-                </div>
-              </div>
-            </Allotment.Pane>
+              </Allotment.Pane>
+            )}
 
             {/* Terminal grid (flexible) */}
-            <Allotment.Pane minSize={300}>
+            <Allotment.Pane preferredSize={-1} minSize={300}>
               <TerminalGrid />
             </Allotment.Pane>
 
             {/* File sidebar (conditional, default 280px) */}
-            {isFileSidebarOpen && (
+            {showFileSidebar && (
               <Allotment.Pane preferredSize={280} minSize={200} maxSize={400}>
                 <FileSidebarPanel
                   rootPath={projectPath ?? '/'}
@@ -86,35 +104,39 @@ export function TerminalDashboardPage() {
         </div>
 
         {/* Floating panels (conditional, overlay) */}
-        <FloatingPanel
-          isOpen={activePanel === 'issues'}
-          onClose={closePanel}
-          title={formatMessage({ id: 'terminalDashboard.toolbar.issues' })}
-          side="left"
-          width={380}
-        >
-          <IssuePanel />
-        </FloatingPanel>
+        {showFloatingPanels && (
+          <>
+            <FloatingPanel
+              isOpen={activePanel === 'issues'}
+              onClose={closePanel}
+              title={formatMessage({ id: 'terminalDashboard.toolbar.issues' })}
+              side="left"
+              width={380}
+            >
+              <IssuePanel />
+            </FloatingPanel>
 
-        <FloatingPanel
-          isOpen={activePanel === 'queue'}
-          onClose={closePanel}
-          title={formatMessage({ id: 'terminalDashboard.toolbar.queue' })}
-          side="right"
-          width={400}
-        >
-          <QueuePanel />
-        </FloatingPanel>
+            <FloatingPanel
+              isOpen={activePanel === 'queue'}
+              onClose={closePanel}
+              title={formatMessage({ id: 'terminalDashboard.toolbar.queue' })}
+              side="right"
+              width={400}
+            >
+              <QueuePanel />
+            </FloatingPanel>
 
-        <FloatingPanel
-          isOpen={activePanel === 'inspector'}
-          onClose={closePanel}
-          title={formatMessage({ id: 'terminalDashboard.toolbar.inspector' })}
-          side="right"
-          width={360}
-        >
-          <InspectorContent />
-        </FloatingPanel>
+            <FloatingPanel
+              isOpen={activePanel === 'inspector'}
+              onClose={closePanel}
+              title={formatMessage({ id: 'terminalDashboard.toolbar.inspector' })}
+              side="right"
+              width={360}
+            >
+              <InspectorContent />
+            </FloatingPanel>
+          </>
+        )}
       </AssociationHighlightProvider>
     </div>
   );
