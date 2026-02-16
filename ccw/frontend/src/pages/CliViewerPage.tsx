@@ -370,7 +370,7 @@ export function CliViewerPage() {
   const CurrentLayoutIcon = currentLayoutOption.icon;
 
   return (
-    <div className="h-full flex flex-col -m-4 md:-m-6">
+    <div className="h-full flex flex-col">
       {/* ======================================== */}
       {/* Toolbar */}
       {/* ======================================== */}

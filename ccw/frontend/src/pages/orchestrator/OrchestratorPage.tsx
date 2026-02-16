@@ -5,8 +5,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import * as Collapsible from '@radix-ui/react-collapsible';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Maximize2, Minimize2 } from 'lucide-react';
 import { useFlowStore } from '@/stores';
+import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 import { useExecutionStore } from '@/stores/executionStore';
 import { Button } from '@/components/ui/Button';
 import { FlowCanvas } from './FlowCanvas';

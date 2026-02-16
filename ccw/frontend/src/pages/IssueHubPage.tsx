@@ -11,6 +11,8 @@ import {
   RefreshCw,
   Github,
   Loader2,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { IssueHubHeader } from '@/components/issue/hub/IssueHubHeader';
 import { IssueHubTabs, type IssueTab } from '@/components/issue/hub/IssueHubTabs';
@@ -29,6 +31,7 @@ import { useIssues, useIssueMutations, useIssueQueue } from '@/hooks';
 import { pullIssuesFromGitHub, uploadAttachments } from '@/lib/api';
 import type { Issue } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 
 // Issue types
 type IssueType = 'bug' | 'feature' | 'improvement' | 'other';
@@ -286,6 +289,10 @@ export function IssueHubPage() {
   const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
   const [isGithubSyncing, setIsGithubSyncing] = useState(false);
 
+  // Immersive mode (fullscreen) - hide app chrome
+  const isImmersiveMode = useAppStore(selectIsImmersiveMode);
+  const toggleImmersiveMode = useAppStore((s) => s.toggleImmersiveMode);
+
   // Issues data
   const { refetch: refetchIssues, isFetching: isFetchingIssues } = useIssues();
   // Queue data
@@ -392,17 +399,36 @@ export function IssueHubPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", isImmersiveMode && "h-screen overflow-hidden")}>
       {/* Header and action buttons on same row */}
       <div className="flex items-center justify-between">
         <IssueHubHeader currentTab={currentTab} />
 
-        {/* Action buttons - dynamic based on current tab */}
-        {renderActionButtons() && (
-          <div className="flex gap-2">
-            {renderActionButtons()}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Action buttons - dynamic based on current tab */}
+          {renderActionButtons()}
+
+          {/* Fullscreen toggle */}
+          <button
+            onClick={toggleImmersiveMode}
+            className={cn(
+              'p-2 rounded-md transition-colors',
+              isImmersiveMode
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            )}
+            title={isImmersiveMode
+              ? formatMessage({ id: 'issueHub.exitFullscreen', defaultMessage: 'Exit Fullscreen' })
+              : formatMessage({ id: 'issueHub.fullscreen', defaultMessage: 'Fullscreen' })
+            }
+          >
+            {isImmersiveMode ? (
+              <Minimize2 className="w-4 h-4" />
+            ) : (
+              <Maximize2 className="w-4 h-4" />
+            )}
+          </button>
+        </div>
       </div>
 
       <IssueHubTabs currentTab={currentTab} onTabChange={setCurrentTab} />

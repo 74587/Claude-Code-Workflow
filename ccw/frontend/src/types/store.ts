@@ -117,6 +117,9 @@ export interface AppState {
   themeSlots: ThemeSlot[];
   activeSlotId: ThemeSlotId;
   deletedSlotBuffer: ThemeSlot | null;
+
+  // Immersive mode (fullscreen)
+  isImmersiveMode: boolean;
 }
 
 export interface AppActions {
@@ -170,6 +173,10 @@ export interface AppActions {
   updateBackgroundEffect: <K extends keyof BackgroundEffects>(key: K, value: BackgroundEffects[K]) => void;
   setBackgroundMode: (mode: BackgroundMode) => void;
   setBackgroundImage: (url: string | null, attribution: UnsplashAttribution | null) => void;
+
+  // Immersive mode actions
+  setImmersiveMode: (enabled: boolean) => void;
+  toggleImmersiveMode: () => void;
 }
 
 export type AppStore = AppState & AppActions;

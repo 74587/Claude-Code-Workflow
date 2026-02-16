@@ -17,6 +17,8 @@ import {
   Library,
   Play,
   Activity,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -24,6 +26,7 @@ import { Input } from '@/components/ui/Input';
 import { useFlowStore, toast } from '@/stores';
 import { useExecutionStore } from '@/stores/executionStore';
 import { useExecuteFlow } from '@/hooks/useFlows';
+import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 import type { Flow } from '@/types/flow';
 
 interface FlowToolbarProps {
@@ -36,6 +39,10 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
   const [isFlowListOpen, setIsFlowListOpen] = useState(false);
   const [flowName, setFlowName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Immersive mode state
+  const isImmersiveMode = useAppStore(selectIsImmersiveMode);
+  const toggleImmersiveMode = useAppStore((s) => s.toggleImmersiveMode);
 
   // Flow store
   const currentFlow = useFlowStore((state) => state.currentFlow);
@@ -363,6 +370,22 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
           )}
           {formatMessage({ id: 'orchestrator.toolbar.runWorkflow' })}
         </Button>
+
+        <div className="w-px h-6 bg-border" />
+
+        {/* Fullscreen Toggle */}
+        <button
+          onClick={toggleImmersiveMode}
+          className={cn(
+            'p-2 rounded-md transition-colors',
+            isImmersiveMode
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          )}
+          title={isImmersiveMode ? 'Exit Fullscreen' : 'Fullscreen'}
+        >
+          {isImmersiveMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        </button>
       </div>
     </div>
   );

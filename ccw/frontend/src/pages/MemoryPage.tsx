@@ -28,7 +28,10 @@ import {
   Terminal,
   GitBranch,
   Hash,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
+import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -624,6 +627,8 @@ export function MemoryPage() {
   const [currentTab, setCurrentTab] = useState<'memories' | 'favorites' | 'archived' | 'unifiedSearch'>('memories');
   const [unifiedQuery, setUnifiedQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const isImmersiveMode = useAppStore(selectIsImmersiveMode);
+  const toggleImmersiveMode = useAppStore((s) => s.toggleImmersiveMode);
 
   const isUnifiedTab = currentTab === 'unifiedSearch';
 
@@ -784,7 +789,7 @@ export function MemoryPage() {
   const activeError = isUnifiedTab ? unifiedError : error;
 
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", isImmersiveMode && "h-screen overflow-hidden")}>
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -797,6 +802,18 @@ export function MemoryPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={toggleImmersiveMode}
+            className={cn(
+              'p-2 rounded-md transition-colors',
+              isImmersiveMode
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            )}
+            title={isImmersiveMode ? 'Exit Fullscreen' : 'Fullscreen'}
+          >
+            {isImmersiveMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
           {isUnifiedTab && (
             <Button
               variant="outline"

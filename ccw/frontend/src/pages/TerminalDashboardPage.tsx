@@ -7,7 +7,7 @@
 // Right sidebar: FileSidebarPanel (file tree, resizable)
 // Top: DashboardToolbar with panel toggles and layout presets
 // Floating panels: Issues, Queue, Inspector (overlay, mutually exclusive)
-// Fullscreen mode: Hides all sidebars for maximum terminal space
+// Fullscreen mode: Uses global isImmersiveMode to hide app chrome (Header + Sidebar)
 
 import { useState, useCallback } from 'react';
 import { useIntl } from 'react-intl';
@@ -24,6 +24,7 @@ import { QueuePanel } from '@/components/terminal-dashboard/QueuePanel';
 import { InspectorContent } from '@/components/terminal-dashboard/BottomInspector';
 import { FileSidebarPanel } from '@/components/terminal-dashboard/FileSidebarPanel';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 
 // ========== Main Page Component ==========
 
@@ -32,9 +33,12 @@ export function TerminalDashboardPage() {
   const [activePanel, setActivePanel] = useState<PanelId | null>(null);
   const [isFileSidebarOpen, setIsFileSidebarOpen] = useState(true);
   const [isSessionSidebarOpen, setIsSessionSidebarOpen] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const projectPath = useWorkflowStore(selectProjectPath);
+
+  // Use global immersive mode state (only affects AppShell chrome)
+  const isImmersiveMode = useAppStore(selectIsImmersiveMode);
+  const toggleImmersiveMode = useAppStore((s) => s.toggleImmersiveMode);
 
   const togglePanel = useCallback((panelId: PanelId) => {
     setActivePanel((prev) => (prev === panelId ? null : panelId));
@@ -44,17 +48,8 @@ export function TerminalDashboardPage() {
     setActivePanel(null);
   }, []);
 
-  const toggleFullscreen = useCallback(() => {
-    setIsFullscreen((prev) => !prev);
-  }, []);
-
-  // In fullscreen mode, hide all sidebars and panels
-  const showSessionSidebar = isSessionSidebarOpen && !isFullscreen;
-  const showFileSidebar = isFileSidebarOpen && !isFullscreen;
-  const showFloatingPanels = !isFullscreen;
-
   return (
-    <div className={`flex flex-col overflow-hidden ${isFullscreen ? 'h-screen -m-0' : 'h-[calc(100vh-56px)] -m-4 md:-m-6'}`}>
+    <div className={`flex flex-col overflow-hidden ${isImmersiveMode ? 'h-screen' : 'h-[calc(100vh-56px)]'}`}>
       <AssociationHighlightProvider>
         {/* Global toolbar */}
         <DashboardToolbar
@@ -64,15 +59,15 @@ export function TerminalDashboardPage() {
           onToggleFileSidebar={() => setIsFileSidebarOpen((prev) => !prev)}
           isSessionSidebarOpen={isSessionSidebarOpen}
           onToggleSessionSidebar={() => setIsSessionSidebarOpen((prev) => !prev)}
-          isFullscreen={isFullscreen}
-          onToggleFullscreen={toggleFullscreen}
+          isFullscreen={isImmersiveMode}
+          onToggleFullscreen={toggleImmersiveMode}
         />
 
         {/* Main content with three-column layout */}
         <div className="flex-1 min-h-0">
           <Allotment className="h-full">
-            {/* Session sidebar (conditional) */}
-            {showSessionSidebar && (
+            {/* Session sidebar (controlled by local state, not immersive mode) */}
+            {isSessionSidebarOpen && (
               <Allotment.Pane preferredSize={240} minSize={180} maxSize={320}>
                 <div className="h-full flex flex-col border-r border-border">
                   <div className="flex-1 min-h-0 overflow-y-auto">
@@ -90,8 +85,8 @@ export function TerminalDashboardPage() {
               <TerminalGrid />
             </Allotment.Pane>
 
-            {/* File sidebar (conditional, default 280px) */}
-            {showFileSidebar && (
+            {/* File sidebar (controlled by local state, not immersive mode) */}
+            {isFileSidebarOpen && (
               <Allotment.Pane preferredSize={280} minSize={200} maxSize={400}>
                 <FileSidebarPanel
                   rootPath={projectPath ?? '/'}
@@ -103,40 +98,36 @@ export function TerminalDashboardPage() {
           </Allotment>
         </div>
 
-        {/* Floating panels (conditional, overlay) */}
-        {showFloatingPanels && (
-          <>
-            <FloatingPanel
-              isOpen={activePanel === 'issues'}
-              onClose={closePanel}
-              title={formatMessage({ id: 'terminalDashboard.toolbar.issues' })}
-              side="left"
-              width={380}
-            >
-              <IssuePanel />
-            </FloatingPanel>
+        {/* Floating panels (always available) */}
+        <FloatingPanel
+          isOpen={activePanel === 'issues'}
+          onClose={closePanel}
+          title={formatMessage({ id: 'terminalDashboard.toolbar.issues' })}
+          side="left"
+          width={380}
+        >
+          <IssuePanel />
+        </FloatingPanel>
 
-            <FloatingPanel
-              isOpen={activePanel === 'queue'}
-              onClose={closePanel}
-              title={formatMessage({ id: 'terminalDashboard.toolbar.queue' })}
-              side="right"
-              width={400}
-            >
-              <QueuePanel />
-            </FloatingPanel>
+        <FloatingPanel
+          isOpen={activePanel === 'queue'}
+          onClose={closePanel}
+          title={formatMessage({ id: 'terminalDashboard.toolbar.queue' })}
+          side="right"
+          width={400}
+        >
+          <QueuePanel />
+        </FloatingPanel>
 
-            <FloatingPanel
-              isOpen={activePanel === 'inspector'}
-              onClose={closePanel}
-              title={formatMessage({ id: 'terminalDashboard.toolbar.inspector' })}
-              side="right"
-              width={360}
-            >
-              <InspectorContent />
-            </FloatingPanel>
-          </>
-        )}
+        <FloatingPanel
+          isOpen={activePanel === 'inspector'}
+          onClose={closePanel}
+          title={formatMessage({ id: 'terminalDashboard.toolbar.inspector' })}
+          side="right"
+          width={360}
+        >
+          <InspectorContent />
+        </FloatingPanel>
       </AssociationHighlightProvider>
     </div>
   );

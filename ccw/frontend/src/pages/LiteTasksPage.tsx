@@ -45,7 +45,10 @@ import {
   Link2,
   ShieldCheck,
   Settings2,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
+import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 import { useLiteTasks } from '@/hooks/useLiteTasks';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -55,6 +58,7 @@ import { TaskDrawer } from '@/components/shared/TaskDrawer';
 import { fetchLiteSessionContext, type LiteTask, type LiteTaskSession, type LiteSessionContext, type RoundSynthesis, type MultiCliContextPackage } from '@/lib/api';
 import { LiteContextContent } from '@/components/lite-tasks/LiteContextContent';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 type LiteTaskTab = 'lite-plan' | 'lite-fix' | 'multi-cli-plan';
 type SortField = 'date' | 'name' | 'tasks';
@@ -1209,6 +1213,8 @@ export function LiteTasksPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [sortField, setSortField] = React.useState<SortField>('date');
   const [sortOrder, setSortOrder] = React.useState<SortOrder>('desc');
+  const isImmersiveMode = useAppStore(selectIsImmersiveMode);
+  const toggleImmersiveMode = useAppStore((s) => s.toggleImmersiveMode);
 
   // Filter and sort sessions
   const filterAndSort = React.useCallback((sessions: LiteTaskSession[]) => {
@@ -1525,7 +1531,7 @@ export function LiteTasksPage() {
   const totalSessions = litePlan.length + liteFix.length + multiCliPlan.length;
 
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", isImmersiveMode && "h-screen overflow-hidden")}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -1542,6 +1548,18 @@ export function LiteTasksPage() {
             </p>
           </div>
         </div>
+        <button
+          onClick={toggleImmersiveMode}
+          className={cn(
+            'p-2 rounded-md transition-colors',
+            isImmersiveMode
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+          )}
+          title={isImmersiveMode ? 'Exit Fullscreen' : 'Fullscreen'}
+        >
+          {isImmersiveMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        </button>
       </div>
 
       {/* Tabs */}
