@@ -50,7 +50,7 @@ export function TeamPage() {
   // List view
   if (viewMode === 'list' || !selectedTeam) {
     return (
-      <div className="p-6">
+      <div className="space-y-6">
         <TeamListView />
       </div>
     );
@@ -71,7 +71,7 @@ export function TeamPage() {
 
   // Detail view
   return (
-    <div className={cn("p-6 space-y-6", isImmersiveMode && "h-screen overflow-hidden")}>
+    <div className={cn("space-y-6", isImmersiveMode && "h-screen overflow-hidden")}>
       {/* Detail Header: back button + team name + stats + controls */}
       <div className="flex items-center justify-between">
         <TeamHeader
