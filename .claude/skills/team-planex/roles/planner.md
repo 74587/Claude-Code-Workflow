@@ -48,9 +48,10 @@
 
 | CLI Command | Purpose |
 |-------------|---------|
-| `ccw issue new --text '...' --json` | 从文本创建 issue |
+| `ccw issue create --data '{"title":"..."}' --json` | 从文本创建 issue |
 | `ccw issue status <id> --json` | 查看 issue 状态 |
-| `ccw issue solutions <id> --json` | 查看已绑定 solution |
+| `ccw issue solution <id> --json` | 查看单个 issue 的 solutions（需要 issue ID） |
+| `ccw issue solutions --status planned --brief` | 批量列出所有已绑定 solutions（跨 issue） |
 | `ccw issue bind <id> <sol-id>` | 绑定 solution 到 issue |
 
 ### Skill Capabilities

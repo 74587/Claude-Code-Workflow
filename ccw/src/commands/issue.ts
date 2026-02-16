@@ -3120,6 +3120,8 @@ export async function issueCommand(
       console.log(chalk.gray('  solution <id>                      List solutions for issue'));
       console.log(chalk.gray('  solution <id> --brief              Brief: solution_id, files_touched, task_count'));
       console.log(chalk.gray('  solution <id> --data \'{...}\'       Create solution (auto-generates ID)'));
+      console.log(chalk.gray('  solutions [--status <s>] [--brief] Batch list bound solutions across issues'));
+      console.log(chalk.gray('  task <issue-id> [task-id] --title   Add or update task in solution'));
       console.log(chalk.gray('  bind <issue-id> [sol-id]           Bind solution'));
       console.log(chalk.gray('  update <issue-id> --status <s>     Update issue status'));
       console.log(chalk.gray('  update --from-queue [queue-id]     Sync statuses from queue (default: active)'));

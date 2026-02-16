@@ -61,9 +61,9 @@
 | CLI Command | Purpose |
 |-------------|---------|
 | `ccw issue status <id> --json` | 查看 issue 状态 |
-| `ccw issue solutions <id> --json` | 加载 bound solution |
-| `ccw issue update <id> --status in-progress` | 更新 issue 状态为进行中 |
-| `ccw issue update <id> --status resolved` | 标记 issue 已解决 |
+| `ccw issue solution <id> --json` | 加载单个 issue 的 bound solution（需要 issue ID） |
+| `ccw issue update <id> --status executing` | 更新 issue 状态为执行中 |
+| `ccw issue update <id> --status completed` | 标记 issue 已完成 |
 
 ## Execution Method Resolution
 
@@ -166,7 +166,7 @@ if (!issueId) {
 }
 
 // Load solution plan
-const solJson = Bash(`ccw issue solutions ${issueId} --json`)
+const solJson = Bash(`ccw issue solution ${issueId} --json`)
 const solution = JSON.parse(solJson)
 
 if (!solution.bound) {
@@ -190,7 +190,7 @@ const executor = resolveExecutor(task.description, taskCount)
 const codeReview = resolveCodeReview(task.description)
 
 // Update issue status
-Bash(`ccw issue update ${issueId} --status in-progress`)
+Bash(`ccw issue update ${issueId} --status executing`)
 ```
 
 ### Phase 3: Implementation (Multi-Backend Routing)
@@ -297,7 +297,7 @@ if (codeReview !== 'Skip') {
 }
 
 // Update issue status to resolved
-Bash(`ccw issue update ${issueId} --status resolved`)
+Bash(`ccw issue update ${issueId} --status completed`)
 ```
 
 ### Code Review (Optional)
