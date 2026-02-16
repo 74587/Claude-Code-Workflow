@@ -98,12 +98,29 @@ const inputText = textMatch ? textMatch[1] : null
 const planMatch = (desc + ' ' + args).match(/--plan\s+(\S+)/)
 const planFile = planMatch ? planMatch[1] : null
 
+// 4) execution-plan.json 输入（来自 req-plan-with-file）
+let executionPlan = null
+
 // Determine input type
 let inputType = 'unknown'
 if (issueIds.length > 0) inputType = 'issue_ids'
 else if (inputText) inputType = 'text'
-else if (planFile) inputType = 'plan_file'
-else {
+else if (planFile) {
+  // Check if it's an execution-plan.json from req-plan-with-file
+  try {
+    const content = JSON.parse(Read(planFile))
+    if (content.waves && content.issue_ids && content.session_id?.startsWith('RPLAN-')) {
+      inputType = 'execution_plan'
+      executionPlan = content
+      issueIds = content.issue_ids
+    } else {
+      inputType = 'plan_file'
+    }
+  } catch (e) {
+    // Not JSON or parse error, fallback to original plan_file parsing
+    inputType = 'plan_file'
+  }
+} else {
   // 任务描述本身可能就是需求文本
   inputType = 'text_from_description'
 }
@@ -150,12 +167,69 @@ if (inputType === 'plan_file') {
 
 Issue IDs 已就绪，直接进入 solution 规划。
 
-#### Wave 规划（所有路径汇聚）
-
-将 issueIds 按波次分组规划：
+#### Path D: execution-plan.json → 波次感知处理
 
 ```javascript
-const projectRoot = Bash('cd . && pwd').trim()
+if (inputType === 'execution_plan') {
+  const projectRoot = Bash('cd . && pwd').trim()
+  const waves = executionPlan.waves
+
+  let waveNum = 0
+  for (const wave of waves) {
+    waveNum++
+    const waveIssues = wave.issue_ids
+
+    // Step 1: issue-plan-agent 生成 solutions
+    const planResult = Task({
+      subagent_type: "issue-plan-agent",
+      run_in_background: false,
+      description: `Plan solutions for wave ${waveNum}: ${wave.label}`,
+      prompt: `
+issue_ids: ${JSON.stringify(waveIssues)}
+project_root: "${projectRoot}"
+
+## Requirements
+- Generate solutions for each issue
+- Auto-bind single solutions
+- Issues come from req-plan decomposition (tags: req-plan)
+- Respect inter-issue dependencies: ${JSON.stringify(executionPlan.issue_dependencies)}
+`
+    })
+
+    // Step 2: issue-queue-agent 形成 queue
+    const queueResult = Task({
+      subagent_type: "issue-queue-agent",
+      run_in_background: false,
+      description: `Form queue for wave ${waveNum}: ${wave.label}`,
+      prompt: `
+issue_ids: ${JSON.stringify(waveIssues)}
+project_root: "${projectRoot}"
+
+## Requirements
+- Order solutions by dependency (DAG)
+- Detect conflicts between solutions
+- Respect wave dependencies: ${JSON.stringify(wave.depends_on_waves)}
+- Output execution queue
+`
+    })
+
+    // Step 3: → Phase 4 (Wave Dispatch) - create EXEC-* tasks
+    // Continue to next wave without waiting for executor
+  }
+  // After all waves → Phase 5 (Report + Finalize)
+}
+```
+
+**关键差异**: 波次分组来自 `executionPlan.waves`，而非固定 batch=5。Progressive 模式下 L0(Wave 1) → L1(Wave 2)，Direct 模式下 parallel_group 映射为 wave。
+
+#### Wave 规划（Path A/B/C 汇聚）
+
+将 issueIds 按波次分组规划（Path D 使用独立的波次逻辑，不走此路径）：
+
+```javascript
+if (inputType !== 'execution_plan') {
+  // Path A/B/C: 固定 batch=5 分组
+  const projectRoot = Bash('cd . && pwd').trim()
 
 // 按批次分组（每 wave 最多 5 个 issues）
 const WAVE_SIZE = 5
@@ -202,6 +276,7 @@ project_root: "${projectRoot}"
 
   // Step 3: → Phase 4 (Wave Dispatch)
 }
+} // end if (inputType !== 'execution_plan')
 ```
 
 ### Phase 4: Wave Dispatch
@@ -370,5 +445,7 @@ function parsePlanPhases(planContent) {
 | issue-plan-agent failure | Retry once, then report error and skip to next issue |
 | issue-queue-agent failure | Retry once, then create EXEC tasks without DAG ordering |
 | Plan file not found | Report error with expected path |
+| execution-plan.json parse failure | Fallback to plan_file parsing (Path B) |
+| execution-plan.json missing waves | Report error, suggest re-running req-plan |
 | Empty input (no issues, no text, no plan) | AskUserQuestion for clarification |
 | Wave partially failed | Report partial success, continue with successful issues |
