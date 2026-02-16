@@ -599,9 +599,10 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleSessionRoutes(routeContext)) return;
       }
 
-      // Files routes (/api/files, /api/file, /api/file-content, /api/update-claude-md)
+      // Files routes (/api/files, /api/file, /api/file-content, /api/update-claude-md, /api/explorer/*)
       if (pathname === '/api/files' || pathname === '/api/file' ||
-          pathname === '/api/file-content' || pathname === '/api/update-claude-md') {
+          pathname === '/api/file-content' || pathname === '/api/update-claude-md' ||
+          pathname.startsWith('/api/explorer/')) {
         if (await handleFilesRoutes(routeContext)) return;
       }
 
