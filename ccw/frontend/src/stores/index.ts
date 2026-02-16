@@ -298,3 +298,15 @@ export type {
   IssueQueueIntegrationActions,
   IssueQueueIntegrationStore,
 } from '../types/terminal-dashboard';
+
+// Issue Dialog Store
+export {
+  useIssueDialogStore,
+} from './issueDialogStore';
+
+export type {
+  IssueType,
+  IssuePriority,
+  IssueFormData,
+  IssueDialogState,
+} from './issueDialogStore';

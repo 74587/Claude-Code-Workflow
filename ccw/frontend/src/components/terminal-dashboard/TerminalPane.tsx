@@ -1,7 +1,8 @@
 // ========================================
 // TerminalPane Component
 // ========================================
-// Single terminal pane = PaneToolbar + TerminalInstance.
+// Single terminal pane = PaneToolbar + content area.
+// Content can be terminal output or file preview based on displayMode.
 // Renders within the TerminalGrid recursive layout.
 
 import { useCallback, useMemo, useState } from 'react';
@@ -19,10 +20,13 @@ import {
   Pause,
   Play,
   Loader2,
+  FileText,
+  ArrowLeft,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TerminalInstance } from './TerminalInstance';
 import { FloatingFileBrowser } from './FloatingFileBrowser';
+import { FilePreview } from '@/components/shared/FilePreview';
 import {
   useTerminalGridStore,
   selectTerminalGridPanes,
@@ -41,6 +45,7 @@ import { useCliSessionStore } from '@/stores/cliSessionStore';
 import { getAllPaneIds } from '@/lib/layout-utils';
 import { sendCliSessionText } from '@/lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { useFileContent } from '@/hooks/useFileExplorer';
 import type { PaneId } from '@/stores/viewerStore';
 import type { TerminalStatus } from '@/types/terminal-dashboard';
 
@@ -73,11 +78,15 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   const closePane = useTerminalGridStore((s) => s.closePane);
   const assignSession = useTerminalGridStore((s) => s.assignSession);
   const setFocused = useTerminalGridStore((s) => s.setFocused);
+  const setPaneDisplayMode = useTerminalGridStore((s) => s.setPaneDisplayMode);
 
   const pane = panes[paneId];
   const sessionId = pane?.sessionId ?? null;
+  const displayMode = pane?.displayMode ?? 'terminal';
+  const filePath = pane?.filePath ?? null;
   const isFocused = focusedPaneId === paneId;
   const canClose = getAllPaneIds(layout).length > 1;
+  const isFileMode = displayMode === 'file' && filePath;
 
   const projectPath = useWorkflowStore(selectProjectPath);
   const [isFileBrowserOpen, setIsFileBrowserOpen] = useState(false);
@@ -96,6 +105,11 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   // Action loading states
   const [isRestarting, setIsRestarting] = useState(false);
   const [isTogglingPause, setIsTogglingPause] = useState(false);
+
+  // File content for preview mode
+  const { content: fileContent, isLoading: isFileLoading, error: fileError } = useFileContent(filePath, {
+    enabled: displayMode === 'file' && !!filePath,
+  });
 
   // Association chain for linked issue badge
   const associationChain = useIssueQueueIntegrationStore(selectAssociationChain);
@@ -201,6 +215,11 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
     }
   }, [sessionId, isTogglingPause, status, pauseSession, resumeSession]);
 
+  // Handle back to terminal from file preview
+  const handleBackToTerminal = useCallback(() => {
+    setPaneDisplayMode(paneId, 'terminal');
+  }, [paneId, setPaneDisplayMode]);
+
   return (
     <div
       className={cn(
@@ -211,38 +230,58 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
     >
       {/* PaneToolbar */}
       <div className="flex items-center gap-1 px-2 py-1 border-b border-border bg-muted/30 shrink-0">
-        {/* Left: Session selector + status */}
+        {/* Left: Session selector + status (or file path in file mode) */}
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          {sessionId && (
-            <span
-              className={cn('w-2 h-2 rounded-full shrink-0', statusDotStyles[status])}
-            />
-          )}
-          <div className="relative min-w-0 flex-1 max-w-[180px]">
-            <select
-              value={sessionId ?? ''}
-              onChange={handleSessionChange}
-              className={cn(
-                'w-full text-xs bg-transparent border-none outline-none cursor-pointer',
-                'appearance-none pr-5 truncate',
-                !sessionId && 'text-muted-foreground'
+          {isFileMode ? (
+            // File mode header
+            <>
+              <button
+                onClick={handleBackToTerminal}
+                className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground shrink-0"
+                title={formatMessage({ id: 'terminalDashboard.pane.backToTerminal', defaultMessage: 'Back to terminal' })}
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+              </button>
+              <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span className="text-xs truncate" title={filePath ?? undefined}>
+                {filePath?.split('/').pop() ?? 'File'}
+              </span>
+            </>
+          ) : (
+            // Terminal mode header
+            <>
+              {sessionId && (
+                <span
+                  className={cn('w-2 h-2 rounded-full shrink-0', statusDotStyles[status])}
+                />
               )}
-            >
-              <option value="">
-                {formatMessage({ id: 'terminalDashboard.pane.selectSession' })}
-              </option>
-              {sessionOptions.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
-          </div>
+              <div className="relative min-w-0 flex-1 max-w-[180px]">
+                <select
+                  value={sessionId ?? ''}
+                  onChange={handleSessionChange}
+                  className={cn(
+                    'w-full text-xs bg-transparent border-none outline-none cursor-pointer',
+                    'appearance-none pr-5 truncate',
+                    !sessionId && 'text-muted-foreground'
+                  )}
+                >
+                  <option value="">
+                    {formatMessage({ id: 'terminalDashboard.pane.selectSession' })}
+                  </option>
+                  {sessionOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Center: Linked issue badge */}
-        {linkedIssueId && (
+        {linkedIssueId && !isFileMode && (
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary shrink-0">
             {linkedIssueId}
           </span>
@@ -264,7 +303,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
           >
             <SplitSquareVertical className="w-3.5 h-3.5" />
           </button>
-          {sessionId && (
+          {!isFileMode && sessionId && (
             <>
               {/* Restart button */}
               <button
@@ -318,20 +357,22 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
               </button>
             </>
           )}
-          <button
-            onClick={handleOpenFileBrowser}
-            disabled={!projectPath}
-            className={cn(
-              'p-1 rounded hover:bg-muted transition-colors',
-              projectPath
-                ? 'text-muted-foreground hover:text-foreground'
-                : 'text-muted-foreground/40 cursor-not-allowed'
-            )}
-            title={formatMessage({ id: 'terminalDashboard.fileBrowser.open' })}
-          >
-            <FolderOpen className="w-3.5 h-3.5" />
-          </button>
-          {alertCount > 0 && (
+          {!isFileMode && (
+            <button
+              onClick={handleOpenFileBrowser}
+              disabled={!projectPath}
+              className={cn(
+                'p-1 rounded hover:bg-muted transition-colors',
+                projectPath
+                  ? 'text-muted-foreground hover:text-foreground'
+                  : 'text-muted-foreground/40 cursor-not-allowed'
+              )}
+              title={formatMessage({ id: 'terminalDashboard.fileBrowser.open' })}
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {alertCount > 0 && !isFileMode && (
             <span className="flex items-center gap-0.5 px-1 text-destructive">
               <AlertTriangle className="w-3 h-3" />
               <span className="text-[10px] font-semibold tabular-nums">
@@ -351,12 +392,24 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
         </div>
       </div>
 
-      {/* Terminal content */}
-      {sessionId ? (
+      {/* Content area */}
+      {isFileMode ? (
+        // File preview mode
+        <div className="flex-1 min-h-0">
+          <FilePreview
+            fileContent={fileContent}
+            isLoading={isFileLoading}
+            error={fileError?.message ?? null}
+            className="h-full"
+          />
+        </div>
+      ) : sessionId ? (
+        // Terminal mode with session
         <div className="flex-1 min-h-0">
           <TerminalInstance sessionId={sessionId} onRevealPath={handleRevealPath} />
         </div>
       ) : (
+        // Empty terminal state
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           <div className="text-center">
             <Terminal className="h-6 w-6 mx-auto mb-1.5 opacity-30" />

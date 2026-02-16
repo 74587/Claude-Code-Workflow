@@ -48,11 +48,15 @@ import { CliConfigModal, type CliSessionConfig } from './CliConfigModal';
 
 // ========== Types ==========
 
-export type PanelId = 'issues' | 'queue' | 'inspector' | 'files';
+export type PanelId = 'issues' | 'queue' | 'inspector';
 
 interface DashboardToolbarProps {
   activePanel: PanelId | null;
   onTogglePanel: (panelId: PanelId) => void;
+  /** Whether the file sidebar is open */
+  isFileSidebarOpen?: boolean;
+  /** Callback to toggle file sidebar */
+  onToggleFileSidebar?: () => void;
 }
 
 // ========== Layout Presets ==========
@@ -79,7 +83,7 @@ const LAUNCH_COMMANDS: Record<CliTool, Record<LaunchMode, string>> = {
 
 // ========== Component ==========
 
-export function DashboardToolbar({ activePanel, onTogglePanel }: DashboardToolbarProps) {
+export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen, onToggleFileSidebar }: DashboardToolbarProps) {
   const { formatMessage } = useIntl();
 
   // Issues count
@@ -296,8 +300,8 @@ export function DashboardToolbar({ activePanel, onTogglePanel }: DashboardToolba
         <ToolbarButton
           icon={FolderOpen}
           label={formatMessage({ id: 'terminalDashboard.toolbar.files', defaultMessage: 'Files' })}
-          isActive={activePanel === 'files'}
-          onClick={() => onTogglePanel('files')}
+          isActive={isFileSidebarOpen ?? false}
+          onClick={() => onToggleFileSidebar?.()}
         />
 
         {/* Separator */}

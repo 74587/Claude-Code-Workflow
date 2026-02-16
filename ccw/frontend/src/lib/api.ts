@@ -676,6 +676,18 @@ export interface IssueSolution {
   estimatedEffort?: string;
 }
 
+/**
+ * Attachment entity for file uploads
+ */
+export interface Attachment {
+  id: string;
+  filename: string;
+  path: string;
+  type: string;
+  size: number;
+  uploaded_at: string;
+}
+
 export interface Issue {
   id: string;
   title: string;
@@ -687,6 +699,7 @@ export interface Issue {
   solutions?: IssueSolution[];
   labels?: string[];
   assignee?: string;
+  attachments?: Attachment[];
 }
 
 export interface QueueItem {
@@ -786,6 +799,71 @@ export async function deleteIssue(issueId: string): Promise<void> {
   return fetchApi<void>(`/api/issues/${encodeURIComponent(issueId)}`, {
     method: 'DELETE',
   });
+}
+
+// ========== Attachment API ==========
+
+export interface UploadAttachmentsResponse {
+  success: boolean;
+  issueId: string;
+  attachments: Attachment[];
+  count: number;
+}
+
+export interface ListAttachmentsResponse {
+  success: boolean;
+  issueId: string;
+  attachments: Attachment[];
+  count: number;
+}
+
+/**
+ * Upload attachments to an issue
+ */
+export async function uploadAttachments(
+  issueId: string,
+  files: File[]
+): Promise<UploadAttachmentsResponse> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append('files', file);
+  });
+
+  const response = await fetch(`/api/issues/${encodeURIComponent(issueId)}/attachments`, {
+    method: 'POST',
+    body: formData,
+    credentials: 'same-origin',
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(error.error || 'Failed to upload attachments');
+  }
+
+  return response.json();
+}
+
+/**
+ * List attachments for an issue
+ */
+export async function listAttachments(issueId: string): Promise<ListAttachmentsResponse> {
+  return fetchApi<ListAttachmentsResponse>(`/api/issues/${encodeURIComponent(issueId)}/attachments`);
+}
+
+/**
+ * Delete an attachment
+ */
+export async function deleteAttachment(issueId: string, attachmentId: string): Promise<void> {
+  return fetchApi<void>(`/api/issues/${encodeURIComponent(issueId)}/attachments/${encodeURIComponent(attachmentId)}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Get attachment download URL
+ */
+export function getAttachmentUrl(issueId: string, filename: string): string {
+  return `/api/issues/files/${encodeURIComponent(issueId)}/${encodeURIComponent(filename)}`;
 }
 
 /**

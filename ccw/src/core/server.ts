@@ -93,7 +93,11 @@ function handlePostRequest(req: http.IncomingMessage, res: http.ServerResponse, 
         return;
       }
 
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      // Support custom success status codes (e.g., 201 Created)
+      const successStatus = typeof statusValue === 'number' && statusValue >= 200 && statusValue < 300
+        ? statusValue
+        : 200;
+      res.writeHead(successStatus, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);

@@ -56,6 +56,7 @@ import {
   useUpgradeCcwInstallation,
 } from '@/hooks/useSystemSettings';
 import { RemoteNotificationSection } from '@/components/settings/RemoteNotificationSection';
+import { A2UIPreferencesSection } from '@/components/settings/A2UIPreferencesSection';
 
 // ========== File Path Input with Native File Picker ==========
 
@@ -1180,6 +1181,9 @@ export function SettingsPage() {
 
       {/* Response Language Settings */}
       <ResponseLanguageSection />
+
+      {/* A2UI Preferences */}
+      <A2UIPreferencesSection />
 
       {/* System Status */}
       <SystemStatusSection />

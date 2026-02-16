@@ -10,7 +10,8 @@
     "systemStatus": "System Status",
     "hooks": "Git Hooks",
     "rules": "Rules",
-    "about": "About"
+    "about": "About",
+    "a2ui": "A2UI Preferences"
   },
   "appearance": {
     "title": "Appearance",
@@ -210,5 +211,28 @@
     "description": "Reset all user preferences to their default values. This cannot be undone.",
     "confirm": "Reset all settings to defaults?",
     "button": "Reset to Defaults"
+  },
+  "a2ui": {
+    "title": "A2UI Preferences",
+    "dialogStyle": "Dialog Style",
+    "dialogStyleDesc": "Choose how A2UI dialogs are displayed",
+    "styleModal": "Modal",
+    "styleModalDesc": "Centered",
+    "styleDrawer": "Drawer",
+    "styleDrawerDesc": "Side panel",
+    "styleSheet": "Sheet",
+    "styleSheetDesc": "Bottom",
+    "styleFullscreen": "Fullscreen",
+    "styleFullscreenDesc": "Full screen",
+    "smartMode": "Smart Mode",
+    "smartModeDesc": "Auto-select style based on question type",
+    "autoSelectionDuration": "Auto-Selection Duration",
+    "autoSelectionDurationDesc": "Countdown before auto-selecting default option",
+    "pauseOnInteraction": "Pause on Interaction",
+    "pauseOnInteractionDesc": "Pause countdown when you interact with the dialog",
+    "soundNotification": "Sound Notification",
+    "soundNotificationDesc": "Play sound before auto-submit (3 seconds before)",
+    "showToolbarButton": "Show Toolbar Button",
+    "showToolbarButtonDesc": "Show A2UI quick action button in the toolbar"
   }
 }

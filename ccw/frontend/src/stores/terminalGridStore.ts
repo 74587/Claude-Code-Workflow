@@ -22,6 +22,10 @@ export interface TerminalPaneState {
   id: PaneId;
   /** Bound terminal session key (null = empty pane awaiting assignment) */
   sessionId: string | null;
+  /** Display mode: 'terminal' for terminal output, 'file' for file preview */
+  displayMode: 'terminal' | 'file';
+  /** File path for file preview mode (null when in terminal mode) */
+  filePath: string | null;
 }
 
 export interface TerminalGridState {
@@ -45,6 +49,12 @@ export interface TerminalGridActions {
     config: CreateCliSessionInput,
     projectPath: string | null
   ) => Promise<{ paneId: PaneId; session: CliSession } | null>;
+  /** Set pane display mode (terminal or file preview) */
+  setPaneDisplayMode: (paneId: PaneId, mode: 'terminal' | 'file') => void;
+  /** Set file path for file preview mode */
+  setPaneFilePath: (paneId: PaneId, filePath: string | null) => void;
+  /** Show file in pane (combines setPaneDisplayMode and setPaneFilePath) */
+  showFileInPane: (paneId: PaneId, filePath: string) => void;
 }
 
 export type TerminalGridStore = TerminalGridState & TerminalGridActions;
@@ -52,7 +62,50 @@ export type TerminalGridStore = TerminalGridState & TerminalGridActions;
 // ========== Constants ==========
 
 const GRID_STORAGE_KEY = 'terminal-grid-storage';
-const GRID_STORAGE_VERSION = 1;
+const GRID_STORAGE_VERSION = 2;
+
+// ========== Migration ==========
+
+interface LegacyPaneState {
+  id: PaneId;
+  sessionId: string | null;
+  displayMode?: 'terminal' | 'file';
+  filePath?: string | null;
+}
+
+interface LegacyState {
+  layout: AllotmentLayoutGroup;
+  panes: Record<PaneId, LegacyPaneState>;
+  focusedPaneId: PaneId | null;
+  nextPaneIdCounter: number;
+}
+
+function migratePaneState(pane: LegacyPaneState): TerminalPaneState {
+  return {
+    id: pane.id,
+    sessionId: pane.sessionId,
+    displayMode: pane.displayMode ?? 'terminal',
+    filePath: pane.filePath ?? null,
+  };
+}
+
+function migrateState(persisted: unknown, version: number): TerminalGridState {
+  if (version < 2) {
+    // Migration from v1 to v2: add displayMode and filePath to panes
+    const legacy = persisted as LegacyState;
+    const migratedPanes: Record<PaneId, TerminalPaneState> = {};
+    for (const [paneId, pane] of Object.entries(legacy.panes)) {
+      migratedPanes[paneId as PaneId] = migratePaneState(pane);
+    }
+    return {
+      layout: legacy.layout,
+      panes: migratedPanes,
+      focusedPaneId: legacy.focusedPaneId,
+      nextPaneIdCounter: legacy.nextPaneIdCounter,
+    };
+  }
+  return persisted as TerminalGridState;
+}
 
 // ========== Helpers ==========
 
@@ -64,7 +117,7 @@ function createInitialLayout(): { layout: AllotmentLayoutGroup; panes: Record<Pa
   const paneId = generatePaneId(1);
   return {
     layout: { direction: 'horizontal', sizes: [100], children: [paneId] },
-    panes: { [paneId]: { id: paneId, sessionId: null } },
+    panes: { [paneId]: { id: paneId, sessionId: null, displayMode: 'terminal', filePath: null } },
     focusedPaneId: paneId,
     nextPaneIdCounter: 2,
   };
@@ -109,7 +162,7 @@ export const useTerminalGridStore = create<TerminalGridStore>()(
               layout: newLayout,
               panes: {
                 ...state.panes,
-                [newPaneId]: { id: newPaneId, sessionId: null },
+                [newPaneId]: { id: newPaneId, sessionId: null, displayMode: 'terminal', filePath: null },
               },
               focusedPaneId: newPaneId,
               nextPaneIdCounter: state.nextPaneIdCounter + 1,
@@ -175,7 +228,7 @@ export const useTerminalGridStore = create<TerminalGridStore>()(
 
           const createPane = (): TerminalPaneState => {
             const id = generatePaneId(counter++);
-            return { id, sessionId: null };
+            return { id, sessionId: null, displayMode: 'terminal', filePath: null };
           };
 
           let layout: AllotmentLayoutGroup;
@@ -278,7 +331,7 @@ export const useTerminalGridStore = create<TerminalGridStore>()(
                 layout: newLayout,
                 panes: {
                   ...state.panes,
-                  [newPaneId]: { id: newPaneId, sessionId: session.sessionKey },
+                  [newPaneId]: { id: newPaneId, sessionId: session.sessionKey, displayMode: 'terminal', filePath: null },
                 },
                 focusedPaneId: newPaneId,
                 nextPaneIdCounter: state.nextPaneIdCounter + 1,
@@ -293,12 +346,65 @@ export const useTerminalGridStore = create<TerminalGridStore>()(
             return null;
           }
         },
+
+        setPaneDisplayMode: (paneId, mode) => {
+          const state = get();
+          const pane = state.panes[paneId];
+          if (!pane) return;
+
+          set(
+            {
+              panes: {
+                ...state.panes,
+                [paneId]: { ...pane, displayMode: mode, filePath: mode === 'terminal' ? null : pane.filePath },
+              },
+            },
+            false,
+            'terminalGrid/setPaneDisplayMode'
+          );
+        },
+
+        setPaneFilePath: (paneId, filePath) => {
+          const state = get();
+          const pane = state.panes[paneId];
+          if (!pane) return;
+
+          set(
+            {
+              panes: {
+                ...state.panes,
+                [paneId]: { ...pane, filePath },
+              },
+            },
+            false,
+            'terminalGrid/setPaneFilePath'
+          );
+        },
+
+        showFileInPane: (paneId, filePath) => {
+          const state = get();
+          const pane = state.panes[paneId];
+          if (!pane) return;
+
+          set(
+            {
+              panes: {
+                ...state.panes,
+                [paneId]: { ...pane, displayMode: 'file', filePath },
+              },
+              focusedPaneId: paneId,
+            },
+            false,
+            'terminalGrid/showFileInPane'
+          );
+        },
       }),
       { name: 'TerminalGridStore' }
     ),
     {
       name: GRID_STORAGE_KEY,
       version: GRID_STORAGE_VERSION,
+      migrate: migrateState,
       partialize: (state) => ({
         layout: state.layout,
         panes: state.panes,

@@ -10,7 +10,8 @@
     "systemStatus": "系统状态",
     "hooks": "Git 钩子",
     "rules": "规则",
-    "about": "关于"
+    "about": "关于",
+    "a2ui": "A2UI 偏好设置"
   },
   "appearance": {
     "title": "外观",
@@ -210,5 +211,28 @@
     "description": "将所有用户偏好重置为默认值。此操作无法撤销。",
     "confirm": "确定要将所有设置重置为默认值吗？",
     "button": "重置为默认值"
+  },
+  "a2ui": {
+    "title": "A2UI 偏好设置",
+    "dialogStyle": "对话框风格",
+    "dialogStyleDesc": "选择 A2UI 对话框的显示方式",
+    "styleModal": "弹窗",
+    "styleModalDesc": "居中显示",
+    "styleDrawer": "抽屉",
+    "styleDrawerDesc": "侧边面板",
+    "styleSheet": "底部弹出",
+    "styleSheetDesc": "从底部弹出",
+    "styleFullscreen": "全屏",
+    "styleFullscreenDesc": "全屏显示",
+    "smartMode": "智能模式",
+    "smartModeDesc": "根据问题类型自动选择风格",
+    "autoSelectionDuration": "自动选择倒计时",
+    "autoSelectionDurationDesc": "自动选择默认选项前的倒计时",
+    "pauseOnInteraction": "交互时暂停",
+    "pauseOnInteractionDesc": "与对话框交互时暂停倒计时",
+    "soundNotification": "声音提醒",
+    "soundNotificationDesc": "自动提交前 3 秒播放提示音",
+    "showToolbarButton": "显示工具栏按钮",
+    "showToolbarButtonDesc": "在工具栏显示 A2UI 快速操作按钮"
   }
 }

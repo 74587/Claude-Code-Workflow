@@ -1,14 +1,17 @@
 // ========================================
 // Terminal Dashboard Page (V2)
 // ========================================
-// Terminal-first layout with fixed session sidebar + floating panels.
+// Terminal-first layout with fixed session sidebar + floating panels + right file sidebar.
 // Left sidebar: SessionGroupTree + AgentList (always visible)
 // Main area: TerminalGrid (tmux-style split panes)
+// Right sidebar: FileSidebarPanel (file tree, resizable)
 // Top: DashboardToolbar with panel toggles and layout presets
 // Floating panels: Issues, Queue, Inspector (overlay, mutually exclusive)
 
 import { useState, useCallback } from 'react';
 import { useIntl } from 'react-intl';
+import { Allotment } from 'allotment';
+import 'allotment/dist/style.css';
 import { AssociationHighlightProvider } from '@/components/terminal-dashboard/AssociationHighlight';
 import { DashboardToolbar, type PanelId } from '@/components/terminal-dashboard/DashboardToolbar';
 import { TerminalGrid } from '@/components/terminal-dashboard/TerminalGrid';
@@ -18,20 +21,17 @@ import { AgentList } from '@/components/terminal-dashboard/AgentList';
 import { IssuePanel } from '@/components/terminal-dashboard/IssuePanel';
 import { QueuePanel } from '@/components/terminal-dashboard/QueuePanel';
 import { InspectorContent } from '@/components/terminal-dashboard/BottomInspector';
-import { FloatingFileBrowser } from '@/components/terminal-dashboard/FloatingFileBrowser';
+import { FileSidebarPanel } from '@/components/terminal-dashboard/FileSidebarPanel';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
-import { useTerminalGridStore, selectTerminalGridFocusedPaneId } from '@/stores/terminalGridStore';
-import { sendCliSessionText } from '@/lib/api';
 
 // ========== Main Page Component ==========
 
 export function TerminalDashboardPage() {
   const { formatMessage } = useIntl();
   const [activePanel, setActivePanel] = useState<PanelId | null>(null);
+  const [isFileSidebarOpen, setIsFileSidebarOpen] = useState(true);
 
   const projectPath = useWorkflowStore(selectProjectPath);
-  const focusedPaneId = useTerminalGridStore(selectTerminalGridFocusedPaneId);
-  const panes = useTerminalGridStore((s) => s.panes);
 
   const togglePanel = useCallback((panelId: PanelId) => {
     setActivePanel((prev) => (prev === panelId ? null : panelId));
@@ -41,20 +41,6 @@ export function TerminalDashboardPage() {
     setActivePanel(null);
   }, []);
 
-  const handleInsertPath = useCallback(
-    (path: string) => {
-      if (!focusedPaneId) return;
-      const sessionId = panes[focusedPaneId]?.sessionId;
-      if (!sessionId) return;
-      sendCliSessionText(
-        sessionId,
-        { text: path, appendNewline: false },
-        projectPath ?? undefined
-      ).catch((err) => console.error('[TerminalDashboard] insert path failed:', err));
-    },
-    [focusedPaneId, panes, projectPath]
-  );
-
   return (
     <div className="-m-4 md:-m-6 flex flex-col h-[calc(100vh-56px)] overflow-hidden">
       <AssociationHighlightProvider>
@@ -62,24 +48,41 @@ export function TerminalDashboardPage() {
         <DashboardToolbar
           activePanel={activePanel}
           onTogglePanel={togglePanel}
+          isFileSidebarOpen={isFileSidebarOpen}
+          onToggleFileSidebar={() => setIsFileSidebarOpen((prev) => !prev)}
         />
 
-        {/* Main content: session sidebar + terminal grid */}
-        <div className="flex flex-1 min-h-0">
-          {/* Fixed session sidebar */}
-          <div className="w-[240px] shrink-0 flex flex-col">
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <SessionGroupTree />
-            </div>
-            <div className="shrink-0">
-              <AgentList />
-            </div>
-          </div>
+        {/* Main content with three-column layout */}
+        <div className="flex-1 min-h-0">
+          <Allotment>
+            {/* Fixed session sidebar (240px) */}
+            <Allotment.Pane preferredSize={240} minSize={180} maxSize={320}>
+              <div className="h-full flex flex-col border-r border-border">
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  <SessionGroupTree />
+                </div>
+                <div className="shrink-0">
+                  <AgentList />
+                </div>
+              </div>
+            </Allotment.Pane>
 
-          {/* Terminal grid (takes remaining space) */}
-          <div className="flex-1 min-h-0">
-            <TerminalGrid />
-          </div>
+            {/* Terminal grid (flexible) */}
+            <Allotment.Pane minSize={300}>
+              <TerminalGrid />
+            </Allotment.Pane>
+
+            {/* File sidebar (conditional, default 280px) */}
+            {isFileSidebarOpen && (
+              <Allotment.Pane preferredSize={280} minSize={200} maxSize={400}>
+                <FileSidebarPanel
+                  rootPath={projectPath ?? '/'}
+                  enabled={!!projectPath}
+                  onCollapse={() => setIsFileSidebarOpen(false)}
+                />
+              </Allotment.Pane>
+            )}
+          </Allotment>
         </div>
 
         {/* Floating panels (conditional, overlay) */}
@@ -112,15 +115,6 @@ export function TerminalDashboardPage() {
         >
           <InspectorContent />
         </FloatingPanel>
-
-        {/* File browser (half screen, right side) */}
-        <FloatingFileBrowser
-          isOpen={activePanel === 'files'}
-          onClose={closePanel}
-          rootPath={projectPath ?? '/'}
-          onInsertPath={focusedPaneId ? handleInsertPath : undefined}
-          width="50vw"
-        />
       </AssociationHighlightProvider>
     </div>
   );

@@ -16,8 +16,23 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/Dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerFooter,
+} from '@/components/ui/Drawer';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetFooter,
+} from '@/components/ui/Sheet';
 import { A2UIRenderer } from '@/packages/a2ui-runtime/renderer';
 import { useNotificationStore } from '@/stores';
+import { useDialogStyleContext, type DialogStyle } from '@/contexts/DialogStyleContext';
 import type { SurfaceUpdate, SurfaceComponent } from '@/packages/a2ui-runtime/core/A2UITypes';
 import { cn } from '@/lib/utils';
 
@@ -717,12 +732,257 @@ function MultiPagePopup({ surface, onClose }: A2UIPopupCardProps) {
 export function A2UIPopupCard({ surface, onClose }: A2UIPopupCardProps) {
   const state = surface.initialState as Record<string, unknown> | undefined;
   const isMultiPage = state?.questionType === 'multi-question' && (state?.totalPages as number) > 1;
+  const questionType = detectQuestionType(surface);
+  
+  // Get dialog style from context
+  const { preferences, getRecommendedStyle } = useDialogStyleContext();
+  const dialogStyle = preferences.smartModeEnabled 
+    ? getRecommendedStyle(questionType)
+    : preferences.dialogStyle;
+
+  // Common props for all styles
+  const styleProps = {
+    surface,
+    onClose,
+    questionType,
+    dialogStyle,
+    drawerSide: preferences.drawerSide,
+    drawerSize: preferences.drawerSize,
+  };
 
   if (isMultiPage) {
     return <MultiPagePopup surface={surface} onClose={onClose} />;
   }
 
-  return <SinglePagePopup surface={surface} onClose={onClose} />;
+  // Render based on dialog style
+  switch (dialogStyle) {
+    case 'drawer':
+      return <DrawerPopup {...styleProps} />;
+    case 'sheet':
+      return <SheetPopup {...styleProps} />;
+    case 'fullscreen':
+      return <FullscreenPopup {...styleProps} />;
+    default:
+      return <SinglePagePopup surface={surface} onClose={onClose} />;
+  }
+}
+
+// ========== Drawer Popup ==========
+
+interface StyleProps {
+  surface: SurfaceUpdate;
+  onClose: () => void;
+  questionType: QuestionType;
+  dialogStyle: DialogStyle;
+  drawerSide: 'left' | 'right';
+  drawerSize: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+}
+
+function DrawerPopup({ surface, onClose, drawerSide, drawerSize }: StyleProps) {
+  const { formatMessage } = useIntl();
+  const sendA2UIAction = useNotificationStore((state) => state.sendA2UIAction);
+
+  const titleComponent = surface.components.find(
+    (c) => c.id === 'title' && 'Text' in (c.component as any)
+  );
+  const title = getTextContent(titleComponent) || formatMessage({ id: 'askQuestion.defaultTitle', defaultMessage: 'Question' });
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        sendA2UIAction('cancel', surface.surfaceId, {
+          questionId: (surface.initialState as any)?.questionId,
+        });
+        onClose();
+      }
+    },
+    [sendA2UIAction, surface.surfaceId, onClose]
+  );
+
+  const handleAction = useCallback(
+    (actionId: string, params?: Record<string, unknown>) => {
+      sendA2UIAction(actionId, surface.surfaceId, params);
+      const resolvingActions = ['confirm', 'cancel', 'submit', 'answer'];
+      if (resolvingActions.includes(actionId)) {
+        onClose();
+      }
+    },
+    [sendA2UIAction, surface.surfaceId, onClose]
+  );
+
+  const bodyComponents = surface.components.filter(
+    (c) => !['title', 'message', 'description'].includes(c.id) && !isActionButton(c)
+  );
+  const actionButtons = surface.components.filter((c) => isActionButton(c));
+
+  return (
+    <Drawer open onOpenChange={handleOpenChange}>
+      <DrawerContent side={drawerSide} size={drawerSize} className="p-6">
+        <DrawerHeader>
+          <DrawerTitle>{title}</DrawerTitle>
+        </DrawerHeader>
+        <div className="flex-1 overflow-y-auto">
+          {bodyComponents.length > 0 && (
+            <A2UIRenderer
+              surface={{ ...surface, components: bodyComponents }}
+              onAction={handleAction}
+            />
+          )}
+        </div>
+        {actionButtons.length > 0 && (
+          <DrawerFooter>
+            {actionButtons.map((comp) => (
+              <A2UIRenderer
+                key={comp.id}
+                surface={{ ...surface, components: [comp] }}
+                onAction={handleAction}
+              />
+            ))}
+          </DrawerFooter>
+        )}
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+// ========== Sheet Popup ==========
+
+function SheetPopup({ surface, onClose }: StyleProps) {
+  const { formatMessage } = useIntl();
+  const sendA2UIAction = useNotificationStore((state) => state.sendA2UIAction);
+
+  const titleComponent = surface.components.find(
+    (c) => c.id === 'title' && 'Text' in (c.component as any)
+  );
+  const title = getTextContent(titleComponent) || formatMessage({ id: 'askQuestion.defaultTitle', defaultMessage: 'Question' });
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        sendA2UIAction('cancel', surface.surfaceId, {
+          questionId: (surface.initialState as any)?.questionId,
+        });
+        onClose();
+      }
+    },
+    [sendA2UIAction, surface.surfaceId, onClose]
+  );
+
+  const handleAction = useCallback(
+    (actionId: string, params?: Record<string, unknown>) => {
+      sendA2UIAction(actionId, surface.surfaceId, params);
+      const resolvingActions = ['confirm', 'cancel', 'submit', 'answer'];
+      if (resolvingActions.includes(actionId)) {
+        onClose();
+      }
+    },
+    [sendA2UIAction, surface.surfaceId, onClose]
+  );
+
+  const bodyComponents = surface.components.filter(
+    (c) => !['title', 'message', 'description'].includes(c.id) && !isActionButton(c)
+  );
+  const actionButtons = surface.components.filter((c) => isActionButton(c));
+
+  return (
+    <Sheet open onOpenChange={handleOpenChange}>
+      <SheetContent size="content">
+        <SheetHeader>
+          <SheetTitle>{title}</SheetTitle>
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto">
+          {bodyComponents.length > 0 && (
+            <A2UIRenderer
+              surface={{ ...surface, components: bodyComponents }}
+              onAction={handleAction}
+            />
+          )}
+        </div>
+        {actionButtons.length > 0 && (
+          <SheetFooter>
+            {actionButtons.map((comp) => (
+              <A2UIRenderer
+                key={comp.id}
+                surface={{ ...surface, components: [comp] }}
+                onAction={handleAction}
+              />
+            ))}
+          </SheetFooter>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+// ========== Fullscreen Popup ==========
+
+function FullscreenPopup({ surface, onClose }: StyleProps) {
+  const { formatMessage } = useIntl();
+  const sendA2UIAction = useNotificationStore((state) => state.sendA2UIAction);
+
+  const titleComponent = surface.components.find(
+    (c) => c.id === 'title' && 'Text' in (c.component as any)
+  );
+  const title = getTextContent(titleComponent) || formatMessage({ id: 'askQuestion.defaultTitle', defaultMessage: 'Question' });
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        sendA2UIAction('cancel', surface.surfaceId, {
+          questionId: (surface.initialState as any)?.questionId,
+        });
+        onClose();
+      }
+    },
+    [sendA2UIAction, surface.surfaceId, onClose]
+  );
+
+  const handleAction = useCallback(
+    (actionId: string, params?: Record<string, unknown>) => {
+      sendA2UIAction(actionId, surface.surfaceId, params);
+      const resolvingActions = ['confirm', 'cancel', 'submit', 'answer'];
+      if (resolvingActions.includes(actionId)) {
+        onClose();
+      }
+    },
+    [sendA2UIAction, surface.surfaceId, onClose]
+  );
+
+  const bodyComponents = surface.components.filter(
+    (c) => !['title', 'message', 'description'].includes(c.id) && !isActionButton(c)
+  );
+  const actionButtons = surface.components.filter((c) => isActionButton(c));
+
+  return (
+    <Dialog open onOpenChange={handleOpenChange}>
+      <DialogContent fullscreen className="p-6">
+        <DialogHeader className="border-b border-border pb-4">
+          <DialogTitle className="text-xl">{title}</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto py-6">
+          {bodyComponents.length > 0 && (
+            <A2UIRenderer
+              surface={{ ...surface, components: bodyComponents }}
+              onAction={handleAction}
+            />
+          )}
+        </div>
+        {actionButtons.length > 0 && (
+          <DialogFooter className="border-t border-border pt-4">
+            <div className="flex gap-3">
+              {actionButtons.map((comp) => (
+                <A2UIRenderer
+                  key={comp.id}
+                  surface={{ ...surface, components: [comp] }}
+                  onAction={handleAction}
+                />
+              ))}
+            </div>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default A2UIPopupCard;

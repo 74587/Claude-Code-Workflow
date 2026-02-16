@@ -94,5 +94,11 @@
     "tokens": "Tokens",
     "duration": "Duration",
     "model": "Model"
+  },
+  "toolbar": {
+    "a2ui": {
+      "button": "A2UI",
+      "quickAction": "A2UI Quick Action"
+    }
   }
 }

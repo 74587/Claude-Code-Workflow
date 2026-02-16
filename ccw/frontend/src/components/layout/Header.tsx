@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useTheme } from '@/hooks';
 import { WorkspaceSelector } from '@/components/workspace/WorkspaceSelector';
+import { A2UIButton } from '@/components/layout/A2UIButton';
 import { useCliStreamStore, selectActiveExecutionCount } from '@/stores/cliStreamStore';
 import { useNotificationStore } from '@/stores';
 import { useTerminalPanelStore, selectTerminalCount } from '@/stores/terminalPanelStore';
@@ -78,6 +79,9 @@ export function Header({
           <span className="hidden sm:inline">{formatMessage({ id: 'navigation.header.brand' })}</span>
           <span className="sm:hidden">{formatMessage({ id: 'navigation.header.brandShort' })}</span>
         </Link>
+
+        {/* A2UI Quick Action Button */}
+        <A2UIButton />
       </div>
 
       {/* Right side - Actions */}
