@@ -440,6 +440,12 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
         s.setWsStatus('connected');
         s.resetReconnectAttempts();
         reconnectDelayRef.current = RECONNECT_DELAY_BASE;
+
+        // Request any pending questions from backend
+        ws.send(JSON.stringify({
+          type: 'FRONTEND_READY',
+          payload: { action: 'requestPendingQuestions' }
+        }));
       };
 
       ws.onmessage = handleMessage;

@@ -18,6 +18,18 @@ import type {
 import http from 'http';
 import { a2uiWebSocketHandler } from '../core/a2ui/A2UIWebSocketHandler.js';
 import { remoteNotificationService } from '../core/services/remote-notification-service.js';
+import {
+  addPendingQuestion,
+  getPendingQuestion,
+  removePendingQuestion,
+  getAllPendingQuestions,
+  clearAllPendingQuestions,
+  hasPendingQuestion,
+} from '../core/services/pending-question-service.js';
+import {
+  isDashboardServerRunning,
+  startCcwServeProcess,
+} from '../utils/dashboard-launcher.js';
 
 const DASHBOARD_PORT = Number(process.env.CCW_PORT || 3456);
 const POLL_INTERVAL_MS = 1000;
@@ -31,9 +43,6 @@ a2uiWebSocketHandler.registerMultiAnswerCallback(
 
 /** Default question timeout (5 minutes) */
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
-
-/** Map of pending questions waiting for responses */
-const pendingQuestions = new Map<string, PendingQuestion>();
 
 // ========== Validation ==========
 
@@ -454,12 +463,13 @@ export async function execute(params: AskQuestionParams): Promise<ToolResult<Ask
         resolve,
         reject,
       };
-      pendingQuestions.set(question.id, pendingQuestion);
+      addPendingQuestion(pendingQuestion);
 
       // Set timeout
       setTimeout(() => {
-        if (pendingQuestions.has(question.id)) {
-          pendingQuestions.delete(question.id);
+        const timedOutQuestion = getPendingQuestion(question.id);
+        if (timedOutQuestion) {
+          removePendingQuestion(question.id);
           if (question.defaultValue !== undefined) {
             resolve({
               success: true,
@@ -495,8 +505,17 @@ export async function execute(params: AskQuestionParams): Promise<ToolResult<Ask
       });
     }
 
-    // If no local WS clients, start HTTP polling for answer from Dashboard
+    // If no local WS clients, check Dashboard status and start HTTP polling
     if (sentCount === 0) {
+      // Check if Dashboard server is running, attempt to start if not
+      const dashboardRunning = await isDashboardServerRunning();
+      if (!dashboardRunning) {
+        console.warn(`[AskQuestion] Dashboard server not running. Attempting to start...`);
+        const started = await startCcwServeProcess();
+        if (!started) {
+          console.error(`[AskQuestion] Failed to automatically start Dashboard server.`);
+        }
+      }
       startAnswerPolling(question.id);
     }
 
@@ -523,7 +542,7 @@ export async function execute(params: AskQuestionParams): Promise<ToolResult<Ask
  * @returns True if answer was processed
  */
 export function handleAnswer(answer: QuestionAnswer): boolean {
-  const pending = pendingQuestions.get(answer.questionId);
+  const pending = getPendingQuestion(answer.questionId);
   if (!pending) {
     return false;
   }
@@ -543,7 +562,7 @@ export function handleAnswer(answer: QuestionAnswer): boolean {
   });
 
   // Remove from pending
-  pendingQuestions.delete(answer.questionId);
+  removePendingQuestion(answer.questionId);
 
   return true;
 }
@@ -555,7 +574,7 @@ export function handleAnswer(answer: QuestionAnswer): boolean {
  * @returns True if answer was processed
  */
 export function handleMultiAnswer(compositeId: string, answers: QuestionAnswer[]): boolean {
-  const pending = pendingQuestions.get(compositeId);
+  const pending = getPendingQuestion(compositeId);
   if (!pending) {
     return false;
   }
@@ -568,7 +587,7 @@ export function handleMultiAnswer(compositeId: string, answers: QuestionAnswer[]
     timestamp: new Date().toISOString(),
   });
 
-  pendingQuestions.delete(compositeId);
+  removePendingQuestion(compositeId);
   return true;
 }
 
@@ -577,7 +596,7 @@ export function handleMultiAnswer(compositeId: string, answers: QuestionAnswer[]
 /**
  * Poll Dashboard server for answers when running in a separate MCP process.
  * Starts polling GET /api/a2ui/answer and resolves the pending promise when an answer arrives.
- * Automatically stops when the questionId is no longer in pendingQuestions (timeout cleanup).
+ * Automatically stops when the questionId is no longer in pending questions (timeout cleanup).
  */
 function startAnswerPolling(questionId: string, isComposite: boolean = false): void {
   const pollPath = `/api/a2ui/answer?questionId=${encodeURIComponent(questionId)}&composite=${isComposite}`;
@@ -586,7 +605,7 @@ function startAnswerPolling(questionId: string, isComposite: boolean = false): v
 
   const poll = () => {
     // Stop if the question was already resolved or timed out
-    if (!pendingQuestions.has(questionId)) {
+    if (!hasPendingQuestion(questionId)) {
       console.error(`[A2UI-Poll] Stopping: questionId=${questionId} no longer pending`);
       return;
     }
@@ -614,14 +633,14 @@ function startAnswerPolling(questionId: string, isComposite: boolean = false): v
           if (isComposite && Array.isArray(parsed.answers)) {
             const ok = handleMultiAnswer(questionId, parsed.answers as QuestionAnswer[]);
             console.error(`[A2UI-Poll] handleMultiAnswer result: ${ok}`);
-            if (!ok && pendingQuestions.has(questionId)) {
+            if (!ok && hasPendingQuestion(questionId)) {
               // Answer consumed but delivery failed; keep polling for a new answer
               setTimeout(poll, POLL_INTERVAL_MS);
             }
           } else if (!isComposite && parsed.answer) {
             const ok = handleAnswer(parsed.answer as QuestionAnswer);
             console.error(`[A2UI-Poll] handleAnswer result: ${ok}`);
-            if (!ok && pendingQuestions.has(questionId)) {
+            if (!ok && hasPendingQuestion(questionId)) {
               // Answer consumed but validation/delivery failed; keep polling for a new answer
               setTimeout(poll, POLL_INTERVAL_MS);
             }
@@ -638,7 +657,7 @@ function startAnswerPolling(questionId: string, isComposite: boolean = false): v
 
     req.on('error', (err) => {
       console.error(`[A2UI-Poll] Network error: ${err.message}`);
-      if (pendingQuestions.has(questionId)) {
+      if (hasPendingQuestion(questionId)) {
         setTimeout(poll, POLL_INTERVAL_MS);
       }
     });
@@ -660,7 +679,7 @@ function startAnswerPolling(questionId: string, isComposite: boolean = false): v
  * @returns True if question was cancelled
  */
 export function cancelQuestion(questionId: string): boolean {
-  const pending = pendingQuestions.get(questionId);
+  const pending = getPendingQuestion(questionId);
   if (!pending) {
     return false;
   }
@@ -674,7 +693,7 @@ export function cancelQuestion(questionId: string): boolean {
     error: 'Question cancelled',
   });
 
-  pendingQuestions.delete(questionId);
+  removePendingQuestion(questionId);
   return true;
 }
 
@@ -683,17 +702,17 @@ export function cancelQuestion(questionId: string): boolean {
  * @returns Array of pending questions
  */
 export function getPendingQuestions(): PendingQuestion[] {
-  return Array.from(pendingQuestions.values());
+  return getAllPendingQuestions();
 }
 
 /**
  * Clear all pending questions
  */
 export function clearPendingQuestions(): void {
-  for (const pending of pendingQuestions.values()) {
+  for (const pending of getAllPendingQuestions()) {
     pending.reject(new Error('Question cleared'));
   }
-  pendingQuestions.clear();
+  clearAllPendingQuestions();
 }
 
 // ========== Tool Schema ==========
@@ -1076,7 +1095,7 @@ async function executeSimpleFormat(
       resolve,
       reject,
     };
-    pendingQuestions.set(compositeId, pendingQuestion);
+    addPendingQuestion(pendingQuestion);
 
     // Also register each sub-question's questionId pointing to the same pending entry
     // so that select/toggle actions on individual questions get tracked
@@ -1090,8 +1109,9 @@ async function executeSimpleFormat(
     }
 
     setTimeout(() => {
-      if (pendingQuestions.has(compositeId)) {
-        pendingQuestions.delete(compositeId);
+      const timedOutQuestion = getPendingQuestion(compositeId);
+      if (timedOutQuestion) {
+        removePendingQuestion(compositeId);
         // Collect default values from each sub-question
         const defaultAnswers: QuestionAnswer[] = [];
         for (const simpleQ of questions) {
