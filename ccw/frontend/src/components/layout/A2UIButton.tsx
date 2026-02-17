@@ -38,12 +38,12 @@ export function A2UIButton({ className, compact = false }: A2UIButtonProps) {
         'gap-2 bg-primary text-primary-foreground hover:bg-primary/90',
         className
       )}
-      title={formatMessage({ id: 'toolbar.a2ui.quickAction', defaultMessage: 'A2UI Quick Action' })}
+      title={formatMessage({ id: 'navigation.toolbar.a2ui.quickAction', defaultMessage: 'A2UI Quick Action' })}
     >
       <MessageSquare className="h-4 w-4" />
       {!compact && (
         <span className="hidden sm:inline">
-          {formatMessage({ id: 'toolbar.a2ui.button', defaultMessage: 'A2UI' })}
+          {formatMessage({ id: 'navigation.toolbar.a2ui.button', defaultMessage: 'A2UI' })}
         </span>
       )}
     </Button>

@@ -221,7 +221,7 @@ export function TaskListTab({ session, onTaskClick }: TaskListTabProps) {
 
             return (
               <Card
-                key={task.task_id || index}
+                key={`${task.task_id}-${index}`}
                 className={`hover:shadow-sm transition-shadow ${onTaskClick ? 'cursor-pointer hover:shadow-md' : ''}`}
                 onClick={() => onTaskClick?.(task as TaskData)}
               >

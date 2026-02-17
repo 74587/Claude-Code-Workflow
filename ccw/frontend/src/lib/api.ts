@@ -1759,8 +1759,15 @@ export async function fetchSessionDetail(sessionId: string, projectPath?: string
   // Backend returns raw context-package.json content, frontend expects it nested under 'context' field
   const transformedContext = detailData.context ? { context: detailData.context } : undefined;
 
+  // Step 5: Merge tasks from detailData into session object
+  // Backend returns tasks at root level, frontend expects them on session object
+  const sessionWithTasks = {
+    ...session,
+    tasks: detailData.tasks || session.tasks || [],
+  };
+
   return {
-    session,
+    session: sessionWithTasks,
     context: transformedContext,
     summary: finalSummary,
     summaries: detailData.summaries,

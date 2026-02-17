@@ -113,7 +113,7 @@ export function hasEnabledPlatform(config: RemoteNotificationConfig): boolean {
 
   const { discord, telegram, webhook } = config.platforms;
 
-  return (
+  return Boolean(
     (discord?.enabled && !!discord.webhookUrl) ||
     (telegram?.enabled && !!telegram.botToken && !!telegram.chatId) ||
     (webhook?.enabled && !!webhook.url)

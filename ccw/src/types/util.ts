@@ -40,7 +40,7 @@ export type ReturnType<T> = T extends (...args: unknown[]) => infer R ? R : neve
  * Deep merge utility for configuration updates
  * Recursively merges source into target, preserving nested objects
  */
-export function deepMerge<T extends Record<string, unknown>>(
+export function deepMerge<T extends object>(
   target: T,
   source: DeepPartial<T>
 ): T {
@@ -48,8 +48,8 @@ export function deepMerge<T extends Record<string, unknown>>(
 
   for (const key in source) {
     if (Object.prototype.hasOwnProperty.call(source, key)) {
-      const sourceValue = source[key];
-      const targetValue = target[key];
+      const sourceValue = source[key as keyof typeof source];
+      const targetValue = target[key as unknown as keyof T];
 
       if (
         sourceValue !== undefined &&
@@ -62,8 +62,8 @@ export function deepMerge<T extends Record<string, unknown>>(
         !Array.isArray(targetValue)
       ) {
         (result as Record<string, unknown>)[key] = deepMerge(
-          targetValue as Record<string, unknown>,
-          sourceValue as DeepPartial<Record<string, unknown>>
+          targetValue as object,
+          sourceValue as DeepPartial<object>
         );
       } else if (sourceValue !== undefined) {
         (result as Record<string, unknown>)[key] = sourceValue;
