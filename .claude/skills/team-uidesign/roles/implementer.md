@@ -70,6 +70,15 @@ if (isComponentBuild) {
 const auditFiles = Glob({ pattern: `${sessionFolder}/audit/audit-*.md` })
 const latestAudit = auditFiles.length > 0 ? Read(auditFiles[auditFiles.length - 1]) : null
 
+// Read design intelligence for stack guidelines and anti-patterns
+let designIntelligence = null
+try {
+  designIntelligence = JSON.parse(Read(`${sessionFolder}/research/design-intelligence.json`))
+} catch {}
+const stackGuidelines = designIntelligence?.stack_guidelines || {}
+const antiPatterns = designIntelligence?.recommendations?.anti_patterns || []
+const uxGuidelines = designIntelligence?.ux_guidelines || []
+
 // Detect project tech stack from codebase
 // Read existing project patterns for code style alignment
 ```
@@ -184,6 +193,12 @@ Files:
 - Focus indicator visible (use design token)
 - Color contrast meets WCAG AA (4.5:1 text, 3:1 UI)
 
+### Anti-Patterns to Avoid (from Design Intelligence)
+${antiPatterns.map(p => \`- ❌ \${p}\`).join('\\n') || '(None specified)'}
+
+### Stack Guidelines
+${JSON.stringify(stackGuidelines, null, 2) || '(Standard implementation)'}
+
 ### Constraints
 - NO hardcoded colors/spacing — all from design tokens
 - Follow existing codebase patterns for component structure
@@ -232,7 +247,16 @@ if (isComponentBuild) {
     if (hardcoded.length > 0) {
       // Flag as warning — should use design tokens
     }
+    // Check for cursor: pointer on interactive elements
+    // Check for focus styles (outline or box-shadow on :focus)
+    // Check for responsive media queries
   })
+
+  // Anti-pattern self-check (from design intelligence)
+  if (antiPatterns.length > 0) {
+    // Verify implementation doesn't violate any anti-patterns
+    // e.g., check for patterns like "too many font sizes", "inconsistent spacing"
+  }
 }
 ```
 

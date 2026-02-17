@@ -56,6 +56,14 @@ try {
 const auditHistory = sharedMemory.audit_history || []
 const tokenRegistry = sharedMemory.design_token_registry || {}
 
+// Read design intelligence for industry anti-patterns
+let designIntelligence = null
+try {
+  designIntelligence = JSON.parse(Read(`${sessionFolder}/research/design-intelligence.json`))
+} catch {}
+const antiPatterns = designIntelligence?.recommendations?.anti_patterns || []
+const industryContext = sharedMemory.industry_context || {}
+
 // Read design artifacts to audit
 let designTokens = null
 let componentSpecs = []
@@ -78,14 +86,15 @@ if (isFinalAudit) {
 
 #### Audit Dimensions
 
-4 dimensions scored on 1-10 scale:
+5 dimensions scored on 1-10 scale:
 
 | Dimension | Weight | Criteria |
 |-----------|--------|----------|
-| Consistency | 25% | Token usage, naming conventions, visual uniformity |
-| Accessibility | 30% | WCAG AA compliance, ARIA attributes, keyboard nav, contrast |
-| Completeness | 25% | All states defined, responsive specs, edge cases |
-| Quality | 20% | Token reference integrity, documentation clarity, maintainability |
+| Consistency | 20% | Token usage, naming conventions, visual uniformity |
+| Accessibility | 25% | WCAG AA compliance, ARIA attributes, keyboard nav, contrast |
+| Completeness | 20% | All states defined, responsive specs, edge cases |
+| Quality | 15% | Token reference integrity, documentation clarity, maintainability |
+| Industry Compliance | 20% | Anti-pattern avoidance, UX best practices, design intelligence adherence |
 
 #### Token Audit (AUDIT for token systems)
 
@@ -95,7 +104,8 @@ if (isTokenAudit && designTokens) {
     consistency: { score: 0, issues: [] },
     accessibility: { score: 0, issues: [] },
     completeness: { score: 0, issues: [] },
-    quality: { score: 0, issues: [] }
+    quality: { score: 0, issues: [] },
+    industryCompliance: { score: 0, issues: [] }
   }
 
   // Consistency checks
@@ -117,6 +127,16 @@ if (isTokenAudit && designTokens) {
   // - $type metadata present (W3C format)
   // - Values are valid (CSS-parseable)
   // - No duplicate definitions
+
+  // Industry Compliance checks (from design intelligence)
+  // - Anti-patterns from ui-ux-pro-max not present in design
+  // - UX best practices followed (recommended style, color usage)
+  // - Design intelligence recommendations adhered to
+  // - If antiPatterns available, check each against design artifacts
+  antiPatterns.forEach(pattern => {
+    // Check if design violates this anti-pattern
+    // Flag as HIGH severity if violated
+  })
 }
 ```
 
@@ -156,12 +176,13 @@ if (isFinalAudit) {
 #### Score Calculation
 
 ```javascript
-const weights = { consistency: 0.25, accessibility: 0.30, completeness: 0.25, quality: 0.20 }
+const weights = { consistency: 0.20, accessibility: 0.25, completeness: 0.20, quality: 0.15, industryCompliance: 0.20 }
 const overallScore = Math.round(
   tokenAudit.consistency.score * weights.consistency +
   tokenAudit.accessibility.score * weights.accessibility +
   tokenAudit.completeness.score * weights.completeness +
-  tokenAudit.quality.score * weights.quality
+  tokenAudit.quality.score * weights.quality +
+  tokenAudit.industryCompliance.score * weights.industryCompliance
 )
 
 // Severity classification
@@ -198,10 +219,11 @@ ${isSyncPoint ? `\n**⚡ Sync Point**: ${signal === 'audit_passed' ? 'PASSED —
 
 | Dimension | Score | Weight | Weighted |
 |-----------|-------|--------|----------|
-| Consistency | ${tokenAudit.consistency.score}/10 | 25% | ${(tokenAudit.consistency.score * 0.25).toFixed(1)} |
-| Accessibility | ${tokenAudit.accessibility.score}/10 | 30% | ${(tokenAudit.accessibility.score * 0.30).toFixed(1)} |
-| Completeness | ${tokenAudit.completeness.score}/10 | 25% | ${(tokenAudit.completeness.score * 0.25).toFixed(1)} |
-| Quality | ${tokenAudit.quality.score}/10 | 20% | ${(tokenAudit.quality.score * 0.20).toFixed(1)} |
+| Consistency | ${tokenAudit.consistency.score}/10 | 20% | ${(tokenAudit.consistency.score * 0.20).toFixed(1)} |
+| Accessibility | ${tokenAudit.accessibility.score}/10 | 25% | ${(tokenAudit.accessibility.score * 0.25).toFixed(1)} |
+| Completeness | ${tokenAudit.completeness.score}/10 | 20% | ${(tokenAudit.completeness.score * 0.20).toFixed(1)} |
+| Quality | ${tokenAudit.quality.score}/10 | 15% | ${(tokenAudit.quality.score * 0.15).toFixed(1)} |
+| Industry Compliance | ${tokenAudit.industryCompliance.score}/10 | 20% | ${(tokenAudit.industryCompliance.score * 0.20).toFixed(1)} |
 
 ## Critical Issues
 ${criticalIssues.map(i => `- **[CRITICAL]** ${i.description}\n  Location: ${i.location}\n  Fix: ${i.suggestion}`).join('\n')}

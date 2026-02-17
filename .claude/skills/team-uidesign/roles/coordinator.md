@@ -81,6 +81,18 @@ AskUserQuestion({
       ]
     },
     {
+      question: "产品类型/行业：",
+      header: "Industry",
+      multiSelect: false,
+      options: [
+        { label: "SaaS/科技", description: "SaaS 产品、开发者工具、科技平台" },
+        { label: "电商/零售", description: "电商平台、零售网站、商品展示" },
+        { label: "医疗/金融", description: "医疗健康、金融服务（严格合规要求）" },
+        { label: "教育/内容", description: "教育平台、内容管理、媒体" },
+        { label: "其他", description: "其他行业或通用设计" }
+      ]
+    },
+    {
       question: "设计约束：",
       header: "Constraint",
       multiSelect: true,
@@ -101,6 +113,16 @@ const pipelineMap = {
   '完整设计系统': 'full-system'
 }
 const pipeline = pipelineMap[scopeChoice]
+
+// Industry config — affects audit strictness and design intelligence
+const industryChoice = userAnswers.Industry
+const industryConfig = {
+  'SaaS/科技': { strictness: 'standard', mustHave: ['响应式', '暗色模式'] },
+  '电商/零售': { strictness: 'standard', mustHave: ['响应式', '快速加载'] },
+  '医疗/金融': { strictness: 'strict', mustHave: ['WCAG AA', '高对比度', '清晰排版'] },
+  '教育/内容': { strictness: 'standard', mustHave: ['可读性', '响应式'] },
+  '其他': { strictness: 'standard', mustHave: [] }
+}[industryChoice] || { strictness: 'standard', mustHave: [] }
 ```
 
 ### Phase 2: Create Team + Spawn Workers
@@ -119,11 +141,13 @@ Bash(`mkdir -p "${sessionFolder}/research" "${sessionFolder}/design/component-sp
 
 // Initialize shared-memory.json
 const sharedMemory = {
+  design_intelligence: {},
   design_token_registry: { colors: {}, typography: {}, spacing: {}, shadows: {}, borders: {} },
   style_decisions: [],
   component_inventory: [],
   accessibility_patterns: [],
   audit_history: [],
+  industry_context: { industry: industryChoice, config: industryConfig },
   _metadata: { created_at: new Date().toISOString(), pipeline: pipeline }
 }
 Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
@@ -141,7 +165,8 @@ const teamSession = {
   completed_tasks: [],
   sync_points: [],
   gc_state: { round: 0, max_rounds: 2, converged: false },
-  user_preferences: { scope: scopeChoice, constraints: constraintChoices },
+  user_preferences: { scope: scopeChoice, constraints: constraintChoices, industry: industryChoice },
+  industry_config: industryConfig,
   pipeline_progress: {
     total: pipeline === 'component' ? 4 : pipeline === 'system' ? 6 : 7,
     completed: 0

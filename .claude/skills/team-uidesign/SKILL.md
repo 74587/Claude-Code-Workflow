@@ -221,17 +221,43 @@ Convergence: audit.score >= 8 && audit.critical_count === 0
 
 ```json
 {
+  "design_intelligence": {},
   "design_token_registry": {
-    "colors": {}, "typography": {}, "spacing": {}, "shadows": {}
+    "colors": {}, "typography": {}, "spacing": {}, "shadows": {}, "borders": {}
   },
   "style_decisions": [],
   "component_inventory": [],
   "accessibility_patterns": [],
-  "audit_history": []
+  "audit_history": [],
+  "industry_context": { "industry": "", "config": {}, "detected_stack": "" }
 }
 ```
 
 每个角色在 Phase 2 读取，Phase 5 写入自己负责的字段。
+
+### Design Intelligence (ui-ux-pro-max)
+
+Researcher 通过 `Skill(skill="ui-ux-pro-max", args="...")` 获取设计智能，写入 `design-intelligence.json`，下游角色消费：
+
+```
+researcher (Stream 4)
+  │ Skill("ui-ux-pro-max", args="<industry> <keywords> --design-system")
+  │ Skill("ui-ux-pro-max", args="accessibility animation responsive --domain ux")
+  │ Skill("ui-ux-pro-max", args="<keywords> --stack <detected-stack>")
+  ↓
+design-intelligence.json
+  ├─→ designer: recommended colors/typography/style → token values, anti-patterns → component specs
+  ├─→ reviewer: anti-patterns → Industry Compliance audit dimension (20% weight)
+  └─→ implementer: stack guidelines → code generation, anti-patterns → validation
+```
+
+**数据流**:
+- `design_system.colors/typography/style` → designer 用于令牌默认值（recommended-first 模式）
+- `recommendations.anti_patterns[]` → reviewer 审查合规性，designer/implementer 避免违反
+- `stack_guidelines` → implementer 代码生成约束
+- `ux_guidelines[]` → designer 组件规格中的实现提示
+
+**降级策略**: 当 ui-ux-pro-max 不可用时，使用 LLM 通用知识生成默认值，`_source` 标记为 `"llm-general-knowledge"`。
 
 ## Session Directory
 
@@ -242,7 +268,9 @@ Convergence: audit.score >= 8 && audit.critical_count === 0
 ├── research/                   # Researcher output
 │   ├── design-system-analysis.json
 │   ├── component-inventory.json
-│   └── accessibility-audit.json
+│   ├── accessibility-audit.json
+│   ├── design-intelligence.json       # ui-ux-pro-max 设计智能
+│   └── design-intelligence-raw.md     # ui-ux-pro-max 原始输出
 ├── design/                     # Designer output
 │   ├── design-tokens.json
 │   ├── component-specs/
@@ -376,3 +404,5 @@ Session: ${sessionFolder}
 | 双轨同步失败 | 回退到单轨顺序执行 |
 | 设计令牌冲突 | Reviewer 仲裁，Coordinator 介入 |
 | BUILD 找不到设计文件 | 等待 Sync Point 或上报 |
+| ui-ux-pro-max 不可用 | 降级为 LLM 通用知识，`_source: "llm-general-knowledge"` |
+| 行业反模式检查失败 | Reviewer 标记 Industry Compliance 维度为 N/A |

@@ -8,7 +8,7 @@ Design system analyst responsible for current state assessment, component invent
 - **Task Prefix**: `RESEARCH`
 - **Responsibility Type**: Read-only analysis
 - **Responsibility**: Design system analysis, component inventory, accessibility audit
-- **Toolbox**: Read, Glob, Grep, Bash(read-only), Task(cli-explore-agent), WebSearch, WebFetch
+- **Toolbox**: Read, Glob, Grep, Bash(read-only), Task(cli-explore-agent), Skill(ui-ux-pro-max), WebSearch, WebFetch
 
 ## Message Types
 
@@ -54,7 +54,7 @@ const existingPatterns = sharedMemory.accessibility_patterns || []
 
 ### Phase 3: Core Execution
 
-Research is divided into 3 parallel analysis streams:
+Research is divided into 4 analysis streams. Stream 1-3 analyze the codebase, Stream 4 retrieves design intelligence from ui-ux-pro-max.
 
 #### Stream 1: Design System Analysis
 
@@ -155,14 +155,102 @@ Schema:
 })
 ```
 
+#### Stream 4: Design Intelligence (ui-ux-pro-max)
+
+```javascript
+// Retrieve design intelligence via ui-ux-pro-max skill
+// Detect industry/product type from task description or session config
+const industryMatch = task.description.match(/Industry:\s*([^\n]+)/)
+const industry = industryMatch ? industryMatch[1].trim() : 'SaaS/科技'
+const keywords = task.description.replace(/Session:.*\n?/g, '').replace(/Industry:.*\n?/g, '').split(/\s+/).slice(0, 5).join(' ')
+
+// Detect tech stack
+let detectedStack = 'html-tailwind'
+try {
+  const pkg = JSON.parse(Read('package.json'))
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies }
+  if (deps['next']) detectedStack = 'nextjs'
+  else if (deps['react']) detectedStack = 'react'
+  else if (deps['vue']) detectedStack = 'vue'
+  else if (deps['svelte']) detectedStack = 'svelte'
+  if (deps['@shadcn/ui'] || deps['shadcn-ui']) detectedStack = 'shadcn'
+} catch {}
+
+// Call ui-ux-pro-max via Skill for design system recommendations
+Task({
+  subagent_type: "general-purpose",
+  run_in_background: false,
+  description: "Retrieve design intelligence via ui-ux-pro-max skill",
+  prompt: `调用 ui-ux-pro-max skill 获取设计系统推荐。
+
+## 需求
+- 产品类型/行业: ${industry}
+- 关键词: ${keywords}
+- 技术栈: ${detectedStack}
+
+## 执行步骤
+
+### 1. 生成设计系统（必须）
+Skill(skill="ui-ux-pro-max", args="${industry} ${keywords} --design-system")
+
+### 2. 补充 UX 指南
+Skill(skill="ui-ux-pro-max", args="accessibility animation responsive --domain ux")
+
+### 3. 获取技术栈指南
+Skill(skill="ui-ux-pro-max", args="${keywords} --stack ${detectedStack}")
+
+## 输出
+将所有结果整合写入: ${sessionFolder}/research/design-intelligence-raw.md
+
+包含:
+- 设计系统推荐（pattern, style, colors, typography, effects, anti-patterns）
+- UX 最佳实践
+- 技术栈指南
+- 行业反模式列表
+`
+})
+
+// Read and structure the output
+let designIntelligenceRaw = ''
+try {
+  designIntelligenceRaw = Read(`${sessionFolder}/research/design-intelligence-raw.md`)
+} catch {}
+
+const uiproAvailable = designIntelligenceRaw.length > 0
+
+// Compile design-intelligence.json
+const designIntelligence = {
+  _source: uiproAvailable ? "ui-ux-pro-max-skill" : "llm-general-knowledge",
+  _generated_at: new Date().toISOString(),
+  industry: industry,
+  detected_stack: detectedStack,
+  design_system: uiproAvailable ? parseDesignSystem(designIntelligenceRaw) : {
+    _fallback: true,
+    note: "Install ui-ux-pro-max for data-driven recommendations",
+    colors: { primary: "#1976d2", secondary: "#dc004e", background: "#ffffff" },
+    typography: { heading: ["Inter", "system-ui"], body: ["Inter", "system-ui"] },
+    style: "modern-minimal"
+  },
+  ux_guidelines: uiproAvailable ? parseUxGuidelines(designIntelligenceRaw) : [],
+  stack_guidelines: uiproAvailable ? parseStackGuidelines(designIntelligenceRaw) : {},
+  recommendations: {
+    anti_patterns: uiproAvailable ? parseAntiPatterns(designIntelligenceRaw) : [],
+    must_have: []
+  }
+}
+
+Write(`${sessionFolder}/research/design-intelligence.json`, JSON.stringify(designIntelligence, null, 2))
+```
+
 ### Phase 4: Validation
 
 ```javascript
-// Verify all 3 research outputs exist
+// Verify all 4 research outputs exist
 const requiredFiles = [
   'design-system-analysis.json',
   'component-inventory.json',
-  'accessibility-audit.json'
+  'accessibility-audit.json',
+  'design-intelligence.json'
 ]
 
 const missing = requiredFiles.filter(f => {
@@ -195,6 +283,8 @@ const researchSummary = {
 // Update shared memory
 sharedMemory.component_inventory = inventory.components || []
 sharedMemory.accessibility_patterns = a11yAudit.recommendations || []
+sharedMemory.design_intelligence = designIntelligence || {}
+sharedMemory.industry_context = { industry, detected_stack: detectedStack }
 Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
 
 // Log and report
@@ -204,14 +294,14 @@ mcp__ccw-tools__team_msg({
   from: "researcher",
   to: "coordinator",
   type: "research_ready",
-  summary: `[researcher] 调研完成: ${researchSummary.total_components} 个组件, 可访问性等级 ${researchSummary.accessibility_level}, 样式方案 ${researchSummary.styling_approach}`,
+  summary: `[researcher] 调研完成: ${researchSummary.total_components} 个组件, 可访问性等级 ${researchSummary.accessibility_level}, 样式方案 ${researchSummary.styling_approach}, 设计智能源 ${designIntelligence?._source || 'N/A'}`,
   ref: `${sessionFolder}/research/`
 })
 
 SendMessage({
   type: "message",
   recipient: "coordinator",
-  content: `## [researcher] 设计系统调研完成\n\n- 现有组件: ${researchSummary.total_components}\n- 样式方案: ${researchSummary.styling_approach}\n- 可访问性等级: ${researchSummary.accessibility_level}\n- 组件库: ${designAnalysis.component_library?.name || '无'}\n\n产出目录: ${sessionFolder}/research/`,
+  content: `## [researcher] 设计系统调研完成\n\n- 现有组件: ${researchSummary.total_components}\n- 样式方案: ${researchSummary.styling_approach}\n- 可访问性等级: ${researchSummary.accessibility_level}\n- 组件库: ${designAnalysis.component_library?.name || '无'}\n- 设计智能: ${designIntelligence?._source || 'N/A'}\n- 反模式: ${designIntelligence?.recommendations?.anti_patterns?.length || 0} 条\n\n产出目录: ${sessionFolder}/research/`,
   summary: `[researcher] 调研完成`
 })
 

@@ -62,6 +62,14 @@ try {
   }
 } catch {}
 
+// Read design intelligence from ui-ux-pro-max (if available)
+let designIntelligence = null
+try {
+  designIntelligence = JSON.parse(Read(`${sessionFolder}/research/design-intelligence.json`))
+} catch {}
+const recommended = designIntelligence?.design_system || {}
+const antiPatterns = designIntelligence?.recommendations?.anti_patterns || []
+
 // If GC fix task, read audit feedback
 let auditFeedback = null
 if (isFixTask) {
@@ -85,20 +93,22 @@ if (isTokenTask) {
   const stylingApproach = research.designSystem?.styling_approach || 'css-variables'
 
   // Generate design tokens following W3C Design Tokens Format
+  // Use recommended values from design intelligence (ui-ux-pro-max), fallback to defaults
   const designTokens = {
     "$schema": "https://design-tokens.github.io/community-group/format/",
+    "_source": designIntelligence ? `ui-ux-pro-max (${designIntelligence._source})` : "defaults",
     "color": {
       "primary": {
         "$type": "color",
-        "$value": { "light": "#1976d2", "dark": "#90caf9" }
+        "$value": { "light": recommended.colors?.primary || "#1976d2", "dark": recommended.colors?.primaryDark || "#90caf9" }
       },
       "secondary": {
         "$type": "color",
-        "$value": { "light": "#dc004e", "dark": "#f48fb1" }
+        "$value": { "light": recommended.colors?.secondary || "#dc004e", "dark": recommended.colors?.secondaryDark || "#f48fb1" }
       },
       "background": {
         "$type": "color",
-        "$value": { "light": "#ffffff", "dark": "#121212" }
+        "$value": { "light": recommended.colors?.background || "#ffffff", "dark": "#121212" }
       },
       "surface": {
         "$type": "color",
@@ -118,7 +128,7 @@ if (isTokenTask) {
     },
     "typography": {
       "font-family": {
-        "base": { "$type": "fontFamily", "$value": ["Inter", "system-ui", "sans-serif"] },
+        "base": { "$type": "fontFamily", "$value": recommended.typography?.heading || ["Inter", "system-ui", "sans-serif"] },
         "mono": { "$type": "fontFamily", "$value": ["JetBrains Mono", "monospace"] }
       },
       "font-size": {
@@ -220,6 +230,12 @@ if (isComponentTask) {
 | primary | Main action | color.primary |
 | secondary | Secondary action | color.secondary |
 | outline | Ghost style | border only |
+
+## Anti-Patterns (from Design Intelligence)
+${antiPatterns.length > 0 ? antiPatterns.map(p => \`- ❌ \${p}\`).join('\\n') : '(No industry-specific anti-patterns)'}
+
+## Implementation Hints
+${designIntelligence?.ux_guidelines?.slice(0, 3).map(g => \`- 💡 \${g}\`).join('\\n') || '(Standard implementation)'}
 `
 
   // Write spec for each component
