@@ -57,7 +57,7 @@ const SLEEP_CMD = process.platform === 'win32'
   : `sleep ${POLL_INTERVAL_SEC}`
 
 // ★ 统一 auto mode 检测：-y/--yes 从 $ARGUMENTS 或 ccw 传播
-const autoMode = /\b(-y|--yes)\b/.test(args)
+const autoYes = /\b(-y|--yes)\b/.test(args)
 ```
 
 ## Execution Steps
@@ -123,7 +123,7 @@ for (const stageTask of pipelineTasks) {
   if (!stageComplete) {
     const elapsedMin = Math.round(pollCount * POLL_INTERVAL_SEC / 60)
 
-    if (autoMode) {
+    if (autoYes) {
       // 自动模式：记录日志，自动跳过
       mcp__ccw-tools__team_msg({
         operation: "log", team: teamName, from: "coordinator",
@@ -286,7 +286,7 @@ const summary = {
 |----------|------------|
 | Message bus unavailable | Fall back to TaskList polling only |
 | Stage timeout (交互模式) | AskUserQuestion：继续等待 / 跳过 / 终止流水线 |
-| Stage timeout (自动模式 `-y`/`--yes`) | 自动跳过，记录日志，继续流水线 |
+| Stage timeout (自动模式 `-y`/`--yes`，`autoYes`) | 自动跳过，记录日志，继续流水线 |
 | Teammate unresponsive (2x no response) | Respawn teammate with same task |
 | Deadlock detected (tasks blocked indefinitely) | Identify cycle, manually unblock |
 | Quality gate FAIL | Report to user, suggest targeted re-run |
