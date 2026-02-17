@@ -215,6 +215,18 @@ export function CliViewerPage() {
 
   // Auto-add new executions as tabs, distributing across available panes
   const addedExecutionsRef = useRef<Set<string>>(new Set());
+
+  // FIX-001: Initialize addedExecutionsRef with existing tab executionIds on mount
+  // This prevents duplicate tabs from being added after page refresh
+  useEffect(() => {
+    // Extract executionIds from all existing tabs in all panes
+    const existingExecutionIds = Object.values(panes).flatMap((pane) =>
+      pane.tabs.map((tab) => tab.executionId)
+    );
+    existingExecutionIds.forEach((id) => addedExecutionsRef.current.add(id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run once on mount
+
   useEffect(() => {
     const paneIds = Object.keys(panes);
     if (paneIds.length === 0) return;

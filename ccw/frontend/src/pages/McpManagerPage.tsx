@@ -279,10 +279,12 @@ export function McpManagerPage() {
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
+  const projectPath = useWorkflowStore(selectProjectPath);
+
   // Fetch CCW Tools MCP configuration (Claude mode only)
   const ccwMcpQuery = useQuery({
-    queryKey: ['ccwMcpConfig'],
-    queryFn: fetchCcwMcpConfig,
+    queryKey: ['ccwMcpConfig', projectPath],
+    queryFn: () => fetchCcwMcpConfig(projectPath ?? undefined),
     enabled: cliMode === 'claude',
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -382,18 +384,20 @@ export function McpManagerPage() {
     installedScopes: [] as ('global' | 'project')[],
   };
 
+  const ccwMcpQueryKey = ['ccwMcpConfig', projectPath];
+
   const handleToggleCcwTool = async (tool: string, enabled: boolean) => {
     // Read latest from cache to avoid stale closures
-    const currentConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfig']) ?? ccwConfig;
+    const currentConfig = queryClient.getQueryData<CcwMcpConfig>(ccwMcpQueryKey) ?? ccwConfig;
     const currentTools = currentConfig.enabledTools;
-    const previousConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfig']);
+    const previousConfig = queryClient.getQueryData<CcwMcpConfig>(ccwMcpQueryKey);
 
     const updatedTools = enabled
       ? (currentTools.includes(tool) ? currentTools : [...currentTools, tool])
       : currentTools.filter((t) => t !== tool);
 
     // Optimistic cache update for immediate UI response
-    queryClient.setQueryData(['ccwMcpConfig'], (old: CcwMcpConfig | undefined) => {
+    queryClient.setQueryData(ccwMcpQueryKey, (old: CcwMcpConfig | undefined) => {
       if (!old) return old;
       return { ...old, enabledTools: updatedTools };
     });
@@ -402,18 +406,18 @@ export function McpManagerPage() {
       await updateCcwConfig({ ...currentConfig, enabledTools: updatedTools });
     } catch (error) {
       console.error('Failed to toggle CCW tool:', error);
-      queryClient.setQueryData(['ccwMcpConfig'], previousConfig);
+      queryClient.setQueryData(ccwMcpQueryKey, previousConfig);
     }
     ccwMcpQuery.refetch();
   };
 
   const handleUpdateCcwConfig = async (config: Partial<CcwMcpConfig>) => {
     // Read BEFORE optimistic update to capture actual server state
-    const currentConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfig']) ?? ccwConfig;
-    const previousConfig = queryClient.getQueryData<CcwMcpConfig>(['ccwMcpConfig']);
+    const currentConfig = queryClient.getQueryData<CcwMcpConfig>(ccwMcpQueryKey) ?? ccwConfig;
+    const previousConfig = queryClient.getQueryData<CcwMcpConfig>(ccwMcpQueryKey);
 
     // Optimistic cache update for immediate UI response
-    queryClient.setQueryData(['ccwMcpConfig'], (old: CcwMcpConfig | undefined) => {
+    queryClient.setQueryData(ccwMcpQueryKey, (old: CcwMcpConfig | undefined) => {
       if (!old) return old;
       return { ...old, ...config };
     });
@@ -422,7 +426,7 @@ export function McpManagerPage() {
       await updateCcwConfig({ ...currentConfig, ...config });
     } catch (error) {
       console.error('Failed to update CCW config:', error);
-      queryClient.setQueryData(['ccwMcpConfig'], previousConfig);
+      queryClient.setQueryData(ccwMcpQueryKey, previousConfig);
     }
     ccwMcpQuery.refetch();
   };
@@ -430,8 +434,6 @@ export function McpManagerPage() {
   const handleCcwInstall = () => {
     ccwMcpQuery.refetch();
   };
-
-  const projectPath = useWorkflowStore(selectProjectPath);
 
   // Build conflict map for quick lookup
   const conflictMap = useMemo(() => {

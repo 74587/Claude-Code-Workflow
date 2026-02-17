@@ -491,6 +491,31 @@ export const useViewerStore = create<ViewerState>()(
             return existingTab.id;
           }
 
+          // FIX-004: Global executionId deduplication (VSCode parity)
+          // Check all panes for existing tab with same executionId
+          for (const [pid, p] of Object.entries(state.panes)) {
+            if (pid === paneId) continue; // Already checked above
+            const existingInOtherPane = p.tabs.find((t) => t.executionId === executionId);
+            if (existingInOtherPane) {
+              // Activate the existing tab in its pane and focus that pane
+              set(
+                {
+                  panes: {
+                    ...state.panes,
+                    [pid]: {
+                      ...p,
+                      activeTabId: existingInOtherPane.id,
+                    },
+                  },
+                  focusedPaneId: pid,
+                },
+                false,
+                'viewer/addTab-existing-global'
+              );
+              return existingInOtherPane.id;
+            }
+          }
+
           const newTabId = generateTabId(state.nextTabIdCounter);
           const maxOrder = pane.tabs.reduce((max, t) => Math.max(max, t.order), 0);
 
@@ -575,6 +600,21 @@ export const useViewerStore = create<ViewerState>()(
             false,
             'viewer/removeTab'
           );
+
+          // FIX-003: Auto-cleanup empty panes after tab removal (VSCode parity)
+          if (newTabs.length === 0) {
+            const allPaneIds = getAllPaneIds(get().layout);
+            // Don't remove if it's the last pane
+            if (allPaneIds.length > 1) {
+              // Use queueMicrotask to avoid state mutation during current transaction
+              queueMicrotask(() => {
+                const currentState = get();
+                if (currentState.panes[paneId]?.tabs.length === 0) {
+                  currentState.removePane(paneId);
+                }
+              });
+            }
+          }
         },
 
         setActiveTab: (paneId: PaneId, tabId: TabId) => {
@@ -720,6 +760,22 @@ export const useViewerStore = create<ViewerState>()(
             false,
             'viewer/moveTab'
           );
+
+          // FIX-003: Auto-cleanup empty panes after tab movement (VSCode parity)
+          // Only cleanup when moving to a different pane and source becomes empty
+          if (sourcePaneId !== targetPaneId && newSourceTabs.length === 0) {
+            const allPaneIds = getAllPaneIds(get().layout);
+            // Don't remove if it's the last pane
+            if (allPaneIds.length > 1) {
+              // Use queueMicrotask to avoid state mutation during current transaction
+              queueMicrotask(() => {
+                const currentState = get();
+                if (currentState.panes[sourcePaneId]?.tabs.length === 0) {
+                  currentState.removePane(sourcePaneId);
+                }
+              });
+            }
+          }
         },
 
         togglePinTab: (tabId: TabId) => {

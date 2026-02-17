@@ -3708,7 +3708,7 @@ function buildCcwMcpServerConfig(config: {
 /**
  * Fetch CCW Tools MCP configuration by checking if ccw-tools server exists
  */
-export async function fetchCcwMcpConfig(): Promise<CcwMcpConfig> {
+export async function fetchCcwMcpConfig(currentProjectPath?: string): Promise<CcwMcpConfig> {
   try {
     const config = await fetchMcpConfig();
 
@@ -3724,13 +3724,27 @@ export async function fetchCcwMcpConfig(): Promise<CcwMcpConfig> {
       ccwServer = config.userServers['ccw-tools'];
     }
 
-    // Check project servers
+    // Check project servers - only check current project if specified
     if (config.projects) {
-      for (const proj of Object.values(config.projects)) {
-        if (proj.mcpServers?.['ccw-tools']) {
-          installedScopes.push('project');
-          if (!ccwServer) ccwServer = proj.mcpServers['ccw-tools'];
-          break;
+      if (currentProjectPath) {
+        // Normalize path for comparison (forward slashes)
+        const normalizedCurrent = currentProjectPath.replace(/\\/g, '/');
+        for (const [key, proj] of Object.entries(config.projects)) {
+          const normalizedKey = key.replace(/\\/g, '/');
+          if (normalizedKey === normalizedCurrent && proj.mcpServers?.['ccw-tools']) {
+            installedScopes.push('project');
+            if (!ccwServer) ccwServer = proj.mcpServers['ccw-tools'];
+            break;
+          }
+        }
+      } else {
+        // Fallback: check all projects (legacy behavior)
+        for (const proj of Object.values(config.projects)) {
+          if (proj.mcpServers?.['ccw-tools']) {
+            installedScopes.push('project');
+            if (!ccwServer) ccwServer = proj.mcpServers['ccw-tools'];
+            break;
+          }
         }
       }
     }
