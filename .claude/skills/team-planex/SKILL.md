@@ -193,7 +193,8 @@ Final:   planner 发送 all_planned → executor 完成剩余 EXEC-* → 结束
 ### 选择逻辑
 
 ```javascript
-const autoYes = args.includes('--auto') || args.includes('-y')
+// ★ 统一 auto mode 检测：-y/--yes 从 $ARGUMENTS 或 ccw 传播
+const autoYes = /\b(-y|--yes)\b/.test(args)
 const explicitExec = args.match(/--exec[=\s]+(agent|codex|gemini|auto)/i)?.[1]
 
 let executionConfig
@@ -253,7 +254,7 @@ function resolveExecutor(taskCount) {
 Skill(skill="team-planex", args="--exec=codex ISS-xxx")
 Skill(skill="team-planex", args="--exec=agent --text '简单功能'")
 
-# Auto 模式（跳过交互）
+# Auto 模式（跳过交互，-y 或 --yes）
 Skill(skill="team-planex", args="-y --text '添加日志'")
 ```
 

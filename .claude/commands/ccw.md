@@ -61,6 +61,36 @@ User Input → Analyze Intent → Select Workflow → [Confirm] → Execute Chai
 
 **vs ccw-coordinator**: External CLI execution with background tasks and hook callbacks.
 
+## Auto Mode (`-y` / `--yes`)
+
+当用户传入 `-y` 或 `--yes` 时，整个 CCW 链路进入自动模式：
+
+```javascript
+// Phase 0: 检测 -y 标志（在 Phase 1 之前执行）
+const autoYes = /\b(-y|--yes)\b/.test($ARGUMENTS)
+```
+
+**自动模式行为**:
+- **Phase 1.5**: 跳过需求澄清（clarity_score < 2 也不询问，用已有信息推断）
+- **Phase 3**: 跳过用户确认，直接执行命令链
+- **Phase 5**: 错误处理自动选择 "Skip"（继续下一个命令）
+- **Skill 传播**: `-y` 自动附加到链中每个 Skill 的 args
+
+**传播机制**: 通过 `assembleCommand` 注入 `-y`：
+```javascript
+function assembleCommand(step, previousResult) {
+  let args = step.args || '';
+  if (!args && previousResult?.session_id) {
+    args = `--session="${previousResult.session_id}"`;
+  }
+  // ★ 传播 -y 到下游 Skill
+  if (autoYes && !args.includes('-y') && !args.includes('--yes')) {
+    args = args ? `${args} -y` : '-y';
+  }
+  return { skill: step.cmd, args };
+}
+```
+
 ## 5-Phase Workflow
 
 ### Phase 1: Analyze Intent
@@ -114,6 +144,7 @@ function detectTaskType(text) {
 ```javascript
 async function clarifyRequirements(analysis) {
   if (analysis.clarity_score >= 2) return analysis;
+  if (autoYes) return analysis;  // ★ 自动模式：跳过澄清，用已有信息推断
 
   const questions = generateClarificationQuestions(analysis);  // Goal, Scope, Constraints
   const answers = await AskUserQuestion({ questions });
@@ -282,6 +313,8 @@ function buildCommandChain(workflow, analysis) {
 
 ```javascript
 async function getUserConfirmation(chain) {
+  if (autoYes) return chain;  // ★ 自动模式：跳过确认，直接执行
+
   const response = await AskUserQuestion({
     questions: [{
       question: "Execute this command chain?",
@@ -411,6 +444,10 @@ function assembleCommand(step, previousResult) {
   if (!args && previousResult?.session_id) {
     args = `--session="${previousResult.session_id}"`;
   }
+  // ★ 传播 -y 到下游 Skill
+  if (autoYes && !args.includes('-y') && !args.includes('--yes')) {
+    args = args ? `${args} -y` : '-y';
+  }
   return { skill: step.cmd, args };
 }
 
@@ -430,6 +467,8 @@ function updateTodoStatus(index, total, workflow, status) {
 
 // Error handling: Retry/Skip/Abort
 async function handleError(step, error, index) {
+  if (autoYes) return 'skip';  // ★ 自动模式：跳过失败命令，继续下一个
+
   const response = await AskUserQuestion({
     questions: [{
       question: `${step.cmd} failed: ${error.message}`,
@@ -609,6 +648,10 @@ todos = [
 ```bash
 # Auto-select workflow
 /ccw "Add user authentication"
+
+# Auto mode - skip all confirmations, propagate -y to all skills
+/ccw -y "Add user authentication"
+/ccw --yes "Fix memory leak in WebSocket handler"
 
 # Complex requirement (triggers clarification)
 /ccw "Optimize system performance"

@@ -78,8 +78,11 @@ function detectQAMode(args, desc) {
 
 let qaMode = detectQAMode(args, taskDescription)
 
-// 简单任务可跳过确认
-if (!taskDescription || taskDescription.length < 10) {
+// ★ 统一 auto mode 检测：-y/--yes 从 $ARGUMENTS 或 ccw 传播
+const autoYes = /\b(-y|--yes)\b/.test(args)
+
+// 简单任务可跳过确认（auto 模式跳过）
+if (!autoYes && (!taskDescription || taskDescription.length < 10)) {
   const clarification = AskUserQuestion({
     questions: [{
       question: "请描述 QA 目标（哪些模块需要质量保障？关注哪些方面？）",
@@ -202,19 +205,21 @@ SendMessage({
   summary: `[coordinator] QA report: ${report.quality_score}`
 })
 
-// 询问下一步
-AskUserQuestion({
-  questions: [{
-    question: "QA 流程已完成。下一步：",
-    header: "Next",
-    multiSelect: false,
-    options: [
-      { label: "新目标", description: "对新模块/需求执行QA" },
-      { label: "深入分析", description: "对发现的问题进行更深入分析" },
-      { label: "关闭团队", description: "关闭所有 teammate 并清理" }
-    ]
-  }]
-})
+// 询问下一步（auto 模式跳过，默认关闭团队）
+if (!autoYes) {
+  AskUserQuestion({
+    questions: [{
+      question: "QA 流程已完成。下一步：",
+      header: "Next",
+      multiSelect: false,
+      options: [
+        { label: "新目标", description: "对新模块/需求执行QA" },
+        { label: "深入分析", description: "对发现的问题进行更深入分析" },
+        { label: "关闭团队", description: "关闭所有 teammate 并清理" }
+      ]
+    }]
+  })
+}
 ```
 
 ## Error Handling

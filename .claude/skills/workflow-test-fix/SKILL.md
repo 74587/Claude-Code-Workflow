@@ -68,22 +68,30 @@ Full pipeline and execute-only modes are triggered by skill name routing (see Mo
 Before dispatching to phase execution, collect workflow preferences via AskUserQuestion:
 
 ```javascript
-const prefResponse = AskUserQuestion({
-  questions: [
-    {
-      question: "是否跳过所有确认步骤（自动模式）？",
-      header: "Auto Mode",
-      multiSelect: false,
-      options: [
-        { label: "Interactive (Recommended)", description: "交互模式，包含确认步骤" },
-        { label: "Auto", description: "跳过所有确认，自动执行" }
-      ]
-    }
-  ]
-})
+// ★ 统一 auto mode 检测：-y/--yes 从 $ARGUMENTS 或 ccw 传播
+const autoYes = /\b(-y|--yes)\b/.test($ARGUMENTS)
 
-workflowPreferences = {
-  autoYes: prefResponse.autoMode === 'Auto'
+if (autoYes) {
+  // 自动模式：跳过所有询问，使用默认值
+  workflowPreferences = { autoYes: true }
+} else {
+  const prefResponse = AskUserQuestion({
+    questions: [
+      {
+        question: "是否跳过所有确认步骤（自动模式）？",
+        header: "Auto Mode",
+        multiSelect: false,
+        options: [
+          { label: "Interactive (Recommended)", description: "交互模式，包含确认步骤" },
+          { label: "Auto", description: "跳过所有确认，自动执行" }
+        ]
+      }
+    ]
+  })
+
+  workflowPreferences = {
+    autoYes: prefResponse.autoMode === 'Auto'
+  }
 }
 ```
 

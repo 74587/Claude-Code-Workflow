@@ -52,40 +52,48 @@ Unified planning skill combining 4-phase planning workflow, plan quality verific
 Before dispatching to phase execution, collect workflow preferences via AskUserQuestion:
 
 ```javascript
-const prefResponse = AskUserQuestion({
-  questions: [
-    {
-      question: "是否跳过所有确认步骤（自动模式）？",
-      header: "Auto Mode",
-      multiSelect: false,
-      options: [
-        { label: "Interactive (Recommended)", description: "交互模式，包含确认步骤" },
-        { label: "Auto", description: "跳过所有确认，自动执行" }
-      ]
-    }
-  ]
-})
+// ★ 统一 auto mode 检测：-y/--yes 从 $ARGUMENTS 或 ccw 传播
+const autoYes = /\b(-y|--yes)\b/.test($ARGUMENTS)
 
-workflowPreferences = {
-  autoYes: prefResponse.autoMode === 'Auto'
-}
-
-// For replan mode, also collect interactive preference
-if (mode === 'replan') {
-  const replanPref = AskUserQuestion({
+if (autoYes) {
+  // 自动模式：跳过所有询问，使用默认值
+  workflowPreferences = { autoYes: true, interactive: false }
+} else {
+  const prefResponse = AskUserQuestion({
     questions: [
       {
-        question: "是否使用交互式澄清模式？",
-        header: "Replan Mode",
+        question: "是否跳过所有确认步骤（自动模式）？",
+        header: "Auto Mode",
         multiSelect: false,
         options: [
-          { label: "Standard (Recommended)", description: "使用安全默认值" },
-          { label: "Interactive", description: "通过提问交互式澄清修改范围" }
+          { label: "Interactive (Recommended)", description: "交互模式，包含确认步骤" },
+          { label: "Auto", description: "跳过所有确认，自动执行" }
         ]
       }
     ]
   })
-  workflowPreferences.interactive = replanPref.replanMode === 'Interactive'
+
+  workflowPreferences = {
+    autoYes: prefResponse.autoMode === 'Auto'
+  }
+
+  // For replan mode, also collect interactive preference
+  if (mode === 'replan') {
+    const replanPref = AskUserQuestion({
+      questions: [
+        {
+          question: "是否使用交互式澄清模式？",
+          header: "Replan Mode",
+          multiSelect: false,
+          options: [
+            { label: "Standard (Recommended)", description: "使用安全默认值" },
+            { label: "Interactive", description: "通过提问交互式澄清修改范围" }
+          ]
+        }
+      ]
+    })
+    workflowPreferences.interactive = replanPref.replanMode === 'Interactive'
+  }
 }
 ```
 
