@@ -810,6 +810,7 @@ function DrawerPopup({ surface, onClose, drawerSide, drawerSize }: StyleProps) {
     [sendA2UIAction, surface.surfaceId, onClose]
   );
 
+  const questionType = detectQuestionType(surface);
   const bodyComponents = surface.components.filter(
     (c) => !['title', 'message', 'description'].includes(c.id) && !isActionButton(c)
   );
@@ -823,10 +824,26 @@ function DrawerPopup({ surface, onClose, drawerSide, drawerSize }: StyleProps) {
         </DrawerHeader>
         <div className="flex-1 overflow-y-auto">
           {bodyComponents.length > 0 && (
-            <A2UIRenderer
-              surface={{ ...surface, components: bodyComponents }}
-              onAction={handleAction}
-            />
+            <div className={cn(
+              'py-3',
+              questionType === 'multi-select' && 'space-y-3 px-1'
+            )}>
+              {questionType === 'multi-select' ? (
+                bodyComponents.map((comp) => (
+                  <div key={comp.id} className="py-1">
+                    <A2UIRenderer
+                      surface={{ ...surface, components: [comp] }}
+                      onAction={handleAction}
+                    />
+                  </div>
+                ))
+              ) : (
+                <A2UIRenderer
+                  surface={{ ...surface, components: bodyComponents }}
+                  onAction={handleAction}
+                />
+              )}
+            </div>
           )}
         </div>
         {actionButtons.length > 0 && (

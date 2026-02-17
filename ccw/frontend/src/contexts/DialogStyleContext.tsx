@@ -61,7 +61,7 @@ export const DEFAULT_A2UI_PREFERENCES: A2UIPreferences = {
 const STYLE_RECOMMENDATIONS: Record<string, DialogStyle> = {
   confirm: 'modal',
   select: 'modal',
-  'multi-select': 'drawer',
+  'multi-select': 'modal',
   input: 'modal',
   'multi-question': 'drawer',
   form: 'drawer',
