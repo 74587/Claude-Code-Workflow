@@ -186,12 +186,9 @@ async function buildFileTree(
     for (const entry of entries) {
       const isDirectory = entry.isDirectory();
 
-      // Check if should be ignored
-      if (shouldIgnore(entry.name, gitignorePatterns, isDirectory)) {
-        // Allow hidden files if includeHidden is true and it's .claude or .workflow
-        if (!includeHidden || (!entry.name.startsWith('.claude') && !entry.name.startsWith('.workflow'))) {
-          continue;
-        }
+      // Check if should be ignored (pass includeHidden as showAll to skip all filtering)
+      if (shouldIgnore(entry.name, gitignorePatterns, isDirectory, includeHidden)) {
+        continue;
       }
 
       const entryPath = join(normalizedPath, entry.name);
@@ -326,17 +323,21 @@ function parseGitignore(gitignorePath: string): string[] {
  * @param {string} name - File or directory name
  * @param {string[]} patterns - Gitignore patterns
  * @param {boolean} isDirectory - Whether the entry is a directory
+ * @param {boolean} showAll - When true, skip hardcoded excludes and hidden file filtering (only apply gitignore)
  * @returns {boolean}
  */
-function shouldIgnore(name: string, patterns: string[], isDirectory: boolean): boolean {
-  // Always exclude certain directories
-  if (isDirectory && EXPLORER_EXCLUDE_DIRS.includes(name)) {
-    return true;
-  }
+function shouldIgnore(name: string, patterns: string[], isDirectory: boolean, showAll: boolean = false): boolean {
+  // When showAll is true, only apply gitignore patterns (skip hardcoded excludes and hidden files)
+  if (!showAll) {
+    // Always exclude certain directories
+    if (isDirectory && EXPLORER_EXCLUDE_DIRS.includes(name)) {
+      return true;
+    }
 
-  // Skip hidden files/directories (starting with .)
-  if (name.startsWith('.') && name !== '.claude' && name !== '.workflow') {
-    return true;
+    // Skip hidden files/directories (starting with .)
+    if (name.startsWith('.')) {
+      return true;
+    }
   }
 
   for (const pattern of patterns) {
@@ -625,6 +626,8 @@ export async function handleFilesRoutes(ctx: RouteContext): Promise<boolean> {
     const rootPath = url.searchParams.get('rootPath') || initialPath;
     const maxDepth = parseInt(url.searchParams.get('maxDepth') || '6', 10);
     const includeHidden = url.searchParams.get('includeHidden') === 'true';
+
+    console.log(`[Explorer] Tree request - rootPath: ${rootPath}, includeHidden: ${includeHidden}`);
 
     const startTime = Date.now();
 

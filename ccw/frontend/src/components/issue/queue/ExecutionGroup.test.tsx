@@ -118,8 +118,8 @@ describe('ExecutionGroup', () => {
       }
 
       // After expand, items should be visible
-      const expandedContainer = document.querySelector('.space-y-1.mt-2');
       // Note: This test verifies the click handler works; state change verification
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     });
 
     it('should be clickable via header', () => {

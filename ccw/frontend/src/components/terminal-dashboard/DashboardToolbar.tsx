@@ -128,7 +128,7 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
   // Launch CLI handlers
   const projectPath = useWorkflowStore(selectProjectPath);
   const focusedPaneId = useTerminalGridStore(selectTerminalGridFocusedPaneId);
-  const panes = useTerminalGridStore((s) => s.panes);
+  // panes available via: useTerminalGridStore((s) => s.panes)
   const createSessionAndAssign = useTerminalGridStore((s) => s.createSessionAndAssign);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedTool, setSelectedTool] = useState<CliTool>('gemini');

@@ -21,6 +21,7 @@ import { remoteNotificationService } from '../core/services/remote-notification-
 import {
   addPendingQuestion,
   getPendingQuestion,
+  updatePendingQuestion,
   removePendingQuestion,
   getAllPendingQuestions,
   clearAllPendingQuestions,
@@ -451,19 +452,30 @@ export async function execute(params: AskQuestionParams): Promise<ToolResult<Ask
     // Generate surface ID
     const surfaceId = params.surfaceId || `question-${question.id}-${Date.now()}`;
 
+    // Check if this question was restored from disk (e.g., after MCP restart)
+    const existingPending = getPendingQuestion(question.id);
+
     // Create promise for answer
     const resultPromise = new Promise<AskQuestionResult>((resolve, reject) => {
-      // Store pending question
+      // Store pending question with real resolve/reject
       const pendingQuestion: PendingQuestion = {
         id: question.id,
         surfaceId,
         question,
-        timestamp: Date.now(),
+        timestamp: existingPending?.timestamp || Date.now(),
         timeout: params.timeout || DEFAULT_TIMEOUT_MS,
         resolve,
         reject,
       };
-      addPendingQuestion(pendingQuestion);
+
+      // If question exists (restored from disk), update it with real resolve/reject
+      // This fixes the "no promise attached" issue when MCP restarts
+      if (existingPending) {
+        updatePendingQuestion(question.id, pendingQuestion);
+        console.log(`[AskQuestion] Updated restored question "${question.id}" with real resolve/reject`);
+      } else {
+        addPendingQuestion(pendingQuestion);
+      }
 
       // Set timeout
       setTimeout(() => {

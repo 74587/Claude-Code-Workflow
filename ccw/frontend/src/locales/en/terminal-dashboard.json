@@ -84,7 +84,8 @@
     "modeDefault": "Default",
     "modeYolo": "Yolo",
     "quickCreate": "Quick Create",
-    "configure": "Configure..."
+    "configure": "Configure...",
+    "fullscreen": "Fullscreen"
   },
   "cliConfig": {
     "title": "Create CLI Session",
@@ -113,7 +114,15 @@
     "copied": "Copied",
     "insertPath": "Insert into terminal",
     "loading": "Loading...",
-    "loadFailed": "Failed to load file tree"
+    "loadFailed": "Failed to load file tree",
+    "showHidden": "Toggle filtered files"
+  },
+  "fileSidebar": {
+    "title": "Files",
+    "refresh": "Refresh",
+    "collapse": "Collapse",
+    "noProject": "No project open",
+    "openProjectHint": "Open a project to browse files"
   },
   "artifacts": {
     "types": {
@@ -134,7 +143,8 @@
     "linkedIssue": "Linked Issue",
     "restart": "Restart Session",
     "pause": "Pause Session",
-    "resume": "Resume Session"
+    "resume": "Resume Session",
+    "backToTerminal": "Back to terminal"
   },
   "tabBar": {
     "noTabs": "No terminal sessions"

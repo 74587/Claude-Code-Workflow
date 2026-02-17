@@ -11,7 +11,7 @@ import {
   addPaneToLayout,
   getAllPaneIds,
 } from './layout-utils';
-import type { AllotmentLayoutGroup, PaneId } from '@/stores/viewerStore';
+import type { AllotmentLayoutGroup } from '@/stores/viewerStore';
 
 describe('layout-utils', () => {
   // Helper to create test layouts

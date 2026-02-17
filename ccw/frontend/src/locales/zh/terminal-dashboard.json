@@ -84,7 +84,8 @@
     "modeDefault": "默认",
     "modeYolo": "Yolo",
     "quickCreate": "快速创建",
-    "configure": "配置..."
+    "configure": "配置...",
+    "fullscreen": "全屏"
   },
   "cliConfig": {
     "title": "创建 CLI 会话",
@@ -113,7 +114,15 @@
     "copied": "已复制",
     "insertPath": "插入到终端",
     "loading": "加载中...",
-    "loadFailed": "加载文件树失败"
+    "loadFailed": "加载文件树失败",
+    "showHidden": "显示/隐藏过滤文件"
+  },
+  "fileSidebar": {
+    "title": "文件",
+    "refresh": "刷新",
+    "collapse": "折叠",
+    "noProject": "未打开项目",
+    "openProjectHint": "打开项目以浏览文件"
   },
   "artifacts": {
     "types": {
@@ -134,7 +143,8 @@
     "linkedIssue": "关联问题",
     "restart": "重启会话",
     "pause": "暂停会话",
-    "resume": "恢复会话"
+    "resume": "恢复会话",
+    "backToTerminal": "返回终端"
   },
   "tabBar": {
     "noTabs": "暂无终端会话"

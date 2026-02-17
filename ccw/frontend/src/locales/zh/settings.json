@@ -41,7 +41,12 @@
     "saveToConfig": "保存到配置文件",
     "saving": "保存中...",
     "configSaved": "配置已保存到 ~/.claude/cli-tools.json",
-    "configSaveError": "保存配置失败"
+    "configSaveError": "保存配置失败",
+    "effort": "思考力度",
+    "effortHint": "控制 Claude 会话的思考力度。默认：high。",
+    "effortLow": "低",
+    "effortMedium": "中",
+    "effortHigh": "高"
   },
   "display": {
     "title": "显示设置",

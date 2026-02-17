@@ -192,6 +192,8 @@ export function run(argv: string[]): void {
     .option('--inject-mode <mode>', 'Inject mode: none, full, progressive (default: codex=full, others=none)')
     // Template/Rules options
     .option('--rule <template>', 'Template name for auto-discovery (defines $PROTO and $TMPL env vars)')
+    // Claude-specific options
+    .option('--effort <level>', 'Effort level for claude session (low, medium, high)')
     // Codex review options
     .option('--uncommitted', 'Review uncommitted changes (codex review)')
     .option('--base <branch>', 'Review changes against base branch (codex review)')

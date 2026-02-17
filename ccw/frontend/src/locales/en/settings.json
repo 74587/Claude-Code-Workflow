@@ -41,7 +41,12 @@
     "saveToConfig": "Save to Config",
     "saving": "Saving...",
     "configSaved": "Configuration saved to ~/.claude/cli-tools.json",
-    "configSaveError": "Failed to save configuration"
+    "configSaveError": "Failed to save configuration",
+    "effort": "Effort Level",
+    "effortHint": "Controls thinking effort for Claude sessions. Default: high.",
+    "effortLow": "Low",
+    "effortMedium": "Medium",
+    "effortHigh": "High"
   },
   "display": {
     "title": "Display Settings",

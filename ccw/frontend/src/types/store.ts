@@ -396,6 +396,8 @@ export interface CliToolConfig {
   /** Path to Claude CLI settings.json, passed via --settings (claude only) */
   settingsFile?: string;
   availableModels?: string[];
+  /** Default effort level for claude (low, medium, high) */
+  effort?: string;
 }
 
 export interface ApiEndpoints {

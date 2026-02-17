@@ -42,7 +42,6 @@ import {
 } from '@/stores/issueQueueIntegrationStore';
 import { useCliSessionStore } from '@/stores/cliSessionStore';
 import { getAllPaneIds } from '@/lib/layout-utils';
-import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { useFileContent } from '@/hooks/useFileExplorer';
 import type { PaneId } from '@/stores/viewerStore';
 import type { TerminalStatus } from '@/types/terminal-dashboard';
@@ -85,8 +84,6 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   const isFocused = focusedPaneId === paneId;
   const canClose = getAllPaneIds(layout).length > 1;
   const isFileMode = displayMode === 'file' && filePath;
-
-  const projectPath = useWorkflowStore(selectProjectPath);
 
   // Session data
   const groups = useSessionManagerStore(selectGroups);

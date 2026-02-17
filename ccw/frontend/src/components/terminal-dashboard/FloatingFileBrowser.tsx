@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { useIntl } from 'react-intl';
-import { Copy, ArrowRightToLine, Loader2, RefreshCw } from 'lucide-react';
+import { Copy, ArrowRightToLine, Loader2, RefreshCw, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FloatingPanel } from './FloatingPanel';
 import { Button } from '@/components/ui/Button';
@@ -42,6 +42,7 @@ export function FloatingFileBrowser({
     refetch,
     setSelectedFile,
     toggleExpanded,
+    toggleShowHidden,
   } = useFileExplorer({
     rootPath,
     maxDepth: 6,
@@ -107,6 +108,17 @@ export function FloatingFileBrowser({
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={toggleShowHidden}
+              title={formatMessage({ id: 'terminalDashboard.fileBrowser.showHidden' })}
+            >
+              {state.showHiddenFiles ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </Button>
+
             <Button
               type="button"
               variant="ghost"

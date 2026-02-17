@@ -140,6 +140,8 @@ interface CliExecOptions {
   title?: string; // Optional title for review summary
   // Template/Rules options
   rule?: string; // Template name for auto-discovery (defines $PROTO and $TMPL env vars)
+  // Claude-specific options
+  effort?: string; // Effort level for claude: low, medium, high
   // Output options
   raw?: boolean; // Raw output only (best for piping)
   final?: boolean; // Final agent result only (best for piping)
@@ -612,6 +614,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
     commit,
     title,
     rule,
+    effort,
     toFile,
     raw,
     final: finalOnly,
@@ -1044,7 +1047,8 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
       uncommitted,
       base,
       commit,
-      title
+      title,
+      effort
       // Rules are now concatenated directly into prompt (no env vars)
     }, onOutput); // Always pass onOutput for real-time dashboard streaming
 
@@ -1497,6 +1501,7 @@ export async function cliCommand(
         console.log(chalk.gray('    --mode <mode>       Mode: analysis, write, auto, review (default: analysis)'));
         console.log(chalk.gray('    -d, --debug         Enable debug logging for troubleshooting'));
         console.log(chalk.gray('    --model <model>     Model override (supports PRIMARY_MODEL, SECONDARY_MODEL aliases)'));
+        console.log(chalk.gray('    --effort <level>    Effort level for claude (low, medium, high)'));
         console.log(chalk.gray('    --cd <path>         Working directory'));
         console.log(chalk.gray('    --includeDirs <dirs>  Additional directories'));
         // --timeout removed - controlled by external caller (bash timeout)

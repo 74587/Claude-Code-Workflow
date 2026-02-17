@@ -127,6 +127,7 @@ interface CliToolCardProps {
   onUpdateAvailableModels: (models: string[]) => void;
   onUpdateEnvFile: (envFile: string | undefined) => void;
   onUpdateSettingsFile: (settingsFile: string | undefined) => void;
+  onUpdateEffort: (effort: string | undefined) => void;
   onSaveToBackend: () => void;
 }
 
@@ -145,6 +146,7 @@ function CliToolCard({
   onUpdateAvailableModels,
   onUpdateEnvFile,
   onUpdateSettingsFile,
+  onUpdateEffort,
   onSaveToBackend,
 }: CliToolCardProps) {
   const { formatMessage } = useIntl();
@@ -445,6 +447,39 @@ function CliToolCard({
               />
               <p className="text-xs text-muted-foreground">
                 {formatMessage({ id: 'apiSettings.cliSettings.settingsFileHint' })}
+              </p>
+            </div>
+          )}
+
+          {/* Effort Level - for claude only */}
+          {configFileType === 'settingsFile' && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">
+                {formatMessage({ id: 'settings.cliTools.effort' })}
+              </label>
+              <div className="flex gap-2">
+                {(['low', 'medium', 'high'] as const).map((level) => {
+                  const effectiveEffort = config.effort || 'high';
+                  const labelId = `settings.cliTools.effort${level.charAt(0).toUpperCase() + level.slice(1)}` as const;
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => onUpdateEffort(level === 'high' && !config.effort ? undefined : level)}
+                      className={cn(
+                        'px-3 py-1.5 rounded-md text-sm border transition-colors',
+                        effectiveEffort === level
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border hover:bg-muted'
+                      )}
+                    >
+                      {formatMessage({ id: labelId })}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {formatMessage({ id: 'settings.cliTools.effortHint' })}
               </p>
             </div>
           )}
@@ -948,6 +983,7 @@ interface CliToolsWithStatusProps {
   onUpdateAvailableModels: (toolId: string, models: string[]) => void;
   onUpdateEnvFile: (toolId: string, envFile: string | undefined) => void;
   onUpdateSettingsFile: (toolId: string, settingsFile: string | undefined) => void;
+  onUpdateEffort: (toolId: string, effort: string | undefined) => void;
   onSaveToBackend: (toolId: string) => void;
   formatMessage: ReturnType<typeof useIntl>['formatMessage'];
 }
@@ -965,6 +1001,7 @@ function CliToolsWithStatus({
   onUpdateAvailableModels,
   onUpdateEnvFile,
   onUpdateSettingsFile,
+  onUpdateEffort,
   onSaveToBackend,
   formatMessage,
 }: CliToolsWithStatusProps) {
@@ -995,6 +1032,7 @@ function CliToolsWithStatus({
               onUpdateAvailableModels={(models) => onUpdateAvailableModels(toolId, models)}
               onUpdateEnvFile={(envFile) => onUpdateEnvFile(toolId, envFile)}
               onUpdateSettingsFile={(settingsFile) => onUpdateSettingsFile(toolId, settingsFile)}
+              onUpdateEffort={(effort) => onUpdateEffort(toolId, effort)}
               onSaveToBackend={() => onSaveToBackend(toolId)}
             />
           );
@@ -1057,6 +1095,10 @@ export function SettingsPage() {
     updateCliTool(toolId, { settingsFile });
   };
 
+  const handleUpdateEffort = (toolId: string, effort: string | undefined) => {
+    updateCliTool(toolId, { effort });
+  };
+
   // Save tool config to backend (~/.claude/cli-tools.json)
   const handleSaveToBackend = useCallback(async (toolId: string) => {
     const config = cliTools[toolId];
@@ -1078,6 +1120,7 @@ export function SettingsPage() {
         body.envFile = config.envFile || null;
       } else if (configFileType === 'settingsFile') {
         body.settingsFile = config.settingsFile || null;
+        body.effort = config.effort || null;
       }
 
       const res = await fetch(`/api/cli/config/${toolId}`, {
@@ -1210,6 +1253,7 @@ export function SettingsPage() {
           onUpdateAvailableModels={handleUpdateAvailableModels}
           onUpdateEnvFile={handleUpdateEnvFile}
           onUpdateSettingsFile={handleUpdateSettingsFile}
+          onUpdateEffort={handleUpdateEffort}
           onSaveToBackend={handleSaveToBackend}
           formatMessage={formatMessage}
         />

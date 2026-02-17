@@ -6,7 +6,7 @@
 
 import * as React from 'react';
 import { useIntl } from 'react-intl';
-import { FolderOpen, RefreshCw, Loader2, ChevronLeft, FileText } from 'lucide-react';
+import { FolderOpen, RefreshCw, Loader2, ChevronLeft, FileText, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { TreeView } from '@/components/shared/TreeView';
@@ -50,6 +50,7 @@ export function FileSidebarPanel({
     refetch,
     setSelectedFile,
     toggleExpanded,
+    toggleShowHidden,
   } = useFileExplorer({
     rootPath,
     maxDepth: 6,
@@ -139,6 +140,15 @@ export function FileSidebarPanel({
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={toggleShowHidden}
+            title={formatMessage({ id: 'terminalDashboard.fileBrowser.showHidden' })}
+          >
+            {state.showHiddenFiles ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </Button>
           <Button
             variant="ghost"
             size="sm"
