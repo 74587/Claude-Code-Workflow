@@ -284,8 +284,8 @@ Result:
 
 The `project-guidelines.json` is consumed by:
 
-1. **`/workflow:tools:context-gather`**: Loads guidelines into context-package.json
-2. **`/workflow:plan`**: Passes guidelines to task generation agent
+1. **`workflow-plan` skill (context-gather phase)**: Loads guidelines into context-package.json
+2. **`workflow-plan` skill**: Passes guidelines to task generation agent
 3. **`task-generate-agent`**: Includes guidelines as "CRITICAL CONSTRAINTS" in system prompt
 
 This ensures all future planning respects solidified rules without users needing to re-state them.

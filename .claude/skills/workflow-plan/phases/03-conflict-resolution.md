@@ -406,7 +406,7 @@ Evaluate current context window usage and memory state:
 - If memory usage is high (>120K tokens or approaching context limits):
 
 ```javascript
-Skill(skill="compact")
+Skill(skill="memory-capture")
 ```
 
 - Memory compaction is particularly important after analysis phase which may generate extensive documentation

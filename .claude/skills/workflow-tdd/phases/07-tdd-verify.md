@@ -628,8 +628,8 @@ Next: Review full report for detailed findings
 
 | Situation | Recommended Command | Purpose |
 |-----------|---------------------|---------|
-| APPROVED | `/workflow:execute` | Start TDD implementation |
-| PROCEED_WITH_CAVEATS | `/workflow:execute` | Start with noted caveats |
+| APPROVED | `workflow-execute` skill | Start TDD implementation |
+| PROCEED_WITH_CAVEATS | `workflow-execute` skill | Start with noted caveats |
 | REQUIRE_FIXES | Review report, refine tasks | Address issues before proceed |
-| BLOCK_MERGE | `/workflow:replan` | Significant restructuring needed |
-| After implementation | Re-run `/workflow:tdd-verify` | Verify post-execution compliance |
+| BLOCK_MERGE | `workflow-plan` skill (replan phase) | Significant restructuring needed |
+| After implementation | Re-run `workflow-tdd` skill (tdd-verify phase) | Verify post-execution compliance |

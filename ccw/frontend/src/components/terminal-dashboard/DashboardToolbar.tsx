@@ -46,7 +46,6 @@ import {
 import { useIssues, useIssueQueue } from '@/hooks/useIssues';
 import { useTerminalGridStore, selectTerminalGridFocusedPaneId } from '@/stores/terminalGridStore';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
-import { sendCliSessionText } from '@/lib/api';
 import { CliConfigModal, type CliSessionConfig } from './CliConfigModal';
 
 // ========== Types ==========
@@ -83,14 +82,6 @@ type LaunchMode = 'default' | 'yolo';
 
 const CLI_TOOLS = ['claude', 'gemini', 'qwen', 'codex', 'opencode'] as const;
 type CliTool = (typeof CLI_TOOLS)[number];
-
-const LAUNCH_COMMANDS: Record<CliTool, Record<LaunchMode, string>> = {
-  claude:   { default: 'claude',   yolo: 'claude --permission-mode bypassPermissions' },
-  gemini:   { default: 'gemini',   yolo: 'gemini --approval-mode yolo' },
-  qwen:     { default: 'qwen',     yolo: 'qwen --approval-mode yolo' },
-  codex:    { default: 'codex',    yolo: 'codex --full-auto' },
-  opencode: { default: 'opencode', yolo: 'opencode' },
-};
 
 // ========== Component ==========
 
@@ -151,22 +142,12 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
       const targetPaneId = getOrCreateFocusedPane();
       if (!targetPaneId) return;
 
-      const created = await createSessionAndAssign(targetPaneId, {
+      await createSessionAndAssign(targetPaneId, {
         workingDir: projectPath,
         preferredShell: 'bash',
         tool: selectedTool,
+        launchMode,
       }, projectPath);
-
-      if (created?.session?.sessionKey) {
-        const command = LAUNCH_COMMANDS[selectedTool]?.[launchMode] ?? selectedTool;
-        setTimeout(() => {
-          sendCliSessionText(
-            created.session.sessionKey,
-            { text: command, appendNewline: true },
-            projectPath
-          ).catch((err) => console.error('[DashboardToolbar] auto-launch failed:', err));
-        }, 300);
-      }
     } finally {
       setIsCreating(false);
     }
@@ -190,22 +171,12 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
           preferredShell: config.preferredShell,
           tool: config.tool,
           model: config.model,
+          launchMode: config.launchMode,
         },
         projectPath
       );
 
       if (!created?.session?.sessionKey) throw new Error('createSessionAndAssign failed');
-
-      const tool = config.tool as CliTool;
-      const mode = config.launchMode as LaunchMode;
-      const command = LAUNCH_COMMANDS[tool]?.[mode] ?? tool;
-      setTimeout(() => {
-        sendCliSessionText(
-          created.session.sessionKey,
-          { text: command, appendNewline: true },
-          projectPath
-        ).catch((err) => console.error('[DashboardToolbar] auto-launch failed:', err));
-      }, 300);
     } finally {
       setIsCreating(false);
     }

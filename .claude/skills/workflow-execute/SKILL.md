@@ -613,11 +613,11 @@ meta.agent missing → Infer from meta.type:
 ## Related Skills
 
 **Prerequisite Skills**:
-- `/workflow:plan` - Generate implementation plan and task JSONs
+- `workflow-plan` skill - Generate implementation plan and task JSONs
 
 **Called During Execution**:
 - `/workflow:session:complete` - Archive session after all tasks complete
-- `/workflow:review` - Post-implementation review
+- `review-cycle` skill - Post-implementation review
 
 **Follow-up Skills**:
 - `/issue:new` - Create follow-up issues (test/enhance/refactor/doc)

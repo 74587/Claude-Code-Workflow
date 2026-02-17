@@ -159,6 +159,8 @@ export async function dispatch(
     category: options.category,
     resumeKey: options.resumeKey ?? step.resumeKey,
     resumeStrategy: options.resumeStrategy,
+    instructionType: step.instructionType,
+    skillName: step.skillName,
   };
 
   // Step 3: Execute in the resolved session

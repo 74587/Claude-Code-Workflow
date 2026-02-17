@@ -18,6 +18,7 @@
 
 import type { RouteContext } from './types.js';
 import { getCliSessionManager } from '../services/cli-session-manager.js';
+import type { InstructionType } from '../services/cli-instruction-assembler.js';
 import path from 'path';
 import { getCliSessionPolicy } from '../services/cli-session-policy.js';
 import { RateLimiter } from '../services/rate-limiter.js';
@@ -91,7 +92,8 @@ export async function handleCliSessionsRoutes(ctx: RouteContext): Promise<boolea
         preferredShell,
         tool,
         model,
-        resumeKey
+        resumeKey,
+        launchMode
       } = (body || {}) as any;
 
       if (tool && typeof tool === 'string') {
@@ -115,7 +117,8 @@ export async function handleCliSessionsRoutes(ctx: RouteContext): Promise<boolea
         preferredShell: preferredShell === 'pwsh' ? 'pwsh' : 'bash',
         tool: typeof tool === 'string' ? tool.trim() : undefined,
         model,
-        resumeKey
+        resumeKey,
+        launchMode: launchMode === 'yolo' ? 'yolo' : 'default',
       });
 
       appendCliSessionAudit({
@@ -353,7 +356,9 @@ export async function handleCliSessionsRoutes(ctx: RouteContext): Promise<boolea
         workingDir,
         category,
         resumeKey,
-        resumeStrategy
+        resumeStrategy,
+        instructionType,
+        skillName
       } = (body || {}) as any;
 
       if (!tool || typeof tool !== 'string') {
@@ -380,7 +385,9 @@ export async function handleCliSessionsRoutes(ctx: RouteContext): Promise<boolea
         workingDir,
         category,
         resumeKey,
-        resumeStrategy: resumeStrategy === 'promptConcat' ? 'promptConcat' : 'nativeResume'
+        resumeStrategy: resumeStrategy === 'promptConcat' ? 'promptConcat' : 'nativeResume',
+        instructionType: typeof instructionType === 'string' ? instructionType as InstructionType : undefined,
+        skillName: typeof skillName === 'string' ? skillName : undefined,
       });
 
       appendCliSessionAudit({

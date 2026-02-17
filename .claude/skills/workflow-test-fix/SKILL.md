@@ -161,7 +161,7 @@ Phase 5: Test Cycle Execution (test-cycle-execute)
 6. **Task Attachment Model**: Sub-tasks **attached** during phase, **collapsed** after completion
 7. **DO NOT STOP**: Continuous workflow until quality gate met or max iterations reached
 8. **Progressive Loading**: Read phase doc ONLY when that phase is about to execute
-9. **Entry Point Routing**: `/workflow:test-fix-gen` → Phase 1-5; `/workflow:test-cycle-execute` → Phase 5 only
+9. **Entry Point Routing**: `workflow-test-fix` skill → Phase 1-5; `workflow-test-fix` skill → Phase 5 only
 
 ## Input Processing
 
@@ -434,10 +434,10 @@ After completion, ask user if they want to expand into issues (test/enhance/refa
 ## Related Skills
 
 **Prerequisite Skills**:
-- `/workflow:plan` or `/workflow:execute` - Complete implementation (Session Mode source)
+- `workflow-plan` skill or `workflow-execute` skill - Complete implementation (Session Mode source)
 - None for Prompt Mode
 
 **Follow-up Skills**:
 - Display session status inline - Review workflow state
-- `/workflow:review-session-cycle` - Post-implementation review
+- `review-cycle` skill - Post-implementation review
 - `/issue:new` - Create follow-up issues

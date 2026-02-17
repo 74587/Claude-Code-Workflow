@@ -146,6 +146,20 @@ export interface OrchestrationStep {
   executionType: ExecutionType;
 
   /**
+   * Instruction type for native CLI session execution.
+   * - prompt: raw text conversation input
+   * - skill: CLI-specific skill invocation (prefix determined by CLI tool)
+   * - command: CLI native command
+   */
+  instructionType?: 'prompt' | 'skill' | 'command';
+
+  /**
+   * Skill name for instructionType='skill'.
+   * The actual prefix (/ or $) is assembled by the backend InstructionAssembler.
+   */
+  skillName?: string;
+
+  /**
    * For flow-based plans, the ID of the source FlowNode.
    */
   sourceNodeId?: string;

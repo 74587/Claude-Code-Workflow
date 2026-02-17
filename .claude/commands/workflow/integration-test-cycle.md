@@ -38,7 +38,7 @@ When `--yes` or `-y`: Auto-confirm exploration decisions, use recommended test s
 Unified integration test workflow: **Explore → Design → Develop → Test → Reflect → Adjust → Re-test** — a closed-loop that autonomously improves test quality through text-based reflection.
 
 **vs Existing Commands**:
-- **test-fix-gen**: Only generates test tasks, requires manual `/test-cycle-execute`
+- **test-fix-gen**: Only generates test tasks, requires manual `workflow-test-fix` skill
 - **test-cycle-execute**: Only executes pre-existing tasks, no exploration or test design
 - **This command**: Full lifecycle — from zero knowledge to passing integration tests, with self-reflection
 
@@ -919,11 +919,11 @@ Single evolving state file — each phase writes its section:
 - Need comprehensive exploration before test development
 - Want self-healing test cycles with documented reasoning
 
-**Use `/workflow:test-fix-gen` + `/workflow:test-cycle-execute` when:**
+**Use `workflow-test-fix` skill + `workflow-test-fix` skill when:**
 - Already have a completed implementation session (WFS-*)
 - Only need unit/component level tests
 
-**Use `/workflow:tdd-plan` when:**
+**Use `workflow-tdd` skill when:**
 - Building new features with test-first approach
 - Red-Green-Refactor cycle
 

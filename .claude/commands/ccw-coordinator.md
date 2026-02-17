@@ -1076,7 +1076,7 @@ failed ←───────────────────────�
 
 **execution_results[] fields**:
 - `index`: Command position in chain (0-indexed)
-- `command`: Full command string (e.g., `/workflow:plan`)
+- `command`: Full command string (e.g., `workflow-plan` skill)
 - `status`: `in-progress` | `completed` | `skipped` | `failed`
 - `task_id`: Background task identifier (from Bash tool)
 - `session_id`: Workflow session ID (e.g., `WFS-*`) or null if failed

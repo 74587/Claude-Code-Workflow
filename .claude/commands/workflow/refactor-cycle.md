@@ -827,11 +827,11 @@ AskUserQuestion({
 - Need regression-safe iterative refactoring with rollback
 - Want documented reasoning for each refactoring decision
 
-**Use `/workflow:lite-fix` when:**
+**Use `workflow-lite-plan` skill when:**
 - Single specific bug or issue to fix
 - No systematic debt analysis needed
 
-**Use `/workflow:plan` + `/workflow:execute` when:**
+**Use `workflow-plan` skill + `workflow-execute` skill when:**
 - New feature implementation (not refactoring)
 - Already know exactly what to change
 

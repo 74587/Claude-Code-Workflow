@@ -28,7 +28,7 @@ Session-based multi-dimensional code review orchestrator with **hybrid parallel-
 
 **Review Scope**:
 - **Session-based**: Reviews only files changed during the workflow session (via `git log --since="${sessionCreatedAt}"`)
-- **For independent module review**: Use `/workflow:review-module-cycle` command instead
+- **For independent module review**: Use `review-cycle` skill command instead
 
 **vs Standard Review**:
 - **Standard**: Sequential manual reviews → Inconsistent coverage → Missed cross-cutting concerns
@@ -771,5 +771,5 @@ After completing a review, use the generated findings JSON for automated fixing:
 /workflow:review-cycle-fix .workflow/active/WFS-{session-id}/.review/
 ```
 
-See `/workflow:review-cycle-fix` for automated fixing with smart grouping, parallel execution, and test verification.
+See `review-cycle` skill (fix phase) for automated fixing with smart grouping, parallel execution, and test verification.
 

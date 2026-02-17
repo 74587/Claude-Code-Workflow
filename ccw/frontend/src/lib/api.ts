@@ -6336,6 +6336,8 @@ export interface CliSession {
   createdAt: string;
   updatedAt: string;
   isPaused: boolean;
+  /** When set, this session is a native CLI interactive process. */
+  cliTool?: string;
 }
 
 export interface CreateCliSessionInput {
@@ -6346,6 +6348,8 @@ export interface CreateCliSessionInput {
   tool?: string;
   model?: string;
   resumeKey?: string;
+  /** Launch mode for native CLI sessions (default or yolo). */
+  launchMode?: 'default' | 'yolo';
 }
 
 function withPath(url: string, projectPath?: string): string {
@@ -6397,6 +6401,8 @@ export interface ExecuteInCliSessionInput {
   category?: 'user' | 'internal' | 'insight';
   resumeKey?: string;
   resumeStrategy?: 'nativeResume' | 'promptConcat';
+  instructionType?: 'prompt' | 'skill' | 'command';
+  skillName?: string;
 }
 
 export async function executeInCliSession(

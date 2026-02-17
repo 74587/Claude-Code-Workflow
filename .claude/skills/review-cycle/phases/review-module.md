@@ -760,5 +760,5 @@ After completing a module review, use the generated findings JSON for automated 
 /workflow:review-cycle-fix .workflow/active/WFS-{session-id}/.review/
 ```
 
-See `/workflow:review-cycle-fix` for automated fixing with smart grouping, parallel execution, and test verification.
+See `review-cycle` skill (fix phase) for automated fixing with smart grouping, parallel execution, and test verification.
 

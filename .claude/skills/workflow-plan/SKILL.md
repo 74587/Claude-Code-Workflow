@@ -411,18 +411,18 @@ CONSTRAINTS: [Limitations or boundaries]
 ## Related Skills
 
 **Prerequisite Skills**:
-- `/workflow:brainstorm:artifacts` - Optional: Generate role-based analyses before planning
-- `/workflow:brainstorm:synthesis` - Optional: Refine brainstorm analyses with clarifications
+- `brainstorm` skill - Optional: Generate role-based analyses before planning
+- `brainstorm` skill - Optional: Refine brainstorm analyses with clarifications
 
 **Called by Plan Mode** (4 phases):
 - `/workflow:session:start` - Phase 1: Create or discover workflow session
 - `phases/02-context-gathering.md` - Phase 2: Gather project context and analyze codebase (inline)
 - `phases/03-conflict-resolution.md` - Phase 3: Detect and resolve conflicts (inline, conditional)
-- `/compact` - Phase 3: Memory optimization (if context approaching limits)
+- `memory-capture` skill - Phase 3: Memory optimization (if context approaching limits)
 - `phases/04-task-generation.md` - Phase 4: Generate task JSON files (inline)
 
 **Follow-up Skills**:
-- `/workflow:plan-verify` - Verify plan quality (can also invoke via verify mode)
+- `workflow-plan` skill (plan-verify phase) - Verify plan quality (can also invoke via verify mode)
 - Display session status inline - Review task breakdown and current progress
 - `Skill(skill="workflow-execute")` - Begin implementation of generated tasks (skill: workflow-execute)
-- `/workflow:replan` - Modify plan (can also invoke via replan mode)
+- `workflow-plan` skill (replan phase) - Modify plan (can also invoke via replan mode)

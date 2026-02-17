@@ -104,11 +104,23 @@ export class OrchestrationPlanBuilder {
       if (nodeData.slashCommand) {
         executionType = 'slash-command';
       } else if (nodeData.tool && nodeData.mode) {
-        // More sophisticated logic might be needed here to differentiate backend-flow
-        // For now, if tool/mode are present, assume frontend-cli or backend-flow
-        // depending on whether it's a direct CLI call or a backend orchestrator call.
-        // Assuming CLI tools are frontend-cli for now unless specified otherwise.
         executionType = 'frontend-cli';
+      }
+
+      // Resolve instructionType and skillName
+      // Priority: explicit instructionType > slashCommand backward compat > default prompt
+      let instructionType = nodeData.instructionType;
+      let skillName = nodeData.skillName;
+      if (!instructionType) {
+        if (skillName) {
+          instructionType = 'skill';
+        } else if (nodeData.slashCommand) {
+          // Backward compat: map slashCommand to skill type
+          instructionType = 'skill';
+          skillName = nodeData.slashCommand;
+        } else {
+          instructionType = 'prompt';
+        }
       }
 
       steps.push({
@@ -128,6 +140,8 @@ export class OrchestrationPlanBuilder {
         errorHandling: undefined,
         executionType: executionType,
         sourceNodeId: node.id,
+        instructionType,
+        skillName,
       });
     }
 

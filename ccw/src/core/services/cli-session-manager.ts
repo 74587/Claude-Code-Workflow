@@ -13,6 +13,8 @@ import {
 } from './cli-session-command-builder.js';
 import { getCliSessionPolicy } from './cli-session-policy.js';
 import { appendCliSessionAudit } from './cli-session-audit.js';
+import { getLaunchConfig } from './cli-launch-registry.js';
+import { assembleInstruction, type InstructionType } from './cli-instruction-assembler.js';
 
 export interface CliSession {
   sessionKey: string;
@@ -24,6 +26,8 @@ export interface CliSession {
   createdAt: string;
   updatedAt: string;
   isPaused: boolean;
+  /** When set, this session is a native CLI interactive process (not a shell). */
+  cliTool?: string;
 }
 
 export interface CreateCliSessionOptions {
@@ -34,6 +38,8 @@ export interface CreateCliSessionOptions {
   tool?: string;
   model?: string;
   resumeKey?: string;
+  /** Launch mode for native CLI sessions. */
+  launchMode?: 'default' | 'yolo';
 }
 
 export interface ExecuteInCliSessionOptions {
@@ -45,6 +51,10 @@ export interface ExecuteInCliSessionOptions {
   category?: 'user' | 'internal' | 'insight';
   resumeKey?: string;
   resumeStrategy?: CliSessionResumeStrategy;
+  /** Instruction type for native CLI sessions. */
+  instructionType?: InstructionType;
+  /** Skill name for instructionType='skill'. */
+  skillName?: string;
 }
 
 export interface CliSessionOutputEvent {
@@ -202,11 +212,30 @@ export class CliSessionManager {
 
   createSession(options: CreateCliSessionOptions): CliSession {
     const workingDir = normalizeWorkingDir(options.workingDir);
-    const preferredShell = options.preferredShell ?? 'bash';
-    const { shellKind, file, args } = pickShell(preferredShell);
-
     const sessionKey = createSessionKey();
     const createdAt = nowIso();
+
+    let shellKind: CliSessionShellKind;
+    let file: string;
+    let args: string[];
+    let cliTool: string | undefined;
+
+    if (options.tool) {
+      // Native CLI interactive session: spawn the CLI process directly
+      const launchMode = options.launchMode ?? 'default';
+      const config = getLaunchConfig(options.tool, launchMode);
+      shellKind = 'git-bash'; // PTY shell kind label (not actually a shell)
+      file = config.command;
+      args = config.args;
+      cliTool = options.tool;
+    } else {
+      // Legacy shell session: spawn bash/pwsh
+      const preferredShell = options.preferredShell ?? 'bash';
+      const picked = pickShell(preferredShell);
+      shellKind = picked.shellKind;
+      file = picked.file;
+      args = picked.args;
+    }
 
     const pty = nodePty.spawn(file, args, {
       name: 'xterm-256color',
@@ -230,6 +259,7 @@ export class CliSessionManager {
       bufferBytes: 0,
       lastActivityAt: Date.now(),
       isPaused: false,
+      cliTool,
     };
 
     pty.onData((data) => {
@@ -272,7 +302,8 @@ export class CliSessionManager {
     this.sessions.set(sessionKey, session);
 
     // WSL often ignores Windows cwd; best-effort cd to mounted path.
-    if (shellKind === 'wsl-bash') {
+    // Only for legacy shell sessions, not native CLI sessions.
+    if (!cliTool && shellKind === 'wsl-bash') {
       const wslCwd = toWslPath(workingDir.replace(/\\/g, '/'));
       this.sendText(sessionKey, `cd ${wslCwd}`, true);
     }
@@ -388,26 +419,36 @@ export class CliSessionManager {
       ? `${resumeKey}-${Date.now()}`
       : `exec-${Date.now()}-${randomBytes(3).toString('hex')}`;
 
-    const { command } = buildCliSessionExecuteCommand({
-      projectRoot: this.projectRoot,
-      shellKind: session.shellKind,
-      tool: options.tool,
-      prompt: options.prompt,
-      mode: options.mode,
-      model: options.model,
-      workingDir: options.workingDir ?? session.workingDir,
-      category: options.category,
-      resumeStrategy: options.resumeStrategy,
-      prevExecutionId,
-      executionId
-    });
+    let command: string;
+
+    if (session.cliTool) {
+      // Native CLI session: assemble instruction and sendText directly
+      const instructionType = options.instructionType ?? 'prompt';
+      command = assembleInstruction(session.cliTool, instructionType, options.prompt, options.skillName);
+      this.sendText(sessionKey, command, true);
+    } else {
+      // Legacy shell session: build ccw cli pipe command
+      const result = buildCliSessionExecuteCommand({
+        projectRoot: this.projectRoot,
+        shellKind: session.shellKind,
+        tool: options.tool,
+        prompt: options.prompt,
+        mode: options.mode,
+        model: options.model,
+        workingDir: options.workingDir ?? session.workingDir,
+        category: options.category,
+        resumeStrategy: options.resumeStrategy,
+        prevExecutionId,
+        executionId
+      });
+      command = result.command;
+      this.sendText(sessionKey, command, true);
+    }
 
     // Best-effort: preemptively update mapping so subsequent queue items can chain.
     if (resumeMapKey) {
       this.resumeKeyLastExecution.set(resumeMapKey, executionId);
     }
-
-    this.sendText(sessionKey, command, true);
 
     broadcastToClients({
       type: 'CLI_SESSION_EXECUTE',

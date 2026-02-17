@@ -11,7 +11,7 @@ Perform READ-ONLY verification analysis between IMPL_PLAN.md, task JSONs, and br
 ## Entry Points
 
 - **From Plan Mode**: After Phase 4 completes, user selects "Verify Plan Quality"
-- **From Verify Mode**: Directly triggered via `/workflow:plan-verify`
+- **From Verify Mode**: Directly triggered via `workflow-plan` skill (plan-verify phase)
 
 ## User Input
 
