@@ -13,7 +13,6 @@ import {
   SessionDetailPage,
   HistoryPage,
   OrchestratorPage,
-  LoopMonitorPage,
   IssueHubPage,
   SkillsManagerPage,
   CommandsManagerPage,
@@ -91,7 +90,7 @@ const routes: RouteObject[] = [
       },
       {
         path: 'loops',
-        element: <LoopMonitorPage />,
+        element: <Navigate to="/terminal-dashboard" replace />,
       },
       {
         path: 'cli-viewer',
@@ -207,6 +206,7 @@ export const ROUTES = {
   PROJECT: '/project',
   HISTORY: '/history',
   ORCHESTRATOR: '/orchestrator',
+  /** @deprecated Redirects to /terminal-dashboard */
   LOOPS: '/loops',
   CLI_VIEWER: '/cli-viewer',
   ISSUES: '/issues',

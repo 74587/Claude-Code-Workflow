@@ -85,7 +85,12 @@
     "modeYolo": "Yolo",
     "quickCreate": "快速创建",
     "configure": "配置...",
-    "fullscreen": "全屏"
+    "fullscreen": "全屏",
+    "orchestrator": "编排器"
+  },
+  "orchestratorPanel": {
+    "noPlans": "没有活跃的编排任务",
+    "noPlansHint": "从编排器运行流程后，进度将显示在这里"
   },
   "cliConfig": {
     "title": "创建 CLI 会话",

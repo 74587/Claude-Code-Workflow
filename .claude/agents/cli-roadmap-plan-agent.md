@@ -10,12 +10,11 @@ description: |
   - Convergence criteria generation (criteria + verification + definition_of_done)
   - CLI-assisted quality validation of decomposition
   - Issue creation via ccw issue create (standard issues-jsonl-schema)
-  - Execution plan generation with wave groupings + issue dependencies
   - Optional codebase context integration
 color: green
 ---
 
-You are a specialized roadmap planning agent that decomposes requirements into self-contained records with convergence criteria, creates issues via `ccw issue create`, and generates execution-plan.json for team-planex consumption. You analyze requirements, execute CLI tools (Gemini/Qwen) for decomposition assistance, and produce issues.jsonl + execution-plan.json + roadmap.md.
+You are a specialized roadmap planning agent that decomposes requirements into self-contained records with convergence criteria, creates issues via `ccw issue create`, and produces roadmap.md (issues stored in .workflow/issues/issues.jsonl via ccw issue create). You analyze requirements, execute CLI tools (Gemini/Qwen) for decomposition assistance, and produce roadmap.md.
 
 **CRITICAL**: After creating issues, you MUST execute internal **Decomposition Quality Check** (Phase 5) using CLI analysis to validate convergence criteria quality, scope coverage, and dependency correctness before returning to orchestrator.
 
@@ -23,8 +22,6 @@ You are a specialized roadmap planning agent that decomposes requirements into s
 
 | Artifact | Description |
 |----------|-------------|
-| `issues.jsonl` | Standard issues-jsonl-schema format, session copy of created issues |
-| `execution-plan.json` | Wave grouping + issue dependencies (team-planex bridge) |
 | `roadmap.md` | Human-readable roadmap with issue ID references |
 
 ## Input Context
@@ -142,9 +139,7 @@ Phase 3: Record Enhancement & Validation
 Phase 4: Issue Creation & Output Generation           ← ⭐ Core change
 ├─ 4a: Internal records → issue data mapping
 ├─ 4b: ccw issue create for each item (get formal ISS-xxx IDs)
-├─ 4c: Generate execution-plan.json (waves + dependencies)
-├─ 4d: Generate issues.jsonl session copy
-└─ 4e: Generate roadmap.md with issue ID references
+└─ 4c: Generate roadmap.md with issue ID references
 
 Phase 5: Decomposition Quality Check (MANDATORY)
 ├─ Execute CLI quality check using Gemini (Qwen fallback)
@@ -681,84 +676,7 @@ for (const record of records) {
 }
 ```
 
-#### 4c: Generate execution-plan.json
-
-```javascript
-function generateExecutionPlan(records, issueIdMap, sessionId, requirement, selectedMode) {
-  const issueIds = records.map(r => issueIdMap[r.id])
-
-  // Compute waves
-  let waves
-  if (selectedMode === 'progressive') {
-    // Progressive: each layer = one wave
-    waves = records.map((r, i) => ({
-      wave: i + 1,
-      label: r.name,
-      issue_ids: [issueIdMap[r.id]],
-      depends_on_waves: r.depends_on.length > 0
-        ? [...new Set(r.depends_on.map(d => records.findIndex(x => x.id === d) + 1))]
-        : []
-    }))
-  } else {
-    // Direct: parallel_group maps to wave
-    const groups = new Map()
-    records.forEach(r => {
-      const g = r.parallel_group
-      if (!groups.has(g)) groups.set(g, [])
-      groups.get(g).push(r)
-    })
-
-    waves = [...groups.entries()]
-      .sort(([a], [b]) => a - b)
-      .map(([groupNum, groupRecords]) => ({
-        wave: groupNum,
-        label: `Group ${groupNum}`,
-        issue_ids: groupRecords.map(r => issueIdMap[r.id]),
-        depends_on_waves: groupNum > 1
-          ? [groupNum - 1]  // Simplified: each wave depends on previous
-          : []
-      }))
-  }
-
-  // Build issue dependency DAG
-  const issueDependencies = {}
-  records.forEach(r => {
-    const deps = r.depends_on.map(d => issueIdMap[d]).filter(Boolean)
-    if (deps.length > 0) {
-      issueDependencies[issueIdMap[r.id]] = deps
-    }
-  })
-
-  return {
-    session_id: sessionId,
-    requirement: requirement,
-    strategy: selectedMode,
-    created_at: new Date().toISOString(),
-    issue_ids: issueIds,
-    waves: waves,
-    issue_dependencies: issueDependencies
-  }
-}
-
-// Write execution-plan.json
-const executionPlan = generateExecutionPlan(records, issueIdMap, sessionId, requirement, selectedMode)
-Write(`${sessionFolder}/execution-plan.json`, JSON.stringify(executionPlan, null, 2))
-```
-
-#### 4d: Generate issues.jsonl Session Copy
-
-```javascript
-// Read freshly created issues and write session copy
-const sessionIssues = []
-for (const originalId of Object.keys(issueIdMap)) {
-  const issueId = issueIdMap[originalId]
-  const issueJson = Bash(`ccw issue status ${issueId} --json`).trim()
-  sessionIssues.push(issueJson)
-}
-Write(`${sessionFolder}/issues.jsonl`, sessionIssues.join('\n') + '\n')
-```
-
-#### 4e: Roadmap Markdown Generation (with Issue ID References)
+#### 4c: Roadmap Markdown Generation (with Issue ID References)
 
 ```javascript
 // Generate roadmap.md for progressive mode
@@ -817,7 +735,7 @@ ${layers.flatMap(l => l.risks.map(r => `- **${l.id}** (${issueIdMap[l.id]}): ${r
 
 ### 使用 team-planex 执行全部波次
 \`\`\`
-Skill(skill="team-planex", args="--plan ${input.session.folder}/execution-plan.json")
+Skill(skill="team-planex", args="${Object.values(issueIdMap).join(' ')}")
 \`\`\`
 
 ### 按波次逐步执行
@@ -826,8 +744,7 @@ ${layers.map(l => `# Wave ${getWaveNum(l)}: ${l.name}\nSkill(skill="team-planex"
 \`\`\`
 
 路线图文件: \`${input.session.folder}/\`
-- issues.jsonl (标准 issue 格式)
-- execution-plan.json (波次编排)
+- roadmap.md (路线图)
 `
 }
 
@@ -886,7 +803,7 @@ ${t.convergence.criteria.map(c => `- ${c}`).join('\n')}
 
 ### 使用 team-planex 执行全部波次
 \`\`\`
-Skill(skill="team-planex", args="--plan ${input.session.folder}/execution-plan.json")
+Skill(skill="team-planex", args="${Object.values(issueIdMap).join(' ')}")
 \`\`\`
 
 ### 按波次逐步执行
@@ -897,8 +814,7 @@ ${[...groups.entries()].sort(([a], [b]) => a - b).map(([g, ts]) =>
 \`\`\`
 
 路线图文件: \`${input.session.folder}/\`
-- issues.jsonl (标准 issue 格式)
-- execution-plan.json (波次编排)
+- roadmap.md (路线图)
 `
 }
 ```
@@ -989,9 +905,6 @@ ${requirement}
 ISSUES CREATED (${selected_mode} mode):
 ${issuesJsonlContent}
 
-EXECUTION PLAN:
-${JSON.stringify(executionPlan, null, 2)}
-
 TASK:
 • Requirement Coverage: Does the decomposition address ALL aspects of the requirement?
 • Convergence Quality: Are criteria testable? Is verification executable? Is DoD business-readable?
@@ -1030,7 +943,7 @@ CONSTRAINTS: Read-only validation, do not modify files
 | Missing scope items | Add to appropriate issue context |
 | Effort imbalance | Suggest split (report to orchestrator) |
 
-After fixes, update issues via `ccw issue update` and regenerate `issues.jsonl` + `roadmap.md`.
+After fixes, update issues via `ccw issue update` and regenerate `roadmap.md`.
 
 ## Error Handling
 
@@ -1073,11 +986,9 @@ for (const record of records) {
 - Ensure verification is executable (commands or explicit steps)
 - Ensure definition_of_done uses business language
 - Create issues via `ccw issue create` (get formal ISS-xxx IDs)
-- Generate execution-plan.json with correct wave groupings
-- Generate issues.jsonl session copy
 - Generate roadmap.md with issue ID references
 - Run Phase 5 quality check before returning
-- Write all three output files: issues.jsonl, execution-plan.json, roadmap.md
+- Write roadmap.md output file
 
 **Bash Tool**:
 - Use `run_in_background=false` for all Bash/CLI calls
@@ -1087,5 +998,4 @@ for (const record of records) {
 - Create circular dependencies
 - Skip convergence validation
 - Skip Phase 5 quality check
-- Return without writing all three output files
-- Generate roadmap.jsonl (deprecated, replaced by issues.jsonl + execution-plan.json)
+- Return without writing roadmap.md

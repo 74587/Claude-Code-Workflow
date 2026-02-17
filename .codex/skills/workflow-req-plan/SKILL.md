@@ -1,6 +1,6 @@
 ---
 name: workflow-req-plan
-description: Requirement-level progressive roadmap planning with issue creation. Decomposes requirements into convergent layers or task sequences, creates issues via ccw issue create, and generates execution-plan.json for team-planex consumption.
+description: Requirement-level progressive roadmap planning with issue creation. Decomposes requirements into convergent layers or task sequences, creates issues via ccw issue create, and generates roadmap.md for human review. Issues stored in .workflow/issues/issues.jsonl (single source of truth).
 argument-hint: "[-y|--yes] [-c|--continue] [-m|--mode progressive|direct|auto] \"requirement description\""
 allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
 ---
@@ -31,11 +31,11 @@ $workflow-req-plan -y "Implement caching layer"
 
 **Context Source**: cli-explore-agent (optional) + requirement analysis
 **Output Directory**: `.workflow/.req-plan/{session-id}/`
-**Core Innovation**: Requirement decomposition → issue creation → execution-plan.json for team-planex consumption. Each issue is standard issues-jsonl-schema format, bridging req-plan to team-planex execution pipeline.
+**Core Innovation**: Requirement decomposition → issue creation via `ccw issue create`. Issues stored in `.workflow/issues/issues.jsonl` (single source of truth); wave and dependency info embedded in issue tags and `extended_context.notes`. team-planex consumes issues directly by ID or tag query.
 
 ## Overview
 
-Requirement-level layered roadmap planning. Decomposes a requirement into **convergent layers or task sequences**, creates issues via `ccw issue create`, and generates execution-plan.json for team-planex consumption.
+Requirement-level layered roadmap planning. Decomposes a requirement into **convergent layers or task sequences**, creates issues via `ccw issue create`. Issues are the single source of truth in `.workflow/issues/issues.jsonl`; wave and dependency info is embedded in issue tags and `extended_context.notes`.
 
 **Dual Modes**:
 - **Progressive**: Layered MVP→iterations, suitable for high-uncertainty requirements (validate first, then refine)
@@ -81,8 +81,6 @@ Phase 3: Decomposition & Issue Creation (Inlined Agent)
    ├─ Step 3.3: Issue Creation & Output Generation
    │   ├─ Internal records → issue data mapping
    │   ├─ ccw issue create for each item (get ISS-xxx IDs)
-   │   ├─ Generate execution-plan.json (waves + dependencies)
-   │   ├─ Generate issues.jsonl session copy
    │   └─ Generate roadmap.md with issue ID references
    └─ Step 3.4: Decomposition Quality Check (MANDATORY)
        ├─ Execute CLI quality check (Gemini, Qwen fallback)
@@ -99,8 +97,6 @@ Phase 4: Validation & team-planex Handoff
 ```
 .workflow/.req-plan/RPLAN-{slug}-{YYYY-MM-DD}/
 ├── roadmap.md                    # Human-readable roadmap with issue ID references
-├── issues.jsonl                  # Standard issues-jsonl-schema format (session copy)
-├── execution-plan.json           # Wave grouping + issue dependencies (team-planex bridge)
 ├── strategy-assessment.json      # Strategy assessment result
 └── exploration-codebase.json     # Codebase context (optional)
 ```
@@ -110,8 +106,6 @@ Phase 4: Validation & team-planex Handoff
 | `strategy-assessment.json` | 1 | Uncertainty analysis + mode recommendation + extracted goal/constraints/stakeholders |
 | `roadmap.md` (skeleton) | 1 | Initial skeleton with placeholders, finalized in Phase 3 |
 | `exploration-codebase.json` | 2 | Codebase context: relevant modules, patterns, integration points (only when codebase exists) |
-| `issues.jsonl` | 3 | Standard issues-jsonl-schema records, one per line (session copy of created issues) |
-| `execution-plan.json` | 3 | Wave grouping with issue dependencies for team-planex consumption |
 | `roadmap.md` (final) | 3 | Human-readable roadmap with issue ID references, convergence details, team-planex execution guide |
 
 ## Subagent API Reference

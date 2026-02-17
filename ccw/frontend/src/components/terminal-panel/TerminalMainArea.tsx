@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/Button';
 import { useTerminalPanelStore } from '@/stores/terminalPanelStore';
 import { useCliSessionStore, type CliSessionMeta } from '@/stores/cliSessionStore';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
-import { QueueExecutionListView } from './QueueExecutionListView';
+import { QueuePanel } from '@/components/terminal-dashboard/QueuePanel';
 import {
   fetchCliSessionBuffer,
   sendCliSessionText,
@@ -273,7 +273,7 @@ export function TerminalMainArea({ onClose }: TerminalMainAreaProps) {
       {/* Content */}
       {panelView === 'queue' ? (
         /* Queue View */
-        <QueueExecutionListView />
+        <QueuePanel />
       ) : activeTerminalId ? (
         /* Terminal View */
         <div className="flex-1 min-h-0">

@@ -85,7 +85,12 @@
     "modeYolo": "Yolo",
     "quickCreate": "Quick Create",
     "configure": "Configure...",
-    "fullscreen": "Fullscreen"
+    "fullscreen": "Fullscreen",
+    "orchestrator": "Orchestrator"
+  },
+  "orchestratorPanel": {
+    "noPlans": "No active orchestrations",
+    "noPlansHint": "Run a flow from the Orchestrator to see progress here"
   },
   "cliConfig": {
     "title": "Create CLI Session",
