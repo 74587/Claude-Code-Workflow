@@ -1,6 +1,6 @@
 ---
 name: req-plan-with-file
-description: Requirement-level progressive roadmap planning with issue creation. Decomposes requirements into convergent layers or task sequences, creates issues via ccw issue create, and generates execution-plan.json for team-planex consumption.
+description: Requirement-level progressive roadmap planning with issue creation. Decomposes requirements into convergent layers or task sequences, creates issues via ccw issue create, and generates roadmap.md for human review. Issues stored in .workflow/issues/issues.jsonl (single source of truth).
 argument-hint: "[-y|--yes] [-c|--continue] [-m|--mode progressive|direct|auto] \"requirement description\""
 allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*), Bash(*), Edit(*), Write(*)
 ---
@@ -31,11 +31,11 @@ When `--yes` or `-y`: Auto-confirm strategy selection, use recommended mode, ski
 
 **Context Source**: cli-explore-agent (optional) + requirement analysis
 **Output Directory**: `.workflow/.req-plan/{session-id}/`
-**Core Innovation**: Requirement decomposition → issue creation → execution-plan.json for team-planex consumption. Each issue is standard issues-jsonl-schema format, bridging req-plan to team-planex execution pipeline.
+**Core Innovation**: Requirement decomposition → issue creation via `ccw issue create`. Issues stored in `.workflow/issues/issues.jsonl` (single source of truth). Wave/dependency info embedded in issue tags (`wave-N`) and `extended_context.notes.depends_on_issues`. team-planex consumes issues directly by ID or tag query.
 
 ## Overview
 
-Requirement-level layered roadmap planning command. Decomposes a requirement into **convergent layers or task sequences**, creates issues via `ccw issue create`, and generates execution-plan.json for team-planex consumption.
+Requirement-level layered roadmap planning command. Decomposes a requirement into **convergent layers or task sequences**, creates issues via `ccw issue create`. Issues are the single source of truth in `.workflow/issues/issues.jsonl`; wave and dependency info is embedded in issue tags and `extended_context.notes`.
 
 **Dual Modes**:
 - **Progressive**: Layered MVP→iterations, suitable for high-uncertainty requirements (validate first, then refine)
@@ -66,8 +66,6 @@ Requirement-level layered roadmap planning command. Decomposes a requirement int
 │     ├─ Progressive: define 2-4 layers, each with full convergence        │
 │     ├─ Direct: vertical slicing + topological sort, each with convergence│
 │     ├─ Create issues via ccw issue create (ISS-xxx IDs)                  │
-│     ├─ Generate execution-plan.json (waves + dependencies)               │
-│     ├─ Generate issues.jsonl (session copy)                              │
 │     └─ Generate roadmap.md (with issue ID references)                    │
 │                                                                          │
 │  Phase 4: Validation & team-planex Handoff                               │
@@ -83,8 +81,6 @@ Requirement-level layered roadmap planning command. Decomposes a requirement int
 ```
 .workflow/.req-plan/RPLAN-{slug}-{YYYY-MM-DD}/
 ├── roadmap.md                    # Human-readable roadmap with issue ID references
-├── issues.jsonl                  # Standard issues-jsonl-schema format (session copy)
-├── execution-plan.json           # Wave grouping + issue dependencies (team-planex bridge)
 ├── strategy-assessment.json      # Strategy assessment result
 └── exploration-codebase.json     # Codebase context (optional)
 ```
@@ -94,8 +90,6 @@ Requirement-level layered roadmap planning command. Decomposes a requirement int
 | `strategy-assessment.json` | 1 | Uncertainty analysis + mode recommendation + extracted goal/constraints/stakeholders |
 | `roadmap.md` (skeleton) | 1 | Initial skeleton with placeholders, finalized in Phase 3 |
 | `exploration-codebase.json` | 2 | Codebase context: relevant modules, patterns, integration points (only when codebase exists) |
-| `issues.jsonl` | 3 | Standard issues-jsonl-schema records, one per line (session copy of created issues) |
-| `execution-plan.json` | 3 | Wave grouping with issue dependencies for team-planex consumption |
 | `roadmap.md` (final) | 3 | Human-readable roadmap with issue ID references, convergence details, team-planex execution guide |
 
 **roadmap.md template**:
@@ -137,11 +131,11 @@ Requirement-level layered roadmap planning command. Decomposes a requirement int
 **Session ID format**: `RPLAN-{slug}-{YYYY-MM-DD}`
 - slug: lowercase, alphanumeric + CJK characters, max 40 chars
 - date: YYYY-MM-DD (UTC+8)
-- Auto-detect continue: session folder + roadmap.jsonl exists → continue mode
+- Auto-detect continue: session folder + roadmap.md exists → continue mode
 
 ## JSONL Schema Design
 
-### Issue Format (issues.jsonl)
+### Issue Format
 
 Each line in `issues.jsonl` follows the standard `issues-jsonl-schema.json` (see `.ccw/workflows/cli-templates/schemas/issues-jsonl-schema.json`).
 
@@ -157,39 +151,6 @@ Each line in `issues.jsonl` follows the standard `issues-jsonl-schema.json` (see
 | `tags` | Auto-generated | `["req-plan", mode, name/type, "wave-N"]` |
 | `extended_context.notes` | Metadata JSON | session, strategy, original_id, wave, depends_on_issues |
 | `lifecycle_requirements` | Fixed | test_strategy, regression_scope, acceptance_type, commit_strategy |
-
-### Execution Plan Format (execution-plan.json)
-
-```json
-{
-  "session_id": "RPLAN-{slug}-{date}",
-  "requirement": "Original requirement description",
-  "strategy": "progressive|direct",
-  "created_at": "ISO 8601",
-  "issue_ids": ["ISS-xxx", "ISS-yyy"],
-  "waves": [
-    {
-      "wave": 1,
-      "label": "MVP",
-      "issue_ids": ["ISS-xxx"],
-      "depends_on_waves": []
-    },
-    {
-      "wave": 2,
-      "label": "Usable",
-      "issue_ids": ["ISS-yyy"],
-      "depends_on_waves": [1]
-    }
-  ],
-  "issue_dependencies": {
-    "ISS-yyy": ["ISS-xxx"]
-  }
-}
-```
-
-**Wave mapping**:
-- Progressive mode: each layer → one wave (L0→Wave 1, L1→Wave 2, ...)
-- Direct mode: each parallel_group → one wave (group 1→Wave 1, group 2→Wave 2, ...)
 
 ### Convergence Criteria (in issue context)
 
@@ -228,7 +189,7 @@ const dateStr = getUtc8ISOString().substring(0, 10)
 const sessionId = `RPLAN-${slug}-${dateStr}`
 const sessionFolder = `.workflow/.req-plan/${sessionId}`
 
-// Auto-detect continue: session folder + roadmap.jsonl exists → continue mode
+// Auto-detect continue: session folder + roadmap.md exists → continue mode
 Bash(`mkdir -p ${sessionFolder}`)
 ```
 
@@ -419,7 +380,7 @@ Bash(`mkdir -p ${sessionFolder}`)
 
 ### Phase 3: Decomposition & Issue Creation
 
-**Objective**: Execute requirement decomposition via `cli-roadmap-plan-agent`, creating issues and generating execution-plan.json + issues.jsonl + roadmap.md.
+**Objective**: Execute requirement decomposition via `cli-roadmap-plan-agent`, creating issues and generating roadmap.md.
 
 **Prerequisites**: Phase 1, Phase 2 complete. Strategy selected. Context collected (if applicable).
 
@@ -443,7 +404,7 @@ Bash(`mkdir -p ${sessionFolder}`)
    - Phase 1: Context loading + requirement analysis
    - Phase 2: CLI-assisted decomposition (Gemini → Qwen → manual fallback)
    - Phase 3: Record enhancement + validation (schema compliance, dependency checks, convergence quality)
-   - Phase 4: Issue creation + output generation (ccw issue create → execution-plan.json → issues.jsonl → roadmap.md)
+   - Phase 4: Issue creation + roadmap generation (ccw issue create → roadmap.md)
    - Phase 5: CLI decomposition quality check (**MANDATORY** - requirement coverage, convergence criteria quality, dependency correctness)
 
    ```javascript
@@ -471,8 +432,6 @@ Bash(`mkdir -p ${sessionFolder}`)
    ### Issue Creation
    - Use \`ccw issue create\` for each decomposed item
    - Issue format: issues-jsonl-schema (id, title, status, priority, context, source, tags, extended_context)
-   - Write \`execution-plan.json\` with wave groupings + issue dependencies
-   - Write \`issues.jsonl\` session copy
    - Update \`roadmap.md\` with issue ID references
 
    ### CLI Configuration
@@ -481,10 +440,8 @@ Bash(`mkdir -p ${sessionFolder}`)
    - Timeout: 60000ms
 
    ### Expected Output
-   1. **${sessionFolder}/issues.jsonl** - Session copy of created issues (standard issues-jsonl-schema)
-   2. **${sessionFolder}/execution-plan.json** - Wave grouping + issue dependencies
-   3. **${sessionFolder}/roadmap.md** - Human-readable roadmap with issue references
-   4. Issues created in \`.workflow/issues/issues.jsonl\` via ccw issue create
+   1. **${sessionFolder}/roadmap.md** - Human-readable roadmap with issue references
+   2. Issues created in \`.workflow/issues/issues.jsonl\` via ccw issue create
 
    ### Mode-Specific Requirements
 
@@ -510,7 +467,7 @@ Bash(`mkdir -p ${sessionFolder}`)
    1. Analyze requirement and build decomposition context
    2. Execute CLI-assisted decomposition (Gemini, fallback Qwen)
    3. Parse output, validate records, enhance convergence quality
-   4. Create issues via ccw issue create, generate execution-plan.json + issues.jsonl + roadmap.md
+   4. Create issues via ccw issue create, generate roadmap.md
    5. Execute mandatory quality check (Phase 5)
    6. Return brief completion summary
    `
@@ -519,8 +476,6 @@ Bash(`mkdir -p ${sessionFolder}`)
 
 **Success Criteria**:
 - Issues created via `ccw issue create`, each with formal ISS-xxx ID
-- issues.jsonl generated, each line independently JSON.parse-able, conforms to issues-jsonl-schema
-- execution-plan.json generated with correct wave groupings and issue dependencies
 - roadmap.md generated with issue ID references
 - Agent's internal quality check passed
 - No circular dependencies
@@ -531,17 +486,15 @@ Bash(`mkdir -p ${sessionFolder}`)
 
 **Objective**: Display decomposition results, collect user feedback, provide team-planex execution options.
 
-**Prerequisites**: Phase 3 complete, issues created, execution-plan.json generated.
+**Prerequisites**: Phase 3 complete, issues created, roadmap.md generated.
 
 **Steps**:
 
 1. **Display Decomposition Results** (tabular format)
 
    ```javascript
-   // Read execution plan for display
-   const executionPlan = JSON.parse(Read(`${sessionFolder}/execution-plan.json`))
-   const issueIds = executionPlan.issue_ids
-   const waves = executionPlan.waves
+   // Use issueIdMap from Phase 3 for display
+   const issueIds = Object.values(issueIdMap)
    ```
 
    **Progressive Mode**:
@@ -619,8 +572,8 @@ Bash(`mkdir -p ${sessionFolder}`)
          header: "Next Step",
          multiSelect: false,
          options: [
-           { label: "Execute with team-planex", description: `启动 team-planex 执行全部 ${issueIds.length} 个 issues（${waves.length} 个波次）` },
-           { label: "Execute first wave", description: `仅执行 Wave 1: ${waves[0].label}` },
+           { label: "Execute with team-planex", description: `启动 team-planex 执行全部 ${issueIds.length} 个 issues` },
+           { label: "Execute first wave", description: "仅执行 Wave 1（按 wave-1 tag 筛选）" },
            { label: "View issues", description: "查看已创建的 issue 详情" },
            { label: "Done", description: "保存路线图，稍后执行" }
          ]
@@ -631,15 +584,15 @@ Bash(`mkdir -p ${sessionFolder}`)
 
    | Selection | Action |
    |-----------|--------|
-   | Execute with team-planex | `Skill(skill="team-planex", args="--plan ${sessionFolder}/execution-plan.json")` |
-   | Execute first wave | `Skill(skill="team-planex", args="${waves[0].issue_ids.join(' ')}")` |
-   | View issues | Display issues summary table from issues.jsonl |
+   | Execute with team-planex | `Skill(skill="team-planex", args="${issueIds.join(' ')}")` |
+   | Execute first wave | Filter issues by `wave-1` tag, pass to team-planex |
+   | View issues | Display issues summary from `.workflow/issues/issues.jsonl` |
    | Done | Display file paths, end |
 
 **Success Criteria**:
 - User feedback processed (or skipped via autoYes)
 - Post-completion options provided
-- team-planex handoff available via execution-plan.json
+- team-planex handoff available via issue IDs
 
 ## Error Handling
 
@@ -651,7 +604,6 @@ Bash(`mkdir -p ${sessionFolder}`)
 | User feedback timeout | Save current state, display `--continue` recovery command |
 | Max feedback rounds reached | Use current version to generate final artifacts |
 | Session folder conflict | Append timestamp suffix |
-| JSONL format error | Validate line by line, report problematic lines and fix |
 
 ## Best Practices
 
@@ -660,7 +612,7 @@ Bash(`mkdir -p ${sessionFolder}`)
 3. **Testable convergence**: criteria must be writable as assertions or manual steps; definition_of_done should be judgeable by non-technical stakeholders (see Convergence Criteria in JSONL Schema Design)
 4. **Agent-First for Exploration**: Delegate codebase exploration to cli-explore-agent, do not analyze directly in main flow
 5. **Incremental validation**: Use `--continue` to iterate on existing roadmaps
-6. **team-planex integration**: Issues created follow standard issues-jsonl-schema, directly consumable by team-planex via execution-plan.json
+6. **team-planex integration**: Issues created follow standard issues-jsonl-schema, directly consumable by team-planex via issue IDs and tags
 
 
 ---
