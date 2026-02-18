@@ -318,6 +318,21 @@ class Config:
                 "coarse_k": self.cascade_coarse_k,
                 "fine_k": self.cascade_fine_k,
             },
+            "staged": {
+                "coarse_k": self.staged_coarse_k,
+                "lsp_depth": self.staged_lsp_depth,
+                "stage2_mode": self.staged_stage2_mode,
+                "realtime_lsp_timeout_s": self.staged_realtime_lsp_timeout_s,
+                "realtime_lsp_depth": self.staged_realtime_lsp_depth,
+                "realtime_lsp_max_nodes": self.staged_realtime_lsp_max_nodes,
+                "realtime_lsp_max_seeds": self.staged_realtime_lsp_max_seeds,
+                "realtime_lsp_max_concurrent": self.staged_realtime_lsp_max_concurrent,
+                "realtime_lsp_warmup_s": self.staged_realtime_lsp_warmup_s,
+                "realtime_lsp_resolve_symbols": self.staged_realtime_lsp_resolve_symbols,
+                "clustering_strategy": self.staged_clustering_strategy,
+                "clustering_min_size": self.staged_clustering_min_size,
+                "enable_rerank": self.enable_staged_rerank,
+            },
             "api": {
                 "max_workers": self.api_max_workers,
                 "batch_size": self.api_batch_size,
@@ -425,6 +440,174 @@ class Config:
                     self.cascade_coarse_k = cascade["coarse_k"]
                 if "fine_k" in cascade:
                     self.cascade_fine_k = cascade["fine_k"]
+
+                # Load staged cascade settings
+                staged = settings.get("staged", {})
+                if isinstance(staged, dict):
+                    if "coarse_k" in staged:
+                        try:
+                            self.staged_coarse_k = int(staged["coarse_k"])
+                        except (TypeError, ValueError):
+                            log.warning(
+                                "Invalid staged.coarse_k in %s: %r (expected int)",
+                                self.settings_path,
+                                staged["coarse_k"],
+                            )
+                    if "lsp_depth" in staged:
+                        try:
+                            self.staged_lsp_depth = int(staged["lsp_depth"])
+                        except (TypeError, ValueError):
+                            log.warning(
+                                "Invalid staged.lsp_depth in %s: %r (expected int)",
+                                self.settings_path,
+                                staged["lsp_depth"],
+                            )
+                    if "stage2_mode" in staged:
+                        raw_mode = str(staged["stage2_mode"]).strip().lower()
+                        if raw_mode in {"precomputed", "realtime", "static_global_graph"}:
+                            self.staged_stage2_mode = raw_mode
+                        elif raw_mode in {"live"}:
+                            self.staged_stage2_mode = "realtime"
+                        else:
+                            log.warning(
+                                "Invalid staged.stage2_mode in %s: %r "
+                                "(expected 'precomputed', 'realtime', or 'static_global_graph')",
+                                self.settings_path,
+                                staged["stage2_mode"],
+                            )
+
+                    if "realtime_lsp_timeout_s" in staged:
+                        try:
+                            self.staged_realtime_lsp_timeout_s = float(
+                                staged["realtime_lsp_timeout_s"]
+                            )
+                        except (TypeError, ValueError):
+                            log.warning(
+                                "Invalid staged.realtime_lsp_timeout_s in %s: %r (expected float)",
+                                self.settings_path,
+                                staged["realtime_lsp_timeout_s"],
+                            )
+                    if "realtime_lsp_depth" in staged:
+                        try:
+                            self.staged_realtime_lsp_depth = int(
+                                staged["realtime_lsp_depth"]
+                            )
+                        except (TypeError, ValueError):
+                            log.warning(
+                                "Invalid staged.realtime_lsp_depth in %s: %r (expected int)",
+                                self.settings_path,
+                                staged["realtime_lsp_depth"],
+                            )
+                    if "realtime_lsp_max_nodes" in staged:
+                        try:
+                            self.staged_realtime_lsp_max_nodes = int(
+                                staged["realtime_lsp_max_nodes"]
+                            )
+                        except (TypeError, ValueError):
+                            log.warning(
+                                "Invalid staged.realtime_lsp_max_nodes in %s: %r (expected int)",
+                                self.settings_path,
+                                staged["realtime_lsp_max_nodes"],
+                            )
+                    if "realtime_lsp_max_seeds" in staged:
+                        try:
+                            self.staged_realtime_lsp_max_seeds = int(
+                                staged["realtime_lsp_max_seeds"]
+                            )
+                        except (TypeError, ValueError):
+                            log.warning(
+                                "Invalid staged.realtime_lsp_max_seeds in %s: %r (expected int)",
+                                self.settings_path,
+                                staged["realtime_lsp_max_seeds"],
+                            )
+                    if "realtime_lsp_max_concurrent" in staged:
+                        try:
+                            self.staged_realtime_lsp_max_concurrent = int(
+                                staged["realtime_lsp_max_concurrent"]
+                            )
+                        except (TypeError, ValueError):
+                            log.warning(
+                                "Invalid staged.realtime_lsp_max_concurrent in %s: %r (expected int)",
+                                self.settings_path,
+                                staged["realtime_lsp_max_concurrent"],
+                            )
+                    if "realtime_lsp_warmup_s" in staged:
+                        try:
+                            self.staged_realtime_lsp_warmup_s = float(
+                                staged["realtime_lsp_warmup_s"]
+                            )
+                        except (TypeError, ValueError):
+                            log.warning(
+                                "Invalid staged.realtime_lsp_warmup_s in %s: %r (expected float)",
+                                self.settings_path,
+                                staged["realtime_lsp_warmup_s"],
+                            )
+                    if "realtime_lsp_resolve_symbols" in staged:
+                        raw = staged["realtime_lsp_resolve_symbols"]
+                        if isinstance(raw, bool):
+                            self.staged_realtime_lsp_resolve_symbols = raw
+                        elif isinstance(raw, (int, float)):
+                            self.staged_realtime_lsp_resolve_symbols = bool(raw)
+                        elif isinstance(raw, str):
+                            self.staged_realtime_lsp_resolve_symbols = (
+                                raw.strip().lower() in {"true", "1", "yes", "on"}
+                            )
+                        else:
+                            log.warning(
+                                "Invalid staged.realtime_lsp_resolve_symbols in %s: %r (expected bool)",
+                                self.settings_path,
+                                raw,
+                            )
+
+                    if "clustering_strategy" in staged:
+                        raw_strategy = str(staged["clustering_strategy"]).strip().lower()
+                        allowed = {
+                            "auto",
+                            "hdbscan",
+                            "dbscan",
+                            "frequency",
+                            "noop",
+                            "score",
+                            "dir_rr",
+                            "path",
+                        }
+                        if raw_strategy in allowed:
+                            self.staged_clustering_strategy = raw_strategy
+                        elif raw_strategy in {"none", "off"}:
+                            self.staged_clustering_strategy = "noop"
+                        else:
+                            log.warning(
+                                "Invalid staged.clustering_strategy in %s: %r",
+                                self.settings_path,
+                                staged["clustering_strategy"],
+                            )
+                    if "clustering_min_size" in staged:
+                        try:
+                            self.staged_clustering_min_size = int(
+                                staged["clustering_min_size"]
+                            )
+                        except (TypeError, ValueError):
+                            log.warning(
+                                "Invalid staged.clustering_min_size in %s: %r (expected int)",
+                                self.settings_path,
+                                staged["clustering_min_size"],
+                            )
+                    if "enable_rerank" in staged:
+                        raw = staged["enable_rerank"]
+                        if isinstance(raw, bool):
+                            self.enable_staged_rerank = raw
+                        elif isinstance(raw, (int, float)):
+                            self.enable_staged_rerank = bool(raw)
+                        elif isinstance(raw, str):
+                            self.enable_staged_rerank = (
+                                raw.strip().lower() in {"true", "1", "yes", "on"}
+                            )
+                        else:
+                            log.warning(
+                                "Invalid staged.enable_rerank in %s: %r (expected bool)",
+                                self.settings_path,
+                                raw,
+                            )
 
                 # Load parsing settings
                 parsing = settings.get("parsing", {})

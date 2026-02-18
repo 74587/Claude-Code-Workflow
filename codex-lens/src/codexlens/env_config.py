@@ -50,7 +50,7 @@ ENV_VARS = {
     "CASCADE_STRATEGY": "Cascade strategy: binary, binary_rerank (alias: hybrid), dense_rerank, staged",
     "CASCADE_COARSE_K": "Cascade coarse_k candidate count (int)",
     "CASCADE_FINE_K": "Cascade fine_k result count (int)",
-    "STAGED_STAGE2_MODE": "Staged Stage 2 mode: precomputed, realtime",
+    "STAGED_STAGE2_MODE": "Staged Stage 2 mode: precomputed, realtime, static_global_graph",
     "STAGED_CLUSTERING_STRATEGY": "Staged clustering strategy: auto, score, path, dir_rr, noop, ...",
     "STAGED_CLUSTERING_MIN_SIZE": "Staged clustering min cluster size (int)",
     "ENABLE_STAGED_RERANK": "Enable staged reranking in Stage 4 (true/false)",

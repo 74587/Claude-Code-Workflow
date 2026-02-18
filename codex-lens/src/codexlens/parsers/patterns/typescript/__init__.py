@@ -18,9 +18,12 @@ from codexlens.parsers.patterns.javascript import (
 TYPESCRIPT_PATTERNS: Dict[str, str] = {
     **JAVASCRIPT_PATTERNS,
     # Type-only imports
-    "import_type_from": "import type $$$IMPORTS from $MODULE",
-    "import_type_named_only": "import type {$$$NAMES} from $MODULE",
-    "import_type_default_named": "import type $DEFAULT, {$$$NAMES} from $MODULE",
+    "import_type_from_dq": "import type $$$IMPORTS from \"$MODULE\"",
+    "import_type_from_sq": "import type $$$IMPORTS from '$MODULE'",
+    "import_type_named_only_dq": "import type {$$$NAMES} from \"$MODULE\"",
+    "import_type_named_only_sq": "import type {$$$NAMES} from '$MODULE'",
+    "import_type_default_named_dq": "import type $DEFAULT, {$$$NAMES} from \"$MODULE\"",
+    "import_type_default_named_sq": "import type $DEFAULT, {$$$NAMES} from '$MODULE'",
     # Interface inheritance: interface Foo extends Bar {}
     "interface_extends": "interface $NAME extends $BASE $$$BODY",
 }
@@ -30,9 +33,12 @@ RELATIONSHIP_PATTERNS: Dict[str, List[str]] = {
     **_JS_RELATIONSHIP_PATTERNS,
     "imports": [
         *_JS_RELATIONSHIP_PATTERNS.get("imports", []),
-        "import_type_from",
-        "import_type_named_only",
-        "import_type_default_named",
+        "import_type_from_dq",
+        "import_type_from_sq",
+        "import_type_named_only_dq",
+        "import_type_named_only_sq",
+        "import_type_default_named_dq",
+        "import_type_default_named_sq",
     ],
     "inheritance": [
         *_JS_RELATIONSHIP_PATTERNS.get("inheritance", []),
@@ -65,4 +71,3 @@ __all__ = [
     "get_patterns_for_relationship",
     "get_metavar",
 ]
-

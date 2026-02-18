@@ -83,16 +83,27 @@ def test_js_imports_and_inherits_match(tmp_path: Path) -> None:
     assert result_ts is not None
     assert result_ast is not None
 
-    ts_rel = extract_relationship_tuples(
+    ts_imports = extract_relationship_tuples(
         result_ts.relationships,
-        only_types={RelationshipType.IMPORTS, RelationshipType.INHERITS},
+        only_types={RelationshipType.IMPORTS},
     )
-    ast_rel = extract_relationship_tuples(
+    ast_imports = extract_relationship_tuples(
         result_ast.relationships,
-        only_types={RelationshipType.IMPORTS, RelationshipType.INHERITS},
+        only_types={RelationshipType.IMPORTS},
     )
+    assert ast_imports == ts_imports
 
-    assert ast_rel == ts_rel
+    ts_inherits = extract_relationship_tuples(
+        result_ts.relationships,
+        only_types={RelationshipType.INHERITS},
+    )
+    ast_inherits = extract_relationship_tuples(
+        result_ast.relationships,
+        only_types={RelationshipType.INHERITS},
+    )
+    # Ast-grep may include inheritance edges that the tree-sitter extractor does not currently emit.
+    assert ts_inherits.issubset(ast_inherits)
+    assert ("Child", "Base", "inherits") in ast_inherits
 
 
 def test_ts_imports_match_and_inherits_superset(tmp_path: Path) -> None:
@@ -137,4 +148,3 @@ def test_ts_imports_match_and_inherits_superset(tmp_path: Path) -> None:
     assert ts_inherits.issubset(ast_inherits)
     # But at minimum, class inheritance should be present.
     assert ("Child", "Base", "inherits") in ast_inherits
-

@@ -85,6 +85,30 @@ class BaseAstGrepProcessor(ABC):
 
         return self._binding.find_all(pattern)
 
+    def _get_match(self, node: SgNode, metavar: str) -> str:  # type: ignore[valid-type]
+        """Extract matched metavariable value from node (best-effort)."""
+        if self._binding is None or node is None:
+            return ""
+        return self._binding._get_match(node, metavar)
+
+    def _get_line_number(self, node: SgNode) -> int:  # type: ignore[valid-type]
+        """Get 1-based starting line number of a node (best-effort)."""
+        if self._binding is None or node is None:
+            return 0
+        return self._binding._get_line_number(node)
+
+    def _get_line_range(self, node: SgNode) -> Tuple[int, int]:  # type: ignore[valid-type]
+        """Get (start_line, end_line) range of a node (best-effort)."""
+        if self._binding is None or node is None:
+            return (0, 0)
+        return self._binding._get_line_range(node)
+
+    def _get_node_text(self, node: SgNode) -> str:  # type: ignore[valid-type]
+        """Get the full text of a node (best-effort)."""
+        if self._binding is None or node is None:
+            return ""
+        return self._binding._get_node_text(node)
+
     @abstractmethod
     def process_matches(
         self,

@@ -12,13 +12,17 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Callable, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Callable, List, Optional, Sequence, Set, Tuple
 
 from codexlens.entities import CodeRelationship, IndexedFile, RelationshipType
 from codexlens.parsers.astgrep_processor import BaseAstGrepProcessor
 
 
 _IDENT_RE = re.compile(r"^[A-Za-z_$][A-Za-z0-9_$]*$")
+_BRACE_IMPORT_RE = re.compile(
+    r"\bimport\s+(?:type\s+)?(?:[A-Za-z_$][A-Za-z0-9_$]*\s*,\s*)?\{\s*(?P<names>[^}]*)\}\s*from\b",
+    re.MULTILINE,
+)
 
 
 def _strip_quotes(value: str) -> str:
@@ -32,11 +36,7 @@ def _module_from_literal(raw: str) -> str:
     raw = (raw or "").strip()
     if not raw:
         return ""
-    unquoted = _strip_quotes(raw)
-    # Only accept string literal forms (tree-sitter extractor does the same).
-    if unquoted == raw:
-        return ""
-    return unquoted.strip()
+    return _strip_quotes(raw).strip()
 
 
 def _extract_named_imports(raw: str) -> List[str]:
@@ -61,6 +61,16 @@ def _extract_named_imports(raw: str) -> List[str]:
         if _IDENT_RE.match(part):
             names.append(part)
     return names
+
+
+def _extract_brace_import_names(statement: str) -> str:
+    statement = (statement or "").strip()
+    if not statement:
+        return ""
+    match = _BRACE_IMPORT_RE.search(statement)
+    if not match:
+        return ""
+    return (match.group("names") or "").strip()
 
 
 def _dedupe_relationships(rels: Sequence[CodeRelationship]) -> List[CodeRelationship]:
@@ -139,40 +149,45 @@ class _AstGrepJsTsProcessor(BaseAstGrepProcessor):
             )
 
         # Any `import ... from "mod"` form
-        for node in self.run_ast_grep(source_code, self._get_pattern("import_from")):
-            mod = _module_from_literal(self._get_match(node, "MODULE"))
-            if mod:
-                record(mod, self._get_line_number(node))
+        for pat_name in ("import_from_dq", "import_from_sq"):
+            for node in self.run_ast_grep(source_code, self._get_pattern(pat_name)):
+                mod = _module_from_literal(self._get_match(node, "MODULE"))
+                if mod:
+                    record(mod, self._get_line_number(node))
 
         # Side-effect import: import "mod"
-        for node in self.run_ast_grep(source_code, self._get_pattern("import_side_effect")):
-            mod = _module_from_literal(self._get_match(node, "MODULE"))
-            if mod:
-                record(mod, self._get_line_number(node))
+        for pat_name in ("import_side_effect_dq", "import_side_effect_sq"):
+            for node in self.run_ast_grep(source_code, self._get_pattern(pat_name)):
+                mod = _module_from_literal(self._get_match(node, "MODULE"))
+                if mod:
+                    record(mod, self._get_line_number(node))
 
         # Named imports (named-only): import { a, b as c } from "mod"
-        for node in self.run_ast_grep(source_code, self._get_pattern("import_named_only")):
-            mod = _module_from_literal(self._get_match(node, "MODULE"))
-            if not mod:
-                continue
-            raw_names = self._get_match(node, "NAMES")
-            for name in _extract_named_imports(raw_names):
-                record(f"{mod}.{name}", self._get_line_number(node))
+        for pat_name in ("import_named_only_dq", "import_named_only_sq"):
+            for node in self.run_ast_grep(source_code, self._get_pattern(pat_name)):
+                mod = _module_from_literal(self._get_match(node, "MODULE"))
+                if not mod:
+                    continue
+                raw_names = _extract_brace_import_names(self._get_node_text(node))
+                for name in _extract_named_imports(raw_names):
+                    record(f"{mod}.{name}", self._get_line_number(node))
 
         # Named imports (default + named): import X, { a, b as c } from "mod"
-        for node in self.run_ast_grep(source_code, self._get_pattern("import_default_named")):
-            mod = _module_from_literal(self._get_match(node, "MODULE"))
-            if not mod:
-                continue
-            raw_names = self._get_match(node, "NAMES")
-            for name in _extract_named_imports(raw_names):
-                record(f"{mod}.{name}", self._get_line_number(node))
+        for pat_name in ("import_default_named_dq", "import_default_named_sq"):
+            for node in self.run_ast_grep(source_code, self._get_pattern(pat_name)):
+                mod = _module_from_literal(self._get_match(node, "MODULE"))
+                if not mod:
+                    continue
+                raw_names = _extract_brace_import_names(self._get_node_text(node))
+                for name in _extract_named_imports(raw_names):
+                    record(f"{mod}.{name}", self._get_line_number(node))
 
         # CommonJS require("mod") (string literal only)
-        for node in self.run_ast_grep(source_code, self._get_pattern("require_call")):
-            mod = _module_from_literal(self._get_match(node, "MODULE"))
-            if mod:
-                record(mod, self._get_line_number(node))
+        for pat_name in ("require_call_dq", "require_call_sq"):
+            for node in self.run_ast_grep(source_code, self._get_pattern(pat_name)):
+                mod = _module_from_literal(self._get_match(node, "MODULE"))
+                if mod:
+                    record(mod, self._get_line_number(node))
 
         return rels
 
@@ -258,26 +273,29 @@ class AstGrepTypeScriptProcessor(_AstGrepJsTsProcessor):
             )
 
         # Type-only imports: import type ... from "mod"
-        for node in self.run_ast_grep(source_code, self._get_pattern("import_type_from")):
-            mod = _module_from_literal(self._get_match(node, "MODULE"))
-            if mod:
-                record(mod, self._get_line_number(node))
+        for pat_name in ("import_type_from_dq", "import_type_from_sq"):
+            for node in self.run_ast_grep(source_code, self._get_pattern(pat_name)):
+                mod = _module_from_literal(self._get_match(node, "MODULE"))
+                if mod:
+                    record(mod, self._get_line_number(node))
 
-        for node in self.run_ast_grep(source_code, self._get_pattern("import_type_named_only")):
-            mod = _module_from_literal(self._get_match(node, "MODULE"))
-            if not mod:
-                continue
-            raw_names = self._get_match(node, "NAMES")
-            for name in _extract_named_imports(raw_names):
-                record(f"{mod}.{name}", self._get_line_number(node))
+        for pat_name in ("import_type_named_only_dq", "import_type_named_only_sq"):
+            for node in self.run_ast_grep(source_code, self._get_pattern(pat_name)):
+                mod = _module_from_literal(self._get_match(node, "MODULE"))
+                if not mod:
+                    continue
+                raw_names = _extract_brace_import_names(self._get_node_text(node))
+                for name in _extract_named_imports(raw_names):
+                    record(f"{mod}.{name}", self._get_line_number(node))
 
-        for node in self.run_ast_grep(source_code, self._get_pattern("import_type_default_named")):
-            mod = _module_from_literal(self._get_match(node, "MODULE"))
-            if not mod:
-                continue
-            raw_names = self._get_match(node, "NAMES")
-            for name in _extract_named_imports(raw_names):
-                record(f"{mod}.{name}", self._get_line_number(node))
+        for pat_name in ("import_type_default_named_dq", "import_type_default_named_sq"):
+            for node in self.run_ast_grep(source_code, self._get_pattern(pat_name)):
+                mod = _module_from_literal(self._get_match(node, "MODULE"))
+                if not mod:
+                    continue
+                raw_names = _extract_brace_import_names(self._get_node_text(node))
+                for name in _extract_named_imports(raw_names):
+                    record(f"{mod}.{name}", self._get_line_number(node))
 
         return _dedupe_relationships(rels)
 
@@ -286,4 +304,3 @@ __all__ = [
     "AstGrepJavaScriptProcessor",
     "AstGrepTypeScriptProcessor",
 ]
-

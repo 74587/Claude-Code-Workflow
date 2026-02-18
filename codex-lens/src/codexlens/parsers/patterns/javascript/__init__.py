@@ -20,17 +20,23 @@ JAVASCRIPT_PATTERNS: Dict[str, str] = {
     # import React, { useEffect } from "react"
     # import { useEffect } from "react"
     # import * as fs from "fs"
-    "import_from": "import $$$IMPORTS from $MODULE",
-    "import_named_only": "import {$$$NAMES} from $MODULE",
-    "import_default_named": "import $DEFAULT, {$$$NAMES} from $MODULE",
+    "import_from_dq": "import $$$IMPORTS from \"$MODULE\"",
+    "import_from_sq": "import $$$IMPORTS from '$MODULE'",
+    "import_named_only_dq": "import {$$$NAMES} from \"$MODULE\"",
+    "import_named_only_sq": "import {$$$NAMES} from '$MODULE'",
+    "import_default_named_dq": "import $DEFAULT, {$$$NAMES} from \"$MODULE\"",
+    "import_default_named_sq": "import $DEFAULT, {$$$NAMES} from '$MODULE'",
     # Side-effect import: import "./styles.css"
-    "import_side_effect": "import $MODULE",
+    "import_side_effect_dq": "import \"$MODULE\"",
+    "import_side_effect_sq": "import '$MODULE'",
 
     # CommonJS require(): const fs = require("fs")
-    "require_call": "require($MODULE)",
+    "require_call_dq": "require(\"$MODULE\")",
+    "require_call_sq": "require('$MODULE')",
 
     # Class inheritance: class Child extends Base {}
-    "class_extends": "class $NAME extends $BASE $$$BODY",
+    # Note: `{...}` form matches both JS and TS grammars more reliably.
+    "class_extends": "class $NAME extends $BASE {$$$BODY}",
 }
 
 
@@ -45,11 +51,16 @@ METAVARS = {
 
 RELATIONSHIP_PATTERNS: Dict[str, List[str]] = {
     "imports": [
-        "import_from",
-        "import_named_only",
-        "import_default_named",
-        "import_side_effect",
-        "require_call",
+        "import_from_dq",
+        "import_from_sq",
+        "import_named_only_dq",
+        "import_named_only_sq",
+        "import_default_named_dq",
+        "import_default_named_sq",
+        "import_side_effect_dq",
+        "import_side_effect_sq",
+        "require_call_dq",
+        "require_call_sq",
     ],
     "inheritance": ["class_extends"],
 }
@@ -79,4 +90,3 @@ __all__ = [
     "get_patterns_for_relationship",
     "get_metavar",
 ]
-
