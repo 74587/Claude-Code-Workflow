@@ -148,6 +148,16 @@ export interface PromptTemplateNodeData {
   slashArgs?: string;
 
   /**
+   * Instruction type for native CLI session routing
+   */
+  instructionType?: 'prompt' | 'skill';
+
+  /**
+   * Skill name for skill-type instructions
+   */
+  skillName?: string;
+
+  /**
    * Error handling behavior
    */
   onError?: 'continue' | 'pause' | 'fail';

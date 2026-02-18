@@ -901,7 +901,7 @@ async function executeCliTool(
     }
     // Use default effort from config if not explicitly provided, fallback to 'high'
     if (!effectiveEffort) {
-      effectiveEffort = toolConfig.effort || 'high';
+      effectiveEffort = (toolConfig.effort as typeof effectiveEffort) || 'high';
       debugLog('EFFORT', `Using effort level`, { effort: effectiveEffort, source: toolConfig.effort ? 'config' : 'default' });
     }
   }
