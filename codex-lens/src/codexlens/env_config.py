@@ -47,7 +47,7 @@ ENV_VARS = {
     "CODEXLENS_DEBUG": "Enable debug mode (true/false)",
     # Cascade / staged pipeline configuration
     "ENABLE_CASCADE_SEARCH": "Enable cascade search (true/false)",
-    "CASCADE_STRATEGY": "Cascade strategy: binary, binary_rerank, dense_rerank, staged",
+    "CASCADE_STRATEGY": "Cascade strategy: binary, binary_rerank (alias: hybrid), dense_rerank, staged",
     "CASCADE_COARSE_K": "Cascade coarse_k candidate count (int)",
     "CASCADE_FINE_K": "Cascade fine_k result count (int)",
     "STAGED_STAGE2_MODE": "Staged Stage 2 mode: precomputed, realtime",

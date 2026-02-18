@@ -140,7 +140,7 @@ class Config:
     enable_cascade_search: bool = False  # Enable cascade search (coarse + fine ranking)
     cascade_coarse_k: int = 100  # Number of coarse candidates from first stage
     cascade_fine_k: int = 10  # Number of final results after reranking
-    cascade_strategy: str = "binary"  # "binary", "binary_rerank", "dense_rerank", or "staged"
+    cascade_strategy: str = "binary"  # "binary", "binary_rerank" (alias: "hybrid"), "dense_rerank", or "staged"
 
     # Staged cascade search configuration (4-stage pipeline)
     staged_coarse_k: int = 200  # Number of coarse candidates from Stage 1 binary search
@@ -190,7 +190,7 @@ class Config:
     chars_per_token_estimate: int = 4  # Characters per token estimation ratio
 
     # Parser configuration
-    use_astgrep: bool = False  # Use ast-grep for Python relationship extraction (tree-sitter is default)
+    use_astgrep: bool = False  # Use ast-grep for relationship extraction (Python/JS/TS); tree-sitter is default
 
     def __post_init__(self) -> None:
         try:
@@ -408,14 +408,18 @@ class Config:
                 # Load cascade settings
                 cascade = settings.get("cascade", {})
                 if "strategy" in cascade:
-                    strategy = cascade["strategy"]
+                    raw_strategy = cascade["strategy"]
+                    strategy = str(raw_strategy).strip().lower()
                     if strategy in {"binary", "binary_rerank", "dense_rerank", "staged"}:
                         self.cascade_strategy = strategy
+                    elif strategy == "hybrid":
+                        self.cascade_strategy = "binary_rerank"
+                        log.debug("Mapping cascade strategy 'hybrid' -> 'binary_rerank'")
                     else:
                         log.warning(
                             "Invalid cascade strategy in %s: %r (expected 'binary', 'binary_rerank', 'dense_rerank', or 'staged')",
                             self.settings_path,
-                            strategy,
+                            raw_strategy,
                         )
                 if "coarse_k" in cascade:
                     self.cascade_coarse_k = cascade["coarse_k"]
@@ -521,6 +525,9 @@ class Config:
             strategy = cascade_strategy.strip().lower()
             if strategy in {"binary", "binary_rerank", "dense_rerank", "staged"}:
                 self.cascade_strategy = strategy
+                log.debug("Overriding cascade_strategy from .env: %s", self.cascade_strategy)
+            elif strategy == "hybrid":
+                self.cascade_strategy = "binary_rerank"
                 log.debug("Overriding cascade_strategy from .env: %s", self.cascade_strategy)
             else:
                 log.warning("Invalid CASCADE_STRATEGY in .env: %r", cascade_strategy)

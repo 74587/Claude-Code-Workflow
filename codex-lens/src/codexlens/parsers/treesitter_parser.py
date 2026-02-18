@@ -34,8 +34,9 @@ if TYPE_CHECKING:
 class TreeSitterSymbolParser:
     """Parser using tree-sitter for AST-level symbol extraction.
 
-    Supports optional ast-grep integration for Python relationship extraction
-    when config.use_astgrep is True and ast-grep-py is available.
+    Supports optional ast-grep integration for relationship extraction
+    (Python/JavaScript/TypeScript) when config.use_astgrep is True and
+    ast-grep-py is available.
     """
 
     def __init__(
@@ -105,24 +106,33 @@ class TreeSitterSymbolParser:
         """Check if ast-grep should be used for relationship extraction.
 
         Returns:
-            True if config.use_astgrep is True and language is Python
+            True if config.use_astgrep is True and language is supported
         """
         if self._config is None:
             return False
         if not getattr(self._config, "use_astgrep", False):
             return False
-        return self.language_id == "python"
+        return self.language_id in {"python", "javascript", "typescript"}
 
     def _initialize_astgrep_processor(self) -> None:
-        """Initialize ast-grep processor for Python relationship extraction."""
+        """Initialize ast-grep processor for relationship extraction."""
         try:
             from codexlens.parsers.astgrep_processor import (
                 AstGrepPythonProcessor,
                 is_astgrep_processor_available,
             )
+            from codexlens.parsers.astgrep_js_ts_processor import (
+                AstGrepJavaScriptProcessor,
+                AstGrepTypeScriptProcessor,
+            )
 
             if is_astgrep_processor_available():
-                self._astgrep_processor = AstGrepPythonProcessor(self.path)
+                if self.language_id == "python":
+                    self._astgrep_processor = AstGrepPythonProcessor(self.path)
+                elif self.language_id == "javascript":
+                    self._astgrep_processor = AstGrepJavaScriptProcessor(self.path)
+                elif self.language_id == "typescript":
+                    self._astgrep_processor = AstGrepTypeScriptProcessor(self.path)
         except ImportError:
             self._astgrep_processor = None
 
@@ -222,9 +232,9 @@ class TreeSitterSymbolParser:
         path: Path,
         source_code: Optional[str] = None,
     ) -> List[CodeRelationship]:
-        """Extract relationships, optionally using ast-grep for Python.
+        """Extract relationships, optionally using ast-grep.
 
-        When config.use_astgrep is True and ast-grep is available for Python,
+        When config.use_astgrep is True and an ast-grep processor is available,
         uses ast-grep for relationship extraction. Otherwise, uses tree-sitter.
 
         Args:
@@ -236,32 +246,31 @@ class TreeSitterSymbolParser:
         Returns:
             List of extracted relationships
         """
+        # Try ast-grep first if configured and available for this language.
+        if self._astgrep_processor is not None and source_code is not None:
+            try:
+                astgrep_rels = self._extract_relationships_astgrep(source_code, path)
+                if astgrep_rels is not None:
+                    return astgrep_rels
+            except Exception:
+                # Fall back to tree-sitter on ast-grep failure
+                pass
+
         if self.language_id == "python":
-            # Try ast-grep first if configured and available
-            if self._astgrep_processor is not None and source_code is not None:
-                try:
-                    astgrep_rels = self._extract_python_relationships_astgrep(
-                        source_code, path
-                    )
-                    if astgrep_rels is not None:
-                        return astgrep_rels
-                except Exception:
-                    # Fall back to tree-sitter on ast-grep failure
-                    pass
             return self._extract_python_relationships(source_bytes, root, path)
         if self.language_id in {"javascript", "typescript"}:
             return self._extract_js_ts_relationships(source_bytes, root, path)
         return []
 
-    def _extract_python_relationships_astgrep(
+    def _extract_relationships_astgrep(
         self,
         source_code: str,
         path: Path,
     ) -> Optional[List[CodeRelationship]]:
-        """Extract Python relationships using ast-grep processor.
+        """Extract relationships using ast-grep processor.
 
         Args:
-            source_code: Python source code text
+            source_code: Source code text
             path: File path
 
         Returns:

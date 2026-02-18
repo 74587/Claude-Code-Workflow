@@ -84,6 +84,21 @@ class TestConfigCascadeDefaults:
         # Should keep the default "binary" strategy
         assert config.cascade_strategy == "binary"
 
+    def test_hybrid_cascade_strategy_alias_maps_to_binary_rerank(self, temp_config_dir):
+        """Hybrid is a backward-compat alias for binary_rerank."""
+        config = Config(data_dir=temp_config_dir)
+        settings = {"cascade": {"strategy": "hybrid"}}
+
+        settings_path = config.settings_path
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(settings_path, "w", encoding="utf-8") as f:
+            json.dump(settings, f)
+
+        with patch.object(config, "_apply_env_overrides"):
+            config.load_settings()
+
+        assert config.cascade_strategy == "binary_rerank"
+
     def test_staged_config_defaults(self, temp_config_dir):
         """Staged cascade settings should have correct defaults."""
         config = Config(data_dir=temp_config_dir)
