@@ -23,11 +23,13 @@ import {
   useUninstallCcwLitellm,
 } from '@/hooks/useApiSettings';
 import { useNotifications } from '@/hooks/useNotifications';
+import { LitellmInstallProgressOverlay } from './LitellmInstallProgressOverlay';
 
 export function CcwLitellmStatus() {
   const { formatMessage } = useIntl();
   const { success, error: notifyError } = useNotifications();
   const [refresh, setRefresh] = useState(false);
+  const [isInstallOverlayOpen, setIsInstallOverlayOpen] = useState(false);
 
   const { data: status, isLoading, refetch } = useCcwLitellmStatus({ refresh });
   const { install, isInstalling } = useInstallCcwLitellm();
@@ -35,15 +37,20 @@ export function CcwLitellmStatus() {
 
   const isBusy = isInstalling || isUninstalling;
 
-  const handleInstall = async () => {
+  const handleInstallViaOverlay = async (): Promise<{ success: boolean }> => {
     try {
       await install();
       success(formatMessage({ id: 'apiSettings.ccwLitellm.messages.installSuccess' }));
-      setRefresh(true);
-      refetch();
+      return { success: true };
     } catch {
       notifyError(formatMessage({ id: 'apiSettings.ccwLitellm.messages.installFailed' }));
+      return { success: false };
     }
+  };
+
+  const handleInstallSuccess = () => {
+    setRefresh(true);
+    refetch();
   };
 
   const handleUninstall = async () => {
@@ -66,6 +73,7 @@ export function CcwLitellmStatus() {
   const version = status?.version;
 
   return (
+    <>
     <Card>
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
@@ -131,7 +139,7 @@ export function CcwLitellmStatus() {
               <Button
                 variant="default"
                 size="sm"
-                onClick={handleInstall}
+                onClick={() => setIsInstallOverlayOpen(true)}
                 disabled={isBusy}
               >
                 {isInstalling ? (
@@ -146,6 +154,15 @@ export function CcwLitellmStatus() {
         </div>
       </CardContent>
     </Card>
+
+      {/* Install Progress Overlay */}
+      <LitellmInstallProgressOverlay
+        open={isInstallOverlayOpen}
+        onOpenChange={setIsInstallOverlayOpen}
+        onInstall={handleInstallViaOverlay}
+        onSuccess={handleInstallSuccess}
+      />
+    </>
   );
 }
 

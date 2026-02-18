@@ -650,14 +650,14 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
               onClick={() => handleSessionClick(currentSession.session_id)}
             >
               {/* Session Header */}
-              <div className="mb-2 pb-2 border-b border-border shrink-0">
-                <div className="flex items-start gap-2">
+              <div className="mb-2 pb-2 border-b border-border shrink-0 min-w-0">
+                <div className="flex items-start gap-2 min-w-0">
                   <div className={cn('px-2 py-1 rounded text-xs font-medium shrink-0', sessionStatusColors[currentSession.status]?.bg || 'bg-muted', sessionStatusColors[currentSession.status]?.text || 'text-muted-foreground')}>
                     {formatMessage({ id: `common.status.${currentSession.status === 'in_progress' ? 'inProgress' : currentSession.status}` })}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden">
                     <p className="text-sm font-medium text-foreground truncate">{currentSession.title || currentSession.session_id}</p>
-                    <p className="text-xs text-muted-foreground">{currentSession.session_id}</p>
+                    <p className="text-xs text-muted-foreground truncate">{currentSession.session_id}</p>
                   </div>
                 </div>
                 {/* Description */}
