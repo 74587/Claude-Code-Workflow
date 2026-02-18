@@ -47,6 +47,19 @@
       "additional_prefixes": ["QUALITY"],
       "responsibility": "Code review (REVIEW-*) + Spec quality validation (QUALITY-*)",
       "message_types": ["review_result", "quality_result", "fix_required", "error"]
+    },
+    "explorer": {
+      "task_prefix": "EXPLORE",
+      "responsibility": "Code search, pattern discovery, dependency tracing. Service role — on-demand by coordinator",
+      "role_type": "service",
+      "message_types": ["explore_ready", "explore_progress", "task_failed"]
+    },
+    "architect": {
+      "task_prefix": "ARCH",
+      "responsibility": "Architecture assessment, tech feasibility, design pattern review. Consulting role — on-demand by coordinator",
+      "role_type": "consulting",
+      "consultation_modes": ["spec-review", "plan-review", "code-review", "consult", "feasibility"],
+      "message_types": ["arch_ready", "arch_concern", "arch_progress", "error"]
     }
   },
 
@@ -77,6 +90,9 @@
     "spec": "spec/",
     "discussions": "discussions/",
     "plan": "plan/",
+    "explorations": "explorations/",
+    "architecture": "architecture/",
+    "wisdom": "wisdom/",
     "messages": ".workflow/.team-msg/{team-name}/"
   }
 }

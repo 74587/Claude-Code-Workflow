@@ -366,6 +366,14 @@ TeamCreate({
 
 Output(`[coordinator] Team created: ${teamId}`)
 
+// Initialize wisdom directory
+const wisdomDir = `${sessionFolder}/wisdom`
+Bash(`mkdir -p "${wisdomDir}"`)
+Write(`${wisdomDir}/learnings.md`, `# Learnings\n\n<!-- Auto-accumulated by team roles -->\n`)
+Write(`${wisdomDir}/decisions.md`, `# Decisions\n\n<!-- Architectural and design decisions -->\n`)
+Write(`${wisdomDir}/conventions.md`, `# Conventions\n\n<!-- Codebase conventions discovered -->\n<!-- explorer-patterns -->\n`)
+Write(`${wisdomDir}/issues.md`, `# Known Issues\n\n<!-- Risks and issues found during execution -->\n`)
+
 // Initialize session file
 const sessionFile = `D:/Claude_dms3/.workflow/.sessions/${sessionId}.json`
 const sessionData = {

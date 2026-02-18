@@ -29,6 +29,12 @@ Unified team skill covering specification, implementation, testing, and review. 
 │coordinator││analyst││writer││discussant││planner││executor││tester││reviewer│
 │ roles/   ││roles/ ││roles/││ roles/   ││roles/ ││ roles/ ││roles/││ roles/ │
 └──────────┘└───────┘└──────┘└──────────┘└───────┘└────────┘└──────┘└────────┘
+                                                       ↑           ↑
+                                              on-demand by coordinator
+                                            ┌──────────┐ ┌─────────┐
+                                            │ explorer │ │architect│
+                                            │ (service)│ │(consult)│
+                                            └──────────┘ └─────────┘
 ```
 
 ## Command Architecture
@@ -65,11 +71,17 @@ roles/
 │   ├── role.md
 │   └── commands/
 │       └── validate.md      # Test-fix cycle
-└── reviewer/
-    ├── role.md
+├── reviewer/
+│   ├── role.md
+│   └── commands/
+│       ├── code-review.md   # 4-dimension code review
+│       └── spec-quality.md  # 5-dimension spec quality check
+├── explorer/                # Service role (on-demand)
+│   └── role.md              # Multi-strategy code search & pattern discovery
+└── architect/               # Consulting role (on-demand)
+    ├── role.md              # Multi-mode architecture assessment
     └── commands/
-        ├── code-review.md   # 4-dimension code review
-        └── spec-quality.md  # 5-dimension spec quality check
+        └── assess.md        # Mode-specific assessment strategies
 ```
 
 **Design principle**: role.md keeps Phase 1 (Task Discovery) and Phase 5 (Report) inline. Phases 2-4 either stay inline (simple logic) or delegate to `commands/*.md` via `Read("commands/xxx.md")` when they involve subagent delegation, CLI fan-out, or complex strategies.
@@ -106,7 +118,9 @@ const VALID_ROLES = {
   "planner":     { file: "roles/planner/role.md",     prefix: "PLAN" },
   "executor":    { file: "roles/executor/role.md",    prefix: "IMPL" },
   "tester":      { file: "roles/tester/role.md",      prefix: "TEST" },
-  "reviewer":    { file: "roles/reviewer/role.md",    prefix: ["REVIEW", "QUALITY"] }
+  "reviewer":    { file: "roles/reviewer/role.md",    prefix: ["REVIEW", "QUALITY"] },
+  "explorer":    { file: "roles/explorer/role.md",    prefix: "EXPLORE", type: "service" },
+  "architect":   { file: "roles/architect/role.md",   prefix: "ARCH",    type: "consulting" }
 }
 
 if (!VALID_ROLES[role]) {
@@ -183,6 +197,8 @@ if (!roleMatch) {
 | `executor` | IMPL-* | Code implementation following plans | [roles/executor/role.md](roles/executor/role.md) |
 | `tester` | TEST-* | Adaptive test-fix cycles, quality gates | [roles/tester/role.md](roles/tester/role.md) |
 | `reviewer` | `REVIEW-*` + `QUALITY-*` | Code review + Spec quality validation (auto-switch by prefix) | [roles/reviewer/role.md](roles/reviewer/role.md) |
+| `explorer` | EXPLORE-* | Code search, pattern discovery, dependency tracing (service role, on-demand) | [roles/explorer/role.md](roles/explorer/role.md) |
+| `architect` | ARCH-* | Architecture assessment, tech feasibility, design review (consulting role, on-demand) | [roles/architect/role.md](roles/architect/role.md) |
 
 ## Shared Infrastructure
 
@@ -254,6 +270,8 @@ mcp__ccw-tools__team_msg({
 | executor | `impl_complete`, `impl_progress`, `error` |
 | tester | `test_result`, `impl_progress`, `fix_required`, `error` |
 | reviewer | `review_result`, `quality_result`, `fix_required`, `error` |
+| explorer | `explore_ready`, `explore_progress`, `task_failed` |
+| architect | `arch_ready`, `arch_concern`, `arch_progress`, `error` |
 
 ### CLI Fallback
 
@@ -264,6 +282,59 @@ Bash(`ccw team log --team "${teamName}" --from "${role}" --to "coordinator" --ty
 Bash(`ccw team list --team "${teamName}" --last 10 --json`)
 Bash(`ccw team status --team "${teamName}" --json`)
 ```
+
+### Wisdom Accumulation (All Roles)
+
+跨任务知识积累机制。Coordinator 在 session 初始化时创建 `wisdom/` 目录，所有 worker 在执行过程中读取和贡献 wisdom。
+
+**目录结构**:
+```
+{sessionFolder}/wisdom/
+├── learnings.md      # 发现的模式和洞察
+├── decisions.md      # 架构和设计决策
+├── conventions.md    # 代码库约定
+└── issues.md         # 已知风险和问题
+```
+
+**Phase 2 加载（所有 worker）**:
+```javascript
+// Load wisdom context at start of Phase 2
+const sessionFolder = task.description.match(/Session:\s*([^\n]+)/)?.[1]?.trim()
+let wisdom = {}
+if (sessionFolder) {
+  try { wisdom.learnings = Read(`${sessionFolder}/wisdom/learnings.md`) } catch {}
+  try { wisdom.decisions = Read(`${sessionFolder}/wisdom/decisions.md`) } catch {}
+  try { wisdom.conventions = Read(`${sessionFolder}/wisdom/conventions.md`) } catch {}
+  try { wisdom.issues = Read(`${sessionFolder}/wisdom/issues.md`) } catch {}
+}
+```
+
+**Phase 4/5 贡献（任务完成时）**:
+```javascript
+// Contribute wisdom after task completion
+if (sessionFolder) {
+  const timestamp = new Date().toISOString().substring(0, 10)
+
+  // Role-specific contributions:
+  // analyst   → learnings (exploration dimensions, codebase patterns)
+  // writer    → conventions (document structure, naming patterns)
+  // planner   → decisions (task decomposition rationale)
+  // executor  → learnings (implementation patterns), issues (bugs encountered)
+  // tester    → issues (test failures, edge cases), learnings (test patterns)
+  // reviewer  → conventions (code quality patterns), issues (review findings)
+  // explorer  → conventions (codebase patterns), learnings (dependency insights)
+  // architect → decisions (architecture choices), issues (architectural risks)
+
+  try {
+    const targetFile = `${sessionFolder}/wisdom/${wisdomTarget}.md`
+    const existing = Read(targetFile)
+    const entry = `- [${timestamp}] [${role}] ${wisdomEntry}`
+    Write(targetFile, existing + '\n' + entry)
+  } catch {} // wisdom not initialized
+}
+```
+
+**Coordinator 注入**: Coordinator 在 spawn worker 时通过 task description 传递 `Session: {sessionFolder}`，worker 据此定位 wisdom 目录。已有 wisdom 内容为后续 worker 提供上下文，实现跨任务知识传递。
 
 ### Task Lifecycle (All Worker Roles)
 
@@ -343,12 +414,21 @@ All session artifacts are stored under a single session folder:
 │   └── spec-summary.md
 ├── discussions/                # Discussion records (discussant output)
 │   └── discuss-001..006.md
-└── plan/                       # Plan artifacts (planner output)
-    ├── exploration-{angle}.json
-    ├── explorations-manifest.json
-    ├── plan.json
-    └── .task/
-        └── TASK-*.json
+├── plan/                       # Plan artifacts (planner output)
+│   ├── exploration-{angle}.json
+│   ├── explorations-manifest.json
+│   ├── plan.json
+│   └── .task/
+│       └── TASK-*.json
+├── explorations/               # Explorer output (cached for cross-role reuse)
+│   └── explore-*.json
+├── architecture/               # Architect output (assessment reports)
+│   └── arch-*.json
+└── wisdom/                     # Cross-task accumulated knowledge
+    ├── learnings.md            # Patterns and insights discovered
+    ├── decisions.md            # Architectural decisions made
+    ├── conventions.md          # Codebase conventions found
+    └── issues.md               # Known issues and risks
 ```
 
 Messages remain at `.workflow/.team-msg/{team-name}/` (unchanged).
