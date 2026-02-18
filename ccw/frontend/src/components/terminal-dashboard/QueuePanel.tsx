@@ -12,7 +12,6 @@ import {
   ListChecks,
   Loader2,
   AlertTriangle,
-  ArrowDownToLine,
   Clock,
   CheckCircle,
   XCircle,
@@ -150,7 +149,7 @@ function QueueItemRow({
 
 // ========== Queue Tab: Content ==========
 
-function QueueTabContent({ embedded = false }: { embedded?: boolean }) {
+function QueueTabContent(_props: { embedded?: boolean }) {
   const { formatMessage } = useIntl();
   const queueQuery = useIssueQueue();
   const associationChain = useIssueQueueIntegrationStore(selectAssociationChain);
