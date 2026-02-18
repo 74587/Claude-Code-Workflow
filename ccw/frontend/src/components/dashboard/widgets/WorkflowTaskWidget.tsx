@@ -609,7 +609,7 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
         </div>
 
         {/* Task Details Section: Session Carousel with Task List */}
-        <div className="flex-1 p-4 flex flex-col">
+        <div className="flex-1 min-w-0 p-4 flex flex-col">
           {/* Header with navigation */}
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
@@ -706,7 +706,7 @@ function WorkflowTaskWidgetComponent({ className }: WorkflowTaskWidgetProps) {
                         <div
                           key={`${currentSession.session_id}-${task.task_id}-${index}`}
                           className={cn(
-                            'flex items-center gap-2 p-2 rounded hover:bg-background/50 transition-colors',
+                            'flex items-center gap-2 p-2 rounded hover:bg-background/50 transition-colors min-w-0',
                             isLastOdd && 'col-span-2'
                           )}
                         >

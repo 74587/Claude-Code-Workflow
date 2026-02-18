@@ -117,8 +117,8 @@ export const envVarGroupsSchema: EnvVarGroupsSchema = {
         key: 'CODEXLENS_RERANKER_BACKEND',
         labelKey: 'codexlens.envField.backend',
         type: 'select',
-        options: ['local', 'api'],
-        default: 'local',
+        options: ['onnx', 'api', 'litellm', 'legacy'],
+        default: 'onnx',
         settingsPath: 'reranker.backend',
       },
       CODEXLENS_RERANKER_MODEL: {
@@ -174,7 +174,7 @@ export const envVarGroupsSchema: EnvVarGroupsSchema = {
         options: ['true', 'false'],
         default: 'false',
         settingsPath: 'reranker.pool_enabled',
-        showWhen: (env) => env['CODEXLENS_RERANKER_BACKEND'] === 'api',
+        showWhen: (env) => env['CODEXLENS_RERANKER_BACKEND'] === 'api' || env['CODEXLENS_RERANKER_BACKEND'] === 'litellm',
       },
       CODEXLENS_RERANKER_STRATEGY: {
         key: 'CODEXLENS_RERANKER_STRATEGY',
@@ -184,7 +184,7 @@ export const envVarGroupsSchema: EnvVarGroupsSchema = {
         default: 'latency_aware',
         settingsPath: 'reranker.strategy',
         showWhen: (env) =>
-          env['CODEXLENS_RERANKER_BACKEND'] === 'api' &&
+          (env['CODEXLENS_RERANKER_BACKEND'] === 'api' || env['CODEXLENS_RERANKER_BACKEND'] === 'litellm') &&
           env['CODEXLENS_RERANKER_POOL_ENABLED'] === 'true',
       },
       CODEXLENS_RERANKER_COOLDOWN: {
@@ -197,7 +197,7 @@ export const envVarGroupsSchema: EnvVarGroupsSchema = {
         min: 0,
         max: 300,
         showWhen: (env) =>
-          env['CODEXLENS_RERANKER_BACKEND'] === 'api' &&
+          (env['CODEXLENS_RERANKER_BACKEND'] === 'api' || env['CODEXLENS_RERANKER_BACKEND'] === 'litellm') &&
           env['CODEXLENS_RERANKER_POOL_ENABLED'] === 'true',
       },
     },
