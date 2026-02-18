@@ -85,6 +85,9 @@ roles/
 ├── fe-developer/            # Frontend pipeline role
 │   └── role.md              # Frontend component/page implementation
 └── fe-qa/                   # Frontend pipeline role
+    ├── role.md
+    └── commands/
+        └── pre-delivery-checklist.md
     └── role.md              # 5-dimension frontend QA + GC loop
 ```
 
@@ -519,6 +522,79 @@ Coordinator supports `--resume` / `--continue` flags to resume interrupted sessi
 9. Updates session file with reconciled state + current_phase
 10. **Kick** — 向首个可执行任务的 worker 发送 `task_unblocked` 消息，打破 resume 死锁
 11. Jumps to Phase 4 coordination loop
+
+## ui-ux-pro-max Integration (Frontend Pipelines)
+
+When frontend pipelines are active, the design intelligence chain leverages ui-ux-pro-max:
+
+### Design Intelligence Chain
+
+```
+analyst (RESEARCH-001)
+  └→ Skill(skill="ui-ux-pro-max", args="${industry} ${keywords} --design-system")
+  └→ Output: {session}/analysis/design-intelligence.json
+
+architect (via planner PLAN-001)
+  └→ Consumes design-intelligence.json → generates design-tokens.json
+  └→ Output: {session}/architecture/design-tokens.json
+
+fe-developer (DEV-FE-*)
+  └→ Consumes design-tokens.json → generates src/styles/tokens.css (:root + dark mode)
+  └→ Consumes anti-patterns + implementation checklist from design-intelligence.json
+
+fe-qa (QA-FE-*)
+  └→ Consumes design-intelligence.json → industry anti-pattern checks
+  └→ Consumes design-tokens.json → design compliance checks
+  └→ Uses industry strictness (standard/strict) for audit depth
+```
+
+### Skill Invocation
+
+```javascript
+// Full design system recommendation
+Skill(skill="ui-ux-pro-max", args="${industry} ${keywords} --design-system")
+
+// Domain-specific search (UX guidelines, typography, color)
+Skill(skill="ui-ux-pro-max", args="${query} --domain ${domain}")
+
+// Tech stack guidelines
+Skill(skill="ui-ux-pro-max", args="${query} --stack ${stack}")
+
+// Persist design system (cross-session reuse)
+Skill(skill="ui-ux-pro-max", args="${query} --design-system --persist -p ${projectName}")
+```
+
+### Supported Domains & Stacks
+
+- **Domains**: product, style, typography, color, landing, chart, ux, web
+- **Stacks**: html-tailwind, react, nextjs, vue, svelte, shadcn, swiftui, react-native, flutter
+
+### Fallback
+
+若 ui-ux-pro-max skill 未安装，降级为 LLM 通用设计知识。安装命令：`/plugin install ui-ux-pro-max@ui-ux-pro-max-skill`
+
+## Shared Memory (Frontend Pipelines)
+
+Frontend pipelines use `shared-memory.json` for cross-role state accumulation:
+
+```json
+{
+  "design_intelligence": {},
+  "design_token_registry": {
+    "colors": {}, "typography": {}, "spacing": {}, "shadows": {}
+  },
+  "component_inventory": [],
+  "style_decisions": [],
+  "qa_history": [],
+  "industry_context": { "industry": "SaaS/科技", "config": { "strictness": "standard" } }
+}
+```
+
+| Role | Phase 2 (Read) | Phase 4/5 (Write) |
+|------|---------------|-------------------|
+| coordinator | — | Initialize shared-memory.json |
+| fe-developer | design_intelligence, design_token_registry | component_inventory |
+| fe-qa | design_intelligence, industry_context, qa_history | qa_history |
 
 ## Coordinator Spawn Template
 

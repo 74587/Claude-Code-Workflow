@@ -119,6 +119,28 @@
     }
   },
 
+  "ui_ux_pro_max": {
+    "skill_name": "ui-ux-pro-max",
+    "install_command": "/plugin install ui-ux-pro-max@ui-ux-pro-max-skill",
+    "invocation": "Skill(skill=\"ui-ux-pro-max\", args=\"...\")",
+    "domains": ["product", "style", "typography", "color", "landing", "chart", "ux", "web"],
+    "stacks": ["html-tailwind", "react", "nextjs", "vue", "svelte", "shadcn", "swiftui", "react-native", "flutter"],
+    "fallback": "llm-general-knowledge",
+    "design_intelligence_chain": ["analyst → design-intelligence.json", "architect → design-tokens.json", "fe-developer → tokens.css", "fe-qa → anti-pattern audit"]
+  },
+
+  "shared_memory": {
+    "file": "shared-memory.json",
+    "schema": {
+      "design_intelligence": "From analyst via ui-ux-pro-max",
+      "design_token_registry": "From architect, consumed by fe-developer/fe-qa",
+      "component_inventory": "From fe-developer, list of implemented components",
+      "style_decisions": "Accumulated design decisions",
+      "qa_history": "From fe-qa, audit trail",
+      "industry_context": "Industry + strictness config"
+    }
+  },
+
   "collaboration_patterns": ["CP-1", "CP-2", "CP-4", "CP-5", "CP-6", "CP-10"],
 
   "session_dirs": {
