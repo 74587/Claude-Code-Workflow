@@ -114,13 +114,6 @@ def semantic_search(
             logger.debug("Ignoring invalid staged_stage2_mode: %r", staged_stage2_mode)
 
     # Get or create registry and mapper
-    try:
-        registry = RegistryStore.default()
-        mapper = PathMapper(registry)
-    except Exception as exc:
-        logger.error("Failed to initialize search infrastructure: %s", exc)
-        return []
-
     # Build search options based on mode
     search_options = _build_search_options(
         mode=mode,
@@ -132,15 +125,17 @@ def semantic_search(
 
     # Execute search based on fusion_strategy
     try:
-        with ChainSearchEngine(registry, mapper, config=config) as engine:
-            chain_result = _execute_search(
-                engine=engine,
-                query=query,
-                source_path=project_path,
-                fusion_strategy=fusion_strategy,
-                options=search_options,
-                limit=limit,
-            )
+        with RegistryStore() as registry:
+            mapper = PathMapper()
+            with ChainSearchEngine(registry, mapper, config=config) as engine:
+                chain_result = _execute_search(
+                    engine=engine,
+                    query=query,
+                    source_path=project_path,
+                    fusion_strategy=fusion_strategy,
+                    options=search_options,
+                    limit=limit,
+                )
     except Exception as exc:
         logger.error("Search execution failed: %s", exc)
         return []
