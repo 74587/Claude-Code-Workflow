@@ -82,6 +82,10 @@ roles/
     ├── role.md              # Multi-mode architecture assessment
     └── commands/
         └── assess.md        # Mode-specific assessment strategies
+├── fe-developer/            # Frontend pipeline role
+│   └── role.md              # Frontend component/page implementation
+└── fe-qa/                   # Frontend pipeline role
+    └── role.md              # 5-dimension frontend QA + GC loop
 ```
 
 **Design principle**: role.md keeps Phase 1 (Task Discovery) and Phase 5 (Report) inline. Phases 2-4 either stay inline (simple logic) or delegate to `commands/*.md` via `Read("commands/xxx.md")` when they involve subagent delegation, CLI fan-out, or complex strategies.
@@ -120,7 +124,9 @@ const VALID_ROLES = {
   "tester":      { file: "roles/tester/role.md",      prefix: "TEST" },
   "reviewer":    { file: "roles/reviewer/role.md",    prefix: ["REVIEW", "QUALITY"] },
   "explorer":    { file: "roles/explorer/role.md",    prefix: "EXPLORE", type: "service" },
-  "architect":   { file: "roles/architect/role.md",   prefix: "ARCH",    type: "consulting" }
+  "architect":   { file: "roles/architect/role.md",   prefix: "ARCH",    type: "consulting" },
+  "fe-developer":{ file: "roles/fe-developer/role.md",prefix: "DEV-FE",  type: "frontend-pipeline" },
+  "fe-qa":       { file: "roles/fe-qa/role.md",       prefix: "QA-FE",   type: "frontend-pipeline" }
 }
 
 if (!VALID_ROLES[role]) {
@@ -199,6 +205,8 @@ if (!roleMatch) {
 | `reviewer` | `REVIEW-*` + `QUALITY-*` | Code review + Spec quality validation (auto-switch by prefix) | [roles/reviewer/role.md](roles/reviewer/role.md) |
 | `explorer` | EXPLORE-* | Code search, pattern discovery, dependency tracing (service role, on-demand) | [roles/explorer/role.md](roles/explorer/role.md) |
 | `architect` | ARCH-* | Architecture assessment, tech feasibility, design review (consulting role, on-demand) | [roles/architect/role.md](roles/architect/role.md) |
+| `fe-developer` | DEV-FE-* | Frontend component/page implementation, design token consumption (frontend pipeline) | [roles/fe-developer/role.md](roles/fe-developer/role.md) |
+| `fe-qa` | QA-FE-* | 5-dimension frontend QA, accessibility, design compliance, GC loop (frontend pipeline) | [roles/fe-qa/role.md](roles/fe-qa/role.md) |
 
 ## Shared Infrastructure
 
@@ -272,6 +280,8 @@ mcp__ccw-tools__team_msg({
 | reviewer | `review_result`, `quality_result`, `fix_required`, `error` |
 | explorer | `explore_ready`, `explore_progress`, `task_failed` |
 | architect | `arch_ready`, `arch_concern`, `arch_progress`, `error` |
+| fe-developer | `dev_fe_complete`, `dev_fe_progress`, `error` |
+| fe-qa | `qa_fe_passed`, `qa_fe_result`, `fix_required`, `error` |
 
 ### CLI Fallback
 
@@ -389,11 +399,64 @@ Spec-only:
   → DRAFT-002 → DISCUSS-003 → DRAFT-003 → DISCUSS-004
   → DRAFT-004 → DISCUSS-005 → QUALITY-001 → DISCUSS-006
 
-Impl-only:
+Impl-only (backend):
   PLAN-001 → IMPL-001 → TEST-001 + REVIEW-001
 
-Full-lifecycle:
+Full-lifecycle (backend):
   [Spec pipeline] → PLAN-001(blockedBy: DISCUSS-006) → IMPL-001 → TEST-001 + REVIEW-001
+```
+
+### Frontend Pipelines
+
+Coordinator 根据任务关键词自动检测前端任务并路由到前端子流水线：
+
+```
+FE-only (纯前端):
+  PLAN-001 → DEV-FE-001 → QA-FE-001
+  (GC loop: if QA-FE verdict=NEEDS_FIX → DEV-FE-002 → QA-FE-002, max 2 rounds)
+
+Fullstack (前后端并行):
+  PLAN-001 → IMPL-001 ∥ DEV-FE-001 → TEST-001 ∥ QA-FE-001 → REVIEW-001
+
+Full-lifecycle + FE:
+  [Spec pipeline] → PLAN-001(blockedBy: DISCUSS-006)
+  → IMPL-001 ∥ DEV-FE-001 → TEST-001 ∥ QA-FE-001 → REVIEW-001
+```
+
+### Frontend Detection (Coordinator Phase 1)
+
+```javascript
+const FE_KEYWORDS = /component|page|UI|前端|frontend|CSS|HTML|React|Vue|Tailwind|组件|页面|样式|layout|responsive|Svelte|Next\.js|Nuxt|shadcn|设计系统|design.system/i
+
+const BE_KEYWORDS = /API|database|server|后端|backend|middleware|auth|REST|GraphQL|migration|schema|model|controller|service/i
+
+function detectImplMode(taskDescription) {
+  const hasFE = FE_KEYWORDS.test(taskDescription)
+  const hasBE = BE_KEYWORDS.test(taskDescription)
+
+  // Also check project files
+  const hasFEFiles = Bash(`test -f package.json && (grep -q react package.json || grep -q vue package.json || grep -q svelte package.json || grep -q next package.json); echo $?`) === '0'
+
+  if (hasFE && hasBE) return 'fullstack'
+  if (hasFE || hasFEFiles) return 'fe-only'
+  return 'impl-only' // default backend
+}
+
+// Coordinator uses this in Phase 1 to select pipeline
+const implMode = detectImplMode(requirements.scope + ' ' + requirements.originalInput)
+```
+
+### Generator-Critic Loop (fe-developer ↔ fe-qa)
+
+```
+┌──────────────┐   DEV-FE artifact    ┌──────────┐
+│ fe-developer │ ──────────────────→   │  fe-qa   │
+│ (Generator)  │                       │ (Critic) │
+│              │  ←────────────────── │          │
+└──────────────┘   QA-FE feedback      └──────────┘
+                   (max 2 rounds)
+
+Convergence: fe-qa.score >= 8 && fe-qa.critical_count === 0
 ```
 
 ## Unified Session Directory
@@ -429,6 +492,11 @@ All session artifacts are stored under a single session folder:
     ├── decisions.md            # Architectural decisions made
     ├── conventions.md          # Codebase conventions found
     └── issues.md               # Known issues and risks
+├── qa/                         # QA output (fe-qa audit reports)
+│   └── audit-fe-*.json
+└── build/                      # Frontend build output (fe-developer)
+    ├── token-files/
+    └── component-files/
 ```
 
 Messages remain at `.workflow/.team-msg/{team-name}/` (unchanged).

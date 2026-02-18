@@ -60,6 +60,18 @@
       "role_type": "consulting",
       "consultation_modes": ["spec-review", "plan-review", "code-review", "consult", "feasibility"],
       "message_types": ["arch_ready", "arch_concern", "arch_progress", "error"]
+    },
+    "fe-developer": {
+      "task_prefix": "DEV-FE",
+      "responsibility": "Frontend component/page implementation, design token consumption, responsive UI",
+      "role_type": "frontend-pipeline",
+      "message_types": ["dev_fe_complete", "dev_fe_progress", "error"]
+    },
+    "fe-qa": {
+      "task_prefix": "QA-FE",
+      "responsibility": "5-dimension frontend review (quality, a11y, design compliance, UX, pre-delivery), GC loop",
+      "role_type": "frontend-pipeline",
+      "message_types": ["qa_fe_passed", "qa_fe_result", "fix_required", "error"]
     }
   },
 
@@ -80,6 +92,30 @@
     "full-lifecycle": {
       "description": "Full lifecycle: spec pipeline → implementation pipeline",
       "task_chain": "spec-only + impl-only (PLAN-001 blockedBy DISCUSS-006)"
+    },
+    "fe-only": {
+      "description": "Frontend-only pipeline: plan → frontend dev → frontend QA",
+      "task_chain": ["PLAN-001", "DEV-FE-001", "QA-FE-001"],
+      "gc_loop": { "max_rounds": 2, "convergence": "score >= 8 && critical === 0" }
+    },
+    "fullstack": {
+      "description": "Fullstack pipeline: plan → backend + frontend parallel → test + QA",
+      "task_chain": ["PLAN-001", "IMPL-001||DEV-FE-001", "TEST-001||QA-FE-001", "REVIEW-001"],
+      "sync_points": ["REVIEW-001"]
+    },
+    "full-lifecycle-fe": {
+      "description": "Full lifecycle with frontend: spec → plan → backend + frontend → test + QA",
+      "task_chain": "spec-only + fullstack (PLAN-001 blockedBy DISCUSS-006)"
+    }
+  },
+
+  "frontend_detection": {
+    "keywords": ["component", "page", "UI", "前端", "frontend", "CSS", "HTML", "React", "Vue", "Tailwind", "组件", "页面", "样式", "layout", "responsive", "Svelte", "Next.js", "Nuxt", "shadcn", "设计系统", "design system"],
+    "file_patterns": ["*.tsx", "*.jsx", "*.vue", "*.svelte", "*.css", "*.scss", "*.html"],
+    "routing_rules": {
+      "frontend_only": "All tasks match frontend keywords, no backend/API mentions",
+      "fullstack": "Mix of frontend and backend tasks",
+      "backend_only": "No frontend keywords detected (default impl-only)"
     }
   },
 
