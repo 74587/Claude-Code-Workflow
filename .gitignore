@@ -26,6 +26,13 @@ COMMAND_TEMPLATE_EXECUTOR.md
 COMMAND_TEMPLATE_ORCHESTRATOR.md
 *.pyc
 .codexlens/
+
+# Python build artifacts
+codex-lens/build/
+ccw-litellm/build/
+
+# CCW runtime temp directories
+ccw/.tmp-ccw-auth-home/
 /settings.json
 *.mcp.json
 .mcp.json
