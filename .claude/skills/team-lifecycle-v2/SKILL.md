@@ -1,5 +1,5 @@
 ---
-name: team-lifecycle
+name: team-lifecycle-v2
 description: Unified team skill for full lifecycle - spec/impl/test. All roles invoke this skill with --role arg for role-specific execution. Triggers on "team lifecycle".
 allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Task(*), AskUserQuestion(*), TodoWrite(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
@@ -12,7 +12,7 @@ Unified team skill covering specification, implementation, testing, and review. 
 
 ```
 ┌───────────────────────────────────────────────────┐
-│  Skill(skill="team-lifecycle")                      │
+│  Skill(skill="team-lifecycle-v2")                      │
 │  args="任务描述" 或 args="--role=xxx"               │
 └───────────────────┬───────────────────────────────┘
                     │ Role Router
@@ -149,10 +149,10 @@ Read(VALID_ROLES[role].file)
 
 ```javascript
 // 用户调用（无 --role）— 自动路由到 coordinator
-Skill(skill="team-lifecycle", args="任务描述")
+Skill(skill="team-lifecycle-v2", args="任务描述")
 
 // 等价于
-Skill(skill="team-lifecycle", args="--role=coordinator 任务描述")
+Skill(skill="team-lifecycle-v2", args="--role=coordinator 任务描述")
 ```
 
 **流程**:
@@ -520,7 +520,7 @@ Task({
 
 ## ⚠️ 首要指令（MUST）
 你的所有工作必须通过调用 Skill 获取角色定义后执行，禁止自行发挥：
-Skill(skill="team-lifecycle", args="--role=<role_name>")
+Skill(skill="team-lifecycle-v2", args="--role=<role_name>")
 此调用会加载你的角色定义（role.md）、可用命令（commands/*.md）和完整执行逻辑。
 
 当前需求: ${taskDescription}
@@ -537,7 +537,7 @@ Session: ${sessionFolder}
 每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
 
 ## 工作流程（严格按顺序）
-1. 调用 Skill(skill="team-lifecycle", args="--role=<role_name>") 获取角色定义和执行逻辑
+1. 调用 Skill(skill="team-lifecycle-v2", args="--role=<role_name>") 获取角色定义和执行逻辑
 2. 按 role.md 中的 5-Phase 流程执行（TaskList → 找到 <PREFIX>-* 任务 → 执行 → 汇报）
 3. team_msg log + SendMessage 结果给 coordinator（带 [<role_name>] 标识）
 4. TaskUpdate completed → 检查下一个任务 → 回到步骤 1`
