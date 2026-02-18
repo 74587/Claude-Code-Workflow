@@ -952,16 +952,34 @@ async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
  * @returns Bootstrap result
  */
 async function bootstrapVenv(): Promise<BootstrapResult> {
+  const warnings: string[] = [];
+
   // Prefer UV if available (faster package resolution and installation)
   if (await isUvAvailable()) {
     console.log('[CodexLens] Using UV for bootstrap...');
-    return bootstrapWithUv();
+    try {
+      const uvResult = await bootstrapWithUv();
+      if (uvResult.success) {
+        return uvResult;
+      }
+
+      console.log('[CodexLens] UV bootstrap failed, falling back to pip:', uvResult.error);
+      warnings.push(`UV bootstrap failed: ${uvResult.error || 'Unknown error'}`);
+    } catch (uvErr) {
+      const message = uvErr instanceof Error ? uvErr.message : String(uvErr);
+      console.log('[CodexLens] UV bootstrap error, falling back to pip:', message);
+      warnings.push(`UV bootstrap error: ${message}`);
+    }
   }
 
   // Pre-flight: verify Python is available and compatible
   const preFlightError = preFlightCheck();
   if (preFlightError) {
-    return { success: false, error: `Pre-flight failed: ${preFlightError}` };
+    return {
+      success: false,
+      error: `Pre-flight failed: ${preFlightError}`,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
   }
 
   // Auto-repair corrupted venv before proceeding
@@ -976,19 +994,23 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
   }
 
   // Create venv if not exists
-  if (!existsSync(venvDir)) {
-    try {
-      console.log('[CodexLens] Creating virtual environment...');
-      const pythonCmd = getSystemPython();
-      execSync(`${pythonCmd} -m venv "${venvDir}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PROCESS_SPAWN });
-    } catch (err) {
-      return { success: false, error: `Failed to create venv: ${(err as Error).message}` };
+    if (!existsSync(venvDir)) {
+      try {
+        console.log('[CodexLens] Creating virtual environment...');
+        const pythonCmd = getSystemPython();
+        execSync(`${pythonCmd} -m venv "${venvDir}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PROCESS_SPAWN });
+      } catch (err) {
+        return {
+          success: false,
+          error: `Failed to create venv: ${(err as Error).message}`,
+          warnings: warnings.length > 0 ? warnings : undefined,
+        };
+      }
     }
-  }
 
-  // Install codex-lens
-  try {
-    console.log('[CodexLens] Installing codex-lens package...');
+    // Install codex-lens
+    try {
+      console.log('[CodexLens] Installing codex-lens package...');
     const pipPath = getCodexLensPip();
 
     // Try local path using unified discovery
@@ -1006,9 +1028,13 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
     // Clear cache after successful installation
     clearVenvStatusCache();
     clearSemanticStatusCache();
-    return { success: true };
+    return { success: true, warnings: warnings.length > 0 ? warnings : undefined };
   } catch (err) {
-    return { success: false, error: `Failed to install codex-lens: ${(err as Error).message}` };
+    return {
+      success: false,
+      error: `Failed to install codex-lens: ${(err as Error).message}`,
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
   }
 }
 
