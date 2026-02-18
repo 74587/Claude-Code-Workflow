@@ -426,28 +426,9 @@ Full-lifecycle + FE:
   → IMPL-001 ∥ DEV-FE-001 → TEST-001 ∥ QA-FE-001 → REVIEW-001
 ```
 
-### Frontend Detection (Coordinator Phase 1)
+### Frontend Detection
 
-```javascript
-const FE_KEYWORDS = /component|page|UI|前端|frontend|CSS|HTML|React|Vue|Tailwind|组件|页面|样式|layout|responsive|Svelte|Next\.js|Nuxt|shadcn|设计系统|design.system/i
-
-const BE_KEYWORDS = /API|database|server|后端|backend|middleware|auth|REST|GraphQL|migration|schema|model|controller|service/i
-
-function detectImplMode(taskDescription) {
-  const hasFE = FE_KEYWORDS.test(taskDescription)
-  const hasBE = BE_KEYWORDS.test(taskDescription)
-
-  // Also check project files
-  const hasFEFiles = Bash(`test -f package.json && (grep -q react package.json || grep -q vue package.json || grep -q svelte package.json || grep -q next package.json); echo $?`) === '0'
-
-  if (hasFE && hasBE) return 'fullstack'
-  if (hasFE || hasFEFiles) return 'fe-only'
-  return 'impl-only' // default backend
-}
-
-// Coordinator uses this in Phase 1 to select pipeline
-const implMode = detectImplMode(requirements.scope + ' ' + requirements.originalInput)
-```
+Coordinator 在 Phase 1 根据任务关键词 + 项目文件自动检测前端任务并选择流水线模式（fe-only / fullstack / impl-only）。检测逻辑见 [roles/coordinator/role.md](roles/coordinator/role.md)。
 
 ### Generator-Critic Loop (fe-developer ↔ fe-qa)
 
@@ -522,79 +503,6 @@ Coordinator supports `--resume` / `--continue` flags to resume interrupted sessi
 9. Updates session file with reconciled state + current_phase
 10. **Kick** — 向首个可执行任务的 worker 发送 `task_unblocked` 消息，打破 resume 死锁
 11. Jumps to Phase 4 coordination loop
-
-## ui-ux-pro-max Integration (Frontend Pipelines)
-
-When frontend pipelines are active, the design intelligence chain leverages ui-ux-pro-max:
-
-### Design Intelligence Chain
-
-```
-analyst (RESEARCH-001)
-  └→ Skill(skill="ui-ux-pro-max", args="${industry} ${keywords} --design-system")
-  └→ Output: {session}/analysis/design-intelligence.json
-
-architect (via planner PLAN-001)
-  └→ Consumes design-intelligence.json → generates design-tokens.json
-  └→ Output: {session}/architecture/design-tokens.json
-
-fe-developer (DEV-FE-*)
-  └→ Consumes design-tokens.json → generates src/styles/tokens.css (:root + dark mode)
-  └→ Consumes anti-patterns + implementation checklist from design-intelligence.json
-
-fe-qa (QA-FE-*)
-  └→ Consumes design-intelligence.json → industry anti-pattern checks
-  └→ Consumes design-tokens.json → design compliance checks
-  └→ Uses industry strictness (standard/strict) for audit depth
-```
-
-### Skill Invocation
-
-```javascript
-// Full design system recommendation
-Skill(skill="ui-ux-pro-max", args="${industry} ${keywords} --design-system")
-
-// Domain-specific search (UX guidelines, typography, color)
-Skill(skill="ui-ux-pro-max", args="${query} --domain ${domain}")
-
-// Tech stack guidelines
-Skill(skill="ui-ux-pro-max", args="${query} --stack ${stack}")
-
-// Persist design system (cross-session reuse)
-Skill(skill="ui-ux-pro-max", args="${query} --design-system --persist -p ${projectName}")
-```
-
-### Supported Domains & Stacks
-
-- **Domains**: product, style, typography, color, landing, chart, ux, web
-- **Stacks**: html-tailwind, react, nextjs, vue, svelte, shadcn, swiftui, react-native, flutter
-
-### Fallback
-
-若 ui-ux-pro-max skill 未安装，降级为 LLM 通用设计知识。安装命令：`/plugin install ui-ux-pro-max@ui-ux-pro-max-skill`
-
-## Shared Memory (Frontend Pipelines)
-
-Frontend pipelines use `shared-memory.json` for cross-role state accumulation:
-
-```json
-{
-  "design_intelligence": {},
-  "design_token_registry": {
-    "colors": {}, "typography": {}, "spacing": {}, "shadows": {}
-  },
-  "component_inventory": [],
-  "style_decisions": [],
-  "qa_history": [],
-  "industry_context": { "industry": "SaaS/科技", "config": { "strictness": "standard" } }
-}
-```
-
-| Role | Phase 2 (Read) | Phase 4/5 (Write) |
-|------|---------------|-------------------|
-| coordinator | — | Initialize shared-memory.json |
-| fe-developer | design_intelligence, design_token_registry | component_inventory |
-| fe-qa | design_intelligence, industry_context, qa_history | qa_history |
 
 ## Coordinator Spawn Template
 

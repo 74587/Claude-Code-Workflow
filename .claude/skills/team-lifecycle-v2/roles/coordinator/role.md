@@ -288,7 +288,10 @@ if (!mode) {
     choices: [
       "spec-only - Generate specifications only",
       "impl-only - Implementation only (requires existing spec)",
-      "full-lifecycle - Complete spec + implementation"
+      "full-lifecycle - Complete spec + implementation",
+      "fe-only - Frontend-only pipeline (plan → dev → QA)",
+      "fullstack - Backend + frontend parallel pipeline",
+      "full-lifecycle-fe - Full lifecycle with frontend (spec → fullstack)"
     ]
   })
 }
@@ -328,6 +331,38 @@ const requirements = {
   depth,
   executionMethod,
   originalInput: userInput
+}
+
+// --- Frontend Detection ---
+// Auto-detect frontend tasks and adjust pipeline mode
+const FE_KEYWORDS = /component|page|UI|前端|frontend|CSS|HTML|React|Vue|Tailwind|组件|页面|样式|layout|responsive|Svelte|Next\.js|Nuxt|shadcn|设计系统|design.system/i
+const BE_KEYWORDS = /API|database|server|后端|backend|middleware|auth|REST|GraphQL|migration|schema|model|controller|service/i
+
+function detectImplMode(taskDescription) {
+  const hasFE = FE_KEYWORDS.test(taskDescription)
+  const hasBE = BE_KEYWORDS.test(taskDescription)
+
+  // Also check project files for frontend frameworks
+  const hasFEFiles = Bash(`test -f package.json && (grep -q react package.json || grep -q vue package.json || grep -q svelte package.json || grep -q next package.json); echo $?`) === '0'
+
+  if (hasFE && hasBE) return 'fullstack'
+  if (hasFE || hasFEFiles) return 'fe-only'
+  return 'impl-only' // default backend
+}
+
+// Apply frontend detection for implementation modes
+if (mode === 'impl-only' || mode === 'full-lifecycle') {
+  const detectedMode = detectImplMode(scope + ' ' + userInput)
+  if (detectedMode !== 'impl-only') {
+    // Frontend detected — upgrade pipeline mode
+    if (mode === 'impl-only') {
+      mode = detectedMode // fe-only or fullstack
+    } else if (mode === 'full-lifecycle') {
+      mode = 'full-lifecycle-fe' // spec + fullstack
+    }
+    requirements.mode = mode
+    Output(`[coordinator] Frontend detected → pipeline upgraded to: ${mode}`)
+  }
 }
 
 Output("[coordinator] Requirements clarified:")
@@ -395,31 +430,42 @@ const sessionData = {
 Write(sessionFile, sessionData)
 Output(`[coordinator] Session file created: ${sessionFile}`)
 
-// Spawn workers conditionally
-if (requirements.mode === "spec-only" || requirements.mode === "full-lifecycle") {
-  TeamSpawn({
-    team_id: teamId,
-    role: "spec-writer",
-    count: 1
-  })
+// Spawn workers conditionally based on pipeline mode
+const isFE = ['fe-only', 'fullstack', 'full-lifecycle-fe'].includes(requirements.mode)
+const isBE = ['impl-only', 'fullstack', 'full-lifecycle', 'full-lifecycle-fe'].includes(requirements.mode)
+const isSpec = ['spec-only', 'full-lifecycle', 'full-lifecycle-fe'].includes(requirements.mode)
+
+if (isSpec) {
+  TeamSpawn({ team_id: teamId, role: "spec-writer", count: 1 })
   Output("[coordinator] Spawned spec-writer")
 }
 
-if (requirements.mode === "impl-only" || requirements.mode === "full-lifecycle") {
-  TeamSpawn({
-    team_id: teamId,
-    role: "implementer",
-    count: 1
-  })
+if (isBE) {
+  TeamSpawn({ team_id: teamId, role: "implementer", count: 1 })
   Output("[coordinator] Spawned implementer")
 }
 
+if (isFE) {
+  TeamSpawn({ team_id: teamId, role: "fe-developer", count: 1 })
+  Output("[coordinator] Spawned fe-developer")
+  TeamSpawn({ team_id: teamId, role: "fe-qa", count: 1 })
+  Output("[coordinator] Spawned fe-qa")
+
+  // Initialize shared memory for frontend pipeline
+  const sharedMemoryPath = `${sessionFolder}/shared-memory.json`
+  Write(sharedMemoryPath, JSON.stringify({
+    design_intelligence: {},
+    design_token_registry: {},
+    component_inventory: [],
+    style_decisions: [],
+    qa_history: [],
+    industry_context: {}
+  }, null, 2))
+  Output("[coordinator] Initialized shared-memory.json for frontend pipeline")
+}
+
 // Always spawn researcher for ambiguity resolution
-TeamSpawn({
-  team_id: teamId,
-  role: "researcher",
-  count: 1
-})
+TeamSpawn({ team_id: teamId, role: "researcher", count: 1 })
 Output("[coordinator] Spawned researcher")
 
 goto Phase3
