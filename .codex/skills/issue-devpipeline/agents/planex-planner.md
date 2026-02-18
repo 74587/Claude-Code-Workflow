@@ -4,7 +4,7 @@ description: |
   PlanEx 规划角色。需求拆解 → issue 创建 → 方案设计 → 队列编排。
   按波次 (wave) 输出执行队列，支持 Deep Interaction 多轮交互。
 color: blue
-skill: codex-planex
+skill: issue-devpipeline
 ---
 
 # PlanEx Planner

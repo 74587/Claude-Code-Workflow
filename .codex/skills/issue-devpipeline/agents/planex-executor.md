@@ -4,7 +4,7 @@ description: |
   PlanEx 执行角色。加载 solution plan → 代码实现 → 测试验证 → git commit。
   每个 executor 实例处理一个 issue 的 solution。
 color: green
-skill: codex-planex
+skill: issue-devpipeline
 ---
 
 # PlanEx Executor

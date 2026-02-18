@@ -1,5 +1,5 @@
 ---
-name: codex-planex
+name: issue-devpipeline
 description: |
   Plan-and-Execute pipeline with Wave Pipeline pattern.
   Orchestrator coordinates planner (Deep Interaction) and executors (Parallel Fan-out).
@@ -8,7 +8,7 @@ agents: 4
 phases: 4
 ---
 
-# Codex PlanEx
+# Issue DevPipeline
 
 边规划边执行流水线。编排器通过 Wave Pipeline 协调 planner 和 executor(s)：planner 完成一个 wave 的规划后输出执行队列，编排器立即为该 wave 派发 executor agents，同时 planner 继续规划下一 wave。
 
