@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { useIntl } from 'react-intl';
-import { FolderOpen } from 'lucide-react';
+import { FolderOpen, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -37,6 +37,8 @@ export interface CliSessionConfig {
   launchMode: LaunchMode;
   preferredShell: ShellKind;
   workingDir: string;
+  /** Session tag for grouping (auto-generated if not provided) */
+  tag: string;
 }
 
 export interface CliConfigModalProps {
@@ -58,6 +60,16 @@ const MODEL_OPTIONS: Record<CliTool, string[]> = {
 
 const AUTO_MODEL_VALUE = '__auto__';
 
+/**
+ * Generate a tag name: {tool}-{HHmmss}
+ * Example: gemini-143052
+ */
+function generateTag(tool: CliTool): string {
+  const now = new Date();
+  const time = now.toTimeString().slice(0, 8).replace(/:/g, '');
+  return `${tool}-${time}`;
+}
+
 export function CliConfigModal({
   isOpen,
   onClose,
@@ -74,11 +86,17 @@ export function CliConfigModal({
     typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('win') ? 'cmd' : 'bash'
   );
   const [workingDir, setWorkingDir] = React.useState<string>(defaultWorkingDir ?? '');
+  const [tag, setTag] = React.useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const modelOptions = React.useMemo(() => MODEL_OPTIONS[tool] ?? [], [tool]);
+
+  // Generate new tag when modal opens or tool changes
+  const regenerateTag = React.useCallback(() => {
+    setTag(generateTag(tool));
+  }, [tool]);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -86,7 +104,16 @@ export function CliConfigModal({
     const nextWorkingDir = defaultWorkingDir ?? '';
     setWorkingDir(nextWorkingDir);
     setError(null);
-  }, [isOpen, defaultWorkingDir]);
+    regenerateTag();
+  }, [isOpen, defaultWorkingDir, regenerateTag]);
+
+  // Update tag prefix when tool changes
+  React.useEffect(() => {
+    if (tag) {
+      const suffix = tag.split('-').pop() || '';
+      setTag(`${tool}-${suffix}`);
+    }
+  }, [tool]);
 
   const handleToolChange = (nextTool: string) => {
     const next = nextTool as CliTool;
@@ -109,6 +136,8 @@ export function CliConfigModal({
       return;
     }
 
+    const finalTag = tag.trim() || generateTag(tool);
+
     setIsSubmitting(true);
     setError(null);
     try {
@@ -118,6 +147,7 @@ export function CliConfigModal({
         launchMode,
         preferredShell,
         workingDir: dir,
+        tag: finalTag,
       });
       onClose();
     } catch (err) {
@@ -139,6 +169,35 @@ export function CliConfigModal({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Tag / Name */}
+          <div className="space-y-2">
+            <Label htmlFor="cli-config-tag">
+              {formatMessage({ id: 'terminalDashboard.cliConfig.tag', defaultMessage: 'Session Name' })}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="cli-config-tag"
+                value={tag}
+                onChange={(e) => setTag(e.target.value)}
+                placeholder={formatMessage({ id: 'terminalDashboard.cliConfig.tagPlaceholder', defaultMessage: 'e.g., gemini-143052' })}
+                disabled={isSubmitting}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={regenerateTag}
+                disabled={isSubmitting}
+                title={formatMessage({ id: 'terminalDashboard.cliConfig.regenerateTag', defaultMessage: 'Regenerate name' })}
+              >
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {formatMessage({ id: 'terminalDashboard.cliConfig.tagHint', defaultMessage: 'Auto-generated as {tool}-{time}. Used for grouping sessions.' })}
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Tool */}
             <div className="space-y-2">
@@ -271,4 +330,3 @@ export function CliConfigModal({
 }
 
 export default CliConfigModal;
-

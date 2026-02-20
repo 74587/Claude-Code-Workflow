@@ -90,6 +90,10 @@
   "cliConfig": {
     "title": "Create CLI Session",
     "description": "Configure tool, model, mode, shell, and working directory.",
+    "tag": "Session Name",
+    "tagPlaceholder": "e.g., gemini-143052",
+    "tagHint": "Auto-generated as {tool}-{time}. Used for grouping sessions.",
+    "regenerateTag": "Regenerate name",
     "tool": "Tool",
     "model": "Model",
     "modelAuto": "Auto",

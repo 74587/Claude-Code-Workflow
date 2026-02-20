@@ -90,6 +90,10 @@
   "cliConfig": {
     "title": "创建 CLI 会话",
     "description": "配置工具、模型、模式、Shell 与工作目录。",
+    "tag": "会话名称",
+    "tagPlaceholder": "例如：gemini-143052",
+    "tagHint": "自动生成格式：{工具}-{时间}。用于会话分组显示。",
+    "regenerateTag": "重新生成名称",
     "tool": "工具",
     "model": "模型",
     "modelAuto": "自动",
