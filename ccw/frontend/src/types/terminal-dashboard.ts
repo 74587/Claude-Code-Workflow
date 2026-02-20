@@ -18,7 +18,7 @@ export interface SessionLayout {
 }
 
 /** Terminal status indicator */
-export type TerminalStatus = 'active' | 'idle' | 'error' | 'paused' | 'resuming';
+export type TerminalStatus = 'active' | 'idle' | 'error' | 'paused' | 'resuming' | 'locked';
 
 /** Metadata for a terminal instance in the dashboard */
 export interface TerminalMeta {
@@ -28,6 +28,14 @@ export interface TerminalMeta {
   status: TerminalStatus;
   /** Number of unread alerts (errors, warnings) */
   alertCount: number;
+  /** Whether the session is locked (executing a workflow) */
+  isLocked?: boolean;
+  /** Reason for the lock (e.g., workflow name) */
+  lockReason?: string;
+  /** Execution ID that locked this session */
+  lockedByExecutionId?: string;
+  /** Timestamp when the session was locked */
+  lockedAt?: string;
 }
 
 /** Group of terminal sessions */
@@ -91,6 +99,10 @@ export interface SessionManagerActions {
   restartSession: (terminalId: string) => Promise<void>;
   /** Close and terminate a terminal session permanently */
   closeSession: (terminalId: string) => Promise<void>;
+  /** Lock a session to prevent user input during workflow execution */
+  lockSession: (sessionId: string, reason: string, executionId?: string) => void;
+  /** Unlock a session after workflow execution completes */
+  unlockSession: (sessionId: string) => void;
 }
 
 export type SessionManagerStore = SessionManagerState & SessionManagerActions;

@@ -361,6 +361,56 @@ export const useSessionManagerStore = create<SessionManagerStore>()(
           throw error;
         }
       },
+
+      // ========== Session Lock Actions ==========
+
+      lockSession: (sessionId: string, reason: string, executionId?: string) => {
+        set(
+          (state) => {
+            const existing = state.terminalMetas[sessionId];
+            if (!existing) return state;
+            return {
+              terminalMetas: {
+                ...state.terminalMetas,
+                [sessionId]: {
+                  ...existing,
+                  status: 'locked' as TerminalStatus,
+                  isLocked: true,
+                  lockReason: reason,
+                  lockedByExecutionId: executionId,
+                  lockedAt: new Date().toISOString(),
+                },
+              },
+            };
+          },
+          false,
+          'lockSession'
+        );
+      },
+
+      unlockSession: (sessionId: string) => {
+        set(
+          (state) => {
+            const existing = state.terminalMetas[sessionId];
+            if (!existing) return state;
+            return {
+              terminalMetas: {
+                ...state.terminalMetas,
+                [sessionId]: {
+                  ...existing,
+                  status: 'active' as TerminalStatus,
+                  isLocked: false,
+                  lockReason: undefined,
+                  lockedByExecutionId: undefined,
+                  lockedAt: undefined,
+                },
+              },
+            };
+          },
+          false,
+          'unlockSession'
+        );
+      },
     }),
     { name: 'SessionManagerStore' }
   )

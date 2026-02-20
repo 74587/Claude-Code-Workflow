@@ -143,6 +143,8 @@
   "pane": {
     "selectSession": "选择会话",
     "selectSessionHint": "从下拉菜单中选择终端会话",
+    "sessionNotFound": "会话已不存在",
+    "sessionNotFoundHint": "该会话可能已关闭或服务器已重启，请选择其他会话。",
     "splitHorizontal": "向右分割",
     "splitVertical": "向下分割",
     "clearTerminal": "清屏",

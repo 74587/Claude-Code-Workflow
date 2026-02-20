@@ -6,7 +6,7 @@
 // Renders within the TerminalGrid recursive layout.
 // File preview is triggered from right sidebar FileSidebarPanel.
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import {
   SplitSquareHorizontal,
@@ -23,6 +23,7 @@ import {
   FileText,
   ArrowLeft,
   LogOut,
+  WifiOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TerminalInstance } from './TerminalInstance';
@@ -64,6 +65,7 @@ const statusDotStyles: Record<TerminalStatus, string> = {
   error: 'bg-red-500',
   paused: 'bg-yellow-500',
   resuming: 'bg-blue-400 animate-pulse',
+  locked: 'bg-amber-500 animate-pulse',
 };
 
 // ========== Props ==========
@@ -128,6 +130,20 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   const meta = sessionId ? terminalMetas[sessionId] : null;
   const status: TerminalStatus = meta?.status ?? 'idle';
   const alertCount = meta?.alertCount ?? 0;
+
+  // Check if session exists - handles case where pane references a sessionId
+  // that no longer exists in cliSessionStore (e.g., after page refresh if backend restarted)
+  const isSessionNotFound = sessionId && !sessions[sessionId];
+
+  // Clear invalid sessionId after showing the message
+  useEffect(() => {
+    if (isSessionNotFound) {
+      const timer = setTimeout(() => {
+        assignSession(paneId, null);
+      }, 3000); // Clear after 3 seconds to let user see the message
+      return () => clearTimeout(timer);
+    }
+  }, [isSessionNotFound, paneId, assignSession]);
 
   // Build session options for dropdown
   // Use sessions from cliSessionStore directly (all sessions, not just grouped ones)
@@ -261,7 +277,9 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
           ) : (
             // Terminal mode header
             <>
-              {sessionId && (
+              {isSessionNotFound ? (
+                <WifiOff className="w-3.5 h-3.5 text-yellow-500 shrink-0" />
+              ) : sessionId && (
                 <span
                   className={cn('w-2 h-2 rounded-full shrink-0', statusDotStyles[status])}
                 />
@@ -314,7 +332,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
           >
             <SplitSquareVertical className="w-3.5 h-3.5" />
           </button>
-          {!isFileMode && sessionId && (
+          {!isFileMode && sessionId && !isSessionNotFound && (
             <>
               {/* Restart button */}
               <button
@@ -416,6 +434,19 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
             error={fileError?.message ?? null}
             className="h-full"
           />
+        </div>
+      ) : isSessionNotFound ? (
+        // Session not found state - pane references a sessionId that no longer exists
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="text-center px-4">
+            <WifiOff className="h-6 w-6 mx-auto mb-1.5 text-yellow-500" />
+            <p className="text-sm font-medium text-foreground">
+              {formatMessage({ id: 'terminalDashboard.pane.sessionNotFound' })}
+            </p>
+            <p className="text-xs mt-1 opacity-70 max-w-[200px]">
+              {formatMessage({ id: 'terminalDashboard.pane.sessionNotFoundHint' })}
+            </p>
+          </div>
         </div>
       ) : sessionId ? (
         // Terminal mode with session

@@ -143,6 +143,8 @@
   "pane": {
     "selectSession": "Select a session",
     "selectSessionHint": "Choose a terminal session from the dropdown",
+    "sessionNotFound": "Session no longer exists",
+    "sessionNotFoundHint": "The session may have been closed or the server restarted. Please select another session.",
     "splitHorizontal": "Split Right",
     "splitVertical": "Split Down",
     "clearTerminal": "Clear Terminal",
