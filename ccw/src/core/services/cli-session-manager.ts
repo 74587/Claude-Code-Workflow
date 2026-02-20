@@ -34,7 +34,8 @@ export interface CreateCliSessionOptions {
   workingDir: string;
   cols?: number;
   rows?: number;
-  preferredShell?: 'bash' | 'pwsh';
+  /** Shell to use for spawning CLI tools on Windows. */
+  preferredShell?: 'bash' | 'pwsh' | 'cmd';
   tool?: string;
   model?: string;
   resumeKey?: string;
@@ -224,10 +225,59 @@ export class CliSessionManager {
       // Native CLI interactive session: spawn the CLI process directly
       const launchMode = options.launchMode ?? 'default';
       const config = getLaunchConfig(options.tool, launchMode);
-      shellKind = 'git-bash'; // PTY shell kind label (not actually a shell)
-      file = config.command;
-      args = config.args;
       cliTool = options.tool;
+
+      // Build the full command string with arguments
+      const fullCommand = config.args.length > 0
+        ? `${config.command} ${config.args.join(' ')}`
+        : config.command;
+
+      // On Windows, CLI tools installed via npm are typically .cmd files.
+      // node-pty cannot spawn .cmd files directly, so we need a shell wrapper.
+      // On Unix systems, direct spawn usually works.
+      if (os.platform() === 'win32') {
+        // Use user's preferred shell (default to cmd for reliability)
+        const shell = options.preferredShell ?? 'cmd';
+
+        if (shell === 'cmd') {
+          shellKind = 'cmd';
+          file = 'cmd.exe';
+          args = ['/c', fullCommand];
+        } else if (shell === 'pwsh') {
+          shellKind = 'pwsh';
+          // Check for PowerShell Core (pwsh) or fall back to Windows PowerShell
+          const pwshPath = spawnSync('where', ['pwsh'], { encoding: 'utf8', windowsHide: true });
+          if (pwshPath.status === 0) {
+            file = 'pwsh';
+          } else {
+            file = 'powershell';
+          }
+          args = ['-NoLogo', '-Command', fullCommand];
+        } else {
+          // bash - try git-bash or WSL
+          const gitBash = findGitBashExe();
+          if (gitBash) {
+            shellKind = 'git-bash';
+            file = gitBash;
+            args = ['-l', '-i', '-c', fullCommand];
+          } else if (isWslAvailable()) {
+            shellKind = 'wsl-bash';
+            file = 'wsl.exe';
+            args = ['-e', 'bash', '-l', '-i', '-c', fullCommand];
+          } else {
+            // Fall back to cmd if no bash available
+            shellKind = 'cmd';
+            file = 'cmd.exe';
+            args = ['/c', fullCommand];
+          }
+        }
+      } else {
+        // Unix: direct spawn works for most CLI tools
+        shellKind = 'git-bash';
+        file = config.command;
+        args = config.args;
+      }
+
     } else {
       // Legacy shell session: spawn bash/pwsh
       const preferredShell = options.preferredShell ?? 'bash';
@@ -237,13 +287,21 @@ export class CliSessionManager {
       args = picked.args;
     }
 
-    const pty = nodePty.spawn(file, args, {
-      name: 'xterm-256color',
-      cols: options.cols ?? 120,
-      rows: options.rows ?? 30,
-      cwd: workingDir,
-      env: process.env as Record<string, string>
-    });
+    let pty: nodePty.IPty;
+    try {
+      pty = nodePty.spawn(file, args, {
+        name: 'xterm-256color',
+        cols: options.cols ?? 120,
+        rows: options.rows ?? 30,
+        cwd: workingDir,
+        env: process.env as Record<string, string>
+      });
+    } catch (spawnError: unknown) {
+      const errorMsg = spawnError instanceof Error ? spawnError.message : String(spawnError);
+      const toolInfo = options.tool ? `tool '${options.tool}' (` : '';
+      const shellInfo = options.tool ? `)` : `shell '${file}'`;
+      throw new Error(`Failed to spawn ${toolInfo}${shellInfo}: ${errorMsg}. Ensure the CLI tool is installed and available in PATH.`);
+    }
 
     const session: CliSessionInternal = {
       sessionKey,

@@ -83,6 +83,8 @@
     "mode": "Mode",
     "modeDefault": "Default",
     "modeYolo": "Yolo",
+    "shell": "Shell",
+    "shellCmdDesc": "(Recommended for Windows)",
     "quickCreate": "Quick Create",
     "configure": "Configure...",
     "fullscreen": "Fullscreen",

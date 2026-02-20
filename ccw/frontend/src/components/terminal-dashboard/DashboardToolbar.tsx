@@ -46,6 +46,7 @@ import {
 import { useIssues, useIssueQueue } from '@/hooks/useIssues';
 import { useTerminalGridStore, selectTerminalGridFocusedPaneId } from '@/stores/terminalGridStore';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { toast } from '@/stores/notificationStore';
 import { CliConfigModal, type CliSessionConfig } from './CliConfigModal';
 
 // ========== Types ==========
@@ -79,6 +80,7 @@ const LAYOUT_PRESETS = [
 ];
 
 type LaunchMode = 'default' | 'yolo';
+type ShellKind = 'bash' | 'pwsh' | 'cmd';
 
 const CLI_TOOLS = ['claude', 'gemini', 'qwen', 'codex', 'opencode'] as const;
 type CliTool = (typeof CLI_TOOLS)[number];
@@ -124,6 +126,9 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
   const [isCreating, setIsCreating] = useState(false);
   const [selectedTool, setSelectedTool] = useState<CliTool>('gemini');
   const [launchMode, setLaunchMode] = useState<LaunchMode>('yolo');
+  const [selectedShell, setSelectedShell] = useState<ShellKind>(
+    typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('win') ? 'cmd' : 'bash'
+  );
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   // Helper to get or create a focused pane
@@ -140,18 +145,29 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
     setIsCreating(true);
     try {
       const targetPaneId = getOrCreateFocusedPane();
-      if (!targetPaneId) return;
+      if (!targetPaneId) {
+        toast.error('无法创建会话', '未能获取或创建窗格');
+        return;
+      }
 
       await createSessionAndAssign(targetPaneId, {
         workingDir: projectPath,
-        preferredShell: 'bash',
+        preferredShell: selectedShell,
         tool: selectedTool,
         launchMode,
       }, projectPath);
+    } catch (error: unknown) {
+      // Handle both Error instances and ApiError-like objects
+      const message = error instanceof Error
+        ? error.message
+        : (error as { message?: string })?.message
+          ? (error as { message: string }).message
+          : String(error);
+      toast.error(`CLI 会话创建失败 (${selectedTool})`, message);
     } finally {
       setIsCreating(false);
     }
-  }, [projectPath, createSessionAndAssign, selectedTool, launchMode, getOrCreateFocusedPane]);
+  }, [projectPath, createSessionAndAssign, selectedTool, selectedShell, launchMode, getOrCreateFocusedPane]);
 
   const handleConfigure = useCallback(() => {
     setIsConfigOpen(true);
@@ -164,7 +180,7 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
       const targetPaneId = getOrCreateFocusedPane();
       if (!targetPaneId) throw new Error('Failed to create pane');
 
-      const created = await createSessionAndAssign(
+      await createSessionAndAssign(
         targetPaneId,
         {
           workingDir: config.workingDir || projectPath,
@@ -175,8 +191,15 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
         },
         projectPath
       );
-
-      if (!created?.session?.sessionKey) throw new Error('createSessionAndAssign failed');
+    } catch (error: unknown) {
+      // Handle both Error instances and ApiError-like objects
+      const message = error instanceof Error
+        ? error.message
+        : (error as { message?: string })?.message
+          ? (error as { message: string }).message
+          : String(error);
+      toast.error(`CLI 会话创建失败 (${config.tool})`, message);
+      throw error;
     } finally {
       setIsCreating(false);
     }
@@ -244,6 +267,31 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
                   </DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="yolo">
                     {formatMessage({ id: 'terminalDashboard.toolbar.modeYolo' })}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="gap-2">
+                <span>{formatMessage({ id: 'terminalDashboard.toolbar.shell' })}</span>
+                <span className="text-xs text-muted-foreground">
+                  {selectedShell === 'cmd' ? 'cmd' : selectedShell === 'pwsh' ? 'pwsh' : 'bash'}
+                </span>
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={selectedShell}
+                  onValueChange={(v) => setSelectedShell(v as ShellKind)}
+                >
+                  <DropdownMenuRadioItem value="cmd">
+                    cmd {formatMessage({ id: 'terminalDashboard.toolbar.shellCmdDesc' })}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="bash">
+                    bash (Git Bash/WSL)
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="pwsh">
+                    pwsh (PowerShell)
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
               </DropdownMenuSubContent>

@@ -341,9 +341,16 @@ export const useTerminalGridStore = create<TerminalGridStore>()(
             );
 
             return { paneId: newPaneId, session };
-          } catch (error) {
-            console.error('Failed to create CLI session:', error);
-            return null;
+          } catch (error: unknown) {
+            // Handle both Error instances and ApiError objects
+            const errorMsg = error instanceof Error
+              ? error.message
+              : (error as { message?: string })?.message
+                ? (error as { message: string }).message
+                : String(error);
+            console.error('Failed to create CLI session:', errorMsg, { config, projectPath, rawError: error });
+            // Re-throw with meaningful message so UI can display it
+            throw new Error(errorMsg);
           }
         },
 

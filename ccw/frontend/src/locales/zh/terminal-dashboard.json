@@ -83,6 +83,8 @@
     "mode": "模式",
     "modeDefault": "默认",
     "modeYolo": "Yolo",
+    "shell": "Shell",
+    "shellCmdDesc": "(推荐 Windows)",
     "quickCreate": "快速创建",
     "configure": "配置...",
     "fullscreen": "全屏",

@@ -152,7 +152,9 @@ async function fetchApi<T>(
     if (contentType && contentType.includes('application/json')) {
       try {
         const body = await response.json();
+        // Check both 'message' and 'error' fields for error message
         if (body.message) error.message = body.message;
+        else if (body.error) error.message = body.error;
         if (body.code) error.code = body.code;
       } catch (parseError) {
         // Silently ignore JSON parse errors for non-JSON responses
@@ -6344,7 +6346,8 @@ export interface CreateCliSessionInput {
   workingDir?: string;
   cols?: number;
   rows?: number;
-  preferredShell?: 'bash' | 'pwsh';
+  /** Shell to use for spawning CLI tools on Windows. */
+  preferredShell?: 'bash' | 'pwsh' | 'cmd';
   tool?: string;
   model?: string;
   resumeKey?: string;

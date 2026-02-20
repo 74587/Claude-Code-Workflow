@@ -29,7 +29,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 
 export type CliTool = 'claude' | 'gemini' | 'qwen' | 'codex' | 'opencode';
 export type LaunchMode = 'default' | 'yolo';
-export type ShellKind = 'bash' | 'pwsh';
+export type ShellKind = 'bash' | 'pwsh' | 'cmd';
 
 export interface CliSessionConfig {
   tool: CliTool;
@@ -69,7 +69,10 @@ export function CliConfigModal({
   const [tool, setTool] = React.useState<CliTool>('gemini');
   const [model, setModel] = React.useState<string | undefined>(MODEL_OPTIONS.gemini[0]);
   const [launchMode, setLaunchMode] = React.useState<LaunchMode>('yolo');
-  const [preferredShell, setPreferredShell] = React.useState<ShellKind>('bash');
+  // Default to 'cmd' on Windows for better compatibility with npm CLI tools (.cmd files)
+  const [preferredShell, setPreferredShell] = React.useState<ShellKind>(
+    typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('win') ? 'cmd' : 'bash'
+  );
   const [workingDir, setWorkingDir] = React.useState<string>(defaultWorkingDir ?? '');
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -216,8 +219,9 @@ export function CliConfigModal({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="bash">bash</SelectItem>
-                <SelectItem value="pwsh">pwsh</SelectItem>
+                <SelectItem value="cmd">cmd (推荐 Windows)</SelectItem>
+                <SelectItem value="bash">bash (Git Bash/WSL)</SelectItem>
+                <SelectItem value="pwsh">pwsh (PowerShell)</SelectItem>
               </SelectContent>
             </Select>
           </div>
