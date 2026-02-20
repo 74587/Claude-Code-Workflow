@@ -16,29 +16,15 @@ import {
   Columns2,
   Rows2,
   Square,
-  Terminal,
-  ChevronDown,
-  Zap,
-  Settings,
   Loader2,
   Folder,
   Maximize2,
   Minimize2,
+  Activity,
+  Plus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/Badge';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/components/ui/Dropdown';
 import {
   useIssueQueueIntegrationStore,
   selectAssociationChain,
@@ -47,11 +33,12 @@ import { useIssues, useIssueQueue } from '@/hooks/useIssues';
 import { useTerminalGridStore, selectTerminalGridFocusedPaneId } from '@/stores/terminalGridStore';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { toast } from '@/stores/notificationStore';
+import { useExecutionMonitorStore, selectActiveExecutionCount } from '@/stores/executionMonitorStore';
 import { CliConfigModal, type CliSessionConfig } from './CliConfigModal';
 
 // ========== Types ==========
 
-export type PanelId = 'issues' | 'queue' | 'inspector';
+export type PanelId = 'issues' | 'queue' | 'inspector' | 'execution';
 
 interface DashboardToolbarProps {
   activePanel: PanelId | null;
@@ -79,12 +66,6 @@ const LAYOUT_PRESETS = [
   { id: 'grid-2x2' as const, icon: LayoutGrid, labelId: 'terminalDashboard.toolbar.layoutGrid' },
 ];
 
-type LaunchMode = 'default' | 'yolo';
-type ShellKind = 'bash' | 'pwsh' | 'cmd';
-
-const CLI_TOOLS = ['claude', 'gemini', 'qwen', 'codex', 'opencode'] as const;
-type CliTool = (typeof CLI_TOOLS)[number];
-
 // ========== Component ==========
 
 export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen, onToggleFileSidebar, isSessionSidebarOpen, onToggleSessionSidebar, isFullscreen, onToggleFullscreen }: DashboardToolbarProps) {
@@ -109,6 +90,9 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
   const associationChain = useIssueQueueIntegrationStore(selectAssociationChain);
   const hasChain = associationChain !== null;
 
+  // Execution monitor count
+  const executionCount = useExecutionMonitorStore(selectActiveExecutionCount);
+
   // Layout preset handler
   const resetLayout = useTerminalGridStore((s) => s.resetLayout);
   const handlePreset = useCallback(
@@ -121,14 +105,8 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
   // Launch CLI handlers
   const projectPath = useWorkflowStore(selectProjectPath);
   const focusedPaneId = useTerminalGridStore(selectTerminalGridFocusedPaneId);
-  // panes available via: useTerminalGridStore((s) => s.panes)
   const createSessionAndAssign = useTerminalGridStore((s) => s.createSessionAndAssign);
   const [isCreating, setIsCreating] = useState(false);
-  const [selectedTool, setSelectedTool] = useState<CliTool>('gemini');
-  const [launchMode, setLaunchMode] = useState<LaunchMode>('yolo');
-  const [selectedShell, setSelectedShell] = useState<ShellKind>(
-    typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('win') ? 'cmd' : 'bash'
-  );
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   // Helper to get or create a focused pane
@@ -140,39 +118,12 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
     return useTerminalGridStore.getState().focusedPaneId;
   }, [focusedPaneId]);
 
-  const handleQuickCreate = useCallback(async () => {
-    if (!projectPath) return;
-    setIsCreating(true);
-    try {
-      const targetPaneId = getOrCreateFocusedPane();
-      if (!targetPaneId) {
-        toast.error('无法创建会话', '未能获取或创建窗格');
-        return;
-      }
-
-      await createSessionAndAssign(targetPaneId, {
-        workingDir: projectPath,
-        preferredShell: selectedShell,
-        tool: selectedTool,
-        launchMode,
-      }, projectPath);
-    } catch (error: unknown) {
-      // Handle both Error instances and ApiError-like objects
-      const message = error instanceof Error
-        ? error.message
-        : (error as { message?: string })?.message
-          ? (error as { message: string }).message
-          : String(error);
-      toast.error(`CLI 会话创建失败 (${selectedTool})`, message);
-    } finally {
-      setIsCreating(false);
-    }
-  }, [projectPath, createSessionAndAssign, selectedTool, selectedShell, launchMode, getOrCreateFocusedPane]);
-
-  const handleConfigure = useCallback(() => {
+  // Open config modal
+  const handleOpenConfig = useCallback(() => {
     setIsConfigOpen(true);
   }, []);
 
+  // Create session from config modal
   const handleCreateConfiguredSession = useCallback(async (config: CliSessionConfig) => {
     if (!projectPath) throw new Error('No project path');
     setIsCreating(true);
@@ -192,7 +143,6 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
         projectPath
       );
     } catch (error: unknown) {
-      // Handle both Error instances and ApiError-like objects
       const message = error instanceof Error
         ? error.message
         : (error as { message?: string })?.message
@@ -208,115 +158,24 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
   return (
     <>
       <div className="flex items-center gap-1 px-2 h-[40px] border-b border-border bg-muted/30 shrink-0">
-        {/* Launch CLI dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors',
-                'text-muted-foreground hover:text-foreground hover:bg-muted',
-                isCreating && 'opacity-50 cursor-wait'
-              )}
-              disabled={isCreating || !projectPath}
-            >
-              {isCreating ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Terminal className="w-3.5 h-3.5" />
-              )}
-              <span>{formatMessage({ id: 'terminalDashboard.toolbar.launchCli' })}</span>
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" sideOffset={4}>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="gap-2">
-                <span>{formatMessage({ id: 'terminalDashboard.toolbar.tool' })}</span>
-                <span className="text-xs text-muted-foreground">({selectedTool})</span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuRadioGroup
-                  value={selectedTool}
-                  onValueChange={(v) => setSelectedTool(v as CliTool)}
-                >
-                  {CLI_TOOLS.map((tool) => (
-                    <DropdownMenuRadioItem key={tool} value={tool}>
-                      {tool}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="gap-2">
-                <span>{formatMessage({ id: 'terminalDashboard.toolbar.mode' })}</span>
-                <span className="text-xs text-muted-foreground">
-                  {launchMode === 'default'
-                    ? formatMessage({ id: 'terminalDashboard.toolbar.modeDefault' })
-                    : formatMessage({ id: 'terminalDashboard.toolbar.modeYolo' })}
-                </span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuRadioGroup
-                  value={launchMode}
-                  onValueChange={(v) => setLaunchMode(v as LaunchMode)}
-                >
-                  <DropdownMenuRadioItem value="default">
-                    {formatMessage({ id: 'terminalDashboard.toolbar.modeDefault' })}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="yolo">
-                    {formatMessage({ id: 'terminalDashboard.toolbar.modeYolo' })}
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger className="gap-2">
-                <span>{formatMessage({ id: 'terminalDashboard.toolbar.shell' })}</span>
-                <span className="text-xs text-muted-foreground">
-                  {selectedShell === 'cmd' ? 'cmd' : selectedShell === 'pwsh' ? 'pwsh' : 'bash'}
-                </span>
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuRadioGroup
-                  value={selectedShell}
-                  onValueChange={(v) => setSelectedShell(v as ShellKind)}
-                >
-                  <DropdownMenuRadioItem value="cmd">
-                    cmd {formatMessage({ id: 'terminalDashboard.toolbar.shellCmdDesc' })}
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="bash">
-                    bash (Git Bash/WSL)
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="pwsh">
-                    pwsh (PowerShell)
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleQuickCreate}
-              disabled={isCreating || !projectPath}
-              className="gap-2"
-            >
-              <Zap className="w-4 h-4" />
-              <span>{formatMessage({ id: 'terminalDashboard.toolbar.quickCreate' })}</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleConfigure}
-              disabled={isCreating || !projectPath}
-              className="gap-2"
-            >
-              <Settings className="w-4 h-4" />
-              <span>{formatMessage({ id: 'terminalDashboard.toolbar.configure' })}</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Launch CLI button - opens config dialog */}
+        <button
+          onClick={handleOpenConfig}
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors',
+            'text-muted-foreground hover:text-foreground hover:bg-muted',
+            isCreating && 'opacity-50 cursor-wait'
+          )}
+          disabled={isCreating || !projectPath}
+          title={formatMessage({ id: 'terminalDashboard.toolbar.launchCliHint', defaultMessage: 'Click to configure and launch a CLI session' })}
+        >
+          {isCreating ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Plus className="w-3.5 h-3.5" />
+          )}
+          <span>{formatMessage({ id: 'terminalDashboard.toolbar.launchCli' })}</span>
+        </button>
 
         {/* Separator */}
         <div className="w-px h-5 bg-border mx-1" />
@@ -353,6 +212,13 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
           isActive={activePanel === 'inspector'}
           onClick={() => onTogglePanel('inspector')}
           dot={hasChain}
+        />
+        <ToolbarButton
+          icon={Activity}
+          label={formatMessage({ id: 'terminalDashboard.toolbar.executionMonitor', defaultMessage: 'Execution Monitor' })}
+          isActive={activePanel === 'execution'}
+          onClick={() => onTogglePanel('execution')}
+          badge={executionCount > 0 ? executionCount : undefined}
         />
         <ToolbarButton
           icon={FolderOpen}
