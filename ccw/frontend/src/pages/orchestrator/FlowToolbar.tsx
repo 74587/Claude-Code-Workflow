@@ -1,10 +1,11 @@
 // ========================================
 // Flow Toolbar Component
 // ========================================
-// Toolbar for flow operations: Save, Load, Import Template, Export, Run, Monitor
+// Toolbar for flow operations: Save, Load, Import Template, Export, Send to Terminal
 
 import { useState, useCallback, useEffect } from 'react';
 import { useIntl } from 'react-intl';
+import { useNavigate } from 'react-router-dom';
 import {
   Save,
   FolderOpen,
@@ -15,8 +16,7 @@ import {
   Loader2,
   ChevronDown,
   Library,
-  Play,
-  Activity,
+  Terminal,
   Maximize2,
   Minimize2,
 } from 'lucide-react';
@@ -24,8 +24,6 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useFlowStore, toast } from '@/stores';
-import { useExecutionStore } from '@/stores/executionStore';
-import { useExecuteFlow } from '@/hooks/useFlows';
 import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 import type { Flow } from '@/types/flow';
 
@@ -36,6 +34,7 @@ interface FlowToolbarProps {
 
 export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarProps) {
   const { formatMessage } = useIntl();
+  const navigate = useNavigate();
   const [isFlowListOpen, setIsFlowListOpen] = useState(false);
   const [flowName, setFlowName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -54,18 +53,6 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
   const deleteFlow = useFlowStore((state) => state.deleteFlow);
   const duplicateFlow = useFlowStore((state) => state.duplicateFlow);
   const fetchFlows = useFlowStore((state) => state.fetchFlows);
-
-  // Execution store
-  const currentExecution = useExecutionStore((state) => state.currentExecution);
-  const isMonitorPanelOpen = useExecutionStore((state) => state.isMonitorPanelOpen);
-  const setMonitorPanelOpen = useExecutionStore((state) => state.setMonitorPanelOpen);
-  const startExecution = useExecutionStore((state) => state.startExecution);
-
-  // Mutations
-  const executeFlow = useExecuteFlow();
-
-  const isExecuting = currentExecution?.status === 'running';
-  const isPaused = currentExecution?.status === 'paused';
 
   // Load flows on mount
   useEffect(() => {
@@ -194,24 +181,26 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
     toast.success(formatMessage({ id: 'orchestrator.notifications.flowExported' }), formatMessage({ id: 'orchestrator.notifications.flowExported' }));
   }, [currentFlow]);
 
-  // Handle run workflow
-  const handleRun = useCallback(async () => {
-    if (!currentFlow) return;
-    try {
-      // Open monitor panel automatically
-      setMonitorPanelOpen(true);
-      const result = await executeFlow.mutateAsync(currentFlow.id);
-      startExecution(result.execId, currentFlow.id);
-    } catch (error) {
-      console.error('Failed to execute flow:', error);
-      toast.error(formatMessage({ id: 'orchestrator.notifications.executionFailed' }), formatMessage({ id: 'orchestrator.notifications.couldNotExecute' }));
+  // Handle send to terminal execution
+  const handleSendToTerminal = useCallback(async () => {
+    if (!currentFlow) {
+      toast.error(formatMessage({ id: 'orchestrator.notifications.noFlow' }), formatMessage({ id: 'orchestrator.notifications.saveBeforeExecute' }));
+      return;
     }
-  }, [currentFlow, executeFlow, startExecution, setMonitorPanelOpen]);
 
-  // Handle monitor toggle
-  const handleToggleMonitor = useCallback(() => {
-    setMonitorPanelOpen(!isMonitorPanelOpen);
-  }, [isMonitorPanelOpen, setMonitorPanelOpen]);
+    // Save flow first if modified
+    if (isModified) {
+      const saved = await saveFlow();
+      if (!saved) {
+        toast.error(formatMessage({ id: 'orchestrator.notifications.saveFailed' }), formatMessage({ id: 'orchestrator.notifications.couldNotSave' }));
+        return;
+      }
+    }
+
+    // Navigate to terminal dashboard with flow execution request
+    navigate(`/terminal?executeFlow=${currentFlow.id}`);
+    toast.success(formatMessage({ id: 'orchestrator.notifications.flowSent' }), formatMessage({ id: 'orchestrator.notifications.sentToTerminal' }, { name: currentFlow.name }));
+  }, [currentFlow, isModified, saveFlow, navigate, formatMessage]);
 
   return (
     <div className={cn('flex items-center gap-3 p-3 bg-card border-b border-border', className)}>
@@ -346,29 +335,15 @@ export function FlowToolbar({ className, onOpenTemplateLibrary }: FlowToolbarPro
 
         <div className="w-px h-6 bg-border" />
 
-        {/* Run & Monitor Group */}
-        <Button
-          variant={isMonitorPanelOpen ? 'secondary' : 'outline'}
-          size="sm"
-          onClick={handleToggleMonitor}
-          title={formatMessage({ id: 'orchestrator.monitor.toggleMonitor' })}
-        >
-          <Activity className={cn('w-4 h-4 mr-1', (isExecuting || isPaused) && 'text-primary animate-pulse')} />
-          {formatMessage({ id: 'orchestrator.toolbar.monitor' })}
-        </Button>
-
+        {/* Execute in Terminal */}
         <Button
           variant="default"
           size="sm"
-          onClick={handleRun}
-          disabled={!currentFlow || isExecuting || isPaused || executeFlow.isPending}
+          onClick={handleSendToTerminal}
+          disabled={!currentFlow}
         >
-          {executeFlow.isPending ? (
-            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-          ) : (
-            <Play className="w-4 h-4 mr-1" />
-          )}
-          {formatMessage({ id: 'orchestrator.toolbar.runWorkflow' })}
+          <Terminal className="w-4 h-4 mr-1" />
+          {formatMessage({ id: 'orchestrator.toolbar.sendToTerminal' })}
         </Button>
 
         <div className="w-px h-6 bg-border" />

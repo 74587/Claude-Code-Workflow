@@ -22,6 +22,7 @@ import { AgentList } from '@/components/terminal-dashboard/AgentList';
 import { IssuePanel } from '@/components/terminal-dashboard/IssuePanel';
 import { QueuePanel } from '@/components/terminal-dashboard/QueuePanel';
 import { InspectorContent } from '@/components/terminal-dashboard/BottomInspector';
+import { ExecutionMonitorPanel } from '@/components/terminal-dashboard/ExecutionMonitorPanel';
 import { FileSidebarPanel } from '@/components/terminal-dashboard/FileSidebarPanel';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
@@ -127,6 +128,16 @@ export function TerminalDashboardPage() {
           width={360}
         >
           <InspectorContent />
+        </FloatingPanel>
+
+        <FloatingPanel
+          isOpen={activePanel === 'execution'}
+          onClose={closePanel}
+          title={formatMessage({ id: 'terminalDashboard.toolbar.executionMonitor', defaultMessage: 'Execution Monitor' })}
+          side="right"
+          width={380}
+        >
+          <ExecutionMonitorPanel />
         </FloatingPanel>
       </AssociationHighlightProvider>
     </div>

@@ -34,6 +34,7 @@ import { useTerminalGridStore, selectTerminalGridFocusedPaneId } from '@/stores/
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { toast } from '@/stores/notificationStore';
 import { useExecutionMonitorStore, selectActiveExecutionCount } from '@/stores/executionMonitorStore';
+import { useSessionManagerStore } from '@/stores/sessionManagerStore';
 import { CliConfigModal, type CliSessionConfig } from './CliConfigModal';
 
 // ========== Types ==========
@@ -106,6 +107,7 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
   const projectPath = useWorkflowStore(selectProjectPath);
   const focusedPaneId = useTerminalGridStore(selectTerminalGridFocusedPaneId);
   const createSessionAndAssign = useTerminalGridStore((s) => s.createSessionAndAssign);
+  const updateTerminalMeta = useSessionManagerStore((s) => s.updateTerminalMeta);
   const [isCreating, setIsCreating] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
@@ -131,7 +133,7 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
       const targetPaneId = getOrCreateFocusedPane();
       if (!targetPaneId) throw new Error('Failed to create pane');
 
-      await createSessionAndAssign(
+      const result = await createSessionAndAssign(
         targetPaneId,
         {
           workingDir: config.workingDir || projectPath,
@@ -142,6 +144,14 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
         },
         projectPath
       );
+
+      // Store tag in terminalMetas for grouping
+      if (result?.session?.sessionKey) {
+        updateTerminalMeta(result.session.sessionKey, {
+          tag: config.tag,
+          title: config.tag,
+        });
+      }
     } catch (error: unknown) {
       const message = error instanceof Error
         ? error.message
@@ -153,7 +163,7 @@ export function DashboardToolbar({ activePanel, onTogglePanel, isFileSidebarOpen
     } finally {
       setIsCreating(false);
     }
-  }, [projectPath, createSessionAndAssign, getOrCreateFocusedPane]);
+  }, [projectPath, createSessionAndAssign, getOrCreateFocusedPane, updateTerminalMeta]);
 
   return (
     <>

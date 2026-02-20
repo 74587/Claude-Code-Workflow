@@ -28,6 +28,8 @@ export interface TerminalMeta {
   status: TerminalStatus;
   /** Number of unread alerts (errors, warnings) */
   alertCount: number;
+  /** Session tag for grouping (e.g., "gemini-143052") */
+  tag?: string;
   /** Whether the session is locked (executing a workflow) */
   isLocked?: boolean;
   /** Reason for the lock (e.g., workflow name) */
