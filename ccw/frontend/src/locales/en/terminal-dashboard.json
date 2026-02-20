@@ -147,11 +147,15 @@
     "splitVertical": "Split Down",
     "clearTerminal": "Clear Terminal",
     "closePane": "Close Pane",
+    "closeSession": "Close Session",
     "linkedIssue": "Linked Issue",
     "restart": "Restart Session",
     "pause": "Pause Session",
     "resume": "Resume Session",
-    "backToTerminal": "Back to terminal"
+    "backToTerminal": "Back to terminal",
+    "closeConfirmTitle": "Close Pane?",
+    "closeConfirmMessage": "The session will still exist and can be restored from the session tree.",
+    "closeConfirmAction": "Close Pane"
   },
   "tabBar": {
     "noTabs": "No terminal sessions"

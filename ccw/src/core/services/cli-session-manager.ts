@@ -280,8 +280,10 @@ export class CliSessionManager {
 
     } else {
       // Legacy shell session: spawn bash/pwsh
-      const preferredShell = options.preferredShell ?? 'bash';
-      const picked = pickShell(preferredShell);
+      // Note: 'cmd' is for CLI tools only, for legacy shells we default to bash
+      const shellPreference = options.preferredShell ?? 'bash';
+      const preferredShell = shellPreference === 'cmd' ? 'bash' : shellPreference;
+      const picked = pickShell(preferredShell as 'bash' | 'pwsh');
       shellKind = picked.shellKind;
       file = picked.file;
       args = picked.args;

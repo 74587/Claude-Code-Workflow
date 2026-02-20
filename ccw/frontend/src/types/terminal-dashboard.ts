@@ -89,6 +89,8 @@ export interface SessionManagerActions {
   resumeSession: (terminalId: string) => Promise<void>;
   /** Restart a terminal session (close and recreate with same config) */
   restartSession: (terminalId: string) => Promise<void>;
+  /** Close and terminate a terminal session permanently */
+  closeSession: (terminalId: string) => Promise<void>;
 }
 
 export type SessionManagerStore = SessionManagerState & SessionManagerActions;

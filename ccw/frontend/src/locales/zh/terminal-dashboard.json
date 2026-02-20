@@ -147,11 +147,15 @@
     "splitVertical": "向下分割",
     "clearTerminal": "清屏",
     "closePane": "关闭窗格",
+    "closeSession": "关闭会话",
     "linkedIssue": "关联问题",
     "restart": "重启会话",
     "pause": "暂停会话",
     "resume": "恢复会话",
-    "backToTerminal": "返回终端"
+    "backToTerminal": "返回终端",
+    "closeConfirmTitle": "关闭窗格？",
+    "closeConfirmMessage": "会话仍将保留，可从会话树中恢复。",
+    "closeConfirmAction": "关闭窗格"
   },
   "tabBar": {
     "noTabs": "暂无终端会话"

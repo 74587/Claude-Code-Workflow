@@ -22,10 +22,21 @@ import {
   Loader2,
   FileText,
   ArrowLeft,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TerminalInstance } from './TerminalInstance';
 import { FilePreview } from '@/components/shared/FilePreview';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/AlertDialog';
 import {
   useTerminalGridStore,
   selectTerminalGridPanes,
@@ -33,7 +44,6 @@ import {
 } from '@/stores/terminalGridStore';
 import {
   useSessionManagerStore,
-  selectGroups,
   selectTerminalMetas,
 } from '@/stores/sessionManagerStore';
 import {
@@ -86,7 +96,6 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   const isFileMode = displayMode === 'file' && filePath;
 
   // Session data
-  const groups = useSessionManagerStore(selectGroups);
   const terminalMetas = useSessionManagerStore(selectTerminalMetas);
   const sessions = useCliSessionStore((s) => s.sessions);
 
@@ -94,10 +103,13 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   const pauseSession = useSessionManagerStore((s) => s.pauseSession);
   const resumeSession = useSessionManagerStore((s) => s.resumeSession);
   const restartSession = useSessionManagerStore((s) => s.restartSession);
+  const closeSession = useSessionManagerStore((s) => s.closeSession);
 
   // Action loading states
   const [isRestarting, setIsRestarting] = useState(false);
   const [isTogglingPause, setIsTogglingPause] = useState(false);
+  const [isClosingSession, setIsClosingSession] = useState(false);
+  const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
 
   // File content for preview mode
   const { content: fileContent, isLoading: isFileLoading, error: fileError } = useFileContent(filePath, {
@@ -118,14 +130,15 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   const alertCount = meta?.alertCount ?? 0;
 
   // Build session options for dropdown
+  // Use sessions from cliSessionStore directly (all sessions, not just grouped ones)
   const sessionOptions = useMemo(() => {
-    const allSessionIds = groups.flatMap((g) => g.sessionIds);
+    const allSessionIds = Object.keys(sessions);
     return allSessionIds.map((sid) => {
       const s = sessions[sid];
       const name = s ? (s.tool ? `${s.tool} - ${s.shellKind}` : s.shellKind) : sid;
       return { id: sid, name };
     });
-  }, [groups, sessions]);
+  }, [sessions]);
 
   // Handlers
   const handleFocus = useCallback(() => {
@@ -141,7 +154,17 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   }, [paneId, splitPane]);
 
   const handleClose = useCallback(() => {
+    // If pane has an active session, show confirmation dialog
+    if (sessionId) {
+      setIsCloseConfirmOpen(true);
+    } else {
+      closePane(paneId);
+    }
+  }, [paneId, sessionId, closePane]);
+
+  const handleCloseConfirm = useCallback(() => {
     closePane(paneId);
+    setIsCloseConfirmOpen(false);
   }, [paneId, closePane]);
 
   const handleSessionChange = useCallback(
@@ -188,6 +211,20 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
       setIsTogglingPause(false);
     }
   }, [sessionId, isTogglingPause, status, pauseSession, resumeSession]);
+
+  const handleCloseSession = useCallback(async () => {
+    if (!sessionId || isClosingSession) return;
+    setIsClosingSession(true);
+    try {
+      await closeSession(sessionId);
+      // Clear the pane's session after closing
+      assignSession(paneId, null);
+    } catch (error) {
+      console.error('[TerminalPane] Close session failed:', error);
+    } finally {
+      setIsClosingSession(false);
+    }
+  }, [sessionId, isClosingSession, closeSession, paneId, assignSession]);
 
   // Handle back to terminal from file preview
   const handleBackToTerminal = useCallback(() => {
@@ -329,6 +366,24 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
               >
                 <Eraser className="w-3.5 h-3.5" />
               </button>
+              {/* Close session button */}
+              <button
+                onClick={handleCloseSession}
+                disabled={isClosingSession}
+                className={cn(
+                  'p-1 rounded hover:bg-muted transition-colors',
+                  isClosingSession
+                    ? 'text-muted-foreground/50'
+                    : 'text-muted-foreground hover:text-destructive'
+                )}
+                title={formatMessage({ id: 'terminalDashboard.pane.closeSession' })}
+              >
+                {isClosingSession ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <LogOut className="w-3.5 h-3.5" />
+                )}
+              </button>
             </>
           )}
           {alertCount > 0 && !isFileMode && (
@@ -381,6 +436,28 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
           </div>
         </div>
       )}
+
+      {/* Close Pane Confirmation Dialog */}
+      <AlertDialog open={isCloseConfirmOpen} onOpenChange={setIsCloseConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {formatMessage({ id: 'terminalDashboard.pane.closeConfirmTitle' })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {formatMessage({ id: 'terminalDashboard.pane.closeConfirmMessage' })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {formatMessage({ id: 'common.actions.cancel' })}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleCloseConfirm}>
+              {formatMessage({ id: 'terminalDashboard.pane.closeConfirmAction' })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
