@@ -10,6 +10,10 @@ import { useFlowStore } from '@/stores';
 import { useCliStreamStore } from '@/stores/cliStreamStore';
 import { useCliSessionStore } from '@/stores/cliSessionStore';
 import {
+  handleSessionLockedMessage,
+  handleSessionUnlockedMessage,
+} from '@/stores/sessionManagerStore';
+import {
   OrchestratorMessageSchema,
   type OrchestratorWebSocketMessage,
   type ExecutionLog,
@@ -208,6 +212,30 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
               const { sessionKey } = data.payload ?? {};
               if (typeof sessionKey === 'string') {
                 stores.updateCliSessionPausedState(sessionKey, false);
+              }
+              break;
+            }
+
+            case 'CLI_SESSION_LOCKED': {
+              const { sessionKey, reason, executionId, timestamp } = data.payload ?? {};
+              if (typeof sessionKey === 'string') {
+                handleSessionLockedMessage({
+                  sessionKey,
+                  reason: reason ?? 'Workflow execution',
+                  executionId,
+                  timestamp: timestamp ?? new Date().toISOString(),
+                });
+              }
+              break;
+            }
+
+            case 'CLI_SESSION_UNLOCKED': {
+              const { sessionKey, timestamp } = data.payload ?? {};
+              if (typeof sessionKey === 'string') {
+                handleSessionUnlockedMessage({
+                  sessionKey,
+                  timestamp: timestamp ?? new Date().toISOString(),
+                });
               }
               break;
             }

@@ -1307,6 +1307,37 @@ export async function handleOrchestratorRoutes(ctx: RouteContext): Promise<boole
         errorStrategy?: 'pause' | 'skip' | 'stop';
       };
 
+      // Input validation
+      const validTools = ['claude', 'gemini', 'qwen', 'codex', 'opencode'];
+      const validShells = ['bash', 'pwsh', 'cmd'];
+      const validErrorStrategies = ['pause', 'skip', 'stop'];
+
+      if (sessionConfig) {
+        if (sessionConfig.tool && !validTools.includes(sessionConfig.tool)) {
+          return { success: false, error: `Invalid tool. Must be one of: ${validTools.join(', ')}`, status: 400 };
+        }
+        if (sessionConfig.preferredShell && !validShells.includes(sessionConfig.preferredShell)) {
+          return { success: false, error: `Invalid preferredShell. Must be one of: ${validShells.join(', ')}`, status: 400 };
+        }
+        if (sessionConfig.model && typeof sessionConfig.model !== 'string') {
+          return { success: false, error: 'model must be a string', status: 400 };
+        }
+      }
+
+      if (inputVariables && typeof inputVariables !== 'object') {
+        return { success: false, error: 'variables must be an object', status: 400 };
+      }
+
+      if (stepTimeout !== undefined) {
+        if (typeof stepTimeout !== 'number' || stepTimeout < 1000 || stepTimeout > 3600000) {
+          return { success: false, error: 'stepTimeout must be a number between 1000 and 3600000 (ms)', status: 400 };
+        }
+      }
+
+      if (!validErrorStrategies.includes(errorStrategy)) {
+        return { success: false, error: `Invalid errorStrategy. Must be one of: ${validErrorStrategies.join(', ')}`, status: 400 };
+      }
+
       try {
         // Verify flow exists
         const flow = await readFlowStorage(workflowDir, flowId);
@@ -1355,31 +1386,27 @@ export async function handleOrchestratorRoutes(ctx: RouteContext): Promise<boole
         broadcastExecutionStateUpdate(execution);
 
         // Broadcast EXECUTION_STARTED to WebSocket clients
-        if (wsBroadcast) {
-          wsBroadcast({
-            type: 'EXECUTION_STARTED',
-            payload: {
-              executionId: execId,
-              flowId: flowId,
-              sessionKey: sessionKey,
-              stepName: flow.name,
-              timestamp: now
-            }
-          });
-        }
+        broadcastToClients({
+          type: 'EXECUTION_STARTED',
+          payload: {
+            executionId: execId,
+            flowId: flowId,
+            sessionKey: sessionKey,
+            stepName: flow.name,
+            timestamp: now
+          }
+        });
 
         // Lock the session (via WebSocket broadcast for frontend to handle)
-        if (wsBroadcast) {
-          wsBroadcast({
-            type: 'CLI_SESSION_LOCKED',
-            payload: {
-              sessionKey: sessionKey,
-              reason: `Executing workflow: ${flow.name}`,
-              executionId: execId,
-              timestamp: now
-            }
-          });
-        }
+        broadcastToClients({
+          type: 'CLI_SESSION_LOCKED',
+          payload: {
+            sessionKey: sessionKey,
+            reason: `Executing workflow: ${flow.name}`,
+            executionId: execId,
+            timestamp: now
+          }
+        });
 
         // TODO: Implement actual step-by-step execution in PTY session
         // For now, mark as running and let the frontend handle the orchestration

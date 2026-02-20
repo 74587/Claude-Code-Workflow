@@ -35,6 +35,50 @@ const initialState: SessionManagerState = {
 /** Module-level worker reference. Worker objects are not serializable. */
 let _workerRef: Worker | null = null;
 
+// ========== WebSocket Session Lock Message Handler ==========
+
+/**
+ * Handle CLI_SESSION_LOCKED WebSocket message from backend.
+ * Updates session metadata to reflect locked state.
+ */
+export function handleSessionLockedMessage(payload: {
+  sessionKey: string;
+  reason: string;
+  executionId?: string;
+  timestamp: string;
+}): void {
+  const store = useSessionManagerStore.getState();
+  store.updateTerminalMeta(payload.sessionKey, {
+    status: 'locked',
+    isLocked: true,
+    lockReason: payload.reason,
+    lockedByExecutionId: payload.executionId,
+    lockedAt: payload.timestamp,
+  });
+}
+
+/**
+ * Handle CLI_SESSION_UNLOCKED WebSocket message from backend.
+ * Updates session metadata to reflect unlocked state.
+ */
+export function handleSessionUnlockedMessage(payload: {
+  sessionKey: string;
+  timestamp: string;
+}): void {
+  const store = useSessionManagerStore.getState();
+  const existing = store.terminalMetas[payload.sessionKey];
+  // Only unlock if currently locked
+  if (existing?.isLocked) {
+    store.updateTerminalMeta(payload.sessionKey, {
+      status: 'active',
+      isLocked: false,
+      lockReason: undefined,
+      lockedByExecutionId: undefined,
+      lockedAt: undefined,
+    });
+  }
+}
+
 // ========== Worker Message Handler ==========
 
 function _handleWorkerMessage(event: MessageEvent<MonitorAlert>): void {
