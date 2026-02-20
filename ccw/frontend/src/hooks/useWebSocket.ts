@@ -14,6 +14,10 @@ import {
   handleSessionUnlockedMessage,
 } from '@/stores/sessionManagerStore';
 import {
+  useExecutionMonitorStore,
+  type ExecutionWSMessage,
+} from '@/stores/executionMonitorStore';
+import {
   OrchestratorMessageSchema,
   type OrchestratorWebSocketMessage,
   type ExecutionLog,
@@ -327,6 +331,13 @@ export function useWebSocket(options: UseWebSocketOptions = {}): UseWebSocketRet
               break;
             }
           }
+          return;
+        }
+
+        // Handle EXECUTION messages (from orchestrator execution-in-session)
+        if (data.type?.startsWith('EXECUTION_')) {
+          const handleExecutionMessage = useExecutionMonitorStore.getState().handleExecutionMessage;
+          handleExecutionMessage(data as ExecutionWSMessage);
           return;
         }
 

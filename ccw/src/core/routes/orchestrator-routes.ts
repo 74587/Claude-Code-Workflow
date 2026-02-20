@@ -305,6 +305,8 @@ export interface ExecutionState {
   startedAt?: string;
   completedAt?: string;
   currentNodeId?: string;
+  /** Session key if execution is running in a PTY session */
+  sessionKey?: string;
   variables: Record<string, unknown>;
   nodeStates: Record<string, NodeExecutionState>;
   logs: ExecutionLog[];
@@ -1190,6 +1192,54 @@ export async function handleOrchestratorRoutes(ctx: RouteContext): Promise<boole
     }
   };
 
+  // Helper to broadcast specific execution status messages (for frontend executionMonitorStore)
+  const broadcastExecutionStatusMessage = (
+    execution: ExecutionState,
+    sessionKey?: string
+  ): void => {
+    const timestamp = new Date().toISOString();
+
+    // Map execution status to specific message types
+    const messageTypeMap: Record<string, string> = {
+      paused: 'EXECUTION_PAUSED',
+      running: 'EXECUTION_RESUMED',
+      completed: 'EXECUTION_COMPLETED',
+      failed: 'EXECUTION_FAILED',
+    };
+
+    const messageType = messageTypeMap[execution.status];
+    if (messageType) {
+      try {
+        broadcastToClients({
+          type: messageType,
+          payload: {
+            executionId: execution.id,
+            flowId: execution.flowId,
+            status: execution.status,
+            timestamp,
+          },
+        });
+      } catch {
+        // Ignore broadcast errors
+      }
+    }
+
+    // Broadcast CLI_SESSION_UNLOCKED when execution completes or fails
+    if ((execution.status === 'completed' || execution.status === 'failed') && sessionKey) {
+      try {
+        broadcastToClients({
+          type: 'CLI_SESSION_UNLOCKED',
+          payload: {
+            sessionKey,
+            timestamp,
+          },
+        });
+      } catch {
+        // Ignore broadcast errors
+      }
+    }
+  };
+
   // ==== EXECUTE FLOW ====
   // POST /api/orchestrator/flows/:id/execute
   if (pathname.match(/^\/api\/orchestrator\/flows\/[^/]+\/execute$/) && req.method === 'POST') {
@@ -1370,6 +1420,7 @@ export async function handleOrchestratorRoutes(ctx: RouteContext): Promise<boole
           flowId: flowId,
           status: 'pending',
           startedAt: now,
+          sessionKey: sessionKey,
           variables: { ...flow.variables, ...inputVariables },
           nodeStates,
           logs: [{
@@ -1393,6 +1444,7 @@ export async function handleOrchestratorRoutes(ctx: RouteContext): Promise<boole
             flowId: flowId,
             sessionKey: sessionKey,
             stepName: flow.name,
+            totalSteps: flow.nodes.length,
             timestamp: now
           }
         });
@@ -1484,6 +1536,7 @@ export async function handleOrchestratorRoutes(ctx: RouteContext): Promise<boole
 
       await writeExecutionStorage(workflowDir, execution);
       broadcastExecutionStateUpdate(execution);
+      broadcastExecutionStatusMessage(execution);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
@@ -1567,6 +1620,7 @@ export async function handleOrchestratorRoutes(ctx: RouteContext): Promise<boole
 
       await writeExecutionStorage(workflowDir, execution);
       broadcastExecutionStateUpdate(execution);
+      broadcastExecutionStatusMessage(execution);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
@@ -1652,6 +1706,18 @@ export async function handleOrchestratorRoutes(ctx: RouteContext): Promise<boole
 
       await writeExecutionStorage(workflowDir, execution);
       broadcastExecutionStateUpdate(execution);
+      broadcastExecutionStatusMessage(execution, execution.sessionKey);
+
+      // Broadcast EXECUTION_STOPPED for frontend executionMonitorStore
+      broadcastToClients({
+        type: 'EXECUTION_STOPPED',
+        payload: {
+          executionId: execution.id,
+          flowId: execution.flowId,
+          reason: 'User requested stop',
+          timestamp: now,
+        },
+      });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({

@@ -44,7 +44,8 @@ export type ExecutionWSMessageType =
   | 'EXECUTION_PAUSED'
   | 'EXECUTION_RESUMED'
   | 'EXECUTION_STOPPED'
-  | 'EXECUTION_COMPLETED';
+  | 'EXECUTION_COMPLETED'
+  | 'EXECUTION_FAILED';
 
 export interface ExecutionWSMessage {
   type: ExecutionWSMessageType;
@@ -54,9 +55,11 @@ export interface ExecutionWSMessage {
     sessionKey: string;
     stepId?: string;
     stepName?: string;
+    totalSteps?: number;
     progress?: number;
     output?: string;
     error?: string;
+    reason?: string;
     timestamp: string;
   };
 }
@@ -99,7 +102,7 @@ export const useExecutionMonitorStore = create<ExecutionMonitorStore>()(
 
       handleExecutionMessage: (msg: ExecutionWSMessage) => {
         const { type, payload } = msg;
-        const { executionId, flowId, sessionKey, stepId, stepName, output, error, timestamp } = payload;
+        const { executionId, flowId, sessionKey, stepId, stepName, totalSteps, output, error, timestamp } = payload;
 
         set((state) => {
           const existing = state.activeExecutions[executionId];
@@ -115,7 +118,7 @@ export const useExecutionMonitorStore = create<ExecutionMonitorStore>()(
                     flowName: stepName || 'Workflow',
                     sessionKey,
                     status: 'running',
-                    totalSteps: 0,
+                    totalSteps: totalSteps || 0,
                     completedSteps: 0,
                     steps: [],
                     startedAt: timestamp,
@@ -233,6 +236,15 @@ export const useExecutionMonitorStore = create<ExecutionMonitorStore>()(
                 },
               };
 
+            case 'EXECUTION_FAILED':
+              if (!existing) return state;
+              return {
+                activeExecutions: {
+                  ...state.activeExecutions,
+                  [executionId]: { ...existing, status: 'failed', completedAt: timestamp },
+                },
+              };
+
             default:
               return state;
           }
@@ -243,19 +255,49 @@ export const useExecutionMonitorStore = create<ExecutionMonitorStore>()(
         set({ currentExecutionId: executionId }, false, 'selectExecution');
       },
 
-      pauseExecution: (executionId: string) => {
-        // TODO: Call API to pause execution
-        console.log('[ExecutionMonitor] Pause execution:', executionId);
+      pauseExecution: async (executionId: string) => {
+        try {
+          const response = await fetch(`/api/orchestrator/executions/${executionId}/pause`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          const result = await response.json();
+          if (!result.success) {
+            console.error('[ExecutionMonitor] Pause failed:', result.error);
+          }
+        } catch (error) {
+          console.error('[ExecutionMonitor] Pause error:', error);
+        }
       },
 
-      resumeExecution: (executionId: string) => {
-        // TODO: Call API to resume execution
-        console.log('[ExecutionMonitor] Resume execution:', executionId);
+      resumeExecution: async (executionId: string) => {
+        try {
+          const response = await fetch(`/api/orchestrator/executions/${executionId}/resume`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          const result = await response.json();
+          if (!result.success) {
+            console.error('[ExecutionMonitor] Resume failed:', result.error);
+          }
+        } catch (error) {
+          console.error('[ExecutionMonitor] Resume error:', error);
+        }
       },
 
-      stopExecution: (executionId: string) => {
-        // TODO: Call API to stop execution
-        console.log('[ExecutionMonitor] Stop execution:', executionId);
+      stopExecution: async (executionId: string) => {
+        try {
+          const response = await fetch(`/api/orchestrator/executions/${executionId}/stop`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          const result = await response.json();
+          if (!result.success) {
+            console.error('[ExecutionMonitor] Stop failed:', result.error);
+          }
+        } catch (error) {
+          console.error('[ExecutionMonitor] Stop error:', error);
+        }
       },
 
       setPanelOpen: (open: boolean) => {
