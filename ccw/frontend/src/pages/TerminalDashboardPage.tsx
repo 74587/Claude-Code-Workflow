@@ -2,11 +2,11 @@
 // Terminal Dashboard Page (V2)
 // ========================================
 // Terminal-first layout with fixed session sidebar + floating panels + right file sidebar.
-// Left sidebar: SessionGroupTree + AgentList (always visible)
+// Left sidebar: SessionGroupTree (always visible)
 // Main area: TerminalGrid (tmux-style split panes)
 // Right sidebar: FileSidebarPanel (file tree, resizable)
 // Top: DashboardToolbar with panel toggles and layout presets
-// Floating panels: Issues, Queue, Inspector (overlay, mutually exclusive)
+// Floating panels: Issues, Queue, Inspector, Execution Monitor (overlay, mutually exclusive)
 // Fullscreen mode: Uses global isImmersiveMode to hide app chrome (Header + Sidebar)
 
 import { useState, useCallback } from 'react';
@@ -18,7 +18,6 @@ import { DashboardToolbar, type PanelId } from '@/components/terminal-dashboard/
 import { TerminalGrid } from '@/components/terminal-dashboard/TerminalGrid';
 import { FloatingPanel } from '@/components/terminal-dashboard/FloatingPanel';
 import { SessionGroupTree } from '@/components/terminal-dashboard/SessionGroupTree';
-import { AgentList } from '@/components/terminal-dashboard/AgentList';
 import { IssuePanel } from '@/components/terminal-dashboard/IssuePanel';
 import { QueuePanel } from '@/components/terminal-dashboard/QueuePanel';
 import { InspectorContent } from '@/components/terminal-dashboard/BottomInspector';
@@ -73,9 +72,6 @@ export function TerminalDashboardPage() {
                 <div className="h-full flex flex-col border-r border-border">
                   <div className="flex-1 min-h-0 overflow-y-auto">
                     <SessionGroupTree />
-                  </div>
-                  <div className="shrink-0">
-                    <AgentList />
                   </div>
                 </div>
               </Allotment.Pane>
