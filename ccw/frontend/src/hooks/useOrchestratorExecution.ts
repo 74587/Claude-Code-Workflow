@@ -5,7 +5,6 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useExecutionMonitorStore } from '@/stores/executionMonitorStore';
-import { useSessionManagerStore } from '@/stores/sessionManagerStore';
 import { toast } from '@/stores/notificationStore';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
@@ -54,7 +53,6 @@ export function useExecuteFlowInSession() {
   const projectPath = useWorkflowStore(selectProjectPath);
   const handleExecutionMessage = useExecutionMonitorStore((s) => s.handleExecutionMessage);
   const setPanelOpen = useExecutionMonitorStore((s) => s.setPanelOpen);
-  const lockSession = useSessionManagerStore((s) => s.lockSession);
 
   return useMutation({
     mutationFn: async (params: {
@@ -89,8 +87,8 @@ export function useExecuteFlowInSession() {
           },
         });
 
-        // Lock the session
-        lockSession(sessionKey, `Executing workflow: ${flowId}`, executionId);
+        // Note: Session locking is handled by backend WebSocket broadcast (CLI_SESSION_LOCKED)
+        // Frontend sessionManagerStore updates state via WebSocket message handler
 
         // Open the execution monitor panel
         setPanelOpen(true);

@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { viewCommand } from './commands/view.js';
 import { serveCommand } from './commands/serve.js';
 import { stopCommand } from './commands/stop.js';
-import { installCommand } from './commands/install.js';
+import { installCommand, installSkillHubCommand } from './commands/install.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { upgradeCommand } from './commands/upgrade.js';
 import { listCommand } from './commands/list.js';
@@ -115,7 +115,21 @@ export function run(argv: string[]): void {
     .option('-m, --mode <mode>', 'Installation mode: Global or Path')
     .option('-p, --path <path>', 'Installation path (for Path mode)')
     .option('-f, --force', 'Force installation without prompts')
-    .action(installCommand);
+    .option('--skill-hub [skillId]', 'Install skill from skill-hub (use --list to see available)')
+    .option('--cli <type>', 'Target CLI for skill installation (claude or codex)', 'claude')
+    .option('--list', 'List available skills in skill-hub')
+    .action((options) => {
+      // If skill-hub option is used, route to skill hub command
+      if (options.skillHub !== undefined || options.list) {
+        return installSkillHubCommand({
+          skillId: typeof options.skillHub === 'string' ? options.skillHub : undefined,
+          cliType: options.cli,
+          list: options.list,
+        });
+      }
+      // Otherwise use normal install
+      return installCommand(options);
+    });
 
   // Uninstall command
   program

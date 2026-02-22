@@ -36,3 +36,4 @@ export { CliSessionSharePage } from './CliSessionSharePage';
 export { IssueManagerPage } from './IssueManagerPage';
 export { TeamPage } from './TeamPage';
 export { TerminalDashboardPage } from './TerminalDashboardPage';
+export { SkillHubPage } from './SkillHubPage';

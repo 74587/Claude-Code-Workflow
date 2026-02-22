@@ -40,6 +40,7 @@ import help from './help.json';
 import cliViewer from './cli-viewer.json';
 import team from './team.json';
 import terminalDashboard from './terminal-dashboard.json';
+import skillHub from './skill-hub.json';
 
 /**
  * Flattens nested JSON object to dot-separated keys
@@ -103,4 +104,5 @@ export default {
   ...flattenMessages(cliViewer, 'cliViewer'),
   ...flattenMessages(team, 'team'),
   ...flattenMessages(terminalDashboard, 'terminalDashboard'),
+  ...flattenMessages(skillHub, 'skillHub'),
 } as Record<string, string>;

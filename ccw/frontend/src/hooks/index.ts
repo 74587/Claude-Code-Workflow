@@ -352,3 +352,32 @@ export type {
   UseUpdateRerankerConfigReturn,
   UseCcwToolsListReturn,
 } from './useCodexLens';
+
+// ========== Skill Hub ==========
+export {
+  useRemoteSkills,
+  useLocalSkills,
+  useInstalledSkills,
+  useSkillHubUpdates,
+  useInstallSkill,
+  useCacheSkill,
+  useUninstallSkill,
+  useSkillHubStats,
+  useSkillHub,
+  skillHubKeys,
+} from './useSkillHub';
+export type {
+  CliType,
+  SkillSource,
+  RemoteSkill,
+  LocalSkill,
+  InstalledSkill,
+  RemoteSkillsResponse,
+  LocalSkillsResponse,
+  InstalledSkillsResponse,
+  SkillInstallRequest,
+  SkillInstallResponse,
+  SkillCacheRequest,
+  SkillCacheResponse,
+  SkillHubStats,
+} from './useSkillHub';

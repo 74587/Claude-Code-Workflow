@@ -36,7 +36,8 @@
     "explorer": "File Explorer",
     "graph": "Graph Explorer",
     "teams": "Team Execution",
-    "terminalDashboard": "Terminal Dashboard"
+    "terminalDashboard": "Terminal Dashboard",
+    "skillHub": "Skill Hub"
   },
   "sidebar": {
     "collapse": "Collapse",

@@ -173,6 +173,10 @@ const routes: RouteObject[] = [
         path: 'terminal-dashboard',
         element: <TerminalDashboardPage />,
       },
+      {
+        path: 'skill-hub',
+        element: <Navigate to="/skills?tab=hub" replace />,
+      },
       // Catch-all route for 404
       {
         path: '*',
@@ -229,6 +233,7 @@ export const ROUTES = {
   GRAPH: '/graph',
   TEAMS: '/teams',
   TERMINAL_DASHBOARD: '/terminal-dashboard',
+  SKILL_HUB: '/skill-hub',
 } as const;
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];
