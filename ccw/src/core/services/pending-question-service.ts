@@ -77,7 +77,10 @@ function initialize(): void {
         pendingQuestions.set(sq.id, pendingQ);
       }
 
-      console.log(`[PendingQuestionService] Loaded ${pendingQuestions.size} pending questions from storage`);
+      // Only log when there are actual pending questions (silent when 0)
+      if (pendingQuestions.size > 0) {
+        console.log(`[PendingQuestionService] Loaded ${pendingQuestions.size} pending questions from storage`);
+      }
     }
 
     initialized = true;
