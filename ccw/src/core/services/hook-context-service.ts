@@ -7,7 +7,7 @@
  *   - session-end: task generation for async background processing
  *
  * Character limits:
- *   - session-start: <= 1000 chars
+ *   - session-start: <= 1500 chars
  *   - per-prompt: <= 500 chars
  */
 
@@ -19,7 +19,7 @@ import { SessionStateService, type SessionState } from './session-state-service.
 // =============================================================================
 
 /** Maximum character count for session-start context */
-const SESSION_START_LIMIT = 1000;
+const SESSION_START_LIMIT = 1500;
 
 /** Maximum character count for per-prompt context */
 const PER_PROMPT_LIMIT = 500;

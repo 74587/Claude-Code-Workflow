@@ -40,6 +40,7 @@ export interface ExtractionInput {
 export interface ExtractionOutput {
   raw_memory: string;
   rollout_summary: string;
+  tags: string[];
 }
 
 export interface TranscriptFilterOptions {
@@ -289,10 +290,10 @@ export class MemoryExtractionPipeline {
    * Applies secret redaction and size limit enforcement.
    *
    * @param llmOutput - Raw text output from the LLM
-   * @returns Validated ExtractionOutput with raw_memory and rollout_summary
+   * @returns Validated ExtractionOutput with raw_memory, rollout_summary, and tags
    */
   postProcess(llmOutput: string): ExtractionOutput {
-    let parsed: { raw_memory?: string; rollout_summary?: string } | null = null;
+    let parsed: { raw_memory?: string; rollout_summary?: string; tags?: string[] } | null = null;
 
     // Mode 1: Pure JSON
     try {
@@ -333,7 +334,17 @@ export class MemoryExtractionPipeline {
       rolloutSummary = rolloutSummary.substring(0, MAX_SUMMARY_CHARS);
     }
 
-    return { raw_memory: rawMemory, rollout_summary: rolloutSummary };
+    // Extract and validate tags (fallback to empty array)
+    let tags: string[] = [];
+    if (parsed.tags && Array.isArray(parsed.tags)) {
+      tags = parsed.tags
+        .filter((t: unknown) => typeof t === 'string')
+        .map((t: string) => t.toLowerCase().trim())
+        .filter((t: string) => t.length > 0)
+        .slice(0, 8);
+    }
+
+    return { raw_memory: rawMemory, rollout_summary: rolloutSummary, tags };
   }
 
   // ========================================================================
@@ -387,6 +398,14 @@ export class MemoryExtractionPipeline {
 
     const store = getCoreMemoryStore(this.projectPath);
     store.upsertStage1Output(output);
+
+    // Create/update a core memory (CMEM) from extraction results with tags
+    store.upsertMemory({
+      id: `CMEM-EXT-${sessionId}`,
+      content: extracted.raw_memory,
+      summary: extracted.rollout_summary,
+      tags: extracted.tags,
+    });
 
     // Sync extracted content to vector index (fire-and-forget)
     this.syncExtractionToVectorIndex(output);

@@ -39,6 +39,7 @@ interface CommandOptions {
   topK?: string;
   minScore?: string;
   category?: string;
+  tags?: string;
 }
 
 /**
@@ -624,9 +625,49 @@ async function loadClusterAction(clusterId: string, options: CommandOptions): Pr
  * Search sessions by keyword
  */
 async function searchAction(keyword: string, options: CommandOptions): Promise<void> {
+  // When --tags is provided, use tag-based filtering instead of keyword search
+  if (options.tags) {
+    const parsedTags = options.tags.split(',').map(t => t.trim()).filter(Boolean);
+    if (parsedTags.length === 0) {
+      console.error(chalk.red('Error: --tags requires at least one tag'));
+      console.error(chalk.gray('Usage: ccw core-memory search --tags tag1,tag2'));
+      process.exit(1);
+    }
+
+    try {
+      const store = getCoreMemoryStore(getProjectPath());
+      const memories = store.getMemoriesByTags(parsedTags, { limit: 100 });
+
+      if (memories.length === 0) {
+        console.log(chalk.yellow(`\n  No memories found with tags: [${parsedTags.join(', ')}]\n`));
+        return;
+      }
+
+      console.log(chalk.bold.cyan(`\n  Memories with tags [${parsedTags.join(', ')}]\n`));
+      console.log(chalk.gray('  ─────────────────────────────────────────────────────────────────'));
+
+      for (const memory of memories) {
+        const date = new Date(memory.updated_at).toLocaleString();
+        const archived = memory.archived ? chalk.gray(' [archived]') : '';
+        const tagDisplay = (memory.tags && memory.tags.length > 0) ? chalk.gray(` [${memory.tags.join(', ')}]`) : '';
+        console.log(chalk.cyan(`  ${memory.id}`) + archived + tagDisplay);
+        console.log(chalk.white(`    ${memory.summary || memory.content.substring(0, 80)}${memory.content.length > 80 ? '...' : ''}`));
+        console.log(chalk.gray(`    Updated: ${date}`));
+        console.log(chalk.gray('  ─────────────────────────────────────────────────────────────────'));
+      }
+
+      console.log(chalk.gray(`\n  Total: ${memories.length}\n`));
+
+    } catch (error) {
+      console.error(chalk.red(`Error: ${(error as Error).message}`));
+      process.exit(1);
+    }
+    return;
+  }
+
   if (!keyword || keyword.trim() === '') {
     console.error(chalk.red('Error: Keyword is required'));
-    console.error(chalk.gray('Usage: ccw core-memory search <keyword> [--type core|workflow|cli|all]'));
+    console.error(chalk.gray('Usage: ccw core-memory search <keyword> [--type core|workflow|cli|all] [--tags tag1,tag2]'));
     process.exit(1);
   }
 
@@ -1065,6 +1106,7 @@ export async function coreMemoryCommand(
       console.log(chalk.white('    context                     ') + chalk.gray('Get progressive index'));
       console.log(chalk.white('    load-cluster <id>           ') + chalk.gray('Load cluster context'));
       console.log(chalk.white('    search <keyword>            ') + chalk.gray('Search sessions'));
+      console.log(chalk.white('    search --tags tag1,tag2     ') + chalk.gray('Filter memories by tags'));
       console.log(chalk.white('    search --unified <query>    ') + chalk.gray('Unified vector+FTS search'));
       console.log();
       console.log(chalk.bold('  Memory V2 Pipeline:'));
@@ -1080,6 +1122,7 @@ export async function coreMemoryCommand(
       console.log(chalk.gray('    --json                      Output as JSON'));
       console.log(chalk.gray('    --scope <scope>             Auto-cluster scope (all/recent/unclustered)'));
       console.log(chalk.gray('    --dedup                     Deduplicate similar clusters'));
+      console.log(chalk.gray('    --tags <tags>               Filter by tags (comma-separated)'));
       console.log(chalk.gray('    --delete                    Delete a cluster'));
       console.log(chalk.gray('    --merge <ids>               Merge source clusters into target'));
       console.log();

@@ -7,7 +7,7 @@
  *   - session-end: incremental embedding + clustering + heat score update tasks
  *
  * Character limits:
- *   - session-start: <= 1000 chars
+ *   - session-start: <= 1500 chars
  *   - per-prompt: <= 500 chars
  */
 
@@ -29,7 +29,7 @@ import { SessionClusteringService } from './session-clustering-service.js';
 // =============================================================================
 
 /** Maximum character count for session-start context */
-const SESSION_START_LIMIT = 1000;
+const SESSION_START_LIMIT = 1500;
 
 /** Maximum character count for per-prompt context */
 const PER_PROMPT_LIMIT = 500;
@@ -51,6 +51,12 @@ const VECTOR_TOP_K = 8;
 
 /** Minimum vector similarity score */
 const VECTOR_MIN_SCORE = 0.3;
+
+/** Maximum characters for the recent sessions component */
+const RECENT_SESSIONS_LIMIT = 300;
+
+/** Number of recent sessions to show */
+const RECENT_SESSIONS_COUNT = 5;
 
 // =============================================================================
 // Types
@@ -84,11 +90,12 @@ export class UnifiedContextBuilder {
   /**
    * Build context for session-start hook injection.
    *
-   * Components (assembled in order, truncated to <= 1000 chars total):
+   * Components (assembled in order, truncated to <= 1500 chars total):
    *   1. MEMORY.md summary (up to 500 chars)
    *   2. Cluster overview (top 3 active clusters)
    *   3. Hot entities (top 5 within last 7 days)
    *   4. Solidified patterns (skills/*.md file list)
+   *   5. Recent sessions (last 5 session summaries)
    */
   async buildSessionStartContext(): Promise<string> {
     const sections: string[] = [];
@@ -115,6 +122,12 @@ export class UnifiedContextBuilder {
     const patterns = this.buildSolidifiedPatterns();
     if (patterns) {
       sections.push(patterns);
+    }
+
+    // Component 5: Recent sessions
+    const recentSessions = await this.buildRecentSessions();
+    if (recentSessions) {
+      sections.push(recentSessions);
     }
 
     if (sections.length === 0) {
@@ -285,8 +298,8 @@ export class UnifiedContextBuilder {
    */
   private async buildClusterOverview(): Promise<string> {
     try {
-      const { CoreMemoryStore } = await import('./core-memory-store.js');
-      const store = new CoreMemoryStore(this.projectPath);
+      const { getCoreMemoryStore } = await import('./core-memory-store.js');
+      const store = getCoreMemoryStore(this.projectPath);
       const clusters = store.listClusters('active');
 
       if (clusters.length === 0) {
@@ -372,6 +385,39 @@ export class UnifiedContextBuilder {
       for (const file of files.slice(0, 5)) {
         const name = basename(file, '.md');
         output += `- ${name}\n`;
+      }
+
+      return output;
+    } catch {
+      return '';
+    }
+  }
+
+  /**
+   * Build recent sessions component.
+   * Shows last N session summaries from CoreMemoryStore.
+   */
+  private async buildRecentSessions(): Promise<string> {
+    try {
+      const { getCoreMemoryStore } = await import('./core-memory-store.js');
+      const store = getCoreMemoryStore(this.projectPath);
+      const summaries = store.getSessionSummaries(RECENT_SESSIONS_COUNT);
+
+      if (summaries.length === 0) {
+        return '';
+      }
+
+      let output = '## Recent Sessions\n';
+      for (const s of summaries) {
+        const shortId = s.thread_id.substring(0, 12);
+        const summaryText = s.rollout_summary.length > 60
+          ? s.rollout_summary.substring(0, 60) + '...'
+          : s.rollout_summary;
+        output += `- ${shortId}: ${summaryText}\n`;
+      }
+
+      if (output.length > RECENT_SESSIONS_LIMIT) {
+        output = output.substring(0, RECENT_SESSIONS_LIMIT);
       }
 
       return output;
