@@ -188,15 +188,11 @@ if (isResume) {
       if (meta) neededRoles.add(meta.owner)
     })
 
-    // Spawn only needed workers using Phase 2 spawn template (see SKILL.md Coordinator Spawn Template)
-    // Each worker is spawned with prompt that:
-    // 1. Identifies their role
-    // 2. Instructs to call Skill(skill="team-lifecycle", args="--role=<name>")
-    // 3. Includes session context: taskDescription, sessionFolder, constraints
-    // 4. Instructs immediate TaskList polling on startup
+    // Spawn only needed workers using Phase 4 Stop-Wait pattern (see SKILL.md Coordinator Spawn Template)
+    // Workers are spawned per-stage via Task(run_in_background: false) in Phase 4 coordination loop.
+    // neededRoles is used to determine which workers will be spawned on-demand.
     neededRoles.forEach(role => {
-      // → Use SKILL.md Coordinator Spawn Template for each role
-      // → Worker prompt includes: "Session: ${sessionFolder}", "需求: ${taskDescription}"
+      // → Worker prompt template in SKILL.md (spawned per-stage in Phase 4, not pre-spawned here)
     })
 
     // ============================================================
@@ -419,7 +415,7 @@ if (mode === 'impl-only' || mode === 'full-lifecycle') {
 }
 ```
 
-### Phase 2: Create Team + Spawn Workers
+### Phase 2: Create Team + Initialize Session
 
 ```javascript
 TeamCreate({ team_name: teamName })
@@ -462,9 +458,11 @@ const teamSession = {
 Write(`${sessionFolder}/team-session.json`, JSON.stringify(teamSession, null, 2))
 ```
 
-**Conditional spawn based on mode** (see SKILL.md Coordinator Spawn Template for full prompts):
+**Workers are NOT pre-spawned here.** Workers are spawned per-stage in Phase 4 via Stop-Wait `Task(run_in_background: false)`. See SKILL.md Coordinator Spawn Template for worker prompt templates.
 
-| Mode | Spawned Workers |
+Worker roles by mode (spawned on-demand):
+
+| Mode | Worker Roles |
 |------|-----------------|
 | spec-only | analyst, writer, discussant, reviewer (4) |
 | impl-only | planner, executor, tester, reviewer (4) |
@@ -561,6 +559,13 @@ TaskUpdate({ taskId: planId, owner: "planner", addBlockedBy: [discuss6Id] })
 ```
 
 ### Phase 4: Coordination Loop
+
+> **设计原则（Stop-Wait）**: 模型执行没有时间概念，禁止任何形式的轮询等待。
+> - ❌ 禁止: `while` 循环 + `sleep` + 检查状态
+> - ✅ 采用: 同步 `Task(run_in_background: false)` 调用，Worker 返回 = 阶段完成信号
+>
+> 按 Phase 3 创建的任务链顺序，逐阶段 spawn worker 同步执行。
+> Worker prompt 使用 SKILL.md Coordinator Spawn Template。
 
 Receive teammate messages and make dispatch decisions. **Before each decision: `team_msg list` to review recent messages. After each decision: `team_msg log` to record.**
 

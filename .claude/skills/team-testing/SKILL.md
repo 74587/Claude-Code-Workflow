@@ -103,7 +103,6 @@ mcp__ccw-tools__team_msg({ summary: `[${role}] ...` })
 const TEAM_CONFIG = {
   name: "testing",
   sessionDir: ".workflow/.team/TST-{slug}-{date}/",
-  msgDir: ".workflow/.team-msg/testing/",
   sharedMemory: "shared-memory.json",
   testLayers: {
     L1: { name: "Unit Tests", coverage_target: 80 },

@@ -163,7 +163,7 @@ if (!autoYes) {
 }
 ```
 
-### Phase 2: Create Team + Spawn Teammates
+### Phase 2: Create Team + Initialize Session
 
 ```javascript
 const teamName = "ultra-analyze"
@@ -210,7 +210,9 @@ Write(`${sessionFolder}/discussion.md`, `# Analysis Discussion
 
 TeamCreate({ team_name: teamName })
 
-// Spawn teammates (see SKILL.md Coordinator Spawn Template)
+// ⚠️ Workers are NOT pre-spawned here.
+// Workers are spawned per-stage in Phase 4 via Stop-Wait Task(run_in_background: false).
+// See SKILL.md Coordinator Spawn Template for worker prompt templates.
 // Quick mode: 1 explorer + 1 analyst (single agents)
 // Standard/Deep mode: N explorers + N analysts (parallel agents with distinct names)
 // explorer-1, explorer-2... / analyst-1, analyst-2... for true parallel execution
@@ -242,6 +244,13 @@ EXPLORE-001 → ANALYZE-001 → SYNTH-001
 ```
 
 ### Phase 4: Discussion Loop + Coordination
+
+> **设计原则（Stop-Wait）**: 模型执行没有时间概念，禁止任何形式的轮询等待。
+> - ❌ 禁止: `while` 循环 + `sleep` + 检查状态
+> - ✅ 采用: 同步 `Task(run_in_background: false)` 调用，Worker 返回 = 阶段完成信号
+>
+> 按 Phase 3 创建的任务链顺序，逐阶段 spawn worker 同步执行。
+> Worker prompt 使用 SKILL.md Coordinator Spawn Template。
 
 ```javascript
 // Read commands/monitor.md for full implementation

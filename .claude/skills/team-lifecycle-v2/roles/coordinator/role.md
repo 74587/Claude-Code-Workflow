@@ -377,9 +377,9 @@ goto Phase2
 
 ---
 
-### Phase 2: Create Team + Spawn Workers
+### Phase 2: Create Team + Initialize Session
 
-**Purpose**: Initialize team and spawn worker subagents
+**Purpose**: Initialize team and session state
 
 ```javascript
 Output("[coordinator] Phase 2: Team Creation")
@@ -430,43 +430,17 @@ const sessionData = {
 Write(sessionFile, sessionData)
 Output(`[coordinator] Session file created: ${sessionFile}`)
 
-// Spawn workers conditionally based on pipeline mode
-const isFE = ['fe-only', 'fullstack', 'full-lifecycle-fe'].includes(requirements.mode)
-const isBE = ['impl-only', 'fullstack', 'full-lifecycle', 'full-lifecycle-fe'].includes(requirements.mode)
-const isSpec = ['spec-only', 'full-lifecycle', 'full-lifecycle-fe'].includes(requirements.mode)
-
-if (isSpec) {
-  TeamSpawn({ team_id: teamId, role: "spec-writer", count: 1 })
-  Output("[coordinator] Spawned spec-writer")
-}
-
-if (isBE) {
-  TeamSpawn({ team_id: teamId, role: "implementer", count: 1 })
-  Output("[coordinator] Spawned implementer")
-}
-
-if (isFE) {
-  TeamSpawn({ team_id: teamId, role: "fe-developer", count: 1 })
-  Output("[coordinator] Spawned fe-developer")
-  TeamSpawn({ team_id: teamId, role: "fe-qa", count: 1 })
-  Output("[coordinator] Spawned fe-qa")
-
-  // Initialize shared memory for frontend pipeline
-  const sharedMemoryPath = `${sessionFolder}/shared-memory.json`
-  Write(sharedMemoryPath, JSON.stringify({
-    design_intelligence: {},
-    design_token_registry: {},
-    component_inventory: [],
-    style_decisions: [],
-    qa_history: [],
-    industry_context: {}
-  }, null, 2))
-  Output("[coordinator] Initialized shared-memory.json for frontend pipeline")
-}
-
-// Always spawn researcher for ambiguity resolution
-TeamSpawn({ team_id: teamId, role: "researcher", count: 1 })
-Output("[coordinator] Spawned researcher")
+// ⚠️ Workers are NOT pre-spawned here.
+// Workers are spawned per-stage in Phase 4 via Stop-Wait Task(run_in_background: false).
+// See SKILL.md Coordinator Spawn Template for worker prompt templates.
+//
+// Worker roles by mode (spawned on-demand):
+//   spec-only: spec-writer
+//   impl-only: implementer
+//   fe-only: fe-developer, fe-qa
+//   fullstack: implementer, fe-developer, fe-qa
+//   full-lifecycle / full-lifecycle-fe: spec-writer + relevant impl roles
+//   Always available: researcher (for ambiguity resolution)
 
 goto Phase3
 ```
@@ -494,6 +468,13 @@ goto Phase4
 ### Phase 4: Coordination Loop
 
 **Purpose**: Monitor task progress and route messages
+
+> **设计原则（Stop-Wait）**: 模型执行没有时间概念，禁止任何形式的轮询等待。
+> - ❌ 禁止: `while` 循环 + `sleep` + 检查状态
+> - ✅ 采用: 同步 `Task(run_in_background: false)` 调用，Worker 返回 = 阶段完成信号
+>
+> 按 Phase 3 创建的任务链顺序，逐阶段 spawn worker 同步执行。
+> Worker prompt 使用 SKILL.md Coordinator Spawn Template。
 
 ```javascript
 Output("[coordinator] Phase 4: Coordination Loop")

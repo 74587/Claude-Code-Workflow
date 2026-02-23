@@ -125,7 +125,7 @@ const industryConfig = {
 }[industryChoice] || { strictness: 'standard', mustHave: [] }
 ```
 
-### Phase 2: Create Team + Spawn Workers
+### Phase 2: Create Team + Initialize Session
 
 ```javascript
 TeamCreate({ team_name: teamName })
@@ -174,7 +174,9 @@ const teamSession = {
 }
 Write(`${sessionFolder}/team-session.json`, JSON.stringify(teamSession, null, 2))
 
-// Spawn 4 workers (see SKILL.md Coordinator Spawn Template)
+// ⚠️ Workers are NOT pre-spawned here.
+// Workers are spawned per-stage in Phase 4 via Stop-Wait Task(run_in_background: false).
+// See SKILL.md Coordinator Spawn Template for worker prompt templates.
 ```
 
 ### Phase 3: Create Task Chain
@@ -245,6 +247,13 @@ TaskUpdate({ taskId: audit3Id, owner: "reviewer", addBlockedBy: [build2Id] })
 ```
 
 ### Phase 4: Coordination Loop
+
+> **设计原则（Stop-Wait）**: 模型执行没有时间概念，禁止任何形式的轮询等待。
+> - ❌ 禁止: `while` 循环 + `sleep` + 检查状态
+> - ✅ 采用: 同步 `Task(run_in_background: false)` 调用，Worker 返回 = 阶段完成信号
+>
+> 按 Phase 3 创建的任务链顺序，逐阶段 spawn worker 同步执行。
+> Worker prompt 使用 SKILL.md Coordinator Spawn Template。
 
 #### Message Handling
 

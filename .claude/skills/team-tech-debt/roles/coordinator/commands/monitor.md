@@ -1,12 +1,12 @@
 # Command: monitor
 
-> 阶段驱动的协调循环。按 pipeline 阶段顺序等待 worker 完成，路由消息，处理 Fix-Verify 循环，检测完成。
+> 停止等待（Stop-Wait）协调。按 pipeline 阶段顺序，逐阶段 spawn worker 同步执行，worker 返回即阶段完成，无需轮询。
 
 ## When to Use
 
 - Phase 4 of Coordinator
-- 任务链已创建并分发
-- 需要持续监控直到所有任务完成
+- 任务链已创建（dispatch 完成）
+- 需要逐阶段驱动 worker 执行直到所有任务完成
 
 **Trigger conditions**:
 - dispatch 完成后立即启动
@@ -16,48 +16,30 @@
 
 ### Delegation Mode
 
-**Mode**: Stage-driven（按阶段顺序等待，非轮询）
+**Mode**: Stop-Wait（同步阻塞 Task call，非轮询）
 
 ### 设计原则
 
-> **模型执行没有时间概念**。禁止空转 while 循环检查状态。
-> 使用固定 sleep 间隔 + 最大轮询次数，避免无意义的 API 调用浪费。
+> **模型执行没有时间概念，禁止任何形式的轮询等待。**
+>
+> - ❌ 禁止: `while` 循环 + `sleep` + 检查状态（空转浪费 API 轮次）
+> - ❌ 禁止: `Bash(sleep N)` / `Bash(timeout /t N)` 作为等待手段
+> - ✅ 采用: 同步 `Task()` 调用（`run_in_background: false`），call 本身即等待
+> - ✅ 采用: Worker 返回 = 阶段完成信号（天然回调）
+>
+> **原理**: `Task(run_in_background: false)` 是阻塞调用，coordinator 自动挂起直到 worker 返回。
+> 无需 sleep，无需轮询，无需消息总线监控。Worker 的返回就是回调。
 
-### Decision Logic
+### Stage-Worker 映射表
 
 ```javascript
-// 消息路由表
-const routingTable = {
-  // Scanner 完成
-  'scan_complete':        { action: 'Mark TDSCAN complete, unblock TDEVAL' },
-  'debt_items_found':     { action: 'Mark TDSCAN complete with items, unblock TDEVAL' },
-  // Assessor 完成
-  'assessment_complete':  { action: 'Mark TDEVAL complete, unblock TDPLAN' },
-  // Planner 完成
-  'plan_ready':           { action: 'Mark TDPLAN complete, unblock TDFIX' },
-  'plan_revision':        { action: 'Plan revised, re-evaluate dependencies' },
-  // Executor 完成
-  'fix_complete':         { action: 'Mark TDFIX complete, unblock TDVAL' },
-  'fix_progress':         { action: 'Log progress, continue waiting' },
-  // Validator 完成
-  'validation_complete':  { action: 'Mark TDVAL complete, evaluate quality gate', special: 'quality_gate' },
-  'regression_found':     { action: 'Evaluate regression, decide Fix-Verify loop', special: 'fix_verify_decision' },
-  // 错误
-  'error':                { action: 'Assess severity, retry or escalate', special: 'error_handler' }
+const STAGE_WORKER_MAP = {
+  'TDSCAN': { role: 'scanner',   skillArgs: '--role=scanner' },
+  'TDEVAL': { role: 'assessor',  skillArgs: '--role=assessor' },
+  'TDPLAN': { role: 'planner',   skillArgs: '--role=planner' },
+  'TDFIX':  { role: 'executor',  skillArgs: '--role=executor' },
+  'TDVAL':  { role: 'validator', skillArgs: '--role=validator' }
 }
-```
-
-### 等待策略常量
-
-```javascript
-const POLL_INTERVAL_SEC = 300  // 每次检查间隔 5 分钟
-const MAX_POLLS_PER_STAGE = 6  // 单阶段最多等待 6 次（~30 分钟）
-const SLEEP_CMD = process.platform === 'win32'
-  ? `timeout /t ${POLL_INTERVAL_SEC} /nobreak >nul 2>&1`
-  : `sleep ${POLL_INTERVAL_SEC}`
-
-// 统一 auto mode 检测
-const autoYes = /\b(-y|--yes)\b/.test(args)
 ```
 
 ## Execution Steps
@@ -65,150 +47,194 @@ const autoYes = /\b(-y|--yes)\b/.test(args)
 ### Step 1: Context Preparation
 
 ```javascript
-// 从 shared memory 获取上下文
 const sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
 
 let fixVerifyIteration = 0
 const MAX_FIX_VERIFY_ITERATIONS = 3
 
-// 获取 pipeline 阶段列表
+// 获取 pipeline 阶段列表（按创建顺序 = 依赖顺序）
 const allTasks = TaskList()
 const pipelineTasks = allTasks
   .filter(t => t.owner && t.owner !== 'coordinator')
   .sort((a, b) => Number(a.id) - Number(b.id))
+
+// 统一 auto mode 检测
+const autoYes = /\b(-y|--yes)\b/.test(args)
 ```
 
-### Step 2: Stage-Driven Execution
+### Step 2: Sequential Stage Execution (Stop-Wait)
 
-> **核心**: 按 pipeline 阶段顺序，逐阶段等待完成。
-> 每个阶段：sleep → 检查消息 → 确认任务状态 → 处理结果 → 下一阶段。
+> **核心**: 逐阶段 spawn worker，同步阻塞等待返回。
+> Worker 返回 = 阶段完成。无 sleep、无轮询、无消息总线监控。
 
 ```javascript
 for (const stageTask of pipelineTasks) {
-  let stageComplete = false
-  let pollCount = 0
+  // 1. 提取阶段前缀 → 确定 worker 角色
+  const stagePrefix = stageTask.subject.match(/^(TD\w+)-/)?.[1]
+  const workerConfig = STAGE_WORKER_MAP[stagePrefix]
 
-  while (!stageComplete && pollCount < MAX_POLLS_PER_STAGE) {
-    Bash(SLEEP_CMD)
-    pollCount++
-
-    // 1. 检查消息总线
-    const messages = mcp__ccw-tools__team_msg({
-      operation: "list",
-      team: teamName,
-      last: 5
+  if (!workerConfig) {
+    mcp__ccw-tools__team_msg({
+      operation: "log", team: teamName, from: "coordinator",
+      to: "user", type: "error",
+      summary: `[coordinator] 未知阶段前缀: ${stagePrefix}，跳过`
     })
-
-    // 2. 路由消息
-    for (const msg of messages) {
-      const handler = routingTable[msg.type]
-      if (!handler) continue
-      processMessage(msg, handler)
-    }
-
-    // 3. 确认任务状态
-    const currentTask = TaskGet({ taskId: stageTask.id })
-    stageComplete = currentTask.status === 'completed' || currentTask.status === 'deleted'
+    continue
   }
 
-  // 阶段超时处理
-  if (!stageComplete) {
-    const elapsedMin = Math.round(pollCount * POLL_INTERVAL_SEC / 60)
+  // 2. 标记任务为执行中
+  TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
 
-    if (autoYes) {
-      mcp__ccw-tools__team_msg({
-        operation: "log", team: teamName, from: "coordinator",
-        to: "user", type: "error",
-        summary: `[coordinator] [auto] 阶段 ${stageTask.subject} 超时 (${elapsedMin}min)，自动跳过`
-      })
-      TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
-      continue
-    }
+  mcp__ccw-tools__team_msg({
+    operation: "log", team: teamName, from: "coordinator",
+    to: workerConfig.role, type: "task_unblocked",
+    summary: `[coordinator] 启动阶段: ${stageTask.subject} → ${workerConfig.role}`
+  })
 
-    const decision = AskUserQuestion({
-      questions: [{
-        question: `阶段 "${stageTask.subject}" 已等待 ${elapsedMin} 分钟仍未完成。如何处理？`,
-        header: "Stage Wait",
-        multiSelect: false,
-        options: [
-          { label: "继续等待", description: `再等 ${MAX_POLLS_PER_STAGE} 轮` },
-          { label: "跳过此阶段", description: "标记为跳过，继续后续流水线" },
-          { label: "终止流水线", description: "停止整个流程，汇报当前结果" }
-        ]
-      }]
+  // 3. 同步 spawn worker — 阻塞直到 worker 返回（Stop-Wait 核心）
+  //    Task() 本身就是等待机制，无需 sleep/poll
+  const workerResult = Task({
+    subagent_type: "general-purpose",
+    prompt: buildWorkerPrompt(stageTask, workerConfig, sessionFolder, taskDescription),
+    run_in_background: false  // ← 同步阻塞 = 天然回调
+  })
+
+  // 4. Worker 已返回 — 直接处理结果（无需检查状态）
+  const taskState = TaskGet({ taskId: stageTask.id })
+
+  if (taskState.status !== 'completed') {
+    // Worker 返回但未标记 completed → 异常处理
+    handleStageFailure(stageTask, taskState, workerConfig, autoYes)
+  } else {
+    mcp__ccw-tools__team_msg({
+      operation: "log", team: teamName, from: "coordinator",
+      to: "user", type: "quality_gate",
+      summary: `[coordinator] 阶段完成: ${stageTask.subject}`
     })
+  }
 
-    const answer = decision["Stage Wait"]
-    if (answer === "跳过此阶段") {
-      TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
-      continue
-    } else if (answer === "终止流水线") {
-      mcp__ccw-tools__team_msg({
-        operation: "log", team: teamName, from: "coordinator",
-        to: "user", type: "shutdown",
-        summary: `[coordinator] 用户终止流水线，当前阶段: ${stageTask.subject}`
-      })
-      break
+  // 5. 阶段间质量检查（仅 TDVAL 阶段）
+  if (stagePrefix === 'TDVAL') {
+    const needsFixVerify = evaluateValidationResult(sessionFolder)
+    if (needsFixVerify && fixVerifyIteration < MAX_FIX_VERIFY_ITERATIONS) {
+      fixVerifyIteration++
+      const fixVerifyTasks = createFixVerifyTasks(fixVerifyIteration, sessionFolder)
+      // 将 Fix-Verify 任务追加到 pipeline 末尾继续执行
+      pipelineTasks.push(...fixVerifyTasks)
     }
   }
 }
 ```
 
-### Step 2.1: Message Processing (processMessage)
+### Step 2.1: Worker Prompt Builder
 
 ```javascript
-function processMessage(msg, handler) {
-  switch (handler.special) {
-    case 'quality_gate': {
-      const latestMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
-      const debtBefore = latestMemory.debt_score_before || 0
-      const debtAfter = latestMemory.debt_score_after || 0
-      const improved = debtAfter < debtBefore
+function buildWorkerPrompt(stageTask, workerConfig, sessionFolder, taskDescription) {
+  return `你是 team "${teamName}" 的 ${workerConfig.role.toUpperCase()}。
 
-      let status = 'PASS'
-      if (!improved && latestMemory.validation_results?.regressions > 0) status = 'FAIL'
-      else if (!improved) status = 'CONDITIONAL'
+## ⚠️ 首要指令（MUST）
+你的所有工作必须通过调用 Skill 获取角色定义后执行，禁止自行发挥：
+Skill(skill="team-tech-debt", args="${workerConfig.skillArgs}")
+此调用会加载你的角色定义（role.md）、可用命令（commands/*.md）和完整执行逻辑。
 
-      mcp__ccw-tools__team_msg({
-        operation: "log", team: teamName, from: "coordinator",
-        to: "user", type: "quality_gate",
-        summary: `[coordinator] 质量门控: ${status} (债务分 ${debtBefore} → ${debtAfter})`
-      })
-      break
-    }
+## 当前任务
+- 任务 ID: ${stageTask.id}
+- 任务: ${stageTask.subject}
+- 描述: ${stageTask.description || taskDescription}
+- Session: ${sessionFolder}
 
-    case 'fix_verify_decision': {
-      const regressions = msg.data?.regressions || 0
-      if (regressions > 0 && fixVerifyIteration < MAX_FIX_VERIFY_ITERATIONS) {
-        fixVerifyIteration++
-        mcp__ccw-tools__team_msg({
-          operation: "log", team: teamName, from: "coordinator",
-          to: "executor", type: "task_unblocked",
-          summary: `[coordinator] Fix-Verify #${fixVerifyIteration}: 发现 ${regressions} 个回归，请修复`,
-          data: { iteration: fixVerifyIteration, regressions }
-        })
-        // 创建 Fix-Verify 修复任务（参见 dispatch.md createFixVerifyTasks）
-      } else {
-        mcp__ccw-tools__team_msg({
-          operation: "log", team: teamName, from: "coordinator",
-          to: "user", type: "quality_gate",
-          summary: `[coordinator] Fix-Verify 循环已达上限(${MAX_FIX_VERIFY_ITERATIONS})，接受当前结果`
-        })
-      }
-      break
-    }
+## 角色准则（强制）
+- 你只能处理 ${stageTask.subject.match(/^(TD\w+)-/)?.[1] || 'TD'}-* 前缀的任务
+- 所有输出必须带 [${workerConfig.role}] 标识前缀
+- 仅与 coordinator 通信，不得直接联系其他 worker
 
-    case 'error_handler': {
-      const severity = msg.data?.severity || 'medium'
-      if (severity === 'critical') {
-        SendMessage({
-          content: `## [coordinator] Critical Error from ${msg.from}\n\n${msg.summary}`,
-          summary: `[coordinator] Critical error: ${msg.summary}`
-        })
-      }
-      break
-    }
+## 消息总线（必须）
+每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
+
+## 工作流程（严格按顺序）
+1. 调用 Skill(skill="team-tech-debt", args="${workerConfig.skillArgs}") 获取角色定义和执行逻辑
+2. 按 role.md 中的 5-Phase 流程执行
+3. team_msg log + SendMessage 结果给 coordinator
+4. TaskUpdate({ taskId: "${stageTask.id}", status: "completed" })`
+}
+```
+
+### Step 2.2: Stage Failure Handler
+
+```javascript
+function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
+  if (autoYes) {
+    mcp__ccw-tools__team_msg({
+      operation: "log", team: teamName, from: "coordinator",
+      to: "user", type: "error",
+      summary: `[coordinator] [auto] 阶段 ${stageTask.subject} 未完成 (status=${taskState.status})，自动跳过`
+    })
+    TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
+    return 'skip'
   }
+
+  const decision = AskUserQuestion({
+    questions: [{
+      question: `阶段 "${stageTask.subject}" worker 返回但未完成 (status=${taskState.status})。如何处理？`,
+      header: "Stage Fail",
+      multiSelect: false,
+      options: [
+        { label: "重试", description: "重新 spawn worker 执行此阶段" },
+        { label: "跳过", description: "标记为跳过，继续后续流水线" },
+        { label: "终止", description: "停止整个流程，汇报当前结果" }
+      ]
+    }]
+  })
+
+  const answer = decision["Stage Fail"]
+  if (answer === "重试") {
+    // 重新 spawn worker（递归单次）
+    TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
+    const retryResult = Task({
+      subagent_type: "general-purpose",
+      prompt: buildWorkerPrompt(stageTask, workerConfig, sessionFolder, taskDescription),
+      run_in_background: false
+    })
+    const retryState = TaskGet({ taskId: stageTask.id })
+    if (retryState.status !== 'completed') {
+      TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
+    }
+    return 'retried'
+  } else if (answer === "跳过") {
+    TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
+    return 'skip'
+  } else {
+    mcp__ccw-tools__team_msg({
+      operation: "log", team: teamName, from: "coordinator",
+      to: "user", type: "shutdown",
+      summary: `[coordinator] 用户终止流水线，当前阶段: ${stageTask.subject}`
+    })
+    return 'abort'
+  }
+}
+```
+
+### Step 2.3: Validation Evaluation
+
+```javascript
+function evaluateValidationResult(sessionFolder) {
+  const latestMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+  const debtBefore = latestMemory.debt_score_before || 0
+  const debtAfter = latestMemory.debt_score_after || 0
+  const regressions = latestMemory.validation_results?.regressions || 0
+  const improved = debtAfter < debtBefore
+
+  let status = 'PASS'
+  if (!improved && regressions > 0) status = 'FAIL'
+  else if (!improved) status = 'CONDITIONAL'
+
+  mcp__ccw-tools__team_msg({
+    operation: "log", team: teamName, from: "coordinator",
+    to: "user", type: "quality_gate",
+    summary: `[coordinator] 质量门控: ${status} (债务分 ${debtBefore} → ${debtAfter}, 回归 ${regressions})`
+  })
+
+  return regressions > 0
 }
 ```
 
@@ -237,19 +263,15 @@ const summary = {
 ### Tasks: [completed]/[total]
 ### Fix-Verify Iterations: [count]
 ### Debt Score: [before] → [after]
-
-### Message Log (last 10)
-- [timestamp] [from] → [to]: [type] - [summary]
 ```
 
 ## Error Handling
 
 | Scenario | Resolution |
 |----------|------------|
-| Message bus unavailable | Fall back to TaskList polling only |
-| Stage timeout (交互模式) | AskUserQuestion: 继续等待 / 跳过 / 终止 |
-| Stage timeout (自动模式 `-y`/`--yes`) | 自动跳过，记录日志 |
-| Teammate unresponsive (2x no response) | Respawn teammate with same task |
-| Deadlock detected | Identify cycle, manually unblock |
+| Worker 返回但未 completed (交互模式) | AskUserQuestion: 重试 / 跳过 / 终止 |
+| Worker 返回但未 completed (自动模式) | 自动跳过，记录日志 |
+| Worker spawn 失败 | 重试一次，仍失败则上报用户 |
 | Quality gate FAIL | Report to user, suggest targeted re-run |
 | Fix-Verify loop stuck >3 iterations | Accept current state, continue pipeline |
+| Shared memory 读取失败 | 降级为 TaskList 状态判断 |

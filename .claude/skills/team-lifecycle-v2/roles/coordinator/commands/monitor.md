@@ -10,62 +10,66 @@
 
 ## Coordination Loop
 
+> **设计原则**: 模型执行没有时间概念，禁止任何形式的轮询等待。
+> 使用同步 `Task(run_in_background: false)` 调用作为等待机制。
+> Worker 返回 = 阶段完成信号（天然回调），无需 sleep 轮询。
+
 ```javascript
-Output("[coordinator] Entering coordination loop...")
+Output("[coordinator] Entering coordination loop (Stop-Wait mode)...")
 
-let loopActive = true
-let checkpointPending = false
+// Sequentially execute each task by spawning its worker
+const allTasks = TaskList()
+const pendingTasks = allTasks.filter(t => t.status !== 'completed' && t.assigned_to !== 'coordinator')
 
-while (loopActive) {
-  // Load current session state
-  const session = Read(sessionFile)
-  const teamState = TeamGet(session.team_id)
-  const allTasks = teamState.tasks
+for (const task of pendingTasks) {
+  // Check if all dependencies are met
+  const allDepsMet = (task.dependencies || []).every(depId => {
+    const dep = TaskGet(depId)
+    return dep.status === "completed"
+  })
 
-  // Check for incoming messages
-  const messages = TeamGetMessages(session.team_id)
-
-  for (const message of messages) {
-    Output(`[coordinator] Received message: ${message.type} from ${message.sender}`)
-
-    switch (message.type) {
-      case "task_complete":
-        handleTaskComplete(message)
-        break
-
-      case "task_blocked":
-        handleTaskBlocked(message)
-        break
-
-      case "discussion_needed":
-        handleDiscussionNeeded(message)
-        break
-
-      case "research_complete":
-        handleResearchComplete(message)
-        break
-
-      default:
-        Output(`[coordinator] Unknown message type: ${message.type}`)
-    }
+  if (!allDepsMet) {
+    Output(`[coordinator] Task ${task.task_id} blocked by dependencies, skipping`)
+    continue
   }
 
-  // Check if all tasks complete
-  const completedTasks = allTasks.filter(t => t.status === "completed")
-  const totalTasks = allTasks.length
+  Output(`[coordinator] Starting task: ${task.task_id} (assigned to: ${task.assigned_to})`)
 
-  if (completedTasks.length === totalTasks) {
-    Output("[coordinator] All tasks completed!")
-    loopActive = false
-    break
+  // Mark as active
+  TaskUpdate(task.task_id, {
+    status: "active",
+    started_at: new Date().toISOString()
+  })
+
+  // Spawn worker — blocks until worker returns (Stop-Wait)
+  Task({
+    subagent_type: "general-purpose",
+    prompt: `Execute task ${task.task_id}: ${task.description}
+Assigned role: ${task.assigned_to}
+When complete, mark TaskUpdate(${task.task_id}, { status: "completed" })`,
+    run_in_background: false
+  })
+
+  // Worker returned — check status
+  const completedTask = TaskGet(task.task_id)
+  Output(`[coordinator] Task ${task.task_id} status: ${completedTask.status}`)
+
+  if (completedTask.status === "completed") {
+    handleTaskComplete({ task_id: task.task_id, output: completedTask.output })
   }
 
   // Update session progress
-  session.tasks_completed = completedTasks.length
+  const session = Read(sessionFile)
+  const allTasksNow = TaskList()
+  session.tasks_completed = allTasksNow.filter(t => t.status === "completed").length
   Write(sessionFile, session)
 
-  // Sleep before next iteration
-  sleep(5000) // 5 seconds
+  // Check if all tasks complete
+  const remaining = allTasksNow.filter(t => t.status !== "completed" && t.assigned_to !== 'coordinator')
+  if (remaining.length === 0) {
+    Output("[coordinator] All tasks completed!")
+    break
+  }
 }
 
 Output("[coordinator] Coordination loop complete")

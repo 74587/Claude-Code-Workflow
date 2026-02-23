@@ -243,14 +243,21 @@ TDFIX → TDVAL → (if regression or quality drop) → TDFIX-fix → TDVAL-2
 
 ## Coordinator Spawn Template
 
+> **注意**: 以下模板作为 worker prompt 参考。在 Stop-Wait 策略下，coordinator 不再在 Phase 2 预先 spawn 所有 worker。
+> 而是在 Phase 4 (monitor) 中，按 pipeline 阶段逐个 spawn worker（同步阻塞 `Task(run_in_background: false)`），
+> worker 返回即阶段完成。详见 `roles/coordinator/commands/monitor.md`。
+
 ```javascript
 TeamCreate({ team_name: teamName })
 
-// Scanner
+// Worker 按需 spawn（monitor.md Phase 4 调用）
+// 以下为各角色的 prompt 模板参考：
+```
+
+### Scanner Prompt Template
+```javascript
 Task({
   subagent_type: "general-purpose",
-  team_name: teamName,
-  name: "scanner",
   prompt: `你是 team "${teamName}" 的 SCANNER。
 
 ## ⚠️ 首要指令（MUST）
@@ -274,14 +281,15 @@ Skill(skill="team-tech-debt", args="--role=scanner")
 1. 调用 Skill(skill="team-tech-debt", args="--role=scanner") 获取角色定义和执行逻辑
 2. 按 role.md 中的 5-Phase 流程执行（TaskList → 找到 TDSCAN-* 任务 → 执行 → 汇报）
 3. team_msg log + SendMessage 结果给 coordinator（带 [scanner] 标识）
-4. TaskUpdate completed → 检查下一个任务 → 回到步骤 1`
+4. TaskUpdate completed → 检查下一个任务 → 回到步骤 1`,
+  run_in_background: false  // 同步阻塞
 })
+```
 
-// Assessor
+### Assessor Prompt Template
+```javascript
 Task({
   subagent_type: "general-purpose",
-  team_name: teamName,
-  name: "assessor",
   prompt: `你是 team "${teamName}" 的 ASSESSOR。
 
 ## ⚠️ 首要指令（MUST）
@@ -302,14 +310,15 @@ Skill(skill="team-tech-debt", args="--role=assessor")
 1. Skill(skill="team-tech-debt", args="--role=assessor") 获取角色定义
 2. TaskList → 找到 TDEVAL-* 任务 → 执行 → 汇报
 3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
+4. TaskUpdate completed`,
+  run_in_background: false
 })
+```
 
-// Planner
+### Planner Prompt Template
+```javascript
 Task({
   subagent_type: "general-purpose",
-  team_name: teamName,
-  name: "planner",
   prompt: `你是 team "${teamName}" 的 PLANNER。
 
 ## ⚠️ 首要指令（MUST）
@@ -330,14 +339,15 @@ Skill(skill="team-tech-debt", args="--role=planner")
 1. Skill(skill="team-tech-debt", args="--role=planner") 获取角色定义
 2. TaskList → 找到 TDPLAN-* 任务 → 执行 → 汇报
 3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
+4. TaskUpdate completed`,
+  run_in_background: false
 })
+```
 
-// Executor
+### Executor Prompt Template
+```javascript
 Task({
   subagent_type: "general-purpose",
-  team_name: teamName,
-  name: "executor",
   prompt: `你是 team "${teamName}" 的 EXECUTOR。
 
 ## ⚠️ 首要指令（MUST）
@@ -358,14 +368,15 @@ Skill(skill="team-tech-debt", args="--role=executor")
 1. Skill(skill="team-tech-debt", args="--role=executor") 获取角色定义
 2. TaskList → 找到 TDFIX-* 任务 → 执行 → 汇报
 3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
+4. TaskUpdate completed`,
+  run_in_background: false
 })
+```
 
-// Validator
+### Validator Prompt Template
+```javascript
 Task({
   subagent_type: "general-purpose",
-  team_name: teamName,
-  name: "validator",
   prompt: `你是 team "${teamName}" 的 VALIDATOR。
 
 ## ⚠️ 首要指令（MUST）
@@ -386,7 +397,8 @@ Skill(skill="team-tech-debt", args="--role=validator")
 1. Skill(skill="team-tech-debt", args="--role=validator") 获取角色定义
 2. TaskList → 找到 TDVAL-* 任务 → 执行 → 汇报
 3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
+4. TaskUpdate completed`,
+  run_in_background: false
 })
 ```
 

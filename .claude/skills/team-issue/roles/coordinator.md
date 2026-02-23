@@ -136,38 +136,18 @@ function detectMode(issueIds, userMode) {
 }
 ```
 
-### Phase 2: Create Team + Spawn Workers
+### Phase 2: Create Team + Initialize Session
 
 ```javascript
 TeamCreate({ team_name: "issue" })
 
-// Spawn workers based on mode
-const workersToSpawn = mode === 'quick'
-  ? ['explorer', 'planner', 'integrator', 'implementer']  // No reviewer in quick mode
-  : ['explorer', 'planner', 'reviewer', 'integrator', 'implementer']
-
-for (const workerName of workersToSpawn) {
-  Task({
-    subagent_type: "general-purpose",
-    team_name: "issue",
-    name: workerName,
-    prompt: `你是 team "issue" 的 ${workerName.toUpperCase()}。
-当你收到任务时，调用 Skill(skill="team-issue", args="--role=${workerName}") 执行。
-当前需求: 处理 issue ${issueIds.join(', ')}，模式: ${mode}
-约束: CLI-first data access, 所有 issue 操作通过 ccw issue 命令
-
-## 角色准则（强制）
-- 所有输出必须带 [${workerName}] 标识前缀
-- 仅与 coordinator 通信
-- 每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录
-
-工作流程:
-1. TaskList → 找到分配给你的任务
-2. Skill(skill="team-issue", args="--role=${workerName}") 执行
-3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
-  })
-}
+// ⚠️ Workers are NOT pre-spawned here.
+// Workers are spawned per-stage in Phase 4 via Stop-Wait Task(run_in_background: false).
+// See SKILL.md Coordinator Spawn Template for worker prompt templates.
+//
+// Worker roles available (spawned on-demand per pipeline stage):
+//   quick mode:  explorer, planner, integrator, implementer
+//   full mode:   explorer, planner, reviewer, integrator, implementer
 ```
 
 ### Phase 3: Create Task Chain
@@ -322,6 +302,13 @@ const marshalId = TaskCreate({
 ```
 
 ### Phase 4: Coordination Loop
+
+> **设计原则（Stop-Wait）**: 模型执行没有时间概念，禁止任何形式的轮询等待。
+> - ❌ 禁止: `while` 循环 + `sleep` + 检查状态
+> - ✅ 采用: 同步 `Task(run_in_background: false)` 调用，Worker 返回 = 阶段完成信号
+>
+> 按 Phase 3 创建的任务链顺序，逐阶段 spawn worker 同步执行。
+> Worker prompt 使用 SKILL.md Coordinator Spawn Template。
 
 Receive teammate messages, dispatch based on type.
 

@@ -20,8 +20,15 @@
 
 ### 设计原则
 
-> **模型执行没有时间概念**。禁止空转 while 循环检查状态。
-> 使用固定 sleep 间隔 + 最大轮询次数，避免无意义的 API 调用浪费。
+> **模型执行没有时间概念，禁止任何形式的轮询等待。**
+>
+> - ❌ 禁止: `while` 循环 + `sleep` + 检查状态（空转浪费 API 轮次）
+> - ❌ 禁止: `Bash(sleep N)` / `Bash(timeout /t N)` 作为等待手段
+> - ✅ 采用: 同步 `Task()` 调用（`run_in_background: false`），call 本身即等待
+> - ✅ 采用: Worker 返回 = 阶段完成信号（天然回调）
+>
+> **原理**: `Task(run_in_background: false)` 是阻塞调用，coordinator 自动挂起直到 worker 返回。
+> 无需 sleep，无需轮询，无需消息总线监控。Worker 的返回就是回调。
 
 ### Decision Logic
 
@@ -47,14 +54,16 @@ const routingTable = {
 }
 ```
 
-### 等待策略常量
+### Stage-Worker 映射表
 
 ```javascript
-const POLL_INTERVAL_SEC = 300  // 每次检查间隔 5 分钟（测试执行可能很慢）
-const MAX_POLLS_PER_STAGE = 6  // 单阶段最多等待 6 次（~30 分钟）
-const SLEEP_CMD = process.platform === 'win32'
-  ? `timeout /t ${POLL_INTERVAL_SEC} /nobreak >nul 2>&1`
-  : `sleep ${POLL_INTERVAL_SEC}`
+const STAGE_WORKER_MAP = {
+  'SCOUT':   { role: 'scout',      skillArgs: '--role=scout' },
+  'QASTRAT': { role: 'strategist', skillArgs: '--role=strategist' },
+  'QAGEN':   { role: 'generator',  skillArgs: '--role=generator' },
+  'QARUN':   { role: 'executor',   skillArgs: '--role=executor' },
+  'QAANA':   { role: 'analyst',    skillArgs: '--role=analyst' }
+}
 
 // ★ 统一 auto mode 检测：-y/--yes 从 $ARGUMENTS 或 ccw 传播
 const autoYes = /\b(-y|--yes)\b/.test(args)
@@ -83,94 +92,125 @@ const pipelineTasks = allTasks
   .sort((a, b) => Number(a.id) - Number(b.id))
 ```
 
-### Step 2: Stage-Driven Execution
+### Step 2: Sequential Stage Execution (Stop-Wait)
 
-> **核心改动**: 不再使用 while 轮询循环。按 pipeline 阶段顺序，逐阶段等待完成。
-> 每个阶段：sleep → 检查消息 → 确认任务状态 → 处理结果 → 下一阶段。
+> **核心**: 逐阶段 spawn worker，同步阻塞等待返回。
+> Worker 返回 = 阶段完成。无 sleep、无轮询、无消息总线监控。
 
 ```javascript
 // 按依赖顺序处理每个阶段
 for (const stageTask of pipelineTasks) {
-  // --- 等待当前阶段完成 ---
-  let stageComplete = false
-  let pollCount = 0
+  // 1. 提取阶段前缀 → 确定 worker 角色
+  const stagePrefix = stageTask.subject.match(/^([\w-]+)-\d/)?.[1]?.replace(/-L\d$/, '')
+  const workerConfig = STAGE_WORKER_MAP[stagePrefix]
 
-  while (!stageComplete && pollCount < MAX_POLLS_PER_STAGE) {
-    // ★ 固定等待：sleep 30s，让 worker 有执行时间
-    Bash(SLEEP_CMD)
-    pollCount++
-
-    // 1. 检查消息总线（主要信号源）
-    const messages = mcp__ccw-tools__team_msg({
-      operation: "list",
-      team: teamName,
-      last: 5
+  if (!workerConfig) {
+    mcp__ccw-tools__team_msg({
+      operation: "log", team: teamName, from: "coordinator",
+      to: "user", type: "error",
+      summary: `[coordinator] 未知阶段前缀: ${stagePrefix}，跳过`
     })
-
-    // 2. 路由消息
-    for (const msg of messages) {
-      const handler = routingTable[msg.type]
-      if (!handler) continue
-      processMessage(msg, handler)
-    }
-
-    // 3. 确认任务状态（兜底）
-    const currentTask = TaskGet({ taskId: stageTask.id })
-    stageComplete = currentTask.status === 'completed' || currentTask.status === 'deleted'
+    continue
   }
 
-  // --- 阶段超时处理 ---
-  if (!stageComplete) {
-    const elapsedMin = Math.round(pollCount * POLL_INTERVAL_SEC / 60)
+  // 2. 标记任务为执行中
+  TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
 
+  mcp__ccw-tools__team_msg({
+    operation: "log", team: teamName, from: "coordinator",
+    to: workerConfig.role, type: "task_unblocked",
+    summary: `[coordinator] 启动阶段: ${stageTask.subject} → ${workerConfig.role}`
+  })
+
+  // 3. 同步 spawn worker — 阻塞直到 worker 返回（Stop-Wait 核心）
+  const workerResult = Task({
+    subagent_type: "general-purpose",
+    prompt: `你是 team "${teamName}" 的 ${workerConfig.role.toUpperCase()}。
+
+## ⚠️ 首要指令（MUST）
+Skill(skill="team-quality-assurance", args="${workerConfig.skillArgs}")
+
+## 当前任务
+- 任务 ID: ${stageTask.id}
+- 任务: ${stageTask.subject}
+- 描述: ${stageTask.description || taskDescription}
+- Session: ${sessionFolder}
+
+## 角色准则（强制）
+- 所有输出必须带 [${workerConfig.role}] 标识前缀
+- 仅与 coordinator 通信
+
+## 工作流程
+1. Skill(skill="team-quality-assurance", args="${workerConfig.skillArgs}") 获取角色定义
+2. 执行任务 → 汇报结果
+3. TaskUpdate({ taskId: "${stageTask.id}", status: "completed" })`,
+    run_in_background: false
+  })
+
+  // 4. Worker 已返回 — 直接处理结果
+  const taskState = TaskGet({ taskId: stageTask.id })
+
+  if (taskState.status !== 'completed') {
+    // Worker 返回但未标记 completed → 异常处理
     if (autoYes) {
-      // 自动模式：记录日志，自动跳过
       mcp__ccw-tools__team_msg({
         operation: "log", team: teamName, from: "coordinator",
         to: "user", type: "error",
-        summary: `[coordinator] [auto] 阶段 ${stageTask.subject} 超时 (${elapsedMin}min)，自动跳过`
+        summary: `[coordinator] [auto] 阶段 ${stageTask.subject} 未完成，自动跳过`
       })
       TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
       continue
     }
 
-    // 交互模式：由用户决定
     const decision = AskUserQuestion({
       questions: [{
-        question: `阶段 "${stageTask.subject}" 已等待 ${elapsedMin} 分钟仍未完成。如何处理？`,
-        header: "Stage Wait",
+        question: `阶段 "${stageTask.subject}" worker 返回但未完成。如何处理？`,
+        header: "Stage Fail",
         multiSelect: false,
         options: [
-          { label: "继续等待", description: `再等 ${MAX_POLLS_PER_STAGE} 轮（~${Math.round(MAX_POLLS_PER_STAGE * POLL_INTERVAL_SEC / 60)}min）` },
-          { label: "跳过此阶段", description: "标记为跳过，继续后续流水线" },
-          { label: "终止流水线", description: "停止整个 QA 流程，汇报当前结果" }
+          { label: "重试", description: "重新 spawn worker 执行此阶段" },
+          { label: "跳过", description: "标记为跳过，继续后续流水线" },
+          { label: "终止", description: "停止整个 QA 流程，汇报当前结果" }
         ]
       }]
     })
 
-    const answer = decision["Stage Wait"]
-
-    if (answer === "继续等待") {
-      // 重置计数器，继续等待当前阶段
-      pollCount = 0
-      // 重新进入当前阶段的等待循环（需要用 while 包裹，此处用 goto 语义）
-      continue // 注意：实际执行中需要将 for 改为可重入的逻辑
-    } else if (answer === "跳过此阶段") {
-      mcp__ccw-tools__team_msg({
-        operation: "log", team: teamName, from: "coordinator",
-        to: "user", type: "error",
-        summary: `[coordinator] 用户选择跳过阶段 ${stageTask.subject}`
-      })
+    const answer = decision["Stage Fail"]
+    if (answer === "跳过") {
       TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
       continue
-    } else {
-      // 终止流水线
+    } else if (answer === "终止") {
       mcp__ccw-tools__team_msg({
         operation: "log", team: teamName, from: "coordinator",
         to: "user", type: "shutdown",
         summary: `[coordinator] 用户终止流水线，当前阶段: ${stageTask.subject}`
       })
-      break // 跳出 for 循环，进入 Step 3 汇报
+      break
+    }
+    // 重试: continue to next iteration will re-process if logic wraps
+  } else {
+    mcp__ccw-tools__team_msg({
+      operation: "log", team: teamName, from: "coordinator",
+      to: "user", type: "quality_gate",
+      summary: `[coordinator] 阶段完成: ${stageTask.subject}`
+    })
+  }
+
+  // 5. 阶段间检查（QARUN 阶段检查覆盖率，决定 GC 循环）
+  if (stagePrefix === 'QARUN') {
+    const latestMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+    const coverage = latestMemory.execution_results?.coverage || 0
+    const targetLayer = stageTask.metadata?.layer || 'L1'
+    const target = coverageTargets[targetLayer] || 80
+
+    if (coverage < target && gcIteration < MAX_GC_ITERATIONS) {
+      gcIteration++
+      mcp__ccw-tools__team_msg({
+        operation: "log", team: teamName, from: "coordinator",
+        to: "generator", type: "gc_loop_trigger",
+        summary: `[coordinator] GC循环 #${gcIteration}: 覆盖率 ${coverage}% < ${target}%，请修复`
+      })
+      // 创建 GC 修复任务追加到 pipeline
     }
   }
 }
@@ -284,10 +324,8 @@ const summary = {
 
 | Scenario | Resolution |
 |----------|------------|
-| Message bus unavailable | Fall back to TaskList polling only |
-| Stage timeout (交互模式) | AskUserQuestion：继续等待 / 跳过 / 终止流水线 |
-| Stage timeout (自动模式 `-y`/`--yes`，`autoYes`) | 自动跳过，记录日志，继续流水线 |
-| Teammate unresponsive (2x no response) | Respawn teammate with same task |
-| Deadlock detected (tasks blocked indefinitely) | Identify cycle, manually unblock |
+| Worker 返回但未 completed (交互模式) | AskUserQuestion: 重试 / 跳过 / 终止 |
+| Worker 返回但未 completed (自动模式) | 自动跳过，记录日志 |
+| Worker spawn 失败 | 重试一次，仍失败则上报用户 |
 | Quality gate FAIL | Report to user, suggest targeted re-run |
 | GC loop stuck >3 iterations | Accept current coverage, continue pipeline |

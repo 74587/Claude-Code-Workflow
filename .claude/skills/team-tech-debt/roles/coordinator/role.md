@@ -121,7 +121,7 @@ if (!autoYes && (!taskDescription || taskDescription.length < 10)) {
 }
 ```
 
-### Phase 2: Create Team + Spawn Teammates
+### Phase 2: Create Team + Initialize Session
 
 ```javascript
 const teamName = "tech-debt"
@@ -143,8 +143,9 @@ Write(`${sessionFolder}/shared-memory.json`, JSON.stringify({
 
 TeamCreate({ team_name: teamName })
 
-// Spawn teammates (see SKILL.md Coordinator Spawn Template)
-// Scanner, Assessor, Planner, Executor, Validator
+// ⚠️ 不在此阶段 spawn worker
+// Worker 在 Phase 4 (monitor) 中按阶段按需 spawn（Stop-Wait 策略）
+// 这避免了 worker 先启动但无任务可做的鸡生蛋问题
 ```
 
 ### Phase 3: Create Task Chain
@@ -171,28 +172,33 @@ TDSCAN-001(扫描) → TDEVAL-001(评估) → TDPLAN-001(规划) → TDFIX-001(�
 TDPLAN-001(规划) → TDFIX-001(修复) → TDVAL-001(验证)
 ```
 
-### Phase 4: Coordination Loop
+### Phase 4: Sequential Stage Execution (Stop-Wait)
 
 ```javascript
 // Read commands/monitor.md for full implementation
 Read("commands/monitor.md")
 ```
 
-| Received Message | Action |
-|-----------------|--------|
-| `scan_complete` | 标记 TDSCAN complete → 解锁 TDEVAL |
-| `assessment_complete` | 标记 TDEVAL complete → 解锁 TDPLAN |
-| `plan_ready` | 标记 TDPLAN complete → 解锁 TDFIX |
-| `fix_complete` | 标记 TDFIX complete → 解锁 TDVAL |
-| `validation_complete` | 标记 TDVAL complete → 评估质量门控 |
-| `regression_found` | 评估回归 → 触发 Fix-Verify 循环（max 3） |
-| Worker: `error` | 评估严重性 → 重试或上报用户 |
+> **策略**: 逐阶段 spawn worker，同步阻塞等待返回。Worker 返回即阶段完成，无需轮询。
+>
+> - ❌ 禁止: while 循环 + sleep + 检查状态
+> - ✅ 采用: `Task(run_in_background: false)` 同步调用 = 天然回调
 
-**Fix-Verify 循环逻辑**:
+**阶段流转**:
+
+| 当前阶段 | Worker | 完成后 |
+|----------|--------|--------|
+| TDSCAN-001 | scanner | → 启动 TDEVAL |
+| TDEVAL-001 | assessor | → 启动 TDPLAN |
+| TDPLAN-001 | planner | → 启动 TDFIX |
+| TDFIX-001 | executor | → 启动 TDVAL |
+| TDVAL-001 | validator | → 评估质量门控 |
+
+**Fix-Verify 循环**（TDVAL 阶段发现回归时）:
 ```javascript
 if (regressionFound && fixVerifyIteration < 3) {
   fixVerifyIteration++
-  // 创建 TDFIX-fix 任务 → TDVAL 重新验证
+  // 创建 TDFIX-fix + TDVAL-verify 任务，追加到 pipeline 继续执行
 } else if (fixVerifyIteration >= 3) {
   // 接受当前状态，继续汇报
   mcp__ccw-tools__team_msg({
