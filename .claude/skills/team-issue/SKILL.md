@@ -58,6 +58,7 @@ if (!roleMatch) {
 
 const role = roleMatch[1]
 const teamName = "issue"
+const agentName = args.match(/--agent-name[=\s]+([\w-]+)/)?.[1] || role
 ```
 
 ### Role Dispatch
@@ -140,7 +141,6 @@ mcp__ccw-tools__team_msg({
 const TEAM_CONFIG = {
   name: "issue",
   sessionDir: ".workflow/.team-plan/issue/",
-  msgDir: ".workflow/.team-msg/issue/",
   issueDataDir: ".workflow/issues/"
 }
 ```
@@ -188,7 +188,7 @@ Bash(`ccw team log --team "issue" --from "${role}" --to "coordinator" --type "<t
 const tasks = TaskList()
 const myTasks = tasks.filter(t =>
   t.subject.startsWith(`${VALID_ROLES[role].prefix}-`) &&
-  t.owner === role &&
+  t.owner === agentName &&  // Use agentName (e.g., 'explorer-1') instead of role
   t.status === 'pending' &&
   t.blockedBy.length === 0
 )
@@ -241,12 +241,49 @@ function detectMode(issueIds, userMode) {
 ```javascript
 TeamCreate({ team_name: "issue" })
 
-// Explorer
-Task({
-  subagent_type: "general-purpose",
-  team_name: "issue",
-  name: "explorer",
-  prompt: `你是 team "issue" 的 EXPLORER。
+// Explorer — conditional parallel spawn for Batch mode
+const isBatchMode = mode === 'batch'
+const maxParallelExplorers = Math.min(issueIds.length, 5)
+
+if (isBatchMode && issueIds.length > 1) {
+  // Batch mode: spawn N explorers for parallel exploration
+  for (let i = 0; i < maxParallelExplorers; i++) {
+    const agentName = `explorer-${i + 1}`
+    Task({
+      subagent_type: "general-purpose",
+      team_name: "issue",
+      name: agentName,
+      prompt: `你是 team "issue" 的 EXPLORER (${agentName})。
+你的 agent 名称是 "${agentName}"，任务发现时用此名称匹配 owner。
+
+当你收到 EXPLORE-* 任务时，调用 Skill(skill="team-issue", args="--role=explorer --agent-name=${agentName}") 执行。
+
+当前需求: ${taskDescription}
+约束: ${constraints}
+
+## 角色准则（强制）
+- 你只能处理 owner 为 "${agentName}" 的 EXPLORE-* 前缀任务
+- 所有输出（SendMessage、team_msg）必须带 [explorer] 标识前缀
+- 仅与 coordinator 通信，不得直接联系其他 worker
+- 不得使用 TaskCreate 为其他角色创建任务
+
+## 消息总线（必须）
+每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
+
+工作流程:
+1. TaskList → 找到 owner === "${agentName}" 的 EXPLORE-* 任务
+2. Skill(skill="team-issue", args="--role=explorer --agent-name=${agentName}") 执行
+3. team_msg log + SendMessage 结果给 coordinator（带 [explorer] 标识）
+4. TaskUpdate completed → 检查下一个任务`
+    })
+  }
+} else {
+  // Quick/Full mode: single explorer
+  Task({
+    subagent_type: "general-purpose",
+    team_name: "issue",
+    name: "explorer",
+    prompt: `你是 team "issue" 的 EXPLORER。
 
 当你收到 EXPLORE-* 任务时，调用 Skill(skill="team-issue", args="--role=explorer") 执行。
 
@@ -267,7 +304,8 @@ Task({
 2. Skill(skill="team-issue", args="--role=explorer") 执行
 3. team_msg log + SendMessage 结果给 coordinator（带 [explorer] 标识）
 4. TaskUpdate completed → 检查下一个任务`
-})
+  })
+}
 
 // Planner
 Task({
@@ -351,12 +389,46 @@ Task({
 4. TaskUpdate completed → 检查下一个任务`
 })
 
-// Implementer
-Task({
-  subagent_type: "general-purpose",
-  team_name: "issue",
-  name: "implementer",
-  prompt: `你是 team "issue" 的 IMPLEMENTER。
+// Implementer — conditional parallel spawn for Batch mode (DAG parallel BUILD tasks)
+if (isBatchMode && issueIds.length > 2) {
+  // Batch mode: spawn multiple implementers for parallel BUILD execution
+  const maxParallelBuilders = Math.min(issueIds.length, 3)
+  for (let i = 0; i < maxParallelBuilders; i++) {
+    const agentName = `implementer-${i + 1}`
+    Task({
+      subagent_type: "general-purpose",
+      team_name: "issue",
+      name: agentName,
+      prompt: `你是 team "issue" 的 IMPLEMENTER (${agentName})。
+你的 agent 名称是 "${agentName}"，任务发现时用此名称匹配 owner。
+
+当你收到 BUILD-* 任务时，调用 Skill(skill="team-issue", args="--role=implementer --agent-name=${agentName}") 执行。
+
+当前需求: ${taskDescription}
+约束: ${constraints}
+
+## 角色准则（强制）
+- 你只能处理 owner 为 "${agentName}" 的 BUILD-* 前缀任务
+- 所有输出必须带 [implementer] 标识前缀
+- 仅与 coordinator 通信
+
+## 消息总线（必须）
+每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
+
+工作流程:
+1. TaskList → 找到 owner === "${agentName}" 的 BUILD-* 任务
+2. Skill(skill="team-issue", args="--role=implementer --agent-name=${agentName}") 执行
+3. team_msg log + SendMessage 结果给 coordinator
+4. TaskUpdate completed → 检查下一个任务`
+    })
+  }
+} else {
+  // Quick/Full mode: single implementer
+  Task({
+    subagent_type: "general-purpose",
+    team_name: "issue",
+    name: "implementer",
+    prompt: `你是 team "issue" 的 IMPLEMENTER。
 
 当你收到 BUILD-* 任务时，调用 Skill(skill="team-issue", args="--role=implementer") 执行。
 
@@ -376,7 +448,8 @@ Task({
 2. Skill(skill="team-issue", args="--role=implementer") 执行
 3. team_msg log + SendMessage 结果给 coordinator
 4. TaskUpdate completed → 检查下一个任务`
-})
+  })
+}
 ```
 
 ## Error Handling

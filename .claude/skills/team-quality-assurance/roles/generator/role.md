@@ -59,10 +59,14 @@
 ### Phase 1: Task Discovery
 
 ```javascript
+// Parse agent name for parallel instances (e.g., generator-1, generator-2)
+const agentNameMatch = args.match(/--agent-name[=\s]+([\w-]+)/)
+const agentName = agentNameMatch ? agentNameMatch[1] : 'generator'
+
 const tasks = TaskList()
 const myTasks = tasks.filter(t =>
   t.subject.startsWith('QAGEN-') &&
-  t.owner === 'generator' &&
+  t.owner === agentName &&
   t.status === 'pending' &&
   t.blockedBy.length === 0
 )
@@ -264,7 +268,7 @@ ${generatedTests.map(f => `- ${f}`).join('\n')}`,
 TaskUpdate({ taskId: task.id, status: 'completed' })
 
 const nextTasks = TaskList().filter(t =>
-  t.subject.startsWith('QAGEN-') && t.owner === 'generator' &&
+  t.subject.startsWith('QAGEN-') && t.owner === agentName &&
   t.status === 'pending' && t.blockedBy.length === 0
 )
 if (nextTasks.length > 0) { /* back to Phase 1 */ }

@@ -43,10 +43,10 @@ function buildPipeline(qaMode, sessionFolder, taskDescription) {
     'full': [
       { prefix: 'SCOUT', owner: 'scout', desc: '多视角问题扫描', blockedBy: [] },
       { prefix: 'QASTRAT', owner: 'strategist', desc: '测试策略制定', blockedBy: ['SCOUT'] },
-      { prefix: 'QAGEN-L1', owner: 'generator', desc: '测试代码生成 (L1)', meta: 'layer: L1', blockedBy: ['QASTRAT'] },
-      { prefix: 'QAGEN-L2', owner: 'generator', desc: '测试代码生成 (L2)', meta: 'layer: L2', blockedBy: ['QASTRAT'] },
-      { prefix: 'QARUN-L1', owner: 'executor', desc: '测试执行 (L1)', meta: 'layer: L1', blockedBy: ['QAGEN-L1'] },
-      { prefix: 'QARUN-L2', owner: 'executor', desc: '测试执行 (L2)', meta: 'layer: L2', blockedBy: ['QAGEN-L2'] },
+      { prefix: 'QAGEN-L1', owner: 'generator-1', desc: '测试代码生成 (L1)', meta: 'layer: L1', blockedBy: ['QASTRAT'] },
+      { prefix: 'QAGEN-L2', owner: 'generator-2', desc: '测试代码生成 (L2)', meta: 'layer: L2', blockedBy: ['QASTRAT'] },
+      { prefix: 'QARUN-L1', owner: 'executor-1', desc: '测试执行 (L1)', meta: 'layer: L1', blockedBy: ['QAGEN-L1'] },
+      { prefix: 'QARUN-L2', owner: 'executor-2', desc: '测试执行 (L2)', meta: 'layer: L2', blockedBy: ['QAGEN-L2'] },
       { prefix: 'QAANA', owner: 'analyst', desc: '质量分析报告', blockedBy: ['QARUN-L1', 'QARUN-L2'] },
       { prefix: 'SCOUT-REG', owner: 'scout', desc: '回归扫描', blockedBy: ['QAANA'] }
     ]

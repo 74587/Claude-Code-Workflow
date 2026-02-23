@@ -58,10 +58,14 @@
 ### Phase 1: Task Discovery
 
 ```javascript
+// Parse agent name from --agent-name arg (for parallel instances) or default to 'explorer'
+const agentNameMatch = args.match(/--agent-name[=\s]+([\w-]+)/)
+const agentName = agentNameMatch ? agentNameMatch[1] : 'explorer'
+
 const tasks = TaskList()
 const myTasks = tasks.filter(t =>
   t.subject.startsWith('EXPLORE-') &&
-  t.owner === 'explorer' &&
+  t.owner === agentName &&
   t.status === 'pending' &&
   t.blockedBy.length === 0
 )
@@ -222,7 +226,7 @@ TaskUpdate({ taskId: task.id, status: 'completed' })
 // Check for next task
 const nextTasks = TaskList().filter(t =>
   t.subject.startsWith('EXPLORE-') &&
-  t.owner === 'explorer' &&
+  t.owner === agentName &&
   t.status === 'pending' &&
   t.blockedBy.length === 0
 )

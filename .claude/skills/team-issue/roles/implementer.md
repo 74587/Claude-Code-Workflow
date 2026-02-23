@@ -135,10 +135,14 @@ Dependencies: ${explorerContext.dependencies?.join(', ') || 'N/A'}
 ### Phase 1: Task Discovery
 
 ```javascript
+// Parse agent name for parallel instances (e.g., implementer-1, implementer-2)
+const agentNameMatch = args.match(/--agent-name[=\s]+([\w-]+)/)
+const agentName = agentNameMatch ? agentNameMatch[1] : 'implementer'
+
 const tasks = TaskList()
 const myTasks = tasks.filter(t =>
   t.subject.startsWith('BUILD-') &&
-  t.owner === 'implementer' &&
+  t.owner === agentName &&  // Use agentName (e.g., 'implementer-1') instead of hardcoded 'implementer'
   t.status === 'pending' &&
   t.blockedBy.length === 0
 )
@@ -370,7 +374,7 @@ TaskUpdate({ taskId: task.id, status: 'completed' })
 // Check for next BUILD-* task (parallel BUILD tasks or new batches)
 const nextTasks = TaskList().filter(t =>
   t.subject.startsWith('BUILD-') &&
-  t.owner === 'implementer' &&
+  t.owner === agentName &&  // Use agentName for parallel instance filtering
   t.status === 'pending' &&
   t.blockedBy.length === 0
 )

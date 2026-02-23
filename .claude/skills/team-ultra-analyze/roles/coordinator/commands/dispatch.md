@@ -39,23 +39,26 @@ function buildPipeline(pipelineMode, perspectives, sessionFolder, taskDescriptio
 function buildStandardPipeline(perspectives, dimensions) {
   const stages = []
   const perspectiveList = perspectives.length > 0 ? perspectives : ['technical']
+  const isParallel = perspectiveList.length > 1
 
-  // Parallel explorations
+  // Parallel explorations — each gets a distinct agent name for true parallelism
   perspectiveList.forEach((p, i) => {
     const num = String(i + 1).padStart(3, '0')
+    const explorerName = isParallel ? `explorer-${i + 1}` : 'explorer'
     stages.push({
-      prefix: 'EXPLORE', suffix: num, owner: 'explorer',
+      prefix: 'EXPLORE', suffix: num, owner: explorerName,
       desc: `代码库探索 (${p})`,
       meta: `perspective: ${p}\ndimensions: ${dimensions.join(', ')}`,
       blockedBy: []
     })
   })
 
-  // Parallel analyses (blocked by corresponding exploration)
+  // Parallel analyses — each gets a distinct agent name for true parallelism
   perspectiveList.forEach((p, i) => {
     const num = String(i + 1).padStart(3, '0')
+    const analystName = isParallel ? `analyst-${i + 1}` : 'analyst'
     stages.push({
-      prefix: 'ANALYZE', suffix: num, owner: 'analyst',
+      prefix: 'ANALYZE', suffix: num, owner: analystName,
       desc: `深度分析 (${p})`,
       meta: `perspective: ${p}\ndimensions: ${dimensions.join(', ')}`,
       blockedBy: [`EXPLORE-${num}`]

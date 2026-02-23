@@ -258,19 +258,22 @@ for (const issueId of issueIds) {
 // Group issues into batches
 const exploreBatches = chunkArray(issueIds, 5)  // max 5 parallel
 const solveBatches = chunkArray(issueIds, 3)    // max 3 parallel
+const maxParallelExplorers = Math.min(issueIds.length, 5)
+const maxParallelBuilders = Math.min(issueIds.length, 3)
 
-// Create EXPLORE tasks — all parallel within each batch, batches run in rolling window
-// Each batch of ≤5 runs concurrently; next batch starts when current batch completes
+// Create EXPLORE tasks — distribute across parallel explorer agents (round-robin)
 const exploreTaskIds = []
 let prevBatchLastId = null
 for (const [batchIdx, batch] of exploreBatches.entries()) {
   const batchTaskIds = []
-  for (const issueId of batch) {
+  for (const [inBatchIdx, issueId] of batch.entries()) {
+    const globalIdx = exploreTaskIds.length
+    const explorerName = `explorer-${(globalIdx % maxParallelExplorers) + 1}`
     const id = TaskCreate({
-      subject: `EXPLORE-${String(exploreTaskIds.length + 1).padStart(3, '0')}: Context for ${issueId}`,
+      subject: `EXPLORE-${String(globalIdx + 1).padStart(3, '0')}: Context for ${issueId}`,
       description: `Batch ${batchIdx + 1}: Explore codebase context for issue ${issueId}.`,
       activeForm: `Exploring ${issueId}`,
-      owner: "explorer",
+      owner: explorerName,  // Distribute across explorer-1, explorer-2, etc.
       // Only block on previous batch's LAST task (not within same batch)
       addBlockedBy: prevBatchLastId ? [prevBatchLastId] : []
     })
@@ -312,6 +315,7 @@ const marshalId = TaskCreate({
 })
 
 // BUILD tasks created dynamically after MARSHAL completes (based on DAG)
+// Each BUILD-* task is assigned to implementer-1, implementer-2, etc. (round-robin)
 // Each BUILD-* task description MUST include:
 //   execution_method: ${executionMethod}
 //   code_review: ${codeReviewTool}

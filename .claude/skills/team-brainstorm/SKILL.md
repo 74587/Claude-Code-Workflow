@@ -39,6 +39,7 @@ if (!roleMatch) {
 
 const role = roleMatch[1]
 const teamName = args.match(/--team[=\s]+([\w-]+)/)?.[1] || "brainstorm"
+const agentName = args.match(/--agent-name[=\s]+([\w-]+)/)?.[1] || role
 ```
 
 ### Role Dispatch
@@ -119,7 +120,6 @@ mcp__ccw-tools__team_msg({
 const TEAM_CONFIG = {
   name: "brainstorm",
   sessionDir: ".workflow/.team/BRS-{slug}-{date}/",
-  msgDir: ".workflow/.team-msg/brainstorm/",
   sharedMemory: "shared-memory.json"
 }
 ```
@@ -182,7 +182,7 @@ Bash(`ccw team log --team "${teamName}" --from "${role}" --to "coordinator" --ty
 const tasks = TaskList()
 const myTasks = tasks.filter(t =>
   t.subject.startsWith(`${VALID_ROLES[role].prefix}-`) &&
-  t.owner === role &&
+  t.owner === agentName &&  // Use agentName (e.g., 'ideator-1') instead of role
   t.status === 'pending' &&
   t.blockedBy.length === 0
 )
@@ -245,12 +245,48 @@ IDEA → CHALLENGE → (if critique.severity >= HIGH) → IDEA-fix → CHALLENGE
 ```javascript
 TeamCreate({ team_name: teamName })
 
-// Ideator
-Task({
-  subagent_type: "general-purpose",
-  team_name: teamName,
-  name: "ideator",
-  prompt: `你是 team "${teamName}" 的 IDEATOR。
+// Ideator — conditional parallel spawn for Full pipeline (multiple angles)
+const isFullPipeline = selectedPipeline === 'full'
+const ideaAngles = selectedAngles || []
+
+if (isFullPipeline && ideaAngles.length > 1) {
+  // Full pipeline: spawn N ideators for N parallel angle tasks
+  for (let i = 0; i < ideaAngles.length; i++) {
+    const agentName = `ideator-${i + 1}`
+    Task({
+      subagent_type: "general-purpose",
+      team_name: teamName,
+      name: agentName,
+      prompt: `你是 team "${teamName}" 的 IDEATOR (${agentName})。
+你的 agent 名称是 "${agentName}"，任务发现时用此名称匹配 owner。
+
+当你收到 IDEA-* 任务时，调用 Skill(skill="team-brainstorm", args="--role=ideator --agent-name=${agentName}") 执行。
+当前话题: ${taskDescription}
+约束: ${constraints}
+
+## 角色准则（强制）
+- 你只能处理 owner 为 "${agentName}" 的 IDEA-* 前缀任务
+- 所有输出（SendMessage、team_msg）必须带 [ideator] 标识前缀
+- 仅与 coordinator 通信，不得直接联系其他 worker
+- 不得使用 TaskCreate 为其他角色创建任务
+
+## 消息总线（必须）
+每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
+
+工作流程:
+1. TaskList → 找到 owner === "${agentName}" 的 IDEA-* 任务
+2. Skill(skill="team-brainstorm", args="--role=ideator --agent-name=${agentName}") 执行
+3. team_msg log + SendMessage 结果给 coordinator（带 [ideator] 标识）
+4. TaskUpdate completed → 检查下一个任务`
+    })
+  }
+} else {
+  // Quick/Deep pipeline: single ideator
+  Task({
+    subagent_type: "general-purpose",
+    team_name: teamName,
+    name: "ideator",
+    prompt: `你是 team "${teamName}" 的 IDEATOR。
 当你收到 IDEA-* 任务时，调用 Skill(skill="team-brainstorm", args="--role=ideator") 执行。
 当前话题: ${taskDescription}
 约束: ${constraints}
@@ -269,7 +305,8 @@ Task({
 2. Skill(skill="team-brainstorm", args="--role=ideator") 执行
 3. team_msg log + SendMessage 结果给 coordinator（带 [ideator] 标识）
 4. TaskUpdate completed → 检查下一个任务`
-})
+  })
+}
 
 // Challenger
 Task({

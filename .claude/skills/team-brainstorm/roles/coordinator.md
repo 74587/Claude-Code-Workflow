@@ -185,10 +185,12 @@ TaskUpdate({ taskId: evalId, owner: "evaluator", addBlockedBy: [synthId] })
 
 ```javascript
 // 并行创意: IDEA-001 + IDEA-002 + IDEA-003 (no dependencies between them)
+// Each gets a distinct agent owner for true parallel execution
 const ideaAngles = selectedAngles.slice(0, 3)
 ideaAngles.forEach((angle, i) => {
+  const ideatorName = ideaAngles.length > 1 ? `ideator-${i+1}` : 'ideator'
   TaskCreate({ subject: `IDEA-00${i+1}: ${angle}角度创意生成`, description: `话题: ${taskDescription}\n角度: ${angle}\n\nSession: ${sessionFolder}\n输出: ideas/idea-00${i+1}.md`, activeForm: `${angle}创意生成中` })
-  TaskUpdate({ taskId: ideaIds[i], owner: "ideator" })
+  TaskUpdate({ taskId: ideaIds[i], owner: ideatorName })
 })
 
 // CHALLENGE-001: 批量挑战 (blockedBy all IDEA-001..003)

@@ -145,7 +145,6 @@ mcp__ccw-tools__team_msg({ summary: `[${role}] ...` })
 const TEAM_CONFIG = {
   name: "quality-assurance",
   sessionDir: ".workflow/.team/QA-{slug}-{date}/",
-  msgDir: ".workflow/.team-msg/quality-assurance/",
   sharedMemory: "shared-memory.json",
   testLayers: {
     L1: { name: "Unit Tests", coverage_target: 80 },
@@ -338,12 +337,43 @@ Task({
 4. TaskUpdate completed → 检查下一个任务`
 })
 
-// Generator
-Task({
-  subagent_type: "general-purpose",
-  team_name: teamName,
-  name: "generator",
-  prompt: `你是 team "${teamName}" 的 GENERATOR。
+// Generator — parallel instances for full mode (generator-1, generator-2)
+const isFullMode = qaMode === 'full'
+
+if (isFullMode) {
+  for (let i = 1; i <= 2; i++) {
+    const agentName = `generator-${i}`
+    Task({
+      subagent_type: "general-purpose",
+      team_name: teamName,
+      name: agentName,
+      prompt: `你是 team "${teamName}" 的 GENERATOR (${agentName})。
+你的 agent 名称是 "${agentName}"，任务发现时用此名称匹配 owner。
+
+当你收到 QAGEN-* 任务时，调用 Skill(skill="team-quality-assurance", args="--role=generator --agent-name=${agentName}") 执行。
+
+当前需求: ${taskDescription}
+
+## 角色准则（强制）
+- 你只能处理 owner 为 "${agentName}" 的 QAGEN-* 前缀任务
+- 所有输出必须带 [generator] 标识前缀
+
+## 消息总线（必须）
+每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
+
+工作流程:
+1. TaskList → 找到 owner === "${agentName}" 的 QAGEN-* 任务
+2. Skill(skill="team-quality-assurance", args="--role=generator --agent-name=${agentName}") 执行
+3. team_msg log + SendMessage
+4. TaskUpdate completed → 检查下一个任务`
+    })
+  }
+} else {
+  Task({
+    subagent_type: "general-purpose",
+    team_name: teamName,
+    name: "generator",
+    prompt: `你是 team "${teamName}" 的 GENERATOR。
 
 当你收到 QAGEN-* 任务时，调用 Skill(skill="team-quality-assurance", args="--role=generator") 执行。
 
@@ -361,14 +391,44 @@ Task({
 2. Skill(skill="team-quality-assurance", args="--role=generator") 执行
 3. team_msg log + SendMessage
 4. TaskUpdate completed → 检查下一个任务`
-})
+  })
+}
 
-// Executor
-Task({
-  subagent_type: "general-purpose",
-  team_name: teamName,
-  name: "executor",
-  prompt: `你是 team "${teamName}" 的 EXECUTOR。
+// Executor — parallel instances for full mode (executor-1, executor-2)
+if (isFullMode) {
+  for (let i = 1; i <= 2; i++) {
+    const agentName = `executor-${i}`
+    Task({
+      subagent_type: "general-purpose",
+      team_name: teamName,
+      name: agentName,
+      prompt: `你是 team "${teamName}" 的 EXECUTOR (${agentName})。
+你的 agent 名称是 "${agentName}"，任务发现时用此名称匹配 owner。
+
+当你收到 QARUN-* 任务时，调用 Skill(skill="team-quality-assurance", args="--role=executor --agent-name=${agentName}") 执行。
+
+当前需求: ${taskDescription}
+
+## 角色准则（强制）
+- 你只能处理 owner 为 "${agentName}" 的 QARUN-* 前缀任务
+- 所有输出必须带 [executor] 标识前缀
+
+## 消息总线（必须）
+每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
+
+工作流程:
+1. TaskList → 找到 owner === "${agentName}" 的 QARUN-* 任务
+2. Skill(skill="team-quality-assurance", args="--role=executor --agent-name=${agentName}") 执行
+3. team_msg log + SendMessage
+4. TaskUpdate completed → 检查下一个任务`
+    })
+  }
+} else {
+  Task({
+    subagent_type: "general-purpose",
+    team_name: teamName,
+    name: "executor",
+    prompt: `你是 team "${teamName}" 的 EXECUTOR。
 
 当你收到 QARUN-* 任务时，调用 Skill(skill="team-quality-assurance", args="--role=executor") 执行。
 
@@ -386,7 +446,8 @@ Task({
 2. Skill(skill="team-quality-assurance", args="--role=executor") 执行
 3. team_msg log + SendMessage
 4. TaskUpdate completed → 检查下一个任务`
-})
+  })
+}
 
 // Analyst
 Task({

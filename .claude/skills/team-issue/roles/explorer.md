@@ -55,10 +55,14 @@ Issue 上下文分析、代码探索、依赖识别、影响面评估。为 plan
 ### Phase 1: Task Discovery
 
 ```javascript
+// Parse agent name for parallel instances (e.g., explorer-1, explorer-2)
+const agentNameMatch = args.match(/--agent-name[=\s]+([\w-]+)/)
+const agentName = agentNameMatch ? agentNameMatch[1] : 'explorer'
+
 const tasks = TaskList()
 const myTasks = tasks.filter(t =>
   t.subject.startsWith('EXPLORE-') &&
-  t.owner === 'explorer' &&
+  t.owner === agentName &&  // Use agentName (e.g., 'explorer-1') instead of hardcoded 'explorer'
   t.status === 'pending' &&
   t.blockedBy.length === 0
 )
@@ -216,7 +220,7 @@ TaskUpdate({ taskId: task.id, status: 'completed' })
 // Check for next task
 const nextTasks = TaskList().filter(t =>
   t.subject.startsWith('EXPLORE-') &&
-  t.owner === 'explorer' &&
+  t.owner === agentName &&  // Use agentName for parallel instance filtering
   t.status === 'pending' &&
   t.blockedBy.length === 0
 )

@@ -57,7 +57,7 @@ roles/
 
 ### Input Parsing
 
-Parse `$ARGUMENTS` to extract `--role`:
+Parse `$ARGUMENTS` to extract `--role` and optional `--agent-name`:
 
 ```javascript
 const args = "$ARGUMENTS"
@@ -69,6 +69,9 @@ if (!roleMatch) {
 
 const role = roleMatch[1]
 const teamName = args.match(/--team[=\s]+([\w-]+)/)?.[1] || "ultra-analyze"
+// --agent-name for parallel instances (e.g., explorer-1, analyst-2)
+// Passed through to role.md for task discovery filtering
+const agentName = args.match(/--agent-name[=\s]+([\w-]+)/)?.[1] || role
 ```
 
 ### Role Dispatch
@@ -139,7 +142,6 @@ mcp__ccw-tools__team_msg({ summary: `[${role}] ...` })
 const TEAM_CONFIG = {
   name: "ultra-analyze",
   sessionDir: ".workflow/.team/UAN-{slug}-{date}/",
-  msgDir: ".workflow/.team-msg/ultra-analyze/",
   sharedMemory: "shared-memory.json",
   analysisDimensions: ["architecture", "implementation", "performance", "security", "concept", "comparison", "decision"],
   maxDiscussionRounds: 5
@@ -272,12 +274,51 @@ coordinator(AskUser) → DISCUSS-N(deepen) → [optional ANALYZE-fix] → coordi
 ```javascript
 TeamCreate({ team_name: teamName })
 
-// Explorer
-Task({
-  subagent_type: "general-purpose",
-  team_name: teamName,
-  name: "explorer",
-  prompt: `你是 team "${teamName}" 的 EXPLORER。
+// ── Determine parallel agent count ──
+const perspectiveCount = selectedPerspectives.length
+const isParallel = perspectiveCount > 1
+
+// ── Explorers ──
+// Quick mode (1 perspective): single "explorer"
+// Standard/Deep mode (N perspectives): "explorer-1", "explorer-2", ...
+if (isParallel) {
+  for (let i = 0; i < perspectiveCount; i++) {
+    const agentName = `explorer-${i + 1}`
+    Task({
+      subagent_type: "general-purpose",
+      team_name: teamName,
+      name: agentName,
+      prompt: `你是 team "${teamName}" 的 EXPLORER (${agentName})。
+你的 agent 名称是 "${agentName}"，任务发现时用此名称匹配 owner。
+
+当你收到 EXPLORE-* 任务时，调用 Skill(skill="team-ultra-analyze", args="--role=explorer --agent-name=${agentName}") 执行。
+
+当前需求: ${taskDescription}
+约束: ${constraints}
+
+## 角色准则（强制）
+- 你只能处理 owner 为 "${agentName}" 的 EXPLORE-* 前缀任务
+- 所有输出（SendMessage、team_msg）必须带 [explorer] 标识前缀
+- 仅与 coordinator 通信，不得直接联系其他 worker
+- 不得使用 TaskCreate 为其他角色创建任务
+
+## 消息总线（必须）
+每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
+
+工作流程:
+1. TaskList → 找到 owner === "${agentName}" 的 EXPLORE-* 任务
+2. Skill(skill="team-ultra-analyze", args="--role=explorer --agent-name=${agentName}") 执行
+3. team_msg log + SendMessage 结果给 coordinator（带 [explorer] 标识）
+4. TaskUpdate completed → 检查下一个任务`
+    })
+  }
+} else {
+  // Single explorer for quick mode
+  Task({
+    subagent_type: "general-purpose",
+    team_name: teamName,
+    name: "explorer",
+    prompt: `你是 team "${teamName}" 的 EXPLORER。
 
 当你收到 EXPLORE-* 任务时，调用 Skill(skill="team-ultra-analyze", args="--role=explorer") 执行。
 
@@ -298,14 +339,47 @@ Task({
 2. Skill(skill="team-ultra-analyze", args="--role=explorer") 执行
 3. team_msg log + SendMessage 结果给 coordinator（带 [explorer] 标识）
 4. TaskUpdate completed → 检查下一个任务`
-})
+  })
+}
 
-// Analyst
-Task({
-  subagent_type: "general-purpose",
-  team_name: teamName,
-  name: "analyst",
-  prompt: `你是 team "${teamName}" 的 ANALYST。
+// ── Analysts ──
+// Same pattern: parallel mode spawns N analysts, quick mode spawns 1
+if (isParallel) {
+  for (let i = 0; i < perspectiveCount; i++) {
+    const agentName = `analyst-${i + 1}`
+    Task({
+      subagent_type: "general-purpose",
+      team_name: teamName,
+      name: agentName,
+      prompt: `你是 team "${teamName}" 的 ANALYST (${agentName})。
+你的 agent 名称是 "${agentName}"，任务发现时用此名称匹配 owner。
+
+当你收到 ANALYZE-* 任务时，调用 Skill(skill="team-ultra-analyze", args="--role=analyst --agent-name=${agentName}") 执行。
+
+当前需求: ${taskDescription}
+约束: ${constraints}
+
+## 角色准则（强制）
+- 你只能处理 owner 为 "${agentName}" 的 ANALYZE-* 前缀任务
+- 所有输出必须带 [analyst] 标识前缀
+- 仅与 coordinator 通信
+
+## 消息总线（必须）
+每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
+
+工作流程:
+1. TaskList → 找到 owner === "${agentName}" 的 ANALYZE-* 任务
+2. Skill(skill="team-ultra-analyze", args="--role=analyst --agent-name=${agentName}") 执行
+3. team_msg log + SendMessage 结果给 coordinator
+4. TaskUpdate completed → 检查下一个任务`
+    })
+  }
+} else {
+  Task({
+    subagent_type: "general-purpose",
+    team_name: teamName,
+    name: "analyst",
+    prompt: `你是 team "${teamName}" 的 ANALYST。
 
 当你收到 ANALYZE-* 任务时，调用 Skill(skill="team-ultra-analyze", args="--role=analyst") 执行。
 
@@ -325,9 +399,10 @@ Task({
 2. Skill(skill="team-ultra-analyze", args="--role=analyst") 执行
 3. team_msg log + SendMessage 结果给 coordinator
 4. TaskUpdate completed → 检查下一个任务`
-})
+  })
+}
 
-// Discussant
+// ── Discussant (always single) ──
 Task({
   subagent_type: "general-purpose",
   team_name: teamName,
@@ -352,7 +427,7 @@ Task({
 4. TaskUpdate completed → 检查下一个任务`
 })
 
-// Synthesizer
+// ── Synthesizer (always single) ──
 Task({
   subagent_type: "general-purpose",
   team_name: teamName,

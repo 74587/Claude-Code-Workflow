@@ -211,7 +211,10 @@ Write(`${sessionFolder}/discussion.md`, `# Analysis Discussion
 TeamCreate({ team_name: teamName })
 
 // Spawn teammates (see SKILL.md Coordinator Spawn Template)
-// Explorer, Analyst, Discussant, Synthesizer
+// Quick mode: 1 explorer + 1 analyst (single agents)
+// Standard/Deep mode: N explorers + N analysts (parallel agents with distinct names)
+// explorer-1, explorer-2... / analyst-1, analyst-2... for true parallel execution
+// Discussant and Synthesizer are always single instances
 ```
 
 ### Phase 3: Create Task Chain
