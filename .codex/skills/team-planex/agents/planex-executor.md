@@ -20,6 +20,156 @@ skill: team-planex
 4. **Commit Management**: 每个 solution 完成后 git commit
 5. **Result Reporting**: 输出结构化 IMPL_COMPLETE / WAVE_DONE 数据
 
+## Execution Logging
+
+执行过程中**必须**实时维护两个日志文件，记录每个任务的执行状态和细节。
+
+### Session Folder
+
+```javascript
+// sessionFolder 从 TASK ASSIGNMENT 中的 session_dir 获取，或使用默认路径
+const sessionFolder = taskAssignment.session_dir
+  || `.workflow/.team/PEX-wave${waveNum}-${new Date().toISOString().slice(0,10)}`
+```
+
+### execution.md — 执行概览
+
+在开始实现前初始化，任务完成/失败时更新状态。
+
+```javascript
+function initExecution(waveNum, execTasks, executionMethod) {
+  const executionMd = `# Execution Overview
+
+## Session Info
+- **Wave**: ${waveNum}
+- **Started**: ${getUtc8ISOString()}
+- **Total Tasks**: ${execTasks.length}
+- **Executor**: planex-executor (team-planex)
+- **Execution Method**: ${executionMethod}
+- **Execution Mode**: Sequential by dependency
+
+## Task Overview
+
+| # | Issue ID | Solution | Title | Priority | Dependencies | Status |
+|---|----------|----------|-------|----------|--------------|--------|
+${execTasks.map((t, i) =>
+  `| ${i+1} | ${t.issue_id} | ${t.solution_id} | ${t.title} | ${t.priority} | ${(t.depends_on || []).join(', ') || '-'} | pending |`
+).join('\n')}
+
+## Execution Timeline
+> Updated as tasks complete
+
+## Execution Summary
+> Updated after all tasks complete
+`
+  shell(`mkdir -p ${sessionFolder}`)
+  write_file(`${sessionFolder}/execution.md`, executionMd)
+}
+```
+
+### execution-events.md — 事件流
+
+每个任务的 START/COMPLETE/FAIL 实时追加记录。
+
+```javascript
+function initEvents(waveNum) {
+  const eventsHeader = `# Execution Events
+
+**Wave**: ${waveNum}
+**Executor**: planex-executor (team-planex)
+**Started**: ${getUtc8ISOString()}
+
+---
+
+`
+  write_file(`${sessionFolder}/execution-events.md`, eventsHeader)
+}
+
+function appendEvent(content) {
+  const existing = read_file(`${sessionFolder}/execution-events.md`)
+  write_file(`${sessionFolder}/execution-events.md`, existing + content)
+}
+
+function recordTaskStart(issueId, title, executor, files) {
+  appendEvent(`## ${getUtc8ISOString()} — ${issueId}: ${title}
+
+**Executor Backend**: ${executor}
+**Status**: ⏳ IN PROGRESS
+**Files**: ${files || 'TBD'}
+
+### Execution Log
+`)
+}
+
+function recordTaskComplete(issueId, executor, commitHash, filesModified, duration) {
+  appendEvent(`
+**Status**: ✅ COMPLETED
+**Duration**: ${duration}
+**Executor**: ${executor}
+**Commit**: \`${commitHash}\`
+**Files Modified**: ${filesModified.join(', ')}
+
+---
+`)
+}
+
+function recordTaskFailed(issueId, executor, error, resumeHint, duration) {
+  appendEvent(`
+**Status**: ❌ FAILED
+**Duration**: ${duration}
+**Executor**: ${executor}
+**Error**: ${error}
+${resumeHint ? `**Resume**: \`${resumeHint}\`` : ''}
+
+---
+`)
+}
+
+function recordTestVerification(issueId, passed, testOutput, duration) {
+  appendEvent(`
+#### Test Verification — ${issueId}
+- **Result**: ${passed ? '✅ PASS' : '❌ FAIL'}
+- **Duration**: ${duration}
+${!passed ? `- **Output** (truncated):\n\`\`\`\n${testOutput.slice(0, 500)}\n\`\`\`\n` : ''}
+`)
+}
+
+function updateTaskStatus(issueId, status) {
+  // Update the task row in execution.md table: replace "pending" with status
+  const content = read_file(`${sessionFolder}/execution.md`)
+  // Find row containing issueId, replace "pending" → status
+}
+
+function finalizeExecution(totalTasks, succeeded, failedCount) {
+  const summary = `
+## Execution Summary
+
+- **Completed**: ${getUtc8ISOString()}
+- **Total Tasks**: ${totalTasks}
+- **Succeeded**: ${succeeded}
+- **Failed**: ${failedCount}
+- **Success Rate**: ${Math.round(succeeded / totalTasks * 100)}%
+`
+  const content = read_file(`${sessionFolder}/execution.md`)
+  write_file(`${sessionFolder}/execution.md`,
+    content.replace('> Updated after all tasks complete', summary))
+
+  appendEvent(`
+---
+
+# Session Summary
+
+- **Wave**: ${waveNum}
+- **Completed**: ${getUtc8ISOString()}
+- **Tasks**: ${succeeded} completed, ${failedCount} failed
+`)
+}
+
+function getUtc8ISOString() {
+  return new Date(Date.now() + 8 * 3600000).toISOString().replace('Z', '+08:00')
+}
+```
+
 ## Execution Process
 
 ### Step 1: Context Loading
@@ -37,13 +187,17 @@ skill: team-planex
 
 ### Step 2: Implementation (Sequential by Dependency)
 
-Process each task in the wave, respecting dependency order.
+Process each task in the wave, respecting dependency order. **Record every task to execution logs.**
 
 ```javascript
 const tasks = taskAssignment.exec_tasks
 const executionMethod = taskAssignment.execution_config.execution_method
 const codeReview = taskAssignment.execution_config.code_review
 const waveNum = taskAssignment.wave_number
+
+// ── Initialize execution logs ──
+initExecution(waveNum, tasks, executionMethod)
+initEvents(waveNum)
 
 let completed = 0
 let failed = 0
@@ -53,12 +207,18 @@ const sorted = topologicalSort(tasks)
 
 for (const task of sorted) {
   const issueId = task.issue_id
+  const taskStartTime = Date.now()
 
   // --- Load solution ---
   const solJson = shell(`ccw issue solution ${issueId} --json`)
   const solution = JSON.parse(solJson)
 
   if (!solution.bound) {
+    recordTaskStart(issueId, task.title, 'N/A', '')
+    recordTaskFailed(issueId, 'N/A', 'No bound solution', null,
+      `${Math.round((Date.now() - taskStartTime) / 1000)}s`)
+    updateTaskStatus(issueId, 'failed')
+
     console.log(`IMPL_COMPLETE:\n${JSON.stringify({
       issue_id: issueId,
       status: "failed",
@@ -77,6 +237,12 @@ for (const task of sorted) {
   const taskCount = solution.bound.task_count || solution.bound.tasks?.length || 0
   const executor = resolveExecutor(executionMethod, taskCount)
 
+  // --- Record START event ---
+  const solutionFiles = (solution.bound.tasks || [])
+    .flatMap(t => t.files || []).join(', ')
+  recordTaskStart(issueId, task.title, executor, solutionFiles)
+  updateTaskStatus(issueId, 'in_progress')
+
   // --- Build execution prompt ---
   const prompt = buildExecutionPrompt(issueId, solution)
 
@@ -85,6 +251,7 @@ for (const task of sorted) {
 
   if (executor === 'agent') {
     // Spawn code-developer subagent (synchronous)
+    appendEvent(`- Spawning code-developer agent...\n`)
     const devAgent = spawn_agent({
       message: `
 ## TASK ASSIGNMENT
@@ -103,24 +270,27 @@ ${prompt}
     const devResult = wait({ ids: [devAgent], timeout_ms: 900000 })
 
     if (devResult.timed_out) {
+      appendEvent(`- Agent timed out, urging convergence...\n`)
       send_input({ id: devAgent, message: "Please finalize implementation and output results." })
       wait({ ids: [devAgent], timeout_ms: 120000 })
     }
 
     close_agent({ id: devAgent })
-    implSuccess = true // will verify with tests below
+    appendEvent(`- code-developer agent completed\n`)
+    implSuccess = true
 
   } else if (executor === 'codex') {
-    // Codex CLI execution
     const fixedId = `planex-${issueId}`
+    appendEvent(`- Executing via Codex CLI (id: ${fixedId})...\n`)
     shell(`ccw cli -p "${prompt}" --tool codex --mode write --id ${fixedId}`)
-    // Wait for CLI completion (synchronous in agent context)
+    appendEvent(`- Codex CLI completed\n`)
     implSuccess = true
 
   } else if (executor === 'gemini') {
-    // Gemini CLI execution
     const fixedId = `planex-${issueId}`
+    appendEvent(`- Executing via Gemini CLI (id: ${fixedId})...\n`)
     shell(`ccw cli -p "${prompt}" --tool gemini --mode write --id ${fixedId}`)
+    appendEvent(`- Gemini CLI completed\n`)
     implSuccess = true
   }
 
@@ -132,10 +302,23 @@ ${prompt}
     else if (pkgJson.scripts?.['test:unit']) testCmd = 'npm run test:unit'
   } catch { /* use default */ }
 
+  const testStartTime = Date.now()
+  appendEvent(`- Running tests: \`${testCmd}\`...\n`)
   const testResult = shell(`${testCmd} 2>&1 || echo "TEST_FAILED"`)
   const testPassed = !testResult.includes('TEST_FAILED') && !testResult.includes('FAIL')
+  const testDuration = `${Math.round((Date.now() - testStartTime) / 1000)}s`
+
+  recordTestVerification(issueId, testPassed, testResult, testDuration)
 
   if (!testPassed) {
+    const duration = `${Math.round((Date.now() - taskStartTime) / 1000)}s`
+    const resumeHint = executor !== 'agent'
+      ? `ccw cli -p "Fix failing tests" --resume planex-${issueId} --tool ${executor} --mode write`
+      : null
+
+    recordTaskFailed(issueId, executor, 'Tests failing after implementation', resumeHint, duration)
+    updateTaskStatus(issueId, 'failed')
+
     console.log(`IMPL_COMPLETE:\n${JSON.stringify({
       issue_id: issueId,
       status: "failed",
@@ -144,9 +327,7 @@ ${prompt}
       test_result: "fail",
       test_output: testResult.slice(0, 500),
       commit: "N/A",
-      resume_hint: executor !== 'agent'
-        ? `ccw cli -p "Fix failing tests" --resume planex-${issueId} --tool ${executor} --mode write`
-        : "Re-spawn code-developer with fix instructions"
+      resume_hint: resumeHint || "Re-spawn code-developer with fix instructions"
     }, null, 2)}`)
     failed++
     continue
@@ -154,6 +335,7 @@ ${prompt}
 
   // --- Optional code review ---
   if (codeReview && codeReview !== 'Skip') {
+    appendEvent(`- Running code review (${codeReview})...\n`)
     executeCodeReview(codeReview, issueId)
   }
 
@@ -161,10 +343,18 @@ ${prompt}
   shell(`git add -A && git commit -m "feat(${issueId}): implement solution ${task.solution_id}"`)
   const commitHash = shell('git rev-parse --short HEAD').trim()
 
+  appendEvent(`- Committed: \`${commitHash}\`\n`)
+
   // --- Update issue status ---
   shell(`ccw issue update ${issueId} --status completed`)
 
-  // --- Report completion ---
+  // --- Record completion ---
+  const duration = `${Math.round((Date.now() - taskStartTime) / 1000)}s`
+  const filesModified = shell('git diff --name-only HEAD~1 HEAD').trim().split('\n')
+
+  recordTaskComplete(issueId, executor, commitHash, filesModified, duration)
+  updateTaskStatus(issueId, 'completed')
+
   console.log(`IMPL_COMPLETE:\n${JSON.stringify({
     issue_id: issueId,
     status: "success",
@@ -177,15 +367,36 @@ ${prompt}
 }
 ```
 
-### Step 3: Wave Completion Report
+### Step 3: Wave Completion Report & Log Finalization
 
 ```javascript
+// ── Finalize execution logs ──
+finalizeExecution(sorted.length, completed, failed)
+
+// ── Output structured wave result ──
 console.log(`WAVE_DONE:\n${JSON.stringify({
   wave_number: waveNum,
   completed: completed,
-  failed: failed
+  failed: failed,
+  execution_logs: {
+    execution_md: `${sessionFolder}/execution.md`,
+    events_md: `${sessionFolder}/execution-events.md`
+  }
 }, null, 2)}`)
 ```
+
+## Execution Log Output Structure
+
+```
+${sessionFolder}/
+├── execution.md              # 执行概览：wave info, task table, summary
+└── execution-events.md       # 事件流：每个 task 的 START/COMPLETE/FAIL + 测试验证详情
+```
+
+| File | Purpose |
+|------|---------|
+| `execution.md` | 概览：wave task 表格（issue/solution/status）、执行统计、最终结果 |
+| `execution-events.md` | 时间线：每个 task 的后端选择、实现日志、测试验证、commit 记录 |
 
 ## Execution Method Resolution
 
@@ -291,6 +502,10 @@ function topologicalSort(tasks) {
 
 **ALWAYS**:
 - Read role definition file as FIRST action (Step 1)
+- **Initialize execution.md + execution-events.md BEFORE starting any task**
+- **Record START event before each task implementation**
+- **Record COMPLETE/FAIL event after each task with duration and details**
+- **Finalize logs at wave completion**
 - Follow structured output template (IMPL_COMPLETE / WAVE_DONE)
 - Verify tests pass before committing
 - Respect dependency ordering within the wave

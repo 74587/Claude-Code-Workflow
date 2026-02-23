@@ -18,6 +18,147 @@ skill: issue-devpipeline
 3. **测试验证**: 运行相关测试确保变更正确且不破坏现有功能
 4. **变更提交**: 将实现的代码 commit 到 git
 
+## Execution Logging
+
+执行过程中**必须**实时维护两个日志文件，记录每个任务的执行状态和细节。
+
+### Session Folder
+
+```javascript
+// sessionFolder 从 TASK ASSIGNMENT 中的 session_dir 获取，或使用默认路径
+const sessionFolder = taskAssignment.session_dir || `.workflow/.team/PEX-${issueId}`
+```
+
+### execution.md — 执行概览
+
+在开始实现前初始化，任务完成/失败时更新状态。
+
+```javascript
+function initExecution(issueId, solution) {
+  const executionMd = `# Execution Overview
+
+## Session Info
+- **Issue**: ${issueId}
+- **Solution**: ${solution.bound?.id || 'N/A'}
+- **Started**: ${getUtc8ISOString()}
+- **Executor**: planex-executor (issue-devpipeline)
+- **Execution Mode**: Direct inline
+
+## Solution Tasks
+
+| # | Task | Files | Status |
+|---|------|-------|--------|
+${(solution.bound?.tasks || []).map((t, i) =>
+  `| ${i+1} | ${t.title || t.description || 'Task ' + (i+1)} | ${(t.files || []).join(', ') || '-'} | pending |`
+).join('\n')}
+
+## Execution Timeline
+> Updated as tasks complete
+
+## Execution Summary
+> Updated after completion
+`
+  write_file(`${sessionFolder}/execution.md`, executionMd)
+}
+```
+
+### execution-events.md — 事件流
+
+每个任务的 START/COMPLETE/FAIL 实时追加记录。
+
+```javascript
+function initEvents(issueId) {
+  const eventsHeader = `# Execution Events
+
+**Issue**: ${issueId}
+**Executor**: planex-executor (issue-devpipeline)
+**Started**: ${getUtc8ISOString()}
+
+---
+
+`
+  write_file(`${sessionFolder}/execution-events.md`, eventsHeader)
+}
+
+function appendEvent(content) {
+  // Append to execution-events.md
+  const existing = read_file(`${sessionFolder}/execution-events.md`)
+  write_file(`${sessionFolder}/execution-events.md`, existing + content)
+}
+
+function recordTaskStart(task, index) {
+  appendEvent(`## ${getUtc8ISOString()} — Task ${index + 1}: ${task.title || task.description || 'Unnamed'}
+
+**Status**: ⏳ IN PROGRESS
+**Files**: ${(task.files || []).join(', ') || 'TBD'}
+
+### Execution Log
+`)
+}
+
+function recordTaskComplete(task, index, filesModified, changeSummary, duration) {
+  appendEvent(`
+**Status**: ✅ COMPLETED
+**Duration**: ${duration}
+**Files Modified**: ${filesModified.join(', ')}
+
+#### Changes Summary
+${changeSummary}
+
+---
+`)
+}
+
+function recordTaskFailed(task, index, error, duration) {
+  appendEvent(`
+**Status**: ❌ FAILED
+**Duration**: ${duration}
+**Error**: ${error}
+
+---
+`)
+}
+
+function updateTaskStatus(taskIndex, status) {
+  // Update the task row in execution.md table: replace "pending" → status
+  const content = read_file(`${sessionFolder}/execution.md`)
+  // Find and update the Nth task row status
+  // (Edit the specific table row)
+}
+
+function finalizeExecution(totalTasks, succeeded, failedCount, filesModified) {
+  const summary = `
+## Execution Summary
+
+- **Completed**: ${getUtc8ISOString()}
+- **Total Tasks**: ${totalTasks}
+- **Succeeded**: ${succeeded}
+- **Failed**: ${failedCount}
+- **Success Rate**: ${Math.round(succeeded / totalTasks * 100)}%
+- **Files Modified**: ${filesModified.join(', ')}
+`
+  // Append summary to execution.md
+  const content = read_file(`${sessionFolder}/execution.md`)
+  write_file(`${sessionFolder}/execution.md`,
+    content.replace('> Updated after completion', summary))
+
+  // Append session footer to execution-events.md
+  appendEvent(`
+---
+
+# Session Summary
+
+- **Issue**: ${issueId}
+- **Completed**: ${getUtc8ISOString()}
+- **Tasks**: ${succeeded} completed, ${failedCount} failed
+`)
+}
+
+function getUtc8ISOString() {
+  return new Date(Date.now() + 8 * 3600000).toISOString().replace('Z', '+08:00')
+}
+```
+
 ## Execution Process
 
 ### Step 1: Context Loading
@@ -32,6 +173,7 @@ skill: issue-devpipeline
    - **Issue ID**: 目标 issue 标识
    - **Solution ID**: 绑定的 solution 标识
    - **Dependencies**: 依赖的其他 issues（应已完成）
+   - **Session Dir**: 日志文件存放路径
    - **Deliverables**: Expected JSON output format
 
 ### Step 2: Solution Loading & Implementation
@@ -43,10 +185,14 @@ const solJson = shell(`ccw issue solutions ${issueId} --json`)
 const solution = JSON.parse(solJson)
 
 if (!solution.bound) {
-  // No bound solution — report error
   outputError(`No bound solution for ${issueId}`)
   return
 }
+
+// ── Initialize execution logs ──
+shell(`mkdir -p ${sessionFolder}`)
+initExecution(issueId, solution)
+initEvents(issueId)
 
 // Update issue status
 shell(`ccw issue update ${issueId} --status in-progress`)
@@ -54,12 +200,40 @@ shell(`ccw issue update ${issueId} --status in-progress`)
 // ── Implement according to solution plan ──
 const plan = solution.bound
 const tasks = plan.tasks || []
+let succeeded = 0, failedCount = 0
+const allFilesModified = []
 
-for (const task of tasks) {
-  // 1. Read target files
-  // 2. Apply changes following existing patterns
-  // 3. Write/Edit files
-  // 4. Verify no syntax errors
+for (let i = 0; i < tasks.length; i++) {
+  const task = tasks[i]
+  const startTime = Date.now()
+
+  // Record START event
+  recordTaskStart(task, i)
+
+  try {
+    // 1. Read target files
+    // 2. Apply changes following existing patterns
+    // 3. Write/Edit files
+    // 4. Verify no syntax errors
+
+    const endTime = Date.now()
+    const duration = `${Math.round((endTime - startTime) / 1000)}s`
+    const filesModified = getModifiedFiles()
+    allFilesModified.push(...filesModified)
+
+    // Record COMPLETE event
+    recordTaskComplete(task, i, filesModified, changeSummary, duration)
+    updateTaskStatus(i, 'completed')
+    succeeded++
+  } catch (error) {
+    const endTime = Date.now()
+    const duration = `${Math.round((endTime - startTime) / 1000)}s`
+
+    // Record FAIL event
+    recordTaskFailed(task, i, error.message, duration)
+    updateTaskStatus(i, 'failed')
+    failedCount++
+  }
 }
 ```
 
@@ -69,7 +243,7 @@ for (const task of tasks) {
 - 最小化变更，不做超出 solution 范围的修改
 - 每个 task 完成后验证无语法错误
 
-### Step 3: Testing & Commit
+### Step 3: Testing, Commit & Finalize Logs
 
 ```javascript
 // ── Detect test command ──
@@ -79,24 +253,53 @@ try {
   if (pkgJson.scripts?.test) testCmd = 'npm test'
   else if (pkgJson.scripts?.['test:unit']) testCmd = 'npm run test:unit'
 } catch {
-  // Try common test runners
   if (fileExists('pytest.ini') || fileExists('setup.py')) testCmd = 'pytest'
   else if (fileExists('Cargo.toml')) testCmd = 'cargo test'
 }
 
 // ── Run tests ──
+const testStartTime = Date.now()
+appendEvent(`## ${getUtc8ISOString()} — Integration Test Verification
+
+**Status**: ⏳ IN PROGRESS
+**Command**: \`${testCmd}\`
+
+### Test Log
+`)
+
 const testResult = shell(`${testCmd} 2>&1`)
-const testsPassed = !testResult.includes('FAIL') && testResult.exitCode === 0
+let testsPassed = !testResult.includes('FAIL') && testResult.exitCode === 0
 
 if (!testsPassed) {
-  // Attempt fix: analyze failures, apply fix, re-test (max 2 retries)
   let retries = 0
   while (retries < 2 && !testsPassed) {
-    // Analyze test output, identify failure cause, apply fix
+    appendEvent(`- Retry ${retries + 1}: fixing test failures...\n`)
     retries++
     const retestResult = shell(`${testCmd} 2>&1`)
     testsPassed = !retestResult.includes('FAIL') && retestResult.exitCode === 0
   }
+}
+
+const testDuration = `${Math.round((Date.now() - testStartTime) / 1000)}s`
+
+if (testsPassed) {
+  appendEvent(`
+**Status**: ✅ TESTS PASSED
+**Duration**: ${testDuration}
+
+---
+`)
+} else {
+  appendEvent(`
+**Status**: ❌ TESTS FAILED
+**Duration**: ${testDuration}
+**Output** (truncated):
+\`\`\`
+${testResult.slice(0, 500)}
+\`\`\`
+
+---
+`)
 }
 
 // ── Commit if tests pass ──
@@ -104,15 +307,24 @@ let commitHash = null
 let committed = false
 
 if (testsPassed) {
-  // Stage changed files
   shell('git add -A')
   shell(`git commit -m "feat(${issueId}): implement solution ${solution.bound.id}"`)
   commitHash = shell('git rev-parse --short HEAD').trim()
   committed = true
 
-  // Update issue status
+  appendEvent(`## ${getUtc8ISOString()} — Git Commit
+
+**Commit**: \`${commitHash}\`
+**Message**: feat(${issueId}): implement solution ${solution.bound.id}
+
+---
+`)
+
   shell(`ccw issue update ${issueId} --status resolved`)
 }
+
+// ── Finalize execution logs ──
+finalizeExecution(tasks.length, succeeded, failedCount, [...new Set(allFilesModified)])
 ```
 
 ### Step 4: Output Delivery
@@ -131,7 +343,11 @@ if (testsPassed) {
   "committed": true,
   "commit_hash": "abc1234",
   "error": null,
-  "summary": "实现用户登录功能，添加 2 个文件，通过所有测试"
+  "summary": "实现用户登录功能，添加 2 个文件，通过所有测试",
+  "execution_logs": {
+    "execution_md": "${sessionFolder}/execution.md",
+    "events_md": "${sessionFolder}/execution-events.md"
+  }
 }
 ```
 
@@ -146,9 +362,26 @@ if (testsPassed) {
   "committed": false,
   "commit_hash": null,
   "error": "Tests failing: login.test.ts:42 - Expected 200 got 401",
-  "summary": "代码实现完成但测试未通过，需要 solution 修订"
+  "summary": "代码实现完成但测试未通过，需要 solution 修订",
+  "execution_logs": {
+    "execution_md": "${sessionFolder}/execution.md",
+    "events_md": "${sessionFolder}/execution-events.md"
+  }
 }
 ```
+
+## Execution Log Output Structure
+
+```
+${sessionFolder}/
+├── execution.md              # 执行概览：session info, task table, summary
+└── execution-events.md       # 事件流：每个 task 的 START/COMPLETE/FAIL 详情
+```
+
+| File | Purpose |
+|------|---------|
+| `execution.md` | 概览：solution tasks 表格、执行统计、最终结果 |
+| `execution-events.md` | 时间线：每个任务和测试验证的详细事件记录 |
 
 ## Role Boundaries
 
@@ -174,6 +407,10 @@ if (testsPassed) {
 
 **ALWAYS**:
 - Read role definition file as FIRST action (Step 1)
+- **Initialize execution.md + execution-events.md BEFORE starting implementation**
+- **Record START event before each solution task**
+- **Record COMPLETE/FAIL event after each task with duration and details**
+- **Finalize logs after testing and commit**
 - Load solution plan before implementing
 - Follow existing code patterns in the project
 - Run tests before committing
