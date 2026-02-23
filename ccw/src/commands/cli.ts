@@ -686,6 +686,21 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   // Prompt is required unless resuming OR using review mode with target flags
   // codex review: --uncommitted, --base, --commit don't require a prompt
   const isReviewWithTarget = mode === 'review' && (uncommitted || base || commit);
+
+  // Conflict detection: prompt + review target flags are mutually exclusive
+  // When both provided, warn user and prioritize target flag (drop prompt)
+  if (isReviewWithTarget && finalPrompt && tool === 'codex') {
+    const targetFlag = uncommitted ? '--uncommitted' : (base ? `--base ${base}` : `--commit ${commit}`);
+    console.log(chalk.yellow('Warning: Prompt is ignored when review target flag is specified'));
+    console.log(chalk.gray(`  Using: ${targetFlag} (prompt will be dropped)`));
+    console.log(chalk.gray('  Valid combinations:'));
+    console.log(chalk.gray('    • ccw cli -p "..." --tool codex --mode review           # prompt only'));
+    console.log(chalk.gray('    • ccw cli --tool codex --mode review --uncommitted       # target only'));
+    console.log();
+    // Drop prompt to avoid codex CLI argument conflict
+    finalPrompt = undefined;
+  }
+
   if (!finalPrompt && !resume && !isReviewWithTarget) {
     console.error(chalk.red('Error: Prompt is required'));
     console.error(chalk.gray('Usage: ccw cli -p "<prompt>" --tool gemini'));
