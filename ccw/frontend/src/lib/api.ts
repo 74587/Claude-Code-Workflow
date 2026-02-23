@@ -3420,10 +3420,89 @@ export interface Hook {
   command?: string;
   trigger: string;
   matcher?: string;
+  scope?: 'global' | 'project';
+  index?: number;
+  templateId?: string;
 }
 
 export interface HooksResponse {
   hooks: Hook[];
+}
+
+/**
+ * Raw hook entry as stored in settings.json
+ * Format: { matcher?: string, hooks: [{ type: "command", command: "..." }] }
+ */
+interface RawHookEntry {
+  matcher?: string;
+  _templateId?: string;
+  hooks?: Array<{
+    type?: string;
+    command?: string;
+    prompt?: string;
+    timeout?: number;
+    async?: boolean;
+  }>;
+  // Legacy flat format support
+  command?: string;
+  args?: string[];
+  script?: string;
+  enabled?: boolean;
+  description?: string;
+}
+
+/**
+ * Parse raw hooks config from backend into flat Hook array
+ */
+function parseHooksConfig(
+  data: {
+    global?: { path?: string; hooks?: Record<string, RawHookEntry[]> };
+    project?: { path?: string | null; hooks?: Record<string, RawHookEntry[]> };
+  }
+): Hook[] {
+  const result: Hook[] = [];
+
+  for (const scope of ['project', 'global'] as const) {
+    const scopeData = data[scope];
+    if (!scopeData?.hooks || typeof scopeData.hooks !== 'object') continue;
+
+    for (const [event, entries] of Object.entries(scopeData.hooks)) {
+      if (!Array.isArray(entries)) continue;
+
+      entries.forEach((entry, index) => {
+        // Extract command from nested hooks array (official format)
+        let command = '';
+        if (entry.hooks && Array.isArray(entry.hooks) && entry.hooks.length > 0) {
+          command = entry.hooks.map(h => h.command || h.prompt || '').filter(Boolean).join(' && ');
+        }
+        // Legacy flat format fallback
+        if (!command && entry.command) {
+          command = entry.args
+            ? `${entry.command} ${entry.args.join(' ')}`
+            : entry.command;
+        }
+        if (!command && entry.script) {
+          command = entry.script;
+        }
+
+        const name = `${scope}-${event}-${index}`;
+
+        result.push({
+          name,
+          description: entry.description,
+          enabled: entry.enabled !== false,
+          command,
+          trigger: event,
+          matcher: entry.matcher,
+          scope,
+          index,
+          templateId: entry._templateId,
+        });
+      });
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -3432,9 +3511,9 @@ export interface HooksResponse {
  */
 export async function fetchHooks(projectPath?: string): Promise<HooksResponse> {
   const url = projectPath ? `/api/hooks?path=${encodeURIComponent(projectPath)}` : '/api/hooks';
-  const data = await fetchApi<{ hooks?: Hook[] }>(url);
+  const data = await fetchApi<Record<string, unknown>>(url);
   return {
-    hooks: data.hooks ?? [],
+    hooks: parseHooksConfig(data as Parameters<typeof parseHooksConfig>[0]),
   };
 }
 
@@ -3515,12 +3594,35 @@ export async function deleteHook(hookName: string): Promise<void> {
 
 /**
  * Install a hook from predefined template
+ * Converts template data to Claude Code's settings.json format:
+ * { _templateId, matcher?, hooks: [{ type: "command", command: "full command string" }] }
  */
-export async function installHookTemplate(templateId: string): Promise<Hook> {
-  return fetchApi<Hook>('/api/hooks/install-template', {
-    method: 'POST',
-    body: JSON.stringify({ templateId }),
-  });
+export async function installHookTemplate(
+  trigger: string,
+  templateData: { id: string; command: string; args?: string[]; matcher?: string }
+): Promise<{ success: boolean }> {
+  // Build full command string from command + args
+  const fullCommand = templateData.args
+    ? `${templateData.command} ${templateData.args.map(a => a.includes(' ') ? `'${a}'` : a).join(' ')}`
+    : templateData.command;
+
+  // Build hookData in Claude Code's official nested format
+  // _templateId is ignored by Claude Code but used for installed detection
+  const hookData: Record<string, unknown> = {
+    _templateId: templateData.id,
+    hooks: [
+      {
+        type: 'command',
+        command: fullCommand,
+      }
+    ]
+  };
+
+  if (templateData.matcher) {
+    hookData.matcher = templateData.matcher;
+  }
+
+  return saveHook('project', trigger, hookData);
 }
 
 // ========== Rules API ==========
