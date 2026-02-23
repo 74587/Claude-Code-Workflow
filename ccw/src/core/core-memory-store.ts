@@ -654,7 +654,7 @@ export class CoreMemoryStore {
   buildCompressionMetadata(sourceIds: string[], originalSize: number, compressedSize: number): string {
     return JSON.stringify({
       compressed_from: sourceIds,
-      compression_ratio: compressedSize / originalSize,
+      compression_ratio: originalSize > 0 ? compressedSize / originalSize : 0,
       compressed_at: new Date().toISOString()
     });
   }
@@ -1868,7 +1868,8 @@ export function importMemories(
       content: memory.content,
       summary: memory.summary,
       raw_output: memory.raw_output,
-      metadata: memory.metadata
+      metadata: memory.metadata,
+      tags: memory.tags
     });
 
     imported++;
