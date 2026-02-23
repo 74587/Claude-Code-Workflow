@@ -1,14 +1,19 @@
 {
   "team_name": "team-iterdev",
   "team_display_name": "Team IterDev",
-  "description": "Iterative development team with Generator-Critic loop, task ledger, sprint learning, and dynamic pipeline",
-  "version": "1.0.0",
+  "description": "Iterative development team with Generator-Critic loop, task ledger, sprint learning, dynamic pipeline, conflict handling, concurrency control, rollback strategy, user feedback loop, and tech debt tracking",
+  "version": "1.2.0",
 
   "roles": {
     "coordinator": {
       "task_prefix": null,
-      "responsibility": "Sprint planning, backlog management, task ledger maintenance, GC loop control",
-      "message_types": ["sprint_started", "gc_loop_trigger", "sprint_complete", "task_unblocked", "error", "shutdown"]
+      "responsibility": "Sprint planning, backlog management, task ledger maintenance, GC loop control, Phase 1: conflict handling, concurrency control, rollback strategy, Phase 3: user feedback loop, tech debt tracking",
+      "message_types": [
+        "sprint_started", "gc_loop_trigger", "sprint_complete", "task_unblocked", "error", "shutdown",
+        "conflict_detected", "conflict_resolved", "resource_locked", "resource_unlocked", "resource_contention",
+        "rollback_initiated", "rollback_completed", "rollback_failed",
+        "user_feedback_received", "tech_debt_identified"
+      ]
     },
     "architect": {
       "task_prefix": "DESIGN",
@@ -62,7 +67,17 @@
     "task_ledger": {
       "file": "task-ledger.json",
       "updated_by": "coordinator",
-      "tracks": ["status", "gc_rounds", "review_score", "test_pass_rate", "velocity"]
+      "tracks": ["status", "gc_rounds", "review_score", "test_pass_rate", "velocity"],
+      "phase1_extensions": {
+        "conflict_info": {
+          "fields": ["status", "conflicting_files", "resolution_strategy", "resolved_by_task_id"],
+          "default": { "status": "none", "conflicting_files": [], "resolution_strategy": null, "resolved_by_task_id": null }
+        },
+        "rollback_info": {
+          "fields": ["snapshot_id", "rollback_procedure", "last_successful_state_id"],
+          "default": { "snapshot_id": null, "rollback_procedure": null, "last_successful_state_id": null }
+        }
+      }
     },
     "shared_memory": {
       "file": "shared-memory.json",
@@ -72,12 +87,75 @@
         "tester": "test_patterns",
         "reviewer": "review_feedback_trends"
       },
-      "persistent_fields": ["sprint_history", "what_worked", "what_failed", "patterns_learned"]
+      "persistent_fields": ["sprint_history", "what_worked", "what_failed", "patterns_learned"],
+      "phase1_extensions": {
+        "resource_locks": {
+          "description": "Concurrency control: resource locking state",
+          "lock_timeout_ms": 300000,
+          "deadlock_detection": true
+        }
+      }
     },
     "dynamic_pipeline": {
       "selector": "coordinator",
       "criteria": "file_count + module_count + complexity_assessment",
       "downgrade_rule": "velocity >= expected && review_avg >= 8 → simplify next sprint"
+    }
+  },
+
+  "phase1_features": {
+    "conflict_handling": {
+      "enabled": true,
+      "detection_strategy": "file_overlap",
+      "resolution_strategies": ["manual", "auto_merge", "abort"]
+    },
+    "concurrency_control": {
+      "enabled": true,
+      "lock_timeout_minutes": 5,
+      "deadlock_detection": true,
+      "resources": ["task-ledger.json", "shared-memory.json"]
+    },
+    "rollback_strategy": {
+      "enabled": true,
+      "snapshot_trigger": "task_complete",
+      "default_procedure": "git revert HEAD"
+    }
+  },
+
+  "phase2_features": {
+    "external_dependency_management": {
+      "enabled": true,
+      "validation_trigger": "task_start",
+      "supported_sources": ["npm", "maven", "pip", "git"],
+      "version_check_command": {
+        "npm": "npm list {name}",
+        "pip": "pip show {name}",
+        "maven": "mvn dependency:tree"
+      }
+    },
+    "state_recovery": {
+      "enabled": true,
+      "checkpoint_trigger": "phase_complete",
+      "max_checkpoints_per_task": 5,
+      "checkpoint_dir": "checkpoints/"
+    }
+  },
+
+  "phase3_features": {
+    "user_feedback_loop": {
+      "enabled": true,
+      "collection_trigger": "sprint_complete",
+      "max_feedback_items": 50,
+      "severity_levels": ["low", "medium", "high", "critical"],
+      "status_flow": ["new", "reviewed", "addressed", "closed"]
+    },
+    "tech_debt_tracking": {
+      "enabled": true,
+      "detection_sources": ["review", "test", "architect"],
+      "categories": ["code", "design", "test", "documentation"],
+      "severity_levels": ["low", "medium", "high", "critical"],
+      "status_flow": ["open", "in_progress", "resolved", "deferred"],
+      "report_trigger": "sprint_retrospective"
     }
   },
 
