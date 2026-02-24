@@ -1266,6 +1266,25 @@ export async function fetchSkillDetail(
 }
 
 /**
+ * Delete a skill
+ * @param skillName - Name of the skill to delete
+ * @param location - Location of the skill (project or user)
+ * @param projectPath - Optional project path
+ * @param cliType - CLI type (claude or codex)
+ */
+export async function deleteSkill(
+  skillName: string,
+  location: 'project' | 'user',
+  projectPath?: string,
+  cliType: 'claude' | 'codex' = 'claude'
+): Promise<{ success: boolean }> {
+  return fetchApi<{ success: boolean }>(`/api/skills/${encodeURIComponent(skillName)}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ location, projectPath, cliType }),
+  });
+}
+
+/**
  * Validate a skill folder for import
  */
 export async function validateSkillImport(sourcePath: string): Promise<{
@@ -1295,6 +1314,42 @@ export async function createSkill(params: {
   return fetchApi('/api/skills/create', {
     method: 'POST',
     body: JSON.stringify(params),
+  });
+}
+
+/**
+ * Read a skill file content
+ */
+export async function readSkillFile(params: {
+  skillName: string;
+  fileName: string;
+  location: 'project' | 'user';
+  projectPath?: string;
+  cliType?: 'claude' | 'codex';
+}): Promise<{ content: string; fileName: string; path: string }> {
+  const { skillName, fileName, location, projectPath, cliType = 'claude' } = params;
+  const encodedSkillName = encodeURIComponent(skillName);
+  const url = `/api/skills/${encodedSkillName}/file?filename=${encodeURIComponent(fileName)}&location=${location}&cliType=${cliType}${projectPath ? `&path=${encodeURIComponent(projectPath)}` : ''}`;
+  return fetchApi(url);
+}
+
+/**
+ * Write a skill file content
+ */
+export async function writeSkillFile(params: {
+  skillName: string;
+  fileName: string;
+  content: string;
+  location: 'project' | 'user';
+  projectPath?: string;
+  cliType?: 'claude' | 'codex';
+}): Promise<{ success: boolean; fileName: string; path: string }> {
+  const { skillName, fileName, content, location, projectPath, cliType = 'claude' } = params;
+  const encodedSkillName = encodeURIComponent(skillName);
+  const url = `/api/skills/${encodedSkillName}/file`;
+  return fetchApi(url, {
+    method: 'POST',
+    body: JSON.stringify({ content, fileName, location, projectPath, cliType }),
   });
 }
 

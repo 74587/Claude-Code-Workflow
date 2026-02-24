@@ -13,6 +13,7 @@ import {
   Power,
   PowerOff,
   User,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
@@ -28,6 +29,7 @@ export interface SkillCardProps {
   onToggle?: (skill: Skill, enabled: boolean) => void;
   onClick?: (skill: Skill) => void;
   onConfigure?: (skill: Skill) => void;
+  onDelete?: (skill: Skill) => void;
   className?: string;
   compact?: boolean;
   showActions?: boolean;
@@ -70,6 +72,7 @@ export function SkillCard({
   onToggle,
   onClick,
   onConfigure,
+  onDelete,
   className,
   compact = false,
   showActions = true,
@@ -93,6 +96,12 @@ export function SkillCard({
     e.stopPropagation();
     setIsMenuOpen(false);
     onConfigure?.(skill);
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsMenuOpen(false);
+    onDelete?.(skill);
   };
 
   if (compact) {
@@ -172,20 +181,15 @@ export function SkillCard({
           <Button
             variant="ghost"
             size="sm"
-            className={cn(
-              "h-8 w-8 p-0",
-              skill.enabled
-                ? "bg-primary hover:bg-primary/90"
-                : "hover:bg-muted"
-            )}
+            className="h-8 w-8 p-0 hover:bg-primary/10"
             onClick={handleToggle}
             disabled={isToggling}
             title={skill.enabled ? formatMessage({ id: 'skills.state.enabled' }) : formatMessage({ id: 'skills.state.disabled' })}
           >
             {skill.enabled ? (
-              <Power className="w-4 h-4 text-white" />
+              <Power className="w-4 h-4 text-primary" />
             ) : (
-              <PowerOff className="w-4 h-4 text-foreground" />
+              <PowerOff className="w-4 h-4 text-muted-foreground" />
             )}
           </Button>
           {showActions && (
@@ -222,6 +226,12 @@ export function SkillCard({
                     </>
                   )}
                 </DropdownMenuItem>
+                {onDelete && skill.source !== 'builtin' && (
+                  <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {formatMessage({ id: 'skills.actions.delete' })}
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

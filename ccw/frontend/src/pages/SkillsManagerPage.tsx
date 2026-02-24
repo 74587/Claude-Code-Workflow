@@ -6,6 +6,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   Sparkles,
   Search,
@@ -70,11 +71,12 @@ interface SkillGridProps {
   isLoading: boolean;
   onToggle: (skill: Skill, enabled: boolean) => void;
   onClick: (skill: Skill) => void;
+  onDelete?: (skill: Skill) => void;
   isToggling: boolean;
   compact?: boolean;
 }
 
-function SkillGrid({ skills, isLoading, onToggle, onClick, isToggling, compact }: SkillGridProps) {
+function SkillGrid({ skills, isLoading, onToggle, onClick, onDelete, isToggling, compact }: SkillGridProps) {
   const { formatMessage } = useIntl();
 
   if (isLoading) {
@@ -113,6 +115,7 @@ function SkillGrid({ skills, isLoading, onToggle, onClick, isToggling, compact }
           skill={skill}
           onToggle={onToggle}
           onClick={onClick}
+          onDelete={onDelete}
           isToggling={isToggling}
           compact={compact}
         />
@@ -140,12 +143,14 @@ export function SkillsManagerPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'compact'>('grid');
   const [showDisabledSection, setShowDisabledSection] = useState(false);
   const [confirmDisable, setConfirmDisable] = useState<{ skill: Skill; enable: boolean } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Skill | null>(null);
   const [locationFilter, setLocationFilter] = useState<'project' | 'user' | 'hub'>(initialLocationFilter);
 
   // Skill Hub state
   const [hubTab, setHubTab] = useState<'remote' | 'local' | 'installed'>('remote');
   const [hubSearchQuery, setHubSearchQuery] = useState('');
   const [hubCategoryFilter, setHubCategoryFilter] = useState<string | null>(null);
+  const [installingSkillId, setInstallingSkillId] = useState<string | null>(null);
 
   // Skill create dialog state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -179,7 +184,7 @@ export function SkillsManagerPage() {
     cliType: cliMode,
   });
 
-  const { toggleSkill, isToggling } = useSkillMutations();
+  const { toggleSkill, deleteSkill, isToggling, isDeleting } = useSkillMutations();
 
   // Skill Hub hooks
   const {
@@ -245,21 +250,40 @@ export function SkillsManagerPage() {
   // Hub skill handlers
   const handleHubInstall = async (skill: RemoteSkill | LocalSkill, cliType: CliType) => {
     const source: SkillSource = 'downloadUrl' in skill ? 'remote' : 'local';
-    await installSkillMutation.mutateAsync({
-      skillId: skill.id,
-      cliType,
-      source,
-      downloadUrl: 'downloadUrl' in skill ? skill.downloadUrl : undefined,
-    });
+    setInstallingSkillId(skill.id);
+    try {
+      await installSkillMutation.mutateAsync({
+        skillId: skill.id,
+        cliType,
+        source,
+        downloadUrl: 'downloadUrl' in skill ? skill.downloadUrl : undefined,
+      });
+      // Show success toast
+      toast.success(formatMessage({ id: 'skill-hub.install.success' }, { name: skill.name }));
+    } catch (error) {
+      // Show error toast
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(formatMessage({ id: 'skill-hub.install.error' }, { error: errorMessage }));
+    } finally {
+      setInstallingSkillId(null);
+    }
   };
 
   const handleHubUninstall = async (skill: RemoteSkill | LocalSkill, cliType: CliType) => {
     const installedInfo = installedMap.get(skill.id);
     if (installedInfo) {
-      await uninstallSkillMutation.mutateAsync({
-        skillId: installedInfo.id,
-        cliType,
-      });
+      try {
+        await uninstallSkillMutation.mutateAsync({
+          skillId: installedInfo.id,
+          cliType,
+        });
+        // Show success toast
+        toast.success(formatMessage({ id: 'skill-hub.uninstall.success' }, { name: skill.name }));
+      } catch (error) {
+        // Show error toast
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        toast.error(formatMessage({ id: 'skill-hub.uninstall.error' }, { error: errorMessage }));
+      }
     }
   };
 
@@ -314,6 +338,27 @@ export function SkillsManagerPage() {
     if (confirmDisable) {
       await handleToggle(confirmDisable.skill, false);
       setConfirmDisable(null);
+    }
+  };
+
+  const handleDelete = (skill: Skill) => {
+    setConfirmDelete(skill);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (confirmDelete) {
+      const location = confirmDelete.location || 'project';
+      const skillIdentifier = confirmDelete.folderName || confirmDelete.name;
+
+      try {
+        await deleteSkill(skillIdentifier, location, projectPath, cliMode);
+        toast.success(formatMessage({ id: 'skills.delete.success' }, { name: confirmDelete.name }));
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        toast.error(formatMessage({ id: 'skills.delete.error' }, { error: errorMessage }));
+      } finally {
+        setConfirmDelete(null);
+      }
     }
   };
 
@@ -610,7 +655,7 @@ export function SkillsManagerPage() {
                     source={skillSource}
                     onInstall={handleHubInstall}
                     onUninstall={handleHubUninstall}
-                    isInstalling={installSkillMutation.isPending}
+                    isInstalling={installingSkillId === skill.id}
                   />
                 );
               })}
@@ -712,6 +757,7 @@ export function SkillsManagerPage() {
             isLoading={isLoading}
             onToggle={handleToggleWithConfirm}
             onClick={handleSkillClick}
+            onDelete={handleDelete}
             isToggling={isToggling || !!confirmDisable}
             compact={viewMode === 'compact'}
           />
@@ -735,6 +781,7 @@ export function SkillsManagerPage() {
                   isLoading={false}
                   onToggle={handleToggleWithConfirm}
                   onClick={handleSkillClick}
+                  onDelete={handleDelete}
                   isToggling={isToggling || !!confirmDisable}
                   compact={true}
                 />
@@ -760,6 +807,31 @@ export function SkillsManagerPage() {
             <AlertDialogCancel>{formatMessage({ id: 'skills.actions.cancel' })}</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDisable} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {formatMessage({ id: 'skills.actions.confirmDisable' })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(open) => !open && setConfirmDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{formatMessage({ id: 'skills.deleteConfirm.title' })}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {formatMessage(
+                { id: 'skills.deleteConfirm.message' },
+                { name: confirmDelete?.name || '' }
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>{formatMessage({ id: 'skills.actions.cancel' })}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? formatMessage({ id: 'common.deleting' }) : formatMessage({ id: 'skills.actions.confirmDelete' })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
