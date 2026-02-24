@@ -318,17 +318,34 @@ async function fetchRemoteSkillIndex(): Promise<RemoteSkillIndex> {
   // Check cache
   const now = Date.now();
   if (remoteSkillsCache.data && (now - remoteSkillsCache.timestamp) < CACHE_TTL_MS) {
+    console.log('[SkillHub] Using cached remote index');
     return remoteSkillsCache.data;
   }
 
   const indexUrl = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.skillIndexPath}`;
+  console.log('[SkillHub] Fetching remote index from:', indexUrl);
 
   try {
-    const response = await fetch(indexUrl);
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    const response = await fetch(indexUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'CCW-SkillHub/1.0'
+      }
+    });
+    clearTimeout(timeoutId);
+
+    console.log('[SkillHub] Fetch response status:', response.status, response.statusText);
+
     if (!response.ok) {
       // Try local fallback
+      console.log('[SkillHub] Fetch failed, trying local fallback');
       const localIndex = loadLocalIndex();
       if (localIndex) {
+        console.log('[SkillHub] Using local fallback index');
         return localIndex;
       }
       throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
@@ -336,6 +353,7 @@ async function fetchRemoteSkillIndex(): Promise<RemoteSkillIndex> {
 
     const index = await response.json() as RemoteSkillIndex;
     index.source = 'github';
+    console.log('[SkillHub] Successfully fetched remote index with', index.skills.length, 'skills');
 
     // Update cache
     remoteSkillsCache = { data: index, timestamp: now };
@@ -345,15 +363,25 @@ async function fetchRemoteSkillIndex(): Promise<RemoteSkillIndex> {
 
     return index;
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('[SkillHub] Error fetching remote index:', errorMsg);
+
     // Return cached data if available, even if expired
     if (remoteSkillsCache.data) {
+      console.log('[SkillHub] Using expired cache as fallback');
       return remoteSkillsCache.data;
     }
 
     // Try local fallback
     const localIndex = loadLocalIndex();
     if (localIndex) {
+      console.log('[SkillHub] Using local fallback index after error');
       return localIndex;
+    }
+
+    // If it's a timeout or network error, provide a more helpful message
+    if (errorMsg.includes('aborted') || errorMsg.includes('timeout')) {
+      throw new Error('Network timeout - please check your internet connection');
     }
 
     throw error;
@@ -395,11 +423,35 @@ function saveCachedIndex(index: RemoteSkillIndex): void {
  * Fetch a single skill from remote URL
  */
 async function fetchRemoteSkill(downloadUrl: string): Promise<string> {
-  const response = await fetch(downloadUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch skill: ${response.status} ${response.statusText}`);
+  console.log('[SkillHub] Fetching skill from:', downloadUrl);
+
+  try {
+    // Add timeout to prevent hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+    const response = await fetch(downloadUrl, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'CCW-SkillHub/1.0'
+      }
+    });
+    clearTimeout(timeoutId);
+
+    console.log('[SkillHub] Fetch skill response status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch skill: ${response.status} ${response.statusText}`);
+    }
+
+    const content = await response.text();
+    console.log('[SkillHub] Successfully fetched skill, size:', content.length, 'bytes');
+    return content;
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('[SkillHub] Error fetching skill:', errorMsg);
+    throw error;
   }
-  return response.text();
 }
 
 /**

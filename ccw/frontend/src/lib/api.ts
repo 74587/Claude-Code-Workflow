@@ -104,11 +104,42 @@ export interface ApiError {
 // ========== CSRF Token Handling ==========
 
 /**
- * Get CSRF token from cookie
+ * In-memory CSRF token storage
+ * The token is obtained from X-CSRF-Token response header and stored here
+ * because the XSRF-TOKEN cookie is HttpOnly and cannot be read by JavaScript
+ */
+let csrfToken: string | null = null;
+
+/**
+ * Get CSRF token from memory
  */
 function getCsrfToken(): string | null {
-  const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
+  return csrfToken;
+}
+
+/**
+ * Set CSRF token from response header
+ */
+function updateCsrfToken(response: Response): void {
+  const token = response.headers.get('X-CSRF-Token');
+  if (token) {
+    csrfToken = token;
+  }
+}
+
+/**
+ * Initialize CSRF token by fetching from server
+ * Should be called once on app initialization
+ */
+export async function initializeCsrfToken(): Promise<void> {
+  try {
+    const response = await fetch('/api/csrf-token', {
+      credentials: 'same-origin',
+    });
+    updateCsrfToken(response);
+  } catch (error) {
+    console.error('[CSRF] Failed to initialize CSRF token:', error);
+  }
 }
 
 // ========== Base Fetch Wrapper ==========
@@ -124,9 +155,9 @@ async function fetchApi<T>(
 
   // Add CSRF token for mutating requests
   if (options.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method)) {
-    const csrfToken = getCsrfToken();
-    if (csrfToken) {
-      headers.set('X-CSRF-Token', csrfToken);
+    const token = getCsrfToken();
+    if (token) {
+      headers.set('X-CSRF-Token', token);
     }
   }
 
@@ -140,6 +171,9 @@ async function fetchApi<T>(
     headers,
     credentials: 'same-origin',
   });
+
+  // Update CSRF token from response header
+  updateCsrfToken(response);
 
   if (!response.ok) {
     const error: ApiError = {

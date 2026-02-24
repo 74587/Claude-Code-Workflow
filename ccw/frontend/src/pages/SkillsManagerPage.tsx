@@ -429,7 +429,6 @@ export function SkillsManagerPage() {
               value: 'hub',
               label: formatMessage({ id: 'skills.location.hub' }),
               icon: <Globe className="h-4 w-4" />,
-              badge: <Badge variant="secondary" className="ml-2">{hubStats.data?.installedTotal || 0}</Badge>,
               disabled: isToggling,
             },
           ]}
