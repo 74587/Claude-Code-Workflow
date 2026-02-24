@@ -5,6 +5,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
+import { useSearchParams } from 'react-router-dom';
 import {
   Sparkles,
   Search,
@@ -125,6 +126,11 @@ function SkillGrid({ skills, isLoading, onToggle, onClick, isToggling, compact }
 export function SkillsManagerPage() {
   const { formatMessage } = useIntl();
   const projectPath = useWorkflowStore(selectProjectPath);
+  const [searchParams] = useSearchParams();
+
+  // Initialize locationFilter from URL tab parameter
+  const tabFromUrl = searchParams.get('tab');
+  const initialLocationFilter = tabFromUrl === 'hub' ? 'hub' : 'project';
 
   const [cliMode, setCliMode] = useState<CliMode>('claude');
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,7 +140,7 @@ export function SkillsManagerPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'compact'>('grid');
   const [showDisabledSection, setShowDisabledSection] = useState(false);
   const [confirmDisable, setConfirmDisable] = useState<{ skill: Skill; enable: boolean } | null>(null);
-  const [locationFilter, setLocationFilter] = useState<'project' | 'user' | 'hub'>('project');
+  const [locationFilter, setLocationFilter] = useState<'project' | 'user' | 'hub'>(initialLocationFilter);
 
   // Skill Hub state
   const [hubTab, setHubTab] = useState<'remote' | 'local' | 'installed'>('remote');

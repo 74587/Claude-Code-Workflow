@@ -1,145 +1,326 @@
-# Analyze Quick Execute
+# Analyze Task Generation Spec
 
-> **Trigger**: User selects "Quick Execute" after Phase 4 completion
-> **Prerequisites**: `conclusions.json` + `explorations.json`/`perspectives.json` already exist
-> **Core Principle**: No additional exploration — analysis phase has already gathered sufficient context. No CLI delegation — execute tasks directly inline.
+> **Purpose**: Quality standards for converting `conclusions.json` recommendations into `.task/*.json` files.
+> **Consumer**: Phase 5 of `analyze-with-file` workflow.
+> **Execution**: Handled by `unified-execute-with-file` — this document covers generation only.
 
-## Execution Flow
+---
+
+## Task Generation Flow
 
 ```
-conclusions.json → .task/*.json → User Confirmation → Direct Inline Execution → execution.md + execution-events.md
+conclusions.json ──┐
+                   ├── resolveTargetFiles() ──┐
+codebaseContext ───┘                          ├── .task/TASK-001.json
+                                              ├── .task/TASK-002.json
+explorations.json ── enrichContext() ─────────┘
+```
+
+**Input artifacts** (all from session folder):
+
+| Artifact | Required | Provides |
+|----------|----------|----------|
+| `conclusions.json` | Yes | `recommendations[]` with action, rationale, priority, target_files, changes, implementation_hints, evidence_refs |
+| `exploration-codebase.json` | No | `relevant_files[]`, `patterns[]`, `constraints[]`, `integration_points[]` — primary source for file resolution |
+| `explorations.json` | No | `sources[]`, `key_findings[]` — fallback for file resolution |
+| `perspectives.json` | No | Multi-perspective findings — alternative to explorations.json |
+
+---
+
+## File Resolution Algorithm
+
+Target files are resolved with a 3-priority fallback chain:
+
+```javascript
+function resolveTargetFiles(rec, codebaseContext, explorations) {
+  // Priority 1: Explicit target_files from recommendations (Phase 4 enriched)
+  if (rec.target_files?.length) {
+    return rec.target_files.map(path => ({
+      path,
+      action: 'modify',
+      target: null,
+      changes: rec.changes || []
+    }))
+  }
+
+  // Priority 2: Match from exploration-codebase.json relevant_files
+  if (codebaseContext?.relevant_files?.length) {
+    const keywords = extractKeywords(rec.action + ' ' + rec.rationale)
+    const matched = codebaseContext.relevant_files.filter(f =>
+      keywords.some(kw =>
+        f.path.toLowerCase().includes(kw) ||
+        f.summary?.toLowerCase().includes(kw) ||
+        f.relevance?.toLowerCase().includes(kw)
+      )
+    )
+    if (matched.length) {
+      return matched.map(f => ({
+        path: f.path,
+        action: 'modify',
+        target: null,
+        changes: rec.changes || []
+      }))
+    }
+  }
+
+  // Priority 3: Match from explorations.json sources
+  if (explorations?.sources?.length) {
+    const actionVerb = rec.action.split(' ')[0].toLowerCase()
+    const matched = explorations.sources.filter(s =>
+      s.summary?.toLowerCase().includes(actionVerb) ||
+      s.file?.includes(actionVerb)
+    )
+    if (matched.length) {
+      return matched.map(s => ({
+        path: s.file,
+        action: 'modify',
+        target: null,
+        changes: []
+      }))
+    }
+  }
+
+  // Fallback: empty array — task relies on description + implementation for guidance
+  return []
+}
+
+function extractKeywords(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2)
+    .filter(w => !['the', 'and', 'for', 'with', 'from', 'that', 'this'].includes(w))
+}
 ```
 
 ---
 
-## Step 1: Generate .task/*.json
-
-Convert `conclusions.json` recommendations directly into individual task JSON files. Each file is a self-contained task with convergence criteria, compatible with `unified-execute-with-file`.
-
-**Schema**: `cat ~/.ccw/workflows/cli-templates/schemas/task-schema.json`
-
-**Conversion Logic**:
-
-```javascript
-const conclusions = JSON.parse(Read(`${sessionFolder}/conclusions.json`))
-const explorations = file_exists(`${sessionFolder}/explorations.json`)
-  ? JSON.parse(Read(`${sessionFolder}/explorations.json`))
-  : file_exists(`${sessionFolder}/perspectives.json`)
-    ? JSON.parse(Read(`${sessionFolder}/perspectives.json`))
-    : null
-
-const tasks = conclusions.recommendations.map((rec, index) => ({
-  id: `TASK-${String(index + 1).padStart(3, '0')}`,
-  title: rec.action,
-  description: rec.rationale,
-  type: inferTaskType(rec),  // fix | refactor | feature | enhancement | testing
-  priority: rec.priority,    // high | medium | low
-  effort: inferEffort(rec),  // small | medium | large
-  files: extractFilesFromEvidence(rec, explorations).map(f => ({
-    path: f,
-    action: 'modify'        // modify | create | delete
-  })),
-  depends_on: [],            // Serial by default; add dependencies if task ordering matters
-  convergence: {
-    criteria: generateCriteria(rec),       // Testable conditions
-    verification: generateVerification(rec), // Executable command or steps
-    definition_of_done: generateDoD(rec)    // Business language
-  },
-  evidence: rec.evidence || [],
-  source: {
-    tool: 'analyze-with-file',
-    session_id: sessionId,
-    original_id: `TASK-${String(index + 1).padStart(3, '0')}`
-  }
-}))
-
-// Write each task as individual JSON file
-Bash(`mkdir -p ${sessionFolder}/.task`)
-tasks.forEach(task => {
-  Write(`${sessionFolder}/.task/${task.id}.json`, JSON.stringify(task, null, 2))
-})
-```
-
-**Task Type Inference**:
+## Task Type Inference
 
 | Recommendation Pattern | Inferred Type |
 |------------------------|---------------|
-| "fix", "resolve", "repair" | `fix` |
-| "refactor", "restructure", "extract" | `refactor` |
-| "add", "implement", "create" | `feature` |
-| "improve", "optimize", "enhance" | `enhancement` |
-| "test", "coverage", "validate" | `testing` |
+| fix, resolve, repair, patch, correct | `fix` |
+| refactor, restructure, extract, reorganize, decouple | `refactor` |
+| add, implement, create, build, introduce | `feature` |
+| improve, optimize, enhance, upgrade, streamline | `enhancement` |
+| test, coverage, validate, verify, assert | `testing` |
 
-**File Extraction Logic**:
-- Parse evidence from `explorations.json` or `perspectives.json`
-- Match recommendation action keywords to `relevant_files`
-- If no specific files found, use pattern matching from findings
-- Return file paths as strings (converted to `{path, action}` objects in the task)
+```javascript
+function inferTaskType(rec) {
+  const text = (rec.action + ' ' + rec.rationale).toLowerCase()
+  const patterns = [
+    { type: 'fix',         keywords: ['fix', 'resolve', 'repair', 'patch', 'correct', 'bug'] },
+    { type: 'refactor',    keywords: ['refactor', 'restructure', 'extract', 'reorganize', 'decouple'] },
+    { type: 'feature',     keywords: ['add', 'implement', 'create', 'build', 'introduce'] },
+    { type: 'enhancement', keywords: ['improve', 'optimize', 'enhance', 'upgrade', 'streamline'] },
+    { type: 'testing',     keywords: ['test', 'coverage', 'validate', 'verify', 'assert'] }
+  ]
+  for (const p of patterns) {
+    if (p.keywords.some(kw => text.includes(kw))) return p.type
+  }
+  return 'enhancement'  // safe default
+}
+```
 
-**Effort Inference**:
+## Effort Inference
 
 | Signal | Effort |
 |--------|--------|
-| Priority high + multiple files | `large` |
-| Priority medium or 1-2 files | `medium` |
-| Priority low or single file | `small` |
-
-**Convergence Generation**:
-
-Each task's `convergence` must satisfy quality standards (same as req-plan-with-file):
-
-| Field | Requirement | Bad Example | Good Example |
-|-------|-------------|-------------|--------------|
-| `criteria[]` | **Testable** — assertions or manual steps | `"Code works"` | `"Function returns correct result for edge cases [], null, undefined"` |
-| `verification` | **Executable** — command or explicit steps | `"Check it"` | `"jest --testPathPattern=auth.test.ts && npx tsc --noEmit"` |
-| `definition_of_done` | **Business language** | `"No errors"` | `"Authentication flow handles all user-facing error scenarios gracefully"` |
+| priority=high AND files >= 3 | `large` |
+| priority=high OR files=2 | `medium` |
+| priority=medium AND files <= 1 | `medium` |
+| priority=low OR single file | `small` |
 
 ```javascript
-// Quality validation before writing
-const vaguePatterns = /正常|正确|好|可以|没问题|works|fine|good|correct/i
-tasks.forEach(task => {
-  task.convergence.criteria.forEach((criterion, i) => {
-    if (vaguePatterns.test(criterion) && criterion.length < 15) {
-      // Auto-fix: replace with specific condition from rec.evidence
-    }
-  })
-  const technicalPatterns = /compile|build|lint|npm|npx|jest|tsc|eslint/i
-  if (technicalPatterns.test(task.convergence.definition_of_done)) {
-    // Auto-fix: rewrite in business language
-  }
-})
+function inferEffort(rec) {
+  const fileCount = rec.target_files?.length || 0
+  if (rec.priority === 'high' && fileCount >= 3) return 'large'
+  if (rec.priority === 'high' || fileCount >= 2) return 'medium'
+  if (rec.priority === 'low' || fileCount <= 1) return 'small'
+  return 'medium'
+}
 ```
 
-**Output**: `${sessionFolder}/.task/TASK-*.json`
+---
 
-**Task JSON Schema** (one file per task, e.g. `.task/TASK-001.json`):
+## Convergence Quality Validation
+
+Every task's `convergence` MUST pass quality gates before writing to disk.
+
+### Quality Rules
+
+| Field | Requirement | Validation |
+|-------|-------------|------------|
+| `criteria[]` | **Testable** — assertions or concrete manual steps | Reject vague patterns; each criterion must reference observable behavior |
+| `verification` | **Executable** — shell command or explicit step sequence | Must contain a runnable command or step-by-step verification procedure |
+| `definition_of_done` | **Business language** — non-technical stakeholder can judge | Must NOT contain technical commands (jest, tsc, npm, build) |
+
+### Vague Pattern Detection
+
+```javascript
+const VAGUE_PATTERNS = /正常|正确|好|可以|没问题|works|fine|good|correct|properly|as expected/i
+const TECHNICAL_IN_DOD = /compile|build|lint|npm|npx|jest|tsc|eslint|cargo|pytest|go test/i
+
+function validateConvergenceQuality(tasks) {
+  const issues = []
+  tasks.forEach(task => {
+    // Rule 1: No vague criteria
+    task.convergence.criteria.forEach((c, i) => {
+      if (VAGUE_PATTERNS.test(c) && c.length < 20) {
+        issues.push({
+          task: task.id, field: `criteria[${i}]`,
+          problem: 'Vague criterion', value: c,
+          fix: 'Replace with specific observable condition from evidence'
+        })
+      }
+    })
+
+    // Rule 2: Verification should be executable
+    if (task.convergence.verification && task.convergence.verification.length < 5) {
+      issues.push({
+        task: task.id, field: 'verification',
+        problem: 'Too short to be executable', value: task.convergence.verification,
+        fix: 'Provide shell command or numbered step sequence'
+      })
+    }
+
+    // Rule 3: DoD should be business language
+    if (TECHNICAL_IN_DOD.test(task.convergence.definition_of_done)) {
+      issues.push({
+        task: task.id, field: 'definition_of_done',
+        problem: 'Contains technical commands', value: task.convergence.definition_of_done,
+        fix: 'Rewrite in business language describing user/system outcome'
+      })
+    }
+
+    // Rule 4: files[].changes should not be empty when files exist
+    task.files?.forEach((f, i) => {
+      if (f.action === 'modify' && (!f.changes || f.changes.length === 0) && !f.change) {
+        issues.push({
+          task: task.id, field: `files[${i}].changes`,
+          problem: 'No change description for modify action', value: f.path,
+          fix: 'Describe what specifically changes in this file'
+        })
+      }
+    })
+
+    // Rule 5: implementation steps should exist
+    if (!task.implementation || task.implementation.length === 0) {
+      issues.push({
+        task: task.id, field: 'implementation',
+        problem: 'No implementation steps',
+        fix: 'Add at least one step describing how to realize this task'
+      })
+    }
+  })
+
+  // Auto-fix where possible, log remaining issues
+  issues.forEach(issue => {
+    // Attempt auto-fix based on available evidence
+    // If unfixable, log warning — task still generated but flagged
+  })
+  return issues
+}
+```
+
+### Good vs Bad Examples
+
+**Criteria**:
+
+| Bad | Good |
+|-----|------|
+| `"Code works correctly"` | `"refreshToken() returns a new JWT with >0 expiry when called with expired token"` |
+| `"No errors"` | `"Error handler at auth.ts:45 returns 401 status with { error: 'token_expired' } body"` |
+| `"Performance is good"` | `"API response time < 200ms at p95 for /api/users endpoint under 100 concurrent requests"` |
+
+**Verification**:
+
+| Bad | Good |
+|-----|------|
+| `"Check it"` | `"jest --testPathPattern=auth.test.ts && npx tsc --noEmit"` |
+| `"Run tests"` | `"1. Run npm test -- --grep 'token refresh' 2. Verify no TypeScript errors with npx tsc --noEmit"` |
+
+**Definition of Done**:
+
+| Bad | Good |
+|-----|------|
+| `"jest passes"` | `"Users remain logged in across token expiration without manual re-login"` |
+| `"No TypeScript errors"` | `"Authentication flow handles all user-facing error scenarios with clear error messages"` |
+
+---
+
+## Required Task Fields (analyze-with-file producer)
+
+Per `task-schema.json` `_field_usage_by_producer`, the `analyze-with-file` producer MUST populate:
+
+| Block | Fields | Required |
+|-------|--------|----------|
+| IDENTITY | `id`, `title`, `description` | Yes |
+| CLASSIFICATION | `type`, `priority`, `effort` | Yes |
+| DEPENDENCIES | `depends_on` | Yes (empty array if none) |
+| CONVERGENCE | `convergence.criteria[]`, `convergence.verification`, `convergence.definition_of_done` | Yes |
+| FILES | `files[].path`, `files[].action`, `files[].changes`/`files[].change` | Yes (if files identified) |
+| IMPLEMENTATION | `implementation[]` with step + description | Yes |
+| CONTEXT | `evidence`, `source.tool`, `source.session_id`, `source.original_id` | Yes |
+
+### Task JSON Example
 
 ```json
 {
   "id": "TASK-001",
   "title": "Fix authentication token refresh",
-  "description": "Token refresh fails silently when...",
+  "description": "Token refresh fails silently when JWT expires, causing users to be logged out unexpectedly",
   "type": "fix",
   "priority": "high",
-  "effort": "large",
+  "effort": "medium",
   "files": [
-    { "path": "src/auth/token.ts", "action": "modify" },
-    { "path": "src/middleware/auth.ts", "action": "modify" }
+    {
+      "path": "src/auth/token.ts",
+      "action": "modify",
+      "target": "refreshToken",
+      "changes": [
+        "Add await to refreshToken() call at line 89",
+        "Add error propagation for refresh failure"
+      ],
+      "change": "Add await to refreshToken() call and propagate errors"
+    },
+    {
+      "path": "src/middleware/auth.ts",
+      "action": "modify",
+      "target": "authMiddleware",
+      "changes": [
+        "Update error handler at line 45 to distinguish refresh failures from auth failures"
+      ],
+      "change": "Update error handler to propagate refresh failures"
+    }
   ],
   "depends_on": [],
   "convergence": {
     "criteria": [
-      "Token refresh returns new valid token",
-      "Expired token triggers refresh automatically",
-      "Failed refresh redirects to login"
+      "refreshToken() returns new valid JWT when called with expired token",
+      "Expired token triggers automatic refresh without user action",
+      "Failed refresh returns 401 with { error: 'token_expired' } body"
     ],
-    "verification": "jest --testPathPattern=token.test.ts",
+    "verification": "jest --testPathPattern=token.test.ts && npx tsc --noEmit",
     "definition_of_done": "Users remain logged in across token expiration without manual re-login"
   },
-  "evidence": [],
+  "implementation": [
+    {
+      "step": "1",
+      "description": "Add await to refreshToken() call in token.ts",
+      "actions": ["Read token.ts", "Add await keyword at line 89", "Verify async chain"]
+    },
+    {
+      "step": "2",
+      "description": "Update error handler in auth middleware",
+      "actions": ["Read auth.ts", "Modify error handler at line 45", "Add refresh-specific error type"]
+    }
+  ],
+  "evidence": ["src/auth/token.ts:89", "src/middleware/auth.ts:45"],
   "source": {
     "tool": "analyze-with-file",
-    "session_id": "ANL-xxx",
+    "session_id": "ANL-auth-token-refresh-2025-01-21",
     "original_id": "TASK-001"
   }
 }
@@ -147,587 +328,19 @@ tasks.forEach(task => {
 
 ---
 
-## Step 2: Pre-Execution Analysis
+## Execution Delegation
 
-Validate feasibility before starting execution. Reference: unified-execute-with-file Phase 2.
+After `.task/*.json` generation, execution is handled by `unified-execute-with-file`:
 
-##### Step 2.1: Build Execution Order
-
-```javascript
-const taskFiles = Glob(`${sessionFolder}/.task/*.json`)
-const tasks = taskFiles.map(f => JSON.parse(Read(f)))
-
-// 1. Dependency validation
-const taskIds = new Set(tasks.map(t => t.id))
-const errors = []
-tasks.forEach(task => {
-  task.depends_on.forEach(dep => {
-    if (!taskIds.has(dep)) errors.push(`${task.id}: depends on unknown task ${dep}`)
-  })
-})
-
-// 2. Circular dependency detection
-function detectCycles(tasks) {
-  const graph = new Map(tasks.map(t => [t.id, t.depends_on]))
-  const visited = new Set(), inStack = new Set(), cycles = []
-  function dfs(node, path) {
-    if (inStack.has(node)) { cycles.push([...path, node].join(' → ')); return }
-    if (visited.has(node)) return
-    visited.add(node); inStack.add(node)
-    ;(graph.get(node) || []).forEach(dep => dfs(dep, [...path, node]))
-    inStack.delete(node)
-  }
-  tasks.forEach(t => { if (!visited.has(t.id)) dfs(t.id, []) })
-  return cycles
-}
-const cycles = detectCycles(tasks)
-if (cycles.length) errors.push(`Circular dependencies: ${cycles.join('; ')}`)
-
-// 3. Topological sort for execution order
-function topoSort(tasks) {
-  const inDegree = new Map(tasks.map(t => [t.id, 0]))
-  tasks.forEach(t => t.depends_on.forEach(dep => {
-    inDegree.set(dep, (inDegree.get(dep) || 0))  // ensure dep exists
-    inDegree.set(t.id, inDegree.get(t.id) + 1)
-  }))
-  const queue = tasks.filter(t => inDegree.get(t.id) === 0).map(t => t.id)
-  const order = []
-  while (queue.length) {
-    const id = queue.shift()
-    order.push(id)
-    tasks.forEach(t => {
-      if (t.depends_on.includes(id)) {
-        inDegree.set(t.id, inDegree.get(t.id) - 1)
-        if (inDegree.get(t.id) === 0) queue.push(t.id)
-      }
-    })
-  }
-  return order
-}
-const executionOrder = topoSort(tasks)
+```bash
+/codex:unified-execute-with-file PLAN="${sessionFolder}/.task/"
 ```
 
-##### Step 2.2: Analyze File Conflicts
-
-```javascript
-// Check files modified by multiple tasks
-const fileTaskMap = new Map()  // file → [taskIds]
-tasks.forEach(task => {
-  (task.files || []).forEach(f => {
-    if (!fileTaskMap.has(f.path)) fileTaskMap.set(f.path, [])
-    fileTaskMap.get(f.path).push(task.id)
-  })
-})
-
-const conflicts = []
-fileTaskMap.forEach((taskIds, file) => {
-  if (taskIds.length > 1) {
-    conflicts.push({ file, tasks: taskIds, resolution: "Execute in dependency order" })
-  }
-})
-
-// Check file existence
-const missingFiles = []
-tasks.forEach(task => {
-  (task.files || []).forEach(f => {
-    if (f.action !== 'create' && !file_exists(f.path)) {
-      missingFiles.push({ file: f.path, task: task.id, action: "Will be created" })
-    }
-  })
-})
-```
-
----
-
-## Step 3: Initialize Execution Artifacts
-
-Create `execution.md` and `execution-events.md` before starting.
-
-##### Step 3.1: Generate execution.md
-
-```javascript
-const executionMd = `# Execution Overview
-
-## Session Info
-- **Session ID**: ${sessionId}
-- **Plan Source**: .task/*.json (from analysis conclusions)
-- **Started**: ${getUtc8ISOString()}
-- **Total Tasks**: ${tasks.length}
-- **Execution Mode**: Direct inline (serial)
-
-## Source Analysis
-- **Conclusions**: ${sessionFolder}/conclusions.json
-- **Explorations**: ${explorations ? 'Available' : 'N/A'}
-- **Key Conclusions**: ${conclusions.key_conclusions.length} items
-
-## Task Overview
-
-| # | ID | Title | Type | Priority | Dependencies | Status |
-|---|-----|-------|------|----------|--------------|--------|
-${tasks.map((t, i) => `| ${i+1} | ${t.id} | ${t.title} | ${t.type} | ${t.priority} | ${t.depends_on.join(', ') || '-'} | pending |`).join('\n')}
-
-## Pre-Execution Analysis
-
-### File Conflicts
-${conflicts.length
-  ? conflicts.map(c => `- **${c.file}**: modified by ${c.tasks.join(', ')} → ${c.resolution}`).join('\n')
-  : 'No file conflicts detected'}
-
-### Missing Files
-${missingFiles.length
-  ? missingFiles.map(f => `- **${f.file}** (${f.task}): ${f.action}`).join('\n')
-  : 'All target files exist'}
-
-### Dependency Validation
-${errors.length ? errors.map(e => `- ⚠ ${e}`).join('\n') : 'No dependency issues'}
-
-### Execution Order
-${executionOrder.map((id, i) => `${i+1}. ${id}`).join('\n')}
-
-## Execution Timeline
-> Updated as tasks complete
-
-## Execution Summary
-> Updated after all tasks complete
-`
-Write(`${sessionFolder}/execution.md`, executionMd)
-```
-
-##### Step 3.2: Initialize execution-events.md
-
-```javascript
-const eventsHeader = `# Execution Events
-
-**Session**: ${sessionId}
-**Started**: ${getUtc8ISOString()}
-**Source**: .task/*.json
-
----
-
-`
-Write(`${sessionFolder}/execution-events.md`, eventsHeader)
-```
-
----
-
-## Step 4: User Confirmation
-
-Present generated plan for user approval before execution.
-
-**Confirmation Display**:
-- Total tasks to execute
-- Task list with IDs, titles, types, priorities
-- Files to be modified
-- File conflicts and dependency warnings (if any)
-- Execution order
-
-```javascript
-if (!autoYes) {
-  const confirmation = AskUserQuestion({
-    questions: [{
-      question: `Execute ${tasks.length} tasks directly?\n\nTasks:\n${tasks.map(t =>
-        `  ${t.id}: ${t.title} (${t.priority})`).join('\n')}\n\nExecution: Direct inline, serial`,
-      header: "Confirm",
-      multiSelect: false,
-      options: [
-        { label: "Start Execution", description: "Execute all tasks serially" },
-        { label: "Adjust Tasks", description: "Modify, reorder, or remove tasks" },
-        { label: "Cancel", description: "Cancel execution, keep .task/" }
-      ]
-    }]
-  })
-  // "Adjust Tasks": display task list, user deselects/reorders, regenerate .task/*.json
-  // "Cancel": end workflow, keep artifacts
-}
-```
-
----
-
-## Step 5: Direct Inline Execution
-
-Execute tasks one by one directly using tools (Read, Edit, Write, Grep, Glob, Bash). **No CLI delegation** — main process handles all modifications.
-
-### Execution Loop
-
-```
-For each taskId in executionOrder:
-  ├─ Load task from .task/{taskId}.json
-  ├─ Check dependencies satisfied (all deps completed)
-  ├─ Record START event to execution-events.md
-  ├─ Execute task directly:
-  │   ├─ Read target files
-  │   ├─ Analyze what changes are needed (using task.description + task.context)
-  │   ├─ Apply modifications (Edit/Write)
-  │   ├─ Verify convergence criteria
-  │   └─ Capture files_modified list
-  ├─ Record COMPLETE/FAIL event to execution-events.md
-  ├─ Update execution.md task status
-  ├─ Auto-commit if enabled
-  └─ Continue to next task (or pause on failure)
-```
-
-##### Step 5.1: Task Execution
-
-For each task, execute directly using the AI's own tools:
-
-```javascript
-for (const taskId of executionOrder) {
-  const task = tasks.find(t => t.id === taskId)
-  const startTime = getUtc8ISOString()
-
-  // 1. Check dependencies
-  const unmetDeps = task.depends_on.filter(dep => !completedTasks.has(dep))
-  if (unmetDeps.length) {
-    recordEvent(task, 'BLOCKED', `Unmet dependencies: ${unmetDeps.join(', ')}`)
-    continue
-  }
-
-  // 2. Record START event
-  appendToEvents(`## ${getUtc8ISOString()} — ${task.id}: ${task.title}
-
-**Type**: ${task.type} | **Priority**: ${task.priority}
-**Status**: ⏳ IN PROGRESS
-**Files**: ${(task.files || []).map(f => f.path).join(', ')}
-**Description**: ${task.description}
-
-### Execution Log
-`)
-
-  // 3. Execute task directly
-  //    - Read each file in task.files (if specified)
-  //    - Analyze what changes satisfy task.description + task.convergence.criteria
-  //    - If task.files has detailed changes, use them as guidance
-  //    - Apply changes using Edit (preferred) or Write (for new files)
-  //    - Use Grep/Glob for discovery if needed
-  //    - Use Bash for build/test verification commands
-
-  // 4. Verify convergence
-  //    - Run task.convergence.verification (if it's a command)
-  //    - Check each criterion in task.convergence.criteria
-  //    - Record verification results
-
-  const endTime = getUtc8ISOString()
-  const filesModified = getModifiedFiles()  // from git status or execution tracking
-
-  // 5. Record completion event
-  appendToEvents(`
-**Status**: ✅ COMPLETED
-**Duration**: ${calculateDuration(startTime, endTime)}
-**Files Modified**: ${filesModified.join(', ')}
-
-#### Changes Summary
-${changeSummary}
-
-#### Convergence Verification
-${task.convergence.criteria.map((c, i) => `- [${verified[i] ? 'x' : ' '}] ${c}`).join('\n')}
-- **Verification**: ${verificationResult}
-- **Definition of Done**: ${task.convergence.definition_of_done}
-
----
-`)
-
-  // 6. Update execution.md task status
-  updateTaskStatus(task.id, 'completed', filesModified, changeSummary)
-
-  completedTasks.add(task.id)
-}
-```
-
-##### Step 5.2: Failure Handling
-
-When a task fails during execution:
-
-```javascript
-// On task failure:
-appendToEvents(`
-**Status**: ❌ FAILED
-**Duration**: ${calculateDuration(startTime, endTime)}
-**Error**: ${errorMessage}
-
-#### Failure Details
-${failureDetails}
-
-#### Attempted Changes
-${attemptedChanges}
-
----
-`)
-
-updateTaskStatus(task.id, 'failed', [], errorMessage)
-failedTasks.add(task.id)
-
-// Set _execution state
-task._execution = {
-  status: 'failed', executed_at: getUtc8ISOString(),
-  result: { success: false, error: errorMessage, files_modified: [] }
-}
-
-// Ask user how to proceed
-if (!autoYes) {
-  const decision = AskUserQuestion({
-    questions: [{
-      question: `Task ${task.id} failed: ${errorMessage}\nHow to proceed?`,
-      header: "Failure",
-      multiSelect: false,
-      options: [
-        { label: "Skip & Continue", description: "Skip this task, continue with next" },
-        { label: "Retry", description: "Retry this task" },
-        { label: "Abort", description: "Stop execution, keep progress" }
-      ]
-    }]
-  })
-}
-```
-
-##### Step 5.3: Auto-Commit (if enabled)
-
-After each successful task, optionally commit changes:
-
-```javascript
-if (autoCommit && task._execution?.status === 'completed') {
-  // 1. Stage modified files
-  Bash(`git add ${filesModified.join(' ')}`)
-
-  // 2. Generate conventional commit message
-  const commitType = {
-    fix: 'fix', refactor: 'refactor', feature: 'feat',
-    enhancement: 'feat', testing: 'test'
-  }[task.type] || 'chore'
-
-  const scope = inferScope(filesModified)  // e.g., "auth", "user", "api"
-
-  // 3. Commit
-  Bash(`git commit -m "${commitType}(${scope}): ${task.title}\n\nTask: ${task.id}\nSource: ${sessionId}"`)
-
-  appendToEvents(`**Commit**: \`${commitType}(${scope}): ${task.title}\`\n`)
-}
-```
-
----
-
-## Step 6: Finalize Execution Artifacts
-
-##### Step 6.1: Update execution.md Summary
-
-After all tasks complete, append final summary to `execution.md`:
-
-```javascript
-const summary = `
-## Execution Summary
-
-- **Completed**: ${getUtc8ISOString()}
-- **Total Tasks**: ${tasks.length}
-- **Succeeded**: ${completedTasks.size}
-- **Failed**: ${failedTasks.size}
-- **Skipped**: ${skippedTasks.size}
-- **Success Rate**: ${Math.round(completedTasks.size / tasks.length * 100)}%
-
-### Task Results
-
-| ID | Title | Status | Files Modified |
-|----|-------|--------|----------------|
-${tasks.map(t => `| ${t.id} | ${t.title} | ${t._execution?.status || 'pending'} | ${(t._execution?.result?.files_modified || []).join(', ') || '-'} |`).join('\n')}
-
-${failedTasks.size > 0 ? `### Failed Tasks Requiring Attention
-
-${[...failedTasks].map(id => {
-  const t = tasks.find(t => t.id === id)
-  return `- **${t.id}**: ${t.title} — ${t._execution?.result?.error || 'Unknown error'}`
-}).join('\n')}
-` : ''}
-### Artifacts
-- **Execution Plan**: ${sessionFolder}/.task/
-- **Execution Overview**: ${sessionFolder}/execution.md
-- **Execution Events**: ${sessionFolder}/execution-events.md
-`
-// Append summary to execution.md
-```
-
-##### Step 6.2: Finalize execution-events.md
-
-Append session footer:
-
-```javascript
-appendToEvents(`
----
-
-# Session Summary
-
-- **Session**: ${sessionId}
-- **Completed**: ${getUtc8ISOString()}
-- **Tasks**: ${completedTasks.size} completed, ${failedTasks.size} failed, ${skippedTasks.size} skipped
-- **Total Events**: ${totalEvents}
-`)
-```
-
-##### Step 6.3: Update .task/*.json
-
-Write back `_execution` state to each task file:
-
-```javascript
-tasks.forEach(task => {
-  const updatedTask = {
-    ...task,
-    status: task._status,                // "completed" | "failed" | "skipped" | "pending"
-    executed_at: task._executed_at,       // ISO timestamp
-    result: {
-      success: task._status === 'completed',
-      files_modified: task._result?.files_modified || [],
-      summary: task._result?.summary || '',
-      error: task._result?.error || null,
-      convergence_verified: task._result?.convergence_verified || []
-    }
-  }
-  Write(`${sessionFolder}/.task/${task.id}.json`, JSON.stringify(updatedTask, null, 2))
-})
-```
-
----
-
-## Step 7: Completion & Follow-up
-
-Present final execution results and offer next actions.
-
-```javascript
-// Display: session ID, statistics, failed tasks (if any), artifact paths
-
-if (!autoYes) {
-  AskUserQuestion({
-    questions: [{
-      question: `Execution complete: ${completedTasks.size}/${tasks.length} succeeded.\nNext step:`,
-      header: "Post-Execute",
-      multiSelect: false,
-      options: [
-        { label: "Retry Failed", description: `Re-execute ${failedTasks.size} failed tasks` },
-        { label: "View Events", description: "Display execution-events.md" },
-        { label: "Create Issue", description: "Create issue from failed tasks" },
-        { label: "Done", description: "End workflow" }
-      ]
-    }]
-  })
-}
-```
-
-| Selection | Action |
-|-----------|--------|
-| Retry Failed | Filter tasks with status "failed", re-execute in order, append retry events |
-| View Events | Display execution-events.md content |
-| Create Issue | `Skill(skill="issue:new", args="...")` from failed task details |
-| Done | Display artifact paths, end workflow |
-
-**Retry Logic**:
-- Filter tasks with `_execution.status === 'failed'`
-- Re-execute in original dependency order
-- Append retry events to execution-events.md with `[RETRY]` prefix
-- Update execution.md and .task/*.json
-
----
-
-## Output Structure
-
-When Quick Execute is activated, session folder expands with:
-
-```
-{projectRoot}/.workflow/.analysis/ANL-{slug}-{date}/
-├── ...                          # Phase 1-4 artifacts
-├── .task/                       # Individual task JSON files (one per task, with convergence + source)
-│   ├── TASK-001.json
-│   ├── TASK-002.json
-│   └── ...
-├── execution.md                 # Plan overview + task table + execution summary
-└── execution-events.md          # ⭐ Unified event log (all task executions with details)
-```
-
-| File | Purpose |
-|------|---------|
-| `.task/*.json` | Individual task files from conclusions, each with convergence criteria and source provenance |
-| `execution.md` | Overview: plan source, task table, pre-execution analysis, execution timeline, final summary |
-| `execution-events.md` | Chronological event stream: task start/complete/fail with details, changes, verification results |
-
----
-
-## execution-events.md Template
-
-```markdown
-# Execution Events
-
-**Session**: ANL-xxx-2025-01-21
-**Started**: 2025-01-21T10:00:00+08:00
-**Source**: .task/*.json
-
----
-
-## 2025-01-21T10:01:00+08:00 — TASK-001: Fix authentication token refresh
-
-**Type**: fix | **Priority**: high
-**Status**: ⏳ IN PROGRESS
-**Files**: src/auth/token.ts, src/middleware/auth.ts
-**Description**: Token refresh fails silently when...
-
-### Execution Log
-- Read src/auth/token.ts (245 lines)
-- Found issue at line 89: missing await on refreshToken()
-- Applied fix: added await keyword
-- Read src/middleware/auth.ts (120 lines)
-- Updated error handler at line 45
-
-**Status**: ✅ COMPLETED
-**Duration**: 45s
-**Files Modified**: src/auth/token.ts, src/middleware/auth.ts
-
-#### Changes Summary
-- Added `await` to `refreshToken()` call in token.ts:89
-- Updated error handler to propagate refresh failures in auth.ts:45
-
-#### Convergence Verification
-- [x] Token refresh returns new valid token
-- [x] Expired token triggers refresh automatically
-- [x] Failed refresh redirects to login
-- **Verification**: jest --testPathPattern=token.test.ts → PASS
-- **Definition of Done**: Users remain logged in across token expiration without manual re-login
-
-**Commit**: `fix(auth): Fix authentication token refresh`
-
----
-
-## 2025-01-21T10:02:30+08:00 — TASK-002: Add input validation
-
-**Type**: enhancement | **Priority**: medium
-**Status**: ⏳ IN PROGRESS
-...
-
----
-
-# Session Summary
-
-- **Session**: ANL-xxx-2025-01-21
-- **Completed**: 2025-01-21T10:05:00+08:00
-- **Tasks**: 2 completed, 0 failed, 0 skipped
-- **Total Events**: 2
-```
-
----
-
-## Error Handling
-
-| Situation | Action | Recovery |
-|-----------|--------|----------|
-| Task execution fails | Record failure in execution-events.md, ask user | Retry, skip, or abort |
-| Verification command fails | Mark criterion as unverified, continue | Note in events, manual check needed |
-| No recommendations in conclusions | Cannot generate .task/*.json | Inform user, suggest lite-plan |
-| File conflict during execution | Document in execution-events.md | Resolve in dependency order |
-| Circular dependencies detected | Stop, report error | Fix dependencies in .task/*.json |
-| All tasks fail | Record all failures, suggest analysis review | Re-run analysis or manual intervention |
-| Missing target file | Attempt to create if task.type is "feature" | Log as warning for other types |
-
----
-
-## Success Criteria
-
-- `.task/*.json` generated with convergence criteria and source provenance per task
-- `execution.md` contains plan overview, task table, pre-execution analysis, final summary
-- `execution-events.md` contains chronological event stream with convergence verification
-- All tasks executed (or explicitly skipped) via direct inline execution
-- Each task's convergence criteria checked and recorded
-- `_execution` state written back to .task/*.json after completion
-- User informed of results and next steps
+The execution engine provides:
+- Pre-execution analysis (dependency validation, file conflicts, topological sort)
+- Serial task execution with convergence verification
+- Progress tracking via `execution.md` + `execution-events.md`
+- Auto-commit per task (conventional commit format)
+- Failure handling with retry/skip/abort options
+
+**No inline execution logic in analyze-with-file** — single execution engine avoids duplication and ensures consistent behavior across all skill producers.

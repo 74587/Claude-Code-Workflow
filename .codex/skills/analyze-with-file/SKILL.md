@@ -563,8 +563,16 @@ const conclusions = {
   key_conclusions: [                 // Main conclusions
     { point: '...', evidence: '...', confidence: 'high|medium|low' }
   ],
-  recommendations: [                 // Actionable recommendations
-    { action: '...', rationale: '...', priority: 'high|medium|low' }
+  recommendations: [                 // Actionable recommendations (enriched)
+    {
+      action: '...',                         // What to do (imperative verb + target)
+      rationale: '...',                      // Why this matters
+      priority: 'high|medium|low',
+      target_files: ['path/to/file.ts'],     // From exploration-codebase.json relevant_files
+      changes: ['specific change per file'], // Concrete modification descriptions
+      implementation_hints: ['step 1', ...], // Key realization steps
+      evidence_refs: ['file:line', ...]      // Supporting evidence locations
+    }
   ],
   open_questions: [...],             // Unresolved questions
   follow_up_suggestions: [           // Next steps
@@ -607,30 +615,62 @@ Append conclusions section and finalize:
 
 ##### Step 4.3: Post-Completion Options
 
+**Complexity Assessment** — determine whether .task/*.json generation is warranted:
+
+```javascript
+// Assess recommendation complexity to decide available options
+const recs = conclusions.recommendations || []
+const complexity = assessComplexity(recs)
+
+function assessComplexity(recs) {
+  if (recs.length === 0) return 'none'
+  if (recs.length <= 2 && recs.every(r => r.priority === 'low')) return 'simple'
+  if (recs.length >= 3 || recs.some(r => r.priority === 'high')) return 'complex'
+  return 'moderate'  // 1-2 medium-priority recommendations
+}
+
+// Complexity → available options mapping:
+//   none:    Done | Create Issue | Export Report
+//   simple:  Done | Create Issue | Export Report (no task generation — overkill)
+//   moderate: Done | Generate Task | Create Issue | Export Report
+//   complex:  Quick Execute | Generate Task | Create Issue | Export Report | Done
+```
+
 ```javascript
 if (!autoYes) {
+  const options = buildOptionsForComplexity(complexity)
   AskUserQuestion({
     questions: [{
-      question: "Analysis complete. Next step:",
+      question: `Analysis complete (${recs.length} recommendations, complexity: ${complexity}). Next step:`,
       header: "Next Step",
       multiSelect: false,
-      options: [
-        { label: "Quick Execute", description: "Convert recommendations to tasks and execute serially" },
-        { label: "Create Issue", description: "Create GitHub Issue from conclusions" },
-        { label: "Generate Task", description: "Launch lite-plan for implementation planning" },
-        { label: "Export Report", description: "Generate standalone analysis report" },
-        { label: "Done", description: "Save analysis only, no further action" }
-      ]
+      options: options
     }]
   })
+} else {
+  // Auto mode: generate .task/*.json only for moderate/complex, skip for simple/none
+  if (complexity === 'complex' || complexity === 'moderate') {
+    // → Phase 5 Step 5.1-5.2 (task generation only, no execution)
+  } else {
+    // → Done (conclusions.json is sufficient output)
+  }
 }
 ```
 
+**Options by Complexity**:
+
+| Complexity | Available Options | Rationale |
+|------------|-------------------|-----------|
+| `none` | Done, Create Issue, Export Report | No actionable recommendations |
+| `simple` | Done, Create Issue, Export Report | 1-2 low-priority items don't warrant formal task JSON |
+| `moderate` | Generate Task, Create Issue, Export Report, Done | Task structure helpful but execution not urgent |
+| `complex` | Quick Execute, Generate Task, Create Issue, Export Report, Done | Full pipeline justified |
+
 | Selection | Action |
 |-----------|--------|
-| Quick Execute | Jump to Phase 5 |
+| Quick Execute | Jump to Phase 5 (generate .task/*.json → invoke unified-execute) |
 | Create Issue | `Skill(skill="issue:new", args="...")` |
-| Generate Task | `Skill(skill="workflow:lite-plan", args="...")` |
+| Generate Task | Jump to Phase 5 Step 5.1-5.2 only (generate .task/*.json, no execution) |
 | Export Report | Copy discussion.md + conclusions.json to user-specified location |
 | Done | Display artifact paths, end |
 
@@ -640,58 +680,99 @@ if (!autoYes) {
 - User offered meaningful next step options
 - **Complete decision trail** documented and traceable from initial scoping to final conclusions
 
-### Phase 5: Quick Execute (Optional)
+### Phase 5: Task Generation & Execute (Optional)
 
-**Objective**: Convert analysis conclusions into individual task JSON files with convergence criteria, then execute tasks directly inline.
+**Objective**: Convert analysis conclusions into `.task/*.json` with rich execution context from ALL Phase 2-4 artifacts, then optionally execute via `unified-execute-with-file`.
 
-**Trigger**: User selects "Quick Execute" in Phase 4.
+**Trigger**: User selects "Quick Execute" or "Generate Task" in Phase 4. In auto mode, triggered only for `moderate`/`complex` recommendations.
 
-**Key Principle**: No additional exploration — analysis phase has already collected all necessary context. No CLI delegation — execute directly using tools.
+**Key Principle**: Task generation leverages ALL artifacts (exploration-codebase.json + explorations/perspectives + conclusions). Execution delegates to `unified-execute-with-file` — no inline execution engine duplication.
 
-**Flow**: `conclusions.json → .task/*.json → User Confirmation → Direct Inline Execution → execution.md + execution-events.md`
+**Flow**:
+```
+conclusions.json + exploration-codebase.json + explorations.json
+    → .task/*.json (enriched with implementation + files[].changes)
+    → (optional) unified-execute-with-file
+```
 
-**Full specification**: See `EXECUTE.md` for detailed step-by-step implementation.
+**Quality spec**: See `EXECUTE.md` for task generation standards, file resolution algorithm, and convergence validation.
 
 **Schema**: `cat ~/.ccw/workflows/cli-templates/schemas/task-schema.json`
 
-##### Step 5.1: Generate .task/*.json
-
-Convert `conclusions.recommendations` into individual task JSON files. Each file is a self-contained task with convergence criteria:
+##### Step 5.1: Load All Context Sources
 
 ```javascript
 const conclusions = JSON.parse(Read(`${sessionFolder}/conclusions.json`))
+
+// CRITICAL: Load codebase context for file mapping
+const codebaseContext = file_exists(`${sessionFolder}/exploration-codebase.json`)
+  ? JSON.parse(Read(`${sessionFolder}/exploration-codebase.json`))
+  : null
+
 const explorations = file_exists(`${sessionFolder}/explorations.json`)
   ? JSON.parse(Read(`${sessionFolder}/explorations.json`))
   : file_exists(`${sessionFolder}/perspectives.json`)
     ? JSON.parse(Read(`${sessionFolder}/perspectives.json`))
     : null
+```
 
-const tasks = conclusions.recommendations.map((rec, index) => ({
-  id: `TASK-${String(index + 1).padStart(3, '0')}`,
-  title: rec.action,
-  description: rec.rationale,
-  type: inferTaskType(rec),  // fix | refactor | feature | enhancement | testing
-  priority: rec.priority,
-  effort: inferEffort(rec),  // small | medium | large
-  files: extractFilesFromEvidence(rec, explorations).map(f => ({
-    path: f,
-    action: 'modify'
-  })),
-  depends_on: [],
-  convergence: {
-    criteria: generateCriteria(rec),         // Testable conditions
-    verification: generateVerification(rec), // Executable command or steps
-    definition_of_done: generateDoD(rec)     // Business language
-  },
-  evidence: rec.evidence || [],
-  source: {
-    tool: 'analyze-with-file',
-    session_id: sessionId,
-    original_id: `TASK-${String(index + 1).padStart(3, '0')}`
+##### Step 5.2: Generate .task/*.json
+
+Convert `conclusions.recommendations` into individual task JSON files. Each task MUST include `files[].changes` and `implementation` steps — see EXECUTE.md for quality standards.
+
+```javascript
+const tasks = conclusions.recommendations.map((rec, index) => {
+  const taskId = `TASK-${String(index + 1).padStart(3, '0')}`
+
+  // File resolution: rec.target_files → codebaseContext → explorations (see EXECUTE.md)
+  const targetFiles = resolveTargetFiles(rec, codebaseContext, explorations)
+
+  return {
+    id: taskId,
+    title: rec.action,
+    description: rec.rationale,
+    type: inferTaskType(rec),
+    priority: rec.priority,
+    effort: inferEffort(rec),
+
+    // FILES with change details (not just paths)
+    files: targetFiles.map(f => ({
+      path: f.path,
+      action: f.action || 'modify',
+      target: f.target || null,              // Function/class name to modify
+      changes: f.changes || [],              // Specific change descriptions
+      change: f.changes?.[0] || rec.action   // Primary change description
+    })),
+
+    depends_on: [],
+
+    // CONVERGENCE (must pass quality validation — see EXECUTE.md)
+    convergence: {
+      criteria: generateCriteria(rec),
+      verification: generateVerification(rec),
+      definition_of_done: generateDoD(rec)
+    },
+
+    // IMPLEMENTATION steps (critical for execution agent)
+    implementation: (rec.implementation_hints || [rec.action]).map((hint, i) => ({
+      step: `${i + 1}`,
+      description: hint,
+      actions: rec.changes?.filter(c => c.includes(hint.split(' ')[0])) || []
+    })),
+
+    // CONTEXT
+    evidence: rec.evidence_refs || [],
+    source: {
+      tool: 'analyze-with-file',
+      session_id: sessionId,
+      original_id: taskId
+    }
   }
-}))
+})
 
-// Validate convergence quality (same as req-plan-with-file)
+// Quality validation (see EXECUTE.md for rules)
+validateConvergenceQuality(tasks)
+
 // Write each task as individual JSON file
 Bash(`mkdir -p ${sessionFolder}/.task`)
 tasks.forEach(task => {
@@ -699,75 +780,48 @@ tasks.forEach(task => {
 })
 ```
 
-##### Step 5.2: Pre-Execution Analysis
-
-Validate feasibility: dependency detection, circular dependency check (DFS), topological sort for execution order, file conflict analysis.
-
-##### Step 5.3: Initialize Execution Artifacts
-
-Create `execution.md` (overview with task table, pre-execution analysis, execution timeline placeholder) and `execution-events.md` (chronological event log header).
-
-##### Step 5.4: User Confirmation
+##### Step 5.3: User Confirmation & Execution Delegation
 
 ```javascript
 if (!autoYes) {
-  AskUserQuestion({
+  const action = AskUserQuestion({
     questions: [{
-      question: `Execute ${tasks.length} tasks directly?\n\nExecution: Direct inline, serial`,
-      header: "Confirm",
+      question: `Generated ${tasks.length} tasks in .task/. Next:`,
+      header: "Execute",
       multiSelect: false,
       options: [
-        { label: "Start Execution", description: "Execute all tasks serially" },
-        { label: "Adjust Tasks", description: "Modify, reorder, or remove tasks" },
-        { label: "Cancel", description: "Cancel execution, keep .task/" }
+        { label: "Execute Now", description: "Invoke unified-execute-with-file on .task/" },
+        { label: "Adjust Tasks", description: "Review and modify .task/*.json before execution" },
+        { label: "Done", description: "Keep .task/*.json, execute later manually" }
       ]
     }]
   })
+
+  if (action === 'Execute Now') {
+    // Delegate execution to unified-execute-with-file
+    Skill(skill="workflow:unified-execute-with-file",
+          args=`PLAN="${sessionFolder}/.task/"`)
+  }
+  // "Adjust Tasks": user edits .task/*.json, then invokes unified-execute separately
+  // "Done": display .task/ path, end workflow
+} else {
+  // Auto mode: generate .task/*.json only
+  // Execution requires separate invocation:
+  //   /codex:unified-execute-with-file PLAN="${sessionFolder}/.task/"
 }
 ```
 
-##### Step 5.5: Direct Inline Execution
-
-Execute tasks one by one directly using tools (Read, Edit, Write, Grep, Glob, Bash). **No CLI delegation**.
-
-For each task in execution order:
-1. Check dependencies satisfied
-2. Record START event to `execution-events.md`
-3. Execute: read files → analyze changes → apply modifications → verify convergence
-4. Record COMPLETE/FAIL event with convergence verification checklist
-5. Update `execution.md` task status
-6. Auto-commit if enabled (conventional commit format)
-
-##### Step 5.6: Finalize & Follow-up
-
-- Update `execution.md` with final summary (statistics, task results table)
-- Finalize `execution-events.md` with session footer
-- Update `.task/*.json` with `_execution` state per task
-
-```javascript
-if (!autoYes) {
-  AskUserQuestion({
-    questions: [{
-      question: `Execution complete: ${completedTasks.size}/${tasks.length} succeeded.\nNext step:`,
-      header: "Post-Execute",
-      multiSelect: false,
-      options: [
-        { label: "Retry Failed", description: `Re-execute ${failedTasks.size} failed tasks` },
-        { label: "View Events", description: "Display execution-events.md" },
-        { label: "Create Issue", description: "Create issue from failed tasks" },
-        { label: "Done", description: "End workflow" }
-      ]
-    }]
-  })
-}
-```
+**Execution Engine**: `unified-execute-with-file` handles the full execution lifecycle:
+- Pre-execution analysis (dependency validation, file conflicts, topological sort)
+- Serial task execution with convergence verification
+- Progress tracking via `execution.md` + `execution-events.md`
+- Auto-commit, failure handling, retry logic
 
 **Success Criteria**:
-- `.task/*.json` generated with convergence criteria and source provenance per task
-- `execution.md` contains plan overview, task table, pre-execution analysis, final summary
-- `execution-events.md` contains chronological event stream with convergence verification
-- All tasks executed (or explicitly skipped) via direct inline execution
-- User informed of results and next steps
+- `.task/*.json` generated with: `files[].changes` populated, `implementation` steps present, convergence quality validated
+- `exploration-codebase.json` data incorporated into file targeting
+- User informed of .task/ location and next step options
+- Execution delegated to `unified-execute-with-file` (no inline execution duplication)
 
 ## Output Structure
 
@@ -782,12 +836,15 @@ if (!autoYes) {
 ├── explorations.json          # Phase 2: Single perspective aggregated findings
 ├── perspectives.json          # Phase 2: Multi-perspective findings with synthesis
 ├── conclusions.json           # Phase 4: Final synthesis with recommendations
-├── .task/                     # Phase 5: Individual task JSON files (if quick execute)
-│   ├── TASK-001.json          #   One file per task with convergence + source
-│   ├── TASK-002.json
-│   └── ...
-├── execution.md               # Phase 5: Execution overview + task table + summary (if quick execute)
-└── execution-events.md        # Phase 5: Chronological event log (if quick execute)
+└── .task/                     # Phase 5: Individual task JSON files (if quick execute / generate task)
+    ├── TASK-001.json          #   One file per task with convergence + implementation + source
+    ├── TASK-002.json
+    └── ...
+
+# Execution artifacts (generated by unified-execute-with-file, separate location):
+{projectRoot}/.workflow/.execution/EXEC-{slug}-{date}-{random}/
+├── execution.md               # Execution overview + task table + summary
+└── execution-events.md        # Chronological event log
 ```
 
 | File | Phase | Description |
@@ -797,10 +854,8 @@ if (!autoYes) {
 | `explorations/*.json` | 2 | Per-perspective exploration results (multi only) |
 | `explorations.json` | 2 | Single perspective aggregated findings |
 | `perspectives.json` | 2 | Multi-perspective findings with cross-perspective synthesis |
-| `conclusions.json` | 4 | Final synthesis: conclusions, recommendations, open questions |
-| `.task/*.json` | 5 | Individual task files from recommendations, each with convergence criteria and source provenance |
-| `execution.md` | 5 | Execution overview: plan source, task table, pre-execution analysis, final summary |
-| `execution-events.md` | 5 | Chronological event stream with task details and convergence verification |
+| `conclusions.json` | 4 | Final synthesis: conclusions, recommendations (enriched), open questions |
+| `.task/*.json` | 5 | Individual task files with convergence + `implementation` + `files[].changes` + source |
 
 ## Analysis Dimensions Reference
 
@@ -951,7 +1006,8 @@ Remaining questions or areas for investigation
 | Session folder conflict | Append timestamp suffix | Create unique folder and continue |
 | Quick execute: task fails | Record failure in execution-events.md | User can retry, skip, or abort |
 | Quick execute: verification fails | Mark criterion as unverified, continue | Note in events, manual check |
-| Quick execute: no recommendations | Cannot generate .task/*.json | Suggest using lite-plan instead |
+| Quick execute: no recommendations | Cannot generate .task/*.json | Inform user, suggest lite-plan |
+| Quick execute: simple recommendations | Complexity too low for .task/*.json | Skip task generation, output conclusions only |
 
 ## Best Practices
 
