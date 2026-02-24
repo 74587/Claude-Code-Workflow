@@ -1,8 +1,8 @@
 ---
 name: req-plan-with-file
-description: Requirement-level progressive roadmap planning with issue creation. Decomposes requirements into convergent layers or task sequences, creates issues via ccw issue create, and generates roadmap.md for human review. Issues stored in .workflow/issues/issues.jsonl (single source of truth).
+description: Requirement-level progressive roadmap planning with issue creation. Serial execution with no agent delegation. Decomposes requirements into convergent layers or task sequences, creates issues via ccw issue create, and generates roadmap.md for human review. Issues stored in .workflow/issues/issues.jsonl (single source of truth).
 argument-hint: "[-y|--yes] [-c|--continue] [-m|--mode progressive|direct|auto] \"requirement description\""
-allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
+allowed-tools: AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Workflow Req-Plan
@@ -29,9 +29,9 @@ $req-plan-with-file -y "Implement caching layer"
 -m, --mode <progressive|direct|auto>   Decomposition strategy (default: auto)
 ```
 
-**Context Source**: cli-explore-agent (optional) + requirement analysis
+**Context Source**: inline codebase exploration (optional) + requirement analysis
 **Output Directory**: `.workflow/.req-plan/{session-id}/`
-**Core Innovation**: Requirement decomposition → issue creation via `ccw issue create`. Issues stored in `.workflow/issues/issues.jsonl` (single source of truth); wave and dependency info embedded in issue tags and `extended_context.notes`. team-planex consumes issues directly by ID or tag query.
+**Core Innovation**: Requirement decomposition → issue creation via `ccw issue create`. Issues stored in `.workflow/issues/issues.jsonl` (single source of truth); wave and dependency info embedded in issue tags and `extended_context.notes`. issue-devpipeline consumes issues directly by ID or tag query.
 
 ## Overview
 
@@ -42,7 +42,7 @@ Requirement-level layered roadmap planning. Decomposes a requirement into **conv
 - **Direct**: Topologically-sorted task sequence, suitable for low-uncertainty requirements (clear tasks, directly ordered)
 - **Auto**: Automatically selects based on uncertainty level
 
-**Core Workflow**: Requirement Understanding → Strategy Selection → Context Collection (optional) → Decomposition + Issue Creation → Validation → team-planex Handoff
+**Core Workflow**: Requirement Understanding → Strategy Selection → Context Collection (inline, optional) → Decomposition + Issue Creation → Validation → issue-devpipeline Handoff
 
 ## Execution Process
 
@@ -60,19 +60,18 @@ Phase 1: Requirement Understanding & Strategy Selection
    ├─ ASK_USER: Confirm strategy (-m skips, -y auto-selects)
    └─ Write strategy-assessment.json + roadmap.md skeleton
 
-Phase 2: Context Collection (Optional, Subagent)
+Phase 2: Context Collection (Optional, Inline)
    ├─ Detect codebase: package.json / go.mod / src / ...
-   ├─ Has codebase → spawn_agent cli-explore-agent
+   ├─ Has codebase → inline exploration using Grep, Glob, Read, mcp__ace-tool__search_context
    │   ├─ Explore relevant modules and patterns
-   │   ├─ wait for completion
-   │   └─ close_agent
+   │   └─ Write exploration-codebase.json
    └─ No codebase → skip, pure requirement decomposition
 
-Phase 3: Decomposition & Issue Creation (Inlined Agent)
-   ├─ Step 3.1: CLI-Assisted Decomposition
-   │   ├─ Construct CLI prompt with requirement + context + mode
-   │   ├─ Execute Gemini (fallback: Qwen → manual decomposition)
-   │   └─ Parse CLI output into structured records
+Phase 3: Decomposition & Issue Creation (Inline)
+   ├─ Step 3.1: Inline Decomposition
+   │   ├─ Analyze requirement + context + mode
+   │   ├─ Decompose into records (progressive layers or direct tasks)
+   │   └─ Validate against internal record schemas
    ├─ Step 3.2: Record Enhancement & Validation
    │   ├─ Validate each record against schema
    │   ├─ Enhance convergence criteria quality
@@ -83,13 +82,13 @@ Phase 3: Decomposition & Issue Creation (Inlined Agent)
    │   ├─ ccw issue create for each item (get ISS-xxx IDs)
    │   └─ Generate roadmap.md with issue ID references
    └─ Step 3.4: Decomposition Quality Check (MANDATORY)
-       ├─ Execute CLI quality check (Gemini, Qwen fallback)
+       ├─ Inline quality validation against 5 dimensions
        └─ Decision: PASS / AUTO_FIX / NEEDS_REVIEW
 
-Phase 4: Validation & team-planex Handoff
+Phase 4: Validation & issue-devpipeline Handoff
    ├─ Display decomposition results (tabular + convergence criteria)
    ├─ ASK_USER: Feedback loop (up to 5 rounds)
-   └─ ASK_USER: Next steps (team-planex / wave-by-wave / view / done)
+   └─ ASK_USER: Next steps (issue-devpipeline / wave-by-wave / view / done)
 ```
 
 ## Output
@@ -106,52 +105,7 @@ Phase 4: Validation & team-planex Handoff
 | `strategy-assessment.json` | 1 | Uncertainty analysis + mode recommendation + extracted goal/constraints/stakeholders |
 | `roadmap.md` (skeleton) | 1 | Initial skeleton with placeholders, finalized in Phase 3 |
 | `exploration-codebase.json` | 2 | Codebase context: relevant modules, patterns, integration points (only when codebase exists) |
-| `roadmap.md` (final) | 3 | Human-readable roadmap with issue ID references, convergence details, team-planex execution guide |
-
-## Subagent API Reference
-
-### spawn_agent
-Create a new subagent with task assignment.
-
-```javascript
-const agentId = spawn_agent({
-  message: `
-## TASK ASSIGNMENT
-
-### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
-
-## TASK CONTEXT
-${taskContext}
-
-## DELIVERABLES
-${deliverables}
-`
-})
-```
-
-### wait
-Get results from subagent (only way to retrieve results).
-
-```javascript
-const result = wait({
-  ids: [agentId],
-  timeout_ms: 600000  // 10 minutes
-})
-
-if (result.timed_out) {
-  // Handle timeout - can send_input to prompt completion
-}
-```
-
-### close_agent
-Clean up subagent resources (irreversible).
-
-```javascript
-close_agent({ id: agentId })
-```
+| `roadmap.md` (final) | 3 | Human-readable roadmap with issue ID references, convergence details, issue-devpipeline execution guide |
 
 ---
 
@@ -295,9 +249,9 @@ Write(`${sessionFolder}/roadmap.md`, roadmapMdSkeleton)
 
 ---
 
-### Phase 2: Context Collection (Optional, Subagent)
+### Phase 2: Context Collection (Optional, Inline)
 
-**Objective**: If a codebase exists, collect relevant context to enhance decomposition quality.
+**Objective**: If a codebase exists, collect relevant context to enhance decomposition quality. All exploration done inline — no agent delegation.
 
 ```javascript
 // 1. Detect Codebase
@@ -312,78 +266,35 @@ const hasCodebase = bash(`
 `).trim()
 
 // 2. Codebase Exploration (only when hasCodebase !== 'none')
-let exploreAgent = null
-
 if (hasCodebase !== 'none') {
-  try {
-    exploreAgent = spawn_agent({
-      message: `
-## TASK ASSIGNMENT
+  // Read project metadata (if exists)
+  //   .workflow/project-tech.json, .workflow/project-guidelines.json
 
-### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: ${projectRoot}/.workflow/project-tech.json (if exists)
-3. Read: ${projectRoot}/.workflow/project-guidelines.json (if exists)
+  // Search codebase for requirement-relevant context
+  //   Use: mcp__ace-tool__search_context, Grep, Glob, Read
+  //   Focus: modules related to requirement, existing patterns, integration points, architecture constraints
 
----
-
-## Task Objective
-Explore codebase for requirement decomposition context.
-
-## Exploration Context
-Requirement: ${requirement}
-Strategy: ${selectedMode}
-Project Type: ${hasCodebase}
-Session: ${sessionFolder}
-
-## MANDATORY FIRST STEPS
-1. Run: ccw tool exec get_modules_by_depth '{}'
-2. Execute relevant searches based on requirement keywords
-
-## Exploration Focus
-- Identify modules/components related to the requirement
-- Find existing patterns that should be followed
-- Locate integration points for new functionality
-- Assess current architecture constraints
-
-## Output
-Write findings to: ${sessionFolder}/exploration-codebase.json
-
-Schema: {
-  project_type: "${hasCodebase}",
-  relevant_modules: [{name, path, relevance}],
-  existing_patterns: [{pattern, files, description}],
-  integration_points: [{location, description, risk}],
-  architecture_constraints: [string],
-  tech_stack: {languages, frameworks, tools},
-  _metadata: {timestamp, exploration_scope}
-}
-`
-    })
-
-    // Wait with timeout handling
-    let result = wait({ ids: [exploreAgent], timeout_ms: 600000 })
-
-    if (result.timed_out) {
-      send_input({ id: exploreAgent, message: 'Complete now and write exploration-codebase.json.' })
-      result = wait({ ids: [exploreAgent], timeout_ms: 300000 })
-      if (result.timed_out) throw new Error('Agent timeout')
-    }
-
-  } finally {
-    if (exploreAgent) close_agent({ id: exploreAgent })
-  }
+  // Write findings
+  Write(`${sessionFolder}/exploration-codebase.json`, JSON.stringify({
+    project_type: hasCodebase,
+    relevant_modules: [...],       // [{name, path, relevance}]
+    existing_patterns: [...],      // [{pattern, files, description}]
+    integration_points: [...],     // [{location, description, risk}]
+    architecture_constraints: [...], // [string]
+    tech_stack: { languages: [...], frameworks: [...], tools: [...] },
+    _metadata: { timestamp: getUtc8ISOString(), exploration_scope: '...' }
+  }, null, 2))
 }
 // No codebase → skip, proceed directly to Phase 3
 ```
 
 ---
 
-### Phase 3: Decomposition & Issue Creation (Inlined Agent)
+### Phase 3: Decomposition & Issue Creation (Inline)
 
-**Objective**: Execute requirement decomposition, create issues, generate execution-plan.json + issues.jsonl + roadmap.md.
+**Objective**: Execute requirement decomposition, create issues, generate execution-plan.json + issues.jsonl + roadmap.md. All decomposition and validation done inline — no CLI delegation.
 
-**CRITICAL**: After creating issues, MUST execute **Decomposition Quality Check** (Step 3.4) using CLI analysis before proceeding to Phase 4.
+**CRITICAL**: After creating issues, MUST execute **Decomposition Quality Check** (Step 3.4) inline before proceeding to Phase 4.
 
 #### Prepare Context
 
@@ -395,9 +306,9 @@ if (fileExists(`${sessionFolder}/exploration-codebase.json`)) {
 }
 ```
 
-#### Internal Record Schemas (CLI Parsing)
+#### Internal Record Schemas
 
-These schemas are used internally for parsing CLI decomposition output. They are converted to issues in Step 3.3.
+These schemas define the structure for decomposition records. They are converted to issues in Step 3.3.
 
 **Progressive Mode - Layer Record**:
 ```javascript
@@ -443,317 +354,38 @@ These schemas are used internally for parsing CLI decomposition output. They are
 
 ---
 
-#### Step 3.1: CLI-Assisted Decomposition
+#### Step 3.1: Inline Decomposition
 
-##### Progressive Mode CLI Template
+Analyze requirement directly using strategy-assessment.json + exploration-codebase.json (if exists). Produce records conforming to Internal Record Schemas above.
 
-```bash
-ccw cli -p "
-PURPOSE: Decompose requirement into progressive layers (MVP→iterations) with convergence criteria
-Success: 2-4 self-contained layers, each with testable convergence, no scope overlap
+##### Progressive Mode
 
-REQUIREMENT:
-${requirement}
+Decompose into 2-4 progressive layers:
 
-STRATEGY CONTEXT:
-- Uncertainty: ${strategy.uncertainty_level}
-- Goal: ${strategy.goal}
-- Constraints: ${strategy.constraints.join(', ')}
-- Stakeholders: ${strategy.stakeholders.join(', ')}
-
-${explorationContext ? `CODEBASE CONTEXT:
-- Relevant modules: ${explorationContext.relevant_modules.map(m => m.name).join(', ')}
-- Existing patterns: ${explorationContext.existing_patterns.map(p => p.pattern).join(', ')}
-- Architecture constraints: ${explorationContext.architecture_constraints.join(', ')}
-- Tech stack: ${JSON.stringify(explorationContext.tech_stack)}` : 'NO CODEBASE (pure requirement decomposition)'}
-
-TASK:
-• Define 2-4 progressive layers from MVP to full implementation
-• L0 (MVP): Minimum viable closed loop - core path works end-to-end
-• L1 (Usable): Critical user paths, basic error handling
-• L2 (Complete): Edge cases, performance, security hardening
-• L3 (Optimized): Advanced features, observability, operations support
-• Each layer: explicit scope (included) and excludes (not included)
-• Each layer: convergence with testable criteria, executable verification, business-language DoD
-• Risk items per layer
-
-MODE: analysis
-CONTEXT: @**/*
-EXPECTED:
-For each layer output:
-## L{n}: {Name}
-**Goal**: {one sentence}
-**Scope**: {comma-separated features}
-**Excludes**: {comma-separated excluded features}
-**Convergence**:
-- Criteria: {bullet list of testable conditions}
-- Verification: {executable command or steps}
-- Definition of Done: {business language sentence}
-**Risk Items**: {bullet list}
-**Effort**: {small|medium|large}
-**Depends On**: {layer IDs or none}
-
-CONSTRAINTS:
+- **Inputs**: strategy (goal, constraints, stakeholders, uncertainty) + explorationContext (if codebase)
+- **L0 (MVP)**: Minimum viable closed loop — core path end-to-end
+- **L1 (Usable)**: Critical user paths, basic error handling
+- **L2 (Complete)**: Edge cases, performance, security hardening
+- **L3 (Optimized)**: Advanced features, observability, operations support
 - Each feature belongs to exactly ONE layer (no overlap)
-- Criteria must be testable (can write assertions)
-- Verification must be executable (commands or explicit steps)
-- Definition of Done must be understandable by non-technical stakeholders
-- L0 must be a complete closed loop (end-to-end path works)
-" --tool gemini --mode analysis
-```
+- L0 must be a complete closed loop
+- When codebase context available: ground scope in actual modules, reference existing patterns for verification, identify integration points as risks
 
-##### Direct Mode CLI Template
+##### Direct Mode
 
-```bash
-ccw cli -p "
-PURPOSE: Decompose requirement into topologically-sorted task sequence with convergence criteria
-Success: Self-contained tasks with clear inputs/outputs, testable convergence, correct dependency order
+Decompose into topologically-sorted tasks:
 
-REQUIREMENT:
-${requirement}
-
-STRATEGY CONTEXT:
-- Goal: ${strategy.goal}
-- Constraints: ${strategy.constraints.join(', ')}
-
-${explorationContext ? `CODEBASE CONTEXT:
-- Relevant modules: ${explorationContext.relevant_modules.map(m => m.name).join(', ')}
-- Existing patterns: ${explorationContext.existing_patterns.map(p => p.pattern).join(', ')}
-- Tech stack: ${JSON.stringify(explorationContext.tech_stack)}` : 'NO CODEBASE (pure requirement decomposition)'}
-
-TASK:
-• Decompose into vertical slices with clear boundaries
-• Each task: type (infrastructure|feature|enhancement|testing)
-• Each task: explicit inputs (what it needs) and outputs (what it produces)
-• Each task: convergence with testable criteria, executable verification, business-language DoD
-• Topological sort: respect dependency order
-• Assign parallel_group numbers (same group = can run in parallel)
-
-MODE: analysis
-CONTEXT: @**/*
-EXPECTED:
-For each task output:
-## T{n}: {Title}
-**Type**: {infrastructure|feature|enhancement|testing}
-**Scope**: {description}
-**Inputs**: {comma-separated files/modules or 'none'}
-**Outputs**: {comma-separated files/modules}
-**Convergence**:
-- Criteria: {bullet list of testable conditions}
-- Verification: {executable command or steps}
-- Definition of Done: {business language sentence}
-**Depends On**: {task IDs or none}
-**Parallel Group**: {number}
-
-CONSTRAINTS:
+- **Inputs**: strategy (goal, constraints) + explorationContext (if codebase)
+- Each task: type (infrastructure|feature|enhancement|testing), explicit inputs/outputs
+- Topological sort: respect dependency order
+- Assign parallel_group numbers (same group = truly independent, can run in parallel)
 - Inputs must come from preceding task outputs or existing resources
-- No circular dependencies
-- Criteria must be testable
-- Verification must be executable
-- Tasks in same parallel_group must be truly independent
-" --tool gemini --mode analysis
-```
 
-##### CLI Fallback Chain
+##### Common Requirements
 
-```javascript
-// Fallback chain: Gemini → Qwen → manual decomposition
-try {
-  cliOutput = executeCLI('gemini', prompt)
-} catch (error) {
-  try {
-    cliOutput = executeCLI('qwen', prompt)
-  } catch {
-    // Manual fallback (see Fallback Decomposition below)
-    records = selectedMode === 'progressive'
-      ? manualProgressiveDecomposition(requirement, explorationContext)
-      : manualDirectDecomposition(requirement, explorationContext)
-  }
-}
-```
-
-##### CLI Output Parsing
-
-```javascript
-// Parse progressive layers from CLI output
-function parseProgressiveLayers(cliOutput) {
-  const layers = []
-  const layerBlocks = cliOutput.split(/## L(\d+):/).slice(1)
-
-  for (let i = 0; i < layerBlocks.length; i += 2) {
-    const layerId = `L${layerBlocks[i].trim()}`
-    const text = layerBlocks[i + 1]
-
-    const nameMatch = /^(.+?)(?=\n)/.exec(text)
-    const goalMatch = /\*\*Goal\*\*:\s*(.+?)(?=\n)/.exec(text)
-    const scopeMatch = /\*\*Scope\*\*:\s*(.+?)(?=\n)/.exec(text)
-    const excludesMatch = /\*\*Excludes\*\*:\s*(.+?)(?=\n)/.exec(text)
-    const effortMatch = /\*\*Effort\*\*:\s*(.+?)(?=\n)/.exec(text)
-    const dependsMatch = /\*\*Depends On\*\*:\s*(.+?)(?=\n|$)/.exec(text)
-    const riskMatch = /\*\*Risk Items\*\*:\n((?:- .+?\n)*)/.exec(text)
-
-    const convergence = parseConvergence(text)
-
-    layers.push({
-      id: layerId,
-      name: nameMatch?.[1].trim() || `Layer ${layerId}`,
-      goal: goalMatch?.[1].trim() || "",
-      scope: scopeMatch?.[1].split(/[,，]/).map(s => s.trim()).filter(Boolean) || [],
-      excludes: excludesMatch?.[1].split(/[,，]/).map(s => s.trim()).filter(Boolean) || [],
-      convergence,
-      risks: riskMatch
-        ? riskMatch[1].split('\n').map(s => s.replace(/^- /, '').trim()).filter(Boolean)
-            .map(desc => ({description: desc, probability: "Medium", impact: "Medium", mitigation: "N/A"}))
-        : [],
-      effort: normalizeEffort(effortMatch?.[1].trim()),
-      depends_on: parseDependsOn(dependsMatch?.[1], 'L')
-    })
-  }
-
-  return layers
-}
-
-// Parse direct tasks from CLI output
-function parseDirectTasks(cliOutput) {
-  const tasks = []
-  const taskBlocks = cliOutput.split(/## T(\d+):/).slice(1)
-
-  for (let i = 0; i < taskBlocks.length; i += 2) {
-    const taskId = `T${taskBlocks[i].trim()}`
-    const text = taskBlocks[i + 1]
-
-    const titleMatch = /^(.+?)(?=\n)/.exec(text)
-    const typeMatch = /\*\*Type\*\*:\s*(.+?)(?=\n)/.exec(text)
-    const scopeMatch = /\*\*Scope\*\*:\s*(.+?)(?=\n)/.exec(text)
-    const inputsMatch = /\*\*Inputs\*\*:\s*(.+?)(?=\n)/.exec(text)
-    const outputsMatch = /\*\*Outputs\*\*:\s*(.+?)(?=\n)/.exec(text)
-    const dependsMatch = /\*\*Depends On\*\*:\s*(.+?)(?=\n|$)/.exec(text)
-    const groupMatch = /\*\*Parallel Group\*\*:\s*(\d+)/.exec(text)
-
-    const convergence = parseConvergence(text)
-
-    tasks.push({
-      id: taskId,
-      title: titleMatch?.[1].trim() || `Task ${taskId}`,
-      type: normalizeType(typeMatch?.[1].trim()),
-      scope: scopeMatch?.[1].trim() || "",
-      inputs: parseList(inputsMatch?.[1]),
-      outputs: parseList(outputsMatch?.[1]),
-      convergence,
-      depends_on: parseDependsOn(dependsMatch?.[1], 'T'),
-      parallel_group: parseInt(groupMatch?.[1]) || 1
-    })
-  }
-
-  return tasks
-}
-
-// Parse convergence section from a record block
-function parseConvergence(text) {
-  const criteriaMatch = /- Criteria:\s*((?:.+\n?)+?)(?=- Verification:)/.exec(text)
-  const verificationMatch = /- Verification:\s*(.+?)(?=\n- Definition)/.exec(text)
-  const dodMatch = /- Definition of Done:\s*(.+?)(?=\n\*\*|$)/.exec(text)
-
-  const criteria = criteriaMatch
-    ? criteriaMatch[1].split('\n')
-        .map(s => s.replace(/^\s*[-•]\s*/, '').trim())
-        .filter(s => s && !s.startsWith('Verification') && !s.startsWith('Definition'))
-    : []
-
-  return {
-    criteria: criteria.length > 0 ? criteria : ["Task completed successfully"],
-    verification: verificationMatch?.[1].trim() || "Manual verification",
-    definition_of_done: dodMatch?.[1].trim() || "Feature works as expected"
-  }
-}
-
-// Helpers
-function normalizeEffort(effort) {
-  if (!effort) return "medium"
-  const lower = effort.toLowerCase()
-  if (lower.includes('small') || lower.includes('low')) return "small"
-  if (lower.includes('large') || lower.includes('high')) return "large"
-  return "medium"
-}
-
-function normalizeType(type) {
-  if (!type) return "feature"
-  const lower = type.toLowerCase()
-  if (lower.includes('infra')) return "infrastructure"
-  if (lower.includes('enhance')) return "enhancement"
-  if (lower.includes('test')) return "testing"
-  return "feature"
-}
-
-function parseList(text) {
-  if (!text || text.toLowerCase() === 'none') return []
-  return text.split(/[,，]/).map(s => s.trim()).filter(Boolean)
-}
-
-function parseDependsOn(text, prefix) {
-  if (!text || text.toLowerCase() === 'none' || text === '[]') return []
-  const pattern = new RegExp(`${prefix}\\d+`, 'g')
-  return (text.match(pattern) || [])
-}
-```
-
-##### Fallback Decomposition
-
-```javascript
-// Manual decomposition when CLI fails
-function manualProgressiveDecomposition(requirement, context) {
-  return [
-    {
-      id: "L0", name: "MVP", goal: "最小可用闭环",
-      scope: ["核心功能"], excludes: ["高级功能", "优化"],
-      convergence: {
-        criteria: ["核心路径端到端可跑通"],
-        verification: "手动测试核心流程",
-        definition_of_done: "用户可完成一次核心操作的完整流程"
-      },
-      risks: [{description: "技术选型待验证", probability: "Medium", impact: "Medium", mitigation: "待评估"}],
-      effort: "medium", depends_on: []
-    },
-    {
-      id: "L1", name: "可用", goal: "关键用户路径完善",
-      scope: ["错误处理", "输入校验"], excludes: ["性能优化", "监控"],
-      convergence: {
-        criteria: ["所有用户输入有校验", "错误场景有提示"],
-        verification: "单元测试 + 手动测试错误场景",
-        definition_of_done: "用户遇到问题时有清晰的引导和恢复路径"
-      },
-      risks: [], effort: "medium", depends_on: ["L0"]
-    }
-  ]
-}
-
-function manualDirectDecomposition(requirement, context) {
-  return [
-    {
-      id: "T1", title: "基础设施搭建", type: "infrastructure",
-      scope: "项目骨架和基础配置",
-      inputs: [], outputs: ["project-structure"],
-      convergence: {
-        criteria: ["项目可构建无报错", "基础配置完成"],
-        verification: "npm run build (或对应构建命令)",
-        definition_of_done: "项目基础框架就绪，可开始功能开发"
-      },
-      depends_on: [], parallel_group: 1
-    },
-    {
-      id: "T2", title: "核心功能实现", type: "feature",
-      scope: "核心业务逻辑",
-      inputs: ["project-structure"], outputs: ["core-module"],
-      convergence: {
-        criteria: ["核心 API/功能可调用", "返回预期结果"],
-        verification: "运行核心功能测试",
-        definition_of_done: "核心业务功能可正常使用"
-      },
-      depends_on: ["T1"], parallel_group: 2
-    }
-  ]
-}
-```
+- Convergence: testable criteria, executable verification, business-language DoD (see Convergence Quality Requirements)
+- All records must follow Internal Record Schemas
+- Validate with Step 3.2 immediately after construction
 
 ---
 
@@ -1169,14 +801,14 @@ ${layers.flatMap(l => l.risks.map(r => `- **${l.id}** (${issueIdMap[l.id]}): ${r
 
 ## Next Steps
 
-### 使用 team-planex 执行全部波次
+### 使用 issue-devpipeline 执行全部波次
 \`\`\`
-$team-planex --plan ${input.sessionFolder}/execution-plan.json
+$issue-devpipeline --plan ${input.sessionFolder}/execution-plan.json
 \`\`\`
 
 ### 按波次逐步执行
 \`\`\`
-${layers.map(l => `# Wave ${getWaveNum(l)}: ${l.name}\n$team-planex ${issueIdMap[l.id]}`).join('\n')}
+${layers.map(l => `# Wave ${getWaveNum(l)}: ${l.name}\n$issue-devpipeline ${issueIdMap[l.id]}`).join('\n')}
 \`\`\`
 
 路线图文件: \`${input.sessionFolder}/\`
@@ -1237,15 +869,15 @@ ${t.convergence.criteria.map(c => `- ${c}`).join('\n')}
 
 ## Next Steps
 
-### 使用 team-planex 执行全部波次
+### 使用 issue-devpipeline 执行全部波次
 \`\`\`
-$team-planex --plan ${input.sessionFolder}/execution-plan.json
+$issue-devpipeline --plan ${input.sessionFolder}/execution-plan.json
 \`\`\`
 
 ### 按波次逐步执行
 \`\`\`
 ${[...groups.entries()].sort(([a], [b]) => a - b).map(([g, ts]) =>
-  `# Wave ${g}: Group ${g}\n$team-planex ${ts.map(t => issueIdMap[t.id]).join(' ')}`
+  `# Wave ${g}: Group ${g}\n$issue-devpipeline ${ts.map(t => issueIdMap[t.id]).join(' ')}`
 ).join('\n')}
 \`\`\`
 
@@ -1270,7 +902,7 @@ Write(`${sessionFolder}/roadmap.md`, roadmapMd)
 
 #### Step 3.4: Decomposition Quality Check (MANDATORY)
 
-After creating issues and generating output files, **MUST** execute CLI quality check before proceeding.
+After creating issues and generating output files, **MUST** execute inline quality validation before proceeding.
 
 ##### Quality Dimensions
 
@@ -1282,50 +914,17 @@ After creating issues and generating output files, **MUST** execute CLI quality 
 | **Dependency Correctness** | No circular deps, proper ordering, issue dependencies match | Yes |
 | **Effort Balance** | No single issue disproportionately large | No |
 
-##### CLI Quality Check
+##### Inline Quality Validation
 
-```bash
-ccw cli -p "
-PURPOSE: Validate roadmap decomposition quality
-Success: All quality dimensions pass
+Validate decomposition against all 5 quality dimensions by reviewing the generated issues.jsonl and execution-plan.json:
 
-ORIGINAL REQUIREMENT:
-${requirement}
+1. **Requirement Coverage**: Compare original requirement against all issue scopes, identify gaps
+2. **Convergence Quality**: Use validateConvergence() from Step 3.2, check each record
+3. **Scope Integrity**: Use validateProgressiveLayers() or validateDirectTasks() from Step 3.2
+4. **Dependency Correctness**: Use detectCycles(), verify wave ordering matches dependency graph
+5. **Effort Balance**: Flag if one record has > 50% of total scope
 
-ISSUES CREATED (${selectedMode} mode):
-${issuesJsonlContent}
-
-EXECUTION PLAN:
-${JSON.stringify(executionPlan, null, 2)}
-
-TASK:
-• Requirement Coverage: Does the decomposition address ALL aspects of the requirement?
-• Convergence Quality: Are criteria testable? Is verification executable? Is DoD business-readable?
-• Scope Integrity: ${selectedMode === 'progressive' ? 'No scope overlap between layers, no feature gaps' : 'Inputs/outputs chain is valid, parallel groups are correct'}
-• Dependency Correctness: No circular dependencies, wave ordering correct
-• Effort Balance: No disproportionately large items
-
-MODE: analysis
-EXPECTED:
-## Quality Check Results
-### Requirement Coverage: PASS|FAIL
-[details]
-### Convergence Quality: PASS|FAIL
-[details and specific issues per record]
-### Scope Integrity: PASS|FAIL
-[details]
-### Dependency Correctness: PASS|FAIL
-[details]
-### Effort Balance: PASS|FAIL
-[details]
-
-## Recommendation: PASS|AUTO_FIX|NEEDS_REVIEW
-## Fixes (if AUTO_FIX):
-[specific fixes as JSON patches]
-
-CONSTRAINTS: Read-only validation, do not modify files
-" --tool gemini --mode analysis
-```
+**Decision**: PASS → proceed | AUTO_FIX → apply fixes and regenerate | NEEDS_REVIEW → report to user
 
 ##### Auto-Fix Strategy
 
@@ -1340,9 +939,9 @@ After fixes, update issues via `ccw issue update` and regenerate `issues.jsonl` 
 
 ---
 
-### Phase 4: Validation & team-planex Handoff
+### Phase 4: Validation & issue-devpipeline Handoff
 
-**Objective**: Display decomposition results, collect user feedback, provide team-planex execution options.
+**Objective**: Display decomposition results, collect user feedback, provide issue-devpipeline execution options.
 
 ```javascript
 // 1. Display Decomposition Results
@@ -1422,8 +1021,8 @@ if (AUTO_YES) {
       id: "next", type: "select",
       prompt: `路线图已生成，${issueIds.length} 个 issues 已创建。下一步：`,
       options: [
-        { label: "Execute with team-planex",
-          description: `启动 team-planex 执行全部 ${issueIds.length} 个 issues（${waves.length} 个波次）` },
+        { label: "Execute with issue-devpipeline",
+          description: `启动 issue-devpipeline 执行全部 ${issueIds.length} 个 issues（${waves.length} 个波次）` },
         { label: "Execute first wave",
           description: `仅执行 Wave 1: ${waves[0].label}` },
         { label: "View issues",
@@ -1438,12 +1037,12 @@ if (AUTO_YES) {
 
 | Selection | Action |
 |-----------|--------|
-| Execute with team-planex | `$team-planex --plan ${sessionFolder}/execution-plan.json` |
-| Execute first wave | `$team-planex ${waves[0].issue_ids.join(' ')}` |
+| Execute with issue-devpipeline | `$issue-devpipeline --plan ${sessionFolder}/execution-plan.json` |
+| Execute first wave | `$issue-devpipeline ${waves[0].issue_ids.join(' ')}` |
 | View issues | Display issues summary table from issues.jsonl |
 | Done | Display file paths, end |
 
-> **Implementation sketch**: 编排器内部使用 `Skill(skill="team-planex", args="--plan ...")` 接口调用，
+> **Implementation sketch**: 编排器内部使用 `Skill(skill="issue-devpipeline", args="--plan ...")` 接口调用，
 > 此为伪代码示意，非命令行语法。
 
 ---
@@ -1518,10 +1117,9 @@ Each line follows the standard `issues-jsonl-schema.json` (see `.ccw/workflows/c
 
 | Error | Resolution |
 |-------|------------|
-| cli-explore-agent timeout | Retry once with send_input prompt, then skip exploration |
-| cli-explore-agent failure | Skip code exploration, proceed with pure requirement decomposition |
 | No codebase | Normal flow, skip Phase 2 |
-| CLI decomposition failure (Gemini) | Fallback to Qwen, then manual decomposition |
+| Codebase search fails | Continue with available context, proceed with pure requirement decomposition |
+| No relevant findings | Broaden search keywords, ask user for clarification |
 | Issue creation failure | Retry once, then skip and continue with remaining |
 | Circular dependency detected | Prompt user to adjust dependencies, re-decompose |
 | User feedback timeout | Save current state, display `--continue` recovery command |
@@ -1531,7 +1129,7 @@ Each line follows the standard `issues-jsonl-schema.json` (see `.ccw/workflows/c
 
 ## Core Rules
 
-1. **Explicit Lifecycle**: Always close_agent after wait completes to free resources
+1. **Serial execution**: All exploration, decomposition, and validation done inline — no agent delegation, no CLI calls
 2. **DO NOT STOP**: Continuous multi-phase workflow. After completing each phase, immediately proceed to next
 3. **NEVER output vague convergence**: criteria must be testable, verification executable, DoD in business language
 4. **NEVER skip quality check**: Step 3.4 is MANDATORY before proceeding to Phase 4
@@ -1543,23 +1141,11 @@ Each line follows the standard `issues-jsonl-schema.json` (see `.ccw/workflows/c
 2. **Validate MVP first**: In progressive mode, L0 should be the minimum verifiable closed loop
 3. **Testable convergence**: criteria must be writable as assertions or manual steps; definition_of_done should be judgeable by non-technical stakeholders
 4. **Incremental validation**: Use `--continue` to iterate on existing roadmaps
-5. **team-planex integration**: Issues created follow standard issues-jsonl-schema, directly consumable by `$team-planex` via execution-plan.json
+5. **issue-devpipeline integration**: Issues created follow standard issues-jsonl-schema, directly consumable by `$issue-devpipeline` via execution-plan.json
 
 ## Usage Recommendations
 
-**Use `$req-plan-with-file` when:**
-- You need to decompose a large requirement into a progressively executable roadmap
-- Unsure where to start, need an MVP strategy
-- Need to generate a trackable task sequence
-- Requirement involves multiple stages or iterations
-- Want automatic issue creation + team-planex execution pipeline
-
-**Use `$workflow-lite-plan` when:**
-- You have a clear single task to execute
-- The requirement is already a layer/task from the roadmap
-- No layered planning needed
-
-**Use `$team-planex` directly when:**
+**Use `$issue-devpipeline` directly when:**
 - Issues already exist (created manually or from other workflows)
 - Have an execution-plan.json ready from a previous req-plan session
 
