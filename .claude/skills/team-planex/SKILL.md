@@ -113,7 +113,6 @@ mcp__ccw-tools__team_msg({ summary: `[${role}] ...` })
 const TEAM_CONFIG = {
   name: "planex",
   sessionDir: ".workflow/.team/PEX-{slug}-{date}/",
-  msgDir: ".workflow/.team-msg/planex/",
   issueDataDir: ".workflow/issues/"
 }
 ```

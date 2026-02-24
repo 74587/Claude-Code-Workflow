@@ -171,10 +171,10 @@ interface SkillCacheRequest {
  * GitHub repository configuration for remote skills
  */
 const GITHUB_CONFIG = {
-  owner: 'anthropics',
-  repo: 'claude-code-workflow',
+  owner: 'catlog22',
+  repo: 'skill-hub',
   branch: 'main',
-  skillIndexPath: 'skill-hub/index.json'
+  skillIndexPath: 'index.json'
 };
 
 /**
