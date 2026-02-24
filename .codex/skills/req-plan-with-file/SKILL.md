@@ -1,5 +1,5 @@
 ---
-name: workflow-req-plan
+name: req-plan-with-file
 description: Requirement-level progressive roadmap planning with issue creation. Decomposes requirements into convergent layers or task sequences, creates issues via ccw issue create, and generates roadmap.md for human review. Issues stored in .workflow/issues/issues.jsonl (single source of truth).
 argument-hint: "[-y|--yes] [-c|--continue] [-m|--mode progressive|direct|auto] \"requirement description\""
 allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
@@ -10,18 +10,18 @@ allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read
 ## Usage
 
 ```bash
-$workflow-req-plan "Implement user authentication system with OAuth and 2FA"
+$req-plan-with-file "Implement user authentication system with OAuth and 2FA"
 
 # With mode selection
-$workflow-req-plan -m progressive "Build real-time notification system"   # Layered MVP→iterations
-$workflow-req-plan -m direct "Refactor payment module"                   # Topologically-sorted task sequence
-$workflow-req-plan -m auto "Add data export feature"                     # Auto-select strategy
+$req-plan-with-file -m progressive "Build real-time notification system"   # Layered MVP→iterations
+$req-plan-with-file -m direct "Refactor payment module"                   # Topologically-sorted task sequence
+$req-plan-with-file -m auto "Add data export feature"                     # Auto-select strategy
 
 # Continue existing session
-$workflow-req-plan --continue "user authentication system"
+$req-plan-with-file --continue "user authentication system"
 
 # Auto mode (skip all confirmations)
-$workflow-req-plan -y "Implement caching layer"
+$req-plan-with-file -y "Implement caching layer"
 
 # Flags
 -y, --yes                              Skip all confirmations (auto mode)
@@ -1547,7 +1547,7 @@ Each line follows the standard `issues-jsonl-schema.json` (see `.ccw/workflows/c
 
 ## Usage Recommendations
 
-**Use `$workflow-req-plan` when:**
+**Use `$req-plan-with-file` when:**
 - You need to decompose a large requirement into a progressively executable roadmap
 - Unsure where to start, need an MVP strategy
 - Need to generate a trackable task sequence
