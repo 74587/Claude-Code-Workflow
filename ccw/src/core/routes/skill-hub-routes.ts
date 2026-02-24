@@ -893,6 +893,18 @@ export async function handleSkillHubRoutes(ctx: RouteContext): Promise<boolean> 
   // GET /api/skill-hub/remote
   if (pathname === '/api/skill-hub/remote' && req.method === 'GET') {
     try {
+      // Check for refresh parameter to bypass cache
+      const refresh = ctx.url.searchParams.get('refresh') === 'true';
+      if (refresh) {
+        // Clear memory cache
+        remoteSkillsCache = { data: null, timestamp: 0 };
+        // Clear file cache
+        const cachedPath = join(getSkillHubDir(), 'index.json');
+        if (existsSync(cachedPath)) {
+          rmSync(cachedPath, { force: true });
+        }
+      }
+
       const index = await fetchRemoteSkillIndex();
 
       res.writeHead(200, { 'Content-Type': 'application/json' });

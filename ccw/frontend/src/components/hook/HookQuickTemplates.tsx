@@ -226,7 +226,7 @@ function getCategoryName(category: TemplateCategory, formatMessage: ReturnType<t
 export function HookQuickTemplates({
   onInstallTemplate,
   installedTemplates,
-  isLoading = false,
+  isLoading: _isLoading = false,
   installingTemplateId = null
 }: HookQuickTemplatesProps) {
   const { formatMessage } = useIntl();
