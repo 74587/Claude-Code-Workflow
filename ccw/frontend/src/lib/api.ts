@@ -5968,10 +5968,31 @@ export async function previewYamlConfig(): Promise<{ success: boolean; config: s
 
 // ========== CCW-LiteLLM Package Management ==========
 
+export interface CcwLitellmEnvCheck {
+  python: string;
+  installed: boolean;
+  version?: string;
+  error?: string;
+}
+
+export interface CcwLitellmStatus {
+  /**
+   * Whether ccw-litellm is installed in the CodexLens venv.
+   * This is the environment used for the LiteLLM embedding backend.
+   */
+  installed: boolean;
+  version?: string;
+  error?: string;
+  checks?: {
+    codexLensVenv: CcwLitellmEnvCheck;
+    systemPython?: CcwLitellmEnvCheck;
+  };
+}
+
 /**
  * Check ccw-litellm status
  */
-export async function checkCcwLitellmStatus(refresh = false): Promise<{ installed: boolean; version?: string; error?: string }> {
+export async function checkCcwLitellmStatus(refresh = false): Promise<CcwLitellmStatus> {
   return fetchApi(`/api/litellm-api/ccw-litellm/status${refresh ? '?refresh=true' : ''}`);
 }
 
