@@ -6150,6 +6150,54 @@ export async function getCliSettingsPath(endpointId: string): Promise<{ endpoint
   return fetchApi(`/api/cli/settings/${encodeURIComponent(endpointId)}/path`);
 }
 
+// ========== CLI Config Preview API ==========
+
+/**
+ * Codex config preview response
+ */
+export interface CodexConfigPreviewResponse {
+  /** Whether preview was successful */
+  success: boolean;
+  /** Path to config.toml */
+  configPath: string;
+  /** Path to auth.json */
+  authPath: string;
+  /** config.toml content with sensitive values masked */
+  configToml: string | null;
+  /** auth.json content with API keys masked */
+  authJson: string | null;
+  /** Error messages if any files could not be read */
+  errors?: string[];
+}
+
+/**
+ * Gemini config preview response
+ */
+export interface GeminiConfigPreviewResponse {
+  /** Whether preview was successful */
+  success: boolean;
+  /** Path to settings.json */
+  settingsPath: string;
+  /** settings.json content with sensitive values masked */
+  settingsJson: string | null;
+  /** Error messages if file could not be read */
+  errors?: string[];
+}
+
+/**
+ * Fetch Codex config files preview (config.toml and auth.json)
+ */
+export async function fetchCodexConfigPreview(): Promise<CodexConfigPreviewResponse> {
+  return fetchApi('/api/cli/settings/codex/preview');
+}
+
+/**
+ * Fetch Gemini settings file preview (settings.json)
+ */
+export async function fetchGeminiConfigPreview(): Promise<GeminiConfigPreviewResponse> {
+  return fetchApi('/api/cli/settings/gemini/preview');
+}
+
 // ========== Orchestrator Execution Monitoring API ==========
 
 /**

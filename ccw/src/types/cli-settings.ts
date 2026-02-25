@@ -298,3 +298,35 @@ export interface ImportResult {
   /** List of imported endpoint IDs */
   importedIds?: string[];
 }
+
+/**
+ * Codex config preview response
+ */
+export interface CodexConfigPreviewResponse {
+  /** Whether preview was successful */
+  success: boolean;
+  /** Path to config.toml */
+  configPath: string;
+  /** Path to auth.json */
+  authPath: string;
+  /** config.toml content with sensitive values masked */
+  configToml: string | null;
+  /** auth.json content with API keys masked */
+  authJson: string | null;
+  /** Error messages if any files could not be read */
+  errors?: string[];
+}
+
+/**
+ * Gemini config preview response
+ */
+export interface GeminiConfigPreviewResponse {
+  /** Whether preview was successful */
+  success: boolean;
+  /** Path to settings.json */
+  settingsPath: string;
+  /** settings.json content with sensitive values masked */
+  settingsJson: string | null;
+  /** Error messages if file could not be read */
+  errors?: string[];
+}

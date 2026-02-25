@@ -1,9 +1,10 @@
 /**
  * Session Content Parser - Parses native CLI tool session files
- * Supports Gemini/Qwen JSON and Codex JSONL formats
+ * Supports Gemini/Qwen JSON, Codex JSONL, and Claude JSONL formats
  */
 
 import { readFileSync, existsSync } from 'fs';
+import { parseClaudeSession } from './claude-session-parser.js';
 
 // Standardized conversation turn
 export interface ParsedTurn {
@@ -197,6 +198,8 @@ export function parseSessionFile(filePath: string, tool: string): ParsedSession 
         return parseGeminiQwenSession(content, tool);
       case 'codex':
         return parseCodexSession(content);
+      case 'claude':
+        return parseClaudeSession(filePath);
       default:
         return null;
     }

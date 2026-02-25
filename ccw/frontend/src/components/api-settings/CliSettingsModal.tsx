@@ -5,7 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useIntl } from 'react-intl';
-import { Check, Eye, EyeOff, X, Plus } from 'lucide-react';
+import { Check, Eye, EyeOff, X, Plus, Loader2, Download } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { useCreateCliSettings, useUpdateCliSettings, useProviders } from '@/hooks/useApiSettings';
 import { useNotifications } from '@/hooks/useNotifications';
+import { fetchCodexConfigPreview, fetchGeminiConfigPreview } from '@/lib/api';
 import type { CliSettingsEndpoint, CliProvider } from '@/lib/api';
 
 // ========== Types ==========
@@ -101,6 +102,8 @@ export function CliSettingsModal({ open, onClose, cliSettings, defaultProvider }
   // Gemini specific
   const [geminiApiKey, setGeminiApiKey] = useState('');
   const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [geminiSettingsJson, setGeminiSettingsJson] = useState('');
+  const [isLoadingGeminiConfig, setIsLoadingGeminiConfig] = useState(false);
 
   // Shared
   const [model, setModel] = useState('');
@@ -111,6 +114,9 @@ export function CliSettingsModal({ open, onClose, cliSettings, defaultProvider }
   const [configJson, setConfigJson] = useState('{}');
   const [showJsonInput, setShowJsonInput] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Codex config preview loading state
+  const [isLoadingCodexConfig, setIsLoadingCodexConfig] = useState(false);
 
   // Initialize form
   useEffect(() => {
@@ -171,6 +177,7 @@ export function CliSettingsModal({ open, onClose, cliSettings, defaultProvider }
       setWriteCommonConfig(false);
       setGeminiApiKey('');
       setShowGeminiKey(false);
+      setGeminiSettingsJson('');
       setAvailableModels([]);
       setModelInput('');
       setTags([]);
@@ -222,6 +229,47 @@ export function CliSettingsModal({ open, onClose, cliSettings, defaultProvider }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  // Handle load Codex config preview
+  const handleLoadCodexConfig = async () => {
+    setIsLoadingCodexConfig(true);
+    try {
+      const result = await fetchCodexConfigPreview();
+      if (result.success) {
+        if (result.configToml) {
+          setConfigToml(result.configToml);
+        }
+        if (result.authJson) {
+          setAuthJson(result.authJson);
+        }
+      } else {
+        error(formatMessage({ id: 'apiSettings.cliSettings.loadConfigError' }) || 'Failed to load config');
+      }
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.cliSettings.loadConfigError' }) || 'Failed to load config');
+    } finally {
+      setIsLoadingCodexConfig(false);
+    }
+  };
+
+  // Handle load Gemini config preview
+  const handleLoadGeminiConfig = async () => {
+    setIsLoadingGeminiConfig(true);
+    try {
+      const result = await fetchGeminiConfigPreview();
+      if (result.success) {
+        if (result.settingsJson) {
+          setGeminiSettingsJson(result.settingsJson);
+        }
+      } else {
+        error(formatMessage({ id: 'apiSettings.cliSettings.loadConfigError' }) || 'Failed to load config');
+      }
+    } catch (err) {
+      error(formatMessage({ id: 'apiSettings.cliSettings.loadConfigError' }) || 'Failed to load config');
+    } finally {
+      setIsLoadingGeminiConfig(false);
+    }
   };
 
   // Handle save
@@ -521,6 +569,35 @@ export function CliSettingsModal({ open, onClose, cliSettings, defaultProvider }
           {/* ========== Codex Settings ========== */}
           {cliProvider === 'codex' && (
             <div className="space-y-4">
+              {/* Load Global Config Button */}
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium">Load Global Config</p>
+                  <p className="text-xs text-muted-foreground">
+                    Load config.toml and auth.json from global Codex config directory
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLoadCodexConfig}
+                  disabled={isLoadingCodexConfig}
+                >
+                  {isLoadingCodexConfig ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Load Config
+                    </>
+                  )}
+                </Button>
+              </div>
+
               {/* API Key */}
               <div className="space-y-2">
                 <Label htmlFor="codex-apikey">API Key</Label>
@@ -645,6 +722,35 @@ export function CliSettingsModal({ open, onClose, cliSettings, defaultProvider }
           {/* ========== Gemini Settings ========== */}
           {cliProvider === 'gemini' && (
             <div className="space-y-4">
+              {/* Load Global Config Button */}
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                <div>
+                  <p className="text-sm font-medium">Load Global Config</p>
+                  <p className="text-xs text-muted-foreground">
+                    Load settings.json from global Gemini config directory
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLoadGeminiConfig}
+                  disabled={isLoadingGeminiConfig}
+                >
+                  {isLoadingGeminiConfig ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Load Config
+                    </>
+                  )}
+                </Button>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="gemini-apikey">API Key</Label>
                 <div className="relative">
@@ -675,6 +781,38 @@ export function CliSettingsModal({ open, onClose, cliSettings, defaultProvider }
                   placeholder="gemini-2.5-flash"
                 />
               </div>
+
+              {/* settings.json Editor */}
+              {geminiSettingsJson && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="gemini-settingsjson">settings.json (Preview)</Label>
+                    <Button
+                      type="button" variant="ghost" size="sm"
+                      onClick={() => {
+                        try {
+                          const formatted = JSON.stringify(JSON.parse(geminiSettingsJson), null, 2);
+                          setGeminiSettingsJson(formatted);
+                        } catch { /* skip */ }
+                      }}
+                    >
+                      Format
+                    </Button>
+                  </div>
+                  <Textarea
+                    id="gemini-settingsjson"
+                    value={geminiSettingsJson}
+                    onChange={(e) => setGeminiSettingsJson(e.target.value)}
+                    placeholder='{"model": "gemini-2.5-flash", ...}'
+                    className="font-mono text-sm"
+                    rows={8}
+                    readOnly
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Gemini settings.json content (read-only preview)
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
