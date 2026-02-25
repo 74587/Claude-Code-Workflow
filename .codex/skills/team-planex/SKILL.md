@@ -1,11 +1,8 @@
 ---
 name: team-planex
-description: |
-  2-member plan-and-execute pipeline with Wave Pipeline for concurrent planning and execution.
-  Planner decomposes requirements into issues, generates solutions, forms execution queues.
-  Executor implements solutions via configurable backends (agent/codex/gemini).
-agents: 2
-phases: 4
+description: 2-member plan-and-execute pipeline with Wave Pipeline for concurrent planning and execution. Planner decomposes requirements into issues, generates solutions, forms execution queues. Executor implements solutions via configurable backends (agent/codex/gemini). Triggers on "team planex".
+allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
+argument-hint: "<issue-ids|--text 'description'|--plan path> [--exec=agent|codex|gemini|auto] [-y]"
 ---
 
 # Team PlanEx
