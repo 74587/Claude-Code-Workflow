@@ -258,3 +258,43 @@ export function validateSettings(settings: unknown, provider?: CliProvider): set
 
   return true;
 }
+
+/**
+ * Exported settings format for backup/restore
+ */
+export interface ExportedSettings {
+  /** Export format version for future migrations */
+  version: string;
+  /** Export timestamp (ISO 8601) */
+  timestamp: string;
+  /** All endpoint settings */
+  endpoints: EndpointSettings[];
+}
+
+/**
+ * Import options for conflict resolution
+ */
+export interface ImportOptions {
+  /** How to handle conflicts: 'skip' keeps existing, 'overwrite' replaces, 'merge' combines */
+  conflictStrategy?: 'skip' | 'overwrite' | 'merge';
+  /** Whether to skip invalid endpoints (default: true) */
+  skipInvalid?: boolean;
+  /** Whether to disable all imported endpoints (default: false) */
+  disableImported?: boolean;
+}
+
+/**
+ * Import result summary
+ */
+export interface ImportResult {
+  /** Whether import was successful overall */
+  success: boolean;
+  /** Number of endpoints imported successfully */
+  imported: number;
+  /** Number of endpoints skipped (conflicts or validation errors) */
+  skipped: number;
+  /** Detailed error messages for failed imports */
+  errors: string[];
+  /** List of imported endpoint IDs */
+  importedIds?: string[];
+}

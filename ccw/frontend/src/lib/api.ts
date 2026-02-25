@@ -6482,6 +6482,68 @@ export async function upgradeCcwInstallation(
   });
 }
 
+// ========== CLI Settings Export/Import API ==========
+
+/**
+ * Exported settings structure from backend
+ */
+export interface ExportedSettings {
+  version: string;
+  exportedAt: string;
+  settings: {
+    cliTools?: Record<string, unknown>;
+    chineseResponse?: {
+      claudeEnabled: boolean;
+      codexEnabled: boolean;
+    };
+    windowsPlatform?: {
+      enabled: boolean;
+    };
+    codexCliEnhancement?: {
+      enabled: boolean;
+    };
+  };
+}
+
+/**
+ * Import options for settings import
+ */
+export interface ImportOptions {
+  overwrite?: boolean;
+  dryRun?: boolean;
+}
+
+/**
+ * Import result from backend
+ */
+export interface ImportResult {
+  success: boolean;
+  imported: number;
+  skipped: number;
+  errors: string[];
+  importedIds: string[];
+}
+
+/**
+ * Export CLI settings to JSON file
+ */
+export async function exportSettings(): Promise<ExportedSettings> {
+  return fetchApi('/api/cli/settings/export');
+}
+
+/**
+ * Import CLI settings from JSON data
+ */
+export async function importSettings(
+  data: ExportedSettings,
+  options?: ImportOptions
+): Promise<ImportResult> {
+  return fetchApi('/api/cli/settings/import', {
+    method: 'POST',
+    body: JSON.stringify({ data, options }),
+  });
+}
+
 // ========== CCW Tools API ==========
 
 /**

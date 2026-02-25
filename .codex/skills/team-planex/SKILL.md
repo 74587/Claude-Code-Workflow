@@ -1,13 +1,13 @@
 ---
 name: team-planex
-description: 2-member plan-and-execute pipeline with Wave Pipeline for concurrent planning and execution. Planner decomposes requirements into issues, generates solutions, forms execution queues. Executor implements solutions via configurable backends (agent/codex/gemini). Triggers on "team planex".
+description: 2-member plan-and-execute pipeline with per-issue beat pipeline for concurrent planning and execution. Planner decomposes requirements into issues, generates solutions, writes artifacts. Executor implements solutions via configurable backends (agent/codex/gemini). Triggers on "team planex".
 allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
 argument-hint: "<issue-ids|--text 'description'|--plan path> [--exec=agent|codex|gemini|auto] [-y]"
 ---
 
 # Team PlanEx
 
-2 成员边规划边执行团队。通过 Wave Pipeline（波次流水线）实现 planner 和 executor 并行工作：planner 完成一个 wave 的 queue 后，orchestrator 立即 spawn executor agent 处理该 wave，同时 send_input 让 planner 继续下一 wave。
+2 成员边规划边执行团队。通过逐 Issue 节拍流水线实现 planner 和 executor 并行工作：planner 每完成一个 issue 的 solution 后输出 ISSUE_READY 信号，orchestrator 立即 spawn executor agent 处理该 issue，同时 send_input 让 planner 继续下一 issue。
 
 ## Architecture Overview
 
@@ -16,7 +16,7 @@ argument-hint: "<issue-ids|--text 'description'|--plan path> [--exec=agent|codex
 │  Orchestrator (this file)                     │
 │  → Parse input → Spawn planner → Spawn exec  │
 └────────────────┬─────────────────────────────┘
-                 │ Wave Pipeline
+                 │ Per-Issue Beat Pipeline
          ┌───────┴───────┐
          ↓               ↓
     ┌─────────┐    ┌──────────┐
@@ -25,17 +25,16 @@ argument-hint: "<issue-ids|--text 'description'|--plan path> [--exec=agent|codex
     └─────────┘    └──────────┘
          │               │
     issue-plan-agent  code-developer
-    issue-queue-agent (or codex/gemini CLI)
+                       (or codex/gemini CLI)
 ```
 
 ## Agent Registry
 
 | Agent | Role File | Responsibility | New/Existing |
 |-------|-----------|----------------|--------------|
-| `planex-planner` | `.codex/skills/team-planex/agents/planex-planner.md` | 需求拆解 → issue 创建 → 方案设计 → 队列编排 | New (skill-specific) |
+| `planex-planner` | `.codex/skills/team-planex/agents/planex-planner.md` | 需求拆解 → issue 创建 → 方案设计 → 冲突检查 → 逐 issue 派发 | New (skill-specific) |
 | `planex-executor` | `.codex/skills/team-planex/agents/planex-executor.md` | 加载 solution → 代码实现 → 测试 → 提交 | New (skill-specific) |
 | `issue-plan-agent` | `~/.codex/agents/issue-plan-agent.md` | ACE exploration + solution generation + binding | Existing |
-| `issue-queue-agent` | `~/.codex/agents/issue-queue-agent.md` | Solution ordering + conflict detection | Existing |
 | `code-developer` | `~/.codex/agents/code-developer.md` | Code implementation (agent backend) | Existing |
 
 ## Input Types
@@ -86,11 +85,18 @@ if (explicitExec) {
   // Interactive: ask user for preferences
   // (orchestrator handles user interaction directly)
 }
+
+// Initialize session directory for artifacts
+const slug = (issueIds[0] || 'batch').replace(/[^a-zA-Z0-9-]/g, '')
+const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'')
+const sessionId = `PEX-${slug}-${dateStr}`
+const sessionDir = `.workflow/.team/${sessionId}`
+shell(`mkdir -p "${sessionDir}/artifacts/solutions"`)
 ```
 
-### Phase 2: Planning (Planner Agent — Deep Interaction)
+### Phase 2: Planning (Planner Agent — Per-Issue Beat)
 
-Spawn planner agent for wave-based planning. Uses send_input for multi-wave progression.
+Spawn planner agent for per-issue planning. Uses send_input for issue-by-issue progression.
 
 ```javascript
 // Build planner input context
@@ -110,7 +116,7 @@ const planner = spawn_agent({
 
 ---
 
-Goal: Decompose requirements into waves of executable solutions
+Goal: Decompose requirements into executable solutions (per-issue beat)
 
 ## Input
 ${plannerInput}
@@ -119,61 +125,64 @@ ${plannerInput}
 execution_method: ${executionConfig.executionMethod}
 code_review: ${executionConfig.codeReviewTool}
 
+## Session Dir
+session_dir: ${sessionDir}
+
 ## Deliverables
-For EACH wave, output structured wave data:
+For EACH issue, output structured data:
 
 \`\`\`
-WAVE_READY:
-wave_number: N
-issue_ids: [ISS-xxx, ...]
-queue_path: .workflow/issues/queue/execution-queue.json
-exec_tasks: [
-  { issue_id: "ISS-xxx", solution_id: "SOL-xxx", title: "...", priority: "normal", depends_on: [] },
-  ...
-]
+ISSUE_READY:
+{
+  "issue_id": "ISS-xxx",
+  "solution_id": "SOL-xxx",
+  "title": "...",
+  "priority": "normal",
+  "depends_on": [],
+  "solution_file": "${sessionDir}/artifacts/solutions/ISS-xxx.json"
+}
 \`\`\`
 
-After ALL waves planned, output:
+After ALL issues planned, output:
 \`\`\`
 ALL_PLANNED:
-total_waves: N
-total_issues: N
+{ "total_issues": N }
 \`\`\`
 
 ## Quality bar
 - Every issue has a bound solution
-- Queue respects dependency DAG
-- Wave boundaries are logical groupings
+- Solution artifact written to file before output
+- Inline conflict check determines depends_on
 `
 })
 
-// Wait for Wave 1
-const wave1 = wait({ ids: [planner], timeout_ms: 600000 })
+// Wait for first ISSUE_READY
+const firstIssue = wait({ ids: [planner], timeout_ms: 600000 })
 
-if (wave1.timed_out) {
-  send_input({ id: planner, message: "Please finalize current wave and output WAVE_READY." })
+if (firstIssue.timed_out) {
+  send_input({ id: planner, message: "Please finalize current issue and output ISSUE_READY." })
   const retry = wait({ ids: [planner], timeout_ms: 120000 })
 }
 
-// Parse wave data from planner output
-const wave1Data = parseWaveReady(wave1.status[planner].completed)
+// Parse first issue data
+const firstIssueData = parseIssueReady(firstIssue.status[planner].completed)
 ```
 
-### Phase 3: Wave Pipeline (Planning + Execution Interleaved)
+### Phase 3: Per-Issue Beat Pipeline (Planning + Execution Interleaved)
 
-Pipeline: spawn executor for current wave while planner continues next wave.
+Pipeline: spawn executor for current issue while planner continues next issue.
 
 ```javascript
 const allAgentIds = [planner]
 const executorAgents = []
-let waveNum = 1
 let allPlanned = false
+let currentIssueOutput = firstIssue.status[planner].completed
 
 while (!allPlanned) {
-  // --- Spawn executor for current wave ---
-  const waveData = parseWaveReady(currentWaveOutput)
+  // --- Spawn executor for current issue ---
+  const issueData = parseIssueReady(currentIssueOutput)
 
-  if (waveData && waveData.exec_tasks.length > 0) {
+  if (issueData) {
     const executor = spawn_agent({
       message: `
 ## TASK ASSIGNMENT
@@ -185,75 +194,82 @@ while (!allPlanned) {
 
 ---
 
-Goal: Implement all solutions in Wave ${waveNum}
+Goal: Implement solution for ${issueData.issue_id}
 
-## Wave ${waveNum} Tasks
-${JSON.stringify(waveData.exec_tasks, null, 2)}
+## Task
+${JSON.stringify([issueData], null, 2)}
 
 ## Execution Config
 execution_method: ${executionConfig.executionMethod}
 code_review: ${executionConfig.codeReviewTool}
 
+## Solution File
+solution_file: ${issueData.solution_file}
+
+## Session Dir
+session_dir: ${sessionDir}
+
 ## Deliverables
-For each task, output:
 \`\`\`
 IMPL_COMPLETE:
-issue_id: ISS-xxx
+issue_id: ${issueData.issue_id}
 status: success|failed
 test_result: pass|fail
 commit: <hash or N/A>
 \`\`\`
 
-After all wave tasks done:
-\`\`\`
-WAVE_DONE:
-wave_number: ${waveNum}
-completed: N
-failed: N
-\`\`\`
-
 ## Quality bar
-- All existing tests pass after each implementation
+- All existing tests pass after implementation
 - Code follows project conventions
 - One commit per solution
 `
     })
     allAgentIds.push(executor)
-    executorAgents.push({ id: executor, wave: waveNum })
+    executorAgents.push({ id: executor, issueId: issueData.issue_id })
   }
 
-  // --- Tell planner to continue next wave ---
-  if (!allPlanned) {
-    send_input({ id: planner, message: `Wave ${waveNum} dispatched to executor. Continue to Wave ${waveNum + 1}.` })
+  // --- Check if ALL_PLANNED was in this output ---
+  if (currentIssueOutput.includes("ALL_PLANNED")) {
+    allPlanned = true
+    break
+  }
 
-    // Wait for both: planner (next wave) + current executor
-    const activeIds = [planner]
-    if (executorAgents.length > 0) {
-      activeIds.push(executorAgents[executorAgents.length - 1].id)
+  // --- Tell planner to continue next issue ---
+  send_input({ id: planner, message: `Issue ${issueData?.issue_id || 'unknown'} dispatched. Continue to next issue.` })
+
+  // Wait for planner (next issue)
+  const plannerResult = wait({ ids: [planner], timeout_ms: 600000 })
+
+  if (plannerResult.timed_out) {
+    send_input({ id: planner, message: "Please finalize current issue and output results." })
+    const retry = wait({ ids: [planner], timeout_ms: 120000 })
+    currentIssueOutput = retry.status?.[planner]?.completed || ""
+  } else {
+    currentIssueOutput = plannerResult.status[planner]?.completed || ""
+  }
+
+  // Check for ALL_PLANNED
+  if (currentIssueOutput.includes("ALL_PLANNED")) {
+    // May contain a final ISSUE_READY before ALL_PLANNED
+    const finalIssue = parseIssueReady(currentIssueOutput)
+    if (finalIssue) {
+      // Spawn one more executor for the last issue
+      const lastExec = spawn_agent({
+        message: `... same executor spawn as above for ${finalIssue.issue_id} ...`
+      })
+      allAgentIds.push(lastExec)
+      executorAgents.push({ id: lastExec, issueId: finalIssue.issue_id })
     }
-
-    const results = wait({ ids: activeIds, timeout_ms: 600000 })
-
-    // Check planner output
-    const plannerOutput = results.status[planner]?.completed || ""
-    if (plannerOutput.includes("ALL_PLANNED")) {
-      allPlanned = true
-    } else if (plannerOutput.includes("WAVE_READY")) {
-      waveNum++
-      currentWaveOutput = plannerOutput
-    }
+    allPlanned = true
   }
 }
 
-// Wait for remaining executor agents
-const pendingExecutors = executorAgents
-  .map(e => e.id)
-  .filter(id => !completedIds.includes(id))
+// Wait for all remaining executor agents
+const pendingExecutors = executorAgents.map(e => e.id)
 
 if (pendingExecutors.length > 0) {
   const finalResults = wait({ ids: pendingExecutors, timeout_ms: 900000 })
 
-  // Handle timeout
   if (finalResults.timed_out) {
     const pending = pendingExecutors.filter(id => !finalResults.status[id]?.completed)
     pending.forEach(id => {
@@ -269,21 +285,21 @@ if (pendingExecutors.length > 0) {
 ```javascript
 // Collect results from all executors
 const pipelineResults = {
-  waves: [],
+  issues: [],
   totalCompleted: 0,
   totalFailed: 0
 }
 
-executorAgents.forEach(({ id, wave }) => {
+executorAgents.forEach(({ id, issueId }) => {
   const output = results.status[id]?.completed || ""
-  const waveDone = parseWaveDone(output)
-  pipelineResults.waves.push({
-    wave,
-    completed: waveDone?.completed || 0,
-    failed: waveDone?.failed || 0
+  const implResult = parseImplComplete(output)
+  pipelineResults.issues.push({
+    issueId,
+    status: implResult?.status || 'unknown',
+    commit: implResult?.commit || 'N/A'
   })
-  pipelineResults.totalCompleted += waveDone?.completed || 0
-  pipelineResults.totalFailed += waveDone?.failed || 0
+  if (implResult?.status === 'success') pipelineResults.totalCompleted++
+  else pipelineResults.totalFailed++
 })
 
 // Output final summary
@@ -291,13 +307,13 @@ console.log(`
 ## PlanEx Pipeline Complete
 
 ### Summary
-- Total Waves: ${waveNum}
-- Total Completed: ${pipelineResults.totalCompleted}
-- Total Failed: ${pipelineResults.totalFailed}
+- Total Issues: ${executorAgents.length}
+- Completed: ${pipelineResults.totalCompleted}
+- Failed: ${pipelineResults.totalFailed}
 
-### Wave Details
-${pipelineResults.waves.map(w =>
-  `- Wave ${w.wave}: ${w.completed} completed, ${w.failed} failed`
+### Issue Details
+${pipelineResults.issues.map(i =>
+  `- ${i.issueId}: ${i.status} (commit: ${i.commit})`
 ).join('\n')}
 `)
 
@@ -315,27 +331,26 @@ Since Codex agents have isolated contexts, use file-based coordination:
 
 | File | Purpose | Writer | Reader |
 |------|---------|--------|--------|
-| `.workflow/.team/PEX-{slug}-{date}/wave-{N}.json` | Wave plan data | planner | orchestrator |
-| `.workflow/.team/PEX-{slug}-{date}/exec-{issueId}.json` | Execution result | executor | orchestrator |
-| `.workflow/.team/PEX-{slug}-{date}/pipeline-log.ndjson` | Event log | both | orchestrator |
-| `.workflow/issues/queue/execution-queue.json` | Execution queue | planner (via issue-queue-agent) | executor |
+| `{sessionDir}/artifacts/solutions/{issueId}.json` | Solution artifact | planner | executor |
+| `{sessionDir}/exec-{issueId}.json` | Execution result | executor | orchestrator |
+| `{sessionDir}/pipeline-log.ndjson` | Event log | both | orchestrator |
 
-### Wave Data Format
+### Solution Artifact Format
 
 ```json
 {
-  "wave_number": 1,
-  "issue_ids": ["ISS-20260215-001", "ISS-20260215-002"],
-  "queue_path": ".workflow/issues/queue/execution-queue.json",
-  "exec_tasks": [
-    {
-      "issue_id": "ISS-20260215-001",
-      "solution_id": "SOL-001",
-      "title": "Implement auth module",
-      "priority": "high",
-      "depends_on": []
-    }
-  ]
+  "issue_id": "ISS-20260215-001",
+  "bound": {
+    "id": "SOL-001",
+    "title": "Implement auth module",
+    "tasks": [...],
+    "files_touched": ["src/auth/login.ts"]
+  },
+  "execution_config": {
+    "execution_method": "Agent",
+    "code_review": "Skip"
+  },
+  "timestamp": "2026-02-15T10:00:00Z"
 }
 ```
 
@@ -358,7 +373,7 @@ Since Codex agents have isolated contexts, use file-based coordination:
 
 | Timeout Scenario | Action |
 |-----------------|--------|
-| Planner wave timeout | send_input to urge convergence, retry wait |
+| Planner issue timeout | send_input to urge convergence, retry wait |
 | Executor impl timeout | send_input to finalize, record partial result |
 | All agents timeout | Log error, abort with partial state |
 
@@ -380,28 +395,27 @@ allAgentIds.forEach(id => {
 
 | Scenario | Resolution |
 |----------|------------|
-| Planner wave failure | Retry once via send_input, then abort pipeline |
-| Executor impl failure | Record failure, continue with next wave tasks |
+| Planner issue failure | Retry once via send_input, then skip issue |
+| Executor impl failure | Record failure, continue with next issue |
 | No issues created from text | Report to user, abort |
 | Solution generation failure | Skip issue, continue with remaining |
-| Queue formation failure | Create exec tasks without DAG ordering |
+| Inline conflict check failure | Use empty depends_on, continue |
 | Pipeline stall (no progress) | Timeout handling → urge convergence → abort |
 | Missing role file | Log error, use inline fallback instructions |
 
 ## Helper Functions
 
 ```javascript
-function parseWaveReady(output) {
-  const match = output.match(/WAVE_READY:\s*\n([\s\S]*?)(?=\n```|$)/)
+function parseIssueReady(output) {
+  const match = output.match(/ISSUE_READY:\s*\n([\s\S]*?)(?=\n```|$)/)
   if (!match) return null
-  // Parse structured wave data
-  return JSON.parse(match[1])
+  try { return JSON.parse(match[1]) } catch { return null }
 }
 
-function parseWaveDone(output) {
-  const match = output.match(/WAVE_DONE:\s*\n([\s\S]*?)(?=\n```|$)/)
+function parseImplComplete(output) {
+  const match = output.match(/IMPL_COMPLETE:\s*\n([\s\S]*?)(?=\n```|$)/)
   if (!match) return null
-  return JSON.parse(match[1])
+  try { return JSON.parse(match[1]) } catch { return null }
 }
 
 function resolveExecutor(method, taskCount) {

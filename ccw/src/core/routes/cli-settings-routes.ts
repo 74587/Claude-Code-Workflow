@@ -12,9 +12,11 @@ import {
   toggleEndpointEnabled,
   getSettingsFilePath,
   ensureSettingsDir,
-  sanitizeEndpointId
+  sanitizeEndpointId,
+  exportAllSettings,
+  importSettings
 } from '../../config/cli-settings-manager.js';
-import type { SaveEndpointRequest } from '../../types/cli-settings.js';
+import type { SaveEndpointRequest, ImportOptions } from '../../types/cli-settings.js';
 import { validateSettings } from '../../types/cli-settings.js';
 import { syncBuiltinToolsAvailability, getBuiltinToolsSyncReport } from '../../tools/claude-cli-tools.js';
 
@@ -272,6 +274,63 @@ export async function handleCliSettingsRoutes(ctx: RouteContext): Promise<boolea
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: (err as Error).message }));
     }
+    return true;
+  }
+
+  // ========== EXPORT SETTINGS ==========
+  // GET /api/cli/settings/export
+  if (pathname === '/api/cli/settings/export' && req.method === 'GET') {
+    try {
+      const exportData = exportAllSettings();
+      const jsonContent = JSON.stringify(exportData, null, 2);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+      const filename = `cli-settings-export-${timestamp}.json`;
+
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': Buffer.byteLength(jsonContent, 'utf-8')
+      });
+      res.end(jsonContent);
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // ========== IMPORT SETTINGS ==========
+  // POST /api/cli/settings/import
+  if (pathname === '/api/cli/settings/import' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body: unknown) => {
+      try {
+        // Extract import options and data from request
+        const request = body as { data?: unknown; options?: ImportOptions };
+
+        if (!request.data) {
+          return { error: 'Missing export data in request body', status: 400 };
+        }
+
+        const result = importSettings(request.data, request.options);
+
+        if (result.success) {
+          // Broadcast import event
+          broadcastToClients({
+            type: 'CLI_SETTINGS_IMPORTED',
+            payload: {
+              imported: result.imported,
+              skipped: result.skipped,
+              importedIds: result.importedIds,
+              timestamp: new Date().toISOString()
+            }
+          });
+        }
+
+        return result;
+      } catch (err) {
+        return { error: (err as Error).message, status: 500 };
+      }
+    });
     return true;
   }
 

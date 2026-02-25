@@ -335,10 +335,14 @@ export class CliSessionManager {
     }
 
     // Merge endpoint env vars with process.env (endpoint overrides process.env)
-    const spawnEnv: Record<string, string> = {
+    const spawnEnv: Record<string, string | undefined> = {
       ...(process.env as Record<string, string>),
       ...endpointEnv,
     };
+
+    // Unset CLAUDECODE to allow nested Claude Code sessions (SDK/subagent use case)
+    // See: https://github.com/anthropics/claude-agent-sdk-python/issues/573
+    delete spawnEnv.CLAUDECODE;
 
     let pty: nodePty.IPty;
     try {

@@ -16,6 +16,9 @@ import {
   SettingsListResponse,
   SettingsOperationResult,
   SaveEndpointRequest,
+  ExportedSettings,
+  ImportOptions,
+  ImportResult,
   validateSettings,
   createDefaultSettings
 } from '../types/cli-settings.js';
@@ -470,4 +473,153 @@ export function validateEndpointName(name: string): { valid: boolean; error?: st
   }
 
   return { valid: true };
+}
+
+/**
+ * Export all CLI endpoint settings
+ * Returns an ExportedSettings object with version, timestamp, and all endpoints
+ */
+export function exportAllSettings(): ExportedSettings {
+  const { endpoints } = listAllSettings();
+
+  return {
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    endpoints
+  };
+}
+
+/**
+ * Import settings from an ExportedSettings object
+ * Validates and applies imported settings with configurable conflict resolution
+ */
+export function importSettings(
+  exportedData: unknown,
+  options: ImportOptions = {}
+): ImportResult {
+  const {
+    conflictStrategy = 'skip',
+    skipInvalid = true,
+    disableImported = false
+  } = options;
+
+  const result: ImportResult = {
+    success: false,
+    imported: 0,
+    skipped: 0,
+    errors: [],
+    importedIds: []
+  };
+
+  // Validate exported data structure
+  if (!exportedData || typeof exportedData !== 'object') {
+    result.errors.push('Invalid export data: must be an object');
+    return result;
+  }
+
+  const data = exportedData as Record<string, unknown>;
+
+  // Check for required fields
+  if (!('endpoints' in data) || !Array.isArray(data.endpoints)) {
+    result.errors.push('Invalid export data: missing or invalid endpoints array');
+    return result;
+  }
+
+  // Validate version (for future migration support)
+  if ('version' in data && typeof data.version !== 'string') {
+    result.errors.push('Invalid export data: version must be a string');
+    return result;
+  }
+
+  const endpoints = data.endpoints as unknown[];
+  const existingIndex = loadIndex();
+
+  for (let i = 0; i < endpoints.length; i++) {
+    const ep = endpoints[i];
+
+    // Validate endpoint structure
+    if (!ep || typeof ep !== 'object') {
+      if (!skipInvalid) {
+        result.errors.push(`Endpoint at index ${i}: invalid structure`);
+      }
+      result.skipped++;
+      continue;
+    }
+
+    const endpoint = ep as Record<string, unknown>;
+
+    // Check required fields
+    if (!endpoint.name || typeof endpoint.name !== 'string') {
+      if (!skipInvalid) {
+        result.errors.push(`Endpoint at index ${i}: missing or invalid name`);
+      }
+      result.skipped++;
+      continue;
+    }
+
+    if (!endpoint.settings || typeof endpoint.settings !== 'object') {
+      if (!skipInvalid) {
+        result.errors.push(`Endpoint at index ${i}: missing or invalid settings`);
+      }
+      result.skipped++;
+      continue;
+    }
+
+    // Validate settings using provider-aware validation
+    const provider: CliProvider = (endpoint.provider as CliProvider) || 'claude';
+    if (!validateSettings(endpoint.settings, provider)) {
+      if (!skipInvalid) {
+        result.errors.push(`Endpoint "${endpoint.name}": invalid settings format`);
+      }
+      result.skipped++;
+      continue;
+    }
+
+    // Determine endpoint ID
+    const endpointId = (endpoint.id as string) || generateEndpointId();
+    const exists = existingIndex.has(endpointId);
+
+    // Handle conflicts
+    if (exists && conflictStrategy === 'skip') {
+      result.skipped++;
+      continue;
+    }
+
+    // Prepare import request
+    const importRequest: SaveEndpointRequest = {
+      id: endpointId,
+      name: endpoint.name as string,
+      description: endpoint.description as string | undefined,
+      provider,
+      settings: endpoint.settings as CliSettings,
+      enabled: disableImported ? false : (endpoint.enabled as boolean) ?? true
+    };
+
+    // For merge strategy, combine with existing if applicable
+    if (exists && conflictStrategy === 'merge') {
+      const existing = loadEndpointSettings(endpointId);
+      if (existing) {
+        importRequest.settings = {
+          ...existing.settings,
+          ...(endpoint.settings as CliSettings)
+        } as CliSettings;
+        importRequest.name = (endpoint.name as string) || existing.name;
+        importRequest.description = (endpoint.description as string) ?? existing.description;
+      }
+    }
+
+    // Save the endpoint
+    const saveResult = saveEndpointSettings(importRequest);
+
+    if (saveResult.success) {
+      result.imported++;
+      result.importedIds!.push(endpointId);
+    } else {
+      result.errors.push(`Endpoint "${endpoint.name}": ${saveResult.message || 'Failed to save'}`);
+      result.skipped++;
+    }
+  }
+
+  result.success = result.imported > 0;
+  return result;
 }

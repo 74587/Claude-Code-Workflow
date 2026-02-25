@@ -129,7 +129,9 @@ export function CliConfigModal({
     const toolConfig = cliTools[tool];
     if (!toolConfig) return [];
     if (toolConfig.availableModels?.length) return toolConfig.availableModels;
-    const models = [toolConfig.primaryModel];
+    // Build models from primaryModel/secondaryModel, filtering out undefined
+    const models: string[] = [];
+    if (toolConfig.primaryModel) models.push(toolConfig.primaryModel);
     if (toolConfig.secondaryModel && toolConfig.secondaryModel !== toolConfig.primaryModel) {
       models.push(toolConfig.secondaryModel);
     }
