@@ -145,6 +145,7 @@ function TokenDisplay({ tokens, className }: TokenDisplayProps) {
  * ToolCallItem - Single tool call display with collapsible details
  */
 function ToolCallItem({ toolCall, index }: ToolCallItemProps) {
+  const { formatMessage } = useIntl();
   return (
     <details className="group/tool border border-border/50 rounded-md overflow-hidden">
       <summary className="flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-muted/50 select-none">
@@ -155,7 +156,7 @@ function ToolCallItem({ toolCall, index }: ToolCallItemProps) {
       <div className="border-t border-border/50 divide-y divide-border/50">
         {toolCall.arguments && (
           <div className="p-3">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Input</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1">{formatMessage({ id: 'nativeSession.toolCall.input' })}</p>
             <pre className="p-2 bg-muted/30 rounded text-xs whitespace-pre-wrap overflow-x-auto font-mono leading-relaxed max-h-60 overflow-y-auto">
               {toolCall.arguments}
             </pre>
@@ -163,7 +164,7 @@ function ToolCallItem({ toolCall, index }: ToolCallItemProps) {
         )}
         {toolCall.output && (
           <div className="p-3">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Output</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1">{formatMessage({ id: 'nativeSession.toolCall.output' })}</p>
             <pre className="p-2 bg-muted/30 rounded text-xs whitespace-pre-wrap overflow-x-auto font-mono leading-relaxed max-h-60 overflow-y-auto">
               {toolCall.output}
             </pre>
