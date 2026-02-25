@@ -175,7 +175,7 @@ const GITHUB_CONFIG = {
   owner: 'catlog22',
   repo: 'skill-hub',
   branch: 'main',
-  skillIndexPath: 'skill-hub/index.json'
+  skillIndexPath: 'index.json'
 };
 
 /**

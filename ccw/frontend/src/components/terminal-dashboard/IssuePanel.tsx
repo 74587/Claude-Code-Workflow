@@ -6,14 +6,14 @@
 // Integrates with issueQueueIntegrationStore for selection state
 // and association chain highlighting.
 
-import { useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import {
   AlertCircle,
-  ArrowRightToLine,
   Loader2,
   AlertTriangle,
   CircleDot,
+  Terminal,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,11 @@ import {
   selectSelectedIssueId,
   selectAssociationChain,
 } from '@/stores/issueQueueIntegrationStore';
+import { executeInCliSession } from '@/lib/api';
 import type { Issue } from '@/lib/api';
+import { useTerminalGridStore, selectTerminalGridFocusedPaneId, selectTerminalGridPanes } from '@/stores/terminalGridStore';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { toast } from '@/stores/notificationStore';
 
 // ========== Priority Badge ==========
 
@@ -62,25 +66,17 @@ function IssueItem({
   issue,
   isSelected,
   isHighlighted,
+  isChecked,
   onSelect,
-  onSendToQueue,
+  onToggleCheck,
 }: {
   issue: Issue;
   isSelected: boolean;
   isHighlighted: boolean;
+  isChecked: boolean;
   onSelect: () => void;
-  onSendToQueue: () => void;
+  onToggleCheck: () => void;
 }) {
-  const { formatMessage } = useIntl();
-
-  const handleSendToQueue = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      onSendToQueue();
-    },
-    [onSendToQueue]
-  );
-
   return (
     <div
       role="button"
@@ -96,6 +92,13 @@ function IssueItem({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={(e) => { e.stopPropagation(); onToggleCheck(); }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-3.5 h-3.5 rounded border-border accent-primary shrink-0"
+          />
           <StatusDot status={issue.status} />
           <span className="text-sm font-medium text-foreground truncate">
             {issue.title}
@@ -103,26 +106,14 @@ function IssueItem({
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           <PriorityBadge priority={issue.priority} />
-          <button
-            type="button"
-            className={cn(
-              'p-1 rounded hover:bg-primary/20 transition-colors',
-              'text-muted-foreground hover:text-primary',
-              'focus:outline-none focus:ring-1 focus:ring-primary/30'
-            )}
-            onClick={handleSendToQueue}
-            title={formatMessage({ id: 'terminalDashboard.issuePanel.sendToQueue' })}
-          >
-            <ArrowRightToLine className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
       {issue.context && (
-        <p className="mt-0.5 text-xs text-muted-foreground truncate pl-5">
+        <p className="mt-0.5 text-xs text-muted-foreground truncate pl-7">
           {issue.context}
         </p>
       )}
-      <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground pl-5">
+      <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground pl-7">
         <span className="font-mono">{issue.id}</span>
         {issue.labels && issue.labels.length > 0 && (
           <>
@@ -178,6 +169,16 @@ export function IssuePanel() {
   const setSelectedIssue = useIssueQueueIntegrationStore((s) => s.setSelectedIssue);
   const buildAssociationChain = useIssueQueueIntegrationStore((s) => s.buildAssociationChain);
 
+  // Multi-select state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isSending, setIsSending] = useState(false);
+
+  // Terminal refs
+  const focusedPaneId = useTerminalGridStore(selectTerminalGridFocusedPaneId);
+  const panes = useTerminalGridStore(selectTerminalGridPanes);
+  const projectPath = useWorkflowStore(selectProjectPath);
+  const sessionKey = focusedPaneId ? panes[focusedPaneId]?.sessionId : null;
+
   // Sort: open/in_progress first, then by priority (critical > high > medium > low)
   const sortedIssues = useMemo(() => {
     const priorityOrder: Record<string, number> = {
@@ -214,13 +215,41 @@ export function IssuePanel() {
     [selectedIssueId, setSelectedIssue, buildAssociationChain]
   );
 
-  const handleSendToQueue = useCallback(
-    (issueId: string) => {
-      // Select the issue and build chain - queue creation is handled elsewhere
-      buildAssociationChain(issueId, 'issue');
-    },
-    [buildAssociationChain]
-  );
+  const handleToggleSelect = useCallback((issueId: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(issueId)) next.delete(issueId);
+      else next.add(issueId);
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedIds(new Set(sortedIssues.map(i => i.id)));
+  }, [sortedIssues]);
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleSendToTerminal = useCallback(async () => {
+    if (!sessionKey || selectedIds.size === 0) return;
+    setIsSending(true);
+    try {
+      await executeInCliSession(sessionKey, {
+        tool: 'claude',
+        prompt: Array.from(selectedIds).join(' '),
+        instructionType: 'skill',
+        skillName: 'team-issue',
+      }, projectPath || undefined);
+      toast.success('Sent to terminal', `/team-issue ${Array.from(selectedIds).join(' ')}`);
+      setSelectedIds(new Set());
+    } catch (err) {
+      toast.error('Failed to send', err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsSending(false);
+    }
+  }, [sessionKey, selectedIds, projectPath]);
 
   // Loading state
   if (isLoading) {
@@ -262,11 +291,22 @@ export function IssuePanel() {
           <AlertCircle className="w-4 h-4" />
           {formatMessage({ id: 'terminalDashboard.issuePanel.title' })}
         </h3>
-        {openCount > 0 && (
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-            {openCount}
-          </Badge>
-        )}
+        <div className="flex items-center gap-1.5">
+          {sortedIssues.length > 0 && (
+            <button
+              type="button"
+              className="text-[10px] text-muted-foreground hover:text-foreground px-1"
+              onClick={selectedIds.size === sortedIssues.length ? handleDeselectAll : handleSelectAll}
+            >
+              {selectedIds.size === sortedIssues.length ? 'Deselect all' : 'Select all'}
+            </button>
+          )}
+          {openCount > 0 && (
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+              {openCount}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Issue List */}
@@ -280,10 +320,43 @@ export function IssuePanel() {
               issue={issue}
               isSelected={selectedIssueId === issue.id}
               isHighlighted={associationChain?.issueId === issue.id}
+              isChecked={selectedIds.has(issue.id)}
               onSelect={() => handleSelect(issue.id)}
-              onSendToQueue={() => handleSendToQueue(issue.id)}
+              onToggleCheck={() => handleToggleSelect(issue.id)}
             />
           ))}
+        </div>
+      )}
+
+      {/* Send to Terminal bar */}
+      {selectedIds.size > 0 && (
+        <div className="px-3 py-2 border-t border-border shrink-0 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {selectedIds.size} selected
+            </span>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={handleDeselectAll}
+            >
+              Clear
+            </button>
+          </div>
+          <button
+            type="button"
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+              'bg-primary text-primary-foreground hover:bg-primary/90',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
+            )}
+            disabled={!sessionKey || isSending}
+            onClick={handleSendToTerminal}
+            title={!sessionKey ? 'No terminal session focused' : 'Send /team-issue to terminal'}
+          >
+            {isSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Terminal className="w-3.5 h-3.5" />}
+            Send to Terminal ({selectedIds.size})
+          </button>
         </div>
       )}
     </div>

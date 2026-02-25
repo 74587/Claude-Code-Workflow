@@ -100,6 +100,9 @@ const initialState: ConfigState = {
     darkModeEnabled: true,
     notificationsEnabled: true,
     experimentalFeatures: false,
+    dashboardQueuePanelEnabled: false,
+    dashboardInspectorEnabled: false,
+    dashboardExecutionMonitorEnabled: false,
   },
 };
 
