@@ -10,7 +10,8 @@ import { join } from 'path';
 import * as os from 'os';
 import { getCCWHome, ensureStorageDir } from './storage-paths.js';
 import {
-  ClaudeCliSettings,
+  CliSettings,
+  CliProvider,
   EndpointSettings,
   SettingsListResponse,
   SettingsOperationResult,
@@ -19,8 +20,8 @@ import {
   createDefaultSettings
 } from '../types/cli-settings.js';
 import {
-  addClaudeCustomEndpoint,
-  removeClaudeCustomEndpoint
+  addCustomEndpoint,
+  removeCustomEndpoint
 } from '../tools/claude-cli-tools.js';
 
 /**
@@ -108,6 +109,7 @@ export function saveEndpointSettings(request: SaveEndpointRequest): SettingsOper
       id: endpointId,
       name: request.name,
       description: request.description,
+      provider: request.provider || 'claude',
       enabled: request.enabled ?? true,
       createdAt: existing?.createdAt || now,
       updatedAt: now
@@ -129,13 +131,13 @@ export function saveEndpointSettings(request: SaveEndpointRequest): SettingsOper
       // Merge user-provided tags with cli-wrapper tag for proper type registration
       const userTags = request.settings.tags || [];
       const tags = [...new Set([...userTags, 'cli-wrapper'])]; // Dedupe and ensure cli-wrapper tag
-      addClaudeCustomEndpoint(projectDir, {
+      addCustomEndpoint(projectDir, {
         id: endpointId,
         name: request.name,
         enabled: request.enabled ?? true,
         tags,
         availableModels: request.settings.availableModels,
-        settingsFile: request.settings.settingsFile
+        settingsFile: 'settingsFile' in request.settings ? (request.settings as any).settingsFile : undefined
       });
       console.log(`[CliSettings] Synced endpoint ${endpointId} to cli-tools.json tools (cli-wrapper)`);
     } catch (syncError) {
@@ -182,13 +184,15 @@ export function loadEndpointSettings(endpointId: string): EndpointSettings | nul
 
     const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
 
-    if (!validateSettings(settings)) {
+    const provider = (metadata as any).provider || 'claude';
+    if (!validateSettings(settings, provider)) {
       console.error(`[CliSettings] Invalid settings format for ${endpointId}`);
       return null;
     }
 
     return {
       ...metadata,
+      provider,
       settings
     };
   } catch (e) {
@@ -225,7 +229,7 @@ export function deleteEndpointSettings(endpointId: string): SettingsOperationRes
     // Step 3: Remove from cli-tools.json tools (api-endpoint type)
     try {
       const projectDir = os.homedir();
-      removeClaudeCustomEndpoint(projectDir, endpointId);
+      removeCustomEndpoint(projectDir, endpointId);
       console.log(`[CliSettings] Removed endpoint ${endpointId} from cli-tools.json tools`);
     } catch (syncError) {
       console.warn(`[CliSettings] Failed to remove from cli-tools.json: ${syncError}`);
@@ -262,10 +266,12 @@ export function listAllSettings(): SettingsListResponse {
 
       try {
         const settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
+        const provider: CliProvider = (metadata as any).provider || 'claude';
 
-        if (validateSettings(settings)) {
+        if (validateSettings(settings, provider)) {
           endpoints.push({
             ...metadata,
+            provider,
             settings
           });
         }
@@ -315,13 +321,13 @@ export function toggleEndpointEnabled(endpointId: string, enabled: boolean): Set
       const endpoint = loadEndpointSettings(endpointId);
       const userTags = endpoint?.settings.tags || [];
       const tags = [...new Set([...userTags, 'cli-wrapper'])]; // Dedupe and ensure cli-wrapper tag
-      addClaudeCustomEndpoint(projectDir, {
+      addCustomEndpoint(projectDir, {
         id: endpointId,
         name: metadata.name,
         enabled: enabled,
         tags,
         availableModels: endpoint?.settings.availableModels,
-        settingsFile: endpoint?.settings.settingsFile
+        settingsFile: endpoint?.settings && 'settingsFile' in endpoint.settings ? (endpoint.settings as any).settingsFile : undefined
       });
       console.log(`[CliSettings] Synced endpoint ${endpointId} enabled=${enabled} to cli-tools.json tools`);
     } catch (syncError) {
@@ -368,9 +374,8 @@ export function createSettingsFromProvider(provider: {
   name?: string;
 }, options?: {
   model?: string;
-  includeCoAuthoredBy?: boolean;
-}): ClaudeCliSettings {
-  const settings = createDefaultSettings();
+}): CliSettings {
+  const settings = createDefaultSettings('claude');
 
   // Map provider credentials to env
   if (provider.apiKey) {
@@ -383,9 +388,6 @@ export function createSettingsFromProvider(provider: {
   // Apply options
   if (options?.model) {
     settings.model = options.model;
-  }
-  if (options?.includeCoAuthoredBy !== undefined) {
-    settings.includeCoAuthoredBy = options.includeCoAuthoredBy;
   }
 
   return settings;

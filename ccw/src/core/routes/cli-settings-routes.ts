@@ -56,8 +56,8 @@ export async function handleCliSettingsRoutes(ctx: RouteContext): Promise<boolea
         if (!request.settings || !request.settings.env) {
           return { error: 'settings.env is required', status: 400 };
         }
-        // Deep validation of settings object
-        if (!validateSettings(request.settings)) {
+        // Deep validation of settings object (provider-aware)
+        if (!validateSettings(request.settings, request.provider)) {
           return { error: 'Invalid settings object format', status: 400 };
         }
 

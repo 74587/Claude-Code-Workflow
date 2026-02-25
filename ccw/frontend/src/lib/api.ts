@@ -6020,23 +6020,50 @@ export async function uninstallCcwLitellm(): Promise<{ success: boolean; message
  * CLI Settings (Claude CLI endpoint configuration)
  * Maps to backend EndpointSettings from /api/cli/settings
  */
+/**
+ * CLI Provider type
+ */
+export type CliProvider = 'claude' | 'codex' | 'gemini';
+
+/**
+ * Base settings fields shared across all providers
+ */
+export interface CliSettingsBase {
+  env: Record<string, string | undefined>;
+  model?: string;
+  tags?: string[];
+  availableModels?: string[];
+}
+
+/**
+ * Claude-specific settings
+ */
+export interface ClaudeCliSettingsApi extends CliSettingsBase {
+  settingsFile?: string;
+}
+
+/**
+ * Codex-specific settings
+ */
+export interface CodexCliSettingsApi extends CliSettingsBase {
+  profile?: string;
+  authJson?: string;
+  configToml?: string;
+}
+
+/**
+ * Gemini-specific settings
+ */
+export interface GeminiCliSettingsApi extends CliSettingsBase {
+}
+
 export interface CliSettingsEndpoint {
   id: string;
   name: string;
   description?: string;
-  settings: {
-    env: {
-      ANTHROPIC_AUTH_TOKEN?: string;
-      ANTHROPIC_BASE_URL?: string;
-      DISABLE_AUTOUPDATER?: string;
-      [key: string]: string | undefined;
-    };
-    model?: string;
-    includeCoAuthoredBy?: boolean;
-    settingsFile?: string;
-    availableModels?: string[];
-    tags?: string[];
-  };
+  /** CLI provider type (defaults to 'claude' for backward compat) */
+  provider: CliProvider;
+  settings: ClaudeCliSettingsApi | CodexCliSettingsApi | GeminiCliSettingsApi;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -6057,19 +6084,9 @@ export interface SaveCliSettingsRequest {
   id?: string;
   name: string;
   description?: string;
-  settings: {
-    env: {
-      ANTHROPIC_AUTH_TOKEN?: string;
-      ANTHROPIC_BASE_URL?: string;
-      DISABLE_AUTOUPDATER?: string;
-      [key: string]: string | undefined;
-    };
-    model?: string;
-    includeCoAuthoredBy?: boolean;
-    settingsFile?: string;
-    availableModels?: string[];
-    tags?: string[];
-  };
+  /** CLI provider type */
+  provider?: CliProvider;
+  settings: ClaudeCliSettingsApi | CodexCliSettingsApi | GeminiCliSettingsApi;
   enabled?: boolean;
 }
 
@@ -6565,6 +6582,8 @@ export interface CreateCliSessionInput {
   resumeKey?: string;
   /** Launch mode for native CLI sessions (default or yolo). */
   launchMode?: 'default' | 'yolo';
+  /** Settings endpoint ID for injecting env vars and settings into CLI process. */
+  settingsEndpointId?: string;
 }
 
 function withPath(url: string, projectPath?: string): string {

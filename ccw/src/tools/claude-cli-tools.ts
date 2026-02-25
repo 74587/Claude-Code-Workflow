@@ -859,12 +859,12 @@ export function removeClaudeApiEndpoint(
 }
 
 /**
- * @deprecated Use addClaudeApiEndpoint instead
- * Adds tool to config based on tags:
+ * Add a custom CLI settings endpoint tool to cli-tools.json
+ * Adds tool based on tags:
  * - cli-wrapper tag -> type: 'cli-wrapper'
  * - others -> type: 'api-endpoint'
  */
-export function addClaudeCustomEndpoint(
+export function addCustomEndpoint(
   projectDir: string,
   endpoint: { id: string; name: string; enabled: boolean; tags?: string[]; availableModels?: string[]; settingsFile?: string }
 ): ClaudeCliToolsConfig {
@@ -895,10 +895,13 @@ export function addClaudeCustomEndpoint(
   return config;
 }
 
+/** @deprecated Use addCustomEndpoint instead */
+export const addClaudeCustomEndpoint = addCustomEndpoint;
+
 /**
  * Remove endpoint tool (cli-wrapper or api-endpoint)
  */
-export function removeClaudeCustomEndpoint(
+export function removeCustomEndpoint(
   projectDir: string,
   endpointId: string
 ): ClaudeCliToolsConfig {
@@ -917,6 +920,9 @@ export function removeClaudeCustomEndpoint(
   saveClaudeCliTools(projectDir, config);
   return config;
 }
+
+/** @deprecated Use removeCustomEndpoint instead */
+export const removeClaudeCustomEndpoint = removeCustomEndpoint;
 
 /**
  * Get config source info
