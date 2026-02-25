@@ -40,6 +40,7 @@ export interface ClaudeUserLine extends ClaudeJsonlLine {
 /**
  * Assistant message line in Claude JSONL
  * Contains content blocks, tool calls, and usage info
+ * Note: usage can be at top level or inside message object
  */
 export interface ClaudeAssistantLine extends ClaudeJsonlLine {
   type: 'assistant';
@@ -50,6 +51,7 @@ export interface ClaudeAssistantLine extends ClaudeJsonlLine {
     id?: string;
     stop_reason?: string | null;
     stop_sequence?: string | null;
+    usage?: ClaudeUsage;
   };
   usage?: ClaudeUsage;
   requestId?: string;
@@ -133,11 +135,10 @@ export function parseClaudeSession(filePath: string): ParsedSession | null {
     let model: string | undefined;
     let totalTokens: TokenInfo = { input: 0, output: 0, total: 0 };
 
-    // Track conversation structure using uuid/parentUuid
+    // Build message map for parent-child relationships
     const messageMap = new Map<string, ClaudeJsonlLine>();
-    const rootUuids: string[] = [];
 
-    // First pass: collect all messages and find roots
+    // First pass: collect all messages
     for (const line of lines) {
       try {
         const entry: ClaudeJsonlLine = JSON.parse(line);
@@ -148,11 +149,6 @@ export function parseClaudeSession(filePath: string): ParsedSession | null {
         }
 
         messageMap.set(entry.uuid, entry);
-
-        // Track root messages (no parent)
-        if (!entry.parentUuid) {
-          rootUuids.push(entry.uuid);
-        }
 
         // Extract metadata from first entry
         if (!startTime && entry.timestamp) {
@@ -171,47 +167,100 @@ export function parseClaudeSession(filePath: string): ParsedSession | null {
       }
     }
 
-    // Second pass: build conversation turns
+    // Second pass: process user/assistant message pairs
+    // Find all user messages that are not meta/command messages
     let turnNumber = 0;
-    const processedUuids = new Set<string>();
+    const processedUserUuids = new Set<string>();
 
-    for (const rootUuid of rootUuids) {
-      const turn = processConversationBranch(
-        rootUuid,
-        messageMap,
-        processedUuids,
-        ++turnNumber
-      );
+    for (const [uuid, entry] of messageMap) {
+      if (entry.type !== 'user') continue;
 
-      if (turn) {
-        turns.push(turn);
+      const userEntry = entry as ClaudeUserLine;
 
-        // Accumulate tokens
-        if (turn.tokens) {
-          totalTokens.input = (totalTokens.input || 0) + (turn.tokens.input || 0);
-          totalTokens.output = (totalTokens.output || 0) + (turn.tokens.output || 0);
-          totalTokens.total = (totalTokens.total || 0) + (turn.tokens.total || 0);
-        }
+      // Skip meta messages (command messages, system messages)
+      if (userEntry.isMeta) continue;
 
-        // Track model
-        if (!model && turn.tokens?.input) {
-          // Model info is typically in assistant messages
+      // Skip if already processed
+      if (processedUserUuids.has(uuid)) continue;
+
+      // Extract user content
+      const userContent = extractUserContent(userEntry);
+
+      // Skip if no meaningful content (commands, tool results, etc.)
+      if (!userContent || userContent.trim().length === 0) continue;
+
+      // Skip command-like messages
+      if (isCommandMessage(userContent)) continue;
+
+      processedUserUuids.add(uuid);
+      turnNumber++;
+
+      // Find the corresponding assistant response(s)
+      // Look for assistant messages that have this user message as parent
+      let assistantContent = '';
+      let assistantTimestamp = '';
+      let toolCalls: ToolCallInfo[] = [];
+      let thoughts: string[] = [];
+      let turnTokens: TokenInfo | undefined;
+
+      for (const [childUuid, childEntry] of messageMap) {
+        if (childEntry.parentUuid === uuid && childEntry.type === 'assistant') {
+          const assistantEntry = childEntry as ClaudeAssistantLine;
+
+          const extracted = extractAssistantContent(assistantEntry);
+          if (extracted.content) {
+            assistantContent = extracted.content;
+            assistantTimestamp = childEntry.timestamp;
+          }
+          if (extracted.toolCalls.length > 0) {
+            toolCalls = toolCalls.concat(extracted.toolCalls);
+          }
+          if (extracted.thoughts.length > 0) {
+            thoughts = thoughts.concat(extracted.thoughts);
+          }
+
+          // Usage can be at top level or inside message object
+          const usage = assistantEntry.usage || assistantEntry.message?.usage;
+          if (usage) {
+            turnTokens = {
+              input: usage.input_tokens,
+              output: usage.output_tokens,
+              total: usage.input_tokens + usage.output_tokens,
+              cached: (usage.cache_read_input_tokens || 0) +
+                      (usage.cache_creation_input_tokens || 0)
+            };
+
+            // Accumulate total tokens
+            totalTokens.input = (totalTokens.input || 0) + (turnTokens.input || 0);
+            totalTokens.output = (totalTokens.output || 0) + (turnTokens.output || 0);
+
+            // Extract model from assistant message
+            if (!model && assistantEntry.message?.model) {
+              model = assistantEntry.message.model;
+            }
+          }
         }
       }
-    }
 
-    // Extract model from assistant messages if not found
-    if (!model) {
-      for (const line of lines) {
-        try {
-          const entry = JSON.parse(line);
-          if (entry.type === 'assistant' && entry.message?.model) {
-            model = entry.message.model;
-            break;
-          }
-        } catch {
-          // Skip
-        }
+      // Create user turn
+      turns.push({
+        turnNumber,
+        timestamp: entry.timestamp,
+        role: 'user',
+        content: userContent
+      });
+
+      // Create assistant turn if there's a response
+      if (assistantContent || toolCalls.length > 0) {
+        turns.push({
+          turnNumber,
+          timestamp: assistantTimestamp || entry.timestamp,
+          role: 'assistant',
+          content: assistantContent || '[Tool execution]',
+          toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+          thoughts: thoughts.length > 0 ? thoughts : undefined,
+          tokens: turnTokens
+        });
       }
     }
 
@@ -235,6 +284,19 @@ export function parseClaudeSession(filePath: string): ParsedSession | null {
 }
 
 /**
+ * Check if content is a command message (should be skipped)
+ */
+function isCommandMessage(content: string): boolean {
+  const trimmed = content.trim();
+  return (
+    trimmed.startsWith('<command-name>') ||
+    trimmed.startsWith('<local-command') ||
+    trimmed.startsWith('<command-') ||
+    trimmed.includes('<local-command-caveat>')
+  );
+}
+
+/**
  * Extract session ID from file path
  * Claude session files are named <uuid>.jsonl
  */
@@ -250,114 +312,6 @@ function extractSessionId(filePath: string): string {
 }
 
 /**
- * Process a conversation branch starting from a root UUID
- * Returns a combined turn with user and assistant messages
- */
-function processConversationBranch(
-  rootUuid: string,
-  messageMap: Map<string, ClaudeJsonlLine>,
-  processedUuids: Set<string>,
-  turnNumber: number
-): ParsedTurn | null {
-  const rootEntry = messageMap.get(rootUuid);
-  if (!rootEntry || processedUuids.has(rootUuid)) {
-    return null;
-  }
-
-  // Find the user message at this root
-  let userContent = '';
-  let userTimestamp = '';
-  let assistantContent = '';
-  let assistantTimestamp = '';
-  let toolCalls: ToolCallInfo[] = [];
-  let tokens: TokenInfo | undefined;
-  let thoughts: string[] = [];
-
-  // Process this entry if it's a user message
-  if (rootEntry.type === 'user') {
-    const userEntry = rootEntry as ClaudeUserLine;
-    processedUuids.add(rootEntry.uuid);
-
-    // Skip meta messages (command messages, etc.)
-    if (userEntry.isMeta) {
-      return null;
-    }
-
-    userContent = extractUserContent(userEntry);
-    userTimestamp = rootEntry.timestamp;
-
-    // Find child assistant message
-    for (const [uuid, entry] of messageMap) {
-      if (entry.parentUuid === rootEntry.uuid && entry.type === 'assistant') {
-        const assistantEntry = entry as ClaudeAssistantLine;
-        processedUuids.add(uuid);
-
-        const extracted = extractAssistantContent(assistantEntry);
-        assistantContent = extracted.content;
-        assistantTimestamp = entry.timestamp;
-        toolCalls = extracted.toolCalls;
-        thoughts = extracted.thoughts;
-
-        if (assistantEntry.usage) {
-          tokens = {
-            input: assistantEntry.usage.input_tokens,
-            output: assistantEntry.usage.output_tokens,
-            total: assistantEntry.usage.input_tokens + assistantEntry.usage.output_tokens,
-            cached: (assistantEntry.usage.cache_read_input_tokens || 0) +
-                    (assistantEntry.usage.cache_creation_input_tokens || 0)
-          };
-        }
-        break;
-      }
-    }
-
-    // Handle tool result messages (follow-up user messages)
-    for (const [uuid, entry] of messageMap) {
-      if (entry.parentUuid === rootEntry.uuid && entry.type === 'user') {
-        const followUpUser = entry as ClaudeUserLine;
-        if (!followUpUser.isMeta && processedUuids.has(uuid)) {
-          continue;
-        }
-        // Check if this is a tool result message
-        if (followUpUser.message?.content && Array.isArray(followUpUser.message.content)) {
-          const hasToolResult = followUpUser.message.content.some(
-            block => block.type === 'tool_result'
-          );
-          if (hasToolResult) {
-            processedUuids.add(uuid);
-            // Tool results are typically not displayed as separate turns
-          }
-        }
-      }
-    }
-
-    if (userContent) {
-      return {
-        turnNumber,
-        timestamp: userTimestamp,
-        role: 'user',
-        content: userContent
-      };
-    }
-  }
-
-  // If no user content but we have assistant content (edge case)
-  if (assistantContent) {
-    return {
-      turnNumber,
-      timestamp: assistantTimestamp,
-      role: 'assistant',
-      content: assistantContent,
-      toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
-      thoughts: thoughts.length > 0 ? thoughts : undefined,
-      tokens
-    };
-  }
-
-  return null;
-}
-
-/**
  * Extract text content from user message
  * Handles both string and array content formats
  */
@@ -367,14 +321,6 @@ function extractUserContent(entry: ClaudeUserLine): string {
 
   // Simple string content
   if (typeof content === 'string') {
-    // Skip command messages
-    if (content.startsWith('<command-') || content.includes('<local-command')) {
-      return '';
-    }
-    // Skip meta messages
-    if (content.includes('<local-command-caveat>')) {
-      return '';
-    }
     return content;
   }
 
@@ -458,9 +404,8 @@ export function parseClaudeSessionContent(content: string, filePath?: string): P
   let model: string | undefined;
   let totalTokens: TokenInfo = { input: 0, output: 0, total: 0 };
 
-  // Track conversation structure
+  // Build message map
   const messageMap = new Map<string, ClaudeJsonlLine>();
-  const rootUuids: string[] = [];
 
   for (const line of lines) {
     try {
@@ -471,10 +416,6 @@ export function parseClaudeSessionContent(content: string, filePath?: string): P
       }
 
       messageMap.set(entry.uuid, entry);
-
-      if (!entry.parentUuid) {
-        rootUuids.push(entry.uuid);
-      }
 
       if (!startTime && entry.timestamp) {
         startTime = entry.timestamp;
@@ -490,37 +431,85 @@ export function parseClaudeSessionContent(content: string, filePath?: string): P
     }
   }
 
+  // Process user/assistant pairs
   let turnNumber = 0;
-  const processedUuids = new Set<string>();
+  const processedUserUuids = new Set<string>();
 
-  for (const rootUuid of rootUuids) {
-    const turn = processConversationBranch(
-      rootUuid,
-      messageMap,
-      processedUuids,
-      ++turnNumber
-    );
+  for (const [uuid, entry] of messageMap) {
+    if (entry.type !== 'user') continue;
 
-    if (turn) {
-      turns.push(turn);
+    const userEntry = entry as ClaudeUserLine;
 
-      if (turn.tokens) {
-        totalTokens.input = (totalTokens.input || 0) + (turn.tokens.input || 0);
-        totalTokens.output = (totalTokens.output || 0) + (turn.tokens.output || 0);
+    if (userEntry.isMeta) continue;
+    if (processedUserUuids.has(uuid)) continue;
+
+    const userContent = extractUserContent(userEntry);
+    if (!userContent || userContent.trim().length === 0) continue;
+    if (isCommandMessage(userContent)) continue;
+
+    processedUserUuids.add(uuid);
+    turnNumber++;
+
+    let assistantContent = '';
+    let assistantTimestamp = '';
+    let toolCalls: ToolCallInfo[] = [];
+    let thoughts: string[] = [];
+    let turnTokens: TokenInfo | undefined;
+
+    for (const [childUuid, childEntry] of messageMap) {
+      if (childEntry.parentUuid === uuid && childEntry.type === 'assistant') {
+        const assistantEntry = childEntry as ClaudeAssistantLine;
+
+        const extracted = extractAssistantContent(assistantEntry);
+        if (extracted.content) {
+          assistantContent = extracted.content;
+          assistantTimestamp = childEntry.timestamp;
+        }
+        if (extracted.toolCalls.length > 0) {
+          toolCalls = toolCalls.concat(extracted.toolCalls);
+        }
+        if (extracted.thoughts.length > 0) {
+          thoughts = thoughts.concat(extracted.thoughts);
+        }
+
+        // Usage can be at top level or inside message object
+        const usage = assistantEntry.usage || assistantEntry.message?.usage;
+        if (usage) {
+          turnTokens = {
+            input: usage.input_tokens,
+            output: usage.output_tokens,
+            total: usage.input_tokens + usage.output_tokens,
+            cached: (usage.cache_read_input_tokens || 0) +
+                    (usage.cache_creation_input_tokens || 0)
+          };
+
+          totalTokens.input = (totalTokens.input || 0) + (turnTokens.input || 0);
+          totalTokens.output = (totalTokens.output || 0) + (turnTokens.output || 0);
+
+          if (!model && assistantEntry.message?.model) {
+            model = assistantEntry.message.model;
+          }
+        }
       }
     }
-  }
 
-  // Extract model
-  for (const line of lines) {
-    try {
-      const entry = JSON.parse(line);
-      if (entry.type === 'assistant' && entry.message?.model) {
-        model = entry.message.model;
-        break;
-      }
-    } catch {
-      // Skip
+    turns.push({
+      turnNumber,
+      timestamp: entry.timestamp,
+      role: 'user',
+      content: userContent
+    });
+
+    if (assistantContent || toolCalls.length > 0) {
+      turns.push({
+        turnNumber,
+        timestamp: assistantTimestamp || entry.timestamp,
+        role: 'assistant',
+        content: assistantContent || '[Tool execution]',
+        toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+        thoughts: thoughts.length > 0 ? thoughts : undefined,
+        tokens: turnTokens
+      });
     }
   }
 

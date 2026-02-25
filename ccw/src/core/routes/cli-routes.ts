@@ -559,30 +559,82 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
   }
 
   // API: Get Native Session Content
+  // Supports: ?id=<executionId> (existing), ?path=<filepath>&tool=<tool> (new direct path query)
   if (pathname === '/api/cli/native-session') {
     const projectPath = url.searchParams.get('path') || initialPath;
     const executionId = url.searchParams.get('id');
+    const filePath = url.searchParams.get('filePath');  // New: direct file path
+    const toolParam = url.searchParams.get('tool') || 'auto';  // New: tool type for path query
     const format = url.searchParams.get('format') || 'json';
 
-    if (!executionId) {
+    // Priority: filePath > id (backward compatible)
+    if (!executionId && !filePath) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Execution ID is required' }));
+      res.end(JSON.stringify({ error: 'Either execution ID (id) or file path (filePath) is required' }));
       return true;
     }
 
     try {
       let result;
-      if (format === 'text') {
-        result = await getFormattedNativeConversation(projectPath, executionId, {
-          includeThoughts: url.searchParams.get('thoughts') === 'true',
-          includeToolCalls: url.searchParams.get('tools') === 'true',
-          includeTokens: url.searchParams.get('tokens') === 'true'
-        });
-      } else if (format === 'pairs') {
-        const enriched = await getEnrichedConversation(projectPath, executionId);
-        result = enriched?.merged || null;
+
+      // Direct file path query (new)
+      if (filePath) {
+        const { parseSessionFile } = await import('../../tools/session-content-parser.js');
+
+        // Determine tool type
+        let tool = toolParam;
+        if (tool === 'auto') {
+          // Auto-detect tool from file path
+          if (filePath.includes('.claude') as boolean || filePath.includes('claude-session')) {
+            tool = 'claude';
+          } else if (filePath.includes('.opencode') as boolean || filePath.includes('opencode')) {
+            tool = 'opencode';
+          } else if (filePath.includes('.codex') as boolean || filePath.includes('rollout-')) {
+            tool = 'codex';
+          } else if (filePath.includes('.qwen') as boolean) {
+            tool = 'qwen';
+          } else if (filePath.includes('.gemini') as boolean) {
+            tool = 'gemini';
+          } else {
+            // Default to claude for unknown paths
+            tool = 'claude';
+          }
+        }
+
+        const session = parseSessionFile(filePath, tool);
+        if (!session) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Native session not found at path: ' + filePath }));
+          return true;
+        }
+
+        if (format === 'text') {
+          const { formatConversation } = await import('../../tools/session-content-parser.js');
+          result = formatConversation(session, {
+            includeThoughts: url.searchParams.get('thoughts') === 'true',
+            includeToolCalls: url.searchParams.get('tools') === 'true',
+            includeTokens: url.searchParams.get('tokens') === 'true'
+          });
+        } else if (format === 'pairs') {
+          const { extractConversationPairs } = await import('../../tools/session-content-parser.js');
+          result = extractConversationPairs(session);
+        } else {
+          result = session;
+        }
       } else {
-        result = await getNativeSessionContent(projectPath, executionId);
+        // Existing: query by execution ID
+        if (format === 'text') {
+          result = await getFormattedNativeConversation(projectPath, executionId!, {
+            includeThoughts: url.searchParams.get('thoughts') === 'true',
+            includeToolCalls: url.searchParams.get('tools') === 'true',
+            includeTokens: url.searchParams.get('tokens') === 'true'
+          });
+        } else if (format === 'pairs') {
+          const enriched = await getEnrichedConversation(projectPath, executionId!);
+          result = enriched?.merged || null;
+        } else {
+          result = await getNativeSessionContent(projectPath, executionId!);
+        }
       }
 
       if (!result) {
@@ -593,6 +645,83 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
 
       res.writeHead(200, { 'Content-Type': format === 'text' ? 'text/plain' : 'application/json' });
       res.end(format === 'text' ? result : JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // API: List Native Sessions (new endpoint)
+  // Supports: ?tool=<gemini|qwen|codex|claude|opencode> & ?project=<projectPath>
+  if (pathname === '/api/cli/native-sessions' && req.method === 'GET') {
+    const toolFilter = url.searchParams.get('tool');
+    const projectPath = url.searchParams.get('project') || initialPath;
+
+    try {
+      const {
+        getDiscoverer,
+        getNativeSessions
+      } = await import('../../tools/native-session-discovery.js');
+
+      const sessions: Array<{
+        id: string;
+        tool: string;
+        path: string;
+        title?: string;
+        startTime: string;
+        updatedAt: string;
+        projectHash?: string;
+      }> = [];
+
+      // Define supported tools
+      const supportedTools = ['gemini', 'qwen', 'codex', 'claude', 'opencode'] as const;
+      const toolsToQuery = toolFilter && supportedTools.includes(toolFilter as typeof supportedTools[number])
+        ? [toolFilter as typeof supportedTools[number]]
+        : [...supportedTools];
+
+      for (const tool of toolsToQuery) {
+        const discoverer = getDiscoverer(tool);
+        if (!discoverer) continue;
+
+        const nativeSessions = getNativeSessions(tool, {
+          workingDir: projectPath,
+          limit: 100
+        });
+
+        for (const session of nativeSessions) {
+          // Try to extract title from session
+          let title: string | undefined;
+          try {
+            const firstUserMessage = (discoverer as any).extractFirstUserMessage?.(session.filePath);
+            if (firstUserMessage) {
+              // Truncate to first 100 chars as title
+              title = firstUserMessage.substring(0, 100).trim();
+              if (firstUserMessage.length > 100) {
+                title += '...';
+              }
+            }
+          } catch {
+            // Ignore errors extracting title
+          }
+
+          sessions.push({
+            id: session.sessionId,
+            tool: session.tool,
+            path: session.filePath,
+            title,
+            startTime: session.createdAt.toISOString(),
+            updatedAt: session.updatedAt.toISOString(),
+            projectHash: session.projectHash
+          });
+        }
+      }
+
+      // Sort by updatedAt descending
+      sessions.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ sessions, count: sessions.length }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: (err as Error).message }));

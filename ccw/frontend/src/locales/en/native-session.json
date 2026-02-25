@@ -6,6 +6,20 @@
     "output": "Output tokens",
     "cached": "Cached tokens"
   },
+  "timeline": {
+    "turnNumber": "Turn #{number}",
+    "tokens": {
+      "input": "Input: {count}",
+      "output": "Output: {count}",
+      "cached": "Cached: {count}"
+    },
+    "toolCall": {
+      "completed": "completed",
+      "running": "running",
+      "error": "error",
+      "noData": "No data available"
+    }
+  },
   "turn": {
     "latest": "Latest",
     "thoughts": "Thoughts",

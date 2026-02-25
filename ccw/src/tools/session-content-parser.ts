@@ -5,6 +5,7 @@
 
 import { readFileSync, existsSync } from 'fs';
 import { parseClaudeSession } from './claude-session-parser.js';
+import { parseOpenCodeSession } from './opencode-session-parser.js';
 
 // Standardized conversation turn
 export interface ParsedTurn {
@@ -200,6 +201,8 @@ export function parseSessionFile(filePath: string, tool: string): ParsedSession 
         return parseCodexSession(content);
       case 'claude':
         return parseClaudeSession(filePath);
+      case 'opencode':
+        return parseOpenCodeSession(filePath);
       default:
         return null;
     }

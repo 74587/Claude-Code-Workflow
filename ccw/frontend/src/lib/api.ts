@@ -2064,7 +2064,30 @@ export interface NativeSession {
 }
 
 /**
- * Fetch native CLI session content by execution ID
+ * Options for fetching native session
+ */
+export interface FetchNativeSessionOptions {
+  executionId?: string;
+  projectPath?: string;
+  /** Direct file path to session file (bypasses ccw execution ID lookup) */
+  filePath?: string;
+  /** Tool type for file path query: claude | opencode | codex | qwen | gemini | auto */
+  tool?: 'claude' | 'opencode' | 'codex' | 'qwen' | 'gemini' | 'auto';
+  /** Output format: json (default) | text | pairs */
+  format?: 'json' | 'text' | 'pairs';
+  /** Include thoughts in text format */
+  thoughts?: boolean;
+  /** Include tool calls in text format */
+  tools?: boolean;
+  /** Include token counts in text format */
+  tokens?: boolean;
+}
+
+/**
+ * Fetch native CLI session content by execution ID or file path
+ * @param executionId - CCW execution ID (backward compatible)
+ * @param projectPath - Optional project path
+ * @deprecated Use fetchNativeSessionWithOptions for new features
  */
 export async function fetchNativeSession(
   executionId: string,
@@ -2074,6 +2097,88 @@ export async function fetchNativeSession(
   if (projectPath) params.set('path', projectPath);
   return fetchApi<NativeSession>(
     `/api/cli/native-session?${params.toString()}`
+  );
+}
+
+/**
+ * Fetch native CLI session content with full options
+ * Supports both execution ID lookup and direct file path query
+ */
+export async function fetchNativeSessionWithOptions(
+  options: FetchNativeSessionOptions
+): Promise<NativeSession | string | Array<{ turn: number; userPrompt: string; assistantResponse: string; timestamp: string }>> {
+  const params = new URLSearchParams();
+
+  // Priority: filePath > executionId
+  if (options.filePath) {
+    params.set('filePath', options.filePath);
+    if (options.tool) params.set('tool', options.tool);
+  } else if (options.executionId) {
+    params.set('id', options.executionId);
+  } else {
+    throw new Error('Either executionId or filePath is required');
+  }
+
+  if (options.projectPath) params.set('path', options.projectPath);
+  if (options.format) params.set('format', options.format);
+  if (options.thoughts) params.set('thoughts', 'true');
+  if (options.tools) params.set('tools', 'true');
+  if (options.tokens) params.set('tokens', 'true');
+
+  const url = `/api/cli/native-session?${params.toString()}`;
+
+  // Text format returns string, others return JSON
+  if (options.format === 'text') {
+    const response = await fetch(url, { credentials: 'same-origin' });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(error.error || response.statusText);
+    }
+    return response.text();
+  }
+
+  return fetchApi<NativeSession | Array<{ turn: number; userPrompt: string; assistantResponse: string; timestamp: string }>>(url);
+}
+
+// ========== Native Sessions List API ==========
+
+/**
+ * Native session metadata for list endpoint
+ */
+export interface NativeSessionListItem {
+  id: string;
+  tool: string;
+  path: string;
+  title?: string;
+  startTime: string;
+  updatedAt: string;
+  projectHash?: string;
+}
+
+/**
+ * Native sessions list response
+ */
+export interface NativeSessionsListResponse {
+  sessions: NativeSessionListItem[];
+  count: number;
+}
+
+/**
+ * Fetch list of native CLI sessions
+ * @param tool - Filter by tool type (optional)
+ * @param project - Filter by project path (optional)
+ */
+export async function fetchNativeSessions(
+  tool?: 'gemini' | 'qwen' | 'codex' | 'claude' | 'opencode',
+  project?: string
+): Promise<NativeSessionsListResponse> {
+  const params = new URLSearchParams();
+  if (tool) params.set('tool', tool);
+  if (project) params.set('project', project);
+
+  const query = params.toString();
+  return fetchApi<NativeSessionsListResponse>(
+    `/api/cli/native-sessions${query ? `?${query}` : ''}`
   );
 }
 
