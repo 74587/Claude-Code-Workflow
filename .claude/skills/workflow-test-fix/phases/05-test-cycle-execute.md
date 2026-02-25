@@ -129,19 +129,13 @@ const taskTypeSpecificReads = {
 
 const taskTypeGuidance = {
   "test-gen": `
-    - Review task.context.requirements for test scenarios
-    - Analyze codebase to understand implementation
-    - Generate tests covering: happy paths, edge cases, error handling
-    - Follow existing test patterns and framework conventions
+    - Read task.context.requirements for test scenarios
+    - Generate tests following existing patterns and framework conventions
   `,
   "test-fix": `
-    - Run test command from task.context or project config
-    - Capture: pass/fail counts, error messages, stack traces
-    - Assess criticality for each failure:
-      * high: core functionality broken, security issues
-      * medium: feature degradation, data integrity issues
-      * low: edge cases, flaky tests, env-specific issues
-    - Save structured results to test-results.json
+    - Execute multi-layer test suite (follow your Layer-Aware Diagnosis spec)
+    - Save structured results to ${session.test_results_path}
+    - Apply criticality assessment per your spec (high/medium/low)
   `,
   "test-fix-iteration": `
     - Load fix_strategy from task.context.fix_strategy
@@ -248,6 +242,10 @@ Task(
 
     ## Strategy
     ${selectedStrategy} - ${strategyDescription}
+
+    ## PROJECT CONTEXT (MANDATORY)
+    1. Read: .workflow/project-tech.json (tech stack, test framework, build system)
+    2. Read: .workflow/project-guidelines.json (constraints — apply as HARD CONSTRAINTS on fixes)
 
     ## MANDATORY FIRST STEPS
     1. Read test results: ${session.test_results_path}
