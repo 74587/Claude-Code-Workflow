@@ -489,7 +489,7 @@ async function fetchSkillDirectoryContents(skillPath: string): Promise<GitHubTre
     throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
   }
 
-  return response.json();
+  return response.json() as Promise<GitHubTreeEntry[]>;
 }
 
 /**

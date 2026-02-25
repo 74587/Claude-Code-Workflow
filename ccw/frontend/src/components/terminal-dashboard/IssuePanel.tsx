@@ -6,7 +6,7 @@
 // Integrates with issueQueueIntegrationStore for selection state
 // and association chain highlighting.
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 import {
   AlertCircle,
@@ -14,8 +14,18 @@ import {
   AlertTriangle,
   CircleDot,
   Terminal,
+  Check,
+  Send,
+  X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
 import { cn } from '@/lib/utils';
 import { useIssues } from '@/hooks/useIssues';
 import {
@@ -28,6 +38,18 @@ import type { Issue } from '@/lib/api';
 import { useTerminalGridStore, selectTerminalGridFocusedPaneId, selectTerminalGridPanes } from '@/stores/terminalGridStore';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { toast } from '@/stores/notificationStore';
+
+// ========== Execution Method Type ==========
+
+type ExecutionMethod = 'skill-team-issue' | 'ccw-cli' | 'direct-send';
+
+// ========== Prompt Templates ==========
+
+const PROMPT_TEMPLATES: Record<ExecutionMethod, (idStr: string) => string> = {
+  'skill-team-issue': (idStr) => `完成 ${idStr} issue`,
+  'ccw-cli': (idStr) => `完成.issue.jsonl中 ${idStr} issue`,
+  'direct-send': (idStr) => `根据@.workflow/issues/issues.jsonl中的 ${idStr} 需求，进行开发`,
+};
 
 // ========== Priority Badge ==========
 
@@ -172,12 +194,49 @@ export function IssuePanel() {
   // Multi-select state
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isSending, setIsSending] = useState(false);
+  const [justSent, setJustSent] = useState(false);
+  const [executionMethod, setExecutionMethod] = useState<ExecutionMethod>('skill-team-issue');
+  const [isSendConfigOpen, setIsSendConfigOpen] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const sentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Terminal refs
   const focusedPaneId = useTerminalGridStore(selectTerminalGridFocusedPaneId);
   const panes = useTerminalGridStore(selectTerminalGridPanes);
   const projectPath = useWorkflowStore(selectProjectPath);
-  const sessionKey = focusedPaneId ? panes[focusedPaneId]?.sessionId : null;
+  const focusedPane = focusedPaneId ? panes[focusedPaneId] : null;
+  const sessionKey = focusedPane?.sessionId ?? null;
+  const sessionCliTool = focusedPane?.cliTool ?? null;
+
+  // Compute available methods based on the focused session's CLI tool
+  const availableMethods = useMemo(() => {
+    // Only offer skill methods when the session is claude (supports / slash commands)
+    if (sessionCliTool === 'claude') {
+      return [
+        { value: 'skill-team-issue' as const, label: 'team-issue' },
+        { value: 'ccw-cli' as const, label: 'ccw' },
+        { value: 'direct-send' as const, label: 'Direct send' },
+      ];
+    }
+    // For unknown/null cliTool or non-claude tools, only offer direct send
+    return [
+      { value: 'direct-send' as const, label: 'Direct send' },
+    ];
+  }, [sessionCliTool]);
+
+  // Auto-switch method when the current selection is unavailable for this tool
+  useEffect(() => {
+    if (!availableMethods.find(m => m.value === executionMethod)) {
+      setExecutionMethod(availableMethods[0].value);
+    }
+  }, [availableMethods, executionMethod]);
+
+  // Cleanup sent feedback timer on unmount
+  useEffect(() => {
+    return () => {
+      if (sentTimerRef.current) clearTimeout(sentTimerRef.current);
+    };
+  }, []);
 
   // Sort: open/in_progress first, then by priority (critical > high > medium > low)
   const sortedIssues = useMemo(() => {
@@ -232,24 +291,60 @@ export function IssuePanel() {
     setSelectedIds(new Set());
   }, []);
 
+  const handleOpenSendConfig = useCallback(() => {
+    const idStr = Array.from(selectedIds).join(' ');
+    setCustomPrompt(PROMPT_TEMPLATES[executionMethod](idStr));
+    setIsSendConfigOpen(true);
+  }, [selectedIds, executionMethod]);
+
   const handleSendToTerminal = useCallback(async () => {
     if (!sessionKey || selectedIds.size === 0) return;
+    const effectiveTool = sessionCliTool || 'claude';
     setIsSending(true);
     try {
-      await executeInCliSession(sessionKey, {
-        tool: 'claude',
-        prompt: Array.from(selectedIds).join(' '),
-        instructionType: 'skill',
-        skillName: 'team-issue',
-      }, projectPath || undefined);
-      toast.success('Sent to terminal', `/team-issue ${Array.from(selectedIds).join(' ')}`);
-      setSelectedIds(new Set());
+      const prompt = customPrompt.trim();
+
+      let executeInput: Parameters<typeof executeInCliSession>[1];
+
+      switch (executionMethod) {
+        case 'skill-team-issue':
+          executeInput = {
+            tool: effectiveTool,
+            prompt,
+            instructionType: 'skill',
+            skillName: 'team-issue',
+          };
+          break;
+        case 'ccw-cli':
+          executeInput = {
+            tool: effectiveTool,
+            prompt,
+            instructionType: 'skill',
+            skillName: 'ccw',
+          };
+          break;
+        case 'direct-send':
+          executeInput = {
+            tool: effectiveTool,
+            prompt,
+            instructionType: 'prompt',
+          };
+          break;
+      }
+
+      await executeInCliSession(sessionKey, executeInput, projectPath || undefined);
+
+      toast.success('Sent to terminal', prompt.length > 60 ? prompt.slice(0, 60) + '...' : prompt);
+      setJustSent(true);
+      setIsSendConfigOpen(false);
+      if (sentTimerRef.current) clearTimeout(sentTimerRef.current);
+      sentTimerRef.current = setTimeout(() => setJustSent(false), 2000);
     } catch (err) {
       toast.error('Failed to send', err instanceof Error ? err.message : String(err));
     } finally {
       setIsSending(false);
     }
-  }, [sessionKey, selectedIds, projectPath]);
+  }, [sessionKey, selectedIds, projectPath, executionMethod, sessionCliTool, customPrompt]);
 
   // Loading state
   if (isLoading) {
@@ -330,33 +425,107 @@ export function IssuePanel() {
 
       {/* Send to Terminal bar */}
       {selectedIds.size > 0 && (
-        <div className="px-3 py-2 border-t border-border shrink-0 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {selectedIds.size} selected
-            </span>
+        <div className="border-t border-border shrink-0">
+          {/* Send Config Panel (expandable) */}
+          {isSendConfigOpen && (
+            <div className="px-3 py-2 space-y-2 border-b border-border bg-muted/20">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-foreground">Send Configuration</span>
+                <button
+                  type="button"
+                  className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsSendConfigOpen(false)}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              {/* Method selector */}
+              {availableMethods.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground shrink-0">Method</span>
+                  <Select
+                    value={executionMethod}
+                    onValueChange={(v) => {
+                      const method = v as ExecutionMethod;
+                      setExecutionMethod(method);
+                      const idStr = Array.from(selectedIds).join(' ');
+                      setCustomPrompt(PROMPT_TEMPLATES[method](idStr));
+                    }}
+                  >
+                    <SelectTrigger className="h-6 w-full text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableMethods.map((m) => (
+                        <SelectItem key={m.value} value={m.value} className="text-xs">
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {/* Prompt preview label */}
+              {executionMethod !== 'direct-send' && (
+                <div className="text-[10px] text-muted-foreground">
+                  Prefix: <span className="font-mono text-foreground">/{executionMethod === 'skill-team-issue' ? 'team-issue' : 'ccw'}</span>
+                </div>
+              )}
+              {/* Editable prompt */}
+              <textarea
+                className="w-full text-xs bg-background border border-border rounded-md px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-primary/40 text-foreground"
+                rows={3}
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                placeholder="Enter prompt..."
+              />
+              {/* Send button */}
+              <button
+                type="button"
+                className={cn(
+                  'w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                  'bg-primary text-primary-foreground hover:bg-primary/90',
+                  'disabled:opacity-50 disabled:cursor-not-allowed'
+                )}
+                disabled={!sessionKey || isSending || !customPrompt.trim()}
+                onClick={handleSendToTerminal}
+              >
+                {isSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                Confirm Send
+              </button>
+            </div>
+          )}
+          {/* Bottom bar */}
+          <div className="px-3 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {selectedIds.size} selected
+              </span>
+              <button
+                type="button"
+                className="text-xs text-muted-foreground hover:text-foreground"
+                onClick={handleDeselectAll}
+              >
+                Clear
+              </button>
+            </div>
             <button
               type="button"
-              className="text-xs text-muted-foreground hover:text-foreground"
-              onClick={handleDeselectAll}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
+                justSent
+                  ? 'bg-green-600 text-white'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90',
+                'disabled:opacity-50 disabled:cursor-not-allowed'
+              )}
+              disabled={!sessionKey || isSending}
+              onClick={isSendConfigOpen ? handleSendToTerminal : handleOpenSendConfig}
+              title={!sessionKey ? 'No terminal session focused' : `Send via ${executionMethod}`}
             >
-              Clear
+              {isSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : justSent ? <Check className="w-3.5 h-3.5" /> : <Terminal className="w-3.5 h-3.5" />}
+              {justSent ? 'Sent!' : `Send (${selectedIds.size})`}
             </button>
           </div>
-          <button
-            type="button"
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors',
-              'bg-primary text-primary-foreground hover:bg-primary/90',
-              'disabled:opacity-50 disabled:cursor-not-allowed'
-            )}
-            disabled={!sessionKey || isSending}
-            onClick={handleSendToTerminal}
-            title={!sessionKey ? 'No terminal session focused' : 'Send /team-issue to terminal'}
-          >
-            {isSending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Terminal className="w-3.5 h-3.5" />}
-            Send to Terminal ({selectedIds.size})
-          </button>
         </div>
       )}
     </div>
