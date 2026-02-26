@@ -397,9 +397,6 @@ export function IssueHubPage() {
       case 'discovery':
         return null; // Discovery panel has its own controls
 
-      case 'executions':
-        return null; // Executions panel has its own controls
-
       default:
         return null;
     }
