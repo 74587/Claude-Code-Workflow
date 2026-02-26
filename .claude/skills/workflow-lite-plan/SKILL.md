@@ -189,6 +189,6 @@ Plan mode and execute mode are triggered by skill name routing (see Mode Detecti
 | Phase | Document | Purpose | Compact |
 |-------|----------|---------|---------|
 | 1 | [phases/01-lite-plan.md](phases/01-lite-plan.md) | Complete planning pipeline: exploration, clarification, planning, confirmation, handoff | Phase 1 完成后可压缩 |
-| 2 | [phases/02-lite-execute.md](phases/02-lite-execute.md) | Complete execution engine: input modes, task grouping, batch execution, code review | **⚠️ 执行期间禁止压缩，压缩后必须重读** |
+| 2 | [phases/02-lite-execute.md](phases/02-lite-execute.md) | Complete execution engine: input modes, task grouping, batch execution, code review | **⚠️ 压缩时必须完整保留，若仅剩摘要须重读** |
 
-**Phase 2 Compact Rule**: Phase 2 是执行引擎，包含 Step 1-6 的完整执行协议。如果 compact 发生且 Phase 2 内容仅剩摘要，**必须立即 `Read("phases/02-lite-execute.md")` 重新加载后再继续执行**。不得基于摘要执行任何 Step。
+**Phase 2 Compact Rule**: Phase 2 是执行引擎，包含 Step 1-6 的完整执行协议。compact 压缩时必须完整保留 Phase 2 内容。若 compact 后 Phase 2 仅剩摘要，**必须立即 `Read("phases/02-lite-execute.md")` 重新加载后再继续执行**。不得基于摘要执行任何 Step。

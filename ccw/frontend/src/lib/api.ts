@@ -7141,11 +7141,19 @@ import type { AnalysisSessionSummary, AnalysisSessionDetail } from '../types/ana
  * Fetch list of analysis sessions
  */
 export async function fetchAnalysisSessions(
-  projectPath?: string
+  projectPath?: string,
+  options?: { limit?: number; offset?: number }
 ): Promise<AnalysisSessionSummary[]> {
-  const data = await fetchApi<{ success: boolean; data: AnalysisSessionSummary[]; error?: string }>(
-    withPath('/api/analysis', projectPath)
-  );
+  const params = new URLSearchParams();
+  if (options?.limit) params.set('limit', String(options.limit));
+  if (options?.offset) params.set('offset', String(options.offset));
+
+  const queryString = params.toString();
+  const path = queryString
+    ? `${withPath('/api/analysis', projectPath)}&${queryString}`
+    : withPath('/api/analysis', projectPath);
+
+  const data = await fetchApi<{ success: boolean; data: AnalysisSessionSummary[]; error?: string }>(path);
   if (!data.success) {
     throw new Error(data.error || 'Failed to fetch analysis sessions');
   }

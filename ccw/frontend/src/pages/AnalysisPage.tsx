@@ -24,10 +24,11 @@ import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
+import { TabsNavigation } from '@/components/ui/TabsNavigation';
 import { fetchAnalysisSessions, fetchAnalysisDetail } from '@/lib/api';
 import { MessageRenderer } from '@/components/shared/CliStreamMonitor/MessageRenderer';
 import { JsonCardView } from '@/components/shared/JsonCardView';
+import { cn } from '@/lib/utils';
 import type { AnalysisSessionSummary } from '@/types/analysis';
 
 // ========== Session Card Component ==========
@@ -41,23 +42,22 @@ interface SessionCardProps {
 function SessionCard({ session, onClick, isSelected }: SessionCardProps) {
   return (
     <Card
-      className={`p-4 cursor-pointer transition-colors ${
-        isSelected ? 'ring-2 ring-primary bg-accent/50' : 'hover:bg-accent/50'
-      }`}
+      className={cn(
+        'p-4 cursor-pointer transition-all hover:shadow-md',
+        isSelected && 'ring-2 ring-primary'
+      )}
       onClick={onClick}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <FileSearch className="w-4 h-4 text-muted-foreground" />
-            <span className="font-medium truncate">{session.topic}</span>
-          </div>
-          <p className="text-sm text-muted-foreground truncate">{session.id}</p>
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <FileSearch className="w-5 h-5 text-primary flex-shrink-0" />
+          <h3 className="font-medium text-foreground truncate">{session.topic}</h3>
         </div>
         <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
       </div>
-      <div className="flex items-center gap-3 mt-3">
-        <Badge variant={session.status === 'completed' ? 'default' : 'secondary'}>
+      <p className="text-sm text-muted-foreground truncate mb-3">{session.id}</p>
+      <div className="flex items-center gap-3">
+        <Badge variant={session.status === 'completed' ? 'success' : 'warning'}>
           {session.status === 'completed' ? (
             <><CheckCircle className="w-3 h-3 mr-1" />完成</>
           ) : (
@@ -82,6 +82,8 @@ interface DetailPanelProps {
 }
 
 function DetailPanel({ sessionId, projectPath, onClose }: DetailPanelProps) {
+  const [activeTab, setActiveTab] = useState('discussion');
+
   const { data: detail, isLoading, error } = useQuery({
     queryKey: ['analysis-detail', sessionId, projectPath],
     queryFn: () => fetchAnalysisDetail(sessionId, projectPath),
@@ -110,13 +112,20 @@ function DetailPanel({ sessionId, projectPath, onClose }: DetailPanelProps) {
 
   // Build available tabs based on content
   const tabs = [
-    { id: 'discussion', label: '讨论记录', icon: MessageSquare, content: detail.discussion },
-    { id: 'conclusions', label: '结论', icon: CheckCircle, content: detail.conclusions },
-    { id: 'explorations', label: '代码探索', icon: Code, content: detail.explorations },
-    { id: 'perspectives', label: '视角分析', icon: FileText, content: detail.perspectives },
-  ].filter(tab => tab.content);
+    { value: 'discussion', label: '讨论记录', icon: <MessageSquare className="w-4 h-4" /> },
+    { value: 'conclusions', label: '结论', icon: <CheckCircle className="w-4 h-4" /> },
+    { value: 'explorations', label: '代码探索', icon: <Code className="w-4 h-4" /> },
+    { value: 'perspectives', label: '视角分析', icon: <FileText className="w-4 h-4" /> },
+  ].filter(tab => {
+    const key = tab.value as keyof typeof detail;
+    return detail[key];
+  });
 
-  const defaultTab = tabs[0]?.id || 'discussion';
+  // Ensure activeTab is valid
+  const validTab = tabs.find(t => t.value === activeTab);
+  if (!validTab && tabs.length > 0) {
+    setActiveTab(tabs[0].value);
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -138,46 +147,35 @@ function DetailPanel({ sessionId, projectPath, onClose }: DetailPanelProps) {
 
       {/* Tabs Content */}
       {tabs.length > 0 ? (
-        <Tabs defaultValue={defaultTab} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="mx-4 mt-4 shrink-0 w-fit">
-            {tabs.map(tab => (
-              <TabsTrigger key={tab.id} value={tab.id} className="gap-1.5">
-                <tab.icon className="w-3.5 h-3.5" />
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
+        <>
+          <TabsNavigation
+            value={activeTab}
+            onValueChange={setActiveTab}
+            tabs={tabs}
+            className="px-4"
+          />
           <div className="flex-1 overflow-auto min-h-0 p-4">
             {/* Discussion Tab */}
-            <TabsContent value="discussion" className="mt-0 h-full">
-              {detail.discussion && (
-                <MessageRenderer content={detail.discussion} format="markdown" />
-              )}
-            </TabsContent>
+            {activeTab === 'discussion' && detail.discussion && (
+              <MessageRenderer content={detail.discussion} format="markdown" />
+            )}
 
             {/* Conclusions Tab */}
-            <TabsContent value="conclusions" className="mt-0 h-full">
-              {detail.conclusions && (
-                <JsonCardView data={detail.conclusions} />
-              )}
-            </TabsContent>
+            {activeTab === 'conclusions' && detail.conclusions && (
+              <JsonCardView data={detail.conclusions} />
+            )}
 
             {/* Explorations Tab */}
-            <TabsContent value="explorations" className="mt-0 h-full">
-              {detail.explorations && (
-                <JsonCardView data={detail.explorations} />
-              )}
-            </TabsContent>
+            {activeTab === 'explorations' && detail.explorations && (
+              <JsonCardView data={detail.explorations} />
+            )}
 
             {/* Perspectives Tab */}
-            <TabsContent value="perspectives" className="mt-0 h-full">
-              {detail.perspectives && (
-                <JsonCardView data={detail.perspectives} />
-              )}
-            </TabsContent>
+            {activeTab === 'perspectives' && detail.perspectives && (
+              <JsonCardView data={detail.perspectives} />
+            )}
           </div>
-        </Tabs>
+        </>
       ) : (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
           暂无分析内容
@@ -210,14 +208,16 @@ export function AnalysisPage() {
       {/* Left Panel - List */}
       <div className={`p-6 space-y-6 overflow-auto ${selectedSession ? 'w-[400px] shrink-0' : 'flex-1'}`}>
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileSearch className="w-6 h-6" />
-            Analysis Viewer
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            查看 /workflow:analyze-with-file 命令的分析结果
-          </p>
+        <div className="flex items-center gap-2">
+          <FileSearch className="w-6 h-6 text-primary" />
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">
+              Analysis Viewer
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              查看 /workflow:analyze-with-file 命令的分析结果
+            </p>
+          </div>
         </div>
 
         {/* Search */}

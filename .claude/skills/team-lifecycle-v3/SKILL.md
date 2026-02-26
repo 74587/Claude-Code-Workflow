@@ -43,20 +43,22 @@ Parse `$ARGUMENTS` to extract `--role`. If absent → Orchestration Mode (auto r
 
 ### Role Registry
 
-| Role | File | Task Prefix | Type |
-|------|------|-------------|------|
-| coordinator | roles/coordinator/role.md | (none) | orchestrator |
-| analyst | roles/analyst/role.md | RESEARCH-* | pipeline |
-| writer | roles/writer/role.md | DRAFT-* | pipeline |
-| discussant | roles/discussant/role.md | DISCUSS-* | pipeline |
-| planner | roles/planner/role.md | PLAN-* | pipeline |
-| executor | roles/executor/role.md | IMPL-* | pipeline |
-| tester | roles/tester/role.md | TEST-* | pipeline |
-| reviewer | roles/reviewer/role.md | REVIEW-* + QUALITY-* | pipeline |
-| explorer | roles/explorer/role.md | EXPLORE-* | service (on-demand) |
-| architect | roles/architect/role.md | ARCH-* | consulting (on-demand) |
-| fe-developer | roles/fe-developer/role.md | DEV-FE-* | frontend pipeline |
-| fe-qa | roles/fe-qa/role.md | QA-FE-* | frontend pipeline |
+| Role | File | Task Prefix | Type | Compact |
+|------|------|-------------|------|---------|
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | (none) | orchestrator | **⚠️ 压缩后必须重读** |
+| analyst | [roles/analyst/role.md](roles/analyst/role.md) | RESEARCH-* | pipeline | 压缩后必须重读 |
+| writer | [roles/writer/role.md](roles/writer/role.md) | DRAFT-* | pipeline | 压缩后必须重读 |
+| discussant | [roles/discussant/role.md](roles/discussant/role.md) | DISCUSS-* | pipeline | 压缩后必须重读 |
+| planner | [roles/planner/role.md](roles/planner/role.md) | PLAN-* | pipeline | 压缩后必须重读 |
+| executor | [roles/executor/role.md](roles/executor/role.md) | IMPL-* | pipeline | 压缩后必须重读 |
+| tester | [roles/tester/role.md](roles/tester/role.md) | TEST-* | pipeline | 压缩后必须重读 |
+| reviewer | [roles/reviewer/role.md](roles/reviewer/role.md) | REVIEW-* + QUALITY-* | pipeline | 压缩后必须重读 |
+| explorer | [roles/explorer/role.md](roles/explorer/role.md) | EXPLORE-* | service (on-demand) | 压缩后必须重读 |
+| architect | [roles/architect/role.md](roles/architect/role.md) | ARCH-* | consulting (on-demand) | 压缩后必须重读 |
+| fe-developer | [roles/fe-developer/role.md](roles/fe-developer/role.md) | DEV-FE-* | frontend pipeline | 压缩后必须重读 |
+| fe-qa | [roles/fe-qa/role.md](roles/fe-qa/role.md) | QA-FE-* | frontend pipeline | 压缩后必须重读 |
+
+> **⚠️ COMPACT PROTECTION**: 角色文件是执行文档，不是参考资料。当 context compression 发生后，角色指令仅剩摘要时，**必须立即 `Read` 对应 role.md 重新加载后再继续执行**。不得基于摘要执行任何 Phase。
 
 ### Dispatch
 
@@ -179,6 +181,86 @@ Fullstack:     PLAN-001 → IMPL-001 ∥ DEV-FE-001 → TEST-001 ∥ QA-FE-001 �
 Full + FE:     [Spec pipeline] → PLAN-001 → IMPL-001 ∥ DEV-FE-001 → TEST-001 ∥ QA-FE-001 → REVIEW-001
 ```
 
+### Cadence Control
+
+**节拍模型**: 事件驱动，每个 beat = coordinator 唤醒 → 处理 → spawn → STOP。
+
+```
+Beat Cycle (单次节拍)
+═══════════════════════════════════════════════════════════
+  Event                   Coordinator              Workers
+───────────────────────────────────────────────────────────
+  callback/resume ──→ ┌─ handleCallback ─┐
+                      │  mark completed   │
+                      │  check pipeline   │
+                      ├─ handleSpawnNext ─┤
+                      │  find ready tasks │
+                      │  spawn workers ───┼──→ [Worker A] Phase 1-5
+                      │  (parallel OK)  ──┼──→ [Worker B] Phase 1-5
+                      └─ STOP (idle) ─────┘         │
+                                                     │
+  callback ←─────────────────────────────────────────┘
+  (next beat)              SendMessage + TaskUpdate(completed)
+═══════════════════════════════════════════════════════════
+```
+
+**Pipeline 节拍视图**:
+
+```
+Spec-only (12 beats, 严格串行)
+──────────────────────────────────────────────────────────
+Beat  1    2    3    4    5    6    7    8    9   10   11   12
+      │    │    │    │    │    │    │    │    │    │    │    │
+      R1 → D1 → W1 → D2 → W2 → D3 → W3 → D4 → W4 → D5 → Q1 → D6
+      ▲                                                          ▲
+   pipeline                                                  sign-off
+    start                                                     pause
+
+R=RESEARCH  D=DISCUSS  W=DRAFT(writer)  Q=QUALITY
+
+Impl-only (3 beats, 含并行窗口)
+──────────────────────────────────────────────────────────
+Beat  1         2              3
+      │         │         ┌────┴────┐
+      PLAN → IMPL ──→ TEST ∥ REVIEW    ← 并行窗口
+                         └────┬────┘
+                           pipeline
+                            done
+
+Full-lifecycle (15 beats, spec→impl 过渡含检查点)
+──────────────────────────────────────────────────────────
+Beat 1-12: [Spec pipeline 同上]
+                                    │
+Beat 12 (D6 完成):          ⏸ CHECKPOINT ── 用户确认后 resume
+                                    │
+Beat 13     14           15
+ PLAN  →  IMPL  →  TEST ∥ REVIEW
+
+Fullstack (含双并行窗口)
+──────────────────────────────────────────────────────────
+Beat  1              2                    3                4
+      │         ┌────┴────┐         ┌────┴────┐           │
+      PLAN → IMPL ∥ DEV-FE → TEST ∥ QA-FE  →  REVIEW
+              ▲                ▲                   ▲
+         并行窗口 1       并行窗口 2          同步屏障
+```
+
+**检查点 (Checkpoint)**:
+
+| 触发条件 | 位置 | 行为 |
+|----------|------|------|
+| Spec→Impl 过渡 | DISCUSS-006 完成后 | ⏸ 暂停，等待用户 `resume` 确认 |
+| GC 循环上限 | QA-FE max 2 rounds | 超出轮次 → 停止迭代，报告当前状态 |
+| Pipeline 停滞 | 无 ready + 无 running | 检查缺失任务，报告用户 |
+
+**Stall 检测** (coordinator `handleCheck` 时执行):
+
+| 检查项 | 条件 | 处理 |
+|--------|------|------|
+| Worker 无响应 | in_progress 任务无回调 | 报告等待中的任务列表，建议用户 `resume` |
+| Pipeline 死锁 | 无 ready + 无 running + 有 pending | 检查 blockedBy 依赖链，报告卡点 |
+| GC 循环超限 | DEV-FE / QA-FE 迭代 > max_rounds | 终止循环，输出最新 QA 报告 |
+
 ### Task Metadata Registry
 
 | Task ID | Role | Phase | Dependencies | Description |
@@ -282,12 +364,12 @@ Coordinator supports `--resume` / `--continue` for interrupted sessions:
 
 | Resource | Path | Usage |
 |----------|------|-------|
-| Document Standards | specs/document-standards.md | YAML frontmatter, naming, structure |
-| Quality Gates | specs/quality-gates.md | Per-phase quality gates |
-| Product Brief Template | templates/product-brief.md | DRAFT-001 |
-| Requirements Template | templates/requirements-prd.md | DRAFT-002 |
-| Architecture Template | templates/architecture-doc.md | DRAFT-003 |
-| Epics Template | templates/epics-template.md | DRAFT-004 |
+| Document Standards | [specs/document-standards.md](specs/document-standards.md) | YAML frontmatter, naming, structure |
+| Quality Gates | [specs/quality-gates.md](specs/quality-gates.md) | Per-phase quality gates |
+| Product Brief Template | [templates/product-brief.md](templates/product-brief.md) | DRAFT-001 |
+| Requirements Template | [templates/requirements-prd.md](templates/requirements-prd.md) | DRAFT-002 |
+| Architecture Template | [templates/architecture-doc.md](templates/architecture-doc.md) | DRAFT-003 |
+| Epics Template | [templates/epics-template.md](templates/epics-template.md) | DRAFT-004 |
 
 ## Error Handling
 

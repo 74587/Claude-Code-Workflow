@@ -8,10 +8,15 @@
  */
 
 import { readdir, readFile, stat } from 'fs/promises';
-import { existsSync } from 'fs';
+import { existsSync, statSync } from 'fs';
 import { join } from 'path';
 import type { RouteContext } from './types.js';
 import { resolvePath } from '../../utils/path-resolver.js';
+
+// Concurrency limit for processing folders
+const MAX_CONCURRENT = 10;
+// Timeout for individual file operations (ms)
+const FILE_TIMEOUT = 5000;
 
 /**
  * Analysis session summary for list view
@@ -153,6 +158,8 @@ export async function handleAnalysisRoutes(ctx: RouteContext): Promise<boolean> 
   if (pathname === '/api/analysis' && req.method === 'GET') {
     try {
       const projectPath = ctx.url.searchParams.get('projectPath') || initialPath;
+      const limit = Math.min(parseInt(ctx.url.searchParams.get('limit') || '50', 10), 100);
+      const offset = parseInt(ctx.url.searchParams.get('offset') || '0', 10);
       const resolvedPath = resolvePath(projectPath);
       const analysisDir = join(resolvedPath, '.workflow', '.analysis');
 
@@ -163,18 +170,22 @@ export async function handleAnalysisRoutes(ctx: RouteContext): Promise<boolean> 
       }
 
       const folders = await readdir(analysisDir);
-      const sessions: AnalysisSessionSummary[] = [];
 
-      for (const folder of folders) {
-        const summary = await getSessionSummary(analysisDir, folder);
-        if (summary) sessions.push(summary);
-      }
+      // Parallel processing for better performance
+      const summaries = await Promise.all(
+        folders.map(folder => getSessionSummary(analysisDir, folder))
+      );
 
-      // Sort by date descending
-      sessions.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      // Filter valid sessions and sort by date descending
+      const allSessions = summaries
+        .filter((s): s is AnalysisSessionSummary => s !== null)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+      const total = allSessions.length;
+      const paginatedSessions = allSessions.slice(offset, offset + limit);
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, data: sessions, total: sessions.length }));
+      res.end(JSON.stringify({ success: true, data: paginatedSessions, total }));
       return true;
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'application/json' });

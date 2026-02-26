@@ -174,9 +174,9 @@ Multi-phase workflows span long conversations. Context compression (compact) may
 | Phase | Document | Purpose | Compact |
 |-------|----------|---------|---------|
 | 1 | phases/01-xxx.md | Planning pipeline | Phase 1 完成后可压缩 |
-| 2 | phases/02-xxx.md | Execution engine | **⚠️ 执行期间禁止压缩，压缩后必须重读** |
+| 2 | phases/02-xxx.md | Execution engine | **⚠️ 压缩时必须完整保留，若仅剩摘要须重读** |
 
-**Phase N Compact Rule**: Phase N 是执行引擎，包含 Step 1-M 的完整执行协议。如果 compact 发生且 Phase N 内容仅剩摘要，**必须立即 `Read("phases/0N-xxx.md")` 重新加载后再继续执行**。不得基于摘要执行任何 Step。
+**Phase N Compact Rule**: Phase N 是执行引擎，包含 Step 1-M 的完整执行协议。compact 压缩时必须完整保留 Phase N 内容。若 compact 后仅剩摘要，**必须立即 `Read("phases/0N-xxx.md")` 重新加载后再继续执行**。不得基于摘要执行任何 Step。
 ```
 
 **Phase 文件顶部** — Compact Protection directive:
