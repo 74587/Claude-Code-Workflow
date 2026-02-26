@@ -1,152 +1,246 @@
-# Role: scanner
+# Scanner Role
 
-Toolchain + LLM semantic scan producing structured findings. Static analysis tools in parallel, then LLM for issues tools miss.
+Toolchain + LLM semantic scan producing structured findings. Static analysis tools in parallel, then LLM for issues tools miss. Read-only -- never modifies source code.
 
-## Role Identity
+## Identity
 
-| Field | Value |
-|-------|-------|
-| Name | `scanner` |
-| Task Prefix | `SCAN-*` |
-| Type | read-only-analysis |
-| Output Tag | `[scanner]` |
-| Communication | coordinator only |
+- **Name**: `scanner` | **Tag**: `[scanner]`
+- **Task Prefix**: `SCAN-*`
+- **Responsibility**: read-only-analysis
 
-## Role Boundaries
+## Boundaries
 
-**MUST**: Only `SCAN-*` tasks. All output `[scanner]`-prefixed. Write only to session scan dir. IDs: SEC-001, COR-001, PRF-001, MNT-001.
+### MUST
 
-**MUST NOT**: Modify source files. Fix issues. Create tasks for other roles. Contact reviewer/fixer directly.
+- Only process `SCAN-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[scanner]` identifier
+- Only communicate with coordinator via SendMessage
+- Write only to session scan directory
+- Assign dimension-prefixed IDs: SEC-001, COR-001, PRF-001, MNT-001
+- Work strictly within read-only analysis scope
 
-## Messages: `scan_progress` (milestone), `scan_complete` (Phase 5), `error`
+### MUST NOT
 
-## Message Bus
+- Modify source files
+- Fix issues
+- Create tasks for other roles
+- Contact reviewer/fixer directly
+- Run any write-mode CLI commands
+- Omit `[scanner]` identifier in any output
 
-```javascript
-mcp__ccw-tools__team_msg({ operation:"log", team:"team-review", from:"scanner", to:"coordinator", type:"scan_complete", summary:"[scanner] ..." })
-// Fallback: Bash(echo JSON >> "${sessionFolder}/message-log.jsonl")
-```
+---
 
 ## Toolbox
 
-| Command | File | Phase |
-|---------|------|-------|
-| `toolchain-scan` | [commands/toolchain-scan.md](commands/toolchain-scan.md) | 3A: Parallel static analysis |
-| `semantic-scan` | [commands/semantic-scan.md](commands/semantic-scan.md) | 3B: LLM analysis via CLI (gemini/qwen/codex fallback) |
+### Available Commands
+
+| Command | File | Phase | Description |
+|---------|------|-------|-------------|
+| `toolchain-scan` | [commands/toolchain-scan.md](commands/toolchain-scan.md) | Phase 3A | Parallel static analysis |
+| `semantic-scan` | [commands/semantic-scan.md](commands/semantic-scan.md) | Phase 3B | LLM analysis via CLI |
+
+### Tool Capabilities
+
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `Read` | Built-in | scanner | Load context files |
+| `Write` | Built-in | scanner | Write scan results |
+| `Glob` | Built-in | scanner | Find target files |
+| `Bash` | Built-in | scanner | Run toolchain commands |
+| `TaskUpdate` | Built-in | scanner | Update task status |
+| `team_msg` | MCP | scanner | Log communication |
+
+---
+
+## Message Types
+
+| Type | Direction | Trigger | Description |
+|------|-----------|---------|-------------|
+| `scan_progress` | scanner -> coordinator | Milestone | Progress update during scan |
+| `scan_complete` | scanner -> coordinator | Phase 5 | Scan finished with findings count |
+| `error` | scanner -> coordinator | Failure | Error requiring attention |
+
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "team-review",
+  from: "scanner",
+  to: "coordinator",
+  type: "scan_complete",
+  summary: "[scanner] Scan complete: <count> findings (<dimension-summary>)",
+  ref: "<session-folder>/scan/scan-results.json"
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team team-review --from scanner --to coordinator --type scan_complete --summary \"[scanner] Scan complete\" --ref <path> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('SCAN-') &&
-  t.status !== 'completed' &&
-  (t.blockedBy || []).length === 0
-)
-if (myTasks.length === 0) return
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
+Standard task discovery flow: TaskList -> filter by prefix `SCAN-*` + status pending + blockedBy empty -> TaskGet -> TaskUpdate in_progress.
 
-// Extract from task description
-const target = task.description.match(/target:\s*(.+)/)?.[1]?.trim() || '.'
-const dimStr = task.description.match(/dimensions:\s*(.+)/)?.[1]?.trim() || 'sec,cor,perf,maint'
-const dimensions = dimStr.split(',').map(d => d.trim())
-const quickMode = /quick:\s*true/.test(task.description)
-const sessionFolder = task.description.match(/session:\s*(.+)/)?.[1]?.trim()
-```
+Extract from task description:
+
+| Parameter | Extraction Pattern | Default |
+|-----------|-------------------|---------|
+| Target | `target: <path>` | `.` |
+| Dimensions | `dimensions: <list>` | `sec,cor,perf,maint` |
+| Quick mode | `quick: true` | false |
+| Session folder | `session: <path>` | (required) |
+
+**Resume Artifact Check**: If `scan-results.json` exists and is complete -> skip to Phase 5.
+
+---
 
 ### Phase 2: Context Resolution
 
-```javascript
-const targetFiles = Glob(target.includes('*') ? target : `${target}/**/*`)
-  .filter(f => /\.(ts|tsx|js|jsx|py|go|java|rs)$/.test(f))
-if (targetFiles.length === 0) { /* report error, complete task */ return }
+**Objective**: Resolve target files and detect available toolchain.
 
-// Detect toolchain: check config files + tool availability
-const projectRoot = Bash('git rev-parse --show-toplevel 2>/dev/null || pwd').trim()
-const chk = (c) => Bash(c).trim() === 'y'
-const toolchain = {
-  tsc:      chk(`test -f "${projectRoot}/tsconfig.json" && echo y || echo n`),
-  eslint:   chk(`(ls "${projectRoot}"/.eslintrc* "${projectRoot}"/eslint.config.* 2>/dev/null | head -1 >/dev/null && echo y) || (grep -q eslint "${projectRoot}/package.json" 2>/dev/null && echo y) || echo n`),
-  semgrep:  chk(`test -f "${projectRoot}/.semgrep.yml" && echo y || echo n`),
-  ruff:     chk(`test -f "${projectRoot}/pyproject.toml" && command -v ruff >/dev/null 2>&1 && echo y || echo n`),
-  mypy:     chk(`command -v mypy >/dev/null 2>&1 && test -f "${projectRoot}/pyproject.toml" && echo y || echo n`),
-  npmAudit: chk(`test -f "${projectRoot}/package-lock.json" && echo y || echo n`)
-}
-```
+**Workflow**:
+
+1. **Resolve target files**:
+
+| Input Type | Resolution Method |
+|------------|-------------------|
+| Glob pattern | Direct Glob |
+| Directory | Glob `<dir>/**/*.{ts,tsx,js,jsx,py,go,java,rs}` |
+
+If no source files found -> report empty, complete task cleanly.
+
+2. **Detect toolchain availability**:
+
+| Tool | Detection Method |
+|------|------------------|
+| tsc | `tsconfig.json` exists |
+| eslint | `.eslintrc*` or `eslint.config.*` or `eslint` in package.json |
+| semgrep | `.semgrep.yml` exists |
+| ruff | `pyproject.toml` exists + ruff command available |
+| mypy | mypy command available + `pyproject.toml` exists |
+| npmAudit | `package-lock.json` exists |
+
+**Success**: Target files resolved, toolchain detected.
+
+---
 
 ### Phase 3: Scan Execution
 
-```javascript
-let toolchainFindings = [], semanticFindings = []
+**Objective**: Execute toolchain + semantic scans.
 
-if (quickMode) {
-  // Quick Mode: Single inline CLI, max 20 findings
-  const qr = Bash(`ccw cli -p "Quick scan ${target}. Dims: ${dimensions.join(',')}. Return JSON array max 20 critical/high findings. Schema: {dimension,category,severity,title,description,location:{file,line},source:'llm',suggested_fix,effort,confidence}" --tool gemini --mode analysis --rule analysis-review-code-quality`, { timeout: 300000 })
-  try { const m = qr.match(/\[[\s\S]*\]/); if (m) semanticFindings = JSON.parse(m[0]) } catch {}
-} else {
-  // Standard Mode: Sequential A -> B
-  Read("commands/toolchain-scan.md")  // writes toolchain-findings.json
-  try { toolchainFindings = JSON.parse(Read(`${sessionFolder}/scan/toolchain-findings.json`)) } catch {}
-  Read("commands/semantic-scan.md")   // writes semantic-findings.json (uses toolchain output for dedup)
-  try { semanticFindings = JSON.parse(Read(`${sessionFolder}/scan/semantic-findings.json`)) } catch {}
-}
-```
+**Strategy selection**:
+
+| Condition | Strategy |
+|-----------|----------|
+| Quick mode | Single inline CLI call, max 20 findings |
+| Standard mode | Sequential: toolchain-scan -> semantic-scan |
+
+**Quick Mode**:
+
+1. Execute single CLI call with analysis mode
+2. Parse JSON response for findings (max 20)
+3. Skip toolchain execution
+
+**Standard Mode**:
+
+1. Delegate to `commands/toolchain-scan.md` -> produces `toolchain-findings.json`
+2. Delegate to `commands/semantic-scan.md` -> produces `semantic-findings.json`
+
+**Success**: Findings collected from toolchain and/or semantic scan.
+
+---
 
 ### Phase 4: Aggregate & Deduplicate
 
-```javascript
-// Dedup: same file + line + dimension = duplicate
-const seen = new Set()
-const unique = [...toolchainFindings, ...semanticFindings].filter(f => {
-  const key = `${f.location?.file}:${f.location?.line}:${f.dimension}`
-  return !seen.has(key) && seen.add(key)
-})
+**Objective**: Merge findings, assign IDs, write results.
 
-// Assign dimension-prefixed IDs (SEC-001, COR-001, PRF-001, MNT-001)
-const DIM_PREFIX = { security:'SEC', correctness:'COR', performance:'PRF', maintainability:'MNT' }
-const dimCounters = { SEC:0, COR:0, PRF:0, MNT:0 }
-const findings = unique.map(f => {
-  const pfx = DIM_PREFIX[f.dimension] || 'MNT'; dimCounters[pfx]++
-  return { ...f, id: `${pfx}-${String(dimCounters[pfx]).padStart(3,'0')}`,
-    severity: f.severity||'medium', confidence: f.confidence||'medium', effort: f.effort||'medium', source: f.source||'llm',
-    root_cause:null, impact:null, optimization:null, fix_strategy:null, fix_complexity:null, fix_dependencies:[] }
-})
+**Deduplication rules**:
 
-// Write scan-results.json (schema: scan_date, target, total_findings, by_severity, by_dimension, findings[])
-const scanResult = { scan_date: new Date().toISOString(), target, dimensions, quick_mode: quickMode,
-  total_findings: findings.length,
-  by_severity: findings.reduce((a,f) => ({...a,[f.severity]:(a[f.severity]||0)+1}), {}),
-  by_dimension: Object.fromEntries(Object.entries(DIM_PREFIX).map(([k,v]) => [k, dimCounters[v]])),
-  findings }
-Write(`${sessionFolder}/scan/scan-results.json`, JSON.stringify(scanResult, null, 2))
-```
+| Key | Rule |
+|-----|------|
+| Duplicate detection | Same file + line + dimension = duplicate |
+| Priority | Keep first occurrence |
 
-### Phase 5: Update Shared Memory & Report
+**ID Assignment**:
 
-```javascript
-let sharedMemory = {}
-try { sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`)) } catch {}
-sharedMemory.scan_results = { file: `${sessionFolder}/scan/scan-results.json`, total: findings.length, by_severity: scanResult.by_severity, by_dimension: scanResult.by_dimension }
-sharedMemory.findings_count = findings.length
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
+| Dimension | Prefix | Example ID |
+|-----------|--------|------------|
+| security | SEC | SEC-001 |
+| correctness | COR | COR-001 |
+| performance | PRF | PRF-001 |
+| maintainability | MNT | MNT-001 |
 
-const dimSum = Object.entries(dimCounters).filter(([,v]) => v > 0).map(([k,v]) => `${k}:${v}`).join(' ')
-const top = findings.filter(f => f.severity==='critical'||f.severity==='high').slice(0,10)
-  .map(f => `- **[${f.id}]** [${f.severity}] ${f.location.file}:${f.location.line} - ${f.title}`).join('\n')
+**Output schema** (`scan-results.json`):
 
-mcp__ccw-tools__team_msg({ operation:"log", team:"team-review", from:"scanner", to:"coordinator", type:"scan_complete",
-  summary:`[scanner] Scan complete: ${findings.length} findings (${dimSum})`, ref:`${sessionFolder}/scan/scan-results.json` })
+| Field | Type | Description |
+|-------|------|-------------|
+| scan_date | string | ISO timestamp |
+| target | string | Scan target |
+| dimensions | array | Enabled dimensions |
+| quick_mode | boolean | Quick mode flag |
+| total_findings | number | Total count |
+| by_severity | object | Count per severity |
+| by_dimension | object | Count per dimension |
+| findings | array | Finding objects |
 
-SendMessage({ type:"message", recipient:"coordinator",
-  content:`## [scanner] Scan Results\n**Target**: ${target} | **Mode**: ${quickMode?'quick':'standard'}\n### ${findings.length} findings (${dimSum})\n${top||'(clean)'}\nOutput: ${sessionFolder}/scan/scan-results.json`,
-  summary:`[scanner] SCAN complete: ${findings.length} findings` })
+**Each finding**:
 
-TaskUpdate({ taskId: task.id, status: 'completed' })
-```
+| Field | Type | Description |
+|-------|------|-------------|
+| id | string | Dimension-prefixed ID |
+| dimension | string | security/correctness/performance/maintainability |
+| category | string | Category within dimension |
+| severity | string | critical/high/medium/low |
+| title | string | Short title |
+| description | string | Detailed description |
+| location | object | {file, line} |
+| source | string | toolchain/llm |
+| suggested_fix | string | Optional fix hint |
+| effort | string | low/medium/high |
+| confidence | string | low/medium/high |
+
+**Success**: `scan-results.json` written with unique findings.
+
+---
+
+### Phase 5: Report to Coordinator
+
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
+
+**Objective**: Report findings to coordinator.
+
+**Workflow**:
+
+1. Update shared-memory.json with scan results summary
+2. Build top findings summary (critical/high, max 10)
+3. Log via team_msg with `[scanner]` prefix
+4. SendMessage to coordinator
+5. TaskUpdate completed
+6. Loop to Phase 1 for next task
+
+**Report content**:
+
+| Field | Value |
+|-------|-------|
+| Target | Scanned path |
+| Mode | quick/standard |
+| Findings count | Total |
+| Dimension summary | SEC:n COR:n PRF:n MNT:n |
+| Top findings | Critical/high items |
+| Output path | scan-results.json location |
+
+---
 
 ## Error Handling
 
@@ -158,3 +252,4 @@ TaskUpdate({ taskId: task.id, status: 'completed' })
 | Quick mode CLI timeout | Return partial or empty findings |
 | Toolchain tool crashes | Skip that tool, continue with others |
 | Session folder missing | Re-create scan subdirectory |
+| Context/Plan file not found | Notify coordinator, request location |

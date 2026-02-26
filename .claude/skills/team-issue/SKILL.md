@@ -6,160 +6,160 @@ allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), Task
 
 # Team Issue Resolution
 
-Unified team skill for issue processing pipeline. All team members invoke this skill with `--role=xxx` for role-specific execution.
+Unified team skill: issue processing pipeline (explore → plan → implement → review → integrate). All team members invoke with `--role=xxx` to route to role-specific execution.
 
-**Scope**: Issue 处理流程（plan → queue → execute）。Issue 创建/发现由 `issue-discover` 独立处理，CRUD 管理由 `issue-manage` 独立处理。
+**Scope**: Issue processing flow (plan → queue → execute). Issue creation/discovery handled by `issue-discover`, CRUD management by `issue-manage`.
 
-## Architecture Overview
+## Architecture
 
 ```
-┌───────────────────────────────────────────┐
-│  Skill(skill="team-issue")                │
-│  args="--role=xxx [issue-ids] [--mode=M]" │
-└───────────────┬───────────────────────────┘
-                │ Role Router
-    ┌───────────┼───────────┬───────────┬───────────┬───────────┐
-    ↓           ↓           ↓           ↓           ↓           ↓
-┌──────────┐┌──────────┐┌──────────┐┌──────────┐┌──────────┐┌──────────┐
-│coordinator││explorer  ││planner   ││reviewer  ││integrator││implementer│
-│ 编排调度  ││EXPLORE-* ││SOLVE-*   ││AUDIT-*   ││MARSHAL-* ││BUILD-*   │
-└──────────┘└──────────┘└──────────┘└──────────┘└──────────┘└──────────┘
+┌───────────────────────────────────────────────┐
+│  Skill(skill="team-issue")                     │
+│  args="<issue-ids>" or args="--role=xxx"       │
+└───────────────────┬───────────────────────────┘
+                    │ Role Router
+         ┌──── --role present? ────┐
+         │ NO                      │ YES
+         ↓                         ↓
+  Orchestration Mode         Role Dispatch
+  (auto → coordinator)      (route to role.md)
+         │
+    ┌────┴────┬───────────┬───────────┬───────────┬───────────┐
+    ↓         ↓           ↓           ↓           ↓           ↓
+┌──────────┐┌─────────┐┌─────────┐┌─────────┐┌──────────┐┌──────────┐
+│coordinator││explorer ││planner  ││reviewer ││integrator││implementer│
+│          ││EXPLORE-*││SOLVE-*  ││AUDIT-*  ││MARSHAL-* ││BUILD-*   │
+└──────────┘└─────────┘└─────────┘└─────────┘└──────────┘└──────────┘
 ```
 
 ## Command Architecture
 
 ```
 roles/
-├── coordinator.md      # Pipeline 编排（Phase 1/5 inline, Phase 2-4 core logic）
-├── explorer.md         # 上下文分析（ACE + cli-explore-agent）
-├── planner.md          # 方案设计（wraps issue-plan-agent）
-├── reviewer.md         # 方案审查（技术可行性 + 风险评估）
-├── integrator.md       # 队列编排（wraps issue-queue-agent）
-└── implementer.md      # 代码实现（wraps code-developer）
+├── coordinator.md      # Pipeline orchestration (Phase 1/5 inline, Phase 2-4 core logic)
+├── explorer.md         # Context analysis (ACE + cli-explore-agent)
+├── planner.md          # Solution design (wraps issue-plan-agent)
+├── reviewer.md         # Solution review (technical feasibility + risk assessment)
+├── integrator.md       # Queue orchestration (wraps issue-queue-agent)
+└── implementer.md      # Code implementation (wraps code-developer)
 ```
 
 ## Role Router
 
 ### Input Parsing
 
-Parse `$ARGUMENTS` to extract `--role`:
+Parse `$ARGUMENTS` to extract `--role`. If absent → Orchestration Mode (auto route to coordinator). Extract issue IDs and `--mode` from remaining arguments.
 
-```javascript
-const args = "$ARGUMENTS"
-const roleMatch = args.match(/--role[=\s]+(\w+)/)
+### Role Registry
 
-if (!roleMatch) {
-  // No --role: this is a coordinator entry point
-  // Extract issue IDs and mode from args directly
-  // → Read roles/coordinator.md and execute
-  Read("roles/coordinator.md")
-  return
-}
+| Role | File | Task Prefix | Type | Compact |
+|------|------|-------------|------|---------|
+| coordinator | [roles/coordinator.md](roles/coordinator.md) | (none) | orchestrator | **⚠️ 压缩后必须重读** |
+| explorer | [roles/explorer.md](roles/explorer.md) | EXPLORE-* | pipeline | 压缩后必须重读 |
+| planner | [roles/planner.md](roles/planner.md) | SOLVE-* | pipeline | 压缩后必须重读 |
+| reviewer | [roles/reviewer.md](roles/reviewer.md) | AUDIT-* | pipeline | 压缩后必须重读 |
+| integrator | [roles/integrator.md](roles/integrator.md) | MARSHAL-* | pipeline | 压缩后必须重读 |
+| implementer | [roles/implementer.md](roles/implementer.md) | BUILD-* | pipeline | 压缩后必须重读 |
 
-const role = roleMatch[1]
-const teamName = "issue"
-const agentName = args.match(/--agent-name[=\s]+([\w-]+)/)?.[1] || role
+> **⚠️ COMPACT PROTECTION**: 角色文件是执行文档，不是参考资料。当 context compression 发生后，角色指令仅剩摘要时，**必须立即 `Read` 对应 role.md 重新加载后再继续执行**。不得基于摘要执行任何 Phase。
+
+### Dispatch
+
+1. Extract `--role` from arguments
+2. If no `--role` → route to coordinator (Orchestration Mode)
+3. Look up role in registry → Read the role file → Execute its phases
+
+### Orchestration Mode
+
+When invoked without `--role`, coordinator auto-starts. User provides issue IDs and optional mode.
+
+**Invocation**: `Skill(skill="team-issue", args="<issue-ids> [--mode=<mode>]")`
+
+**Lifecycle**:
+```
+User provides issue IDs
+  → coordinator Phase 1-3: Mode detection → TeamCreate → Create task chain
+  → coordinator Phase 4: spawn first batch workers (background) → STOP
+  → Worker executes → SendMessage callback → coordinator advances next step
+  → Loop until pipeline complete → Phase 5 report
 ```
 
-### Role Dispatch
+**User Commands** (wake paused coordinator):
 
-```javascript
-const VALID_ROLES = {
-  "coordinator": { file: "roles/coordinator.md", prefix: null },
-  "explorer":    { file: "roles/explorer.md", prefix: "EXPLORE" },
-  "planner":     { file: "roles/planner.md", prefix: "SOLVE" },
-  "reviewer":    { file: "roles/reviewer.md", prefix: "AUDIT" },
-  "integrator":  { file: "roles/integrator.md", prefix: "MARSHAL" },
-  "implementer": { file: "roles/implementer.md", prefix: "BUILD" }
-}
+| Command | Action |
+|---------|--------|
+| `check` / `status` | Output execution status graph, no advancement |
+| `resume` / `continue` | Check worker states, advance next step |
 
-if (!VALID_ROLES[role]) {
-  throw new Error(`Unknown role: ${role}. Available: ${Object.keys(VALID_ROLES).join(', ')}`)
-}
-
-// Read and execute role-specific logic
-Read(VALID_ROLES[role].file)
-// → Execute the 5-phase process defined in that file
-```
-
-### Available Roles
-
-| Role | Task Prefix | Responsibility | Reuses Agent | Role File |
-|------|-------------|----------------|--------------|-----------|
-| `coordinator` | N/A | Pipeline 编排、模式选择、任务分派 | - | [roles/coordinator.md](roles/coordinator.md) |
-| `explorer` | EXPLORE-* | 上下文分析、影响面评估 | cli-explore-agent | [roles/explorer.md](roles/explorer.md) |
-| `planner` | SOLVE-* | 方案设计、任务分解 | issue-plan-agent | [roles/planner.md](roles/planner.md) |
-| `reviewer` | AUDIT-* | 方案审查、风险评估 | - (新角色) | [roles/reviewer.md](roles/reviewer.md) |
-| `integrator` | MARSHAL-* | 冲突检测、队列编排 | issue-queue-agent | [roles/integrator.md](roles/integrator.md) |
-| `implementer` | BUILD-* | 代码实现、结果提交 | code-developer | [roles/implementer.md](roles/implementer.md) |
+---
 
 ## Shared Infrastructure
 
+The following templates apply to all worker roles. Each role.md only needs to write **Phase 2-4** role-specific logic.
+
+### Worker Phase 1: Task Discovery (shared by all workers)
+
+Every worker executes the same task discovery flow on startup:
+
+1. Call `TaskList()` to get all tasks
+2. Filter: subject matches this role's prefix + owner is this role + status is pending + blockedBy is empty
+3. No tasks → idle wait
+4. Has tasks → `TaskGet` for details → `TaskUpdate` mark in_progress
+
+**Resume Artifact Check** (prevent duplicate output after resume):
+- Check whether this task's output artifact already exists
+- Artifact complete → skip to Phase 5 report completion
+- Artifact incomplete or missing → normal Phase 2-4 execution
+
+### Worker Phase 5: Report (shared by all workers)
+
+Standard reporting flow after task completion:
+
+1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
+   - Parameters: operation="log", team="issue", from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+   - **CLI fallback**: When MCP unavailable → `ccw team log --team issue --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+2. **SendMessage**: Send result to coordinator (content and summary both prefixed with `[<role>]`)
+3. **TaskUpdate**: Mark task completed
+4. **Loop**: Return to Phase 1 to check next task
+
+### Wisdom Accumulation (all roles)
+
+Cross-task knowledge accumulation. Coordinator creates `wisdom/` directory at session initialization.
+
+**Directory**:
+```
+<session-folder>/wisdom/
+├── learnings.md      # Patterns and insights
+├── decisions.md      # Architecture and design decisions
+├── conventions.md    # Codebase conventions
+└── issues.md         # Known risks and issues
+```
+
+**Worker Load** (Phase 2): Extract `Session: <path>` from task description, read wisdom directory files.
+**Worker Contribute** (Phase 4/5): Write this task's discoveries to corresponding wisdom files.
+
 ### Role Isolation Rules
 
-**核心原则**: 每个角色仅能执行自己职责范围内的工作。
+| Allowed | Forbidden |
+|---------|-----------|
+| Process tasks with own prefix | Process tasks with other role prefixes |
+| SendMessage to coordinator | Communicate directly with other workers |
+| Use tools declared in Toolbox | Create tasks for other roles |
+| Delegate to reused agents | Modify resources outside own responsibility |
 
-#### Output Tagging（强制）
+Coordinator additional restrictions: Do not write/modify code directly, do not call implementation subagents (issue-plan-agent etc.), do not execute analysis/review directly.
 
-所有角色的输出必须带 `[role_name]` 标识前缀：
+### Output Tagging
 
-```javascript
-// SendMessage — content 和 summary 都必须带标识
-SendMessage({
-  content: `## [${role}] ...`,
-  summary: `[${role}] ...`
-})
-
-// team_msg — summary 必须带标识
-mcp__ccw-tools__team_msg({
-  summary: `[${role}] ...`
-})
-```
-
-#### Coordinator 隔离
-
-| 允许 | 禁止 |
-|------|------|
-| 需求澄清 (AskUserQuestion) | ❌ 直接编写/修改代码 |
-| 创建任务链 (TaskCreate) | ❌ 调用 issue-plan-agent 等实现类 agent |
-| 分发任务给 worker | ❌ 直接执行分析/审查 |
-| 监控进度 (消息总线) | ❌ 绕过 worker 自行完成任务 |
-| 汇报结果给用户 | ❌ 修改源代码或产物文件 |
-
-#### Worker 隔离
-
-| 允许 | 禁止 |
-|------|------|
-| 处理自己前缀的任务 | ❌ 处理其他角色前缀的任务 |
-| SendMessage 给 coordinator | ❌ 直接与其他 worker 通信 |
-| 使用 Toolbox 中声明的工具 | ❌ 为其他角色创建任务 (TaskCreate) |
-| 委派给复用的 agent | ❌ 修改不属于本职责的资源 |
-
-### Team Configuration
-
-```javascript
-const TEAM_CONFIG = {
-  name: "issue",
-  sessionDir: ".workflow/.team-plan/issue/",
-  issueDataDir: ".workflow/issues/"
-}
-```
+All outputs must carry `[role_name]` prefix in both SendMessage content/summary and team_msg summary.
 
 ### Message Bus (All Roles)
 
 Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
 
-```javascript
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: "issue",
-  from: role,          // current role name
-  to: "coordinator",
-  type: "<type>",
-  summary: "[role] <summary>",
-  ref: "<file_path>"   // optional
-})
-```
+**Parameters**: operation="log", team="issue", from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+
+**CLI fallback**: When MCP unavailable → `ccw team log --team issue --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
 
 **Message types by role**:
 
@@ -172,38 +172,15 @@ mcp__ccw-tools__team_msg({
 | integrator | `queue_ready`, `conflict_found`, `error` |
 | implementer | `impl_complete`, `impl_failed`, `error` |
 
-### CLI 回退
+### Team Configuration
 
-当 `mcp__ccw-tools__team_msg` MCP 不可用时：
+| Setting | Value |
+|---------|-------|
+| Team name | issue |
+| Session directory | `.workflow/.team-plan/issue/` |
+| Issue data directory | `.workflow/issues/` |
 
-```javascript
-Bash(`ccw team log --team "issue" --from "${role}" --to "coordinator" --type "<type>" --summary "<摘要>" --json`)
-```
-
-### Task Lifecycle (All Roles)
-
-```javascript
-// Standard task lifecycle every role follows
-// Phase 1: Discovery
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith(`${VALID_ROLES[role].prefix}-`) &&
-  t.owner === agentName &&  // Use agentName (e.g., 'explorer-1') instead of role
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
-if (myTasks.length === 0) return // idle
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-
-// Phase 2-4: Role-specific (see roles/{role}.md)
-
-// Phase 5: Report + Loop — 所有输出必须带 [role] 标识
-mcp__ccw-tools__team_msg({ operation: "log", team: "issue", from: role, to: "coordinator", type: "...", summary: `[${role}] ...` })
-SendMessage({ type: "message", recipient: "coordinator", content: `## [${role}] ...`, summary: `[${role}] ...` })
-TaskUpdate({ taskId: task.id, status: 'completed' })
-// Check for next task → back to Phase 1
-```
+---
 
 ## Pipeline Modes
 
@@ -216,247 +193,221 @@ Full Mode (complex issues, with review):
                                          └─(rejected)→ SOLVE-fix → AUDIT-002(re-review, max 2x)
 
 Batch Mode (5-100 issues):
-  EXPLORE-001..N(batch≤5) → SOLVE-001..N(batch≤3) → AUDIT-001(batch) → MARSHAL-001 → BUILD-001..M(DAG parallel)
+  EXPLORE-001..N(batch<=5) → SOLVE-001..N(batch<=3) → AUDIT-001(batch) → MARSHAL-001 → BUILD-001..M(DAG parallel)
 ```
 
 ### Mode Auto-Detection
 
-```javascript
-function detectMode(issueIds, userMode) {
-  if (userMode) return userMode  // 用户显式指定
+When user does not specify `--mode`, auto-detect based on issue count and complexity:
 
-  const count = issueIds.length
-  if (count <= 2) {
-    // Check complexity via issue priority
-    const issues = issueIds.map(id => JSON.parse(Bash(`ccw issue status ${id} --json`)))
-    const hasHighPriority = issues.some(i => i.priority >= 4)
-    return hasHighPriority ? 'full' : 'quick'
-  }
-  return 'batch'
-}
+| Condition | Mode | Description |
+|-----------|------|-------------|
+| User explicitly specifies `--mode=<M>` | Use specified mode | User override takes priority |
+| Issue count <= 2 AND no high-priority issues (priority < 4) | `quick` | Simple issues, skip review step |
+| Issue count <= 2 AND has high-priority issues (priority >= 4) | `full` | Complex issues need review gate |
+| Issue count > 2 | `batch` | Multiple issues, parallel exploration and implementation |
+
+### Review Gate (Full/Batch modes)
+
+| AUDIT Verdict | Action |
+|---------------|--------|
+| approved | Proceed to MARSHAL → BUILD |
+| rejected (round < 2) | Create SOLVE-fix task → AUDIT re-review |
+| rejected (round >= 2) | Force proceed with warnings, report to user |
+
+### Cadence Control
+
+**Beat model**: Event-driven, each beat = coordinator wake → process → spawn → STOP. Issue beat: explore → plan → implement → review → integrate.
+
 ```
+Beat Cycle (single beat)
+═══════════════════════════════════════════════════════════
+  Event                   Coordinator              Workers
+───────────────────────────────────────────────────────────
+  callback/resume ──→ ┌─ handleCallback ─┐
+                      │  mark completed   │
+                      │  check pipeline   │
+                      ├─ handleSpawnNext ─┤
+                      │  find ready tasks │
+                      │  spawn workers ───┼──→ [Worker A] Phase 1-5
+                      │  (parallel OK)  ──┼──→ [Worker B] Phase 1-5
+                      └─ STOP (idle) ─────┘         │
+                                                     │
+  callback ←─────────────────────────────────────────┘
+  (next beat)              SendMessage + TaskUpdate(completed)
+═══════════════════════════════════════════════════════════
+```
+
+**Pipeline beat views**:
+
+```
+Quick Mode (4 beats, strictly serial)
+──────────────────────────────────────────────────────────
+Beat  1         2         3              4
+      │         │         │              │
+      EXPLORE → SOLVE → MARSHAL ──→ BUILD
+      ▲                                  ▲
+   pipeline                           pipeline
+    start                              done
+
+EXPLORE=explorer  SOLVE=planner  MARSHAL=integrator  BUILD=implementer
+
+Full Mode (5-7 beats, with review gate)
+──────────────────────────────────────────────────────────
+Beat  1         2         3              4         5
+      │         │         │              │         │
+      EXPLORE → SOLVE → AUDIT ─┬─(ok)→ MARSHAL → BUILD
+                               │
+                          (rejected?)
+                        SOLVE-fix → AUDIT-2 → MARSHAL → BUILD
+
+Batch Mode (parallel windows)
+──────────────────────────────────────────────────────────
+Beat  1                    2                 3         4              5
+ ┌────┴────┐         ┌────┴────┐             │         │         ┌────┴────┐
+ EXP-1..N    →   SOLVE-1..N    →  AUDIT → MARSHAL → BUILD-1..M
+ ▲                                                         ▲
+ parallel                                               DAG parallel
+ window (<=5)                                          window (<=3)
+```
+
+**Checkpoints**:
+
+| Trigger | Location | Behavior |
+|---------|----------|----------|
+| Review gate | After AUDIT-* | If approved → MARSHAL; if rejected → SOLVE-fix (max 2 rounds) |
+| Review loop limit | AUDIT round >= 2 | Force proceed with warnings |
+| Pipeline stall | No ready + no running | Check missing tasks, report to user |
+
+**Stall Detection** (coordinator `handleCheck` executes):
+
+| Check | Condition | Resolution |
+|-------|-----------|------------|
+| Worker no response | in_progress task no callback | Report waiting task list, suggest user `resume` |
+| Pipeline deadlock | no ready + no running + has pending | Check blockedBy dependency chain, report blocking point |
+| Review loop exceeded | AUDIT rejection > 2 rounds | Terminate loop, force proceed with current solution |
+
+### Task Metadata Registry
+
+| Task ID | Role | Phase | Dependencies | Description |
+|---------|------|-------|-------------|-------------|
+| EXPLORE-001 | explorer | explore | (none) | Context analysis and impact assessment |
+| EXPLORE-002..N | explorer | explore | (none) | Parallel exploration (Batch mode only) |
+| SOLVE-001 | planner | plan | EXPLORE-001 (or all EXPLORE-*) | Solution design and task decomposition |
+| SOLVE-002..N | planner | plan | EXPLORE-* | Parallel solution design (Batch mode only) |
+| AUDIT-001 | reviewer | review | SOLVE-001 (or all SOLVE-*) | Technical feasibility and risk review |
+| MARSHAL-001 | integrator | integrate | AUDIT-001 (or last SOLVE-*) | Conflict detection and queue orchestration |
+| BUILD-001 | implementer | implement | MARSHAL-001 | Code implementation and result submission |
+| BUILD-002..M | implementer | implement | MARSHAL-001 | Parallel implementation (Batch DAG parallel) |
+
+---
 
 ## Coordinator Spawn Template
 
-```javascript
-TeamCreate({ team_name: "issue" })
+When coordinator spawns workers, use background mode (Spawn-and-Stop).
 
-// Explorer — conditional parallel spawn for Batch mode
-const isBatchMode = mode === 'batch'
-const maxParallelExplorers = Math.min(issueIds.length, 5)
+**Standard spawn** (single agent per role): For Quick/Full mode, spawn one agent per role. Explorer, planner, reviewer, integrator each get a single agent.
 
-if (isBatchMode && issueIds.length > 1) {
-  // Batch mode: spawn N explorers for parallel exploration
-  for (let i = 0; i < maxParallelExplorers; i++) {
-    const agentName = `explorer-${i + 1}`
-    Task({
-      subagent_type: "general-purpose",
-      description: `Spawn issue worker`,
-      team_name: "issue",
-      name: agentName,
-      prompt: `你是 team "issue" 的 EXPLORER (${agentName})。
-你的 agent 名称是 "${agentName}"，任务发现时用此名称匹配 owner。
+**Parallel spawn** (Batch mode): For Batch mode with multiple issues, spawn N explorer agents in parallel (max 5) and M implementer agents in parallel (max 3). Each parallel agent only processes tasks where owner matches its agent name.
 
-当你收到 EXPLORE-* 任务时，调用 Skill(skill="team-issue", args="--role=explorer --agent-name=${agentName}") 执行。
+**Spawn template**:
 
-当前需求: ${taskDescription}
-约束: ${constraints}
-
-## 角色准则（强制）
-- 你只能处理 owner 为 "${agentName}" 的 EXPLORE-* 前缀任务
-- 所有输出（SendMessage、team_msg）必须带 [explorer] 标识前缀
-- 仅与 coordinator 通信，不得直接联系其他 worker
-- 不得使用 TaskCreate 为其他角色创建任务
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 owner === "${agentName}" 的 EXPLORE-* 任务
-2. Skill(skill="team-issue", args="--role=explorer --agent-name=${agentName}") 执行
-3. team_msg log + SendMessage 结果给 coordinator（带 [explorer] 标识）
-4. TaskUpdate completed → 检查下一个任务`
-    })
-  }
-} else {
-  // Quick/Full mode: single explorer
-  Task({
-    subagent_type: "general-purpose",
-    description: `Spawn issue worker`,
-    team_name: "issue",
-    name: "explorer",
-    prompt: `你是 team "issue" 的 EXPLORER。
-
-当你收到 EXPLORE-* 任务时，调用 Skill(skill="team-issue", args="--role=explorer") 执行。
-
-当前需求: ${taskDescription}
-约束: ${constraints}
-
-## 角色准则（强制）
-- 你只能处理 EXPLORE-* 前缀的任务，不得执行其他角色的工作
-- 所有输出（SendMessage、team_msg）必须带 [explorer] 标识前缀
-- 仅与 coordinator 通信，不得直接联系其他 worker
-- 不得使用 TaskCreate 为其他角色创建任务
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 EXPLORE-* 任务
-2. Skill(skill="team-issue", args="--role=explorer") 执行
-3. team_msg log + SendMessage 结果给 coordinator（带 [explorer] 标识）
-4. TaskUpdate completed → 检查下一个任务`
-  })
-}
-
-// Planner
+```
 Task({
   subagent_type: "general-purpose",
-  description: `Spawn issue worker`,
+  description: "Spawn <role> worker",
   team_name: "issue",
-  name: "planner",
-  prompt: `你是 team "issue" 的 PLANNER。
+  name: "<role>",
+  run_in_background: true,
+  prompt: `You are team "issue" <ROLE>.
 
-当你收到 SOLVE-* 任务时，调用 Skill(skill="team-issue", args="--role=planner") 执行。
+## Primary Directive
+All your work must be executed through Skill to load role definition:
+Skill(skill="team-issue", args="--role=<role>")
 
-当前需求: ${taskDescription}
-约束: ${constraints}
+Current requirement: <task-description>
+Session: <session-folder>
 
-## 角色准则（强制）
-- 你只能处理 SOLVE-* 前缀的任务
-- 所有输出必须带 [planner] 标识前缀
-- 仅与 coordinator 通信
+## Role Guidelines
+- Only process <PREFIX>-* tasks, do not execute other role work
+- All output prefixed with [<role>] identifier
+- Only communicate with coordinator
+- Do not use TaskCreate for other roles
+- Call mcp__ccw-tools__team_msg before every SendMessage
 
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 SOLVE-* 任务
-2. Skill(skill="team-issue", args="--role=planner") 执行
-3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
+## Workflow
+1. Call Skill -> load role definition and execution logic
+2. Follow role.md 5-Phase flow
+3. team_msg + SendMessage results to coordinator
+4. TaskUpdate completed -> check next task`
 })
+```
 
-// Reviewer
+### Parallel Spawn (Batch Mode)
+
+> When Batch mode has parallel tasks assigned to the same role, spawn N distinct agents with unique names. A single agent can only process tasks serially.
+
+**Explorer parallel spawn** (Batch mode, N issues):
+
+| Condition | Action |
+|-----------|--------|
+| Batch mode with N issues (N > 1) | Spawn min(N, 5) agents: `explorer-1`, `explorer-2`, ... with `run_in_background: true` |
+| Quick/Full mode (single explorer) | Standard spawn: single `explorer` agent |
+
+**Implementer parallel spawn** (Batch mode, M BUILD tasks):
+
+| Condition | Action |
+|-----------|--------|
+| Batch mode with M BUILD tasks (M > 2) | Spawn min(M, 3) agents: `implementer-1`, `implementer-2`, ... with `run_in_background: true` |
+| Quick/Full mode (single implementer) | Standard spawn: single `implementer` agent |
+
+**Parallel spawn template**:
+
+```
 Task({
   subagent_type: "general-purpose",
-  description: `Spawn issue worker`,
+  description: "Spawn <role>-<N> worker",
   team_name: "issue",
-  name: "reviewer",
-  prompt: `你是 team "issue" 的 REVIEWER。
+  name: "<role>-<N>",
+  run_in_background: true,
+  prompt: `You are team "issue" <ROLE> (<role>-<N>).
+Your agent name is "<role>-<N>", use this name for task discovery owner matching.
 
-当你收到 AUDIT-* 任务时，调用 Skill(skill="team-issue", args="--role=reviewer") 执行。
+## Primary Directive
+Skill(skill="team-issue", args="--role=<role> --agent-name=<role>-<N>")
 
-当前需求: ${taskDescription}
-约束: ${constraints}
+## Role Guidelines
+- Only process tasks where owner === "<role>-<N>" with <PREFIX>-* prefix
+- All output prefixed with [<role>] identifier
 
-## 角色准则（强制）
-- 你只能处理 AUDIT-* 前缀的任务
-- 所有输出必须带 [reviewer] 标识前缀
-- 仅与 coordinator 通信
-- 你是质量门控角色，审查方案但不修改代码
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 AUDIT-* 任务
-2. Skill(skill="team-issue", args="--role=reviewer") 执行
-3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
+## Workflow
+1. TaskList -> find tasks where owner === "<role>-<N>" with <PREFIX>-* prefix
+2. Skill -> execute role definition
+3. team_msg + SendMessage results to coordinator
+4. TaskUpdate completed -> check next task`
 })
+```
 
-// Integrator
-Task({
-  subagent_type: "general-purpose",
-  description: `Spawn issue worker`,
-  team_name: "issue",
-  name: "integrator",
-  prompt: `你是 team "issue" 的 INTEGRATOR。
+**Dispatch must match agent names**: When dispatching parallel tasks, coordinator sets each task's owner to the corresponding instance name (`explorer-1`, `explorer-2`, etc. or `implementer-1`, `implementer-2`, etc.). In role.md, task discovery uses `--agent-name` for owner matching.
 
-当你收到 MARSHAL-* 任务时，调用 Skill(skill="team-issue", args="--role=integrator") 执行。
+---
 
-当前需求: ${taskDescription}
-约束: ${constraints}
+## Session Directory
 
-## 角色准则（强制）
-- 你只能处理 MARSHAL-* 前缀的任务
-- 所有输出必须带 [integrator] 标识前缀
-- 仅与 coordinator 通信
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 MARSHAL-* 任务
-2. Skill(skill="team-issue", args="--role=integrator") 执行
-3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
-})
-
-// Implementer — conditional parallel spawn for Batch mode (DAG parallel BUILD tasks)
-if (isBatchMode && issueIds.length > 2) {
-  // Batch mode: spawn multiple implementers for parallel BUILD execution
-  const maxParallelBuilders = Math.min(issueIds.length, 3)
-  for (let i = 0; i < maxParallelBuilders; i++) {
-    const agentName = `implementer-${i + 1}`
-    Task({
-      subagent_type: "general-purpose",
-      description: `Spawn issue worker`,
-      team_name: "issue",
-      name: agentName,
-      prompt: `你是 team "issue" 的 IMPLEMENTER (${agentName})。
-你的 agent 名称是 "${agentName}"，任务发现时用此名称匹配 owner。
-
-当你收到 BUILD-* 任务时，调用 Skill(skill="team-issue", args="--role=implementer --agent-name=${agentName}") 执行。
-
-当前需求: ${taskDescription}
-约束: ${constraints}
-
-## 角色准则（强制）
-- 你只能处理 owner 为 "${agentName}" 的 BUILD-* 前缀任务
-- 所有输出必须带 [implementer] 标识前缀
-- 仅与 coordinator 通信
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 owner === "${agentName}" 的 BUILD-* 任务
-2. Skill(skill="team-issue", args="--role=implementer --agent-name=${agentName}") 执行
-3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
-    })
-  }
-} else {
-  // Quick/Full mode: single implementer
-  Task({
-    subagent_type: "general-purpose",
-    description: `Spawn issue worker`,
-    team_name: "issue",
-    name: "implementer",
-    prompt: `你是 team "issue" 的 IMPLEMENTER。
-
-当你收到 BUILD-* 任务时，调用 Skill(skill="team-issue", args="--role=implementer") 执行。
-
-当前需求: ${taskDescription}
-约束: ${constraints}
-
-## 角色准则（强制）
-- 你只能处理 BUILD-* 前缀的任务
-- 所有输出必须带 [implementer] 标识前缀
-- 仅与 coordinator 通信
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 BUILD-* 任务
-2. Skill(skill="team-issue", args="--role=implementer") 执行
-3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
-  })
-}
+```
+.workflow/.team-plan/issue/
+├── team-session.json           # Session state
+├── shared-memory.json          # Cross-role state
+├── wisdom/                     # Cross-task knowledge
+│   ├── learnings.md
+│   ├── decisions.md
+│   ├── conventions.md
+│   └── issues.md
+├── explorations/               # Explorer output
+├── solutions/                  # Planner output
+├── audits/                     # Reviewer output
+├── queue/                      # Integrator output
+└── builds/                     # Implementer output
 ```
 
 ## Error Handling
@@ -464,6 +415,8 @@ if (isBatchMode && issueIds.length > 2) {
 | Scenario | Resolution |
 |----------|------------|
 | Unknown --role value | Error with available role list |
-| Missing --role arg | Default to coordinator role |
-| Role file not found | Error with expected path (roles/{name}.md) |
+| Missing --role arg | Orchestration Mode → auto route to coordinator |
+| Role file not found | Error with expected path (roles/<name>.md) |
 | Task prefix conflict | Log warning, proceed |
+| Review rejection exceeds 2 rounds | Force proceed with warnings |
+| No issues found for given IDs | Coordinator reports error to user |

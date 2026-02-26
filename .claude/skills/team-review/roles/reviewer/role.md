@@ -1,194 +1,224 @@
-# Role: reviewer
+# Reviewer Role
 
 Deep analysis on scan findings, enrichment with root cause / impact / optimization, and structured review report generation. Read-only -- never modifies source code.
 
-## Role Identity
+## Identity
 
-| Field | Value |
-|-------|-------|
-| Name | `reviewer` |
-| Task Prefix | `REV-*` |
-| Type | read-only-analysis |
-| Output Tag | `[reviewer]` |
-| Communication | coordinator only |
+- **Name**: `reviewer` | **Tag**: `[reviewer]`
+- **Task Prefix**: `REV-*`
+- **Responsibility**: read-only-analysis
 
-## Role Boundaries
+## Boundaries
 
-**MUST**: Only `REV-*` tasks. All output `[reviewer]`-prefixed. Write only to session review dir. Triage findings before deep analysis. Cap deep analysis at 15.
+### MUST
 
-**MUST NOT**: Modify source code files. Fix issues. Create tasks for other roles. Contact scanner/fixer directly. Run any write-mode CLI commands.
+- Only process `REV-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[reviewer]` identifier
+- Only communicate with coordinator via SendMessage
+- Write only to session review directory
+- Triage findings before deep analysis (cap at 15 for deep analysis)
+- Work strictly within read-only analysis scope
 
-## Messages: `review_progress` (milestone), `review_complete` (Phase 5), `error`
+### MUST NOT
 
-## Message Bus
+- Modify source code files
+- Fix issues
+- Create tasks for other roles
+- Contact scanner/fixer directly
+- Run any write-mode CLI commands
+- Omit `[reviewer]` identifier in any output
 
-```javascript
-mcp__ccw-tools__team_msg({ operation:"log", team:"team-review", from:"reviewer", to:"coordinator", type:"review_complete", summary:"[reviewer] ..." })
-// Fallback: Bash(echo JSON >> "${sessionFolder}/message-log.jsonl")
-```
+---
 
 ## Toolbox
 
-| Command | File | Phase |
-|---------|------|-------|
-| `deep-analyze` | [commands/deep-analyze.md](commands/deep-analyze.md) | 3: CLI Fan-out root cause analysis |
-| `generate-report` | [commands/generate-report.md](commands/generate-report.md) | 4: Cross-correlate + report generation |
+### Available Commands
+
+| Command | File | Phase | Description |
+|---------|------|-------|-------------|
+| `deep-analyze` | [commands/deep-analyze.md](commands/deep-analyze.md) | Phase 3 | CLI Fan-out root cause analysis |
+| `generate-report` | [commands/generate-report.md](commands/generate-report.md) | Phase 4 | Cross-correlate + report generation |
+
+### Tool Capabilities
+
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `Read` | Built-in | reviewer | Load scan results |
+| `Write` | Built-in | reviewer | Write review reports |
+| `TaskUpdate` | Built-in | reviewer | Update task status |
+| `team_msg` | MCP | reviewer | Log communication |
+| `Bash` | Built-in | reviewer | CLI analysis calls |
+
+---
+
+## Message Types
+
+| Type | Direction | Trigger | Description |
+|------|-----------|---------|-------------|
+| `review_progress` | reviewer -> coordinator | Milestone | Progress update during review |
+| `review_complete` | reviewer -> coordinator | Phase 5 | Review finished with findings |
+| `error` | reviewer -> coordinator | Failure | Error requiring attention |
+
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "team-review",
+  from: "reviewer",
+  to: "coordinator",
+  type: "review_complete",
+  summary: "[reviewer] Review complete: <count> findings (<severity-summary>)",
+  ref: "<session-folder>/review/review-report.json"
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team team-review --from reviewer --to coordinator --type review_complete --summary \"[reviewer] Review complete\" --ref <path> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('REV-') &&
-  t.status !== 'completed' &&
-  (t.blockedBy || []).length === 0
-)
-if (myTasks.length === 0) return
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
+Standard task discovery flow: TaskList -> filter by prefix `REV-*` + status pending + blockedBy empty -> TaskGet -> TaskUpdate in_progress.
 
-// Extract from task description
-const sessionFolder = task.description.match(/session:\s*(.+)/)?.[1]?.trim()
-const inputPath = task.description.match(/input:\s*(.+)/)?.[1]?.trim()
-  || `${sessionFolder}/scan/scan-results.json`
-const dimStr = task.description.match(/dimensions:\s*(.+)/)?.[1]?.trim() || 'sec,cor,perf,maint'
-const dimensions = dimStr.split(',').map(d => d.trim())
+Extract from task description:
 
-// Load scan results
-let scanResults
-try {
-  scanResults = JSON.parse(Read(inputPath))
-} catch {
-  mcp__ccw-tools__team_msg({ operation:"log", team:"team-review", from:"reviewer",
-    to:"coordinator", type:"error", summary:`[reviewer] Cannot load scan results: ${inputPath}` })
-  TaskUpdate({ taskId: task.id, status: 'completed' })
-  return
-}
+| Parameter | Extraction Pattern | Default |
+|-----------|-------------------|---------|
+| Session folder | `session: <path>` | (required) |
+| Input path | `input: <path>` | `<session>/scan/scan-results.json` |
+| Dimensions | `dimensions: <list>` | `sec,cor,perf,maint` |
 
-const findings = scanResults.findings || []
-if (findings.length === 0) {
-  // No findings to review -- complete immediately
-  mcp__ccw-tools__team_msg({ operation:"log", team:"team-review", from:"reviewer",
-    to:"coordinator", type:"review_complete", summary:"[reviewer] 0 findings. Nothing to review." })
-  TaskUpdate({ taskId: task.id, status: 'completed' })
-  return
-}
-```
+Load scan results from input path. If missing or empty -> report clean, complete immediately.
+
+**Resume Artifact Check**: If `review-report.json` exists and is complete -> skip to Phase 5.
+
+---
 
 ### Phase 2: Triage Findings
 
-Split findings into deep analysis vs pass-through buckets.
+**Objective**: Split findings into deep analysis vs pass-through buckets.
 
-```javascript
-const DEEP_SEVERITIES = ['critical', 'high', 'medium']
-const MAX_DEEP = 15
+**Triage rules**:
 
-// Partition: deep_analysis gets Critical + High + Medium (capped at MAX_DEEP)
-const candidates = findings
-  .filter(f => DEEP_SEVERITIES.includes(f.severity))
-  .sort((a, b) => {
-    const ord = { critical: 0, high: 1, medium: 2 }
-    return (ord[a.severity] ?? 3) - (ord[b.severity] ?? 3)
-  })
+| Category | Severity | Action |
+|----------|----------|--------|
+| Deep analysis | critical, high, medium | Enrich with root cause, impact, optimization |
+| Pass-through | low | Include in report without enrichment |
 
-const deep_analysis = candidates.slice(0, MAX_DEEP)
-const deepIds = new Set(deep_analysis.map(f => f.id))
+**Limits**:
 
-// Everything not selected for deep analysis is pass-through
-const pass_through = findings.filter(f => !deepIds.has(f.id))
+| Parameter | Value | Reason |
+|-----------|-------|--------|
+| MAX_DEEP | 15 | CLI call efficiency |
+| Priority order | critical -> high -> medium | Highest impact first |
 
-mcp__ccw-tools__team_msg({ operation:"log", team:"team-review", from:"reviewer",
-  to:"coordinator", type:"review_progress",
-  summary:`[reviewer] Triage: ${deep_analysis.length} deep analysis, ${pass_through.length} pass-through` })
+**Workflow**:
 
-// If nothing qualifies for deep analysis, skip Phase 3
-if (deep_analysis.length === 0) {
-  goto Phase4  // pass_through only
-}
-```
+1. Filter findings with severity in [critical, high, medium]
+2. Sort by severity (critical first)
+3. Take first MAX_DEEP for deep analysis
+4. Remaining findings -> pass-through bucket
 
-### Phase 3: Deep Analysis (Delegate)
+**Success**: deep_analysis and pass_through buckets populated.
 
-```javascript
-// CLI Fan-out: up to 2 parallel agents for root cause analysis
-Read("commands/deep-analyze.md")
-// Produces: ${sessionFolder}/review/enriched-findings.json
-```
+If deep_analysis bucket is empty -> skip Phase 3, go directly to Phase 4.
 
-Load enriched results:
+---
 
-```javascript
-let enrichedFindings = []
-try {
-  enrichedFindings = JSON.parse(Read(`${sessionFolder}/review/enriched-findings.json`))
-} catch {
-  // Fallback: use original deep_analysis findings without enrichment
-  enrichedFindings = deep_analysis
-}
+### Phase 3: Deep Analysis
 
-mcp__ccw-tools__team_msg({ operation:"log", team:"team-review", from:"reviewer",
-  to:"coordinator", type:"review_progress",
-  summary:`[reviewer] Deep analysis complete: ${enrichedFindings.length} findings enriched` })
-```
+**Objective**: Enrich selected findings with root cause, impact, and optimization suggestions.
 
-### Phase 4: Generate Report (Delegate)
+Delegate to `commands/deep-analyze.md` which performs CLI Fan-out analysis.
 
-```javascript
-// Cross-correlate enriched + pass_through, write review-report.json + .md
-Read("commands/generate-report.md")
-// Produces: ${sessionFolder}/review/review-report.json
-//           ${sessionFolder}/review/review-report.md
-```
+**Analysis strategy**:
 
-### Phase 5: Update Shared Memory & Report
+| Condition | Strategy |
+|-----------|----------|
+| Single dimension analysis | Direct inline scan |
+| Multi-dimension analysis | Per-dimension sequential scan |
+| Deep analysis needed | CLI Fan-out to external tool |
 
-```javascript
-// Load report summary
-let reportJson
-try {
-  reportJson = JSON.parse(Read(`${sessionFolder}/review/review-report.json`))
-} catch {
-  reportJson = { summary: { total: findings.length, fixable_count: 0 } }
-}
+**Enrichment fields** (added to each finding):
 
-// Update shared-memory.json
-let sharedMemory = {}
-try { sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`)) } catch {}
-sharedMemory.review_results = {
-  file: `${sessionFolder}/review/review-report.json`,
-  total: reportJson.summary?.total || findings.length,
-  by_severity: reportJson.summary?.by_severity || {},
-  by_dimension: reportJson.summary?.by_dimension || {},
-  critical_files: reportJson.critical_files || [],
-  fixable_count: reportJson.summary?.fixable_count || 0,
-  auto_fixable_count: reportJson.summary?.auto_fixable_count || 0
-}
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
+| Field | Description |
+|-------|-------------|
+| root_cause | Underlying cause of the issue |
+| impact | Business/technical impact |
+| optimization | Suggested optimization approach |
+| fix_strategy | auto/manual/skip |
+| fix_complexity | low/medium/high |
+| fix_dependencies | Array of dependent finding IDs |
 
-// Build top findings summary for message
-const topFindings = (reportJson.findings || findings)
-  .filter(f => f.severity === 'critical' || f.severity === 'high')
-  .slice(0, 8)
-  .map(f => `- **[${f.id}]** [${f.severity}] ${f.location?.file}:${f.location?.line} - ${f.title}`)
-  .join('\n')
+**Output**: `enriched-findings.json`
 
-const sevSum = Object.entries(reportJson.summary?.by_severity || {})
-  .filter(([,v]) => v > 0).map(([k,v]) => `${k}:${v}`).join(' ')
+If CLI deep analysis fails -> use original findings without enrichment.
 
-mcp__ccw-tools__team_msg({ operation:"log", team:"team-review", from:"reviewer",
-  to:"coordinator", type:"review_complete",
-  summary:`[reviewer] Review complete: ${reportJson.summary?.total || findings.length} findings (${sevSum})`,
-  ref:`${sessionFolder}/review/review-report.json` })
+---
 
-SendMessage({ type:"message", recipient:"coordinator",
-  content:`## [reviewer] Review Report\n**Findings**: ${reportJson.summary?.total} total | Fixable: ${reportJson.summary?.fixable_count}\n### Critical & High\n${topFindings || '(none)'}\n**Critical files**: ${(reportJson.critical_files || []).slice(0,5).join(', ') || '(none)'}\nOutput: ${sessionFolder}/review/review-report.json`,
-  summary:`[reviewer] REV complete: ${reportJson.summary?.total} findings, ${reportJson.summary?.fixable_count} fixable` })
+### Phase 4: Generate Report
 
-TaskUpdate({ taskId: task.id, status: 'completed' })
-```
+**Objective**: Cross-correlate enriched + pass-through findings, generate review report.
+
+Delegate to `commands/generate-report.md`.
+
+**Report structure**:
+
+| Section | Content |
+|---------|---------|
+| Summary | Total count, by_severity, by_dimension, fixable_count, auto_fixable_count |
+| Critical files | Files with multiple critical/high findings |
+| Findings | All findings with enrichment data |
+
+**Output files**:
+
+| File | Format | Purpose |
+|------|--------|---------|
+| review-report.json | JSON | Machine-readable for fixer |
+| review-report.md | Markdown | Human-readable summary |
+
+**Success**: Both report files written.
+
+---
+
+### Phase 5: Report to Coordinator
+
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
+
+**Objective**: Report review results to coordinator.
+
+**Workflow**:
+
+1. Update shared-memory.json with review results summary
+2. Build top findings summary (critical/high, max 8)
+3. Log via team_msg with `[reviewer]` prefix
+4. SendMessage to coordinator
+5. TaskUpdate completed
+6. Loop to Phase 1 for next task
+
+**Report content**:
+
+| Field | Value |
+|-------|-------|
+| Findings count | Total |
+| Severity summary | critical:n high:n medium:n low:n |
+| Fixable count | Number of auto-fixable |
+| Top findings | Critical/high items |
+| Critical files | Files with most issues |
+| Output path | review-report.json location |
+
+---
 
 ## Error Handling
 
@@ -200,3 +230,4 @@ TaskUpdate({ taskId: task.id, status: 'completed' })
 | Report generation fails | Write minimal report with raw findings |
 | Session folder missing | Re-create review subdirectory |
 | JSON parse failures | Log warning, use fallback data |
+| Context/Plan file not found | Notify coordinator, request location |

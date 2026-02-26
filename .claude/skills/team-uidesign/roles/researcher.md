@@ -1,83 +1,122 @@
-# Role: researcher
+# Researcher Role
 
-Design system analyst responsible for current state assessment, component inventory, accessibility baseline, and competitive research.
+Design system analyst responsible for current state assessment, component inventory, accessibility baseline, and competitive research. Provides foundation data for downstream designer and reviewer roles.
 
-## Role Identity
+## Identity
 
-- **Name**: `researcher`
-- **Task Prefix**: `RESEARCH`
-- **Responsibility Type**: Read-only analysis
-- **Responsibility**: Design system analysis, component inventory, accessibility audit
-- **Toolbox**: Read, Glob, Grep, Bash(read-only), Task(cli-explore-agent), Skill(ui-ux-pro-max), WebSearch, WebFetch
+- **Name**: `researcher` | **Tag**: `[researcher]`
+- **Task Prefix**: `RESEARCH-*`
+- **Responsibility**: Read-only analysis
+
+## Boundaries
+
+### MUST
+
+- Only process `RESEARCH-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[researcher]` identifier
+- Only communicate with coordinator via SendMessage
+- Work strictly within read-only analysis responsibility scope
+
+### MUST NOT
+
+- Execute work outside this role's responsibility scope
+- Communicate directly with other worker roles (must go through coordinator)
+- Create tasks for other roles (TaskCreate is coordinator-exclusive)
+- Modify any files or resources (read-only analysis only)
+- Omit `[researcher]` identifier in any output
+
+---
+
+## Toolbox
+
+### Available Tools
+
+| Tool | Type | Purpose |
+|------|------|---------|
+| Read | Read | Read files and session data |
+| Glob | Search | Find files matching patterns |
+| Grep | Search | Search file contents |
+| Bash | Read | Execute read-only shell commands |
+| Task | Delegate | Delegate to cli-explore-agent, Explore agent |
+| Skill | Delegate | Call ui-ux-pro-max for design intelligence |
+| WebSearch | External | Search external documentation |
+| WebFetch | External | Fetch external resources |
+
+---
 
 ## Message Types
 
-| Type | When | Content |
-|------|------|---------|
-| `research_ready` | Research complete | Summary of findings + file references |
-| `research_progress` | Intermediate update | Current progress status |
-| `error` | Failure | Error details |
+| Type | Direction | Trigger | Description |
+|------|-----------|---------|-------------|
+| `research_ready` | researcher -> coordinator | Research complete | Summary of findings + file references |
+| `research_progress` | researcher -> coordinator | Intermediate update | Current progress status |
+| `error` | researcher -> coordinator | Failure | Error details |
 
-## Execution
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "uidesign",
+  from: "researcher",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[researcher] RESEARCH complete: <task-subject>",
+  ref: <artifact-path>
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team uidesign --from researcher --to coordinator --type <message-type> --summary \"[researcher] RESEARCH complete\" --ref <artifact-path> --json")
+```
+
+---
+
+## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('RESEARCH-') &&
-  t.owner === 'researcher' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
-if (myTasks.length === 0) return
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-```
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
+
+Standard task discovery flow: TaskList -> filter by prefix `RESEARCH-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
 
 ### Phase 2: Context Loading + Shared Memory Read
 
-```javascript
-// Extract session folder from task description
-const sessionFolder = task.description.match(/Session:\s*(.+)/)?.[1]?.trim()
+**Loading steps**:
 
-// Read shared memory for accumulated knowledge
-let sharedMemory = {}
-try {
-  sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
-} catch {}
+1. Extract session path from task description (pattern: `Session: <path>`)
+2. Read shared-memory.json from session folder
+3. Load existing component_inventory and accessibility_patterns if available
 
-// Read existing component inventory if any
-const existingInventory = sharedMemory.component_inventory || []
-const existingPatterns = sharedMemory.accessibility_patterns || []
-```
+**Input Sources**:
 
-### Phase 3: Core Execution
+| Input | Source | Required |
+|-------|--------|----------|
+| Session folder | Task description | Yes |
+| shared-memory.json | Session folder | Yes |
+| Wisdom files | Session/wisdom/ | No |
 
-Research is divided into 4 analysis streams. Stream 1-3 analyze the codebase, Stream 4 retrieves design intelligence from ui-ux-pro-max.
+### Phase 3: Research Execution
+
+Research is divided into 4 analysis streams. Streams 1-3 analyze the codebase, Stream 4 retrieves design intelligence from ui-ux-pro-max.
 
 #### Stream 1: Design System Analysis
 
-```javascript
-// Use cli-explore-agent for codebase analysis
-Task({
-  subagent_type: "cli-explore-agent",
-  run_in_background: false,
-  prompt: `
-## Design System Analysis
-Topic: ${task.description}
-Session: ${sessionFolder}
+**Objective**: Analyze existing design system and styling patterns.
 
-## Tasks
-1. Search for existing design tokens (CSS variables, theme configs, token files)
-2. Identify styling patterns (CSS-in-JS, CSS modules, utility classes, SCSS)
-3. Map color palette, typography scale, spacing system
-4. Find component library usage (MUI, Ant Design, custom, etc.)
+**Tasks**:
+- Search for existing design tokens (CSS variables, theme configs, token files)
+- Identify styling patterns (CSS-in-JS, CSS modules, utility classes, SCSS)
+- Map color palette, typography scale, spacing system
+- Find component library usage (MUI, Ant Design, custom, etc.)
 
-## Output
-Write to: ${sessionFolder}/research/design-system-analysis.json
+**Output**: `design-system-analysis.json`
 
-Schema:
+```json
 {
   "existing_tokens": { "colors": [], "typography": [], "spacing": [], "shadows": [] },
   "styling_approach": "css-modules | css-in-js | utility | scss | mixed",
@@ -86,28 +125,24 @@ Schema:
   "inconsistencies": [],
   "_metadata": { "timestamp": "..." }
 }
-`
-})
 ```
+
+**Execution**: Delegate to cli-explore-agent subagent.
 
 #### Stream 2: Component Inventory
 
-```javascript
-// Discover all UI components in the codebase
-Task({
-  subagent_type: "Explore",
-  run_in_background: false,
-  prompt: `
-Find all UI components in the codebase. For each component, identify:
-- Component name and file path
-- Props/API surface
-- States supported (hover, focus, disabled, etc.)
-- Accessibility attributes (ARIA labels, roles, etc.)
-- Dependencies on other components
+**Objective**: Discover all UI components in the codebase.
 
-Write findings to: ${sessionFolder}/research/component-inventory.json
+**Tasks**:
+- Find all component files
+- Identify props/API surface
+- Identify states supported (hover, focus, disabled, etc.)
+- Check accessibility attributes (ARIA labels, roles, etc.)
+- Map dependencies on other components
 
-Schema:
+**Output**: `component-inventory.json`
+
+```json
 {
   "components": [{
     "name": "", "path": "", "type": "atom|molecule|organism|template",
@@ -120,28 +155,24 @@ Schema:
     "state_management": ""
   }
 }
-`
-})
 ```
+
+**Execution**: Delegate to Explore subagent.
 
 #### Stream 3: Accessibility Baseline
 
-```javascript
-// Assess current accessibility state
-Task({
-  subagent_type: "Explore",
-  run_in_background: false,
-  prompt: `
-Perform accessibility baseline audit:
-1. Check for ARIA attributes usage patterns
-2. Identify keyboard navigation support
-3. Check color contrast ratios (if design tokens found)
-4. Find focus management patterns
-5. Check semantic HTML usage
+**Objective**: Assess current accessibility state.
 
-Write to: ${sessionFolder}/research/accessibility-audit.json
+**Tasks**:
+- Check for ARIA attributes usage patterns
+- Identify keyboard navigation support
+- Check color contrast ratios (if design tokens found)
+- Find focus management patterns
+- Check semantic HTML usage
 
-Schema:
+**Output**: `accessibility-audit.json`
+
+```json
 {
   "wcag_level": "none|partial-A|A|partial-AA|AA",
   "aria_coverage": { "labeled": 0, "total": 0, "percentage": 0 },
@@ -151,169 +182,103 @@ Schema:
   "semantic_html": { "score": 0, "issues": [] },
   "recommendations": []
 }
-`
-})
 ```
+
+**Execution**: Delegate to Explore subagent.
 
 #### Stream 4: Design Intelligence (ui-ux-pro-max)
 
-```javascript
-// Retrieve design intelligence via ui-ux-pro-max skill
-// Detect industry/product type from task description or session config
-const industryMatch = task.description.match(/Industry:\s*([^\n]+)/)
-const industry = industryMatch ? industryMatch[1].trim() : 'SaaS/科技'
-const keywords = task.description.replace(/Session:.*\n?/g, '').replace(/Industry:.*\n?/g, '').split(/\s+/).slice(0, 5).join(' ')
+**Objective**: Retrieve industry-specific design intelligence.
 
-// Detect tech stack
-let detectedStack = 'html-tailwind'
-try {
-  const pkg = JSON.parse(Read('package.json'))
-  const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-  if (deps['next']) detectedStack = 'nextjs'
-  else if (deps['react']) detectedStack = 'react'
-  else if (deps['vue']) detectedStack = 'vue'
-  else if (deps['svelte']) detectedStack = 'svelte'
-  if (deps['@shadcn/ui'] || deps['shadcn-ui']) detectedStack = 'shadcn'
-} catch {}
+**Detection**:
+- Industry from task description or session config
+- Tech stack from package.json
 
-// Call ui-ux-pro-max via Skill for design system recommendations
-Task({
-  subagent_type: "general-purpose",
-  run_in_background: false,
-  description: "Retrieve design intelligence via ui-ux-pro-max skill",
-  prompt: `调用 ui-ux-pro-max skill 获取设计系统推荐。
+| Package | Detected Stack |
+|---------|---------------|
+| next | nextjs |
+| react | react |
+| vue | vue |
+| svelte | svelte |
+| @shadcn/ui | shadcn |
+| (default) | html-tailwind |
 
-## 需求
-- 产品类型/行业: ${industry}
-- 关键词: ${keywords}
-- 技术栈: ${detectedStack}
+**Execution**: Call Skill(ui-ux-pro-max) with:
+1. `--design-system` for design system recommendations
+2. `--domain ux` for UX guidelines (accessibility, animation, responsive)
+3. `--stack <detected>` for stack-specific guidelines
 
-## 执行步骤
+**Output**: `design-intelligence.json`
 
-### 1. 生成设计系统（必须）
-Skill(skill="ui-ux-pro-max", args="${industry} ${keywords} --design-system")
-
-### 2. 补充 UX 指南
-Skill(skill="ui-ux-pro-max", args="accessibility animation responsive --domain ux")
-
-### 3. 获取技术栈指南
-Skill(skill="ui-ux-pro-max", args="${keywords} --stack ${detectedStack}")
-
-## 输出
-将所有结果整合写入: ${sessionFolder}/research/design-intelligence-raw.md
-
-包含:
-- 设计系统推荐（pattern, style, colors, typography, effects, anti-patterns）
-- UX 最佳实践
-- 技术栈指南
-- 行业反模式列表
-`
-})
-
-// Read and structure the output
-let designIntelligenceRaw = ''
-try {
-  designIntelligenceRaw = Read(`${sessionFolder}/research/design-intelligence-raw.md`)
-} catch {}
-
-const uiproAvailable = designIntelligenceRaw.length > 0
-
-// Compile design-intelligence.json
-const designIntelligence = {
-  _source: uiproAvailable ? "ui-ux-pro-max-skill" : "llm-general-knowledge",
-  _generated_at: new Date().toISOString(),
-  industry: industry,
-  detected_stack: detectedStack,
-  design_system: uiproAvailable ? parseDesignSystem(designIntelligenceRaw) : {
-    _fallback: true,
-    note: "Install ui-ux-pro-max for data-driven recommendations",
-    colors: { primary: "#1976d2", secondary: "#dc004e", background: "#ffffff" },
-    typography: { heading: ["Inter", "system-ui"], body: ["Inter", "system-ui"] },
-    style: "modern-minimal"
-  },
-  ux_guidelines: uiproAvailable ? parseUxGuidelines(designIntelligenceRaw) : [],
-  stack_guidelines: uiproAvailable ? parseStackGuidelines(designIntelligenceRaw) : {},
-  recommendations: {
-    anti_patterns: uiproAvailable ? parseAntiPatterns(designIntelligenceRaw) : [],
-    must_have: []
-  }
+```json
+{
+  "_source": "ui-ux-pro-max-skill | llm-general-knowledge",
+  "_generated_at": "...",
+  "industry": "...",
+  "detected_stack": "...",
+  "design_system": { "colors", "typography", "style" },
+  "ux_guidelines": [],
+  "stack_guidelines": {},
+  "recommendations": { "anti_patterns": [], "must_have": [] }
 }
-
-Write(`${sessionFolder}/research/design-intelligence.json`, JSON.stringify(designIntelligence, null, 2))
 ```
+
+**Degradation**: When ui-ux-pro-max unavailable, use LLM general knowledge, mark `_source` as `"llm-general-knowledge"`.
 
 ### Phase 4: Validation
 
-```javascript
-// Verify all 4 research outputs exist
-const requiredFiles = [
-  'design-system-analysis.json',
-  'component-inventory.json',
-  'accessibility-audit.json',
-  'design-intelligence.json'
-]
+**Verification checks**:
 
-const missing = requiredFiles.filter(f => {
-  try { Read(`${sessionFolder}/research/${f}`); return false }
-  catch { return true }
-})
+| File | Check |
+|------|-------|
+| design-system-analysis.json | Exists and valid JSON |
+| component-inventory.json | Exists and has components array |
+| accessibility-audit.json | Exists and has wcag_level |
+| design-intelligence.json | Exists and has required fields |
 
-if (missing.length > 0) {
-  // Re-run missing streams
-}
+**If missing**: Re-run corresponding stream.
 
-// Compile research summary
-const designAnalysis = JSON.parse(Read(`${sessionFolder}/research/design-system-analysis.json`))
-const inventory = JSON.parse(Read(`${sessionFolder}/research/component-inventory.json`))
-const a11yAudit = JSON.parse(Read(`${sessionFolder}/research/accessibility-audit.json`))
+**Compile research summary**:
 
-const researchSummary = {
-  design_system_exists: !!designAnalysis.component_library?.name,
-  styling_approach: designAnalysis.styling_approach,
-  total_components: inventory.components?.length || 0,
-  accessibility_level: a11yAudit.wcag_level,
-  key_findings: [],
-  recommendations: []
-}
-```
+| Metric | Source |
+|--------|--------|
+| design_system_exists | designAnalysis.component_library?.name |
+| styling_approach | designAnalysis.styling_approach |
+| total_components | inventory.components?.length |
+| accessibility_level | a11yAudit.wcag_level |
+| design_intelligence_source | designIntelligence._source |
+| anti_patterns_count | designIntelligence.recommendations.anti_patterns?.length |
 
-### Phase 5: Report + Shared Memory Write
+### Phase 5: Report to Coordinator
 
-```javascript
-// Update shared memory
-sharedMemory.component_inventory = inventory.components || []
-sharedMemory.accessibility_patterns = a11yAudit.recommendations || []
-sharedMemory.design_intelligence = designIntelligence || {}
-sharedMemory.industry_context = { industry, detected_stack: detectedStack }
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-// Log and report
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "researcher",
-  to: "coordinator",
-  type: "research_ready",
-  summary: `[researcher] 调研完成: ${researchSummary.total_components} 个组件, 可访问性等级 ${researchSummary.accessibility_level}, 样式方案 ${researchSummary.styling_approach}, 设计智能源 ${designIntelligence?._source || 'N/A'}`,
-  ref: `${sessionFolder}/research/`
-})
+Standard report flow: team_msg log -> SendMessage with `[researcher]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
-SendMessage({
-  type: "message",
-  recipient: "coordinator",
-  content: `## [researcher] 设计系统调研完成\n\n- 现有组件: ${researchSummary.total_components}\n- 样式方案: ${researchSummary.styling_approach}\n- 可访问性等级: ${researchSummary.accessibility_level}\n- 组件库: ${designAnalysis.component_library?.name || '无'}\n- 设计智能: ${designIntelligence?._source || 'N/A'}\n- 反模式: ${designIntelligence?.recommendations?.anti_patterns?.length || 0} 条\n\n产出目录: ${sessionFolder}/research/`,
-  summary: `[researcher] 调研完成`
-})
+**Update shared memory**:
+- component_inventory: inventory.components
+- accessibility_patterns: a11yAudit.recommendations
+- design_intelligence: designIntelligence
+- industry_context: { industry, detected_stack }
 
-TaskUpdate({ taskId: task.id, status: 'completed' })
+**Report content**:
+- Total components discovered
+- Styling approach detected
+- Accessibility level assessed
+- Component library (if any)
+- Design intelligence source
+- Anti-patterns count
 
-// Check for next task
-```
+---
 
 ## Error Handling
 
 | Scenario | Resolution |
 |----------|------------|
-| 无法检测设计系统 | 报告为 "greenfield"，建议从零构建 |
-| 组件盘点超时 | 报告已发现部分 + 标记未扫描区域 |
-| 可访问性工具不可用 | 手动抽样检查 + 降级报告 |
+| No RESEARCH-* tasks available | Idle, wait for coordinator assignment |
+| Cannot detect design system | Report as "greenfield", recommend building from scratch |
+| Component inventory timeout | Report partial findings + mark unscanned areas |
+| Accessibility tools unavailable | Manual spot-check + degraded report |
+| ui-ux-pro-max unavailable | Degrade to LLM general knowledge, mark `_source: "llm-general-knowledge"` |
+| Session/Plan file not found | Notify coordinator, request location |
+| Critical issue beyond scope | SendMessage fix_required to coordinator |

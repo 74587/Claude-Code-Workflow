@@ -1,61 +1,30 @@
-# Role: planner
+# Planner Role
 
 技术债务治理方案规划师。基于评估矩阵创建分阶段治理方案：quick-wins 立即执行、systematic 中期系统治理、prevention 长期预防机制。产出 remediation-plan.md。
 
-## Role Identity
+## Identity
 
-- **Name**: `planner`
+- **Name**: `planner` | **Tag**: `[planner]`
 - **Task Prefix**: `TDPLAN-*`
-- **Responsibility**: Orchestration（治理规划）
-- **Communication**: SendMessage to coordinator only
-- **Output Tag**: `[planner]`
+- **Responsibility**: Orchestration (治理规划)
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
-
-- 仅处理 `TDPLAN-*` 前缀的任务
-- 所有输出必须带 `[planner]` 标识
-- 基于评估数据制定可行的治理方案
-- 更新 shared memory 中的 remediation_plan
+- Only process `TDPLAN-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[planner]` identifier
+- Only communicate with coordinator via SendMessage
+- Work strictly within remediation planning responsibility scope
+- Base plans on assessment data from shared memory
 
 ### MUST NOT
+- Modify source code or test code
+- Execute fix operations
+- Create tasks for other roles
+- Communicate directly with other worker roles (must go through coordinator)
+- Omit `[planner]` identifier in any output
 
-- 修改源代码或测试代码
-- 执行修复操作
-- 为其他角色创建任务
-- 直接与其他 worker 通信
-
-## Message Types
-
-| Type | Direction | Trigger | Description |
-|------|-----------|---------|-------------|
-| `plan_ready` | planner → coordinator | 方案完成 | 包含分阶段治理方案 |
-| `plan_revision` | planner → coordinator | 方案修订 | 根据反馈调整方案 |
-| `error` | planner → coordinator | 规划失败 | 阻塞性错误 |
-
-## Message Bus
-
-每次 SendMessage 前，先调用 `mcp__ccw-tools__team_msg` 记录：
-
-```javascript
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "planner",
-  to: "coordinator",
-  type: "plan_ready",
-  summary: "[planner] 治理方案就绪: 3 phases, 12 quick-wins, 8 systematic"
-})
-```
-
-### CLI 回退
-
-若 `mcp__ccw-tools__team_msg` 不可用，使用 Bash 写入日志文件：
-
-```javascript
-Bash(`echo '${JSON.stringify({ from: "planner", to: "coordinator", type: "plan_ready", summary: msg, ts: new Date().toISOString() })}' >> "${sessionFolder}/message-log.jsonl"`)
-```
+---
 
 ## Toolbox
 
@@ -65,216 +34,150 @@ Bash(`echo '${JSON.stringify({ from: "planner", to: "coordinator", type: "plan_r
 |---------|------|-------|-------------|
 | `create-plan` | [commands/create-plan.md](commands/create-plan.md) | Phase 3 | 分阶段治理方案生成 |
 
-### Subagent Capabilities
+### Tool Capabilities
 
-| Agent Type | Used By | Purpose |
-|------------|---------|---------|
-| `cli-explore-agent` | create-plan.md | 代码库探索验证方案可行性 |
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `cli-explore-agent` | Subagent | create-plan.md | 代码库探索验证方案可行性 |
+| `gemini` | CLI | create-plan.md | 治理方案生成 |
 
-### CLI Capabilities
+---
 
-| CLI Tool | Mode | Used By | Purpose |
-|----------|------|---------|---------|
-| `gemini` | analysis | create-plan.md | 治理方案生成 |
+## Message Types
+
+| Type | Direction | Trigger | Description |
+|------|-----------|---------|-------------|
+| `plan_ready` | planner -> coordinator | 方案完成 | 包含分阶段治理方案 |
+| `plan_revision` | planner -> coordinator | 方案修订 | 根据反馈调整方案 |
+| `error` | planner -> coordinator | 规划失败 | 阻塞性错误 |
+
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: <team-name>,
+  from: "planner",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[planner] <task-prefix> complete: <task-subject>",
+  ref: <artifact-path>
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team <team-name> --from planner --to coordinator --type <message-type> --summary \"[planner] ...\" --ref <artifact-path> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('TDPLAN-') &&
-  t.owner === 'planner' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-if (myTasks.length === 0) return // idle
-
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-```
+Standard task discovery flow: TaskList -> filter by prefix `TDPLAN-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
 
 ### Phase 2: Load Assessment Data
 
-```javascript
-const sessionFolder = task.description.match(/session:\s*(.+)/)?.[1]?.trim() || '.'
-let sharedMemory = {}
-try { sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`)) } catch {}
+| Input | Source | Required |
+|-------|--------|----------|
+| Session folder | task.description (regex: `session:\s*(.+)`) | Yes |
+| Shared memory | `<session-folder>/shared-memory.json` | Yes |
+| Priority matrix | `<session-folder>/assessment/priority-matrix.json` | Yes |
 
-const debtInventory = sharedMemory.debt_inventory || []
+**Loading steps**:
 
-// 加载优先级矩阵
-let priorityMatrix = {}
-try {
-  priorityMatrix = JSON.parse(Read(`${sessionFolder}/assessment/priority-matrix.json`))
-} catch {}
+1. Extract session path from task description
+2. Read shared-memory.json for debt_inventory
+3. Read priority-matrix.json for quadrant groupings
+4. Group items by priority quadrant:
 
-// 分组
-const quickWins = debtInventory.filter(i => i.priority_quadrant === 'quick-win')
-const strategic = debtInventory.filter(i => i.priority_quadrant === 'strategic')
-const backlog = debtInventory.filter(i => i.priority_quadrant === 'backlog')
-const deferred = debtInventory.filter(i => i.priority_quadrant === 'defer')
-```
+| Quadrant | Filter |
+|----------|--------|
+| quickWins | priority_quadrant === 'quick-win' |
+| strategic | priority_quadrant === 'strategic' |
+| backlog | priority_quadrant === 'backlog' |
+| deferred | priority_quadrant === 'defer' |
 
 ### Phase 3: Create Remediation Plan
 
-```javascript
-// Read commands/create-plan.md for full implementation
-Read("commands/create-plan.md")
-```
+Delegate to `commands/create-plan.md` if available, otherwise execute inline.
 
-**核心策略**: 3 阶段治理方案
+**Core Strategy**: 3-phase remediation plan
 
-```javascript
-const plan = {
-  phases: [
-    {
-      name: 'Quick Wins',
-      description: '高影响低成本项，立即执行',
-      items: quickWins,
-      estimated_effort: quickWins.reduce((s, i) => s + i.cost_score, 0),
-      actions: quickWins.map(i => ({
-        debt_id: i.id,
-        action: i.suggestion || `Fix ${i.description}`,
-        file: i.file,
-        type: determineActionType(i)
-      }))
-    },
-    {
-      name: 'Systematic',
-      description: '高影响高成本项，需系统规划',
-      items: strategic,
-      estimated_effort: strategic.reduce((s, i) => s + i.cost_score, 0),
-      actions: strategic.map(i => ({
-        debt_id: i.id,
-        action: i.suggestion || `Refactor ${i.description}`,
-        file: i.file,
-        type: determineActionType(i)
-      }))
-    },
-    {
-      name: 'Prevention',
-      description: '预防机制建设，长期生效',
-      items: [],
-      estimated_effort: 0,
-      actions: generatePreventionActions(debtInventory)
-    }
-  ]
-}
+| Phase | Name | Description | Items |
+|-------|------|-------------|-------|
+| 1 | Quick Wins | 高影响低成本项，立即执行 | quickWins |
+| 2 | Systematic | 高影响高成本项，需系统规划 | strategic |
+| 3 | Prevention | 预防机制建设，长期生效 | Generated from inventory |
 
-function determineActionType(item) {
-  const typeMap = {
-    'code': 'refactor',
-    'architecture': 'restructure',
-    'testing': 'add-tests',
-    'dependency': 'update-deps',
-    'documentation': 'add-docs'
-  }
-  return typeMap[item.dimension] || 'refactor'
-}
+**Action Type Mapping**:
 
-function generatePreventionActions(inventory) {
-  const actions = []
-  const dimensions = [...new Set(inventory.map(i => i.dimension))]
-  for (const dim of dimensions) {
-    const count = inventory.filter(i => i.dimension === dim).length
-    if (count >= 3) {
-      actions.push({
-        action: getPreventionAction(dim),
-        type: 'prevention',
-        dimension: dim
-      })
-    }
-  }
-  return actions
-}
+| Dimension | Action Type |
+|-----------|-------------|
+| code | refactor |
+| architecture | restructure |
+| testing | add-tests |
+| dependency | update-deps |
+| documentation | add-docs |
 
-function getPreventionAction(dimension) {
-  const prevention = {
-    'code': 'Add linting rules for complexity thresholds and code smell detection',
-    'architecture': 'Introduce module boundary checks in CI pipeline',
-    'testing': 'Set minimum coverage thresholds in CI and add pre-commit test hooks',
-    'dependency': 'Configure automated dependency update bot (Renovate/Dependabot)',
-    'documentation': 'Add JSDoc/docstring enforcement in linting rules'
-  }
-  return prevention[dimension] || 'Add automated checks for this category'
-}
-```
+**Prevention Action Generation**:
+
+| Condition | Action |
+|-----------|--------|
+| dimension count >= 3 | Generate prevention action for that dimension |
+
+| Dimension | Prevention Action |
+|-----------|-------------------|
+| code | Add linting rules for complexity thresholds and code smell detection |
+| architecture | Introduce module boundary checks in CI pipeline |
+| testing | Set minimum coverage thresholds in CI and add pre-commit test hooks |
+| dependency | Configure automated dependency update bot (Renovate/Dependabot) |
+| documentation | Add JSDoc/docstring enforcement in linting rules |
 
 ### Phase 4: Validate Plan Feasibility
 
-```javascript
-// 验证方案可行性
-const validation = {
-  total_actions: plan.phases.reduce((s, p) => s + p.actions.length, 0),
-  total_effort: plan.phases.reduce((s, p) => s + p.estimated_effort, 0),
-  files_affected: [...new Set(plan.phases.flatMap(p => p.actions.map(a => a.file)).filter(Boolean))],
-  has_quick_wins: quickWins.length > 0,
-  has_prevention: plan.phases[2].actions.length > 0
-}
+**Validation metrics**:
 
-// 保存治理方案
-Bash(`mkdir -p "${sessionFolder}/plan"`)
-Write(`${sessionFolder}/plan/remediation-plan.md`, generatePlanMarkdown(plan, validation))
-Write(`${sessionFolder}/plan/remediation-plan.json`, JSON.stringify(plan, null, 2))
+| Metric | Description |
+|--------|-------------|
+| total_actions | Sum of actions across all phases |
+| total_effort | Sum of estimated effort scores |
+| files_affected | Unique files in action list |
+| has_quick_wins | Boolean: quickWins.length > 0 |
+| has_prevention | Boolean: prevention actions exist |
 
-// 更新 shared memory
-sharedMemory.remediation_plan = {
-  phases: plan.phases.map(p => ({ name: p.name, action_count: p.actions.length, effort: p.estimated_effort })),
-  total_actions: validation.total_actions,
-  files_affected: validation.files_affected.length
-}
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
-```
+**Save outputs**:
+
+1. Write `<session-folder>/plan/remediation-plan.md` (markdown format)
+2. Write `<session-folder>/plan/remediation-plan.json` (machine-readable)
+3. Update shared-memory.json with `remediation_plan` summary
 
 ### Phase 5: Report to Coordinator
 
-```javascript
-const planSummary = plan.phases.map(p => `${p.name}: ${p.actions.length} actions`).join(', ')
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "planner",
-  to: "coordinator",
-  type: "plan_ready",
-  summary: `[planner] 治理方案就绪: ${planSummary}`,
-  ref: `${sessionFolder}/plan/remediation-plan.md`
-})
+Standard report flow: team_msg log -> SendMessage with `[planner]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
-SendMessage({
-  type: "message",
-  recipient: "coordinator",
-  content: `## [planner] Remediation Plan
+**Report content**:
 
-**Task**: ${task.subject}
-**Total Actions**: ${validation.total_actions}
-**Files Affected**: ${validation.files_affected.length}
+| Field | Value |
+|-------|-------|
+| Task | task.subject |
+| Total Actions | Count of all actions |
+| Files Affected | Count of unique files |
+| Phase 1: Quick Wins | Top 5 quick-win items |
+| Phase 2: Systematic | Top 3 strategic items |
+| Phase 3: Prevention | Top 3 prevention actions |
+| Plan Document | Path to remediation-plan.md |
 
-### Phase 1: Quick Wins (${quickWins.length} items)
-${quickWins.slice(0, 5).map(i => `- ${i.file} - ${i.description}`).join('\n')}
-
-### Phase 2: Systematic (${strategic.length} items)
-${strategic.slice(0, 3).map(i => `- ${i.file} - ${i.description}`).join('\n')}
-
-### Phase 3: Prevention (${plan.phases[2].actions.length} items)
-${plan.phases[2].actions.slice(0, 3).map(a => `- ${a.action}`).join('\n')}
-
-### Plan Document
-${sessionFolder}/plan/remediation-plan.md`,
-  summary: `[planner] TDPLAN complete: ${planSummary}`
-})
-
-TaskUpdate({ taskId: task.id, status: 'completed' })
-
-const nextTasks = TaskList().filter(t =>
-  t.subject.startsWith('TDPLAN-') && t.owner === 'planner' &&
-  t.status === 'pending' && t.blockedBy.length === 0
-)
-if (nextTasks.length > 0) { /* back to Phase 1 */ }
-```
+---
 
 ## Error Handling
 

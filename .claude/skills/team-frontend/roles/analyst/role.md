@@ -1,358 +1,222 @@
-# Role: analyst
+# Analyst Role
 
-需求分析师。调用 ui-ux-pro-max 搜索引擎获取行业设计智能，分析需求、匹配行业推理规则、生成 design-intelligence.json 供下游角色消费。
+Requirements analyst. Invokes ui-ux-pro-max search engine to retrieve industry design intelligence, analyzes requirements, matches industry inference rules, generates design-intelligence.json for downstream consumption.
 
-## Role Identity
+## Identity
 
-- **Name**: `analyst`
+- **Name**: `analyst` | **Tag**: `[analyst]`
 - **Task Prefix**: `ANALYZE-*`
 - **Responsibility**: Read-only analysis + design intelligence retrieval
-- **Communication**: SendMessage to coordinator only
-- **Output Tag**: `[analyst]`
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
 
-- 仅处理 `ANALYZE-*` 前缀的任务
-- 所有输出必须带 `[analyst]` 标识
-- 仅通过 SendMessage 与 coordinator 通信
-- 严格在需求分析和设计智能检索范围内工作
+- Only process `ANALYZE-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[analyst]` identifier
+- Only communicate with coordinator via SendMessage
+- Work strictly within requirement analysis and design intelligence scope
 
 ### MUST NOT
 
-- ❌ 执行架构设计、代码实现、质量审查等其他角色职责
-- ❌ 直接与其他 worker 角色通信
-- ❌ 为其他角色创建任务
-- ❌ 修改源代码文件
+- Execute work outside this role's responsibility scope (architecture, implementation, QA)
+- Communicate directly with other worker roles (must go through coordinator)
+- Create tasks for other roles (TaskCreate is coordinator-exclusive)
+- Modify source code files
+- Omit `[analyst]` identifier in any output
+
+---
+
+## Toolbox
+
+### Available Commands
+
+| Command | File | Phase | Description |
+|---------|------|-------|-------------|
+| `design-intelligence` | [commands/design-intelligence.md](commands/design-intelligence.md) | Phase 3 | ui-ux-pro-max integration for design system retrieval |
+
+### Tool Capabilities
+
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `Read` | builtin | Phase 2 | Load session files, shared memory |
+| `Glob` | builtin | Phase 2 | Detect existing token files, CSS files |
+| `Grep` | builtin | Phase 2 | Search codebase patterns |
+| `Bash` | builtin | Phase 3 | Call ui-ux-pro-max search.py |
+| `WebSearch` | builtin | Phase 3 | Competitive reference, design trends |
+| `Task(cli-explore-agent)` | subagent | Phase 3 | Deep codebase exploration |
+| `Skill(ui-ux-pro-max)` | skill | Phase 3 | Design intelligence retrieval |
+
+---
 
 ## Message Types
 
 | Type | Direction | Trigger | Description |
 |------|-----------|---------|-------------|
-| `analyze_ready` | analyst → coordinator | Analysis complete | 设计智能已就绪，下游可消费 |
-| `analyze_progress` | analyst → coordinator | Partial progress | 分析进度更新 |
-| `error` | analyst → coordinator | Analysis failure | 分析失败或工具不可用 |
+| `analyze_ready` | analyst → coordinator | Analysis complete | Design intelligence ready for downstream consumption |
+| `analyze_progress` | analyst → coordinator | Partial progress | Analysis progress update |
+| `error` | analyst → coordinator | Analysis failure | Analysis failed or tool unavailable |
 
-## Toolbox
+## Message Bus
 
-### Available Tools
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
-| Tool | Purpose |
-|------|---------|
-| Read, Glob, Grep | 读取项目文件、搜索现有代码模式 |
-| Bash (search.py) | 调用 ui-ux-pro-max 搜索引擎 |
-| WebSearch, WebFetch | 竞品参考、设计趋势搜索 |
-| Task (cli-explore-agent) | 深度代码库探索 |
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "frontend",
+  from: "analyst",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[analyst] ANALYZE complete: <task-subject>",
+  ref: <artifact-path>
+})
+```
 
-### Subagent Capabilities
+**CLI fallback** (when MCP unavailable):
 
-| Agent Type | Purpose |
-|------------|---------|
-| `cli-explore-agent` | 探索现有代码库的设计模式和组件结构 |
+```
+Bash("ccw team log --team frontend --from analyst --to coordinator --type <message-type> --summary \"[analyst] ...\" --ref <artifact-path> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('ANALYZE-') &&
-  t.owner === 'analyst' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-if (myTasks.length === 0) return // idle
-
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-```
+Standard task discovery flow: TaskList -> filter by prefix `ANALYZE-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
 
 ### Phase 2: Context Loading
 
-```javascript
-// Extract session folder from task description
-const sessionMatch = task.description.match(/Session:\s*([^\n]+)/)
-const sessionFolder = sessionMatch ? sessionMatch[1].trim() : null
+**Input Sources**:
 
-// Extract industry context
-const industryMatch = task.description.match(/Industry:\s*([^\n]+)/)
-const industry = industryMatch ? industryMatch[1].trim() : 'SaaS/科技'
+| Input | Source | Required |
+|-------|--------|----------|
+| Session folder | Extract from task description `Session: <path>` | Yes |
+| Industry context | Extract from task description `Industry: <type>` | Yes |
+| Shared memory | `<session-folder>/shared-memory.json` | No |
+| Session info | `<session-folder>/team-session.json` | No |
+| Existing tokens | Glob `**/*token*.*` | No |
+| Existing CSS | Glob `**/*.css` | No |
+| Package.json | For tech stack detection | No |
 
-// Load shared memory
-let sharedMemory = {}
-try {
-  sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
-} catch {}
+**Loading Steps**:
 
-// Load session info
-let session = {}
-try {
-  session = JSON.parse(Read(`${sessionFolder}/team-session.json`))
-} catch {}
+1. Extract session folder from task description
+2. Extract industry context from task description
+3. Load shared memory and session info
+4. Detect existing design system in project
+5. Detect tech stack from package.json
 
-// Detect existing design system in project
-const existingTokenFiles = Glob({ pattern: '**/*token*.*' })
-const existingCssVars = Glob({ pattern: '**/*.css' })
+**Tech Stack Detection**:
 
-// Detect tech stack
-const packageJsonExists = Glob({ pattern: 'package.json' })
-let detectedStack = 'html-tailwind'
-if (packageJsonExists.length > 0) {
-  try {
-    const pkg = JSON.parse(Read('package.json'))
-    const deps = { ...pkg.dependencies, ...pkg.devDependencies }
-    if (deps['next']) detectedStack = 'nextjs'
-    else if (deps['react']) detectedStack = 'react'
-    else if (deps['vue']) detectedStack = 'vue'
-    else if (deps['svelte']) detectedStack = 'svelte'
-    if (deps['@shadcn/ui'] || deps['shadcn-ui']) detectedStack = 'shadcn'
-  } catch {}
-}
+| Detection | Stack |
+|-----------|-------|
+| `next` in dependencies | nextjs |
+| `react` in dependencies | react |
+| `vue` in dependencies | vue |
+| `svelte` in dependencies | svelte |
+| `@shadcn/ui` in dependencies | shadcn |
+| No package.json | html-tailwind |
+
+### Phase 3: Core Analysis - Design Intelligence Retrieval
+
+Key integration point with ui-ux-pro-max. Retrieve design intelligence via Skill.
+
+**Execution Strategy**:
+
+| Condition | Strategy |
+|-----------|----------|
+| ui-ux-pro-max skill available | Full design system retrieval via Skill |
+| ui-ux-pro-max not installed | Fallback to LLM general knowledge |
+
+**Step 1: Invoke ui-ux-pro-max via Skill**
+
+Delegate to `commands/design-intelligence.md` for detailed execution.
+
+**Skill Invocations**:
+
+| Action | Invocation |
+|--------|------------|
+| Full design system | `Skill(skill="ui-ux-pro-max", args="<industry> <keywords> --design-system")` |
+| UX guidelines | `Skill(skill="ui-ux-pro-max", args="accessibility animation responsive --domain ux")` |
+| Tech stack guide | `Skill(skill="ui-ux-pro-max", args="<keywords> --stack <detected-stack>")` |
+
+**Step 2: Fallback - LLM General Knowledge**
+
+If ui-ux-pro-max skill not available (not installed or execution failed):
+- Generate design recommendations from LLM general knowledge
+- Quality is lower than data-driven recommendations from ui-ux-pro-max
+- Suggest installation: `/plugin install ui-ux-pro-max@ui-ux-pro-max-skill`
+
+**Step 3: Analyze Existing Codebase**
+
+If existing token files or CSS files found:
+
 ```
-
-### Phase 3: Core Analysis — Design Intelligence Retrieval
-
-This is the key integration point with ui-ux-pro-max. 通过 Skill 调用获取设计智能。
-
-详细执行策略见: [commands/design-intelligence.md](commands/design-intelligence.md)
-
-#### Step 1: 通过 Skill 调用 ui-ux-pro-max
-
-```javascript
-const taskDesc = task.description.replace(/Session:.*\n?/g, '').replace(/Industry:.*\n?/g, '').trim()
-const keywords = taskDesc.split(/\s+/).slice(0, 5).join(' ')
-
-// 通过 subagent 调用 ui-ux-pro-max skill 获取完整设计智能
-// ui-ux-pro-max 内部会自动执行 search.py --design-system
 Task({
-  subagent_type: "general-purpose",
+  subagent_type: "cli-explore-agent",
   run_in_background: false,
-  description: "Retrieve design intelligence via ui-ux-pro-max skill",
-  prompt: `调用 ui-ux-pro-max skill 获取设计系统推荐。
-
-## 需求
-- 产品类型/行业: ${industry}
-- 关键词: ${keywords}
-- 技术栈: ${detectedStack}
-
-## 执行步骤
-
-### 1. 生成设计系统（必须）
-Skill(skill="ui-ux-pro-max", args="${industry} ${keywords} --design-system")
-
-### 2. 补充 UX 指南
-Skill(skill="ui-ux-pro-max", args="accessibility animation responsive --domain ux")
-
-### 3. 获取技术栈指南
-Skill(skill="ui-ux-pro-max", args="${keywords} --stack ${detectedStack}")
-
-## 输出
-将所有结果整合写入: ${sessionFolder}/analysis/design-intelligence-raw.md
-
-包含:
-- 设计系统推荐（pattern, style, colors, typography, effects, anti-patterns）
-- UX 最佳实践
-- 技术栈指南
-- 行业反模式列表
-`
+  description: "Explore existing design system",
+  prompt: "Analyze existing design system: <token-files>, <css-files>. Find: color palette, typography scale, spacing system, component patterns. Output as JSON."
 })
-
-// 读取 skill 输出
-let designSystemRaw = ''
-try {
-  designSystemRaw = Read(`${sessionFolder}/analysis/design-intelligence-raw.md`)
-} catch {
-  // Skill 输出不可用，将在 Step 3 使用 fallback
-}
-
-const uiproAvailable = designSystemRaw.length > 0
 ```
 
-#### Step 2: Fallback — LLM 通用设计知识
+**Step 4: Competitive Reference** (optional)
 
-```javascript
-// 若 ui-ux-pro-max skill 不可用（未安装或执行失败），降级为 LLM 通用知识
-if (!uiproAvailable) {
-  // analyst 直接基于 LLM 知识生成设计推荐
-  // 不需要外部工具，但质量低于 ui-ux-pro-max 的数据驱动推荐
-  designSystemRaw = null
-}
-```
+If industry is not "Other":
+- Quick web search for design inspiration
+- `WebSearch({ query: "<industry> web design trends 2025 best practices" })`
 
-#### Step 3: Analyze Existing Codebase
+### Phase 4: Synthesis and Output
 
-```javascript
-// Explore existing design patterns in the project
-let existingPatterns = {}
+**Compile Design Intelligence**:
 
-if (existingTokenFiles.length > 0 || existingCssVars.length > 0) {
-  Task({
-    subagent_type: "cli-explore-agent",
-    run_in_background: false,
-    description: "Explore existing design system",
-    prompt: `Analyze the existing design system in this project:
-- Token files: ${existingTokenFiles.slice(0, 5).join(', ')}
-- CSS files: ${existingCssVars.slice(0, 5).join(', ')}
+Generate `design-intelligence.json` with:
 
-Find: color palette, typography scale, spacing system, component patterns.
-Output as JSON: { colors, typography, spacing, components, patterns }`
-  })
-}
-```
+| Field | Source | Description |
+|-------|--------|-------------|
+| `_source` | Execution | "ui-ux-pro-max-skill" or "llm-general-knowledge" |
+| `industry` | Task | Industry context |
+| `detected_stack` | Phase 2 | Tech stack detection result |
+| `design_system` | Skill/fallback | Colors, typography, style |
+| `ux_guidelines` | Skill | UX best practices |
+| `stack_guidelines` | Skill | Tech-specific guidance |
+| `existing_patterns` | Phase 3 | Codebase analysis results |
+| `recommendations` | Synthesis | Style, colors, anti-patterns, must-have |
 
-#### Step 4: Competitive Reference (optional)
+**Output Files**:
 
-```javascript
-// Quick web search for design inspiration if needed
-if (industry !== '其他') {
-  try {
-    const webResults = WebSearch({ query: `${industry} web design trends 2025 best practices` })
-    // Extract relevant insights
-  } catch {}
-}
-```
+1. **design-intelligence.json**: Structured data for downstream consumption
+2. **requirements.md**: Human-readable requirements summary
 
-### Phase 4: Synthesis & Output
-
-```javascript
-// Compile design intelligence
-// 若 Skill 调用成功，解析 raw output；否则使用 LLM fallback
-const designIntelligence = {
-  _source: uiproAvailable ? "ui-ux-pro-max-skill" : "llm-general-knowledge",
-  _generated_at: new Date().toISOString(),
-  industry: industry,
-  detected_stack: detectedStack,
-
-  // From ui-ux-pro-max skill (or LLM fallback)
-  design_system: uiproAvailable ? parseDesignSystem(designSystemRaw) : generateFallbackDesignSystem(industry, taskDesc),
-  ux_guidelines: uiproAvailable ? parseUxGuidelines(designSystemRaw) : [],
-  stack_guidelines: uiproAvailable ? parseStackGuidelines(designSystemRaw) : {},
-
-  // From codebase analysis
-  existing_patterns: existingPatterns,
-  existing_tokens: existingTokenFiles,
-
-  // Synthesized recommendations
-  recommendations: {
-    style: null,        // Recommended UI style
-    color_palette: null, // Recommended colors
-    typography: null,    // Recommended font pairing
-    anti_patterns: uiproAvailable ? parseAntiPatterns(designSystemRaw) : [],
-    must_have: session.industry_config?.mustHave || []
-  }
-}
-
-// Write design intelligence for downstream consumption
-Write(`${sessionFolder}/analysis/design-intelligence.json`, JSON.stringify(designIntelligence, null, 2))
-
-// Write human-readable requirements summary
-Write(`${sessionFolder}/analysis/requirements.md`, `# Requirements Analysis
-
-## Task
-${taskDesc}
-
-## Industry Context
-- **Industry**: ${industry}
-- **Detected Stack**: ${detectedStack}
-- **Design Intelligence Source**: ${designIntelligence._source}
-
-## Design System Recommendations
-${designSystemRaw || '(Using LLM general knowledge — install ui-ux-pro-max for data-driven recommendations)'}
-
-## Existing Patterns Found
-${JSON.stringify(existingPatterns, null, 2)}
-
-## Anti-Patterns to Avoid
-${designIntelligence.recommendations.anti_patterns.map(p => \`- ❌ \${p}\`).join('\\n') || 'None specified'}
-
-## Must-Have Requirements
-${designIntelligence.recommendations.must_have.map(m => \`- ✅ \${m}\`).join('\\n') || 'Standard requirements'}
-`)
-
-// Update shared memory
-sharedMemory.design_intelligence = designIntelligence
-sharedMemory.industry_context = { industry, config: session.industry_config }
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
-
-const resultStatus = 'complete'
-const resultSummary = `Design intelligence generated (source: ${designIntelligence._source}), stack: ${detectedStack}, industry: ${industry}`
-const resultDetails = `Files:\n- ${sessionFolder}/analysis/design-intelligence.json\n- ${sessionFolder}/analysis/requirements.md`
-```
-
-#### Fallback: LLM General Knowledge
-
-```javascript
-function generateFallbackDesignSystem(industry, taskDesc) {
-  // When ui-ux-pro-max skill is not installed, use LLM general knowledge
-  // Install: /plugin install ui-ux-pro-max@ui-ux-pro-max-skill
-  return {
-    _fallback: true,
-    note: "Generated from LLM general knowledge. Install ui-ux-pro-max skill for data-driven recommendations.",
-    colors: { primary: "#1976d2", secondary: "#dc004e", background: "#ffffff" },
-    typography: { heading: ["Inter", "system-ui"], body: ["Inter", "system-ui"] },
-    style: "modern-minimal"
-  }
-}
-```
+**Update Shared Memory**:
+- Write `design_intelligence` field
+- Write `industry_context` field
 
 ### Phase 5: Report to Coordinator
 
-```javascript
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "analyst",
-  to: "coordinator",
-  type: "analyze_ready",
-  summary: `[analyst] ANALYZE complete: ${task.subject}`,
-  ref: `${sessionFolder}/analysis/design-intelligence.json`
-})
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-SendMessage({
-  type: "message",
-  recipient: "coordinator",
-  content: `## [analyst] Analysis Results
+Standard report flow: team_msg log -> SendMessage with `[analyst]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
-**Task**: ${task.subject}
-**Status**: ${resultStatus}
+**Report Content**:
+- Task subject and status
+- Design intelligence source (ui-ux-pro-max or LLM fallback)
+- Industry and detected stack
+- Anti-patterns count
+- Output file paths
 
-### Summary
-${resultSummary}
-
-### Design Intelligence
-- **Source**: ${designIntelligence._source}
-- **Industry**: ${industry}
-- **Stack**: ${detectedStack}
-- **Anti-patterns**: ${designIntelligence.recommendations.anti_patterns.length} identified
-
-### Output Files
-${resultDetails}`,
-  summary: `[analyst] ANALYZE complete`
-})
-
-TaskUpdate({ taskId: task.id, status: 'completed' })
-
-// Check for next task (e.g., ANALYZE-consult from CP-8)
-const nextTasks = TaskList().filter(t =>
-  t.subject.startsWith('ANALYZE-') &&
-  t.owner === 'analyst' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
-
-if (nextTasks.length > 0) {
-  // Continue with next task → back to Phase 1
-}
-```
+---
 
 ## Error Handling
 
 | Scenario | Resolution |
 |----------|------------|
-| No ANALYZE-* tasks available | Idle, wait for coordinator |
+| No ANALYZE-* tasks available | Idle, wait for coordinator assignment |
 | ui-ux-pro-max not found | Fallback to LLM general knowledge, log warning |
 | search.py execution error | Retry once, then fallback |
 | Python not available | Fallback to LLM general knowledge |

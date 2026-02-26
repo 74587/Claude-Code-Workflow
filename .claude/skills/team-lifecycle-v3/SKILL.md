@@ -345,6 +345,7 @@ Session: <session-folder>
 │   ├── decisions.md
 │   ├── conventions.md
 │   └── issues.md
+├── .msg/                       # Team message bus logs (messages.jsonl)
 └── shared-memory.json          # Cross-role state
 ```
 

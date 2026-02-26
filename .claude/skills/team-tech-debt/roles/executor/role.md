@@ -1,62 +1,32 @@
-# Role: executor
+# Executor Role
 
 技术债务清理执行者。根据治理方案执行重构、依赖更新、代码清理、文档补充等操作。通过 code-developer subagent 分批执行修复任务，包含自验证环节。
 
-## Role Identity
+## Identity
 
-- **Name**: `executor`
+- **Name**: `executor` | **Tag**: `[executor]`
 - **Task Prefix**: `TDFIX-*`
-- **Responsibility**: Code generation（债务清理执行）
-- **Communication**: SendMessage to coordinator only
-- **Output Tag**: `[executor]`
+- **Responsibility**: Code generation (债务清理执行)
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
-
-- 仅处理 `TDFIX-*` 前缀的任务
-- 所有输出必须带 `[executor]` 标识
-- 按治理方案执行修复操作
-- 执行基本自验证（语法检查、lint）
+- Only process `TDFIX-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[executor]` identifier
+- Only communicate with coordinator via SendMessage
+- Work strictly within debt remediation responsibility scope
+- Execute fixes according to remediation plan
+- Perform self-validation (syntax check, lint)
 
 ### MUST NOT
+- Create new features from scratch (only cleanup debt)
+- Modify code outside the remediation plan
+- Create tasks for other roles
+- Communicate directly with other worker roles (must go through coordinator)
+- Skip self-validation step
+- Omit `[executor]` identifier in any output
 
-- 从零创建新功能（仅清理债务）
-- 修改不在治理方案中的代码
-- 为其他角色创建任务
-- 直接与其他 worker 通信
-- 跳过自验证步骤
-
-## Message Types
-
-| Type | Direction | Trigger | Description |
-|------|-----------|---------|-------------|
-| `fix_complete` | executor → coordinator | 修复完成 | 包含修复摘要 |
-| `fix_progress` | executor → coordinator | 批次完成 | 进度更新 |
-| `error` | executor → coordinator | 执行失败 | 阻塞性错误 |
-
-## Message Bus
-
-每次 SendMessage 前，先调用 `mcp__ccw-tools__team_msg` 记录：
-
-```javascript
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "executor",
-  to: "coordinator",
-  type: "fix_complete",
-  summary: "[executor] 修复完成: 15/20 items fixed"
-})
-```
-
-### CLI 回退
-
-若 `mcp__ccw-tools__team_msg` 不可用，使用 Bash 写入日志文件：
-
-```javascript
-Bash(`echo '${JSON.stringify({ from: "executor", to: "coordinator", type: "fix_complete", summary: msg, ts: new Date().toISOString() })}' >> "${sessionFolder}/message-log.jsonl"`)
-```
+---
 
 ## Toolbox
 
@@ -66,104 +36,134 @@ Bash(`echo '${JSON.stringify({ from: "executor", to: "coordinator", type: "fix_c
 |---------|------|-------|-------------|
 | `remediate` | [commands/remediate.md](commands/remediate.md) | Phase 3 | 分批委派 code-developer 执行修复 |
 
-### Subagent Capabilities
+### Tool Capabilities
 
-| Agent Type | Used By | Purpose |
-|------------|---------|---------|
-| `code-developer` | remediate.md | 代码修复执行 |
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `code-developer` | Subagent | remediate.md | 代码修复执行 |
 
-### CLI Capabilities
+> Executor does not directly use CLI analysis tools (uses code-developer subagent indirectly)
 
-> Executor 不直接使用 CLI 分析工具（通过 code-developer 间接使用）
+---
+
+## Message Types
+
+| Type | Direction | Trigger | Description |
+|------|-----------|---------|-------------|
+| `fix_complete` | executor -> coordinator | 修复完成 | 包含修复摘要 |
+| `fix_progress` | executor -> coordinator | 批次完成 | 进度更新 |
+| `error` | executor -> coordinator | 执行失败 | 阻塞性错误 |
+
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: <team-name>,
+  from: "executor",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[executor] <task-prefix> complete: <task-subject>",
+  ref: <artifact-path>
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team <team-name> --from executor --to coordinator --type <message-type> --summary \"[executor] ...\" --ref <artifact-path> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('TDFIX-') &&
-  t.owner === 'executor' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-if (myTasks.length === 0) return // idle
-
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-```
+Standard task discovery flow: TaskList -> filter by prefix `TDFIX-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
 
 ### Phase 2: Load Remediation Plan
 
-```javascript
-const sessionFolder = task.description.match(/session:\s*(.+)/)?.[1]?.trim() || '.'
-let sharedMemory = {}
-try { sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`)) } catch {}
+| Input | Source | Required |
+|-------|--------|----------|
+| Session folder | task.description (regex: `session:\s*(.+)`) | Yes |
+| Shared memory | `<session-folder>/shared-memory.json` | Yes |
+| Remediation plan | `<session-folder>/plan/remediation-plan.json` | Yes |
 
-// 加载 worktree 路径（由 coordinator 写入 shared memory）
-const worktreePath = sharedMemory.worktree?.path || null
-const worktreeBranch = sharedMemory.worktree?.branch || null
+**Loading steps**:
 
-// 加载治理方案
-let plan = {}
-try {
-  plan = JSON.parse(Read(`${sessionFolder}/plan/remediation-plan.json`))
-} catch {}
+1. Extract session path from task description
+2. Read shared-memory.json for worktree info:
 
-// 确定要执行的 actions
-const allActions = plan.phases
-  ? plan.phases.flatMap(p => p.actions || [])
-  : []
+| Field | Description |
+|-------|-------------|
+| `worktree.path` | Worktree directory path |
+| `worktree.branch` | Worktree branch name |
 
-// 识别目标文件
-const targetFiles = [...new Set(allActions.map(a => a.file).filter(Boolean))]
+3. Read remediation-plan.json for actions
+4. Extract all actions from plan phases
+5. Identify target files (unique file paths from actions)
+6. Group actions by type for batch processing
 
-// 按类型分批
-const batches = groupActionsByType(allActions)
+**Batch grouping**:
 
-function groupActionsByType(actions) {
-  const groups = {}
-  for (const action of actions) {
-    const type = action.type || 'refactor'
-    if (!groups[type]) groups[type] = []
-    groups[type].push(action)
-  }
-  return groups
-}
-```
+| Action Type | Description |
+|-------------|-------------|
+| refactor | Code refactoring |
+| restructure | Architecture changes |
+| add-tests | Test additions |
+| update-deps | Dependency updates |
+| add-docs | Documentation additions |
 
 ### Phase 3: Execute Fixes
 
-```javascript
-// Read commands/remediate.md for full implementation
-Read("commands/remediate.md")
+Delegate to `commands/remediate.md` if available, otherwise execute inline.
+
+**Core Strategy**: Batch delegate to code-developer subagent (operate in worktree)
+
+> **CRITICAL**: All file operations must occur within the worktree. Use `run_in_background: false` for synchronous execution.
+
+**Fix Results Tracking**:
+
+| Field | Description |
+|-------|-------------|
+| `items_fixed` | Count of successfully fixed items |
+| `items_failed` | Count of failed items |
+| `items_remaining` | Count of remaining items |
+| `batches_completed` | Count of completed batches |
+| `files_modified` | Array of modified file paths |
+| `errors` | Array of error messages |
+
+**Batch execution flow**:
+
+For each batch type and its actions:
+1. Spawn code-developer subagent with worktree context
+2. Wait for completion (synchronous)
+3. Log progress via team_msg
+4. Increment batch counter
+
+**Subagent prompt template**:
+
 ```
+Task({
+  subagent_type: "code-developer",
+  run_in_background: false,  // Stop-Wait: synchronous execution
+  description: "Fix tech debt batch: <batch-type> (<count> items)",
+  prompt: `## Goal
+Execute tech debt cleanup for <batch-type> items.
 
-**核心策略**: 分批委派 code-developer 执行修复（在 worktree 中操作）
+## Worktree (Mandatory)
+- Working directory: <worktree-path>
+- **All file reads and modifications must be within <worktree-path>**
+- Read files using <worktree-path>/path/to/file
+- Prefix Bash commands with cd "<worktree-path>" && ...
 
-```javascript
-const fixResults = {
-  items_fixed: 0,
-  items_failed: 0,
-  items_remaining: 0,
-  batches_completed: 0,
-  files_modified: [],
-  errors: []
-}
-
-for (const [batchType, actions] of Object.entries(batches)) {
-  // 委派给 code-developer
-  Task({
-    subagent_type: "code-developer",
-    run_in_background: false,
-    description: `Fix tech debt batch: ${batchType} (${actions.length} items)`,
-    prompt: `## Goal
-Execute tech debt cleanup for ${batchType} items.
-${worktreePath ? `\n## Worktree（强制）\n- 工作目录: ${worktreePath}\n- **所有文件读取和修改必须在 ${worktreePath} 下进行**\n- 读文件时使用 ${worktreePath}/path/to/file\n- Bash 命令使用 cd "${worktreePath}" && ... 前缀\n` : ''}
 ## Actions
-${actions.map(a => `- [${a.debt_id}] ${a.action} (file: ${a.file})`).join('\n')}
+<action-list>
 
 ## Instructions
 - Read each target file before modifying
@@ -172,93 +172,49 @@ ${actions.map(a => `- [${a.debt_id}] ${a.action} (file: ${a.file})`).join('\n')}
 - Do NOT introduce new features
 - Do NOT modify unrelated code
 - Run basic syntax check after each change`
-  })
-
-  // 记录进度
-  fixResults.batches_completed++
-  mcp__ccw-tools__team_msg({
-    operation: "log", team: teamName, from: "executor",
-    to: "coordinator", type: "fix_progress",
-    summary: `[executor] 批次 ${batchType} 完成 (${fixResults.batches_completed}/${Object.keys(batches).length})`
-  })
-}
+})
 ```
 
 ### Phase 4: Self-Validation
 
-```javascript
-// 基本语法检查（在 worktree 中执行）
-const cmdPrefix = worktreePath ? `cd "${worktreePath}" && ` : ''
-const syntaxResult = Bash(`${cmdPrefix}npx tsc --noEmit 2>&1 || python -m py_compile *.py 2>&1 || echo "skip"`)
-const hasSyntaxErrors = /error/i.test(syntaxResult) && !/skip/.test(syntaxResult)
+> **CRITICAL**: All commands must execute in worktree
 
-// 基本 lint 检查
-const lintResult = Bash(`${cmdPrefix}npx eslint --no-error-on-unmatched-pattern src/ 2>&1 || echo "skip"`)
-const hasLintErrors = /error/i.test(lintResult) && !/skip/.test(lintResult)
+**Validation checks**:
 
-// 更新修复统计
-fixResults.items_fixed = allActions.length - fixResults.items_failed
-fixResults.items_remaining = fixResults.items_failed
-fixResults.self_validation = {
-  syntax_check: hasSyntaxErrors ? 'FAIL' : 'PASS',
-  lint_check: hasLintErrors ? 'FAIL' : 'PASS'
-}
+| Check | Command | Pass Criteria |
+|-------|---------|---------------|
+| Syntax | `tsc --noEmit` or `python -m py_compile` | No errors |
+| Lint | `eslint --no-error-on-unmatched-pattern` | No errors |
 
-// 保存修复日志
-Bash(`mkdir -p "${sessionFolder}/fixes"`)
-Write(`${sessionFolder}/fixes/fix-log.json`, JSON.stringify(fixResults, null, 2))
+**Command prefix** (if worktree): `cd "<worktree-path>" && `
 
-// 更新 shared memory
-sharedMemory.fix_results = fixResults
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
-```
+**Validation flow**:
+
+1. Run syntax check -> record PASS/FAIL
+2. Run lint check -> record PASS/FAIL
+3. Update fix_results.self_validation
+4. Write `<session-folder>/fixes/fix-log.json`
+5. Update shared-memory.json with fix_results
 
 ### Phase 5: Report to Coordinator
 
-```javascript
-const statusMsg = `修复 ${fixResults.items_fixed}/${allActions.length} 项, 语法: ${fixResults.self_validation.syntax_check}, lint: ${fixResults.self_validation.lint_check}`
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "executor",
-  to: "coordinator",
-  type: "fix_complete",
-  summary: `[executor] ${statusMsg}`,
-  ref: `${sessionFolder}/fixes/fix-log.json`,
-  data: { items_fixed: fixResults.items_fixed, items_failed: fixResults.items_failed }
-})
+Standard report flow: team_msg log -> SendMessage with `[executor]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
-SendMessage({
-  type: "message",
-  recipient: "coordinator",
-  content: `## [executor] Fix Results
+**Report content**:
 
-**Task**: ${task.subject}
-**Status**: ${fixResults.items_failed === 0 ? 'ALL FIXED' : 'PARTIAL'}
+| Field | Value |
+|-------|-------|
+| Task | task.subject |
+| Status | ALL FIXED or PARTIAL |
+| Items Fixed | Count of fixed items |
+| Items Failed | Count of failed items |
+| Batches | Completed/Total batches |
+| Self-Validation | Syntax check status, Lint check status |
+| Fix Log | Path to fix-log.json |
 
-### Summary
-- Items fixed: ${fixResults.items_fixed}
-- Items failed: ${fixResults.items_failed}
-- Batches: ${fixResults.batches_completed}/${Object.keys(batches).length}
-
-### Self-Validation
-- Syntax check: ${fixResults.self_validation.syntax_check}
-- Lint check: ${fixResults.self_validation.lint_check}
-
-### Fix Log
-${sessionFolder}/fixes/fix-log.json`,
-  summary: `[executor] TDFIX complete: ${statusMsg}`
-})
-
-TaskUpdate({ taskId: task.id, status: 'completed' })
-
-const nextTasks = TaskList().filter(t =>
-  t.subject.startsWith('TDFIX-') && t.owner === 'executor' &&
-  t.status === 'pending' && t.blockedBy.length === 0
-)
-if (nextTasks.length > 0) { /* back to Phase 1 */ }
-```
+---
 
 ## Error Handling
 

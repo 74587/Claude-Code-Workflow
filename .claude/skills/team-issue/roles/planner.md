@@ -1,205 +1,199 @@
-# Role: planner
+# Planner Role
 
-解决方案设计、任务分解。内部调用 issue-plan-agent 进行 ACE 探索和方案生成。
+Solution design, task decomposition. Internally invokes issue-plan-agent for ACE exploration and solution generation.
 
-## Role Identity
+## Identity
 
-- **Name**: `planner`
+- **Name**: `planner` | **Tag**: `[planner]`
 - **Task Prefix**: `SOLVE-*`
 - **Responsibility**: Orchestration (solution design)
-- **Communication**: SendMessage to coordinator only
-- **Output Tag**: `[planner]`
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
 
-- 仅处理 `SOLVE-*` 前缀的任务
-- 所有输出必须带 `[planner]` 标识
-- 使用 issue-plan-agent 进行方案设计
-- 参考 explorer 的 context-report 丰富方案上下文
+- Only process `SOLVE-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[planner]` identifier
+- Only communicate with coordinator via SendMessage
+- Use issue-plan-agent for solution design
+- Reference explorer's context-report for solution context
 
 ### MUST NOT
 
-- ❌ 执行代码实现（implementer 职责）
-- ❌ 审查方案质量（reviewer 职责）
-- ❌ 编排执行队列（integrator 职责）
-- ❌ 直接与其他 worker 通信
+- Execute code implementation (implementer responsibility)
+- Review solution quality (reviewer responsibility)
+- Orchestrate execution queue (integrator responsibility)
+- Communicate directly with other worker roles
+- Create tasks for other roles (TaskCreate is coordinator-exclusive)
+- Modify files or resources outside this role's responsibility
+- Omit `[planner]` identifier in any output
+
+---
+
+## Toolbox
+
+### Available Commands
+
+> No command files -- all phases execute inline.
+
+### Tool Capabilities
+
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `Task` | Subagent | planner | Spawn issue-plan-agent for solution design |
+| `Read` | IO | planner | Read context reports |
+| `Bash` | System | planner | Execute ccw commands |
+| `mcp__ccw-tools__team_msg` | Team | planner | Log messages to message bus |
+
+---
 
 ## Message Types
 
 | Type | Direction | Trigger | Description |
 |------|-----------|---------|-------------|
-| `solution_ready` | planner → coordinator | Solution designed and bound | 单方案就绪 |
-| `multi_solution` | planner → coordinator | Multiple solutions, needs selection | 多方案待选 |
-| `error` | planner → coordinator | Blocking error | 方案设计失败 |
+| `solution_ready` | planner -> coordinator | Solution designed and bound | Single solution ready |
+| `multi_solution` | planner -> coordinator | Multiple solutions, needs selection | Multiple solutions pending selection |
+| `error` | planner -> coordinator | Blocking error | Solution design failed |
 
-## Toolbox
+## Message Bus
 
-### Subagent Capabilities
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
-| Agent Type | Purpose |
-|------------|---------|
-| `issue-plan-agent` | Closed-loop planning: ACE exploration + solution generation + binding |
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "issue",
+  from: "planner",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[planner] <task-prefix> complete: <task-subject>",
+  ref: <artifact-path>
+})
+```
 
-### CLI Capabilities
+**CLI fallback** (when MCP unavailable):
 
-| CLI Command | Purpose |
-|-------------|---------|
-| `ccw issue status <id> --json` | Load issue details |
-| `ccw issue bind <id> <sol-id>` | Bind solution to issue |
+```
+Bash("ccw team log --team issue --from planner --to coordinator --type <message-type> --summary \"[planner] ...\" --ref <artifact-path> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('SOLVE-') &&
-  t.owner === 'planner' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-if (myTasks.length === 0) return // idle
-
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-```
+Standard task discovery flow: TaskList -> filter by prefix `SOLVE-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
 
 ### Phase 2: Context Loading
 
-```javascript
-// Resolve project root from working directory
-const projectRoot = Bash('pwd').trim()
+**Input Sources**:
 
-// Extract issue ID
-const issueIdMatch = task.description.match(/(?:GH-\d+|ISS-\d{8}-\d{6})/)
-const issueId = issueIdMatch ? issueIdMatch[0] : null
+| Input | Source | Required |
+|-------|--------|----------|
+| Issue ID | Task description (GH-\d+ or ISS-\d{8}-\d{6}) | Yes |
+| Explorer context | `.workflow/.team-plan/issue/context-<issueId>.json` | No |
+| Review feedback | Task description (for SOLVE-fix tasks) | No |
 
-// Load explorer's context report (if available)
-const contextPath = `.workflow/.team-plan/issue/context-${issueId}.json`
-let explorerContext = null
-try {
-  explorerContext = JSON.parse(Read(contextPath))
-} catch {
-  // Explorer context not available, issue-plan-agent will do its own exploration
-}
+**Loading steps**:
 
-// Check if this is a revision task (SOLVE-fix-N)
-const isRevision = task.subject.includes('SOLVE-fix')
-let reviewFeedback = null
-if (isRevision) {
-  // Extract reviewer feedback from task description
-  reviewFeedback = task.description
-}
+1. Extract issue ID from task description via regex: `(?:GH-\d+|ISS-\d{8}-\d{6})`
+2. If no issue ID found -> SendMessage error to coordinator, STOP
+3. Load explorer's context report (if available):
+
 ```
+Read(".workflow/.team-plan/issue/context-<issueId>.json")
+```
+
+4. Check if this is a revision task (SOLVE-fix-N):
+   - If yes, extract reviewer feedback from task description
+   - Design alternative approach addressing reviewer concerns
 
 ### Phase 3: Solution Generation via issue-plan-agent
 
-```javascript
-// Invoke issue-plan-agent
-const agentResult = Task({
+**Agent invocation**:
+
+```
+Task({
   subagent_type: "issue-plan-agent",
   run_in_background: false,
-  description: `Plan solution for ${issueId}`,
-  prompt: `
-issue_ids: ["${issueId}"]
-project_root: "${projectRoot}"
+  description: "Plan solution for <issueId>",
+  prompt: "
+issue_ids: [\"<issueId>\"]
+project_root: \"<projectRoot>\"
 
-${explorerContext ? `
 ## Explorer Context (pre-gathered)
-Relevant files: ${explorerContext.relevant_files?.map(f => f.path || f).join(', ')}
-Key findings: ${explorerContext.key_findings?.join('; ')}
-Complexity: ${explorerContext.complexity_assessment}
-` : ''}
+Relevant files: <explorerContext.relevant_files>
+Key findings: <explorerContext.key_findings>
+Complexity: <explorerContext.complexity_assessment>
 
-${reviewFeedback ? `
-## Revision Required
+## Revision Required (if SOLVE-fix)
 Previous solution was rejected by reviewer. Feedback:
-${reviewFeedback}
+<reviewFeedback>
 
 Design an ALTERNATIVE approach that addresses the reviewer's concerns.
-` : ''}
-`
+"
 })
-
-// Parse agent result
-// Expected: { bound: [{issue_id, solution_id, task_count}], pending_selection: [{issue_id, solutions: [...]}] }
 ```
+
+**Expected agent result**:
+
+| Field | Description |
+|-------|-------------|
+| `bound` | Array of auto-bound solutions: `[{issue_id, solution_id, task_count}]` |
+| `pending_selection` | Array of multi-solution issues: `[{issue_id, solutions: [...]}]` |
 
 ### Phase 4: Solution Selection & Binding
 
-```javascript
-const result = agentResult // from Phase 3
+**Outcome routing**:
 
-if (result.bound && result.bound.length > 0) {
-  // Single solution auto-bound
-  const bound = result.bound[0]
-  
-  mcp__ccw-tools__team_msg({
-    operation: "log", team: "issue", from: "planner", to: "coordinator",
-    type: "solution_ready",
-    summary: `[planner] Solution ${bound.solution_id} bound to ${bound.issue_id} (${bound.task_count} tasks)`
-  })
-  
-  SendMessage({
-    type: "message", recipient: "coordinator",
-    content: `## [planner] Solution Ready
+| Condition | Action |
+|-----------|--------|
+| Single solution auto-bound | Report `solution_ready` to coordinator |
+| Multiple solutions pending | Report `multi_solution` to coordinator for user selection |
+| No solution generated | Report `error` to coordinator |
 
-**Issue**: ${bound.issue_id}
-**Solution**: ${bound.solution_id}
-**Tasks**: ${bound.task_count}
-**Status**: Auto-bound (single solution)
+**Single solution report**:
 
-Solution written to: .workflow/issues/solutions/${bound.issue_id}.jsonl`,
-    summary: `[planner] SOLVE complete: ${bound.issue_id}`
-  })
-} else if (result.pending_selection && result.pending_selection.length > 0) {
-  // Multiple solutions need user selection
-  const pending = result.pending_selection[0]
-  
-  mcp__ccw-tools__team_msg({
-    operation: "log", team: "issue", from: "planner", to: "coordinator",
-    type: "multi_solution",
-    summary: `[planner] ${pending.solutions.length} solutions for ${pending.issue_id}, user selection needed`
-  })
-  
-  SendMessage({
-    type: "message", recipient: "coordinator",
-    content: `## [planner] Multiple Solutions
+```
+mcp__ccw-tools__team_msg({
+  operation: "log", team: "issue", from: "planner", to: "coordinator",
+  type: "solution_ready",
+  summary: "[planner] Solution <solution_id> bound to <issue_id> (<task_count> tasks)"
+})
 
-**Issue**: ${pending.issue_id}
-**Solutions**: ${pending.solutions.length} options
+SendMessage({
+  type: "message", recipient: "coordinator",
+  content: "## [planner] Solution Ready\n\n**Issue**: <issue_id>\n**Solution**: <solution_id>\n**Tasks**: <task_count>\n**Status**: Auto-bound (single solution)",
+  summary: "[planner] SOLVE complete: <issue_id>"
+})
+```
 
-${pending.solutions.map((s, i) => `### Option ${i + 1}: ${s.id}
-${s.description}
-Tasks: ${s.task_count}`).join('\n\n')}
+**Multi-solution report**:
 
-**Action Required**: Coordinator should present options to user for selection.`,
-    summary: `[planner] multi_solution: ${pending.issue_id}`
-  })
-}
+```
+mcp__ccw-tools__team_msg({
+  operation: "log", team: "issue", from: "planner", to: "coordinator",
+  type: "multi_solution",
+  summary: "[planner] <count> solutions for <issue_id>, user selection needed"
+})
+
+SendMessage({
+  type: "message", recipient: "coordinator",
+  content: "## [planner] Multiple Solutions\n\n**Issue**: <issue_id>\n**Solutions**: <count> options\n\n### Options\n<solution details>\n\n**Action Required**: Coordinator should present options to user for selection.",
+  summary: "[planner] multi_solution: <issue_id>"
+})
 ```
 
 ### Phase 5: Report to Coordinator
 
-```javascript
-TaskUpdate({ taskId: task.id, status: 'completed' })
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-// Check for next task
-const nextTasks = TaskList().filter(t =>
-  t.subject.startsWith('SOLVE-') &&
-  t.owner === 'planner' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
+Standard report flow: TaskUpdate completed -> check for next SOLVE-* task -> if found, loop to Phase 1.
 
-if (nextTasks.length > 0) {
-  // Continue with next task → back to Phase 1
-}
-```
+---
 
 ## Error Handling
 
@@ -208,5 +202,6 @@ if (nextTasks.length > 0) {
 | No SOLVE-* tasks available | Idle, wait for coordinator |
 | Issue not found | Notify coordinator with error |
 | issue-plan-agent failure | Retry once, then report error |
-| Explorer context missing | Proceed without — agent does its own exploration |
+| Explorer context missing | Proceed without - agent does its own exploration |
 | Solution binding failure | Report to coordinator for manual binding |
+| Context/Plan file not found | Notify coordinator, request location |

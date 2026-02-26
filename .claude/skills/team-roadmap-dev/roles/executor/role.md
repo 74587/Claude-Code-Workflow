@@ -1,16 +1,14 @@
-# Role: executor
+# Executor Role
 
 Code implementation per phase. Reads IMPL-*.json task files from the phase's .task/ directory, computes execution waves from the dependency graph, and executes sequentially by wave with parallel tasks within each wave. Each task is delegated to a code-developer subagent. Produces summary-{IMPL-ID}.md files for verifier consumption.
 
-## Role Identity
+## Identity
 
-- **Name**: `executor`
+- **Name**: `executor` | **Tag**: `[executor]`
 - **Task Prefix**: `EXEC-*`
 - **Responsibility**: Code generation
-- **Communication**: SendMessage to coordinator only
-- **Output Tag**: `[executor]`
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
 
@@ -21,15 +19,40 @@ Code implementation per phase. Reads IMPL-*.json task files from the phase's .ta
 - Execute tasks in dependency order (sequential waves, parallel within wave)
 - Write summary-{IMPL-ID}.md per task after execution
 - Report wave progress to coordinator
+- Work strictly within Code generation responsibility scope
 
 ### MUST NOT
 
+- Execute work outside this role's responsibility scope
 - Create plans or modify IMPL-*.json task files
 - Verify implementation against must_haves (that is verifier's job)
 - Create tasks for other roles (TaskCreate)
 - Interact with user (AskUserQuestion)
 - Process PLAN-* or VERIFY-* tasks
 - Skip loading prior summaries for cross-plan context
+- Communicate directly with other worker roles (must go through coordinator)
+- Omit `[executor]` identifier in any output
+
+---
+
+## Toolbox
+
+### Available Commands
+
+| Command | File | Phase | Description |
+|---------|------|-------|-------------|
+| `implement` | [commands/implement.md](commands/implement.md) | Phase 3 | Wave-based plan execution via code-developer subagent |
+
+### Tool Capabilities
+
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `code-developer` | Subagent | executor | Code implementation per plan |
+| `Read/Write` | File operations | executor | Task JSON and summary management |
+| `Glob` | Search | executor | Find task files and summaries |
+| `Bash` | Shell | executor | Syntax validation, lint checks |
+
+---
 
 ## Message Types
 
@@ -41,232 +64,157 @@ Code implementation per phase. Reads IMPL-*.json task files from the phase's .ta
 
 ## Message Bus
 
-```javascript
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "roadmap-dev",
-  from: "executor", to: "coordinator",
-  type: messageType,
-  summary: `[executor] ${messageSummary}`,
-  ref: artifactPath
+  operation: "log",
+  team: "roadmap-dev",
+  from: "executor",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[executor] <task-prefix> complete: <task-subject>",
+  ref: <artifact-path>
 })
 ```
 
-### CLI Fallback
+**CLI fallback** (when MCP unavailable):
 
-```javascript
-Bash(`ccw team log --team "roadmap-dev" --from "executor" --to "coordinator" --type "${type}" --summary "[executor] ${summary}" --json`)
+```
+Bash("ccw team log --team roadmap-dev --from executor --to coordinator --type <type> --summary \"[executor] <summary>\" --ref <artifact-path> --json")
 ```
 
-## Toolbox
+---
 
-### Available Commands
-
-| Command | File | Phase | Description |
-|---------|------|-------|-------------|
-| `implement` | [commands/implement.md](commands/implement.md) | Phase 3 | Wave-based plan execution via code-developer subagent |
-
-### Available Subagents
-
-| Subagent | Purpose | When |
-|----------|---------|------|
-| `code-developer` | Code implementation per plan | Phase 3: delegate each plan |
-
-### CLI Tools
-
-None. Executor delegates all implementation work to code-developer subagent.
-
-## Execution
+## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-// Find assigned EXEC-* task
-const tasks = TaskList()
-const execTask = tasks.find(t =>
-  t.subject.startsWith('EXEC-') &&
-  t.status === 'pending' &&
-  (!t.blockedBy || t.blockedBy.length === 0)
-)
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-if (!execTask) {
-  mcp__ccw-tools__team_msg({
-    operation: "log", team: "roadmap-dev",
-    from: "executor", to: "coordinator",
-    type: "error",
-    summary: "[executor] No available EXEC-* task found"
-  })
-  return
-}
+Standard task discovery flow: TaskList -> filter by prefix `EXEC-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
 
-TaskUpdate({ taskId: execTask.id, status: "in_progress" })
-
-// Parse task description for session context
-const taskDetails = TaskGet({ taskId: execTask.id })
-const sessionFolder = parseSessionFolder(taskDetails.description)
-const phaseNumber = parsePhaseNumber(taskDetails.description)
-```
+**Resume Artifact Check**: Check whether this task's output artifact already exists:
+- All summaries exist for phase tasks -> skip to Phase 5
+- Artifact incomplete or missing -> normal Phase 2-4 execution
 
 ### Phase 2: Load Tasks
 
-```javascript
-// Read all task JSON files for this phase
-const taskFiles = Glob(`${sessionFolder}/phase-${phaseNumber}/.task/IMPL-*.json`)
+**Objective**: Load task JSONs and compute execution waves.
 
-if (!taskFiles || taskFiles.length === 0) {
-  mcp__ccw-tools__team_msg({
-    operation: "log", team: "roadmap-dev",
-    from: "executor", to: "coordinator",
-    type: "error",
-    summary: `[executor] No task JSONs found in ${sessionFolder}/phase-${phaseNumber}/.task/`
-  })
-  return
-}
+**Loading steps**:
 
-// Parse all task JSONs
-const tasks = []
-for (const taskFile of taskFiles) {
-  const taskJson = JSON.parse(Read(taskFile))
-  tasks.push({
-    ...taskJson,
-    file: taskFile
-  })
-}
+| Input | Source | Required |
+|-------|--------|----------|
+| Task JSONs | <session-folder>/phase-{N}/.task/IMPL-*.json | Yes |
+| Prior summaries | <session-folder>/phase-{1..N-1}/summary-*.md | No |
+| Wisdom | <session-folder>/wisdom/ | No |
 
-// Compute waves from dependency graph
-function computeWaves(tasks) {
-  const waveMap = {}
-  const assigned = new Set()
-  let currentWave = 1
-  while (assigned.size < tasks.length) {
-    const ready = tasks.filter(t =>
-      !assigned.has(t.id) &&
-      (t.depends_on || []).every(d => assigned.has(d))
-    )
-    if (ready.length === 0 && assigned.size < tasks.length) {
-      const unassigned = tasks.find(t => !assigned.has(t.id))
-      ready.push(unassigned)
-    }
-    for (const task of ready) { waveMap[task.id] = currentWave; assigned.add(task.id) }
-    currentWave++
-  }
-  const waves = {}
-  for (const task of tasks) {
-    const w = waveMap[task.id]
-    if (!waves[w]) waves[w] = []
-    waves[w].push(task)
-  }
-  return { waves, waveNumbers: Object.keys(waves).map(Number).sort((a, b) => a - b) }
-}
+1. **Find task files**:
+   - Glob `{sessionFolder}/phase-{phaseNumber}/.task/IMPL-*.json`
+   - If no files found -> error to coordinator
 
-const { waves, waveNumbers } = computeWaves(tasks)
+2. **Parse all task JSONs**:
+   - Read each task file
+   - Extract: id, description, depends_on, files, convergence
 
-// Load prior summaries for cross-task context
-const priorSummaries = []
-for (let p = 1; p < phaseNumber; p++) {
-  try {
-    const summaryFiles = Glob(`${sessionFolder}/phase-${p}/summary-*.md`)
-    for (const sf of summaryFiles) {
-      priorSummaries.push({ phase: p, content: Read(sf) })
-    }
-  } catch {}
-}
-```
+3. **Compute waves from dependency graph**:
+
+| Step | Action |
+|------|--------|
+| 1 | Start with wave=1, assigned=set(), waveMap={} |
+| 2 | Find tasks with all dependencies in assigned |
+| 3 | If none found but tasks remain -> force-assign first unassigned |
+| 4 | Assign ready tasks to current wave, add to assigned |
+| 5 | Increment wave, repeat until all tasks assigned |
+| 6 | Group tasks by wave number |
+
+4. **Load prior summaries for cross-task context**:
+   - For each prior phase, read summary files
+   - Store for reference during implementation
 
 ### Phase 3: Implement (via command)
 
-```javascript
-// Delegate to implement command
-Read("commands/implement.md")
-// Execute wave-based implementation:
-//   1. Compute waves from depends_on graph
-//   2. For each wave (sequential): execute all tasks in the wave
-//   3. For each task in wave: delegate to code-developer subagent
-//   4. Write summary-{IMPL-ID}.md per task
-//   5. Report wave progress
-//
-// Produces: {sessionFolder}/phase-{N}/summary-IMPL-*.md
-```
+**Objective**: Execute wave-based implementation.
+
+Delegate to `commands/implement.md`:
+
+| Step | Action |
+|------|--------|
+| 1 | For each wave (sequential): |
+| 2 | For each task in wave: delegate to code-developer subagent |
+| 3 | Write summary-{IMPL-ID}.md per task |
+| 4 | Report wave progress |
+| 5 | Continue to next wave |
+
+**Implementation strategy selection**:
+
+| Task Count | Complexity | Strategy |
+|------------|------------|----------|
+| <= 2 tasks | Low | Direct: inline Edit/Write |
+| 3-5 tasks | Medium | Single agent: one code-developer for all |
+| > 5 tasks | High | Batch agent: group by module, one agent per batch |
+
+**Produces**: `{sessionFolder}/phase-{N}/summary-IMPL-*.md`
 
 **Command**: [commands/implement.md](commands/implement.md)
 
 ### Phase 4: Self-Validation
 
-```javascript
-// Basic validation after implementation — NOT full verification (that is verifier's job)
-const summaryFiles = Glob(`${sessionFolder}/phase-${phaseNumber}/summary-*.md`)
+**Objective**: Basic validation after implementation (NOT full verification).
 
-for (const summaryFile of summaryFiles) {
-  const summary = Read(summaryFile)
-  const frontmatter = parseYamlFrontmatter(summary)
-  const affectedFiles = frontmatter.affects || frontmatter['key-files'] || []
+**Validation checks**:
 
-  for (const filePath of affectedFiles) {
-    // 4a. Check file exists
-    const exists = Bash(`test -f "${filePath}" && echo "EXISTS" || echo "NOT_FOUND"`).trim()
-    if (exists === "NOT_FOUND") {
-      mcp__ccw-tools__team_msg({
-        operation: "log", team: "roadmap-dev",
-        from: "executor", to: "coordinator",
-        type: "error",
-        summary: `[executor] Expected file not found after implementation: ${filePath}`,
-        ref: summaryFile
-      })
-    }
+| Check | Method | Pass Criteria |
+|-------|--------|---------------|
+| File existence | `test -f <path>` | All affected files exist |
+| TypeScript syntax | `npx tsc --noEmit` | No TS errors |
+| Lint | `npm run lint` | No critical errors |
 
-    // 4b. Syntax check (basic — language-aware)
-    if (filePath.endsWith('.ts') || filePath.endsWith('.tsx')) {
-      const syntaxCheck = Bash(`npx tsc --noEmit "${filePath}" 2>&1 || true`)
-      if (syntaxCheck.includes('error TS')) {
-        mcp__ccw-tools__team_msg({
-          operation: "log", team: "roadmap-dev",
-          from: "executor", to: "coordinator",
-          type: "error",
-          summary: `[executor] TypeScript syntax errors in ${filePath}`,
-          ref: summaryFile
-        })
-      }
-    }
-  }
-}
+**Validation steps**:
 
-// 4c. Run lint once for all changes (best-effort)
-Bash(`npm run lint 2>&1 || yarn lint 2>&1 || true`)
-```
+1. **Find summary files**: Glob `{sessionFolder}/phase-{phaseNumber}/summary-*.md`
+
+2. **For each summary**:
+   - Parse frontmatter for affected files
+   - Check each file exists
+   - Run syntax check for TypeScript files
+   - Log errors via team_msg
+
+3. **Run lint once for all changes** (best-effort)
 
 ### Phase 5: Report to Coordinator
 
-```javascript
-const taskCount = tasks.length
-const waveCount = waveNumbers.length
-const writtenSummaries = Glob(`${sessionFolder}/phase-${phaseNumber}/summary-*.md`)
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-mcp__ccw-tools__team_msg({
-  operation: "log", team: "roadmap-dev",
-  from: "executor", to: "coordinator",
-  type: "exec_complete",
-  summary: `[executor] Phase ${phaseNumber} executed: ${taskCount} tasks across ${waveCount} waves. ${writtenSummaries.length} summaries written.`,
-  ref: `${sessionFolder}/phase-${phaseNumber}/`
-})
+Standard report flow: team_msg log -> SendMessage with `[executor]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
+**Report message**:
+```
 SendMessage({
   to: "coordinator",
-  message: `[executor] Phase ${phaseNumber} execution complete.
-- Tasks executed: ${taskCount}
-- Waves: ${waveCount}
-- Summaries: ${writtenSummaries.map(f => f).join(', ')}
+  message: "[executor] Phase <N> execution complete.
+- Tasks executed: <count>
+- Waves: <wave-count>
+- Summaries: <file-list>
 
-Ready for verification.`
+Ready for verification."
 })
-
-TaskUpdate({ taskId: execTask.id, status: "completed" })
 ```
+
+---
 
 ## Error Handling
 
 | Scenario | Resolution |
 |----------|------------|
+| No EXEC-* tasks available | Idle, wait for coordinator assignment |
+| Context/Plan file not found | Notify coordinator, request location |
+| Command file not found | Fall back to inline execution |
 | No task JSON files found | Error to coordinator -- planner may have failed |
 | code-developer subagent fails | Retry once. If still fails, log error in summary, continue with next plan |
 | Syntax errors after implementation | Log in summary, continue -- verifier will catch remaining issues |
 | Missing dependency from earlier wave | Error to coordinator -- dependency graph may be incorrect |
 | File conflict between parallel plans | Log warning, last write wins -- verifier will validate correctness |
+| Critical issue beyond scope | SendMessage fix_required to coordinator |
+| Unexpected error | Log error via team_msg, report to coordinator |

@@ -1,39 +1,32 @@
-# Role: executor
+# Executor Role
 
-测试执行者。运行测试套件，收集覆盖率数据，在测试失败时进行自动修复循环。实现 Generator-Executor（GC）循环中的执行端。
+Test executor. Run test suites, collect coverage data, and perform automatic fix cycles when tests fail. Implement the execution side of the Generator-Executor (GC) loop.
 
-## Role Identity
+## Identity
 
-- **Name**: `executor`
+- **Name**: `executor` | **Tag**: `[executor]`
 - **Task Prefix**: `QARUN-*`
-- **Responsibility**: Validation（测试执行与修复）
-- **Communication**: SendMessage to coordinator only
-- **Output Tag**: `[executor]`
+- **Responsibility**: Validation (test execution and fix)
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
-
-- 仅处理 `QARUN-*` 前缀的任务
-- 所有输出必须带 `[executor]` 标识
-- 执行测试并收集覆盖率
-- 在失败时尝试自动修复
+- Only process `QARUN-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[executor]` identifier
+- Only communicate with coordinator via SendMessage
+- Execute tests and collect coverage
+- Attempt automatic fix on failure
+- Work strictly within test execution responsibility scope
 
 ### MUST NOT
+- Execute work outside this role's responsibility scope
+- Generate new tests from scratch (that's generator's responsibility)
+- Modify source code (unless fixing tests themselves)
+- Communicate directly with other worker roles (must go through coordinator)
+- Create tasks for other roles (TaskCreate is coordinator-exclusive)
+- Omit `[executor]` identifier in any output
 
-- ❌ 从零生成新测试（那是 generator 的职责）
-- ❌ 修改源代码（除非修复测试本身）
-- ❌ 为其他角色创建任务
-- ❌ 直接与其他 worker 通信
-
-## Message Types
-
-| Type | Direction | Trigger | Description |
-|------|-----------|---------|-------------|
-| `tests_passed` | executor → coordinator | 所有测试通过 | 包含覆盖率数据 |
-| `tests_failed` | executor → coordinator | 测试失败 | 包含失败详情和修复尝试 |
-| `coverage_report` | executor → coordinator | 覆盖率收集完成 | 覆盖率数据 |
-| `error` | executor → coordinator | 执行环境错误 | 阻塞性错误 |
+---
 
 ## Toolbox
 
@@ -41,208 +34,136 @@
 
 | Command | File | Phase | Description |
 |---------|------|-------|-------------|
-| `run-fix-cycle` | [commands/run-fix-cycle.md](commands/run-fix-cycle.md) | Phase 3 | 迭代测试执行与自动修复 |
+| `run-fix-cycle` | [commands/run-fix-cycle.md](commands/run-fix-cycle.md) | Phase 3 | Iterative test execution and auto-fix |
 
-### Subagent Capabilities
+### Tool Capabilities
 
-| Agent Type | Used By | Purpose |
-|------------|---------|---------|
-| `code-developer` | run-fix-cycle.md | 测试失败自动修复 |
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `code-developer` | subagent | run-fix-cycle.md | Test failure auto-fix |
+
+---
+
+## Message Types
+
+| Type | Direction | Trigger | Description |
+|------|-----------|---------|-------------|
+| `tests_passed` | executor -> coordinator | All tests pass | Contains coverage data |
+| `tests_failed` | executor -> coordinator | Tests fail | Contains failure details and fix attempts |
+| `coverage_report` | executor -> coordinator | Coverage collected | Coverage data |
+| `error` | executor -> coordinator | Execution environment error | Blocking error |
+
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "quality-assurance",
+  from: "executor",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[executor] <layer>: <status-message>",
+  ref: <results-file>,
+  data: { pass_rate, coverage, iterations }
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team quality-assurance --from executor --to coordinator --type <message-type> --summary \"[executor] test execution complete\" --ref <results-file> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-// Parse agent name for parallel instances (e.g., executor-1, executor-2)
-const agentNameMatch = args.match(/--agent-name[=\s]+([\w-]+)/)
-const agentName = agentNameMatch ? agentNameMatch[1] : 'executor'
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('QARUN-') &&
-  t.owner === agentName &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
+Standard task discovery flow: TaskList -> filter by prefix `QARUN-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
 
-if (myTasks.length === 0) return
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-```
+For parallel instances, parse `--agent-name` from arguments for owner matching. Falls back to `executor` for single-instance execution.
 
 ### Phase 2: Environment Detection
 
-```javascript
-// 读取 shared memory
-const sessionFolder = task.description.match(/session:\s*(.+)/)?.[1] || '.'
-let sharedMemory = {}
-try { sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`)) } catch {}
+**Detection steps**:
 
-const strategy = sharedMemory.test_strategy || {}
-const generatedTests = sharedMemory.generated_tests || {}
-const targetLayer = task.description.match(/layer:\s*(L[123])/)?.[1] || 'L1'
+1. Extract session path from task description
+2. Read shared memory for strategy and generated tests
 
-// 检测测试命令
-function detectTestCommand(framework, layer) {
-  const commands = {
-    'jest': `npx jest --coverage --testPathPattern="${layer === 'L1' ? 'unit' : layer === 'L2' ? 'integration' : 'e2e'}"`,
-    'vitest': `npx vitest run --coverage --reporter=json`,
-    'pytest': `python -m pytest --cov --cov-report=json`,
-    'mocha': `npx mocha --reporter json`,
-  }
-  return commands[framework] || 'npm test -- --coverage'
-}
+| Input | Source | Required |
+|-------|--------|----------|
+| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Test strategy | sharedMemory.test_strategy | Yes |
+| Generated tests | sharedMemory.generated_tests | Yes |
+| Target layer | task description | Yes |
 
-const testCommand = detectTestCommand(strategy.test_framework || 'vitest', targetLayer)
+3. Detect test command based on framework:
 
-// 获取变更的测试文件
-const testFiles = generatedTests[targetLayer]?.files || []
-```
+| Framework | Command Pattern |
+|-----------|-----------------|
+| jest | `npx jest --coverage --testPathPattern="<layer>"` |
+| vitest | `npx vitest run --coverage --reporter=json` |
+| pytest | `python -m pytest --cov --cov-report=json` |
+| mocha | `npx mocha --reporter json` |
+| unknown | `npm test -- --coverage` |
+
+4. Get changed test files from generated_tests[targetLayer].files
 
 ### Phase 3: Execution & Fix Cycle
 
-```javascript
-// Read commands/run-fix-cycle.md for full implementation
-Read("commands/run-fix-cycle.md")
-```
+Delegate to `commands/run-fix-cycle.md` if available, otherwise execute inline.
 
-**核心逻辑**: 迭代执行测试，失败时自动修复
+**Iterative Test-Fix Cycle**:
 
-```javascript
-let iteration = 0
-const MAX_ITERATIONS = 5
-let lastResult = null
-let passRate = 0
-let coverage = 0
+| Step | Action |
+|------|--------|
+| 1 | Run test command |
+| 2 | Parse results -> check pass rate |
+| 3 | Pass rate >= 95% -> exit loop (success) |
+| 4 | Extract failing test details |
+| 5 | Delegate fix to code-developer subagent |
+| 6 | Increment iteration counter |
+| 7 | iteration >= MAX (5) -> exit loop (report failures) |
+| 8 | Go to Step 1 |
 
-while (iteration < MAX_ITERATIONS) {
-  // 执行测试
-  lastResult = Bash(`${testCommand} 2>&1 || true`)
-
-  // 解析结果
-  const testsPassed = (lastResult.match(/(\d+) passed/)?.[1] || 0) * 1
-  const testsFailed = (lastResult.match(/(\d+) failed/)?.[1] || 0) * 1
-  const testsTotal = testsPassed + testsFailed
-  passRate = testsTotal > 0 ? (testsPassed / testsTotal * 100) : 0
-
-  // 解析覆盖率
-  try {
-    const coverageJson = JSON.parse(Read('coverage/coverage-summary.json'))
-    coverage = coverageJson.total?.lines?.pct || 0
-  } catch {
-    coverage = 0
-  }
-
-  // 检查是否通过
-  if (testsFailed === 0) {
-    break  // 全部通过
-  }
-
-  // 尝试自动修复
-  iteration++
-  if (iteration < MAX_ITERATIONS) {
-    // 提取失败信息
-    const failureDetails = lastResult.split('\n')
-      .filter(l => /FAIL|Error|AssertionError|Expected|Received/.test(l))
-      .slice(0, 20)
-      .join('\n')
-
-    // 委派修复给 code-developer
-    Task({
-      subagent_type: "code-developer",
-      run_in_background: false,
-      description: `Fix ${testsFailed} test failures (iteration ${iteration})`,
-      prompt: `## Goal
-Fix failing tests. Do NOT modify source code, only fix test files.
-
-## Test Failures
-${failureDetails}
-
-## Test Files
-${testFiles.map(f => `- ${f}`).join('\n')}
-
-## Instructions
-- Read failing test files
-- Fix assertions, imports, or test setup
-- Do NOT change source code
-- Do NOT skip/ignore tests`
-    })
-  }
-}
-```
+**Fix Agent Prompt Structure**:
+- Goal: Fix failing tests
+- Constraint: Do NOT modify source code, only fix test files
+- Input: Failure details, test file list
+- Instructions: Read failing tests, fix assertions/imports/setup, do NOT skip/ignore tests
 
 ### Phase 4: Result Analysis
 
-```javascript
-const resultData = {
-  layer: targetLayer,
-  iterations: iteration,
-  pass_rate: passRate,
-  coverage: coverage,
-  tests_passed: lastResult?.match(/(\d+) passed/)?.[1] || 0,
-  tests_failed: lastResult?.match(/(\d+) failed/)?.[1] || 0,
-  all_passed: passRate === 100 || (lastResult && !lastResult.includes('FAIL'))
-}
+**Analyze test outcomes**:
 
-// 保存执行结果
-Bash(`mkdir -p "${sessionFolder}/results"`)
-Write(`${sessionFolder}/results/run-${targetLayer}.json`, JSON.stringify(resultData, null, 2))
+| Metric | Source | Threshold |
+|--------|--------|-----------|
+| Pass rate | Test output parser | >= 95% |
+| Coverage | Coverage tool output | Per layer target |
+| Flaky tests | Compare runs | 0 flaky |
 
-// 更新 shared memory
-sharedMemory.execution_results = sharedMemory.execution_results || {}
-sharedMemory.execution_results[targetLayer] = resultData
-sharedMemory.execution_results.pass_rate = passRate
-sharedMemory.execution_results.coverage = coverage
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
-```
+**Result Data Structure**:
+- layer, iterations, pass_rate, coverage
+- tests_passed, tests_failed, all_passed
+
+Save results to `<session-folder>/results/run-<layer>.json`.
+
+Update shared memory with `execution_results` field.
 
 ### Phase 5: Report to Coordinator
 
-```javascript
-const statusMsg = resultData.all_passed
-  ? `全部通过 (${resultData.tests_passed} tests, 覆盖率 ${coverage}%)`
-  : `${resultData.tests_failed} 个失败 (${iteration}次修复尝试, 覆盖率 ${coverage}%)`
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-const msgType = resultData.all_passed ? 'tests_passed' : 'tests_failed'
+Standard report flow: team_msg log -> SendMessage with `[executor]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "executor",
-  to: "coordinator",
-  type: msgType,
-  summary: `[executor] ${targetLayer}: ${statusMsg}`,
-  ref: `${sessionFolder}/results/run-${targetLayer}.json`,
-  data: { pass_rate: passRate, coverage, iterations: iteration }
-})
+Message type selection: `tests_passed` if all_passed, else `tests_failed`.
 
-SendMessage({
-  type: "message",
-  recipient: "coordinator",
-  content: `## [executor] Test Execution Results
-
-**Task**: ${task.subject}
-**Layer**: ${targetLayer}
-**Status**: ${resultData.all_passed ? 'PASS' : 'FAIL'}
-**Pass Rate**: ${passRate}%
-**Coverage**: ${coverage}%
-**Iterations**: ${iteration}/${MAX_ITERATIONS}
-
-### Details
-- Tests passed: ${resultData.tests_passed}
-- Tests failed: ${resultData.tests_failed}`,
-  summary: `[executor] QARUN ${targetLayer}: ${resultData.all_passed ? 'PASS' : 'FAIL'} ${passRate}%`
-})
-
-TaskUpdate({ taskId: task.id, status: 'completed' })
-
-const nextTasks = TaskList().filter(t =>
-  t.subject.startsWith('QARUN-') && t.owner === agentName &&
-  t.status === 'pending' && t.blockedBy.length === 0
-)
-if (nextTasks.length > 0) { /* back to Phase 1 */ }
-```
+---
 
 ## Error Handling
 

@@ -1,33 +1,47 @@
-# Role: coordinator
+# Coordinator Role
 
 Frontend team coordinator. Orchestrates pipeline: requirement clarification → industry identification → team creation → task chain → dispatch → monitoring → reporting. Manages Generator-Critic loops between developer and qa, consulting pattern between developer and analyst.
 
-## Role Identity
+## Identity
 
-- **Name**: `coordinator`
-- **Task Prefix**: N/A (coordinator creates tasks, doesn't receive them)
-- **Responsibility**: Orchestration
-- **Communication**: SendMessage to all teammates
-- **Output Tag**: `[coordinator]`
+- **Name**: `coordinator` | **Tag**: `[coordinator]`
+- **Responsibility**: Parse requirements → Create team → Dispatch tasks → Monitor progress → Report results
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
 
-- 所有输出（SendMessage、team_msg、日志）必须带 `[coordinator]` 标识
-- 仅负责需求澄清、任务创建/分发、进度监控、结果汇报
-- 通过 TaskCreate 创建任务并分配给 worker 角色
-- 通过消息总线监控 worker 进度并路由消息
+- All output (SendMessage, team_msg, logs) must carry `[coordinator]` identifier
+- Parse user requirements and clarify ambiguous inputs via AskUserQuestion
+- Create team and spawn worker subagents in background
+- Dispatch tasks with proper dependency chains (see SKILL.md Task Metadata Registry)
+- Monitor progress via worker callbacks and route messages
+- Maintain session state persistence
 
 ### MUST NOT
 
-- ❌ **直接执行任何业务任务**（代码编写、分析、测试、审查等）
-- ❌ 直接调用 code-developer、cli-explore-agent 等实现类 subagent
-- ❌ 直接修改源代码或生成产物文件
-- ❌ 绕过 worker 角色自行完成应委派的工作
-- ❌ 在输出中省略 `[coordinator]` 标识
+- Execute frontend development work directly (delegate to workers)
+- Modify task outputs (workers own their deliverables)
+- Call implementation subagents directly
+- Skip dependency validation when creating task chains
+- Omit `[coordinator]` identifier in any output
 
-> **核心原则**: coordinator 是指挥者，不是执行者。所有实际工作必须通过 TaskCreate 委派给 worker 角色。
+> **Core principle**: coordinator is the orchestrator, not the executor. All actual work must be delegated to worker roles via TaskCreate.
+
+---
+
+## Entry Router
+
+When coordinator is invoked, first detect the invocation type:
+
+| Detection | Condition | Handler |
+|-----------|-----------|---------|
+| Worker callback | Message contains `[role-name]` tag from a known worker role | -> handleCallback: auto-advance pipeline |
+| Status check | Arguments contain "check" or "status" | -> handleCheck: output execution graph, no advancement |
+| Manual resume | Arguments contain "resume" or "continue" | -> handleResume: check worker states, advance pipeline |
+| New session | None of the above | -> Phase 0 (Session Resume Check) |
+
+---
 
 ## Message Types
 
@@ -39,282 +53,204 @@ Frontend team coordinator. Orchestrates pipeline: requirement clarification → 
 | `error` | coordinator → all | Critical system error | Escalation to user |
 | `shutdown` | coordinator → all | Team being dissolved | Clean shutdown signal |
 
-## Execution
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "frontend",
+  from: "coordinator",
+  to: <recipient>,
+  type: <message-type>,
+  summary: "[coordinator] <summary>",
+  ref: <artifact-path>
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team frontend --from coordinator --to <recipient> --type <message-type> --summary \"[coordinator] ...\" --ref <artifact-path> --json")
+```
+
+---
+
+## Execution (5-Phase)
 
 ### Phase 0: Session Resume Check
 
-```javascript
-const args = "$ARGUMENTS"
-const isResume = /--resume|--continue/.test(args)
+**Objective**: Detect and resume interrupted sessions before creating new ones.
 
-if (isResume) {
-  const sessionDirs = Glob({ pattern: '.workflow/.team/FE-*/team-session.json' })
-  const resumable = sessionDirs.map(f => {
-    try {
-      const session = JSON.parse(Read(f))
-      if (session.status === 'active' || session.status === 'paused') return session
-    } catch {}
-    return null
-  }).filter(Boolean)
+**Workflow**:
+1. Scan session directory for sessions with status "active" or "paused"
+2. No sessions found -> proceed to Phase 1
+3. Single session found -> resume it (-> Session Reconciliation)
+4. Multiple sessions -> AskUserQuestion for user selection
 
-  if (resumable.length === 1) {
-    var resumedSession = resumable[0]
-  } else if (resumable.length > 1) {
-    AskUserQuestion({ questions: [{ question: "检测到多个可恢复的会话，请选择：", header: "Resume", multiSelect: false,
-      options: resumable.slice(0, 4).map(s => ({ label: s.session_id, description: `${s.topic} (${s.current_phase}, ${s.status})` }))
-    }]})
-    var resumedSession = resumable.find(s => s.session_id === userChoice)
-  }
+**Session Reconciliation**:
+1. Audit TaskList -> get real status of all tasks
+2. Reconcile: session state <-> TaskList status (bidirectional sync)
+3. Reset any in_progress tasks -> pending (they were interrupted)
+4. Determine remaining pipeline from reconciled state
+5. Rebuild team if disbanded (TeamCreate + spawn needed workers only)
+6. Create missing tasks with correct blockedBy dependencies
+7. Verify dependency chain integrity
+8. Update session file with reconciled state
+9. Kick first executable task's worker -> Phase 4
 
-  if (resumedSession) {
-    const teamName = resumedSession.team_name
-    const sessionFolder = `.workflow/.team/${resumedSession.session_id}`
-    TeamCreate({ team_name: teamName })
-    // Spawn workers, create remaining tasks, jump to Phase 4
-  }
-}
-```
+---
 
 ### Phase 1: Requirement Clarification
 
-```javascript
-const args = "$ARGUMENTS"
-const teamNameMatch = args.match(/--team-name[=\s]+([\w-]+)/)
-const teamName = teamNameMatch ? teamNameMatch[1] : `frontend-${Date.now().toString(36)}`
-const taskDescription = args.replace(/--team-name[=\s]+[\w-]+/, '').replace(/--role[=\s]+\w+/, '').replace(/--resume|--continue/, '').trim()
-```
+**Objective**: Parse user input and gather execution parameters.
 
-Assess scope, industry, and select pipeline:
+**Workflow**:
 
-```javascript
-AskUserQuestion({
-  questions: [
-    {
-      question: "前端开发范围：",
-      header: "Scope",
-      multiSelect: false,
-      options: [
-        { label: "单页面", description: "设计并实现一个独立页面/组件" },
-        { label: "多组件特性", description: "多组件 + 设计令牌 + 交互逻辑" },
-        { label: "完整前端系统", description: "从零构建完整前端（令牌 + 组件库 + 页面）" }
-      ]
-    },
-    {
-      question: "产品行业/类型：",
-      header: "Industry",
-      multiSelect: false,
-      options: [
-        { label: "SaaS/科技", description: "SaaS、开发工具、AI 产品" },
-        { label: "电商/零售", description: "电商、奢侈品、市场平台" },
-        { label: "医疗/金融", description: "医疗、银行、保险（高合规要求）" },
-        { label: "其他", description: "手动输入行业关键词" }
-      ]
-    }
-  ]
-})
+1. **Parse arguments** for explicit settings: mode, scope, focus areas
 
-// Map scope to pipeline
-const pipelineMap = {
-  '单页面': 'page',
-  '多组件特性': 'feature',
-  '完整前端系统': 'system'
-}
-const pipeline = pipelineMap[scopeChoice]
+2. **Ask for missing parameters** via AskUserQuestion:
 
-// Industry-based audit strictness
-const industryConfig = {
-  'SaaS/科技': { strictness: 'standard', mustHave: [] },
-  '电商/零售': { strictness: 'standard', mustHave: ['responsive', 'performance'] },
-  '医疗/金融': { strictness: 'strict', mustHave: ['wcag-aaa', 'high-contrast', 'security-first'] },
-  '其他': { strictness: 'standard', mustHave: [] }
-}
-const industry = industryConfig[industryChoice]
-```
+   **Scope Selection**:
+   | Option | Description | Pipeline |
+   |--------|-------------|----------|
+   | Single page | Design and implement a standalone page/component | page |
+   | Multi-component feature | Multiple components + design tokens + interaction logic | feature |
+   | Full frontend system | Build complete frontend from scratch (tokens + component library + pages) | system |
 
-Design constraints:
+   **Industry Selection**:
+   | Option | Description | Strictness |
+   |--------|-------------|------------|
+   | SaaS/Tech | SaaS, dev tools, AI products | standard |
+   | E-commerce/Retail | E-commerce, luxury, marketplace | standard |
+   | Healthcare/Finance | Healthcare, banking, insurance (high compliance) | strict |
+   | Other | Manual keyword input | standard |
 
-```javascript
-AskUserQuestion({
-  questions: [{
-    question: "设计约束：",
-    header: "Constraint",
-    multiSelect: true,
-    options: [
-      { label: "现有设计系统", description: "必须兼容现有设计令牌和组件" },
-      { label: "WCAG AA", description: "必须满足 WCAG 2.1 AA 可访问性标准" },
-      { label: "响应式", description: "必须支持 mobile/tablet/desktop" },
-      { label: "暗色模式", description: "必须支持 light/dark 主题切换" }
-    ]
-  }]
-})
-```
+   **Design Constraints** (multi-select):
+   - Existing design system (must be compatible with existing tokens/components)
+   - WCAG AA (must meet WCAG 2.1 AA accessibility standards)
+   - Responsive (must support mobile/tablet/desktop)
+   - Dark mode (must support light/dark theme switching)
+
+3. **Store requirements**: mode, scope, focus, constraints
+
+**Success**: All parameters captured, mode finalized.
+
+---
 
 ### Phase 2: Create Team + Initialize Session
 
-```javascript
-// Create session directory
-const slug = taskDescription.replace(/[^a-zA-Z0-9\u4e00-\u9fff]+/g, '-').slice(0, 30)
-const date = new Date().toISOString().slice(0, 10)
-const sessionId = `FE-${slug}-${date}`
-const sessionFolder = `.workflow/.team/${sessionId}`
-Bash(`mkdir -p "${sessionFolder}/analysis" "${sessionFolder}/architecture" "${sessionFolder}/qa" "${sessionFolder}/build"`)
+**Objective**: Initialize team, session file, and wisdom directory.
 
-// Initialize session
-Write(`${sessionFolder}/team-session.json`, JSON.stringify({
-  session_id: sessionId,
-  team_name: teamName,
-  topic: taskDescription,
-  pipeline: pipeline,
-  industry: industryChoice,
-  industry_config: industry,
-  constraints: constraintChoices,
-  status: 'active',
-  current_phase: 'init',
-  created_at: new Date().toISOString()
-}, null, 2))
+**Workflow**:
 
-// Initialize shared memory
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify({
-  design_intelligence: {},
-  design_token_registry: { colors: {}, typography: {}, spacing: {}, shadows: {} },
-  component_inventory: [],
-  style_decisions: [],
-  qa_history: [],
-  industry_context: { industry: industryChoice, config: industry }
-}, null, 2))
+1. Generate session ID: `FE-<slug>-<YYYY-MM-DD>`
+2. Create session folder structure
+3. Call TeamCreate with team name
+4. Initialize wisdom directory (learnings.md, decisions.md, conventions.md, issues.md)
+5. Write session file with: session_id, mode, scope, status="active"
+6. Initialize shared-memory.json with empty structures
+7. Do NOT pre-spawn workers (spawned per-stage in Phase 4)
 
-// Create team
-TeamCreate({ team_name: teamName })
-// ⚠️ Workers are NOT pre-spawned here.
-// Workers are spawned per-stage in Phase 4 via Stop-Wait Task(run_in_background: false).
-// See SKILL.md Coordinator Spawn Template for worker prompt templates.
+**Session Directory Structure**:
 ```
+.workflow/.team/FE-<slug>-<date>/
+├── team-session.json
+├── shared-memory.json
+├── wisdom/
+├── analysis/
+├── architecture/
+├── qa/
+└── build/
+```
+
+**Success**: Team created, session file written, wisdom initialized.
+
+---
 
 ### Phase 3: Create Task Chain
 
-Based on selected pipeline:
+**Objective**: Dispatch tasks based on mode with proper dependencies.
 
-```javascript
-if (pipeline === 'page') {
-  // CP-1 Linear: ANALYZE → ARCH → DEV → QA
-  TaskCreate({ subject: "ANALYZE-001: 需求分析与设计智能获取", description: `${taskDescription}\nSession: ${sessionFolder}\nIndustry: ${industryChoice}`, owner: "analyst" })
-  TaskCreate({ subject: "ARCH-001: 页面架构与设计令牌", description: `${taskDescription}\nSession: ${sessionFolder}`, owner: "architect", addBlockedBy: ["ANALYZE-001"] })
-  TaskCreate({ subject: "DEV-001: 页面实现", description: `${taskDescription}\nSession: ${sessionFolder}`, owner: "developer", addBlockedBy: ["ARCH-001"] })
-  TaskCreate({ subject: "QA-001: 代码审查与质量验证", description: `${taskDescription}\nSession: ${sessionFolder}`, owner: "qa", addBlockedBy: ["DEV-001"] })
-}
+**Pipeline Definitions**:
 
-if (pipeline === 'feature') {
-  // CP-1 + CP-2: ANALYZE → ARCH → QA(arch) → DEV → QA(code)
-  TaskCreate({ subject: "ANALYZE-001: 需求分析与设计智能获取", description: `${taskDescription}\nSession: ${sessionFolder}\nIndustry: ${industryChoice}`, owner: "analyst" })
-  TaskCreate({ subject: "ARCH-001: 设计令牌+组件架构", description: `${taskDescription}\nSession: ${sessionFolder}`, owner: "architect", addBlockedBy: ["ANALYZE-001"] })
-  TaskCreate({ subject: "QA-001: 架构审查", description: `审查 ARCH-001 产出\nSession: ${sessionFolder}\nType: architecture-review`, owner: "qa", addBlockedBy: ["ARCH-001"] })
-  TaskCreate({ subject: "DEV-001: 组件实现", description: `${taskDescription}\nSession: ${sessionFolder}`, owner: "developer", addBlockedBy: ["QA-001"] })
-  TaskCreate({ subject: "QA-002: 代码审查", description: `审查 DEV-001 产出\nSession: ${sessionFolder}\nType: code-review`, owner: "qa", addBlockedBy: ["DEV-001"] })
-}
+| Mode | Task Chain | Description |
+|------|------------|-------------|
+| page | ANALYZE-001 -> ARCH-001 -> DEV-001 -> QA-001 | Linear 4-beat |
+| feature | ANALYZE-001 -> ARCH-001 -> QA-001 -> DEV-001 -> QA-002 | 5-beat with architecture review |
+| system | ANALYZE-001 -> ARCH-001 -> QA-001 -> [ARCH-002 || DEV-001] -> QA-002 -> DEV-002 -> QA-003 | 7-beat dual-track |
 
-if (pipeline === 'system') {
-  // CP-1 + CP-2 + CP-9 Dual-Track
-  TaskCreate({ subject: "ANALYZE-001: 需求分析与设计智能获取", description: `${taskDescription}\nSession: ${sessionFolder}\nIndustry: ${industryChoice}`, owner: "analyst" })
-  TaskCreate({ subject: "ARCH-001: 设计令牌系统", description: `${taskDescription}\nSession: ${sessionFolder}\nScope: tokens`, owner: "architect", addBlockedBy: ["ANALYZE-001"] })
-  TaskCreate({ subject: "QA-001: 令牌审查", description: `审查 ARCH-001 令牌系统\nSession: ${sessionFolder}\nType: token-review`, owner: "qa", addBlockedBy: ["ARCH-001"] })
-  // Dual-track after QA-001
-  TaskCreate({ subject: "ARCH-002: 组件架构设计", description: `${taskDescription}\nSession: ${sessionFolder}\nScope: components`, owner: "architect", addBlockedBy: ["QA-001"] })
-  TaskCreate({ subject: "DEV-001: 令牌实现", description: `实现设计令牌\nSession: ${sessionFolder}\nScope: tokens`, owner: "developer", addBlockedBy: ["QA-001"] })
-  // Sync point 2
-  TaskCreate({ subject: "QA-002: 组件架构审查", description: `审查 ARCH-002 组件架构\nSession: ${sessionFolder}\nType: component-review`, owner: "qa", addBlockedBy: ["ARCH-002"] })
-  TaskCreate({ subject: "DEV-002: 组件实现", description: `${taskDescription}\nSession: ${sessionFolder}\nScope: components`, owner: "developer", addBlockedBy: ["QA-002", "DEV-001"] })
-  TaskCreate({ subject: "QA-003: 最终质量验证", description: `最终审查\nSession: ${sessionFolder}\nType: final`, owner: "qa", addBlockedBy: ["DEV-002"] })
-}
-```
+**Task Creation** (for each task):
+- Include `Session: <session-folder>` in description
+- Set owner based on role mapping
+- Set blockedBy dependencies based on pipeline
+
+**Success**: All tasks created with correct dependencies.
+
+---
 
 ### Phase 4: Coordination Loop
 
-> **设计原则（Stop-Wait）**: 模型执行没有时间概念，禁止任何形式的轮询等待。
-> - ❌ 禁止: `while` 循环 + `sleep` + 检查状态
-> - ✅ 采用: 同步 `Task(run_in_background: false)` 调用，Worker 返回 = 阶段完成信号
->
-> 按 Phase 3 创建的任务链顺序，逐阶段 spawn worker 同步执行。
-> Worker prompt 使用 SKILL.md Coordinator Spawn Template。
+**Objective**: Spawn first batch of ready workers, then STOP.
 
-Receive teammate messages, dispatch based on content.
-**Before each decision**: `team_msg list` to check recent messages.
-**After each decision**: `team_msg log` to record.
+**Design**: Spawn-and-Stop + Callback pattern.
+- Spawn workers with `Task(run_in_background: true)` -> immediately return
+- Worker completes -> SendMessage callback -> auto-advance
+- User can use "check" / "resume" to manually advance
+- Coordinator does one operation per invocation, then STOPS
+
+**Pipeline advancement** driven by three wake sources:
+- Worker callback (automatic) -> Entry Router -> handleCallback
+- User "check" -> handleCheck (status only)
+- User "resume" -> handleResume (advance)
+
+**Message Routing**:
 
 | Received Message | Action |
 |-----------------|--------|
-| analyst: `analyze_ready` | team_msg log → TaskUpdate ANALYZE completed → unblock ARCH |
-| architect: `arch_ready` | team_msg log → TaskUpdate ARCH completed → unblock QA/DEV |
-| developer: `dev_complete` | team_msg log → TaskUpdate DEV completed → unblock QA |
-| qa: `qa_passed` | team_msg log → TaskUpdate QA completed → unblock next stage |
-| qa: `fix_required` | Create DEV-fix task → notify developer (CP-2 GC loop) |
-| developer: consult request | Create ANALYZE-consult task → notify analyst (CP-8) |
-| Worker: `error` | Assess severity → retry or escalate to user |
-| All tasks completed | → Phase 5 |
+| analyst: `analyze_ready` | team_msg log -> TaskUpdate ANALYZE completed -> unblock ARCH |
+| architect: `arch_ready` | team_msg log -> TaskUpdate ARCH completed -> unblock QA/DEV |
+| developer: `dev_complete` | team_msg log -> TaskUpdate DEV completed -> unblock QA |
+| qa: `qa_passed` | team_msg log -> TaskUpdate QA completed -> unblock next stage |
+| qa: `fix_required` | Create DEV-fix task -> notify developer (GC loop) |
+| developer: consult request | Create ANALYZE-consult task -> notify analyst |
+| Worker: `error` | Assess severity -> retry or escalate to user |
+| All tasks completed | -> Phase 5 |
 
-#### GC Loop Control (CP-2)
+**GC Loop Control** (Generator-Critic: developer <-> qa):
 
-```javascript
-let gcRound = 0
-const MAX_GC_ROUNDS = 2
+| Condition | Action |
+|-----------|--------|
+| QA sends fix_required && gcRound < MAX_GC_ROUNDS (2) | Create DEV-fix task + QA-recheck task, increment gcRound |
+| QA sends fix_required && gcRound >= MAX_GC_ROUNDS | Escalate to user: accept current state or manual intervention |
 
-// When QA sends fix_required
-if (qaMessage.type === 'fix_required' && gcRound < MAX_GC_ROUNDS) {
-  gcRound++
-  // Create fix task for developer
-  TaskCreate({
-    subject: `DEV-fix-${gcRound}: 修复 QA 发现的问题`,
-    description: `${qaMessage.issues}\nSession: ${sessionFolder}\nGC Round: ${gcRound}`,
-    owner: "developer"
-  })
-  // Re-queue QA after fix
-  TaskCreate({
-    subject: `QA-recheck-${gcRound}: 复查修复`,
-    description: `复查 DEV-fix-${gcRound}\nSession: ${sessionFolder}`,
-    owner: "qa",
-    addBlockedBy: [`DEV-fix-${gcRound}`]
-  })
-} else if (gcRound >= MAX_GC_ROUNDS) {
-  // Escalate to user
-  AskUserQuestion({ questions: [{ question: `QA 审查 ${MAX_GC_ROUNDS} 轮后仍有问题，如何处理？`, header: "GC Escalation", multiSelect: false,
-    options: [
-      { label: "接受当前状态", description: "跳过剩余问题，继续下一阶段" },
-      { label: "手动介入", description: "暂停流水线，手动修复" }
-    ]
-  }]})
-}
-```
+---
 
-### Phase 5: Report + Persist
+### Phase 5: Report + Next Steps
 
-Summarize results. Update session status.
+**Objective**: Completion report and follow-up options.
 
-```javascript
-// Update session
-const session = JSON.parse(Read(`${sessionFolder}/team-session.json`))
-session.status = 'completed'
-session.completed_at = new Date().toISOString()
-Write(`${sessionFolder}/team-session.json`, JSON.stringify(session, null, 2))
+**Workflow**:
+1. Load session state -> count completed tasks, duration
+2. List deliverables with output paths
+3. Update session status -> "completed"
+4. Offer next steps to user via AskUserQuestion:
+   - New requirement -> back to Phase 1
+   - Close team -> shutdown -> TeamDelete
 
-AskUserQuestion({
-  questions: [{
-    question: "当前需求已完成。下一步：",
-    header: "Next",
-    multiSelect: false,
-    options: [
-      { label: "新需求", description: "提交新需求给当前团队" },
-      { label: "关闭团队", description: "关闭所有 teammate 并清理" }
-    ]
-  }]
-})
-// 新需求 → 回到 Phase 1
-// 关闭 → shutdown → TeamDelete()
-```
+---
 
 ## Error Handling
 
 | Scenario | Resolution |
 |----------|------------|
-| Teammate unresponsive | Send follow-up, 2x → respawn |
+| Task timeout | Log, mark failed, ask user to retry or skip |
+| Worker crash | Respawn worker, reassign task |
+| Dependency cycle | Detect, report to user, halt |
+| Invalid mode | Reject with error, ask to clarify |
+| Session corruption | Attempt recovery, fallback to manual reconciliation |
+| Teammate unresponsive | Send follow-up, 2x -> respawn |
 | QA rejected 3+ times | Escalate to user |
 | Dual-track sync failure | Fallback to single-track sequential |
 | ui-ux-pro-max unavailable | Continue with LLM general knowledge |

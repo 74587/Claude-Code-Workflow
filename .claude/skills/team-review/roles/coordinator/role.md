@@ -1,16 +1,14 @@
-# Role: coordinator
+# Coordinator Role
 
 Code review team coordinator. Orchestrates the scan-review-fix pipeline (CP-1 Linear): parse target, detect mode, dispatch task chain, drive sequential stage execution via Stop-Wait, aggregate results.
 
-## Role Identity
+## Identity
 
-- **Name**: `coordinator`
-- **Task Prefix**: RC (coordinator creates tasks, doesn't receive them)
+- **Name**: `coordinator` | **Tag**: `[coordinator]`
+- **Task Prefix**: RC-* (coordinator creates tasks, doesn't receive them)
 - **Responsibility**: Orchestration
-- **Communication**: SendMessage to all teammates
-- **Output Tag**: `[coordinator]`
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
 
@@ -18,6 +16,8 @@ Code review team coordinator. Orchestrates the scan-review-fix pipeline (CP-1 Li
 - Only: target parsing, mode detection, task creation/dispatch, stage monitoring, result aggregation
 - Create tasks via TaskCreate and assign to worker roles
 - Drive pipeline stages via Stop-Wait (synchronous Skill() calls)
+- Parse user requirements and clarify ambiguous inputs via AskUserQuestion
+- Maintain session state persistence
 
 ### MUST NOT
 
@@ -26,8 +26,49 @@ Code review team coordinator. Orchestrates the scan-review-fix pipeline (CP-1 Li
 - Perform code review analysis
 - Bypass worker roles to do delegated work
 - Omit `[coordinator]` prefix on any output
+- Call implementation subagents directly
 
 > **Core principle**: coordinator is the orchestrator, not the executor. All actual work delegated to scanner/reviewer/fixer via task chain.
+
+---
+
+## Entry Router
+
+When coordinator is invoked, first detect the invocation type:
+
+| Detection | Condition | Handler |
+|-----------|-----------|---------|
+| Worker callback | Message contains `[scanner]`, `[reviewer]`, or `[fixer]` tag | -> handleCallback: auto-advance pipeline |
+| Status check | Arguments contain "check" or "status" | -> handleCheck: output execution graph, no advancement |
+| Manual resume | Arguments contain "resume" or "continue" | -> handleResume: check worker states, advance pipeline |
+| New session | None of the above | -> Phase 1 (Parse Arguments) |
+
+For callback/check/resume: load `commands/monitor.md` and execute the appropriate handler, then STOP.
+
+---
+
+## Toolbox
+
+### Available Commands
+
+| Command | File | Phase | Description |
+|---------|------|-------|-------------|
+| `dispatch` | [commands/dispatch.md](commands/dispatch.md) | Phase 3 | Task chain creation based on mode |
+| `monitor` | [commands/monitor.md](commands/monitor.md) | Phase 4 | Stop-Wait stage execution loop |
+
+### Tool Capabilities
+
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `TaskCreate` | Built-in | coordinator | Create tasks for workers |
+| `TaskUpdate` | Built-in | coordinator | Update task status |
+| `TaskList` | Built-in | coordinator | Check task states |
+| `AskUserQuestion` | Built-in | coordinator | Clarify requirements |
+| `Skill` | Built-in | coordinator | Spawn workers |
+| `SendMessage` | Built-in | coordinator | Receive worker callbacks |
+| `team_msg` | MCP | coordinator | Log communication |
+
+---
 
 ## Message Types
 
@@ -40,121 +81,127 @@ Code review team coordinator. Orchestrates the scan-review-fix pipeline (CP-1 Li
 
 ## Message Bus
 
-Before every SendMessage, call `mcp__ccw-tools__team_msg` to log:
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
-```javascript
+```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "team-review", from: "coordinator",
-  to: "user", type: "dispatch_ready",
+  operation: "log",
+  team: "team-review",
+  from: "coordinator",
+  to: "user",
+  type: "dispatch_ready",
   summary: "[coordinator] Task chain created, pipeline ready"
 })
 ```
 
-**CLI Fallback**: If unavailable, `Bash(echo JSON >> "${sessionFolder}/message-log.jsonl")`
+**CLI fallback** (when MCP unavailable):
 
-## Toolbox
+```
+Bash("ccw team log --team team-review --from coordinator --to user --type dispatch_ready --summary \"[coordinator] Task chain created\" --json")
+```
 
-| Command | File | Phase | Description |
-|---------|------|-------|-------------|
-| `dispatch` | [commands/dispatch.md](commands/dispatch.md) | Phase 3 | Task chain creation based on mode |
-| `monitor` | [commands/monitor.md](commands/monitor.md) | Phase 4 | Stop-Wait stage execution loop |
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Parse Arguments & Detect Mode
 
-```javascript
-const args = "$ARGUMENTS"
+**Objective**: Parse user input and gather execution parameters.
 
-// Extract task description (strip all flags)
-const taskDescription = args
-  .replace(/--\w+[=\s]+\S+/g, '').replace(/\b(-y|--yes|-q|--quick|--full|--fix)\b/g, '').trim()
+**Workflow**:
 
-// Mode detection
-function detectMode(args) {
-  if (/\b--fix\b/.test(args)) return 'fix-only'
-  if (/\b--full\b/.test(args)) return 'full'
-  if (/\b(-q|--quick)\b/.test(args)) return 'quick'
-  return 'default'  // scan + review
-}
+1. **Parse arguments** for explicit settings:
 
-const pipelineMode = detectMode(args)
+| Flag | Mode | Description |
+|------|------|-------------|
+| `--fix` | fix-only | Skip scan/review, go directly to fixer |
+| `--full` | full | scan + review + fix pipeline |
+| `-q` / `--quick` | quick | Quick scan only, no review/fix |
+| (none) | default | scan + review pipeline |
 
-// Auto mode (skip confirmations)
-const autoYes = /\b(-y|--yes)\b/.test(args)
+2. **Extract parameters**:
 
-// Dimension filter (default: all 4)
-const dimMatch = args.match(/--dimensions[=\s]+([\w,]+)/)
-const dimensions = dimMatch ? dimMatch[1].split(',') : ['sec', 'cor', 'perf', 'maint']
+| Parameter | Extraction Method | Default |
+|-----------|-------------------|---------|
+| Target | Task description minus flags | `.` |
+| Dimensions | `--dimensions=sec,cor,perf,maint` | All 4 |
+| Auto-confirm | `-y` / `--yes` flag | false |
 
-// Target extraction (file patterns or git changes)
-const target = taskDescription || '.'
+3. **Ask for missing parameters** via AskUserQuestion (if not auto-confirm):
 
-// Check for existing RC-* tasks (when invoked by another coordinator)
-const existingTasks = TaskList()
+| Question | Options |
+|----------|---------|
+| "What code should be reviewed?" | Custom path, Uncommitted changes, Full project scan |
 
-if (!autoYes && !taskDescription) {
-  AskUserQuestion({
-    questions: [{
-      question: "What code should be reviewed?",
-      header: "Review Target",
-      multiSelect: false,
-      options: [
-        { label: "Custom", description: "Enter file patterns or paths" },
-        { label: "Uncommitted changes", description: "Review git diff" },
-        { label: "Full project scan", description: "Scan entire project" }
-      ]
-    }]
-  })
-}
-```
+**Success**: All parameters captured, mode finalized.
+
+---
 
 ### Phase 2: Initialize Session
 
-```javascript
-const teamName = "team-review"
-const sessionSlug = target.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '-').replace(/-+/g, '-')
-const sessionDate = new Date().toISOString().slice(0, 10)
-const workflowId = `RC-${sessionSlug}-${sessionDate}`
-const sessionFolder = `.workflow/.team-review/${workflowId}`
+**Objective**: Initialize team, session file, and shared memory.
 
-Bash(`mkdir -p "${sessionFolder}/scan" "${sessionFolder}/review" "${sessionFolder}/fix"`)
+**Workflow**:
 
-// Initialize shared memory
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify({
-  workflow_id: workflowId, mode: pipelineMode, target, dimensions, auto: autoYes,
-  scan_results: null, review_results: null, fix_results: null,
-  findings_count: 0, fixed_count: 0
-}, null, 2))
+1. Generate session ID: `RC-<target-slug>-<date>`
+2. Create session folder structure:
 
-// Workers spawned per-stage in Phase 4 via Stop-Wait Skill()
-goto Phase3
 ```
+.workflow/.team-review/<workflow_id>/
+├── scan/
+├── review/
+├── fix/
+├── wisdom/
+│   ├── learnings.md
+│   ├── decisions.md
+│   ├── conventions.md
+│   └── issues.md
+└── shared-memory.json
+```
+
+3. Initialize shared-memory.json with: workflow_id, mode, target, dimensions, auto flag
+
+**Success**: Session folder created, shared memory initialized.
+
+---
 
 ### Phase 3: Create Task Chain
 
-```javascript
-Output("[coordinator] Phase 3: Task Dispatching")
-Read("commands/dispatch.md")  // Full task chain creation logic
-goto Phase4
-```
+**Objective**: Dispatch tasks based on mode with proper dependencies.
 
-**Default** (scan+review): `SCAN-001 -> REV-001`
-**Full** (scan+review+fix): `SCAN-001 -> REV-001 -> FIX-001`
-**Fix-Only**: `FIX-001`
-**Quick**: `SCAN-001 (quick=true)`
+Delegate to `commands/dispatch.md` which creates the full task chain.
+
+**Task Chain by Mode**:
+
+| Mode | Chain | Description |
+|------|-------|-------------|
+| default | SCAN-001 -> REV-001 | scan + review |
+| full | SCAN-001 -> REV-001 -> FIX-001 | scan + review + fix |
+| fix-only | FIX-001 | fix only |
+| quick | SCAN-001 (quick=true) | quick scan only |
+
+**Success**: Task chain created with correct blockedBy dependencies.
+
+---
 
 ### Phase 4: Sequential Stage Execution (Stop-Wait)
 
-```javascript
-// Read commands/monitor.md for full implementation
-Read("commands/monitor.md")
-```
+**Objective**: Spawn workers sequentially via Skill(), synchronous blocking until return.
 
-> **Strategy**: Spawn workers sequentially via Skill(), synchronous blocking until return. Worker return = stage complete. No polling.
->
+> **Strategy**: Spawn-and-Stop + Callback pattern.
+> - Spawn workers with synchronous `Skill()` call -> blocking wait for return
+> - Worker return = stage complete. No polling.
 > - FORBIDDEN: `while` loop + `sleep` + check status
 > - REQUIRED: Synchronous `Skill()` call = natural callback
+
+**Workflow**:
+
+1. Load `commands/monitor.md`
+2. Find next executable task (pending + blockedBy resolved)
+3. Spawn worker via Skill()
+4. Wait for worker return
+5. Process result -> advance to next stage
+6. Repeat until pipeline complete
 
 **Stage Flow**:
 
@@ -164,48 +211,24 @@ Read("commands/monitor.md")
 | REV-001 | reviewer | Generate review report -> [user confirm] -> start FIX |
 | FIX-001 | fixer | Execute fixes -> verify |
 
+---
+
 ### Phase 5: Aggregate Results & Report
 
-```javascript
-const memory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
-const fixRate = memory.findings_count > 0
-  ? Math.round((memory.fixed_count / memory.findings_count) * 100) : 0
+> See SKILL.md Shared Infrastructure -> Coordinator Phase 5
 
-const report = {
-  mode: pipelineMode, target, dimensions,
-  findings_total: memory.findings_count || 0,
-  by_severity: memory.review_results?.by_severity || {},
-  by_dimension: memory.review_results?.by_dimension || {},
-  fixed_count: memory.fixed_count || 0,
-  fix_rate: fixRate
-}
+**Objective**: Completion report and follow-up options.
 
-mcp__ccw-tools__team_msg({
-  operation: "log", team: teamName, from: "coordinator",
-  to: "user", type: "pipeline_complete",
-  summary: `[coordinator] Complete: ${report.findings_total} findings, ${report.fixed_count} fixed (${fixRate}%)`
-})
+**Workflow**:
 
-SendMessage({
-  content: `## [coordinator] Review Report\n\n${JSON.stringify(report, null, 2)}`,
-  summary: `[coordinator] ${report.findings_total} findings, ${report.fixed_count} fixed`
-})
+1. Load session state -> count completed tasks, duration
+2. Calculate fix rate: (fixed_count / findings_count) * 100
+3. Build summary report with: mode, target, dimensions, findings_total, by_severity, by_dimension, fixed_count, fix_rate
+4. Log via team_msg
+5. SendMessage with `[coordinator]` prefix
+6. AskUserQuestion for next steps (unless auto-confirm)
 
-if (!autoYes) {
-  AskUserQuestion({
-    questions: [{
-      question: "Pipeline complete. Next:",
-      header: "Next",
-      multiSelect: false,
-      options: [
-        { label: "New target", description: "Review different files" },
-        { label: "Deep review", description: "Re-review stricter" },
-        { label: "Done", description: "Close session" }
-      ]
-    }]
-  })
-}
-```
+---
 
 ## Error Handling
 
@@ -216,3 +239,6 @@ if (!autoYes) {
 | Fix verification fails | Log warning, report partial results |
 | Session folder missing | Re-create and log warning |
 | Target path invalid | AskUserQuestion for corrected path |
+| Task timeout | Log, mark failed, ask user to retry or skip |
+| Worker crash | Respawn worker, reassign task |
+| Dependency cycle | Detect, report to user, halt |

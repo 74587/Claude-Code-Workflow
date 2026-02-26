@@ -4,7 +4,7 @@ Interactive roadmap discussion with the user. This is the KEY coordinator comman
 
 ## Purpose
 
-Discuss project roadmap with the user using project-tech.json + project-guidelines.json as context. Elicit phases, requirements, success criteria, and execution preferences. Produces `roadmap.md` and `config.json` as session artifacts.
+Discuss project roadmap with the user using project-tech.json + specs/*.md as context. Elicit phases, requirements, success criteria, and execution preferences. Produces `roadmap.md` and `config.json` as session artifacts.
 
 ## When to Use
 
@@ -22,7 +22,7 @@ Direct interaction via AskUserQuestion. No delegation to workers or subagents. C
 | `sessionFolder` | From coordinator Phase 1 | Session artifact directory |
 | `taskDescription` | From coordinator Phase 1 | User's original task description |
 | `projectTech` | Loaded in Phase 1 | Parsed project-tech.json |
-| `projectGuidelines` | Loaded in Phase 1 | Parsed project-guidelines.json (nullable) |
+| `projectGuidelines` | Loaded in Phase 1 | Parsed specs/*.md (nullable) |
 | `autoYes` | From -y/--yes flag | Skip interactive prompts, use defaults |
 
 ## Execution Steps
@@ -34,7 +34,7 @@ Direct interaction via AskUserQuestion. No delegation to workers or subagents. C
 const projectTech = JSON.parse(Read('.workflow/project-tech.json'))
 let projectGuidelines = null
 try {
-  projectGuidelines = JSON.parse(Read('.workflow/project-guidelines.json'))
+  projectGuidelines = JSON.parse(Read('.workflow/specs/*.md'))
 } catch {}
 ```
 

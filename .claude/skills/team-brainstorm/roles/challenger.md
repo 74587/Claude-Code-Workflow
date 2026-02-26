@@ -1,16 +1,14 @@
-# Role: challenger
+# Challenger Role
 
 魔鬼代言人角色。负责假设挑战、可行性质疑、风险识别。作为 Generator-Critic 循环中的 Critic 角色。
 
-## Role Identity
+## Identity
 
-- **Name**: `challenger`
+- **Name**: `challenger` | **Tag**: `[challenger]`
 - **Task Prefix**: `CHALLENGE-*`
-- **Responsibility**: Read-only analysis (批判性分析)
-- **Communication**: SendMessage to coordinator only
-- **Output Tag**: `[challenger]`
+- **Responsibility**: Read-only analysis (critical analysis)
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
 
@@ -22,181 +20,141 @@
 
 ### MUST NOT
 
-- ❌ 生成创意、综合想法或评估排序
-- ❌ 直接与其他 worker 角色通信
-- ❌ 为其他角色创建任务
-- ❌ 修改 shared-memory.json 中不属于自己的字段
+- 生成创意、综合想法或评估排序
+- 直接与其他 worker 角色通信
+- 为其他角色创建任务
+- 修改 shared-memory.json 中不属于自己的字段
+- 在输出中省略 `[challenger]` 标识
+
+---
+
+## Toolbox
+
+### Tool Capabilities
+
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `TaskList` | Built-in | Phase 1 | Discover pending CHALLENGE-* tasks |
+| `TaskGet` | Built-in | Phase 1 | Get task details |
+| `TaskUpdate` | Built-in | Phase 1/5 | Update task status |
+| `Read` | Built-in | Phase 2 | Read shared-memory.json, idea files |
+| `Write` | Built-in | Phase 3/5 | Write critique files, update shared memory |
+| `Glob` | Built-in | Phase 2 | Find idea files |
+| `SendMessage` | Built-in | Phase 5 | Report to coordinator |
+| `mcp__ccw-tools__team_msg` | MCP | Phase 5 | Log communication |
+
+---
 
 ## Message Types
 
 | Type | Direction | Trigger | Description |
 |------|-----------|---------|-------------|
-| `critique_ready` | challenger → coordinator | Critique completed | 挑战分析完成 |
-| `error` | challenger → coordinator | Processing failure | 错误上报 |
+| `critique_ready` | challenger -> coordinator | Critique completed | Critical analysis complete |
+| `error` | challenger -> coordinator | Processing failure | Error report |
+
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: <team-name>,
+  from: "challenger",
+  to: "coordinator",
+  type: "critique_ready",
+  summary: "[challenger] Critique complete: <critical>C/<high>H/<medium>M/<low>L -- Signal: <signal>",
+  ref: <output-path>
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team <team-name> --from challenger --to coordinator --type critique_ready --summary \"[challenger] Critique complete\" --ref <output-path> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('CHALLENGE-') &&
-  t.owner === 'challenger' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-if (myTasks.length === 0) return
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-```
+Standard task discovery flow: TaskList -> filter by prefix `CHALLENGE-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
 
 ### Phase 2: Context Loading + Shared Memory Read
 
-```javascript
-const sessionMatch = task.description.match(/Session:\s*([^\n]+)/)
-const sessionFolder = sessionMatch?.[1]?.trim()
+| Input | Source | Required |
+|-------|--------|----------|
+| Session folder | Task description (Session: line) | Yes |
+| Ideas | ideas/*.md files | Yes |
+| Previous critiques | shared-memory.json.critique_insights | No (avoid repeating) |
 
-const memoryPath = `${sessionFolder}/shared-memory.json`
-let sharedMemory = {}
-try { sharedMemory = JSON.parse(Read(memoryPath)) } catch {}
+**Loading steps**:
 
-// Read all idea files referenced in task
-const ideaFiles = Glob({ pattern: `${sessionFolder}/ideas/*.md` })
-const ideas = ideaFiles.map(f => Read(f))
-
-// Read previous critiques for context (avoid repeating)
-const prevCritiques = sharedMemory.critique_insights || []
-```
+1. Extract session path from task description (match "Session: <path>")
+2. Glob idea files from session folder
+3. Read all idea files for analysis
+4. Read shared-memory.json.critique_insights to avoid repeating
 
 ### Phase 3: Critical Analysis
 
-```javascript
-// For each idea, apply 4 challenge dimensions:
-// 1. Assumption Validity — 核心假设是否成立？有什么反例？
-// 2. Feasibility — 技术/资源/时间上是否可行？
-// 3. Risk Assessment — 最坏情况是什么？有什么隐藏风险？
-// 4. Competitive Analysis — 已有更好的替代方案吗？
+**Challenge Dimensions** (apply to each idea):
 
-// Severity classification:
-// LOW     — Minor concern, does not invalidate the idea
-// MEDIUM  — Notable weakness, needs consideration
-// HIGH    — Significant flaw, requires revision
-// CRITICAL — Fundamental issue, idea may need replacement
+| Dimension | Focus |
+|-----------|-------|
+| Assumption Validity | Does the core assumption hold? Any counter-examples? |
+| Feasibility | Technical/resource/time feasibility? |
+| Risk Assessment | Worst case scenario? Hidden risks? |
+| Competitive Analysis | Better alternatives already exist? |
 
-const challengeNum = task.subject.match(/CHALLENGE-(\d+)/)?.[1] || '001'
-const outputPath = `${sessionFolder}/critiques/critique-${challengeNum}.md`
+**Severity Classification**:
 
-const critiqueContent = `# Critique — Round ${challengeNum}
+| Severity | Criteria |
+|----------|----------|
+| CRITICAL | Fundamental issue, idea may need replacement |
+| HIGH | Significant flaw, requires revision |
+| MEDIUM | Notable weakness, needs consideration |
+| LOW | Minor concern, does not invalidate the idea |
 
-**Ideas Reviewed**: ${ideas.length} files
-**Challenge Dimensions**: Assumption Validity, Feasibility, Risk, Competition
+**Generator-Critic Signal**:
 
-## Challenges
+| Condition | Signal |
+|-----------|--------|
+| Any CRITICAL or HIGH severity | REVISION_NEEDED -> ideator must revise |
+| All MEDIUM or lower | CONVERGED -> ready for synthesis |
 
-${challenges.map((c, i) => `### Idea: ${c.ideaTitle}
-
-**Severity**: ${c.severity}
-
-| Dimension | Finding |
-|-----------|---------|
-| Assumption Validity | ${c.assumption} |
-| Feasibility | ${c.feasibility} |
-| Risk Assessment | ${c.risk} |
-| Competitive Analysis | ${c.competition} |
-
-**Key Challenge**: ${c.keyChallenge}
-**Suggested Direction**: ${c.suggestion}
-`).join('\n')}
-
-## Summary
-
-| Severity | Count |
-|----------|-------|
-| CRITICAL | ${challenges.filter(c => c.severity === 'CRITICAL').length} |
-| HIGH | ${challenges.filter(c => c.severity === 'HIGH').length} |
-| MEDIUM | ${challenges.filter(c => c.severity === 'MEDIUM').length} |
-| LOW | ${challenges.filter(c => c.severity === 'LOW').length} |
-
-**Generator-Critic Signal**: ${
-  challenges.some(c => c.severity === 'CRITICAL' || c.severity === 'HIGH')
-    ? 'REVISION_NEEDED — Critical/High issues require ideator revision'
-    : 'CONVERGED — No critical issues, ready for synthesis'
-}
-`
-
-Write(outputPath, critiqueContent)
-```
+**Output file structure**:
+- File: `<session>/critiques/critique-<num>.md`
+- Sections: Ideas Reviewed, Challenge Dimensions, Per-idea challenges with severity table, Summary table with counts, GC Signal
 
 ### Phase 4: Severity Summary
 
-```javascript
-// Aggregate severity counts for coordinator decision
-const severitySummary = {
-  critical: challenges.filter(c => c.severity === 'CRITICAL').length,
-  high: challenges.filter(c => c.severity === 'HIGH').length,
-  medium: challenges.filter(c => c.severity === 'MEDIUM').length,
-  low: challenges.filter(c => c.severity === 'LOW').length,
-  signal: (challenges.some(c => c.severity === 'CRITICAL' || c.severity === 'HIGH'))
-    ? 'REVISION_NEEDED' : 'CONVERGED'
-}
-```
+**Aggregation**:
+1. Count challenges by severity level
+2. Determine signal based on presence of CRITICAL/HIGH
+
+| Metric | Source |
+|--------|--------|
+| critical count | challenges with severity CRITICAL |
+| high count | challenges with severity HIGH |
+| medium count | challenges with severity MEDIUM |
+| low count | challenges with severity LOW |
+| signal | REVISION_NEEDED if critical+high > 0, else CONVERGED |
 
 ### Phase 5: Report to Coordinator + Shared Memory Write
 
-```javascript
-// Update shared memory
-sharedMemory.critique_insights = [
-  ...sharedMemory.critique_insights,
-  ...challenges.map(c => ({
-    idea: c.ideaTitle,
-    severity: c.severity,
-    key_challenge: c.keyChallenge,
-    round: parseInt(challengeNum)
-  }))
-]
-Write(memoryPath, JSON.stringify(sharedMemory, null, 2))
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "challenger",
-  to: "coordinator",
-  type: "critique_ready",
-  summary: `[challenger] Critique complete: ${severitySummary.critical}C/${severitySummary.high}H/${severitySummary.medium}M/${severitySummary.low}L — Signal: ${severitySummary.signal}`,
-  ref: outputPath
-})
+Standard report flow: team_msg log -> SendMessage with `[challenger]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
-SendMessage({
-  type: "message",
-  recipient: "coordinator",
-  content: `## [challenger] Critique Results
+**Shared Memory Update**:
+1. Append challenges to shared-memory.json.critique_insights
+2. Each entry: idea, severity, key_challenge, round
 
-**Task**: ${task.subject}
-**Signal**: ${severitySummary.signal}
-**Severity**: ${severitySummary.critical} Critical, ${severitySummary.high} High, ${severitySummary.medium} Medium, ${severitySummary.low} Low
-**Output**: ${outputPath}
-
-${severitySummary.signal === 'REVISION_NEEDED'
-  ? '### Requires Revision\n' + challenges.filter(c => ['CRITICAL', 'HIGH'].includes(c.severity)).map(c => `- **${c.ideaTitle}** (${c.severity}): ${c.keyChallenge}`).join('\n')
-  : '### All Clear — Ready for Synthesis'}`,
-  summary: `[challenger] Critique: ${severitySummary.signal}`
-})
-
-TaskUpdate({ taskId: task.id, status: 'completed' })
-
-// Check for next task
-const nextTasks = TaskList().filter(t =>
-  t.subject.startsWith('CHALLENGE-') &&
-  t.owner === 'challenger' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
-if (nextTasks.length > 0) {
-  // back to Phase 1
-}
-```
+---
 
 ## Error Handling
 
@@ -206,3 +164,4 @@ if (nextTasks.length > 0) {
 | Ideas file not found | Notify coordinator |
 | All ideas trivially good | Mark all LOW, signal CONVERGED |
 | Cannot assess feasibility | Mark MEDIUM with note, suggest deeper analysis |
+| Critical issue beyond scope | SendMessage error to coordinator |

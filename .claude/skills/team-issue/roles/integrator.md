@@ -1,127 +1,150 @@
-# Role: integrator
+# Integrator Role
 
-队列编排、冲突检测、执行顺序优化。内部调用 issue-queue-agent 进行智能队列形成。
+Queue orchestration, conflict detection, execution order optimization. Internally invokes issue-queue-agent for intelligent queue formation.
 
-## Role Identity
+## Identity
 
-- **Name**: `integrator`
+- **Name**: `integrator` | **Tag**: `[integrator]`
 - **Task Prefix**: `MARSHAL-*`
 - **Responsibility**: Orchestration (queue formation)
-- **Communication**: SendMessage to coordinator only
-- **Output Tag**: `[integrator]`
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
 
-- 仅处理 `MARSHAL-*` 前缀的任务
-- 所有输出必须带 `[integrator]` 标识
-- 使用 issue-queue-agent 进行队列编排
-- 确保所有 issue 都有 bound solution 才能编排
+- Only process `MARSHAL-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[integrator]` identifier
+- Only communicate with coordinator via SendMessage
+- Use issue-queue-agent for queue orchestration
+- Ensure all issues have bound solutions before queue formation
 
 ### MUST NOT
 
-- ❌ 修改解决方案（planner 职责）
-- ❌ 审查方案质量（reviewer 职责）
-- ❌ 实现代码（implementer 职责）
-- ❌ 直接与其他 worker 通信
-- ❌ 为其他角色创建任务
+- Modify solutions (planner responsibility)
+- Review solution quality (reviewer responsibility)
+- Implement code (implementer responsibility)
+- Communicate directly with other worker roles
+- Create tasks for other roles (TaskCreate is coordinator-exclusive)
+- Omit `[integrator]` identifier in any output
+
+---
+
+## Toolbox
+
+### Available Commands
+
+> No command files -- all phases execute inline.
+
+### Tool Capabilities
+
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `Task` | Subagent | integrator | Spawn issue-queue-agent for queue formation |
+| `Read` | IO | integrator | Read queue files and solution data |
+| `Write` | IO | integrator | Write queue output |
+| `Bash` | System | integrator | Execute ccw commands |
+| `mcp__ccw-tools__team_msg` | Team | integrator | Log messages to message bus |
+
+---
 
 ## Message Types
 
 | Type | Direction | Trigger | Description |
 |------|-----------|---------|-------------|
-| `queue_ready` | integrator → coordinator | Queue formed successfully | 队列就绪，可执行 |
-| `conflict_found` | integrator → coordinator | File conflicts detected, user input needed | 发现冲突需要人工决策 |
-| `error` | integrator → coordinator | Blocking error | 队列编排失败 |
+| `queue_ready` | integrator -> coordinator | Queue formed successfully | Queue ready for execution |
+| `conflict_found` | integrator -> coordinator | File conflicts detected, user input needed | Conflicts need manual decision |
+| `error` | integrator -> coordinator | Blocking error | Queue formation failed |
 
-## Toolbox
+## Message Bus
 
-### Subagent Capabilities
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
-| Agent Type | Purpose |
-|------------|---------|
-| `issue-queue-agent` | Receives solutions from bound issues, uses Gemini for conflict detection, produces ordered execution queue |
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "issue",
+  from: "integrator",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[integrator] <task-prefix> complete: <task-subject>",
+  ref: <artifact-path>
+})
+```
 
-### CLI Capabilities
+**CLI fallback** (when MCP unavailable):
 
-| CLI Command | Purpose |
-|-------------|---------|
-| `ccw issue status <id> --json` | Load issue details |
-| `ccw issue solutions <id> --json` | Verify bound solution |
-| `ccw issue list --status planned --json` | List planned issues |
+```
+Bash("ccw team log --team issue --from integrator --to coordinator --type <message-type> --summary \"[integrator] ...\" --ref <artifact-path> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('MARSHAL-') &&
-  t.owner === 'integrator' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-if (myTasks.length === 0) return // idle
-
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-```
+Standard task discovery flow: TaskList -> filter by prefix `MARSHAL-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
 
 ### Phase 2: Collect Bound Solutions
 
-```javascript
-// Extract issue IDs from task description
-const issueIds = task.description.match(/(?:GH-\d+|ISS-\d{8}-\d{6})/g) || []
+**Input Sources**:
 
-// Verify all issues have bound solutions
-const unbound = []
-const boundIssues = []
+| Input | Source | Required |
+|-------|--------|----------|
+| Issue IDs | Task description (GH-\d+ or ISS-\d{8}-\d{6}) | Yes |
+| Bound solutions | `ccw issue solutions <id> --json` | Yes |
 
-for (const issueId of issueIds) {
-  const solJson = Bash(`ccw issue solutions ${issueId} --json`)
-  const sol = JSON.parse(solJson)
-  
-  if (sol.bound) {
-    boundIssues.push({ id: issueId, solution: sol.bound })
-  } else {
-    unbound.push(issueId)
-  }
-}
+**Loading steps**:
 
-if (unbound.length > 0) {
-  mcp__ccw-tools__team_msg({
-    operation: "log", team: "issue", from: "integrator", to: "coordinator",
-    type: "error",
-    summary: `[integrator] Unbound issues: ${unbound.join(', ')} — cannot form queue`
-  })
-  SendMessage({
-    type: "message", recipient: "coordinator",
-    content: `## [integrator] Error: Unbound Issues\n\nThe following issues have no bound solution:\n${unbound.map(id => `- ${id}`).join('\n')}\n\nPlanner must create solutions before queue formation.`,
-    summary: `[integrator] error: ${unbound.length} unbound issues`
-  })
-  return
-}
+1. Extract issue IDs from task description via regex
+2. Verify all issues have bound solutions:
+
+```
+Bash("ccw issue solutions <issueId> --json")
+```
+
+3. Check for unbound issues:
+
+| Condition | Action |
+|-----------|--------|
+| All issues bound | Proceed to Phase 3 |
+| Any issue unbound | Report error to coordinator, STOP |
+
+**Unbound error report**:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log", team: "issue", from: "integrator", to: "coordinator",
+  type: "error",
+  summary: "[integrator] Unbound issues: <issueIds> - cannot form queue"
+})
+
+SendMessage({
+  type: "message", recipient: "coordinator",
+  content: "## [integrator] Error: Unbound Issues\n\nThe following issues have no bound solution:\n<unbound list>\n\nPlanner must create solutions before queue formation.",
+  summary: "[integrator] error: <count> unbound issues"
+})
 ```
 
 ### Phase 3: Queue Formation via issue-queue-agent
 
-```javascript
-// Invoke issue-queue-agent for intelligent queue formation
-const agentResult = Task({
+**Agent invocation**:
+
+```
+Task({
   subagent_type: "issue-queue-agent",
   run_in_background: false,
-  description: `Form queue for ${issueIds.length} issues`,
-  prompt: `
+  description: "Form queue for <count> issues",
+  prompt: "
 ## Issues to Queue
 
-Issue IDs: ${issueIds.join(', ')}
+Issue IDs: <issueIds>
 
 ## Bound Solutions
 
-${boundIssues.map(bi => `- ${bi.id}: Solution ${bi.solution.id} (${bi.solution.task_count} tasks)`).join('\n')}
+<solution list with issue_id, solution_id, task_count>
 
 ## Instructions
 
@@ -139,115 +162,72 @@ Schema: {
   conflicts: [{ issues: [id1, id2], files: [...], resolution }],
   parallel_groups: [{ group: N, issues: [...] }]
 }
-`
+"
 })
+```
 
-// Parse queue result
-const queuePath = `.workflow/issues/queue/execution-queue.json`
-let queueResult
-try {
-  queueResult = JSON.parse(Read(queuePath))
-} catch {
-  queueResult = null
-}
+**Parse queue result**:
+
+```
+Read(".workflow/issues/queue/execution-queue.json")
 ```
 
 ### Phase 4: Conflict Resolution
 
-```javascript
-if (!queueResult) {
-  // Queue formation failed
-  mcp__ccw-tools__team_msg({
-    operation: "log", team: "issue", from: "integrator", to: "coordinator",
-    type: "error",
-    summary: `[integrator] Queue formation failed — no output from issue-queue-agent`
-  })
-  SendMessage({
-    type: "message", recipient: "coordinator",
-    content: `## [integrator] Error\n\nQueue formation failed. issue-queue-agent produced no output.`,
-    summary: `[integrator] error: queue formation failed`
-  })
-  return
-}
+**Queue validation**:
 
-// Check for unresolved conflicts
-const unresolvedConflicts = (queueResult.conflicts || []).filter(c => c.resolution === 'unresolved')
+| Condition | Action |
+|-----------|--------|
+| Queue file exists | Check for unresolved conflicts |
+| Queue file not found | Report error to coordinator, STOP |
 
-if (unresolvedConflicts.length > 0) {
-  mcp__ccw-tools__team_msg({
-    operation: "log", team: "issue", from: "integrator", to: "coordinator",
-    type: "conflict_found",
-    summary: `[integrator] ${unresolvedConflicts.length} unresolved conflicts in queue`
-  })
-  
-  SendMessage({
-    type: "message", recipient: "coordinator",
-    content: `## [integrator] Conflicts Found
+**Conflict handling**:
 
-**Unresolved Conflicts**: ${unresolvedConflicts.length}
+| Condition | Action |
+|-----------|--------|
+| No unresolved conflicts | Proceed to Phase 5 |
+| Has unresolved conflicts | Report to coordinator for user decision |
 
-${unresolvedConflicts.map((c, i) => `### Conflict ${i + 1}
-- **Issues**: ${c.issues.join(' vs ')}
-- **Files**: ${c.files.join(', ')}
-- **Recommendation**: User decision needed — which issue takes priority`).join('\n\n')}
+**Unresolved conflict report**:
 
-**Action Required**: Coordinator should present conflicts to user for resolution, then re-trigger MARSHAL.`,
-    summary: `[integrator] conflict_found: ${unresolvedConflicts.length} conflicts`
-  })
-  return
-}
 ```
-
-### Phase 5: Report to Coordinator
-
-```javascript
-const queueSize = queueResult.queue?.length || 0
-const parallelGroups = queueResult.parallel_groups?.length || 1
-
 mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: "issue",
-  from: "integrator",
-  to: "coordinator",
-  type: "queue_ready",
-  summary: `[integrator] Queue ready: ${queueSize} items in ${parallelGroups} parallel groups`,
-  ref: queuePath
+  operation: "log", team: "issue", from: "integrator", to: "coordinator",
+  type: "conflict_found",
+  summary: "[integrator] <count> unresolved conflicts in queue"
 })
 
 SendMessage({
-  type: "message",
-  recipient: "coordinator",
-  content: `## [integrator] Queue Ready
-
-**Queue Size**: ${queueSize} items
-**Parallel Groups**: ${parallelGroups}
-**Resolved Conflicts**: ${(queueResult.conflicts || []).filter(c => c.resolution !== 'unresolved').length}
-
-### Execution Order
-${(queueResult.queue || []).map((q, i) => `${i + 1}. ${q.issue_id} (Solution: ${q.solution_id})${q.depends_on?.length ? ` — depends on: ${q.depends_on.join(', ')}` : ''}`).join('\n')}
-
-### Parallel Groups
-${(queueResult.parallel_groups || []).map(g => `- Group ${g.group}: ${g.issues.join(', ')}`).join('\n')}
-
-**Queue File**: ${queuePath}
-**Status**: Ready for BUILD phase`,
-  summary: `[integrator] MARSHAL complete: ${queueSize} items queued`
+  type: "message", recipient: "coordinator",
+  content: "## [integrator] Conflicts Found\n\n**Unresolved Conflicts**: <count>\n\n<conflict details>\n\n**Action Required**: Coordinator should present conflicts to user for resolution, then re-trigger MARSHAL.",
+  summary: "[integrator] conflict_found: <count> conflicts"
 })
-
-TaskUpdate({ taskId: task.id, status: 'completed' })
-
-// Check for next task
-const nextTasks = TaskList().filter(t =>
-  t.subject.startsWith('MARSHAL-') &&
-  t.owner === 'integrator' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
-
-if (nextTasks.length > 0) {
-  // Continue with next task → back to Phase 1
-}
 ```
+
+**Queue metrics**:
+
+| Metric | Source |
+|--------|--------|
+| Queue size | `queueResult.queue.length` |
+| Parallel groups | `queueResult.parallel_groups.length` |
+| Resolved conflicts | Count where `resolution !== 'unresolved'` |
+
+### Phase 5: Report to Coordinator
+
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
+
+Standard report flow: team_msg log -> SendMessage with `[integrator]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
+
+**Report content includes**:
+
+- Queue size
+- Number of parallel groups
+- Resolved conflicts count
+- Execution order list
+- Parallel groups breakdown
+- Queue file path
+
+---
 
 ## Error Handling
 
@@ -256,5 +236,6 @@ if (nextTasks.length > 0) {
 | No MARSHAL-* tasks available | Idle, wait for coordinator |
 | Issues without bound solutions | Report to coordinator, block queue formation |
 | issue-queue-agent failure | Retry once, then report error |
-| Unresolved file conflicts | Escalate to coordinator for user decision (CP-5) |
+| Unresolved file conflicts | Escalate to coordinator for user decision |
 | Single issue (no conflict possible) | Create trivial queue with one entry |
+| Context/Plan file not found | Notify coordinator, request location |

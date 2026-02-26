@@ -6,21 +6,28 @@ allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), Task
 
 # Team Frontend Development
 
-全栈前端开发团队，内置 ui-ux-pro-max 设计智能。具备需求分析、设计系统生成、前端实现、质量保证的完整能力。All team members invoke this skill with `--role=xxx` to route to role-specific execution.
+Unified team skill: frontend development with built-in ui-ux-pro-max design intelligence. Covers requirement analysis, design system generation, frontend implementation, and quality assurance. All team members invoke with `--role=xxx` to route to role-specific execution.
 
-## Architecture Overview
+## Architecture
 
 ```
-┌──────────────────────────────────────────────────┐
-│  Skill(skill="team-frontend", args="--role=xxx")  │
-└───────────────────┬──────────────────────────────┘
-                    │ Role Router
-    ┌───────┬───────┼───────┬───────┐
-    ↓       ↓       ↓       ↓       ↓
-┌──────────┐┌──────────┐┌──────────┐┌──────────┐┌──────────┐
-│coordinator││ analyst  ││ architect││ developer││    qa    │
-│ roles/   ││ roles/   ││ roles/   ││ roles/   ││ roles/   │
-└──────────┘└──────────┘└──────────┘└──────────┘└──────────┘
+┌──────────────────────────────────────────────────────┐
+│  Skill(skill="team-frontend")                         │
+│  args="<task-description>" or args="--role=xxx"       │
+└──────────────────────────┬───────────────────────────┘
+                           │ Role Router
+                ┌──── --role present? ────┐
+                │ NO                      │ YES
+                ↓                         ↓
+         Orchestration Mode         Role Dispatch
+         (auto -> coordinator)     (route to role.md)
+                │
+           ┌────┴────┬───────────┬───────────┬───────────┐
+           ↓         ↓           ↓           ↓           ↓
+      ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
+      │ coord  │ │analyst │ │architect│ │developer│ │  qa   │
+      │        │ │ANALYZE-*│ │ARCH-*  │ │DEV-*   │ │QA-*   │
+      └────────┘ └────────┘ └────────┘ └────────┘ └────────┘
 ```
 
 ## Command Architecture
@@ -52,104 +59,123 @@ roles/
 
 ### Input Parsing
 
-Parse `$ARGUMENTS` to extract `--role`:
+Parse `$ARGUMENTS` to extract `--role`. If absent -> Orchestration Mode (auto route to coordinator).
 
-```javascript
-const args = "$ARGUMENTS"
-const roleMatch = args.match(/--role[=\s]+(\w+)/)
+### Role Registry
 
-if (!roleMatch) {
-  throw new Error("Missing --role argument. Available roles: coordinator, analyst, architect, developer, qa")
-}
+| Role | File | Task Prefix | Type | Compact |
+|------|------|-------------|------|---------|
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | (none) | orchestrator | **compressed -> must re-read** |
+| analyst | [roles/analyst/role.md](roles/analyst/role.md) | ANALYZE-* | pipeline | compressed -> must re-read |
+| architect | [roles/architect/role.md](roles/architect/role.md) | ARCH-* | pipeline | compressed -> must re-read |
+| developer | [roles/developer/role.md](roles/developer/role.md) | DEV-* | pipeline | compressed -> must re-read |
+| qa | [roles/qa/role.md](roles/qa/role.md) | QA-* | pipeline | compressed -> must re-read |
 
-const role = roleMatch[1]
-const teamName = args.match(/--team[=\s]+([\w-]+)/)?.[1] || "frontend"
+> **COMPACT PROTECTION**: Role files are execution documents, not reference material. When context compression occurs and role instructions are reduced to summaries, **you MUST immediately `Read` the corresponding role.md to reload before continuing execution**. Do not execute any Phase based on summaries.
+
+### Dispatch
+
+1. Extract `--role` from arguments
+2. If no `--role` -> route to coordinator (Orchestration Mode)
+3. Look up role in registry -> Read the role file -> Execute its phases
+
+### Orchestration Mode
+
+When invoked without `--role`, coordinator auto-starts. User just provides task description.
+
+**Invocation**: `Skill(skill="team-frontend", args="<task-description>")`
+
+**Lifecycle**:
+```
+User provides task description
+  -> coordinator Phase 1-3: Requirement clarification + industry identification -> TeamCreate -> Create task chain
+  -> coordinator Phase 4: spawn first batch workers (background) -> STOP
+  -> Worker executes -> SendMessage callback -> coordinator advances next step
+  -> Loop until pipeline complete -> Phase 5 report
 ```
 
-### Role Dispatch
+**User Commands** (wake paused coordinator):
 
-```javascript
-const VALID_ROLES = {
-  "coordinator": { file: "roles/coordinator/role.md", prefix: null },
-  "analyst":     { file: "roles/analyst/role.md",     prefix: "ANALYZE" },
-  "architect":   { file: "roles/architect/role.md",   prefix: "ARCH" },
-  "developer":   { file: "roles/developer/role.md",   prefix: "DEV" },
-  "qa":          { file: "roles/qa/role.md",          prefix: "QA" }
-}
+| Command | Action |
+|---------|--------|
+| `check` / `status` | Output execution status graph, no advancement |
+| `resume` / `continue` | Check worker states, advance next step |
 
-if (!VALID_ROLES[role]) {
-  throw new Error(`Unknown role: ${role}. Available: ${Object.keys(VALID_ROLES).join(', ')}`)
-}
-
-// Read and execute role-specific logic
-Read(VALID_ROLES[role].file)
-// → Execute the 5-phase process defined in that file
-```
-
-### Available Roles
-
-| Role | Task Prefix | Responsibility | Role File |
-|------|-------------|----------------|-----------|
-| `coordinator` | N/A | 需求澄清、行业识别、流水线编排、进度监控、GC循环控制 | [roles/coordinator/role.md](roles/coordinator/role.md) |
-| `analyst` | ANALYZE-* | 需求分析、调用 ui-ux-pro-max 获取设计智能、行业推理规则匹配 | [roles/analyst/role.md](roles/analyst/role.md) |
-| `architect` | ARCH-* | 消费设计智能、定义设计令牌系统、组件架构、技术选型 | [roles/architect/role.md](roles/architect/role.md) |
-| `developer` | DEV-* | 消费架构产出、实现前端组件/页面代码 | [roles/developer/role.md](roles/developer/role.md) |
-| `qa` | QA-* | 代码审查、可访问性检查、行业反模式检查、Pre-Delivery验证 | [roles/qa/role.md](roles/qa/role.md) |
+---
 
 ## Shared Infrastructure
 
-### Role Isolation Rules
+The following templates apply to all worker roles. Each role.md only needs to write **Phase 2-4** role-specific logic.
 
-**核心原则**: 每个角色仅能执行自己职责范围内的工作。
+### Worker Phase 1: Task Discovery (shared by all workers)
 
-#### Output Tagging（强制）
+Every worker executes the same task discovery flow on startup:
 
-所有角色的输出必须带 `[role_name]` 标识前缀：
+1. Call `TaskList()` to get all tasks
+2. Filter: subject matches this role's prefix + owner is this role + status is pending + blockedBy is empty
+3. No tasks -> idle wait
+4. Has tasks -> `TaskGet` for details -> `TaskUpdate` mark in_progress
 
-```javascript
-SendMessage({
-  content: `## [${role}] ...`,
-  summary: `[${role}] ...`
-})
+**Resume Artifact Check** (prevent duplicate output after resume):
+- Check whether this task's output artifact already exists
+- Artifact complete -> skip to Phase 5 report completion
+- Artifact incomplete or missing -> normal Phase 2-4 execution
 
-mcp__ccw-tools__team_msg({
-  summary: `[${role}] ...`
-})
+### Worker Phase 5: Report (shared by all workers)
+
+Standard reporting flow after task completion:
+
+1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
+   - Parameters: operation="log", team="frontend", from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+   - **CLI fallback**: When MCP unavailable -> `ccw team log --team frontend --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+2. **SendMessage**: Send result to coordinator (content and summary both prefixed with `[<role>]`)
+3. **TaskUpdate**: Mark task completed
+4. **Loop**: Return to Phase 1 to check next task
+
+### Wisdom Accumulation (all roles)
+
+Cross-task knowledge accumulation. Coordinator creates `wisdom/` directory at session initialization.
+
+**Directory**:
+```
+<session-folder>/wisdom/
+├── learnings.md      # Patterns and insights
+├── decisions.md      # Architecture and design decisions
+├── conventions.md    # Codebase conventions
+└── issues.md         # Known risks and issues
 ```
 
-#### Coordinator 隔离
+**Worker Load** (Phase 2): Extract `Session: <path>` from task description, read wisdom directory files.
+**Worker Contribute** (Phase 4/5): Write this task's discoveries to corresponding wisdom files.
 
-| 允许 | 禁止 |
-|------|------|
-| 需求澄清 (AskUserQuestion) | ❌ 直接编写/修改代码 |
-| 创建任务链 (TaskCreate) | ❌ 调用实现类 subagent |
-| 分发任务给 worker | ❌ 直接执行分析/测试/审查 |
-| 监控进度 (消息总线) | ❌ 绕过 worker 自行完成任务 |
-| 汇报结果给用户 | ❌ 修改源代码或产物文件 |
+### Role Isolation Rules
 
-#### Worker 隔离
+#### Output Tagging
 
-| 允许 | 禁止 |
-|------|------|
-| 处理自己前缀的任务 | ❌ 处理其他角色前缀的任务 |
-| SendMessage 给 coordinator | ❌ 直接与其他 worker 通信 |
-| 使用 Toolbox 中声明的工具 | ❌ 为其他角色创建任务 (TaskCreate) |
+All outputs must carry `[role_name]` prefix.
+
+#### Coordinator Isolation
+
+| Allowed | Forbidden |
+|---------|-----------|
+| Requirement clarification (AskUserQuestion) | Direct code writing/modification |
+| Create task chain (TaskCreate) | Calling implementation subagents |
+| Dispatch tasks to workers | Direct analysis/testing/review |
+| Monitor progress (message bus) | Bypassing workers |
+| Report results to user | Modifying source code |
+
+#### Worker Isolation
+
+| Allowed | Forbidden |
+|---------|-----------|
+| Process tasks with own prefix | Process tasks with other role prefixes |
+| SendMessage to coordinator | Communicate directly with other workers |
+| Use tools declared in Toolbox | Create tasks for other roles (TaskCreate) |
+| Delegate to commands/ files | Modify resources outside own responsibility |
 
 ### Message Bus (All Roles)
 
-Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
-
-```javascript
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: role,
-  to: "coordinator",
-  type: "<type>",
-  summary: `[${role}] <summary>`,
-  ref: "<file_path>"
-})
-```
+Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log.
 
 **Message types by role**:
 
@@ -161,267 +187,229 @@ mcp__ccw-tools__team_msg({
 | developer | `dev_complete`, `dev_progress`, `error` |
 | qa | `qa_passed`, `qa_result`, `fix_required`, `error` |
 
-### CLI Fallback
+### Shared Memory
 
-当 `mcp__ccw-tools__team_msg` MCP 不可用时：
+Cross-role accumulated knowledge stored in `shared-memory.json`:
 
-```javascript
-Bash(`ccw team log --team "${teamName}" --from "${role}" --to "coordinator" --type "<type>" --summary "<summary>" --json`)
-```
+| Field | Owner | Content |
+|-------|-------|---------|
+| `design_intelligence` | analyst | ui-ux-pro-max output |
+| `design_token_registry` | architect | colors, typography, spacing, shadows |
+| `component_inventory` | architect | Component specs |
+| `style_decisions` | architect | Design system decisions |
+| `qa_history` | qa | QA audit results |
+| `industry_context` | analyst | Industry-specific rules |
 
-### Task Lifecycle (All Worker Roles)
+Each role reads in Phase 2, writes own fields in Phase 5.
 
-```javascript
-// Standard task lifecycle every worker role follows
-// Phase 1: Discovery
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith(`${VALID_ROLES[role].prefix}-`) &&
-  t.owner === role &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
-if (myTasks.length === 0) return // idle
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-
-// Phase 2-4: Role-specific (see roles/{role}/role.md)
-
-// Phase 5: Report + Loop — 所有输出必须带 [role] 标识
-mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: role, to: "coordinator", type: "...", summary: `[${role}] ...` })
-SendMessage({ type: "message", recipient: "coordinator", content: `## [${role}] ...`, summary: `[${role}] ...` })
-TaskUpdate({ taskId: task.id, status: 'completed' })
-// Check for next task → back to Phase 1
-```
+---
 
 ## Pipeline Architecture
 
 ### Three Pipeline Modes
 
 ```
-page (单页面 - CP-1 线性):
-  ANALYZE-001 → ARCH-001 → DEV-001 → QA-001
+page (single page - linear):
+  ANALYZE-001 -> ARCH-001 -> DEV-001 -> QA-001
 
-feature (多组件特性 - CP-1 + CP-2 + CP-8):
-  ANALYZE-001 → ARCH-001(tokens+structure) → QA-001(architecture-review)
-  → DEV-001(components) → QA-002(code-review)
+feature (multi-component feature - with architecture review):
+  ANALYZE-001 -> ARCH-001(tokens+structure) -> QA-001(architecture-review)
+  -> DEV-001(components) -> QA-002(code-review)
 
-system (完整前端系统 - CP-1 + CP-2 + CP-8 + CP-9 双轨):
-  ANALYZE-001 → ARCH-001(tokens) → QA-001(token-review)
-  → [ARCH-002(components) ∥ DEV-001(tokens)](并行, blockedBy QA-001)
-  → QA-002(component-review) → DEV-002(components) → QA-003(final)
+system (full frontend system - dual-track parallel):
+  ANALYZE-001 -> ARCH-001(tokens) -> QA-001(token-review)
+  -> [ARCH-002(components) || DEV-001(tokens)](parallel, blockedBy QA-001)
+  -> QA-002(component-review) -> DEV-002(components) -> QA-003(final)
 ```
 
-### Generator-Critic Loop (CP-2)
+### Generator-Critic Loop (developer <-> qa)
 
-developer ↔ qa 循环，确保代码质量和设计合规：
+Developer and qa iterate to ensure code quality and design compliance:
 
 ```
 ┌──────────┐     DEV artifact        ┌──────────┐
-│ developer│ ──────────────────────→  │    qa    │
-│(Generator)│                         │ (Critic) │
-│          │  ←────────────────────── │          │
-└──────────┘   QA feedback            └──────────┘
-                (max 2 rounds)
+│ developer│ ─────────────────────>  │    qa    │
+│(Generator)│                        │ (Critic) │
+│          │  <───────────────────── │          │
+└──────────┘   QA feedback           └──────────┘
+               (max 2 rounds)
 
 Convergence: qa.score >= 8 && qa.critical_count === 0
 ```
 
-### Consulting Pattern (CP-8)
+### Consulting Pattern (developer -> analyst)
 
-developer 可向 analyst 咨询设计决策：
-
-```
-developer → coordinator: "需要设计决策咨询"
-coordinator → analyst: 创建 ANALYZE-consult 任务
-analyst → coordinator: 设计建议
-coordinator → developer: 转发建议
-```
-
-### Shared Memory
-
-```json
-{
-  "design_intelligence": {},
-  "design_token_registry": {
-    "colors": {}, "typography": {}, "spacing": {}, "shadows": {}
-  },
-  "component_inventory": [],
-  "style_decisions": [],
-  "qa_history": [],
-  "industry_context": {}
-}
-```
-
-每个角色在 Phase 2 读取，Phase 5 写入自己负责的字段。
-
-## Session Directory
+Developer can request design decision consultation via coordinator:
 
 ```
-.workflow/.team/FE-{slug}-{YYYY-MM-DD}/
-├── team-session.json           # Session state
-├── shared-memory.json          # Cross-role accumulated knowledge
-├── analysis/                   # Analyst output
-│   ├── design-intelligence.json
-│   └── requirements.md
-├── architecture/               # Architect output
-│   ├── design-tokens.json
-│   ├── component-specs/
-│   │   └── {component-name}.md
-│   └── project-structure.md
-├── qa/                         # QA output
-│   └── audit-{NNN}.md
-└── build/                      # Developer output
-    ├── token-files/
-    └── component-files/
+developer -> coordinator: "Need design decision consultation"
+coordinator -> analyst: Create ANALYZE-consult task
+analyst -> coordinator: Design recommendation
+coordinator -> developer: Forward recommendation
+```
+
+### Cadence Control
+
+**Beat model**: Event-driven, each beat = coordinator wake -> process -> spawn -> STOP.
+
+```
+Beat Cycle (single beat)
+═══════════════════════════════════════════════════════════
+  Event                   Coordinator              Workers
+───────────────────────────────────────────────────────────
+  callback/resume ──> ┌─ handleCallback ─┐
+                      │  mark completed   │
+                      │  check pipeline   │
+                      ├─ handleSpawnNext ─┤
+                      │  find ready tasks │
+                      │  spawn workers ───┼──> [Worker A] Phase 1-5
+                      │  (parallel OK)  ──┼──> [Worker B] Phase 1-5
+                      └─ STOP (idle) ─────┘         │
+                                                     │
+  callback <─────────────────────────────────────────┘
+  (next beat)              SendMessage + TaskUpdate(completed)
+═══════════════════════════════════════════════════════════
+```
+
+**Pipeline beat view**:
+
+```
+Page mode (4 beats, strictly serial)
+──────────────────────────────────────────────────────────
+Beat  1         2         3         4
+      │         │         │         │
+      ANALYZE -> ARCH -> DEV -> QA
+      ▲                            ▲
+   pipeline                     pipeline
+    start                        done
+
+A=ANALYZE  ARCH=architect  D=DEV  Q=QA
+
+Feature mode (5 beats, with architecture review gate)
+──────────────────────────────────────────────────────────
+Beat  1         2         3         4         5
+      │         │         │         │         │
+      ANALYZE -> ARCH -> QA-1 -> DEV -> QA-2
+                          ▲               ▲
+                   arch review      code review
+
+System mode (7 beats, dual-track parallel)
+──────────────────────────────────────────────────────────
+Beat  1         2       3       4              5       6       7
+      │         │       │  ┌────┴────┐         │       │       │
+      ANALYZE -> ARCH-1 -> QA-1 -> ARCH-2 || DEV-1 -> QA-2 -> DEV-2 -> QA-3
+                                   ▲                              ▲
+                              parallel window                 final check
+```
+
+**Checkpoints**:
+
+| Trigger | Location | Behavior |
+|---------|----------|----------|
+| Architecture review gate | QA-001 (arch review) complete | Pause if critical issues, wait for architect revision |
+| GC loop limit | developer <-> qa max 2 rounds | Exceed rounds -> stop iteration, report current state |
+| Pipeline stall | No ready + no running | Check missing tasks, report to user |
+
+**Stall Detection** (coordinator `handleCheck` executes):
+
+| Check | Condition | Resolution |
+|-------|-----------|------------|
+| Worker no response | in_progress task no callback | Report waiting task list, suggest user `resume` |
+| Pipeline deadlock | no ready + no running + has pending | Check blockedBy dependency chain, report blocking point |
+| GC loop exceeded | DEV/QA iteration > max_rounds | Terminate loop, output latest QA report |
+
+### Task Metadata Registry
+
+| Task ID | Role | Phase | Dependencies | Description |
+|---------|------|-------|-------------|-------------|
+| ANALYZE-001 | analyst | analysis | (none) | Requirement analysis + design intelligence via ui-ux-pro-max |
+| ARCH-001 | architect | design | ANALYZE-001 | Design token system + component architecture |
+| ARCH-002 | architect | design | QA-001 (system mode) | Component specs refinement |
+| DEV-001 | developer | impl | ARCH-001 or QA-001 | Frontend component/page implementation |
+| DEV-002 | developer | impl | QA-002 (system mode) | Component implementation from refined specs |
+| QA-001 | qa | review | ARCH-001 or DEV-001 | Architecture review or code review |
+| QA-002 | qa | review | DEV-001 | Code review (feature/system mode) |
+| QA-003 | qa | review | DEV-002 (system mode) | Final quality check |
+
+---
+
+## Coordinator Spawn Template
+
+When coordinator spawns workers, use background mode (Spawn-and-Stop):
+
+```
+Task({
+  subagent_type: "general-purpose",
+  description: "Spawn <role> worker",
+  team_name: <team-name>,
+  name: "<role>",
+  run_in_background: true,
+  prompt: `You are team "<team-name>" <ROLE>.
+
+## Primary Directive
+All your work must be executed through Skill to load role definition:
+Skill(skill="team-frontend", args="--role=<role>")
+
+Current requirement: <task-description>
+Session: <session-folder>
+
+## Role Guidelines
+- Only process <PREFIX>-* tasks, do not execute other role work
+- All output prefixed with [<role>] identifier
+- Only communicate with coordinator
+- Do not use TaskCreate for other roles
+- Call mcp__ccw-tools__team_msg before every SendMessage
+
+## Workflow
+1. Call Skill -> load role definition and execution logic
+2. Follow role.md 5-Phase flow
+3. team_msg + SendMessage results to coordinator
+4. TaskUpdate completed -> check next task`
+})
 ```
 
 ## ui-ux-pro-max Integration
 
 ### Design Intelligence Engine
 
-analyst 角色通过 Skill 调用 ui-ux-pro-max 获取行业设计智能：
+Analyst role invokes ui-ux-pro-max via Skill to obtain industry design intelligence:
 
-```javascript
-// 生成完整设计系统推荐
-Skill(skill="ui-ux-pro-max", args="${industry} ${keywords} --design-system")
+| Action | Invocation |
+|--------|------------|
+| Full design system recommendation | `Skill(skill="ui-ux-pro-max", args="<industry> <keywords> --design-system")` |
+| Domain search (UX, typography, color) | `Skill(skill="ui-ux-pro-max", args="<query> --domain <domain>")` |
+| Tech stack guidance | `Skill(skill="ui-ux-pro-max", args="<query> --stack <stack>")` |
+| Persist design system (cross-session) | `Skill(skill="ui-ux-pro-max", args="<query> --design-system --persist -p <projectName>")` |
 
-// 领域搜索（UX 指南、排版、色彩等）
-Skill(skill="ui-ux-pro-max", args="${query} --domain ${domain}")
+**Supported Domains**: product, style, typography, color, landing, chart, ux, web
+**Supported Stacks**: html-tailwind, react, nextjs, vue, svelte, shadcn, swiftui, react-native, flutter
 
-// 技术栈指南
-Skill(skill="ui-ux-pro-max", args="${query} --stack ${stack}")
+**Fallback**: If ui-ux-pro-max skill not installed, degrade to LLM general design knowledge. Suggest installation: `/plugin install ui-ux-pro-max@ui-ux-pro-max-skill`
 
-// 持久化设计系统（跨会话复用）
-Skill(skill="ui-ux-pro-max", args="${query} --design-system --persist -p ${projectName}")
-```
-
-### Installation
+## Session Directory
 
 ```
-/plugin install ui-ux-pro-max@ui-ux-pro-max-skill
-```
-
-### Fallback Strategy
-
-若 ui-ux-pro-max skill 未安装，降级为 LLM 通用设计知识。
-
-### Supported Domains & Stacks
-
-- **Domains**: product, style, typography, color, landing, chart, ux, web
-- **Stacks**: html-tailwind, react, nextjs, vue, svelte, shadcn, swiftui, react-native, flutter
-
-## Coordinator Spawn Template
-
-When coordinator creates teammates:
-
-```javascript
-TeamCreate({ team_name: teamName })
-
-// Analyst
-Task({
-  subagent_type: "general-purpose",
-  description: `Spawn analyst worker`,
-  team_name: teamName,
-  name: "analyst",
-  prompt: `你是 team "${teamName}" 的 ANALYST。
-当你收到 ANALYZE-* 任务时，调用 Skill(skill="team-frontend", args="--role=analyst") 执行。
-当前需求: ${taskDescription}
-约束: ${constraints}
-Session: ${sessionFolder}
-
-## 角色准则（强制）
-- 你只能处理 ANALYZE-* 前缀的任务
-- 所有输出必须带 [analyst] 标识前缀
-- 仅与 coordinator 通信
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 ANALYZE-* 任务
-2. Skill(skill="team-frontend", args="--role=analyst") 执行
-3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
-})
-
-// Architect
-Task({
-  subagent_type: "general-purpose",
-  description: `Spawn architect worker`,
-  team_name: teamName,
-  name: "architect",
-  prompt: `你是 team "${teamName}" 的 ARCHITECT。
-当你收到 ARCH-* 任务时，调用 Skill(skill="team-frontend", args="--role=architect") 执行。
-当前需求: ${taskDescription}
-Session: ${sessionFolder}
-
-## 角色准则（强制）
-- 你只能处理 ARCH-* 前缀的任务
-- 所有输出必须带 [architect] 标识前缀
-- 仅与 coordinator 通信
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 ARCH-* 任务
-2. Skill(skill="team-frontend", args="--role=architect") 执行
-3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
-})
-
-// Developer
-Task({
-  subagent_type: "general-purpose",
-  description: `Spawn developer worker`,
-  team_name: teamName,
-  name: "developer",
-  prompt: `你是 team "${teamName}" 的 DEVELOPER。
-当你收到 DEV-* 任务时，调用 Skill(skill="team-frontend", args="--role=developer") 执行。
-当前需求: ${taskDescription}
-Session: ${sessionFolder}
-
-## 角色准则（强制）
-- 你只能处理 DEV-* 前缀的任务
-- 所有输出必须带 [developer] 标识前缀
-- 仅与 coordinator 通信
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 DEV-* 任务
-2. Skill(skill="team-frontend", args="--role=developer") 执行
-3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
-})
-
-// QA
-Task({
-  subagent_type: "general-purpose",
-  description: `Spawn qa worker`,
-  team_name: teamName,
-  name: "qa",
-  prompt: `你是 team "${teamName}" 的 QA (质量保证)。
-当你收到 QA-* 任务时，调用 Skill(skill="team-frontend", args="--role=qa") 执行。
-当前需求: ${taskDescription}
-Session: ${sessionFolder}
-
-## 角色准则（强制）
-- 你只能处理 QA-* 前缀的任务
-- 所有输出必须带 [qa] 标识前缀
-- 仅与 coordinator 通信
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 QA-* 任务
-2. Skill(skill="team-frontend", args="--role=qa") 执行
-3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate completed → 检查下一个任务`
-})
+.workflow/.team/FE-<slug>-<YYYY-MM-DD>/
+├── team-session.json           # Session state
+├── shared-memory.json          # Cross-role accumulated knowledge
+├── wisdom/                     # Cross-task knowledge
+│   ├── learnings.md
+│   ├── decisions.md
+│   ├── conventions.md
+│   └── issues.md
+├── analysis/                   # Analyst output
+│   ├── design-intelligence.json
+│   └── requirements.md
+├── architecture/               # Architect output
+│   ├── design-tokens.json
+│   ├── component-specs/
+│   │   └── <component-name>.md
+│   └── project-structure.md
+├── qa/                         # QA output
+│   └── audit-<NNN>.md
+└── build/                      # Developer output
+    ├── token-files/
+    └── component-files/
 ```
 
 ## Error Handling
@@ -429,9 +417,9 @@ Session: ${sessionFolder}
 | Scenario | Resolution |
 |----------|------------|
 | Unknown --role value | Error with available role list |
-| Missing --role arg | Error with usage hint |
-| Role file not found | Error with expected path (roles/{name}/role.md) |
-| QA score < 6 超过 2 轮 GC | Coordinator 上报用户 |
-| 双轨同步失败 | 回退到单轨顺序执行 |
-| ui-ux-pro-max skill 未安装 | 降级为 LLM 通用设计知识，提示安装命令 |
-| DEV 找不到设计文件 | 等待 Sync Point 或上报 |
+| Missing --role arg | Orchestration Mode -> auto route to coordinator |
+| Role file not found | Error with expected path (roles/<name>/role.md) |
+| QA score < 6 over 2 GC rounds | Coordinator reports to user |
+| Dual-track sync failure | Fallback to single-track sequential execution |
+| ui-ux-pro-max skill not installed | Degrade to LLM general design knowledge, show install command |
+| DEV cannot find design files | Wait for sync point or escalate to coordinator |

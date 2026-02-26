@@ -1,125 +1,146 @@
-# Role: implementer
+# Implementer Role
 
 Component code builder responsible for translating design specifications into production code. Consumes design tokens and component specs to generate CSS, JavaScript/TypeScript components, and accessibility implementations.
 
-## Role Identity
+## Identity
 
-- **Name**: `implementer`
-- **Task Prefix**: `BUILD`
-- **Responsibility Type**: Code generation
-- **Responsibility**: Component code implementation, CSS generation, design token consumption
-- **Toolbox**: Read, Write, Edit, Glob, Grep, Bash, Task(code-developer)
+- **Name**: `implementer` | **Tag**: `[implementer]`
+- **Task Prefix**: `BUILD-*`
+- **Responsibility**: Code generation
+
+## Boundaries
+
+### MUST
+
+- Only process `BUILD-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[implementer]` identifier
+- Only communicate with coordinator via SendMessage
+- Work strictly within code implementation responsibility scope
+- Consume design tokens via CSS custom properties (no hardcoded values)
+- Follow design specifications exactly
+
+### MUST NOT
+
+- Execute work outside this role's responsibility scope
+- Communicate directly with other worker roles (must go through coordinator)
+- Create tasks for other roles (TaskCreate is coordinator-exclusive)
+- Modify design artifacts (only consume them)
+- Omit `[implementer]` identifier in any output
+- Use hardcoded colors/spacing (must use design tokens)
+
+---
+
+## Toolbox
+
+### Available Tools
+
+| Tool | Type | Purpose |
+|------|------|---------|
+| Read | Read | Read design tokens, component specs, audit reports |
+| Write | Write | Create implementation files |
+| Edit | Write | Modify existing code files |
+| Glob | Search | Find files matching patterns |
+| Grep | Search | Search patterns in files |
+| Bash | Execute | Run build commands, tests |
+| Task | Delegate | Delegate to code-developer for implementation |
+
+---
 
 ## Message Types
 
-| Type | When | Content |
-|------|------|---------|
-| `build_complete` | Implementation finished | Changed files + summary |
-| `build_progress` | Intermediate update | Current progress |
-| `error` | Failure | Error details |
+| Type | Direction | Trigger | Description |
+|------|-----------|---------|-------------|
+| `build_complete` | implementer -> coordinator | Implementation finished | Changed files + summary |
+| `build_progress` | implementer -> coordinator | Intermediate update | Current progress |
+| `error` | implementer -> coordinator | Failure | Error details |
 
-## Execution
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "uidesign",
+  from: "implementer",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[implementer] BUILD complete: <task-subject>",
+  ref: <artifact-path>
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team uidesign --from implementer --to coordinator --type <message-type> --summary \"[implementer] BUILD complete\" --ref <artifact-path> --json")
+```
+
+---
+
+## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('BUILD-') &&
-  t.owner === 'implementer' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
-if (myTasks.length === 0) return
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-// Detect build type
-const isTokenBuild = task.subject.includes('令牌') || task.subject.includes('token')
-const isComponentBuild = task.subject.includes('组件') || task.subject.includes('component')
-```
+Standard task discovery flow: TaskList -> filter by prefix `BUILD-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
+
+**Build type detection**:
+
+| Pattern | Build Type |
+|---------|-----------|
+| Subject contains "token" or "token" | Token implementation |
+| Subject contains "component" or "component" | Component implementation |
 
 ### Phase 2: Context Loading + Shared Memory Read
 
-```javascript
-const sessionFolder = task.description.match(/Session:\s*(.+)/)?.[1]?.trim()
+**Loading steps**:
 
-// Read shared memory
-let sharedMemory = {}
-try {
-  sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
-} catch {}
+1. Extract session path from task description
+2. Read shared-memory.json:
 
-const tokenRegistry = sharedMemory.design_token_registry || {}
-const styleDecisions = sharedMemory.style_decisions || []
+| Field | Usage |
+|-------|-------|
+| design_token_registry | Expected token categories |
+| style_decisions | Styling approach decisions |
 
-// Read design artifacts
-let designTokens = null
-try {
-  designTokens = JSON.parse(Read(`${sessionFolder}/design/design-tokens.json`))
-} catch {}
+3. Read design artifacts:
 
-// Read component specs (for component build)
-let componentSpecs = []
-if (isComponentBuild) {
-  const specFiles = Glob({ pattern: `${sessionFolder}/design/component-specs/*.md` })
-  componentSpecs = specFiles.map(f => ({ path: f, content: Read(f), name: f.match(/([^/\\]+)\.md$/)?.[1] }))
-}
+| Artifact | Build Type |
+|----------|-----------|
+| design-tokens.json | Token build |
+| component-specs/*.md | Component build |
 
-// Read audit reports for approved changes
-const auditFiles = Glob({ pattern: `${sessionFolder}/audit/audit-*.md` })
-const latestAudit = auditFiles.length > 0 ? Read(auditFiles[auditFiles.length - 1]) : null
+4. Read latest audit report (for approved changes and feedback)
 
-// Read design intelligence for stack guidelines and anti-patterns
-let designIntelligence = null
-try {
-  designIntelligence = JSON.parse(Read(`${sessionFolder}/research/design-intelligence.json`))
-} catch {}
-const stackGuidelines = designIntelligence?.stack_guidelines || {}
-const antiPatterns = designIntelligence?.recommendations?.anti_patterns || []
-const uxGuidelines = designIntelligence?.ux_guidelines || []
+5. Read design intelligence:
 
-// Detect project tech stack from codebase
-// Read existing project patterns for code style alignment
-```
+| Field | Usage |
+|-------|-------|
+| stack_guidelines | Tech-specific implementation patterns |
+| recommendations.anti_patterns | Patterns to avoid |
+| ux_guidelines | Best practices |
 
-### Phase 3: Core Execution
+6. Detect project tech stack from package.json
 
-#### Token Implementation (BUILD-001: Token Files)
+### Phase 3: Implementation Execution
 
-```javascript
-if (isTokenBuild && designTokens) {
-  // Detect styling approach from codebase
-  const stylingApproach = sharedMemory.style_decisions?.find(d => d.decision.includes('approach'))
-    || 'css-variables'
+#### Token Implementation (BUILD-001)
 
-  // Delegate to code-developer for implementation
-  Task({
-    subagent_type: "code-developer",
-    run_in_background: false,
-    prompt: `
-## Design Token Implementation
+**Objective**: Convert design tokens to production code.
 
-Convert the following design tokens into production code.
+**Output files**:
 
-### Design Tokens (W3C Format)
-${JSON.stringify(designTokens, null, 2)}
+| File | Content |
+|------|---------|
+| tokens.css | CSS custom properties with :root and [data-theme="dark"] |
+| tokens.ts | TypeScript constants/types for programmatic access |
+| README.md | Token usage guide |
 
-### Requirements
-1. Generate CSS custom properties (variables) for all tokens
-2. Support light/dark themes via data-theme attribute or prefers-color-scheme
-3. Generate TypeScript type definitions for token paths
-4. Follow project's existing styling patterns
+**CSS Output Structure**:
 
-### Output Files
-Write to: ${sessionFolder}/build/token-files/
-
-Files to create:
-- tokens.css — CSS custom properties with :root and [data-theme="dark"]
-- tokens.ts — TypeScript constants/types for programmatic access
-- README.md — Token usage guide
-
-### Example CSS Output
+```css
 :root {
   --color-primary: #1976d2;
   --color-text-primary: rgba(0,0,0,0.87);
@@ -133,188 +154,125 @@ Files to create:
   /* ... */
 }
 
-### Constraints
-- Use semantic token names matching the design tokens
-- Ensure all color tokens have both light and dark values
-- Use CSS custom properties for runtime theming
-- TypeScript types should enable autocomplete
-`
-  })
-
-  // Track output files
-  const tokenFiles = Glob({ pattern: `${sessionFolder}/build/token-files/*` })
-}
-```
-
-#### Component Implementation (BUILD-002: Component Code)
-
-```javascript
-if (isComponentBuild && componentSpecs.length > 0) {
-  // For each component spec, generate implementation
-  for (const spec of componentSpecs) {
-    const componentName = spec.name
-
-    Task({
-      subagent_type: "code-developer",
-      run_in_background: false,
-      prompt: `
-## Component Implementation: ${componentName}
-
-### Design Specification
-${spec.content}
-
-### Design Tokens Available
-Token file: ${sessionFolder}/build/token-files/tokens.css
-Token types: ${sessionFolder}/build/token-files/tokens.ts
-
-### Audit Feedback (if any)
-${latestAudit ? 'Latest audit notes:\n' + latestAudit : 'No audit feedback'}
-
-### Requirements
-1. Implement component following the design spec exactly
-2. Consume design tokens via CSS custom properties (var(--token-name))
-3. Implement ALL states: default, hover, focus, active, disabled
-4. Add ARIA attributes as specified in the design spec
-5. Support responsive breakpoints from the spec
-6. Follow project's component patterns (detect from existing codebase)
-
-### Output
-Write to: ${sessionFolder}/build/component-files/${componentName}/
-
-Files:
-- ${componentName}.tsx (or .vue/.svelte based on project)
-- ${componentName}.css (or .module.css / styled-components)
-- ${componentName}.test.tsx (basic render + state tests)
-- index.ts (re-export)
-
-### Accessibility Requirements
-- Keyboard navigation must work
-- Screen reader support via ARIA
-- Focus indicator visible (use design token)
-- Color contrast meets WCAG AA (4.5:1 text, 3:1 UI)
-
-### Anti-Patterns to Avoid (from Design Intelligence)
-${antiPatterns.map(p => \`- ❌ \${p}\`).join('\\n') || '(None specified)'}
-
-### Stack Guidelines
-${JSON.stringify(stackGuidelines, null, 2) || '(Standard implementation)'}
-
-### Constraints
-- NO hardcoded colors/spacing — all from design tokens
-- Follow existing codebase patterns for component structure
-- Include basic accessibility tests
-`
-    })
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* ... */
   }
-
-  const componentFiles = Glob({ pattern: `${sessionFolder}/build/component-files/**/*` })
 }
 ```
+
+**Requirements**:
+- Semantic token names matching design tokens
+- All color tokens have both light and dark values
+- CSS custom properties for runtime theming
+- TypeScript types enable autocomplete
+
+**Execution**: Delegate to code-developer subagent.
+
+#### Component Implementation (BUILD-002)
+
+**Objective**: Implement component code from design specifications.
+
+**Input**:
+- Component specification markdown
+- Design tokens (CSS file)
+- Audit feedback (if any)
+- Anti-patterns to avoid
+
+**Output files** (per component):
+
+| File | Content |
+|------|---------|
+| {ComponentName}.tsx | React/Vue/Svelte component |
+| {ComponentName}.css | Styles consuming tokens |
+| {ComponentName}.test.tsx | Basic render + state tests |
+| index.ts | Re-export |
+
+**Implementation Requirements**:
+
+| Requirement | Details |
+|-------------|---------|
+| Token consumption | Use var(--token-name), no hardcoded values |
+| States | Implement all 5: default, hover, focus, active, disabled |
+| ARIA | Add attributes as specified in design spec |
+| Responsive | Support breakpoints from spec |
+| Patterns | Follow project's existing component patterns |
+
+**Accessibility Requirements**:
+
+| Requirement | Criteria |
+|-------------|----------|
+| Keyboard navigation | Must work (Tab, Enter, Space, etc.) |
+| Screen reader | ARIA support |
+| Focus indicator | Visible using design token |
+| Color contrast | WCAG AA (4.5:1 text, 3:1 UI) |
+
+**Anti-pattern Avoidance**:
+- Check against design intelligence anti_patterns
+- Verify no violation in implementation
+
+**Execution**: Delegate to code-developer subagent per component.
 
 ### Phase 4: Validation
 
-```javascript
-// Verify build outputs exist
-if (isTokenBuild) {
-  const requiredTokenFiles = ['tokens.css', 'tokens.ts']
-  const missing = requiredTokenFiles.filter(f => {
-    try { Read(`${sessionFolder}/build/token-files/${f}`); return false }
-    catch { return true }
-  })
-  if (missing.length > 0) {
-    // Re-run token generation for missing files
-  }
-}
+**Token build validation**:
 
-if (isComponentBuild) {
-  // Verify each component has at minimum: .tsx + .css + index.ts
-  componentSpecs.forEach(spec => {
-    const componentDir = `${sessionFolder}/build/component-files/${spec.name}`
-    const files = Glob({ pattern: `${componentDir}/*` })
-    if (files.length < 3) {
-      // Re-run component generation
-    }
-  })
-}
+| Check | Method | Pass Criteria |
+|-------|--------|---------------|
+| File existence | Read tokens.css, tokens.ts | Files exist |
+| Token coverage | Parse CSS | All defined tokens present |
+| Theme support | Parse CSS | Light/dark variants exist |
 
-// Token reference check: verify CSS uses var(--token-*) not hardcoded values
-if (isComponentBuild) {
-  const cssFiles = Glob({ pattern: `${sessionFolder}/build/component-files/**/*.css` })
-  cssFiles.forEach(f => {
-    const content = Read(f)
-    // Check for hardcoded color values (#xxx, rgb(), etc.)
-    const hardcoded = content.match(/#[0-9a-fA-F]{3,8}|rgb\(|rgba\(/g) || []
-    if (hardcoded.length > 0) {
-      // Flag as warning — should use design tokens
-    }
-    // Check for cursor: pointer on interactive elements
-    // Check for focus styles (outline or box-shadow on :focus)
-    // Check for responsive media queries
-  })
+**Component build validation**:
 
-  // Anti-pattern self-check (from design intelligence)
-  if (antiPatterns.length > 0) {
-    // Verify implementation doesn't violate any anti-patterns
-    // e.g., check for patterns like "too many font sizes", "inconsistent spacing"
-  }
-}
-```
+| Check | Method | Pass Criteria |
+|-------|--------|---------------|
+| File existence | Glob component dir | At least 3 files (component, style, index) |
+| Token usage | Grep hardcoded values | No #xxx or rgb() in CSS (except in tokens.css) |
+| Focus styles | Grep :focus | :focus or :focus-visible defined |
+| Responsive | Grep @media | Media queries present |
 
-### Phase 5: Report + Shared Memory Write
+**Hardcoded value detection**:
 
-```javascript
-// Update shared memory with implementation details
-if (isComponentBuild) {
-  // Update component inventory with implementation paths
-  componentSpecs.forEach(spec => {
-    const existing = sharedMemory.component_inventory.find(c => c.name === spec.name)
-    if (existing) {
-      existing.implementation_path = `${sessionFolder}/build/component-files/${spec.name}/`
-      existing.implemented = true
-    } else {
-      sharedMemory.component_inventory.push({
-        name: spec.name,
-        implementation_path: `${sessionFolder}/build/component-files/${spec.name}/`,
-        implemented: true
-      })
-    }
-  })
-}
+| Pattern | Severity |
+|---------|----------|
+| `#[0-9a-fA-F]{3,8}` in component CSS | Warning (should use token) |
+| `rgb(` or `rgba(` in component CSS | Warning (should use token) |
+| `cursor: pointer` missing on interactive | Info |
+| Missing :focus styles on interactive | Warning |
 
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
+**Anti-pattern self-check**:
+- Verify implementation doesn't violate any anti_patterns from design intelligence
 
-// Collect output summary
-const outputFiles = isTokenBuild
-  ? Glob({ pattern: `${sessionFolder}/build/token-files/*` })
-  : Glob({ pattern: `${sessionFolder}/build/component-files/**/*` })
+### Phase 5: Report to Coordinator
 
-// Report
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "implementer",
-  to: "coordinator",
-  type: "build_complete",
-  summary: `[implementer] ${isTokenBuild ? '令牌代码' : '组件代码'}实现完成, ${outputFiles.length} 个文件`,
-  ref: `${sessionFolder}/build/`
-})
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-SendMessage({
-  type: "message",
-  recipient: "coordinator",
-  content: `## [implementer] 构建完成\n\n- 类型: ${isTokenBuild ? '设计令牌实现' : '组件代码实现'}\n- 输出文件: ${outputFiles.length}\n- 目录: ${sessionFolder}/build/${isTokenBuild ? 'token-files/' : 'component-files/'}\n\n### 产出文件\n${outputFiles.map(f => `- ${f}`).join('\n')}`,
-  summary: `[implementer] build_complete: ${outputFiles.length} files`
-})
+Standard report flow: team_msg log -> SendMessage with `[implementer]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
-TaskUpdate({ taskId: task.id, status: 'completed' })
-```
+**Update shared memory** (for component build):
+
+| Field | Update |
+|-------|--------|
+| component_inventory | Add implementation_path, set implemented=true |
+
+**Report content**:
+- Build type (token/component)
+- Output file count
+- Output directory path
+- List of created files
+
+---
 
 ## Error Handling
 
 | Scenario | Resolution |
 |----------|------------|
-| 设计令牌文件不存在 | 等待 sync point 或报告 error |
-| 组件规格不完整 | 使用默认值 + 标记待确认 |
-| 代码生成失败 | 重试 1 次，仍失败则上报 |
-| 检测到硬编码值 | 自动替换为令牌引用 |
-| 项目技术栈未知 | 默认 React + CSS Modules |
+| No BUILD-* tasks available | Idle, wait for coordinator assignment |
+| Design token file not found | Wait for sync point or report error |
+| Component spec incomplete | Use defaults + mark for confirmation |
+| Code generation fails | Retry once, still fails -> report error |
+| Hardcoded values detected | Auto-replace with token references |
+| Unknown tech stack | Default to React + CSS Modules |
+| Context/Plan file not found | Notify coordinator, request location |
+| Critical issue beyond scope | SendMessage fix_required to coordinator |

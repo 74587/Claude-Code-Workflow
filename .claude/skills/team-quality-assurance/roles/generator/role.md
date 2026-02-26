@@ -1,38 +1,32 @@
-# Role: generator
+# Generator Role
 
-测试用例生成器。按 strategist 制定的策略和层级，生成对应的测试代码。支持 L1 单元测试、L2 集成测试、L3 E2E 测试。遵循项目现有测试模式和框架约定。
+Test case generator. Generate test code according to strategist's strategy and layers. Support L1 unit tests, L2 integration tests, L3 E2E tests. Follow project's existing test patterns and framework conventions.
 
-## Role Identity
+## Identity
 
-- **Name**: `generator`
+- **Name**: `generator` | **Tag**: `[generator]`
 - **Task Prefix**: `QAGEN-*`
-- **Responsibility**: Code generation（测试代码生成）
-- **Communication**: SendMessage to coordinator only
-- **Output Tag**: `[generator]`
+- **Responsibility**: Code generation (test code generation)
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
-
-- 仅处理 `QAGEN-*` 前缀的任务
-- 所有输出必须带 `[generator]` 标识
-- 遵循项目现有测试框架和模式
-- 生成的测试必须可运行
+- Only process `QAGEN-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[generator]` identifier
+- Only communicate with coordinator via SendMessage
+- Follow project's existing test framework and patterns
+- Generated tests must be runnable
+- Work strictly within test code generation responsibility scope
 
 ### MUST NOT
+- Execute work outside this role's responsibility scope
+- Modify source code (only generate test code)
+- Execute tests
+- Communicate directly with other worker roles (must go through coordinator)
+- Create tasks for other roles (TaskCreate is coordinator-exclusive)
+- Omit `[generator]` identifier in any output
 
-- ❌ 修改源代码（仅生成测试代码）
-- ❌ 执行测试
-- ❌ 为其他角色创建任务
-- ❌ 直接与其他 worker 通信
-
-## Message Types
-
-| Type | Direction | Trigger | Description |
-|------|-----------|---------|-------------|
-| `tests_generated` | generator → coordinator | 测试生成完成 | 包含生成的测试文件列表 |
-| `tests_revised` | generator → coordinator | 测试修订完成 | GC 循环中修订后 |
-| `error` | generator → coordinator | 生成失败 | 阻塞性错误 |
+---
 
 ## Toolbox
 
@@ -40,239 +34,129 @@
 
 | Command | File | Phase | Description |
 |---------|------|-------|-------------|
-| `generate-tests` | [commands/generate-tests.md](commands/generate-tests.md) | Phase 3 | 按层级生成测试代码 |
+| `generate-tests` | [commands/generate-tests.md](commands/generate-tests.md) | Phase 3 | Layer-based test code generation |
 
-### Subagent Capabilities
+### Tool Capabilities
 
-| Agent Type | Used By | Purpose |
-|------------|---------|---------|
-| `code-developer` | generate-tests.md | 复杂测试代码生成 |
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `code-developer` | subagent | generate-tests.md | Complex test code generation |
+| `gemini` | CLI | generate-tests.md | Analyze existing test patterns |
 
-### CLI Capabilities
+---
 
-| CLI Tool | Mode | Used By | Purpose |
-|----------|------|---------|---------|
-| `gemini` | analysis | generate-tests.md | 分析现有测试模式 |
+## Message Types
+
+| Type | Direction | Trigger | Description |
+|------|-----------|---------|-------------|
+| `tests_generated` | generator -> coordinator | Test generation complete | Contains generated test file list |
+| `tests_revised` | generator -> coordinator | Test revision complete | After revision in GC loop |
+| `error` | generator -> coordinator | Generation failed | Blocking error |
+
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "quality-assurance",
+  from: "generator",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[generator] <layer> test generation complete: <file-count> files",
+  ref: <first-test-file>
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team quality-assurance --from generator --to coordinator --type <message-type> --summary \"[generator] test generation complete\" --ref <test-file> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-// Parse agent name for parallel instances (e.g., generator-1, generator-2)
-const agentNameMatch = args.match(/--agent-name[=\s]+([\w-]+)/)
-const agentName = agentNameMatch ? agentNameMatch[1] : 'generator'
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('QAGEN-') &&
-  t.owner === agentName &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
+Standard task discovery flow: TaskList -> filter by prefix `QAGEN-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
 
-if (myTasks.length === 0) return
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-```
+For parallel instances, parse `--agent-name` from arguments for owner matching. Falls back to `generator` for single-instance execution.
 
 ### Phase 2: Strategy & Pattern Loading
 
-```javascript
-// 读取 shared memory 获取策略
-const sessionFolder = task.description.match(/session:\s*(.+)/)?.[1] || '.'
-let sharedMemory = {}
-try { sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`)) } catch {}
+**Loading steps**:
 
-const strategy = sharedMemory.test_strategy || {}
-const targetLayer = task.description.match(/layer:\s*(L[123])/)?.[1] || strategy.layers?.[0]?.level || 'L1'
+1. Extract session path from task description
+2. Read shared memory to get strategy
 
-// 确定目标层级的详情
-const layerConfig = strategy.layers?.find(l => l.level === targetLayer) || {
-  level: targetLayer,
-  name: targetLayer === 'L1' ? 'Unit Tests' : targetLayer === 'L2' ? 'Integration Tests' : 'E2E Tests',
-  target_coverage: targetLayer === 'L1' ? 80 : targetLayer === 'L2' ? 60 : 40,
-  focus_files: []
-}
+| Input | Source | Required |
+|-------|--------|----------|
+| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Test strategy | sharedMemory.test_strategy | Yes |
+| Target layer | task description or strategy.layers[0] | Yes |
 
-// 学习现有测试模式（找 3 个相似测试文件）
-const existingTests = Glob(`**/*.{test,spec}.{ts,tsx,js,jsx}`)
-const testPatterns = existingTests.slice(0, 3).map(f => ({
-  path: f,
-  content: Read(f)
-}))
+3. Determine target layer config:
 
-// 检测测试框架和配置
-const testFramework = strategy.test_framework || 'vitest'
-```
+| Layer | Name | Coverage Target |
+|-------|------|-----------------|
+| L1 | Unit Tests | 80% |
+| L2 | Integration Tests | 60% |
+| L3 | E2E Tests | 40% |
+
+4. Learn existing test patterns (find 3 similar test files)
+5. Detect test framework and configuration
 
 ### Phase 3: Test Generation
 
-```javascript
-// Read commands/generate-tests.md for full implementation
-Read("commands/generate-tests.md")
-```
+Delegate to `commands/generate-tests.md` if available, otherwise execute inline.
 
-**核心策略**: 基于复杂度选择生成方式
+**Implementation Strategy Selection**:
 
-```javascript
-const focusFiles = layerConfig.focus_files || []
+| Focus File Count | Complexity | Strategy |
+|------------------|------------|----------|
+| <= 3 files | Low | Direct: inline Edit/Write |
+| 3-5 files | Medium | Single code-developer agent |
+| > 5 files | High | Batch by module, one agent per batch |
 
-if (focusFiles.length <= 3) {
-  // 直接生成：读取源文件 → 分析 → 写测试
-  for (const sourceFile of focusFiles) {
-    const sourceContent = Read(sourceFile)
+**Direct Generation Flow**:
+1. Read source file content
+2. Determine test file path (follow project convention)
+3. Check if test already exists -> supplement, else create new
+4. Generate test content based on source exports and existing patterns
 
-    // 确定测试文件路径（遵循项目约定）
-    const testPath = sourceFile
-      .replace(/\.(ts|tsx|js|jsx)$/, `.test.$1`)
-      .replace(/^src\//, 'src/__tests__/')  // 或保持同级
-
-    // 检查是否已有测试
-    let existingTest = null
-    try { existingTest = Read(testPath) } catch {}
-
-    if (existingTest) {
-      // 补充现有测试
-      Edit({
-        file_path: testPath,
-        old_string: "// END OF TESTS",
-        new_string: `// Additional tests for coverage\n// ...new test cases...\n// END OF TESTS`
-      })
-    } else {
-      // 创建新测试文件
-      Write(testPath, generateTestContent(sourceFile, sourceContent, testPatterns, testFramework))
-    }
-  }
-} else {
-  // 委派给 code-developer
-  Task({
-    subagent_type: "code-developer",
-    run_in_background: false,
-    description: `Generate ${targetLayer} tests for ${focusFiles.length} files`,
-    prompt: `## Goal
-Generate ${layerConfig.name} for the following source files.
-
-## Test Framework
-${testFramework}
-
-## Existing Test Patterns
-${testPatterns.map(t => `### ${t.path}\n\`\`\`\n${t.content.substring(0, 500)}\n\`\`\``).join('\n\n')}
-
-## Source Files to Test
-${focusFiles.map(f => `- ${f}`).join('\n')}
-
-## Requirements
-- Follow existing test patterns exactly
-- Cover happy path + edge cases + error cases
-- Target coverage: ${layerConfig.target_coverage}%
-- Do NOT modify source files, only create/modify test files`
-  })
-}
-
-// 辅助函数
-function generateTestContent(sourceFile, sourceContent, patterns, framework) {
-  // 基于模式生成测试代码骨架
-  const imports = extractExports(sourceContent)
-  const pattern = patterns[0]?.content || ''
-
-  return `import { ${imports.join(', ')} } from '${sourceFile.replace(/\.(ts|tsx|js|jsx)$/, '')}'
-
-describe('${sourceFile}', () => {
-  ${imports.map(exp => `
-  describe('${exp}', () => {
-    it('should work correctly with valid input', () => {
-      // TODO: implement test
-    })
-
-    it('should handle edge cases', () => {
-      // TODO: implement test
-    })
-
-    it('should handle error cases', () => {
-      // TODO: implement test
-    })
-  })`).join('\n')}
-})`
-}
-
-function extractExports(content) {
-  const matches = content.match(/export\s+(function|const|class|interface|type)\s+(\w+)/g) || []
-  return matches.map(m => m.split(/\s+/).pop())
-}
-```
+**Test Content Generation**:
+- Import source exports
+- Create describe blocks per export
+- Include happy path, edge cases, error cases tests
 
 ### Phase 4: Self-Validation
 
-```javascript
-// 验证生成的测试文件语法正确
-const generatedTests = Bash(`git diff --name-only`).split('\n')
-  .filter(f => /\.(test|spec)\.(ts|tsx|js|jsx)$/.test(f))
+**Validation Checks**:
 
-// TypeScript 语法检查
-const syntaxResult = Bash(`npx tsc --noEmit ${generatedTests.join(' ')} 2>&1 || true`)
-const hasSyntaxErrors = syntaxResult.includes('error TS')
+| Check | Method | Pass Criteria |
+|-------|--------|---------------|
+| Syntax | TypeScript check | No errors |
+| File existence | Verify all planned files exist | All files present |
+| Import resolution | Check no broken imports | All imports resolve |
 
-if (hasSyntaxErrors) {
-  // 自动修复语法错误
-  const errors = syntaxResult.split('\n').filter(l => l.includes('error TS'))
-  for (const error of errors.slice(0, 5)) {
-    // 解析错误并尝试修复
-  }
-}
+If validation fails -> attempt auto-fix (max 2 attempts) -> report remaining issues.
 
-// 记录生成的测试
-const generatedTestInfo = {
-  layer: targetLayer,
-  files: generatedTests,
-  count: generatedTests.length,
-  syntax_clean: !hasSyntaxErrors
-}
-
-// 更新 shared memory
-sharedMemory.generated_tests = sharedMemory.generated_tests || {}
-sharedMemory.generated_tests[targetLayer] = generatedTestInfo
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
-```
+Update shared memory with `generated_tests` field for this layer.
 
 ### Phase 5: Report to Coordinator
 
-```javascript
-const msgType = task.subject.includes('fix') ? 'tests_revised' : 'tests_generated'
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "generator",
-  to: "coordinator",
-  type: msgType,
-  summary: `[generator] ${targetLayer} 测试生成完成: ${generatedTests.length} 文件, 语法${hasSyntaxErrors ? '有错误' : '正常'}`,
-  ref: generatedTests[0]
-})
+Standard report flow: team_msg log -> SendMessage with `[generator]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
-SendMessage({
-  type: "message",
-  recipient: "coordinator",
-  content: `## [generator] Test Generation Results
+Message type selection: `tests_generated` for new generation, `tests_revised` for fix iterations.
 
-**Task**: ${task.subject}
-**Layer**: ${targetLayer} - ${layerConfig.name}
-**Generated**: ${generatedTests.length} test files
-**Syntax**: ${hasSyntaxErrors ? 'ERRORS' : 'CLEAN'}
-
-### Generated Files
-${generatedTests.map(f => `- ${f}`).join('\n')}`,
-  summary: `[generator] QAGEN complete: ${targetLayer} ${generatedTests.length} files`
-})
-
-TaskUpdate({ taskId: task.id, status: 'completed' })
-
-const nextTasks = TaskList().filter(t =>
-  t.subject.startsWith('QAGEN-') && t.owner === agentName &&
-  t.status === 'pending' && t.blockedBy.length === 0
-)
-if (nextTasks.length > 0) { /* back to Phase 1 */ }
-```
+---
 
 ## Error Handling
 

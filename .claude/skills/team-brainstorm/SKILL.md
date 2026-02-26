@@ -6,157 +6,145 @@ allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), Task
 
 # Team Brainstorm
 
-头脑风暴团队技能。通过 Generator-Critic 循环、共享记忆和动态管道选择，实现多角度创意发散、挑战验证和收敛筛选。所有团队成员通过 `--role=xxx` 路由到角色执行逻辑。
+Unified team skill: multi-angle brainstorming via Generator-Critic loops, shared memory, and dynamic pipeline selection. All team members invoke with `--role=xxx` to route to role-specific execution.
 
-## Architecture Overview
+## Architecture
 
 ```
 ┌───────────────────────────────────────────────────┐
-│  Skill(skill="team-brainstorm", args="--role=xxx") │
+│  Skill(skill="team-brainstorm")                    │
+│  args="<topic>" or args="--role=xxx"               │
 └───────────────────┬───────────────────────────────┘
                     │ Role Router
-    ┌───────────┬───┼───────────┬───────────┐
-    ↓           ↓   ↓           ↓           ↓
-┌──────────┐┌───────┐┌──────────┐┌──────────┐┌─────────┐
-│coordinator││ideator││challenger││synthesizer││evaluator│
-│ roles/   ││roles/ ││ roles/   ││ roles/   ││ roles/  │
-└──────────┘└───────┘└──────────┘└──────────┘└─────────┘
+         ┌──── --role present? ────┐
+         │ NO                      │ YES
+         ↓                         ↓
+  Orchestration Mode         Role Dispatch
+  (auto → coordinator)      (route to role.md)
+         │
+    ┌────┴────┬───────────┬───────────┬───────────┐
+    ↓         ↓           ↓           ↓           ↓
+┌──────────┐┌─────────┐┌──────────┐┌──────────┐┌─────────┐
+│coordinator││ ideator ││challenger││synthesizer││evaluator│
+│          ││ IDEA-*  ││CHALLENGE-*││ SYNTH-*  ││ EVAL-*  │
+└──────────┘└─────────┘└──────────┘└──────────┘└─────────┘
 ```
 
 ## Role Router
 
 ### Input Parsing
 
-Parse `$ARGUMENTS` to extract `--role`:
+Parse `$ARGUMENTS` to extract `--role`. If absent → Orchestration Mode (auto route to coordinator).
 
-```javascript
-const args = "$ARGUMENTS"
-const roleMatch = args.match(/--role[=\s]+(\w+)/)
+### Role Registry
 
-if (!roleMatch) {
-  throw new Error("Missing --role argument. Available roles: coordinator, ideator, challenger, synthesizer, evaluator")
-}
+| Role | File | Task Prefix | Type | Compact |
+|------|------|-------------|------|---------|
+| coordinator | [roles/coordinator.md](roles/coordinator.md) | (none) | orchestrator | **⚠️ 压缩后必须重读** |
+| ideator | [roles/ideator.md](roles/ideator.md) | IDEA-* | pipeline | 压缩后必须重读 |
+| challenger | [roles/challenger.md](roles/challenger.md) | CHALLENGE-* | pipeline | 压缩后必须重读 |
+| synthesizer | [roles/synthesizer.md](roles/synthesizer.md) | SYNTH-* | pipeline | 压缩后必须重读 |
+| evaluator | [roles/evaluator.md](roles/evaluator.md) | EVAL-* | pipeline | 压缩后必须重读 |
 
-const role = roleMatch[1]
-const teamName = args.match(/--team[=\s]+([\w-]+)/)?.[1] || "brainstorm"
-const agentName = args.match(/--agent-name[=\s]+([\w-]+)/)?.[1] || role
+> **⚠️ COMPACT PROTECTION**: 角色文件是执行文档，不是参考资料。当 context compression 发生后，角色指令仅剩摘要时，**必须立即 `Read` 对应 role.md 重新加载后再继续执行**。不得基于摘要执行任何 Phase。
+
+### Dispatch
+
+1. Extract `--role` from arguments
+2. If no `--role` → route to coordinator (Orchestration Mode)
+3. Look up role in registry → Read the role file → Execute its phases
+
+### Orchestration Mode
+
+When invoked without `--role`, coordinator auto-starts. User just provides topic description.
+
+**Invocation**: `Skill(skill="team-brainstorm", args="<topic-description>")`
+
+**Lifecycle**:
+```
+User provides topic description
+  → coordinator Phase 1-3: Topic clarification → TeamCreate → Create task chain
+  → coordinator Phase 4: spawn first batch workers (background) → STOP
+  → Worker executes → SendMessage callback → coordinator advances next step
+  → Loop until pipeline complete → Phase 5 report
 ```
 
-### Role Dispatch
+**User Commands** (wake paused coordinator):
 
-```javascript
-const VALID_ROLES = {
-  "coordinator":  { file: "roles/coordinator.md",  prefix: null },
-  "ideator":      { file: "roles/ideator.md",      prefix: "IDEA" },
-  "challenger":   { file: "roles/challenger.md",    prefix: "CHALLENGE" },
-  "synthesizer":  { file: "roles/synthesizer.md",   prefix: "SYNTH" },
-  "evaluator":    { file: "roles/evaluator.md",     prefix: "EVAL" }
-}
+| Command | Action |
+|---------|--------|
+| `check` / `status` | Output execution status graph, no advancement |
+| `resume` / `continue` | Check worker states, advance next step |
 
-if (!VALID_ROLES[role]) {
-  throw new Error(`Unknown role: ${role}. Available: ${Object.keys(VALID_ROLES).join(', ')}`)
-}
-
-// Read and execute role-specific logic
-Read(VALID_ROLES[role].file)
-// → Execute the 5-phase process defined in that file
-```
-
-### Available Roles
-
-| Role | Task Prefix | Responsibility | Role File |
-|------|-------------|----------------|-----------|
-| `coordinator` | N/A | 话题澄清、复杂度评估、管道选择、收敛监控 | [roles/coordinator.md](roles/coordinator.md) |
-| `ideator` | IDEA-* | 多角度创意生成、概念探索、发散思维 | [roles/ideator.md](roles/ideator.md) |
-| `challenger` | CHALLENGE-* | 魔鬼代言人、假设挑战、可行性质疑 | [roles/challenger.md](roles/challenger.md) |
-| `synthesizer` | SYNTH-* | 跨想法整合、主题提取、冲突解决 | [roles/synthesizer.md](roles/synthesizer.md) |
-| `evaluator` | EVAL-* | 评分排序、优先级推荐、最终筛选 | [roles/evaluator.md](roles/evaluator.md) |
+---
 
 ## Shared Infrastructure
 
+The following templates apply to all worker roles. Each role.md only needs to write **Phase 2-4** role-specific logic.
+
+### Worker Phase 1: Task Discovery (shared by all workers)
+
+Every worker executes the same task discovery flow on startup:
+
+1. Call `TaskList()` to get all tasks
+2. Filter: subject matches this role's prefix + owner is this role + status is pending + blockedBy is empty
+3. No tasks → idle wait
+4. Has tasks → `TaskGet` for details → `TaskUpdate` mark in_progress
+
+**Resume Artifact Check** (prevent duplicate output after resume):
+- Check whether this task's output artifact already exists
+- Artifact complete → skip to Phase 5 report completion
+- Artifact incomplete or missing → normal Phase 2-4 execution
+
+### Worker Phase 5: Report (shared by all workers)
+
+Standard reporting flow after task completion:
+
+1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
+   - Parameters: operation="log", team="brainstorm", from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+   - **CLI fallback**: When MCP unavailable → `ccw team log --team brainstorm --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+2. **SendMessage**: Send result to coordinator (content and summary both prefixed with `[<role>]`)
+3. **TaskUpdate**: Mark task completed
+4. **Loop**: Return to Phase 1 to check next task
+
+### Wisdom Accumulation (all roles)
+
+Cross-task knowledge accumulation. Coordinator creates `wisdom/` directory at session initialization.
+
+**Directory**:
+```
+<session-folder>/wisdom/
+├── learnings.md      # Patterns and insights
+├── decisions.md      # Architecture and design decisions
+├── conventions.md    # Codebase conventions
+└── issues.md         # Known risks and issues
+```
+
+**Worker Load** (Phase 2): Extract `Session: <path>` from task description, read wisdom directory files.
+**Worker Contribute** (Phase 4/5): Write this task's discoveries to corresponding wisdom files.
+
 ### Role Isolation Rules
 
-**核心原则**: 每个角色仅能执行自己职责范围内的工作。
+| Allowed | Forbidden |
+|---------|-----------|
+| Process tasks with own prefix | Process tasks with other role prefixes |
+| SendMessage to coordinator | Communicate directly with other workers |
+| Read/write shared-memory.json (own fields) | Create tasks for other roles |
+| Delegate to commands/ files | Modify resources outside own responsibility |
 
-#### Output Tagging（强制）
+Coordinator additional restrictions: Do not generate ideas directly, do not evaluate/challenge ideas, do not execute analysis/synthesis, do not bypass workers.
 
-所有角色的输出必须带 `[role_name]` 标识前缀：
+### Output Tagging
 
-```javascript
-// SendMessage — content 和 summary 都必须带标识
-SendMessage({
-  content: `## [${role}] ...`,
-  summary: `[${role}] ...`
-})
-
-// team_msg — summary 必须带标识
-mcp__ccw-tools__team_msg({
-  summary: `[${role}] ...`
-})
-```
-
-#### Coordinator 隔离
-
-| 允许 | 禁止 |
-|------|------|
-| 需求澄清 (AskUserQuestion) | ❌ 直接生成创意 |
-| 创建任务链 (TaskCreate) | ❌ 直接评估/挑战想法 |
-| 分发任务给 worker | ❌ 直接执行分析/综合 |
-| 监控进度 (消息总线) | ❌ 绕过 worker 自行完成任务 |
-| 汇报结果给用户 | ❌ 修改源代码或产物文件 |
-
-#### Worker 隔离
-
-| 允许 | 禁止 |
-|------|------|
-| 处理自己前缀的任务 | ❌ 处理其他角色前缀的任务 |
-| SendMessage 给 coordinator | ❌ 直接与其他 worker 通信 |
-| 读取 shared-memory.json | ❌ 为其他角色创建任务 (TaskCreate) |
-| 写入 shared-memory.json (自己的字段) | ❌ 修改不属于本职责的资源 |
-
-### Team Configuration
-
-```javascript
-const TEAM_CONFIG = {
-  name: "brainstorm",
-  sessionDir: ".workflow/.team/BRS-{slug}-{date}/",
-  sharedMemory: "shared-memory.json"
-}
-```
-
-### Shared Memory (创新模式)
-
-所有角色在 Phase 2 读取、Phase 5 写入 `shared-memory.json`：
-
-```javascript
-// Phase 2: 读取共享记忆
-const memoryPath = `${sessionFolder}/shared-memory.json`
-let sharedMemory = {}
-try { sharedMemory = JSON.parse(Read(memoryPath)) } catch {}
-
-// Phase 5: 写入共享记忆（仅更新自己负责的字段）
-// ideator   → sharedMemory.generated_ideas
-// challenger → sharedMemory.critique_insights
-// synthesizer → sharedMemory.synthesis_themes
-// evaluator → sharedMemory.evaluation_scores
-Write(memoryPath, JSON.stringify(sharedMemory, null, 2))
-```
+All outputs must carry `[role_name]` prefix in both SendMessage content/summary and team_msg summary.
 
 ### Message Bus (All Roles)
 
 Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
 
-```javascript
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: role,
-  to: "coordinator",
-  type: "<type>",
-  summary: `[${role}] <summary>`,
-  ref: "<file_path>"
-})
-```
+**Parameters**: operation="log", team="brainstorm", from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+
+**CLI fallback**: When MCP unavailable → `ccw team log --team brainstorm --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
 
 **Message types by role**:
 
@@ -168,36 +156,26 @@ mcp__ccw-tools__team_msg({
 | synthesizer | `synthesis_ready`, `error` |
 | evaluator | `evaluation_ready`, `error` |
 
-### CLI Fallback
+### Shared Memory
 
-When `mcp__ccw-tools__team_msg` MCP is unavailable:
+All roles read in Phase 2 and write in Phase 5 to `shared-memory.json`:
 
-```javascript
-Bash(`ccw team log --team "${teamName}" --from "${role}" --to "coordinator" --type "<type>" --summary "<summary>" --json`)
-```
+| Role | Field |
+|------|-------|
+| ideator | `generated_ideas` |
+| challenger | `critique_insights` |
+| synthesizer | `synthesis_themes` |
+| evaluator | `evaluation_scores` |
 
-### Task Lifecycle (All Worker Roles)
+### Team Configuration
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith(`${VALID_ROLES[role].prefix}-`) &&
-  t.owner === agentName &&  // Use agentName (e.g., 'ideator-1') instead of role
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
-if (myTasks.length === 0) return // idle
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
+| Setting | Value |
+|---------|-------|
+| Team name | brainstorm |
+| Session directory | `.workflow/.team/BRS-<slug>-<date>/` |
+| Shared memory | `shared-memory.json` in session dir |
 
-// Phase 2-4: Role-specific (see roles/{role}.md)
-
-// Phase 5: Report + Loop — 所有输出必须带 [role] 标识
-mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: role, to: "coordinator", type: "...", summary: `[${role}] ...` })
-SendMessage({ type: "message", recipient: "coordinator", content: `## [${role}] ...`, summary: `[${role}] ...` })
-TaskUpdate({ taskId: task.id, status: 'completed' })
-// Check for next task → back to Phase 1
-```
+---
 
 ## Three-Pipeline Architecture
 
@@ -214,19 +192,193 @@ Full (Fan-out + Generator-Critic):
 
 ### Generator-Critic Loop
 
-ideator ↔ challenger 循环，最多2轮：
+ideator <-> challenger loop, max 2 rounds:
 
 ```
 IDEA → CHALLENGE → (if critique.severity >= HIGH) → IDEA-fix → CHALLENGE-2 → SYNTH
                    (if critique.severity < HIGH) → SYNTH
 ```
 
+### Cadence Control
+
+**Beat model**: Event-driven, each beat = coordinator wake → process → spawn → STOP. Brainstorm beat: generate → challenge → synthesize → evaluate.
+
+```
+Beat Cycle (single beat)
+═══════════════════════════════════════════════════════════
+  Event                   Coordinator              Workers
+───────────────────────────────────────────────────────────
+  callback/resume ──→ ┌─ handleCallback ─┐
+                      │  mark completed   │
+                      │  check pipeline   │
+                      ├─ handleSpawnNext ─┤
+                      │  find ready tasks │
+                      │  spawn workers ───┼──→ [Worker A] Phase 1-5
+                      │  (parallel OK)  ──┼──→ [Worker B] Phase 1-5
+                      └─ STOP (idle) ─────┘         │
+                                                     │
+  callback ←─────────────────────────────────────────┘
+  (next beat)              SendMessage + TaskUpdate(completed)
+═══════════════════════════════════════════════════════════
+```
+
+**Pipeline beat views**:
+
+```
+Quick (3 beats, strictly serial)
+──────────────────────────────────────────────────────────
+Beat  1         2              3
+      │         │              │
+      IDEA → CHALLENGE ──→ SYNTH
+      ▲                        ▲
+   pipeline                 pipeline
+    start                    done
+
+IDEA=ideator  CHALLENGE=challenger  SYNTH=synthesizer
+
+Deep (5-6 beats, with Generator-Critic loop)
+──────────────────────────────────────────────────────────
+Beat  1         2              3         4         5         6
+      │         │              │         │         │         │
+      IDEA → CHALLENGE → (GC loop?) → IDEA-fix → SYNTH → EVAL
+                              │
+                        severity check
+                  (< HIGH → skip to SYNTH)
+
+Full (4-7 beats, fan-out + Generator-Critic)
+──────────────────────────────────────────────────────────
+Beat  1                    2              3-4        5         6
+ ┌────┴────┐               │              │          │         │
+ IDEA-1 ∥ IDEA-2 ∥ IDEA-3 → CHALLENGE → (GC loop) → SYNTH → EVAL
+ ▲                                                              ▲
+ parallel                                                    pipeline
+ window                                                       done
+```
+
+**Checkpoints**:
+
+| Trigger | Location | Behavior |
+|---------|----------|----------|
+| Generator-Critic loop | After CHALLENGE-* | If severity >= HIGH → create IDEA-fix task; else proceed to SYNTH |
+| GC loop limit | Max 2 rounds | Exceeds limit → force convergence to SYNTH |
+| Pipeline stall | No ready + no running | Check missing tasks, report to user |
+
+**Stall Detection** (coordinator `handleCheck` executes):
+
+| Check | Condition | Resolution |
+|-------|-----------|------------|
+| Worker no response | in_progress task no callback | Report waiting task list, suggest user `resume` |
+| Pipeline deadlock | no ready + no running + has pending | Check blockedBy dependency chain, report blocking point |
+| GC loop exceeded | ideator/challenger iteration > 2 rounds | Terminate loop, force convergence to synthesizer |
+
+### Task Metadata Registry
+
+| Task ID | Role | Phase | Dependencies | Description |
+|---------|------|-------|-------------|-------------|
+| IDEA-001 | ideator | generate | (none) | Multi-angle idea generation |
+| IDEA-002 | ideator | generate | (none) | Parallel angle (Full pipeline only) |
+| IDEA-003 | ideator | generate | (none) | Parallel angle (Full pipeline only) |
+| CHALLENGE-001 | challenger | challenge | IDEA-001 (or all IDEA-*) | Devil's advocate critique and feasibility challenge |
+| IDEA-004 | ideator | gc-fix | CHALLENGE-001 | Revision based on critique (GC loop, if triggered) |
+| CHALLENGE-002 | challenger | gc-fix | IDEA-004 | Re-critique of revised ideas (GC loop round 2) |
+| SYNTH-001 | synthesizer | synthesize | last CHALLENGE-* | Cross-idea integration, theme extraction, conflict resolution |
+| EVAL-001 | evaluator | evaluate | SYNTH-001 | Scoring, ranking, priority recommendation, final selection |
+
+---
+
+## Coordinator Spawn Template
+
+When coordinator spawns workers, use background mode (Spawn-and-Stop).
+
+**Standard spawn** (single agent per role): For Quick/Deep pipeline, spawn one ideator. Challenger, synthesizer, and evaluator are always single agents.
+
+**Parallel spawn** (Full pipeline): For Full pipeline with N idea angles, spawn N ideator agents in parallel (`ideator-1`, `ideator-2`, ...) with `run_in_background: true`. Each parallel ideator only processes tasks where owner matches its agent name. After all parallel ideators complete, proceed with single challenger for batch critique.
+
+**Spawn template**:
+
+```
+Task({
+  subagent_type: "general-purpose",
+  description: "Spawn <role> worker",
+  team_name: "brainstorm",
+  name: "<role>",
+  run_in_background: true,
+  prompt: `You are team "brainstorm" <ROLE>.
+
+## Primary Directive
+All your work must be executed through Skill to load role definition:
+Skill(skill="team-brainstorm", args="--role=<role>")
+
+Current topic: <topic-description>
+Session: <session-folder>
+
+## Role Guidelines
+- Only process <PREFIX>-* tasks, do not execute other role work
+- All output prefixed with [<role>] identifier
+- Only communicate with coordinator
+- Do not use TaskCreate for other roles
+- Call mcp__ccw-tools__team_msg before every SendMessage
+
+## Workflow
+1. Call Skill -> load role definition and execution logic
+2. Follow role.md 5-Phase flow
+3. team_msg + SendMessage results to coordinator
+4. TaskUpdate completed -> check next task`
+})
+```
+
+**Parallel ideator spawn** (Full pipeline with N angles):
+
+> When Full pipeline has N parallel IDEA tasks assigned to ideator role, spawn N distinct agents named `ideator-1`, `ideator-2`, etc. Each agent only processes tasks where owner matches its agent name.
+
+| Condition | Action |
+|-----------|--------|
+| Full pipeline with N idea angles (N > 1) | Spawn N agents: `ideator-1`, `ideator-2`, ... `ideator-N` with `run_in_background: true` |
+| Quick/Deep pipeline (single ideator) | Standard spawn: single `ideator` agent |
+
+```
+Task({
+  subagent_type: "general-purpose",
+  description: "Spawn ideator-<N> worker",
+  team_name: "brainstorm",
+  name: "ideator-<N>",
+  run_in_background: true,
+  prompt: `You are team "brainstorm" IDEATOR (ideator-<N>).
+Your agent name is "ideator-<N>", use this name for task discovery owner matching.
+
+## Primary Directive
+Skill(skill="team-brainstorm", args="--role=ideator --agent-name=ideator-<N>")
+
+Current topic: <topic-description>
+Session: <session-folder>
+
+## Role Guidelines
+- Only process tasks where owner === "ideator-<N>" with IDEA-* prefix
+- All output prefixed with [ideator] identifier
+
+## Workflow
+1. TaskList -> find tasks where owner === "ideator-<N>" with IDEA-* prefix
+2. Skill -> execute role definition
+3. team_msg + SendMessage results to coordinator
+4. TaskUpdate completed -> check next task`
+})
+```
+
+**Dispatch must match agent names**: When dispatching parallel IDEA tasks, coordinator sets each task's owner to the corresponding instance name (`ideator-1`, `ideator-2`, etc.). In role.md, task discovery uses `--agent-name` for owner matching.
+
+---
+
 ## Unified Session Directory
 
 ```
-.workflow/.team/BRS-{slug}-{YYYY-MM-DD}/
+.workflow/.team/BRS-<slug>-<YYYY-MM-DD>/
 ├── team-session.json           # Session state
-├── shared-memory.json          # 累积: generated_ideas / critique_insights / synthesis_themes / evaluation_scores
+├── shared-memory.json          # Cumulative: generated_ideas / critique_insights / synthesis_themes / evaluation_scores
+├── wisdom/                     # Cross-task knowledge
+│   ├── learnings.md
+│   ├── decisions.md
+│   ├── conventions.md
+│   └── issues.md
 ├── ideas/                      # Ideator output
 │   ├── idea-001.md
 │   ├── idea-002.md
@@ -240,159 +392,13 @@ IDEA → CHALLENGE → (if critique.severity >= HIGH) → IDEA-fix → CHALLENGE
     └── evaluation-001.md
 ```
 
-## Coordinator Spawn Template
-
-```javascript
-TeamCreate({ team_name: teamName })
-
-// Ideator — conditional parallel spawn for Full pipeline (multiple angles)
-const isFullPipeline = selectedPipeline === 'full'
-const ideaAngles = selectedAngles || []
-
-if (isFullPipeline && ideaAngles.length > 1) {
-  // Full pipeline: spawn N ideators for N parallel angle tasks
-  for (let i = 0; i < ideaAngles.length; i++) {
-    const agentName = `ideator-${i + 1}`
-    Task({
-      subagent_type: "general-purpose",
-      description: `Spawn ${agentName} worker`,
-      team_name: teamName,
-      name: agentName,
-      prompt: `你是 team "${teamName}" 的 IDEATOR (${agentName})。
-你的 agent 名称是 "${agentName}"，任务发现时用此名称匹配 owner。
-
-当你收到 IDEA-* 任务时，调用 Skill(skill="team-brainstorm", args="--role=ideator --agent-name=${agentName}") 执行。
-当前话题: ${taskDescription}
-约束: ${constraints}
-
-## 角色准则（强制）
-- 你只能处理 owner 为 "${agentName}" 的 IDEA-* 前缀任务
-- 所有输出（SendMessage、team_msg）必须带 [ideator] 标识前缀
-- 仅与 coordinator 通信，不得直接联系其他 worker
-- 不得使用 TaskCreate 为其他角色创建任务
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 owner === "${agentName}" 的 IDEA-* 任务
-2. Skill(skill="team-brainstorm", args="--role=ideator --agent-name=${agentName}") 执行
-3. team_msg log + SendMessage 结果给 coordinator（带 [ideator] 标识）
-4. TaskUpdate completed → 检查下一个任务`
-    })
-  }
-} else {
-  // Quick/Deep pipeline: single ideator
-  Task({
-    subagent_type: "general-purpose",
-    description: `Spawn ideator worker`,
-    team_name: teamName,
-    name: "ideator",
-    prompt: `你是 team "${teamName}" 的 IDEATOR。
-当你收到 IDEA-* 任务时，调用 Skill(skill="team-brainstorm", args="--role=ideator") 执行。
-当前话题: ${taskDescription}
-约束: ${constraints}
-
-## 角色准则（强制）
-- 你只能处理 IDEA-* 前缀的任务，不得执行其他角色的工作
-- 所有输出（SendMessage、team_msg）必须带 [ideator] 标识前缀
-- 仅与 coordinator 通信，不得直接联系其他 worker
-- 不得使用 TaskCreate 为其他角色创建任务
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 IDEA-* 任务
-2. Skill(skill="team-brainstorm", args="--role=ideator") 执行
-3. team_msg log + SendMessage 结果给 coordinator（带 [ideator] 标识）
-4. TaskUpdate completed → 检查下一个任务`
-  })
-}
-
-// Challenger
-Task({
-  subagent_type: "general-purpose",
-  description: `Spawn challenger worker`,
-  team_name: teamName,
-  name: "challenger",
-  prompt: `你是 team "${teamName}" 的 CHALLENGER。
-当你收到 CHALLENGE-* 任务时，调用 Skill(skill="team-brainstorm", args="--role=challenger") 执行。
-当前话题: ${taskDescription}
-
-## 角色准则（强制）
-- 你只能处理 CHALLENGE-* 前缀的任务
-- 所有输出必须带 [challenger] 标识前缀
-- 仅与 coordinator 通信
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 CHALLENGE-* 任务
-2. Skill(skill="team-brainstorm", args="--role=challenger") 执行
-3. team_msg log + SendMessage 结果给 coordinator（带 [challenger] 标识）
-4. TaskUpdate completed → 检查下一个任务`
-})
-
-// Synthesizer
-Task({
-  subagent_type: "general-purpose",
-  description: `Spawn synthesizer worker`,
-  team_name: teamName,
-  name: "synthesizer",
-  prompt: `你是 team "${teamName}" 的 SYNTHESIZER。
-当你收到 SYNTH-* 任务时，调用 Skill(skill="team-brainstorm", args="--role=synthesizer") 执行。
-当前话题: ${taskDescription}
-
-## 角色准则（强制）
-- 你只能处理 SYNTH-* 前缀的任务
-- 所有输出必须带 [synthesizer] 标识前缀
-- 仅与 coordinator 通信
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 SYNTH-* 任务
-2. Skill(skill="team-brainstorm", args="--role=synthesizer") 执行
-3. team_msg log + SendMessage 结果给 coordinator（带 [synthesizer] 标识）
-4. TaskUpdate completed → 检查下一个任务`
-})
-
-// Evaluator
-Task({
-  subagent_type: "general-purpose",
-  description: `Spawn evaluator worker`,
-  team_name: teamName,
-  name: "evaluator",
-  prompt: `你是 team "${teamName}" 的 EVALUATOR。
-当你收到 EVAL-* 任务时，调用 Skill(skill="team-brainstorm", args="--role=evaluator") 执行。
-当前话题: ${taskDescription}
-
-## 角色准则（强制）
-- 你只能处理 EVAL-* 前缀的任务
-- 所有输出必须带 [evaluator] 标识前缀
-- 仅与 coordinator 通信
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 EVAL-* 任务
-2. Skill(skill="team-brainstorm", args="--role=evaluator") 执行
-3. team_msg log + SendMessage 结果给 coordinator（带 [evaluator] 标识）
-4. TaskUpdate completed → 检查下一个任务`
-})
-```
-
 ## Error Handling
 
 | Scenario | Resolution |
 |----------|------------|
 | Unknown --role value | Error with available role list |
-| Missing --role arg | Error with usage hint |
-| Role file not found | Error with expected path (roles/{name}.md) |
+| Missing --role arg | Orchestration Mode → auto route to coordinator |
+| Role file not found | Error with expected path (roles/<name>.md) |
 | Task prefix conflict | Log warning, proceed |
 | Generator-Critic loop exceeds 2 rounds | Force convergence → SYNTH |
 | No ideas generated | Coordinator prompts with seed questions |

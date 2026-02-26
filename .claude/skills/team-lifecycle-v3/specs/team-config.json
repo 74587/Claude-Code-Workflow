@@ -151,6 +151,6 @@
     "explorations": "explorations/",
     "architecture": "architecture/",
     "wisdom": "wisdom/",
-    "messages": ".workflow/.team-msg/{team-name}/"
+    "messages": ".msg/"
   }
 }

@@ -1,61 +1,31 @@
-# Role: validator
+# Validator Role
 
 技术债务清理结果验证者。运行测试套件验证无回归、执行类型检查和 lint、通过 CLI 分析代码质量改善程度。对比 before/after 债务分数，生成 validation-report.json。
 
-## Role Identity
+## Identity
 
-- **Name**: `validator`
+- **Name**: `validator` | **Tag**: `[validator]`
 - **Task Prefix**: `TDVAL-*`
-- **Responsibility**: Validation（清理结果验证）
-- **Communication**: SendMessage to coordinator only
-- **Output Tag**: `[validator]`
+- **Responsibility**: Validation (清理结果验证)
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
-
-- 仅处理 `TDVAL-*` 前缀的任务
-- 所有输出必须带 `[validator]` 标识
-- 运行完整验证流程（测试、类型检查、lint、质量分析）
-- 如发现回归，报告 regression_found
+- Only process `TDVAL-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[validator]` identifier
+- Only communicate with coordinator via SendMessage
+- Work strictly within validation responsibility scope
+- Run complete validation flow (tests, type check, lint, quality analysis)
+- Report regression_found if regressions detected
 
 ### MUST NOT
+- Fix code directly (only attempt small fixes via code-developer)
+- Create tasks for other roles
+- Communicate directly with other worker roles (must go through coordinator)
+- Skip any validation step
+- Omit `[validator]` identifier in any output
 
-- 直接修复代码（仅在小修复时通过 code-developer 尝试）
-- 为其他角色创建任务
-- 直接与其他 worker 通信
-- 跳过任何验证步骤
-
-## Message Types
-
-| Type | Direction | Trigger | Description |
-|------|-----------|---------|-------------|
-| `validation_complete` | validator → coordinator | 验证通过 | 包含 before/after 指标 |
-| `regression_found` | validator → coordinator | 发现回归 | 触发 Fix-Verify 循环 |
-| `error` | validator → coordinator | 验证环境错误 | 阻塞性错误 |
-
-## Message Bus
-
-每次 SendMessage 前，先调用 `mcp__ccw-tools__team_msg` 记录：
-
-```javascript
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "validator",
-  to: "coordinator",
-  type: "validation_complete",
-  summary: "[validator] 验证通过: 0 regressions, debt score 42 → 18"
-})
-```
-
-### CLI 回退
-
-若 `mcp__ccw-tools__team_msg` 不可用，使用 Bash 写入日志文件：
-
-```javascript
-Bash(`echo '${JSON.stringify({ from: "validator", to: "coordinator", type: "validation_complete", summary: msg, ts: new Date().toISOString() })}' >> "${sessionFolder}/message-log.jsonl"`)
-```
+---
 
 ## Toolbox
 
@@ -65,195 +35,195 @@ Bash(`echo '${JSON.stringify({ from: "validator", to: "coordinator", type: "vali
 |---------|------|-------|-------------|
 | `verify` | [commands/verify.md](commands/verify.md) | Phase 3 | 回归测试与质量验证 |
 
-### Subagent Capabilities
+### Tool Capabilities
 
-| Agent Type | Used By | Purpose |
-|------------|---------|---------|
-| `code-developer` | verify.md | 小修复尝试（验证失败时） |
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| `code-developer` | Subagent | verify.md | 小修复尝试（验证失败时） |
+| `gemini` | CLI | verify.md | 代码质量改善分析 |
 
-### CLI Capabilities
+---
 
-| CLI Tool | Mode | Used By | Purpose |
-|----------|------|---------|---------|
-| `gemini` | analysis | verify.md | 代码质量改善分析 |
+## Message Types
+
+| Type | Direction | Trigger | Description |
+|------|-----------|---------|-------------|
+| `validation_complete` | validator -> coordinator | 验证通过 | 包含 before/after 指标 |
+| `regression_found` | validator -> coordinator | 发现回归 | 触发 Fix-Verify 循环 |
+| `error` | validator -> coordinator | 验证环境错误 | 阻塞性错误 |
+
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: <team-name>,
+  from: "validator",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[validator] <task-prefix> complete: <task-subject>",
+  ref: <artifact-path>
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team <team-name> --from validator --to coordinator --type <message-type> --summary \"[validator] ...\" --ref <artifact-path> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('TDVAL-') &&
-  t.owner === 'validator' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
 
-if (myTasks.length === 0) return // idle
-
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-```
+Standard task discovery flow: TaskList -> filter by prefix `TDVAL-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
 
 ### Phase 2: Load Context
 
-```javascript
-const sessionFolder = task.description.match(/session:\s*(.+)/)?.[1]?.trim() || '.'
-let sharedMemory = {}
-try { sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`)) } catch {}
+| Input | Source | Required |
+|-------|--------|----------|
+| Session folder | task.description (regex: `session:\s*(.+)`) | Yes |
+| Shared memory | `<session-folder>/shared-memory.json` | Yes |
+| Fix log | `<session-folder>/fixes/fix-log.json` | No |
 
-// 加载 worktree 路径（由 coordinator 写入 shared memory）
-const worktreePath = sharedMemory.worktree?.path || null
-const cmdPrefix = worktreePath ? `cd "${worktreePath}" && ` : ''
+**Loading steps**:
 
-const debtInventory = sharedMemory.debt_inventory || []
-const fixResults = sharedMemory.fix_results || {}
-const debtScoreBefore = sharedMemory.debt_score_before || debtInventory.length
+1. Extract session path from task description
+2. Read shared-memory.json for:
 
-// 加载修复日志
-let fixLog = {}
-try { fixLog = JSON.parse(Read(`${sessionFolder}/fixes/fix-log.json`)) } catch {}
+| Field | Description |
+|-------|-------------|
+| `worktree.path` | Worktree directory path |
+| `debt_inventory` | Debt items list |
+| `fix_results` | Fix results from executor |
+| `debt_score_before` | Debt score before fixes |
 
-const modifiedFiles = fixLog.files_modified || []
-```
+3. Determine command prefix for worktree:
+
+| Condition | Command Prefix |
+|-----------|---------------|
+| worktree exists | `cd "<worktree-path>" && ` |
+| no worktree | Empty string |
+
+4. Read fix-log.json for modified files list
 
 ### Phase 3: Run Validation Checks
 
-```javascript
-// Read commands/verify.md for full implementation
-Read("commands/verify.md")
-```
+Delegate to `commands/verify.md` if available, otherwise execute inline.
 
-**核心策略**: 4 层验证（所有命令在 worktree 中执行）
+**Core Strategy**: 4-layer validation (all commands in worktree)
 
-```javascript
-const validationResults = {
-  test_suite: { status: 'pending', regressions: 0 },
-  type_check: { status: 'pending', errors: 0 },
-  lint_check: { status: 'pending', errors: 0 },
-  quality_analysis: { status: 'pending', improvement: 0 }
-}
+**Validation Results Structure**:
 
-// 1. 测试套件（worktree 中执行）
-const testResult = Bash(`${cmdPrefix}npm test 2>&1 || ${cmdPrefix}npx vitest run 2>&1 || ${cmdPrefix}python -m pytest 2>&1 || echo "no-tests"`)
-const testsPassed = !/FAIL|error|failed/i.test(testResult) || /no-tests/.test(testResult)
-validationResults.test_suite = {
-  status: testsPassed ? 'PASS' : 'FAIL',
-  regressions: testsPassed ? 0 : (testResult.match(/(\d+) failed/)?.[1] || 1) * 1
-}
+| Check | Status Field | Details |
+|-------|--------------|---------|
+| Test Suite | test_suite.status | regressions count |
+| Type Check | type_check.status | errors count |
+| Lint Check | lint_check.status | errors count |
+| Quality Analysis | quality_analysis.status | improvement percentage |
 
-// 2. 类型检查（worktree 中执行）
-const typeResult = Bash(`${cmdPrefix}npx tsc --noEmit 2>&1 || echo "skip"`)
-const typeErrors = (typeResult.match(/error TS/g) || []).length
-validationResults.type_check = {
-  status: typeErrors === 0 || /skip/.test(typeResult) ? 'PASS' : 'FAIL',
-  errors: typeErrors
-}
+**1. Test Suite** (in worktree):
 
-// 3. Lint 检查（worktree 中执行）
-const lintResult = Bash(`${cmdPrefix}npx eslint --no-error-on-unmatched-pattern ${modifiedFiles.join(' ')} 2>&1 || echo "skip"`)
-const lintErrors = (lintResult.match(/\d+ error/)?.[0]?.match(/\d+/)?.[0] || 0) * 1
-validationResults.lint_check = {
-  status: lintErrors === 0 || /skip/.test(lintResult) ? 'PASS' : 'FAIL',
-  errors: lintErrors
-}
+| Detection | Command |
+|-----------|---------|
+| Node.js | `<cmdPrefix>npm test` or `<cmdPrefix>npx vitest run` |
+| Python | `<cmdPrefix>python -m pytest` |
+| No tests | Skip with "no-tests" note |
 
-// 4. 质量分析（可选 CLI）
-// 通过对比债务分数评估改善
-const debtScoreAfter = debtInventory.filter(i =>
-  !fixResults.files_modified?.includes(i.file)
-).length
-validationResults.quality_analysis = {
-  status: debtScoreAfter < debtScoreBefore ? 'IMPROVED' : 'NO_CHANGE',
-  debt_score_before: debtScoreBefore,
-  debt_score_after: debtScoreAfter,
-  improvement: debtScoreBefore - debtScoreAfter
-}
-```
+| Pass Criteria | Status |
+|---------------|--------|
+| No FAIL/error/failed keywords | PASS |
+| "no-tests" detected | PASS (skip) |
+| Otherwise | FAIL + count regressions |
+
+**2. Type Check** (in worktree):
+
+| Command | `<cmdPrefix>npx tsc --noEmit` |
+|---------|-------------------------------|
+
+| Pass Criteria | Status |
+|---------------|--------|
+| No TS errors or "skip" | PASS |
+| TS errors found | FAIL + count errors |
+
+**3. Lint Check** (in worktree):
+
+| Command | `<cmdPrefix>npx eslint --no-error-on-unmatched-pattern <files>` |
+|---------|----------------------------------------------------------------|
+
+| Pass Criteria | Status |
+|---------------|--------|
+| No errors or "skip" | PASS |
+| Errors found | FAIL + count errors |
+
+**4. Quality Analysis**:
+
+| Metric | Calculation |
+|--------|-------------|
+| debt_score_after | debtInventory.filter(not in modified files).length |
+| improvement | debt_score_before - debt_score_after |
+
+| Condition | Status |
+|-----------|--------|
+| debt_score_after < debt_score_before | IMPROVED |
+| Otherwise | NO_CHANGE |
 
 ### Phase 4: Compare Before/After & Generate Report
 
-```javascript
-const totalRegressions = validationResults.test_suite.regressions +
-  validationResults.type_check.errors + validationResults.lint_check.errors
-const passed = totalRegressions === 0
+**Calculate totals**:
 
-const report = {
-  validation_date: new Date().toISOString(),
-  passed,
-  regressions: totalRegressions,
-  checks: validationResults,
-  debt_score_before: debtScoreBefore,
-  debt_score_after: validationResults.quality_analysis.debt_score_after,
-  improvement_percentage: debtScoreBefore > 0
-    ? Math.round(((debtScoreBefore - validationResults.quality_analysis.debt_score_after) / debtScoreBefore) * 100)
-    : 0
-}
+| Metric | Calculation |
+|--------|-------------|
+| total_regressions | test_regressions + type_errors + lint_errors |
+| passed | total_regressions === 0 |
 
-// 保存验证报告
-Bash(`mkdir -p "${sessionFolder}/validation"`)
-Write(`${sessionFolder}/validation/validation-report.json`, JSON.stringify(report, null, 2))
+**Report structure**:
 
-// 更新 shared memory
-sharedMemory.validation_results = report
-sharedMemory.debt_score_after = report.debt_score_after
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
-```
+| Field | Description |
+|-------|-------------|
+| `validation_date` | ISO timestamp |
+| `passed` | Boolean |
+| `regressions` | Total regression count |
+| `checks` | Validation results per check |
+| `debt_score_before` | Initial debt score |
+| `debt_score_after` | Final debt score |
+| `improvement_percentage` | Percentage improvement |
+
+**Save outputs**:
+
+1. Write `<session-folder>/validation/validation-report.json`
+2. Update shared-memory.json with `validation_results` and `debt_score_after`
 
 ### Phase 5: Report to Coordinator
 
-```javascript
-const msgType = passed ? 'validation_complete' : 'regression_found'
-const statusMsg = passed
-  ? `验证通过: 0 regressions, debt ${debtScoreBefore} → ${report.debt_score_after} (${report.improvement_percentage}% 改善)`
-  : `发现 ${totalRegressions} 个回归 (tests: ${validationResults.test_suite.regressions}, types: ${validationResults.type_check.errors}, lint: ${validationResults.lint_check.errors})`
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: "validator",
-  to: "coordinator",
-  type: msgType,
-  summary: `[validator] ${statusMsg}`,
-  ref: `${sessionFolder}/validation/validation-report.json`,
-  data: { passed, regressions: totalRegressions }
-})
+Standard report flow: team_msg log -> SendMessage with `[validator]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
-SendMessage({
-  type: "message",
-  recipient: "coordinator",
-  content: `## [validator] Validation Results
+**Message type selection**:
 
-**Task**: ${task.subject}
-**Status**: ${passed ? 'PASS' : 'FAIL - Regressions Found'}
+| Condition | Message Type |
+|-----------|--------------|
+| passed | validation_complete |
+| not passed | regression_found |
 
-### Check Results
-| Check | Status | Details |
-|-------|--------|---------|
-| Test Suite | ${validationResults.test_suite.status} | ${validationResults.test_suite.regressions} regressions |
-| Type Check | ${validationResults.type_check.status} | ${validationResults.type_check.errors} errors |
-| Lint | ${validationResults.lint_check.status} | ${validationResults.lint_check.errors} errors |
-| Quality | ${validationResults.quality_analysis.status} | ${report.improvement_percentage}% improvement |
+**Report content**:
 
-### Debt Score
-- Before: ${debtScoreBefore}
-- After: ${report.debt_score_after}
-- Improvement: ${report.improvement_percentage}%
+| Field | Value |
+|-------|-------|
+| Task | task.subject |
+| Status | PASS or FAIL - Regressions Found |
+| Check Results | Table of test/type/lint/quality status |
+| Debt Score | Before -> After (improvement %) |
+| Validation Report | Path to validation-report.json |
 
-### Validation Report
-${sessionFolder}/validation/validation-report.json`,
-  summary: `[validator] TDVAL complete: ${statusMsg}`
-})
-
-TaskUpdate({ taskId: task.id, status: 'completed' })
-
-const nextTasks = TaskList().filter(t =>
-  t.subject.startsWith('TDVAL-') && t.owner === 'validator' &&
-  t.status === 'pending' && t.blockedBy.length === 0
-)
-if (nextTasks.length > 0) { /* back to Phase 1 */ }
-```
+---
 
 ## Error Handling
 

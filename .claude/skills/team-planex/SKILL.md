@@ -29,42 +29,25 @@ allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), Task
 
 ### Input Parsing
 
-```javascript
-const args = "$ARGUMENTS"
-const roleMatch = args.match(/--role[=\s]+(\w+)/)
+Parse `$ARGUMENTS` to extract `--role`. If absent -> Orchestration Mode (SKILL.md as lightweight coordinator).
 
-if (!roleMatch) {
-  // No --role: orchestration mode (lightweight coordinator)
-  // → See "Orchestration Mode" section below
-}
+Optional flags: `--team` (default: "planex"), `--exec` (execution method), `-y`/`--yes` (auto mode).
 
-const role = roleMatch[1]
-const teamName = args.match(/--team[=\s]+([\w-]+)/)?.[1] || "planex"
-```
+### Role Registry
 
-### Role Dispatch
+| Role | File | Task Prefix | Type | Compact |
+|------|------|-------------|------|---------|
+| planner | [roles/planner.md](roles/planner.md) | PLAN-* | pipeline (lead) | **压缩后必须重读** |
+| executor | [roles/executor.md](roles/executor.md) | EXEC-* | pipeline | 压缩后必须重读 |
 
-```javascript
-const VALID_ROLES = {
-  "planner":  { file: "roles/planner.md",  prefix: "PLAN" },
-  "executor": { file: "roles/executor.md", prefix: "EXEC" }
-}
+> **COMPACT PROTECTION**: 角色文件是执行文档，不是参考资料。当 context compression 发生后，角色指令仅剩摘要时，**必须立即 `Read` 对应 role.md 重新加载后再继续执行**。不得基于摘要执行任何 Phase。
 
-if (!VALID_ROLES[role]) {
-  throw new Error(`Unknown role: ${role}. Available: ${Object.keys(VALID_ROLES).join(', ')}`)
-}
+### Dispatch
 
-// Read and execute role-specific logic
-Read(VALID_ROLES[role].file)
-// → Execute the 5-phase process defined in that file
-```
-
-### Available Roles
-
-| Role | Task Prefix | Responsibility | Reuses Agent | Role File |
-|------|-------------|----------------|--------------|-----------|
-| `planner` | PLAN-* | 需求拆解 → issue 创建 → 方案设计 → 冲突检查 → EXEC 任务逐个派发 | issue-plan-agent | [roles/planner.md](roles/planner.md) |
-| `executor` | EXEC-* | 加载 solution → 代码实现 → 测试 → 提交 | code-developer | [roles/executor.md](roles/executor.md) |
+1. Extract `--role` from arguments
+2. If no `--role` -> Orchestration Mode (SKILL.md as lightweight coordinator)
+3. Look up role in registry -> Read the role file -> Execute its phases
+4. Unknown role -> Error with available role list: planner, executor
 
 ## Input Types
 
@@ -82,55 +65,43 @@ Read(VALID_ROLES[role].file)
 
 #### Output Tagging（强制）
 
-```javascript
-SendMessage({ content: `## [${role}] ...`, summary: `[${role}] ...` })
-mcp__ccw-tools__team_msg({ summary: `[${role}] ...` })
-```
+所有角色的输出（SendMessage、team_msg）必须带 `[role_name]` 标识前缀。
 
 #### Planner 边界
 
 | 允许 | 禁止 |
 |------|------|
-| 需求拆解 (issue 创建) | ❌ 直接编写/修改代码 |
-| 方案设计 (issue-plan-agent) | ❌ 调用 code-developer |
-| 冲突检查 (inline files_touched) | ❌ 运行测试 |
-| 创建 EXEC-* 任务 | ❌ git commit |
+| 需求拆解 (issue 创建) | 直接编写/修改代码 |
+| 方案设计 (issue-plan-agent) | 调用 code-developer |
+| 冲突检查 (inline files_touched) | 运行测试 |
+| 创建 EXEC-* 任务 | git commit |
 | 监控进度 (消息总线) | |
 
 #### Executor 边界
 
 | 允许 | 禁止 |
 |------|------|
-| 处理 EXEC-* 前缀的任务 | ❌ 创建 issue |
-| 调用 code-developer 实现 | ❌ 修改 solution/queue |
-| 运行测试验证 | ❌ 为 planner 创建 PLAN-* 任务 |
-| git commit 提交 | ❌ 直接与用户交互 (AskUserQuestion) |
+| 处理 EXEC-* 前缀的任务 | 创建 issue |
+| 调用 code-developer 实现 | 修改 solution/queue |
+| 运行测试验证 | 为 planner 创建 PLAN-* 任务 |
+| git commit 提交 | 直接与用户交互 (AskUserQuestion) |
 | SendMessage 给 planner | |
 
 ### Team Configuration
 
-```javascript
-const TEAM_CONFIG = {
-  name: "planex",
-  sessionDir: ".workflow/.team/PEX-{slug}-{date}/",
-  artifactsDir: ".workflow/.team/PEX-{slug}-{date}/artifacts/",
-  issueDataDir: ".workflow/issues/"
-}
-```
+| Key | Value |
+|-----|-------|
+| name | planex |
+| sessionDir | `.workflow/.team/PEX-{slug}-{date}/` |
+| artifactsDir | `.workflow/.team/PEX-{slug}-{date}/artifacts/` |
+| issueDataDir | `.workflow/issues/` |
 
 ### Message Bus
 
-```javascript
-mcp__ccw-tools__team_msg({
-  operation: "log",
-  team: teamName,
-  from: role,
-  to: role === "planner" ? "executor" : "planner",
-  type: "<type>",
-  summary: `[${role}] <summary>`,
-  ref: "<file_path>"
-})
-```
+每次 SendMessage 前，先调用 `mcp__ccw-tools__team_msg` 记录：
+
+- 参数: operation="log", team=`<team-name>`, from=`<role>`, to=`<target-role>`, type=`<type>`, summary="[`<role>`] `<summary>`", ref=`<file_path>`
+- **CLI fallback**: 当 MCP 不可用时 -> `ccw team log --team <team> --from <role> --to <target> --type <type> --summary "[<role>] ..." --json`
 
 **Message types by role**:
 
@@ -139,38 +110,33 @@ mcp__ccw-tools__team_msg({
 | planner | `wave_ready`, `issue_ready`, `all_planned`, `error` |
 | executor | `impl_complete`, `impl_failed`, `wave_done`, `error` |
 
-### CLI Fallback
-
-```javascript
-Bash(`ccw team log --team "${teamName}" --from "${role}" --to "${role === 'planner' ? 'executor' : 'planner'}" --type "<type>" --summary "<summary>" --json`)
-```
-
 ### Task Lifecycle (Both Roles)
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith(`${VALID_ROLES[role].prefix}-`) &&
-  t.owner === role &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
-if (myTasks.length === 0) return // idle
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
-// Phase 2-4: Role-specific (see roles/{role}.md)
-// Phase 5: Report + Loop
-```
+每个 worker 启动后执行相同的任务发现流程：
+
+1. 调用 `TaskList()` 获取所有任务
+2. 筛选: subject 匹配本角色前缀 + owner 是本角色 + status 为 pending + blockedBy 为空
+3. 无任务 -> idle 等待
+4. 有任务 -> `TaskGet` 获取详情 -> `TaskUpdate` 标记 in_progress
+5. Phase 2-4: Role-specific (see roles/{role}.md)
+6. Phase 5: Report + Loop
+
+**Resume Artifact Check** (防止恢复后重复产出):
+- 检查本任务的输出产物是否已存在
+- 产物完整 -> 跳到 Phase 5 报告完成
+- 产物不完整或不存在 -> 正常执行 Phase 2-4
+
+---
 
 ## Wave Pipeline (逐 Issue 节拍)
 
 ```
-Issue 1:  planner 规划 solution → 写中间产物 → 冲突检查 → 创建 EXEC-* → issue_ready
+Issue 1:  planner 规划 solution -> 写中间产物 -> 冲突检查 -> 创建 EXEC-* -> issue_ready
                 ↓ (executor 立即开始)
-Issue 2:  planner 规划 solution → 写中间产物 → 冲突检查 → 创建 EXEC-* → issue_ready
+Issue 2:  planner 规划 solution -> 写中间产物 -> 冲突检查 -> 创建 EXEC-* -> issue_ready
                 ↓ (executor 并行消费)
 Issue N:  ...
-Final:    planner 发送 all_planned → executor 完成剩余 EXEC-* → 结束
+Final:    planner 发送 all_planned -> executor 完成剩余 EXEC-* -> 结束
 ```
 
 **节拍规则**:
@@ -190,62 +156,24 @@ Final:    planner 发送 all_planned → executor 完成剩余 EXEC-* → 结束
 | `codex` | `ccw cli --tool codex --mode write` | 复杂任务、后台执行 |
 | `gemini` | `ccw cli --tool gemini --mode write` | 分析类任务、后台执行 |
 
-### 选择逻辑
+### Selection Decision Table
 
-```javascript
-// ★ 统一 auto mode 检测：-y/--yes 从 $ARGUMENTS 或 ccw 传播
-const autoYes = /\b(-y|--yes)\b/.test(args)
-const explicitExec = args.match(/--exec[=\s]+(agent|codex|gemini|auto)/i)?.[1]
+| Condition | Execution Method | Code Review |
+|-----------|-----------------|-------------|
+| `--exec=agent` specified | Agent | Skip |
+| `--exec=codex` specified | Codex | Skip |
+| `--exec=gemini` specified | Gemini | Skip |
+| `-y` or `--yes` flag present | Auto (default Agent) | Skip |
+| No flags (interactive) | AskUserQuestion -> user choice | AskUserQuestion -> user choice |
+| Auto + task_count <= 3 | Agent | Skip |
+| Auto + task_count > 3 | Codex | Skip |
 
-let executionConfig
+### Interactive Prompt (no flags)
 
-if (explicitExec) {
-  // 显式指定
-  executionConfig = {
-    executionMethod: explicitExec.charAt(0).toUpperCase() + explicitExec.slice(1),
-    codeReviewTool: "Skip"
-  }
-} else if (autoYes) {
-  // Auto 模式：默认 Agent + Skip review
-  executionConfig = { executionMethod: "Auto", codeReviewTool: "Skip" }
-} else {
-  // 交互选择
-  executionConfig = AskUserQuestion({
-    questions: [
-      {
-        question: "选择执行方式:",
-        header: "Execution",
-        multiSelect: false,
-        options: [
-          { label: "Agent", description: "code-developer agent（同步，适合简单任务）" },
-          { label: "Codex", description: "Codex CLI（后台，适合复杂任务）" },
-          { label: "Gemini", description: "Gemini CLI（后台，适合分析类任务）" },
-          { label: "Auto", description: "根据任务复杂度自动选择" }
-        ]
-      },
-      {
-        question: "执行后是否进行代码审查?",
-        header: "Code Review",
-        multiSelect: false,
-        options: [
-          { label: "Skip", description: "不审查" },
-          { label: "Gemini Review", description: "Gemini CLI 审查" },
-          { label: "Codex Review", description: "Git-aware review（--uncommitted）" },
-          { label: "Agent Review", description: "当前 agent 审查" }
-        ]
-      }
-    ]
-  })
-}
+当无 `-y`/`--yes` 且无 `--exec` 时，通过 AskUserQuestion 交互选择：
 
-// Auto 解析：根据 solution task_count 决定
-function resolveExecutor(taskCount) {
-  if (executionConfig.executionMethod === 'Auto') {
-    return taskCount <= 3 ? 'agent' : 'codex'
-  }
-  return executionConfig.executionMethod.toLowerCase()
-}
-```
+- **执行方式选项**: Agent / Codex / Gemini / Auto
+- **代码审查选项**: Skip / Gemini Review / Codex Review / Agent Review
 
 ### 通过 args 指定
 
@@ -258,120 +186,244 @@ Skill(skill="team-planex", args="--exec=agent --text '简单功能'")
 Skill(skill="team-planex", args="-y --text '添加日志'")
 ```
 
+---
+
 ## Orchestration Mode
 
-当不带 `--role` 调用时，SKILL.md 进入轻量编排模式：
+当不带 `--role` 调用时，SKILL.md 进入轻量编排模式（无独立 coordinator 角色，SKILL.md 自身承担编排）。
 
-```javascript
-// 1. 创建团队
-TeamCreate({ team_name: teamName })
+**Invocation**: `Skill(skill="team-planex", args="任务描述")`
 
-// 1.5 初始化 sessionDir + artifacts 目录
-const slug = (issueIds[0] || 'batch').replace(/[^a-zA-Z0-9-]/g, '')
-const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'')
-const sessionId = `PEX-${slug}-${dateStr}`
-const sessionDir = `.workflow/.team/${sessionId}`
-Bash(`mkdir -p "${sessionDir}/artifacts/solutions"`)
+**Lifecycle**:
 
-// 2. 解析输入参数
-const issueIds = args.match(/ISS-\d{8}-\d{6}/g) || []
-const textMatch = args.match(/--text\s+['"]([^'"]+)['"]/)
-const planMatch = args.match(/--plan\s+(\S+)/)
+```
+用户提供任务描述
+  -> SKILL.md 解析输入（Issue IDs / 需求文本 / Plan 文件）
+  -> 初始化 sessionDir + artifacts 目录
+  -> 执行方式选择（见 Execution Method Selection）
+  -> 创建 PLAN-001 任务（owner: planner）
+  -> Spawn planner agent (后台)
+  -> Spawn executor agent (后台)
+  -> 返回（planner lead 后续推进）
+```
 
-let plannerInput = args  // 透传给 planner
+**User Commands** (唤醒 / 检查状态):
 
-// 3. 执行方式选择（见上方 Execution Method Selection）
-// executionConfig 已确定: { executionMethod, codeReviewTool }
+| Command | Action |
+|---------|--------|
+| `check` / `status` | 输出执行状态图，不推进 |
+| `resume` / `continue` | 检查 worker 状态，推进下一步 |
 
-// 4. 创建初始 PLAN-* 任务
-TaskCreate({
-  subject: "PLAN-001: 初始规划",
-  description: `规划任务。输入: ${plannerInput}`,
-  activeForm: "规划中",
-  owner: "planner"
-})
+### Coordinator Spawn Template
 
-// 5. Spawn planner agent
+SKILL.md 编排模式 spawn workers 时使用后台模式 (Spawn-and-Go):
+
+**Planner Spawn**:
+
+```
 Task({
   subagent_type: "general-purpose",
-  description: `Spawn planner worker`,
-  team_name: teamName,
+  description: "Spawn planner worker",
+  team_name: <team-name>,
   name: "planner",
-  prompt: `你是 team "${teamName}" 的 PLANNER。
-当你收到 PLAN-* 任务时，调用 Skill(skill="team-planex", args="--role=planner") 执行。
-当前输入: ${plannerInput}
+  run_in_background: true,
+  prompt: `你是 team "<team-name>" 的 PLANNER。
+
+## 首要指令
+你的所有工作必须通过调用 Skill 获取角色定义后执行：
+Skill(skill="team-planex", args="--role=planner")
+
+当前输入: <planner-input>
+Session: <session-dir>
 
 ## 执行配置
-executor 的执行方式已确定: ${executionConfig.executionMethod}
-创建 EXEC-* 任务时，在 description 中包含:
-  execution_method: ${executionConfig.executionMethod}
-  code_review: ${executionConfig.codeReviewTool}
+executor 的执行方式: <execution-method>
+创建 EXEC-* 任务时，description 中包含:
+  execution_method: <method>
+  code_review: <review-tool>
 
 ## 中间产物（必须）
-sessionDir: ${sessionDir}
-每个 issue 的 solution 写入: ${sessionDir}/artifacts/solutions/{issueId}.json
+每个 issue 的 solution 写入: <session-dir>/artifacts/solutions/{issueId}.json
 EXEC-* 任务 description 必须包含 solution_file 字段指向该文件
 每完成一个 issue 立即发送 issue_ready 消息并创建 EXEC-* 任务
 
-## 角色准则（强制）
-- 你只能处理 PLAN-* 前缀的任务
-- 所有输出必须带 [planner] 标识前缀
-- 每完成一个 issue 的 solution 后立即创建 EXEC-* 任务（逐 issue 派发，不等 wave 完成）
-- EXEC-* 任务 description 中必须包含 execution_method 和 solution_file 字段
+## 角色准则
+- 只处理 PLAN-* 任务，不执行其他角色工作
+- 所有输出带 [planner] 标识前缀
+- 仅与 coordinator 通信
+- 不使用 TaskCreate 为其他角色创建任务（EXEC-* 除外）
+- 每次 SendMessage 前先调用 mcp__ccw-tools__team_msg 记录
 
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 PLAN-* 任务
-2. Skill(skill="team-planex", args="--role=planner") 执行
-3. team_msg log + SendMessage
-4. TaskUpdate completed → 检查下一个任务`
+## 工作流程
+1. 调用 Skill -> 获取角色定义和执行逻辑
+2. 按 role.md 5-Phase 流程执行
+3. team_msg + SendMessage 结果给 coordinator
+4. TaskUpdate completed -> 检查下一个任务`
 })
+```
 
-// 6. Spawn executor agent
+**Executor Spawn**:
+
+```
 Task({
   subagent_type: "general-purpose",
-  description: `Spawn executor worker`,
-  team_name: teamName,
+  description: "Spawn executor worker",
+  team_name: <team-name>,
   name: "executor",
-  prompt: `你是 team "${teamName}" 的 EXECUTOR。
-当你收到 EXEC-* 任务时，调用 Skill(skill="team-planex", args="--role=executor") 执行。
+  run_in_background: true,
+  prompt: `你是 team "<team-name>" 的 EXECUTOR。
+
+## 首要指令
+你的所有工作必须通过调用 Skill 获取角色定义后执行：
+Skill(skill="team-planex", args="--role=executor")
 
 ## 执行配置
-默认执行方式: ${executionConfig.executionMethod}
-代码审查: ${executionConfig.codeReviewTool}
+默认执行方式: <execution-method>
+代码审查: <review-tool>
 （每个 EXEC-* 任务 description 中可能包含 execution_method 覆盖）
 
 ## Solution 加载
 优先从 EXEC-* 任务 description 中的 solution_file 路径读取 solution JSON 文件
 无 solution_file 时 fallback 到 ccw issue solution 命令
 
-## 角色准则（强制）
-- 你只能处理 EXEC-* 前缀的任务
-- 所有输出必须带 [executor] 标识前缀
+## 角色准则
+- 只处理 EXEC-* 任务，不执行其他角色工作
+- 所有输出带 [executor] 标识前缀
 - 根据 execution_method 选择执行后端（Agent/Codex/Gemini）
-- 每个 solution 完成后通知 planner
+- 仅与 coordinator 通信
+- 每次 SendMessage 前先调用 mcp__ccw-tools__team_msg 记录
 
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-工作流程:
-1. TaskList → 找到 EXEC-* 任务（等待 planner 创建）
-2. Skill(skill="team-planex", args="--role=executor") 执行
-3. team_msg log + SendMessage
-4. TaskUpdate completed → 检查下一个任务`
+## 工作流程
+1. 调用 Skill -> 获取角色定义和执行逻辑
+2. 按 role.md 5-Phase 流程执行
+3. team_msg + SendMessage 结果给 coordinator
+4. TaskUpdate completed -> 检查下一个任务`
 })
 ```
+
+---
+
+## Cadence Control
+
+**节拍模型**: Wave beat -- planner 持续推进，executor 并行消费。每个 wave = planner 完成一个 issue -> executor 开始实现。
+
+```
+Wave Beat Cycle (逐 Issue 节拍)
+===================================================================
+  Event                    SKILL.md (编排)         Workers
+-------------------------------------------------------------------
+  用户调用 ---------> ┌─ 解析输入 ─────────┐
+                      │  初始化 session      │
+                      │  选择执行方式         │
+                      ├─ 创建 PLAN-001 ─────┤
+                      │  spawn planner ──────┼──> [Planner] Phase 1-5
+                      │  spawn executor ─────┼──> [Executor] Phase 1 (idle)
+                      └─ 返回 (编排结束) ───┘         │
+                                                       │
+  Wave 1:                                    Planner: issue-1 solution
+                                             -> 写产物 -> 创建 EXEC-001
+                                             -> issue_ready ---------> Executor 开始 EXEC-001
+  Wave 2:                                    Planner: issue-2 solution
+                                             -> 写产物 -> 创建 EXEC-002
+                                             -> issue_ready ---------> Executor 并行消费
+  ...
+  Wave N:                                    Planner: all_planned
+                                             Executor: 完成剩余 EXEC-*
+===================================================================
+```
+
+**Pipeline 节拍视图**:
+
+```
+Wave pipeline (planner lead, executor follows)
+──────────────────────────────────────────────────────────
+Wave   1        2        3       ...      N       Final
+       │        │        │                │         │
+       P:iss-1  P:iss-2  P:iss-3         P:iss-N   P:all_planned
+       ↓        ↓        ↓               ↓         ↓
+       E:exec1  E:exec2  E:exec3         E:execN   E:finish
+                │        │
+         (并行消费，executor 不等 planner 全部完成)
+
+P=planner  E=executor
+```
+
+**检查点 (Checkpoint)**:
+
+| 触发条件 | 位置 | 行为 |
+|----------|------|------|
+| Planner 全部完成 | all_planned 信号 | Executor 完成剩余 EXEC-* 后结束 |
+| Pipeline 停滞 | 无 ready + 无 running | Planner 检查并 escalate to user |
+| Executor 阻塞 | Executor blocked > 2 tasks | Planner escalate to user |
+
+**Stall 检测**:
+
+| 检查项 | 条件 | 处理 |
+|--------|------|------|
+| Executor 无响应 | in_progress EXEC-* 无回调 | 报告等待中的任务列表 |
+| Pipeline 死锁 | 无 ready + 无 running + 有 pending | 检查 blockedBy 依赖链 |
+| Planner 规划失败 | issue planning error | Retry once, then skip to next issue |
+
+---
+
+## Task Metadata Registry
+
+| Task ID | Role | Phase | Dependencies | Description |
+|---------|------|-------|-------------|-------------|
+| PLAN-001 | planner | planning | (none) | 初始规划：需求拆解、issue 创建、方案设计 |
+| EXEC-001 | executor | execution | PLAN-001 (implicit via issue_ready) | 第一个 issue 的代码实现 |
+| EXEC-002 | executor | execution | (planner issue_ready) | 第二个 issue 的代码实现 |
+| EXEC-N | executor | execution | (planner issue_ready) | 第 N 个 issue 的代码实现 |
+
+> 注: EXEC-* 任务由 planner 在运行时逐个创建（逐 Issue 节拍），不预先定义完整任务链。
+
+---
+
+## Wisdom Accumulation (所有角色)
+
+跨任务知识积累。SKILL.md 编排模式在 session 初始化时创建 `wisdom/` 目录。
+
+**目录**:
+```
+<session-folder>/wisdom/
+├── learnings.md      # 模式和洞察
+├── decisions.md      # 架构和设计决策
+├── conventions.md    # 代码库约定
+└── issues.md         # 已知风险和问题
+```
+
+**Worker 加载** (Phase 2): 从 task description 提取 `Session: <path>`, 读取 wisdom 目录下各文件。
+**Worker 贡献** (Phase 4/5): 将本任务发现写入对应 wisdom 文件。
+
+---
+
+## Session Directory
+
+```
+.workflow/.team/PEX-{slug}-{date}/
+├── team-session.json           # Session state
+├── artifacts/
+│   └── solutions/              # Planner solution output per issue
+│       ├── {issueId-1}.json
+│       └── {issueId-N}.json
+├── wisdom/                     # Cross-task knowledge
+│   ├── learnings.md
+│   ├── decisions.md
+│   ├── conventions.md
+│   └── issues.md
+└── shared-memory.json          # Cross-role state
+```
+
+---
 
 ## Error Handling
 
 | Scenario | Resolution |
 |----------|------------|
-| Unknown --role value | Error with available role list |
-| Missing --role arg | Enter orchestration mode |
+| Unknown --role value | Error with available role list: planner, executor |
+| Missing --role arg | Enter orchestration mode (SKILL.md as lightweight coordinator) |
 | Role file not found | Error with expected path (roles/{name}.md) |
 | Planner issue planning failure | Retry once, then report error and skip to next issue |
 | Executor impl failure | Report to planner, continue with next EXEC-* task |
 | No EXEC-* tasks yet | Executor idles, polls for new tasks |
-| Pipeline stall | Planner monitors — if executor blocked > 2 tasks, escalate to user |
+| Pipeline stall | Planner monitors -- if executor blocked > 2 tasks, escalate to user |

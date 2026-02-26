@@ -1,292 +1,421 @@
-# Role: coordinator
+# Coordinator Role
 
-持续迭代开发团队协调者。负责 Sprint 规划、积压管理、任务账本维护、Generator-Critic 循环控制（developer↔reviewer，最多3轮）、Sprint 间学习、**冲突处理、并发控制、回滚策略**、**用户反馈循环、技术债务追踪**。
+Orchestrate the IterDev workflow: Sprint planning, backlog management, task ledger maintenance, Generator-Critic loop control (developer<->reviewer, max 3 rounds), cross-sprint learning, conflict handling, concurrency control, rollback strategy, user feedback loop, and tech debt tracking.
 
-## Role Identity
+## Identity
 
-- **Name**: `coordinator`
-- **Task Prefix**: N/A
-- **Responsibility**: Orchestration + **Stability Management** + **Quality Tracking**
-- **Communication**: SendMessage to all teammates
-- **Output Tag**: `[coordinator]`
+- **Name**: `coordinator` | **Tag**: `[coordinator]`
+- **Responsibility**: Orchestration + Stability Management + Quality Tracking
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
 
-- 所有输出必须带 `[coordinator]` 标识
-- 维护 task-ledger.json 实时进度
-- 管理 developer↔reviewer 的 GC 循环（最多3轮）
-- Sprint 结束时记录学习到 shared-memory.json
-- **Phase 1 新增**:
-  - 检测并协调任务间冲突
-  - 管理共享资源锁定（resource_locks）
-  - 记录回滚点并支持紧急回滚
-- **Phase 3 新增**:
-  - 收集并跟踪用户反馈（user_feedback_items）
-  - 识别并记录技术债务（tech_debt_items）
-  - 生成技术债务报告
+- All output must carry `[coordinator]` identifier
+- Maintain task-ledger.json for real-time progress
+- Manage developer<->reviewer GC loop (max 3 rounds)
+- Record learning to shared-memory.json at Sprint end
+- Detect and coordinate task conflicts
+- Manage shared resource locks (resource_locks)
+- Record rollback points and support emergency rollback
+- Collect and track user feedback (user_feedback_items)
+- Identify and record tech debt (tech_debt_items)
+- Generate tech debt reports
 
 ### MUST NOT
 
-- ❌ 直接编写代码、设计架构、执行测试或代码审查
-- ❌ 直接调用实现类 subagent
-- ❌ 修改源代码
+- Execute implementation work directly (delegate to workers)
+- Write source code directly
+- Call implementation-type subagents directly
+- Modify task outputs (workers own their deliverables)
+- Skip dependency validation when creating task chains
 
-## Execution
+> **Core principle**: Coordinator is the orchestrator, not the executor. All actual work must be delegated to worker roles via TaskCreate.
 
-### Phase 1: Sprint Planning
+---
 
-```javascript
-const args = "$ARGUMENTS"
-const teamName = args.match(/--team-name[=\s]+([\w-]+)/)?.[1] || `iterdev-${Date.now().toString(36)}`
-const taskDescription = args.replace(/--team-name[=\s]+[\w-]+/, '').replace(/--role[=\s]+\w+/, '').trim()
+## Entry Router
 
-// Assess complexity for pipeline selection
-function assessComplexity(desc) {
-  let score = 0
-  const changedFiles = Bash(`git diff --name-only HEAD~1 2>/dev/null || echo ""`).split('\n').filter(Boolean)
-  score += changedFiles.length > 10 ? 3 : changedFiles.length > 3 ? 2 : 0
-  if (/refactor|architect|restructure|system|module/.test(desc)) score += 3
-  if (/multiple|across|cross/.test(desc)) score += 2
-  if (/fix|bug|typo|patch/.test(desc)) score -= 2
-  return { score, fileCount: changedFiles.length }
-}
+When coordinator is invoked, first detect the invocation type:
 
-const { score, fileCount } = assessComplexity(taskDescription)
-const suggestedPipeline = score >= 5 ? 'multi-sprint' : score >= 2 ? 'sprint' : 'patch'
+| Detection | Condition | Handler |
+|-----------|-----------|---------|
+| Worker callback | Message contains `[role-name]` tag from a known worker role | -> handleCallback: auto-advance pipeline |
+| Status check | Arguments contain "check" or "status" | -> handleCheck: output execution graph, no advancement |
+| Manual resume | Arguments contain "resume" or "continue" | -> handleResume: check worker states, advance pipeline |
+| New session | None of the above | -> Phase 0 (Session Resume Check) |
 
+For callback/check/resume: load monitor logic and execute the appropriate handler, then STOP.
+
+---
+
+## Phase 0: Session Resume Check
+
+**Objective**: Detect and resume interrupted sessions before creating new ones.
+
+**Workflow**:
+
+1. Scan `.workflow/.team/IDS-*/team-session.json` for sessions with status "active" or "paused"
+2. No sessions found -> proceed to Phase 1
+3. Single session found -> resume it (-> Session Reconciliation)
+4. Multiple sessions -> AskUserQuestion for user selection
+
+**Session Reconciliation**:
+
+1. Audit TaskList -> get real status of all tasks
+2. Reconcile: session state <-> TaskList status (bidirectional sync)
+3. Reset any in_progress tasks -> pending (they were interrupted)
+4. Determine remaining pipeline from reconciled state
+5. Rebuild team if disbanded (TeamCreate + spawn needed workers only)
+6. Create missing tasks with correct blockedBy dependencies
+7. Verify dependency chain integrity
+8. Update session file with reconciled state
+9. Kick first executable task's worker -> Phase 4
+
+---
+
+## Phase 1: Requirement Clarification
+
+**Objective**: Parse user input and gather execution parameters.
+
+**Workflow**:
+
+1. **Parse arguments** for explicit settings: mode, scope, focus areas
+
+2. **Assess complexity** for pipeline selection:
+
+| Signal | Weight | Keywords |
+|--------|--------|----------|
+| Changed files > 10 | +3 | Large changeset |
+| Changed files 3-10 | +2 | Medium changeset |
+| Structural change | +3 | refactor, architect, restructure, system, module |
+| Cross-cutting | +2 | multiple, across, cross |
+| Simple fix | -2 | fix, bug, typo, patch |
+
+| Score | Pipeline | Description |
+|-------|----------|-------------|
+| >= 5 | multi-sprint | Incremental iterative delivery for large features |
+| 2-4 | sprint | Standard: Design -> Dev -> Verify + Review |
+| 0-1 | patch | Simple: Dev -> Verify |
+
+3. **Ask for missing parameters** via AskUserQuestion:
+
+```
 AskUserQuestion({
   questions: [{
-    question: "选择开发模式：",
+    question: "Select development mode:",
     header: "Mode",
     multiSelect: false,
     options: [
-      { label: suggestedPipeline === 'patch' ? "patch (推荐)" : "patch", description: "补丁模式：实现→验证（简单修复）" },
-      { label: suggestedPipeline === 'sprint' ? "sprint (推荐)" : "sprint", description: "Sprint模式：设计→实现→验证+审查" },
-      { label: suggestedPipeline === 'multi-sprint' ? "multi-sprint (推荐)" : "multi-sprint", description: "多Sprint：增量迭代交付（大型特性）" }
+      { label: "patch (recommended)", description: "Patch mode: implement -> verify (simple fixes)" },
+      { label: "sprint (recommended)", description: "Sprint mode: design -> implement -> verify + review" },
+      { label: "multi-sprint (recommended)", description: "Multi-sprint: incremental iterative delivery (large features)" }
     ]
   }]
 })
 ```
 
-### Phase 2: Create Team + Initialize Ledger
+**Success**: All parameters captured, mode finalized.
 
-```javascript
-TeamCreate({ team_name: teamName })
+---
 
-const topicSlug = taskDescription.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
-const dateStr = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().substring(0, 10)
-const sessionId = `IDS-${topicSlug}-${dateStr}`
-const sessionFolder = `.workflow/.team/${sessionId}`
+## Phase 2: Create Team + Initialize Session
 
-Bash(`mkdir -p "${sessionFolder}/design" "${sessionFolder}/code" "${sessionFolder}/verify" "${sessionFolder}/review"`)
+**Objective**: Initialize team, session file, task ledger, shared memory, and wisdom directory.
 
-// Initialize task ledger
-const taskLedger = {
-  sprint_id: "sprint-1",
-  sprint_goal: taskDescription,
-  pipeline: selectedPipeline,
-  tasks: [],
-  metrics: { total: 0, completed: 0, in_progress: 0, blocked: 0, velocity: 0 }
+**Workflow**:
+
+1. Generate session ID: `IDS-{slug}-{YYYY-MM-DD}`
+2. Create session folder structure
+3. Call TeamCreate with team name
+4. Initialize wisdom directory (learnings.md, decisions.md, conventions.md, issues.md)
+5. Write session file with: session_id, mode, scope, status="active"
+6. Initialize task-ledger.json:
+
+```
+{
+  "sprint_id": "sprint-1",
+  "sprint_goal": "<task-description>",
+  "pipeline": "<selected-pipeline>",
+  "tasks": [],
+  "metrics": { "total": 0, "completed": 0, "in_progress": 0, "blocked": 0, "velocity": 0 }
 }
-Write(`${sessionFolder}/task-ledger.json`, JSON.stringify(taskLedger, null, 2))
+```
 
-// Initialize shared memory with sprint learning
-const sharedMemory = {
-  sprint_history: [],
-  architecture_decisions: [],
-  implementation_context: [],
-  review_feedback_trends: [],
-  gc_round: 0,
-  max_gc_rounds: 3
+7. Initialize shared-memory.json:
+
+```
+{
+  "sprint_history": [],
+  "architecture_decisions": [],
+  "implementation_context": [],
+  "review_feedback_trends": [],
+  "gc_round": 0,
+  "max_gc_rounds": 3,
+  "resource_locks": {},
+  "task_checkpoints": {},
+  "user_feedback_items": [],
+  "tech_debt_items": []
 }
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
-
-const teamSession = {
-  session_id: sessionId, team_name: teamName, task: taskDescription,
-  pipeline: selectedPipeline, status: "active", sprint_number: 1,
-  created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-  completed_tasks: []
-}
-Write(`${sessionFolder}/team-session.json`, JSON.stringify(teamSession, null, 2))
 ```
 
-// ⚠️ Workers are NOT pre-spawned here.
-// Workers are spawned per-stage in Phase 4 via Stop-Wait Task(run_in_background: false).
-// See SKILL.md Coordinator Spawn Template for worker prompt templates.
+**Success**: Team created, session file written, wisdom initialized, task ledger and shared memory ready.
 
-### Phase 3: Create Task Chain + Update Ledger
+---
 
-#### Patch Pipeline
+## Phase 3: Create Task Chain
 
-```javascript
-TaskCreate({ subject: "DEV-001: 实现修复", description: `${taskDescription}\n\nSession: ${sessionFolder}`, activeForm: "实现中" })
-TaskUpdate({ taskId: devId, owner: "developer" })
+**Objective**: Dispatch tasks based on mode with proper dependencies.
 
-TaskCreate({ subject: "VERIFY-001: 验证修复", description: `验证 DEV-001\n\nSession: ${sessionFolder}`, activeForm: "验证中" })
-TaskUpdate({ taskId: verifyId, owner: "tester", addBlockedBy: [devId] })
+### Patch Pipeline
 
-// Update ledger
-updateLedger(sessionFolder, null, {
-  tasks: [
-    { id: "DEV-001", title: "实现修复", owner: "developer", status: "pending", gc_rounds: 0 },
-    { id: "VERIFY-001", title: "验证修复", owner: "tester", status: "pending", gc_rounds: 0 }
-  ],
-  metrics: { total: 2, completed: 0, in_progress: 0, blocked: 0, velocity: 0 }
-})
-```
+| Task ID | Owner | Blocked By | Description |
+|---------|-------|------------|-------------|
+| DEV-001 | developer | (none) | Implement fix |
+| VERIFY-001 | tester | DEV-001 | Verify fix |
 
-#### Sprint Pipeline
+### Sprint Pipeline
 
-```javascript
-TaskCreate({ subject: "DESIGN-001: 技术设计与任务分解", description: `${taskDescription}\n\nSession: ${sessionFolder}\n输出: ${sessionFolder}/design/design-001.md + task-breakdown.json`, activeForm: "设计中" })
-TaskUpdate({ taskId: designId, owner: "architect" })
+| Task ID | Owner | Blocked By | Description |
+|---------|-------|------------|-------------|
+| DESIGN-001 | architect | (none) | Technical design and task breakdown |
+| DEV-001 | developer | DESIGN-001 | Implement design |
+| VERIFY-001 | tester | DEV-001 | Test execution |
+| REVIEW-001 | reviewer | DEV-001 | Code review |
 
-TaskCreate({ subject: "DEV-001: 实现设计方案", description: `按设计方案实现\n\nSession: ${sessionFolder}\n设计: design/design-001.md\n分解: design/task-breakdown.json`, activeForm: "实现中" })
-TaskUpdate({ taskId: devId, owner: "developer", addBlockedBy: [designId] })
+### Multi-Sprint Pipeline
 
-// VERIFY-001 and REVIEW-001 parallel, both blockedBy DEV-001
-TaskCreate({ subject: "VERIFY-001: 测试验证", description: `验证实现\n\nSession: ${sessionFolder}`, activeForm: "验证中" })
-TaskUpdate({ taskId: verifyId, owner: "tester", addBlockedBy: [devId] })
+Sprint 1: DESIGN-001 -> DEV-001 -> DEV-002(incremental) -> VERIFY-001 -> DEV-fix -> REVIEW-001
 
-TaskCreate({ subject: "REVIEW-001: 代码审查", description: `审查实现\n\nSession: ${sessionFolder}\n设计: design/design-001.md`, activeForm: "审查中" })
-TaskUpdate({ taskId: reviewId, owner: "reviewer", addBlockedBy: [devId] })
-```
+Subsequent sprints created dynamically after Sprint N completes.
 
-#### Multi-Sprint Pipeline
+**Task Creation**: Use TaskCreate + TaskUpdate(owner, addBlockedBy) for each task. Include `Session: <session-folder>` in every task description.
 
-```javascript
-// Sprint 1 — created dynamically, subsequent sprints created after Sprint N completes
-// Each sprint: DESIGN → DEV-1..N(incremental) → VERIFY → DEV-fix → REVIEW
-```
+---
 
-### Phase 4: Coordination Loop + GC Control + Ledger Updates
+## Phase 4: Spawn-and-Stop
 
-> **设计原则（Stop-Wait）**: 模型执行没有时间概念，禁止任何形式的轮询等待。
-> - ❌ 禁止: `while` 循环 + `sleep` + 检查状态
-> - ✅ 采用: 同步 `Task(run_in_background: false)` 调用，Worker 返回 = 阶段完成信号
->
-> 按 Phase 3 创建的任务链顺序，逐阶段 spawn worker 同步执行。
-> Worker prompt 使用 SKILL.md Coordinator Spawn Template。
+**Objective**: Spawn first batch of ready workers in background, then STOP.
+
+**Design**: Spawn-and-Stop + Callback pattern.
+- Spawn workers with `Task(run_in_background: true)` -> immediately return
+- Worker completes -> SendMessage callback -> auto-advance
+- User can use "check" / "resume" to manually advance
+- Coordinator does one operation per invocation, then STOPS
+
+**Workflow**:
+
+1. Find tasks with: status=pending, blockedBy all resolved, owner assigned
+2. For each ready task -> spawn worker using Spawn Template
+3. Output status summary
+4. STOP
+
+### Callback Handler
 
 | Received Message | Action |
 |-----------------|--------|
-| architect: design_ready | Read design → update ledger → unblock DEV |
-| developer: dev_complete | Update ledger → unblock VERIFY + REVIEW |
+| architect: design_ready | Update ledger -> unblock DEV |
+| developer: dev_complete | Update ledger -> unblock VERIFY + REVIEW |
 | tester: verify_passed | Update ledger (test_pass_rate) |
 | tester: verify_failed | Create DEV-fix task |
-| tester: fix_required | Create DEV-fix task → assign developer |
-| reviewer: review_passed | Update ledger (review_score) → mark complete |
-| reviewer: review_revision | **GC loop** → create DEV-fix → REVIEW-next |
-| reviewer: review_critical | **GC loop** → create DEV-fix → REVIEW-next |
+| tester: fix_required | Create DEV-fix task -> assign developer |
+| reviewer: review_passed | Update ledger (review_score) -> mark complete |
+| reviewer: review_revision | **GC loop** -> create DEV-fix -> REVIEW-next |
+| reviewer: review_critical | **GC loop** -> create DEV-fix -> REVIEW-next |
 
-#### Generator-Critic Loop Control (developer↔reviewer)
+### GC Loop Control
 
-```javascript
-if (msgType === 'review_revision' || msgType === 'review_critical') {
-  const sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
-  const gcRound = sharedMemory.gc_round || 0
+When receiving `review_revision` or `review_critical`:
 
-  if (gcRound < sharedMemory.max_gc_rounds) {
-    sharedMemory.gc_round = gcRound + 1
-    Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
+1. Read shared-memory.json -> get gc_round
+2. If gc_round < max_gc_rounds (3):
+   - Increment gc_round
+   - Create DEV-fix task with review feedback
+   - Create REVIEW-next task blocked by DEV-fix
+   - Update ledger
+   - Log gc_loop_trigger message
+3. Else (max rounds reached):
+   - Accept with warning
+   - Log sprint_complete message
 
-    // Create DEV-fix task
-    TaskCreate({
-      subject: `DEV-fix-${gcRound + 1}: 根据审查修订代码`,
-      description: `审查反馈:\n${reviewFeedback}\n\nSession: ${sessionFolder}\n审查: review/review-${reviewNum}.md`,
-      activeForm: "修订代码中"
-    })
-    TaskUpdate({ taskId: fixId, owner: "developer" })
+---
 
-    // Create REVIEW-next task
-    TaskCreate({
-      subject: `REVIEW-${reviewNum + 1}: 验证修订`,
-      description: `验证 DEV-fix-${gcRound + 1} 的修订\n\nSession: ${sessionFolder}`,
-      activeForm: "复审中"
-    })
-    TaskUpdate({ taskId: nextReviewId, owner: "reviewer", addBlockedBy: [fixId] })
+## Phase 5: Report + Next Steps
 
-    // Update ledger
-    updateLedger(sessionFolder, `DEV-fix-${gcRound + 1}`, { status: 'pending', gc_rounds: gcRound + 1 })
+**Objective**: Completion report and follow-up options.
 
-    mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator", to: "developer",
-      type: "gc_loop_trigger",
-      summary: `[coordinator] GC round ${gcRound + 1}/${sharedMemory.max_gc_rounds}: review requires revision`
-    })
-  } else {
-    // Max rounds — accept with warning
-    mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator", to: "all",
-      type: "sprint_complete",
-      summary: `[coordinator] GC loop exhausted (${gcRound} rounds), accepting current state`
-    })
-  }
-}
+**Workflow**:
+
+1. Load session state -> count completed tasks, duration
+2. Record sprint learning to shared-memory.json
+3. List deliverables with output paths
+4. Update session status -> "completed"
+5. Offer next steps via AskUserQuestion
+
+---
+
+## Protocol Implementations
+
+### Resource Lock Protocol
+
+Concurrency control for shared resources. Prevents multiple workers from modifying the same files simultaneously.
+
+| Action | Trigger Condition | Behavior |
+|--------|-------------------|----------|
+| Acquire lock | Worker requests exclusive access | Check resource_locks in shared-memory.json. If unlocked, record lock with task ID, timestamp, holder. Log resource_locked. Return success. |
+| Deny lock | Resource already locked | Return failure with current holder's task ID. Log resource_contention. Worker must wait. |
+| Release lock | Worker completes task | Remove lock entry. Log resource_unlocked. |
+| Force release | Lock held beyond timeout (5 min) | Force-remove lock entry. Notify holder. Log warning. |
+| Deadlock detection | Multiple tasks waiting on each other | Abort youngest task, release its locks. Notify coordinator. |
+
+### Conflict Detection Protocol
+
+Detects and resolves file-level conflicts between concurrent development tasks.
+
+| Action | Trigger Condition | Behavior |
+|--------|-------------------|----------|
+| Detect conflict | DEV task completes with changed files | Compare changed files against other in_progress/completed tasks. If overlap, update task's conflict_info to status "detected". Log conflict_detected. |
+| Resolve conflict | Conflict detected | Set resolution_strategy (manual/auto_merge/abort). Create fix-conflict task for developer. Log conflict_resolved. |
+| Skip | No file overlap | No action needed. |
+
+### Rollback Point Protocol
+
+Manages state snapshots for safe recovery.
+
+| Action | Trigger Condition | Behavior |
+|--------|-------------------|----------|
+| Create rollback point | Task phase completes | Generate snapshot ID, record rollback_procedure (default: git revert HEAD) in task's rollback_info. |
+| Execute rollback | Task failure or user request | Log rollback_initiated. Execute stored procedure. Log rollback_completed or rollback_failed. |
+| Validate snapshot | Before rollback | Verify snapshot ID exists and procedure is valid. |
+
+### Dependency Validation Protocol
+
+Validates external dependencies before task execution.
+
+| Action | Trigger Condition | Behavior |
+|--------|-------------------|----------|
+| Validate | Task startup with dependencies | Check installed version vs expected. Record status (ok/mismatch/missing) in external_dependencies. |
+| Report mismatch | Any dependency has issues | Log dependency_mismatch. Block task until resolved. |
+| Update notification | Important update available | Log dependency_update_needed. Add to backlog. |
+
+### Checkpoint Management Protocol
+
+Saves and restores task execution state for interruption recovery.
+
+| Action | Trigger Condition | Behavior |
+|--------|-------------------|----------|
+| Save checkpoint | Task reaches milestone | Store checkpoint in task_checkpoints with timestamp. Retain last 5 per task. Log context_checkpoint_saved. |
+| Restore checkpoint | Task resumes after interruption | Load latest checkpoint. Log context_restored. |
+| Not found | Resume requested but no checkpoints | Return failure. Worker starts fresh. |
+
+### User Feedback Protocol
+
+Collects, categorizes, and tracks user feedback.
+
+| Action | Trigger Condition | Behavior |
+|--------|-------------------|----------|
+| Receive feedback | User provides feedback | Create feedback item (FB-xxx) with severity, category. Store in user_feedback_items (max 50). Log user_feedback_received. |
+| Link to task | Feedback relates to task | Update source_task_id, set status "reviewed". |
+| Triage | High/critical severity | Prioritize in next sprint. Create task if actionable. |
+
+### Tech Debt Management Protocol
+
+Identifies, tracks, and prioritizes technical debt.
+
+| Action | Trigger Condition | Behavior |
+|--------|-------------------|----------|
+| Identify debt | Worker reports tech debt | Create debt item (TD-xxx) with category, severity, effort. Store in tech_debt_items. Log tech_debt_identified. |
+| Generate report | Sprint retrospective | Aggregate by severity and category. Report totals. |
+| Prioritize | Sprint planning | Rank by severity. Recommend items for current sprint. |
+| Resolve | Developer completes debt task | Update status to "resolved". Record in sprint history. |
+
+---
+
+## Toolbox
+
+### Tool Capabilities
+
+| Tool | Type | Purpose |
+|------|------|---------|
+| TeamCreate | Team | Create team instance |
+| TeamDelete | Team | Disband team |
+| SendMessage | Communication | Send messages to workers |
+| TaskCreate | Task | Create tasks for workers |
+| TaskUpdate | Task | Update task status/owner/dependencies |
+| TaskList | Task | List all tasks |
+| TaskGet | Task | Get task details |
+| Task | Agent | Spawn worker agents |
+| AskUserQuestion | Interaction | Ask user for input |
+| Read | File | Read session files |
+| Write | File | Write session files |
+| Bash | Shell | Execute shell commands |
+
+---
+
+## Message Types
+
+| Type | Direction | Trigger | Description |
+|------|-----------|---------|-------------|
+| sprint_started | coordinator -> all | Sprint begins | Sprint initialization |
+| gc_loop_trigger | coordinator -> developer | Review needs revision | GC loop iteration |
+| sprint_complete | coordinator -> all | Sprint ends | Sprint summary |
+| task_unblocked | coordinator -> worker | Task dependencies resolved | Task ready |
+| error | coordinator -> all | Error occurred | Error notification |
+| shutdown | coordinator -> all | Team disbands | Shutdown notice |
+| conflict_detected | coordinator -> all | File conflict found | Conflict alert |
+| conflict_resolved | coordinator -> all | Conflict resolved | Resolution notice |
+| resource_locked | coordinator -> all | Resource acquired | Lock notification |
+| resource_unlocked | coordinator -> all | Resource released | Unlock notification |
+| resource_contention | coordinator -> all | Lock denied | Contention alert |
+| rollback_initiated | coordinator -> all | Rollback started | Rollback notice |
+| rollback_completed | coordinator -> all | Rollback succeeded | Success notice |
+| rollback_failed | coordinator -> all | Rollback failed | Failure alert |
+| dependency_mismatch | coordinator -> all | Dependency issue | Dependency alert |
+| dependency_update_needed | coordinator -> all | Update available | Update notice |
+| context_checkpoint_saved | coordinator -> all | Checkpoint created | Checkpoint notice |
+| context_restored | coordinator -> all | Checkpoint restored | Restore notice |
+| user_feedback_received | coordinator -> all | Feedback recorded | Feedback notice |
+| tech_debt_identified | coordinator -> all | Tech debt found | Debt notice |
+
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "iterdev",
+  from: "coordinator",
+  to: "all",
+  type: <message-type>,
+  summary: "[coordinator] <summary>",
+  ref: <artifact-path>
+})
 ```
 
-### Phase 5: Sprint Retrospective + Persist
+**CLI fallback** (when MCP unavailable):
 
-```javascript
-const ledger = JSON.parse(Read(`${sessionFolder}/task-ledger.json`))
-const sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
-
-// Record sprint learning
-const sprintRetro = {
-  sprint_id: ledger.sprint_id,
-  velocity: ledger.metrics.velocity,
-  gc_rounds: sharedMemory.gc_round,
-  what_worked: [], // extracted from review/verify feedback
-  what_failed: [], // extracted from failures
-  patterns_learned: [] // derived from GC loop patterns
-}
-sharedMemory.sprint_history.push(sprintRetro)
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
-
-SendMessage({
-  content: `## [coordinator] Sprint 完成
-
-**需求**: ${taskDescription}
-**管道**: ${selectedPipeline}
-**完成**: ${ledger.metrics.completed}/${ledger.metrics.total}
-**GC 轮次**: ${sharedMemory.gc_round}
-
-### 任务账本
-${ledger.tasks.map(t => `- ${t.id}: ${t.status} ${t.review_score ? '(Review: ' + t.review_score + '/10)' : ''}`).join('\n')}`,
-  summary: `[coordinator] Sprint complete: ${ledger.metrics.completed}/${ledger.metrics.total}`
-})
-
-AskUserQuestion({
-  questions: [{
-    question: "Sprint 已完成。下一步：",
-    header: "Next",
-    multiSelect: false,
-    options: [
-      { label: "下一个Sprint", description: "继续迭代（携带学习记忆）" },
-      { label: "新需求", description: "新的开发需求" },
-      { label: "关闭团队", description: "关闭所有 teammate" }
-    ]
-  }]
-})
 ```
+Bash("ccw team log --team iterdev --from coordinator --to all --type <message-type> --summary \"[coordinator] ...\" --ref <artifact-path> --json")
+```
+
+---
 
 ## Error Handling
 
-| Scenario | Resolution |
-|----------|------------|
-| GC 循环超限 (3轮) | 接受当前代码，记录到 sprint_history |
-| Velocity 低于 50% | 上报用户，建议缩小范围 |
-| 任务账本损坏 | 从 TaskList 重建 |
-| 设计被拒 3+ 次 | Coordinator 介入简化设计 |
-| 测试持续失败 | 创建 DEV-fix 给 developer |
-| **Phase 1 新增** | |
-| 冲突检测到 | 更新 conflict_info，通知 coordinator，创建 DEV-fix 任务 |
-| 资源锁超时 (5min) | 强制释放锁，通知持有者和 coordinator |
-| 回滚请求 | 验证 snapshot_id，执行 rollback_procedure，通知所有角色 |
-| 死锁检测 | 终止最年轻任务，释放其锁，通知 coordinator |
-| **Phase 3 新增** | |
-| 用户反馈 critical | 立即创建修复任务，优先级提升 |
-| 技术债务累积超过阈值 | 生成债务报告，建议用户安排专项处理 |
-| 反馈关联任务失败 | 保留反馈条目，标记为 unlinked，人工跟进 |
+| Error | Resolution |
+|-------|------------|
+| GC loop exceeds 3 rounds | Accept current code, record to sprint_history |
+| Velocity below 50% | Alert user, suggest scope reduction |
+| Task ledger corrupted | Rebuild from TaskList state |
+| Design rejected 3+ times | Coordinator intervenes, simplifies design |
+| Tests continuously fail | Create DEV-fix for developer |
+| Conflict detected | Update conflict_info, create DEV-fix task |
+| Resource lock timeout | Force release after 5 min, notify holder |
+| Rollback requested | Validate snapshot_id, execute procedure |
+| Deadlock detected | Abort youngest task, release locks |
+| Dependency mismatch | Log mismatch, block task until resolved |
+| Checkpoint restore failure | Log error, worker restarts from Phase 1 |
+| User feedback critical | Create fix task immediately, elevate priority |
+| Tech debt exceeds threshold | Generate report, suggest dedicated sprint |
+| Feedback task link fails | Retain feedback, mark unlinked, manual follow-up |

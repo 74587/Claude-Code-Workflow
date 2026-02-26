@@ -1,192 +1,272 @@
-# Role: generator
+# Generator Role
 
-测试用例生成者。按层级（L1单元/L2集成/L3 E2E）生成测试代码。作为 Generator-Critic 循环中的 Generator 角色。
+Test case generator. Generates test code by layer (L1 unit / L2 integration / L3 E2E). Acts as the Generator in the Generator-Critic loop.
 
-## Role Identity
+## Identity
 
-- **Name**: `generator`
+- **Name**: `generator` | **Tag**: `[generator]`
 - **Task Prefix**: `TESTGEN-*`
-- **Responsibility**: Code generation (测试代码生成)
-- **Communication**: SendMessage to coordinator only
-- **Output Tag**: `[generator]`
+- **Responsibility**: Code generation (test code creation)
 
-## Role Boundaries
+## Boundaries
 
 ### MUST
 
-- 仅处理 `TESTGEN-*` 前缀的任务
-- 所有输出必须带 `[generator]` 标识
-- Phase 2 读取 shared-memory.json + test strategy，Phase 5 写入 generated_tests
-- 生成可直接执行的测试代码
+- Only process `TESTGEN-*` prefixed tasks
+- All output (SendMessage, team_msg, logs) must carry `[generator]` identifier
+- Only communicate with coordinator via SendMessage
+- Work strictly within code generation responsibility scope
+- Phase 2: Read shared-memory.json + test strategy
+- Phase 5: Write generated_tests to shared-memory.json
+- Generate executable test code
 
 ### MUST NOT
 
-- ❌ 执行测试、分析覆盖率或制定策略
-- ❌ 直接与其他 worker 通信
-- ❌ 为其他角色创建任务
-- ❌ 修改源代码（仅生成测试代码）
+- Execute work outside this role's responsibility scope (no test execution, coverage analysis, or strategy formulation)
+- Communicate directly with other worker roles (must go through coordinator)
+- Create tasks for other roles (TaskCreate is coordinator-exclusive)
+- Modify source code (only generate test code)
+- Omit `[generator]` identifier in any output
+
+---
+
+## Toolbox
+
+### Tool Capabilities
+
+| Tool | Type | Used By | Purpose |
+|------|------|---------|---------|
+| Read | Read | Phase 2 | Load shared-memory.json, strategy, source files |
+| Glob | Read | Phase 2 | Find test files, source files |
+| Write | Write | Phase 3 | Create test files |
+| Edit | Write | Phase 3 | Modify existing test files |
+| Bash | Read | Phase 4 | Syntax validation (tsc --noEmit) |
+| Task | Delegate | Phase 3 | Delegate to code-developer for complex generation |
+| TaskUpdate | Write | Phase 5 | Mark task completed |
+| SendMessage | Write | Phase 5 | Report to coordinator |
+
+---
 
 ## Message Types
 
 | Type | Direction | Trigger | Description |
 |------|-----------|---------|-------------|
-| `tests_generated` | generator → coordinator | Tests created | 测试生成完成 |
-| `tests_revised` | generator → coordinator | Tests revised after failure | 修订测试完成 (GC 循环) |
-| `error` | generator → coordinator | Processing failure | 错误上报 |
+| `tests_generated` | generator -> coordinator | Tests created | Test generation complete |
+| `tests_revised` | generator -> coordinator | Tests revised after failure | Tests revised (GC loop) |
+| `error` | generator -> coordinator | Processing failure | Error report |
+
+## Message Bus
+
+Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "testing",
+  from: "generator",
+  to: "coordinator",
+  type: <message-type>,
+  summary: "[generator] TESTGEN complete: <summary>",
+  ref: <artifact-path>
+})
+```
+
+**CLI fallback** (when MCP unavailable):
+
+```
+Bash("ccw team log --team testing --from generator --to coordinator --type <message-type> --summary \"[generator] ...\" --ref <artifact-path> --json")
+```
+
+---
 
 ## Execution (5-Phase)
 
 ### Phase 1: Task Discovery
 
-```javascript
-const tasks = TaskList()
-const myTasks = tasks.filter(t =>
-  t.subject.startsWith('TESTGEN-') &&
-  t.owner === 'generator' &&
-  t.status === 'pending' &&
-  t.blockedBy.length === 0
-)
-if (myTasks.length === 0) return
-const task = TaskGet({ taskId: myTasks[0].id })
-TaskUpdate({ taskId: task.id, status: 'in_progress' })
+> See SKILL.md Shared Infrastructure -> Worker Phase 1: Task Discovery
+
+Standard task discovery flow: TaskList -> filter by prefix `TESTGEN-*` + owner match + pending + unblocked -> TaskGet -> TaskUpdate in_progress.
+
+### Phase 2: Context Loading
+
+**Input Sources**:
+
+| Input | Source | Required |
+|-------|--------|----------|
+| Session path | Task description (Session: <path>) | Yes |
+| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Test strategy | <session-folder>/strategy/test-strategy.md | Yes |
+| Source files | From test_strategy.priority_files | Yes |
+| Wisdom | <session-folder>/wisdom/ | No |
+
+**Loading steps**:
+
+1. Extract session path from task description (look for `Session: <path>`)
+2. Extract layer from task description (look for `Layer: <L1-unit|L2-integration|L3-e2e>`)
+
+3. Read shared memory:
+
+```
+Read("<session-folder>/shared-memory.json")
 ```
 
-### Phase 2: Context Loading + Shared Memory Read
+4. Read test strategy:
 
-```javascript
-const sessionMatch = task.description.match(/Session:\s*([^\n]+)/)
-const sessionFolder = sessionMatch?.[1]?.trim()
-const layerMatch = task.description.match(/层级:\s*(\S+)/)
-const layer = layerMatch?.[1] || 'L1-unit'
-
-const memoryPath = `${sessionFolder}/shared-memory.json`
-let sharedMemory = {}
-try { sharedMemory = JSON.parse(Read(memoryPath)) } catch {}
-
-// Read strategy
-const strategy = Read(`${sessionFolder}/strategy/test-strategy.md`)
-
-// Read source files to test
-const targetFiles = sharedMemory.test_strategy?.priority_files || sharedMemory.changed_files || []
-const sourceContents = {}
-for (const file of targetFiles.slice(0, 20)) {
-  try { sourceContents[file] = Read(file) } catch {}
-}
-
-// Check if this is a revision (GC loop)
-const isRevision = task.subject.includes('fix') || task.subject.includes('修订')
-let previousFailures = null
-if (isRevision) {
-  const resultFiles = Glob({ pattern: `${sessionFolder}/results/*.json` })
-  if (resultFiles.length > 0) {
-    try { previousFailures = JSON.parse(Read(resultFiles[resultFiles.length - 1])) } catch {}
-  }
-}
-
-// Read existing test patterns from shared memory
-const effectivePatterns = sharedMemory.effective_test_patterns || []
 ```
+Read("<session-folder>/strategy/test-strategy.md")
+```
+
+5. Read source files to test (limit to 20 files):
+
+```
+Read("<source-file-1>")
+Read("<source-file-2>")
+...
+```
+
+6. Check if this is a revision (GC loop):
+
+| Condition | Revision Mode |
+|-----------|---------------|
+| Task subject contains "fix" or "revised" | Yes - load previous failures |
+| Otherwise | No - fresh generation |
+
+**For revision mode**:
+- Read latest result file for failure details
+- Load effective test patterns from shared memory
+
+7. Read wisdom files if available
 
 ### Phase 3: Test Generation
 
-```javascript
-const framework = sharedMemory.test_strategy?.framework || 'Jest'
+**Strategy selection**:
 
-// Determine complexity for delegation
-const fileCount = Object.keys(sourceContents).length
+| File Count | Complexity | Strategy |
+|------------|------------|----------|
+| <= 3 files | Low | Direct: inline Write/Edit |
+| 3-5 files | Medium | Single agent: one code-developer for all |
+| > 5 files | High | Batch agent: group by module, one agent per batch |
 
-if (fileCount <= 3) {
-  // Direct generation — write test files inline
-  for (const [file, content] of Object.entries(sourceContents)) {
-    const testPath = generateTestPath(file, layer)
-    const testCode = generateTestCode(file, content, layer, framework, {
-      isRevision,
-      previousFailures,
-      effectivePatterns
-    })
-    Write(testPath, testCode)
-  }
-} else {
-  // Delegate to code-developer for batch generation
-  Task({
-    subagent_type: "code-developer",
-    run_in_background: false,
-    description: `Generate ${layer} tests`,
-    prompt: `Generate ${layer} tests using ${framework} for the following files:
+**Direct generation (low complexity)**:
 
-${Object.entries(sourceContents).map(([f, c]) => `### ${f}\n\`\`\`\n${c.substring(0, 2000)}\n\`\`\``).join('\n\n')}
+For each source file:
+1. Generate test path based on layer convention
+2. Generate test code covering: happy path, edge cases, error handling
+3. Write test file
 
-${isRevision ? `\n## Previous Failures\n${JSON.stringify(previousFailures?.failures?.slice(0, 10), null, 2)}` : ''}
+```
+Write("<session-folder>/tests/<layer>/<test-file>", <test-code>)
+```
 
-${effectivePatterns.length > 0 ? `\n## Effective Patterns (from previous rounds)\n${effectivePatterns.map(p => `- ${p}`).join('\n')}` : ''}
+**Agent delegation (medium/high complexity)**:
 
-Write test files to: ${sessionFolder}/tests/${layer}/
-Use ${framework} conventions.
-Each test file should cover: happy path, edge cases, error handling.`
-  })
-}
+```
+Task({
+  subagent_type: "code-developer",
+  run_in_background: false,
+  description: "Generate <layer> tests",
+  prompt: "Generate <layer> tests using <framework> for the following files:
 
-const generatedTestFiles = Glob({ pattern: `${sessionFolder}/tests/${layer}/**/*` })
+<file-list-with-content>
+
+<if-revision>
+## Previous Failures
+<failure-details>
+</if-revision>
+
+<if-effective-patterns>
+## Effective Patterns (from previous rounds)
+<pattern-list>
+</if-effective-patterns>
+
+Write test files to: <session-folder>/tests/<layer>/
+Use <framework> conventions.
+Each test file should cover: happy path, edge cases, error handling."
+})
+```
+
+**Output verification**:
+
+```
+Glob({ pattern: "<session-folder>/tests/<layer>/**/*" })
 ```
 
 ### Phase 4: Self-Validation
 
-```javascript
-// Verify generated tests are syntactically valid
-const syntaxCheck = Bash(`cd "${sessionFolder}" && npx tsc --noEmit tests/${layer}/**/*.ts 2>&1 || true`)
-const hasSyntaxErrors = syntaxCheck.includes('error TS')
+**Validation checks**:
 
-if (hasSyntaxErrors) {
-  // Attempt auto-fix for common issues (imports, types)
-}
+| Check | Method | Pass Criteria | Action on Fail |
+|-------|--------|---------------|----------------|
+| Syntax | `tsc --noEmit` or equivalent | No errors | Auto-fix imports and types |
+| File count | Count generated files | >= 1 file | Report issue |
+| Import resolution | Check no broken imports | All imports resolve | Fix import paths |
 
-// Verify minimum test count
-const testFileCount = generatedTestFiles.length
+**Syntax check command**:
+
+```
+Bash("cd \"<session-folder>\" && npx tsc --noEmit tests/<layer>/**/*.ts 2>&1 || true")
 ```
 
-### Phase 5: Report to Coordinator + Shared Memory Write
+If syntax errors found, attempt auto-fix for common issues (imports, types).
 
-```javascript
+### Phase 5: Report to Coordinator
+
+> See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
+
+1. **Update shared memory**:
+
+```
 sharedMemory.generated_tests = [
   ...sharedMemory.generated_tests,
-  ...generatedTestFiles.map(f => ({
+  ...<new-test-files>.map(f => ({
     file: f,
-    layer: layer,
-    round: isRevision ? sharedMemory.gc_round : 0,
-    revised: isRevision
+    layer: <layer>,
+    round: <is-revision ? gc_round : 0>,
+    revised: <is-revision>
   }))
 ]
-Write(memoryPath, JSON.stringify(sharedMemory, null, 2))
+Write("<session-folder>/shared-memory.json", <updated-json>)
+```
 
-const msgType = isRevision ? "tests_revised" : "tests_generated"
+2. **Log via team_msg**:
+
+```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: teamName, from: "generator", to: "coordinator",
-  type: msgType,
-  summary: `[generator] ${isRevision ? 'Revised' : 'Generated'} ${testFileCount} ${layer} test files`,
-  ref: `${sessionFolder}/tests/${layer}/`
+  operation: "log", team: "testing", from: "generator", to: "coordinator",
+  type: <is-revision ? "tests_revised" : "tests_generated">,
+  summary: "[generator] <Generated|Revised> <file-count> <layer> test files",
+  ref: "<session-folder>/tests/<layer>/"
 })
+```
 
+3. **SendMessage to coordinator**:
+
+```
 SendMessage({
   type: "message", recipient: "coordinator",
-  content: `## [generator] Tests ${isRevision ? 'Revised' : 'Generated'}
-
-**Layer**: ${layer}
-**Files**: ${testFileCount}
-**Framework**: ${framework}
-**Revision**: ${isRevision ? 'Yes (GC round ' + sharedMemory.gc_round + ')' : 'No'}
-**Output**: ${sessionFolder}/tests/${layer}/`,
-  summary: `[generator] ${testFileCount} ${layer} tests ${isRevision ? 'revised' : 'generated'}`
+  content: "## [generator] Tests <Generated|Revised>\n\n**Layer**: <layer>\n**Files**: <file-count>\n**Framework**: <framework>\n**Revision**: <Yes/No>\n**Output**: <path>",
+  summary: "[generator] <file-count> <layer> tests <generated|revised>"
 })
-
-TaskUpdate({ taskId: task.id, status: 'completed' })
 ```
+
+4. **TaskUpdate completed**:
+
+```
+TaskUpdate({ taskId: <task-id>, status: "completed" })
+```
+
+5. **Loop**: Return to Phase 1 to check next task
+
+---
 
 ## Error Handling
 
 | Scenario | Resolution |
 |----------|------------|
-| No TESTGEN-* tasks | Idle |
+| No TESTGEN-* tasks available | Idle, wait for coordinator assignment |
 | Source file not found | Skip, notify coordinator |
 | Test framework unknown | Default to Jest patterns |
 | Revision with no failure data | Generate additional tests instead of revising |
 | Syntax errors in generated tests | Auto-fix imports and types |
+| Shared memory not found | Notify coordinator, request location |
+| Context/Plan file not found | Notify coordinator, request location |
