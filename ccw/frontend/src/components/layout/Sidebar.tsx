@@ -25,6 +25,7 @@ import {
   Wrench,
   Cog,
   Users,
+  FileSearch,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -77,6 +78,7 @@ const navGroupDefinitions: NavGroupDef[] = [
       { path: '/sessions', labelKey: 'navigation.main.sessions', icon: FolderKanban },
       { path: '/lite-tasks', labelKey: 'navigation.main.liteTasks', icon: Zap },
       { path: '/issues', labelKey: 'navigation.main.issues', icon: AlertCircle },
+      { path: '/analysis', labelKey: 'navigation.main.analysis', icon: FileSearch },
       { path: '/teams', labelKey: 'navigation.main.teams', icon: Users },
       { path: '/terminal-dashboard', labelKey: 'navigation.main.terminalDashboard', icon: Terminal },
     ],

@@ -37,7 +37,8 @@
     "graph": "Graph Explorer",
     "teams": "Team Execution",
     "terminalDashboard": "Terminal Dashboard",
-    "skillHub": "Skill Hub"
+    "skillHub": "Skill Hub",
+    "analysis": "Analysis Viewer"
   },
   "sidebar": {
     "collapse": "Collapse",

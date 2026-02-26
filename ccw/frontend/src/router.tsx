@@ -36,6 +36,7 @@ import {
   CliSessionSharePage,
   TeamPage,
   TerminalDashboardPage,
+  AnalysisPage,
 } from '@/pages';
 
 /**
@@ -170,6 +171,10 @@ const routes: RouteObject[] = [
         element: <TeamPage />,
       },
       {
+        path: 'analysis',
+        element: <AnalysisPage />,
+      },
+      {
         path: 'terminal-dashboard',
         element: <TerminalDashboardPage />,
       },
@@ -234,6 +239,7 @@ export const ROUTES = {
   TEAMS: '/teams',
   TERMINAL_DASHBOARD: '/terminal-dashboard',
   SKILL_HUB: '/skill-hub',
+  ANALYSIS: '/analysis',
 } as const;
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];

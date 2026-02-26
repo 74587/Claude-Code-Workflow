@@ -40,6 +40,7 @@ import { handleOrchestratorRoutes } from './routes/orchestrator-routes.js';
 import { handleConfigRoutes } from './routes/config-routes.js';
 import { handleTeamRoutes } from './routes/team-routes.js';
 import { handleNotificationRoutes } from './routes/notification-routes.js';
+import { handleAnalysisRoutes } from './routes/analysis-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients, extractSessionIdFromPath } from './websocket.js';
@@ -432,6 +433,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Dashboard routes (/api/dashboard/*, /api/workflow-status-counts)
       if (pathname.startsWith('/api/dashboard/') || pathname === '/api/workflow-status-counts') {
         if (await handleDashboardRoutes(routeContext)) return;
+      }
+
+      // Analysis routes (/api/analysis/*)
+      if (pathname.startsWith('/api/analysis')) {
+        if (await handleAnalysisRoutes(routeContext)) return;
       }
 
       // CLI sessions (PTY) routes (/api/cli-sessions/*) - independent from /api/cli/*
