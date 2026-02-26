@@ -462,20 +462,37 @@ function buildDownloadUrlFromPath(skillPath: string): string {
 }
 
 /**
- * Fetch skill directory contents from GitHub API
- * Returns list of files in the directory
+ * GitHub Contents API response entry
+ * @see https://docs.github.com/en/rest/repos/contents#get-repository-content
  */
-interface GitHubTreeEntry {
+interface GitHubContentEntry {
+  name: string;
   path: string;
-  mode: string;
+  sha: string;
+  size?: number;
+  type: 'file' | 'dir' | 'submodule' | 'symlink';
+  download_url?: string;
+  url: string;
+  html_url?: string;
+  git_url?: string;
+}
+
+/**
+ * Internal normalized entry type for processing
+ */
+interface NormalizedTreeEntry {
+  path: string;
   type: 'blob' | 'tree';
   sha: string;
   size?: number;
   url: string;
 }
 
-async function fetchSkillDirectoryContents(skillPath: string): Promise<GitHubTreeEntry[]> {
-  // Use GitHub API to get tree contents
+/**
+ * Fetch skill directory contents from GitHub Contents API
+ * Returns normalized list of files and directories
+ */
+async function fetchSkillDirectoryContents(skillPath: string): Promise<NormalizedTreeEntry[]> {
   const apiUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${skillPath}?ref=${GITHUB_CONFIG.branch}`;
 
   const response = await fetch(apiUrl, {
@@ -489,7 +506,30 @@ async function fetchSkillDirectoryContents(skillPath: string): Promise<GitHubTre
     throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
   }
 
-  return response.json() as Promise<GitHubTreeEntry[]>;
+  const contents = await response.json();
+
+  // Runtime validation: must be an array
+  if (!Array.isArray(contents)) {
+    throw new Error(`Unexpected GitHub API response for directory: ${skillPath}`);
+  }
+
+  // Normalize and validate each entry
+  return contents.map((entry: GitHubContentEntry) => {
+    if (!entry.name || !entry.path || !entry.type) {
+      throw new Error(`Invalid GitHub API entry: ${JSON.stringify(entry)}`);
+    }
+
+    // Normalize GitHub type to internal type
+    const normalizedType: 'blob' | 'tree' = entry.type === 'dir' ? 'tree' : 'blob';
+
+    return {
+      path: entry.path,
+      type: normalizedType,
+      sha: entry.sha,
+      size: entry.size,
+      url: entry.url,
+    };
+  });
 }
 
 /**
