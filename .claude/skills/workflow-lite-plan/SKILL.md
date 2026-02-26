@@ -111,6 +111,16 @@ if (autoYes) {
 After collecting preferences, enhance context and dispatch:
 
 ```javascript
+// Step 0: Parse --from-analysis handoff (from analyze-with-file)
+const fromAnalysisMatch = args.match(/--from-analysis\s+(\S+)/)
+if (fromAnalysisMatch) {
+  const handoffPath = fromAnalysisMatch[1]
+  workflowPreferences.analysisHandoff = JSON.parse(Read(handoffPath))
+  workflowPreferences.forceExplore = false
+  // Strip flag from args, keep task description
+  args = args.replace(/--from-analysis\s+\S+\s*/, '').trim()
+}
+
 // Step 1: Check for project context files
 const hasProjectTech = fileExists('.workflow/project-tech.json')
 const hasProjectGuidelines = fileExists('.workflow/project-guidelines.json')

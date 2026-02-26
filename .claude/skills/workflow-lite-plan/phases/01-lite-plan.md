@@ -106,7 +106,27 @@ bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${
 
 **Exploration Decision Logic**:
 ```javascript
-needsExploration = (
+// Analysis handoff: reconstruct exploration from upstream analysis artifacts
+if (workflowPreferences.analysisHandoff) {
+  const handoff = workflowPreferences.analysisHandoff
+  Write(`${sessionFolder}/exploration-from-analysis.json`, JSON.stringify({
+    relevant_files: handoff.exploration_digest.relevant_files || [],
+    patterns: handoff.exploration_digest.patterns || [],
+    key_findings: handoff.exploration_digest.key_findings || [],
+    clarification_needs: [],  // analysis already did multi-round discussion
+    _metadata: { exploration_angle: "from-analysis", source_session: handoff.source_session, reconstructed: true }
+  }, null, 2))
+  Write(`${sessionFolder}/explorations-manifest.json`, JSON.stringify({
+    session_id: sessionId, task_description: task_description, timestamp: getUtc8ISOString(),
+    complexity: complexity, exploration_count: 1, from_analysis: handoff.source_session,
+    explorations: [{ angle: "from-analysis", file: "exploration-from-analysis.json",
+      path: `${sessionFolder}/exploration-from-analysis.json`, index: 1 }]
+  }, null, 2))
+  needsExploration = false
+  // clarification_needs=[] → Phase 2 naturally skipped → proceed to Phase 3
+}
+
+needsExploration = needsExploration ?? (
   workflowPreferences.forceExplore ||
   task.mentions_specific_files ||
   task.requires_codebase_context ||
@@ -132,9 +152,13 @@ if (!needsExploration) {
 
 const complexity = analyzeTaskComplexity(task_description)
 // Returns: 'Low' | 'Medium' | 'High'
-// Low: Single file, isolated change, minimal risk
-// Medium: Multiple files, some dependencies, moderate risk
-// High: Cross-module, architectural, high risk
+// Low: ONLY truly trivial — single file, single function, zero cross-module impact, no new patterns
+//   Examples: fix typo, rename variable, add log line, adjust constant value
+// Medium: Multiple files OR any integration point OR new pattern introduction OR moderate risk
+//   Examples: add endpoint, implement feature, refactor module, fix bug spanning files
+// High: Cross-module, architectural, or systemic change
+//   Examples: new subsystem, migration, security overhaul, API redesign
+// ⚠️ Default bias: When uncertain between Low and Medium, choose Medium
 
 // Angle assignment based on task type (orchestrator decides, not agent)
 const ANGLE_PRESETS = {
@@ -160,8 +184,14 @@ function selectAngles(taskDescription, count) {
 const selectedAngles = selectAngles(task_description, complexity === 'High' ? 4 : (complexity === 'Medium' ? 3 : 1))
 
 // Planning strategy determination
-const planningStrategy = complexity === 'Low'
-  ? 'Direct Claude Planning'
+// Agent trigger: anything beyond trivial single-file change
+// - analysisHandoff → always agent (analysis validated non-trivial task)
+// - multi-angle exploration → agent (complexity warranted multiple angles)
+// - Medium/High complexity → agent
+// Direct Claude planning ONLY for truly trivial Low + no analysis + single angle
+const planningStrategy = (
+  complexity === 'Low' && !workflowPreferences.analysisHandoff && selectedAngles.length <= 1
+) ? 'Direct Claude Planning'
   : 'cli-lite-planning-agent'
 
 console.log(`

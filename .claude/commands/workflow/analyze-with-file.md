@@ -508,11 +508,58 @@ CONSTRAINTS: ${perspective.constraints}
      - **Trade-offs Made**: Key trade-offs and why certain paths were chosen over others
    - Add session statistics: rounds, duration, sources, artifacts, **decision count**
 
-3. **Post-Completion Options** (AskUserQuestion)
-   - **创建Issue**: Launch issue-discover with conclusions
-   - **生成任务**: Launch workflow-lite-plan for implementation
-   - **导出报告**: Generate standalone analysis report
-   - **完成**: No further action
+3. **Post-Completion Options**
+
+   ```javascript
+   const hasActionableRecs = conclusions.recommendations?.some(r => r.priority === 'high' || r.priority === 'medium')
+
+   const nextStep = AskUserQuestion({
+     questions: [{
+       question: "Analysis complete. What's next?",
+       header: "Next Step",
+       multiSelect: false,
+       options: [
+         { label: hasActionableRecs ? "生成任务 (Recommended)" : "生成任务", description: "Launch workflow-lite-plan with analysis context" },
+         { label: "创建Issue", description: "Launch issue-discover with conclusions" },
+         { label: "导出报告", description: "Generate standalone analysis report" },
+         { label: "完成", description: "No further action" }
+       ]
+     }]
+   })
+   ```
+
+   **Handle "生成任务"**:
+   ```javascript
+   if (nextStep.includes("生成任务")) {
+     // 1. Build task description from high/medium priority recommendations
+     const taskDescription = conclusions.recommendations
+       .filter(r => r.priority === 'high' || r.priority === 'medium')
+       .map(r => r.action)
+       .join('\n') || conclusions.summary
+
+     // 2. Extract exploration digest (inline data, not path reference)
+     const explorationDigest = { relevant_files: [], patterns: [], key_findings: [] }
+     const codebasePath = `${sessionFolder}/exploration-codebase.json`
+     if (file_exists(codebasePath)) {
+       const data = JSON.parse(Read(codebasePath))
+       explorationDigest.relevant_files = data.relevant_files || []
+       explorationDigest.patterns = data.patterns || []
+       explorationDigest.key_findings = data.key_findings || []
+     }
+
+     // 3. Write handoff file to analysis session folder
+     Write(`${sessionFolder}/handoff-lite-plan.json`, JSON.stringify({
+       source_session: sessionId,
+       summary: conclusions.summary,
+       recommendations: conclusions.recommendations,
+       decision_trail: conclusions.decision_trail,
+       exploration_digest: explorationDigest
+     }, null, 2))
+
+     // 4. Call lite-plan with --from-analysis handoff
+     Skill(skill="workflow-lite-plan", args=`--from-analysis ${sessionFolder}/handoff-lite-plan.json "${taskDescription}"`)
+   }
+   ```
 
 **conclusions.json Schema**:
 - `session_id`: Session identifier
@@ -690,6 +737,8 @@ User agrees with current direction, wants deeper code analysis
 - Ready to implement (past analysis phase)
 - Need simple task breakdown
 - Focus on quick execution planning
+
+> **Note**: Phase 4「生成任务」auto-generates `--from-analysis` handoff. Manual invocation normally not needed after analysis.
 
 ---
 
