@@ -294,6 +294,7 @@ TaskCreate({
 // 5. Spawn planner agent
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn planner worker`,
   team_name: teamName,
   name: "planner",
   prompt: `你是 team "${teamName}" 的 PLANNER。
@@ -331,6 +332,7 @@ EXEC-* 任务 description 必须包含 solution_file 字段指向该文件
 // 6. Spawn executor agent
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn executor worker`,
   team_name: teamName,
   name: "executor",
   prompt: `你是 team "${teamName}" 的 EXECUTOR。

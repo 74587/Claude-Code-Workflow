@@ -30,7 +30,7 @@
 | `task_complete` | Worker | Task finished | Update session, check dependencies, kick next task |
 | `task_blocked` | Worker | Dependency missing | Log block reason, wait for predecessor |
 | `discussion_needed` | Worker | Ambiguity found | Route to user via AskUserQuestion |
-| `research_complete` | Researcher | Research done | Checkpoint with user before impl |
+| `research_ready` | analyst | Research done | Checkpoint with user before impl |
 
 ## Toolbox
 
@@ -40,7 +40,7 @@
 
 ### Subagent Capabilities
 - `TeamCreate` - Initialize team with session metadata
-- `TeamSpawn` - Spawn worker subagents (spec-writer, implementer, researcher)
+- `TeamSpawn` - Spawn worker subagents (analyst, writer, discussant, planner, executor, tester, reviewer, etc.)
 - `TaskCreate` - Create tasks with dependencies
 - `TaskUpdate` - Update task status/metadata
 - `TaskGet` - Retrieve task details
@@ -54,6 +54,66 @@
 ---
 
 ## Execution Flow
+
+### Entry Router: Command Detection
+
+**Purpose**: Detect invocation type and route to appropriate handler. Coordinator 有三种唤醒源：worker 回调、用户命令、初始调用。
+
+```javascript
+const args = $ARGUMENTS
+
+// ─── 1. Worker callback detection ───
+// Worker 完成后 SendMessage 到 coordinator，消息含 [role] 标识
+const callbackMatch = args.match(/\[(\w[\w-]*)\]/)
+const WORKER_ROLES = ['analyst','writer','discussant','planner','executor','tester','reviewer','explorer','architect','fe-developer','fe-qa']
+const isCallback = callbackMatch && WORKER_ROLES.includes(callbackMatch[1])
+
+// ─── 2. User command detection ───
+const isCheck = /\b(check|status|--check)\b/i.test(args)
+const isResume = /\b(resume|continue|next|--resume|--continue)\b/i.test(args)
+
+// ─── 3. Route ───
+if (isCallback || isCheck || isResume) {
+  // Need active session
+  const sessionFile = findActiveSession()
+  if (!sessionFile) {
+    Output("[coordinator] No active session found. Start a new session by providing a task description.")
+    return
+  }
+
+  // Load monitor command and execute
+  Read("commands/monitor.md")
+
+  if (isCallback) {
+    // Worker 回调 → 自动推进
+    handleCallback(callbackMatch[1], args)
+  } else if (isCheck) {
+    // 状态报告 → 输出执行状态图
+    handleCheck()
+  } else if (isResume) {
+    // 手动推进 → 检查成员状态并推进
+    handleResume()
+  }
+
+  // STOP — 所有命令执行完后立即停止
+  return
+}
+
+// ─── 4. Normal invoke → check for session resume or new session ───
+goto Phase0
+
+// Helper: find active session file
+function findActiveSession() {
+  const sessionFiles = Glob("D:/Claude_dms3/.workflow/.sessions/team-lifecycle-*.json")
+  for (const f of sessionFiles) {
+    const s = Read(f)
+    if (s.status === "active") return f
+  }
+  return null
+}
+```
+
+---
 
 ### Phase 0: Session Resume Check
 
@@ -101,38 +161,44 @@ if (sessionFiles.length > 1) {
 SessionReconciliation: {
   Output("[coordinator] Reconciling session state...")
 
-  // Pipeline constants
+  // Pipeline constants (aligned with SKILL.md Three-Mode Pipeline)
   const SPEC_CHAIN = [
-    "req-analysis", "arch-design", "api-design", "data-model",
-    "ui-spec", "test-strategy", "error-handling", "security-review",
-    "perf-requirements", "doc-outline", "review-spec", "finalize-spec"
+    "RESEARCH-001", "DISCUSS-001", "DRAFT-001", "DISCUSS-002",
+    "DRAFT-002", "DISCUSS-003", "DRAFT-003", "DISCUSS-004",
+    "DRAFT-004", "DISCUSS-005", "QUALITY-001", "DISCUSS-006"
   ]
 
-  const IMPL_CHAIN = [
-    "setup-scaffold", "core-impl", "integration", "finalize-impl"
-  ]
+  const IMPL_CHAIN = ["PLAN-001", "IMPL-001", "TEST-001", "REVIEW-001"]
 
-  // Task metadata with dependencies
+  const FE_CHAIN = ["DEV-FE-001", "QA-FE-001"]
+
+  const FULLSTACK_CHAIN = ["PLAN-001", "IMPL-001", "DEV-FE-001", "TEST-001", "QA-FE-001", "REVIEW-001"]
+
+  // Task metadata — role must match VALID_ROLES in SKILL.md
   const TASK_METADATA = {
-    // Spec tasks
-    "req-analysis": { phase: "spec", deps: [], description: "Analyze requirements" },
-    "arch-design": { phase: "spec", deps: ["req-analysis"], description: "Design architecture" },
-    "api-design": { phase: "spec", deps: ["arch-design"], description: "Design API contracts" },
-    "data-model": { phase: "spec", deps: ["arch-design"], description: "Design data models" },
-    "ui-spec": { phase: "spec", deps: ["arch-design"], description: "Design UI specifications" },
-    "test-strategy": { phase: "spec", deps: ["api-design", "data-model"], description: "Define test strategy" },
-    "error-handling": { phase: "spec", deps: ["api-design"], description: "Design error handling" },
-    "security-review": { phase: "spec", deps: ["api-design", "data-model"], description: "Security review" },
-    "perf-requirements": { phase: "spec", deps: ["arch-design"], description: "Performance requirements" },
-    "doc-outline": { phase: "spec", deps: ["api-design"], description: "Documentation outline" },
-    "review-spec": { phase: "spec", deps: ["test-strategy", "error-handling", "security-review", "perf-requirements", "doc-outline"], description: "Review specifications" },
-    "finalize-spec": { phase: "spec", deps: ["review-spec"], description: "Finalize specifications" },
+    // Spec pipeline (12 tasks)
+    "RESEARCH-001": { role: "analyst",    phase: "spec", deps: [],                description: "Seed analysis: codebase exploration and context gathering" },
+    "DISCUSS-001":  { role: "discussant", phase: "spec", deps: ["RESEARCH-001"],  description: "Critique research findings" },
+    "DRAFT-001":    { role: "writer",     phase: "spec", deps: ["DISCUSS-001"],   description: "Generate Product Brief" },
+    "DISCUSS-002":  { role: "discussant", phase: "spec", deps: ["DRAFT-001"],     description: "Critique Product Brief" },
+    "DRAFT-002":    { role: "writer",     phase: "spec", deps: ["DISCUSS-002"],   description: "Generate Requirements/PRD" },
+    "DISCUSS-003":  { role: "discussant", phase: "spec", deps: ["DRAFT-002"],     description: "Critique Requirements/PRD" },
+    "DRAFT-003":    { role: "writer",     phase: "spec", deps: ["DISCUSS-003"],   description: "Generate Architecture Document" },
+    "DISCUSS-004":  { role: "discussant", phase: "spec", deps: ["DRAFT-003"],     description: "Critique Architecture Document" },
+    "DRAFT-004":    { role: "writer",     phase: "spec", deps: ["DISCUSS-004"],   description: "Generate Epics" },
+    "DISCUSS-005":  { role: "discussant", phase: "spec", deps: ["DRAFT-004"],     description: "Critique Epics" },
+    "QUALITY-001":  { role: "reviewer",   phase: "spec", deps: ["DISCUSS-005"],   description: "5-dimension spec quality validation" },
+    "DISCUSS-006":  { role: "discussant", phase: "spec", deps: ["QUALITY-001"],   description: "Final review discussion and sign-off" },
 
-    // Impl tasks
-    "setup-scaffold": { phase: "impl", deps: ["finalize-spec"], description: "Setup project scaffold" },
-    "core-impl": { phase: "impl", deps: ["setup-scaffold"], description: "Core implementation" },
-    "integration": { phase: "impl", deps: ["core-impl"], description: "Integration work" },
-    "finalize-impl": { phase: "impl", deps: ["integration"], description: "Finalize implementation" }
+    // Impl pipeline (deps shown for impl-only; full-lifecycle adds PLAN-001 → ["DISCUSS-006"])
+    "PLAN-001":   { role: "planner",  phase: "impl", deps: [],           description: "Multi-angle codebase exploration and structured planning" },
+    "IMPL-001":   { role: "executor", phase: "impl", deps: ["PLAN-001"], description: "Code implementation following plan" },
+    "TEST-001":   { role: "tester",   phase: "impl", deps: ["IMPL-001"], description: "Adaptive test-fix cycles and quality gates" },
+    "REVIEW-001": { role: "reviewer", phase: "impl", deps: ["IMPL-001"], description: "4-dimension code review" },
+
+    // Frontend pipeline tasks
+    "DEV-FE-001": { role: "fe-developer", phase: "impl", deps: ["PLAN-001"],   description: "Frontend component/page implementation" },
+    "QA-FE-001":  { role: "fe-qa",        phase: "impl", deps: ["DEV-FE-001"], description: "5-dimension frontend QA" }
   }
 
   // Helper: Get predecessor task
@@ -164,12 +230,16 @@ SessionReconciliation: {
   Output(`  Pending: ${pendingTasks.length}`)
 
   // Step 3: Determine remaining work
-  const expectedChain = session.mode === "spec-only" ? SPEC_CHAIN :
-                       session.mode === "impl-only" ? IMPL_CHAIN :
-                       [...SPEC_CHAIN, ...IMPL_CHAIN]
+  const expectedChain =
+    session.mode === "spec-only" ? SPEC_CHAIN :
+    session.mode === "impl-only" ? IMPL_CHAIN :
+    session.mode === "fe-only" ? ["PLAN-001", ...FE_CHAIN] :
+    session.mode === "fullstack" ? FULLSTACK_CHAIN :
+    session.mode === "full-lifecycle-fe" ? [...SPEC_CHAIN, ...FULLSTACK_CHAIN] :
+    [...SPEC_CHAIN, ...IMPL_CHAIN] // full-lifecycle default
 
   const remainingTaskIds = expectedChain.filter(id =>
-    !completedTasks.some(t => t.task_id === id)
+    !completedTasks.some(t => t.subject === id)
   )
 
   Output(`[coordinator] Remaining tasks: ${remainingTaskIds.join(", ")}`)
@@ -186,32 +256,31 @@ SessionReconciliation: {
 
   // Step 5: Create missing tasks
   for (const taskId of remainingTaskIds) {
-    const existingTask = allTasks.find(t => t.task_id === taskId)
+    const existingTask = allTasks.find(t => t.subject === taskId)
     if (!existingTask) {
       const metadata = TASK_METADATA[taskId]
       TaskCreate({
-        team_id: session.team_id,
-        task_id: taskId,
-        phase: metadata.phase,
-        description: metadata.description,
-        dependencies: metadata.deps,
+        subject: taskId,
+        owner: metadata.role,
+        description: `${metadata.description}\nSession: ${sessionFolder}`,
+        blockedBy: metadata.deps,
         status: "pending"
       })
-      Output(`[coordinator] Created missing task: ${taskId}`)
+      Output(`[coordinator] Created missing task: ${taskId} (${metadata.role})`)
     }
   }
 
   // Step 6: Verify dependencies
   for (const taskId of remainingTaskIds) {
-    const task = TaskGet(taskId)
+    const task = allTasks.find(t => t.subject === taskId)
+    if (!task) continue
     const metadata = TASK_METADATA[taskId]
     const allDepsMet = metadata.deps.every(depId =>
-      completedTasks.some(t => t.task_id === depId)
+      completedTasks.some(t => t.subject === depId)
     )
 
-    if (allDepsMet && task.status === "blocked") {
-      TaskUpdate(taskId, { status: "pending" })
-      Output(`[coordinator] Unblocked task: ${taskId}`)
+    if (allDepsMet && task.status !== "completed") {
+      Output(`[coordinator] Unblocked task: ${taskId} (${metadata.role})`)
     }
   }
 
@@ -231,7 +300,7 @@ SessionReconciliation: {
     const nextTask = TaskGet(nextTaskId)
     const metadata = TASK_METADATA[nextTaskId]
 
-    if (metadata.deps.every(depId => completedTasks.some(t => t.task_id === depId))) {
+    if (metadata.deps.every(depId => completedTasks.some(t => t.subject === depId))) {
       TaskUpdate(nextTaskId, { status: "active" })
       Output(`[coordinator] Kicking task: ${nextTaskId}`)
       goto Phase4_CoordinationLoop
@@ -422,7 +491,10 @@ const sessionData = {
   status: "active",
   created_at: new Date().toISOString(),
   tasks_total: requirements.mode === "spec-only" ? 12 :
-               requirements.mode === "impl-only" ? 4 : 16,
+               requirements.mode === "impl-only" ? 4 :
+               requirements.mode === "fe-only" ? 3 :
+               requirements.mode === "fullstack" ? 6 :
+               requirements.mode === "full-lifecycle-fe" ? 18 : 16,
   tasks_completed: 0,
   current_phase: requirements.mode === "impl-only" ? "impl" : "spec"
 }
@@ -431,16 +503,18 @@ Write(sessionFile, sessionData)
 Output(`[coordinator] Session file created: ${sessionFile}`)
 
 // ⚠️ Workers are NOT pre-spawned here.
-// Workers are spawned per-stage in Phase 4 via Stop-Wait Task(run_in_background: false).
+// Workers are spawned on-demand in Phase 4 via Task(run_in_background: true).
+// Coordinator spawns → STOPS → worker 回调或用户 check/resume 唤醒 coordinator.
 // See SKILL.md Coordinator Spawn Template for worker prompt templates.
 //
-// Worker roles by mode (spawned on-demand):
-//   spec-only: spec-writer
-//   impl-only: implementer
-//   fe-only: fe-developer, fe-qa
-//   fullstack: implementer, fe-developer, fe-qa
-//   full-lifecycle / full-lifecycle-fe: spec-writer + relevant impl roles
-//   Always available: researcher (for ambiguity resolution)
+// Worker roles by mode (spawned on-demand, must match VALID_ROLES in SKILL.md):
+//   spec-only: analyst, discussant, writer, reviewer
+//   impl-only: planner, executor, tester, reviewer
+//   fe-only: planner, fe-developer, fe-qa
+//   fullstack: planner, executor, fe-developer, tester, fe-qa, reviewer
+//   full-lifecycle: analyst, discussant, writer, reviewer, planner, executor, tester
+//   full-lifecycle-fe: all of the above + fe-developer, fe-qa
+//   On-demand (ambiguity): analyst or explorer
 
 goto Phase3
 ```
@@ -465,27 +539,43 @@ goto Phase4
 
 ---
 
-### Phase 4: Coordination Loop
+### Phase 4: Spawn-and-Stop
 
-**Purpose**: Monitor task progress and route messages
+**Purpose**: Spawn first batch of ready workers, then STOP. 后续推进由 worker 回调或用户命令驱动。
 
-> **设计原则（Stop-Wait）**: 模型执行没有时间概念，禁止任何形式的轮询等待。
-> - ❌ 禁止: `while` 循环 + `sleep` + 检查状态
-> - ✅ 采用: 同步 `Task(run_in_background: false)` 调用，Worker 返回 = 阶段完成信号
+> **设计原则（Spawn-and-Stop + Callback）**:
+> - ❌ 禁止: 阻塞循环 `Task(run_in_background: false)` 串行等待所有 worker
+> - ❌ 禁止: `while` + `sleep` + 轮询
+> - ✅ 采用: `Task(run_in_background: true)` 后台 spawn，立即返回
+> - ✅ 采用: Worker SendMessage 回调自动唤醒 coordinator
+> - ✅ 采用: 用户 `check` / `resume` 命令辅助推进
 >
-> 按 Phase 3 创建的任务链顺序，逐阶段 spawn worker 同步执行。
-> Worker prompt 使用 SKILL.md Coordinator Spawn Template。
+> Coordinator 每次只做一步操作，然后 STOP 交还控制权。
+> 流水线通过三种唤醒源推进：worker 回调（自动）、用户 resume（手动）、用户 check（状态）。
 
 ```javascript
-Output("[coordinator] Phase 4: Coordination Loop")
+Output("[coordinator] Phase 4: Spawning first batch...")
 
-// Delegate to command file
-const monitorStrategy = Read("commands/monitor.md")
+// Load monitor command logic
+Read("commands/monitor.md")
 
-// Execute strategy defined in command file
-// (monitor.md contains the complete message routing and checkpoint logic)
+// Spawn first batch of ready tasks → STOP
+const result = handleSpawnNext()
 
-goto Phase5
+if (result === "PIPELINE_COMPLETE") {
+  goto Phase5
+}
+
+// STOP — coordinator 完成输出，控制权交还给用户
+// 后续推进方式：
+//   1. Worker 完成 → SendMessage 回调 → Entry Router → handleCallback → 自动推进
+//   2. User 输入 "check" → Entry Router → handleCheck → 状态报告
+//   3. User 输入 "resume" → Entry Router → handleResume → 手动推进
+Output("")
+Output("[coordinator] Coordinator paused. Pipeline will advance via:")
+Output("  • Worker callbacks (automatic)")
+Output("  • 'check' — view execution status graph")
+Output("  • 'resume' — manually advance pipeline")
 ```
 
 ---
@@ -514,7 +604,7 @@ Output(`[coordinator] Duration: ${calculateDuration(session.created_at, new Date
 const completedTasks = teamState.tasks.filter(t => t.status === "completed")
 Output("[coordinator] Deliverables:")
 for (const task of completedTasks) {
-  Output(`  ✓ ${task.task_id}: ${task.description}`)
+  Output(`  ✓ ${task.subject}: ${task.description}`)
   if (task.output_file) {
     Output(`    Output: ${task.output_file}`)
   }
@@ -547,12 +637,12 @@ switch (nextAction) {
   case "review":
     const taskToReview = AskUserQuestion({
       question: "Which task output to review?",
-      choices: completedTasks.map(t => t.task_id)
+      choices: completedTasks.map(t => t.subject)
     })
-    const reviewTask = completedTasks.find(t => t.task_id === taskToReview)
+    const reviewTask = completedTasks.find(t => t.subject === taskToReview)
     if (reviewTask.output_file) {
       const content = Read(reviewTask.output_file)
-      Output(`[coordinator] Task: ${reviewTask.task_id}`)
+      Output(`[coordinator] Task: ${reviewTask.subject}`)
       Output(content)
     }
     goto Phase5 // Loop back for more actions
@@ -569,8 +659,8 @@ switch (nextAction) {
 
   case "handoff-lite-plan":
     Output("[coordinator] Generating lite-plan from specifications...")
-    // Read finalize-spec output
-    const specOutput = Read(getTaskOutput("finalize-spec"))
+    // Read spec completion output (DISCUSS-006 = final sign-off)
+    const specOutput = Read(getTaskOutput("DISCUSS-006"))
     // Create lite-plan format
     const litePlan = generateLitePlan(specOutput)
     const litePlanFile = `D:/Claude_dms3/.workflow/.sessions/${session.session_id}-lite-plan.md`
@@ -580,7 +670,7 @@ switch (nextAction) {
 
   case "handoff-full-plan":
     Output("[coordinator] Generating full-plan from specifications...")
-    const fullSpecOutput = Read(getTaskOutput("finalize-spec"))
+    const fullSpecOutput = Read(getTaskOutput("DISCUSS-006"))
     const fullPlan = generateFullPlan(fullSpecOutput)
     const fullPlanFile = `D:/Claude_dms3/.workflow/.sessions/${session.session_id}-full-plan.md`
     Write(fullPlanFile, fullPlan)
@@ -589,7 +679,7 @@ switch (nextAction) {
 
   case "handoff-req-plan":
     Output("[coordinator] Generating req-plan from requirements...")
-    const reqAnalysis = Read(getTaskOutput("req-analysis"))
+    const reqAnalysis = Read(getTaskOutput("RESEARCH-001"))
     const reqPlan = generateReqPlan(reqAnalysis)
     const reqPlanFile = `D:/Claude_dms3/.workflow/.sessions/${session.session_id}-req-plan.md`
     Write(reqPlanFile, reqPlan)
@@ -598,7 +688,7 @@ switch (nextAction) {
 
   case "handoff-create-issues":
     Output("[coordinator] Generating GitHub issues...")
-    const issuesSpec = Read(getTaskOutput("finalize-spec"))
+    const issuesSpec = Read(getTaskOutput("DISCUSS-006"))
     const issues = generateGitHubIssues(issuesSpec)
     const issuesFile = `D:/Claude_dms3/.workflow/.sessions/${session.session_id}-issues.json`
     Write(issuesFile, issues)
@@ -665,7 +755,14 @@ function generateGitHubIssues(specOutput) {
   "resumed_at": null,
   "tasks_total": 16,
   "tasks_completed": 5,
-  "current_phase": "spec"
+  "current_phase": "spec",
+  "active_workers": [
+    {
+      "task_subject": "DISCUSS-003",
+      "role": "discussant",
+      "spawned_at": "2026-02-18T10:15:00Z"
+    }
+  ]
 }
 ```
 

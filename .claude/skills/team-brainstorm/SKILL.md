@@ -255,6 +255,7 @@ if (isFullPipeline && ideaAngles.length > 1) {
     const agentName = `ideator-${i + 1}`
     Task({
       subagent_type: "general-purpose",
+      description: `Spawn ${agentName} worker`,
       team_name: teamName,
       name: agentName,
       prompt: `你是 team "${teamName}" 的 IDEATOR (${agentName})。
@@ -284,6 +285,7 @@ if (isFullPipeline && ideaAngles.length > 1) {
   // Quick/Deep pipeline: single ideator
   Task({
     subagent_type: "general-purpose",
+    description: `Spawn ideator worker`,
     team_name: teamName,
     name: "ideator",
     prompt: `你是 team "${teamName}" 的 IDEATOR。
@@ -311,6 +313,7 @@ if (isFullPipeline && ideaAngles.length > 1) {
 // Challenger
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn challenger worker`,
   team_name: teamName,
   name: "challenger",
   prompt: `你是 team "${teamName}" 的 CHALLENGER。
@@ -335,6 +338,7 @@ Task({
 // Synthesizer
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn synthesizer worker`,
   team_name: teamName,
   name: "synthesizer",
   prompt: `你是 team "${teamName}" 的 SYNTHESIZER。
@@ -359,6 +363,7 @@ Task({
 // Evaluator
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn evaluator worker`,
   team_name: teamName,
   name: "evaluator",
   prompt: `你是 team "${teamName}" 的 EVALUATOR。

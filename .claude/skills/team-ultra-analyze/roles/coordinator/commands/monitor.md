@@ -110,6 +110,9 @@ for (const stageTask of preDiscussionTasks) {
   // 3. 同步 spawn worker — 阻塞直到 worker 返回（Stop-Wait 核心）
   const workerResult = Task({
     subagent_type: "general-purpose",
+    description: `Spawn ${workerConfig.role} worker for ${stageTask.subject}`,
+    team_name: teamName,
+    name: workerConfig.role,
     prompt: `你是 team "${teamName}" 的 ${workerConfig.role.toUpperCase()}。
 
 ## ⚠️ 首要指令（MUST）
@@ -204,11 +207,25 @@ if (MAX_DISCUSSION_ROUNDS === 0) {
       TaskUpdate({ taskId: discussTask.id, status: 'in_progress' })
       const discussResult = Task({
         subagent_type: "general-purpose",
+        description: `Spawn discussant worker for ${discussTask.subject}`,
+        team_name: teamName,
+        name: "discussant",
         prompt: `你是 team "${teamName}" 的 DISCUSSANT。
+
+## Primary Directive
 Skill(skill="team-ultra-analyze", args="--role=discussant")
-当前任务: ${discussTask.subject}
-Session: ${sessionFolder}
-TaskUpdate({ taskId: "${discussTask.id}", status: "completed" })`,
+
+## Assignment
+- Task ID: ${discussTask.id}
+- Task: ${discussTask.subject}
+- Session: ${sessionFolder}
+
+## Workflow
+1. Skill(skill="team-ultra-analyze", args="--role=discussant") to load role definition
+2. Execute task per role.md
+3. TaskUpdate({ taskId: "${discussTask.id}", status: "completed" })
+
+All outputs carry [discussant] tag.`,
         run_in_background: false
       })
     }
@@ -382,11 +399,25 @@ if (synthTask) {
   TaskUpdate({ taskId: synthTask.id, status: 'in_progress' })
   const synthResult = Task({
     subagent_type: "general-purpose",
+    description: `Spawn synthesizer worker for ${synthTask.subject}`,
+    team_name: teamName,
+    name: "synthesizer",
     prompt: `你是 team "${teamName}" 的 SYNTHESIZER。
+
+## Primary Directive
 Skill(skill="team-ultra-analyze", args="--role=synthesizer")
-当前任务: ${synthTask.subject}
-Session: ${sessionFolder}
-TaskUpdate({ taskId: "${synthTask.id}", status: "completed" })`,
+
+## Assignment
+- Task ID: ${synthTask.id}
+- Task: ${synthTask.subject}
+- Session: ${sessionFolder}
+
+## Workflow
+1. Skill(skill="team-ultra-analyze", args="--role=synthesizer") to load role definition
+2. Execute task per role.md
+3. TaskUpdate({ taskId: "${synthTask.id}", status: "completed" })
+
+All outputs carry [synthesizer] tag.`,
     run_in_background: false
   })
 }

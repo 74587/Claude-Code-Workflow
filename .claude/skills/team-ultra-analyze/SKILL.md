@@ -286,6 +286,7 @@ if (isParallel) {
     const agentName = `explorer-${i + 1}`
     Task({
       subagent_type: "general-purpose",
+      description: `Spawn ${agentName} worker`,
       team_name: teamName,
       name: agentName,
       prompt: `你是 team "${teamName}" 的 EXPLORER (${agentName})。
@@ -316,6 +317,7 @@ if (isParallel) {
   // Single explorer for quick mode
   Task({
     subagent_type: "general-purpose",
+    description: `Spawn explorer worker`,
     team_name: teamName,
     name: "explorer",
     prompt: `你是 team "${teamName}" 的 EXPLORER。
@@ -349,6 +351,7 @@ if (isParallel) {
     const agentName = `analyst-${i + 1}`
     Task({
       subagent_type: "general-purpose",
+      description: `Spawn ${agentName} worker`,
       team_name: teamName,
       name: agentName,
       prompt: `你是 team "${teamName}" 的 ANALYST (${agentName})。
@@ -377,6 +380,7 @@ if (isParallel) {
 } else {
   Task({
     subagent_type: "general-purpose",
+    description: `Spawn analyst worker`,
     team_name: teamName,
     name: "analyst",
     prompt: `你是 team "${teamName}" 的 ANALYST。
@@ -405,6 +409,7 @@ if (isParallel) {
 // ── Discussant (always single) ──
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn discussant worker`,
   team_name: teamName,
   name: "discussant",
   prompt: `你是 team "${teamName}" 的 DISCUSSANT。
@@ -430,6 +435,7 @@ Task({
 // ── Synthesizer (always single) ──
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn synthesizer worker`,
   team_name: teamName,
   name: "synthesizer",
   prompt: `你是 team "${teamName}" 的 SYNTHESIZER。

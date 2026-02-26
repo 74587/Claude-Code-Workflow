@@ -396,6 +396,7 @@ TeamCreate({ team_name: teamName })
 // Architect
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn architect worker`,
   team_name: teamName,
   name: "architect",
   prompt: `你是 team "${teamName}" 的 ARCHITECT。
@@ -421,6 +422,7 @@ Task({
 // Developer
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn developer worker`,
   team_name: teamName,
   name: "developer",
   prompt: `你是 team "${teamName}" 的 DEVELOPER。
@@ -444,6 +446,7 @@ Task({
 // Tester
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn tester worker`,
   team_name: teamName,
   name: "tester",
   prompt: `你是 team "${teamName}" 的 TESTER。
@@ -467,6 +470,7 @@ Task({
 // Reviewer
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn reviewer worker`,
   team_name: teamName,
   name: "reviewer",
   prompt: `你是 team "${teamName}" 的 REVIEWER。

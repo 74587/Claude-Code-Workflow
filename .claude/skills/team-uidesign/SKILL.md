@@ -294,6 +294,7 @@ TeamCreate({ team_name: teamName })
 // Researcher
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn researcher worker`,
   team_name: teamName,
   name: "researcher",
   prompt: `你是 team "${teamName}" 的 RESEARCHER。
@@ -320,6 +321,7 @@ Session: ${sessionFolder}
 // Designer
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn designer worker`,
   team_name: teamName,
   name: "designer",
   prompt: `你是 team "${teamName}" 的 DESIGNER。
@@ -345,6 +347,7 @@ Session: ${sessionFolder}
 // Reviewer (AUDIT)
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn reviewer worker`,
   team_name: teamName,
   name: "reviewer",
   prompt: `你是 team "${teamName}" 的 REVIEWER (审查员)。
@@ -370,6 +373,7 @@ Session: ${sessionFolder}
 // Implementer (BUILD)
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn implementer worker`,
   team_name: teamName,
   name: "implementer",
   prompt: `你是 team "${teamName}" 的 IMPLEMENTER (实现者)。

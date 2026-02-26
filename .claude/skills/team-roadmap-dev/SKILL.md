@@ -206,6 +206,7 @@ TeamCreate({ team_name: "roadmap-dev" })
 // Planner
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn roadmap-dev worker`,
   team_name: "roadmap-dev",
   name: "planner",
   prompt: `你是 team "roadmap-dev" 的 PLANNER。
@@ -230,6 +231,7 @@ Session: ${sessionFolder}
 // Executor
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn roadmap-dev worker`,
   team_name: "roadmap-dev",
   name: "executor",
   prompt: `你是 team "roadmap-dev" 的 EXECUTOR。
@@ -254,6 +256,7 @@ Session: ${sessionFolder}
 // Verifier
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn roadmap-dev worker`,
   team_name: "roadmap-dev",
   name: "verifier",
   prompt: `你是 team "roadmap-dev" 的 VERIFIER。

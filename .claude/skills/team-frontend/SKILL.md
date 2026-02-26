@@ -321,6 +321,7 @@ TeamCreate({ team_name: teamName })
 // Analyst
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn analyst worker`,
   team_name: teamName,
   name: "analyst",
   prompt: `你是 team "${teamName}" 的 ANALYST。
@@ -347,6 +348,7 @@ Session: ${sessionFolder}
 // Architect
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn architect worker`,
   team_name: teamName,
   name: "architect",
   prompt: `你是 team "${teamName}" 的 ARCHITECT。
@@ -372,6 +374,7 @@ Session: ${sessionFolder}
 // Developer
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn developer worker`,
   team_name: teamName,
   name: "developer",
   prompt: `你是 team "${teamName}" 的 DEVELOPER。
@@ -397,6 +400,7 @@ Session: ${sessionFolder}
 // QA
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn qa worker`,
   team_name: teamName,
   name: "qa",
   prompt: `你是 team "${teamName}" 的 QA (质量保证)。

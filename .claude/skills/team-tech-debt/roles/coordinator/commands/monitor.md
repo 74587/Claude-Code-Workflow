@@ -96,6 +96,9 @@ for (const stageTask of pipelineTasks) {
   //    Task() 本身就是等待机制，无需 sleep/poll
   const workerResult = Task({
     subagent_type: "general-purpose",
+    description: `Spawn ${workerConfig.role} worker for ${stageTask.subject}`,
+    team_name: teamName,
+    name: workerConfig.role,
     prompt: buildWorkerPrompt(stageTask, workerConfig, sessionFolder, taskDescription),
     run_in_background: false  // ← 同步阻塞 = 天然回调
   })
@@ -290,6 +293,9 @@ function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
     TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
     const retryResult = Task({
       subagent_type: "general-purpose",
+      description: `Retry ${workerConfig.role} worker for ${stageTask.subject}`,
+      team_name: teamName,
+      name: workerConfig.role,
       prompt: buildWorkerPrompt(stageTask, workerConfig, sessionFolder, taskDescription),
       run_in_background: false
     })

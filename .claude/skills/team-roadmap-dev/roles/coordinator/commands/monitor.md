@@ -172,6 +172,7 @@ function spawnPlanner(phase, gapIteration, sessionFolder) {
   // Synchronous call - blocks until planner returns
   Task({
     subagent_type: "general-purpose",
+    description: `Spawn planner worker for phase ${phase}`,
     team_name: "roadmap-dev",
     name: "planner",
     prompt: `You are the PLANNER for team "roadmap-dev".
@@ -203,6 +204,7 @@ function spawnExecutor(phase, gapIteration, sessionFolder) {
 
   Task({
     subagent_type: "general-purpose",
+    description: `Spawn executor worker for phase ${phase}`,
     team_name: "roadmap-dev",
     name: "executor",
     prompt: `You are the EXECUTOR for team "roadmap-dev".
@@ -234,6 +236,7 @@ function spawnVerifier(phase, gapIteration, sessionFolder) {
 
   Task({
     subagent_type: "general-purpose",
+    description: `Spawn verifier worker for phase ${phase}`,
     team_name: "roadmap-dev",
     name: "verifier",
     prompt: `You are the VERIFIER for team "roadmap-dev".

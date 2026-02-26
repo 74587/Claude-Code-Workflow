@@ -251,6 +251,7 @@ if (isBatchMode && issueIds.length > 1) {
     const agentName = `explorer-${i + 1}`
     Task({
       subagent_type: "general-purpose",
+      description: `Spawn issue worker`,
       team_name: "issue",
       name: agentName,
       prompt: `你是 team "issue" 的 EXPLORER (${agentName})。
@@ -281,6 +282,7 @@ if (isBatchMode && issueIds.length > 1) {
   // Quick/Full mode: single explorer
   Task({
     subagent_type: "general-purpose",
+    description: `Spawn issue worker`,
     team_name: "issue",
     name: "explorer",
     prompt: `你是 team "issue" 的 EXPLORER。
@@ -310,6 +312,7 @@ if (isBatchMode && issueIds.length > 1) {
 // Planner
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn issue worker`,
   team_name: "issue",
   name: "planner",
   prompt: `你是 team "issue" 的 PLANNER。
@@ -337,6 +340,7 @@ Task({
 // Reviewer
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn issue worker`,
   team_name: "issue",
   name: "reviewer",
   prompt: `你是 team "issue" 的 REVIEWER。
@@ -365,6 +369,7 @@ Task({
 // Integrator
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn issue worker`,
   team_name: "issue",
   name: "integrator",
   prompt: `你是 team "issue" 的 INTEGRATOR。
@@ -397,6 +402,7 @@ if (isBatchMode && issueIds.length > 2) {
     const agentName = `implementer-${i + 1}`
     Task({
       subagent_type: "general-purpose",
+      description: `Spawn issue worker`,
       team_name: "issue",
       name: agentName,
       prompt: `你是 team "issue" 的 IMPLEMENTER (${agentName})。
@@ -426,6 +432,7 @@ if (isBatchMode && issueIds.length > 2) {
   // Quick/Full mode: single implementer
   Task({
     subagent_type: "general-purpose",
+    description: `Spawn issue worker`,
     team_name: "issue",
     name: "implementer",
     prompt: `你是 team "issue" 的 IMPLEMENTER。

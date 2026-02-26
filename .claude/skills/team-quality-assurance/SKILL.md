@@ -285,6 +285,7 @@ TeamCreate({ team_name: teamName })
 // Scout
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn scout worker`,
   team_name: teamName,
   name: "scout",
   prompt: `你是 team "${teamName}" 的 SCOUT。
@@ -313,6 +314,7 @@ Task({
 // Strategist
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn strategist worker`,
   team_name: teamName,
   name: "strategist",
   prompt: `你是 team "${teamName}" 的 STRATEGIST。
@@ -345,6 +347,7 @@ if (isFullMode) {
     const agentName = `generator-${i}`
     Task({
       subagent_type: "general-purpose",
+      description: `Spawn ${agentName} worker`,
       team_name: teamName,
       name: agentName,
       prompt: `你是 team "${teamName}" 的 GENERATOR (${agentName})。
@@ -371,6 +374,7 @@ if (isFullMode) {
 } else {
   Task({
     subagent_type: "general-purpose",
+    description: `Spawn generator worker`,
     team_name: teamName,
     name: "generator",
     prompt: `你是 team "${teamName}" 的 GENERATOR。
@@ -400,6 +404,7 @@ if (isFullMode) {
     const agentName = `executor-${i}`
     Task({
       subagent_type: "general-purpose",
+      description: `Spawn ${agentName} worker`,
       team_name: teamName,
       name: agentName,
       prompt: `你是 team "${teamName}" 的 EXECUTOR (${agentName})。
@@ -426,6 +431,7 @@ if (isFullMode) {
 } else {
   Task({
     subagent_type: "general-purpose",
+    description: `Spawn executor worker`,
     team_name: teamName,
     name: "executor",
     prompt: `你是 team "${teamName}" 的 EXECUTOR。
@@ -452,6 +458,7 @@ if (isFullMode) {
 // Analyst
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn analyst worker`,
   team_name: teamName,
   name: "analyst",
   prompt: `你是 team "${teamName}" 的 ANALYST。

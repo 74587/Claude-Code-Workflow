@@ -226,6 +226,7 @@ TeamCreate({ team_name: teamName })
 // Strategist
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn strategist worker`,
   team_name: teamName,
   name: "strategist",
   prompt: `你是 team "${teamName}" 的 STRATEGIST。
@@ -251,6 +252,7 @@ Task({
 // Generator
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn generator worker`,
   team_name: teamName,
   name: "generator",
   prompt: `你是 team "${teamName}" 的 GENERATOR。
@@ -274,6 +276,7 @@ Task({
 // Executor
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn executor worker`,
   team_name: teamName,
   name: "executor",
   prompt: `你是 team "${teamName}" 的 EXECUTOR。
@@ -297,6 +300,7 @@ Task({
 // Analyst
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn analyst worker`,
   team_name: teamName,
   name: "analyst",
   prompt: `你是 team "${teamName}" 的 ANALYST。

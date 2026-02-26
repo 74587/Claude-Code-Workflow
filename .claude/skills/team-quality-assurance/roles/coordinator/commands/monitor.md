@@ -125,6 +125,9 @@ for (const stageTask of pipelineTasks) {
   // 3. 同步 spawn worker — 阻塞直到 worker 返回（Stop-Wait 核心）
   const workerResult = Task({
     subagent_type: "general-purpose",
+    description: `Spawn ${workerConfig.role} worker for ${stageTask.subject}`,
+    team_name: teamName,
+    name: workerConfig.role,
     prompt: `你是 team "${teamName}" 的 ${workerConfig.role.toUpperCase()}。
 
 ## ⚠️ 首要指令（MUST）

@@ -303,6 +303,7 @@ TeamCreate({ team_name: teamName })
 ```javascript
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn scanner worker`,
   prompt: `你是 team "${teamName}" 的 SCANNER。
 
 ## ⚠️ 首要指令（MUST）
@@ -335,6 +336,7 @@ Skill(skill="team-tech-debt", args="--role=scanner")
 ```javascript
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn assessor worker`,
   prompt: `你是 team "${teamName}" 的 ASSESSOR。
 
 ## ⚠️ 首要指令（MUST）
@@ -364,6 +366,7 @@ Skill(skill="team-tech-debt", args="--role=assessor")
 ```javascript
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn planner worker`,
   prompt: `你是 team "${teamName}" 的 PLANNER。
 
 ## ⚠️ 首要指令（MUST）
@@ -393,6 +396,7 @@ Skill(skill="team-tech-debt", args="--role=planner")
 ```javascript
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn executor worker`,
   prompt: `你是 team "${teamName}" 的 EXECUTOR。
 
 ## ⚠️ 首要指令（MUST）
@@ -422,6 +426,7 @@ Skill(skill="team-tech-debt", args="--role=executor")
 ```javascript
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn validator worker`,
   prompt: `你是 team "${teamName}" 的 VALIDATOR。
 
 ## ⚠️ 首要指令（MUST）

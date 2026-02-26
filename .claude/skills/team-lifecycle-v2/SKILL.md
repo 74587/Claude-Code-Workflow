@@ -160,30 +160,36 @@ Skill(skill="team-lifecycle-v2", args="--role=coordinator 任务描述")
 ```javascript
 if (!roleMatch) {
   // Orchestration Mode: 自动路由到 coordinator
-  // coordinator role.md 将执行：
-  //   Phase 1: 需求澄清
-  //   Phase 2: TeamCreate + spawn 所有 worker agents
-  //             每个 agent prompt 中包含 Skill(args="--role=xxx") 回调
-  //   Phase 3: 创建任务链
-  //   Phase 4: 监控协调循环
-  //   Phase 5: 结果汇报
+  // coordinator Entry Router 先检测命令类型：
+  //   - Worker 回调 → handleCallback → 自动推进
+  //   - "check" → handleCheck → 状态报告
+  //   - "resume" → handleResume → 手动推进
+  //   - 新任务 → Phase 1-3 → spawn first batch → STOP
 
   const role = "coordinator"
   Read(VALID_ROLES[role].file)
 }
 ```
 
-**完整调用链**:
+**完整调用链（Spawn-and-Stop）**:
 
 ```
 用户: Skill(args="任务描述")
   │
   ├─ SKILL.md: 无 --role → Orchestration Mode → 读取 coordinator role.md
   │
-  ├─ coordinator Phase 2: TeamCreate + spawn workers
-  │   每个 worker prompt 中包含 Skill(args="--role=xxx") 回调
+  ├─ coordinator Phase 1-3: 需求澄清 → TeamCreate → 创建任务链
   │
-  ├─ coordinator Phase 3: dispatch 任务链
+  ├─ coordinator Phase 4: spawn 首批 worker（后台） → STOP ← 立即停止
+  │
+  │  ┌─────────────────────────────────────────────────────┐
+  │  │ Worker 在后台执行，完成后 SendMessage 回调          │
+  │  │                                                     │
+  │  │ 三种唤醒源推进流水线:                                │
+  │  │  1. Worker 回调 → coordinator 自动推进下一步         │
+  │  │  2. 用户 "check" → 输出执行状态图                   │
+  │  │  3. 用户 "resume" → 手动推进                        │
+  │  └─────────────────────────────────────────────────────┘
   │
   ├─ worker 收到任务 → Skill(args="--role=xxx") → SKILL.md Role Router → role.md
   │   每个 worker 自动获取:
@@ -191,8 +197,24 @@ if (!roleMatch) {
   │   ├─ 可用命令 (commands/*.md)
   │   └─ 执行逻辑 (5-phase process)
   │
-  └─ coordinator Phase 4-5: 监控 → 结果汇报
+  ├─ worker 完成 → SendMessage(to: coordinator) → 唤醒 coordinator → spawn 下一批 → STOP
+  │   （循环直到 pipeline 完成）
+  │
+  └─ Pipeline 完成 → Phase 5: 结果汇报
 ```
+
+### User Commands（流水线推进指令）
+
+当 coordinator 已 spawn worker 并 STOP 后，用户可用以下指令唤醒 coordinator：
+
+| Command | Usage | Action |
+|---------|-------|--------|
+| `check` | `Skill(args="check")` | 输出执行状态图（pipeline graph），显示每个任务状态，不做推进 |
+| `resume` | `Skill(args="resume")` | 检查所有 worker 成员状态，完成的任务自动推进到下一步 |
+| `status` | `Skill(args="status")` | 同 `check` |
+
+> Worker 完成后的 SendMessage 回调也会自动唤醒 coordinator 推进流水线，
+> 无需用户手动 `resume`。`resume` 用于手动推进（如 checkpoint 后、或回调未触发时）。
 
 ### Available Roles
 
@@ -506,16 +528,18 @@ Coordinator supports `--resume` / `--continue` flags to resume interrupted sessi
 
 ## Coordinator Spawn Template
 
-When coordinator creates teammates, use this pattern:
+When coordinator spawns workers, use **background mode** (Spawn-and-Stop pattern):
 
 ```javascript
 TeamCreate({ team_name: teamName })
 
-// For each worker role:
+// For each ready worker — 后台 spawn，立即返回:
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn ${roleName} worker`,  // ← 必填参数
   team_name: teamName,
   name: "<role_name>",
+  run_in_background: true,  // ← KEY: 后台执行，coordinator 立即返回
   prompt: `你是 team "${teamName}" 的 <ROLE_NAME_UPPER>.
 
 ## ⚠️ 首要指令（MUST）
@@ -542,9 +566,13 @@ Session: ${sessionFolder}
 3. team_msg log + SendMessage 结果给 coordinator（带 [<role_name>] 标识）
 4. TaskUpdate completed → 检查下一个任务 → 回到步骤 1`
 })
+
+// ⚠️ Spawn 后立即 STOP — 不阻塞等待
+// Worker 完成后通过 SendMessage 回调唤醒 coordinator
+// 用户也可通过 "check" / "resume" 命令手动推进
 ```
 
-See [roles/coordinator/role.md](roles/coordinator/role.md) for the full spawn implementation with per-role prompts.
+See [roles/coordinator/role.md](roles/coordinator/role.md) for the full spawn implementation with per-role prompts and Entry Router.
 
 ## Shared Spec Resources
 

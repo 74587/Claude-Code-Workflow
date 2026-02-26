@@ -235,6 +235,7 @@ TeamCreate({ team_name: teamName })
 // Analyst (spec-only / full)
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn analyst worker`,
   team_name: teamName,
   name: "analyst",
   prompt: `你是 team "${teamName}" 的 ANALYST。
@@ -256,6 +257,7 @@ Session: ${sessionFolder}
 // Writer (spec-only / full)
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn writer worker`,
   team_name: teamName,
   name: "writer",
   prompt: `你是 team "${teamName}" 的 WRITER。
@@ -276,6 +278,7 @@ Session: ${sessionFolder}
 // Discussant (spec-only / full)
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn discussant worker`,
   team_name: teamName,
   name: "discussant",
   prompt: `你是 team "${teamName}" 的 DISCUSSANT。
@@ -297,6 +300,7 @@ Session: ${sessionFolder}
 // Planner (impl-only / full)
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn planner worker`,
   team_name: teamName,
   name: "planner",
   prompt: `你是 team "${teamName}" 的 PLANNER。
@@ -318,6 +322,7 @@ Session: ${sessionFolder}
 // Executor (impl-only / full)
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn executor worker`,
   team_name: teamName,
   name: "executor",
   prompt: `你是 team "${teamName}" 的 EXECUTOR。
@@ -338,6 +343,7 @@ Task({
 // Tester (impl-only / full)
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn tester worker`,
   team_name: teamName,
   name: "tester",
   prompt: `你是 team "${teamName}" 的 TESTER。
@@ -358,6 +364,7 @@ Task({
 // Reviewer (all modes)
 Task({
   subagent_type: "general-purpose",
+  description: `Spawn reviewer worker`,
   team_name: teamName,
   name: "reviewer",
   prompt: `你是 team "${teamName}" 的 REVIEWER。
