@@ -7,8 +7,8 @@
  *   part/<messageId>/<partId>.json          - Message parts (text, tool, reasoning, step-start)
  */
 
-import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFile, access, readdir, stat } from 'fs/promises';
+import { join } from 'path';
 import type { ParsedSession, ParsedTurn, ToolCallInfo, TokenInfo } from './session-content-parser.js';
 
 // ============================================================
@@ -111,32 +111,45 @@ export function getOpenCodeStoragePath(): string {
 }
 
 /**
- * Read JSON file safely
+ * Check if a path exists (async)
  */
-function readJsonFile<T>(filePath: string): T | null {
+async function pathExists(filePath: string): Promise<boolean> {
   try {
-    if (!existsSync(filePath)) {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Read JSON file safely (async)
+ */
+async function readJsonFile<T>(filePath: string): Promise<T | null> {
+  try {
+    if (!(await pathExists(filePath))) {
       return null;
     }
-    const content = readFileSync(filePath, 'utf8');
+    const content = await readFile(filePath, 'utf8');
     return JSON.parse(content) as T;
-  } catch {
+  } catch (error) {
+    console.warn(`[OpenCodeParser] Failed to read JSON file ${filePath}:`, error);
     return null;
   }
 }
 
 /**
- * Get all JSON files in a directory sorted by name (which includes timestamp)
+ * Get all JSON files in a directory sorted by name (which includes timestamp) (async)
  */
-function getJsonFilesInDir(dirPath: string): string[] {
-  if (!existsSync(dirPath)) {
+async function getJsonFilesInDir(dirPath: string): Promise<string[]> {
+  if (!(await pathExists(dirPath))) {
     return [];
   }
   try {
-    return readdirSync(dirPath)
-      .filter(f => f.endsWith('.json'))
-      .sort();
-  } catch {
+    const files = await readdir(dirPath);
+    return files.filter(f => f.endsWith('.json')).sort();
+  } catch (error) {
+    console.warn(`[OpenCodeParser] Failed to read directory ${dirPath}:`, error);
     return [];
   }
 }
@@ -159,12 +172,12 @@ function formatTimestamp(ms: number): string {
  * @param storageBasePath - Optional base path to storage (auto-detected if not provided)
  * @returns ParsedSession with aggregated turns from messages and parts
  */
-export function parseOpenCodeSession(
+export async function parseOpenCodeSession(
   sessionPath: string,
   storageBasePath?: string
-): ParsedSession | null {
+): Promise<ParsedSession | null> {
   // Read session file
-  const session = readJsonFile<OpenCodeSession>(sessionPath);
+  const session = await readJsonFile<OpenCodeSession>(sessionPath);
   if (!session) {
     return null;
   }
@@ -175,7 +188,7 @@ export function parseOpenCodeSession(
 
   // Read all messages for this session
   const messageDir = join(basePath, 'message', sessionId);
-  const messageFiles = getJsonFilesInDir(messageDir);
+  const messageFiles = await getJsonFilesInDir(messageDir);
 
   if (messageFiles.length === 0) {
     // Return session with no turns
@@ -199,16 +212,16 @@ export function parseOpenCodeSession(
   }> = [];
 
   for (const msgFile of messageFiles) {
-    const message = readJsonFile<OpenCodeMessage>(join(messageDir, msgFile));
+    const message = await readJsonFile<OpenCodeMessage>(join(messageDir, msgFile));
     if (!message) continue;
 
     // Read all parts for this message
     const partDir = join(basePath, 'part', message.id);
-    const partFiles = getJsonFilesInDir(partDir);
+    const partFiles = await getJsonFilesInDir(partDir);
     const parts: OpenCodePart[] = [];
 
     for (const partFile of partFiles) {
-      const part = readJsonFile<OpenCodePart>(join(partDir, partFile));
+      const part = await readJsonFile<OpenCodePart>(join(partDir, partFile));
       if (part) {
         parts.push(part);
       }
@@ -333,14 +346,14 @@ function buildTurns(messages: Array<{ message: OpenCodeMessage; parts: OpenCodeP
  * @param projectHash - Optional project hash (will search all projects if not provided)
  * @returns ParsedSession or null if not found
  */
-export function parseOpenCodeSessionById(
+export async function parseOpenCodeSessionById(
   sessionId: string,
   projectHash?: string
-): ParsedSession | null {
+): Promise<ParsedSession | null> {
   const basePath = getOpenCodeStoragePath();
   const sessionDir = join(basePath, 'session');
 
-  if (!existsSync(sessionDir)) {
+  if (!(await pathExists(sessionDir))) {
     return null;
   }
 
@@ -352,19 +365,29 @@ export function parseOpenCodeSessionById(
 
   // Search all project directories
   try {
-    const projectDirs = readdirSync(sessionDir).filter(d => {
-      const fullPath = join(sessionDir, d);
-      return statSync(fullPath).isDirectory();
-    });
+    const entries = await readdir(sessionDir);
+    const projectDirs: string[] = [];
+
+    for (const entry of entries) {
+      const fullPath = join(sessionDir, entry);
+      try {
+        const entryStat = await stat(fullPath);
+        if (entryStat.isDirectory()) {
+          projectDirs.push(entry);
+        }
+      } catch {
+        // Skip entries that can't be stat'd
+      }
+    }
 
     for (const projHash of projectDirs) {
       const sessionPath = join(sessionDir, projHash, `${sessionId}.json`);
-      if (existsSync(sessionPath)) {
+      if (await pathExists(sessionPath)) {
         return parseOpenCodeSession(sessionPath, basePath);
       }
     }
-  } catch {
-    // Ignore errors
+  } catch (error) {
+    console.warn('[OpenCodeParser] Failed to search project directories:', error);
   }
 
   return null;
@@ -376,14 +399,14 @@ export function parseOpenCodeSessionById(
  * @param projectHash - Project hash to filter by
  * @returns Array of session info (not full parsed sessions)
  */
-export function getOpenCodeSessions(projectHash?: string): Array<{
+export async function getOpenCodeSessions(projectHash?: string): Promise<Array<{
   sessionId: string;
   projectHash: string;
   filePath: string;
   title?: string;
   createdAt: Date;
   updatedAt: Date;
-}> {
+}>> {
   const basePath = getOpenCodeStoragePath();
   const sessionDir = join(basePath, 'session');
   const sessions: Array<{
@@ -395,27 +418,41 @@ export function getOpenCodeSessions(projectHash?: string): Array<{
     updatedAt: Date;
   }> = [];
 
-  if (!existsSync(sessionDir)) {
+  if (!(await pathExists(sessionDir))) {
     return sessions;
   }
 
   try {
-    const projectDirs = projectHash
-      ? [projectHash]
-      : readdirSync(sessionDir).filter(d => {
-          const fullPath = join(sessionDir, d);
-          return statSync(fullPath).isDirectory();
-        });
+    let projectDirs: string[];
+
+    if (projectHash) {
+      projectDirs = [projectHash];
+    } else {
+      const entries = await readdir(sessionDir);
+      projectDirs = [];
+
+      for (const entry of entries) {
+        const fullPath = join(sessionDir, entry);
+        try {
+          const entryStat = await stat(fullPath);
+          if (entryStat.isDirectory()) {
+            projectDirs.push(entry);
+          }
+        } catch {
+          // Skip entries that can't be stat'd
+        }
+      }
+    }
 
     for (const projHash of projectDirs) {
       const projDir = join(sessionDir, projHash);
-      if (!existsSync(projDir)) continue;
+      if (!(await pathExists(projDir))) continue;
 
-      const sessionFiles = getJsonFilesInDir(projDir);
+      const sessionFiles = await getJsonFilesInDir(projDir);
 
       for (const sessionFile of sessionFiles) {
         const filePath = join(projDir, sessionFile);
-        const session = readJsonFile<OpenCodeSession>(filePath);
+        const session = await readJsonFile<OpenCodeSession>(filePath);
 
         if (session) {
           sessions.push({
@@ -429,8 +466,8 @@ export function getOpenCodeSessions(projectHash?: string): Array<{
         }
       }
     }
-  } catch {
-    // Ignore errors
+  } catch (error) {
+    console.warn('[OpenCodeParser] Failed to get sessions:', error);
   }
 
   // Sort by updated time descending

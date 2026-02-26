@@ -49,6 +49,68 @@ import {
   getCodeIndexMcp
 } from '../../tools/claude-cli-tools.js';
 import type { RouteContext } from './types.js';
+import { resolve, normalize } from 'path';
+import { homedir } from 'os';
+
+// ========== Path Security Utilities ==========
+// Allowed directories for session file access (path traversal protection)
+const ALLOWED_SESSION_DIRS: string[] = [
+  resolve(homedir(), '.claude', 'projects'),
+  resolve(homedir(), '.local', 'share', 'opencode', 'storage'),
+  resolve(homedir(), '.gemini', 'sessions'),
+  resolve(homedir(), '.qwen', 'sessions'),
+  resolve(homedir(), '.codex')
+];
+
+/**
+ * Validates that an absolute path is within one of the allowed directories.
+ * Prevents path traversal attacks by checking the resolved path.
+ *
+ * @param absolutePath - The absolute path to validate
+ * @param allowedDirs - Array of allowed directory paths
+ * @returns true if path is within an allowed directory, false otherwise
+ */
+function isPathWithinAllowedDirs(absolutePath: string, allowedDirs: string[]): boolean {
+  // Normalize the path to resolve any remaining . or .. sequences
+  const normalizedPath = normalize(absolutePath);
+
+  // Check if the path starts with any of the allowed directories
+  for (const allowedDir of allowedDirs) {
+    const normalizedAllowedDir = normalize(allowedDir);
+    // Ensure path is within allowed dir (starts with allowedDir + separator)
+    if (normalizedPath.startsWith(normalizedAllowedDir + '/') ||
+        normalizedPath.startsWith(normalizedAllowedDir + '\\') ||
+        normalizedPath === normalizedAllowedDir) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Validates a file path parameter to prevent path traversal attacks.
+ * Returns validated absolute path or throws an error.
+ *
+ * @param inputPath - The user-provided path (may be relative or absolute)
+ * @param allowedDirs - Array of allowed directory paths
+ * @returns Object with resolved path or error
+ */
+function validatePath(inputPath: string, allowedDirs: string[]): { valid: true; path: string } | { valid: false; error: string } {
+  if (!inputPath || typeof inputPath !== 'string') {
+    return { valid: false, error: 'Path parameter is required' };
+  }
+
+  // Resolve to absolute path (handles relative paths and .. sequences)
+  const resolvedPath = resolve(inputPath);
+
+  // Validate the resolved path is within allowed directories
+  if (!isPathWithinAllowedDirs(resolvedPath, allowedDirs)) {
+    console.warn(`[Security] Path traversal attempt blocked: ${inputPath} resolved to ${resolvedPath}`);
+    return { valid: false, error: 'Invalid path: access denied' };
+  }
+
+  return { valid: true, path: resolvedPath };
+}
 
 // ========== Active Executions State ==========
 // Stores running CLI executions for state recovery when view is opened/refreshed
@@ -574,6 +636,16 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
       return true;
     }
 
+    // Security: Validate filePath is within allowed session directories
+    if (filePath) {
+      const pathValidation = validatePath(filePath, ALLOWED_SESSION_DIRS);
+      if (!pathValidation.valid) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid path: access denied' }));
+        return true;
+      }
+    }
+
     try {
       let result;
 
@@ -601,7 +673,7 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
           }
         }
 
-        const session = parseSessionFile(filePath, tool);
+        const session = await parseSessionFile(filePath, tool);
         if (!session) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Native session not found at path: ' + filePath }));
@@ -786,6 +858,15 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
 
       if (!tool || !prompt) {
         return { error: 'tool and prompt are required', status: 400 };
+      }
+
+      // Security: Validate toFile path is within project directory
+      if (toFile) {
+        const projectDir = resolve(dir || initialPath);
+        const pathValidation = validatePath(toFile, [projectDir]);
+        if (!pathValidation.valid) {
+          return { error: 'Invalid path: access denied', status: 400 };
+        }
       }
 
       // Generate smart context if enabled

@@ -4,6 +4,7 @@
  */
 
 import { readFileSync, existsSync } from 'fs';
+import { readFile, access } from 'fs/promises';
 import { parseClaudeSession } from './claude-session-parser.js';
 import { parseOpenCodeSession } from './opencode-session-parser.js';
 
@@ -178,15 +179,27 @@ function isJSONL(content: string): boolean {
 }
 
 /**
- * Parse a native session file and return standardized conversation data
+ * Check if a path exists (async)
  */
-export function parseSessionFile(filePath: string, tool: string): ParsedSession | null {
-  if (!existsSync(filePath)) {
+async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Parse a native session file and return standardized conversation data (async)
+ */
+export async function parseSessionFile(filePath: string, tool: string): Promise<ParsedSession | null> {
+  if (!(await pathExists(filePath))) {
     return null;
   }
 
   try {
-    const content = readFileSync(filePath, 'utf8');
+    const content = await readFile(filePath, 'utf8');
 
     switch (tool) {
       case 'gemini':

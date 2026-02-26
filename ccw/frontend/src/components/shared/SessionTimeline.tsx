@@ -187,6 +187,8 @@ function ToolCallPanel({ toolCall, index }: ToolCallPanelProps) {
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between px-3 py-2.5 text-sm hover:bg-muted/50 transition-colors"
+        aria-expanded={isExpanded}
+        aria-controls={`toolcall-panel-${toolCall.name}-${index}`}
       >
         <div className="flex items-center gap-2">
           {isExpanded ? (
@@ -194,7 +196,9 @@ function ToolCallPanel({ toolCall, index }: ToolCallPanelProps) {
           ) : (
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           )}
-          {getToolStatusIcon(toolCall.output ? 'completed' : undefined)}
+          <span aria-label={toolCall.output ? 'Tool completed' : 'Tool status unknown'}>
+            {getToolStatusIcon(toolCall.output ? 'completed' : undefined)}
+          </span>
           <span className="font-mono font-medium">{toolCall.name}</span>
           <span className="text-muted-foreground text-xs">#{index + 1}</span>
         </div>
@@ -205,7 +209,10 @@ function ToolCallPanel({ toolCall, index }: ToolCallPanelProps) {
 
       {/* Collapsible content */}
       {isExpanded && (
-        <div className="border-t border-border/50 divide-y divide-border/50">
+        <div
+          id={`toolcall-panel-${toolCall.name}-${index}`}
+          className="border-t border-border/50 divide-y divide-border/50"
+        >
           {toolCall.arguments && (
             <div className="p-3">
               <p className="text-xs font-medium text-muted-foreground mb-1.5">
@@ -331,7 +338,7 @@ function TurnNode({ turn, isLatest, isLast }: TurnNodeProps) {
               </summary>
               <ul className="px-4 pb-3 space-y-1 text-sm text-muted-foreground list-disc list-inside">
                 {turn.thoughts.map((thought, i) => (
-                  <li key={i} className="leading-relaxed pl-2">{thought}</li>
+                  <li key={`thought-${turn.turnNumber}-${i}`} className="leading-relaxed pl-2">{thought}</li>
                 ))}
               </ul>
             </details>
@@ -348,7 +355,7 @@ function TurnNode({ turn, isLatest, isLast }: TurnNodeProps) {
                 <span className="text-xs">({turn.toolCalls.length})</span>
               </div>
               {turn.toolCalls.map((tc, i) => (
-                <ToolCallPanel key={i} toolCall={tc} index={i} />
+                <ToolCallPanel key={`toolcall-${turn.turnNumber}-${tc.name}-${i}`} toolCall={tc} index={i} />
               ))}
             </div>
           )}

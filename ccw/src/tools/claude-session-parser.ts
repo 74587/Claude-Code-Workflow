@@ -162,8 +162,8 @@ export function parseClaudeSession(filePath: string): ParsedSession | null {
         if (entry.timestamp) {
           lastUpdated = entry.timestamp;
         }
-      } catch {
-        // Skip invalid lines
+      } catch (e) {
+        console.warn('[claude-session-parser] Failed to parse JSON line:', e instanceof Error ? e.message : String(e));
       }
     }
 
@@ -426,8 +426,8 @@ export function parseClaudeSessionContent(content: string, filePath?: string): P
       if (entry.timestamp) {
         lastUpdated = entry.timestamp;
       }
-    } catch {
-      // Skip invalid lines
+    } catch (e) {
+      console.warn('[claude-session-parser] Failed to parse JSON line in parseClaudeSessionContent:', e instanceof Error ? e.message : String(e));
     }
   }
 
