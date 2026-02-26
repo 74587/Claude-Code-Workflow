@@ -7132,3 +7132,38 @@ export async function triggerReindex(
     }
   );
 }
+
+// ========== Analysis API ==========
+
+import type { AnalysisSessionSummary, AnalysisSessionDetail } from '../types/analysis';
+
+/**
+ * Fetch list of analysis sessions
+ */
+export async function fetchAnalysisSessions(
+  projectPath?: string
+): Promise<AnalysisSessionSummary[]> {
+  const data = await fetchApi<{ success: boolean; data: AnalysisSessionSummary[]; error?: string }>(
+    withPath('/api/analysis', projectPath)
+  );
+  if (!data.success) {
+    throw new Error(data.error || 'Failed to fetch analysis sessions');
+  }
+  return data.data;
+}
+
+/**
+ * Fetch analysis session detail
+ */
+export async function fetchAnalysisDetail(
+  sessionId: string,
+  projectPath?: string
+): Promise<AnalysisSessionDetail> {
+  const data = await fetchApi<{ success: boolean; data: AnalysisSessionDetail; error?: string }>(
+    withPath(`/api/analysis/${encodeURIComponent(sessionId)}`, projectPath)
+  );
+  if (!data.success) {
+    throw new Error(data.error || 'Failed to fetch analysis detail');
+  }
+  return data.data;
+}
