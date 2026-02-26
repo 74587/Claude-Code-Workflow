@@ -15,6 +15,7 @@
 import matter from 'gray-matter';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 
 import {
   getDimensionIndex,
@@ -49,6 +50,10 @@ export interface SpecLoadOptions {
   stdinData?: { user_prompt?: string; prompt?: string; [key: string]: unknown };
   /** Enable debug logging to stderr */
   debug?: boolean;
+  /** Maximum content length in characters (default: 8000) */
+  maxLength?: number;
+  /** Whether to truncate content if it exceeds maxLength (default: true) */
+  truncateOnExceed?: boolean;
 }
 
 /**
@@ -63,6 +68,19 @@ export interface SpecLoadResult {
   matchedSpecs: string[];
   /** Total number of spec files loaded */
   totalLoaded: number;
+  /** Content length statistics */
+  contentLength: {
+    /** Original content length before truncation */
+    original: number;
+    /** Final content length (after truncation if applied) */
+    final: number;
+    /** Maximum allowed length */
+    maxLength: number;
+    /** Whether content was truncated */
+    truncated: boolean;
+    /** Percentage of max length used */
+    percentage: number;
+  };
 }
 
 /**
@@ -114,13 +132,18 @@ const SPEC_PRIORITY_WEIGHT: Record<string, number> = {
  *   3. Filter: all required specs + optional specs with keyword match
  *   4. Load MD file content (strip frontmatter)
  *   5. Merge by dimension priority
- *   6. Format for CLI (markdown) or Hook (JSON)
+ *   6. Check length and truncate if needed
+ *   7. Format for CLI (markdown) or Hook (JSON)
  *
  * @param options - Loading configuration
  * @returns SpecLoadResult with formatted content
  */
 export async function loadSpecs(options: SpecLoadOptions): Promise<SpecLoadResult> {
   const { projectPath, outputFormat, debug } = options;
+
+  // Get injection control settings
+  const maxLength = options.maxLength ?? 8000;
+  const truncateOnExceed = options.truncateOnExceed ?? true;
 
   // Step 1: Resolve keywords
   const keywords = resolveKeywords(options);
@@ -165,16 +188,40 @@ export async function loadSpecs(options: SpecLoadOptions): Promise<SpecLoadResul
   // Step 5: Merge by dimension priority
   const mergedContent = mergeByPriority(allLoadedSpecs);
 
-  // Step 6: Format output
+  // Step 6: Check length and truncate if needed
+  const originalLength = mergedContent.length;
+  let finalContent = mergedContent;
+  let truncated = false;
+
+  if (originalLength > maxLength && truncateOnExceed) {
+    // Truncate content, preserving complete sections where possible
+    finalContent = truncateContent(mergedContent, maxLength);
+    truncated = true;
+
+    if (debug) {
+      debugLog(`Content truncated: ${originalLength} -> ${finalContent.length} (max: ${maxLength})`);
+    }
+  }
+
+  // Step 7: Format output
   const matchedTitles = allLoadedSpecs.map(s => s.title);
-  const content = formatOutput(mergedContent, matchedTitles, outputFormat);
+  const content = formatOutput(finalContent, matchedTitles, outputFormat);
   const format = outputFormat === 'cli' ? 'markdown' : 'json';
+
+  const percentage = Math.round((originalLength / maxLength) * 100);
 
   return {
     content,
     format,
     matchedSpecs: matchedTitles,
     totalLoaded: allLoadedSpecs.length,
+    contentLength: {
+      original: originalLength,
+      final: finalContent.length,
+      maxLength,
+      truncated,
+      percentage: Math.min(percentage, 100),
+    },
   };
 }
 
@@ -375,4 +422,38 @@ function formatOutput(
  */
 function debugLog(message: string): void {
   process.stderr.write(`[spec-loader] ${message}\n`);
+}
+
+/**
+ * Truncate content to fit within maxLength while preserving complete sections.
+ *
+ * Strategy: Remove sections from the end (lowest priority) until within limit.
+ * Each section is delimited by '\n\n---\n\n' from mergeByPriority.
+ *
+ * @param content - Full merged content
+ * @param maxLength - Maximum allowed length
+ * @returns Truncated content string
+ */
+function truncateContent(content: string, maxLength: number): string {
+  if (content.length <= maxLength) {
+    return content;
+  }
+
+  // Split by section separator
+  const sections = content.split('\n\n---\n\n');
+
+  // Remove sections from the end until we're within limit
+  while (sections.length > 1) {
+    sections.pop();
+
+    const newContent = sections.join('\n\n---\n\n');
+    if (newContent.length <= maxLength) {
+      // Add truncation notice
+      return newContent + '\n\n---\n\n[Content truncated due to length limit]';
+    }
+  }
+
+  // If single section is still too long, hard truncate
+  const truncated = sections[0]?.substring(0, maxLength - 50) ?? '';
+  return truncated + '\n\n[Content truncated due to length limit]';
 }

@@ -150,6 +150,8 @@
     "plan": "plan/",
     "explorations": "explorations/",
     "architecture": "architecture/",
+    "analysis": "analysis/",
+    "qa": "qa/",
     "wisdom": "wisdom/",
     "messages": ".msg/"
   }

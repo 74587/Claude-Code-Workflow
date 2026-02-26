@@ -347,7 +347,7 @@ Bash(`mkdir -p ${sessionFolder}`)
    1. Run: ccw tool exec get_modules_by_depth '{}'
    2. Execute relevant searches based on requirement keywords
    3. Read: .workflow/project-tech.json (if exists)
-   4. Read: .workflow/project-guidelines.json (if exists)
+   4. Read: .workflow/specs/*.md (if exists)
 
    ## Exploration Focus
    - Identify modules/components related to the requirement

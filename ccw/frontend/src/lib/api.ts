@@ -728,13 +728,26 @@ export interface Issue {
   id: string;
   title: string;
   context?: string;
-  status: 'open' | 'in_progress' | 'resolved' | 'closed' | 'completed';
+  status: 'registered' | 'planning' | 'planned' | 'queued' | 'executing' | 'completed' | 'failed' | 'paused';
   priority: 'low' | 'medium' | 'high' | 'critical';
   createdAt: string;
   updatedAt?: string;
+  plannedAt?: string;
+  queuedAt?: string;
+  completedAt?: string;
   solutions?: IssueSolution[];
   labels?: string[];
   assignee?: string;
+  tags?: string[];
+  source?: 'github' | 'text' | 'discovery';
+  sourceUrl?: string;
+  boundSolutionId?: string | null;
+  feedback?: Array<{
+    type: 'failure' | 'clarification' | 'rejection';
+    stage: string;
+    content: string;
+    createdAt: string;
+  }>;
   attachments?: Attachment[];
 }
 
@@ -7131,6 +7144,121 @@ export async function triggerReindex(
       body: JSON.stringify({ path: projectPath }),
     }
   );
+}
+
+// ========== System Settings API ==========
+
+/**
+ * System settings response from /api/system/settings
+ */
+export interface SystemSettings {
+  injectionControl: {
+    maxLength: number;
+    warnThreshold: number;
+    truncateOnExceed: boolean;
+  };
+  personalSpecDefaults: {
+    defaultReadMode: 'required' | 'optional' | 'keywords';
+    autoEnable: boolean;
+  };
+  recommendedHooks: Array<{
+    id: string;
+    event: string;
+    name: string;
+    command: string;
+    description: string;
+    scope: 'global' | 'project';
+    autoInstall: boolean;
+  }>;
+}
+
+/**
+ * Update system settings request
+ */
+export interface UpdateSystemSettingsInput {
+  injectionControl?: Partial<SystemSettings['injectionControl']>;
+  personalSpecDefaults?: Partial<SystemSettings['personalSpecDefaults']>;
+}
+
+/**
+ * Install recommended hooks request
+ */
+export interface InstallRecommendedHooksInput {
+  hookIds: string[];
+  scope?: 'global' | 'project';
+}
+
+/**
+ * Installed hook result
+ */
+export interface InstalledHook {
+  id: string;
+  event: string;
+  status: 'installed' | 'already-exists';
+}
+
+/**
+ * Install recommended hooks response
+ */
+export interface InstallRecommendedHooksResponse {
+  success: boolean;
+  installed: InstalledHook[];
+}
+
+/**
+ * Fetch system settings (injection control, personal spec defaults, recommended hooks)
+ */
+export async function getSystemSettings(): Promise<SystemSettings> {
+  return fetchApi<SystemSettings>('/api/system/settings');
+}
+
+/**
+ * Update system settings
+ */
+export async function updateSystemSettings(data: UpdateSystemSettingsInput): Promise<{ success: boolean; settings?: Record<string, unknown> }> {
+  return fetchApi<{ success: boolean; settings?: Record<string, unknown> }>('/api/system/settings', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Install recommended hooks
+ */
+export async function installRecommendedHooks(
+  hookIds: string[],
+  scope?: 'global' | 'project'
+): Promise<InstallRecommendedHooksResponse> {
+  return fetchApi<InstallRecommendedHooksResponse>('/api/system/hooks/install-recommended', {
+    method: 'POST',
+    body: JSON.stringify({ hookIds, scope } as InstallRecommendedHooksInput),
+  });
+}
+
+// ========== Spec Stats API ==========
+
+/**
+ * Spec stats response from /api/specs/stats
+ */
+export interface SpecStats {
+  dimensions: Record<string, { count: number; requiredCount: number }>;
+  injectionLength: {
+    requiredOnly: number;
+    withKeywords: number;
+    maxLength: number;
+    percentage: number;
+  };
+}
+
+/**
+ * Fetch spec statistics for a specific workspace
+ * @param projectPath - Optional project path to filter data by workspace
+ */
+export async function getSpecStats(projectPath?: string): Promise<SpecStats> {
+  const url = projectPath
+    ? `/api/specs/stats?path=${encodeURIComponent(projectPath)}`
+    : '/api/specs/stats';
+  return fetchApi<SpecStats>(url);
 }
 
 // ========== Analysis API ==========

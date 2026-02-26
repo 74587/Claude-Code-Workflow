@@ -38,7 +38,8 @@
     "teams": "Team Execution",
     "terminalDashboard": "Terminal Dashboard",
     "skillHub": "Skill Hub",
-    "analysis": "Analysis Viewer"
+    "analysis": "Analysis Viewer",
+    "specs": "Spec Settings"
   },
   "sidebar": {
     "collapse": "Collapse",

@@ -78,7 +78,11 @@ For complex questions → Gemini CLI with architecture review rule.
 
 Output to `<session-folder>/architecture/arch-<slug>.json`. Contribute decisions to wisdom/decisions.md.
 
-**Report**: mode, verdict, concern count, recommendations, output path.
+**Frontend project outputs** (when frontend tech stack detected in shared-memory or discovery-context):
+- `<session-folder>/architecture/design-tokens.json` — color, spacing, typography, shadow tokens
+- `<session-folder>/architecture/component-specs/*.md` — per-component design spec
+
+**Report**: mode, verdict, concern count, recommendations, output path(s).
 
 ---
 

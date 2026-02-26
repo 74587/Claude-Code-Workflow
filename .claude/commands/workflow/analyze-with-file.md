@@ -571,27 +571,22 @@ CONSTRAINTS: ${perspective.constraints}
        .map(r => r.action)
        .join('\n') || conclusions.summary
 
-     // 2. Extract exploration digest (inline data, not path reference)
-     const explorationDigest = { relevant_files: [], patterns: [], key_findings: [] }
+     // 2. Assemble compact analysis context as inline memory block
+     const contextLines = [
+       `## Prior Analysis (${sessionId})`,
+       `**Summary**: ${conclusions.summary}`
+     ]
      const codebasePath = `${sessionFolder}/exploration-codebase.json`
      if (file_exists(codebasePath)) {
        const data = JSON.parse(Read(codebasePath))
-       explorationDigest.relevant_files = data.relevant_files || []
-       explorationDigest.patterns = data.patterns || []
-       explorationDigest.key_findings = data.key_findings || []
+       const files = (data.relevant_files || []).slice(0, 8).map(f => f.path || f.file || f).filter(Boolean)
+       const findings = (data.key_findings || []).slice(0, 5)
+       if (files.length) contextLines.push(`**Key Files**: ${files.join(', ')}`)
+       if (findings.length) contextLines.push(`**Key Findings**:\n${findings.map(f => `- ${f}`).join('\n')}`)
      }
 
-     // 3. Write handoff file to analysis session folder
-     Write(`${sessionFolder}/handoff-lite-plan.json`, JSON.stringify({
-       source_session: sessionId,
-       summary: conclusions.summary,
-       recommendations: conclusions.recommendations,
-       decision_trail: conclusions.decision_trail,
-       exploration_digest: explorationDigest
-     }, null, 2))
-
-     // 4. Call lite-plan with --from-analysis handoff
-     Skill(skill="workflow-lite-plan", args=`--from-analysis ${sessionFolder}/handoff-lite-plan.json "${taskDescription}"`)
+     // 3. Call lite-plan with enriched task description (no special flags)
+     Skill(skill="workflow-lite-plan", args=`"${taskDescription}\n\n${contextLines.join('\n')}"`)
    }
    ```
 
@@ -774,7 +769,7 @@ User agrees with current direction, wants deeper code analysis
 - Need simple task breakdown
 - Focus on quick execution planning
 
-> **Note**: Phase 4「生成任务」auto-generates `--from-analysis` handoff. Manual invocation normally not needed after analysis.
+> **Note**: Phase 4「生成任务」assembles analysis context as inline `## Prior Analysis` block in task description, allowing lite-plan to skip redundant exploration automatically.
 
 ---
 

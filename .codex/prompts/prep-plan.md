@@ -23,7 +23,7 @@ Check these items. Report results as a checklist.
 
 - **project-tech.json**: Check `{projectRoot}/.workflow/project-tech.json`
   - If missing: WARN — Phase 1 will call `workflow:init` to generate it. Ask user: "检测到项目使用 [tech stack from package.json], 是否正确？需要补充什么？"
-- **project-guidelines.json**: Check `{projectRoot}/.workflow/project-guidelines.json`
+- **specs/*.md**: Check `{projectRoot}/.workflow/specs/*.md`
   - If missing: WARN — will be generated as empty scaffold. Ask: "有特定的编码规范需要遵循吗？"
 - **Test framework**: Detect from config files (jest.config, vitest.config, pytest.ini, etc.)
   - If missing: Ask: "未检测到测试框架，请指定测试命令（如 `npm test`），或输入 'skip' 跳过"
@@ -39,7 +39,7 @@ Print formatted checklist:
 ✓ .workflow/ 目录就绪
 ⚠ Git: 3 个未提交变更
 ✓ project-tech.json: 已检测 (Express + TypeORM + PostgreSQL)
-⚠ project-guidelines.json: 未找到 (Phase 1 将生成空模板)
+⚠ specs/*.md: 未找到 (Phase 1 将生成空模板)
 ✓ 测试框架: jest (npm test)
 ```
 
@@ -163,7 +163,7 @@ Each dimension scores 0-2 (0=missing, 1=vague, 2=clear). **Total minimum: 6/10 t
 For dimensions still at score 1 after Q&A, auto-enhance from codebase:
 - **Scope**: Use `Glob` and `Grep` to find related files
 - **Context**: Read `project-tech.json` and key config files
-- **Constraints**: Infer from `project-guidelines.json`
+- **Constraints**: Infer from `specs/*.md`
 
 ### 2.5 Assemble Structured Description
 

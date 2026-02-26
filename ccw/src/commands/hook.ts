@@ -716,7 +716,7 @@ async function notifyAction(options: HookOptions): Promise<void> {
 }
 
 /**
- * Project state action - reads project-tech.json and project-guidelines.json
+ * Project state action - reads project-tech.json and specs
  * and outputs a concise summary for session context injection.
  *
  * Used as SessionStart hook: stdout → injected as system message.
@@ -767,31 +767,19 @@ async function projectStateAction(options: HookOptions): Promise<void> {
     } catch { /* ignore parse errors */ }
   }
 
-  // Read project-guidelines.json
-  const guidelinesPath = join(projectPath, '.workflow', 'project-guidelines.json');
-  if (existsSync(guidelinesPath)) {
-    try {
-      const gl = JSON.parse(readFileSync(guidelinesPath, 'utf8'));
-      // constraints is Record<string, array> - flatten all categories
-      const allConstraints: string[] = [];
-      if (gl.constraints && typeof gl.constraints === 'object') {
-        for (const entries of Object.values(gl.constraints)) {
-          if (Array.isArray(entries)) {
-            for (const c of entries) {
-              allConstraints.push(typeof c === 'string' ? c : (c as { rule?: string }).rule || JSON.stringify(c));
-            }
-          }
-        }
+  // Read specs from spec system (ccw spec load --dimension specs)
+  try {
+    const { getDimensionIndex } = await import('../tools/spec-index-builder.js');
+    const specsIndex = await getDimensionIndex(projectPath, 'specs');
+    const constraints: string[] = [];
+    for (const entry of specsIndex.entries) {
+      if (entry.readMode === 'required') {
+        constraints.push(entry.title);
       }
-      result.guidelines.constraints = allConstraints.slice(0, limit);
-
-      const learnings = Array.isArray(gl.learnings) ? gl.learnings : [];
-      learnings.sort((a: { date?: string }, b: { date?: string }) => (b.date || '').localeCompare(a.date || ''));
-      result.guidelines.recent_learnings = learnings.slice(0, limit).map(
-        (l: { insight?: string; date?: string }) => ({ insight: l.insight || '', date: l.date || '' })
-      );
-    } catch { /* ignore parse errors */ }
-  }
+    }
+    result.guidelines.constraints = constraints.slice(0, limit);
+    result.guidelines.recent_learnings = [];
+  } catch { /* ignore errors */ }
 
   if (stdin) {
     // Format as <project-state> tag for system message injection

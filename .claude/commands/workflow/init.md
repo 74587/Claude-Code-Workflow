@@ -10,11 +10,11 @@ examples:
 # Workflow Init Command (/workflow:init)
 
 ## Overview
-Initialize `.workflow/project-tech.json` and `.workflow/project-guidelines.json` with comprehensive project understanding by delegating analysis to **cli-explore-agent**.
+Initialize `.workflow/project-tech.json` and `.workflow/specs/*.md` with comprehensive project understanding by delegating analysis to **cli-explore-agent**.
 
 **Dual File System**:
 - `project-tech.json`: Auto-generated technical analysis (stack, architecture, components)
-- `project-guidelines.json`: User-maintained rules and constraints (created as scaffold)
+- `specs/*.md`: User-maintained rules and constraints (created as scaffold)
 
 **Note**: This command may be called by other workflow commands. Upon completion, return immediately to continue the calling workflow without interrupting the task flow.
 
@@ -43,7 +43,7 @@ Analysis Flow:
    │   ├─ Synthesis and merge
    │   └─ Write .workflow/project-tech.json
    ├─ Create guidelines scaffold (if not exists)
-   │   └─ Write .workflow/project-guidelines.json (empty structure)
+   │   └─ Write .workflow/specs/*.md (empty structure)
    ├─ Display summary
    └─ Ask about guidelines configuration
        ├─ If guidelines empty → Ask user: "Configure now?" or "Skip"
@@ -53,7 +53,7 @@ Analysis Flow:
 
 Output:
    ├─ .workflow/project-tech.json (+ .backup if regenerate)
-   └─ .workflow/project-guidelines.json (scaffold or configured)
+   └─ .workflow/specs/*.md (scaffold or configured)
 ```
 
 ## Implementation
@@ -69,14 +69,14 @@ const regenerate = $ARGUMENTS.includes('--regenerate')
 
 ```bash
 bash(test -f .workflow/project-tech.json && echo "TECH_EXISTS" || echo "TECH_NOT_FOUND")
-bash(test -f .workflow/project-guidelines.json && echo "GUIDELINES_EXISTS" || echo "GUIDELINES_NOT_FOUND")
+bash(test -f .workflow/specs/coding-conventions.md && echo "SPECS_EXISTS" || echo "SPECS_NOT_FOUND")
 ```
 
 **If BOTH_EXIST and no --regenerate**: Exit early
 ```
 Project already initialized:
 - Tech analysis: .workflow/project-tech.json
-- Guidelines: .workflow/project-guidelines.json
+- Guidelines: .workflow/specs/*.md
 
 Use /workflow:init --regenerate to rebuild tech analysis
 Use /workflow:session:solidify to add guidelines
@@ -159,33 +159,13 @@ Project root: ${projectRoot}
 )
 ```
 
-### Step 3.5: Create Guidelines Scaffold (if not exists)
+### Step 3.5: Initialize Spec System (if not exists)
 
 ```javascript
-// Only create if not exists (never overwrite user guidelines)
-if (!file_exists('.workflow/project-guidelines.json')) {
-  const guidelinesScaffold = {
-    conventions: {
-      coding_style: [],
-      naming_patterns: [],
-      file_structure: [],
-      documentation: []
-    },
-    constraints: {
-      architecture: [],
-      tech_stack: [],
-      performance: [],
-      security: []
-    },
-    quality_rules: [],
-    learnings: [],
-    _metadata: {
-      created_at: new Date().toISOString(),
-      version: "1.0.0"
-    }
-  };
-
-  Write('.workflow/project-guidelines.json', JSON.stringify(guidelinesScaffold, null, 2));
+// Initialize spec system if not already initialized
+if (!file_exists('.workflow/specs/coding-conventions.md')) {
+  Bash('ccw spec init');
+  Bash('ccw spec rebuild');
 }
 ```
 
@@ -193,10 +173,10 @@ if (!file_exists('.workflow/project-guidelines.json')) {
 
 ```javascript
 const projectTech = JSON.parse(Read('.workflow/project-tech.json'));
-const guidelinesExists = file_exists('.workflow/project-guidelines.json');
+const specsInitialized = file_exists('.workflow/specs/coding-conventions.md');
 
 console.log(`
-✓ Project initialized successfully
+Project initialized successfully
 
 ## Project Overview
 Name: ${projectTech.project_name}
@@ -213,7 +193,7 @@ Components: ${projectTech.overview.key_components.length} core modules
 ---
 Files created:
 - Tech analysis: .workflow/project-tech.json
-- Guidelines: .workflow/project-guidelines.json ${guidelinesExists ? '(scaffold)' : ''}
+- Specs: .workflow/specs/ ${specsInitialized ? '(initialized)' : ''}
 ${regenerate ? '- Backup: .workflow/project-tech.json.backup' : ''}
 `);
 ```
@@ -223,20 +203,16 @@ ${regenerate ? '- Backup: .workflow/project-tech.json.backup' : ''}
 After displaying the summary, ask the user if they want to configure project guidelines interactively.
 
 ```javascript
-// Check if guidelines are just a scaffold (empty) or already populated
-const guidelines = JSON.parse(Read('.workflow/project-guidelines.json'));
-const isGuidelinesPopulated =
-  guidelines.conventions.coding_style.length > 0 ||
-  guidelines.conventions.naming_patterns.length > 0 ||
-  guidelines.constraints.architecture.length > 0 ||
-  guidelines.constraints.security.length > 0;
+// Check if specs have user content beyond seed documents
+const specsList = Bash('ccw spec list --json');
+const specsCount = JSON.parse(specsList).total || 0;
 
-// Only ask if guidelines are not yet populated
-if (!isGuidelinesPopulated) {
+// Only ask if specs are just seeds
+if (specsCount <= 5) {
   const userChoice = AskUserQuestion({
     questions: [{
-      question: "Would you like to configure project guidelines now? The wizard will ask targeted questions based on your tech stack.",
-      header: "Guidelines",
+      question: "Would you like to configure project specs now? The wizard will ask targeted questions based on your tech stack.",
+      header: "Specs",
       multiSelect: false,
       options: [
         {
@@ -245,26 +221,26 @@ if (!isGuidelinesPopulated) {
         },
         {
           label: "Skip for now",
-          description: "You can run /workflow:init-guidelines later or use /workflow:session:solidify to add rules individually"
+          description: "You can run /workflow:init-guidelines later or use ccw spec load to import specs"
         }
       ]
     }]
   });
 
-  if (userChoice.answers["Guidelines"] === "Configure now (Recommended)") {
-    console.log("\n🔧 Starting guidelines configuration wizard...\n");
+  if (userChoice.answers["Specs"] === "Configure now (Recommended)") {
+    console.log("\nStarting specs configuration wizard...\n");
     Skill(skill="workflow:init-guidelines");
   } else {
     console.log(`
 Next steps:
-- Use /workflow:init-guidelines to configure guidelines interactively
-- Use /workflow:session:solidify to add individual rules
+- Use /workflow:init-guidelines to configure specs interactively
+- Use ccw spec load to import specs from external sources
 - Use /workflow:plan to start planning
 `);
   }
 } else {
   console.log(`
-Guidelines already configured (${guidelines.conventions.coding_style.length + guidelines.constraints.architecture.length}+ rules).
+Specs already configured (${specsCount} spec files).
 
 Next steps:
 - Use /workflow:init-guidelines --reset to reconfigure

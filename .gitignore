@@ -3,6 +3,9 @@
 *.tmp
 *.log
 
+# Spec index cache
+.spec-index/
+
 # Node modules
 node_modules/
 npm-debug.log*

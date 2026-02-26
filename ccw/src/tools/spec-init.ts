@@ -267,8 +267,8 @@ export function initSpecSystem(projectPath: string): InitResult {
     }
   }
 
-  // Create index directory
-  const indexPath = join(workflowDir, INDEX_DIR);
+  // Create index directory at project root (matches spec-index-builder.ts location)
+  const indexPath = join(projectPath, INDEX_DIR);
   if (!existsSync(indexPath)) {
     mkdirSync(indexPath, { recursive: true });
     result.directories.push(indexPath);

@@ -37,7 +37,7 @@ Phase 5: Fix & Verification
 
 **Load Project Context** (from init.md products):
 - Read `.workflow/project-tech.json` (if exists) for tech stack context
-- Read `.workflow/project-guidelines.json` (if exists) for coding constraints
+- Read `.workflow/specs/*.md` (if exists) for coding constraints
 
 **Session Setup**:
 ```javascript

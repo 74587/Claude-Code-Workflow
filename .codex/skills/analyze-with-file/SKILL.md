@@ -85,7 +85,7 @@ Step 1: Topic Understanding
 
 Step 2: Exploration (Inline, No Agents)
    ├─ Detect codebase → search relevant modules, patterns
-   │   ├─ Read project-tech.json / project-guidelines.json (if exists)
+   │   ├─ Read project-tech.json / specs/*.md (if exists)
    │   └─ Use Grep, Glob, Read, mcp__ace-tool__search_context
    ├─ Multi-perspective analysis (if selected, serial)
    │   ├─ Single: Comprehensive analysis
@@ -298,7 +298,7 @@ const hasCodebase = Bash(`
 if (hasCodebase !== 'none') {
   // 1. Read project metadata (if exists)
   //    - .workflow/project-tech.json (tech stack info)
-  //    - .workflow/project-guidelines.json (project conventions)
+  //    - .workflow/specs/*.md (project conventions)
 
   // 2. Search codebase for relevant content
   //    Use: Grep, Glob, Read, or mcp__ace-tool__search_context

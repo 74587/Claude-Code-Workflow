@@ -630,7 +630,7 @@ Why is config value None during update?
 
 ## Post-Completion Expansion
 
-**Auto-sync**: 执行 `/workflow:session:sync -y "{summary}"` 更新 project-guidelines + project-tech。
+**Auto-sync**: 执行 `/workflow:session:sync -y "{summary}"` 更新 specs/*.md + project-tech。
 
 完成后询问用户是否扩展为issue(test/enhance/refactor/doc)，选中项调用 `/issue:new "{summary} - {dimension}"`
 

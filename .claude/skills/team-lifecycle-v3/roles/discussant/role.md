@@ -105,6 +105,17 @@ Delegate to `commands/critique.md` -- launches parallel CLI calls per perspectiv
 
 Write discussion record to `<session-folder>/discussions/<output-file>`.
 
+**Output file naming convention**:
+
+| Round | Output File |
+|-------|------------|
+| DISCUSS-001 | discuss-001-scope.md |
+| DISCUSS-002 | discuss-002-brief.md |
+| DISCUSS-003 | discuss-003-requirements.md |
+| DISCUSS-004 | discuss-004-architecture.md |
+| DISCUSS-005 | discuss-005-epics.md |
+| DISCUSS-006 | discuss-006-signoff.md |
+
 ---
 
 ## Error Handling

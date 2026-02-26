@@ -17,9 +17,8 @@ import {
 import { IssueHubHeader } from '@/components/issue/hub/IssueHubHeader';
 import { IssueHubTabs, type IssueTab } from '@/components/issue/hub/IssueHubTabs';
 
-const VALID_TABS: IssueTab[] = ['issues', 'board', 'queue', 'discovery'];
+const VALID_TABS: IssueTab[] = ['issues', 'queue', 'discovery'];
 import { IssuesPanel } from '@/components/issue/hub/IssuesPanel';
-import { IssueBoardPanel } from '@/components/issue/hub/IssueBoardPanel';
 import { QueuePanel } from '@/components/issue/hub/QueuePanel';
 import { DiscoveryPanel } from '@/components/issue/hub/DiscoveryPanel';
 // ExecutionPanel hidden - import { ExecutionPanel } from '@/components/issue/hub/ExecutionPanel';
@@ -366,7 +365,6 @@ export function IssueHubPage() {
   const renderActionButtons = () => {
     switch (currentTab) {
       case 'issues':
-      case 'board':
         return (
           <>
             <Button variant="outline" onClick={handleIssuesRefresh} disabled={isFetchingIssues}>
@@ -437,7 +435,6 @@ export function IssueHubPage() {
 
       <IssueHubTabs currentTab={currentTab} onTabChange={setCurrentTab} />
       {currentTab === 'issues' && <IssuesPanel onCreateIssue={() => setIsNewIssueOpen(true)} />}
-      {currentTab === 'board' && <IssueBoardPanel />}
       {currentTab === 'queue' && <QueuePanel />}
       {currentTab === 'discovery' && <DiscoveryPanel />}
 

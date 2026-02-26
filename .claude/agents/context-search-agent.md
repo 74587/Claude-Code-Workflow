@@ -82,8 +82,8 @@ if (file_exists(contextPackagePath)) {
 const projectTech = file_exists('.workflow/project-tech.json')
   ? JSON.parse(Read('.workflow/project-tech.json'))    // tech_stack, architecture_type, key_components, build_system, test_framework
   : null;
-const projectGuidelines = file_exists('.workflow/project-guidelines.json')
-  ? JSON.parse(Read('.workflow/project-guidelines.json')) // coding_conventions, naming_rules, forbidden_patterns, quality_gates
+const projectGuidelines = file_exists('.workflow/specs/*.md')
+  ? JSON.parse(Read('.workflow/specs/*.md')) // coding_conventions, naming_rules, forbidden_patterns, quality_gates
   : null;
 
 // Usage:

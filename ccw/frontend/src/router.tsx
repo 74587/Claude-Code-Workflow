@@ -37,6 +37,7 @@ import {
   TeamPage,
   TerminalDashboardPage,
   AnalysisPage,
+  SpecsSettingsPage,
 } from '@/pages';
 
 /**
@@ -145,6 +146,10 @@ const routes: RouteObject[] = [
       {
         path: 'settings/rules',
         element: <RulesManagerPage />,
+      },
+      {
+        path: 'settings/specs',
+        element: <SpecsSettingsPage />,
       },
       {
         path: 'settings/codexlens',

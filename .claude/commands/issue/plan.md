@@ -160,7 +160,7 @@ ${issueList}
 
 ### Project Context (MANDATORY)
 1. Read: .workflow/project-tech.json (technology stack, architecture)
-2. Read: .workflow/project-guidelines.json (constraints and conventions)
+2. Read: .workflow/specs/*.md (constraints and conventions)
 
 ### Workflow
 1. Fetch issue details: ccw issue status <id> --json

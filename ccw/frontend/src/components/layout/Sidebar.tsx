@@ -26,6 +26,7 @@ import {
   Cog,
   Users,
   FileSearch,
+  ScrollText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -101,6 +102,7 @@ const navGroupDefinitions: NavGroupDef[] = [
     items: [
       { path: '/hooks', labelKey: 'navigation.main.hooks', icon: GitFork },
       { path: '/settings/mcp', labelKey: 'navigation.main.mcp', icon: Server },
+      { path: '/settings/specs', labelKey: 'navigation.main.specs', icon: ScrollText },
     ],
   },
   {

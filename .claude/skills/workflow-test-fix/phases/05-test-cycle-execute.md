@@ -245,7 +245,7 @@ Task(
 
     ## PROJECT CONTEXT (MANDATORY)
     1. Read: .workflow/project-tech.json (tech stack, test framework, build system)
-    2. Read: .workflow/project-guidelines.json (constraints — apply as HARD CONSTRAINTS on fixes)
+    2. Read: .workflow/specs/*.md (constraints — apply as HARD CONSTRAINTS on fixes)
 
     ## MANDATORY FIRST STEPS
     1. Read test results: ${session.test_results_path}
@@ -454,7 +454,7 @@ The orchestrator automatically creates git commits at key checkpoints to enable 
 
 #### Post-Completion Expansion
 
-**Auto-sync**: 执行 `/workflow:session:sync -y "{summary}"` 更新 project-guidelines + project-tech。
+**Auto-sync**: 执行 `/workflow:session:sync -y "{summary}"` 更新 specs/*.md + project-tech。
 
 完成后询问用户是否扩展为issue(test/enhance/refactor/doc)，选中项调用 `/issue:new "{summary} - {dimension}"`
 

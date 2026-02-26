@@ -106,36 +106,19 @@ bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${
 
 **Exploration Decision Logic**:
 ```javascript
-// Analysis handoff: reconstruct exploration from upstream analysis artifacts
-if (workflowPreferences.analysisHandoff) {
-  const handoff = workflowPreferences.analysisHandoff
-  Write(`${sessionFolder}/exploration-from-analysis.json`, JSON.stringify({
-    relevant_files: handoff.exploration_digest.relevant_files || [],
-    patterns: handoff.exploration_digest.patterns || [],
-    key_findings: handoff.exploration_digest.key_findings || [],
-    clarification_needs: [],  // analysis already did multi-round discussion
-    _metadata: { exploration_angle: "from-analysis", source_session: handoff.source_session, reconstructed: true }
-  }, null, 2))
-  Write(`${sessionFolder}/explorations-manifest.json`, JSON.stringify({
-    session_id: sessionId, task_description: task_description, timestamp: getUtc8ISOString(),
-    complexity: complexity, exploration_count: 1, from_analysis: handoff.source_session,
-    explorations: [{ angle: "from-analysis", file: "exploration-from-analysis.json",
-      path: `${sessionFolder}/exploration-from-analysis.json`, index: 1 }]
-  }, null, 2))
-  needsExploration = false
-  // clarification_needs=[] → Phase 2 naturally skipped → proceed to Phase 3
-}
+// Check if task description already contains prior analysis context (from analyze-with-file)
+const hasPriorAnalysis = /##\s*Prior Analysis/i.test(task_description)
 
-needsExploration = needsExploration ?? (
-  workflowPreferences.forceExplore ||
-  task.mentions_specific_files ||
-  task.requires_codebase_context ||
-  task.needs_architecture_understanding ||
-  task.modifies_existing_code
-)
+needsExploration = workflowPreferences.forceExplore ? true
+  : hasPriorAnalysis ? false
+  : (task.mentions_specific_files ||
+     task.requires_codebase_context ||
+     task.needs_architecture_understanding ||
+     task.modifies_existing_code)
 
 if (!needsExploration) {
-  // Skip to Phase 2 (Clarification) or Phase 3 (Planning)
+  // Skip exploration — analysis context already in task description (or not needed)
+  // manifest is absent; Phase 3 loads it with safe fallback
   proceed_to_next_phase()
 }
 ```
@@ -185,12 +168,12 @@ const selectedAngles = selectAngles(task_description, complexity === 'High' ? 4 
 
 // Planning strategy determination
 // Agent trigger: anything beyond trivial single-file change
-// - analysisHandoff → always agent (analysis validated non-trivial task)
+// - hasPriorAnalysis → always agent (analysis validated non-trivial task)
 // - multi-angle exploration → agent (complexity warranted multiple angles)
 // - Medium/High complexity → agent
 // Direct Claude planning ONLY for truly trivial Low + no analysis + single angle
 const planningStrategy = (
-  complexity === 'Low' && !workflowPreferences.analysisHandoff && selectedAngles.length <= 1
+  complexity === 'Low' && !hasPriorAnalysis && selectedAngles.length <= 1
 ) ? 'Direct Claude Planning'
   : 'cli-lite-planning-agent'
 
@@ -233,7 +216,7 @@ Execute **${angle}** exploration for task planning context. Analyze codebase fro
 - **Exploration Index**: ${index + 1} of ${selectedAngles.length}
 
 ## Agent Initialization
-cli-explore-agent autonomously handles: project structure discovery, schema loading, project context loading (project-tech.json, project-guidelines.json), and keyword search. These steps execute automatically.
+cli-explore-agent autonomously handles: project structure discovery, schema loading, project context loading (project-tech.json, specs/*.md), and keyword search. These steps execute automatically.
 
 ## Exploration Strategy (${angle} focus)
 
@@ -338,8 +321,10 @@ Angles explored: ${explorationManifest.explorations.map(e => e.angle).join(', ')
 
 **Aggregate clarification needs from all exploration angles**:
 ```javascript
-// Load manifest and all exploration files
-const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
+// Load manifest and all exploration files (may not exist if exploration was skipped)
+const manifest = file_exists(`${sessionFolder}/explorations-manifest.json`)
+  ? JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
+  : { exploration_count: 0, explorations: [] }
 const explorations = manifest.explorations.map(exp => ({
   angle: exp.angle,
   data: JSON.parse(Read(exp.path))
@@ -432,8 +417,10 @@ taskFiles.forEach(taskPath => {
 // Step 1: Read schema
 const schema = Bash(`cat ~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.json`)
 
-// Step 2: ⚠️ MANDATORY - Read and review ALL exploration files
-const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
+// Step 2: Read exploration files if available
+const manifest = file_exists(`${sessionFolder}/explorations-manifest.json`)
+  ? JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
+  : { explorations: [] }
 manifest.explorations.forEach(exp => {
   const explorationData = Read(exp.path)
   console.log(`\n### Exploration: ${exp.angle}\n${explorationData}`)
@@ -509,9 +496,9 @@ Execute: cat ~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.js
 
 ## Project Context (MANDATORY - Read Both Files)
 1. Read: .workflow/project-tech.json (technology stack, architecture, key components)
-2. Read: .workflow/project-guidelines.json (user-defined constraints and conventions)
+2. Read: .workflow/specs/*.md (user-defined constraints and conventions)
 
-**CRITICAL**: All generated tasks MUST comply with constraints in project-guidelines.json
+**CRITICAL**: All generated tasks MUST comply with constraints in specs/*.md
 
 ## Task Description
 ${task_description}
@@ -669,8 +656,10 @@ if (autoYes) {
 **Step 5.1: Build executionContext**
 
 ```javascript
-// Load manifest and all exploration files
-const manifest = JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
+// Load manifest and all exploration files (may not exist if exploration was skipped)
+const manifest = file_exists(`${sessionFolder}/explorations-manifest.json`)
+  ? JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
+  : { exploration_count: 0, explorations: [] }
 const explorations = {}
 
 manifest.explorations.forEach(exp => {

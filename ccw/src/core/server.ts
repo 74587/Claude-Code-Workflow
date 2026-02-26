@@ -41,6 +41,7 @@ import { handleConfigRoutes } from './routes/config-routes.js';
 import { handleTeamRoutes } from './routes/team-routes.js';
 import { handleNotificationRoutes } from './routes/notification-routes.js';
 import { handleAnalysisRoutes } from './routes/analysis-routes.js';
+import { handleSpecRoutes } from './routes/spec-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients, extractSessionIdFromPath } from './websocket.js';
@@ -521,6 +522,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Graph routes (/api/graph/*)
       if (pathname.startsWith('/api/graph/')) {
         if (await handleGraphRoutes(routeContext)) return;
+      }
+
+      // Spec routes (/api/specs/*)
+      if (pathname.startsWith('/api/specs/')) {
+        if (await handleSpecRoutes(routeContext)) return;
       }
 
       // CCW routes (/api/ccw and /api/ccw/*)

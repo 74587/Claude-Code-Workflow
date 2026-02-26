@@ -102,14 +102,14 @@ After collecting preferences, enhance context and dispatch:
 ```javascript
 // Step 1: Check for project context files
 const hasProjectTech = fileExists('.workflow/project-tech.json')
-const hasProjectGuidelines = fileExists('.workflow/project-guidelines.json')
+const hasProjectGuidelines = fileExists('.workflow/specs/*.md')
 
 // Step 2: Log available context
 if (hasProjectTech) {
   console.log('Project tech context available: .workflow/project-tech.json')
 }
 if (hasProjectGuidelines) {
-  console.log('Project guidelines available: .workflow/project-guidelines.json')
+  console.log('Project guidelines available: .workflow/specs/*.md')
 }
 
 // Step 3: Dispatch to phase (workflowPreferences available as context)

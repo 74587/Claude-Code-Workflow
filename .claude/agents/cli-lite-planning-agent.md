@@ -56,7 +56,7 @@ When invoked with `process_docs: true` in input context:
 
 **Project Context** (read from init.md products at startup):
 - `.workflow/project-tech.json` → tech_stack, architecture, key_components
-- `.workflow/project-guidelines.json` → conventions, constraints, quality_rules
+- `.workflow/specs/*.md` → conventions, constraints, quality_rules
 
 ```javascript
 {
@@ -153,7 +153,7 @@ Phase 5: Plan Quality Check (MANDATORY)
 │  ├─ Dependency correctness (no circular deps, proper ordering)
 │  ├─ Acceptance criteria quality (quantified, testable)
 │  ├─ Implementation steps sufficiency (2+ steps per task)
-│  └─ Constraint compliance (follows project-guidelines.json)
+│  └─ Constraint compliance (follows specs/*.md)
 ├─ Parse check results and categorize issues
 └─ Decision:
    ├─ No issues → Return plan to orchestrator
@@ -850,7 +850,7 @@ After generating plan.json, **MUST** execute CLI quality check before returning 
 | **Dependencies** | No circular deps, correct ordering | Yes |
 | **Convergence Criteria** | Quantified and testable (not vague) | No |
 | **Implementation Steps** | 2+ actionable steps per task | No |
-| **Constraint Compliance** | Follows project-guidelines.json | Yes |
+| **Constraint Compliance** | Follows specs/*.md | Yes |
 
 ### CLI Command Format
 
@@ -859,7 +859,7 @@ Use `ccw cli` with analysis mode to validate plan against quality dimensions:
 ```bash
 ccw cli -p "Validate plan quality: completeness, granularity, dependencies, convergence criteria, implementation steps, constraint compliance" \
   --tool gemini --mode analysis \
-  --context "@{plan_json_path} @{task_dir}/*.json @.workflow/project-guidelines.json"
+  --context "@{plan_json_path} @{task_dir}/*.json @.workflow/specs/*.md"
 ```
 
 **Expected Output Structure**:

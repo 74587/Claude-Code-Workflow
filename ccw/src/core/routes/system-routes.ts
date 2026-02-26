@@ -3,8 +3,9 @@
  * Handles all system-related API endpoints
  */
 import type { Server } from 'http';
-import { readFileSync, existsSync, promises as fsPromises } from 'fs';
-import { join } from 'path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, promises as fsPromises } from 'fs';
+import { join, dirname } from 'path';
+import { homedir } from 'os';
 import { resolvePath, getRecentPaths, trackRecentPath, removeRecentPath, normalizePathForDisplay } from '../../utils/path-resolver.js';
 import { validatePath as validateAllowedPath } from '../../utils/path-validator.js';
 import { scanSessions } from '../session-scanner.js';
@@ -22,6 +23,196 @@ import type { RouteContext } from './types.js';
 
 interface SystemRouteContext extends RouteContext {
   server: Server;
+}
+
+// ========================================
+// System Settings Helper Functions
+// ========================================
+
+const GLOBAL_SETTINGS_PATH = join(homedir(), '.claude', 'settings.json');
+
+// Default system settings
+const DEFAULT_INJECTION_CONTROL = {
+  maxLength: 8000,
+  warnThreshold: 6000,
+  truncateOnExceed: true
+};
+
+const DEFAULT_PERSONAL_SPEC_DEFAULTS = {
+  defaultReadMode: 'optional',
+  autoEnable: true
+};
+
+// Recommended hooks for spec injection
+const RECOMMENDED_HOOKS = [
+  {
+    id: 'spec-injection-session',
+    event: 'SessionStart',
+    name: 'Spec Context Injection (Session)',
+    command: 'ccw spec load --stdin',
+    description: 'Session开始时注入规范上下文',
+    scope: 'global',
+    autoInstall: true
+  },
+  {
+    id: 'spec-injection-prompt',
+    event: 'UserPromptSubmit',
+    name: 'Spec Context Injection (Prompt)',
+    command: 'ccw spec load --stdin',
+    description: '提示词触发时注入规范上下文',
+    scope: 'project',
+    autoInstall: true
+  }
+];
+
+/**
+ * Read settings file safely
+ */
+function readSettingsFile(filePath: string): Record<string, unknown> {
+  try {
+    if (!existsSync(filePath)) {
+      return {};
+    }
+    const content = readFileSync(filePath, 'utf8');
+    if (!content.trim()) {
+      return {};
+    }
+    return JSON.parse(content);
+  } catch (error: unknown) {
+    console.error(`Error reading settings file ${filePath}:`, error);
+    return {};
+  }
+}
+
+/**
+ * Get system settings from global settings file
+ */
+function getSystemSettings(): {
+  injectionControl: typeof DEFAULT_INJECTION_CONTROL;
+  personalSpecDefaults: typeof DEFAULT_PERSONAL_SPEC_DEFAULTS;
+  recommendedHooks: typeof RECOMMENDED_HOOKS;
+} {
+  const settings = readSettingsFile(GLOBAL_SETTINGS_PATH) as Record<string, unknown>;
+  const system = (settings.system || {}) as Record<string, unknown>;
+  const user = (settings.user || {}) as Record<string, unknown>;
+
+  return {
+    injectionControl: {
+      ...DEFAULT_INJECTION_CONTROL,
+      ...((system.injectionControl || {}) as Record<string, unknown>)
+    } as typeof DEFAULT_INJECTION_CONTROL,
+    personalSpecDefaults: {
+      ...DEFAULT_PERSONAL_SPEC_DEFAULTS,
+      ...((user.personalSpecDefaults || {}) as Record<string, unknown>)
+    } as typeof DEFAULT_PERSONAL_SPEC_DEFAULTS,
+    recommendedHooks: RECOMMENDED_HOOKS
+  };
+}
+
+/**
+ * Save system settings to global settings file
+ */
+function saveSystemSettings(updates: {
+  injectionControl?: Partial<typeof DEFAULT_INJECTION_CONTROL>;
+  personalSpecDefaults?: Partial<typeof DEFAULT_PERSONAL_SPEC_DEFAULTS>;
+}): { success: boolean; settings?: Record<string, unknown>; error?: string } {
+  try {
+    const settings = readSettingsFile(GLOBAL_SETTINGS_PATH) as Record<string, unknown>;
+
+    // Initialize nested objects if needed
+    if (!settings.system) settings.system = {};
+    if (!settings.user) settings.user = {};
+
+    const system = settings.system as Record<string, unknown>;
+    const user = settings.user as Record<string, unknown>;
+
+    // Apply updates
+    if (updates.injectionControl) {
+      system.injectionControl = {
+        ...DEFAULT_INJECTION_CONTROL,
+        ...((system.injectionControl || {}) as Record<string, unknown>),
+        ...updates.injectionControl
+      };
+    }
+
+    if (updates.personalSpecDefaults) {
+      user.personalSpecDefaults = {
+        ...DEFAULT_PERSONAL_SPEC_DEFAULTS,
+        ...((user.personalSpecDefaults || {}) as Record<string, unknown>),
+        ...updates.personalSpecDefaults
+      };
+    }
+
+    // Ensure directory exists
+    const dirPath = dirname(GLOBAL_SETTINGS_PATH);
+    if (!existsSync(dirPath)) {
+      mkdirSync(dirPath, { recursive: true });
+    }
+
+    writeFileSync(GLOBAL_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf8');
+
+    return { success: true, settings };
+  } catch (error: unknown) {
+    console.error('Error saving system settings:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
+/**
+ * Install a recommended hook to settings
+ */
+function installRecommendedHook(
+  hookId: string,
+  scope: 'global' | 'project'
+): { success: boolean; installed?: Record<string, unknown>; error?: string; status?: string } {
+  const hook = RECOMMENDED_HOOKS.find(h => h.id === hookId);
+  if (!hook) {
+    return { success: false, error: 'Hook not found', status: 'not-found' };
+  }
+
+  try {
+    const filePath = scope === 'global' ? GLOBAL_SETTINGS_PATH : join(process.cwd(), '.claude', 'settings.json');
+    const settings = readSettingsFile(filePath) as Record<string, unknown> & { hooks?: Record<string, unknown[]> };
+
+    // Initialize hooks object if needed
+    if (!settings.hooks) settings.hooks = {};
+
+    const event = hook.event;
+    if (!settings.hooks[event]) {
+      settings.hooks[event] = [];
+    }
+
+    // Check if hook already exists (by command)
+    const existingHooks = (settings.hooks[event] || []) as Array<Record<string, unknown>>;
+    const existingIndex = existingHooks.findIndex(
+      (h) => (h as Record<string, unknown>).command === hook.command
+    );
+
+    if (existingIndex >= 0) {
+      return { success: true, installed: { id: hookId, event, status: 'already-exists' } };
+    }
+
+    // Add new hook
+    settings.hooks[event].push({
+      name: hook.name,
+      command: hook.command,
+      timeout: 5000,
+      failMode: 'silent'
+    });
+
+    // Ensure directory exists
+    const dirPath = dirname(filePath);
+    if (!existsSync(dirPath)) {
+      mkdirSync(dirPath, { recursive: true });
+    }
+
+    writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf8');
+
+    return { success: true, installed: { id: hookId, event, status: 'installed' } };
+  } catch (error: unknown) {
+    console.error('Error installing hook:', error);
+    return { success: false, error: (error as Error).message };
+  }
 }
 
 // ========================================
@@ -193,6 +384,67 @@ export async function handleSystemRoutes(ctx: SystemRouteContext): Promise<boole
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(data));
+    return true;
+  }
+
+  // ========================================
+  // System Settings API Endpoints
+  // ========================================
+
+  // API: Get system settings (injection control + personal spec defaults + recommended hooks)
+  if (pathname === '/api/system/settings' && req.method === 'GET') {
+    try {
+      const settings = getSystemSettings();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(settings));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // API: Save system settings
+  if (pathname === '/api/system/settings' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const updates = body as {
+        injectionControl?: { maxLength?: number; warnThreshold?: number; truncateOnExceed?: boolean };
+        personalSpecDefaults?: { defaultReadMode?: string; autoEnable?: boolean };
+      };
+
+      const result = saveSystemSettings(updates);
+      if (result.error) {
+        return { error: result.error, status: 500 };
+      }
+      return { success: true, settings: result.settings };
+    });
+    return true;
+  }
+
+  // API: Install recommended hooks
+  if (pathname === '/api/system/hooks/install-recommended' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      const { hookIds, scope } = body as {
+        hookIds?: string[];
+        scope?: 'global' | 'project';
+      };
+
+      if (!hookIds || !Array.isArray(hookIds)) {
+        return { error: 'hookIds array is required', status: 400 };
+      }
+
+      const targetScope = scope || 'global';
+      const installed: Array<{ id: string; event: string; status: string }> = [];
+
+      for (const hookId of hookIds) {
+        const result = installRecommendedHook(hookId, targetScope);
+        if (result.success && result.installed) {
+          installed.push(result.installed as { id: string; event: string; status: string });
+        }
+      }
+
+      return { success: true, installed };
+    });
     return true;
   }
 

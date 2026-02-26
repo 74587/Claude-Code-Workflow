@@ -373,7 +373,7 @@ ${JSON.stringify(contextPackage, null, 2)}
 
 ## Execution Process
 1. Read plan-overview-base-schema.json + task-schema.json for output structure
-2. Read project-tech.json and project-guidelines.json
+2. Read project-tech.json and specs/*.md
 3. Parse context-package fields:
    - solution: name, feasibility, summary
    - implementation_plan: tasks[], execution_flow, milestones

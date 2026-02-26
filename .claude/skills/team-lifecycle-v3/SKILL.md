@@ -338,7 +338,8 @@ Session: <session-folder>
 │   ├── plan.json
 │   └── .task/TASK-*.json
 ├── explorations/               # Explorer output (cached)
-├── architecture/               # Architect assessments
+├── architecture/               # Architect assessments + design-tokens.json
+├── analysis/                   # analyst design-intelligence.json (UI mode)
 ├── qa/                         # QA audit reports
 ├── wisdom/                     # Cross-task knowledge
 │   ├── learnings.md

@@ -93,9 +93,14 @@ EXPECTED: JSON with: problem_statement, target_users[], domain, constraints[], e
 **discovery-context.json** → `<session-folder>/spec/discovery-context.json`:
 - session_id, phase=1, seed_analysis (all fields), codebase_context (or null), recommendations
 
+**design-intelligence.json** → `<session-folder>/analysis/design-intelligence.json` (UI mode only):
+- Produced when frontend keywords detected (component, page, UI, React, Vue, CSS, 前端) in seed_analysis
+- Fields: industry, style_direction, ux_patterns, color_strategy, typography, component_patterns
+- Consumed by architect (for design-tokens.json) and fe-developer
+
 **Report**: complexity, codebase presence, problem statement, exploration dimensions, output paths.
 
-**Success**: Both JSON files created, report sent.
+**Success**: Both JSON files created; design-intelligence.json created if UI mode.
 
 ---
 

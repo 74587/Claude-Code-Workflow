@@ -96,7 +96,7 @@ rg "eval|exec|innerHTML|dangerouslySetInnerHTML" -g "*.{ts,js,tsx}"
 ccw cli -p "
 PURPOSE: Security audit of completed implementation
 TASK: Review code for security vulnerabilities, insecure patterns, auth/authz issues
-CONTEXT: @.summaries/IMPL-*.md,../.. @../../project-tech.json @../../project-guidelines.json
+CONTEXT: @.summaries/IMPL-*.md,../.. @../../project-tech.json @../../specs/*.md
 EXPECTED: Security findings report with severity levels
 RULES: Focus on OWASP Top 10, authentication, authorization, data validation, injection risks
 " --tool gemini --mode write --cd ${sessionPath}
@@ -107,7 +107,7 @@ RULES: Focus on OWASP Top 10, authentication, authorization, data validation, in
 ccw cli -p "
 PURPOSE: Architecture compliance review
 TASK: Evaluate adherence to architectural patterns, identify technical debt, review design decisions
-CONTEXT: @.summaries/IMPL-*.md,../.. @../../project-tech.json @../../project-guidelines.json
+CONTEXT: @.summaries/IMPL-*.md,../.. @../../project-tech.json @../../specs/*.md
 EXPECTED: Architecture assessment with recommendations
 RULES: Check for patterns, separation of concerns, modularity, scalability
 " --tool qwen --mode write --cd ${sessionPath}
@@ -118,7 +118,7 @@ RULES: Check for patterns, separation of concerns, modularity, scalability
 ccw cli -p "
 PURPOSE: Code quality and best practices review
 TASK: Assess code readability, maintainability, adherence to best practices
-CONTEXT: @.summaries/IMPL-*.md,../.. @../../project-tech.json @../../project-guidelines.json
+CONTEXT: @.summaries/IMPL-*.md,../.. @../../project-tech.json @../../specs/*.md
 EXPECTED: Quality assessment with improvement suggestions
 RULES: Check for code smells, duplication, complexity, naming conventions
 " --tool gemini --mode write --cd ${sessionPath}
@@ -139,7 +139,7 @@ done
 ccw cli -p "
 PURPOSE: Verify all requirements and acceptance criteria are met
 TASK: Cross-check implementation summaries against original requirements
-CONTEXT: @.task/IMPL-*.json,.summaries/IMPL-*.md,../.. @../../project-tech.json @../../project-guidelines.json
+CONTEXT: @.task/IMPL-*.json,.summaries/IMPL-*.md,../.. @../../project-tech.json @../../specs/*.md
 EXPECTED:
 - Requirements coverage matrix
 - Acceptance criteria verification

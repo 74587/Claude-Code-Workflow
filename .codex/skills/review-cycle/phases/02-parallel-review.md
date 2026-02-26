@@ -95,7 +95,7 @@ dimensions.forEach(dimension => {
 4. Validate file access: bash(ls -la ${targetFiles.join(' ')})
 5. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
 6. Read: ${projectRoot}/.workflow/project-tech.json (technology stack and architecture context)
-7. Read: ${projectRoot}/.workflow/project-guidelines.json (user-defined constraints and conventions to validate against)
+7. Read: ${projectRoot}/.workflow/specs/*.md (user-defined constraints and conventions to validate against)
 
 ---
 
@@ -218,7 +218,7 @@ dimensions.forEach(dimension => {
 5. Read review state: ${reviewStateJsonPath}
 6. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
 7. Read: ${projectRoot}/.workflow/project-tech.json (technology stack and architecture context)
-8. Read: ${projectRoot}/.workflow/project-guidelines.json (user-defined constraints and conventions to validate against)
+8. Read: ${projectRoot}/.workflow/specs/*.md (user-defined constraints and conventions to validate against)
 
 ---
 
@@ -337,7 +337,7 @@ const deepDiveAgentId = spawn_agent({
 5. Read test files: bash(find ${projectDir}/tests -name "*${basename(file, '.ts')}*" -type f)
 6. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
 7. Read: ${projectRoot}/.workflow/project-tech.json (technology stack and architecture context)
-8. Read: ${projectRoot}/.workflow/project-guidelines.json (user-defined constraints for remediation compliance)
+8. Read: ${projectRoot}/.workflow/specs/*.md (user-defined constraints for remediation compliance)
 
 ---
 

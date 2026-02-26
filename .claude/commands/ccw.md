@@ -834,7 +834,7 @@ todos = [
 | `workflow:unified-execute-with-file` | Universal execution engine - consumes plan output from collaborative-plan, req-plan, brainstorm |
 | `workflow:clean` | Intelligent code cleanup - mainline detection, stale artifact removal |
 | `workflow:init` | Initialize `.workflow/project-tech.json` with project analysis |
-| `workflow:init-guidelines` | Interactive wizard to fill `project-guidelines.json` |
+| `workflow:init-guidelines` | Interactive wizard to fill `specs/*.md` |
 
 ---
 

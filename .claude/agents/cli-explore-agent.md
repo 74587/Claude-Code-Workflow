@@ -58,7 +58,7 @@ Phase 4: Output Generation
    - Read `.workflow/project-tech.json` (if exists):
      - Extract: `tech_stack`, `architecture`, `key_components`, `overview`
      - Usage: Align analysis scope and patterns with actual project technology choices
-   - Read `.workflow/project-guidelines.json` (if exists):
+   - Read `.workflow/specs/*.md` (if exists):
      - Extract: `conventions`, `constraints`, `quality_rules`, `learnings`
      - Usage: Apply as constraints during pattern analysis, integration point evaluation, and recommendations
    - If either file does not exist, proceed with fresh analysis (no error).

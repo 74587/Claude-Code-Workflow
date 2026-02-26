@@ -213,6 +213,15 @@ Skill(skill="team-planex", args="-y --text '添加日志'")
 |---------|--------|
 | `check` / `status` | 输出执行状态图，不推进 |
 | `resume` / `continue` | 检查 worker 状态，推进下一步 |
+| `add <issue-ids or --text '...' or --plan path>` | 追加新任务到 planner 队列，不影响已有任务 |
+
+**`add` 命令处理逻辑**:
+
+1. 解析输入（Issue IDs / `--text` / `--plan`）
+2. 获取当前最大 PLAN-* 序号（`TaskList` 筛选 `PLAN-*` prefix），计算下一个序号 N
+3. `TaskCreate({ subject: "PLAN-00N: ...", owner: "planner", status: "pending" })`，description 写入新 issue IDs 或需求文本
+4. 若 planner 已发送 `all_planned`（检查 team_msg 日志），额外 `SendMessage` 通知 planner 有新任务，使其重新进入 Loop Check
+5. 若 executor 已退出等待，同样发送消息唤醒 executor 继续轮询 `EXEC-*` 任务
 
 ### Coordinator Spawn Template
 

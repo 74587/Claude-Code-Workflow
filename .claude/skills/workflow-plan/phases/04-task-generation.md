@@ -178,13 +178,13 @@ These files provide project-level constraints that apply to ALL tasks:
    - Usage: Populate plan.json shared_context, align task tech choices, set correct test commands
    - If missing: Fall back to context-package.project_context
 
-2. **.workflow/project-guidelines.json** (user-maintained rules and constraints)
+2. **.workflow/specs/*.md** (user-maintained rules and constraints)
    - Contains: coding_conventions, naming_rules, forbidden_patterns, quality_gates, custom_constraints
    - Usage: Apply as HARD CONSTRAINTS on all generated tasks — task implementation steps,
      acceptance criteria, and convergence.verification MUST respect these guidelines
    - If empty/missing: No additional constraints (proceed normally)
 
-Loading order: project-tech.json → project-guidelines.json → planning-notes.md → context-package.json
+Loading order: project-tech.json → specs/*.md → planning-notes.md → context-package.json
 
 ## USER CONFIGURATION (from Step 4.0)
 Execution Method: ${userConfig.executionMethod}  // agent|hybrid|cli
