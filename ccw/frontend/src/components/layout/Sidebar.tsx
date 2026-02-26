@@ -76,7 +76,6 @@ const navGroupDefinitions: NavGroupDef[] = [
     items: [
       { path: '/sessions', labelKey: 'navigation.main.sessions', icon: FolderKanban },
       { path: '/lite-tasks', labelKey: 'navigation.main.liteTasks', icon: Zap },
-      { path: '/orchestrator', labelKey: 'navigation.main.orchestrator', icon: Workflow },
       { path: '/issues', labelKey: 'navigation.main.issues', icon: AlertCircle },
       { path: '/teams', labelKey: 'navigation.main.teams', icon: Users },
       { path: '/terminal-dashboard', labelKey: 'navigation.main.terminalDashboard', icon: Terminal },

@@ -17,12 +17,12 @@ import {
 import { IssueHubHeader } from '@/components/issue/hub/IssueHubHeader';
 import { IssueHubTabs, type IssueTab } from '@/components/issue/hub/IssueHubTabs';
 
-const VALID_TABS: IssueTab[] = ['issues', 'board', 'queue', 'discovery', 'executions'];
+const VALID_TABS: IssueTab[] = ['issues', 'board', 'queue', 'discovery'];
 import { IssuesPanel } from '@/components/issue/hub/IssuesPanel';
 import { IssueBoardPanel } from '@/components/issue/hub/IssueBoardPanel';
 import { QueuePanel } from '@/components/issue/hub/QueuePanel';
 import { DiscoveryPanel } from '@/components/issue/hub/DiscoveryPanel';
-import { ExecutionPanel } from '@/components/issue/hub/ExecutionPanel';
+// ExecutionPanel hidden - import { ExecutionPanel } from '@/components/issue/hub/ExecutionPanel';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
@@ -443,7 +443,6 @@ export function IssueHubPage() {
       {currentTab === 'board' && <IssueBoardPanel />}
       {currentTab === 'queue' && <QueuePanel />}
       {currentTab === 'discovery' && <DiscoveryPanel />}
-      {currentTab === 'executions' && <ExecutionPanel />}
 
       <NewIssueDialog open={isNewIssueOpen} onOpenChange={setIsNewIssueOpen} onSubmit={handleCreateIssue} isCreating={isCreating} />
     </div>
