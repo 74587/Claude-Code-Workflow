@@ -50,8 +50,6 @@ interface SpecDimensionStats {
 interface SpecStats {
   dimensions: {
     specs: SpecDimensionStats;
-    roadmap: SpecDimensionStats;
-    changelog: SpecDimensionStats;
     personal: SpecDimensionStats;
   };
   injectionLength?: {
@@ -199,8 +197,6 @@ export function GlobalSettingsTab() {
   // Dimension display config
   const dimensionLabels: Record<string, string> = {
     specs: 'Specs',
-    roadmap: 'Roadmap',
-    changelog: 'Changelog',
     personal: 'Personal',
   };
 

@@ -9,7 +9,7 @@
   "searchPlaceholder": "Search specs...",
   "rebuildIndex": "Rebuild Index",
   "loading": "Loading...",
-  "noSpecs": "No specs found. Create specs in .workflow/ directory.",
+  "noSpecs": "No specs found. Create specs in .ccw/ directory.",
 
   "recommendedHooks": "Recommended Hooks",
   "recommendedHooksDesc": "One-click install system-preset spec injection hooks",

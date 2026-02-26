@@ -266,7 +266,7 @@ export function filterSpecs(
 /**
  * Merge loaded spec content by dimension priority.
  *
- * Dimension priority order: personal(1) < changelog(2) < roadmap(3) < specs(4).
+ * Dimension priority order: personal(1) < specs(2).
  * Within a dimension, specs are ordered by priority weight (critical > high > medium > low).
  *
  * @param specs - All loaded specs

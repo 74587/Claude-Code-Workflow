@@ -3,7 +3,7 @@
 // ========================================
 // Tab for managing spec injection control settings
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -25,7 +25,12 @@ import {
   Loader2,
   RefreshCw,
   AlertTriangle,
+  Plug,
+  Download,
+  CheckCircle2,
+  ExternalLink,
 } from 'lucide-react';
+import { useInstallRecommendedHooks } from '@/hooks/useSystemSettings';
 
 // ========== Types ==========
 
@@ -39,8 +44,6 @@ export interface InjectionStats {
 export interface SpecStatsResponse {
   dimensions: {
     specs: { count: number; requiredCount: number };
-    roadmap: { count: number; requiredCount: number };
-    changelog: { count: number; requiredCount: number };
     personal: { count: number; requiredCount: number };
   };
   injectionLength: InjectionStats;
@@ -63,6 +66,27 @@ export interface SystemSettingsResponse {
 export interface InjectionControlTabProps {
   className?: string;
 }
+
+// ========== Recommended Hooks Configuration ==========
+
+const RECOMMENDED_HOOKS = [
+  {
+    id: 'spec-injection-session',
+    name: 'Spec Context Injection (Session)',
+    event: 'SessionStart',
+    command: 'ccw spec load --stdin',
+    scope: 'global' as const,
+    description: 'Automatically inject spec context when Claude session starts',
+  },
+  {
+    id: 'spec-injection-prompt',
+    name: 'Spec Context Injection (Prompt)',
+    event: 'UserPromptSubmit',
+    command: 'ccw spec load --stdin',
+    scope: 'project' as const,
+    description: 'Inject spec context when user submits a prompt, matching keywords',
+  },
+];
 
 // ========== API Functions ==========
 
@@ -119,6 +143,7 @@ function calculatePercentage(current: number, max: number): number {
 
 export function InjectionControlTab({ className }: InjectionControlTabProps) {
   const { formatMessage } = useIntl();
+  const installHooksMutation = useInstallRecommendedHooks();
 
   // State for stats
   const [stats, setStats] = useState<SpecStatsResponse | null>(null);
@@ -137,6 +162,9 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
   const [formData, setFormData] = useState<InjectionSettings>(settings);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // State for hooks installation
+  const [installingHookIds, setInstallingHookIds] = useState<string[]>([]);
 
   // Fetch stats
   const loadStats = useCallback(async () => {
@@ -216,6 +244,61 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
     setHasChanges(false);
   };
 
+  // ========== Hooks Installation ==========
+
+  // Get installed hooks from system settings
+  const installedHookIds = useMemo(() => {
+    const installed = new Set<string>();
+    // Check if hooks are already installed by checking system settings
+    // For now, we'll track this via the mutation result
+    return installed;
+  }, []);
+
+  const installedCount = 0; // Will be updated when we have real data
+  const allHooksInstalled = installedCount === RECOMMENDED_HOOKS.length;
+
+  // Install single hook
+  const handleInstallHook = useCallback(async (hookId: string) => {
+    setInstallingHookIds(prev => [...prev, hookId]);
+    try {
+      await installHooksMutation.installHooks([hookId], 'global');
+      toast.success(
+        formatMessage({ id: 'specs.hooks.installSuccess', defaultMessage: 'Hook installed successfully' })
+      );
+    } catch (err) {
+      toast.error(
+        formatMessage({ id: 'specs.hooks.installError', defaultMessage: 'Failed to install hook' })
+      );
+      console.error('Failed to install hook:', err);
+    } finally {
+      setInstallingHookIds(prev => prev.filter(id => id !== hookId));
+    }
+  }, [installHooksMutation, formatMessage]);
+
+  // Install all hooks
+  const handleInstallAllHooks = useCallback(async () => {
+    const uninstalledHooks = RECOMMENDED_HOOKS.filter(h => !installedHookIds.has(h.id));
+    if (uninstalledHooks.length === 0) return;
+
+    setInstallingHookIds(uninstalledHooks.map(h => h.id));
+    try {
+      await installHooksMutation.installHooks(
+        uninstalledHooks.map(h => h.id),
+        'global'
+      );
+      toast.success(
+        formatMessage({ id: 'specs.hooks.installAllSuccess', defaultMessage: 'All hooks installed successfully' })
+      );
+    } catch (err) {
+      toast.error(
+        formatMessage({ id: 'specs.hooks.installError', defaultMessage: 'Failed to install hooks' })
+      );
+      console.error('Failed to install hooks:', err);
+    } finally {
+      setInstallingHookIds([]);
+    }
+  }, [installedHookIds, installHooksMutation, formatMessage]);
+
   // Calculate progress and status
   const currentLength = stats?.injectionLength?.withKeywords || 0;
   const maxLength = settings.maxLength;
@@ -227,6 +310,98 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
 
   return (
     <div className={cn('space-y-6', className)}>
+      {/* Recommended Hooks Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Plug className="h-5 w-5" />
+            {formatMessage({ id: 'specs.recommendedHooks', defaultMessage: 'Recommended Hooks' })}
+          </CardTitle>
+          <CardDescription>
+            {formatMessage({
+              id: 'specs.recommendedHooksDesc',
+              defaultMessage: 'One-click install spec injection hooks for automatic context loading',
+            })}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={handleInstallAllHooks}
+              disabled={allHooksInstalled || installingHookIds.length > 0}
+            >
+              {allHooksInstalled ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  {formatMessage({ id: 'specs.allHooksInstalled', defaultMessage: 'All Hooks Installed' })}
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  {formatMessage({ id: 'specs.installAllHooks', defaultMessage: 'Install All Hooks' })}
+                </>
+              )}
+            </Button>
+            <div className="text-sm text-muted-foreground">
+              {installedCount} / {RECOMMENDED_HOOKS.length}{' '}
+              {formatMessage({ id: 'specs.hooksInstalled', defaultMessage: 'installed' })}
+            </div>
+            <Button variant="ghost" size="sm" asChild>
+              <a href="/hooks" target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-1" />
+                {formatMessage({ id: 'specs.manageHooks', defaultMessage: 'Manage Hooks' })}
+              </a>
+            </Button>
+          </div>
+
+          <div className="grid gap-3">
+            {RECOMMENDED_HOOKS.map(hook => {
+              const isInstalled = installedHookIds.has(hook.id);
+              const isInstalling = installingHookIds.includes(hook.id);
+
+              return (
+                <div
+                  key={hook.id}
+                  className="flex items-center justify-between p-4 border rounded-lg"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{hook.name}</span>
+                      {isInstalled && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {hook.description}
+                    </div>
+                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                      <span>
+                        {formatMessage({ id: 'specs.hookEvent', defaultMessage: 'Event' })}:{' '}
+                        <code className="bg-muted px-1 rounded">{hook.event}</code>
+                      </span>
+                      <span>
+                        {formatMessage({ id: 'specs.hookScope', defaultMessage: 'Scope' })}:{' '}
+                        <code className="bg-muted px-1 rounded">{hook.scope}</code>
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    variant={isInstalled ? 'outline' : 'default'}
+                    size="sm"
+                    disabled={isInstalled || isInstalling}
+                    onClick={() => handleInstallHook(hook.id)}
+                  >
+                    {isInstalling
+                      ? formatMessage({ id: 'specs.installing', defaultMessage: 'Installing...' })
+                      : isInstalled
+                        ? formatMessage({ id: 'specs.installed', defaultMessage: 'Installed' })
+                        : formatMessage({ id: 'specs.install', defaultMessage: 'Install' })}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Current Injection Status Card */}
       <Card>
         <CardHeader>

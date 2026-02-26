@@ -9,7 +9,7 @@
   "searchPlaceholder": "搜索规范...",
   "rebuildIndex": "重建索引",
   "loading": "加载中...",
-  "noSpecs": "未找到规范。请在 .workflow/ 目录中创建规范文件。",
+  "noSpecs": "未找到规范。请在 .ccw/ 目录中创建规范文件。",
 
   "recommendedHooks": "推荐钩子",
   "recommendedHooksDesc": "一键安装系统预设的规范注入钩子",

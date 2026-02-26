@@ -30,7 +30,7 @@ import {
 /**
  * Spec dimension type
  */
-export type SpecDimension = 'specs' | 'roadmap' | 'changelog' | 'personal';
+export type SpecDimension = 'specs' | 'personal';
 
 /**
  * Spec read mode type

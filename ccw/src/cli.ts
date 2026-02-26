@@ -302,8 +302,8 @@ export function run(argv: string[]): void {
   program
     .command('spec [subcommand] [args...]')
     .description('Project spec management for conventions and guidelines')
-    .option('--dimension <dim>', 'Target dimension: specs, roadmap, changelog, personal')
-    .option('--context <text>', 'Context text for keyword extraction (CLI mode)')
+    .option('--dimension <dim>', 'Target dimension: specs, personal')
+    .option('--keywords <text>', 'Keywords for spec matching (CLI mode)')
     .option('--stdin', 'Read input from stdin (Hook mode)')
     .option('--json', 'Output as JSON')
     .action((subcommand, args, options) => specCommand(subcommand, args, options));
