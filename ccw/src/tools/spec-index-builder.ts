@@ -165,6 +165,10 @@ export async function buildDimensionIndex(
     const entry = parseSpecFile(filePath, dimension, projectPath);
     if (entry) {
       entries.push(entry);
+    } else {
+      process.stderr.write(
+        `[spec-index-builder] Skipping malformed spec file: ${file}\n`
+      );
     }
   }
 

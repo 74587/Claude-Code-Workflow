@@ -451,7 +451,20 @@ CONSTRAINTS: ${perspective.constraints}
      - Corrected assumptions
      - New insights
 
-5. **Repeat or Converge**
+5. **📌 Intent Drift Check** (every round ≥ 2)
+   - Re-read "User Intent" from discussion.md header
+   - For each original intent item, check: addressed / in-progress / not yet discussed / implicitly absorbed
+   - If any item is "implicitly absorbed" (addressed by a different solution than originally envisioned), explicitly note this in discussion.md:
+     ```markdown
+     #### Intent Coverage Check
+     - ✅ Intent 1: [addressed in Round N]
+     - 🔄 Intent 2: [in-progress, current focus]
+     - ⚠️ Intent 3: [implicitly absorbed by X — needs explicit confirmation]
+     - ❌ Intent 4: [not yet discussed]
+     ```
+   - If any item is ❌ or ⚠️ after 3+ rounds, surface it to the user in the next round's presentation
+
+6. **Repeat or Converge**
    - Continue loop (max 5 rounds) or exit to Phase 4
 
 **Discussion Actions**:
@@ -482,7 +495,28 @@ CONSTRAINTS: ${perspective.constraints}
 
 **Workflow Steps**:
 
-1. **Consolidate Insights**
+1. **📌 Intent Coverage Verification** (MANDATORY before synthesis)
+   - Re-read all original "User Intent" items from discussion.md header
+   - For EACH intent item, determine coverage status:
+     - **✅ Addressed**: Explicitly discussed and concluded with clear design/recommendation
+     - **🔀 Transformed**: Original intent evolved into a different solution — document the transformation chain
+     - **⚠️ Absorbed**: Implicitly covered by a broader solution — flag for explicit confirmation
+     - **❌ Missed**: Not discussed — MUST be either addressed now or explicitly listed as out-of-scope with reason
+   - Write "Intent Coverage Matrix" to discussion.md:
+     ```markdown
+     ### Intent Coverage Matrix
+     | # | Original Intent | Status | Where Addressed | Notes |
+     |---|----------------|--------|-----------------|-------|
+     | 1 | [intent text] | ✅ Addressed | Round N, Conclusion #M | |
+     | 2 | [intent text] | 🔀 Transformed | Round N → Round M | Original: X → Final: Y |
+     | 3 | [intent text] | ❌ Missed | — | Reason for omission |
+     ```
+   - **Gate**: If any item is ❌ Missed, MUST either:
+     - (a) Add a dedicated discussion round to address it before continuing, OR
+     - (b) Explicitly confirm with user that it is intentionally deferred
+   - Add `intent_coverage[]` to conclusions.json
+
+2. **Consolidate Insights**
    - Extract all findings from discussion timeline
    - **📌 Compile Decision Trail**: Aggregate all Decision Records from Phases 1-3 into a consolidated decision log
    - **Key conclusions**: Main points with evidence and confidence levels (high/medium/low)
@@ -572,10 +606,12 @@ CONSTRAINTS: ${perspective.constraints}
 - `open_questions[]`: Unresolved questions
 - `follow_up_suggestions[]`: {type, summary}
 - `decision_trail[]`: {round, decision, context, options_considered, chosen, reason, impact}
+- `intent_coverage[]`: {intent, status, where_addressed, notes}
 
 **Success Criteria**:
 - conclusions.json created with final synthesis
 - discussion.md finalized with conclusions and decision trail
+- **📌 Intent Coverage Matrix** verified — all original intents accounted for (no ❌ Missed without explicit user deferral)
 - User offered next step options
 - Session complete
 - **📌 Complete decision trail** documented and traceable from initial scoping to final conclusions
