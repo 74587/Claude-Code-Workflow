@@ -132,3 +132,6 @@ ccw/.tmp-ccw-auth-home/
 .claude/skills_lib/team-skill-designer/templates/role-command-template.md
 .claude/skills_lib/team-skill-designer/templates/role-template.md
 .claude/skills_lib/team-skill-designer/templates/skill-router-template.md
+
+# Skills library (local only)
+.claude/skills_lib/
