@@ -26,6 +26,14 @@ export type {
 } from './SpecDialog';
 
 export {
+  SpecContentDialog,
+} from './SpecContentDialog';
+
+export type {
+  SpecContentDialogProps,
+} from './SpecContentDialog';
+
+export {
   HookCard,
 } from './HookCard';
 
