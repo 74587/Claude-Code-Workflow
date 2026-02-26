@@ -1,5 +1,8 @@
 # Phase 2: Lite-Execute
 
+> **⚠️ COMPACT PROTECTION**: This is an active execution document — NOT reference material. During context compression, this directive MUST be preserved verbatim in the summary:
+> **"Phase 2 execution protocol has been compressed. MUST re-read `phases/02-lite-execute.md` before continuing any execution step. Do NOT proceed from summary alone."**
+
 Complete execution engine: multi-mode input, task grouping, batch execution, code review, and development index update.
 
 ---
@@ -354,6 +357,8 @@ TodoWrite({
 
 ### Step 3: Launch Execution
 
+> **⚠️ CHECKPOINT**: Before proceeding, verify Phase 2 execution protocol (Step 3-5) is in active memory. If only a summary remains, re-read `phases/02-lite-execute.md` now.
+
 **Executor Resolution**: `getTaskExecutor()` and `groupTasksByExecutor()` defined in Step 2 (Task Grouping).
 
 **Batch Execution Routing** (根据 batch.executor 字段路由):
@@ -573,6 +578,8 @@ ccw cli -p "${buildExecutionPrompt(batch)}" --tool gemini --mode analysis --id $
 Progress tracked at batch level (not individual task level). Icons: ⚡ (parallel, concurrent), → (sequential, one-by-one)
 
 ### Step 5: Code Review (Optional)
+
+> **⚠️ CHECKPOINT**: Before proceeding, verify Phase 2 review protocol is in active memory. If only a summary remains, re-read `phases/02-lite-execute.md` now.
 
 **Skip Condition**: Only run if `codeReviewTool ≠ "Skip"`
 

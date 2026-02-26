@@ -714,55 +714,14 @@ executionContext = {
 }
 ```
 
-**Step 5.2: Serialize & Agent Handoff**
-
-> **Why agent handoff**: Phase 1 history consumes significant context. Direct `Read("phases/02-lite-execute.md")` in the same context risks compact compressing Phase 2 instructions mid-execution. Spawning a fresh agent gives Phase 2 a clean context window.
+**Step 5.2: Handoff**
 
 ```javascript
-// Pre-populate _loadedTasks so serialized context is self-contained
-executionContext.planObject._loadedTasks = (executionContext.planObject.task_ids || []).map(id =>
-  JSON.parse(Read(`${sessionFolder}/.task/${id}.json`))
-)
-
-// Save executionContext to file for agent handoff
-Write(`${sessionFolder}/execution-context.json`, JSON.stringify(executionContext, null, 2))
-
-// Resolve absolute path to Phase 2 instructions
-const phaseFile = Bash(`cd "${Bash('pwd').trim()}/.claude/skills/workflow-lite-plan/phases" && pwd`).trim()
-  + '/02-lite-execute.md'
-
-// Agent handoff: fresh context prevents compact from losing Phase 2 instructions
-Task(
-  subagent_type="universal-executor",
-  run_in_background=false,
-  description=`Execute: ${taskSlug}`,
-  prompt=`
-Execute implementation plan following lite-execute protocol.
-
-## Phase Instructions (MUST read first)
-Read and follow: ${phaseFile}
-
-## Execution Context (Mode 1: In-Memory Plan)
-Read and parse as JSON: ${sessionFolder}/execution-context.json
-This is the executionContext variable referenced throughout Phase 2.
-The planObject._loadedTasks array is pre-populated — getTasks(planObject) works directly.
-
-## Key References
-- Session ID: ${sessionId}
-- Session folder: ${sessionFolder}
-- Plan: ${sessionFolder}/plan.json
-- Task files: ${sessionFolder}/.task/TASK-*.json
-- Original task: ${task_description}
-
-## Execution Steps
-1. Read phase instructions file (full protocol)
-2. Read execution-context.json → parse as executionContext
-3. Follow Phase 2 Mode 1 (In-Memory Plan) — executionContext exists, skip user selection
-4. Execute all tasks (Step 1-4 in Phase 2)
-5. Run code review if codeReviewTool ≠ "Skip" (Step 5)
-6. Run auto-sync (Step 6)
-`
-)
+// ⚠️ COMPACT PROTECTION: Phase 2 instructions MUST persist in memory throughout execution.
+// If compact compresses Phase 2 content at any point, re-read this file before continuing.
+// See SKILL.md "Compact Protection" section for full protocol.
+Read("phases/02-lite-execute.md")
+// Execute Phase 2 with executionContext (Mode 1: In-Memory Plan)
 ```
 
 ## Session Folder Structure

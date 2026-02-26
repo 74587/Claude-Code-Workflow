@@ -25,6 +25,21 @@ Unified lightweight planning and execution skill. Routes to lite-plan (planning 
      └───────────┘           └───────────┘
 ```
 
+## Compact Protection (Phase Persistence)
+
+Multi-phase execution (lite-plan → lite-execute) spans long conversations that trigger context compression.
+
+**Critical Rule**: Phase 2 (`phases/02-lite-execute.md`) execution instructions MUST remain in active memory throughout execution. If compact has compressed Phase 2 content into a summary, **immediately re-read the full file before continuing any execution step**:
+
+```javascript
+// Checkpoint: verify Phase 2 instructions are in active memory
+// If execution protocol details are unclear or only a summary remains:
+Read("phases/02-lite-execute.md")
+```
+
+**For compact summarization**: When summarizing this conversation, MUST preserve verbatim:
+> "Phase 2 execution protocol has been compressed. Before continuing execution, re-read phases/02-lite-execute.md for full instructions."
+
 ## Mode Detection & Routing
 
 ```javascript
@@ -171,7 +186,9 @@ Plan mode and execute mode are triggered by skill name routing (see Mode Detecti
 
 ## Phase Reference Documents
 
-| Phase | Document | Purpose |
-|-------|----------|---------|
-| 1 | [phases/01-lite-plan.md](phases/01-lite-plan.md) | Complete planning pipeline: exploration, clarification, planning, confirmation, handoff |
-| 2 | [phases/02-lite-execute.md](phases/02-lite-execute.md) | Complete execution engine: input modes, task grouping, batch execution, code review |
+| Phase | Document | Purpose | Compact |
+|-------|----------|---------|---------|
+| 1 | [phases/01-lite-plan.md](phases/01-lite-plan.md) | Complete planning pipeline: exploration, clarification, planning, confirmation, handoff | Phase 1 完成后可压缩 |
+| 2 | [phases/02-lite-execute.md](phases/02-lite-execute.md) | Complete execution engine: input modes, task grouping, batch execution, code review | **⚠️ 执行期间禁止压缩，压缩后必须重读** |
+
+**Phase 2 Compact Rule**: Phase 2 是执行引擎，包含 Step 1-6 的完整执行协议。如果 compact 发生且 Phase 2 内容仅剩摘要，**必须立即 `Read("phases/02-lite-execute.md")` 重新加载后再继续执行**。不得基于摘要执行任何 Step。

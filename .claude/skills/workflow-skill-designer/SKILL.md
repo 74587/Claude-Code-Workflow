@@ -155,6 +155,51 @@ Phase files are internal execution documents. They MUST NOT contain:
 | Conversion provenance (`Source: Converted from...`) | Implementation detail | Removed |
 | Skill routing for inter-phase (`Skill(skill="...")`) | Use direct phase read | Direct `Read("phases/...")` |
 
+### Pattern 9: Compact Protection (Phase Persistence)
+
+Multi-phase workflows span long conversations. Context compression (compact) may summarize earlier phase documents into brief summaries, causing later phases to lose execution instructions.
+
+**Three-layer protection**:
+
+| Layer | Location | Mechanism |
+|-------|----------|-----------|
+| **Anchor** | SKILL.md Phase Reference table | 标注每个 phase 的 compact 策略（可压缩 / 执行期间禁止压缩） |
+| **Directive** | Phase 文件顶部 | 告诉 compact 摘要时必须保留"需重读"指令原文 |
+| **Checkpoint** | Phase 关键执行步骤前 | 验证指令是否在 memory 中，若仅剩摘要则触发重读 |
+
+**When to apply**: 任何通过 direct handoff (Pattern 7) 跨 phase 执行的场景，尤其是后续 phase 包含复杂执行协议（多 Step、agent 调度、CLI 编排）时。
+
+**SKILL.md Phase Reference table** — 增加 Compact 列:
+```markdown
+| Phase | Document | Purpose | Compact |
+|-------|----------|---------|---------|
+| 1 | phases/01-xxx.md | Planning pipeline | Phase 1 完成后可压缩 |
+| 2 | phases/02-xxx.md | Execution engine | **⚠️ 执行期间禁止压缩，压缩后必须重读** |
+
+**Phase N Compact Rule**: Phase N 是执行引擎，包含 Step 1-M 的完整执行协议。如果 compact 发生且 Phase N 内容仅剩摘要，**必须立即 `Read("phases/0N-xxx.md")` 重新加载后再继续执行**。不得基于摘要执行任何 Step。
+```
+
+**Phase 文件顶部** — Compact Protection directive:
+```markdown
+> **⚠️ COMPACT PROTECTION**: This is an active execution document — NOT reference material.
+> During context compression, this directive MUST be preserved verbatim in the summary:
+> **"Phase N execution protocol has been compressed. MUST re-read `phases/0N-xxx.md` before continuing any execution step. Do NOT proceed from summary alone."**
+```
+
+**Phase 关键步骤前** — Checkpoint:
+```markdown
+> **⚠️ CHECKPOINT**: Before proceeding, verify Phase N execution protocol (Step X-Y) is in active memory.
+> If only a summary remains, re-read `phases/0N-xxx.md` now.
+```
+
+**Handoff 注释** — 在 direct handoff 代码中标注:
+```javascript
+// ⚠️ COMPACT PROTECTION: Phase N instructions MUST persist in memory throughout execution.
+// If compact compresses Phase N content at any point, re-read this file before continuing.
+// See SKILL.md "Phase Reference Documents" section for compact rules.
+Read("phases/0N-xxx.md")
+```
+
 ## Execution Flow
 
 ```
@@ -285,10 +330,12 @@ When `workflowPreferences.autoYes === true`: {auto-mode behavior}.
 
 **Phase Reference Documents** (read on-demand when phase executes):
 
-| Phase | Document | Purpose |
-|-------|----------|---------|
-| 1 | [phases/01-xxx.md](phases/01-xxx.md) | ... |
+| Phase | Document | Purpose | Compact |
+|-------|----------|---------|---------|
+| 1 | [phases/01-xxx.md](phases/01-xxx.md) | ... | 完成后可压缩 |
 ...
+
+{For phases that are execution targets of direct handoff (Pattern 7), add Compact Rule below the table — see Pattern 9}
 
 ## Core Rules
 
@@ -329,6 +376,11 @@ When `workflowPreferences.autoYes === true`: {auto-mode behavior}.
 ```markdown
 # Phase N: {Phase Name}
 
+> **⚠️ COMPACT PROTECTION**: This is an active execution document — NOT reference material.
+> During context compression, this directive MUST be preserved verbatim in the summary:
+> **"Phase N execution protocol has been compressed. MUST re-read `phases/0N-xxx.md` before continuing any execution step. Do NOT proceed from summary alone."**
+> _(Include this block only for phases that are execution targets of direct handoff — see Pattern 9)_
+
 {One-sentence description of this phase's goal.}
 
 ## Objective
@@ -343,6 +395,10 @@ When `workflowPreferences.autoYes === true`: {auto-mode behavior}.
 {Full execution detail: commands, agent prompts, code}
 
 ### Step N.2: {Step Name}
+
+> **⚠️ CHECKPOINT**: Before proceeding, verify Phase N execution protocol (Step N.2+) is in active memory.
+> If only a summary remains, re-read `phases/0N-xxx.md` now.
+> _(Add checkpoints before critical execution steps: agent dispatch, CLI launch, review — see Pattern 9)_
 
 {Full execution detail}
 
@@ -372,3 +428,4 @@ When designing a new workflow skill, answer these questions:
 | What's the error recovery? | Error Handling | Retry once then report, vs rollback |
 | Does it need preference collection? | Interactive Preference Collection | Collect via AskUserQuestion in SKILL.md, pass as workflowPreferences |
 | Does phase N hand off to phase M? | Direct Phase Handoff (Pattern 7) | Read phase doc directly, not Skill() routing |
+| Will later phases run after long context? | Compact Protection (Pattern 9) | Add directive + checkpoints to execution phases |
