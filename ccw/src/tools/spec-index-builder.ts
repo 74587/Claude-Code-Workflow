@@ -1,10 +1,10 @@
 /**
  * Spec Index Builder
  *
- * Scans .workflow/{dimension}/*.md files, parses YAML frontmatter via
- * gray-matter, and writes .spec-index/{dimension}.index.json cache files.
+ * Scans .ccw/{dimension}/*.md files, parses YAML frontmatter via
+ * gray-matter, and writes .ccw/.spec-index/{dimension}.index.json cache files.
  *
- * Supports 4 dimensions: specs, roadmap, changelog, personal
+ * Supports 2 dimensions: specs, personal
  *
  * YAML Frontmatter Schema:
  * ---
@@ -83,9 +83,11 @@ export interface DimensionIndex {
 // ============================================================================
 
 /**
- * The 4 supported spec dimensions.
+ * The 2 supported spec dimensions.
+ * - specs: Project rules and conventions
+ * - personal: Personal preferences (supports global ~/.ccw/personal/)
  */
-export const SPEC_DIMENSIONS = ['specs', 'roadmap', 'changelog', 'personal'] as const;
+export const SPEC_DIMENSIONS = ['specs', 'personal'] as const;
 
 export type SpecDimension = typeof SPEC_DIMENSIONS[number];
 
@@ -100,9 +102,9 @@ const VALID_READ_MODES = ['required', 'optional'] as const;
 const VALID_PRIORITIES = ['critical', 'high', 'medium', 'low'] as const;
 
 /**
- * Directory name for spec index cache files (inside .workflow/).
+ * Directory name for spec index cache files (inside .ccw/).
  */
-const WORKFLOW_DIR = '.workflow';
+const CCW_DIR = '.ccw';
 const SPEC_INDEX_DIR = '.spec-index';
 
 // ============================================================================
@@ -114,27 +116,27 @@ const SPEC_INDEX_DIR = '.spec-index';
  *
  * @param projectPath - Project root directory
  * @param dimension - The dimension name
- * @returns Absolute path to .workflow/.spec-index/{dimension}.index.json
+ * @returns Absolute path to .ccw/.spec-index/{dimension}.index.json
  */
 export function getIndexPath(projectPath: string, dimension: string): string {
-  return join(projectPath, WORKFLOW_DIR, SPEC_INDEX_DIR, `${dimension}.index.json`);
+  return join(projectPath, CCW_DIR, SPEC_INDEX_DIR, `${dimension}.index.json`);
 }
 
 /**
- * Get the path to the .workflow/{dimension} directory.
+ * Get the path to the .ccw/{dimension} directory.
  *
  * @param projectPath - Project root directory
  * @param dimension - The dimension name
- * @returns Absolute path to .workflow/{dimension}/
+ * @returns Absolute path to .ccw/{dimension}/
  */
 export function getDimensionDir(projectPath: string, dimension: string): string {
-  return join(projectPath, '.workflow', dimension);
+  return join(projectPath, CCW_DIR, dimension);
 }
 
 /**
  * Build the index for a single dimension.
  *
- * Scans .workflow/{dimension}/*.md files, parses YAML frontmatter,
+ * Scans .ccw/{dimension}/*.md files, parses YAML frontmatter,
  * extracts the 5 required fields, and returns a DimensionIndex.
  *
  * Files with malformed or missing frontmatter are skipped gracefully.
@@ -194,15 +196,15 @@ export async function buildDimensionIndex(
 }
 
 /**
- * Build indices for all 4 dimensions and write to .spec-index/.
+ * Build indices for all dimensions and write to .ccw/.spec-index/.
  *
- * Creates .spec-index/ directory if it doesn't exist.
+ * Creates .ccw/.spec-index/ directory if it doesn't exist.
  * Writes {dimension}.index.json for each dimension.
  *
  * @param projectPath - Project root directory
  */
 export async function buildAllIndices(projectPath: string): Promise<void> {
-  const indexDir = join(projectPath, WORKFLOW_DIR, SPEC_INDEX_DIR);
+  const indexDir = join(projectPath, CCW_DIR, SPEC_INDEX_DIR);
 
   // Ensure .spec-index directory exists
   if (!existsSync(indexDir)) {
@@ -283,7 +285,7 @@ export async function getDimensionIndex(
   // Build fresh and cache
   const index = await buildDimensionIndex(projectPath, dimension);
 
-  const indexDir = join(projectPath, WORKFLOW_DIR, SPEC_INDEX_DIR);
+  const indexDir = join(projectPath, CCW_DIR, SPEC_INDEX_DIR);
   if (!existsSync(indexDir)) {
     mkdirSync(indexDir, { recursive: true });
   }

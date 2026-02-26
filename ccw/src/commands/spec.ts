@@ -95,7 +95,7 @@ async function loadAction(options: SpecOptions): Promise<void> {
 
     const result = await loadSpecs({
       projectPath,
-      dimension: dimension as 'specs' | 'roadmap' | 'changelog' | 'personal' | undefined,
+      dimension: dimension as 'specs' | 'personal' | undefined,
       keywords,
       outputFormat: stdin ? 'hook' : 'cli',
       stdinData,
@@ -355,12 +355,12 @@ ${chalk.bold('USAGE')}
 ${chalk.bold('SUBCOMMANDS')}
   load      Load specs matching dimension/keywords (CLI or Hook mode)
   list      List all indexed specs with readMode and keyword info
-  rebuild   Force re-scan of MD files and rebuild .spec-index cache
+  rebuild   Force re-scan of MD files and rebuild .ccw/.spec-index cache
   status    Show per-dimension stats (total, required, optional, freshness)
-  init      Create 4-dimension directory structure with seed MD documents
+  init      Create 2-dimension directory structure with seed MD documents
 
 ${chalk.bold('OPTIONS')}
-  --dimension <dim>   Target dimension: specs, roadmap, changelog, personal
+  --dimension <dim>   Target dimension: specs, personal
   --keywords <text>   Keywords for spec matching (space or comma separated)
   --stdin             Read input from stdin (Hook mode)
   --json              Output as JSON
@@ -368,7 +368,7 @@ ${chalk.bold('OPTIONS')}
 ${chalk.bold('KEYWORD CATEGORIES')}
   Use these predefined keywords to load specs for specific workflow stages:
   ${chalk.cyan('exploration')}  - Code exploration, analysis, debugging context
-  ${chalk.cyan('planning')}     - Task planning, roadmap, requirements context
+  ${chalk.cyan('planning')}     - Task planning, requirements context
   ${chalk.cyan('execution')}    - Implementation, testing, deployment context
 
 ${chalk.bold('EXAMPLES')}
@@ -400,7 +400,7 @@ ${chalk.bold('EXAMPLES')}
   ccw spec rebuild
 
   ${chalk.gray('# Rebuild single dimension:')}
-  ccw spec rebuild --dimension roadmap
+  ccw spec rebuild --dimension specs
 
   ${chalk.gray('# Check system status:')}
   ccw spec status

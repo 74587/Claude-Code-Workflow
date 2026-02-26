@@ -1,9 +1,9 @@
 /**
- * Spec Init - Initialize the 4-dimension spec system
+ * Spec Init - Initialize the 2-dimension spec system
  *
- * Creates .workflow/specs/, .workflow/roadmap/, .workflow/changelog/,
- * .workflow/personal/, and .workflow/.spec-index/ directories with
- * seed MD documents containing YAML frontmatter templates.
+ * Creates .ccw/specs/, .ccw/personal/,
+ * and .ccw/.spec-index/ directories with seed MD documents
+ * containing YAML frontmatter templates.
  *
  * Idempotent: skips existing files, only creates missing directories/files.
  */
@@ -39,7 +39,7 @@ export interface InitResult {
 // Constants
 // ---------------------------------------------------------------------------
 
-export const DIMENSIONS = ['specs', 'roadmap', 'changelog', 'personal'] as const;
+export const DIMENSIONS = ['specs', 'personal'] as const;
 export const INDEX_DIR = '.spec-index';
 
 // ---------------------------------------------------------------------------
@@ -55,7 +55,7 @@ export const SEED_DOCS: Map<string, SeedDoc[]> = new Map([
         frontmatter: {
           title: 'Coding Conventions',
           dimension: 'specs',
-          keywords: ['typescript', 'naming', 'style', 'convention'],
+          keywords: ['typescript', 'naming', 'style', 'convention', 'exploration', 'planning', 'execution'],
           readMode: 'required',
           priority: 'high',
         },
@@ -91,7 +91,7 @@ export const SEED_DOCS: Map<string, SeedDoc[]> = new Map([
         frontmatter: {
           title: 'Architecture Constraints',
           dimension: 'specs',
-          keywords: ['architecture', 'module', 'layer', 'pattern'],
+          keywords: ['architecture', 'module', 'layer', 'pattern', 'exploration', 'planning'],
           readMode: 'required',
           priority: 'high',
         },
@@ -174,40 +174,6 @@ export const SEED_DOCS: Map<string, SeedDoc[]> = new Map([
       },
     ],
   ],
-  [
-    'roadmap',
-    [
-      {
-        filename: 'current.md',
-        frontmatter: {
-          title: 'Current Roadmap',
-          dimension: 'roadmap',
-          keywords: ['roadmap', 'plan', 'milestone'],
-          readMode: 'optional',
-          priority: 'medium',
-        },
-        body: `# Current Roadmap
-
-## Active Milestone
-
-- Milestone name and target date
-- Key deliverables
-
-## Upcoming
-
-- Next planned features or improvements
-
-## Completed
-
-- Recently completed milestones for reference
-`,
-      },
-    ],
-  ],
-  [
-    'changelog',
-    [],
-  ],
 ]);
 
 // ---------------------------------------------------------------------------
@@ -246,29 +212,29 @@ export function formatFrontmatter(fm: SpecFrontmatter): string {
  * @returns InitResult with lists of created/skipped paths
  */
 export function initSpecSystem(projectPath: string): InitResult {
-  const workflowDir = join(projectPath, '.workflow');
+  const ccwDir = join(projectPath, '.ccw');
   const result: InitResult = {
     created: [],
     skipped: [],
     directories: [],
   };
 
-  // Ensure .workflow root exists
-  if (!existsSync(workflowDir)) {
-    mkdirSync(workflowDir, { recursive: true });
+  // Ensure .ccw root exists
+  if (!existsSync(ccwDir)) {
+    mkdirSync(ccwDir, { recursive: true });
   }
 
   // Create dimension directories
   for (const dim of DIMENSIONS) {
-    const dirPath = join(workflowDir, dim);
+    const dirPath = join(ccwDir, dim);
     if (!existsSync(dirPath)) {
       mkdirSync(dirPath, { recursive: true });
       result.directories.push(dirPath);
     }
   }
 
-  // Create index directory at project root (matches spec-index-builder.ts location)
-  const indexPath = join(projectPath, INDEX_DIR);
+  // Create index directory inside .ccw (matches spec-index-builder.ts location)
+  const indexPath = join(ccwDir, INDEX_DIR);
   if (!existsSync(indexPath)) {
     mkdirSync(indexPath, { recursive: true });
     result.directories.push(indexPath);
@@ -276,7 +242,7 @@ export function initSpecSystem(projectPath: string): InitResult {
 
   // Write seed documents per dimension
   for (const [dimension, docs] of SEED_DOCS) {
-    const dimDir = join(workflowDir, dimension);
+    const dimDir = join(ccwDir, dimension);
 
     for (const doc of docs) {
       const filePath = join(dimDir, doc.filename);

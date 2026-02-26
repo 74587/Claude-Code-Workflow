@@ -105,9 +105,7 @@ interface LoadedSpec {
  */
 const DIMENSION_PRIORITY: Record<string, number> = {
   personal: 1,
-  changelog: 2,
-  roadmap: 3,
-  specs: 4,
+  specs: 2,
 };
 
 /**
