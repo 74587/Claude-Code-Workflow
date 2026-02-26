@@ -54,14 +54,11 @@ Phase 4: Output Generation
    - Other schemas as specified in prompt
    Read and memorize schema requirements BEFORE any analysis begins (feeds Phase 3 validation).
 
-3. **Project Context Loading** (from init.md products):
-   - Read `.workflow/project-tech.json` (if exists):
+3. **Project Context Loading** (from spec system):
+   - Load exploration specs using: `ccw spec load --keywords exploration`
      - Extract: `tech_stack`, `architecture`, `key_components`, `overview`
      - Usage: Align analysis scope and patterns with actual project technology choices
-   - Read `.workflow/specs/*.md` (if exists):
-     - Extract: `conventions`, `constraints`, `quality_rules`, `learnings`
-     - Usage: Apply as constraints during pattern analysis, integration point evaluation, and recommendations
-   - If either file does not exist, proceed with fresh analysis (no error).
+   - If no specs are returned, proceed with fresh analysis (no error).
 
 4. **Task Keyword Search** (initial file discovery):
    ```bash

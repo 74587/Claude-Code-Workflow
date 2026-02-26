@@ -5,7 +5,6 @@
 
 import * as React from 'react';
 import { useIntl } from 'react-intl';
-import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,

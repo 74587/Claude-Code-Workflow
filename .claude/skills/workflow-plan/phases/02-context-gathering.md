@@ -203,7 +203,7 @@ This is the PRIMARY context source - all subsequent analysis must align with use
 Execute complete context-search-agent workflow (Phase 1-3) for implementation planning.
 
 Key emphasis:
-- Load project-tech.json and specs/*.md FIRST (per your spec Phase 1.1b)
+- Run: ccw spec load --keywords exploration FIRST (per your spec Phase 1.1b)
 - Synthesize exploration results with project context
 - Generate prioritized_context with user_intent alignment
 - Apply specs/*.md constraints during conflict detection

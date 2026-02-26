@@ -4,24 +4,40 @@
  * Main page for managing spec settings, hooks, injection control, and global settings.
  * Uses 5 tabs: Project Specs | Personal Specs | Hooks | Injection | Settings
  */
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useIntl } from 'react-intl';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { ScrollText, User, Plug, Gauge, Settings, RefreshCw, Search } from 'lucide-react';
 import { SpecCard, SpecDialog, type Spec, type SpecFormData } from '@/components/specs';
 import { HookCard, HookDialog, type HookConfig } from '@/components/specs';
 import { InjectionControlTab } from '@/components/specs/InjectionControlTab';
 import { GlobalSettingsTab } from '@/components/specs/GlobalSettingsTab';
-import { useSpecStats } from '@/hooks/useSystemSettings';
+import { useSpecStats, useSpecsList, useSystemSettings, useRebuildSpecIndex } from '@/hooks/useSystemSettings';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import type { SpecEntry } from '@/lib/api';
 
 type SettingsTab = 'project-specs' | 'personal-specs' | 'hooks' | 'injection' | 'settings';
 
+// Convert SpecEntry to Spec for display
+function specEntryToSpec(entry: SpecEntry, dimension: string): Spec {
+  return {
+    id: entry.file,
+    title: entry.title,
+    dimension: dimension as Spec['dimension'],
+    keywords: entry.keywords,
+    readMode: entry.readMode as Spec['readMode'],
+    priority: entry.priority as Spec['priority'],
+    file: entry.file,
+    enabled: true, // Default to enabled
+  };
+}
+
 export function SpecsSettingsPage() {
   const { formatMessage } = useIntl();
+  const projectPath = useWorkflowStore(selectProjectPath);
   const [activeTab, setActiveTab] = useState<SettingsTab>('project-specs');
   const [searchQuery, setSearchQuery] = useState('');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -29,13 +45,50 @@ export function SpecsSettingsPage() {
   const [editingSpec, setEditingSpec] = useState<Spec | null>(null);
   const [editingHook, setEditingHook] = useState<HookConfig | null>(null);
 
-  // Mock data for demonstration - will be replaced with real API calls
-  const [projectSpecs] = useState<Spec[]>([]);
-  const [personalSpecs] = useState<Spec[]>([]);
-  const [hooks] = useState<HookConfig[]>([]);
-  const [isLoading] = useState(false);
+  // Fetch real data
+  const { data: specsListData, isLoading: specsLoading, refetch: refetchSpecs } = useSpecsList({ projectPath });
+  const { data: statsData } = useSpecStats({ projectPath });
+  const { data: systemSettings } = useSystemSettings();
+  const rebuildMutation = useRebuildSpecIndex();
 
-  const { data: statsData, refetch: refetchStats } = useSpecStats();
+  // Convert specs data to display format
+  const { projectSpecs, personalSpecs } = useMemo(() => {
+    if (!specsListData?.specs) {
+      return { projectSpecs: [], personalSpecs: [] };
+    }
+
+    const specs: Spec[] = [];
+    const personal: Spec[] = [];
+
+    for (const [dimension, entries] of Object.entries(specsListData.specs)) {
+      for (const entry of entries) {
+        const spec = specEntryToSpec(entry, dimension);
+        if (dimension === 'personal') {
+          personal.push(spec);
+        } else {
+          specs.push(spec);
+        }
+      }
+    }
+
+    return { projectSpecs: specs, personalSpecs: personal };
+  }, [specsListData]);
+
+  // Get hooks from system settings
+  const hooks: HookConfig[] = useMemo(() => {
+    return systemSettings?.recommendedHooks?.map(h => ({
+      id: h.id,
+      name: h.name,
+      event: h.event as HookConfig['event'],
+      command: h.command,
+      description: h.description,
+      scope: h.scope as HookConfig['scope'],
+      enabled: h.autoInstall ?? false,
+      installed: h.autoInstall ?? false,
+    })) ?? [];
+  }, [systemSettings]);
+
+  const isLoading = specsLoading;
 
   const handleSpecEdit = (spec: Spec) => {
     setEditingSpec(spec);
@@ -81,7 +134,11 @@ export function SpecsSettingsPage() {
 
   const handleRebuildIndex = async () => {
     console.log('Rebuilding index...');
-    // TODO: Implement rebuild logic
+    rebuildMutation.mutate(undefined, {
+      onSuccess: () => {
+        refetchSpecs();
+      }
+    });
   };
 
   const filterSpecs = (specs: Spec[]) => {
@@ -117,7 +174,7 @@ export function SpecsSettingsPage() {
         </div>
 
         {/* Stats Summary */}
-        {statsData && (
+        {statsData?.dimensions && (
           <div className="grid grid-cols-4 gap-4">
             {Object.entries(statsData.dimensions).map(([dim, data]) => (
               <Card key={dim}>
@@ -178,7 +235,7 @@ export function SpecsSettingsPage() {
         scope: 'global',
         enabled: true,
         timeout: 5000,
-        failMode: 'silent'
+        failMode: 'continue'
       },
       {
         id: 'spec-injection-prompt',
@@ -188,7 +245,7 @@ export function SpecsSettingsPage() {
         scope: 'project',
         enabled: true,
         timeout: 5000,
-        failMode: 'silent'
+        failMode: 'continue'
       }
     ];
 
@@ -219,11 +276,11 @@ export function SpecsSettingsPage() {
                 <HookCard
                   key={hook.id}
                   hook={hook}
-                  isRecommended={true}
+                  isRecommendedCard={true}
                   onInstall={() => console.log('Install:', hook.id)}
                   onEdit={handleHookEdit}
                   onToggle={handleHookToggle}
-                  onDelete={handleHookDelete}
+                  onUninstall={handleHookDelete}
                 />
               ))}
             </div>
@@ -261,7 +318,7 @@ export function SpecsSettingsPage() {
                     hook={hook}
                     onEdit={handleHookEdit}
                     onToggle={handleHookToggle}
-                    onDelete={handleHookDelete}
+                    onUninstall={handleHookDelete}
                   />
                 ))}
               </div>
@@ -273,7 +330,7 @@ export function SpecsSettingsPage() {
   };
 
   return (
-    <div className="container py-6 max-w-6xl">
+    <div className="max-w-6xl mx-auto">
       {/* Page Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -343,8 +400,10 @@ export function SpecsSettingsPage() {
       <HookDialog
         open={hookDialogOpen}
         onOpenChange={setHookDialogOpen}
-        hook={editingHook}
-        onSave={handleHookSave}
+        hook={editingHook ?? undefined}
+        onSave={(hookData) => {
+          handleHookSave(editingHook?.id ?? null, hookData);
+        }}
       />
     </div>
   );

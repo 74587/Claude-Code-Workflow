@@ -1,0 +1,202 @@
+{
+  "pageTitle": "规范设置",
+  "pageDescription": "管理规范注入、钩子和系统设置",
+  "tabProjectSpecs": "项目规范",
+  "tabPersonalSpecs": "个人",
+  "tabHooks": "钩子",
+  "tabInjection": "注入控制",
+  "tabSettings": "设置",
+  "searchPlaceholder": "搜索规范...",
+  "rebuildIndex": "重建索引",
+  "loading": "加载中...",
+  "noSpecs": "未找到规范。请在 .workflow/ 目录中创建规范文件。",
+
+  "recommendedHooks": "推荐钩子",
+  "recommendedHooksDesc": "一键安装系统预设的规范注入钩子",
+  "installAll": "安装所有推荐钩子",
+  "installedHooks": "已安装钩子",
+  "installedHooksDesc": "管理已安装的钩子配置",
+  "searchHooks": "搜索钩子...",
+  "noHooks": "未安装钩子。请安装上方的推荐钩子。",
+
+  "actions": {
+    "edit": "编辑",
+    "delete": "删除",
+    "reset": "重置",
+    "save": "保存",
+    "saving": "保存中..."
+  },
+
+  "status": {
+    "enabled": "已启用",
+    "disabled": "已禁用"
+  },
+
+  "readMode": {
+    "required": "必读",
+    "optional": "选读"
+  },
+
+  "priority": {
+    "critical": "关键",
+    "high": "高",
+    "medium": "中",
+    "low": "低"
+  },
+
+  "spec": {
+    "edit": "编辑规范",
+    "toggle": "切换状态",
+    "delete": "删除规范",
+    "deleteConfirm": "确定要删除此规范吗？",
+    "title": "规范标题",
+    "keywords": "关键词",
+    "keywordsPlaceholder": "输入关键词，用逗号分隔",
+    "readMode": "读取模式",
+    "priority": "优先级",
+    "file": "文件路径"
+  },
+
+  "hook": {
+    "install": "安装",
+    "uninstall": "卸载",
+    "edit": "编辑钩子",
+    "toggle": "切换状态",
+    "delete": "删除钩子",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "installed": "已安装",
+    "notInstalled": "未安装",
+    "scope": {
+      "global": "全局",
+      "project": "项目"
+    },
+    "event": {
+      "SessionStart": "会话开始",
+      "UserPromptSubmit": "提示词提交",
+      "SessionEnd": "会话结束"
+    },
+    "name": "钩子名称",
+    "eventLabel": "触发事件",
+    "command": "执行命令",
+    "scopeLabel": "作用域",
+    "timeout": "超时时间(ms)",
+    "failMode": "失败模式",
+    "failModeContinue": "继续",
+    "failModeBlock": "阻止",
+    "failModeWarn": "警告"
+  },
+
+  "hooks": {
+    "dialog": {
+      "createTitle": "创建钩子",
+      "editTitle": "编辑钩子",
+      "description": "配置钩子的触发事件、执行命令和其他参数。"
+    },
+    "fields": {
+      "name": "钩子名称",
+      "event": "触发事件",
+      "scope": "作用域",
+      "command": "执行命令",
+      "description": "描述",
+      "timeout": "超时时间",
+      "timeoutUnit": "毫秒",
+      "failMode": "失败处理模式"
+    },
+    "placeholders": {
+      "name": "输入钩子名称",
+      "event": "选择触发事件",
+      "command": "输入要执行的命令",
+      "description": "输入钩子描述（可选）"
+    },
+    "events": {
+      "sessionStart": "会话开始",
+      "userPromptSubmit": "提示词提交",
+      "sessionEnd": "会话结束"
+    },
+    "scope": {
+      "global": "全局",
+      "project": "项目"
+    },
+    "failModes": {
+      "continue": "继续执行",
+      "warn": "显示警告",
+      "block": "阻止操作"
+    }
+  },
+
+  "hints": {
+    "hookEvents": "选择钩子触发的事件类型",
+    "hookScope": "全局钩子应用于所有项目，项目钩子仅当前项目",
+    "hookCommand": "执行的命令，可使用环境变量",
+    "hookTimeout": "命令执行的超时时间",
+    "hookFailMode": "命令执行失败时的处理方式"
+  },
+
+  "common": {
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "reset": "重置",
+    "confirm": "确认"
+  },
+
+  "injection": {
+    "title": "注入控制",
+    "description": "监控和管理规范注入长度",
+    "statusTitle": "当前注入状态",
+    "settingsTitle": "注入控制设置",
+    "settingsDescription": "配置如何将规范内容注入到 AI 上下文中。",
+    "currentLength": "当前长度",
+    "maxLength": "最大注入长度（字符）",
+    "maxLengthHelp": "推荐值：4000-10000。过大会消耗过多上下文，过小可能截断重要规范。",
+    "warnThreshold": "警告阈值",
+    "warnThresholdLabel": "警告阈值（字符）",
+    "warnThresholdHelp": "当注入长度超过此值时显示警告。",
+    "percentage": "使用率",
+    "truncateOnExceed": "超出时截断",
+    "truncateHelp": "当内容超出最大长度时自动截断。",
+    "overLimit": "已超出限制",
+    "overLimitDescription": "当前注入内容已超出最大长度限制 {max} 字符，超出部分将被截断。",
+    "warning": "接近限制",
+    "normal": "正常",
+    "characters": "字符",
+    "statsInfo": "统计信息",
+    "requiredLength": "必读规范长度：",
+    "matchedLength": "关键词匹配长度：",
+    "remaining": "剩余空间：",
+    "loadError": "加载统计数据失败",
+    "saveSuccess": "设置已保存",
+    "saveError": "保存设置失败"
+  },
+
+  "settings": {
+    "title": "全局设置",
+    "description": "配置个人规范默认值和系统设置",
+    "personalSpecDefaults": "个人规范默认值",
+    "defaultReadMode": "默认读取模式",
+    "defaultReadModeHelp": "新创建的个人规范的默认读取模式",
+    "autoEnable": "自动启用",
+    "autoEnableDescription": "新创建的个人规范自动启用"
+  },
+
+  "dialog": {
+    "cancel": "取消",
+    "save": "保存",
+    "close": "关闭",
+    "editSpec": "编辑规范",
+    "editHook": "编辑钩子",
+    "confirmDelete": "确认删除",
+    "specTitle": "规范标题",
+    "keywords": "关键词",
+    "readMode": "读取模式",
+    "priority": "优先级",
+    "hookName": "钩子名称",
+    "hookEvent": "触发事件",
+    "hookCommand": "执行命令",
+    "hookScope": "作用域",
+    "hookTimeout": "超时时间(ms)",
+    "hookFailMode": "失败模式"
+  }
+}

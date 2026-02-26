@@ -111,19 +111,19 @@ export function HookDialog({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = formatMessage({ id: 'hooks.validation.nameRequired' });
+      newErrors.name = formatMessage({ id: 'specs.hooks.validation.nameRequired', defaultMessage: 'Name is required' });
     }
 
     if (!formData.command.trim()) {
-      newErrors.command = formatMessage({ id: 'hooks.validation.commandRequired' });
+      newErrors.command = formatMessage({ id: 'specs.hooks.validation.commandRequired', defaultMessage: 'Command is required' });
     }
 
     if (formData.timeout && formData.timeout < 1000) {
-      newErrors.timeout = formatMessage({ id: 'hooks.validation.timeoutMin' });
+      newErrors.timeout = formatMessage({ id: 'specs.hooks.validation.timeoutMin', defaultMessage: 'Minimum timeout is 1000ms' });
     }
 
     if (formData.timeout && formData.timeout > 300000) {
-      newErrors.timeout = formatMessage({ id: 'hooks.validation.timeoutMax' });
+      newErrors.timeout = formatMessage({ id: 'specs.hooks.validation.timeoutMax', defaultMessage: 'Maximum timeout is 300000ms' });
     }
 
     setErrors(newErrors);
@@ -153,11 +153,11 @@ export function HookDialog({
         <DialogHeader>
           <DialogTitle>
             {isEditing
-              ? formatMessage({ id: 'hooks.dialog.editTitle' })
-              : formatMessage({ id: 'hooks.dialog.createTitle' })}
+              ? formatMessage({ id: 'specs.hooks.dialog.editTitle', defaultMessage: 'Edit Hook' })
+              : formatMessage({ id: 'specs.hooks.dialog.createTitle', defaultMessage: 'Create Hook' })}
           </DialogTitle>
           <DialogDescription>
-            {formatMessage({ id: 'hooks.dialog.description' })}
+            {formatMessage({ id: 'specs.hooks.dialog.description', defaultMessage: 'Configure the hook trigger event, command, and other settings.' })}
           </DialogDescription>
         </DialogHeader>
 
@@ -165,13 +165,13 @@ export function HookDialog({
           {/* Name field */}
           <div className="space-y-2">
             <Label htmlFor="name" className="required">
-              {formatMessage({ id: 'hooks.fields.name' })}
+              {formatMessage({ id: 'specs.hooks.fields.name', defaultMessage: 'Hook Name' })}
             </Label>
             <Input
               id="name"
               value={formData.name}
               onChange={(e) => updateField('name', e.target.value)}
-              placeholder={formatMessage({ id: 'hooks.placeholders.name' })}
+              placeholder={formatMessage({ id: 'specs.hooks.placeholders.name', defaultMessage: 'Enter hook name' })}
               className={errors.name ? 'border-destructive' : ''}
               disabled={isLoading}
             />
@@ -183,7 +183,7 @@ export function HookDialog({
           {/* Event type field */}
           <div className="space-y-2">
             <Label htmlFor="event" className="required">
-              {formatMessage({ id: 'hooks.fields.event' })}
+              {formatMessage({ id: 'specs.hooks.fields.event', defaultMessage: 'Trigger Event' })}
             </Label>
             <Select
               value={formData.event}
@@ -191,29 +191,29 @@ export function HookDialog({
               disabled={isLoading}
             >
               <SelectTrigger id="event">
-                <SelectValue placeholder={formatMessage({ id: 'hooks.placeholders.event' })} />
+                <SelectValue placeholder={formatMessage({ id: 'specs.hooks.placeholders.event', defaultMessage: 'Select event' })} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="SessionStart">
-                  {formatMessage({ id: 'hooks.events.sessionStart' })}
+                  {formatMessage({ id: 'specs.hooks.events.sessionStart', defaultMessage: 'Session Start' })}
                 </SelectItem>
                 <SelectItem value="UserPromptSubmit">
-                  {formatMessage({ id: 'hooks.events.userPromptSubmit' })}
+                  {formatMessage({ id: 'specs.hooks.events.userPromptSubmit', defaultMessage: 'User Prompt Submit' })}
                 </SelectItem>
                 <SelectItem value="SessionEnd">
-                  {formatMessage({ id: 'hooks.events.sessionEnd' })}
+                  {formatMessage({ id: 'specs.hooks.events.sessionEnd', defaultMessage: 'Session End' })}
                 </SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              {formatMessage({ id: 'hints.hookEvents' })}
+              {formatMessage({ id: 'specs.hints.hookEvents', defaultMessage: 'Select when this hook should be triggered' })}
             </p>
           </div>
 
           {/* Scope field */}
           <div className="space-y-2">
             <Label className="required">
-              {formatMessage({ id: 'hooks.fields.scope' })}
+              {formatMessage({ id: 'specs.hooks.fields.scope', defaultMessage: 'Scope' })}
             </Label>
             <RadioGroup
               value={formData.scope}
@@ -225,32 +225,32 @@ export function HookDialog({
                 <RadioGroupItem value="global" id="scope-global" />
                 <Label htmlFor="scope-global" className="flex items-center gap-1.5 cursor-pointer">
                   <Globe className="h-4 w-4" />
-                  {formatMessage({ id: 'hooks.scope.global' })}
+                  {formatMessage({ id: 'specs.hooks.scope.global', defaultMessage: 'Global' })}
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="project" id="scope-project" />
                 <Label htmlFor="scope-project" className="flex items-center gap-1.5 cursor-pointer">
                   <Folder className="h-4 w-4" />
-                  {formatMessage({ id: 'hooks.scope.project' })}
+                  {formatMessage({ id: 'specs.hooks.scope.project', defaultMessage: 'Project' })}
                 </Label>
               </div>
             </RadioGroup>
             <p className="text-xs text-muted-foreground">
-              {formatMessage({ id: 'hints.hookScope' })}
+              {formatMessage({ id: 'specs.hints.hookScope', defaultMessage: 'Global hooks apply to all projects, project hooks only to current project' })}
             </p>
           </div>
 
           {/* Command field */}
           <div className="space-y-2">
             <Label htmlFor="command" className="required">
-              {formatMessage({ id: 'hooks.fields.command' })}
+              {formatMessage({ id: 'specs.hooks.fields.command', defaultMessage: 'Command' })}
             </Label>
             <Input
               id="command"
               value={formData.command}
               onChange={(e) => updateField('command', e.target.value)}
-              placeholder={formatMessage({ id: 'hooks.placeholders.command' })}
+              placeholder={formatMessage({ id: 'specs.hooks.placeholders.command', defaultMessage: 'Enter command to execute' })}
               className={cn('font-mono', errors.command ? 'border-destructive' : '')}
               disabled={isLoading}
             />
@@ -258,20 +258,20 @@ export function HookDialog({
               <p className="text-xs text-destructive">{errors.command}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              {formatMessage({ id: 'hints.hookCommand' })}
+              {formatMessage({ id: 'specs.hints.hookCommand', defaultMessage: 'Command to execute, can use environment variables' })}
             </p>
           </div>
 
           {/* Description field */}
           <div className="space-y-2">
             <Label htmlFor="description">
-              {formatMessage({ id: 'hooks.fields.description' })}
+              {formatMessage({ id: 'specs.hooks.fields.description', defaultMessage: 'Description' })}
             </Label>
             <Textarea
               id="description"
               value={formData.description || ''}
               onChange={(e) => updateField('description', e.target.value)}
-              placeholder={formatMessage({ id: 'hooks.placeholders.description' })}
+              placeholder={formatMessage({ id: 'specs.hooks.placeholders.description', defaultMessage: 'Enter description (optional)' })}
               rows={2}
               disabled={isLoading}
             />
@@ -280,9 +280,9 @@ export function HookDialog({
           {/* Timeout field */}
           <div className="space-y-2">
             <Label htmlFor="timeout" className="flex items-center gap-1">
-              {formatMessage({ id: 'hooks.fields.timeout' })}
+              {formatMessage({ id: 'specs.hooks.fields.timeout', defaultMessage: 'Timeout' })}
               <span className="text-xs text-muted-foreground">
-                ({formatMessage({ id: 'hooks.fields.timeoutUnit' })})
+                ({formatMessage({ id: 'specs.hooks.fields.timeoutUnit', defaultMessage: 'ms' })})
               </span>
             </Label>
             <Input
@@ -300,14 +300,14 @@ export function HookDialog({
               <p className="text-xs text-destructive">{errors.timeout}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              {formatMessage({ id: 'hints.hookTimeout' })}
+              {formatMessage({ id: 'specs.hints.hookTimeout', defaultMessage: 'Timeout for command execution' })}
             </p>
           </div>
 
           {/* Fail mode field */}
           <div className="space-y-2">
             <Label htmlFor="failMode" className="flex items-center gap-1">
-              {formatMessage({ id: 'hooks.fields.failMode' })}
+              {formatMessage({ id: 'specs.hooks.fields.failMode', defaultMessage: 'Failure Mode' })}
               <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
             </Label>
             <Select
@@ -320,30 +320,30 @@ export function HookDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="continue">
-                  {formatMessage({ id: 'hooks.failModes.continue' })}
+                  {formatMessage({ id: 'specs.hooks.failModes.continue', defaultMessage: 'Continue' })}
                 </SelectItem>
                 <SelectItem value="warn">
-                  {formatMessage({ id: 'hooks.failModes.warn' })}
+                  {formatMessage({ id: 'specs.hooks.failModes.warn', defaultMessage: 'Warn' })}
                 </SelectItem>
                 <SelectItem value="block">
-                  {formatMessage({ id: 'hooks.failModes.block' })}
+                  {formatMessage({ id: 'specs.hooks.failModes.block', defaultMessage: 'Block' })}
                 </SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              {formatMessage({ id: 'hints.hookFailMode' })}
+              {formatMessage({ id: 'specs.hints.hookFailMode', defaultMessage: 'How to handle command execution failure' })}
             </p>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={handleCancel} disabled={isLoading}>
-            {formatMessage({ id: 'common.cancel' })}
+            {formatMessage({ id: 'specs.common.cancel', defaultMessage: 'Cancel' })}
           </Button>
           <Button onClick={handleSave} disabled={isLoading}>
             {isLoading
-              ? formatMessage({ id: 'common.saving' })
-              : formatMessage({ id: 'common.save' })}
+              ? formatMessage({ id: 'specs.common.saving', defaultMessage: 'Saving...' })
+              : formatMessage({ id: 'specs.common.save', defaultMessage: 'Save' })}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -345,8 +345,7 @@ Execute complete context-search-agent workflow for implementation planning:
 
 ### Phase 1: Initialization & Pre-Analysis
 1. **Project State Loading**:
-   - Read and parse .workflow/project-tech.json. Use its overview section as the foundational project_context.
-   - Read and parse .workflow/specs/*.md. Load conventions, constraints, and learnings into a project_guidelines section.
+   - Run: \`ccw spec load --keywords execution\` to load project context, tech stack, and guidelines.
    - If files don't exist, proceed with fresh analysis.
 2. **Detection**: Check for existing context-package (early exit if valid)
 3. **Foundation**: Initialize CodexLens, get project structure, load docs

@@ -336,10 +336,13 @@ import {
   updateSystemSettings,
   installRecommendedHooks,
   getSpecStats,
+  getSpecsList,
+  rebuildSpecIndex,
+  updateSpecFrontmatter,
   type SystemSettings,
   type UpdateSystemSettingsInput,
-  type InstallRecommendedHooksResponse,
   type SpecStats,
+  type SpecsListResponse,
 } from '../lib/api';
 
 // Query keys for specs settings
@@ -461,5 +464,112 @@ export function useSpecStats(options: UseSpecStatsOptions = {}): UseSpecStatsRet
     isLoading: query.isLoading,
     error: query.error,
     refetch: () => { query.refetch(); },
+  };
+}
+
+// ========================================
+// Specs List Hook
+// ========================================
+
+export interface UseSpecsListOptions {
+  projectPath?: string;
+  enabled?: boolean;
+  staleTime?: number;
+}
+
+export interface UseSpecsListReturn {
+  data: SpecsListResponse | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => void;
+}
+
+/**
+ * Hook to fetch specs list for all dimensions
+ * @param options - Options including projectPath for workspace isolation
+ */
+export function useSpecsList(options: UseSpecsListOptions = {}): UseSpecsListReturn {
+  const { projectPath, enabled = true, staleTime = STALE_TIME } = options;
+
+  const query = useQuery({
+    queryKey: specsSettingsKeys.specStats(projectPath), // Reuse for specs list
+    queryFn: () => getSpecsList(projectPath),
+    staleTime,
+    enabled,
+    retry: 1,
+  });
+
+  return {
+    data: query.data,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: () => { query.refetch(); },
+  };
+}
+
+// ========================================
+// Rebuild Spec Index Mutation Hook
+// ========================================
+
+export interface UseRebuildSpecIndexOptions {
+  projectPath?: string;
+}
+
+/**
+ * Hook to rebuild spec index
+ * @param options - Options including projectPath for workspace isolation
+ */
+export function useRebuildSpecIndex(options: UseRebuildSpecIndexOptions = {}) {
+  const { projectPath } = options;
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: () => rebuildSpecIndex(projectPath),
+    onSuccess: () => {
+      // Invalidate specs list and stats queries to refresh data
+      queryClient.invalidateQueries({ queryKey: specsSettingsKeys.specStats(projectPath) });
+    },
+  });
+
+  return {
+    mutate: mutation.mutate,
+    mutateAsync: mutation.mutateAsync,
+    isPending: mutation.isPending,
+    error: mutation.error,
+    data: mutation.data,
+  };
+}
+
+// ========================================
+// Update Spec Frontmatter Mutation Hook
+// ========================================
+
+export interface UseUpdateSpecFrontmatterOptions {
+  projectPath?: string;
+}
+
+/**
+ * Hook to update spec frontmatter (e.g., toggle readMode)
+ * @param options - Options including projectPath for workspace isolation
+ */
+export function useUpdateSpecFrontmatter(options: UseUpdateSpecFrontmatterOptions = {}) {
+  const { projectPath } = options;
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: ({ file, readMode }: { file: string; readMode: string }) =>
+      updateSpecFrontmatter(file, readMode, projectPath),
+    onSuccess: () => {
+      // Invalidate specs list to refresh data
+      queryClient.invalidateQueries({ queryKey: specsSettingsKeys.specStats(projectPath) });
+    },
+  });
+
+  return {
+    mutate: mutation.mutate,
+    mutateAsync: mutation.mutateAsync,
+    isPending: mutation.isPending,
+    error: mutation.error,
+    data: mutation.data,
   };
 }

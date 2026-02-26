@@ -244,8 +244,7 @@ Task(
     ${selectedStrategy} - ${strategyDescription}
 
     ## PROJECT CONTEXT (MANDATORY)
-    1. Read: .workflow/project-tech.json (tech stack, test framework, build system)
-    2. Read: .workflow/specs/*.md (constraints — apply as HARD CONSTRAINTS on fixes)
+    1. Run: \`ccw spec load --keywords execution\` (tech stack, test framework, build system, constraints)
 
     ## MANDATORY FIRST STEPS
     1. Read test results: ${session.test_results_path}

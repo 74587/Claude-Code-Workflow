@@ -98,22 +98,18 @@ if (isPopulated) {
 ### Step 2: Load Project Context
 
 ```javascript
-const projectTech = JSON.parse(Read('.workflow/project-tech.json'))
+// Load project context via ccw spec load for planning context
+const projectContext = Bash('ccw spec load --keywords planning 2>/dev/null || echo "{}"')
+const specData = JSON.parse(projectContext)
 
-// Extract key info for generating smart questions
-const languages = projectTech.technology_analysis?.technology_stack?.languages
-  || projectTech.overview?.technology_stack?.languages || []
+// Extract key info from loaded specs for generating smart questions
+const languages = specData.overview?.technology_stack?.languages || []
 const primaryLang = languages.find(l => l.primary)?.name || languages[0]?.name || 'Unknown'
-const frameworks = projectTech.technology_analysis?.technology_stack?.frameworks
-  || projectTech.overview?.technology_stack?.frameworks || []
-const testFrameworks = projectTech.technology_analysis?.technology_stack?.test_frameworks
-  || projectTech.overview?.technology_stack?.test_frameworks || []
-const archStyle = projectTech.technology_analysis?.architecture?.style
-  || projectTech.overview?.architecture?.style || 'Unknown'
-const archPatterns = projectTech.technology_analysis?.architecture?.patterns
-  || projectTech.overview?.architecture?.patterns || []
-const buildTools = projectTech.technology_analysis?.technology_stack?.build_tools
-  || projectTech.overview?.technology_stack?.build_tools || []
+const frameworks = specData.overview?.technology_stack?.frameworks || []
+const testFrameworks = specData.overview?.technology_stack?.test_frameworks || []
+const archStyle = specData.overview?.architecture?.style || 'Unknown'
+const archPatterns = specData.overview?.architecture?.patterns || []
+const buildTools = specData.overview?.technology_stack?.build_tools || []
 ```
 
 ### Step 3: Multi-Round Interactive Questionnaire

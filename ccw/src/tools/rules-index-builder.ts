@@ -25,6 +25,19 @@ import { join, basename, extname, relative } from 'path';
 // ============================================================================
 
 /**
+ * Spec categories for workflow stage-based loading (used as keywords).
+ * - exploration: Code exploration, analysis, debugging context
+ * - planning: Task planning, roadmap, requirements context
+ * - execution: Implementation, testing, deployment context
+ *
+ * Usage: Add these as keywords in spec frontmatter, e.g.:
+ * keywords: [exploration, auth, security]
+ */
+export const SPEC_CATEGORIES = ['exploration', 'planning', 'execution'] as const;
+
+export type SpecCategory = typeof SPEC_CATEGORIES[number];
+
+/**
  * YAML frontmatter schema for spec MD files.
  */
 export interface SpecFrontmatter {
@@ -45,7 +58,7 @@ export interface SpecIndexEntry {
   file: string;
   /** Dimension this spec belongs to */
   dimension: string;
-  /** Keywords for matching against user prompts */
+  /** Keywords for matching against user prompts (may include category markers) */
   keywords: string[];
   /** Whether this spec is required or optional */
   readMode: 'required' | 'optional';
@@ -87,8 +100,9 @@ const VALID_READ_MODES = ['required', 'optional'] as const;
 const VALID_PRIORITIES = ['critical', 'high', 'medium', 'low'] as const;
 
 /**
- * Directory name for spec index cache files.
+ * Directory name for spec index cache files (inside .workflow/).
  */
+const WORKFLOW_DIR = '.workflow';
 const SPEC_INDEX_DIR = '.spec-index';
 
 // ============================================================================
@@ -100,10 +114,10 @@ const SPEC_INDEX_DIR = '.spec-index';
  *
  * @param projectPath - Project root directory
  * @param dimension - The dimension name
- * @returns Absolute path to .spec-index/{dimension}.index.json
+ * @returns Absolute path to .workflow/.spec-index/{dimension}.index.json
  */
 export function getIndexPath(projectPath: string, dimension: string): string {
-  return join(projectPath, SPEC_INDEX_DIR, `${dimension}.index.json`);
+  return join(projectPath, WORKFLOW_DIR, SPEC_INDEX_DIR, `${dimension}.index.json`);
 }
 
 /**
@@ -188,7 +202,7 @@ export async function buildDimensionIndex(
  * @param projectPath - Project root directory
  */
 export async function buildAllIndices(projectPath: string): Promise<void> {
-  const indexDir = join(projectPath, SPEC_INDEX_DIR);
+  const indexDir = join(projectPath, WORKFLOW_DIR, SPEC_INDEX_DIR);
 
   // Ensure .spec-index directory exists
   if (!existsSync(indexDir)) {
@@ -269,7 +283,7 @@ export async function getDimensionIndex(
   // Build fresh and cache
   const index = await buildDimensionIndex(projectPath, dimension);
 
-  const indexDir = join(projectPath, SPEC_INDEX_DIR);
+  const indexDir = join(projectPath, WORKFLOW_DIR, SPEC_INDEX_DIR);
   if (!existsSync(indexDir)) {
     mkdirSync(indexDir, { recursive: true });
   }

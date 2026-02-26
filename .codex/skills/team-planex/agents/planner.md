@@ -48,8 +48,7 @@ Outputs `ISSUE_READY:{issueId}` after each solution and waits for orchestrator t
 ### Step 1: Load Context
 
 After reading role definition, load project context:
-- Read: `.workflow/project-tech.json`
-- Read: `.workflow/specs/*.md`
+- Run: `ccw spec load --keywords planning`
 - Extract session directory and artifacts directory from task message
 
 ### Step 2: Parse Input
@@ -82,7 +81,7 @@ spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/issue-plan-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
+2. Run: `ccw spec load --keywords planning`
 
 ---
 

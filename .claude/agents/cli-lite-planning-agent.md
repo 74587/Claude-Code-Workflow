@@ -54,9 +54,8 @@ When invoked with `process_docs: true` in input context:
 
 ## Input Context
 
-**Project Context** (read from init.md products at startup):
-- `.workflow/project-tech.json` → tech_stack, architecture, key_components
-- `.workflow/specs/*.md` → conventions, constraints, quality_rules
+**Project Context** (loaded from spec system at startup):
+- Load specs using: `ccw spec load --keywords "exploration architecture"` → tech_stack, architecture, key_components, conventions, constraints, quality_rules
 
 ```javascript
 {

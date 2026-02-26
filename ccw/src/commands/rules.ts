@@ -11,7 +11,7 @@ import chalk from 'chalk';
 
 interface SpecOptions {
   dimension?: string;
-  context?: string;
+  keywords?: string;
   stdin?: boolean;
   json?: boolean;
 }
@@ -60,11 +60,11 @@ function getProjectPath(hookCwd?: string): string {
 /**
  * Load action - load specs matching dimension/keywords.
  *
- * CLI mode: --dimension and --context options, outputs formatted markdown.
+ * CLI mode: --dimension and --keywords options, outputs formatted markdown.
  * Hook mode: --stdin reads JSON {session_id, cwd, user_prompt}, outputs JSON {continue, systemMessage}.
  */
 async function loadAction(options: SpecOptions): Promise<void> {
-  const { stdin, dimension, context } = options;
+  const { stdin, dimension, keywords: keywordsInput } = options;
   let projectPath: string;
   let stdinData: StdinData | undefined;
 
@@ -89,8 +89,8 @@ async function loadAction(options: SpecOptions): Promise<void> {
   try {
     const { loadSpecs } = await import('../tools/spec-loader.js');
 
-    const keywords = context
-      ? context.split(/[\s,]+/).filter(Boolean)
+    const keywords = keywordsInput
+      ? keywordsInput.split(/[\s,]+/).filter(Boolean)
       : undefined;
 
     const result = await loadSpecs({
@@ -361,19 +361,31 @@ ${chalk.bold('SUBCOMMANDS')}
 
 ${chalk.bold('OPTIONS')}
   --dimension <dim>   Target dimension: specs, roadmap, changelog, personal
-  --context <text>    Context text for keyword extraction (CLI mode)
+  --keywords <text>   Keywords for spec matching (space or comma separated)
   --stdin             Read input from stdin (Hook mode)
   --json              Output as JSON
+
+${chalk.bold('KEYWORD CATEGORIES')}
+  Use these predefined keywords to load specs for specific workflow stages:
+  ${chalk.cyan('exploration')}  - Code exploration, analysis, debugging context
+  ${chalk.cyan('planning')}     - Task planning, roadmap, requirements context
+  ${chalk.cyan('execution')}    - Implementation, testing, deployment context
 
 ${chalk.bold('EXAMPLES')}
   ${chalk.gray('# Initialize spec system:')}
   ccw spec init
 
-  ${chalk.gray('# Load specs for a topic (CLI mode):')}
-  ccw spec load --dimension specs --context "auth jwt security"
+  ${chalk.gray('# Load exploration-phase specs:')}
+  ccw spec load --keywords exploration
 
-  ${chalk.gray('# Load all matching specs:')}
-  ccw spec load --context "implement user authentication"
+  ${chalk.gray('# Load planning-phase specs with auth topic:')}
+  ccw spec load --keywords "planning auth"
+
+  ${chalk.gray('# Load execution-phase specs:')}
+  ccw spec load --keywords execution
+
+  ${chalk.gray('# Load specs for a topic (CLI mode):')}
+  ccw spec load --dimension specs --keywords "auth jwt security"
 
   ${chalk.gray('# Use as Claude Code hook (settings.json):')}
   ccw spec load --stdin

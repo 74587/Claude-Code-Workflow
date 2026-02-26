@@ -38,8 +38,7 @@ completion report.
 ### Step 1: Load Context
 
 After reading role definition:
-- Read: `.workflow/project-tech.json`
-- Read: `.workflow/specs/*.md`
+- Run: `ccw spec load --keywords execution`
 - Extract issue ID, solution file path, session dir from task message
 
 ### Step 2: Load Solution

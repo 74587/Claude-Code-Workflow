@@ -7261,6 +7261,65 @@ export async function getSpecStats(projectPath?: string): Promise<SpecStats> {
   return fetchApi<SpecStats>(url);
 }
 
+/**
+ * Spec entry from index
+ */
+export interface SpecEntry {
+  file: string;
+  title: string;
+  dimension: string;
+  readMode: 'required' | 'optional' | 'keywords';
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  keywords: string[];
+}
+
+/**
+ * Specs list response from /api/specs/list
+ */
+export interface SpecsListResponse {
+  specs: Record<string, SpecEntry[]>;
+}
+
+/**
+ * Fetch specs list for all dimensions
+ * @param projectPath - Optional project path
+ */
+export async function getSpecsList(projectPath?: string): Promise<SpecsListResponse> {
+  const url = projectPath
+    ? `/api/specs/list?path=${encodeURIComponent(projectPath)}`
+    : '/api/specs/list';
+  return fetchApi<SpecsListResponse>(url);
+}
+
+/**
+ * Rebuild spec index
+ */
+export async function rebuildSpecIndex(projectPath?: string): Promise<{ success: boolean; stats?: Record<string, number> }> {
+  const url = projectPath
+    ? `/api/specs/rebuild?path=${encodeURIComponent(projectPath)}`
+    : '/api/specs/rebuild';
+  return fetchApi<{ success: boolean; stats?: Record<string, number> }>(url, {
+    method: 'POST',
+  });
+}
+
+/**
+ * Update spec frontmatter (toggle readMode)
+ */
+export async function updateSpecFrontmatter(
+  file: string,
+  readMode: string,
+  projectPath?: string
+): Promise<{ success: boolean; readMode?: string }> {
+  const url = projectPath
+    ? `/api/specs/update-frontmatter?path=${encodeURIComponent(projectPath)}`
+    : '/api/specs/update-frontmatter';
+  return fetchApi<{ success: boolean; readMode?: string }>(url, {
+    method: 'PUT',
+    body: JSON.stringify({ file, readMode }),
+  });
+}
+
 // ========== Analysis API ==========
 
 import type { AnalysisSessionSummary, AnalysisSessionDetail } from '../types/analysis';

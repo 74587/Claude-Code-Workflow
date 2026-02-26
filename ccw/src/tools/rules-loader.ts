@@ -22,6 +22,7 @@ import {
   SpecIndexEntry,
   DimensionIndex,
   SPEC_DIMENSIONS,
+  SPEC_CATEGORIES,
   type SpecDimension,
 } from './spec-index-builder.js';
 

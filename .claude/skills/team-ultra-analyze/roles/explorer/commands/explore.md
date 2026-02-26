@@ -81,7 +81,7 @@ Session: ${sessionFolder}
 ## MANDATORY FIRST STEPS
 1. Run: ccw tool exec get_modules_by_depth '{}'
 2. Execute searches: ${strategy.searches.map(s => `"${s}"`).join(', ')}
-3. Read: .workflow/project-tech.json (if exists)
+3. Run: ccw spec load --keywords exploration
 
 ## Exploration Focus (${perspective} angle)
 - **Depth**: ${strategy.depth}

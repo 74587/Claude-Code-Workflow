@@ -1,0 +1,93 @@
+{
+  "pageTitle": "Spec Settings",
+  "pageDescription": "Manage specification injection, hooks, and system settings",
+  "tabProjectSpecs": "Project Specs",
+  "tabPersonalSpecs": "Personal",
+  "tabHooks": "Hooks",
+  "tabInjection": "Injection",
+  "tabSettings": "Settings",
+  "searchPlaceholder": "Search specs...",
+  "rebuildIndex": "Rebuild Index",
+  "loading": "Loading...",
+  "noSpecs": "No specs found. Create specs in .workflow/ directory.",
+
+  "recommendedHooks": "Recommended Hooks",
+  "recommendedHooksDesc": "One-click install system-preset spec injection hooks",
+  "installAll": "Install All Recommended Hooks",
+  "installedHooks": "Installed Hooks",
+  "installedHooksDesc": "Manage your installed hooks configuration",
+  "searchHooks": "Search hooks...",
+  "noHooks": "No hooks installed. Install recommended hooks above.",
+
+  "spec": {
+    "edit": "Edit",
+    "toggle": "Toggle",
+    "delete": "Delete",
+    "required": "Required",
+    "optional": "Optional",
+    "priority": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    }
+  },
+
+  "hook": {
+    "install": "Install",
+    "edit": "Edit",
+    "toggle": "Toggle",
+    "delete": "Delete",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "scope": {
+      "global": "Global",
+      "project": "Project"
+    },
+    "event": {
+      "SessionStart": "Session Start",
+      "UserPromptSubmit": "Prompt Submit",
+      "SessionEnd": "Session End"
+    }
+  },
+
+  "injection": {
+    "title": "Injection Control",
+    "description": "Monitor and manage spec injection length",
+    "currentLength": "Current Length",
+    "maxLength": "Max Length",
+    "warnThreshold": "Warn Threshold",
+    "percentage": "Usage",
+    "truncateOnExceed": "Truncate on Exceed",
+    "truncateDescription": "Automatically truncate when injection exceeds max length",
+    "overLimit": "Over Limit",
+    "warning": "Warning",
+    "normal": "Normal"
+  },
+
+  "settings": {
+    "title": "Global Settings",
+    "description": "Configure personal spec defaults and system settings",
+    "personalSpecDefaults": "Personal Spec Defaults",
+    "defaultReadMode": "Default Read Mode",
+    "autoEnable": "Auto Enable",
+    "autoEnableDescription": "Automatically enable newly created personal specs"
+  },
+
+  "dialog": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "editSpec": "Edit Spec",
+    "editHook": "Edit Hook",
+    "specTitle": "Spec Title",
+    "keywords": "Keywords",
+    "readMode": "Read Mode",
+    "priority": "Priority",
+    "hookName": "Hook Name",
+    "hookEvent": "Event",
+    "hookCommand": "Command",
+    "hookScope": "Scope",
+    "hookTimeout": "Timeout (ms)",
+    "hookFailMode": "Fail Mode"
+  }
+}

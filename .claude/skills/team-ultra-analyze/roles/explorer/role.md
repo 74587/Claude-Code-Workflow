@@ -138,7 +138,7 @@ Session: <session-folder>
 ## MANDATORY FIRST STEPS
 1. Run: ccw tool exec get_modules_by_depth '{}'
 2. Execute relevant searches based on topic keywords
-3. Read: .workflow/project-tech.json (if exists)
+3. Run: ccw spec load --keywords exploration
 
 ## Exploration Focus (<perspective> angle)
 <dimensions map to exploration focus areas>

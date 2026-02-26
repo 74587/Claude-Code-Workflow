@@ -282,7 +282,7 @@ Use built-in tools to understand the codebase structure before spawning perspect
 **Context Gathering Activities**:
 1. **Get project structure** - Execute `ccw tool exec get_modules_by_depth '{}'`
 2. **Search for related code** - Use Grep/Glob to find files matching topic keywords
-3. **Read project tech context** - Load `{projectRoot}/.workflow/project-tech.json` if available
+3. **Read project tech context** - Run `ccw spec load --keywords "exploration planning"` if spec system available
 4. **Analyze patterns** - Identify common code patterns and architecture decisions
 
 **exploration-codebase.json Structure**:
@@ -358,8 +358,8 @@ const agentIds = perspectives.map(perspective => {
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: ${projectRoot}/.workflow/project-tech.json
-3. Read: ${projectRoot}/.workflow/specs/*.md
+2. Run: `ccw spec load --keywords "exploration planning"`
+3. Read project tech context from loaded specs
 
 ---
 
@@ -566,7 +566,7 @@ const deepDiveAgent = spawn_agent({
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
 2. Read: ${sessionFolder}/perspectives.json (prior findings)
-3. Read: ${projectRoot}/.workflow/project-tech.json
+3. Run: `ccw spec load --keywords "exploration planning"`
 
 ---
 

@@ -170,21 +170,21 @@ Output:
 Session ID: ${sessionId}
 MCP Capabilities: {exa_code, exa_web, code_index}
 
-## PROJECT CONTEXT (MANDATORY - load before planning-notes)
-These files provide project-level constraints that apply to ALL tasks:
+## PROJECT CONTEXT (MANDATORY - load via ccw spec)
+Execute: ccw spec load --keywords planning
 
-1. **.workflow/project-tech.json** (auto-generated tech analysis)
-   - Contains: tech_stack, architecture_type, key_components, build_system, test_framework
-   - Usage: Populate plan.json shared_context, align task tech choices, set correct test commands
-   - If missing: Fall back to context-package.project_context
+This loads:
+- Technology stack, architecture, key components, build system, test framework
+- User-maintained rules and constraints (coding_conventions, naming_rules, forbidden_patterns, quality_gates)
 
-2. **.workflow/specs/*.md** (user-maintained rules and constraints)
-   - Contains: coding_conventions, naming_rules, forbidden_patterns, quality_gates, custom_constraints
-   - Usage: Apply as HARD CONSTRAINTS on all generated tasks — task implementation steps,
-     acceptance criteria, and convergence.verification MUST respect these guidelines
-   - If empty/missing: No additional constraints (proceed normally)
+Usage:
+- Populate plan.json shared_context, align task tech choices, set correct test commands
+- Apply as HARD CONSTRAINTS on all generated tasks — task implementation steps,
+  acceptance criteria, and convergence.verification MUST respect these guidelines
 
-Loading order: project-tech.json → specs/*.md → planning-notes.md → context-package.json
+If spec load returns empty: Proceed normally with context-package.project_context
+
+Loading order: ccw spec load → planning-notes.md → context-package.json
 
 ## USER CONFIGURATION (from Step 4.0)
 Execution Method: ${userConfig.executionMethod}  // agent|hybrid|cli
