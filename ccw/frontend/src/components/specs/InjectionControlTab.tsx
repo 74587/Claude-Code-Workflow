@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -28,7 +29,7 @@ import {
   Plug,
   Download,
   CheckCircle2,
-  ExternalLink,
+  Settings,
 } from 'lucide-react';
 import { useInstallRecommendedHooks } from '@/hooks/useSystemSettings';
 
@@ -325,32 +326,34 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={handleInstallAllHooks}
-              disabled={allHooksInstalled || installingHookIds.length > 0}
-            >
-              {allHooksInstalled ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  {formatMessage({ id: 'specs.allHooksInstalled', defaultMessage: 'All Hooks Installed' })}
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4 mr-2" />
-                  {formatMessage({ id: 'specs.installAllHooks', defaultMessage: 'Install All Hooks' })}
-                </>
-              )}
-            </Button>
-            <div className="text-sm text-muted-foreground">
-              {installedCount} / {RECOMMENDED_HOOKS.length}{' '}
-              {formatMessage({ id: 'specs.hooksInstalled', defaultMessage: 'installed' })}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={handleInstallAllHooks}
+                disabled={allHooksInstalled || installingHookIds.length > 0}
+              >
+                {allHooksInstalled ? (
+                  <>
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    {formatMessage({ id: 'specs.allHooksInstalled', defaultMessage: 'All Hooks Installed' })}
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    {formatMessage({ id: 'specs.installAllHooks', defaultMessage: 'Install All Hooks' })}
+                  </>
+                )}
+              </Button>
+              <div className="text-sm text-muted-foreground">
+                {installedCount} / {RECOMMENDED_HOOKS.length}{' '}
+                {formatMessage({ id: 'specs.hooksInstalled', defaultMessage: 'installed' })}
+              </div>
             </div>
             <Button variant="ghost" size="sm" asChild>
-              <a href="/hooks" target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4 mr-1" />
+              <Link to="/hooks">
+                <Settings className="h-4 w-4 mr-1" />
                 {formatMessage({ id: 'specs.manageHooks', defaultMessage: 'Manage Hooks' })}
-              </a>
+              </Link>
             </Button>
           </div>
 

@@ -88,7 +88,7 @@ const agentId = spawn_agent({
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
-2. Run: `ccw spec load --keywords "planning execution"`
+2. Run: `ccw spec load --category "planning execution"`
 
 ## TASK CONTEXT
 ${taskContext}

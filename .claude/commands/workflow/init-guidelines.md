@@ -99,7 +99,7 @@ if (isPopulated) {
 
 ```javascript
 // Load project context via ccw spec load for planning context
-const projectContext = Bash('ccw spec load --keywords planning 2>/dev/null || echo "{}"')
+const projectContext = Bash('ccw spec load --category planning 2>/dev/null || echo "{}"')
 const specData = JSON.parse(projectContext)
 
 // Extract key info from loaded specs for generating smart questions

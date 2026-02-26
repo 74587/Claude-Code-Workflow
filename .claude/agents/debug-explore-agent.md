@@ -36,7 +36,7 @@ Phase 5: Fix & Verification
 ## Phase 1: Bug Analysis
 
 **Load Project Context** (from spec system):
-- Load exploration specs using: `ccw spec load --keywords exploration` for tech stack context and coding constraints
+- Load exploration specs using: `ccw spec load --category exploration` for tech stack context and coding constraints
 
 **Session Setup**:
 ```javascript

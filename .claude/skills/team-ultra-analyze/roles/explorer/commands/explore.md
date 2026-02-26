@@ -81,7 +81,7 @@ Session: ${sessionFolder}
 ## MANDATORY FIRST STEPS
 1. Run: ccw tool exec get_modules_by_depth '{}'
 2. Execute searches: ${strategy.searches.map(s => `"${s}"`).join(', ')}
-3. Run: ccw spec load --keywords exploration
+3. Run: ccw spec load --category exploration
 
 ## Exploration Focus (${perspective} angle)
 - **Depth**: ${strategy.depth}

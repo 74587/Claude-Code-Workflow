@@ -11,8 +11,10 @@ export {
 export type {
   Spec,
   SpecDimension,
+  SpecScope,
   SpecReadMode,
   SpecPriority,
+  SpecCategory,
   SpecCardProps,
 } from './SpecCard';
 

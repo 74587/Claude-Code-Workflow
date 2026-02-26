@@ -268,7 +268,7 @@ const hasCodebase = bash(`
 // 2. Codebase Exploration (only when hasCodebase !== 'none')
 if (hasCodebase !== 'none') {
   // Read project metadata (if exists)
-  //   Run `ccw spec load --keywords planning`
+  //   Run `ccw spec load --category planning`
 
   // Search codebase for requirement-relevant context
   //   Use: mcp__ace-tool__search_context, Grep, Glob, Read

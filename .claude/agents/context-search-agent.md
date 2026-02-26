@@ -79,7 +79,7 @@ if (file_exists(contextPackagePath)) {
 ```javascript
 // Load project-level context (from spec system)
 // These provide foundational constraints for ALL context gathering
-const projectSpecs = Bash('ccw spec load --keywords "exploration architecture" --stdin');
+const projectSpecs = Bash('ccw spec load --category "exploration architecture" --stdin');
 const projectTech = projectSpecs?.tech_stack ? projectSpecs : null;
 const projectGuidelines = projectSpecs?.coding_conventions ? projectSpecs : null;
 

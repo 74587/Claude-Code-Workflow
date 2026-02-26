@@ -38,7 +38,7 @@ completion report.
 ### Step 1: Load Context
 
 After reading role definition:
-- Run: `ccw spec load --keywords execution`
+- Run: `ccw spec load --category execution`
 - Extract issue ID, solution file path, session dir from task message
 
 ### Step 2: Load Solution

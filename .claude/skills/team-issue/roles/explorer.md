@@ -148,7 +148,7 @@ Priority: <issue.priority>
 ## MANDATORY FIRST STEPS
 1. Run: ccw tool exec get_modules_by_depth '{}'
 2. Execute ACE searches based on issue keywords
-3. Run: ccw spec load --keywords exploration
+3. Run: ccw spec load --category exploration
 
 ## Exploration Focus
 - Identify files directly related to this issue

@@ -18,6 +18,7 @@ import { join } from 'path';
 export interface SpecFrontmatter {
   title: string;
   dimension: string;
+  category?: 'general' | 'exploration' | 'planning' | 'execution';
   keywords: string[];
   readMode: 'required' | 'optional';
   priority: 'high' | 'medium' | 'low';
@@ -55,7 +56,8 @@ export const SEED_DOCS: Map<string, SeedDoc[]> = new Map([
         frontmatter: {
           title: 'Coding Conventions',
           dimension: 'specs',
-          keywords: ['typescript', 'naming', 'style', 'convention', 'exploration', 'planning', 'execution'],
+          category: 'general',
+          keywords: ['typescript', 'naming', 'style', 'convention'],
           readMode: 'required',
           priority: 'high',
         },
@@ -91,7 +93,8 @@ export const SEED_DOCS: Map<string, SeedDoc[]> = new Map([
         frontmatter: {
           title: 'Architecture Constraints',
           dimension: 'specs',
-          keywords: ['architecture', 'module', 'layer', 'pattern', 'exploration', 'planning'],
+          category: 'planning',
+          keywords: ['architecture', 'module', 'layer', 'pattern'],
           readMode: 'required',
           priority: 'high',
         },
@@ -126,6 +129,7 @@ export const SEED_DOCS: Map<string, SeedDoc[]> = new Map([
         frontmatter: {
           title: 'Personal Coding Style',
           dimension: 'personal',
+          category: 'general',
           keywords: ['style', 'preference'],
           readMode: 'optional',
           priority: 'medium',
@@ -153,6 +157,7 @@ export const SEED_DOCS: Map<string, SeedDoc[]> = new Map([
         frontmatter: {
           title: 'Tool Preferences',
           dimension: 'personal',
+          category: 'general',
           keywords: ['tool', 'cli', 'editor'],
           readMode: 'optional',
           priority: 'low',
@@ -186,16 +191,22 @@ export const SEED_DOCS: Map<string, SeedDoc[]> = new Map([
  */
 export function formatFrontmatter(fm: SpecFrontmatter): string {
   const keywordsYaml = fm.keywords.map((k) => `  - ${k}`).join('\n');
-  return [
+  const lines = [
     '---',
     `title: "${fm.title}"`,
     `dimension: ${fm.dimension}`,
+  ];
+  if (fm.category) {
+    lines.push(`category: ${fm.category}`);
+  }
+  lines.push(
     `keywords:`,
     keywordsYaml,
     `readMode: ${fm.readMode}`,
     `priority: ${fm.priority}`,
-    '---',
-  ].join('\n');
+    '---'
+  );
+  return lines.join('\n');
 }
 
 // ---------------------------------------------------------------------------

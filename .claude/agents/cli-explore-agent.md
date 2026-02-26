@@ -55,7 +55,7 @@ Phase 4: Output Generation
    Read and memorize schema requirements BEFORE any analysis begins (feeds Phase 3 validation).
 
 3. **Project Context Loading** (from spec system):
-   - Load exploration specs using: `ccw spec load --keywords exploration`
+   - Load exploration specs using: `ccw spec load --category exploration`
      - Extract: `tech_stack`, `architecture`, `key_components`, `overview`
      - Usage: Align analysis scope and patterns with actual project technology choices
    - If no specs are returned, proceed with fresh analysis (no error).

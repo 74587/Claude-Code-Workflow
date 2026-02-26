@@ -7268,9 +7268,11 @@ export interface SpecEntry {
   file: string;
   title: string;
   dimension: string;
+  category?: 'general' | 'exploration' | 'planning' | 'execution';
   readMode: 'required' | 'optional' | 'keywords';
   priority: 'critical' | 'high' | 'medium' | 'low';
   keywords: string[];
+  scope: 'global' | 'project';
 }
 
 /**

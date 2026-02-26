@@ -127,10 +127,10 @@ After collecting preferences, enhance context and dispatch:
 
 ```javascript
 // Step 1: Load project context via ccw spec
-Bash('ccw spec load --keywords planning')
+Bash('ccw spec load --category planning')
 
 // Step 2: Log available context
-console.log('Project context loaded via: ccw spec load --keywords planning')
+console.log('Project context loaded via: ccw spec load --category planning')
 
 // Step 3: Dispatch to phase (workflowPreferences available as context)
 if (mode === 'plan') {

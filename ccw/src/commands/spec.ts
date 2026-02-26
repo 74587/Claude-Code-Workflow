@@ -376,13 +376,13 @@ ${chalk.bold('EXAMPLES')}
   ccw spec init
 
   ${chalk.gray('# Load exploration-phase specs:')}
-  ccw spec load --keywords exploration
+  ccw spec load --category exploration
 
   ${chalk.gray('# Load planning-phase specs with auth topic:')}
-  ccw spec load --keywords "planning auth"
+  ccw spec load --category "planning auth"
 
   ${chalk.gray('# Load execution-phase specs:')}
-  ccw spec load --keywords execution
+  ccw spec load --category execution
 
   ${chalk.gray('# Load specs for a topic (CLI mode):')}
   ccw spec load --dimension specs --keywords "auth jwt security"

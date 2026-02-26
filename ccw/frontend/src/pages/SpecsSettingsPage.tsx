@@ -3,6 +3,7 @@
  *
  * Main page for managing spec settings, injection control, and global settings.
  * Uses 4 tabs: Project Specs | Personal Specs | Injection | Settings
+ * Supports category filtering (workflow stage) and scope filtering (personal only)
  */
 import { useState, useMemo } from 'react';
 import { useIntl } from 'react-intl';
@@ -10,8 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { ScrollText, User, Gauge, Settings, RefreshCw, Search } from 'lucide-react';
-import { SpecCard, SpecDialog, SpecContentDialog, type Spec, type SpecFormData } from '@/components/specs';
+import { ScrollText, User, Gauge, Settings, RefreshCw, Search, Globe, Folder, Filter, Layers } from 'lucide-react';
+import { SpecCard, SpecDialog, SpecContentDialog, type Spec, type SpecFormData, type SpecCategory } from '@/components/specs';
 import { InjectionControlTab } from '@/components/specs/InjectionControlTab';
 import { GlobalSettingsTab } from '@/components/specs/GlobalSettingsTab';
 import { useSpecStats, useSpecsList, useRebuildSpecIndex } from '@/hooks/useSystemSettings';
@@ -19,6 +20,11 @@ import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import type { SpecEntry } from '@/lib/api';
 
 type SettingsTab = 'project-specs' | 'personal-specs' | 'injection' | 'settings';
+type PersonalScopeFilter = 'all' | 'global' | 'project';
+type CategoryFilter = 'all' | SpecCategory;
+
+// All available categories
+const SPEC_CATEGORIES: SpecCategory[] = ['general', 'exploration', 'planning', 'execution'];
 
 // Convert SpecEntry to Spec for display
 function specEntryToSpec(entry: SpecEntry, dimension: string): Spec {
@@ -26,6 +32,8 @@ function specEntryToSpec(entry: SpecEntry, dimension: string): Spec {
     id: entry.file,
     title: entry.title,
     dimension: dimension as Spec['dimension'],
+    scope: entry.scope || 'project', // Default to project if not specified
+    category: entry.category || 'general', // Default to general if not specified
     keywords: entry.keywords,
     readMode: entry.readMode as Spec['readMode'],
     priority: entry.priority as Spec['priority'],
@@ -39,8 +47,12 @@ export function SpecsSettingsPage() {
   const projectPath = useWorkflowStore(selectProjectPath);
   const [activeTab, setActiveTab] = useState<SettingsTab>('project-specs');
   const [searchQuery, setSearchQuery] = useState('');
+  const [personalScopeFilter, setPersonalScopeFilter] = useState<PersonalScopeFilter>('all');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [contentDialogOpen, setContentDialogOpen] = useState(false);
   const [editingSpec, setEditingSpec] = useState<Spec | null>(null);
+  const [viewingSpec, setViewingSpec] = useState<Spec | null>(null);
 
   // Fetch real data
   const { data: specsListData, isLoading: specsLoading, refetch: refetchSpecs } = useSpecsList({ projectPath });
@@ -48,26 +60,50 @@ export function SpecsSettingsPage() {
   const rebuildMutation = useRebuildSpecIndex();
 
   // Convert specs data to display format
-  const { projectSpecs, personalSpecs } = useMemo(() => {
+  const { projectSpecs, personalSpecs, globalPersonalSpecs, projectPersonalSpecs, categoryCounts } = useMemo(() => {
     if (!specsListData?.specs) {
-      return { projectSpecs: [], personalSpecs: [] };
+      return {
+        projectSpecs: [],
+        personalSpecs: [],
+        globalPersonalSpecs: [],
+        projectPersonalSpecs: [],
+        categoryCounts: { general: 0, exploration: 0, planning: 0, execution: 0 }
+      };
     }
 
     const specs: Spec[] = [];
     const personal: Spec[] = [];
+    const globalPersonal: Spec[] = [];
+    const projectPersonal: Spec[] = [];
+    const counts: Record<SpecCategory, number> = { general: 0, exploration: 0, planning: 0, execution: 0 };
 
     for (const [dimension, entries] of Object.entries(specsListData.specs)) {
       for (const entry of entries) {
         const spec = specEntryToSpec(entry, dimension);
+        // Count by category
+        if (spec.category) {
+          counts[spec.category]++;
+        }
         if (dimension === 'personal') {
           personal.push(spec);
+          if (spec.scope === 'global') {
+            globalPersonal.push(spec);
+          } else {
+            projectPersonal.push(spec);
+          }
         } else {
           specs.push(spec);
         }
       }
     }
 
-    return { projectSpecs: specs, personalSpecs: personal };
+    return {
+      projectSpecs: specs,
+      personalSpecs: personal,
+      globalPersonalSpecs: globalPersonal,
+      projectPersonalSpecs: projectPersonal,
+      categoryCounts: counts
+    };
   }, [specsListData]);
 
   const isLoading = specsLoading;
@@ -113,16 +149,34 @@ export function SpecsSettingsPage() {
   };
 
   const filterSpecs = (specs: Spec[]) => {
-    if (!searchQuery.trim()) return specs;
-    const query = searchQuery.toLowerCase();
-    return specs.filter(spec =>
-      spec.title.toLowerCase().includes(query) ||
-      spec.keywords.some(k => k.toLowerCase().includes(query))
-    );
+    let result = specs;
+    // Filter by category
+    if (categoryFilter !== 'all') {
+      result = result.filter(spec => spec.category === categoryFilter);
+    }
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(spec =>
+        spec.title.toLowerCase().includes(query) ||
+        spec.keywords.some(k => k.toLowerCase().includes(query))
+      );
+    }
+    return result;
   };
 
   const renderSpecsTab = (dimension: 'project' | 'personal') => {
-    const specs = dimension === 'project' ? projectSpecs : personalSpecs;
+    let specs = dimension === 'project' ? projectSpecs : personalSpecs;
+
+    // Apply scope filter for personal specs
+    if (dimension === 'personal') {
+      if (personalScopeFilter === 'global') {
+        specs = globalPersonalSpecs;
+      } else if (personalScopeFilter === 'project') {
+        specs = projectPersonalSpecs;
+      }
+    }
+
     const filteredSpecs = filterSpecs(specs);
 
     return (
@@ -144,13 +198,77 @@ export function SpecsSettingsPage() {
           </Button>
         </div>
 
+        {/* Scope filter for personal specs */}
+        {dimension === 'personal' && (
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {formatMessage({ id: 'specs.filterByScope', defaultMessage: 'Filter by scope:' })}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                variant={personalScopeFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPersonalScopeFilter('all')}
+              >
+                {formatMessage({ id: 'specs.scope.all', defaultMessage: 'All' })} ({personalSpecs.length})
+              </Button>
+              <Button
+                variant={personalScopeFilter === 'global' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPersonalScopeFilter('global')}
+              >
+                <Globe className="h-3 w-3 mr-1" />
+                {formatMessage({ id: 'specs.scope.global', defaultMessage: 'Global' })} ({globalPersonalSpecs.length})
+              </Button>
+              <Button
+                variant={personalScopeFilter === 'project' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPersonalScopeFilter('project')}
+              >
+                <Folder className="h-3 w-3 mr-1" />
+                {formatMessage({ id: 'specs.scope.project', defaultMessage: 'Project' })} ({projectPersonalSpecs.length})
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Category filter for workflow stage */}
+        <div className="flex items-center gap-2">
+          <Layers className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">
+            {formatMessage({ id: 'specs.filterByCategory', defaultMessage: 'Workflow stage:' })}
+          </span>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant={categoryFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCategoryFilter('all')}
+            >
+              {formatMessage({ id: 'specs.category.all', defaultMessage: 'All' })}
+            </Button>
+            {SPEC_CATEGORIES.map(cat => (
+              <Button
+                key={cat}
+                variant={categoryFilter === cat ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setCategoryFilter(cat)}
+              >
+                {formatMessage({ id: `specs.category.${cat}`, defaultMessage: cat })} ({categoryCounts[cat]})
+              </Button>
+            ))}
+          </div>
+        </div>
+
         {/* Stats Summary */}
         {statsData?.dimensions && (
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {Object.entries(statsData.dimensions).map(([dim, data]) => (
               <Card key={dim}>
                 <CardContent className="pt-4">
-                  <div className="text-sm text-muted-foreground capitalize">{dim}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {formatMessage({ id: `specs.dimension.${dim}`, defaultMessage: dim })}
+                  </div>
                   <div className="text-2xl font-bold">{(data as { count: number }).count}</div>
                   <div className="text-xs text-muted-foreground">
                     {(data as { requiredCount: number }).requiredCount} {formatMessage({ id: 'specs.required', defaultMessage: 'required' })}
@@ -167,7 +285,7 @@ export function SpecsSettingsPage() {
             <CardContent className="py-8 text-center text-muted-foreground">
               {isLoading
                 ? formatMessage({ id: 'specs.loading', defaultMessage: 'Loading specs...' })
-                : formatMessage({ id: 'specs.noSpecs', defaultMessage: 'No specs found. Create specs in .workflow/ directory.' })
+                : formatMessage({ id: 'specs.noSpecs', defaultMessage: 'No specs found. Create specs in .ccw/ directory.' })
               }
             </CardContent>
           </Card>

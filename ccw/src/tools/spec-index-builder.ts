@@ -10,6 +10,7 @@
  * ---
  * title: "Document Title"
  * dimension: "specs"
+ * category: "general"        # general | exploration | planning | execution
  * keywords: ["auth", "security"]
  * readMode: "required"       # required | optional
  * priority: "high"           # critical | high | medium | low
@@ -19,21 +20,25 @@
 import matter from 'gray-matter';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join, basename, extname, relative } from 'path';
+import { homedir } from 'os';
 
 // ============================================================================
 // Types
 // ============================================================================
 
 /**
- * Spec categories for workflow stage-based loading (used as keywords).
+ * Spec categories for workflow stage-based loading.
+ * - general: Applies to all stages (e.g. coding conventions)
  * - exploration: Code exploration, analysis, debugging context
  * - planning: Task planning, roadmap, requirements context
  * - execution: Implementation, testing, deployment context
  *
- * Usage: Add these as keywords in spec frontmatter, e.g.:
- * keywords: [exploration, auth, security]
+ * Usage: Set category field in spec frontmatter:
+ *   category: exploration
+ *
+ * System-level loading by stage: ccw spec load --category exploration
  */
-export const SPEC_CATEGORIES = ['exploration', 'planning', 'execution'] as const;
+export const SPEC_CATEGORIES = ['general', 'exploration', 'planning', 'execution'] as const;
 
 export type SpecCategory = typeof SPEC_CATEGORIES[number];
 
@@ -43,6 +48,7 @@ export type SpecCategory = typeof SPEC_CATEGORIES[number];
 export interface SpecFrontmatter {
   title: string;
   dimension: string;
+  category?: SpecCategory;
   keywords: string[];
   readMode: 'required' | 'optional';
   priority: 'critical' | 'high' | 'medium' | 'low';
@@ -58,12 +64,16 @@ export interface SpecIndexEntry {
   file: string;
   /** Dimension this spec belongs to */
   dimension: string;
-  /** Keywords for matching against user prompts (may include category markers) */
+  /** Workflow stage category for system-level loading */
+  category: SpecCategory;
+  /** Keywords for matching against user prompts */
   keywords: string[];
   /** Whether this spec is required or optional */
   readMode: 'required' | 'optional';
   /** Priority level for ordering */
   priority: 'critical' | 'high' | 'medium' | 'low';
+  /** Scope: global (from ~/.ccw/) or project (from .ccw/) */
+  scope: 'global' | 'project';
 }
 
 /**
@@ -100,6 +110,11 @@ const VALID_READ_MODES = ['required', 'optional'] as const;
  * Valid priority values.
  */
 const VALID_PRIORITIES = ['critical', 'high', 'medium', 'low'] as const;
+
+/**
+ * Valid category values.
+ */
+const VALID_CATEGORIES = SPEC_CATEGORIES;
 
 /**
  * Directory name for spec index cache files (inside .ccw/).
@@ -149,44 +164,41 @@ export async function buildDimensionIndex(
   projectPath: string,
   dimension: string
 ): Promise<DimensionIndex> {
-  const dimensionDir = getDimensionDir(projectPath, dimension);
   const entries: SpecIndexEntry[] = [];
 
-  // If directory doesn't exist, return empty index
-  if (!existsSync(dimensionDir)) {
-    return {
-      dimension,
-      entries: [],
-      built_at: new Date().toISOString(),
-    };
-  }
+  // Helper function to scan a directory and add entries
+  const scanDirectory = (dir: string, scope: 'global' | 'project') => {
+    if (!existsSync(dir)) return;
 
-  // Scan for .md files
-  let files: string[];
-  try {
-    files = readdirSync(dimensionDir).filter(
-      f => extname(f).toLowerCase() === '.md'
-    );
-  } catch {
-    // Directory read error - return empty index
-    return {
-      dimension,
-      entries: [],
-      built_at: new Date().toISOString(),
-    };
-  }
-
-  for (const file of files) {
-    const filePath = join(dimensionDir, file);
-    const entry = parseSpecFile(filePath, dimension, projectPath);
-    if (entry) {
-      entries.push(entry);
-    } else {
-      process.stderr.write(
-        `[spec-index-builder] Skipping malformed spec file: ${file}\n`
-      );
+    let files: string[];
+    try {
+      files = readdirSync(dir).filter(f => extname(f).toLowerCase() === '.md');
+    } catch {
+      return;
     }
+
+    for (const file of files) {
+      const filePath = join(dir, file);
+      const entry = parseSpecFile(filePath, dimension, projectPath, scope);
+      if (entry) {
+        entries.push(entry);
+      } else {
+        process.stderr.write(
+          `[spec-index-builder] Skipping malformed spec file: ${file}\n`
+        );
+      }
+    }
+  };
+
+  // For personal dimension, also scan global ~/.ccw/personal/
+  if (dimension === 'personal') {
+    const globalPersonalDir = join(homedir(), '.ccw', 'personal');
+    scanDirectory(globalPersonalDir, 'global');
   }
+
+  // Scan project dimension directory
+  const dimensionDir = getDimensionDir(projectPath, dimension);
+  scanDirectory(dimensionDir, 'project');
 
   return {
     dimension,
@@ -315,7 +327,8 @@ export async function getDimensionIndex(
 function parseSpecFile(
   filePath: string,
   dimension: string,
-  projectPath: string
+  projectPath: string,
+  scope: 'global' | 'project' = 'project'
 ): SpecIndexEntry | null {
   let content: string;
   try {
@@ -340,10 +353,10 @@ function parseSpecFile(
   if (!title) {
     // Title is required - use filename as fallback
     const fallbackTitle = basename(filePath, extname(filePath));
-    return buildEntry(fallbackTitle, filePath, dimension, projectPath, data);
+    return buildEntry(fallbackTitle, filePath, dimension, projectPath, data, scope);
   }
 
-  return buildEntry(title, filePath, dimension, projectPath, data);
+  return buildEntry(title, filePath, dimension, projectPath, data, scope);
 }
 
 /**
@@ -354,11 +367,16 @@ function buildEntry(
   filePath: string,
   dimension: string,
   projectPath: string,
-  data: Record<string, unknown>
+  data: Record<string, unknown>,
+  scope: 'global' | 'project' = 'project'
 ): SpecIndexEntry {
   // Compute relative file path from project root using path.relative
   // Normalize to forward slashes for cross-platform consistency
   const relativePath = relative(projectPath, filePath).replace(/\\/g, '/');
+
+  // Extract category with validation (defaults to 'general')
+  const rawCategory = extractString(data, 'category');
+  const category = isValidCategory(rawCategory) ? rawCategory : 'general';
 
   // Extract keywords - accept string[] or single string
   const keywords = extractStringArray(data, 'keywords');
@@ -375,9 +393,11 @@ function buildEntry(
     title,
     file: relativePath,
     dimension,
+    category,
     keywords,
     readMode,
     priority,
+    scope,
   };
 }
 
@@ -434,4 +454,11 @@ function isValidReadMode(value: string | null): value is 'required' | 'optional'
  */
 function isValidPriority(value: string | null): value is 'critical' | 'high' | 'medium' | 'low' {
   return value !== null && (VALID_PRIORITIES as readonly string[]).includes(value);
+}
+
+/**
+ * Type guard for valid category values.
+ */
+function isValidCategory(value: string | null): value is SpecCategory {
+  return value !== null && (VALID_CATEGORIES as readonly string[]).includes(value);
 }

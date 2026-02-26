@@ -350,6 +350,7 @@ export const specsSettingsKeys = {
   all: ['specsSettings'] as const,
   systemSettings: () => [...specsSettingsKeys.all, 'systemSettings'] as const,
   specStats: (projectPath?: string) => [...specsSettingsKeys.all, 'specStats', projectPath] as const,
+  specsList: (projectPath?: string) => [...specsSettingsKeys.all, 'specsList', projectPath] as const,
 };
 
 // ========================================
@@ -492,7 +493,7 @@ export function useSpecsList(options: UseSpecsListOptions = {}): UseSpecsListRet
   const { projectPath, enabled = true, staleTime = STALE_TIME } = options;
 
   const query = useQuery({
-    queryKey: specsSettingsKeys.specStats(projectPath), // Reuse for specs list
+    queryKey: specsSettingsKeys.specsList(projectPath),
     queryFn: () => getSpecsList(projectPath),
     staleTime,
     enabled,
@@ -528,6 +529,7 @@ export function useRebuildSpecIndex(options: UseRebuildSpecIndexOptions = {}) {
     onSuccess: () => {
       // Invalidate specs list and stats queries to refresh data
       queryClient.invalidateQueries({ queryKey: specsSettingsKeys.specStats(projectPath) });
+      queryClient.invalidateQueries({ queryKey: specsSettingsKeys.specsList(projectPath) });
     },
   });
 
@@ -560,8 +562,9 @@ export function useUpdateSpecFrontmatter(options: UseUpdateSpecFrontmatterOption
     mutationFn: ({ file, readMode }: { file: string; readMode: string }) =>
       updateSpecFrontmatter(file, readMode, projectPath),
     onSuccess: () => {
-      // Invalidate specs list to refresh data
+      // Invalidate specs list and stats to refresh data
       queryClient.invalidateQueries({ queryKey: specsSettingsKeys.specStats(projectPath) });
+      queryClient.invalidateQueries({ queryKey: specsSettingsKeys.specsList(projectPath) });
     },
   });
 

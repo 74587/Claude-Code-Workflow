@@ -495,7 +495,7 @@ Generate implementation plan and write plan.json.
 Execute: cat ~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.json (get schema reference before generating plan)
 
 ## Project Context (MANDATORY - Load via ccw spec)
-Execute: ccw spec load --keywords planning
+Execute: ccw spec load --category planning
 This loads technology stack, architecture, key components, and user-defined constraints/conventions.
 
 **CRITICAL**: All generated tasks MUST comply with constraints in specs/*.md

@@ -23,6 +23,10 @@ import {
   Trash2,
   FileText,
   Tag,
+  Eye,
+  Globe,
+  Folder,
+  Layers,
 } from 'lucide-react';
 
 // ========== Types ==========
@@ -33,6 +37,11 @@ import {
 export type SpecDimension = 'specs' | 'personal';
 
 /**
+ * Spec scope type
+ */
+export type SpecScope = 'global' | 'project';
+
+/**
  * Spec read mode type
  */
 export type SpecReadMode = 'required' | 'optional';
@@ -41,6 +50,11 @@ export type SpecReadMode = 'required' | 'optional';
  * Spec priority type
  */
 export type SpecPriority = 'critical' | 'high' | 'medium' | 'low';
+
+/**
+ * Spec category type for workflow stage-based loading
+ */
+export type SpecCategory = 'general' | 'exploration' | 'planning' | 'execution';
 
 /**
  * Spec data structure
@@ -54,6 +68,10 @@ export interface Spec {
   file: string;
   /** Spec dimension/category */
   dimension: SpecDimension;
+  /** Scope: global (from ~/.ccw/) or project (from .ccw/) */
+  scope: SpecScope;
+  /** Workflow stage category for system-level loading */
+  category?: SpecCategory;
   /** Read mode: required (always inject) or optional (keyword match) */
   readMode: SpecReadMode;
   /** Priority level */
@@ -72,6 +90,8 @@ export interface Spec {
 export interface SpecCardProps {
   /** Spec data */
   spec: Spec;
+  /** Called when view content action is triggered */
+  onView?: (spec: Spec) => void;
   /** Called when edit action is triggered */
   onEdit?: (spec: Spec) => void;
   /** Called when delete action is triggered */
@@ -108,6 +128,17 @@ const priorityConfig: Record<
   low: { variant: 'secondary', labelKey: 'specs.priority.low' },
 };
 
+// Category badge configuration for workflow stage
+const categoryConfig: Record<
+  SpecCategory,
+  { variant: 'default' | 'secondary' | 'outline'; labelKey: string }
+> = {
+  general: { variant: 'secondary', labelKey: 'specs.category.general' },
+  exploration: { variant: 'outline', labelKey: 'specs.category.exploration' },
+  planning: { variant: 'outline', labelKey: 'specs.category.planning' },
+  execution: { variant: 'outline', labelKey: 'specs.category.execution' },
+};
+
 // ========== Component ==========
 
 /**
@@ -115,6 +146,7 @@ const priorityConfig: Record<
  */
 export function SpecCard({
   spec,
+  onView,
   onEdit,
   onDelete,
   onToggle,
@@ -181,6 +213,10 @@ export function SpecCard({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onView?.(spec); }}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    {formatMessage({ id: 'specs.actions.view', defaultMessage: 'View Content' })}
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={(e) => handleAction(e, 'edit')}>
                     <Edit className="mr-2 h-4 w-4" />
                     {formatMessage({ id: 'specs.actions.edit' })}
@@ -201,6 +237,29 @@ export function SpecCard({
 
         {/* Badges */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
+          {/* Category badge - workflow stage */}
+          {spec.category && (
+            <Badge variant={categoryConfig[spec.category].variant} className="text-xs gap-1">
+              <Layers className="h-3 w-3" />
+              {formatMessage({ id: categoryConfig[spec.category].labelKey, defaultMessage: spec.category })}
+            </Badge>
+          )}
+          {/* Scope badge - only show for personal specs */}
+          {spec.dimension === 'personal' && (
+            <Badge variant="outline" className="text-xs gap-1">
+              {spec.scope === 'global' ? (
+                <>
+                  <Globe className="h-3 w-3" />
+                  {formatMessage({ id: 'specs.scope.global', defaultMessage: 'Global' })}
+                </>
+              ) : (
+                <>
+                  <Folder className="h-3 w-3" />
+                  {formatMessage({ id: 'specs.scope.project', defaultMessage: 'Project' })}
+                </>
+              )}
+            </Badge>
+          )}
           <Badge variant={readMode.variant} className="text-xs">
             {formatMessage({ id: readMode.labelKey })}
           </Badge>

@@ -171,7 +171,7 @@ Session ID: ${sessionId}
 MCP Capabilities: {exa_code, exa_web, code_index}
 
 ## PROJECT CONTEXT (MANDATORY - load via ccw spec)
-Execute: ccw spec load --keywords planning
+Execute: ccw spec load --category planning
 
 This loads:
 - Technology stack, architecture, key components, build system, test framework

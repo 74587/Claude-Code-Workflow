@@ -55,7 +55,7 @@ When invoked with `process_docs: true` in input context:
 ## Input Context
 
 **Project Context** (loaded from spec system at startup):
-- Load specs using: `ccw spec load --keywords "exploration architecture"` → tech_stack, architecture, key_components, conventions, constraints, quality_rules
+- Load specs using: `ccw spec load --category "exploration architecture"` → tech_stack, architecture, key_components, conventions, constraints, quality_rules
 
 ```javascript
 {

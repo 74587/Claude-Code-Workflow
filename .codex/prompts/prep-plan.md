@@ -21,7 +21,7 @@ Check these items. Report results as a checklist.
 
 ### 1.2 Strongly Recommended (warn if missing)
 
-- **Project specs**: Run `ccw spec load --keywords planning` to load project context
+- **Project specs**: Run `ccw spec load --category planning` to load project context
   - If spec system unavailable: WARN — Phase 1 will call `workflow:init` to initialize. Ask user: "检测到项目使用 [tech stack from package.json], 是否正确？需要补充什么？"
 - **Test framework**: Detect from config files (jest.config, vitest.config, pytest.ini, etc.)
   - If missing: Ask: "未检测到测试框架，请指定测试命令（如 `npm test`），或输入 'skip' 跳过"
@@ -36,7 +36,7 @@ Print formatted checklist:
 ✓ 项目根目录: D:\myproject
 ✓ .workflow/ 目录就绪
 ⚠ Git: 3 个未提交变更
-✓ Project specs: 已加载 (ccw spec load --keywords planning)
+✓ Project specs: 已加载 (ccw spec load --category planning)
 ⚠ specs: 未找到 (Phase 1 将初始化)
 ✓ 测试框架: jest (npm test)
 ```
@@ -160,7 +160,7 @@ Each dimension scores 0-2 (0=missing, 1=vague, 2=clear). **Total minimum: 6/10 t
 
 For dimensions still at score 1 after Q&A, auto-enhance from codebase:
 - **Scope**: Use `Glob` and `Grep` to find related files
-- **Context**: Run `ccw spec load --keywords planning` to load project context
+- **Context**: Run `ccw spec load --category planning` to load project context
 - **Constraints**: Infer from `specs/*.md`
 
 ### 2.5 Assemble Structured Description
