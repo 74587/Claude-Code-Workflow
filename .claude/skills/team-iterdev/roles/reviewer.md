@@ -55,10 +55,12 @@ Code reviewer. Responsible for multi-dimensional review, quality scoring, and im
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
+**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "iterdev",
+  team: <session-id>,  // e.g., "TID-project-2026-02-27", NOT "iterdev"
   from: "reviewer",
   to: "coordinator",
   type: <message-type>,
@@ -70,7 +72,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team iterdev --from reviewer --to coordinator --type <message-type> --summary \"[reviewer] REVIEW complete\" --ref <review-path> --json")
+Bash("ccw team log --team <session-id> --from reviewer --to coordinator --type <message-type> --summary \"[reviewer] REVIEW complete\" --ref <review-path> --json")
 ```
 
 ---
@@ -258,7 +260,7 @@ Write(<session-folder>/shared-memory.json, JSON.stringify(sharedMemory, null, 2)
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "iterdev", from: "reviewer", to: "coordinator",
+  operation: "log", team: <session-id>, from: "reviewer", to: "coordinator",  // team = session ID, e.g., "TID-project-2026-02-27"
   type: <message-type>,
   summary: "[reviewer] Review <message-type>: score=<score>/10, <critical-count>C/<high-count>H",
   ref: <review-path>

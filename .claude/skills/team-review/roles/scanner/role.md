@@ -67,7 +67,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "team-review",
+  team: <session-id>,  // MUST be session ID (e.g., RC-xxx-date), NOT team name. Extract from Session: field in task description.
   from: "scanner",
   to: "coordinator",
   type: "scan_complete",
@@ -79,7 +79,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team team-review --from scanner --to coordinator --type scan_complete --summary \"[scanner] Scan complete\" --ref <path> --json")
+Bash("ccw team log --team <session-id> --from scanner --to coordinator --type scan_complete --summary \"[scanner] Scan complete\" --ref <path> --json")
 ```
 
 ---

@@ -102,7 +102,7 @@ for (const stageTask of preDiscussionTasks) {
   TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
 
   mcp__ccw-tools__team_msg({
-    operation: "log", team: teamName, from: "coordinator",
+    operation: "log", team: sessionId, from: "coordinator",
     to: workerConfig.role, type: "task_unblocked",
     summary: `[coordinator] 启动阶段: ${stageTask.subject} → ${workerConfig.role}`
   })
@@ -142,7 +142,7 @@ Skill(skill="team-ultra-analyze", args="${workerConfig.skillArgs}")
     handleStageTimeout(stageTask, 0, autoYes)
   } else {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
+      operation: "log", team: sessionId, from: "coordinator",
       to: "user", type: "quality_gate",
       summary: `[coordinator] 阶段完成: ${stageTask.subject}`
     })
@@ -356,7 +356,7 @@ ${data.updated_understanding || '(Updated by discussant)'}
 function handleStageTimeout(stageTask, _unused, autoYes) {
   if (autoYes) {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
+      operation: "log", team: sessionId, from: "coordinator",
       to: "user", type: "error",
       summary: `[coordinator] [auto] 阶段 ${stageTask.subject} worker 返回但未完成，自动跳过`
     })
@@ -382,7 +382,7 @@ function handleStageTimeout(stageTask, _unused, autoYes) {
     TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
   } else if (answer === "终止流水线") {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
+      operation: "log", team: sessionId, from: "coordinator",
       to: "user", type: "shutdown",
       summary: `[coordinator] 用户终止流水线，当前阶段: ${stageTask.subject}`
     })

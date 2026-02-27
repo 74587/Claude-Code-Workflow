@@ -98,8 +98,9 @@ Each worker executes the same task discovery flow on startup:
 Standard report flow after task completion:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Parameters: operation="log", team=<team-name>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **CLI fallback**: When MCP unavailable -> `ccw team log --team <team> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+   - Parameters: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+   - **NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+   - **CLI fallback**: When MCP unavailable -> `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
 2. **SendMessage**: Send result to coordinator (content and summary both with `[<role>]` prefix)
 3. **TaskUpdate**: Mark task completed
 4. **Loop**: Return to Phase 1 to check next task
@@ -116,9 +117,11 @@ Standard report flow after task completion:
 
 ### Message Bus
 
-Call `mcp__ccw-tools__team_msg` with: operation="log", team=<team-name>, from=<role>, to="coordinator", type=<type>, summary="[<role>] <summary>", ref="<file_path>"
+Call `mcp__ccw-tools__team_msg` with: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<type>, summary="[<role>] <summary>", ref="<file_path>"
 
-**CLI Fallback**: `ccw team log --team "<team-name>" --from "<role>" --to "coordinator" --type "<type>" --summary "<summary>" --json`
+**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
+**CLI Fallback**: `ccw team log --team "<session-id>" --from "<role>" --to "coordinator" --type "<type>" --summary "<summary>" --json`
 
 | Role | Message Types |
 |------|---------------|

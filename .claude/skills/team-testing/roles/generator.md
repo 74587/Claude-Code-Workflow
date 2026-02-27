@@ -62,7 +62,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "testing",
+  team: <session-id>,  // MUST be session ID (e.g., TST-xxx-date), NOT team name. Extract from Session: field in task description.
   from: "generator",
   to: "coordinator",
   type: <message-type>,
@@ -74,7 +74,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team testing --from generator --to coordinator --type <message-type> --summary \"[generator] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from generator --to coordinator --type <message-type> --summary \"[generator] ...\" --ref <artifact-path> --json")
 ```
 
 ---
@@ -232,7 +232,7 @@ Write("<session-folder>/shared-memory.json", <updated-json>)
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "testing", from: "generator", to: "coordinator",
+  operation: "log", team: <session-id>  // MUST be session ID, NOT team name, from: "generator", to: "coordinator",
   type: <is-revision ? "tests_revised" : "tests_generated">,
   summary: "[generator] <Generated|Revised> <file-count> <layer> test files",
   ref: "<session-folder>/tests/<layer>/"

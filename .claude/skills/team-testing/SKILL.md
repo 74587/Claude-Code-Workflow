@@ -102,7 +102,7 @@ Standard reporting flow after task completion:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
    - Parameters: operation="log", team="testing", from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **CLI fallback**: When MCP unavailable → `ccw team log --team testing --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+   - **CLI fallback**: When MCP unavailable → `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`  // team must be session ID
 2. **SendMessage**: Send result to coordinator (content and summary both prefixed with `[<role>]`)
 3. **TaskUpdate**: Mark task completed
 4. **Loop**: Return to Phase 1 to check next task
@@ -142,9 +142,11 @@ All outputs must carry `[role_name]` prefix in both SendMessage content/summary 
 
 Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
 
-**Parameters**: operation="log", team="testing", from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+**Parameters**: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
 
-**CLI fallback**: When MCP unavailable → `ccw team log --team testing --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+> **CRITICAL**: `team` must be session ID (e.g., TST-xxx-date), NOT team name. Extract from Session: field in task description.
+
+**CLI fallback**: When MCP unavailable → `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
 
 **Message types by role**:
 

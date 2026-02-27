@@ -147,7 +147,7 @@ Edit(`${sessionFolder}/state.md`, {
 
 ```javascript
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "roadmap-dev",
+  operation: "log", team: sessionId,  // MUST be session ID (e.g., RD-xxx-date), NOT team name
   from: "coordinator", to: "all",
   type: "phase_started",
   summary: `[coordinator] Phase ${phaseNumber} dispatched: PLAN-${phaseNumber}01 → EXEC-${phaseNumber}01 → VERIFY-${phaseNumber}01`,

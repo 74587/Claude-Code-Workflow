@@ -55,10 +55,12 @@ Test strategist. Analyze change scope, determine test layers (L1-L3), define cov
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
+**NOTE**: `team` must be **session ID** (e.g., `TQA-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "quality-assurance",
+  team: <session-id>,  // e.g., "TQA-project-2026-02-27", NOT "quality-assurance"
   from: "strategist",
   to: "coordinator",
   type: <message-type>,
@@ -70,7 +72,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team quality-assurance --from strategist --to coordinator --type <message-type> --summary \"[strategist] QASTRAT complete\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from strategist --to coordinator --type <message-type> --summary \"[strategist] QASTRAT complete\" --ref <artifact-path> --json")
 ```
 
 ---

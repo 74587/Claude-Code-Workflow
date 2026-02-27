@@ -60,7 +60,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <team-name>,
+  team: **<session-id>**,  // MUST be session ID (e.g., BRS-xxx-date), NOT team name. Extract from Session: field.
   from: "synthesizer",
   to: "coordinator",
   type: "synthesis_ready",
@@ -72,7 +72,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <team-name> --from synthesizer --to coordinator --type synthesis_ready --summary \"[synthesizer] Synthesis complete\" --ref <output-path> --json")
+Bash("ccw team log --team <session-id> --from synthesizer --to coordinator --type synthesis_ready --summary \"[synthesizer] Synthesis complete\" --ref <output-path> --json")
 ```
 
 ---

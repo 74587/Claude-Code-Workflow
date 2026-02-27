@@ -62,7 +62,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "issue",
+  team: **<session-id>**,  // MUST be session ID (e.g., ISS-xxx-date), NOT team name. Extract from Session: field.
   from: "planner",
   to: "coordinator",
   type: <message-type>,
@@ -74,7 +74,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team issue --from planner --to coordinator --type <message-type> --summary \"[planner] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from planner --to coordinator --type <message-type> --summary \"[planner] ...\" --ref <artifact-path> --json")
 ```
 
 ---
@@ -159,7 +159,7 @@ Design an ALTERNATIVE approach that addresses the reviewer's concerns.
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "issue", from: "planner", to: "coordinator",
+  operation: "log", team: **<session-id>**, from: "planner", to: "coordinator",  // MUST be session ID, NOT team name
   type: "solution_ready",
   summary: "[planner] Solution <solution_id> bound to <issue_id> (<task_count> tasks)"
 })
@@ -175,7 +175,7 @@ SendMessage({
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "issue", from: "planner", to: "coordinator",
+  operation: "log", team: **<session-id>**, from: "planner", to: "coordinator",  // MUST be session ID, NOT team name
   type: "multi_solution",
   summary: "[planner] <count> solutions for <issue_id>, user selection needed"
 })

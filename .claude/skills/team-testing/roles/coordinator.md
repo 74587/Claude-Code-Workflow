@@ -237,7 +237,9 @@ When receiving `tests_failed` or `coverage_report`:
 **GC Loop trigger message**:
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "testing", from: "coordinator", to: "generator",
+  operation: "log",
+  team: <session-id>,  // MUST be session ID (e.g., TST-xxx-date), NOT team name. Extract from Session: field in task description.
+  from: "coordinator", to: "generator",
   type: "gc_loop_trigger",
   summary: "[coordinator] GC round <N>: coverage <X>% < target <Y>%, revise tests"
 })

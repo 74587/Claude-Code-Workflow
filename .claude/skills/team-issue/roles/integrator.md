@@ -62,7 +62,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "issue",
+  team: **<session-id>**,  // MUST be session ID (e.g., ISS-xxx-date), NOT team name. Extract from Session: field.
   from: "integrator",
   to: "coordinator",
   type: <message-type>,
@@ -74,7 +74,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team issue --from integrator --to coordinator --type <message-type> --summary \"[integrator] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from integrator --to coordinator --type <message-type> --summary \"[integrator] ...\" --ref <artifact-path> --json")
 ```
 
 ---
@@ -116,7 +116,7 @@ Bash("ccw issue solutions <issueId> --json")
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "issue", from: "integrator", to: "coordinator",
+  operation: "log", team: **<session-id>**, from: "integrator", to: "coordinator",  // MUST be session ID, NOT team name
   type: "error",
   summary: "[integrator] Unbound issues: <issueIds> - cannot form queue"
 })
@@ -192,7 +192,7 @@ Read(".workflow/issues/queue/execution-queue.json")
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "issue", from: "integrator", to: "coordinator",
+  operation: "log", team: **<session-id>**, from: "integrator", to: "coordinator",  // MUST be session ID, NOT team name
   type: "conflict_found",
   summary: "[integrator] <count> unresolved conflicts in queue"
 })

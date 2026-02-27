@@ -76,7 +76,7 @@ for (const stageTask of pipelineTasks) {
 
   if (!workerConfig) {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
+      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
       to: "user", type: "error",
       summary: `[coordinator] 未知阶段前缀: ${stagePrefix}，跳过`
     })
@@ -87,7 +87,7 @@ for (const stageTask of pipelineTasks) {
   TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
 
   mcp__ccw-tools__team_msg({
-    operation: "log", team: teamName, from: "coordinator",
+    operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
     to: workerConfig.role, type: "task_unblocked",
     summary: `[coordinator] 启动阶段: ${stageTask.subject} → ${workerConfig.role}`
   })
@@ -111,7 +111,7 @@ for (const stageTask of pipelineTasks) {
     handleStageFailure(stageTask, taskState, workerConfig, autoYes)
   } else {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
+      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
       to: "user", type: "quality_gate",
       summary: `[coordinator] 阶段完成: ${stageTask.subject}`
     })
@@ -127,7 +127,7 @@ for (const stageTask of pipelineTasks) {
     }
 
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
+      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
       to: "user", type: "plan_approval",
       summary: `[coordinator] 治理方案已生成，等待审批`
     })
@@ -166,7 +166,7 @@ for (const stageTask of pipelineTasks) {
         continue  // 跳到下一阶段（即刚插入的修订任务）
       } else if (planDecision === "终止") {
         mcp__ccw-tools__team_msg({
-          operation: "log", team: teamName, from: "coordinator",
+          operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
           to: "user", type: "shutdown",
           summary: `[coordinator] 用户终止流水线（方案审批阶段）`
         })
@@ -194,7 +194,7 @@ for (const stageTask of pipelineTasks) {
     worktreeCreated = true
 
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
+      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
       to: "user", type: "worktree_created",
       summary: `[coordinator] Worktree 已创建: ${worktreePath} (branch: ${branchName})`
     })
@@ -266,7 +266,7 @@ ${worktreeSection}
 function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
   if (autoYes) {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
+      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
       to: "user", type: "error",
       summary: `[coordinator] [auto] 阶段 ${stageTask.subject} 未完成 (status=${taskState.status})，自动跳过`
     })
@@ -309,7 +309,7 @@ function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
     return 'skip'
   } else {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
+      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
       to: "user", type: "shutdown",
       summary: `[coordinator] 用户终止流水线，当前阶段: ${stageTask.subject}`
     })
@@ -333,7 +333,7 @@ function evaluateValidationResult(sessionFolder) {
   else if (!improved) status = 'CONDITIONAL'
 
   mcp__ccw-tools__team_msg({
-    operation: "log", team: teamName, from: "coordinator",
+    operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
     to: "user", type: "quality_gate",
     summary: `[coordinator] 质量门控: ${status} (债务分 ${debtBefore} → ${debtAfter}, 回归 ${regressions})`
   })
@@ -387,7 +387,7 @@ EOF
 )"`)
 
   mcp__ccw-tools__team_msg({
-    operation: "log", team: teamName, from: "coordinator",
+    operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
     to: "user", type: "pr_created",
     summary: `[coordinator] PR 已创建: branch ${branch}`
   })
@@ -396,7 +396,7 @@ EOF
   Bash(`git worktree remove "${wtPath}" 2>/dev/null || true`)
 } else if (finalSharedMemory.worktree && !finalSharedMemory.validation_results?.passed) {
   mcp__ccw-tools__team_msg({
-    operation: "log", team: teamName, from: "coordinator",
+    operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
     to: "user", type: "quality_gate",
     summary: `[coordinator] 验证未通过，worktree 保留于 ${finalSharedMemory.worktree.path}，请手动检查`
   })

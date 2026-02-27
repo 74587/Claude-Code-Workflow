@@ -57,10 +57,12 @@ Test executor. Run test suites, collect coverage data, and perform automatic fix
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
+**NOTE**: `team` must be **session ID** (e.g., `TQA-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "quality-assurance",
+  team: <session-id>,  // e.g., "TQA-project-2026-02-27", NOT "quality-assurance"
   from: "executor",
   to: "coordinator",
   type: <message-type>,
@@ -73,7 +75,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team quality-assurance --from executor --to coordinator --type <message-type> --summary \"[executor] test execution complete\" --ref <results-file> --json")
+Bash("ccw team log --team <session-id> --from executor --to coordinator --type <message-type> --summary \"[executor] test execution complete\" --ref <results-file> --json")
 ```
 
 ---

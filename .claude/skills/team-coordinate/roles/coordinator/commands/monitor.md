@@ -132,7 +132,7 @@ Ready tasks found?
       |   +- YES -> SKIP spawn (existing worker will pick it up via inner loop)
       |   +- NO -> normal spawn below
       +- TaskUpdate -> in_progress
-      +- team_msg log -> task_unblocked
+      +- team_msg log -> task_unblocked (team=<session-id>, NOT team name)
       +- Spawn worker (see spawn tool call below)
       +- Add to session.active_workers
       Update session file -> output summary -> STOP

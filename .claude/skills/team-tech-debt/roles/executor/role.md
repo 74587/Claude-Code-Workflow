@@ -61,7 +61,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <team-name>,
+  team: <session-id>,  // MUST be session ID (e.g., TD-xxx-date), NOT team name. Extract from Session: field in task description.
   from: "executor",
   to: "coordinator",
   type: <message-type>,
@@ -73,7 +73,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <team-name> --from executor --to coordinator --type <message-type> --summary \"[executor] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from executor --to coordinator --type <message-type> --summary \"[executor] ...\" --ref <artifact-path> --json")
 ```
 
 ---

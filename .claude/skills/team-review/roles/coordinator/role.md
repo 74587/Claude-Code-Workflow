@@ -86,7 +86,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "team-review",
+  team: <session-id>,  // MUST be session ID (e.g., RC-xxx-date), NOT team name. Extract from Session: field in task description.
   from: "coordinator",
   to: "user",
   type: "dispatch_ready",
@@ -97,7 +97,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team team-review --from coordinator --to user --type dispatch_ready --summary \"[coordinator] Task chain created\" --json")
+Bash("ccw team log --team <session-id> --from coordinator --to user --type dispatch_ready --summary \"[coordinator] Task chain created\" --json")
 ```
 
 ---

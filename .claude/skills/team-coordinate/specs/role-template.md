@@ -66,7 +66,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <team-name>,
+  team: <session-id>,
   from: "<role_name>",
   to: "coordinator",
   type: <message-type>,
@@ -75,10 +75,12 @@ mcp__ccw-tools__team_msg({
 })
 ```
 
+**`team` must be session ID** (e.g., `TC-my-project-2026-02-27`), NOT team name. Extract from task description `Session:` field -> take folder name.
+
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <team-name> --from <role_name> --to coordinator --type <message-type> --summary \"[<role_name>] <prefix> complete\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from <role_name> --to coordinator --type <message-type> --summary \"[<role_name>] <prefix> complete\" --ref <artifact-path> --json")
 ```
 
 ---

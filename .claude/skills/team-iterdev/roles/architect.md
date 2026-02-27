@@ -53,10 +53,12 @@ Technical architect. Responsible for technical design, task decomposition, and a
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
+**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "iterdev",
+  team: <session-id>,  // e.g., "TID-project-2026-02-27", NOT "iterdev"
   from: "architect",
   to: "coordinator",
   type: <message-type>,
@@ -68,7 +70,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team iterdev --from architect --to coordinator --type <message-type> --summary \"[architect] DESIGN complete\" --ref <design-path> --json")
+Bash("ccw team log --team <session-id> --from architect --to coordinator --type <message-type> --summary \"[architect] DESIGN complete\" --ref <design-path> --json")
 ```
 
 ---
@@ -222,7 +224,7 @@ Write(<session-folder>/shared-memory.json, JSON.stringify(sharedMemory, null, 2)
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "iterdev", from: "architect", to: "coordinator",
+  operation: "log", team: <session-id>, from: "architect", to: "coordinator",  // team = session ID, e.g., "TID-project-2026-02-27"
   type: "design_ready",
   summary: "[architect] Design complete: <count> components, <task-count> tasks",
   ref: <design-path>

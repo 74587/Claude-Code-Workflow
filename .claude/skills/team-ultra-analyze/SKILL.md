@@ -130,8 +130,9 @@ Each worker executes the same task discovery flow on startup:
 Standard report flow after task completion:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Parameters: operation="log", team=<team-name>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **CLI fallback**: When MCP unavailable -> `ccw team log --team <team> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+   - Parameters: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+   - **Note**: `team` must be session ID (e.g., `UAN-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+   - **CLI fallback**: When MCP unavailable -> `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
 2. **SendMessage**: Send result to coordinator (both content and summary prefixed with `[<role>]`)
 3. **TaskUpdate**: Mark task completed
 4. **Loop**: Return to Phase 1 to check for next task
@@ -179,7 +180,9 @@ On startup, read the file. After completing work, update own field and write bac
 
 ### Message Bus (All Roles)
 
-All roles log messages before sending via SendMessage. Call `mcp__ccw-tools__team_msg` with: operation="log", team=<team-name>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<file-path>.
+All roles log messages before sending via SendMessage. Call `mcp__ccw-tools__team_msg` with: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<file-path>.
+
+> **Note**: `team` must be session ID (e.g., `UAN-xxx-date`), NOT team name. Extract from `Session:` field in task description.
 
 | Role | Types |
 |------|-------|
@@ -189,7 +192,9 @@ All roles log messages before sending via SendMessage. Call `mcp__ccw-tools__tea
 | discussant | `discussion_processed`, `error` |
 | synthesizer | `synthesis_ready`, `error` |
 
-**CLI fallback**: When MCP unavailable -> `ccw team log --team "<team>" --from "<role>" --to "coordinator" --type "<type>" --summary "<summary>" --json`
+**CLI fallback**: When MCP unavailable -> `ccw team log --team "<session-id>" --from "<role>" --to "coordinator" --type "<type>" --summary "<summary>" --json`
+
+> **Note**: `team` must be session ID (e.g., `UAN-xxx-date`), NOT team name.
 
 ---
 

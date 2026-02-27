@@ -56,10 +56,12 @@ Code implementer. Responsible for implementing code according to design, increme
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
+**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "iterdev",
+  team: <session-id>,  // e.g., "TID-project-2026-02-27", NOT "iterdev"
   from: "developer",
   to: "coordinator",
   type: <message-type>,
@@ -71,7 +73,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team iterdev --from developer --to coordinator --type <message-type> --summary \"[developer] DEV complete\" --ref <dev-log-path> --json")
+Bash("ccw team log --team <session-id> --from developer --to coordinator --type <message-type> --summary \"[developer] DEV complete\" --ref <dev-log-path> --json")
 ```
 
 ---
@@ -232,7 +234,7 @@ Write(<session-folder>/shared-memory.json, JSON.stringify(sharedMemory, null, 2)
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "iterdev", from: "developer", to: "coordinator",
+  operation: "log", team: <session-id>, from: "developer", to: "coordinator",  // team = session ID, e.g., "TID-project-2026-02-27"
   type: "dev_complete",
   summary: "[developer] <Fix|Implementation> complete: <file-count> files changed",
   ref: <dev-log-path>

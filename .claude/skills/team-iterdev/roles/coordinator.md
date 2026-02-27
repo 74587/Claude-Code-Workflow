@@ -381,10 +381,12 @@ Identifies, tracks, and prioritizes technical debt.
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
+**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "iterdev",
+  team: <session-id>,  // e.g., "TID-project-2026-02-27", NOT "iterdev"
   from: "coordinator",
   to: "all",
   type: <message-type>,
@@ -396,7 +398,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team iterdev --from coordinator --to all --type <message-type> --summary \"[coordinator] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from coordinator --to all --type <message-type> --summary \"[coordinator] ...\" --ref <artifact-path> --json")
 ```
 
 ---

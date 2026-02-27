@@ -100,8 +100,9 @@ Optional flags: `--team` (default: "planex"), `--exec` (execution method), `-y`/
 
 每次 SendMessage 前，先调用 `mcp__ccw-tools__team_msg` 记录：
 
-- 参数: operation="log", team=`<team-name>`, from=`<role>`, to=`<target-role>`, type=`<type>`, summary="[`<role>`] `<summary>`", ref=`<file_path>`
-- **CLI fallback**: 当 MCP 不可用时 -> `ccw team log --team <team> --from <role> --to <target> --type <type> --summary "[<role>] ..." --json`
+- 参数: operation="log", team=`<session-id>`, from=`<role>`, to=`<target-role>`, type=`<type>`, summary="[`<role>`] `<summary>`", ref=`<file_path>`
+- **注意**: `team` 必须是 **session ID** (如 `PEX-project-2026-02-27`), 不是 team name. 从任务描述的 `Session:` 字段提取.
+- **CLI fallback**: 当 MCP 不可用时 -> `ccw team log --team <session-id> --from <role> --to <target> --type <type> --summary "[<role>] ..." --json`
 
 **Message types by role**:
 

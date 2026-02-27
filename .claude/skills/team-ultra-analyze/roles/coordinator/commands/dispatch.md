@@ -153,7 +153,7 @@ const chainValid = chainTasks.length === pipeline.length
 
 if (!chainValid) {
   mcp__ccw-tools__team_msg({
-    operation: "log", team: teamName, from: "coordinator",
+    operation: "log", team: sessionId, from: "coordinator",
     to: "user", type: "error",
     summary: `[coordinator] 任务链创建不完整: ${chainTasks.length}/${pipeline.length}`
   })

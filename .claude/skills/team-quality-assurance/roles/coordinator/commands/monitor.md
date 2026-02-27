@@ -2,6 +2,8 @@
 
 > 阶段驱动的协调循环。按 pipeline 阶段顺序等待 worker 完成，路由消息，触发 GC 循环，执行质量门控。
 
+**NOTE**: `teamName` variable must be **session ID** (e.g., `TQA-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
 ## When to Use
 
 - Phase 4 of Coordinator

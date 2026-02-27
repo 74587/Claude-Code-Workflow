@@ -54,10 +54,12 @@ Test validator. Responsible for test execution, fix cycles, and regression detec
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
+**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "iterdev",
+  team: <session-id>,  // e.g., "TID-project-2026-02-27", NOT "iterdev"
   from: "tester",
   to: "coordinator",
   type: <message-type>,
@@ -69,7 +71,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team iterdev --from tester --to coordinator --type <message-type> --summary \"[tester] VERIFY complete\" --ref <verify-path> --json")
+Bash("ccw team log --team <session-id> --from tester --to coordinator --type <message-type> --summary \"[tester] VERIFY complete\" --ref <verify-path> --json")
 ```
 
 ---
@@ -210,7 +212,7 @@ Write(<session-folder>/shared-memory.json, JSON.stringify(sharedMemory, null, 2)
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "iterdev", from: "tester", to: "coordinator",
+  operation: "log", team: <session-id>, from: "tester", to: "coordinator",  // team = session ID, e.g., "TID-project-2026-02-27"
   type: <message-type>,
   summary: "[tester] <message-type>: pass_rate=<rate>%, iterations=<count>",
   ref: <verify-path>

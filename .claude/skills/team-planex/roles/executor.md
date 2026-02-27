@@ -71,10 +71,12 @@ Load solution -> Route to backend (Agent/Codex/Gemini) based on execution_method
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
+**NOTE**: `team` must be **session ID** (e.g., `PEX-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "planex",
+  team: <session-id>,  // e.g., "PEX-project-2026-02-27", NOT "planex"
   from: "executor",
   to: "planner",
   type: <message-type>,
@@ -86,7 +88,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team planex --from executor --to planner --type <message-type> --summary \"[executor] <task-prefix> complete\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from executor --to planner --type <message-type> --summary \"[executor] <task-prefix> complete\" --ref <artifact-path> --json")
 ```
 
 ---
@@ -281,7 +283,7 @@ Bash("ccw issue update <issueId> --status completed")
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "planex",
+  team: <session-id>,  // e.g., "PEX-project-2026-02-27", NOT "planex"
   from: "executor",
   to: "planner",
   type: "impl_complete",
@@ -320,7 +322,7 @@ Query for next `EXEC-*` task with owner=executor, status=pending, blockedBy empt
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "planex",
+  team: <session-id>,  // e.g., "PEX-project-2026-02-27", NOT "planex"
   from: "executor",
   to: "planner",
   type: "wave_done",

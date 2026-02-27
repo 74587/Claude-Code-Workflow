@@ -268,7 +268,7 @@ function triggerGapClosure(phase, iteration, gaps, sessionFolder) {
 
   // Log gap closure initiation
   mcp__ccw-tools__team_msg({
-    operation: "log", team: "roadmap-dev",
+    operation: "log", team: sessionId  // MUST be session ID (e.g., RD-xxx-date), NOT team name,
     from: "coordinator", to: "planner",
     type: "gap_closure",
     summary: `[coordinator] Gap closure iteration ${iteration} for phase ${phase}: ${gaps.length} gaps`,
@@ -334,7 +334,7 @@ function updateStatePhaseComplete(phase, sessionFolder) {
 ```javascript
 // All phases done -- return control to coordinator Phase 5 (Report + Persist)
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "roadmap-dev",
+  operation: "log", team: sessionId  // MUST be session ID (e.g., RD-xxx-date), NOT team name,
   from: "coordinator", to: "all",
   type: "project_complete",
   summary: `[coordinator] All ${totalPhases} phases complete.`,

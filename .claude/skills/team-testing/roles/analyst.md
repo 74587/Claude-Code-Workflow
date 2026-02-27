@@ -57,7 +57,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "testing",
+  team: <session-id>,  // MUST be session ID (e.g., TST-xxx-date), NOT team name. Extract from Session: field in task description.
   from: "analyst",
   to: "coordinator",
   type: <message-type>,
@@ -69,7 +69,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team testing --from analyst --to coordinator --type <message-type> --summary \"[analyst] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from analyst --to coordinator --type <message-type> --summary \"[analyst] ...\" --ref <artifact-path> --json")
 ```
 
 ---
@@ -215,7 +215,7 @@ Write("<session-folder>/shared-memory.json", <updated-json>)
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "testing", from: "analyst", to: "coordinator",
+  operation: "log", team: <session-id>  // MUST be session ID, NOT team name, from: "analyst", to: "coordinator",
   type: "analysis_ready",
   summary: "[analyst] Quality report: score <score>/10, <pattern-count> defect patterns, <gap-count> coverage gaps",
   ref: "<session-folder>/analysis/quality-report.md"

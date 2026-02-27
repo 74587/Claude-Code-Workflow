@@ -55,7 +55,7 @@ for (const stageTask of pipelineTasks) {
 
   if (!workerConfig) {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
+      operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
       to: "user", type: "error",
       summary: `[coordinator] Unknown stage prefix: ${stagePrefix}, skipping`
     })
@@ -66,7 +66,7 @@ for (const stageTask of pipelineTasks) {
   TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
 
   mcp__ccw-tools__team_msg({
-    operation: "log", team: teamName, from: "coordinator",
+    operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
     to: workerConfig.role, type: "stage_transition",
     summary: `[coordinator] Starting stage: ${stageTask.subject} -> ${workerConfig.role}`
   })
@@ -86,7 +86,7 @@ for (const stageTask of pipelineTasks) {
     if (action === 'skip') continue
   } else {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
+      operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
       to: "user", type: "stage_transition",
       summary: `[coordinator] Stage complete: ${stageTask.subject}`
     })
@@ -96,7 +96,7 @@ for (const stageTask of pipelineTasks) {
   if (stagePrefix === 'SCAN') {
     const mem = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
     if ((mem.findings_count || 0) === 0) {
-      mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "coordinator",
+      mcp__ccw-tools__team_msg({ operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
         to: "user", type: "pipeline_complete",
         summary: `[coordinator] 0 findings. Code is clean. Skipping review/fix.` })
       for (const r of pipelineTasks.slice(pipelineTasks.indexOf(stageTask) + 1))
@@ -163,7 +163,7 @@ function buildWorkerArgs(stageTask, workerConfig) {
 ```javascript
 function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
   if (autoYes) {
-    mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "coordinator",
+    mcp__ccw-tools__team_msg({ operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
       to: "user", type: "error",
       summary: `[coordinator] [auto] ${stageTask.subject} incomplete, skipping` })
     TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
@@ -191,7 +191,7 @@ function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
     TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
     return 'skip'
   } else {
-    mcp__ccw-tools__team_msg({ operation: "log", team: teamName, from: "coordinator",
+    mcp__ccw-tools__team_msg({ operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
       to: "user", type: "error",
       summary: `[coordinator] User aborted at: ${stageTask.subject}` })
     return 'abort'

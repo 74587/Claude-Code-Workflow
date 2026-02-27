@@ -59,7 +59,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <team-name>,
+  team: **<session-id>**,  // MUST be session ID (e.g., BRS-xxx-date), NOT team name. Extract from Session: field.
   from: "challenger",
   to: "coordinator",
   type: "critique_ready",
@@ -71,7 +71,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <team-name> --from challenger --to coordinator --type critique_ready --summary \"[challenger] Critique complete\" --ref <output-path> --json")
+Bash("ccw team log --team <session-id> --from challenger --to coordinator --type critique_ready --summary \"[challenger] Critique complete\" --ref <output-path> --json")
 ```
 
 ---

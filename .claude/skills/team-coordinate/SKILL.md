@@ -66,8 +66,10 @@ Only coordinator is statically registered. All other roles are dynamic, stored i
 1. Extract `--role` and `--session` from arguments
 2. If no `--role` -> route to coordinator (Orchestration Mode)
 3. If `--role=coordinator` -> Read built-in `roles/coordinator/role.md` -> Execute its phases
-4. If `--role=<other>` -> Read `<session>/roles/<role>.md` -> Execute its phases
-5. If session path not provided -> auto-discover from `.workflow/.team/TC-*/team-session.json`
+4. If `--role=<other>`:
+   - **`--session` is REQUIRED** for dynamic roles. Error if not provided.
+   - Read `<session>/roles/<role>.md` -> Execute its phases
+   - If role file not found at path -> Error with expected path
 
 ### Orchestration Mode
 
@@ -118,8 +120,9 @@ Each worker on startup executes the same task discovery flow:
 Task completion with optional fast-advance to skip coordinator round-trip:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Params: operation="log", team=<team-name>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **CLI fallback**: When MCP unavailable -> `ccw team log --team <team> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+   - Params: operation="log", team=**<session-id>**, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+   - **`team` must be session ID** (e.g., `TC-my-project-2026-02-27`), NOT team name. Extract from task description `Session:` field -> take folder name.
+   - **CLI fallback**: `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
 2. **TaskUpdate**: Mark task completed
 3. **Fast-Advance Check**:
    - Call `TaskList()`, find pending tasks whose blockedBy are ALL completed
@@ -309,13 +312,13 @@ Session: <session-folder>
 - All output prefixed with [<role>] tag
 - Only communicate with coordinator
 - Do not use TaskCreate to create tasks for other roles
-- Before each SendMessage, call mcp__ccw-tools__team_msg to log
+- Before each SendMessage, call mcp__ccw-tools__team_msg to log (team=<session-id> from Session field, NOT team name)
 - After task completion, check for fast-advance opportunity (see SKILL.md Phase 5)
 
 ## Workflow
 1. Call Skill -> get role definition and execution logic
 2. Follow role.md 5-Phase flow
-3. team_msg + SendMessage results to coordinator
+3. team_msg(team=<session-id>) + SendMessage results to coordinator
 4. TaskUpdate completed -> check next task or fast-advance`
 })
 ```
@@ -351,7 +354,7 @@ Only SendMessage to coordinator when:
 - All output prefixed with [<role>] tag
 - Only communicate with coordinator
 - Do not use TaskCreate to create tasks for other roles
-- Before each SendMessage, call mcp__ccw-tools__team_msg to log
+- Before each SendMessage, call mcp__ccw-tools__team_msg to log (team=<session-id> from Session field, NOT team name)
 - Use subagent calls for heavy work, retain summaries in context`
 })
 ```
@@ -438,5 +441,5 @@ Coordinator supports `--resume` / `--continue` for interrupted sessions:
 | Discuss subagent fails | Role proceeds without discuss, logs warning |
 | Explore cache corrupt | Clear cache, re-explore |
 | Fast-advance spawns wrong task | Coordinator reconciles on next callback |
-| Session path not provided | Auto-discover from `.workflow/.team/TC-*/team-session.json` |
+| Session path not provided (dynamic role) | Error: `--session` is required for dynamic roles. Coordinator must always pass `--session=<session-folder>` when spawning workers. |
 | capability_gap reported | Coordinator generates new role via handleAdapt |

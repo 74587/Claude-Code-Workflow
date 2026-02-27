@@ -71,7 +71,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "ultra-analyze",
+  team: <session-id>,
   from: "discussant",
   to: "coordinator",
   type: "discussion_processed",
@@ -80,10 +80,12 @@ mcp__ccw-tools__team_msg({
 })
 ```
 
+> **Note**: `team` must be session ID (e.g., `UAN-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team ultra-analyze --from discussant --to coordinator --type discussion_processed --summary \"[discussant] ...\" --ref <path> --json")
+Bash("ccw team log --team <session-id> --from discussant --to coordinator --type discussion_processed --summary \"[discussant] ...\" --ref <path> --json")
 ```
 
 ---

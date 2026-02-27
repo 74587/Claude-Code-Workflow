@@ -72,7 +72,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "issue",
+  team: **<session-id>**,  // MUST be session ID (e.g., ISS-xxx-date), NOT team name. Extract from Session: field.
   from: "implementer",
   to: "coordinator",
   type: <message-type>,
@@ -84,7 +84,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team issue --from implementer --to coordinator --type <message-type> --summary \"[implementer] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from implementer --to coordinator --type <message-type> --summary \"[implementer] ...\" --ref <artifact-path> --json")
 ```
 
 ---
@@ -264,7 +264,7 @@ Bash("<testCmd> 2>&1 || echo \"TEST_FAILED\"")
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "issue", from: "implementer", to: "coordinator",
+  operation: "log", team: **<session-id>**, from: "implementer", to: "coordinator",  // MUST be session ID, NOT team name
   type: "impl_failed",
   summary: "[implementer] Tests failing for <issueId> after implementation (via <executor>)"
 })

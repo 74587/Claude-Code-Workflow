@@ -66,10 +66,12 @@ Demand decomposition -> Issue creation -> Solution design -> Conflict check -> E
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
+**NOTE**: `team` must be **session ID** (e.g., `PEX-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "planex",
+  team: <session-id>,  // e.g., "PEX-project-2026-02-27", NOT "planex"
   from: "planner",
   to: "executor",
   type: <message-type>,
@@ -81,7 +83,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team planex --from planner --to executor --type <message-type> --summary \"[planner] <task-prefix> complete\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from planner --to executor --type <message-type> --summary \"[planner] <task-prefix> complete\" --ref <artifact-path> --json")
 ```
 
 ---
@@ -248,7 +250,7 @@ Perform conflict detection using files_touched overlap analysis.
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "planex", from: "planner", to: "executor",
+  operation: "log", team: <session-id>, from: "planner", to: "executor",  // team = session ID
   type: "wave_ready",
   summary: "[planner] Wave <waveNum> fully dispatched: <issueCount> issues"
 })
@@ -269,7 +271,7 @@ SendMessage({
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "planex",
+  team: <session-id>,  // e.g., "PEX-project-2026-02-27", NOT "planex"
   from: "planner",
   to: "executor",
   type: "all_planned",

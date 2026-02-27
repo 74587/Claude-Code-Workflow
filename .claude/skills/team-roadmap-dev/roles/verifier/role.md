@@ -70,7 +70,7 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: "roadmap-dev",
+  team: <session-id>,  // MUST be session ID (e.g., RD-xxx-date), NOT team name. Extract from Session: field in task description.
   from: "verifier",
   to: "coordinator",
   type: <message-type>,
@@ -82,7 +82,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team roadmap-dev --from verifier --to coordinator --type <type> --summary \"[verifier] <summary>\" --ref <artifact-path> --json")
+Bash("ccw team log --team <session-id> --from verifier --to coordinator --type <type> --summary \"[verifier] <summary>\" --ref <artifact-path> --json")
 ```
 
 ---

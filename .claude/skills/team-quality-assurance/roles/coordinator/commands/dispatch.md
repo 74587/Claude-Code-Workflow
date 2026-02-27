@@ -2,6 +2,8 @@
 
 > 任务链创建与依赖管理。根据 QA 模式创建 pipeline 任务链并分配给 worker 角色。
 
+**NOTE**: `teamName` variable must be **session ID** (e.g., `TQA-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
+
 ## When to Use
 
 - Phase 3 of Coordinator

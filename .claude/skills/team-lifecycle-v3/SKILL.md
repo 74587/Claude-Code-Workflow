@@ -113,8 +113,9 @@ When invoked without `--role`, coordinator auto-starts. User just provides task 
 任务完成后的标准报告流程:
 
 1. **Message Bus**: 调用 `mcp__ccw-tools__team_msg` 记录消息
-   - 参数: operation="log", team=<team-name>, from=<role>, to="coordinator", type=<消息类型>, summary="[<role>] <摘要>", ref=<产物路径>
-   - **CLI fallback**: 当 MCP 不可用时 → `ccw team log --team <team> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+   - 参数: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<消息类型>, summary="[<role>] <摘要>", ref=<产物路径>
+   - **注意**: `team` 必须是 **session ID** (如 `TLS-project-2026-02-27`), 不是 team name. 从任务描述的 `Session:` 字段提取.
+   - **CLI fallback**: 当 MCP 不可用时 → `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
 2. **SendMessage**: 发送结果给 coordinator (content 和 summary 都带 `[<role>]` 前缀)
 3. **TaskUpdate**: 标记任务 completed
 4. **Loop**: 回到 Phase 1 检查下一个任务
