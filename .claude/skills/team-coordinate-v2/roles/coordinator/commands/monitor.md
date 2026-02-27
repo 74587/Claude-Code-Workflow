@@ -192,7 +192,7 @@ All tasks completed (no pending, no in_progress)
       |   |   Output final summary with artifact paths
       |   +- "Keep Active":
       |   |   Update session status="paused"
-      |   |   Output: "Resume with: Skill(skill='team-coordinate', args='resume')"
+      |   |   Output: "Resume with: Skill(skill='team-coordinate-v2', args='resume')"
       |   +- "Export Results":
       |       AskUserQuestion for target directory
       |       Copy deliverables to target

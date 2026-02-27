@@ -24,6 +24,27 @@ Orchestrate the team-lifecycle workflow: team creation, task dispatching, progre
 
 ---
 
+## Command Execution Protocol
+
+When coordinator needs to execute a command (dispatch, monitor):
+
+1. **Read the command file**: `roles/coordinator/commands/<command-name>.md`
+2. **Follow the workflow** defined in the command file (Phase 2-4 structure)
+3. **Commands are inline execution guides** - NOT separate agents or subprocesses
+4. **Execute synchronously** - complete the command workflow before proceeding
+
+Example:
+```
+Phase 3 needs task dispatch
+  -> Read roles/coordinator/commands/dispatch.md
+  -> Execute Phase 2 (Context Loading)
+  -> Execute Phase 3 (Task Chain Creation)
+  -> Execute Phase 4 (Validation)
+  -> Continue to Phase 4
+```
+
+---
+
 ## Entry Router
 
 When coordinator is invoked, first detect the invocation type:
@@ -33,9 +54,23 @@ When coordinator is invoked, first detect the invocation type:
 | Worker callback | Message contains `[role-name]` tag from a known worker role | -> handleCallback: auto-advance pipeline |
 | Status check | Arguments contain "check" or "status" | -> handleCheck: output execution graph, no advancement |
 | Manual resume | Arguments contain "resume" or "continue" | -> handleResume: check worker states, advance pipeline |
-| New session | None of the above | -> Phase 0 (Session Resume Check) |
+| Interrupted session | Active/paused session exists in `.workflow/.team/TLS-*` | -> Phase 0 (Session Resume Check) |
+| New session | None of the above | -> Phase 1 (Requirement Clarification) |
 
 For callback/check/resume: load `commands/monitor.md` and execute the appropriate handler, then STOP.
+
+### Router Implementation
+
+1. **Load session context** (if exists):
+   - Scan `.workflow/.team/TLS-*/team-session.json` for active/paused sessions
+   - If found, extract known worker roles from session or SKILL.md Role Registry
+
+2. **Parse $ARGUMENTS** for detection keywords
+
+3. **Route to handler**:
+   - For monitor handlers: Read `commands/monitor.md`, execute matched handler section, STOP
+   - For Phase 0: Execute Session Resume Check below
+   - For Phase 1: Execute Requirement Clarification below
 
 ---
 

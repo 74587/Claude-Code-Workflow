@@ -13,7 +13,7 @@ Universal team coordination skill: analyze task -> generate role-specs -> dispat
 
 ```
 +---------------------------------------------------+
-|  Skill(skill="team-coordinate")                    |
+|  Skill(skill="team-coordinate-v2")                 |
 |  args="task description"                           |
 +-------------------+-------------------------------+
                     |
@@ -64,7 +64,7 @@ Always route to coordinator. Coordinator reads `roles/coordinator/role.md` and e
 
 User just provides task description.
 
-**Invocation**: `Skill(skill="team-coordinate", args="task description")`
+**Invocation**: `Skill(skill="team-coordinate-v2", args="task description")`
 
 **Lifecycle**:
 ```
@@ -143,7 +143,7 @@ AskUserQuestion({
 | Choice | Steps |
 |--------|-------|
 | Archive & Clean | Update session status="completed" -> TeamDelete -> output final summary with artifact paths |
-| Keep Active | Update session status="paused" -> output: "Resume with: Skill(skill='team-coordinate', args='resume')" |
+| Keep Active | Update session status="paused" -> output: "Resume with: Skill(skill='team-coordinate-v2', args='resume')" |
 | Export Results | AskUserQuestion(target path) -> copy artifacts to target -> Archive & Clean |
 
 ---
