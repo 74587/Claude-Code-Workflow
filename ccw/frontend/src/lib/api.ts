@@ -2388,21 +2388,35 @@ export interface NativeSessionListItem {
  */
 export interface NativeSessionsListResponse {
   sessions: NativeSessionListItem[];
+  byTool: Record<string, NativeSessionListItem[]>;
   count: number;
+  hasMore: boolean;
+  nextCursor: string | null;
 }
 
 /**
- * Fetch list of native CLI sessions
- * @param tool - Filter by tool type (optional)
- * @param project - Filter by project path (optional)
+ * Fetch options for native sessions pagination
+ */
+export interface FetchNativeSessionsOptions {
+  tool?: 'gemini' | 'qwen' | 'codex' | 'claude' | 'opencode';
+  project?: string;
+  limit?: number;
+  cursor?: string | null; // ISO timestamp for cursor-based pagination
+}
+
+/**
+ * Fetch list of native CLI sessions with pagination support
+ * @param options - Pagination and filter options
  */
 export async function fetchNativeSessions(
-  tool?: 'gemini' | 'qwen' | 'codex' | 'claude' | 'opencode',
-  project?: string
+  options: FetchNativeSessionsOptions = {}
 ): Promise<NativeSessionsListResponse> {
+  const { tool, project, limit = 50, cursor } = options;
   const params = new URLSearchParams();
   if (tool) params.set('tool', tool);
-  if (project) params.set('project', project);
+  if (project) params.set('path', project);
+  if (limit) params.set('limit', String(limit));
+  if (cursor) params.set('cursor', cursor);
 
   const query = params.toString();
   return fetchApi<NativeSessionsListResponse>(

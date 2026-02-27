@@ -46,6 +46,10 @@ export async function handleQueueSchedulerRoutes(
           for (const item of items) {
             schedulerService.addItem(item);
           }
+        } else if (state.status === 'completed' || state.status === 'failed') {
+          // Auto-reset when scheduler is in terminal state and start fresh
+          schedulerService.reset();
+          schedulerService.start(items);
         } else {
           return {
             error: `Cannot add items when scheduler is in '${state.status}' state`,
@@ -120,6 +124,22 @@ export async function handleQueueSchedulerRoutes(
     handlePostRequest(req, res, async () => {
       try {
         await schedulerService.stop();
+        return {
+          success: true,
+          state: schedulerService.getState(),
+        };
+      } catch (err) {
+        return { error: (err as Error).message, status: 409 };
+      }
+    });
+    return true;
+  }
+
+  // POST /api/queue/scheduler/reset - Reset scheduler to idle state
+  if (pathname === '/api/queue/scheduler/reset' && req.method === 'POST') {
+    handlePostRequest(req, res, async () => {
+      try {
+        schedulerService.reset();
         return {
           success: true,
           state: schedulerService.getState(),

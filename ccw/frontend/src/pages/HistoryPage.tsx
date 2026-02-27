@@ -24,7 +24,7 @@ import {
 import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 import { cn } from '@/lib/utils';
 import { useHistory } from '@/hooks/useHistory';
-import { useNativeSessions } from '@/hooks/useNativeSessions';
+import { useNativeSessionsInfinite } from '@/hooks/useNativeSessions';
 import { ConversationCard } from '@/components/shared/ConversationCard';
 import { CliStreamPanel } from '@/components/shared/CliStreamPanel';
 import { NativeSessionPanel } from '@/components/shared/NativeSessionPanel';
@@ -86,15 +86,18 @@ export function HistoryPage() {
     filter: { search: searchQuery || undefined, tool: toolFilter },
   });
 
-  // Native sessions hook
+  // Native sessions hook (infinite loading)
   const {
     sessions: nativeSessions,
     byTool: nativeSessionsByTool,
     isLoading: isLoadingNativeSessions,
     isFetching: isFetchingNativeSessions,
+    isFetchingNextPage: isLoadingMoreNativeSessions,
+    hasNextPage: hasMoreNativeSessions,
     error: nativeSessionsError,
+    fetchNextPage: loadMoreNativeSessions,
     refetch: refetchNativeSessions,
-  } = useNativeSessions();
+  } = useNativeSessionsInfinite();
 
   // Track expanded tool groups in native sessions tab
   const [expandedTools, setExpandedTools] = React.useState<Set<string>>(new Set());
@@ -423,7 +426,7 @@ export function HistoryPage() {
               variant="outline"
               size="sm"
               onClick={() => refetchNativeSessions()}
-              disabled={isFetchingNativeSessions}
+              disabled={isFetchingNativeSessions && !isLoadingMoreNativeSessions}
             >
               <RefreshCw className={cn('h-4 w-4 mr-2', isFetchingNativeSessions && 'animate-spin')} />
               {formatMessage({ id: 'common.actions.refresh' })}
@@ -571,6 +574,27 @@ export function HistoryPage() {
                     </div>
                   );
                 })}
+
+              {/* Load More Button */}
+              {hasMoreNativeSessions && (
+                <div className="flex justify-center pt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadMoreNativeSessions()}
+                    disabled={isLoadingMoreNativeSessions}
+                  >
+                    {isLoadingMoreNativeSessions ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        {formatMessage({ id: 'history.nativeSessions.loading', defaultMessage: 'Loading...' })}
+                      </>
+                    ) : (
+                      formatMessage({ id: 'history.nativeSessions.loadMore', defaultMessage: 'Load More' })
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>

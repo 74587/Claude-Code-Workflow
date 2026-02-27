@@ -4,6 +4,18 @@
 
 Parse user task description -> detect required capabilities -> build dependency graph -> design dynamic roles with role-spec metadata. Outputs structured task-analysis.json with frontmatter fields for role-spec generation.
 
+## CRITICAL CONSTRAINT
+
+**TEXT-LEVEL analysis only. MUST NOT read source code or explore codebase.**
+
+**Allowed:**
+- Parse user task description text
+- AskUserQuestion for clarification
+- Keyword-to-capability mapping
+- Write `task-analysis.json`
+
+If task context requires codebase knowledge, set `needs_research: true`. Phase 2 will spawn researcher worker.
+
 ## Phase 2: Context Loading
 
 | Input | Source | Required |
@@ -135,6 +147,7 @@ Write `<session-folder>/task-analysis.json`:
     "total_score": 3,
     "level": "low"
   },
+  "needs_research": false,
   "artifacts": [
     { "name": "research-findings.md", "producer": "researcher", "path": "artifacts/research-findings.md" }
   ]

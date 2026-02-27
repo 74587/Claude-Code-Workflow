@@ -38,6 +38,8 @@
   "nativeSessions": {
     "count": "{count} 个原生会话",
     "sessions": "个会话",
+    "loading": "加载中...",
+    "loadMore": "加载更多",
     "empty": {
       "title": "无原生会话",
       "message": "来自 Gemini、Codex、Qwen 等的原生 CLI 会话将显示在这里。"

@@ -38,6 +38,8 @@
   "nativeSessions": {
     "count": "{count} native sessions",
     "sessions": "sessions",
+    "loading": "Loading...",
+    "loadMore": "Load More",
     "empty": {
       "title": "No Native Sessions",
       "message": "Native CLI sessions from Gemini, Codex, Qwen, etc. will appear here."

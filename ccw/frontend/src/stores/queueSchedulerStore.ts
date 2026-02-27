@@ -55,6 +55,8 @@ interface QueueSchedulerActions {
   pauseQueue: () => Promise<void>;
   /** Stop the queue scheduler via POST /api/queue/scheduler/stop */
   stopQueue: () => Promise<void>;
+  /** Reset the queue scheduler via POST /api/queue/scheduler/reset */
+  resetQueue: () => Promise<void>;
   /** Update scheduler config via POST /api/queue/scheduler/config */
   updateConfig: (config: Partial<QueueSchedulerConfig>) => Promise<void>;
 }
@@ -252,6 +254,24 @@ export const useQueueSchedulerStore = create<QueueSchedulerStore>()(
           const message = error instanceof Error ? error.message : 'Unknown error';
           console.error('[QueueScheduler] stopQueue error:', message);
           set({ error: message }, false, 'stopQueue/error');
+        }
+      },
+
+      resetQueue: async () => {
+        try {
+          const response = await fetch('/api/queue/scheduler/reset', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error || body.message || response.statusText);
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          console.error('[QueueScheduler] resetQueue error:', message);
+          set({ error: message }, false, 'resetQueue/error');
         }
       },
 
