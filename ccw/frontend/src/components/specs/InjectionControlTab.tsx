@@ -603,6 +603,8 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
                       !isOverLimit && isOverWarning && 'bg-yellow-100 dark:bg-yellow-900/30'
                     )}
                     indicatorClassName={cn(
+                      // Default: use a distinct blue color
+                      !isOverLimit && !isOverWarning && 'bg-sky-500 dark:bg-sky-400',
                       isOverLimit && 'bg-destructive',
                       !isOverLimit && isOverWarning && 'bg-yellow-500'
                     )}

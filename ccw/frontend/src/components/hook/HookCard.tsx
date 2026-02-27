@@ -98,6 +98,29 @@ function getTriggerVariant(trigger: HookTriggerType): 'default' | 'secondary' | 
 
 // ========== Component ==========
 
+// ========== Hook Name Translation ==========
+
+/**
+ * Get translated hook name if available
+ * Falls back to original name if no translation exists
+ */
+function getHookDisplayName(name: string, formatMessage: (msg: { id: string }) => string): string {
+  const translationKey = `cliHooks.templates.templates.${name}.name`;
+  // Try to get translation, fallback to original name
+  try {
+    const translated = formatMessage({ id: translationKey });
+    // If translation returns the key itself, no translation exists
+    if (translated && !translated.includes('cliHooks.templates.templates')) {
+      return translated;
+    }
+  } catch {
+    // Translation not found
+  }
+  return name;
+}
+
+// ========== Component ==========
+
 export function HookCard({
   hook,
   isExpanded,
@@ -107,6 +130,9 @@ export function HookCard({
   onDelete,
 }: HookCardProps) {
   const { formatMessage } = useIntl();
+
+  // Get translated hook name
+  const displayName = getHookDisplayName(hook.name, formatMessage);
 
   const handleToggle = () => {
     onToggle(hook.name, !hook.enabled);
