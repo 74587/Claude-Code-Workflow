@@ -157,6 +157,8 @@ Task({
 
 Handle mid-pipeline capability gap discovery. A worker reports `capability_gap` when it encounters work outside its scope.
 
+**CONSTRAINT**: Maximum 5 worker roles per session (per coordinator/role.md). handleAdapt MUST enforce this limit.
+
 ```
 Parse capability_gap message:
   +- Extract: gap_description, requesting_role, suggested_capability
@@ -164,6 +166,25 @@ Parse capability_gap message:
       +- Check existing roles in session.roles -> does any role cover this?
       |   +- YES -> redirect: SendMessage to that role's owner -> STOP
       |   +- NO -> genuine gap, proceed to role generation
+  +- CHECK ROLE COUNT LIMIT (MAX 5 ROLES):
+      +- Count current roles in session.roles
+      +- If count >= 5:
+          +- Attempt to merge new capability into existing role:
+              +- Find best-fit role by responsibility_type
+              +- If merge possible:
+                  +- Update existing role file with new capability
+                  +- Create task assigned to existing role
+                  +- Log via team_msg (type: warning, summary: "Capability merged into existing role")
+                  +- STOP
+              +- If merge NOT possible:
+                  +- PAUSE session
+                  +- Report to user:
+                     "Role limit (5) reached. Cannot generate new role for: <gap_description>
+                      Options:
+                      1. Manually extend an existing role
+                      2. Re-run team-coordinate with refined task to consolidate roles
+                      3. Accept limitation and continue without this capability"
+                  +- STOP
   +- Generate new role:
       1. Read specs/role-template.md
       2. Fill template with capability details from gap description
@@ -270,5 +291,6 @@ handleCallback receives message with consensus_blocked flag
 | Fast-advance task orphaned | Reset to pending, re-spawn via handleSpawnNext |
 | Dynamic role file not found | Error, coordinator must regenerate from task-analysis |
 | capability_gap from completed role | Validate gap, generate role if genuine |
+| capability_gap when role limit (5) reached | Attempt merge into existing role, else pause for user |
 | consensus_blocked HIGH | Create revision task (max 1) or pause for user |
 | consensus_blocked MEDIUM | Proceed with warning, log to wisdom/issues.md |
