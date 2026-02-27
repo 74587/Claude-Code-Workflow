@@ -7340,11 +7340,13 @@ export interface InjectionPreviewResponse {
  * @param mode - 'required' | 'all' | 'keywords'
  * @param preview - Include content preview
  * @param projectPath - Optional project path
+ * @param category - Optional category filter
  */
 export async function getInjectionPreview(
   mode: 'required' | 'all' | 'keywords' = 'required',
   preview: boolean = false,
-  projectPath?: string
+  projectPath?: string,
+  category?: string
 ): Promise<InjectionPreviewResponse> {
   const params = new URLSearchParams();
   params.set('mode', mode);
@@ -7352,8 +7354,62 @@ export async function getInjectionPreview(
   if (projectPath) {
     params.set('path', projectPath);
   }
+  if (category) {
+    params.set('category', category);
+  }
   return fetchApi<InjectionPreviewResponse>(`/api/specs/injection-preview?${params.toString()}`);
 }
+
+/**
+ * Command preview configuration
+ */
+export interface CommandPreviewConfig {
+  command: string;
+  label: string;
+  description: string;
+  category?: string;
+  mode: 'required' | 'all';
+}
+
+/**
+ * Predefined command preview configurations
+ */
+export const COMMAND_PREVIEWS: CommandPreviewConfig[] = [
+  {
+    command: 'ccw spec load',
+    label: 'Default (All Categories)',
+    description: 'Load all required specs without category filter',
+    mode: 'required',
+  },
+  {
+    command: 'ccw spec load --category exploration',
+    label: 'Exploration',
+    description: 'Specs for code exploration, analysis, debugging',
+    category: 'exploration',
+    mode: 'required',
+  },
+  {
+    command: 'ccw spec load --category planning',
+    label: 'Planning',
+    description: 'Specs for task planning, requirements',
+    category: 'planning',
+    mode: 'required',
+  },
+  {
+    command: 'ccw spec load --category execution',
+    label: 'Execution',
+    description: 'Specs for implementation, testing, deployment',
+    category: 'execution',
+    mode: 'required',
+  },
+  {
+    command: 'ccw spec load --category general',
+    label: 'General',
+    description: 'Specs that apply to all stages',
+    category: 'general',
+    mode: 'required',
+  },
+];
 
 /**
  * Update spec frontmatter (toggle readMode)

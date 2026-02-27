@@ -193,3 +193,9 @@ Write(techPath, JSON.stringify(tech, null, 2))
 | No git history | Use user summary or session context only |
 | No meaningful updates | Skip guidelines, still add tech entry |
 | Duplicate entry | Skip silently (dedup check in Step 4) |
+
+## Related Commands
+
+- `/workflow:init` - Initialize project with specs scaffold
+- `/workflow:init-specs` - Interactive wizard to create individual specs with scope selection
+- `/workflow:session:solidify` - Add individual rules one at a time

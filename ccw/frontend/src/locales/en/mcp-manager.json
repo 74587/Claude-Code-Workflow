@@ -390,5 +390,42 @@
   "enterprise": {
     "label": "Enterprise",
     "tooltip": "Enterprise MCP server"
+  },
+  "specs": {
+    "settings": {
+      "personalSpecDefaults": "Personal Spec Defaults",
+      "personalSpecDefaultsDesc": "These settings will be applied when creating new personal specs",
+      "defaultReadMode": "Default Read Mode",
+      "selectReadMode": "Select read mode",
+      "defaultReadModeHelp": "The default read mode for newly created personal specs",
+      "autoEnable": "Auto Enable New Specs",
+      "autoEnableDescription": "Automatically enable newly created personal specs",
+      "specStatistics": "Spec Statistics",
+      "totalSpecs": "Total: {count} spec files",
+      "required": "required",
+      "readMode": {
+        "required": "Required",
+        "optional": "Optional"
+      },
+      "dimension": {
+        "specs": "Project Specs",
+        "personal": "Personal Specs"
+      },
+      "devProgressInjection": "Development Progress Injection",
+      "devProgressInjectionDesc": "Control how development progress from project-tech.json is injected into AI context",
+      "enableDevProgress": "Enable Injection",
+      "enableDevProgressDesc": "Include development history in AI context",
+      "maxEntries": "Max Entries per Category",
+      "maxEntriesDesc": "Maximum number of entries to include per category (1-50)",
+      "includeCategories": "Include Categories",
+      "categoriesDesc": "Click to toggle category inclusion",
+      "devProgressStats": "{total} entries from {sessions} sessions, last updated: {date}",
+      "devProgressStatsNoDate": "{total} entries from {sessions} sessions"
+    },
+    "injection": {
+      "saveSuccess": "Settings saved successfully",
+      "saveError": "Failed to save settings: {error}",
+      "loadError": "Failed to load statistics"
+    }
   }
 }

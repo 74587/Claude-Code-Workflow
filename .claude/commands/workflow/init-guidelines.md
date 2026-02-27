@@ -322,27 +322,55 @@ AskUserQuestion({
 
 ### Step 4: Write specs/*.md
 
-For each category of collected answers, append rules to the corresponding spec MD file. Each spec file uses YAML frontmatter with `readMode`, `priority`, and `keywords`.
+For each category of collected answers, append rules to the corresponding spec MD file. Each spec file uses YAML frontmatter with `readMode`, `priority`, `category`, and `keywords`.
+
+**Category Assignment**: Based on the round and question type:
+- Round 1-2 (conventions): `category: general` (applies to all stages)
+- Round 3 (architecture/tech): `category: planning` (planning phase)
+- Round 4 (performance/security): `category: execution` (implementation phase)
+- Round 5 (quality): `category: execution` (testing phase)
 
 ```javascript
-// Helper: append rules to a spec MD file
-function appendRulesToSpecFile(filePath, rules) {
+// Helper: append rules to a spec MD file with category support
+function appendRulesToSpecFile(filePath, rules, defaultCategory = 'general') {
   if (rules.length === 0) return
+
+  // Check if file exists
+  if (!file_exists(filePath)) {
+    // Create file with frontmatter including category
+    const frontmatter = `---
+title: ${filePath.includes('conventions') ? 'Coding Conventions' : filePath.includes('constraints') ? 'Architecture Constraints' : 'Quality Rules'}
+readMode: optional
+priority: medium
+category: ${defaultCategory}
+scope: project
+dimension: specs
+keywords: [${defaultCategory}, ${filePath.includes('conventions') ? 'convention' : filePath.includes('constraints') ? 'constraint' : 'quality'}]
+---
+
+# ${filePath.includes('conventions') ? 'Coding Conventions' : filePath.includes('constraints') ? 'Architecture Constraints' : 'Quality Rules'}
+
+`
+    Write(filePath, frontmatter)
+  }
+
   const existing = Read(filePath)
   // Append new rules as markdown list items after existing content
   const newContent = existing.trimEnd() + '\n' + rules.map(r => `- ${r}`).join('\n') + '\n'
   Write(filePath, newContent)
 }
 
-// Write conventions
+// Write conventions (general category)
 appendRulesToSpecFile('.workflow/specs/coding-conventions.md',
-  [...newCodingStyle, ...newNamingPatterns, ...newFileStructure, ...newDocumentation])
+  [...newCodingStyle, ...newNamingPatterns, ...newFileStructure, ...newDocumentation],
+  'general')
 
-// Write constraints
+// Write constraints (planning category)
 appendRulesToSpecFile('.workflow/specs/architecture-constraints.md',
-  [...newArchitecture, ...newTechStack, ...newPerformance, ...newSecurity])
+  [...newArchitecture, ...newTechStack, ...newPerformance, ...newSecurity],
+  'planning')
 
-// Write quality rules (create file if needed)
+// Write quality rules (execution category)
 if (newQualityRules.length > 0) {
   const qualityPath = '.workflow/specs/quality-rules.md'
   if (!file_exists(qualityPath)) {
@@ -350,7 +378,10 @@ if (newQualityRules.length > 0) {
 title: Quality Rules
 readMode: required
 priority: high
-keywords: [quality, testing, coverage, lint]
+category: execution
+scope: project
+dimension: specs
+keywords: [execution, quality, testing, coverage, lint]
 ---
 
 # Quality Rules
@@ -358,7 +389,8 @@ keywords: [quality, testing, coverage, lint]
 `)
   }
   appendRulesToSpecFile(qualityPath,
-    newQualityRules.map(q => `${q.rule} (scope: ${q.scope}, enforced by: ${q.enforced_by})`))
+    newQualityRules.map(q => `${q.rule} (scope: ${q.scope}, enforced by: ${q.enforced_by})`),
+    'execution')
 }
 
 // Rebuild spec index after writing
@@ -411,4 +443,5 @@ When converting user selections to guideline entries:
 ## Related Commands
 
 - `/workflow:init` - Creates scaffold; optionally calls this command
+- `/workflow:init-specs` - Interactive wizard to create individual specs with scope selection
 - `/workflow:session:solidify` - Add individual rules one at a time

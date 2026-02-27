@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useIntl } from 'react-intl';
 import { toast } from 'sonner';
-import { Settings, RefreshCw } from 'lucide-react';
+import { Settings, RefreshCw, History } from 'lucide-react';
 import {
   Card,
   CardHeader,
@@ -18,6 +18,8 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Label } from '@/components/ui/Label';
 import { Switch } from '@/components/ui/Switch';
+import { Input } from '@/components/ui/Input';
+import { Badge } from '@/components/ui/Badge';
 import {
   Select,
   SelectTrigger,
@@ -34,6 +36,12 @@ interface PersonalSpecDefaults {
   autoEnable: boolean;
 }
 
+interface DevProgressInjection {
+  enabled: boolean;
+  maxEntriesPerCategory: number;
+  categories: ('feature' | 'enhancement' | 'bugfix' | 'refactor' | 'docs')[];
+}
+
 interface SystemSettings {
   injectionControl: {
     maxLength: number;
@@ -41,6 +49,7 @@ interface SystemSettings {
     truncateOnExceed: boolean;
   };
   personalSpecDefaults: PersonalSpecDefaults;
+  devProgressInjection: DevProgressInjection;
 }
 
 interface SpecDimensionStats {
@@ -58,6 +67,19 @@ interface SpecStats {
     withKeywords: number;
     maxLength: number;
     percentage: number;
+  };
+}
+
+interface ProjectTechStats {
+  total_features: number;
+  total_sessions: number;
+  last_updated: string | null;
+  categories: {
+    feature: number;
+    enhancement: number;
+    bugfix: number;
+    refactor: number;
+    docs: number;
   };
 }
 
@@ -103,12 +125,23 @@ async function fetchSpecStats(): Promise<SpecStats> {
   return response.json();
 }
 
+async function fetchProjectTechStats(): Promise<ProjectTechStats> {
+  const response = await fetch(`${API_BASE}/project-tech/stats`, {
+    credentials: 'same-origin',
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch project-tech stats: ${response.statusText}`);
+  }
+  return response.json();
+}
+
 // ========== Query Keys ==========
 
 const settingsKeys = {
   all: ['system-settings'] as const,
   settings: () => [...settingsKeys.all, 'settings'] as const,
   stats: () => [...settingsKeys.all, 'stats'] as const,
+  projectTech: () => [...settingsKeys.all, 'project-tech'] as const,
 };
 
 // ========== Component ==========
@@ -121,6 +154,13 @@ export function GlobalSettingsTab() {
   const [localDefaults, setLocalDefaults] = useState<PersonalSpecDefaults>({
     defaultReadMode: 'optional',
     autoEnable: true,
+  });
+
+  // Local state for dev progress injection
+  const [localDevProgress, setLocalDevProgress] = useState<DevProgressInjection>({
+    enabled: true,
+    maxEntriesPerCategory: 10,
+    categories: ['feature', 'enhancement', 'bugfix', 'refactor', 'docs'],
   });
 
   // Fetch system settings
@@ -146,6 +186,16 @@ export function GlobalSettingsTab() {
     staleTime: 30000, // 30 seconds
   });
 
+  // Fetch project-tech stats
+  const {
+    data: projectTechStats,
+    isLoading: isLoadingProjectTech,
+  } = useQuery({
+    queryKey: settingsKeys.projectTech(),
+    queryFn: fetchProjectTechStats,
+    staleTime: 60000, // 1 minute
+  });
+
   // Update settings mutation
   const updateMutation = useMutation({
     mutationFn: updateSystemSettings,
@@ -166,6 +216,9 @@ export function GlobalSettingsTab() {
     if (settings?.personalSpecDefaults) {
       setLocalDefaults(settings.personalSpecDefaults);
     }
+    if (settings?.devProgressInjection) {
+      setLocalDevProgress(settings.devProgressInjection);
+    }
   }, [settings]);
 
   // Handlers
@@ -179,6 +232,31 @@ export function GlobalSettingsTab() {
     const newDefaults = { ...localDefaults, autoEnable: checked };
     setLocalDefaults(newDefaults);
     updateMutation.mutate({ personalSpecDefaults: newDefaults });
+  };
+
+  // Dev progress injection handlers
+  const handleDevProgressToggle = (checked: boolean) => {
+    const newDevProgress = { ...localDevProgress, enabled: checked };
+    setLocalDevProgress(newDevProgress);
+    updateMutation.mutate({ devProgressInjection: newDevProgress });
+  };
+
+  const handleMaxEntriesChange = (value: string) => {
+    const numValue = parseInt(value, 10);
+    if (!isNaN(numValue) && numValue >= 1 && numValue <= 50) {
+      const newDevProgress = { ...localDevProgress, maxEntriesPerCategory: numValue };
+      setLocalDevProgress(newDevProgress);
+      updateMutation.mutate({ devProgressInjection: newDevProgress });
+    }
+  };
+
+  const handleCategoryToggle = (category: 'feature' | 'enhancement' | 'bugfix' | 'refactor' | 'docs') => {
+    const newCategories = localDevProgress.categories.includes(category)
+      ? localDevProgress.categories.filter(c => c !== category)
+      : [...localDevProgress.categories, category];
+    const newDevProgress = { ...localDevProgress, categories: newCategories as DevProgressInjection['categories'] };
+    setLocalDevProgress(newDevProgress);
+    updateMutation.mutate({ devProgressInjection: newDevProgress });
   };
 
   // Calculate totals - Only include specs and personal dimensions
@@ -342,6 +420,107 @@ export function GlobalSettingsTab() {
                 </div>
               </div>
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Development Progress Injection Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <History className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>
+              {formatMessage({ id: 'specs.settings.devProgressInjection', defaultMessage: 'Development Progress Injection' })}
+            </CardTitle>
+          </div>
+          <CardDescription>
+            {formatMessage({ id: 'specs.settings.devProgressInjectionDesc', defaultMessage: 'Control how development progress from project-tech.json is injected into AI context' })}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Enable Toggle */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>
+                {formatMessage({ id: 'specs.settings.enableDevProgress', defaultMessage: 'Enable Injection' })}
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                {formatMessage({ id: 'specs.settings.enableDevProgressDesc', defaultMessage: 'Include development history in AI context' })}
+              </p>
+            </div>
+            <Switch
+              checked={localDevProgress.enabled}
+              onCheckedChange={handleDevProgressToggle}
+              disabled={updateMutation.isPending}
+            />
+          </div>
+
+          {/* Max Entries */}
+          <div className="space-y-2">
+            <Label>
+              {formatMessage({ id: 'specs.settings.maxEntries', defaultMessage: 'Max Entries per Category' })}
+            </Label>
+            <Input
+              type="number"
+              min={1}
+              max={50}
+              value={localDevProgress.maxEntriesPerCategory}
+              onChange={(e) => handleMaxEntriesChange(e.target.value)}
+              disabled={updateMutation.isPending || !localDevProgress.enabled}
+              className="w-24"
+            />
+            <p className="text-sm text-muted-foreground">
+              {formatMessage({ id: 'specs.settings.maxEntriesDesc', defaultMessage: 'Maximum number of entries to include per category (1-50)' })}
+            </p>
+          </div>
+
+          {/* Category Toggles */}
+          <div className="space-y-2">
+            <Label>
+              {formatMessage({ id: 'specs.settings.includeCategories', defaultMessage: 'Include Categories' })}
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {(['feature', 'enhancement', 'bugfix', 'refactor', 'docs'] as const).map(cat => (
+                <Badge
+                  key={cat}
+                  variant={localDevProgress.categories.includes(cat) ? 'default' : 'outline'}
+                  className={cn(
+                    'cursor-pointer transition-colors',
+                    !localDevProgress.enabled && 'opacity-50 cursor-not-allowed'
+                  )}
+                  onClick={() => localDevProgress.enabled && handleCategoryToggle(cat)}
+                >
+                  {cat} ({projectTechStats?.categories[cat] || 0})
+                </Badge>
+              ))}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {formatMessage({ id: 'specs.settings.categoriesDesc', defaultMessage: 'Click to toggle category inclusion' })}
+            </p>
+          </div>
+
+          {/* Stats Summary */}
+          {projectTechStats && (
+            <div className="text-sm text-muted-foreground pt-4 border-t border-border">
+              {projectTechStats.last_updated ? (
+                formatMessage(
+                  { id: 'specs.settings.devProgressStats', defaultMessage: '{total} entries from {sessions} sessions, last updated: {date}' },
+                  {
+                    total: projectTechStats.total_features,
+                    sessions: projectTechStats.total_sessions,
+                    date: new Date(projectTechStats.last_updated).toLocaleDateString()
+                  }
+                )
+              ) : (
+                formatMessage(
+                  { id: 'specs.settings.devProgressStatsNoDate', defaultMessage: '{total} entries from {sessions} sessions' },
+                  {
+                    total: projectTechStats.total_features,
+                    sessions: projectTechStats.total_sessions
+                  }
+                )
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

@@ -450,3 +450,4 @@ This ensures all future planning respects solidified rules without users needing
 - `/workflow:session:start` - Start a session (may prompt for solidify at end)
 - `/workflow:session:complete` - Complete session (prompts for learnings to solidify)
 - `/workflow:init` - Creates specs/*.md scaffold if missing
+- `/workflow:init-specs` - Interactive wizard to create individual specs with scope selection

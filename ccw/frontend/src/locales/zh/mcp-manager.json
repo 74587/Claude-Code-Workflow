@@ -390,5 +390,42 @@
   "enterprise": {
     "label": "企业版",
     "tooltip": "企业版 MCP 服务器"
+  },
+  "specs": {
+    "settings": {
+      "personalSpecDefaults": "个人规范默认设置",
+      "personalSpecDefaultsDesc": "这些设置将在创建新的个人规范时应用",
+      "defaultReadMode": "默认读取模式",
+      "selectReadMode": "选择读取模式",
+      "defaultReadModeHelp": "新创建的个人规范的默认读取模式",
+      "autoEnable": "自动启用新规范",
+      "autoEnableDescription": "自动启用新创建的个人规范",
+      "specStatistics": "规范统计",
+      "totalSpecs": "总计: {count} 个规范文件",
+      "required": "必读",
+      "readMode": {
+        "required": "必读",
+        "optional": "可选"
+      },
+      "dimension": {
+        "specs": "项目规范",
+        "personal": "个人规范"
+      },
+      "devProgressInjection": "开发进度注入",
+      "devProgressInjectionDesc": "控制如何将 project-tech.json 中的开发进度注入到 AI 上下文中",
+      "enableDevProgress": "启用注入",
+      "enableDevProgressDesc": "在 AI 上下文中包含开发历史",
+      "maxEntries": "每类别最大条目数",
+      "maxEntriesDesc": "每个类别包含的最大条目数 (1-50)",
+      "includeCategories": "包含类别",
+      "categoriesDesc": "点击切换类别包含状态",
+      "devProgressStats": "共 {total} 条记录来自 {sessions} 个会话，最后更新: {date}",
+      "devProgressStatsNoDate": "共 {total} 条记录来自 {sessions} 个会话"
+    },
+    "injection": {
+      "saveSuccess": "设置保存成功",
+      "saveError": "保存设置失败: {error}",
+      "loadError": "加载统计数据失败"
+    }
   }
 }

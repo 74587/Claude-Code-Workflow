@@ -43,6 +43,12 @@ const DEFAULT_PERSONAL_SPEC_DEFAULTS = {
   autoEnable: true
 };
 
+const DEFAULT_DEV_PROGRESS_INJECTION = {
+  enabled: true,
+  maxEntriesPerCategory: 10,
+  categories: ['feature', 'enhancement', 'bugfix', 'refactor', 'docs']
+};
+
 // Recommended hooks for spec injection
 const RECOMMENDED_HOOKS = [
   {
@@ -90,6 +96,7 @@ function readSettingsFile(filePath: string): Record<string, unknown> {
 function getSystemSettings(): {
   injectionControl: typeof DEFAULT_INJECTION_CONTROL;
   personalSpecDefaults: typeof DEFAULT_PERSONAL_SPEC_DEFAULTS;
+  devProgressInjection: typeof DEFAULT_DEV_PROGRESS_INJECTION;
   recommendedHooks: typeof RECOMMENDED_HOOKS;
 } {
   const settings = readSettingsFile(GLOBAL_SETTINGS_PATH) as Record<string, unknown>;
@@ -105,6 +112,10 @@ function getSystemSettings(): {
       ...DEFAULT_PERSONAL_SPEC_DEFAULTS,
       ...((user.personalSpecDefaults || {}) as Record<string, unknown>)
     } as typeof DEFAULT_PERSONAL_SPEC_DEFAULTS,
+    devProgressInjection: {
+      ...DEFAULT_DEV_PROGRESS_INJECTION,
+      ...((system.devProgressInjection || {}) as Record<string, unknown>)
+    } as typeof DEFAULT_DEV_PROGRESS_INJECTION,
     recommendedHooks: RECOMMENDED_HOOKS
   };
 }
@@ -115,6 +126,7 @@ function getSystemSettings(): {
 function saveSystemSettings(updates: {
   injectionControl?: Partial<typeof DEFAULT_INJECTION_CONTROL>;
   personalSpecDefaults?: Partial<typeof DEFAULT_PERSONAL_SPEC_DEFAULTS>;
+  devProgressInjection?: Partial<typeof DEFAULT_DEV_PROGRESS_INJECTION>;
 }): { success: boolean; settings?: Record<string, unknown>; error?: string } {
   try {
     const settings = readSettingsFile(GLOBAL_SETTINGS_PATH) as Record<string, unknown>;
@@ -140,6 +152,14 @@ function saveSystemSettings(updates: {
         ...DEFAULT_PERSONAL_SPEC_DEFAULTS,
         ...((user.personalSpecDefaults || {}) as Record<string, unknown>),
         ...updates.personalSpecDefaults
+      };
+    }
+
+    if (updates.devProgressInjection) {
+      system.devProgressInjection = {
+        ...DEFAULT_DEV_PROGRESS_INJECTION,
+        ...((system.devProgressInjection || {}) as Record<string, unknown>),
+        ...updates.devProgressInjection
       };
     }
 
@@ -410,6 +430,7 @@ export async function handleSystemRoutes(ctx: SystemRouteContext): Promise<boole
       const updates = body as {
         injectionControl?: { maxLength?: number; warnThreshold?: number; truncateOnExceed?: boolean };
         personalSpecDefaults?: { defaultReadMode?: string; autoEnable?: boolean };
+        devProgressInjection?: { enabled?: boolean; maxEntriesPerCategory?: number; categories?: string[] };
       };
 
       const result = saveSystemSettings(updates);
@@ -418,6 +439,73 @@ export async function handleSystemRoutes(ctx: SystemRouteContext): Promise<boole
       }
       return { success: true, settings: result.settings };
     });
+    return true;
+  }
+
+  // API: Get project-tech stats for development progress injection
+  if (pathname === '/api/project-tech/stats' && req.method === 'GET') {
+    const projectPath = url.searchParams.get('path') || initialPath;
+    const resolvedPath = resolvePath(projectPath);
+    const techPath = join(resolvedPath, '.workflow', 'project-tech.json');
+
+    if (!existsSync(techPath)) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        total_features: 0,
+        total_sessions: 0,
+        last_updated: null,
+        categories: {
+          feature: 0,
+          enhancement: 0,
+          bugfix: 0,
+          refactor: 0,
+          docs: 0
+        }
+      }));
+      return true;
+    }
+
+    try {
+      const rawContent = readFileSync(techPath, 'utf-8');
+      const tech = JSON.parse(rawContent) as {
+        development_index?: {
+          feature?: unknown[];
+          enhancement?: unknown[];
+          bugfix?: unknown[];
+          refactor?: unknown[];
+          docs?: unknown[];
+        };
+        _metadata?: {
+          last_updated?: string;
+        };
+        statistics?: {
+          total_features?: number;
+          total_sessions?: number;
+        };
+      };
+
+      const devIndex = tech.development_index || {};
+      const categories = {
+        feature: (devIndex.feature || []).length,
+        enhancement: (devIndex.enhancement || []).length,
+        bugfix: (devIndex.bugfix || []).length,
+        refactor: (devIndex.refactor || []).length,
+        docs: (devIndex.docs || []).length
+      };
+
+      const total_features = Object.values(categories).reduce((sum, count) => sum + count, 0);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        total_features,
+        total_sessions: tech.statistics?.total_sessions || 0,
+        last_updated: tech._metadata?.last_updated || null,
+        categories
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
     return true;
   }
 
