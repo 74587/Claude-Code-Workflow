@@ -112,6 +112,7 @@
     },
     "tools": {
       "label": "可用工具",
+      "hint": "请先安装 CCW MCP 后再选择工具",
       "core": "核心",
       "write_file": {
         "name": "write_file",

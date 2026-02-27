@@ -255,6 +255,8 @@ cli-explore-agent autonomously handles: project structure discovery, schema load
 - [ ] Constraints are project-specific to ${angle}
 - [ ] JSON output follows schema exactly
 - [ ] clarification_needs includes options + recommended
+- [ ] Files with relevance >= 0.7 have key_code array describing key symbols
+- [ ] Files with relevance >= 0.7 have topic_relation explaining connection to ${angle}
 
 ## Execution
 **Write**: \`${sessionFolder}/exploration-${angle}.json\`

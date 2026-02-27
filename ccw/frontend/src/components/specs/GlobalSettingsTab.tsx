@@ -181,9 +181,10 @@ export function GlobalSettingsTab() {
     updateMutation.mutate({ personalSpecDefaults: newDefaults });
   };
 
-  // Calculate totals
+  // Calculate totals - Only include specs and personal dimensions
   const dimensions = stats?.dimensions || {};
-  const dimensionEntries = Object.entries(dimensions) as [
+  const dimensionEntries = Object.entries(dimensions)
+    .filter(([dim]) => dim === 'specs' || dim === 'personal') as [
     keyof typeof dimensions,
     SpecDimensionStats
   ][];
@@ -304,8 +305,10 @@ export function GlobalSettingsTab() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {dimensionEntries.map(([dim, data]) => (
+              <div className="grid grid-cols-2 gap-4">
+                {dimensionEntries
+                  .filter(([entry]) => entry[0] === 'specs' || entry[1] === 'personal')
+                  .map(([dim, data]) => (
                   <div
                     key={dim}
                     className="text-center p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"

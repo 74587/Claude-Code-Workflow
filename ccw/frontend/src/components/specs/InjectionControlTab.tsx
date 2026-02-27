@@ -43,6 +43,8 @@ import {
   Folder,
   ChevronDown,
   ChevronRight,
+  Layers,
+  Filter,
 } from 'lucide-react';
 import { useInstallRecommendedHooks } from '@/hooks/useSystemSettings';
 import type { InjectionPreviewFile, InjectionPreviewResponse } from '@/lib/api';
@@ -82,6 +84,19 @@ export interface SystemSettingsResponse {
 export interface InjectionControlTabProps {
   className?: string;
 }
+
+// ========== Category Configuration ==========
+
+type SpecCategory = 'general' | 'exploration' | 'planning' | 'execution';
+
+const SPEC_CATEGORIES: SpecCategory[] = ['general', 'exploration', 'planning', 'execution'];
+
+const CATEGORY_CONFIG: Record<SpecCategory, { color: string; bgColor: string }> = {
+  general: { color: 'text-gray-600', bgColor: 'bg-gray-100 dark:bg-gray-800' },
+  exploration: { color: 'text-blue-600', bgColor: 'bg-blue-100 dark:bg-blue-900/30' },
+  planning: { color: 'text-purple-600', bgColor: 'bg-purple-100 dark:bg-purple-900/30' },
+  execution: { color: 'text-green-600', bgColor: 'bg-green-100 dark:bg-green-900/30' },
+};
 
 // ========== Recommended Hooks Configuration ==========
 
@@ -184,6 +199,7 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
 
   // State for injection preview
   const [previewMode, setPreviewMode] = useState<'required' | 'all'>('required');
+  const [categoryFilter, setCategoryFilter] = useState<SpecCategory | 'all'>('all');
   const [previewData, setPreviewData] = useState<InjectionPreviewResponse | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [expandedDimensions, setExpandedDimensions] = useState<Record<string, boolean>>({
@@ -358,17 +374,36 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
     }
   }, [installedHookIds, installHooksMutation, formatMessage]);
 
-  // Group files by dimension
+  // Group files by dimension and filter by category
   const filesByDimension = useMemo(() => {
     if (!previewData) return {};
     const grouped: Record<string, InjectionPreviewFile[]> = {};
     for (const file of previewData.files) {
+      // Apply category filter
+      if (categoryFilter !== 'all' && file.category !== categoryFilter) {
+        continue;
+      }
       if (!grouped[file.dimension]) {
         grouped[file.dimension] = [];
       }
       grouped[file.dimension].push(file);
     }
     return grouped;
+  }, [previewData, categoryFilter]);
+
+  // Calculate category statistics
+  const categoryStats = useMemo(() => {
+    if (!previewData) {
+      return { general: 0, exploration: 0, planning: 0, execution: 0 };
+    }
+    const stats: Record<SpecCategory, number> = { general: 0, exploration: 0, planning: 0, execution: 0 };
+    for (const file of previewData.files) {
+      const cat = (file.category as SpecCategory) || 'general';
+      if (stats[cat] !== undefined) {
+        stats[cat]++;
+      }
+    }
+    return stats;
   }, [previewData]);
 
   // Calculate progress and status
@@ -641,7 +676,37 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
             )}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Category Filter */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {formatMessage({ id: 'specs.filterByCategory', defaultMessage: 'Category:' })}
+            </span>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant={categoryFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setCategoryFilter('all')}
+              >
+                {formatMessage({ id: 'specs.category.all', defaultMessage: 'All' })}
+              </Button>
+              {SPEC_CATEGORIES.map(cat => (
+                <Button
+                  key={cat}
+                  variant={categoryFilter === cat ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setCategoryFilter(cat)}
+                  className="gap-1"
+                >
+                  <Layers className="h-3 w-3" />
+                  {formatMessage({ id: `specs.category.${cat}`, defaultMessage: cat })} ({categoryStats[cat]})
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Files List */}
           {previewLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -669,45 +734,53 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
                         </Badge>
                       </div>
                       <span className="text-sm text-muted-foreground">
-                        {formatNumber(files.reduce((sum, f) => sum + f.contentLength, 0))} {formatMessage({ id: 'specs.injection.characters', defaultMessage: 'chars' })}
+                        {formatNumber(files.reduce((sum, f) => sum + f.contentLength, 0))} {formatMessage({ id: 'specs.injection.characters', defaultMessage: 'characters' })}
                       </span>
                     </button>
                     {expandedDimensions[dim] && (
                       <div className="border-t">
-                        {files.map((file) => (
-                          <div
-                            key={file.file}
-                            className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/30"
-                          >
-                            <div className="flex items-center gap-3 min-w-0">
-                              {file.scope === 'global' ? (
-                                <Globe className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                              ) : (
-                                <Folder className="h-4 w-4 text-green-500 flex-shrink-0" />
-                              )}
-                              <div className="min-w-0">
-                                <div className="font-medium truncate">{file.title}</div>
-                                <div className="text-xs text-muted-foreground truncate">{file.file}</div>
+                        {files.map((file) => {
+                          const fileCategory = (file.category as SpecCategory) || 'general';
+                          const categoryStyle = CATEGORY_CONFIG[fileCategory] || CATEGORY_CONFIG.general;
+                          return (
+                            <div
+                              key={file.file}
+                              className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/30"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                {file.scope === 'global' ? (
+                                  <Globe className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                                ) : (
+                                  <Folder className="h-4 w-4 text-green-500 flex-shrink-0" />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="font-medium truncate">{file.title}</div>
+                                  <div className="text-xs text-muted-foreground truncate">{file.file}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className={cn('text-xs gap-1', categoryStyle.bgColor, categoryStyle.color)}>
+                                  <Layers className="h-3 w-3" />
+                                  {formatMessage({ id: `specs.category.${fileCategory}`, defaultMessage: fileCategory })}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {formatMessage({ id: `specs.priority.${file.priority}`, defaultMessage: file.priority })}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                  {formatNumber(file.contentLength)}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => loadFilePreview(file)}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {formatMessage({ id: `specs.priority.${file.priority}`, defaultMessage: file.priority })}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                {formatNumber(file.contentLength)}
-                              </span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => loadFilePreview(file)}
-                              >
-                                <Eye className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

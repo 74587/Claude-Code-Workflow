@@ -260,10 +260,12 @@ export function SpecsSettingsPage() {
           </div>
         </div>
 
-        {/* Stats Summary */}
+        {/* Stats Summary - Only show specs and personal dimensions */}
         {statsData?.dimensions && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(statsData.dimensions).map(([dim, data]) => (
+          <div className="grid grid-cols-2 gap-4">
+            {Object.entries(statsData.dimensions)
+              .filter(([dim]) => dim === 'specs' || dim === 'personal')
+              .map(([dim, data]) => (
               <Card key={dim}>
                 <CardContent className="pt-4">
                   <div className="text-sm text-muted-foreground">

@@ -324,9 +324,16 @@ export function CcwToolsMcpCard({
 
           {/* Tool Checkboxes */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase">
-              {formatMessage({ id: 'mcp.ccw.tools.label' })}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground uppercase">
+                {formatMessage({ id: 'mcp.ccw.tools.label' })}
+              </p>
+              {!isInstalled && (
+                <p className="text-xs text-amber-600 dark:text-amber-500">
+                  {formatMessage({ id: 'mcp.ccw.tools.hint' })}
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-2">
               {CCW_MCP_TOOLS.map((tool) => {
                 const isEnabled = enabledTools.includes(tool.name);

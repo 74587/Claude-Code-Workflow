@@ -112,6 +112,7 @@
     },
     "tools": {
       "label": "Available Tools",
+      "hint": "Install CCW MCP first to select tools",
       "core": "Core",
       "write_file": {
         "name": "write_file",

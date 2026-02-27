@@ -504,7 +504,7 @@ function parseCLIOutput(cliOutput) {
 
 ```javascript
 // NOTE: relevant_files items are structured objects:
-//   {path, relevance, rationale, role, discovery_source?, key_symbols?}
+//   {path, relevance, rationale, role, discovery_source?, key_symbols?, key_code?, topic_relation?}
 function buildEnrichedContext(explorationsContext, explorationAngles) {
   const enriched = { relevant_files: [], patterns: [], dependencies: [], integration_points: [], constraints: [] }
 
@@ -566,6 +566,7 @@ function inferAction(title) {
 }
 
 // NOTE: relevant_files items are structured objects with .path property
+//   New fields: key_code? (array of {symbol, location?, description}), topic_relation? (string)
 function inferFile(task, ctx) {
   const files = ctx?.relevant_files || []
   const getPath = f => typeof f === 'string' ? f : f.path

@@ -73,11 +73,14 @@ function PriorityBadge({ priority }: { priority: Issue['priority'] }) {
 
 function StatusDot({ status }: { status: Issue['status'] }) {
   const colorMap: Record<Issue['status'], string> = {
-    open: 'text-info',
-    in_progress: 'text-warning',
-    resolved: 'text-success',
-    closed: 'text-muted-foreground',
+    registered: 'text-info',
+    planning: 'text-blue-500',
+    planned: 'text-blue-600',
+    queued: 'text-yellow-500',
+    executing: 'text-warning',
     completed: 'text-success',
+    failed: 'text-destructive',
+    paused: 'text-muted-foreground',
   };
   return <CircleDot className={cn('w-3 h-3 shrink-0', colorMap[status] ?? 'text-muted-foreground')} />;
 }

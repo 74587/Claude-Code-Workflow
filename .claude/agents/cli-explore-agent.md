@@ -123,7 +123,10 @@ RULES: {from prompt, if template specified} | analysis=READ-ONLY
 2. Gemini results: Semantic understanding, design intent → `discovery_source: "cli-analysis"`
 3. ACE search: Semantic code search → `discovery_source: "ace-search"`
 4. Dependency tracing: Import/export graph → `discovery_source: "dependency-trace"`
-5. Merge with source attribution and generate rationale for each file
+5. Merge with source attribution and generate for each file:
+   - `rationale`: WHY the file was selected (selection basis)
+   - `topic_relation`: HOW the file connects to the exploration angle/topic
+   - `key_code`: Detailed descriptions of key symbols with locations (for relevance >= 0.7)
 
 ---
 
@@ -155,6 +158,12 @@ Every file entry MUST have:
   - BAD: "Related to auth" or "Relevant file"
 - `role` (required, enum): Structural classification of why it was selected
 - `discovery_source` (optional but recommended): How the file was found
+- `key_code` (strongly recommended for relevance >= 0.7): Array of {symbol, location?, description}
+  - GOOD: [{"symbol": "AuthService.login()", "location": "L45-L78", "description": "JWT token generation with bcrypt verification, returns token pair"}]
+  - BAD: [{"symbol": "login", "description": "login function"}]
+- `topic_relation` (strongly recommended for relevance >= 0.7): Connection from exploration angle perspective
+  - GOOD: "Security exploration targets this file because JWT generation lacks token rotation"
+  - BAD: "Related to security"
 
 **Step 4: Pre-Output Validation Checklist**
 
@@ -168,6 +177,8 @@ Before writing ANY JSON output, verify:
 - [ ] Data types correct (string, integer, array, object)
 - [ ] Every file in relevant_files has: path + relevance + rationale + role
 - [ ] Every rationale is specific (>10 chars, not generic)
+- [ ] Files with relevance >= 0.7 have key_code with symbol + description (minLength 10)
+- [ ] Files with relevance >= 0.7 have topic_relation explaining connection to angle (minLength 15)
 
 ---
 
@@ -216,6 +227,8 @@ Brief summary:
 9. **Every file MUST have rationale**: Specific selection basis tied to the topic (not generic)
 10. **Every file MUST have role**: Classify as modify_target/dependency/pattern_reference/test_target/type_definition/integration_point/config/context_only
 11. **Track discovery source**: Record how each file was found (bash-scan/cli-analysis/ace-search/dependency-trace/manual)
+12. **Populate key_code for high-relevance files**: relevance >= 0.7 → key_code array with symbol, location, description
+13. **Populate topic_relation for high-relevance files**: relevance >= 0.7 → topic_relation explaining file-to-angle connection
 
 **Bash Tool**:
 - Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
