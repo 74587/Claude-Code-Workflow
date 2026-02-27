@@ -40,6 +40,16 @@ CCW 提供两类工作流体系：**主干工作流** (Main Workflow) 和 **Issu
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+## v7.0 新增功能
+
+**主要新特性**：
+- **团队架构 v2**: `team-coordinate-v2` 和 `team-executor-v2` 统一 team-worker 代理
+- **队列调度器**: 具有依赖解析的后台任务执行
+- **工作流会话命令**: `start`、`resume`、`complete`、`sync` 完整生命周期管理
+- **新仪表板视图**: 分析查看器、终端仪表板、编排器模板编辑器
+
+详情请参阅下面的[会话管理](#workflow-会话管理-v70)和[团队架构 v2](#团队架构-v2-v70)章节。
+
 ---
 
 ## 主干工作流与 Issue 工作流的关系
@@ -92,6 +102,105 @@ Issue 工作流作为**补充机制**，场景不同：
 开发完成 → 发布 → 发现 Issue → Worktree 隔离修复 → 合并回主干
     ↑                                              │
     └──────────── 继续新功能开发 ←─────────────────┘
+```
+
+---
+
+## Workflow 会话管理 (v7.0)
+
+CCW v7.0 引入完整的会话生命周期命令，用于管理工作流会话从创建到完成的全过程。
+
+### 会话命令概览
+
+| 命令 | 用途 | 使用时机 |
+|------|------|----------|
+| `/workflow:session:start` | 启动新会话或发现现有会话 | 开始任何工作流 |
+| `/workflow:session:resume` | 恢复暂停的会话 | 返回中断的工作 |
+| `/workflow:session:complete` | 归档会话并提取经验 | 所有任务完成后 |
+| `/workflow:session:sync` | 同步会话工作到规范 | 更新项目文档 |
+
+### 启动会话
+
+```bash
+# 发现模式 - 列出活动会话并让用户选择
+/workflow:session:start
+
+# 自动模式 - 基于关键词智能创建或重用
+/workflow:session:start --auto "实现 OAuth2 认证"
+
+# 强制新模式 - 始终创建新会话
+/workflow:session:start --new "用户认证功能"
+
+# 指定会话类型
+/workflow:session:start --type tdd --auto "测试驱动的用户登录"
+```
+
+**会话类型**：
+- `workflow`: 标准实现（默认）
+- `review`: 代码审查会话
+- `tdd`: 测试驱动开发
+- `test`: 测试生成/修复会话
+- `docs`: 文档会话
+
+### 恢复会话
+
+```bash
+# 恢复最近暂停的会话
+/workflow:session:resume
+
+# 通过 execute 恢复特定会话
+/workflow:execute --resume-session="WFS-user-auth-v2"
+```
+
+### 完成会话
+
+```bash
+# 带审查的交互式完成
+/workflow:session:complete
+
+# 自动完成并同步
+/workflow:session:complete --yes
+
+# 带指标的详细完成
+/workflow:session:complete --detailed
+```
+
+**完成操作**：
+- 将会话归档到 `.workflow/archives/`
+- 生成带指标的 `manifest.json`
+- 提取经验教训（成功、挑战、模式）
+- 自动同步项目状态（使用 `--yes`）
+
+### 同步会话工作
+
+```bash
+# 带确认的同步
+/workflow:session:sync "添加了用户认证 JWT"
+
+# 无确认的自动同步
+/workflow:session:sync -y "实现了 OAuth2 流程"
+```
+
+**同步更新**：
+- `specs/*.md` - 会话上下文的项目规范
+- `project-tech.json` - 技术栈和架构
+
+### 会话目录结构
+
+```
+.workflow/
+├── active/                          # 活动会话
+│   └── WFS-{session-name}/
+│       ├── workflow-session.json    # 会话元数据
+│       ├── IMPL_PLAN.md             # 实现计划
+│       ├── TODO_LIST.md             # 任务清单
+│       ├── .task/                   # 任务 JSON 文件
+│       └── .process/                # 过程工件
+├── archives/                        # 已完成的会话
+│   └── WFS-{session-name}/
+│       ├── manifest.json            # 完成指标
+│       └── ...
+└── project-tech.json                # 项目技术注册表
 ```
 
 ---
@@ -1073,6 +1182,177 @@ Phase 3: 执行
 - 分析任务 → 自动选择合适的 Level
 - 组装命令链 → 包含 Level 1-4 的命令
 - 序列执行 → 按最小单元执行
+
+---
+
+## 团队架构 v2 (v7.0)
+
+**适用于需要多角色专业知识和编排的复杂多角色项目。**
+
+### 概述
+
+团队架构 v2 (`team-coordinate-v2`、`team-executor-v2`) 为复杂软件开发工作流提供统一的 team-worker 代理架构。
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         Team Coordinate / Team Executor v2                      │
+│                                                                                  │
+│  ┌─────────────┐        ┌─────────────────────────────────────────────────┐    │
+│  │ Coordinator │ ──→   │  动态角色规范生成                                  │    │
+│  │ / Executor  │        │  (analyst, planner, executor, tester, reviewer)  │    │
+│  └─────────────┘        └─────────────────────────────────────────────────┘    │
+│          │                            │                                        │    │
+│          ▼                            ▼                                        │    │
+│  ┌─────────────┐        ┌─────────────────────────────────────────────────┐    │
+│  │   任务      │        │            team-worker 代理                        │    │
+│  │  分发       │        │  (阶段1: 任务发现 - 内置)                        │    │
+│  └─────────────┘        │  (阶段2-4: 角色特定 - 从规范文件)                  │    │
+│                         │  (阶段5: 报告 + 快速推进 - 内置)                    │    │
+│                         └─────────────────────────────────────────────────┘    │
+│                                      │                                        │    │
+│                                      ▼                                        │    │
+│                         ┌─────────────────────────────────────────────────┐    │
+│                         │  子代理 (Discuss, Explore, Doc-Generation)       │    │
+│                         └─────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 核心概念
+
+#### team-worker 代理
+
+统一的工作代理，负责：
+- **阶段1（内置）**: 任务发现 - 按前缀和状态过滤任务
+- **阶段2-4（角色特定）**: 从角色规范 markdown 文件加载领域逻辑
+- **阶段5（内置）**: 报告 + 快速推进 - 处理完成和后继生成
+
+#### 角色规范文件
+
+仅包含阶段2-4逻辑的轻量级 markdown 文件：
+
+```yaml
+---
+role: analyst
+prefix: RESEARCH
+inner_loop: false
+subagents: [explore, discuss]
+message_types:
+  success: research_ready
+  error: error
+---
+```
+
+#### 内循环框架
+
+当 `inner_loop: true` 时，单个代理顺序处理所有相同前缀任务：
+
+```
+context_accumulator = []
+
+阶段1: 查找第一个 RESEARCH-* 任务
+  阶段2-4: 执行角色规范
+  阶段5-L: 标记完成，记录，累积
+    更多 RESEARCH-* 任务？→ 阶段1（循环）
+    没有了？→ 阶段5-F（最终报告）
+```
+
+### 命令
+
+#### Team Coordinate
+
+从头生成角色规范并编排团队：
+
+```bash
+/team-coordinate "设计和实现实时协作系统"
+```
+
+**流程**：
+1. 分析需求并检测能力
+2. 动态生成角色规范
+3. 创建带依赖链的任务
+4. 生成 team-worker 代理
+5. 通过回调监控进度
+6. 完成并生成综合报告
+
+#### Team Executor
+
+执行预规划的团队会话：
+
+```bash
+# 初始执行
+/team-executor <session-folder>
+
+# 恢复暂停的会话
+/team-executor <session-folder> resume
+
+# 检查状态但不推进
+/team-executor <session-folder> status
+```
+
+### 可用角色
+
+| 角色 | 前缀 | 职责 | 内循环 |
+|------|------|------|--------|
+| analyst | RESEARCH | 代码库探索、多视角分析 | 否 |
+| planner | PLAN | 任务分解和依赖规划 | 是 |
+| executor | IMPL | 实现和编码 | 是 |
+| tester | TEST | 测试和质量保证 | 是 |
+| reviewer | REVIEW | 代码审查和质量门 | 是 |
+| architect | DESIGN | 架构和设计决策 | 否 |
+| fe-developer | FE-IMPL | 前端实现 | 是 |
+| fe-qa | FE-TEST | 前端测试 | 是 |
+
+### 子代理
+
+| 子代理 | 用途 |
+|--------|------|
+| discuss | 多视角批判，动态视角 |
+| explore | 代码库探索，带缓存 |
+| doc-generation | 从模板生成文档 |
+
+### 消息总线协议
+
+通过 `team_msg` 操作进行团队通信：
+
+```javascript
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "<session_id>",      // 会话 ID，不是团队名称
+  from: "<role>",
+  to: "coordinator",
+  type: "<message_type>",
+  summary: "[<role>] <message>",
+  ref: "<artifact_path>"
+})
+```
+
+### 会话结构
+
+```
+.workflow/.team/<session-id>/
+├── team-session.json           # 会话元数据
+├── task-analysis.json          # 任务依赖
+├── role-specs/                 # 生成的角色规范文件
+│   ├── analyst.md
+│   ├── planner.md
+│   └── executor.md
+├── artifacts/                  # 任务输出
+├── discussions/                # 多视角批判
+└── wisdom/                     # 累积的经验
+    ├── learnings.md
+    ├── decisions.md
+    ├── conventions.md
+    └── issues.md
+```
+
+### 使用场景
+
+- ✅ 需要多专业知识的复杂多系统项目
+- ✅ 需要在实现前进行架构探索的项目
+- ✅ 质量关键项目，需要全面测试和审查
+- ✅ 前端 + 后端协调
+- ❌ 简单单模块功能（改用 `/workflow:plan`）
+- ❌ 快速修复（改用 `/workflow:lite-fix`）
 
 ---
 

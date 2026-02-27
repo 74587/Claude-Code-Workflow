@@ -8,15 +8,6 @@ allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), Task
 
 Unified team skill: specification -> implementation -> testing -> review. Built on **team-worker agent architecture** — all worker roles share a single agent definition with role-specific Phase 2-4 loaded from markdown specs.
 
-## Key Changes from v4
-
-| Change | Before (v4) | After (v5) | Impact |
-|--------|------------|------------|--------|
-| Worker agent | general-purpose + Skill load | team-worker agent (dedicated) | Eliminates Skill indirection |
-| Role definitions | roles/xxx/role.md (~250 lines, 60% shared) | role-specs/xxx.md (~80 lines, Phase 2-4 only) | -64% worker content |
-| Shared behavior | Duplicated in each role.md | Built into team-worker agent | Single source of truth |
-| Coordinator spawn | Skill(team-lifecycle-v4, --role=xxx) | Task(team-worker, role_spec=xxx.md) | Direct, no Skill call |
-
 ## Architecture
 
 ```

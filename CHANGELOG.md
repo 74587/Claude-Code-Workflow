@@ -5,6 +5,127 @@ All notable changes to Claude Code Workflow (CCW) will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.0.0] - 2026-02-27
+
+### ✨ New Features | 新功能
+
+#### Major Architecture Updates | 架构重大更新
+- **Added**: team-coordinate-v2 / team-executor-v2 with team-worker agent architecture | 添加 team-coordinate-v2 / team-executor-v2，引入 team-worker 代理架构
+- **Added**: team-lifecycle-v5 with unified team-worker agent and role-spec files | 添加 team-lifecycle-v5，统一 team-worker 代理和角色规范文件
+- **Added**: Phase-based execution model (Phase 1-5 built-in, Phase 2-4 role-specific) | 添加基于阶段的执行模型（阶段1-5内置，阶段2-4角色特定）
+- **Added**: Inner loop framework for processing multiple same-prefix tasks | 添加内循环框架，用于处理多个相同前缀任务
+- **Added**: Discuss and Explore subagents for multi-perspective critique and code exploration | 添加 Discuss 和 Explore 子代理，用于多视角批判和代码探索
+- **Added**: Wisdom accumulation system (learnings.md, decisions.md, conventions.md, issues.md) | 添加智慧积累系统
+- **Added**: Message bus protocol with team coordination | 添加消息总线协议和团队协调
+
+#### Queue Scheduler Service | 队列调度服务
+- **Added**: Background queue execution service with API endpoints | 添加后台队列执行服务和 API 端点
+- **Added**: QueueItemExecutor for unified execution handling | 添加 QueueItemExecutor 统一执行处理
+- **Added**: CLI execution settings integration | 添加 CLI 执行设置集成
+
+#### Workflow Session Commands | 工作流会话命令
+- **Added**: `workflow:session:start` command for starting new workflow sessions | 添加启动新工作流会话的命令
+- **Added**: `workflow:session:resume` command for resuming paused sessions | 添加恢复暂停会话的命令
+- **Added**: `workflow:session:complete` command for marking sessions complete | 添加标记会话完成的命令
+- **Added**: `workflow:session:sync` command with auto-sync integration | 添加会话同步命令及自动同步集成
+
+#### Spec Management | 规范管理
+- **Added**: Category and scope filtering for enhanced organization | 添加分类和范围过滤以增强组织
+- **Added**: SpecContentDialog component for viewing and editing spec content | 添加规范内容对话框组件
+- **Added**: SpecDialog component for editing spec frontmatter | 添加规范前言编辑对话框组件
+- **Enhanced**: Spec management with hooks integration and settings configuration | 增强规范管理，集成钩子和设置配置
+
+#### Analysis Viewer Page | 分析查看器页面
+- **Added**: Analysis viewer page with grid layout for analysis sessions | 添加分析查看器页面，采用网格布局
+- **Added**: Filtering capabilities and fullscreen mode | 添加过滤功能和全屏模式
+- **Added**: Pagination support and concurrent processing | 添加分页支持和并发处理
+
+#### Terminal Dashboard | 终端仪表板
+- **Added**: Terminal Dashboard with multi-terminal grid layout | 添加多终端网格布局的终端仪表板
+- **Added**: Execution monitor panel with agent list | 添加带代理列表的执行监控面板
+- **Added**: Pane/session management with improved UX | 添加窗格/会话管理，改进用户体验
+- **Simplified**: CLI launch to dialog-only mode | 简化 CLI 启动为仅对话框模式
+
+#### Orchestrator Template Editor | 编排器模板编辑器
+- **Redesigned**: Orchestrator page as template editor with terminal execution | 重新设计编排器页面为模板编辑器，支持终端执行
+- **Added**: Slash command functionality | 添加斜杠命令功能
+- **Added**: Wave-based execution with PlanEx roles | 添加基于波浪的执行和 PlanEx 角色
+- **Added**: Observability panel and LSP document caching | 添加可观测性面板和 LSP 文档缓存
+
+#### Skill Hub | 技能中心
+- **Added**: Skill Hub for managing community skills | 添加管理社区技能的技能中心
+- **Added**: Skill CRUD operations with remote skill index | 添加技能 CRUD 操作和远程技能索引
+- **Added**: Standalone repository for community skills | 添加社区技能的独立仓库
+
+#### CLI Multi-Provider Support | CLI 多提供商支持
+- **Added**: Multi-provider configuration for Claude, Codex, and Gemini | 添加 Claude、Codex 和 Gemini 的多提供商配置
+- **Added**: CLI config preview API for Codex and Gemini | 添加 Codex 和 Gemini 的 CLI 配置预览 API
+- **Added**: Effort level configuration for Claude CLI | 添加 Claude CLI 的努力级别配置
+
+#### A2UI (Agent-to-User Interface) | 代理到用户界面
+- **Enhanced**: A2UI with multi-select questions and RadioGroup component | 增强 A2UI，支持多选问题和单选组组件
+- **Added**: Markdown support and Sheet/drawer components | 添加 Markdown 支持和工作表/抽屉组件
+- **Added**: WebSocket integration for real-time communication | 添加 WebSocket 集成用于实时通信
+
+#### Documentation Templates | 文档模板
+- **Added**: Templates for architecture documents, epics, product briefs, and requirements PRD | 添加架构文档、史诗、产品简介和需求 PRD 模板
+- **Added**: Roadmap generation with CLI roadmap planning agent | 添加使用 CLI 路线图规划代理生成路线图
+
+### 💥 Breaking Changes | 破坏性变更
+
+#### Removed Features | 移除的功能
+- **Removed**: Vanilla JS/CSS frontend - React SPA is now the sole entry point | 移除原生 JS/CSS 前端，React SPA 现为唯一入口点
+- **Removed**: Issue management skills (`issue-discover`, `issue-new`, `issue-plan`, `issue-queue`) - replaced by unified `issue-devpipeline` | 移除 issue 管理技能，由统一的 `issue-devpipeline` 替代
+- **Removed**: VSCode Bridge (`ccw-vscode-bridge`) | 移除 VSCode 桥接器
+- **Removed**: Executions tab from Issue Hub | 移除 Issue Hub 中的执行标签页
+- **Removed**: Sessions Panel from Terminal Dashboard | 移除终端仪表板中的会话面板
+- **Removed**: Obsolete commands (TDD coverage, test concept enhancement, context gathering, task generation) | 移除过时命令
+- **Removed**: Obsolete spec dimensions from schema | 移除架构模式中的过时维度
+- **Removed**: skills_lib from remote tracking | 从远程跟踪中移除 skills_lib
+
+#### Behavior Changes | 行为变更
+- **Changed**: Team message protocol from `team-name` to `session-id` in team_msg calls | 更改 team_msg 调用从 `team-name` 到 `session-id`
+- **Changed**: Codex skill execution to serial execution, removed agent/CLI delegation | 更改 Codex 技能执行为串行执行，移除代理/CLI 委托
+- **Changed**: Session artifacts - removed redundant `issues.jsonl` and `execution-plan.json` | 更改会话构件，移除冗余文件
+- **Changed**: Workflow execute - merged 10 team commands into unified `team-lifecycle` skill | 更改工作流执行，合并 10 个团队命令到统一的 `team-lifecycle` 技能
+
+### 🛠️ Improvements | 改进
+
+#### Performance | 性能
+- **Improved**: LSP document caching for faster symbol lookup | 改进 LSP 文档缓存，加快符号查找
+- **Improved**: Concurrent analysis processing with parallel session handling | 改进并发分析处理，支持并行会话处理
+- **Improved**: Queue execution service with background task processing | 改进队列执行服务，支持后台任务处理
+- **Improved**: AST-based indexing for static code analysis | 改进基于 AST 的索引，用于静态代码分析
+
+#### CodexLens Enhancements | CodexLens 增强
+- **Enhanced**: CodexLens frontend integration with reranker configuration UI | 增强 CodexLens 前端集成和重排序器配置 UI
+- **Added**: CCW-LiteLLM installation progress overlay | 添加 CCW-LiteLLM 安装进度叠加层
+- **Added**: Staged settings for advanced configuration | 添加高级配置的分阶段设置
+
+### 🔒 Security | 安全
+
+#### Critical Fixes | 关键修复
+- **Fixed**: Path traversal attack prevention in session handling | 修复会话处理中的路径遍历攻击防护
+- **Fixed**: CSRF protection across all API calls with csrfFetch | 修复所有 API 调用的 CSRF 保护
+- **Added**: CSRF token fallback mechanism with regression tests | 添加 CSRF 令牌回退机制及回归测试
+
+### 📚 Documentation | 文档
+
+- **Added**: New architecture documentation for team-lifecycle-v5 | 添加 team-lifecycle-v5 的新架构文档
+- **Added**: Updated command references for workflow session commands | 更新工作流会话命令的命令参考
+- **Added**: Enhanced workflow guides with migration instructions | 添加带迁移说明的增强工作流指南
+- **Added**: New skill templates and examples | 添加新技能模板和示例
+- **Added**: Chinese localization for all new features | 为所有新功能添加中文本地化
+
+### 🧪 Testing | 测试
+
+- **Added**: Integration tests for command creation | 添加命令创建的集成测试
+- **Added**: E2E tests for Graph Explorer, History, and Orchestrator | 添加 Graph Explorer、History 和 Orchestrator 的端到端测试
+- **Added**: Regression tests for CSRF handling | 添加 CSRF 处理的回归测试
+- **Enhanced**: Test coverage across all modules | 增强所有模块的测试覆盖率
+
+---
+
 ## [6.3.49] - 2026-01-28
 
 ### ✨ New Features | 新功能

@@ -2,7 +2,7 @@
 
 This document provides a comprehensive reference for all commands available in the Claude Code Workflow (CCW) system.
 
-> **Version 6.2.0 Update**: Native CodexLens code intelligence (FTS + Semantic + HNSW), new Dashboard views (CLAUDE.md Manager, Skills Manager, Graph Explorer, Core Memory), CLI refactored to `ccw cli -p`, session clustering for intelligent memory, TypeScript backend migration.
+> **Version 7.0.0 Update**: team-coordinate-v2/team-executor-v2/team-lifecycle-v5 architecture with unified team-worker agent, workflow session commands (start/resume/complete/sync), queue scheduler service, spec management enhancements, CLI multi-provider support, analysis viewer page, security enhancements, skill hub, terminal dashboard, orchestrator template editor, A2UI multi-select questions.
 
 ## CLI Commands (`/cli:*`)
 
@@ -24,6 +24,8 @@ These commands orchestrate complex, multi-phase development processes, from plan
 | `/workflow:session:list` | List all workflow sessions with status. |
 | `/workflow:session:resume` | Resume the most recently paused workflow session. |
 | `/workflow:session:complete` | Mark the active workflow session as complete and remove active flag. |
+| `/workflow:session:sync` | ⚡ **NEW** Sync workflow session state to disk during execution. |
+| `/workflow:session:solidify` | ⚡ **NEW** Solidify workflow session artifacts and prepare for archiving. |
 
 ### Core Workflow
 
@@ -127,6 +129,36 @@ Commands for managing individual tasks within a workflow session.
 | `/task:execute` | Execute tasks with appropriate agents and context-aware orchestration. |
 | `/task:replan` | ⚠️ **DEPRECATED** Use `/workflow:replan` instead. Legacy command for task replanning (maintained for backward compatibility). |
 
+## Issue Commands (`/issue:*`)
+
+Commands for issue discovery, planning, and execution management.
+
+### Issue Discovery & Creation
+
+| Command | Description |
+|---|---|
+| `/issue:discover` | ⚡ **NEW** Discover issues from codebase analysis and error patterns. |
+| `/issue:discover-by-prompt` | ⚡ **NEW** Discover issues based on natural language prompt description. |
+| `/issue:new` | ⚡ **NEW** Create structured issue with title, context, priority, and labels. |
+
+### Issue Planning & Queue
+
+| Command | Description |
+|---|---|
+| `/issue:plan` | ⚡ **NEW** Generate solution plan for specified issue with task breakdown. |
+| `/issue:queue` | ⚡ **NEW** Form execution queue from planned issues and tasks. |
+| `/issue:execute` | ⚡ **NEW** Execute tasks from issue queue with orchestration. |
+| `/issue:convert-to-plan` | ⚡ **NEW** Convert issue to executable implementation plan. |
+| `/issue:from-brainstorm` | ⚡ **NEW** Create issue from brainstorming session artifacts. |
+
+### Issue Management
+
+| Command | Description |
+|---|---|
+| `/issue:manage` | ⚡ **NEW** Interactive issue management with menu-driven CRUD operations. |
+
+> **Note**: Issue commands use the `ccw issue` CLI endpoints for data storage and retrieval.
+
 ## Memory and Versioning Commands
 
 | Command | Description |
@@ -144,4 +176,58 @@ Commands for managing individual tasks within a workflow session.
 | `/memory:workflow-skill-memory` | Process archived sessions to generate workflow-progress SKILL package. |
 | `/version` | Display version information and check for updates. |
 | `/enhance-prompt` | Context-aware prompt enhancement using session memory and codebase analysis. |
+
+## Team Skills
+
+Unified team coordination and execution skills with role-spec based architecture.
+
+### Core Team Skills (v5/v2)
+
+| Skill | Description |
+|-------|-------------|
+| `team-lifecycle-v5` | ⚡ **NEW** Unified team skill for full lifecycle (spec/impl/test/review) with team-worker agent architecture. Roles: analyst, writer, planner, executor, tester, reviewer, architect, fe-developer, fe-qa. |
+| `team-coordinate-v2` | ⚡ **NEW** Universal team coordination with dynamic role generation. Generates role-specs at runtime and spawns team-worker agents. |
+| `team-executor-v2` | ⚡ **NEW** Lightweight session execution - resumes existing team-coordinate-v2 sessions for pure execution. |
+
+### V4/V3 Team Skills (Maintained)
+
+| Skill | Description |
+|-------|-------------|
+| `team-lifecycle-v4` | Previous version lifecycle skill. Maintained for backward compatibility. |
+| `team-lifecycle-v3` | Earlier version lifecycle skill. Maintained for backward compatibility. |
+| `team-coordinate` | Original team coordinator. Use `team-coordinate-v2` for new projects. |
+| `team-executor` | Original team executor. Use `team-executor-v2` for new projects. |
+
+### Specialized Team Skills
+
+| Skill | Description |
+|-------|-------------|
+| `team-brainstorm` | Multi-role brainstorming with role-specific analysis generation. |
+| `team-issue` | Issue-driven development pipeline with discover, plan, and execute phases. |
+| `team-iterdev` | Iterative development workflow with planning, implementation, and testing cycles. |
+| `team-planex` | Planning and execution workflow with wave-based task management. |
+| `team-frontend` | Frontend-specific development workflow with UI design and QA cycles. |
+| `team-quality-assurance` | Quality assurance and testing workflow. |
+| `team-roadmap-dev` | Roadmap development and management workflow. |
+| `team-tech-debt` | Technical debt identification and remediation workflow. |
+| `team-testing` | Comprehensive testing workflow. |
+| `team-uidesign` | UI/UX design workflow with style extraction and prototyping. |
+| `team-ultra-analyze` | Deep codebase analysis with multi-angle exploration. |
+| `team-review` | Multi-dimensional code review workflow. |
+
+### Deprecated Team Skills
+
+| Skill | Status | Replacement |
+|-------|--------|-------------|
+| Various team commands (team-planex, team-iterdev, etc.) | ⚠️ **DEPRECATED** | Use `team-lifecycle-v5` for unified lifecycle management. |
+
+## Internal Tools (Deprecated)
+
+| Command | Description |
+|---|---|
+| `/workflow:tools:tdd-coverage-analysis` | ⚠️ **DEPRECATED** Use integrated test coverage analysis. |
+| `/workflow:tools:test-concept-enhanced` | ⚠️ **DEPRECATED** Use `/workflow:test-gen` instead. |
+| `/workflow:tools:context-gather` | ⚠️ **DEPRECATED** Context gathering is now integrated into main workflows. |
+| `/workflow:tools:task-generate` | ⚠️ **DEPRECATED** Use `/workflow:lite-plan` or team-lifecycle task generation. |
+| `/workflow:tools:task-generate-agent` | ⚠️ **DEPRECATED** Use unified task generation in workflows. |
 

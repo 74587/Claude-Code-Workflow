@@ -42,6 +42,16 @@ CCW provides two workflow systems: **Main Workflow** and **Issue Workflow**, wor
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+## What's New in v7.0
+
+**Major New Features**:
+- **Team Architecture v2**: `team-coordinate-v2` and `team-executor-v2` with unified team-worker agent
+- **Queue Scheduler**: Background task execution with dependency resolution
+- **Workflow Session Commands**: `start`, `resume`, `complete`, `sync` for full lifecycle management
+- **New Dashboard Views**: Analysis Viewer, Terminal Dashboard, Orchestrator Template Editor
+
+See [Session Management](#workflow-session-management-v70) and [Team Architecture v2](#team-architecture-v2-v70) sections below for details.
+
 ---
 
 ## Main Workflow vs Issue Workflow
@@ -94,6 +104,105 @@ Issue Workflow serves as a **supplementary mechanism** with different scenarios:
 Development → Release → Discover Issue → Worktree Fix → Merge back
     ↑                                                      │
     └────────────── Continue new feature ←─────────────────┘
+```
+
+---
+
+## Workflow Session Management (v7.0)
+
+CCW v7.0 introduces comprehensive session lifecycle commands for managing workflow sessions from creation to completion.
+
+### Session Commands Overview
+
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `/workflow:session:start` | Start new session or discover existing | Beginning any workflow |
+| `/workflow:session:resume` | Resume a paused session | Returning to interrupted work |
+| `/workflow:session:complete` | Archive session and extract learnings | After all tasks complete |
+| `/workflow:session:sync` | Sync session work to specs | Update project documentation |
+
+### Starting a Session
+
+```bash
+# Discovery mode - list active sessions and let user choose
+/workflow:session:start
+
+# Auto mode - intelligently create or reuse based on keywords
+/workflow:session:start --auto "Implement OAuth2 authentication"
+
+# Force new mode - always create a fresh session
+/workflow:session:start --new "User authentication feature"
+
+# Specify session type
+/workflow:session:start --type tdd --auto "Test-driven user login"
+```
+
+**Session Types**:
+- `workflow`: Standard implementation (default)
+- `review`: Code review sessions
+- `tdd`: Test-driven development
+- `test`: Test generation/fix sessions
+- `docs`: Documentation sessions
+
+### Resuming a Session
+
+```bash
+# Resume most recently paused session
+/workflow:session:resume
+
+# Resume specific session via execute
+/workflow:execute --resume-session="WFS-user-auth-v2"
+```
+
+### Completing a Session
+
+```bash
+# Interactive completion with review
+/workflow:session:complete
+
+# Auto-complete with sync
+/workflow:session:complete --yes
+
+# Detailed completion with metrics
+/workflow:session:complete --detailed
+```
+
+**Completion Actions**:
+- Archive session to `.workflow/archives/`
+- Generate `manifest.json` with metrics
+- Extract lessons learned (successes, challenges, patterns)
+- Auto-sync project state (with `--yes`)
+
+### Syncing Session Work
+
+```bash
+# Sync with confirmation
+/workflow:session:ync "Added user authentication with JWT"
+
+# Auto-sync without confirmation
+/workflow:session:sync -y "Implemented OAuth2 flow"
+```
+
+**Sync Updates**:
+- `specs/*.md` - Project specifications from session context
+- `project-tech.json` - Technology stack and architecture
+
+### Session Directory Structure
+
+```
+.workflow/
+├── active/                          # Active sessions
+│   └── WFS-{session-name}/
+│       ├── workflow-session.json    # Session metadata
+│       ├── IMPL_PLAN.md             # Implementation plan
+│       ├── TODO_LIST.md             # Task checklist
+│       ├── .task/                   # Task JSON files
+│       └── .process/                # Process artifacts
+├── archives/                        # Completed sessions
+│   └── WFS-{session-name}/
+│       ├── manifest.json            # Completion metrics
+│       └── ...
+└── project-tech.json                # Project technology registry
 ```
 
 ---
@@ -866,6 +975,177 @@ flowchart TD
 - Analyzes task → Auto-selects appropriate Level
 - Assembles command chain → Includes Level 1-4 commands
 - Executes sequentially → Follows Minimum Execution Units
+
+---
+
+## Team Architecture v2 (v7.0)
+
+**For complex multi-role projects requiring specialized expertise and orchestration.**
+
+### Overview
+
+Team Architecture v2 (`team-coordinate-v2`, `team-executor-v2`) provides a unified team-worker agent architecture for complex software development workflows.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                         Team Coordinate / Team Executor v2                      │
+│                                                                                  │
+│  ┌─────────────┐        ┌─────────────────────────────────────────────────┐    │
+│  │ Coordinator │ ──→   │  Dynamic Role-Spec Generation                    │    │
+│  │ / Executor  │        │  (analyst, planner, executor, tester, reviewer)  │    │
+│  └─────────────┘        └─────────────────────────────────────────────────┘    │
+│          │                            │                                        │    │
+│          ▼                            ▼                                        │    │
+│  ┌─────────────┐        ┌─────────────────────────────────────────────────┐    │
+│  │   Task      │        │            team-worker Agents                     │    │
+│  │ Dispatching │        │  (Phase 1: Task Discovery - built-in)            │    │
+│  │             │        │  (Phase 2-4: Role-Specific - from spec files)     │    │
+│  └─────────────┘        │  (Phase 5: Report + Fast-Advance - built-in)      │    │
+│                         └─────────────────────────────────────────────────┘    │
+│                                      │                                        │    │
+│                                      ▼                                        │    │
+│                         ┌─────────────────────────────────────────────────┐    │
+│                         │  Subagents (Discuss, Explore, Doc-Generation)    │    │
+│                         └─────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Concepts
+
+#### team-worker Agent
+
+The unified worker agent that:
+- **Phase 1 (Built-in)**: Task discovery - filters tasks by prefix and status
+- **Phase 2-4 (Role-Specific)**: Loads domain logic from role-spec markdown files
+- **Phase 5 (Built-in)**: Report + Fast-Advance - handles completion and successor spawning
+
+#### Role-Spec Files
+
+Lightweight markdown files containing only Phase 2-4 logic:
+
+```yaml
+---
+role: analyst
+prefix: RESEARCH
+inner_loop: false
+subagents: [explore, discuss]
+message_types:
+  success: research_ready
+  error: error
+---
+```
+
+#### Inner Loop Framework
+
+When `inner_loop: true`, a single agent processes all same-prefix tasks sequentially:
+
+```
+context_accumulator = []
+
+Phase 1: Find first RESEARCH-* task
+  Phase 2-4: Execute role spec
+  Phase 5-L: Mark done, log, accumulate
+    More RESEARCH-* tasks? → Phase 1 (loop)
+    No more? → Phase 5-F (final report)
+```
+
+### Commands
+
+#### Team Coordinate
+
+Generate role-specs and orchestrate a team from scratch:
+
+```bash
+/team-coordinate "Design and implement a real-time collaboration system"
+```
+
+**Process**:
+1. Analyze requirements and detect capabilities
+2. Generate role-specs dynamically
+3. Create tasks with dependency chains
+4. Spawn team-worker agents
+5. Monitor progress via callbacks
+6. Complete with comprehensive report
+
+#### Team Executor
+
+Execute a pre-planned team session:
+
+```bash
+# Initial execution
+/team-executor <session-folder>
+
+# Resume paused session
+/team-executor <session-folder> resume
+
+# Check status without advancing
+/team-executor <session-folder> status
+```
+
+### Available Roles
+
+| Role | Prefix | Responsibility | Inner Loop |
+|------|--------|----------------|------------|
+| analyst | RESEARCH | Codebase exploration, multi-perspective analysis | No |
+| planner | PLAN | Task breakdown and dependency planning | Yes |
+| executor | IMPL | Implementation and coding | Yes |
+| tester | TEST | Testing and quality assurance | Yes |
+| reviewer | REVIEW | Code review and quality gates | Yes |
+| architect | DESIGN | Architecture and design decisions | No |
+| fe-developer | FE-IMPL | Frontend implementation | Yes |
+| fe-qa | FE-TEST | Frontend testing | Yes |
+
+### Subagents
+
+| Subagent | Purpose |
+|----------|---------|
+| discuss | Multi-perspective critique with dynamic perspectives |
+| explore | Codebase exploration with caching |
+| doc-generation | Document generation from templates |
+
+### Message Bus Protocol
+
+Team communication via `team_msg` operation:
+
+```javascript
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  team: "<session_id>",      // Session ID, NOT team name
+  from: "<role>",
+  to: "coordinator",
+  type: "<message_type>",
+  summary: "[<role>] <message>",
+  ref: "<artifact_path>"
+})
+```
+
+### Session Structure
+
+```
+.workflow/.team/<session-id>/
+├── team-session.json           # Session metadata
+├── task-analysis.json          # Task dependencies
+├── role-specs/                 # Generated role-spec files
+│   ├── analyst.md
+│   ├── planner.md
+│   └── executor.md
+├── artifacts/                  # Task outputs
+├── discussions/                # Multi-perspective critiques
+└── wisdom/                     # Accumulated learnings
+    ├── learnings.md
+    ├── decisions.md
+    ├── conventions.md
+    └── issues.md
+```
+
+### Use Cases
+
+- ✅ Complex multi-system projects requiring specialized expertise
+- ✅ Projects requiring architectural exploration before implementation
+- ✅ Quality-critical projects requiring comprehensive testing and review
+- ✅ Frontend + Backend coordination
+- ❌ Simple single-module features (use `/workflow:plan` instead)
+- ❌ Quick fixes (use `/workflow:lite-fix` instead)
 
 ---
 

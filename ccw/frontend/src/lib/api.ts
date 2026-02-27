@@ -2372,15 +2372,15 @@ export async function fetchNativeSessionWithOptions(
 
 /**
  * Native session metadata for list endpoint
+ * Matches backend NativeSession interface
  */
 export interface NativeSessionListItem {
-  id: string;
-  tool: string;
-  path: string;
-  title?: string;
-  startTime: string;
-  updatedAt: string;
-  projectHash?: string;
+  sessionId: string;         // Native UUID
+  tool: string;              // gemini | qwen | codex | claude | opencode
+  filePath: string;          // Full path to session file
+  projectHash?: string;      // Project directory hash
+  createdAt: string;         // ISO date string
+  updatedAt: string;         // ISO date string
 }
 
 /**

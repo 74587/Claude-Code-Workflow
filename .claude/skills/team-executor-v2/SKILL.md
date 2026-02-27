@@ -8,15 +8,6 @@ allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), Task
 
 Lightweight session execution skill: load session -> reconcile state -> spawn team-worker agents -> execute -> deliver. **No analysis, no role generation** -- only executes existing team-coordinate sessions.
 
-## Key Changes from v1
-
-| Change | Before (v1) | After (v2) | Impact |
-|--------|------------|------------|--------|
-| Worker agent | general-purpose + Skill load | team-worker agent (dedicated) | Eliminates Skill indirection |
-| Role loading | `<session>/roles/<role>.md` (full role.md) | `<session>/role-specs/<role>.md` (Phase 2-4 only) | Lighter validation |
-| Shared behavior | Duplicated in SKILL.md | Built into team-worker agent | Single source of truth |
-| Executor spawn | Skill(team-executor, --role=xxx) | Task(team-worker, role_spec=xxx.md) | Direct, no Skill call |
-| Completion | Manual cleanup | Interactive completion action | Archive/Keep/Export prompt |
 
 ## Architecture
 

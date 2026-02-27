@@ -7,7 +7,7 @@ new line
 
 <!-- Badges -->
 <p>
-  <a href="https://github.com/catlog22/Claude-Code-Workflow/releases"><img src="https://img.shields.io/badge/version-v6.3.33-6366F1?style=flat-square" alt="Version"/></a>
+  <a href="https://github.com/catlog22/Claude-Code-Workflow/releases"><img src="https://img.shields.io/badge/version-v7.0.0-6366F1?style=flat-square" alt="Version"/></a>
   <a href="https://www.npmjs.com/package/claude-code-workflow"><img src="https://img.shields.io/npm/v/claude-code-workflow?style=flat-square&color=cb3837" alt="npm"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-10B981?style=flat-square" alt="License"/></a>
   <a href="https://github.com/catlog22/Claude-Code-Workflow/stargazers"><img src="https://img.shields.io/github/stars/catlog22/Claude-Code-Workflow?style=flat-square&color=F59E0B" alt="Stars"/></a>
@@ -50,20 +50,26 @@ From `lite-lite-lite` (instant) to `brainstorm` (multi-role analysis)
 ### 🔄 Multi-CLI Orchestration
 Gemini, Qwen, Codex, Claude - auto-select or manual
 
-### ⚡ Dependency-Aware Parallelism
-Agent parallel execution without worktree complexity
+### ⚡ Team Architecture v2
+Role-based agents with inner loop execution
+
+### 🔧 Queue Scheduler
+Background queue execution service
 
 </td>
 <td width="50%">
 
-### 🔧 Issue Workflow
-Post-development maintenance with optional worktree isolation
+### 📦 Workflow Session Commands
+start/resume/complete/sync sessions
 
-### 📦 JSON-First State
-`.task/IMPL-*.json` as single source of truth
+### 🖥️ Terminal Dashboard
+Multi-terminal grid with execution monitor
 
-### 🖥️ Dashboard
-Visual session management, CodexLens search, graph explorer
+### 🎨 Orchestrator Editor
+Template-based workflow visual editing
+
+### 💬 A2UI
+Agent-to-User interactive interface
 
 </td>
 </tr>
@@ -359,15 +365,148 @@ ccw upgrade -a        # Upgrade all installations
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                   Issue Workflow (Supplement)                   │
-│  🔍 discover → 📋 plan → 📦 queue → ▶️ execute (worktree)        │
+│                   Team Architecture v2                          │
+│  🤖 team-worker agents with role-spec based execution           │
+│  🔄 Inner loop framework for sequential task processing         │
+│  📢 Message bus protocol with team coordination                 │
+│  🧠 Wisdom accumulation (learnings/decisions/conventions)       │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                   Queue Scheduler Service                       │
+│  ⚙️ Background execution service with API endpoints             │
+│  📊 Queue management and unified CLI execution settings         │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│                   Terminal Dashboard & Orchestrator             │
+│  🖥️ Multi-terminal grid with execution monitor                  │
+│  🎨 Template-based workflow editor with slash commands          │
+│  📡 Real-time agent communication via A2UI                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 **Core Principles:**
 - ⚡ **Dependency Analysis** solves parallelism - no worktree needed for main workflow
-- 🔧 **Issue Workflow** supplements main workflow for post-development maintenance
+- 🤖 **Team Architecture v2** provides unified role-based agent execution with inner loop
+- 🔧 **Queue Scheduler** handles background task execution with unified settings
+- 🖥️ **Terminal Dashboard** provides real-time monitoring and control
 - 🎯 Select workflow level based on complexity - avoid over-engineering
+
+---
+
+## 🎼 Team Cadence Control (Beat Model)
+
+The v2 team architecture introduces an **event-driven beat model** for efficient orchestration:
+
+```
+Beat Cycle (single beat)
+======================================================================
+  Event                   Coordinator              Workers
+----------------------------------------------------------------------
+  callback/resume --> +- handleCallback -+
+                      |  mark completed   |
+                      |  check pipeline   |
+                      +- handleSpawnNext -+
+                      |  find ready tasks |
+                      |  spawn workers ---+--> [team-worker A] Phase 1-5
+                      |  (parallel OK)  --+--> [team-worker B] Phase 1-5
+                      +- STOP (idle) -----+         |
+                                                     |
+  callback <-----------------------------------------+
+  (next beat)              SendMessage + TaskUpdate(completed)
+======================================================================
+
+  Fast-Advance (skips coordinator for simple linear successors)
+======================================================================
+  [Worker A] Phase 5 complete
+    +- 1 ready task? simple successor? --> spawn team-worker B directly
+    +- complex case? --> SendMessage to coordinator
+======================================================================
+```
+
+**Key Benefits:**
+- 🎯 **Event-driven**: Coordinator only wakes when needed (callback/resume)
+- ⚡ **Fast-advance**: Simple successors spawn directly without coordinator roundtrip
+- 🔄 **Dynamic pipelines**: Generated per-task from dependency graph
+- 📊 **Parallel execution**: Independent tasks run concurrently
+
+---
+
+## 🖥️ Frontend Highlights
+
+### Terminal Dashboard
+
+Multi-terminal grid layout with real-time execution monitoring:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Dashboard Toolbar                    [Issues][Queue][Inspector]│
+├──────────┬──────────────────────────────────────────────────────┤
+│ Session  │  Terminal Grid (tmux-style split panes)              │
+│ Groups   │  ┌─────────────────┬─────────────────────────────────┐│
+│ ├─ proj1 │  │ Terminal 1      │ Terminal 2                      ││
+│ │  └─ cla│  │ $ ccw cli ...   │ $ gemini analyze ...            ││
+│ ├─ proj2 │  │                 │                                 ││
+│ └─ ...   │  └─────────────────┴─────────────────────────────────┘│
+│          │  Execution Monitor Panel (floating)                   │
+└──────────┴──────────────────────────────────────────────────────┘
+```
+
+**Features:**
+- 🖥️ Multi-terminal grid with resizable panes
+- 📊 Execution monitor with agent list
+- 📁 File sidebar for project navigation
+- 🎯 Session grouping by project tags
+- 🌙 Fullscreen/immersive mode
+
+### Orchestrator Editor
+
+Visual workflow template editor with drag-drop:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  FlowToolbar                              [Templates][Execute]  │
+├────────────┬────────────────────────────────────────┬───────────┤
+│ Node       │          Flow Canvas                   │ Property  │
+│ Palette    │  ┌──────────┐     ┌──────────┐        │ Panel     │
+│ ├─ Prompt  │  │ Prompt   │────▶│ CLI Tool │        │           │
+│ ├─ CLI     │  │ Template │     │ Executor │        │ Edit node │
+│ ├─ Slash   │  └──────────┘     └──────────┘        │ props     │
+│ └─ Flow    │        │                │              │           │
+│            │        ▼                ▼              │           │
+│            │  ┌──────────────────────────┐         │           │
+│            │  │    Slash Command         │         │           │
+│            │  │    /workflow:plan        │         │           │
+│            │  └──────────────────────────┘         │           │
+└────────────┴────────────────────────────────────────┴───────────┘
+```
+
+**Features:**
+- 🎨 React Flow-based visual editing
+- 📦 Template library with pre-built workflows
+- 🔧 Property panel for node configuration
+- ⚡ Slash command integration
+
+### Analysis Viewer
+
+Grid layout for analysis sessions with filtering:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Filters: [Type ▼] [Status ▼] [Date Range]    [Fullscreen]     │
+├─────────────────────────────────────────────────────────────────┤
+│ ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────┐ │
+│ │ Analysis #1     │ │ Analysis #2     │ │ Analysis #3         │ │
+│ │ Type: security  │ │ Type: perf      │ │ Type: architecture  │ │
+│ │ Status: ✓ done  │ │ Status: ✓ done  │ │ Status: ⏳ running  │ │
+│ └─────────────────┘ └─────────────────┘ └─────────────────────┘ │
+│ ┌─────────────────┐ ┌─────────────────┐                        │
+│ │ Analysis #4     │ │ Analysis #5     │                        │
+│ │ ...             │ │ ...             │                        │
+│ └─────────────────┘ └─────────────────┘                        │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 

@@ -8,15 +8,6 @@ allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), Task
 
 Unified team skill: specification -> implementation -> testing -> review. Optimized from v3 with **inline discuss subagent** and **shared explore utility**, halving spec pipeline beats from 12 to 6.
 
-## Key Changes from v3
-
-| Change | Before (v3) | After (v4) | Impact |
-|--------|------------|------------|--------|
-| Discuss | Standalone role, 6 separate beats | Inline subagent called by produce roles | Spec beats: 12 -> 6 |
-| Explorer | Standalone service role | Shared Explore subagent with cache | Eliminates spawn overhead |
-| Explore cache | Per-role, no sharing | Centralized `explorations/` with cache-index | Avoids duplicate exploration |
-| Worker advance | Always callback coordinator | Fast-advance for simple successors | Fewer coordinator wakes |
-
 ## Architecture
 
 ```

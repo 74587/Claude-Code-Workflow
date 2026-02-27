@@ -1,16 +1,16 @@
 
 # 🚀 Claude Code Workflow (CCW) - 快速上手指南
 
-欢迎来到 Claude Code Workflow (CCW) v6.2！本指南将帮助您在 5 分钟内快速入门，体验由 AI 驱动的自动化软件开发流程，原生 CodexLens 代码智能和智能 CLI 编排。
+欢迎来到 Claude Code Workflow (CCW) v7.0！本指南将帮助您在 5 分钟内快速入门，体验由 AI 驱动的自动化软件开发流程，包括团队编排、队列调度和智能 CLI 编排。
 
 **项目地址**：[catlog22/Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
 
-> **🎉 v6.2 新特性**:
-> - 🔍 **原生 CodexLens**: 全文搜索 + 语义搜索 + 混合搜索，支持 HNSW 向量索引
-> - 🖥️ **新 Dashboard 视图**: CLAUDE.md 管理器、技能管理器、图浏览器、核心记忆
-> - 💻 **CLI 重构**: `ccw cli -p` 支持多模型执行 (Gemini/Qwen/Codex)
-> - 🧠 **会话聚类**: 智能记忆管理与可视化
-> - 📘 **TypeScript 迁移**: 后端全面现代化
+> **🎉 v7.0 新特性**:
+> - 🤖 **团队架构 v2**: team-coordinate-v2 / team-executor-v2 统一 team-worker 代理架构
+> - 📋 **队列调度器**: 后台队列执行服务，支持依赖解析和会话池管理
+> - 🖥️ **新仪表板视图**: 分析查看器、多终端网格仪表板、编排器模板编辑器
+> - 🔄 **工作流会话命令**: start/resume/complete/sync 完整会话生命周期管理
+> - 🌐 **A2UI v2**: 多选问题、单选组组件、WebSocket 实时通信
 
 ---
 
@@ -57,6 +57,16 @@
 
 这会显示任务的完成情况、当前正在执行的任务以及下一步计划。
 
+### 第 5 步：完成会话
+
+所有任务完成后，标记会话为完成：
+
+```bash
+/workflow:session:complete
+```
+
+这会归档会话、提取经验教训，并可选地同步项目状态。
+
 ---
 
 ## 🧠 核心概念解析
@@ -75,9 +85,85 @@
     > -   `@test-fix-agent`: 负责运行测试并自动修复失败的用例。
     > -   `@ui-design-agent`: 负责 UI 设计和原型创建。
     > -   `@cli-execution-agent`: 负责自主 CLI 任务处理（v4.5.0+）。
+    > -   **team-worker**: 统一的工作代理，用于团队编排（v7.0+）。
 
 -   **工作流 (Workflow)**
     > 一系列预定义的、相互协作的命令，用于编排不同的智能体和工具，以完成一个复杂的开发目标（如 `plan`、`execute`、`test-gen`）。
+
+---
+
+## 🆕 v7.0 新功能概览
+
+### 工作流会话管理 (v7.0)
+
+CCW v7.0 引入完整的会话生命周期命令：
+
+```bash
+# 启动新会话（自动命名）
+/workflow:session:start --auto "实现用户认证"
+
+# 恢复暂停的会话
+/workflow:session:resume
+
+# 完成并归档当前会话
+/workflow:session:complete
+
+# 同步会话工作到项目规范
+/workflow:session:sync "完成的工作内容"
+```
+
+### 团队架构 v2 (v7.0)
+
+对于需要多个专业角色的复杂项目，使用团队架构 v2：
+
+```bash
+# 协调团队，自动生成角色规范
+/team-coordinate "构建实时协作系统"
+
+# 执行预规划的团队会话
+/team-executor <session-folder>
+
+# 团队成员包括：analyst、planner、executor、tester、reviewer、architect
+```
+
+**核心功能**：
+- **动态角色规范生成**：运行时创建角色特定指令
+- **team-worker 代理**：统一处理阶段1-5编排的工作代理
+- **内循环处理**：在单个代理中处理多个相同前缀任务
+- **Discuss & Explore 子代理**：多视角批判和代码探索
+
+### 队列调度器 (v7.0)
+
+用于具有依赖管理的后台任务执行：
+
+```bash
+# 通过仪表板访问 → Terminal Dashboard → Queue Panel
+# 或使用 API 端点进行程序化控制
+```
+
+**功能**：
+- 拓扑排序的依赖解析
+- 三层分配策略的会话池管理
+- 实时 WebSocket 状态更新
+- 可配置限制的并发执行
+
+### 新仪表板视图 (v7.0)
+
+**分析查看器页面** (`/analysis`):
+- 并发分析会话的网格布局
+- 过滤、分页和全屏模式
+- 实时进度跟踪
+
+**终端仪表板** (`/terminal-dashboard`):
+- 多终端网格布局（tmux 风格分屏）
+- 带代理编排的执行监控面板
+- 拖放式会话组树管理
+- 队列调度器控件
+
+**编排器模板编辑器** (`/orchestrator`):
+- 编排计划的可视化模板编辑
+- 斜杠命令执行与终端集成
+- 调试用的可观测性面板
 
 ---
 
@@ -188,7 +274,7 @@
 - 识别资源冲突和技能差距
 - 提供可执行的修复计划，集成 TodoWrite
 
-### 场景 6：Bug 修复
+### 场景 5：Bug 修复
 
 快速 Bug 分析和修复工作流：
 
@@ -197,6 +283,26 @@
 /workflow:lite-fix "密码错误时仍显示成功消息"
 
 # Claude 会分析严重程度，诊断根因，并实现修复
+```
+
+### 场景 6：基于团队的协作开发 (v7.0)
+
+对于需要多个专业视角的复杂项目：
+
+```bash
+# 协调团队，自动生成角色规范
+/team-coordinate "设计和实现微服务架构"
+
+# 工作流程：
+# 1. 分析需求并检测所需能力
+# 2. 生成动态角色规范（analyst、planner、executor、tester、reviewer）
+# 3. 创建具有适当依赖关系的任务
+# 4. 分派给 team-worker 代理
+# 5. 通过回调监控进度
+# 6. 完成并生成综合报告
+
+# 恢复暂停的团队会话
+/team-executor .workflow/.team/TLS-xxx-2026-02-27 resume
 ```
 
 ---

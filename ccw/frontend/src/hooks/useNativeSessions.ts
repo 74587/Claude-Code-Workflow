@@ -15,8 +15,8 @@ import { workspaceQueryKeys } from '@/lib/queryKeys';
 
 // ========== Constants ==========
 
-const STALE_TIME = 30 * 1000;
-const GC_TIME = 5 * 60 * 1000;
+const STALE_TIME = 2 * 60 * 1000;   // 2 minutes (increased from 30s)
+const GC_TIME = 10 * 60 * 1000;     // 10 minutes (increased from 5min)
 
 // ========== Types ==========
 

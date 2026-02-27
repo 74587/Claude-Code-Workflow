@@ -20,7 +20,6 @@ import {
   ChevronRight,
   FileJson,
   Clock,
-  Calendar,
 } from 'lucide-react';
 import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 import { cn } from '@/lib/utils';
@@ -54,50 +53,6 @@ import { getToolVariant } from '@/lib/cli-tool-theme';
 
 type HistoryTab = 'executions' | 'observability' | 'native-sessions';
 
-// ========== Date Grouping Helpers ==========
-
-type DateGroup = 'today' | 'yesterday' | 'thisWeek' | 'older';
-
-function getDateGroup(date: Date): DateGroup {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const weekAgo = new Date(today);
-  weekAgo.setDate(weekAgo.getDate() - 7);
-
-  if (date >= today) return 'today';
-  if (date >= yesterday) return 'yesterday';
-  if (date >= weekAgo) return 'thisWeek';
-  return 'older';
-}
-
-function groupSessionsByDate(sessions: NativeSessionListItem[]): Map<DateGroup, NativeSessionListItem[]> {
-  const groups = new Map<DateGroup, NativeSessionListItem[]>([
-    ['today', []],
-    ['yesterday', []],
-    ['thisWeek', []],
-    ['older', []],
-  ]);
-
-  sessions.forEach((session) => {
-    const date = new Date(session.updatedAt);
-    const group = getDateGroup(date);
-    groups.get(group)?.push(session);
-  });
-
-  return groups;
-}
-
-const dateGroupOrder: DateGroup[] = ['today', 'yesterday', 'thisWeek', 'older'];
-
-const dateGroupLabels: Record<DateGroup, string> = {
-  today: '今天',
-  yesterday: '昨天',
-  thisWeek: '本周',
-  older: '更早',
-};
-
 /**
  * HistoryPage component - Display CLI execution history
  */
@@ -111,6 +66,7 @@ export function HistoryPage() {
   const [deleteTarget, setDeleteTarget] = React.useState<string | null>(null);
   const [selectedExecution, setSelectedExecution] = React.useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = React.useState(false);
+  const [selectedNativeSession, setSelectedNativeSession] = React.useState<NativeSessionListItem | null>(null);
   const [nativeExecutionId, setNativeExecutionId] = React.useState<string | null>(null);
   const [isNativePanelOpen, setIsNativePanelOpen] = React.useState(false);
   const isImmersiveMode = useAppStore(selectIsImmersiveMode);
@@ -157,7 +113,7 @@ export function HistoryPage() {
 
   // Native session click handler - opens NativeSessionPanel
   const handleNativeSessionClick = (session: NativeSessionListItem) => {
-    setNativeExecutionId(session.id);
+    setSelectedNativeSession(session);
     setIsNativePanelOpen(true);
   };
 
@@ -540,19 +496,14 @@ export function HistoryPage() {
                         <div className="border-t divide-y">
                           {sessions.map((session) => (
                             <button
-                              key={session.id}
+                              key={session.sessionId}
                               className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
                               onClick={() => handleNativeSessionClick(session)}
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <span className="font-mono text-sm truncate max-w-48" title={session.id}>
-                                  {session.id.length > 24 ? session.id.slice(0, 24) + '...' : session.id}
+                                <span className="font-mono text-sm truncate max-w-48" title={session.sessionId}>
+                                  {session.sessionId.length > 24 ? session.sessionId.slice(0, 24) + '...' : session.sessionId}
                                 </span>
-                                {session.title && (
-                                  <span className="text-sm text-muted-foreground truncate max-w-64">
-                                    {session.title}
-                                  </span>
-                                )}
                               </div>
                               <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
                                 <span className="flex items-center gap-1">
@@ -598,19 +549,14 @@ export function HistoryPage() {
                         <div className="border-t divide-y">
                           {sessions.map((session) => (
                             <button
-                              key={session.id}
+                              key={session.sessionId}
                               className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors text-left"
                               onClick={() => handleNativeSessionClick(session)}
                             >
                               <div className="flex items-center gap-3 min-w-0">
-                                <span className="font-mono text-sm truncate max-w-48" title={session.id}>
-                                  {session.id.length > 24 ? session.id.slice(0, 24) + '...' : session.id}
+                                <span className="font-mono text-sm truncate max-w-48" title={session.sessionId}>
+                                  {session.sessionId.length > 24 ? session.sessionId.slice(0, 24) + '...' : session.sessionId}
                                 </span>
-                                {session.title && (
-                                  <span className="text-sm text-muted-foreground truncate max-w-64">
-                                    {session.title}
-                                  </span>
-                                )}
                               </div>
                               <div className="flex items-center gap-3 text-xs text-muted-foreground shrink-0">
                                 <span className="flex items-center gap-1">
@@ -639,7 +585,8 @@ export function HistoryPage() {
 
       {/* Native Session Panel */}
       <NativeSessionPanel
-        executionId={nativeExecutionId || ''}
+        session={selectedNativeSession}
+        executionId={nativeExecutionId || undefined}
         open={isNativePanelOpen}
         onOpenChange={setIsNativePanelOpen}
       />

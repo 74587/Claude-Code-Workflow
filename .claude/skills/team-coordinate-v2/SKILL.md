@@ -8,15 +8,6 @@ allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), Task
 
 Universal team coordination skill: analyze task -> generate role-specs -> dispatch -> execute -> deliver. Only the **coordinator** is built-in. All worker roles are **dynamically generated** as lightweight role-spec files and spawned via the `team-worker` agent.
 
-## Key Changes from v1
-
-| Change | Before (v1) | After (v2) | Impact |
-|--------|------------|------------|--------|
-| Worker agent | general-purpose + Skill load | team-worker agent (dedicated) | Eliminates Skill indirection |
-| Role definitions | `<session>/roles/<role>.md` (~250 lines, includes Phase 1/5) | `<session>/role-specs/<role>.md` (~80 lines, Phase 2-4 only) | -68% worker content |
-| Shared behavior | Duplicated in SKILL.md + each role.md | Built into team-worker agent | Single source of truth |
-| Coordinator spawn | Skill(team-coordinate, --role=xxx) | Task(team-worker, role_spec=xxx.md) | Direct, no Skill call |
-| Completion | Manual cleanup | Interactive completion action | Archive/Keep/Export prompt |
 
 ## Architecture
 

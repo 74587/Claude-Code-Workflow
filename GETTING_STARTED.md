@@ -1,16 +1,16 @@
 
 # 🚀 Claude Code Workflow (CCW) - Getting Started Guide
 
-Welcome to Claude Code Workflow (CCW) v6.2! This guide will help you get up and running in 5 minutes and experience AI-driven automated software development with native CodexLens code intelligence and intelligent CLI orchestration.
+Welcome to Claude Code Workflow (CCW) v7.0! This guide will help you get up and running in 5 minutes and experience AI-driven automated software development with team orchestration, queue scheduling, and intelligent CLI orchestration.
 
 **Project Repository**: [catlog22/Claude-Code-Workflow](https://github.com/catlog22/Claude-Code-Workflow)
 
-> **🎉 What's New in v6.2**:
-> - 🔍 **Native CodexLens**: Full-Text + Semantic + Hybrid search with HNSW vector index
-> - 🖥️ **New Dashboard Views**: CLAUDE.md Manager, Skills Manager, Graph Explorer, Core Memory
-> - 💻 **CLI Refactor**: `ccw cli -p` for multi-model execution (Gemini/Qwen/Codex)
-> - 🧠 **Session Clustering**: Intelligent memory management with visualization
-> - 📘 **TypeScript Migration**: Full backend modernization
+> **🎉 What's New in v7.0**:
+> - 🤖 **Team Architecture v2**: team-coordinate-v2 / team-executor-v2 with unified team-worker agent architecture
+> - 📋 **Queue Scheduler**: Background queue execution service with dependency resolution and session pooling
+> - 🖥️ **New Dashboard Views**: Analysis Viewer, Terminal Dashboard with multi-terminal grid, Orchestrator Template Editor
+> - 🔄 **Workflow Session Commands**: start/resume/complete/sync for complete session lifecycle management
+> - 🌐 **A2UI v2**: Multi-select questions, RadioGroup components, WebSocket real-time communication
 
 ---
 
@@ -57,6 +57,16 @@ Want to know the progress? You can check the status of the current workflow at a
 
 This will show the completion status of tasks, the currently executing task, and the next steps.
 
+### Step 5: Complete the Session
+
+When all tasks are done, mark the session as complete:
+
+```bash
+/workflow:session:complete
+```
+
+This archives the session, extracts lessons learned, and optionally syncs project state.
+
 ---
 
 ## 🧠 Core Concepts Explained
@@ -75,9 +85,85 @@ Understanding these concepts will help you use CCW more effectively:
     > -   `@test-fix-agent`: Responsible for running tests and automatically fixing failures.
     > -   `@ui-design-agent`: Responsible for UI design and prototype creation.
     > -   `@cli-execution-agent`: Responsible for autonomous CLI task handling (v4.5.0+).
+    > -   **team-worker**: Unified worker agent for team orchestration (v7.0+).
 
 -   **Workflow**
     > A series of predefined, collaborative commands used to orchestrate different agents and tools to achieve a complex development goal (e.g., `plan`, `execute`, `test-gen`).
+
+---
+
+## 🆕 v7.0 New Features Overview
+
+### Workflow Session Management (v7.0)
+
+CCW v7.0 introduces comprehensive session lifecycle commands:
+
+```bash
+# Start a new session with automatic naming
+/workflow:session:start --auto "Implement user authentication"
+
+# Resume a paused session
+/workflow:session:resume
+
+# Complete and archive the current session
+/workflow:session:complete
+
+# Sync session work to project specs
+/workflow:session:sync "What was accomplished"
+```
+
+### Team Architecture v2 (v7.0)
+
+For complex projects requiring multiple specialized roles, use Team Architecture v2:
+
+```bash
+# Coordinate a team with auto-generated role specs
+/team-coordinate "Build a real-time collaboration system"
+
+# Execute a pre-planned team session
+/team-executor <session-folder>
+
+# Team members include: analyst, planner, executor, tester, reviewer, architect
+```
+
+**Key Features**:
+- **Dynamic role-spec generation**: Creates role-specific instructions at runtime
+- **team-worker agent**: Unified worker handling Phase 1-5 orchestration
+- **Inner loop processing**: Handles multiple same-prefix tasks in a single agent
+- **Discuss & Explore subagents**: Multi-perspective critique and code exploration
+
+### Queue Scheduler (v7.0)
+
+For background task execution with dependency management:
+
+```bash
+# Access via Dashboard → Terminal Dashboard → Queue Panel
+# Or use API endpoints for programmatic control
+```
+
+**Features**:
+- Dependency resolution with topological sorting
+- Session pooling with 3-tier allocation strategy
+- Real-time WebSocket state updates
+- Concurrent execution with configurable limits
+
+### New Dashboard Views (v7.0)
+
+**Analysis Viewer Page** (`/analysis`):
+- Grid layout for concurrent analysis sessions
+- Filtering, pagination, and fullscreen mode
+- Real-time progress tracking
+
+**Terminal Dashboard** (`/terminal-dashboard`):
+- Multi-terminal grid layout (tmux-style split panes)
+- Execution monitor panel with agent orchestration
+- Session group tree with drag-and-drop management
+- Queue scheduler controls
+
+**Orchestrator Template Editor** (`/orchestrator`):
+- Visual template editing for orchestration plans
+- Slash command execution with terminal integration
+- Observability panel for debugging
 
 ---
 
@@ -178,7 +264,7 @@ After planning, validate your implementation plan for consistency and completene
 
 
 
-### Scenario 6: Bug Fixing
+### Scenario 5: Bug Fixing
 
 Quick bug analysis and fix workflow:
 
@@ -187,6 +273,26 @@ Quick bug analysis and fix workflow:
 /workflow:lite-fix "Incorrect success message with wrong password"
 
 # Claude will analyze severity, diagnose root cause, and implement the fix
+```
+
+### Scenario 6: Team-Based Development (v7.0)
+
+For complex projects requiring multiple specialized perspectives:
+
+```bash
+# Coordinate a team with automatic role generation
+/team-coordinate "Design and implement a microservices architecture"
+
+# The workflow:
+# 1. Analyze requirements and detect needed capabilities
+# 2. Generate dynamic role-specs (analyst, planner, executor, tester, reviewer)
+# 3. Create tasks with proper dependencies
+# 4. Dispatch to team-worker agents
+# 5. Monitor progress via callbacks
+# 6. Complete with comprehensive report
+
+# Resume a paused team session
+/team-executor .workflow/.team/TLS-xxx-2026-02-27 resume
 ```
 
 ---
