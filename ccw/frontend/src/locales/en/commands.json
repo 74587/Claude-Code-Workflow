@@ -74,6 +74,7 @@
     "sourcePath": "Source File Path",
     "sourcePathPlaceholder": "Enter absolute path to command file",
     "sourcePathHint": "File must be a valid command markdown file",
+    "browseFile": "Browse files",
     "customName": "Custom Name",
     "customNamePlaceholder": "Leave empty to use original name",
     "customNameHint": "Optional, overrides default command name",

@@ -74,6 +74,7 @@
     "sourcePath": "源文件路径",
     "sourcePathPlaceholder": "输入命令文件的绝对路径",
     "sourcePathHint": "文件必须是有效的命令 Markdown 文件",
+    "browseFile": "浏览文件",
     "customName": "自定义名称",
     "customNamePlaceholder": "留空则使用原始名称",
     "customNameHint": "可选，覆盖默认命令名称",

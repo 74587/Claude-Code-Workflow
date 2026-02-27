@@ -16,6 +16,7 @@ import {
   XCircle,
   Loader2,
   Info,
+  FolderOpen,
 } from 'lucide-react';
 import {
   Dialog,
@@ -31,6 +32,7 @@ import { Textarea } from '@/components/ui/Textarea';
 import { Label } from '@/components/ui/Label';
 import { validateCommandImport, createCommand } from '@/lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
+import { FloatingFileBrowser } from '@/components/terminal-dashboard/FloatingFileBrowser';
 import { cn } from '@/lib/utils';
 
 export interface CommandCreateDialogProps {
@@ -68,6 +70,9 @@ export function CommandCreateDialog({ open, onOpenChange, onCreated, cliType = '
 
   const [isCreating, setIsCreating] = useState(false);
 
+  // File browser state
+  const [isFileBrowserOpen, setIsFileBrowserOpen] = useState(false);
+
   const resetState = useCallback(() => {
     setMode('import');
     setLocation('project');
@@ -78,6 +83,7 @@ export function CommandCreateDialog({ open, onOpenChange, onCreated, cliType = '
     setCommandName('');
     setDescription('');
     setIsCreating(false);
+    setIsFileBrowserOpen(false);
   }, []);
 
   const handleOpenChange = useCallback((open: boolean) => {
@@ -250,16 +256,27 @@ export function CommandCreateDialog({ open, onOpenChange, onCreated, cliType = '
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="sourcePath">{formatMessage({ id: 'commands.create.sourcePath' })}</Label>
-                <Input
-                  id="sourcePath"
-                  value={sourcePath}
-                  onChange={(e) => {
-                    setSourcePath(e.target.value);
-                    setValidationResult(null);
-                  }}
-                  placeholder={formatMessage({ id: 'commands.create.sourcePathPlaceholder' })}
-                  className="font-mono text-sm"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="sourcePath"
+                    value={sourcePath}
+                    onChange={(e) => {
+                      setSourcePath(e.target.value);
+                      setValidationResult(null);
+                    }}
+                    placeholder={formatMessage({ id: 'commands.create.sourcePathPlaceholder' })}
+                    className="font-mono text-sm flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsFileBrowserOpen(true)}
+                    title={formatMessage({ id: 'commands.create.browseFile' })}
+                  >
+                    <FolderOpen className="w-4 h-4" />
+                  </Button>
+                </div>
                 <p className="text-xs text-muted-foreground">{formatMessage({ id: 'commands.create.sourcePathHint' })}</p>
               </div>
 
@@ -401,6 +418,19 @@ export function CommandCreateDialog({ open, onOpenChange, onCreated, cliType = '
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* File Browser for selecting source file */}
+      <FloatingFileBrowser
+        isOpen={isFileBrowserOpen}
+        onClose={() => setIsFileBrowserOpen(false)}
+        rootPath={projectPath}
+        onInsertPath={(path) => {
+          setSourcePath(path);
+          setValidationResult(null);
+          setIsFileBrowserOpen(false);
+        }}
+        initialSelectedPath={sourcePath || null}
+      />
     </Dialog>
   );
 }
