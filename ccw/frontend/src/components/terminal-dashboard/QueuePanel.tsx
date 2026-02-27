@@ -7,7 +7,7 @@
 // Integrates with issueQueueIntegrationStore for association chain.
 // Note: Scheduler controls are in the standalone SchedulerPanel.
 
-import { useState, useMemo, useCallback, memo } from 'react';
+import { useState, useMemo, useCallback, memo, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 import {
   ListChecks,
@@ -193,6 +193,12 @@ function QueueTabContent(_props: { embedded?: boolean }) {
   // Scheduler store data
   const schedulerItems = useQueueSchedulerStore(selectQueueItems);
   const schedulerStatus = useQueueSchedulerStore(selectQueueSchedulerStatus);
+  const loadInitialState = useQueueSchedulerStore((s) => s.loadInitialState);
+
+  // Load scheduler state on mount
+  useEffect(() => {
+    loadInitialState();
+  }, [loadInitialState]);
 
   // Legacy API data (fallback)
   const queueQuery = useIssueQueue();

@@ -305,11 +305,11 @@ const EMPTY_ITEMS: QueueItem[] = [];
 
 /** Select current scheduler status */
 export const selectQueueSchedulerStatus = (state: QueueSchedulerStore): QueueSchedulerStatus =>
-  state.status;
+  state?.status ?? 'idle';
 
 /** Select all queue items */
 export const selectQueueItems = (state: QueueSchedulerStore): QueueItem[] =>
-  state.items;
+  state?.items ?? [];
 
 /**
  * Select items that are ready to execute (status 'queued' or 'pending').
@@ -346,9 +346,11 @@ export const selectExecutingItems = (state: QueueSchedulerStore): QueueItem[] =>
  * Returns 0 when there are no items.
  */
 export const selectSchedulerProgress = (state: QueueSchedulerStore): number => {
-  const total = state.items.length;
+  if (!state) return 0;
+  const items = state.items ?? [];
+  const total = items.length;
   if (total === 0) return 0;
-  const terminal = state.items.filter(
+  const terminal = items.filter(
     (item) => item.status === 'completed' || item.status === 'failed'
   ).length;
   return Math.round((terminal / total) * 100);
@@ -369,3 +371,35 @@ export const selectCurrentConcurrency = (state: QueueSchedulerStore): number =>
 /** Select scheduler error */
 export const selectSchedulerError = (state: QueueSchedulerStore): string | null =>
   state.error;
+
+// ========== Auto-initialization ==========
+
+/**
+ * Flag to prevent multiple initialization calls.
+ * This is set outside the store to avoid triggering re-renders.
+ */
+let schedulerInitialized = false;
+
+/**
+ * Initialize the queue scheduler state once.
+ * Safe to call multiple times - will only initialize once.
+ */
+export function initializeScheduler(): void {
+  if (!schedulerInitialized) {
+    schedulerInitialized = true;
+    useQueueSchedulerStore.getState().loadInitialState().catch((error) => {
+      console.error('[QueueScheduler] Failed to initialize:', error);
+      // Reset flag on error to allow retry
+      schedulerInitialized = false;
+    });
+  }
+}
+
+// Auto-initialize when this module is imported (deferred to next tick)
+if (typeof window !== 'undefined') {
+  // Defer initialization to avoid blocking initial render
+  // and to ensure all store subscriptions are set up first
+  setTimeout(() => {
+    initializeScheduler();
+  }, 100);
+}

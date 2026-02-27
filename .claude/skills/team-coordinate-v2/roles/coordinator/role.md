@@ -33,6 +33,27 @@ Orchestrate the team-coordinate workflow: task analysis, dynamic role-spec gener
 
 ---
 
+## Command Execution Protocol
+
+When coordinator needs to execute a command (analyze-task, dispatch, monitor):
+
+1. **Read the command file**: `roles/coordinator/commands/<command-name>.md`
+2. **Follow the workflow** defined in the command file (Phase 2-4 structure)
+3. **Commands are inline execution guides** - NOT separate agents or subprocesses
+4. **Execute synchronously** - complete the command workflow before proceeding
+
+Example:
+```
+Phase 1 needs task analysis
+  -> Read roles/coordinator/commands/analyze-task.md
+  -> Execute Phase 2 (Context Loading)
+  -> Execute Phase 3 (Task Analysis)
+  -> Execute Phase 4 (Output)
+  -> Continue to Phase 2
+```
+
+---
+
 ## Entry Router
 
 When coordinator is invoked, first detect the invocation type:
@@ -44,9 +65,23 @@ When coordinator is invoked, first detect the invocation type:
 | Manual resume | Arguments contain "resume" or "continue" | -> handleResume |
 | Capability gap | Message contains "capability_gap" | -> handleAdapt |
 | Pipeline complete | All tasks completed, no pending/in_progress | -> handleComplete |
-| New session | None of above | -> Phase 0 |
+| Interrupted session | Active/paused session exists in `.workflow/.team/TC-*` | -> Phase 0 (Resume Check) |
+| New session | None of above | -> Phase 1 (Task Analysis) |
 
 For callback/check/resume/adapt/complete: load `commands/monitor.md` and execute the appropriate handler, then STOP.
+
+### Router Implementation
+
+1. **Load session context** (if exists):
+   - Scan `.workflow/.team/TC-*/team-session.json` for active/paused sessions
+   - If found, extract `session.roles[].name` for callback detection
+
+2. **Parse $ARGUMENTS** for detection keywords
+
+3. **Route to handler**:
+   - For monitor handlers: Read `commands/monitor.md`, execute matched handler section, STOP
+   - For Phase 0: Execute Session Resume Check below
+   - For Phase 1: Execute Task Analysis below
 
 ---
 
@@ -102,6 +137,21 @@ For callback/check/resume/adapt/complete: load `commands/monitor.md` and execute
 5. **If `needs_research: true`**: Phase 2 will spawn researcher worker first
 
 **Success**: Task analyzed, capabilities detected, dependency graph built, roles designed with role-spec metadata.
+
+**CRITICAL - Team Workflow Enforcement**:
+
+Regardless of complexity score or role count, coordinator MUST:
+- ✅ **Always proceed to Phase 2** (generate role-specs)
+- ✅ **Always create team** and spawn workers via team-worker agent
+- ❌ **NEVER execute task work directly**, even for single-role low-complexity tasks
+- ❌ **NEVER skip team workflow** based on complexity assessment
+
+**Single-role execution is still team-based** - just with one worker. The team architecture provides:
+- Consistent message bus communication
+- Session state management
+- Artifact tracking
+- Fast-advance capability
+- Resume/recovery mechanisms
 
 ---
 

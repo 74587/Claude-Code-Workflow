@@ -409,9 +409,34 @@ function generateQuestionSurface(question: Question, surfaceId: string, timeoutM
         component: {
           TextField: {
             value: question.defaultValue ? { literalString: String(question.defaultValue) } : undefined,
-            onChange: { actionId: 'answer', parameters: { questionId: question.id } },
+            onChange: { actionId: 'input-change', parameters: { questionId: question.id } },
             placeholder: question.placeholder || 'Enter your answer',
             type: 'text',
+          },
+        },
+      });
+      // Add Submit/Cancel buttons for input type
+      components.push({
+        id: 'submit-btn',
+        component: {
+          Button: {
+            onClick: { actionId: 'submit', parameters: { questionId: question.id } },
+            content: {
+              Text: { text: { literalString: 'Submit' } },
+            },
+            variant: 'primary',
+          },
+        },
+      });
+      components.push({
+        id: 'cancel-btn',
+        component: {
+          Button: {
+            onClick: { actionId: 'cancel', parameters: { questionId: question.id } },
+            content: {
+              Text: { text: { literalString: 'Cancel' } },
+            },
+            variant: 'secondary',
           },
         },
       });

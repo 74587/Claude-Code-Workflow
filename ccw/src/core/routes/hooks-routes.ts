@@ -343,7 +343,19 @@ export async function handleHooksRoutes(ctx: HooksRouteContext): Promise<boolean
         const initState = extraData.initialState as Record<string, unknown>;
         const questionId = initState.questionId as string | undefined;
         const questionType = initState.questionType as string | undefined;
-        if (questionId && questionType === 'select') {
+
+        // Handle multi-question surfaces (multi-page): initialize tracking for each page
+        if (questionType === 'multi-question' && Array.isArray(initState.pages)) {
+          const pages = initState.pages as Array<{ questionId: string; type: string }>;
+          for (const page of pages) {
+            if (page.type === 'multi-select') {
+              a2uiWebSocketHandler.initMultiSelect(page.questionId);
+            } else if (page.type === 'select') {
+              a2uiWebSocketHandler.initSingleSelect(page.questionId);
+            }
+          }
+        } else if (questionId && questionType === 'select') {
+          // Single-question surface: initialize based on question type
           a2uiWebSocketHandler.initSingleSelect(questionId);
         } else if (questionId && questionType === 'multi-select') {
           a2uiWebSocketHandler.initMultiSelect(questionId);

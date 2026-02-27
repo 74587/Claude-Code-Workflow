@@ -154,6 +154,27 @@ Write `<session-folder>/task-analysis.json`:
 }
 ```
 
+## Complexity Interpretation
+
+**CRITICAL**: Complexity score is for **role design optimization**, NOT for skipping team workflow.
+
+| Complexity | Team Structure | Coordinator Action |
+|------------|----------------|-------------------|
+| Low (1-2 roles) | Minimal team | Generate 1-2 role-specs, create team, spawn workers |
+| Medium (2-3 roles) | Standard team | Generate role-specs, create team, spawn workers |
+| High (3-5 roles) | Full team | Generate role-specs, create team, spawn workers |
+
+**All complexity levels use team-worker architecture**:
+- Single-role tasks still spawn team-worker agent
+- Coordinator NEVER executes task work directly
+- Team infrastructure provides session management, message bus, fast-advance
+
+**Purpose of complexity score**:
+- ✅ Determine optimal role count (merge vs separate)
+- ✅ Guide dependency graph design
+- ✅ Inform user about task scope
+- ❌ NOT for deciding whether to use team workflow
+
 ## Error Handling
 
 | Scenario | Resolution |
@@ -161,4 +182,4 @@ Write `<session-folder>/task-analysis.json`:
 | No capabilities detected | Default to single `general` role with TASK prefix |
 | Circular dependency in graph | Break cycle at lowest-tier edge, warn |
 | Task description too vague | Return minimal analysis, coordinator will AskUserQuestion |
-| All capabilities merge into one | Valid -- single-role execution, no team overhead |
+| All capabilities merge into one | Valid -- single-role execution via team-worker |

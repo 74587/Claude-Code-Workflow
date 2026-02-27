@@ -28,6 +28,7 @@ import { FileSidebarPanel } from '@/components/terminal-dashboard/FileSidebarPan
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 import { useConfigStore } from '@/stores/configStore';
+import { useQueueSchedulerStore } from '@/stores/queueSchedulerStore';
 
 // ========== Main Page Component ==========
 

@@ -1,6 +1,4 @@
 <div align="center">
-new line
-new line
 
 <!-- Animated Header -->
 <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=180&section=header&text=Claude%20Code%20Workflow&fontSize=42&fontColor=fff&animation=twinkling&fontAlignY=32&desc=Multi-Agent%20AI%20Development%20Framework&descAlignY=52&descSize=18"/>
@@ -96,8 +94,7 @@ ccw install -m Global
 <div align="center">
 <table>
 <tr><th>Level</th><th>Command</th><th>Use Case</th></tr>
-<tr><td><b>1</b></td><td><code>/workflow:lite-lite-lite</code></td><td>Quick fixes, config changes</td></tr>
-<tr><td><b>2</b></td><td><code>/workflow:lite-plan</code></td><td>Clear single-module features</td></tr>
+<tr><td><b>2</b></td><td><code>/workflow:lite-plan</code></td><td>Quick fixes, single-module features</td></tr>
 <tr><td><b>2</b></td><td><code>/workflow:lite-fix</code></td><td>Bug diagnosis and fix</td></tr>
 <tr><td><b>2</b></td><td><code>/workflow:multi-cli-plan</code></td><td>Multi-perspective analysis</td></tr>
 <tr><td><b>3</b></td><td><code>/workflow:plan</code></td><td>Multi-module development</td></tr>
@@ -109,10 +106,7 @@ ccw install -m Global
 ### Workflow Examples
 
 ```bash
-# Level 1: Instant execution
-/workflow:lite-lite-lite "Fix typo in README"
-
-# Level 2: Lightweight planning
+# Level 2: Lightweight planning (recommended for most tasks)
 /workflow:lite-plan "Add JWT authentication"
 /workflow:lite-fix "User upload fails with 413 error"
 
@@ -358,7 +352,7 @@ ccw upgrade -a        # Upgrade all installations
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Main Workflow (4 Levels)                    │
-│  ⚡ Level 1: lite-lite-lite (instant, no artifacts)             │
+│  ⚡ Level 1: lite-lite-lite (instant execution)                 │
 │  📝 Level 2: lite-plan / lite-fix / multi-cli-plan (→ execute)  │
 │  📊 Level 3: plan / tdd-plan / test-fix-gen (session persist)   │
 │  🧠 Level 4: brainstorm:auto-parallel → plan → execute          │
@@ -392,6 +386,41 @@ ccw upgrade -a        # Upgrade all installations
 - 🔧 **Queue Scheduler** handles background task execution with unified settings
 - 🖥️ **Terminal Dashboard** provides real-time monitoring and control
 - 🎯 Select workflow level based on complexity - avoid over-engineering
+
+---
+
+## 📦 Project Structure
+
+```
+Claude-Code-Workflow/
+├── .claude/
+│   ├── agents/          # 22 specialized agents (team-worker, cli-discuss, etc.)
+│   ├── commands/        # Slash commands (5 categories)
+│   │   ├── root/        # Root commands (/ccw, /ccw-coordinator)
+│   │   ├── cli/         # CLI commands (cli-init, codex-review)
+│   │   ├── issue/       # Issue management (plan, execute, queue)
+│   │   ├── memory/      # Memory commands (prepare, style-skill-memory)
+│   │   └── workflow/    # Workflow commands (brainstorm, plan, session)
+│   └── skills/          # 37 modular skills
+│       ├── review-code/       # Code review with rule-based analysis
+│       ├── skill-tuning/      # Skill diagnosis and optimization
+│       ├── skill-generator/   # Skill scaffolding and generation
+│       ├── spec-generator/    # Product specification generation
+│       ├── memory-*/          # Memory management skills
+│       ├── workflow-*/        # Workflow orchestration skills
+│       ├── team-*/            # Team coordination skills
+│       └── ...
+├── ccw/
+│   ├── src/             # TypeScript source code
+│   │   ├── commands/    # CLI command implementations
+│   │   ├── core/        # Core services (a2ui, auth, hooks, routes)
+│   │   ├── mcp-server/  # MCP server implementation
+│   │   ├── tools/       # Tool implementations
+│   │   └── utils/       # Utility functions
+│   └── frontend/        # React frontend (Terminal Dashboard, Orchestrator)
+├── codex-lens/          # Local semantic code search engine
+└── docs/                # Documentation
+```
 
 ---
 

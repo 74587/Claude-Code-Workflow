@@ -98,7 +98,6 @@ Apply merging rules to reduce role count:
 |------|-----------|--------|
 | Absorb trivial | Capability has exactly 1 task AND no explore needed | Merge into nearest related role |
 | Merge overlap | Two capabilities share >50% keywords from task description | Combine into single role |
-| Coordinator inline | Planner capability with 1 task, no explore | Coordinator handles inline, no separate role |
 | Cap at 5 | More than 5 roles after initial assignment | Merge lowest-priority pairs (priority: researcher > designer > developer > writer > analyst > planner > tester) |
 
 **Merge priority** (when two must merge, keep the higher-priority one as the role name):
@@ -108,8 +107,10 @@ Apply merging rules to reduce role count:
 3. writer (document generation has specific patterns)
 4. designer (design has specific outputs)
 5. analyst (analysis can be absorbed by reviewer pattern)
-6. planner (can be absorbed by coordinator)
+6. planner (planning can be merged with researcher or designer)
 7. tester (can be absorbed by developer or analyst)
+
+**IMPORTANT**: Even after merging, coordinator MUST spawn workers for all roles. Single-role tasks still use team architecture.
 
 ## Phase 4: Output
 
@@ -165,6 +166,27 @@ Write `<session-folder>/task-analysis.json`:
 }
 ```
 
+## Complexity Interpretation
+
+**CRITICAL**: Complexity score is for **role design optimization**, NOT for skipping team workflow.
+
+| Complexity | Team Structure | Coordinator Action |
+|------------|----------------|-------------------|
+| Low (1-2 roles) | Minimal team | Generate 1-2 roles, create team, spawn workers |
+| Medium (2-3 roles) | Standard team | Generate roles, create team, spawn workers |
+| High (3-5 roles) | Full team | Generate roles, create team, spawn workers |
+
+**All complexity levels use team architecture**:
+- Single-role tasks still spawn worker via Skill
+- Coordinator NEVER executes task work directly
+- Team infrastructure provides session management, message bus, fast-advance
+
+**Purpose of complexity score**:
+- ✅ Determine optimal role count (merge vs separate)
+- ✅ Guide dependency graph design
+- ✅ Inform user about task scope
+- ❌ NOT for deciding whether to use team workflow
+
 ## Error Handling
 
 | Scenario | Resolution |
@@ -172,4 +194,4 @@ Write `<session-folder>/task-analysis.json`:
 | No capabilities detected | Default to single `general` role with TASK prefix |
 | Circular dependency in graph | Break cycle at lowest-tier edge, warn |
 | Task description too vague | Return minimal analysis, coordinator will AskUserQuestion |
-| All capabilities merge into one | Valid -- single-role execution, no team overhead |
+| All capabilities merge into one | Valid -- single-role execution via team worker |

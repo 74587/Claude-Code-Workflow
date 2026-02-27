@@ -405,7 +405,7 @@ export class A2UIWebSocketHandler {
       case 'submit': {
         const otherText = this.inputValues.get(`__other__:${questionId}`);
 
-        // Check if this is a single-select or multi-select
+        // Check if this is a single-select
         const singleSelection = this.singleSelectSelections.get(questionId);
         if (singleSelection !== undefined) {
           // Resolve __other__ to actual text input
@@ -413,14 +413,27 @@ export class A2UIWebSocketHandler {
           this.inputValues.delete(`__other__:${questionId}`);
           return resolveAndCleanup({ questionId, value, cancelled: false });
         }
-        // Multi-select submit
-        const multiSelected = this.multiSelectSelections.get(questionId) ?? new Set<string>();
-        // Resolve __other__ in multi-select: replace with actual text
-        const values = Array.from(multiSelected).map(v =>
-          v === '__other__' && otherText ? otherText : v
-        );
-        this.inputValues.delete(`__other__:${questionId}`);
-        return resolveAndCleanup({ questionId, value: values, cancelled: false });
+
+        // Check if this is a multi-select
+        const multiSelected = this.multiSelectSelections.get(questionId);
+        if (multiSelected !== undefined && multiSelected.size > 0) {
+          // Resolve __other__ in multi-select: replace with actual text
+          const values = Array.from(multiSelected).map(v =>
+            v === '__other__' && otherText ? otherText : v
+          );
+          this.inputValues.delete(`__other__:${questionId}`);
+          return resolveAndCleanup({ questionId, value: values, cancelled: false });
+        }
+
+        // Check if this is a text input (no selections, but has input value)
+        const inputValue = this.inputValues.get(questionId);
+        if (inputValue !== undefined) {
+          this.inputValues.delete(questionId);
+          return resolveAndCleanup({ questionId, value: inputValue, cancelled: false });
+        }
+
+        // No value found - submit empty string
+        return resolveAndCleanup({ questionId, value: '', cancelled: false });
       }
 
       case 'input-change': {

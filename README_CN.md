@@ -92,8 +92,7 @@ ccw install -m Global
 <div align="center">
 <table>
 <tr><th>级别</th><th>命令</th><th>使用场景</th></tr>
-<tr><td><b>1</b></td><td><code>/workflow:lite-lite-lite</code></td><td>快速修复、配置调整</td></tr>
-<tr><td><b>2</b></td><td><code>/workflow:lite-plan</code></td><td>明确的单模块功能</td></tr>
+<tr><td><b>2</b></td><td><code>/workflow:lite-plan</code></td><td>快速修复、单模块功能</td></tr>
 <tr><td><b>2</b></td><td><code>/workflow:lite-fix</code></td><td>Bug 诊断修复</td></tr>
 <tr><td><b>2</b></td><td><code>/workflow:multi-cli-plan</code></td><td>多视角分析</td></tr>
 <tr><td><b>3</b></td><td><code>/workflow:plan</code></td><td>多模块开发</td></tr>
@@ -105,10 +104,7 @@ ccw install -m Global
 ### 工作流示例
 
 ```bash
-# Level 1: 即时执行
-/workflow:lite-lite-lite "修复 README 中的拼写错误"
-
-# Level 2: 轻量规划
+# Level 2: 轻量规划 (推荐用于大多数任务)
 /workflow:lite-plan "添加 JWT 认证"
 /workflow:lite-fix "用户上传失败返回 413 错误"
 
@@ -354,7 +350,7 @@ ccw upgrade -a        # 升级所有安装
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     主干工作流 (4 级)                            │
-│  ⚡ Level 1: lite-lite-lite (即时执行，无产物)                   │
+│  ⚡ Level 1: lite-lite-lite (即时执行)                          │
 │  📝 Level 2: lite-plan / lite-fix / multi-cli-plan (→ execute)  │
 │  📊 Level 3: plan / tdd-plan / test-fix-gen (Session 持久化)     │
 │  🧠 Level 4: brainstorm:auto-parallel → plan → execute          │
@@ -388,6 +384,41 @@ ccw upgrade -a        # 升级所有安装
 - 🔧 **队列调度器** 处理后台任务执行与统一设置
 - 🖥️ **终端仪表板** 提供实时监控和控制
 - 🎯 根据复杂度选择工作流级别 - 避免过度工程化
+
+---
+
+## 📦 项目结构
+
+```
+Claude-Code-Workflow/
+├── .claude/
+│   ├── agents/          # 22 个专业化智能体 (team-worker, cli-discuss 等)
+│   ├── commands/        # 斜杠命令（5 个类别）
+│   │   ├── root/        # 根命令 (/ccw, /ccw-coordinator)
+│   │   ├── cli/         # CLI 命令 (cli-init, codex-review)
+│   │   ├── issue/       # Issue 管理 (plan, execute, queue)
+│   │   ├── memory/      # 内存命令 (prepare, style-skill-memory)
+│   │   └── workflow/    # 工作流命令 (brainstorm, plan, session)
+│   └── skills/          # 37 个模块化技能
+│       ├── review-code/       # 基于规则的代码审查
+│       ├── skill-tuning/      # 技能诊断与优化
+│       ├── skill-generator/   # 技能脚手架与生成
+│       ├── spec-generator/    # 产品规格生成
+│       ├── memory-*/          # 内存管理技能
+│       ├── workflow-*/        # 工作流编排技能
+│       ├── team-*/            # 团队协调技能
+│       └── ...
+├── ccw/
+│   ├── src/             # TypeScript 源码
+│   │   ├── commands/    # CLI 命令实现
+│   │   ├── core/        # 核心服务 (a2ui, auth, hooks, routes)
+│   │   ├── mcp-server/  # MCP 服务器实现
+│   │   ├── tools/       # 工具实现
+│   │   └── utils/       # 工具函数
+│   └── frontend/        # React 前端（终端仪表板、编排器）
+├── codex-lens/          # 本地语义代码搜索引擎
+└── docs/                # 文档
+```
 
 ---
 

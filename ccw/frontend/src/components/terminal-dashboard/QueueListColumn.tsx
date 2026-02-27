@@ -199,7 +199,7 @@ function SchedulerBar() {
         {/* Progress + Concurrency */}
         {isActive && (
           <span className="text-[10px] text-muted-foreground">
-            {progress}% | {concurrency}/{config.maxConcurrentSessions}
+            {progress}% | {concurrency}/{config?.maxConcurrentSessions ?? 2}
           </span>
         )}
 
@@ -284,6 +284,9 @@ export function QueueListColumn() {
   const items = useQueueSchedulerStore(selectQueueItems);
   const associationChain = useIssueQueueIntegrationStore(selectAssociationChain);
   const buildAssociationChain = useIssueQueueIntegrationStore((s) => s.buildAssociationChain);
+
+  // NOTE: loadInitialState is called from a parent component or app initialization
+  // to avoid infinite loop issues with Zustand selectors
 
   const sortedItems = useMemo(
     () => [...items].sort((a, b) => a.execution_order - b.execution_order),

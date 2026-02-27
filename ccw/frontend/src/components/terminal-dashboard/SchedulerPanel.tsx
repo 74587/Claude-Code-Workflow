@@ -82,7 +82,7 @@ export function SchedulerPanel() {
     [updateConfig]
   );
 
-  const sessionEntries = Object.entries(sessionPool);
+  const sessionEntries = Object.entries(sessionPool ?? {});
 
   return (
     <div className="flex flex-col h-full">
@@ -102,7 +102,7 @@ export function SchedulerPanel() {
             })}
           </span>
           <span className="text-xs text-muted-foreground ml-auto tabular-nums">
-            {concurrency}/{config.maxConcurrentSessions}
+            {concurrency}/{config?.maxConcurrentSessions ?? 2}
           </span>
         </div>
 
@@ -188,7 +188,7 @@ export function SchedulerPanel() {
             type="number"
             min={1}
             max={10}
-            value={config.maxConcurrentSessions}
+            value={config?.maxConcurrentSessions ?? 2}
             onChange={handleConcurrencyChange}
             className="w-14 h-6 text-xs text-center rounded border border-border bg-background px-1"
           />
