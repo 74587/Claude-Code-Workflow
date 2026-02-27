@@ -12,6 +12,7 @@
     "ccw/frontend"
   ],
   "scripts": {
+    "sync-version": "node scripts/sync-version.mjs",
     "build": "tsc -p ccw/tsconfig.json",
     "postbuild": "node -e \"const fs=require('fs');['ccw/bin/ccw.js','ccw/bin/ccw-mcp.js'].forEach(f=>{try{fs.chmodSync(f,0o755)}catch{}})\"",
     "start": "node ccw/bin/ccw.js",
