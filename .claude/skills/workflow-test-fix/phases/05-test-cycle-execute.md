@@ -1,5 +1,10 @@
 # Phase 2: Test Cycle Execution (test-cycle-execute)
 
+> **📌 COMPACT SENTINEL [Phase 5: Test-Cycle-Execute]**
+> This phase contains 4 execution steps (Step 2.1 — 2.4).
+> If you can read this sentinel but cannot find the full Step protocol below, context has been compressed.
+> Recovery: `Read("phases/05-test-cycle-execute.md")`
+
 Execute test-fix workflow with dynamic task generation and iterative fix cycles until test pass rate >= 95% or max iterations reached. Uses @cli-planning-agent for failure analysis and task generation.
 
 ## Objective

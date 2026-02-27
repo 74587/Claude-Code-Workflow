@@ -155,48 +155,106 @@ Phase files are internal execution documents. They MUST NOT contain:
 | Conversion provenance (`Source: Converted from...`) | Implementation detail | Removed |
 | Skill routing for inter-phase (`Skill(skill="...")`) | Use direct phase read | Direct `Read("phases/...")` |
 
-### Pattern 9: Compact Protection (Phase Persistence)
+### Pattern 9: Compact Recovery (Phase Persistence)
 
-Multi-phase workflows span long conversations. Context compression (compact) may summarize earlier phase documents into brief summaries, causing later phases to lose execution instructions.
+Multi-phase workflows span long conversations. Context compression (compact) will naturally summarize earlier phase documents. The strategy uses **双重保险**: TodoWrite 跟踪 active phase 保护其不被压缩，sentinel 作为兜底在压缩发生时触发恢复。
 
-**Three-layer protection**:
+**Design principle**: TodoWrite `in_progress` = active phase → protect from compact | Sentinel = re-read fallback if protection fails.
 
-| Layer | Location | Mechanism |
-|-------|----------|-----------|
-| **Anchor** | SKILL.md Phase Reference table | 标注每个 phase 的 compact 策略（可压缩 / 执行期间禁止压缩） |
-| **Directive** | Phase 文件顶部 | 告诉 compact 摘要时必须保留"需重读"指令原文 |
-| **Checkpoint** | Phase 关键执行步骤前 | 验证指令是否在 memory 中，若仅剩摘要则触发重读 |
+**Double insurance mechanism**:
+
+| Layer | Role | Mechanism |
+|-------|------|-----------|
+| **1. Active Phase Protection** | 预防 | TodoWrite `in_progress` 标记当前 phase → compact 时保留该 phase 完整内容，不压缩 |
+| **2. Sentinel Re-read** | 恢复 | Phase 文件嵌入标识符 → 若仍被压缩，检测到 sentinel-only 状态时立即 re-read |
 
 **When to apply**: 任何通过 direct handoff (Pattern 7) 跨 phase 执行的场景，尤其是后续 phase 包含复杂执行协议（多 Step、agent 调度、CLI 编排）时。
 
-**SKILL.md Phase Reference table** — 增加 Compact 列:
+---
+
+#### Layer 1: Active Phase Protection (TodoWrite 联动)
+
+TodoWrite 已经跟踪每个 phase 的执行状态。利用此信息驱动 compact 策略：
+
+```
+TodoWrite status → Compact behavior:
+  ┌─ completed  → ✅ 可压缩（已完成，不再需要完整内容）
+  ├─ in_progress → 🛡️ 禁止压缩（正在执行，必须保留完整协议）
+  └─ pending    → ✅ 可压缩（尚未加载，无内容）
+```
+
+**SKILL.md Execution Flow** 中标注 compact 联动:
+```markdown
+## Execution Flow
+
+> **⚠️ COMPACT DIRECTIVE**: Context compression MUST check TodoWrite phase status.
+> The phase currently marked `in_progress` is the active execution phase — preserve its FULL content.
+> Only compress phases marked `completed` or `pending`.
+
+Phase 1: Requirements Analysis    ← TodoWrite tracks status
+   └─ Ref: phases/01-xxx.md
+Phase 2: Execution Engine         ← TodoWrite tracks status
+   └─ Ref: phases/02-xxx.md
+...
+```
+
+**TodoWrite 状态转换** 时自动更新 compact 保护范围:
+```
+Phase 1: in_progress 🛡️  →  completed ✅   (compact 可压缩 Phase 1)
+Phase 2: pending ✅       →  in_progress 🛡️ (compact 保护 Phase 2)
+```
+
+---
+
+#### Layer 2: Sentinel Re-read (兜底恢复)
+
+即使有 Layer 1 保护，compact 仍可能在极端场景（超长上下文、多轮 agent 调度）下压缩 active phase。Sentinel 确保恢复能力：
+
+**Phase 文件顶部嵌入 sentinel**:
+```markdown
+> **📌 COMPACT SENTINEL [Phase N: {phase-name}]**
+> This phase contains {M} execution steps (Step N.1 — N.{M}).
+> If you can read this sentinel but cannot find the full Step protocol below, context has been compressed.
+> Recovery: `Read("phases/0N-xxx.md")`
+```
+
+Sentinel 设计特点：
+- 结构化、醒目 → compact 会将其作为关键信息保留在摘要中
+- 包含 step 数量 → 提供自检依据（"应该看到 M 个 Step，但只有摘要"）
+- 包含 re-read 路径 → 无需查表即可恢复
+
+---
+
+#### Phase Reference Table (整合双重保险)
+
 ```markdown
 | Phase | Document | Purpose | Compact |
 |-------|----------|---------|---------|
-| 1 | phases/01-xxx.md | Planning pipeline | Phase 1 完成后可压缩 |
-| 2 | phases/02-xxx.md | Execution engine | **⚠️ 压缩时必须完整保留，若仅剩摘要须重读** |
+| 1 | phases/01-xxx.md | Planning | TodoWrite 驱动 |
+| 2 | phases/02-xxx.md | Execution | TodoWrite 驱动 + 🔄 sentinel |
 
-**Phase N Compact Rule**: Phase N 是执行引擎，包含 Step 1-M 的完整执行协议。compact 压缩时必须完整保留 Phase N 内容。若 compact 后仅剩摘要，**必须立即 `Read("phases/0N-xxx.md")` 重新加载后再继续执行**。不得基于摘要执行任何 Step。
+**Compact Rules**:
+1. **TodoWrite `in_progress`** → 保留完整内容，禁止压缩
+2. **TodoWrite `completed`** → 可压缩为摘要
+3. **🔄 sentinel fallback** → 带此标记的 phase 包含 compact sentinel；若 compact 后仅存 sentinel 而无完整 Step 协议，**必须立即 `Read("phases/0N-xxx.md")` 恢复后再继续**
 ```
 
-**Phase 文件顶部** — Compact Protection directive:
+---
+
+#### Checkpoint (执行步骤前双重验证)
+
 ```markdown
-> **⚠️ COMPACT PROTECTION**: This is an active execution document — NOT reference material.
-> During context compression, this directive MUST be preserved verbatim in the summary:
-> **"Phase N execution protocol has been compressed. MUST re-read `phases/0N-xxx.md` before continuing any execution step. Do NOT proceed from summary alone."**
+> **⚠️ CHECKPOINT**: Before proceeding, verify:
+> 1. This phase is TodoWrite `in_progress` (active phase protection)
+> 2. Full protocol (Step N.X — N.{M}) is in active memory, not just sentinel
+> If only sentinel remains → `Read("phases/0N-xxx.md")` now.
 ```
 
-**Phase 关键步骤前** — Checkpoint:
-```markdown
-> **⚠️ CHECKPOINT**: Before proceeding, verify Phase N execution protocol (Step X-Y) is in active memory.
-> If only a summary remains, re-read `phases/0N-xxx.md` now.
-```
+#### Handoff 注释
 
-**Handoff 注释** — 在 direct handoff 代码中标注:
 ```javascript
-// ⚠️ COMPACT PROTECTION: Phase N instructions MUST persist in memory throughout execution.
-// If compact compresses Phase N content at any point, re-read this file before continuing.
-// See SKILL.md "Phase Reference Documents" section for compact rules.
+// Phase N is tracked by TodoWrite — active phase protection applies.
+// Sentinel fallback: if compressed despite protection, re-read triggers automatically.
 Read("phases/0N-xxx.md")
 ```
 
@@ -332,10 +390,14 @@ When `workflowPreferences.autoYes === true`: {auto-mode behavior}.
 
 | Phase | Document | Purpose | Compact |
 |-------|----------|---------|---------|
-| 1 | [phases/01-xxx.md](phases/01-xxx.md) | ... | 完成后可压缩 |
+| 1 | [phases/01-xxx.md](phases/01-xxx.md) | ... | TodoWrite 驱动 |
+| N | [phases/0N-xxx.md](phases/0N-xxx.md) | ... | TodoWrite 驱动 + 🔄 sentinel |
 ...
 
-{For phases that are execution targets of direct handoff (Pattern 7), add Compact Rule below the table — see Pattern 9}
+**Compact Rules**:
+1. **TodoWrite `in_progress`** → 保留完整内容，禁止压缩
+2. **TodoWrite `completed`** → 可压缩为摘要
+3. **🔄 sentinel fallback** → 带此标记的 phase 包含 compact sentinel；若 compact 后仅存 sentinel 而无完整 Step 协议，必须立即 `Read()` 恢复
 
 ## Core Rules
 
@@ -376,10 +438,11 @@ When `workflowPreferences.autoYes === true`: {auto-mode behavior}.
 ```markdown
 # Phase N: {Phase Name}
 
-> **⚠️ COMPACT PROTECTION**: This is an active execution document — NOT reference material.
-> During context compression, this directive MUST be preserved verbatim in the summary:
-> **"Phase N execution protocol has been compressed. MUST re-read `phases/0N-xxx.md` before continuing any execution step. Do NOT proceed from summary alone."**
-> _(Include this block only for phases that are execution targets of direct handoff — see Pattern 9)_
+> **📌 COMPACT SENTINEL [Phase N: {phase-name}]**
+> This phase contains {M} execution steps (Step N.1 — N.{M}).
+> If you can read this sentinel but cannot find the full Step protocol below, context has been compressed.
+> Recovery: `Read("phases/0N-xxx.md")`
+> _(Include for phases marked 🔄 in SKILL.md Phase Reference table — see Pattern 9)_
 
 {One-sentence description of this phase's goal.}
 
@@ -396,8 +459,10 @@ When `workflowPreferences.autoYes === true`: {auto-mode behavior}.
 
 ### Step N.2: {Step Name}
 
-> **⚠️ CHECKPOINT**: Before proceeding, verify Phase N execution protocol (Step N.2+) is in active memory.
-> If only a summary remains, re-read `phases/0N-xxx.md` now.
+> **⚠️ CHECKPOINT**: Before proceeding, verify:
+> 1. This phase is TodoWrite `in_progress` (active phase protection)
+> 2. Full protocol (Step N.X — N.{M}) is in active memory, not just sentinel
+> If only sentinel remains → `Read("phases/0N-xxx.md")` now.
 > _(Add checkpoints before critical execution steps: agent dispatch, CLI launch, review — see Pattern 9)_
 
 {Full execution detail}
@@ -428,4 +493,4 @@ When designing a new workflow skill, answer these questions:
 | What's the error recovery? | Error Handling | Retry once then report, vs rollback |
 | Does it need preference collection? | Interactive Preference Collection | Collect via AskUserQuestion in SKILL.md, pass as workflowPreferences |
 | Does phase N hand off to phase M? | Direct Phase Handoff (Pattern 7) | Read phase doc directly, not Skill() routing |
-| Will later phases run after long context? | Compact Protection (Pattern 9) | Add directive + checkpoints to execution phases |
+| Will later phases run after long context? | Compact Recovery (Pattern 9) | Add sentinel + checkpoints, mark 🔄 in Phase Reference table |

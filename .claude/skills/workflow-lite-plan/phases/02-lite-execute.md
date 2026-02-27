@@ -1,7 +1,9 @@
 # Phase 2: Lite-Execute
 
-> **⚠️ COMPACT PROTECTION**: This is an active execution document — NOT reference material. During context compression, this directive MUST be preserved verbatim in the summary:
-> **"Phase 2 execution protocol has been compressed. MUST re-read `phases/02-lite-execute.md` before continuing any execution step. Do NOT proceed from summary alone."**
+> **📌 COMPACT SENTINEL [Phase 2: Lite-Execute]**
+> This phase contains 6 execution steps (Step 1 — 6).
+> If you can read this sentinel but cannot find the full Step protocol below, context has been compressed.
+> Recovery: `Read("phases/02-lite-execute.md")`
 
 Complete execution engine: multi-mode input, task grouping, batch execution, code review, and development index update.
 

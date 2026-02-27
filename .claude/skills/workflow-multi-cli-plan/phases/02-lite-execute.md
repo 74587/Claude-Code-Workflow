@@ -1,5 +1,10 @@
 # Phase 2: Lite Execute
 
+> **📌 COMPACT SENTINEL [Phase 2: Lite-Execute]**
+> This phase contains 6 execution steps (Step 1 — 6).
+> If you can read this sentinel but cannot find the full Step protocol below, context has been compressed.
+> Recovery: `Read("phases/02-lite-execute.md")`
+
 Complete execution engine supporting multiple input modes: in-memory plan, prompt description, or file content.
 
 ## Objective

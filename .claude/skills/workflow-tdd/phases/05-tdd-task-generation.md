@@ -1,5 +1,10 @@
 # Phase 5: TDD Task Generation
 
+> **📌 COMPACT SENTINEL [Phase 5: TDD-Task-Generation]**
+> This phase contains 3 execution steps (Step 5.1 — 5.3).
+> If you can read this sentinel but cannot find the full Step protocol below, context has been compressed.
+> Recovery: `Read("phases/05-tdd-task-generation.md")`
+
 Generate TDD tasks with Red-Green-Refactor cycles via action-planning-agent.
 
 ## Objective

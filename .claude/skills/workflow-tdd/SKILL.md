@@ -94,6 +94,14 @@ function detectMode(args) {
 }
 ```
 
+## Compact Recovery (Phase Persistence)
+
+Multi-phase TDD planning (Phase 1-6/7) spans long conversations. Uses **双重保险**: TodoWrite 跟踪 active phase 保护其不被压缩，sentinel 作为兜底。
+
+> **⚠️ COMPACT DIRECTIVE**: Context compression MUST check TodoWrite phase status.
+> The phase currently marked `in_progress` is the active execution phase — preserve its FULL content.
+> Only compress phases marked `completed` or `pending`.
+
 ## Execution Flow
 
 ### Plan Mode (default)
@@ -149,15 +157,20 @@ Phase 7: TDD Verification
 
 **Phase Reference Documents** (read on-demand when phase executes):
 
-| Phase | Document | Purpose | Mode |
-|-------|----------|---------|------|
-| 1 | [phases/01-session-discovery.md](phases/01-session-discovery.md) | Create or discover TDD workflow session | plan |
-| 2 | [phases/02-context-gathering.md](phases/02-context-gathering.md) | Gather project context and analyze codebase | plan |
-| 3 | [phases/03-test-coverage-analysis.md](phases/03-test-coverage-analysis.md) | Analyze test coverage and framework detection | plan |
-| 4 | [phases/04-conflict-resolution.md](phases/04-conflict-resolution.md) | Detect and resolve conflicts (conditional) | plan |
-| 5 | [phases/05-tdd-task-generation.md](phases/05-tdd-task-generation.md) | Generate TDD tasks with Red-Green-Refactor cycles | plan |
-| 6 | [phases/06-tdd-structure-validation.md](phases/06-tdd-structure-validation.md) | Validate TDD structure and present confirmation gate | plan |
-| 7 | [phases/07-tdd-verify.md](phases/07-tdd-verify.md) | Full TDD compliance verification with quality gate | verify |
+| Phase | Document | Purpose | Mode | Compact |
+|-------|----------|---------|------|---------|
+| 1 | [phases/01-session-discovery.md](phases/01-session-discovery.md) | Create or discover TDD workflow session | plan | TodoWrite 驱动 |
+| 2 | [phases/02-context-gathering.md](phases/02-context-gathering.md) | Gather project context and analyze codebase | plan | TodoWrite 驱动 |
+| 3 | [phases/03-test-coverage-analysis.md](phases/03-test-coverage-analysis.md) | Analyze test coverage and framework detection | plan | TodoWrite 驱动 |
+| 4 | [phases/04-conflict-resolution.md](phases/04-conflict-resolution.md) | Detect and resolve conflicts (conditional) | plan | TodoWrite 驱动 |
+| 5 | [phases/05-tdd-task-generation.md](phases/05-tdd-task-generation.md) | Generate TDD tasks with Red-Green-Refactor cycles | plan | TodoWrite 驱动 + 🔄 sentinel |
+| 6 | [phases/06-tdd-structure-validation.md](phases/06-tdd-structure-validation.md) | Validate TDD structure and present confirmation gate | plan | TodoWrite 驱动 + 🔄 sentinel |
+| 7 | [phases/07-tdd-verify.md](phases/07-tdd-verify.md) | Full TDD compliance verification with quality gate | verify | TodoWrite 驱动 |
+
+**Compact Rules**:
+1. **TodoWrite `in_progress`** → 保留完整内容，禁止压缩
+2. **TodoWrite `completed`** → 可压缩为摘要
+3. **🔄 sentinel fallback** → Phase 5/6 包含 compact sentinel；若 compact 后仅存 sentinel 而无完整 Step 协议，必须立即 `Read()` 恢复对应 phase 文件
 
 ## Core Rules
 

@@ -1,5 +1,10 @@
 # Phase 4: Task Generation
 
+> **📌 COMPACT SENTINEL [Phase 4: Task-Generation]**
+> This phase contains 6 execution steps (Step 4.0 — 4.4).
+> If you can read this sentinel but cannot find the full Step protocol below, context has been compressed.
+> Recovery: `Read("phases/04-task-generation.md")`
+
 Generate implementation plan and task JSONs via action-planning-agent.
 
 ## Objective

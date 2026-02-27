@@ -1,5 +1,10 @@
 # Phase 6: TDD Structure Validation & Plan Confirmation
 
+> **📌 COMPACT SENTINEL [Phase 6: TDD-Structure-Validation]**
+> This phase contains 4 execution steps (Step 6.1 — 6.4).
+> If you can read this sentinel but cannot find the full Step protocol below, context has been compressed.
+> Recovery: `Read("phases/06-tdd-structure-validation.md")`
+
 Internal validation of TDD task structure and user decision gate for next steps.
 
 ## Objective

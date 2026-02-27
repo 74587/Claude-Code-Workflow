@@ -113,6 +113,14 @@ function detectMode(args) {
 }
 ```
 
+## Compact Recovery (Phase Persistence)
+
+Multi-phase planning (Phase 1-4/5/6) spans long conversations. Uses **双重保险**: TodoWrite 跟踪 active phase 保护其不被压缩，sentinel 作为兜底。
+
+> **⚠️ COMPACT DIRECTIVE**: Context compression MUST check TodoWrite phase status.
+> The phase currently marked `in_progress` is the active execution phase — preserve its FULL content.
+> Only compress phases marked `completed` or `pending`.
+
 ## Execution Flow
 
 ### Plan Mode (default)
@@ -166,14 +174,19 @@ Phase 6: Interactive Replan
 
 **Phase Reference Documents** (read on-demand when phase executes):
 
-| Phase | Document | Purpose | Mode |
-|-------|----------|---------|------|
-| 1 | [phases/01-session-discovery.md](phases/01-session-discovery.md) | Create or discover workflow session | plan |
-| 2 | [phases/02-context-gathering.md](phases/02-context-gathering.md) | Gather project context and analyze codebase | plan |
-| 3 | [phases/03-conflict-resolution.md](phases/03-conflict-resolution.md) | Detect and resolve conflicts (conditional) | plan |
-| 4 | [phases/04-task-generation.md](phases/04-task-generation.md) | Generate implementation plan and task JSONs | plan |
-| 5 | [phases/05-plan-verify.md](phases/05-plan-verify.md) | Read-only verification with quality gate | verify |
-| 6 | [phases/06-replan.md](phases/06-replan.md) | Interactive replanning with boundary clarification | replan |
+| Phase | Document | Purpose | Mode | Compact |
+|-------|----------|---------|------|---------|
+| 1 | [phases/01-session-discovery.md](phases/01-session-discovery.md) | Create or discover workflow session | plan | TodoWrite 驱动 |
+| 2 | [phases/02-context-gathering.md](phases/02-context-gathering.md) | Gather project context and analyze codebase | plan | TodoWrite 驱动 |
+| 3 | [phases/03-conflict-resolution.md](phases/03-conflict-resolution.md) | Detect and resolve conflicts (conditional) | plan | TodoWrite 驱动 |
+| 4 | [phases/04-task-generation.md](phases/04-task-generation.md) | Generate implementation plan and task JSONs | plan | TodoWrite 驱动 + 🔄 sentinel |
+| 5 | [phases/05-plan-verify.md](phases/05-plan-verify.md) | Read-only verification with quality gate | verify | TodoWrite 驱动 |
+| 6 | [phases/06-replan.md](phases/06-replan.md) | Interactive replanning with boundary clarification | replan | TodoWrite 驱动 |
+
+**Compact Rules**:
+1. **TodoWrite `in_progress`** → 保留完整内容，禁止压缩
+2. **TodoWrite `completed`** → 可压缩为摘要
+3. **🔄 sentinel fallback** → Phase 4 包含 compact sentinel；若 compact 后仅存 sentinel 而无完整 Step 协议，必须立即 `Read("phases/04-task-generation.md")` 恢复
 
 ## Core Rules
 
