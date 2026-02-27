@@ -14,7 +14,9 @@
 
   "dimension": {
     "specs": "Project Specs",
-    "personal": "Personal"
+    "personal": "Personal",
+    "roadmap": "Roadmap",
+    "changelog": "Changelog"
   },
 
   "scope": {
@@ -23,8 +25,10 @@
     "project": "Project"
   },
   "filterByScope": "Filter by scope:",
+  "filterByCategory": "Workflow stage:",
 
   "category": {
+    "all": "All",
     "general": "General",
     "exploration": "Exploration",
     "planning": "Planning",
@@ -43,10 +47,37 @@
   "install": "Install",
   "installed": "Installed",
   "installing": "Installing...",
+
   "installedHooks": "Installed Hooks",
   "installedHooksDesc": "Manage your installed hooks configuration",
   "searchHooks": "Search hooks...",
   "noHooks": "No hooks installed. Install recommended hooks above.",
+
+  "actions": {
+    "view": "View Content",
+    "edit": "Edit",
+    "delete": "Delete",
+    "reset": "Reset",
+    "save": "Save",
+    "saving": "Saving..."
+  },
+
+  "status": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+
+  "readMode": {
+    "required": "Required",
+    "optional": "Optional"
+  },
+
+  "priority": {
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
 
   "spec": {
     "edit": "Edit Spec",
@@ -91,37 +122,11 @@
     "failModeWarn": "Warn"
   },
 
-  "actions": {
-    "edit": "Edit",
-    "delete": "Delete",
-    "reset": "Reset",
-    "save": "Save",
-    "saving": "Saving...",
-    "view": "View Content"
-  },
-
-  "status": {
-    "enabled": "Enabled",
-    "disabled": "Disabled"
-  },
-
-  "readMode": {
-    "required": "Required",
-    "optional": "Optional"
-  },
-
-  "priority": {
-    "critical": "Critical",
-    "high": "High",
-    "medium": "Medium",
-    "low": "Low"
-  },
-
   "hooks": {
     "dialog": {
       "createTitle": "Create Hook",
       "editTitle": "Edit Hook",
-      "description": "Configure the hook trigger event, command, and other settings."
+      "description": "Configure hook trigger event, command, and other settings."
     },
     "fields": {
       "name": "Hook Name",
@@ -149,9 +154,9 @@
       "project": "Project"
     },
     "failModes": {
-      "continue": "Continue",
-      "warn": "Show Warning",
-      "block": "Block Operation"
+      "continue": "Continue execution",
+      "warn": "Show warning",
+      "block": "Block operation"
     },
     "validation": {
       "nameRequired": "Name is required",
@@ -185,7 +190,7 @@
     "metadata": "Metadata",
     "markdownContent": "Markdown Content",
     "noContent": "No content available",
-    "editHint": "Edit the full markdown content including frontmatter. Changes to frontmatter will be reflected in the spec metadata.",
+    "editHint": "Edit the full markdown content including frontmatter. Changes to frontmatter will be reflected in spec metadata.",
     "placeholder": "# Spec Title\n\nContent here..."
   },
 
@@ -221,10 +226,14 @@
     "title": "Global Settings",
     "description": "Configure personal spec defaults and system settings",
     "personalSpecDefaults": "Personal Spec Defaults",
+    "personalSpecDefaultsDesc": "These settings will be applied when creating new personal specs",
     "defaultReadMode": "Default Read Mode",
-    "defaultReadModeHelp": "Default read mode for newly created personal specs",
-    "autoEnable": "Auto Enable",
-    "autoEnableDescription": "Automatically enable newly created personal specs"
+    "defaultReadModeHelp": "The default read mode for newly created personal specs",
+    "selectReadMode": "Select read mode",
+    "autoEnable": "Auto Enable New Specs",
+    "autoEnableDescription": "Automatically enable newly created personal specs",
+    "specStatistics": "Spec Statistics",
+    "totalSpecs": "Total: {count} spec files"
   },
 
   "dialog": {

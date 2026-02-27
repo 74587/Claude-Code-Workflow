@@ -74,6 +74,8 @@ export interface SpecIndexEntry {
   priority: 'critical' | 'high' | 'medium' | 'low';
   /** Scope: global (from ~/.ccw/) or project (from .ccw/) */
   scope: 'global' | 'project';
+  /** Content length (body only, without frontmatter) - cached for performance */
+  contentLength: number;
 }
 
 /**
@@ -347,16 +349,18 @@ function parseSpecFile(
   }
 
   const data = parsed.data as Record<string, unknown>;
+  // Calculate content length (body only, without frontmatter)
+  const contentLength = parsed.content.length;
 
   // Extract and validate frontmatter fields
   const title = extractString(data, 'title');
   if (!title) {
     // Title is required - use filename as fallback
     const fallbackTitle = basename(filePath, extname(filePath));
-    return buildEntry(fallbackTitle, filePath, dimension, projectPath, data, scope);
+    return buildEntry(fallbackTitle, filePath, dimension, projectPath, data, scope, contentLength);
   }
 
-  return buildEntry(title, filePath, dimension, projectPath, data, scope);
+  return buildEntry(title, filePath, dimension, projectPath, data, scope, contentLength);
 }
 
 /**
@@ -368,7 +372,8 @@ function buildEntry(
   dimension: string,
   projectPath: string,
   data: Record<string, unknown>,
-  scope: 'global' | 'project' = 'project'
+  scope: 'global' | 'project' = 'project',
+  contentLength: number = 0
 ): SpecIndexEntry {
   // Compute relative file path from project root using path.relative
   // Normalize to forward slashes for cross-platform consistency
@@ -398,6 +403,7 @@ function buildEntry(
     readMode,
     priority,
     scope,
+    contentLength,
   };
 }
 

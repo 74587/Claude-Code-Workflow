@@ -7273,6 +7273,8 @@ export interface SpecEntry {
   priority: 'critical' | 'high' | 'medium' | 'low';
   keywords: string[];
   scope: 'global' | 'project';
+  /** Content length (body only, cached for performance) */
+  contentLength: number;
 }
 
 /**
@@ -7303,6 +7305,54 @@ export async function rebuildSpecIndex(projectPath?: string): Promise<{ success:
   return fetchApi<{ success: boolean; stats?: Record<string, number> }>(url, {
     method: 'POST',
   });
+}
+
+/**
+ * Injection preview file info
+ */
+export interface InjectionPreviewFile {
+  file: string;
+  title: string;
+  dimension: string;
+  category: string;
+  scope: string;
+  readMode: string;
+  priority: string;
+  contentLength: number;
+  content?: string;
+}
+
+/**
+ * Injection preview response
+ */
+export interface InjectionPreviewResponse {
+  files: InjectionPreviewFile[];
+  stats: {
+    count: number;
+    totalLength: number;
+    maxLength: number;
+    percentage: number;
+  };
+}
+
+/**
+ * Get injection preview with file list
+ * @param mode - 'required' | 'all' | 'keywords'
+ * @param preview - Include content preview
+ * @param projectPath - Optional project path
+ */
+export async function getInjectionPreview(
+  mode: 'required' | 'all' | 'keywords' = 'required',
+  preview: boolean = false,
+  projectPath?: string
+): Promise<InjectionPreviewResponse> {
+  const params = new URLSearchParams();
+  params.set('mode', mode);
+  params.set('preview', String(preview));
+  if (projectPath) {
+    params.set('path', projectPath);
+  }
+  return fetchApi<InjectionPreviewResponse>(`/api/specs/injection-preview?${params.toString()}`);
 }
 
 /**

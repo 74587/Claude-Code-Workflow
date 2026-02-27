@@ -11,6 +11,7 @@ import chalk from 'chalk';
 
 interface SpecOptions {
   dimension?: string;
+  category?: string;
   keywords?: string;
   stdin?: boolean;
   json?: boolean;
@@ -58,13 +59,13 @@ function getProjectPath(hookCwd?: string): string {
 // ============================================================================
 
 /**
- * Load action - load specs matching dimension/keywords.
+ * Load action - load specs matching dimension/category/keywords.
  *
- * CLI mode: --dimension and --keywords options, outputs formatted markdown.
+ * CLI mode: --dimension, --category, --keywords options, outputs formatted markdown.
  * Hook mode: --stdin reads JSON {session_id, cwd, user_prompt}, outputs JSON {continue, systemMessage}.
  */
 async function loadAction(options: SpecOptions): Promise<void> {
-  const { stdin, dimension, keywords: keywordsInput } = options;
+  const { stdin, dimension, category, keywords: keywordsInput } = options;
   let projectPath: string;
   let stdinData: StdinData | undefined;
 
@@ -96,6 +97,7 @@ async function loadAction(options: SpecOptions): Promise<void> {
     const result = await loadSpecs({
       projectPath,
       dimension: dimension as 'specs' | 'personal' | undefined,
+      category: category as 'general' | 'exploration' | 'planning' | 'execution' | undefined,
       keywords,
       outputFormat: stdin ? 'hook' : 'cli',
       stdinData,

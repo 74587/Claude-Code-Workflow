@@ -9,6 +9,12 @@ import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/Dialog';
+import {
   Card,
   CardContent,
   CardDescription,
@@ -20,6 +26,7 @@ import { Label } from '@/components/ui/Label';
 import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/Switch';
 import { Progress } from '@/components/ui/Progress';
+import { Badge } from '@/components/ui/Badge';
 import {
   AlertCircle,
   Info,
@@ -30,8 +37,16 @@ import {
   Download,
   CheckCircle2,
   Settings,
+  FileText,
+  Eye,
+  Globe,
+  Folder,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { useInstallRecommendedHooks } from '@/hooks/useSystemSettings';
+import type { InjectionPreviewFile, InjectionPreviewResponse } from '@/lib/api';
+import { getInjectionPreview } from '@/lib/api';
 
 // ========== Types ==========
 
@@ -167,6 +182,17 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
   // State for hooks installation
   const [installingHookIds, setInstallingHookIds] = useState<string[]>([]);
 
+  // State for injection preview
+  const [previewMode, setPreviewMode] = useState<'required' | 'all'>('required');
+  const [previewData, setPreviewData] = useState<InjectionPreviewResponse | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [expandedDimensions, setExpandedDimensions] = useState<Record<string, boolean>>({
+    specs: true,
+    personal: true,
+  });
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewFile, setPreviewFile] = useState<InjectionPreviewFile | null>(null);
+
   // Fetch stats
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
@@ -195,11 +221,43 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
     }
   }, []);
 
+  // Load injection preview
+  const loadPreview = useCallback(async () => {
+    setPreviewLoading(true);
+    try {
+      const data = await getInjectionPreview(previewMode, false);
+      setPreviewData(data);
+    } catch (err) {
+      console.error('Failed to load injection preview:', err);
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [previewMode]);
+
+  // Load file content for preview
+  const loadFilePreview = useCallback(async (file: InjectionPreviewFile) => {
+    try {
+      const data = await getInjectionPreview(previewMode, true);
+      const fileWithData = data.files.find(f => f.file === file.file);
+      if (fileWithData) {
+        setPreviewFile(fileWithData);
+        setPreviewDialogOpen(true);
+      }
+    } catch (err) {
+      console.error('Failed to load file preview:', err);
+    }
+  }, [previewMode]);
+
   // Initial load
   useEffect(() => {
     loadStats();
     loadSettings();
   }, [loadStats, loadSettings]);
+
+  // Load preview when mode changes
+  useEffect(() => {
+    loadPreview();
+  }, [loadPreview]);
 
   // Check for changes
   useEffect(() => {
@@ -245,20 +303,21 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
     setHasChanges(false);
   };
 
+  // Toggle dimension expansion
+  const toggleDimension = (dim: string) => {
+    setExpandedDimensions(prev => ({ ...prev, [dim]: !prev[dim] }));
+  };
+
   // ========== Hooks Installation ==========
 
-  // Get installed hooks from system settings
   const installedHookIds = useMemo(() => {
     const installed = new Set<string>();
-    // Check if hooks are already installed by checking system settings
-    // For now, we'll track this via the mutation result
     return installed;
   }, []);
 
-  const installedCount = 0; // Will be updated when we have real data
+  const installedCount = 0;
   const allHooksInstalled = installedCount === RECOMMENDED_HOOKS.length;
 
-  // Install single hook
   const handleInstallHook = useCallback(async (hookId: string) => {
     setInstallingHookIds(prev => [...prev, hookId]);
     try {
@@ -276,7 +335,6 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
     }
   }, [installHooksMutation, formatMessage]);
 
-  // Install all hooks
   const handleInstallAllHooks = useCallback(async () => {
     const uninstalledHooks = RECOMMENDED_HOOKS.filter(h => !installedHookIds.has(h.id));
     if (uninstalledHooks.length === 0) return;
@@ -299,6 +357,19 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
       setInstallingHookIds([]);
     }
   }, [installedHookIds, installHooksMutation, formatMessage]);
+
+  // Group files by dimension
+  const filesByDimension = useMemo(() => {
+    if (!previewData) return {};
+    const grouped: Record<string, InjectionPreviewFile[]> = {};
+    for (const file of previewData.files) {
+      if (!grouped[file.dimension]) {
+        grouped[file.dimension] = [];
+      }
+      grouped[file.dimension].push(file);
+    }
+    return grouped;
+  }, [previewData]);
 
   // Calculate progress and status
   const currentLength = stats?.injectionLength?.withKeywords || 0;
@@ -416,7 +487,7 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
               variant="ghost"
               size="icon"
               className="h-6 w-6"
-              onClick={loadStats}
+              onClick={() => { loadStats(); loadPreview(); }}
               disabled={statsLoading}
             >
               <RefreshCw className={cn('h-4 w-4', statsLoading && 'animate-spin')} />
@@ -537,6 +608,116 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
         </CardContent>
       </Card>
 
+      {/* Injection Files List Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {formatMessage({ id: 'specs.injection.filesList', defaultMessage: 'Injection Files' })}
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={previewMode === 'required' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPreviewMode('required')}
+              >
+                {formatMessage({ id: 'specs.readMode.required', defaultMessage: 'Required' })}
+              </Button>
+              <Button
+                variant={previewMode === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPreviewMode('all')}
+              >
+                {formatMessage({ id: 'specs.scope.all', defaultMessage: 'All' })}
+              </Button>
+            </div>
+          </div>
+          <CardDescription>
+            {previewData && (
+              <span>
+                {previewData.stats.count} {formatMessage({ id: 'specs.injection.files', defaultMessage: 'files' })} • {formatNumber(previewData.stats.totalLength)} {formatMessage({ id: 'specs.injection.characters', defaultMessage: 'characters' })}
+              </span>
+            )}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {previewLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="h-[300px] overflow-auto">
+              <div className="space-y-2">
+                {Object.entries(filesByDimension).map(([dim, files]) => (
+                  <div key={dim} className="border rounded-lg">
+                    <button
+                      className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors"
+                      onClick={() => toggleDimension(dim)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {expandedDimensions[dim] ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                        <span className="font-medium capitalize">
+                          {formatMessage({ id: `specs.dimension.${dim}`, defaultMessage: dim })}
+                        </span>
+                        <Badge variant="secondary" className="text-xs">
+                          {files.length}
+                        </Badge>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {formatNumber(files.reduce((sum, f) => sum + f.contentLength, 0))} {formatMessage({ id: 'specs.injection.characters', defaultMessage: 'chars' })}
+                      </span>
+                    </button>
+                    {expandedDimensions[dim] && (
+                      <div className="border-t">
+                        {files.map((file) => (
+                          <div
+                            key={file.file}
+                            className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/30"
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              {file.scope === 'global' ? (
+                                <Globe className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                              ) : (
+                                <Folder className="h-4 w-4 text-green-500 flex-shrink-0" />
+                              )}
+                              <div className="min-w-0">
+                                <div className="font-medium truncate">{file.title}</div>
+                                <div className="text-xs text-muted-foreground truncate">{file.file}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                {formatMessage({ id: `specs.priority.${file.priority}`, defaultMessage: file.priority })}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {formatNumber(file.contentLength)}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => loadFilePreview(file)}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Settings Card */}
       <Card>
         <CardHeader>
@@ -645,6 +826,23 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
           )}
         </CardContent>
       </Card>
+
+      {/* File Preview Dialog */}
+      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {previewFile?.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto">
+            <pre className="text-sm whitespace-pre-wrap p-4 bg-muted rounded-lg">
+              {previewFile?.content || formatMessage({ id: 'specs.content.noContent', defaultMessage: 'No content available' })}
+            </pre>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

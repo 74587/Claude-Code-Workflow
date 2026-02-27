@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useIntl } from 'react-intl';
 import { toast } from 'sonner';
 import { Settings, RefreshCw } from 'lucide-react';
 import {
@@ -113,6 +114,7 @@ const settingsKeys = {
 // ========== Component ==========
 
 export function GlobalSettingsTab() {
+  const { formatMessage } = useIntl();
   const queryClient = useQueryClient();
 
   // Local state for immediate UI feedback
@@ -149,10 +151,13 @@ export function GlobalSettingsTab() {
     mutationFn: updateSystemSettings,
     onSuccess: (data) => {
       queryClient.setQueryData(settingsKeys.settings(), data.settings);
-      toast.success('Settings saved successfully');
+      toast.success(formatMessage({ id: 'specs.injection.saveSuccess', defaultMessage: 'Settings saved successfully' }));
     },
     onError: (error) => {
-      toast.error(`Failed to save settings: ${error.message}`);
+      toast.error(formatMessage(
+        { id: 'specs.injection.saveError', defaultMessage: 'Failed to save settings: {error}' },
+        { error: error.message }
+      ));
     },
   });
 
@@ -194,12 +199,6 @@ export function GlobalSettingsTab() {
   const isLoading = isLoadingSettings || isLoadingStats;
   const hasError = settingsError || statsError;
 
-  // Dimension display config
-  const dimensionLabels: Record<string, string> = {
-    specs: 'Specs',
-    personal: 'Personal',
-  };
-
   return (
     <div className="space-y-6">
       {/* Personal Spec Defaults Card */}
@@ -207,16 +206,20 @@ export function GlobalSettingsTab() {
         <CardHeader>
           <div className="flex items-center gap-2">
             <Settings className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Personal Spec Defaults</CardTitle>
+            <CardTitle>
+              {formatMessage({ id: 'specs.settings.personalSpecDefaults', defaultMessage: 'Personal Spec Defaults' })}
+            </CardTitle>
           </div>
           <CardDescription>
-            These settings will be applied when creating new personal specs
+            {formatMessage({ id: 'specs.settings.personalSpecDefaultsDesc', defaultMessage: 'These settings will be applied when creating new personal specs' })}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Default Read Mode */}
           <div className="space-y-2">
-            <Label htmlFor="default-read-mode">Default Read Mode</Label>
+            <Label htmlFor="default-read-mode">
+              {formatMessage({ id: 'specs.settings.defaultReadMode', defaultMessage: 'Default Read Mode' })}
+            </Label>
             <Select
               value={localDefaults.defaultReadMode}
               onValueChange={(value) =>
@@ -224,28 +227,30 @@ export function GlobalSettingsTab() {
               }
             >
               <SelectTrigger id="default-read-mode" className="w-full">
-                <SelectValue placeholder="Select read mode" />
+                <SelectValue placeholder={formatMessage({ id: 'specs.settings.selectReadMode', defaultMessage: 'Select read mode' })} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="required">
-                  Required (Always inject)
+                  {formatMessage({ id: 'specs.readMode.required', defaultMessage: 'Required' })}
                 </SelectItem>
                 <SelectItem value="optional">
-                  Optional (Inject on keyword match)
+                  {formatMessage({ id: 'specs.readMode.optional', defaultMessage: 'Optional' })}
                 </SelectItem>
               </SelectContent>
             </Select>
             <p className="text-sm text-muted-foreground">
-              The default read mode for newly created personal specs
+              {formatMessage({ id: 'specs.settings.defaultReadModeHelp', defaultMessage: 'The default read mode for newly created personal specs' })}
             </p>
           </div>
 
           {/* Auto Enable */}
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="auto-enable">Auto Enable New Specs</Label>
+              <Label htmlFor="auto-enable">
+                {formatMessage({ id: 'specs.settings.autoEnable', defaultMessage: 'Auto Enable New Specs' })}
+              </Label>
               <p className="text-sm text-muted-foreground">
-                Automatically enable newly created personal specs
+                {formatMessage({ id: 'specs.settings.autoEnableDescription', defaultMessage: 'Automatically enable newly created personal specs' })}
               </p>
             </div>
             <Switch
@@ -262,7 +267,9 @@ export function GlobalSettingsTab() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Spec Statistics</CardTitle>
+            <CardTitle>
+              {formatMessage({ id: 'specs.settings.specStatistics', defaultMessage: 'Spec Statistics' })}
+            </CardTitle>
             <Button
               variant="ghost"
               size="sm"
@@ -280,7 +287,7 @@ export function GlobalSettingsTab() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
@@ -293,11 +300,11 @@ export function GlobalSettingsTab() {
             </div>
           ) : hasError ? (
             <div className="text-center py-8 text-muted-foreground">
-              Failed to load statistics
+              {formatMessage({ id: 'specs.injection.loadError', defaultMessage: 'Failed to load statistics' })}
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {dimensionEntries.map(([dim, data]) => (
                   <div
                     key={dim}
@@ -306,11 +313,11 @@ export function GlobalSettingsTab() {
                     <div className="text-2xl font-bold text-foreground">
                       {data.count}
                     </div>
-                    <div className="text-sm text-muted-foreground capitalize">
-                      {dimensionLabels[dim] || dim}
+                    <div className="text-sm text-muted-foreground">
+                      {formatMessage({ id: `specs.dimension.${dim}`, defaultMessage: dim })}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      {data.requiredCount} required
+                      {data.requiredCount} {formatMessage({ id: 'specs.required', defaultMessage: 'required' })}
                     </div>
                   </div>
                 ))}
@@ -319,10 +326,15 @@ export function GlobalSettingsTab() {
               {/* Summary */}
               <div className="mt-4 pt-4 border-t border-border">
                 <div className="flex justify-between text-sm text-muted-foreground">
-                  <span>Total: {totalCount} spec files</span>
                   <span>
-                    {totalRequired} required | {totalCount - totalRequired}{' '}
-                    optional
+                    {formatMessage(
+                      { id: 'specs.settings.totalSpecs', defaultMessage: 'Total: {count} spec files' },
+                      { count: totalCount }
+                    )}
+                  </span>
+                  <span>
+                    {totalRequired} {formatMessage({ id: 'specs.readMode.required', defaultMessage: 'required' })} | {totalCount - totalRequired}{' '}
+                    {formatMessage({ id: 'specs.readMode.optional', defaultMessage: 'optional' })}
                   </span>
                 </div>
               </div>

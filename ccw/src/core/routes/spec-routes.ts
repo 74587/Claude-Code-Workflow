@@ -151,7 +151,7 @@ export async function handleSpecRoutes(ctx: RouteContext): Promise<boolean> {
     return true;
   }
 
-  // API: Get spec stats (dimensions count + injection length info)
+  // API: Get spec stats (optimized - uses cached contentLength)
   if (pathname === '/api/specs/stats' && req.method === 'GET') {
     const projectPath = url.searchParams.get('path') || initialPath;
     const resolvedPath = resolvePath(projectPath);
@@ -186,18 +186,8 @@ export async function handleSpecRoutes(ctx: RouteContext): Promise<boolean> {
 
         for (const entry of index.entries) {
           count++;
-          // Calculate content length by reading the file
-          const filePath = join(resolvedPath, entry.file);
-          let contentLength = 0;
-          try {
-            if (existsSync(filePath)) {
-              const rawContent = readFileSync(filePath, 'utf-8');
-              // Strip frontmatter to get actual content length
-              const matter = (await import('gray-matter')).default;
-              const parsed = matter(rawContent);
-              contentLength = parsed.content.length;
-            }
-          } catch { /* ignore */ }
+          // Use cached contentLength instead of re-reading file
+          const contentLength = entry.contentLength || 0;
 
           if (entry.readMode === 'required') {
             requiredCount++;
@@ -219,6 +209,110 @@ export async function handleSpecRoutes(ctx: RouteContext): Promise<boolean> {
           withKeywords: totalWithKeywords,
           maxLength,
           percentage
+        }
+      }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
+    return true;
+  }
+
+  // API: Get injection preview (files list and content preview)
+  if (pathname === '/api/specs/injection-preview' && req.method === 'GET') {
+    const projectPath = url.searchParams.get('path') || initialPath;
+    const resolvedPath = resolvePath(projectPath);
+    const mode = url.searchParams.get('mode') || 'required'; // required | all | keywords
+    const preview = url.searchParams.get('preview') === 'true';
+
+    try {
+      const { getDimensionIndex, SPEC_DIMENSIONS } = await import(
+        '../../tools/spec-index-builder.js'
+      );
+
+      interface InjectionFile {
+        file: string;
+        title: string;
+        dimension: string;
+        category: string;
+        scope: string;
+        readMode: string;
+        priority: string;
+        contentLength: number;
+        content?: string;
+      }
+
+      const files: InjectionFile[] = [];
+      let totalLength = 0;
+
+      for (const dim of SPEC_DIMENSIONS) {
+        const index = await getDimensionIndex(resolvedPath, dim);
+
+        for (const entry of index.entries) {
+          // Filter by mode
+          if (mode === 'required' && entry.readMode !== 'required') {
+            continue;
+          }
+
+          const fileData: InjectionFile = {
+            file: entry.file,
+            title: entry.title,
+            dimension: entry.dimension,
+            category: entry.category || 'general',
+            scope: entry.scope,
+            readMode: entry.readMode,
+            priority: entry.priority,
+            contentLength: entry.contentLength || 0
+          };
+
+          // Include content if preview requested
+          if (preview) {
+            const filePath = join(resolvedPath, entry.file);
+            if (existsSync(filePath)) {
+              try {
+                const rawContent = readFileSync(filePath, 'utf-8');
+                const matter = (await import('gray-matter')).default;
+                const parsed = matter(rawContent);
+                fileData.content = parsed.content.trim();
+              } catch {
+                fileData.content = '';
+              }
+            }
+          }
+
+          files.push(fileData);
+          totalLength += fileData.contentLength;
+        }
+      }
+
+      // Sort by priority
+      const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      files.sort((a, b) =>
+        (priorityOrder[a.priority as keyof typeof priorityOrder] || 2) -
+        (priorityOrder[b.priority as keyof typeof priorityOrder] || 2)
+      );
+
+      // Get maxLength for percentage calculation
+      let maxLength = 8000;
+      const settingsPath = join(homedir(), '.claude', 'settings.json');
+      if (existsSync(settingsPath)) {
+        try {
+          const rawSettings = readFileSync(settingsPath, 'utf-8');
+          const settings = JSON.parse(rawSettings) as {
+            system?: { injectionControl?: { maxLength?: number } };
+          };
+          maxLength = settings?.system?.injectionControl?.maxLength || 8000;
+        } catch { /* ignore */ }
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        files,
+        stats: {
+          count: files.length,
+          totalLength,
+          maxLength,
+          percentage: Math.round((totalLength / maxLength) * 100)
         }
       }));
     } catch (err) {

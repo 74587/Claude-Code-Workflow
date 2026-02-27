@@ -24,6 +24,7 @@ import {
   SPEC_DIMENSIONS,
   SPEC_CATEGORIES,
   type SpecDimension,
+  type SpecCategory,
 } from './spec-index-builder.js';
 
 import {
@@ -43,6 +44,8 @@ export interface SpecLoadOptions {
   projectPath: string;
   /** Specific dimension to load (loads all if omitted) */
   dimension?: SpecDimension;
+  /** Workflow stage category filter (loads matching category specs) */
+  category?: SpecCategory;
   /** Pre-extracted keywords (skips extraction if provided) */
   keywords?: string[];
   /** Output format: 'cli' for markdown, 'hook' for JSON */
@@ -138,7 +141,7 @@ const SPEC_PRIORITY_WEIGHT: Record<string, number> = {
  * @returns SpecLoadResult with formatted content
  */
 export async function loadSpecs(options: SpecLoadOptions): Promise<SpecLoadResult> {
-  const { projectPath, outputFormat, debug } = options;
+  const { projectPath, outputFormat, debug, category } = options;
 
   // Get injection control settings
   const maxLength = options.maxLength ?? 8000;
@@ -149,6 +152,9 @@ export async function loadSpecs(options: SpecLoadOptions): Promise<SpecLoadResul
 
   if (debug) {
     debugLog(`Extracted ${keywords.length} keywords: [${keywords.join(', ')}]`);
+    if (category) {
+      debugLog(`Category filter: ${category}`);
+    }
   }
 
   // Step 2: Determine which dimensions to process
@@ -164,7 +170,7 @@ export async function loadSpecs(options: SpecLoadOptions): Promise<SpecLoadResul
     const index = await getDimensionIndex(projectPath, dim);
     totalScanned += index.entries.length;
 
-    const { required, matched } = filterSpecs(index, keywords);
+    const { required, matched } = filterSpecs(index, keywords, category);
 
     if (debug) {
       debugLog(
@@ -229,23 +235,30 @@ export async function loadSpecs(options: SpecLoadOptions): Promise<SpecLoadResul
 // ============================================================================
 
 /**
- * Filter specs by readMode and keyword match.
+ * Filter specs by readMode, category, and keyword match.
  *
- * - required: all entries with readMode === 'required'
- * - matched: entries with readMode === 'optional' that have keyword intersection
+ * - required: all entries with readMode === 'required' (and matching category if specified)
+ * - matched: entries with readMode === 'optional' that have keyword intersection (and matching category if specified)
  *
  * @param index - The dimension index to filter
  * @param keywords - Extracted prompt keywords
+ * @param category - Optional category filter for workflow stage
  * @returns Separated required and matched entries (deduplicated)
  */
 export function filterSpecs(
   index: DimensionIndex,
-  keywords: string[]
+  keywords: string[],
+  category?: SpecCategory
 ): { required: SpecIndexEntry[]; matched: SpecIndexEntry[] } {
   const required: SpecIndexEntry[] = [];
   const matched: SpecIndexEntry[] = [];
 
   for (const entry of index.entries) {
+    // Category filter: skip if category specified and doesn't match
+    if (category && entry.category !== category) {
+      continue;
+    }
+
     if (entry.readMode === 'required') {
       required.push(entry);
       continue;

@@ -303,6 +303,7 @@ export function run(argv: string[]): void {
     .command('spec [subcommand] [args...]')
     .description('Project spec management for conventions and guidelines')
     .option('--dimension <dim>', 'Target dimension: specs, personal')
+    .option('--category <cat>', 'Workflow stage: general, exploration, planning, execution')
     .option('--keywords <text>', 'Keywords for spec matching (CLI mode)')
     .option('--stdin', 'Read input from stdin (Hook mode)')
     .option('--json', 'Output as JSON')
@@ -374,3 +375,6 @@ export function run(argv: string[]): void {
 
   program.parse(argv);
 }
+
+// Invoke CLI when run directly
+run(process.argv);

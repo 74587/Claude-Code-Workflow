@@ -14,7 +14,9 @@
 
   "dimension": {
     "specs": "项目规范",
-    "personal": "个人规范"
+    "personal": "个人规范",
+    "roadmap": "路线图",
+    "changelog": "变更日志"
   },
 
   "scope": {
@@ -23,8 +25,10 @@
     "project": "项目"
   },
   "filterByScope": "按范围筛选：",
+  "filterByCategory": "工作流阶段：",
 
   "category": {
+    "all": "全部",
     "general": "通用",
     "exploration": "探索",
     "planning": "规划",
@@ -76,7 +80,6 @@
   },
 
   "spec": {
-    "view": "查看内容",
     "edit": "编辑规范",
     "toggle": "切换状态",
     "delete": "删除规范",
@@ -87,23 +90,6 @@
     "readMode": "读取模式",
     "priority": "优先级",
     "file": "文件路径"
-  },
-
-  "content": {
-    "edit": "编辑",
-    "view": "查看",
-    "metadata": "元数据",
-    "markdownContent": "Markdown 内容",
-    "noContent": "无内容",
-    "editHint": "编辑完整的 Markdown 内容（包括 frontmatter）。frontmatter 的更改将反映到规范元数据中。",
-    "placeholder": "# 规范标题\n\n内容..."
-  },
-
-  "common": {
-    "cancel": "取消",
-    "save": "保存",
-    "saving": "保存中...",
-    "close": "关闭"
   },
 
   "hook": {
@@ -137,9 +123,6 @@
   },
 
   "hooks": {
-    "installSuccess": "钩子安装成功",
-    "installError": "钩子安装失败",
-    "installAllSuccess": "所有钩子安装成功",
     "dialog": {
       "createTitle": "创建钩子",
       "editTitle": "编辑钩子",
@@ -191,6 +174,26 @@
     "hookFailMode": "命令执行失败时的处理方式"
   },
 
+  "common": {
+    "cancel": "取消",
+    "save": "保存",
+    "delete": "删除",
+    "edit": "编辑",
+    "reset": "重置",
+    "confirm": "确认",
+    "close": "关闭"
+  },
+
+  "content": {
+    "edit": "编辑",
+    "view": "查看",
+    "metadata": "元数据",
+    "markdownContent": "Markdown 内容",
+    "noContent": "无可用内容",
+    "editHint": "编辑完整的 markdown 内容包括 frontmatter。对 frontmatter 的更改将反映在规范元数据中。",
+    "placeholder": "# 规范标题\n\n内容在这里..."
+  },
+
   "injection": {
     "title": "注入控制",
     "statusTitle": "当前注入状态",
@@ -210,23 +213,37 @@
     "warning": "接近限制",
     "normal": "正常",
     "characters": "字符",
+    "chars": "字符",
     "statsInfo": "统计信息",
     "requiredLength": "必读规范长度：",
     "matchedLength": "关键词匹配长度：",
     "remaining": "剩余空间：",
     "loadError": "加载统计数据失败",
     "saveSuccess": "设置已保存",
-    "saveError": "保存设置失败"
+    "saveError": "保存设置失败",
+    "filesList": "注入文件列表",
+    "files": "个文件"
+  },
+
+  "priority": {
+    "critical": "关键",
+    "high": "高",
+    "medium": "中",
+    "low": "低"
   },
 
   "settings": {
     "title": "全局设置",
     "description": "配置个人规范默认值和系统设置",
     "personalSpecDefaults": "个人规范默认值",
+    "personalSpecDefaultsDesc": "创建新的个人规范时将应用这些设置",
     "defaultReadMode": "默认读取模式",
     "defaultReadModeHelp": "新创建的个人规范的默认读取模式",
-    "autoEnable": "自动启用",
-    "autoEnableDescription": "新创建的个人规范自动启用"
+    "selectReadMode": "选择读取模式",
+    "autoEnable": "自动启用新规范",
+    "autoEnableDescription": "自动启用新创建的个人规范",
+    "specStatistics": "规范统计",
+    "totalSpecs": "总计：{count} 个规范文件"
   },
 
   "dialog": {
