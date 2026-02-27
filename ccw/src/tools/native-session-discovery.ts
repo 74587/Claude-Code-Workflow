@@ -1197,3 +1197,30 @@ export function getToolSessionPath(tool: string): string | null {
   const discoverer = discoverers[tool];
   return discoverer?.basePath || null;
 }
+
+/**
+ * List all native sessions from all supported CLI tools
+ * Aggregates sessions from Gemini, Qwen, Codex, Claude, and OpenCode
+ * @param options - Optional filtering (workingDir, limit, afterTimestamp)
+ * @returns Combined sessions sorted by updatedAt descending
+ */
+export function listAllNativeSessions(options?: SessionDiscoveryOptions): NativeSession[] {
+  const allSessions: NativeSession[] = [];
+
+  // Collect sessions from all discoverers
+  for (const tool of Object.keys(discoverers)) {
+    const discoverer = discoverers[tool];
+    const sessions = discoverer.getSessions(options);
+    allSessions.push(...sessions);
+  }
+
+  // Sort by updatedAt descending
+  allSessions.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+
+  // Apply limit if provided
+  if (options?.limit) {
+    return allSessions.slice(0, options.limit);
+  }
+
+  return allSessions;
+}

@@ -23,6 +23,7 @@ import {
   getEnrichedConversation,
   getHistoryWithNativeInfo
 } from '../../tools/cli-executor.js';
+import { listAllNativeSessions } from '../../tools/native-session-discovery.js';
 import { SmartContentFormatter } from '../../tools/cli-output-converter.js';
 import { generateSmartContext, formatSmartContext } from '../../tools/smart-context.js';
 import {
@@ -848,6 +849,35 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: (err as Error).message }));
       });
+    return true;
+  }
+
+  // API: List Native CLI Sessions
+  if (pathname === '/api/cli/native-sessions' && req.method === 'GET') {
+    const projectPath = url.searchParams.get('path') || null;
+    const limit = parseInt(url.searchParams.get('limit') || '100', 10);
+
+    try {
+      const sessions = listAllNativeSessions({
+        workingDir: projectPath || undefined,
+        limit
+      });
+
+      // Group sessions by tool
+      const byTool: Record<string, typeof sessions> = {};
+      for (const session of sessions) {
+        if (!byTool[session.tool]) {
+          byTool[session.tool] = [];
+        }
+        byTool[session.tool].push(session);
+      }
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ sessions, byTool }));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: (err as Error).message }));
+    }
     return true;
   }
 

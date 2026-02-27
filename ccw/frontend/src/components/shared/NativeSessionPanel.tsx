@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/Dialog';
 import { useNativeSession } from '@/hooks/useNativeSession';
 import { SessionTimeline } from './SessionTimeline';
+import { getToolVariant } from '@/lib/cli-tool-theme';
 
 // ========== Types ==========
 
@@ -34,19 +35,6 @@ export interface NativeSessionPanelProps {
 }
 
 // ========== Helpers ==========
-
-/**
- * Get badge variant for tool name
- */
-function getToolVariant(tool: string): 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' {
-  const variants: Record<string, 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info'> = {
-    gemini: 'info',
-    codex: 'success',
-    qwen: 'warning',
-    opencode: 'secondary',
-  };
-  return variants[tool?.toLowerCase()] || 'secondary';
-}
 
 /**
  * Truncate a string to a max length with ellipsis

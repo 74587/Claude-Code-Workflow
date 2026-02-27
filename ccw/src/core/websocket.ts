@@ -3,6 +3,15 @@ import type { IncomingMessage } from 'http';
 import type { Duplex } from 'stream';
 import { a2uiWebSocketHandler, handleA2UIMessage } from './a2ui/A2UIWebSocketHandler.js';
 import { handleAnswer } from '../tools/ask-question.js';
+import type {
+  QueueWSMessageType,
+  QueueWSMessage,
+  QueueSchedulerStateUpdateMessage,
+  QueueItemAddedMessage,
+  QueueItemUpdatedMessage,
+  QueueItemRemovedMessage,
+  QueueSchedulerConfigUpdatedMessage,
+} from '../types/queue-types.js';
 
 // WebSocket clients for real-time notifications
 export const wsClients = new Set<Duplex>();
@@ -619,6 +628,56 @@ export function broadcastCoordinatorLog(
       ...log,
       timestamp: new Date().toISOString()
     },
+    timestamp: new Date().toISOString()
+  });
+}
+
+// Re-export Queue WebSocket types from queue-types.ts
+export type {
+  QueueWSMessageType as QueueMessageType,
+  QueueSchedulerStateUpdateMessage,
+  QueueItemAddedMessage,
+  QueueItemUpdatedMessage,
+  QueueItemRemovedMessage,
+  QueueSchedulerConfigUpdatedMessage,
+};
+
+/**
+ * Union type for Queue messages (without timestamp - added automatically)
+ */
+export type QueueMessage =
+  | Omit<QueueSchedulerStateUpdateMessage, 'timestamp'>
+  | Omit<QueueItemAddedMessage, 'timestamp'>
+  | Omit<QueueItemUpdatedMessage, 'timestamp'>
+  | Omit<QueueItemRemovedMessage, 'timestamp'>
+  | Omit<QueueSchedulerConfigUpdatedMessage, 'timestamp'>;
+
+/**
+ * Queue-specific broadcast with throttling
+ * Throttles QUEUE_SCHEDULER_STATE_UPDATE messages to avoid flooding clients
+ */
+let lastQueueBroadcast = 0;
+const QUEUE_BROADCAST_THROTTLE = 1000; // 1 second
+
+/**
+ * Broadcast queue update with throttling
+ * STATE_UPDATE messages are throttled to 1 per second
+ * Other message types are sent immediately
+ */
+export function broadcastQueueUpdate(message: QueueMessage): void {
+  const now = Date.now();
+
+  // Throttle QUEUE_SCHEDULER_STATE_UPDATE to reduce WebSocket traffic
+  if (message.type === 'QUEUE_SCHEDULER_STATE_UPDATE' && now - lastQueueBroadcast < QUEUE_BROADCAST_THROTTLE) {
+    return;
+  }
+
+  if (message.type === 'QUEUE_SCHEDULER_STATE_UPDATE') {
+    lastQueueBroadcast = now;
+  }
+
+  broadcastToClients({
+    ...message,
     timestamp: new Date().toISOString()
   });
 }

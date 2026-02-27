@@ -21,6 +21,7 @@ import { handleSkillsRoutes } from './routes/skills-routes.js';
 import { handleSkillHubRoutes } from './routes/skill-hub-routes.js';
 import { handleCommandsRoutes } from './routes/commands-routes.js';
 import { handleIssueRoutes } from './routes/issue-routes.js';
+import { handleQueueSchedulerRoutes } from './routes/queue-routes.js';
 import { handleDiscoveryRoutes } from './routes/discovery-routes.js';
 import { handleRulesRoutes } from './routes/rules-routes.js';
 import { handleSessionRoutes } from './routes/session-routes.js';
@@ -56,6 +57,8 @@ import { randomBytes } from 'crypto';
 // Import health check service
 import { getHealthCheckService } from './services/health-check-service.js';
 import { getCliSessionShareManager } from './services/cli-session-share.js';
+import { getCliSessionManager } from './services/cli-session-manager.js';
+import { QueueSchedulerService } from './services/queue-scheduler-service.js';
 
 // Import status check functions for warmup
 import { checkSemanticStatus, checkVenvStatus } from '../tools/codex-lens.js';
@@ -293,6 +296,10 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
   tokenManager.getOrCreateAuthToken();
   const unauthenticatedPaths = new Set<string>(['/api/auth/token', '/api/csrf-token', '/api/hook', '/api/test/ask-question', '/api/a2ui/answer']);
   const cliSessionShareManager = getCliSessionShareManager();
+
+  // Initialize Queue Scheduler Service (needs broadcastToClients and cliSessionManager)
+  const cliSessionManager = getCliSessionManager(initialPath);
+  const queueSchedulerService = new QueueSchedulerService(broadcastToClients, cliSessionManager);
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://localhost:${serverPort}`);
@@ -589,7 +596,12 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleCommandsRoutes(routeContext)) return;
       }
 
-      // Queue routes (/api/queue*) - top-level queue API
+      // Queue Scheduler routes (/api/queue/execute, /api/queue/scheduler/*)
+      if (pathname === '/api/queue/execute' || pathname.startsWith('/api/queue/scheduler')) {
+        if (await handleQueueSchedulerRoutes(routeContext, queueSchedulerService)) return;
+      }
+
+      // Queue routes (/api/queue*) - top-level queue API (issue-based)
       if (pathname.startsWith('/api/queue')) {
         if (await handleIssueRoutes(routeContext)) return;
       }

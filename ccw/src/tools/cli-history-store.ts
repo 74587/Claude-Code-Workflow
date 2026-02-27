@@ -502,9 +502,11 @@ export class CliHistoryStore {
    * Save or update a conversation
    */
   saveConversation(conversation: ConversationRecord): void {
-    const promptPreview = conversation.turns.length > 0
-      ? conversation.turns[conversation.turns.length - 1].prompt.substring(0, 100)
-      : '';
+    // Ensure prompt is a string before calling substring
+    const lastTurn = conversation.turns.length > 0 ? conversation.turns[conversation.turns.length - 1] : null;
+    const rawPrompt = lastTurn?.prompt ?? '';
+    const promptStr = typeof rawPrompt === 'string' ? rawPrompt : JSON.stringify(rawPrompt);
+    const promptPreview = promptStr.substring(0, 100);
 
     const upsertConversation = this.db.prepare(`
       INSERT INTO conversations (id, created_at, updated_at, tool, model, mode, category, total_duration_ms, turn_count, latest_status, prompt_preview, parent_execution_id, project_root, relative_path)
@@ -609,7 +611,8 @@ export class CliHistoryStore {
       turns: turns.map(t => ({
         turn: t.turn_number,
         timestamp: t.timestamp,
-        prompt: t.prompt,
+        // Ensure prompt is always a string (handle legacy object data)
+        prompt: typeof t.prompt === 'string' ? t.prompt : JSON.stringify(t.prompt),
         duration_ms: t.duration_ms,
         status: t.status,
         exit_code: t.exit_code,
@@ -840,7 +843,10 @@ export class CliHistoryStore {
         category: r.category || 'user',
         duration_ms: r.total_duration_ms,
         turn_count: r.turn_count,
-        prompt_preview: r.prompt_preview || ''
+        // Ensure prompt_preview is always a string (handle legacy object data)
+        prompt_preview: typeof r.prompt_preview === 'string'
+          ? r.prompt_preview
+          : (r.prompt_preview ? JSON.stringify(r.prompt_preview) : '')
       }))
     };
   }

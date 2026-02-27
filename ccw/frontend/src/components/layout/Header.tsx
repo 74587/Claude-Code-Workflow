@@ -16,7 +16,6 @@ import {
   LogOut,
   Terminal,
   Bell,
-  Clock,
   Monitor,
   SquareTerminal,
 } from 'lucide-react';
@@ -86,19 +85,6 @@ export function Header({
 
       {/* Right side - Actions */}
       <div className="flex items-center gap-2">
-        {/* History entry */}
-        <Button
-          variant="ghost"
-          size="sm"
-          asChild
-          className="gap-2"
-        >
-          <Link to="/history" className="inline-flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            <span className="hidden sm:inline">{formatMessage({ id: 'navigation.main.history' })}</span>
-          </Link>
-        </Button>
-
         {/* CLI Monitor button */}
         <Button
           variant="ghost"

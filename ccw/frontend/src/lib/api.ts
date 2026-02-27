@@ -2100,7 +2100,8 @@ export interface CliExecution {
   tool: 'gemini' | 'qwen' | 'codex' | string;
   mode?: string;
   status: 'success' | 'error' | 'timeout';
-  prompt_preview: string;
+  // Backend may return string or object {text: string} for legacy data
+  prompt_preview: string | { text: string } | Record<string, unknown>;
   timestamp: string;
   duration_ms: number;
   sourceDir?: string;
@@ -2233,7 +2234,8 @@ export interface ConversationRecord {
  */
 export interface ConversationTurn {
   turn: number;
-  prompt: string;
+  // Backend may return string or object {text: string} for legacy data
+  prompt: string | { text: string } | Record<string, unknown>;
   output: {
     stdout: string;
     stderr?: string;
@@ -2270,7 +2272,8 @@ export interface NativeSessionTurn {
   turnNumber: number;
   timestamp: string;
   role: 'user' | 'assistant';
-  content: string;
+  // Backend may return string or object {text: string} for legacy data
+  content: string | { text: string } | Record<string, unknown>;
   thoughts?: string[];
   toolCalls?: NativeToolCall[];
   tokens?: NativeTokenInfo;

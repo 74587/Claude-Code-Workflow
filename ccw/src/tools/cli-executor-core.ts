@@ -390,9 +390,13 @@ export function generateTransactionId(conversationId: string): TransactionId {
  * Inject transaction ID into user prompt
  * @param prompt - Original user prompt
  * @param txId - Transaction ID to inject
- * @returns Prompt with transaction ID injected at the start
+ * @returns Prompt with transaction ID injected at the start, or empty string if prompt is empty
  */
 export function injectTransactionId(prompt: string, txId: TransactionId): string {
+  // Don't inject TX ID for empty prompts (e.g., review mode with target flags)
+  if (!prompt || !prompt.trim()) {
+    return '';
+  }
   return `[CCW-TX-ID: ${txId}]\n\n${prompt}`;
 }
 
@@ -844,8 +848,15 @@ async function executeCliTool(
 
   // Inject transaction ID at the start of the final prompt for session tracking
   // This enables exact session matching during parallel execution scenarios
-  finalPrompt = injectTransactionId(finalPrompt, transactionId);
-  debugLog('TX_ID', `Injected transaction ID into prompt`, { transactionId, promptLength: finalPrompt.length });
+  // Skip injection for review mode with target flags (uncommitted/base/commit) as these
+  // modes don't accept prompt arguments in codex CLI
+  const isReviewWithTarget = mode === 'review' && (uncommitted || base || commit);
+  if (!isReviewWithTarget) {
+    finalPrompt = injectTransactionId(finalPrompt, transactionId);
+    debugLog('TX_ID', `Injected transaction ID into prompt`, { transactionId, promptLength: finalPrompt.length });
+  } else {
+    debugLog('TX_ID', `Skipped transaction ID injection for review mode with target flag`);
+  }
 
   // Check tool availability
   const toolStatus = await checkToolAvailability(tool);

@@ -5,11 +5,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@/test/i18n';
 import userEvent from '@testing-library/user-event';
+import { act } from '@testing-library/react';
 
-import { CcwToolsMcpCard } from './CcwToolsMcpCard';
-import { updateCcwConfig, updateCcwConfigForCodex } from '@/lib/api';
-
-vi.mock('@/lib/api', () => ({
+const apiMock = vi.hoisted(() => ({
   installCcwMcp: vi.fn(),
   uninstallCcwMcp: vi.fn(),
   updateCcwConfig: vi.fn(),
@@ -18,11 +16,24 @@ vi.mock('@/lib/api', () => ({
   updateCcwConfigForCodex: vi.fn(),
 }));
 
-vi.mock('@/hooks/useNotifications', () => ({
-  useNotifications: () => ({
-    success: vi.fn(),
-    error: vi.fn(),
-  }),
+vi.mock('@/lib/api', () => apiMock);
+
+const notificationsMock = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+}));
+
+// Avoid importing the full hooks barrel in this component test (it has heavy deps and
+// side effects that aren't relevant here).
+vi.mock('@/hooks', () => ({
+  mcpServersKeys: { all: ['mcpServers'] },
+  useNotifications: () => notificationsMock,
+}));
+
+vi.mock('@/stores/workflowStore', () => ({
+  useWorkflowStore: (selector: (state: { projectPath: string }) => string) =>
+    selector({ projectPath: '' }),
+  selectProjectPath: (state: { projectPath: string }) => state.projectPath,
 }));
 
 describe('CcwToolsMcpCard', () => {
@@ -31,7 +42,8 @@ describe('CcwToolsMcpCard', () => {
   });
 
   it('preserves enabledTools when saving config (Codex)', async () => {
-    const updateCodexMock = vi.mocked(updateCcwConfigForCodex);
+    const { CcwToolsMcpCard } = await import('./CcwToolsMcpCard');
+    const updateCodexMock = vi.mocked(apiMock.updateCcwConfigForCodex);
     updateCodexMock.mockResolvedValue({
       isInstalled: true,
       enabledTools: [],
@@ -51,22 +63,36 @@ describe('CcwToolsMcpCard', () => {
     );
 
     const user = userEvent.setup();
-    await user.click(screen.getByText(/CCW MCP Server|mcp\.ccw\.title/i));
-    await user.click(
-      screen.getByRole('button', { name: /Save Configuration|mcp\.ccw\.actions\.saveConfig/i })
-    );
+    await act(async () => {
+      await user.click(screen.getByText(/CCW MCP Server|mcp\.ccw\.title/i));
+    });
+    const saveButton = screen.getByRole('button', {
+      name: /Save Configuration|mcp\.ccw\.actions\.saveConfig/i,
+    });
+    expect(saveButton).toBeEnabled();
+    await act(async () => {
+      await user.click(saveButton);
+    });
 
     await waitFor(() => {
-      expect(updateCodexMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          enabledTools: ['write_file', 'read_many_files'],
-        })
-      );
+      expect(updateCodexMock).toHaveBeenCalled();
     });
+
+    await waitFor(() => {
+      expect(notificationsMock.success).toHaveBeenCalled();
+    });
+
+    const [payload] = updateCodexMock.mock.calls[0] ?? [];
+    expect(payload).toEqual(
+      expect.objectContaining({
+        enabledTools: ['write_file', 'read_many_files'],
+      })
+    );
   });
 
   it('preserves enabledTools when saving config (Claude)', async () => {
-    const updateClaudeMock = vi.mocked(updateCcwConfig);
+    const { CcwToolsMcpCard } = await import('./CcwToolsMcpCard');
+    const updateClaudeMock = vi.mocked(apiMock.updateCcwConfig);
     updateClaudeMock.mockResolvedValue({
       isInstalled: true,
       enabledTools: [],
@@ -85,18 +111,30 @@ describe('CcwToolsMcpCard', () => {
     );
 
     const user = userEvent.setup();
-    await user.click(screen.getByText(/CCW MCP Server|mcp\.ccw\.title/i));
-    await user.click(
-      screen.getByRole('button', { name: /Save Configuration|mcp\.ccw\.actions\.saveConfig/i })
-    );
+    await act(async () => {
+      await user.click(screen.getByText(/CCW MCP Server|mcp\.ccw\.title/i));
+    });
+    const saveButton = screen.getByRole('button', {
+      name: /Save Configuration|mcp\.ccw\.actions\.saveConfig/i,
+    });
+    expect(saveButton).toBeEnabled();
+    await act(async () => {
+      await user.click(saveButton);
+    });
 
     await waitFor(() => {
-      expect(updateClaudeMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          enabledTools: ['write_file', 'smart_search'],
-        })
-      );
+      expect(updateClaudeMock).toHaveBeenCalled();
     });
+
+    await waitFor(() => {
+      expect(notificationsMock.success).toHaveBeenCalled();
+    });
+
+    const [payload] = updateClaudeMock.mock.calls[0] ?? [];
+    expect(payload).toEqual(
+      expect.objectContaining({
+        enabledTools: ['write_file', 'smart_search'],
+      })
+    );
   });
 });
-
