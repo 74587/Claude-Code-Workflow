@@ -187,10 +187,7 @@ export function GlobalSettingsTab() {
   });
 
   // Fetch project-tech stats
-  const {
-    data: projectTechStats,
-    isLoading: isLoadingProjectTech,
-  } = useQuery({
+  const { data: projectTechStats } = useQuery({
     queryKey: settingsKeys.projectTech(),
     queryFn: fetchProjectTechStats,
     staleTime: 60000, // 1 minute
@@ -490,7 +487,7 @@ export function GlobalSettingsTab() {
                   )}
                   onClick={() => localDevProgress.enabled && handleCategoryToggle(cat)}
                 >
-                  {cat} ({projectTechStats?.categories[cat] || 0})
+                  {formatMessage({ id: `specs.devCategory.${cat}`, defaultMessage: cat })} ({projectTechStats?.categories[cat] || 0})
                 </Badge>
               ))}
             </div>

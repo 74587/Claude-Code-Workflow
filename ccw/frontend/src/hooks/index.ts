@@ -161,6 +161,21 @@ export type {
   UseReindexReturn,
 } from './useUnifiedSearch';
 
+// ========== Memory V2 Pipeline ==========
+export {
+  useExtractionStatus,
+  useConsolidationStatus,
+  useV2Jobs,
+  useTriggerExtraction,
+  useTriggerConsolidation,
+  memoryV2Keys,
+} from './useMemoryV2';
+export type {
+  ExtractionStatus,
+  ConsolidationStatus,
+  V2JobsResponse,
+} from './useMemoryV2';
+
 // ========== MCP Servers ==========
 export {
   useMcpServers,

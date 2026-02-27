@@ -15,7 +15,7 @@ Results were scattered across different directories and never shared. In v4, all
 
 ```
 Task({
-  subagent_type: "Explore",
+  subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore <angle>",
   prompt: `Explore codebase for: <query>
@@ -136,7 +136,7 @@ For complex queries, call cli-explore-agent per angle. The calling role determin
 ```
 # After seed analysis, explore codebase context
 Task({
-  subagent_type: "Explore",
+  subagent_type: "cli-explore-agent",
   description: "Explore general context",
   prompt: "Explore codebase for: <topic>\nFocus angle: general\n..."
 })
@@ -149,7 +149,7 @@ Task({
 # Multi-angle exploration before plan generation
 for angle in selected_angles:
   Task({
-    subagent_type: "Explore",
+    subagent_type: "cli-explore-agent",
     description: "Explore <angle>",
     prompt: "Explore codebase for: <task>\nFocus angle: <angle>\n..."
   })

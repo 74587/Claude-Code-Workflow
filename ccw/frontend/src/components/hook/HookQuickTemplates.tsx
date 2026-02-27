@@ -191,6 +191,41 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
     trigger: 'SessionStart',
     command: 'ccw',
     args: ['hook', 'project-state', '--stdin']
+  },
+  // --- Memory V2 ---
+  {
+    id: 'memory-v2-extract',
+    name: 'Memory V2 Extract',
+    description: 'Trigger Phase 1 extraction when session ends (after idle period)',
+    category: 'indexing',
+    trigger: 'Stop',
+    command: 'ccw',
+    args: ['core-memory', 'extract', '--max-sessions', '10']
+  },
+  {
+    id: 'memory-v2-auto-consolidate',
+    name: 'Memory V2 Auto Consolidate',
+    description: 'Trigger Phase 2 consolidation after extraction jobs complete',
+    category: 'indexing',
+    trigger: 'Stop',
+    command: 'node',
+    args: [
+      '-e',
+      'const cp=require("child_process");const r=cp.spawnSync("ccw",["core-memory","extract","--json"],{encoding:"utf8",shell:true});try{const d=JSON.parse(r.stdout);if(d&&d.total_stage1>=5){cp.spawnSync("ccw",["core-memory","consolidate"],{stdio:"inherit",shell:true})}}catch(e){}'
+    ]
+  },
+  {
+    id: 'memory-sync-dashboard',
+    name: 'Memory Sync Dashboard',
+    description: 'Sync memory V2 status to dashboard on changes',
+    category: 'notification',
+    trigger: 'PostToolUse',
+    matcher: 'core_memory',
+    command: 'node',
+    args: [
+      '-e',
+      'const cp=require("child_process");const payload=JSON.stringify({type:"MEMORY_V2_STATUS_UPDATED",project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})'
+    ]
   }
 ] as const;
 

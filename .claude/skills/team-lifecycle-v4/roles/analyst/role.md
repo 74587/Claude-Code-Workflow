@@ -84,7 +84,7 @@ EXPECTED: JSON with: problem_statement, target_users[], domain, constraints[], e
 
 ```
 Task({
-  subagent_type: "Explore",
+  subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore general context",
   prompt: "Explore codebase for: <topic>
@@ -139,10 +139,25 @@ Task({
 ```
 
 **Discuss result handling**:
-- `consensus_reached` -> include in report, proceed normally
-- `consensus_blocked` -> flag in SendMessage, coordinator decides next step
 
-**Report**: complexity, codebase presence, problem statement, exploration dimensions, discuss verdict, output paths.
+| Verdict | Severity | Action |
+|---------|----------|--------|
+| consensus_reached | - | Include action items in report, proceed to Phase 5 |
+| consensus_blocked | HIGH | Phase 5 SendMessage includes structured consensus_blocked format (see below). Do NOT self-revise. |
+| consensus_blocked | MEDIUM | Phase 5 SendMessage includes warning. Proceed normally. |
+| consensus_blocked | LOW | Treat as consensus_reached with notes. |
+
+**consensus_blocked SendMessage format**:
+```
+[analyst] RESEARCH-001 complete. Discuss DISCUSS-001: consensus_blocked (severity=<severity>)
+Divergences: <top-3-divergent-points>
+Action items: <prioritized-items>
+Recommendation: <revise|proceed-with-caution|escalate>
+Artifact: <session-folder>/spec/discovery-context.json
+Discussion: <session-folder>/discussions/DISCUSS-001-discussion.md
+```
+
+**Report**: complexity, codebase presence, problem statement, exploration dimensions, discuss verdict + severity, output paths.
 
 **Success**: Both JSON files created; discuss record written; design-intelligence.json created if UI mode.
 

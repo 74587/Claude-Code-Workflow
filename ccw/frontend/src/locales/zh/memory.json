@@ -109,5 +109,50 @@
     "vectorRank": "向量 #{rank}",
     "ftsRank": "全文 #{rank}",
     "heatScore": "热度: {score}"
+  },
+  "v2": {
+    "title": "Memory V2 Pipeline",
+    "extraction": {
+      "title": "提取",
+      "description": "从 CLI 会话中提取结构化记忆",
+      "trigger": "触发提取",
+      "extracting": "提取中...",
+      "extracted": "已提取",
+      "recentJobs": "最近作业",
+      "triggered": "提取已触发",
+      "triggerError": "触发提取失败"
+    },
+    "consolidation": {
+      "title": "合并",
+      "description": "合并提取结果生成 MEMORY.md",
+      "trigger": "触发合并",
+      "consolidating": "合并中...",
+      "preview": "预览",
+      "memoryMd": "MEMORY.md",
+      "exists": "存在",
+      "notExists": "不存在",
+      "inputs": "输入",
+      "triggered": "合并已触发",
+      "triggerError": "触发合并失败"
+    },
+    "jobs": {
+      "title": "作业列表",
+      "kind": "类型",
+      "key": "Key",
+      "status": "状态",
+      "error": "错误",
+      "noJobs": "暂无作业记录",
+      "allKinds": "所有类型",
+      "extraction": "提取",
+      "consolidation": "合并"
+    },
+    "status": {
+      "idle": "空闲",
+      "running": "运行中",
+      "completed": "已完成",
+      "done": "完成",
+      "error": "错误",
+      "pending": "等待"
+    }
   }
 }

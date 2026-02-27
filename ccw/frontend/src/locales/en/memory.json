@@ -109,5 +109,50 @@
     "vectorRank": "Vector #{rank}",
     "ftsRank": "FTS #{rank}",
     "heatScore": "Heat: {score}"
+  },
+  "v2": {
+    "title": "Memory V2 Pipeline",
+    "extraction": {
+      "title": "Extraction",
+      "description": "Extract structured memories from CLI sessions",
+      "trigger": "Trigger Extraction",
+      "extracting": "Extracting...",
+      "extracted": "Extracted",
+      "recentJobs": "Recent Jobs",
+      "triggered": "Extraction triggered",
+      "triggerError": "Failed to trigger extraction"
+    },
+    "consolidation": {
+      "title": "Consolidation",
+      "description": "Consolidate extraction results into MEMORY.md",
+      "trigger": "Trigger Consolidation",
+      "consolidating": "Consolidating...",
+      "preview": "Preview",
+      "memoryMd": "MEMORY.md",
+      "exists": "Exists",
+      "notExists": "Not Exists",
+      "inputs": "Inputs",
+      "triggered": "Consolidation triggered",
+      "triggerError": "Failed to trigger consolidation"
+    },
+    "jobs": {
+      "title": "Jobs",
+      "kind": "Kind",
+      "key": "Key",
+      "status": "Status",
+      "error": "Error",
+      "noJobs": "No jobs found",
+      "allKinds": "All Kinds",
+      "extraction": "Extraction",
+      "consolidation": "Consolidation"
+    },
+    "status": {
+      "idle": "Idle",
+      "running": "Running",
+      "completed": "Completed",
+      "done": "Done",
+      "error": "Error",
+      "pending": "Pending"
+    }
   }
 }

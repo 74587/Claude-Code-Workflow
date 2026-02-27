@@ -19,10 +19,10 @@ Multi-CLI document generation for 4 document types. Each uses parallel or staged
 
 | Doc Type | Task | Template | Discussion Input | Output |
 |----------|------|----------|-----------------|--------|
-| product-brief | DRAFT-001 | templates/product-brief.md | discuss-001-scope.md | spec/product-brief.md |
-| requirements | DRAFT-002 | templates/requirements-prd.md | discuss-002-brief.md | spec/requirements/_index.md |
-| architecture | DRAFT-003 | templates/architecture-doc.md | discuss-003-requirements.md | spec/architecture/_index.md |
-| epics | DRAFT-004 | templates/epics-template.md | discuss-004-architecture.md | spec/epics/_index.md |
+| product-brief | DRAFT-001 | templates/product-brief.md | DISCUSS-001-discussion.md | spec/product-brief.md |
+| requirements | DRAFT-002 | templates/requirements-prd.md | DISCUSS-002-discussion.md | spec/requirements/_index.md |
+| architecture | DRAFT-003 | templates/architecture-doc.md | DISCUSS-003-discussion.md | spec/architecture/_index.md |
+| epics | DRAFT-004 | templates/epics-template.md | DISCUSS-004-discussion.md | spec/epics/_index.md |
 
 ### Progressive Dependencies
 

@@ -83,7 +83,7 @@ For each uncached angle, call the shared explore subagent:
 
 ```
 Task({
-  subagent_type: "Explore",
+  subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore: <angle>",
   prompt: "Explore codebase for: <task-description>

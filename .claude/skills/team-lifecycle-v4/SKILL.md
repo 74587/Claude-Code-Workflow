@@ -150,6 +150,8 @@ Task completion with optional fast-advance to skip coordinator round-trip:
 | No ready tasks + nothing running | SendMessage to coordinator (pipeline may be complete) |
 | Checkpoint task (e.g., spec->impl transition) | SendMessage to coordinator (needs user confirmation) |
 
+**Fast-advance failure recovery**: If a fast-advanced task fails (worker exits without completing), the coordinator detects it as an orphaned in_progress task on next `resume`/`check` and resets it to pending for re-spawn. Self-healing, no manual intervention required. See [monitor.md](roles/coordinator/commands/monitor.md) Fast-Advance Failure Recovery.
+
 ### Inline Discuss Protocol (produce roles: analyst, writer, reviewer)
 
 After completing their primary output, produce roles call the discuss subagent inline:
@@ -176,13 +178,36 @@ Task({
 
 The discuss subagent writes its record to `discussions/` and returns the verdict. The calling role includes the discuss result in its Phase 5 report.
 
+**Consensus-blocked handling** (produce role responsibility):
+
+| Verdict | Severity | Role Action |
+|---------|----------|-------------|
+| consensus_reached | - | Include action items in report, proceed to Phase 5 |
+| consensus_blocked | HIGH | SendMessage with `consensus_blocked=true, severity=HIGH`, include divergence details + action items. Coordinator creates revision task or pauses. |
+| consensus_blocked | MEDIUM | SendMessage with `consensus_blocked=true, severity=MEDIUM`. Proceed to Phase 5 normally. Coordinator logs warning to wisdom. |
+| consensus_blocked | LOW | Treat as consensus_reached with notes. Proceed normally. |
+
+**SendMessage format for consensus_blocked**:
+
+```
+[<role>] <task-id> complete. Discuss <round-id>: consensus_blocked (severity=<HIGH|MEDIUM>)
+Divergences: <divergence-summary>
+Action items: <top-3-items>
+Recommendation: <revise|proceed-with-caution|escalate>
+```
+
+**Coordinator response** (see monitor.md Consensus-Blocked Handling for full flow):
+- HIGH -> revision task (max 1 per task) or pause for user decision
+- MEDIUM -> proceed with warning, log to wisdom/issues.md
+- DISCUSS-006 HIGH -> always pause for user (final sign-off gate)
+
 ### Shared Explore Utility
 
 Any role needing codebase context calls the explore subagent:
 
 ```
 Task({
-  subagent_type: "Explore",
+  subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore <angle>",
   prompt: <see subagents/explore-subagent.md for prompt template>

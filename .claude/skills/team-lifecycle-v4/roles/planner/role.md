@@ -105,14 +105,15 @@ Requirements: 2-7 tasks with id, title, files[].change, convergence.criteria, de
 
 **Session files**:
 ```
+<session-folder>/explorations/          (shared cache, written by explore subagent)
++-- cache-index.json
++-- explore-<angle>.json
+
 <session-folder>/plan/
-+-- exploration-<angle>.json       (per angle, from shared cache)
-+-- explorations-manifest.json     (summary)
++-- explorations-manifest.json          (summary, references ../explorations/)
 +-- plan.json
 +-- .task/TASK-*.json
 ```
-
-Note: exploration files may be symlinked or referenced from `<session-folder>/explorations/` (shared cache location).
 
 ---
 

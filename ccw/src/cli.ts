@@ -376,5 +376,5 @@ export function run(argv: string[]): void {
   program.parse(argv);
 }
 
-// Invoke CLI when run directly
-run(process.argv);
+// Note: run() is called by bin/ccw.js entry point
+// Do not call run() here to avoid duplicate execution

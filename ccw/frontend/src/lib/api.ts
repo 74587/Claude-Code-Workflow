@@ -1638,6 +1638,111 @@ export async function unarchiveMemory(memoryId: string, projectPath?: string): P
   });
 }
 
+// ========== Memory V2 API ==========
+
+export interface ExtractionStatus {
+  total_stage1: number;
+  jobs: Array<{
+    job_key: string;
+    status: string;
+    last_error?: string;
+  }>;
+}
+
+export interface ConsolidationStatus {
+  status: 'idle' | 'running' | 'completed' | 'error';
+  memoryMdAvailable: boolean;
+  memoryMdPreview?: string;
+  inputCount?: number;
+  lastRun?: number;
+  lastError?: string;
+}
+
+export interface V2Job {
+  kind: string;
+  job_key: string;
+  status: 'pending' | 'running' | 'done' | 'error';
+  last_error?: string;
+  worker_id?: string;
+  started_at?: number;
+  finished_at?: number;
+  retry_remaining?: number;
+}
+
+export interface V2JobsResponse {
+  jobs: V2Job[];
+  total: number;
+  byStatus: Record<string, number>;
+}
+
+/**
+ * Trigger Phase 1 extraction for eligible CLI sessions
+ */
+export async function triggerExtraction(
+  maxSessions?: number,
+  projectPath?: string
+): Promise<{ triggered: boolean; jobIds: string[]; message: string }> {
+  const params = new URLSearchParams();
+  if (projectPath) params.set('path', projectPath);
+  return fetchApi<{ triggered: boolean; jobIds: string[]; message: string }>(
+    `/api/core-memory/extract?${params}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ max_sessions: maxSessions }),
+    }
+  );
+}
+
+/**
+ * Get Phase 1 extraction status
+ */
+export async function getExtractionStatus(
+  projectPath?: string
+): Promise<ExtractionStatus> {
+  const params = new URLSearchParams();
+  if (projectPath) params.set('path', projectPath);
+  return fetchApi<ExtractionStatus>(`/api/core-memory/extract/status?${params}`);
+}
+
+/**
+ * Trigger Phase 2 consolidation to generate MEMORY.md
+ */
+export async function triggerConsolidation(
+  projectPath?: string
+): Promise<{ triggered: boolean; message: string }> {
+  const params = new URLSearchParams();
+  if (projectPath) params.set('path', projectPath);
+  return fetchApi<{ triggered: boolean; message: string }>(
+    `/api/core-memory/consolidate?${params}`,
+    { method: 'POST' }
+  );
+}
+
+/**
+ * Get Phase 2 consolidation status
+ */
+export async function getConsolidationStatus(
+  projectPath?: string
+): Promise<ConsolidationStatus> {
+  const params = new URLSearchParams();
+  if (projectPath) params.set('path', projectPath);
+  return fetchApi<ConsolidationStatus>(`/api/core-memory/consolidate/status?${params}`);
+}
+
+/**
+ * Get V2 pipeline jobs list
+ */
+export async function getV2Jobs(
+  options?: { kind?: string; status_filter?: string },
+  projectPath?: string
+): Promise<V2JobsResponse> {
+  const params = new URLSearchParams();
+  if (projectPath) params.set('path', projectPath);
+  if (options?.kind) params.set('kind', options.kind);
+  if (options?.status_filter) params.set('status_filter', options.status_filter);
+  return fetchApi<V2JobsResponse>(`/api/core-memory/jobs?${params}`);
+}
+
 // ========== Project Overview API ==========
 
 export interface TechnologyStack {
@@ -7365,47 +7470,48 @@ export async function getInjectionPreview(
  */
 export interface CommandPreviewConfig {
   command: string;
-  label: string;
-  description: string;
+  labelKey: string;  // i18n key for label
+  descriptionKey: string;  // i18n key for description
   category?: string;
   mode: 'required' | 'all';
 }
 
 /**
  * Predefined command preview configurations
+ * Labels and descriptions use i18n keys: commandPreview.{key}.label / commandPreview.{key}.description
  */
 export const COMMAND_PREVIEWS: CommandPreviewConfig[] = [
   {
     command: 'ccw spec load',
-    label: 'Default (All Categories)',
-    description: 'Load all required specs without category filter',
+    labelKey: 'default',
+    descriptionKey: 'default',
     mode: 'required',
   },
   {
     command: 'ccw spec load --category exploration',
-    label: 'Exploration',
-    description: 'Specs for code exploration, analysis, debugging',
+    labelKey: 'exploration',
+    descriptionKey: 'exploration',
     category: 'exploration',
     mode: 'required',
   },
   {
     command: 'ccw spec load --category planning',
-    label: 'Planning',
-    description: 'Specs for task planning, requirements',
+    labelKey: 'planning',
+    descriptionKey: 'planning',
     category: 'planning',
     mode: 'required',
   },
   {
     command: 'ccw spec load --category execution',
-    label: 'Execution',
-    description: 'Specs for implementation, testing, deployment',
+    labelKey: 'execution',
+    descriptionKey: 'execution',
     category: 'execution',
     mode: 'required',
   },
   {
     command: 'ccw spec load --category general',
-    label: 'General',
-    description: 'Specs that apply to all stages',
+    labelKey: 'general',
+    descriptionKey: 'general',
     category: 'general',
     mode: 'required',
   },

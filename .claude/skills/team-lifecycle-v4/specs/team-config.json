@@ -77,7 +77,7 @@
     },
     "explore": {
       "spec": "subagents/explore-subagent.md",
-      "type": "Explore",
+      "type": "cli-explore-agent",
       "callable_by": ["analyst", "planner", "any"],
       "purpose": "Codebase exploration with centralized cache"
     }

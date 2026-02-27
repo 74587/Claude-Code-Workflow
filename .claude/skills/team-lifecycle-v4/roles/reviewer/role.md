@@ -118,8 +118,25 @@ Task({
 ```
 
 **Discuss result handling**:
-- `consensus_reached` -> include in quality report as final endorsement
-- `consensus_blocked` -> flag in SendMessage, report specific divergences
+
+| Verdict | Severity | Action |
+|---------|----------|--------|
+| consensus_reached | - | Include as final endorsement in quality report, proceed to Phase 5 |
+| consensus_blocked | HIGH | **DISCUSS-006 is final sign-off gate**. Phase 5 SendMessage includes structured format. Coordinator always pauses for user decision. |
+| consensus_blocked | MEDIUM | Phase 5 SendMessage includes warning. Proceed to Phase 5. Coordinator logs to wisdom. |
+| consensus_blocked | LOW | Treat as consensus_reached with notes. |
+
+**consensus_blocked SendMessage format**:
+```
+[reviewer] QUALITY-001 complete. Discuss DISCUSS-006: consensus_blocked (severity=<severity>)
+Divergences: <top-3-divergent-points>
+Action items: <prioritized-items>
+Recommendation: <revise|proceed-with-caution|escalate>
+Artifact: <session-folder>/spec/readiness-report.md
+Discussion: <session-folder>/discussions/DISCUSS-006-discussion.md
+```
+
+> **Note**: DISCUSS-006 HIGH always triggers user pause regardless of revision count, since this is the spec->impl gate.
 
 ---
 

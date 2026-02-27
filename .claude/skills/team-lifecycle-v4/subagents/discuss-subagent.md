@@ -87,10 +87,25 @@ Task({
 | <name> | <n>/5 |
 
 ### Return Value
+
+**When consensus_reached**:
 Return a summary string with:
-- Verdict: consensus_reached or consensus_blocked
+- Verdict: consensus_reached
 - Average rating
 - Key action items (top 3)
+- Discussion record path
+
+**When consensus_blocked**:
+Return a structured summary with:
+- Verdict: consensus_blocked
+- Severity: HIGH | MEDIUM | LOW
+  - HIGH: any rating <= 2, critical risk identified, or missing_requirements non-empty
+  - MEDIUM: rating spread >= 3, or single perspective rated <= 2 with others >= 3
+  - LOW: minor suggestions only, all ratings >= 3 but divergent views exist
+- Average rating
+- Divergence summary: top 3 divergent points with perspective attribution
+- Action items: prioritized list of required changes
+- Recommendation: revise | proceed-with-caution | escalate
 - Discussion record path
 
 ### Error Handling
@@ -118,9 +133,29 @@ The calling role is responsible for:
 1. **Before calling**: Complete primary artifact output
 2. **Calling**: Invoke discuss subagent with correct round config
 3. **After calling**:
-   - Include discuss verdict in Phase 5 report
-   - If `consensus_blocked` with high-severity divergences -> flag in SendMessage to coordinator
-   - Discussion record is written by the subagent, no further action needed
+
+| Verdict | Severity | Role Action |
+|---------|----------|-------------|
+| consensus_reached | - | Include action items in Phase 5 report, proceed normally |
+| consensus_blocked | HIGH | Include divergence details in Phase 5 SendMessage with structured format (see below). **Do NOT self-revise** -- coordinator decides. |
+| consensus_blocked | MEDIUM | Include warning in Phase 5 SendMessage. Proceed to Phase 5 normally. |
+| consensus_blocked | LOW | Treat as consensus_reached with notes. Proceed normally. |
+
+**SendMessage format for consensus_blocked (HIGH or MEDIUM)**:
+
+```
+[<role>] <task-id> complete. Discuss <round-id>: consensus_blocked (severity=<severity>)
+Divergences: <top-3-divergent-points>
+Action items: <prioritized-items>
+Recommendation: <revise|proceed-with-caution|escalate>
+Artifact: <artifact-path>
+Discussion: <discussion-record-path>
+```
+
+The coordinator receives this and routes per severity (see monitor.md Consensus-Blocked Handling):
+- HIGH -> creates revision task (max 1) or pauses for user
+- MEDIUM -> proceeds with warning logged to wisdom/issues.md
+- DISCUSS-006 HIGH -> always pauses for user decision (final sign-off gate)
 
 ## Comparison with v3
 

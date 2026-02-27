@@ -118,10 +118,25 @@ Task({
 ```
 
 **Discuss result handling**:
-- `consensus_reached` -> include action items in report
-- `consensus_blocked` -> flag in SendMessage, include divergence details
 
-**Report**: doc type, validation status, discuss verdict, average rating, summary, output path.
+| Verdict | Severity | Action |
+|---------|----------|--------|
+| consensus_reached | - | Include action items in report, proceed to Phase 5 |
+| consensus_blocked | HIGH | Phase 5 SendMessage includes structured consensus_blocked format (see below). Do NOT self-revise -- coordinator creates revision task. |
+| consensus_blocked | MEDIUM | Phase 5 SendMessage includes warning. Proceed to Phase 5 normally. |
+| consensus_blocked | LOW | Treat as consensus_reached with notes. |
+
+**consensus_blocked SendMessage format**:
+```
+[writer] <task-id> complete. Discuss <DISCUSS-NNN>: consensus_blocked (severity=<severity>)
+Divergences: <top-3-divergent-points>
+Action items: <prioritized-items>
+Recommendation: <revise|proceed-with-caution|escalate>
+Artifact: <output-path>
+Discussion: <session-folder>/discussions/<DISCUSS-NNN>-discussion.md
+```
+
+**Report**: doc type, validation status, discuss verdict + severity, average rating, summary, output path.
 
 ---
 

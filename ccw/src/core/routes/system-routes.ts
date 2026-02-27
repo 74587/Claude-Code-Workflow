@@ -444,28 +444,28 @@ export async function handleSystemRoutes(ctx: SystemRouteContext): Promise<boole
 
   // API: Get project-tech stats for development progress injection
   if (pathname === '/api/project-tech/stats' && req.method === 'GET') {
-    const projectPath = url.searchParams.get('path') || initialPath;
-    const resolvedPath = resolvePath(projectPath);
-    const techPath = join(resolvedPath, '.workflow', 'project-tech.json');
-
-    if (!existsSync(techPath)) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        total_features: 0,
-        total_sessions: 0,
-        last_updated: null,
-        categories: {
-          feature: 0,
-          enhancement: 0,
-          bugfix: 0,
-          refactor: 0,
-          docs: 0
-        }
-      }));
-      return true;
-    }
-
     try {
+      const projectPath = url.searchParams.get('path') || initialPath;
+      const resolvedPath = resolvePath(projectPath);
+      const techPath = join(resolvedPath, '.workflow', 'project-tech.json');
+
+      if (!existsSync(techPath)) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          total_features: 0,
+          total_sessions: 0,
+          last_updated: null,
+          categories: {
+            feature: 0,
+            enhancement: 0,
+            bugfix: 0,
+            refactor: 0,
+            docs: 0
+          }
+        }));
+        return true;
+      }
+
       const rawContent = readFileSync(techPath, 'utf-8');
       const tech = JSON.parse(rawContent) as {
         development_index?: {

@@ -626,13 +626,13 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         if (await handleFilesRoutes(routeContext)) return;
       }
 
-      // System routes (data, health, version, paths, shutdown, notify, storage, dialog, a2ui answer broker, system settings)
+      // System routes (data, health, version, paths, shutdown, notify, storage, dialog, a2ui answer broker, system settings, project-tech)
       if (pathname === '/api/data' || pathname === '/api/health' ||
           pathname === '/api/version-check' || pathname === '/api/shutdown' ||
           pathname === '/api/recent-paths' || pathname === '/api/switch-path' ||
           pathname === '/api/remove-recent-path' || pathname === '/api/system/notify' ||
           pathname === '/api/system/settings' || pathname === '/api/system/hooks/install-recommended' ||
-          pathname === '/api/a2ui/answer' ||
+          pathname === '/api/a2ui/answer' || pathname === '/api/project-tech/stats' ||
           pathname.startsWith('/api/storage/') || pathname.startsWith('/api/dialog/')) {
         if (await handleSystemRoutes(routeContext)) return;
       }

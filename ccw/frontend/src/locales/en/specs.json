@@ -213,13 +213,46 @@
     "warning": "Approaching Limit",
     "normal": "Normal",
     "characters": "characters",
+    "lines": "lines",
+    "maxLimit": "Max",
+    "quickPresets": "Quick presets:",
     "statsInfo": "Statistics",
     "requiredLength": "Required specs length:",
     "matchedLength": "Keyword-matched length:",
     "remaining": "Remaining space:",
     "loadError": "Failed to load stats",
     "saveSuccess": "Settings saved successfully",
-    "saveError": "Failed to save settings"
+    "saveError": "Failed to save settings",
+    "filesList": "Injection Files",
+    "files": "files",
+    "noFiles": "No files match this command",
+    "loadingPreview": "Loading preview...",
+    "commandPreview": "Command Injection Preview",
+    "commandPreviewDesc": "Preview the content that would be injected by different CLI commands",
+    "previewTitle": "Injection Preview"
+  },
+
+  "commandPreview": {
+    "default": {
+      "label": "All Categories",
+      "description": "Load all required specs without category filter"
+    },
+    "exploration": {
+      "label": "Exploration",
+      "description": "Specs for code exploration, analysis, debugging"
+    },
+    "planning": {
+      "label": "Planning",
+      "description": "Specs for task planning, requirements"
+    },
+    "execution": {
+      "label": "Execution",
+      "description": "Specs for implementation, testing, deployment"
+    },
+    "general": {
+      "label": "General",
+      "description": "Specs that apply to all stages"
+    }
   },
 
   "settings": {
@@ -231,9 +264,27 @@
     "defaultReadModeHelp": "The default read mode for newly created personal specs",
     "selectReadMode": "Select read mode",
     "autoEnable": "Auto Enable New Specs",
-    "autoEnableDescription": "Automatically enable newly created personal specs",
+    "autoEnableDescription": "New personal specs are set to required (readMode=required) by default and automatically included in context injection",
     "specStatistics": "Spec Statistics",
-    "totalSpecs": "Total: {count} spec files"
+    "totalSpecs": "Total: {count} spec files",
+    "devProgressInjection": "Development Progress Injection",
+    "devProgressInjectionDesc": "Control how development progress from project-tech.json is injected into AI context",
+    "enableDevProgress": "Enable Injection",
+    "enableDevProgressDesc": "Include development history in AI context",
+    "maxEntries": "Max Entries per Category",
+    "maxEntriesDesc": "Maximum number of entries to include per category (1-50)",
+    "includeCategories": "Include Categories",
+    "categoriesDesc": "Click to toggle category inclusion",
+    "devProgressStats": "{total} entries from {sessions} sessions, last updated: {date}",
+    "devProgressStatsNoDate": "{total} entries from {sessions} sessions"
+  },
+
+  "devCategory": {
+    "feature": "Feature",
+    "enhancement": "Enhancement",
+    "bugfix": "Bug Fix",
+    "refactor": "Refactor",
+    "docs": "Docs"
   },
 
   "dialog": {

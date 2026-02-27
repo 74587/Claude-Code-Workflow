@@ -224,6 +224,7 @@ export async function handleSpecRoutes(ctx: RouteContext): Promise<boolean> {
     const resolvedPath = resolvePath(projectPath);
     const mode = url.searchParams.get('mode') || 'required'; // required | all | keywords
     const preview = url.searchParams.get('preview') === 'true';
+    const category = url.searchParams.get('category') || undefined; // optional category filter
 
     try {
       const { getDimensionIndex, SPEC_DIMENSIONS } = await import(
@@ -251,6 +252,11 @@ export async function handleSpecRoutes(ctx: RouteContext): Promise<boolean> {
         for (const entry of index.entries) {
           // Filter by mode
           if (mode === 'required' && entry.readMode !== 'required') {
+            continue;
+          }
+
+          // Filter by category if specified
+          if (category && (entry.category || 'general') !== category) {
             continue;
           }
 

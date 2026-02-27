@@ -48,7 +48,7 @@ import {
 } from 'lucide-react';
 import { useInstallRecommendedHooks } from '@/hooks/useSystemSettings';
 import type { InjectionPreviewFile, InjectionPreviewResponse } from '@/lib/api';
-import { getInjectionPreview } from '@/lib/api';
+import { getInjectionPreview, COMMAND_PREVIEWS, type CommandPreviewConfig } from '@/lib/api';
 
 // ========== Types ==========
 
@@ -209,6 +209,12 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewFile, setPreviewFile] = useState<InjectionPreviewFile | null>(null);
 
+  // State for command preview
+  const [selectedCommand, setSelectedCommand] = useState<CommandPreviewConfig>(COMMAND_PREVIEWS[0]);
+  const [commandPreviewData, setCommandPreviewData] = useState<InjectionPreviewResponse | null>(null);
+  const [commandPreviewLoading, setCommandPreviewLoading] = useState(false);
+  const [commandPreviewDialogOpen, setCommandPreviewDialogOpen] = useState(false);
+
   // Fetch stats
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
@@ -263,6 +269,21 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
       console.error('Failed to load file preview:', err);
     }
   }, [previewMode]);
+
+  // Load command preview content
+  const loadCommandPreview = useCallback(async (command: CommandPreviewConfig) => {
+    setCommandPreviewLoading(true);
+    try {
+      const data = await getInjectionPreview(command.mode, true, undefined, command.category);
+      setCommandPreviewData(data);
+      setSelectedCommand(command);
+      setCommandPreviewDialogOpen(true);
+    } catch (err) {
+      console.error('Failed to load command preview:', err);
+    } finally {
+      setCommandPreviewLoading(false);
+    }
+  }, []);
 
   // Initial load
   useEffect(() => {
@@ -406,14 +427,19 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
     return stats;
   }, [previewData]);
 
-  // Calculate progress and status
+  // Calculate progress and status - use API's maxLength for consistency
   const currentLength = stats?.injectionLength?.withKeywords || 0;
-  const maxLength = settings.maxLength;
+  const apiMaxLength = stats?.injectionLength?.maxLength || settings.maxLength;
+  const maxLength = apiMaxLength;  // Use API's maxLength for consistency
   const warnThreshold = settings.warnThreshold;
   const percentage = calculatePercentage(currentLength, maxLength);
   const isOverLimit = currentLength > maxLength;
   const isOverWarning = currentLength > warnThreshold;
   const remainingSpace = Math.max(0, maxLength - currentLength);
+
+  // Calculate approximate line count (assuming ~80 chars per line)
+  const estimatedLineCount = Math.ceil(currentLength / 80);
+  const maxLineCount = Math.ceil(maxLength / 80);
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -556,36 +582,40 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
                 >
                   {formatNumber(currentLength)} / {formatNumber(maxLength)}{' '}
                   {formatMessage({ id: 'specs.injection.characters', defaultMessage: 'characters' })}
+                  <span className="text-muted-foreground ml-2">
+                    (~{formatNumber(estimatedLineCount)} / {formatNumber(maxLineCount)} {formatMessage({ id: 'specs.injection.lines', defaultMessage: 'lines' })})
+                  </span>
                 </span>
               </div>
 
               {/* Progress Bar */}
               <div className="space-y-2">
-                <Progress
-                  value={percentage}
-                  className={cn(
-                    'h-3',
-                    isOverLimit && 'bg-destructive/20',
-                    !isOverLimit && isOverWarning && 'bg-yellow-100 dark:bg-yellow-900/30'
-                  )}
-                  indicatorClassName={cn(
-                    isOverLimit && 'bg-destructive',
-                    !isOverLimit && isOverWarning && 'bg-yellow-500'
-                  )}
-                />
-
-                {/* Warning threshold marker */}
-                <div
-                  className="relative h-0"
-                  style={{
-                    left: `${Math.min(100, (warnThreshold / maxLength) * 100)}%`,
-                  }}
-                >
-                  <div className="absolute -top-5 transform -translate-x-1/2 flex flex-col items-center">
-                    <AlertTriangle className="h-3 w-3 text-yellow-500" />
-                    <div className="text-[10px] text-muted-foreground whitespace-nowrap">
-                      {formatMessage({ id: 'specs.injection.warnThreshold', defaultMessage: 'Warn' })}
-                    </div>
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                  <span>{percentage}%</span>
+                  <span>{formatMessage({ id: 'specs.injection.maxLimit', defaultMessage: 'Max' })}: {formatNumber(maxLength)}</span>
+                </div>
+                <div className="relative">
+                  <Progress
+                    value={percentage}
+                    className={cn(
+                      'h-3',
+                      isOverLimit && 'bg-destructive/20',
+                      !isOverLimit && isOverWarning && 'bg-yellow-100 dark:bg-yellow-900/30'
+                    )}
+                    indicatorClassName={cn(
+                      isOverLimit && 'bg-destructive',
+                      !isOverLimit && isOverWarning && 'bg-yellow-500'
+                    )}
+                  />
+                  {/* Warning threshold marker */}
+                  <div
+                    className="absolute top-0 h-3 flex flex-col items-center"
+                    style={{
+                      left: `${Math.min(100, (warnThreshold / maxLength) * 100)}%`,
+                      transform: 'translateX(-50%)',
+                    }}
+                  >
+                    <AlertTriangle className="h-3 w-3 text-yellow-500 -mt-4" />
                   </div>
                 </div>
               </div>
@@ -791,6 +821,59 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
         </CardContent>
       </Card>
 
+      {/* Command Preview Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Eye className="h-5 w-5" />
+            {formatMessage({ id: 'specs.injection.commandPreview', defaultMessage: 'Command Injection Preview' })}
+          </CardTitle>
+          <CardDescription>
+            {formatMessage({
+              id: 'specs.injection.commandPreviewDesc',
+              defaultMessage: 'Preview the content that would be injected by different CLI commands',
+            })}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {COMMAND_PREVIEWS.map((cmd) => (
+              <Button
+                key={cmd.command}
+                variant="outline"
+                className="h-auto flex-col items-start py-3 px-4"
+                onClick={() => loadCommandPreview(cmd)}
+                disabled={commandPreviewLoading}
+              >
+                <div className="font-medium text-sm">
+                  {formatMessage({
+                    id: `specs.commandPreview.${cmd.labelKey}.label`,
+                    defaultMessage: cmd.labelKey
+                  })}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                  {formatMessage({
+                    id: `specs.commandPreview.${cmd.descriptionKey}.description`,
+                    defaultMessage: cmd.descriptionKey
+                  })}
+                </div>
+                <code className="text-xs bg-muted px-1.5 py-0.5 rounded mt-2 w-full text-center">
+                  {cmd.command.replace('ccw spec load', '').trim() || 'default'}
+                </code>
+              </Button>
+            ))}
+          </div>
+          {commandPreviewLoading && (
+            <div className="flex items-center justify-center py-4 mt-4 border rounded-lg">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+              <span className="text-sm text-muted-foreground">
+                {formatMessage({ id: 'specs.injection.loadingPreview', defaultMessage: 'Loading preview...' })}
+              </span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Settings Card */}
       <Card>
         <CardHeader>
@@ -814,39 +897,83 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
               {/* Max Injection Length */}
               <div className="space-y-2">
                 <Label htmlFor="maxLength">
-                  {formatMessage({ id: 'specs.injection.maxLength', defaultMessage: 'Max Injection Length (characters)' })}
+                  {formatMessage({ id: 'specs.injection.maxLength', defaultMessage: 'Max Injection Length' })}
                 </Label>
-                <Input
-                  id="maxLength"
-                  type="number"
-                  min={1000}
-                  max={50000}
-                  step={500}
-                  value={formData.maxLength}
-                  onChange={(e) => handleFieldChange('maxLength', Number(e.target.value))}
-                />
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Input
+                      id="maxLength"
+                      type="number"
+                      min={1000}
+                      max={50000}
+                      step={500}
+                      value={formData.maxLength}
+                      onChange={(e) => handleFieldChange('maxLength', Number(e.target.value))}
+                    />
+                  </div>
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    (~{Math.ceil(formData.maxLength / 80)} {formatMessage({ id: 'specs.injection.lines', defaultMessage: 'lines' })})
+                  </span>
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {formatMessage({
                     id: 'specs.injection.maxLengthHelp',
-                    defaultMessage: 'Recommended: 4000-10000. Too large may consume too much context; too small may truncate important specs.',
+                    defaultMessage: 'Recommended: 4000-10000 characters (50-125 lines). Too large may consume too much context.',
                   })}
                 </p>
+                {/* Quick presets */}
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-muted-foreground">
+                    {formatMessage({ id: 'specs.injection.quickPresets', defaultMessage: 'Quick presets:' })}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => handleFieldChange('maxLength', 4000)}
+                  >
+                    4000 (50 lines)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => handleFieldChange('maxLength', 8000)}
+                  >
+                    8000 (100 lines)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => handleFieldChange('maxLength', 12000)}
+                  >
+                    12000 (150 lines)
+                  </Button>
+                </div>
               </div>
 
               {/* Warning Threshold */}
               <div className="space-y-2">
                 <Label htmlFor="warnThreshold">
-                  {formatMessage({ id: 'specs.injection.warnThresholdLabel', defaultMessage: 'Warning Threshold (characters)' })}
+                  {formatMessage({ id: 'specs.injection.warnThresholdLabel', defaultMessage: 'Warning Threshold' })}
                 </Label>
-                <Input
-                  id="warnThreshold"
-                  type="number"
-                  min={500}
-                  max={formData.maxLength - 1}
-                  step={500}
-                  value={formData.warnThreshold}
-                  onChange={(e) => handleFieldChange('warnThreshold', Number(e.target.value))}
-                />
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Input
+                      id="warnThreshold"
+                      type="number"
+                      min={500}
+                      max={formData.maxLength - 1}
+                      step={500}
+                      value={formData.warnThreshold}
+                      onChange={(e) => handleFieldChange('warnThreshold', Number(e.target.value))}
+                    />
+                  </div>
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    (~{Math.ceil(formData.warnThreshold / 80)} {formatMessage({ id: 'specs.injection.lines', defaultMessage: 'lines' })})
+                  </span>
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {formatMessage({
                     id: 'specs.injection.warnThresholdHelp',
@@ -913,6 +1040,84 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
             <pre className="text-sm whitespace-pre-wrap p-4 bg-muted rounded-lg">
               {previewFile?.content || formatMessage({ id: 'specs.content.noContent', defaultMessage: 'No content available' })}
             </pre>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Command Preview Dialog */}
+      <Dialog open={commandPreviewDialogOpen} onOpenChange={setCommandPreviewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              {formatMessage({ id: 'specs.injection.previewTitle', defaultMessage: 'Injection Preview' })}
+            </DialogTitle>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <code className="bg-muted px-2 py-1 rounded text-xs">{selectedCommand.command}</code>
+              <span>•</span>
+              <span>
+                {formatMessage({
+                  id: `specs.commandPreview.${selectedCommand.descriptionKey}.description`,
+                  defaultMessage: selectedCommand.descriptionKey
+                })}
+              </span>
+            </div>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Stats */}
+            {commandPreviewData && (
+              <div className="flex items-center gap-4 text-sm">
+                <Badge variant="secondary">
+                  {commandPreviewData.stats.count} {formatMessage({ id: 'specs.injection.files', defaultMessage: 'files' })}
+                </Badge>
+                <Badge variant="secondary">
+                  {formatNumber(commandPreviewData.stats.totalLength)} {formatMessage({ id: 'specs.injection.characters', defaultMessage: 'characters' })}
+                </Badge>
+                <Badge variant="secondary">
+                  ~{Math.ceil(commandPreviewData.stats.totalLength / 80)} {formatMessage({ id: 'specs.injection.lines', defaultMessage: 'lines' })}
+                </Badge>
+              </div>
+            )}
+            {/* Preview Content */}
+            <div className="flex-1 overflow-auto max-h-[60vh] border rounded-lg">
+              {commandPreviewData?.files.length ? (
+                <div className="space-y-4 p-4">
+                  {commandPreviewData.files.map((file, idx) => (
+                    <div key={file.file} className="space-y-2">
+                      {/* File Header */}
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {idx + 1}
+                          </Badge>
+                          <span className="font-medium">{file.title}</span>
+                          {file.category && (
+                            <Badge variant="outline" className={cn(
+                              'text-xs',
+                              CATEGORY_CONFIG[file.category as SpecCategory]?.bgColor,
+                              CATEGORY_CONFIG[file.category as SpecCategory]?.color
+                            )}>
+                              {file.category}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {formatNumber(file.contentLength)} {formatMessage({ id: 'specs.injection.characters', defaultMessage: 'characters' })}
+                        </span>
+                      </div>
+                      {/* File Content */}
+                      <pre className="text-xs whitespace-pre-wrap p-3 bg-muted rounded border-l-2 border-primary/30">
+                        {file.content || formatMessage({ id: 'specs.content.noContent', defaultMessage: 'No content available' })}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-8 text-muted-foreground">
+                  {formatMessage({ id: 'specs.injection.noFiles', defaultMessage: 'No files match this command' })}
+                </div>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

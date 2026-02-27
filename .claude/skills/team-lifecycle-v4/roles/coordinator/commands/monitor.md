@@ -170,6 +170,80 @@ When a worker has unexpected status (not completed, not in_progress):
 2. Log via team_msg (type: error)
 3. Report to user: task reset, will retry on next resume
 
+### Fast-Advance Failure Recovery
+
+When coordinator detects a fast-advanced task has failed (task in_progress but no callback and worker gone):
+
+```
+handleCallback / handleResume detects:
+  +- Task is in_progress (was fast-advanced by predecessor)
+  +- No active_worker entry for this task
+  +- Original fast-advancing worker has already completed and exited
+  +- Resolution:
+      1. TaskUpdate -> reset task to pending
+      2. Remove stale active_worker entry (if any)
+      3. Log via team_msg (type: error, summary: "Fast-advanced task <ID> failed, resetting for retry")
+      4. -> handleSpawnNext (will re-spawn the task normally)
+```
+
+**Detection in handleResume**:
+
+```
+For each in_progress task in TaskList():
+  +- Has matching active_worker? -> normal, skip
+  +- No matching active_worker? -> orphaned (likely fast-advance failure)
+      +- Check creation time: if > 5 minutes with no progress callback
+      +- Reset to pending -> handleSpawnNext
+```
+
+**Prevention**: Fast-advance failures are self-healing. The coordinator reconciles orphaned tasks on every `resume`/`check` cycle. No manual intervention required unless the same task fails repeatedly (3+ resets -> escalate to user).
+
+### Consensus-Blocked Handling
+
+When a produce role reports `consensus_blocked` in its callback:
+
+```
+handleCallback receives message with consensus_blocked flag
+  +- Extract: divergence_severity, blocked_round, action_recommendation
+  +- Route by severity:
+      |
+      +- severity = HIGH (rating <= 2 or critical risk)
+      |   +- Is this DISCUSS-006 (final sign-off)?
+      |   |   +- YES -> PAUSE: output warning, wait for user `resume` with decision
+      |   |   +- NO -> Create REVISION task:
+      |   |       +- Same role, same doc type, incremented suffix (e.g., DRAFT-001-R1)
+      |   |       +- Description includes: divergence details + action items from discuss
+      |   |       +- blockedBy: none (immediate execution)
+      |   |       +- Max 1 revision per task (DRAFT-001 -> DRAFT-001-R1, no R2)
+      |   |       +- If already revised once -> PAUSE, escalate to user
+      |   +- Update session: mark task as "revised", log revision chain
+      |
+      +- severity = MEDIUM (rating spread or single low rating)
+      |   +- Proceed with warning: include divergence in next task's context
+      |   +- Log action items to wisdom/issues.md for downstream awareness
+      |   +- Normal handleSpawnNext
+      |
+      +- severity = LOW (minor suggestions only)
+          +- Proceed normally: treat as consensus_reached with notes
+          +- Normal handleSpawnNext
+```
+
+**Revision task template** (for HIGH severity):
+
+```
+TaskCreate({
+  subject: "<ORIGINAL-ID>-R1",
+  description: "Revision of <ORIGINAL-ID>: address consensus-blocked divergences.\n
+    Session: <session-folder>\n
+    Original artifact: <artifact-path>\n
+    Divergences:\n<divergence-details>\n
+    Action items:\n<action-items-from-discuss>\n
+    InlineDiscuss: <same-round-id>",
+  owner: "<same-role>",
+  status: "pending"
+})
+```
+
 ## Phase 4: Validation
 
 | Check | Criteria |
@@ -179,6 +253,8 @@ When a worker has unexpected status (not completed, not in_progress):
 | Pipeline completeness | All expected tasks exist per mode |
 | Completion detection | readySubjects=0 + inProgressSubjects=0 -> PIPELINE_COMPLETE |
 | Fast-advance tracking | Detect tasks already in_progress via fast-advance, sync to active_workers |
+| Fast-advance orphan check | in_progress tasks without active_worker entry -> reset to pending |
+| Consensus-blocked routing | HIGH -> revision/pause, MEDIUM -> warn+proceed, LOW -> proceed |
 
 ## Error Handling
 
@@ -189,3 +265,7 @@ When a worker has unexpected status (not completed, not in_progress):
 | All workers still running on resume | Report status, suggest check later |
 | Pipeline stall (no ready, no running) | Check for missing tasks, report to user |
 | Fast-advance conflict | Coordinator reconciles, no duplicate spawns |
+| Fast-advance task orphaned | Reset to pending, re-spawn via handleSpawnNext |
+| consensus_blocked HIGH | Create revision task (max 1) or pause for user |
+| consensus_blocked MEDIUM | Proceed with warning, log to wisdom/issues.md |
+| Revision task also blocked | Escalate to user, pause pipeline |
