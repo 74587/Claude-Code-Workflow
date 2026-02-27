@@ -106,11 +106,20 @@ Every task description includes session, scope, and inline discuss metadata:
 TaskCreate({
   subject: "<TASK-ID>",
   owner: "<role>",
-  description: "<task description from pipeline table>\nSession: <session-folder>\nScope: <scope>\nInlineDiscuss: <DISCUSS-NNN or none>",
+  description: "<task description from pipeline table>\nSession: <session-folder>\nScope: <scope>\nInlineDiscuss: <DISCUSS-NNN or none>\nInnerLoop: <true|false>",
   blockedBy: [<dependency-list>],
   status: "pending"
 })
 ```
+
+**InnerLoop Flag Rules**:
+
+| Role | InnerLoop |
+|------|-----------|
+| writer (DRAFT-*) | true |
+| planner (PLAN-*) | true |
+| executor (IMPL-*) | true |
+| analyst, tester, reviewer, architect, fe-developer, fe-qa | false |
 
 ### Execution Method
 
@@ -128,6 +137,56 @@ TaskCreate({
 | Owner assignment | Each task owner matches SKILL.md Role Registry prefix |
 | Session reference | Every task description contains `Session: <session-folder>` |
 | Inline discuss | Spec tasks have InlineDiscuss field matching round config |
+
+### Revision Task Template
+
+When handleRevise/handleFeedback creates revision tasks:
+
+```
+TaskCreate({
+  subject: "<ORIGINAL-ID>-R1",
+  owner: "<same-role-as-original>",
+  description: "<revision-type> revision of <ORIGINAL-ID>.\n
+    Session: <session-folder>\n
+    Original artifact: <artifact-path>\n
+    User feedback: <feedback-text or 'system-initiated'>\n
+    Revision scope: <targeted|full>\n
+    InlineDiscuss: <same-discuss-round-as-original>\n
+    InnerLoop: <true|false based on role>",
+  status: "pending",
+  blockedBy: [<predecessor-R1 if cascaded>]
+})
+```
+
+**Revision naming**: `<ORIGINAL-ID>-R1` (max 1 revision per task; second revision -> `-R2`; third -> escalate to user)
+
+**Cascade blockedBy chain example** (revise DRAFT-002):
+- DRAFT-002-R1 (no blockedBy)
+- DRAFT-003-R1 (blockedBy: DRAFT-002-R1)
+- DRAFT-004-R1 (blockedBy: DRAFT-003-R1)
+- QUALITY-001-R1 (blockedBy: DRAFT-004-R1)
+
+### Improvement Task Template
+
+When handleImprove creates improvement tasks:
+
+```
+TaskCreate({
+  subject: "IMPROVE-<dimension>-001",
+  owner: "writer",
+  description: "Quality improvement: <dimension>.\n
+    Session: <session-folder>\n
+    Current score: <X>%\n
+    Target: 80%\n
+    Readiness report: <session>/spec/readiness-report.md\n
+    Weak areas: <extracted-from-report>\n
+    Strategy: <from-dimension-strategy-table>\n
+    InnerLoop: true",
+  status: "pending"
+})
+```
+
+Improvement tasks are always followed by a QUALITY-001-R1 recheck (blockedBy: IMPROVE task).
 
 ## Error Handling
 

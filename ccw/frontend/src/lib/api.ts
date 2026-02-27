@@ -1642,6 +1642,7 @@ export async function unarchiveMemory(memoryId: string, projectPath?: string): P
 
 export interface ExtractionStatus {
   total_stage1: number;
+  lastRun?: number;
   jobs: Array<{
     job_key: string;
     status: string;

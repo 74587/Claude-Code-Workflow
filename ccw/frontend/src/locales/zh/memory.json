@@ -119,6 +119,7 @@
       "extracting": "提取中...",
       "extracted": "已提取",
       "recentJobs": "最近作业",
+      "lastRun": "上次运行",
       "triggered": "提取已触发",
       "triggerError": "触发提取失败"
     },
@@ -132,8 +133,11 @@
       "exists": "存在",
       "notExists": "不存在",
       "inputs": "输入",
+      "lastRun": "上次运行",
       "triggered": "合并已触发",
-      "triggerError": "触发合并失败"
+      "triggerError": "触发合并失败",
+      "copySuccess": "复制成功",
+      "noContent": "暂无内容"
     },
     "jobs": {
       "title": "作业列表",
@@ -144,7 +148,26 @@
       "noJobs": "暂无作业记录",
       "allKinds": "所有类型",
       "extraction": "提取",
-      "consolidation": "合并"
+      "consolidation": "合并",
+      "statusFilter": {
+        "all": "所有状态",
+        "pending": "等待",
+        "running": "运行中",
+        "done": "完成",
+        "error": "错误"
+      },
+      "detail": {
+        "title": "作业详情",
+        "kind": "类型",
+        "jobKey": "作业 ID",
+        "status": "状态",
+        "startedAt": "开始时间",
+        "finishedAt": "结束时间",
+        "workerId": "Worker ID",
+        "retryRemaining": "剩余重试次数",
+        "error": "错误信息",
+        "noError": "无错误"
+      }
     },
     "status": {
       "idle": "空闲",
@@ -153,6 +176,10 @@
       "done": "完成",
       "error": "错误",
       "pending": "等待"
+    },
+    "statusBanner": {
+      "running": "Pipeline 运行中 - {count} 个作业正在执行",
+      "hasErrors": "Pipeline 空闲 - {count} 个作业失败"
     }
   }
 }

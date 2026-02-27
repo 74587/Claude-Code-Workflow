@@ -33,6 +33,10 @@ Parse `$ARGUMENTS` to determine handler:
 | 2 | Contains "check" or "status" | handleCheck |
 | 3 | Contains "resume", "continue", or "next" | handleResume |
 | 4 | None of the above (initial spawn after dispatch) | handleSpawnNext |
+| 5 | Contains "revise" + task ID pattern | handleRevise |
+| 6 | Contains "feedback" + quoted/unquoted text | handleFeedback |
+| 7 | Contains "recheck" | handleRecheck |
+| 8 | Contains "improve" (optionally + dimension name) | handleImprove |
 
 Known worker roles: analyst, writer, planner, executor, tester, reviewer, architect, fe-developer, fe-qa.
 
@@ -47,6 +51,8 @@ Worker completed a task. Verify completion, update state, auto-advance.
 ```
 Receive callback from [<role>]
   +- Find matching active worker by role
+  +- Is this a progress update (not final)? (Inner Loop intermediate task completion)
+  |   +- YES -> Update session state, do NOT remove from active_workers -> STOP
   +- Task status = completed?
   |   +- YES -> remove from active_workers -> update session
   |   |   +- Handle checkpoints (see below)
@@ -87,7 +93,7 @@ Read-only status report. No pipeline advancement.
   done=completed  >>>=running  o=pending  .=not created
 
 [coordinator] Active Workers:
-  > <subject> (<role>) - running <elapsed>
+  > <subject> (<role>) - running <elapsed> [inner-loop: N/M tasks done]
 
 [coordinator] Ready to spawn: <subjects>
 [coordinator] Commands: 'resume' to advance | 'check' to refresh
@@ -132,6 +138,9 @@ Ready tasks found?
   +- NONE + work in progress -> report waiting -> STOP
   +- NONE + nothing in progress -> PIPELINE_COMPLETE -> Phase 5
   +- HAS ready tasks -> for each:
+      +- Is task owner an Inner Loop role AND that role already has an active_worker?
+      |   +- YES -> SKIP spawn (existing worker will pick it up via inner loop)
+      |   +- NO -> normal spawn below
       +- TaskUpdate -> in_progress
       +- team_msg log -> task_unblocked
       +- Spawn worker (see tool call below)
@@ -154,11 +163,144 @@ Task({
 
 ---
 
+### Handler: handleRevise
+
+User requests targeted revision of a completed task.
+
+```
+Parse: revise <TASK-ID> [feedback-text]
+  +- Validate TASK-ID exists and is completed
+  |   +- NOT completed -> error: "Task <ID> is not completed, cannot revise"
+  +- Determine role and doc type from TASK-ID prefix
+  +- Create revision task:
+  |   TaskCreate({
+  |     subject: "<TASK-ID>-R1",
+  |     owner: "<same-role>",
+  |     description: "User-requested revision of <TASK-ID>.\n
+  |       Session: <session-folder>\n
+  |       Original artifact: <artifact-path>\n
+  |       User feedback: <feedback-text or 'general revision requested'>\n
+  |       Revision scope: targeted\n
+  |       InlineDiscuss: <same-discuss-round>\n
+  |       InnerLoop: true",
+  |     status: "pending"
+  |   })
+  +- Cascade check (auto):
+  |   +- Find all completed tasks downstream of TASK-ID
+  |   +- For each downstream completed task -> create <ID>-R1
+  |   +- Chain blockedBy: each R1 blockedBy its predecessor R1
+  |   +- Always end with QUALITY-001-R1 (recheck)
+  +- Spawn worker for first revision task -> STOP
+```
+
+**Cascade Rules**:
+
+| Revised Task | Downstream (auto-cascade) |
+|-------------|--------------------------|
+| RESEARCH-001 | DRAFT-001~004-R1, QUALITY-001-R1 |
+| DRAFT-001 | DRAFT-002~004-R1, QUALITY-001-R1 |
+| DRAFT-002 | DRAFT-003~004-R1, QUALITY-001-R1 |
+| DRAFT-003 | DRAFT-004-R1, QUALITY-001-R1 |
+| DRAFT-004 | QUALITY-001-R1 |
+| QUALITY-001 | (no cascade, just recheck) |
+
+**Cascade depth control**: Only cascade tasks that are already completed. Pending/in_progress tasks will naturally pick up changes.
+
+---
+
+### Handler: handleFeedback
+
+User injects feedback into pipeline context.
+
+```
+Parse: feedback <text>
+  +- Determine pipeline state:
+  |   +- Spec phase in progress -> find earliest affected DRAFT task
+  |   +- Spec phase complete (at checkpoint) -> analyze full impact
+  |   +- Impl phase in progress -> log to wisdom/decisions.md, no revision
+  +- Analyze feedback impact:
+  |   +- Keyword match against doc types:
+  |       "vision/market/MVP/scope" -> DRAFT-001 (product-brief)
+  |       "requirement/feature/NFR/user story" -> DRAFT-002 (requirements)
+  |       "architecture/ADR/component/tech stack" -> DRAFT-003 (architecture)
+  |       "epic/story/sprint/priority" -> DRAFT-004 (epics)
+  |   +- If unclear -> default to earliest incomplete or most recent completed
+  +- Write feedback to wisdom/decisions.md
+  +- Create revision chain (same as handleRevise from determined start point)
+  +- Spawn worker -> STOP
+```
+
+---
+
+### Handler: handleRecheck
+
+Re-run quality check after manual edits or revisions.
+
+```
+Parse: recheck
+  +- Validate QUALITY-001 exists and is completed
+  |   +- NOT completed -> error: "Quality check hasn't run yet"
+  +- Create recheck task:
+  |   TaskCreate({
+  |     subject: "QUALITY-001-R1",
+  |     owner: "reviewer",
+  |     description: "Re-run spec quality check.\n
+  |       Session: <session-folder>\n
+  |       Scope: full recheck\n
+  |       InlineDiscuss: DISCUSS-006",
+  |     status: "pending"
+  |   })
+  +- Spawn reviewer -> STOP
+```
+
+---
+
+### Handler: handleImprove
+
+Quality-driven improvement based on readiness report dimensions.
+
+```
+Parse: improve [dimension]
+  +- Read <session>/spec/readiness-report.md
+  |   +- NOT found -> error: "No readiness report. Run quality check first."
+  +- Extract dimension scores
+  +- Select target:
+  |   +- dimension specified -> use it
+  |   +- not specified -> pick lowest scoring dimension
+  +- Map dimension to improvement strategy:
+  |
+  |   | Dimension | Strategy | Target Tasks |
+  |   |-----------|----------|-------------|
+  |   | completeness | Fill missing sections | DRAFT with missing sections |
+  |   | consistency | Unify terminology/format | All DRAFT (batch) |
+  |   | traceability | Strengthen Goals->Reqs->Arch->Stories chain | DRAFT-002, DRAFT-003, DRAFT-004 |
+  |   | depth | Enhance AC/ADR detail | Weakest sub-dimension's DRAFT |
+  |   | coverage | Add uncovered requirements | DRAFT-002 |
+  |
+  +- Create improvement task:
+  |   TaskCreate({
+  |     subject: "IMPROVE-<dimension>-001",
+  |     owner: "writer",
+  |     description: "Quality improvement: <dimension>.\n
+  |       Session: <session-folder>\n
+  |       Current score: <X>%\n
+  |       Target: 80%\n
+  |       Weak areas: <from readiness-report>\n
+  |       Strategy: <from table>\n
+  |       InnerLoop: true",
+  |     status: "pending"
+  |   })
+  +- Create QUALITY-001-R1 (blockedBy: IMPROVE task)
+  +- Spawn writer -> STOP
+```
+
+---
+
 ### Checkpoints
 
 | Completed Task | Mode Condition | Action |
 |---------------|----------------|--------|
-| QUALITY-001 | full-lifecycle or full-lifecycle-fe | Output "SPEC PHASE COMPLETE" checkpoint, pause for user review before impl |
+| QUALITY-001 | full-lifecycle or full-lifecycle-fe | Read readiness-report.md -> extract gate + scores -> output Checkpoint Output Template (see SKILL.md) -> pause for user action |
 
 ---
 

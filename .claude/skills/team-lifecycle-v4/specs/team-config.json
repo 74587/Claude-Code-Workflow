@@ -22,17 +22,21 @@
     "writer": {
       "task_prefix": "DRAFT",
       "responsibility": "Product Brief / PRD / Architecture / Epics document generation + inline discuss",
+      "execution_mode": "inner_loop",
+      "subagent_type": "universal-executor",
       "inline_discuss": ["DISCUSS-002", "DISCUSS-003", "DISCUSS-004", "DISCUSS-005"],
       "message_types": ["draft_ready", "draft_revision", "error"]
     },
     "planner": {
       "task_prefix": "PLAN",
       "responsibility": "Multi-angle code exploration (via shared explore), structured implementation planning",
+      "execution_mode": "inner_loop",
       "message_types": ["plan_ready", "plan_revision", "error"]
     },
     "executor": {
       "task_prefix": "IMPL",
       "responsibility": "Code implementation following approved plans",
+      "execution_mode": "inner_loop",
       "message_types": ["impl_complete", "impl_progress", "error"]
     },
     "tester": {
@@ -42,10 +46,10 @@
     },
     "reviewer": {
       "task_prefix": "REVIEW",
-      "additional_prefixes": ["QUALITY"],
-      "responsibility": "Code review (REVIEW-*) + Spec quality validation (QUALITY-*) + inline discuss for sign-off",
+      "additional_prefixes": ["QUALITY", "IMPROVE"],
+      "responsibility": "Code review (REVIEW-*) + Spec quality validation (QUALITY-*) + Quality improvement recheck (IMPROVE-*) + inline discuss for sign-off",
       "inline_discuss": "DISCUSS-006",
-      "message_types": ["review_result", "quality_result", "fix_required", "error"]
+      "message_types": ["review_result", "quality_result", "quality_recheck", "fix_required", "error"]
     },
     "architect": {
       "task_prefix": "ARCH",
@@ -80,6 +84,33 @@
       "type": "cli-explore-agent",
       "callable_by": ["analyst", "planner", "any"],
       "purpose": "Codebase exploration with centralized cache"
+    }
+  },
+
+  "checkpoint_commands": {
+    "revise": {
+      "handler": "handleRevise",
+      "pattern": "revise <TASK-ID> [feedback]",
+      "cascade": true,
+      "creates": "revision_task"
+    },
+    "feedback": {
+      "handler": "handleFeedback",
+      "pattern": "feedback <text>",
+      "cascade": true,
+      "creates": "revision_chain"
+    },
+    "recheck": {
+      "handler": "handleRecheck",
+      "pattern": "recheck",
+      "cascade": false,
+      "creates": "quality_recheck"
+    },
+    "improve": {
+      "handler": "handleImprove",
+      "pattern": "improve [dimension]",
+      "cascade": false,
+      "creates": "improvement_task + quality_recheck"
     }
   },
 

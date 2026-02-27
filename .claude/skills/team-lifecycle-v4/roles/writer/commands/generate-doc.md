@@ -2,7 +2,12 @@
 
 ## Purpose
 
-Multi-CLI document generation for 4 document types. Each uses parallel or staged CLI analysis, then synthesizes into templated documents.
+Document generation strategy reference. Used by doc-generation-subagent.md as prompt source.
+Writer 主 agent 不再直接执行此文件中的 CLI 调用，而是将对应段落传入 subagent prompt。
+
+## Usage
+
+Writer Phase 3 加载此文件中对应 doc-type 的策略段落，嵌入 subagent prompt 的 "Execution Strategy" 字段。
 
 ## Phase 2: Context Loading
 

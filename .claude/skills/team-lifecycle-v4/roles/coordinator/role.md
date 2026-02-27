@@ -151,6 +151,25 @@ Delegate to `commands/dispatch.md` which creates the full task chain:
 - User "check" -> handleCheck (status only)
 - User "resume" -> handleResume (advance)
 
+### Checkpoint Gate Handling
+
+When QUALITY-001 completes (spec->impl transition checkpoint):
+
+1. Read `<session-folder>/spec/readiness-report.md`
+2. Parse quality gate: extract `Quality Gate:` line -> PASS/REVIEW/FAIL + score
+3. Parse dimension scores: extract `Dimension Scores` table
+4. Output Checkpoint Output Template (see SKILL.md Checkpoints) with gate-specific guidance
+5. Write gate result to team-session.json: `checkpoint_gate: { gate, score, dimensions }`
+6. Pause and wait for user command
+
+**Gate-specific behavior**:
+
+| Gate | Primary Suggestion | Warning |
+|------|-------------------|---------|
+| PASS (>=80%) | `resume` to proceed | None |
+| REVIEW (60-79%) | `improve` or `revise` first | Warn on `resume`: "Quality below target, proceed at risk" |
+| FAIL (<60%) | `improve` or `revise` required | Block `resume` suggestion, user can force |
+
 ---
 
 ## Phase 5: Report + Next Steps

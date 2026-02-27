@@ -119,6 +119,7 @@
       "extracting": "Extracting...",
       "extracted": "Extracted",
       "recentJobs": "Recent Jobs",
+      "lastRun": "Last run",
       "triggered": "Extraction triggered",
       "triggerError": "Failed to trigger extraction"
     },
@@ -132,8 +133,11 @@
       "exists": "Exists",
       "notExists": "Not Exists",
       "inputs": "Inputs",
+      "lastRun": "Last run",
       "triggered": "Consolidation triggered",
-      "triggerError": "Failed to trigger consolidation"
+      "triggerError": "Failed to trigger consolidation",
+      "copySuccess": "Copied",
+      "noContent": "No content available"
     },
     "jobs": {
       "title": "Jobs",
@@ -144,7 +148,26 @@
       "noJobs": "No jobs found",
       "allKinds": "All Kinds",
       "extraction": "Extraction",
-      "consolidation": "Consolidation"
+      "consolidation": "Consolidation",
+      "statusFilter": {
+        "all": "All Status",
+        "pending": "Pending",
+        "running": "Running",
+        "done": "Done",
+        "error": "Error"
+      },
+      "detail": {
+        "title": "Job Details",
+        "kind": "Kind",
+        "jobKey": "Job ID",
+        "status": "Status",
+        "startedAt": "Started At",
+        "finishedAt": "Finished At",
+        "workerId": "Worker ID",
+        "retryRemaining": "Retry Remaining",
+        "error": "Error",
+        "noError": "No error"
+      }
     },
     "status": {
       "idle": "Idle",
@@ -153,6 +176,10 @@
       "done": "Done",
       "error": "Error",
       "pending": "Pending"
+    },
+    "statusBanner": {
+      "running": "Pipeline Running - {count} job(s) in progress",
+      "hasErrors": "Pipeline Idle - {count} job(s) failed"
     }
   }
 }

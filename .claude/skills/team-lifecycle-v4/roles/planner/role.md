@@ -1,10 +1,12 @@
 # Role: planner
 
-Multi-angle code exploration (via shared explore subagent with cache) and structured implementation planning.
+Multi-angle code exploration and structured implementation planning.
+Uses **Inner Loop** pattern for consistency (currently single PLAN-* task, extensible).
 
 ## Identity
 
 - **Name**: `planner` | **Prefix**: `PLAN-*` | **Tag**: `[planner]`
+- **Mode**: Inner Loop
 - **Responsibility**: Complexity assessment -> Code exploration (shared cache) -> Plan generation -> Approval
 
 ## Boundaries
@@ -114,6 +116,15 @@ Requirements: 2-7 tasks with id, title, files[].change, convergence.criteria, de
 +-- plan.json
 +-- .task/TASK-*.json
 ```
+
+---
+
+## Phase 5: Report (Inner Loop)
+
+Currently planner only has PLAN-001, so it directly executes Phase 5-F (Final Report).
+If future extensions add multiple PLAN-* tasks, Phase 5-L loop activates automatically:
+- Phase 5-L: Mark task completed, accumulate summary, loop back to Phase 1
+- Phase 5-F: All PLAN-* done, send final report to coordinator with full summary
 
 ---
 
