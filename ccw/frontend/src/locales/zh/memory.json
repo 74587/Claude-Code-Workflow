@@ -180,6 +180,28 @@
     "statusBanner": {
       "running": "Pipeline 运行中 - {count} 个作业正在执行",
       "hasErrors": "Pipeline 空闲 - {count} 个作业失败"
+    },
+    "preview": {
+      "title": "提取队列预览",
+      "selectSessions": "搜索会话...",
+      "sourceCcw": "CCW",
+      "sourceNative": "原生",
+      "selectAll": "全选",
+      "selectNone": "取消全选",
+      "extractSelected": "提取选中 ({count})",
+      "noSessions": "未找到会话",
+      "total": "总计",
+      "eligible": "符合条件",
+      "extracted": "已提取",
+      "ready": "就绪",
+      "previewQueue": "预览队列",
+      "includeNative": "包含原生会话",
+      "selected": "已选择 {count} 个会话",
+      "selectHint": "选择要提取的会话",
+      "ineligible": "不符合条件"
+    },
+    "extraction": {
+      "selectiveTriggered": "选择性提取已触发"
     }
   }
 }

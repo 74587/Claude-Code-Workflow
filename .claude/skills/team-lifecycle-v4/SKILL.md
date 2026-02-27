@@ -136,8 +136,9 @@ Each worker on startup executes the same task discovery flow:
 Task completion with optional fast-advance to skip coordinator round-trip:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Params: operation="log", team=<team-name>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **CLI fallback**: When MCP unavailable -> `ccw team log --team <team> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+   - Params: operation="log", team=**<session-id>**, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+   - **`team` must be session ID** (e.g., `TLS-my-project-2026-02-27`), NOT team name. Extract from task description `Session:` field → take folder name.
+   - **CLI fallback**: `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
 2. **TaskUpdate**: Mark task completed
 3. **Fast-Advance Check**:
    - Call `TaskList()`, find pending tasks whose blockedBy are ALL completed
@@ -533,13 +534,13 @@ Session: <session-folder>
 - All output prefixed with [<role>] tag
 - Only communicate with coordinator
 - Do not use TaskCreate to create tasks for other roles
-- Before each SendMessage, call mcp__ccw-tools__team_msg to log
+- Before each SendMessage, call mcp__ccw-tools__team_msg to log (team=<session-id> from Session field, NOT team name)
 - After task completion, check for fast-advance opportunity (see SKILL.md Phase 5)
 
 ## Workflow
 1. Call Skill -> get role definition and execution logic
 2. Follow role.md 5-Phase flow
-3. team_msg + SendMessage results to coordinator
+3. team_msg(team=<session-id>) + SendMessage results to coordinator
 4. TaskUpdate completed -> check next task or fast-advance`
 })
 ```
@@ -575,7 +576,7 @@ Only SendMessage to coordinator when:
 - All output prefixed with [<role>] tag
 - Only communicate with coordinator
 - Do not use TaskCreate to create tasks for other roles
-- Before each SendMessage, call mcp__ccw-tools__team_msg to log
+- Before each SendMessage, call mcp__ccw-tools__team_msg to log (team=<session-id> from Session field, NOT team name)
 - Use subagent calls for heavy work, retain summaries in context`
 })
 ```

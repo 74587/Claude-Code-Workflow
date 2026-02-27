@@ -169,6 +169,10 @@
       "saveConfig": "Save Configuration",
       "saving": "Saving..."
     },
+    "feedback": {
+      "saveSuccess": "Configuration saved",
+      "saveError": "Failed to save configuration"
+    },
     "scope": {
       "global": "Global",
       "project": "Project",

@@ -19,6 +19,7 @@ import {
   GitBranch,
   Send,
   FileBarChart,
+  Settings,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -31,7 +32,7 @@ import type { HookTriggerType } from './HookCard';
 /**
  * Template category type
  */
-export type TemplateCategory = 'notification' | 'indexing' | 'automation';
+export type TemplateCategory = 'notification' | 'indexing' | 'automation' | 'utility';
 
 /**
  * Hook template definition
@@ -226,6 +227,34 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
       '-e',
       'const cp=require("child_process");const payload=JSON.stringify({type:"MEMORY_V2_STATUS_UPDATED",project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})'
     ]
+  },
+  // --- Memory Operations ---
+  {
+    id: 'memory-auto-compress',
+    name: 'Auto Memory Compress',
+    description: 'Automatically compress memory when entries exceed threshold',
+    category: 'automation',
+    trigger: 'Stop',
+    command: 'ccw',
+    args: ['memory', 'consolidate', '--threshold', '50']
+  },
+  {
+    id: 'memory-preview-extract',
+    name: 'Memory Preview & Extract',
+    description: 'Preview extraction queue and extract eligible sessions',
+    category: 'automation',
+    trigger: 'SessionStart',
+    command: 'ccw',
+    args: ['memory', 'preview', '--include-native']
+  },
+  {
+    id: 'memory-status-check',
+    name: 'Memory Status Check',
+    description: 'Check memory extraction and consolidation status',
+    category: 'utility',
+    trigger: 'SessionStart',
+    command: 'ccw',
+    args: ['memory', 'status']
   }
 ] as const;
 
@@ -234,7 +263,8 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
 const CATEGORY_ICONS: Record<TemplateCategory, { icon: typeof Bell; color: string; bg: string }> = {
   notification: { icon: Bell, color: 'text-blue-500', bg: 'bg-blue-500/10' },
   indexing: { icon: Database, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-  automation: { icon: Wrench, color: 'text-orange-500', bg: 'bg-orange-500/10' }
+  automation: { icon: Wrench, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+  utility: { icon: Settings, color: 'text-gray-500', bg: 'bg-gray-500/10' }
 };
 
 // ========== Template Icons ==========
@@ -258,7 +288,8 @@ function getCategoryName(category: TemplateCategory, formatMessage: ReturnType<t
   const names: Record<TemplateCategory, string> = {
     notification: formatMessage({ id: 'cliHooks.templates.categories.notification' }),
     indexing: formatMessage({ id: 'cliHooks.templates.categories.indexing' }),
-    automation: formatMessage({ id: 'cliHooks.templates.categories.automation' })
+    automation: formatMessage({ id: 'cliHooks.templates.categories.automation' }),
+    utility: formatMessage({ id: 'cliHooks.templates.categories.utility' })
   };
   return names[category];
 }
@@ -352,7 +383,9 @@ export function HookQuickTemplates({
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="text-sm font-medium text-foreground leading-tight">
-                          {formatMessage({ id: `cliHooks.templates.templates.${template.id}.name` })}
+                          {formatMessage(
+                            { id: `cliHooks.templates.templates.${template.id}.name`, defaultMessage: template.name }
+                          )}
                         </h4>
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
@@ -394,7 +427,9 @@ export function HookQuickTemplates({
 
                     {/* Description */}
                     <p className="text-xs text-muted-foreground leading-relaxed flex-1 pl-11">
-                      {formatMessage({ id: `cliHooks.templates.templates.${template.id}.description` })}
+                      {formatMessage(
+                        { id: `cliHooks.templates.templates.${template.id}.description`, defaultMessage: template.description }
+                      )}
                     </p>
                   </Card>
                 );

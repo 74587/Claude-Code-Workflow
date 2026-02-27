@@ -252,6 +252,11 @@ export function run(argv: string[]): void {
     .option('--batch-size <n>', 'Batch size for embedding', '8')
     .option('--top-k <n>', 'Number of semantic search results', '10')
     .option('--min-score <f>', 'Minimum similarity score for semantic search', '0.5')
+    // Pipeline V2 options
+    .option('--include-native', 'Include native sessions (preview)')
+    .option('--path <path>', 'Project path (pipeline commands)')
+    .option('--max-sessions <n>', 'Max sessions to extract (extract)')
+    .option('--session-ids <ids>', 'Comma-separated session IDs (extract)')
     .action((subcommand, args, options) => memoryCommand(subcommand, args, options));
 
   // Core Memory command

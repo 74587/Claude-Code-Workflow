@@ -169,6 +169,10 @@
       "saveConfig": "保存配置",
       "saving": "保存中..."
     },
+    "feedback": {
+      "saveSuccess": "配置已保存",
+      "saveError": "保存配置失败"
+    },
     "scope": {
       "global": "全局",
       "project": "项目",

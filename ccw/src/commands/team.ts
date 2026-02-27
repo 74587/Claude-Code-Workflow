@@ -3,12 +3,12 @@
  * Delegates to team-msg.ts handler for JSONL-based persistent messaging
  *
  * Commands:
- *   ccw team log    --team <name> --from <role> --to <role> --type <type> --summary "..."
- *   ccw team read   --team <name> --id <MSG-NNN>
- *   ccw team list   --team <name> [--from <role>] [--to <role>] [--type <type>] [--last <n>]
- *   ccw team status --team <name>
- *   ccw team delete --team <name> --id <MSG-NNN>
- *   ccw team clear  --team <name>
+ *   ccw team log    --team <session-id> --from <role> --to <role> --type <type> --summary "..."
+ *   ccw team read   --team <session-id> --id <MSG-NNN>
+ *   ccw team list   --team <session-id> [--from <role>] [--to <role>] [--type <type>] [--last <n>]
+ *   ccw team status --team <session-id>
+ *   ccw team delete --team <session-id> --id <MSG-NNN>
+ *   ccw team clear  --team <session-id>
  */
 
 import chalk from 'chalk';
@@ -145,7 +145,7 @@ function printHelp(): void {
   console.log(chalk.gray('    clear               Clear all messages for a team'));
   console.log();
   console.log('  Required:');
-  console.log(chalk.gray('    --team <name>       Team name'));
+  console.log(chalk.gray('    --team <session-id> Session ID (e.g., TLS-my-project-2026-02-27), NOT team name'));
   console.log();
   console.log('  Log Options:');
   console.log(chalk.gray('    --from <role>       Sender role name'));
@@ -168,12 +168,12 @@ function printHelp(): void {
   console.log(chalk.gray('    --json              Output as JSON'));
   console.log();
   console.log('  Examples:');
-  console.log(chalk.gray('    ccw team log --team my-team --from executor --to coordinator --type impl_complete --summary "Task done"'));
-  console.log(chalk.gray('    ccw team list --team my-team --last 5'));
-  console.log(chalk.gray('    ccw team read --team my-team --id MSG-003'));
-  console.log(chalk.gray('    ccw team status --team my-team'));
-  console.log(chalk.gray('    ccw team delete --team my-team --id MSG-003'));
-  console.log(chalk.gray('    ccw team clear --team my-team'));
-  console.log(chalk.gray('    ccw team log --team my-team --from planner --to coordinator --type plan_ready --summary "Plan ready" --json'));
+  console.log(chalk.gray('    ccw team log --team TLS-my-project-2026-02-27 --from executor --to coordinator --type impl_complete --summary "Task done"'));
+  console.log(chalk.gray('    ccw team list --team TLS-my-project-2026-02-27 --last 5'));
+  console.log(chalk.gray('    ccw team read --team TLS-my-project-2026-02-27 --id MSG-003'));
+  console.log(chalk.gray('    ccw team status --team TLS-my-project-2026-02-27'));
+  console.log(chalk.gray('    ccw team delete --team TLS-my-project-2026-02-27 --id MSG-003'));
+  console.log(chalk.gray('    ccw team clear --team TLS-my-project-2026-02-27'));
+  console.log(chalk.gray('    ccw team log --team TLS-my-project-2026-02-27 --from planner --to coordinator --type plan_ready --summary "Plan ready" --json'));
   console.log();
 }

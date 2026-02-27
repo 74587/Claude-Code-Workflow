@@ -1492,6 +1492,39 @@ export async function getCommandsGroupsConfig(
   return fetchApi<{ groups: Record<string, any>; assignments: Record<string, string> }>(`/api/commands/groups/config?${params}`);
 }
 
+/**
+ * Validate a command file for import
+ */
+export async function validateCommandImport(sourcePath: string): Promise<{
+  valid: boolean;
+  errors?: string[];
+  commandInfo?: { name: string; description: string; version?: string };
+}> {
+  return fetchApi('/api/commands/validate-import', {
+    method: 'POST',
+    body: JSON.stringify({ sourcePath }),
+  });
+}
+
+/**
+ * Create/import a command
+ */
+export async function createCommand(params: {
+  mode: 'import' | 'cli-generate';
+  location: 'project' | 'user';
+  sourcePath?: string;
+  commandName?: string;
+  description?: string;
+  generationType?: 'description' | 'template';
+  projectPath?: string;
+  cliType?: 'claude' | 'codex';
+}): Promise<{ commandName: string; path: string }> {
+  return fetchApi('/api/commands/create', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
 // ========== Memory API ==========
 
 export interface CoreMemory {
@@ -1742,6 +1775,79 @@ export async function getV2Jobs(
   if (options?.kind) params.set('kind', options.kind);
   if (options?.status_filter) params.set('status_filter', options.status_filter);
   return fetchApi<V2JobsResponse>(`/api/core-memory/jobs?${params}`);
+}
+
+// ========== Memory V2 Preview API ==========
+
+export interface SessionPreviewItem {
+  sessionId: string;
+  source: 'ccw' | 'native';
+  tool: string;
+  timestamp: number;
+  eligible: boolean;
+  extracted: boolean;
+  bytes: number;
+  turns: number;
+}
+
+export interface ExtractionPreviewResponse {
+  success: boolean;
+  sessions: SessionPreviewItem[];
+  summary: {
+    total: number;
+    eligible: number;
+    alreadyExtracted: number;
+    readyForExtraction: number;
+  };
+}
+
+export interface SelectiveExtractionRequest {
+  sessionIds: string[];
+  includeNative?: boolean;
+  path?: string;
+}
+
+export interface SelectiveExtractionResponse {
+  success: boolean;
+  jobId: string;
+  queued: number;
+  skipped: number;
+  invalidIds: string[];
+}
+
+/**
+ * Preview extraction queue - get list of sessions available for extraction
+ */
+export async function previewExtractionQueue(
+  includeNative: boolean = false,
+  maxSessions?: number,
+  projectPath?: string
+): Promise<ExtractionPreviewResponse> {
+  const params = new URLSearchParams();
+  if (projectPath) params.set('path', projectPath);
+  if (includeNative) params.set('include_native', 'true');
+  if (maxSessions) params.set('max_sessions', String(maxSessions));
+  return fetchApi<ExtractionPreviewResponse>(`/api/core-memory/extract/preview?${params}`);
+}
+
+/**
+ * Trigger selective extraction for specific sessions
+ */
+export async function triggerSelectiveExtraction(
+  request: SelectiveExtractionRequest
+): Promise<SelectiveExtractionResponse> {
+  const params = new URLSearchParams();
+  if (request.path) params.set('path', request.path);
+  return fetchApi<SelectiveExtractionResponse>(
+    `/api/core-memory/extract/selective?${params}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        session_ids: request.sessionIds,
+        include_native: request.includeNative,
+      }),
+    }
+  );
 }
 
 // ========== Project Overview API ==========

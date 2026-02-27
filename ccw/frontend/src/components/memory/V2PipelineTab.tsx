@@ -28,6 +28,7 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
+import { SessionPreviewPanel } from '@/components/memory/SessionPreviewPanel';
 import 'highlight.js/styles/github-dark.css';
 import {
   useExtractionStatus,
@@ -84,6 +85,7 @@ function ExtractionCard() {
   const { data: status, isLoading, refetch } = useExtractionStatus();
   const trigger = useTriggerExtraction();
   const [maxSessions, setMaxSessions] = useState(10);
+  const [showPreview, setShowPreview] = useState(false);
 
   const handleTrigger = () => {
     trigger.mutate(maxSessions);
@@ -94,83 +96,107 @@ function ExtractionCard() {
   const lastRunText = formatRelativeTime(status?.lastRun);
 
   return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h3 className="font-medium flex items-center gap-2">
-            <Zap className="w-5 h-5 text-yellow-500" />
-            Phase 1: {intl.formatMessage({ id: 'memory.v2.extraction.title', defaultMessage: 'Extraction' })}
-          </h3>
-          <p className="text-sm text-muted-foreground mt-1">
-            {intl.formatMessage({ id: 'memory.v2.extraction.description', defaultMessage: 'Extract structured memories from CLI sessions' })}
-          </p>
-          {lastRunText && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {intl.formatMessage({ id: 'memory.v2.extraction.lastRun', defaultMessage: 'Last run' })}: {lastRunText}
+    <>
+      <Card className="p-4">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h3 className="font-medium flex items-center gap-2">
+              <Zap className="w-5 h-5 text-yellow-500" />
+              Phase 1: {intl.formatMessage({ id: 'memory.v2.extraction.title', defaultMessage: 'Extraction' })}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {intl.formatMessage({ id: 'memory.v2.extraction.description', defaultMessage: 'Extract structured memories from CLI sessions' })}
             </p>
+            {lastRunText && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {intl.formatMessage({ id: 'memory.v2.extraction.lastRun', defaultMessage: 'Last run' })}: {lastRunText}
+              </p>
+            )}
+          </div>
+          {status && (
+            <div className="text-right">
+              <div className="text-2xl font-bold">{status.total_stage1}</div>
+              <div className="text-xs text-muted-foreground">
+                {intl.formatMessage({ id: 'memory.v2.extraction.extracted', defaultMessage: 'Extracted' })}
+              </div>
+            </div>
           )}
         </div>
-        {status && (
-          <div className="text-right">
-            <div className="text-2xl font-bold">{status.total_stage1}</div>
-            <div className="text-xs text-muted-foreground">
-              {intl.formatMessage({ id: 'memory.v2.extraction.extracted', defaultMessage: 'Extracted' })}
+
+        <div className="flex items-center gap-2 mb-4">
+          <input
+            type="number"
+            value={maxSessions}
+            onChange={(e) => setMaxSessions(Math.max(1, parseInt(e.target.value) || 10))}
+            className="w-20 px-2 py-1 text-sm border rounded bg-background"
+            min={1}
+            max={64}
+          />
+          <span className="text-sm text-muted-foreground">sessions max</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={handleTrigger}
+            disabled={trigger.isPending || hasRunningJob}
+            size="sm"
+          >
+            {trigger.isPending || hasRunningJob ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                {intl.formatMessage({ id: 'memory.v2.extraction.extracting', defaultMessage: 'Extracting...' })}
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 mr-1" />
+                {intl.formatMessage({ id: 'memory.v2.extraction.trigger', defaultMessage: 'Trigger Extraction' })}
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPreview(true)}
+            title={intl.formatMessage({ id: 'memory.v2.preview.previewQueue', defaultMessage: 'Preview Queue' })}
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            {intl.formatMessage({ id: 'memory.v2.preview.previewQueue', defaultMessage: 'Preview Queue' })}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
+          </Button>
+        </div>
+
+        {status?.jobs && status.jobs.length > 0 && (
+          <div className="mt-4 pt-4 border-t">
+            <div className="text-xs text-muted-foreground mb-2">
+              {intl.formatMessage({ id: 'memory.v2.extraction.recentJobs', defaultMessage: 'Recent Jobs' })}
+            </div>
+            <div className="space-y-1 max-h-32 overflow-y-auto">
+              {status.jobs.slice(0, 5).map((job) => (
+                <div key={job.job_key} className="flex items-center justify-between text-sm">
+                  <span className="font-mono text-xs truncate max-w-[150px]">{job.job_key}</span>
+                  <StatusBadge status={job.status} />
+                </div>
+              ))}
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
-      <div className="flex items-center gap-2 mb-4">
-        <input
-          type="number"
-          value={maxSessions}
-          onChange={(e) => setMaxSessions(Math.max(1, parseInt(e.target.value) || 10))}
-          className="w-20 px-2 py-1 text-sm border rounded bg-background"
-          min={1}
-          max={64}
-        />
-        <span className="text-sm text-muted-foreground">sessions max</span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Button
-          onClick={handleTrigger}
-          disabled={trigger.isPending || hasRunningJob}
-          size="sm"
-        >
-          {trigger.isPending || hasRunningJob ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-              {intl.formatMessage({ id: 'memory.v2.extraction.extracting', defaultMessage: 'Extracting...' })}
-            </>
-          ) : (
-            <>
-              <Play className="w-4 h-4 mr-1" />
-              {intl.formatMessage({ id: 'memory.v2.extraction.trigger', defaultMessage: 'Trigger Extraction' })}
-            </>
-          )}
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          <RefreshCw className={cn('w-4 h-4', isLoading && 'animate-spin')} />
-        </Button>
-      </div>
-
-      {status?.jobs && status.jobs.length > 0 && (
-        <div className="mt-4 pt-4 border-t">
-          <div className="text-xs text-muted-foreground mb-2">
-            {intl.formatMessage({ id: 'memory.v2.extraction.recentJobs', defaultMessage: 'Recent Jobs' })}
-          </div>
-          <div className="space-y-1 max-h-32 overflow-y-auto">
-            {status.jobs.slice(0, 5).map((job) => (
-              <div key={job.job_key} className="flex items-center justify-between text-sm">
-                <span className="font-mono text-xs truncate max-w-[150px]">{job.job_key}</span>
-                <StatusBadge status={job.status} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </Card>
+      {/* Preview Queue Dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <SessionPreviewPanel
+            onClose={() => setShowPreview(false)}
+            onExtractComplete={() => {
+              setShowPreview(false);
+              refetch();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

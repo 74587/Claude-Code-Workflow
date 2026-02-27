@@ -180,6 +180,28 @@
     "statusBanner": {
       "running": "Pipeline Running - {count} job(s) in progress",
       "hasErrors": "Pipeline Idle - {count} job(s) failed"
+    },
+    "preview": {
+      "title": "Extraction Queue Preview",
+      "selectSessions": "Search sessions...",
+      "sourceCcw": "CCW",
+      "sourceNative": "Native",
+      "selectAll": "Select All",
+      "selectNone": "Select None",
+      "extractSelected": "Extract Selected ({count})",
+      "noSessions": "No sessions found",
+      "total": "Total",
+      "eligible": "Eligible",
+      "extracted": "Already Extracted",
+      "ready": "Ready",
+      "previewQueue": "Preview Queue",
+      "includeNative": "Include Native Sessions",
+      "selected": "{count} sessions selected",
+      "selectHint": "Select sessions to extract",
+      "ineligible": "Ineligible"
+    },
+    "extraction": {
+      "selectiveTriggered": "Selective extraction triggered"
     }
   }
 }

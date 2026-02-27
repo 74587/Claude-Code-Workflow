@@ -7,6 +7,7 @@ import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, rmdirSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { parseSessionFile, formatConversation, extractConversationPairs, type ParsedSession, type ParsedTurn } from './session-content-parser.js';
+import { getDiscoverer, getNativeSessions } from './native-session-discovery.js';
 import { StoragePaths, ensureStorageDir, getProjectId, getCCWHome } from '../config/storage-paths.js';
 import type { CliOutputUnit } from './cli-output-converter.js';
 
@@ -1065,11 +1066,94 @@ export class CliHistoryStore {
    */
   async getNativeSessionContent(ccwId: string): Promise<ParsedSession | null> {
     const mapping = this.getNativeSessionMapping(ccwId);
-    if (!mapping || !mapping.native_session_path) {
-      return null;
+    if (mapping?.native_session_path) {
+      const parsed = await parseSessionFile(mapping.native_session_path, mapping.tool);
+      if (parsed) {
+        return parsed;
+      }
+      // If mapping exists but file is missing/invalid, fall through to re-discovery.
     }
 
-    return parseSessionFile(mapping.native_session_path, mapping.tool);
+    // On-demand discovery/backfill: attempt to locate native session file from conversation metadata.
+    try {
+      const conversation = this.getConversation(ccwId);
+      if (!conversation) return null;
+
+      const tool = conversation.tool;
+      const discoverer = getDiscoverer(tool);
+      if (!discoverer) return null;
+
+      const createdMs = Date.parse(conversation.created_at);
+      const updatedMs = Date.parse(conversation.updated_at || conversation.created_at);
+      const durationMs = conversation.total_duration_ms || 0;
+
+      const endMs = Number.isFinite(updatedMs)
+        ? updatedMs
+        : (Number.isFinite(createdMs) ? createdMs + durationMs : NaN);
+      if (!Number.isFinite(endMs)) return null;
+
+      const afterTimestamp = Number.isFinite(createdMs) ? new Date(createdMs - 60_000) : undefined;
+      const sessions = getNativeSessions(tool, { workingDir: this.projectPath, afterTimestamp });
+      if (sessions.length === 0) return null;
+
+      // Prefer sessions whose updatedAt is close to execution end time.
+      const timeWindowMs = Math.max(5 * 60_000, durationMs + 2 * 60_000);
+      const timeCandidates = sessions.filter(s => Math.abs(s.updatedAt.getTime() - endMs) <= timeWindowMs);
+      const candidates = timeCandidates.length > 0
+        ? timeCandidates
+        : sessions
+            .map(session => ({ session, timeDiffMs: Math.abs(session.updatedAt.getTime() - endMs) }))
+            .sort((a, b) => a.timeDiffMs - b.timeDiffMs)
+            .slice(0, 50)
+            .map(x => x.session);
+
+      const prompt = conversation.turns[0]?.prompt || '';
+      const promptPrefix = prompt.substring(0, 200).trim();
+
+      const scored = candidates
+        .map(session => {
+          let promptMatch = false;
+          if (promptPrefix) {
+            try {
+              const firstUserMessage = discoverer.extractFirstUserMessage(session.filePath);
+              promptMatch = !!firstUserMessage && firstUserMessage.includes(promptPrefix);
+            } catch {
+              // Ignore extraction errors (still allow time-based match)
+            }
+          }
+
+          return {
+            session,
+            promptMatch,
+            timeDiffMs: Math.abs(session.updatedAt.getTime() - endMs)
+          };
+        })
+        .sort((a, b) => {
+          if (a.promptMatch !== b.promptMatch) return a.promptMatch ? -1 : 1;
+          return a.timeDiffMs - b.timeDiffMs;
+        });
+
+      const best = scored[0]?.session;
+      if (!best) return null;
+
+      // Persist mapping for future loads (best-effort).
+      try {
+        this.saveNativeSessionMapping({
+          ccw_id: ccwId,
+          tool,
+          native_session_id: best.sessionId,
+          native_session_path: best.filePath,
+          project_hash: best.projectHash,
+          created_at: new Date().toISOString()
+        });
+      } catch {
+        // Ignore persistence errors; still attempt to return content.
+      }
+
+      return await parseSessionFile(best.filePath, tool);
+    } catch {
+      return null;
+    }
   }
 
   /**

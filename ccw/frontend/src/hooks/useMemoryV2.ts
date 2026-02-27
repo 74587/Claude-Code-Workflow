@@ -10,9 +10,13 @@ import {
   triggerConsolidation,
   getConsolidationStatus,
   getV2Jobs,
+  previewExtractionQueue,
+  triggerSelectiveExtraction,
   type ExtractionStatus,
   type ConsolidationStatus,
   type V2JobsResponse,
+  type ExtractionPreviewResponse,
+  type SelectiveExtractionResponse,
 } from '../lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
@@ -23,6 +27,8 @@ export const memoryV2Keys = {
   consolidationStatus: (path?: string) => [...memoryV2Keys.all, 'consolidation', path] as const,
   jobs: (path?: string, filters?: { kind?: string; status_filter?: string }) =>
     [...memoryV2Keys.all, 'jobs', path, filters] as const,
+  preview: (path?: string, includeNative?: boolean) =>
+    [...memoryV2Keys.all, 'preview', path, includeNative] as const,
 };
 
 // Default stale time: 30 seconds (V2 status changes frequently)
@@ -97,5 +103,35 @@ export function useTriggerConsolidation() {
   });
 }
 
+// Hook: Preview sessions for extraction
+export function usePreviewSessions(includeNative: boolean = false) {
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  return useQuery({
+    queryKey: memoryV2Keys.preview(projectPath, includeNative),
+    queryFn: () => previewExtractionQueue(includeNative, undefined, projectPath),
+    enabled: !!projectPath,
+    staleTime: 10 * 1000, // 10 seconds
+  });
+}
+
+// Hook: Trigger selective extraction
+export function useTriggerSelectiveExtraction() {
+  const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  return useMutation({
+    mutationFn: (params: { sessionIds: string[]; includeNative?: boolean }) =>
+      triggerSelectiveExtraction({
+        sessionIds: params.sessionIds,
+        includeNative: params.includeNative,
+        path: projectPath,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: memoryV2Keys.all });
+    },
+  });
+}
+
 // Export types
-export type { ExtractionStatus, ConsolidationStatus, V2JobsResponse };
+export type { ExtractionStatus, ConsolidationStatus, V2JobsResponse, ExtractionPreviewResponse, SelectiveExtractionResponse };

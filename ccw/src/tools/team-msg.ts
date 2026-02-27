@@ -162,7 +162,7 @@ Message types: plan_ready, plan_approved, plan_revision, task_unblocked, impl_co
       },
       team: {
         type: 'string',
-        description: 'Team name',
+        description: 'Session ID (e.g., TLS-my-project-2026-02-27). Maps to .workflow/.team/{session-id}/.msg/. Use session ID, NOT team name.',
       },
       from: { type: 'string', description: '[log/list] Sender role' },
       to: { type: 'string', description: '[log/list] Recipient role' },
