@@ -308,19 +308,24 @@ Mode: Append-only (new issues appended to end)
 ### Query Interface
 
 ```bash
-# By ID
-ccw issue get ISS-20260227-001
+# By ID (detail view)
+ccw issue list ISS-20260227-001
 
-# By tag
-ccw issue list --tag wave-1
-ccw issue list --tag roadmap
+# List all with status filter
+ccw issue list --status planned,queued
+ccw issue list --brief  # JSON minimal output
 
-# By session
-ccw issue list --session RMAP-auth-2026-02-27
+# Queue operations (wave-based execution)
+ccw issue queue list              # List all queues
+ccw issue queue dag               # Get dependency graph (JSON)
+ccw issue next --queue <queue-id> # Get next task
 
 # Execute
-ccw issue execute ISS-20260227-001 ISS-20260227-002
+ccw issue queue add <issue-id>    # Add to active queue
+ccw issue done <item-id>          # Mark completed
 ```
+
+> **Note**: Issues are tagged with `wave-N` in `tags[]` field for filtering. Use `--brief` for programmatic parsing.
 
 ---
 
