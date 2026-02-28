@@ -1,47 +1,59 @@
 # Getting Started with CCW
 
-Welcome to CCW (Claude Code Workspace) - an advanced AI-powered development environment that helps you write better code faster.
+Welcome to CCW (Claude Code Workflow) - an advanced workflow orchestration system for Claude Code that helps you build better software faster.
 
 ## What is CCW?
 
-CCW is a comprehensive development environment that combines:
+CCW is a Claude Code extension system that provides:
 
 - **Main Orchestrator (`/ccw`)**: Intent-aware workflow selection and automatic command routing
-- **AI-Powered CLI Tools**: Analyze, review, and implement code with multiple AI backends
+- **AI-Powered CLI Tools**: Analyze, review, and implement code with multiple AI backends (Gemini, Codex, Qwen)
 - **Specialized Agents**: Code execution, TDD development, testing, debugging, and documentation
-- **Workflow Orchestration**: 4-level workflow system from spec to implementation
-- **Extensible Skills**: 50+ built-in skills with custom skill support
+- **Workflow Orchestration**: 5-phase workflow system from intent to execution
+- **Extensible Skills**: 100+ built-in skills with custom skill support
+- **Team Pipeline**: Multi-agent collaboration with role-based workflows (analyst, writer, planner, executor, tester, reviewer)
 - **MCP Integration**: Model Context Protocol for enhanced tool integration
 
 ## Quick Start
 
 ### Installation
 
-```bash
-# Install CCW globally
-npm install -g claude-code-workflow
+**Important**: CCW is NOT an npm package. It's a Claude Code extension system.
 
-# Or use with npx
-npx ccw --help
+```bash
+# 1. Clone the CCW repository
+git clone https://github.com/catlog22/Claude-Code-Workflow.git
+cd Claude-Code-Workflow
+
+# 2. Install dependencies
+npm install
+
+# 3. Install CCW (interactive - will prompt for Global/Path mode)
+ccw install
 ```
+
+See [Installation Guide](./installation.md) for detailed instructions.
 
 ### Your First Workflow
 
 Create a simple workflow in under 5 minutes:
 
-```bash
+```
 # Main orchestrator - automatically selects workflow based on intent
-/ccw "Create a new project"                    # Auto-selects appropriate workflow
-/ccw "Analyze the codebase structure"          # Auto-selects analysis workflow
-/ccw "Add user authentication"                 # Auto-selects implementation workflow
+/ccw
+# Prompt: "Create a new project"                    # Auto-selects appropriate workflow
+# Prompt: "Analyze the codebase structure"          # Auto-selects analysis workflow
+# Prompt: "Add user authentication"                 # Auto-selects implementation workflow
 
 # Auto-mode - skip confirmation
-/ccw -y "Fix the login timeout issue"          # Execute without confirmation prompts
+/ccw -y
+# Prompt: "Fix the login timeout issue"             # Execute without confirmation prompts
 
 # Or use specific workflow commands
-/workflow:init                                  # Initialize project state
-/workflow-plan "Add OAuth2 authentication"     # Create implementation plan
-/workflow-execute                               # Execute planned tasks
+/workflow:init                                      # Initialize project state
+/workflow:plan
+# Prompt: "Add OAuth2 authentication"               # Create implementation plan
+/workflow:execute                                   # Execute planned tasks
 ```
 
 ## Next Steps
@@ -51,5 +63,5 @@ Create a simple workflow in under 5 minutes:
 - [CLI Tools](./cli-tools.md) - Customize your CCW setup
 
 ::: tip Need Help?
-Check out our [GitHub Discussions](https://github.com/your-repo/ccw/discussions) or join our [Discord community](https://discord.gg/ccw).
+Check out our [GitHub Discussions](https://github.com/catlog22/Claude-Code-Workflow/discussions) or visit the [GitHub repository](https://github.com/catlog22/Claude-Code-Workflow).
 :::

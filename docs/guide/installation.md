@@ -1,58 +1,91 @@
 # Installation
 
-Learn how to install and configure CCW on your system.
+Learn how to install and configure CCW (Claude Code Workflow) on your system.
+
+## What is CCW?
+
+CCW is a **Claude Code extension system** that provides advanced workflow orchestration, team collaboration, and MCP integration. It is **NOT** an npm package or standalone CLI tool.
+
+CCW is installed as a set of command definitions, skills, and agents in your `~/.claude/` directory, and is invoked directly within Claude Code using slash commands.
 
 ## Prerequisites
 
 Before installing CCW, make sure you have:
 
-- **Node.js** >= 18.0.0
-- **npm** >= 9.0.0 or **yarn** >= 1.22.0
-- **Git** for version control features
+- **Claude Code** installed and configured
+- **Git** >= 2.30.0 (for version control features)
+- **Node.js** >= 20.0.0 (only required for MCP servers)
+- **npm** >= 10.0.0 or **bun** >= 1.0.0 (only for MCP server installation)
+
+> **Note**: CCW itself runs within Claude Code and doesn't require Node.js for its core functionality. Node.js is only needed if you want to use MCP servers.
 
 ## Install CCW
 
-### Global Installation (Recommended)
+### Method 1: Clone and Install (Recommended)
 
 ```bash
-npm install -g claude-code-workflow
+# 1. Clone the CCW repository
+git clone https://github.com/catlog22/Claude-Code-Workflow.git
+cd Claude-Code-Workflow
+
+# 2. Install dependencies
+npm install
+
+# 3. Install CCW to your system (interactive)
+ccw install
+
+# Or specify installation mode directly:
+# ccw install --mode Global    # Install to home directory (recommended)
+# ccw install --mode Path      # Install to specific project path
 ```
 
-### Project-Specific Installation
+The `ccw install` command will:
+- Copy `.claude/`, `.codex/`, `.gemini/`, `.qwen/`, `.ccw/` directories to the appropriate locations
+- Create installation manifest for tracking
+- Preserve user settings (`settings.json`, `settings.local.json`)
+- Optionally install Git Bash fix on Windows
+
+### Method 2: Manual Installation
+
+If you prefer manual installation, copy the directories:
 
 ```bash
-# In your project directory
-npm install --save-dev claude-code-workflow
-
-# Run with npx
-npx ccw [command]
+# Copy to your home directory
+cp -r .claude ~/.claude/
+cp -r .codex ~/.codex/
+cp -r .gemini ~/.gemini/
+cp -r .qwen ~/.qwen/
+cp -r .ccw ~/.ccw/
 ```
 
-### Using Yarn
+### Verify Installation
 
-```bash
-# Global
-yarn global add claude-code-workflow
+In Claude Code, invoke the CCW commands:
 
-# Project-specific
-yarn add -D claude-code-workflow
+```
+/ccw
 ```
 
-## Verify Installation
+You should see the CCW orchestrator prompt with workflow options.
 
-```bash
-ccw --version
-# Output: CCW v1.0.0
+To check available CCW commands, you can list them:
 
-ccw --help
-# Shows all available commands
+```
+Available CCW Commands:
+- /ccw - Main workflow orchestrator
+- /ccw-coordinator - External CLI orchestration
+- /workflow:init - Initialize project configuration
+- /workflow:status - Generate project views
+- /issue:discover - Discover and plan issues
+- /brainstorm - Multi-perspective brainstorming
+- /review-code - Multi-dimensional code review
 ```
 
 ## Configuration
 
 ### CLI Tools Configuration
 
-Create or edit `~/.claude/cli-tools.json`:
+Create or edit `~/.claude/cli-tools.json` to configure external AI tools:
 
 ```json
 {
@@ -71,14 +104,23 @@ Create or edit `~/.claude/cli-tools.json`:
       "secondaryModel": "gpt-5.2",
       "tags": [],
       "type": "builtin"
+    },
+    "qwen": {
+      "enabled": true,
+      "primaryModel": "coder-model",
+      "secondaryModel": "coder-model",
+      "tags": [],
+      "type": "builtin"
     }
   }
 }
 ```
 
+See [CLI Tools Guide](./cli-tools.md) for more configuration options.
+
 ### CLAUDE.md Instructions
 
-Create `CLAUDE.md` in your project root:
+Create `CLAUDE.md` in your project root to define project-specific instructions:
 
 ```markdown
 # Project Instructions
@@ -92,100 +134,178 @@ Create `CLAUDE.md` in your project root:
 - Frontend: Vue 3 + Vite
 - Backend: Node.js + Express
 - Database: PostgreSQL
+
+## CLI Endpoints
+- **CLI Tools Usage**: @~/.ccw/workflows/cli-tools-usage.md
+- **CLI Endpoints Config**: @~/.claude/cli-tools.json
 ```
+
+### Project Configuration
+
+Initialize CCW in your project:
+
+```
+/workflow:init
+```
+
+This creates `.workflow/project-tech.json` with your project's technology stack.
+
+## MCP Integration (Optional)
+
+CCW works best with MCP (Model Context Protocol) servers for enhanced capabilities:
+
+- **ACE Context Engine** - Real-time codebase semantic search
+- **Chrome DevTools MCP** - Browser automation and debugging
+- **Web Reader MCP** - Web content extraction
+- **File System MCP** - Enhanced file operations
+
+See [MCP Setup Guide](./mcp-setup.md) for detailed installation instructions.
 
 ## Updating CCW
 
 ```bash
-# Update to the latest version
-npm update -g claude-code-workflow
+# Navigate to your CCW clone location
+cd ~/.claude/ccw-source  # or wherever you cloned it
 
-# Or install a specific version
-npm install -g claude-code-workflow@latest
+# Pull latest changes
+git pull origin main
+
+# Copy updated files
+cp -r commands/* ~/.claude/commands/
+cp -r skills/* ~/.claude/skills/
+cp -r agents/* ~/.claude/agents/
 ```
 
 ## Uninstallation
 
 ```bash
-npm uninstall -g claude-code-workflow
+# Remove CCW commands
+rm ~/.claude/commands/ccw.md
+rm ~/.claude/commands/ccw-coordinator.md
+rm -rf ~/.claude/commands/workflow
+rm -rf ~/.claude/commands/issue
+rm -rf ~/.claude/commands/cli
+rm -rf ~/.claude/commands/memory
+
+# Remove CCW skills and agents
+rm -rf ~/.claude/skills/workflow-*
+rm -rf ~/.claude/skills/team-*
+rm -rf ~/.claude/agents/team-worker.md
+rm -rf ~/.claude/agents/cli-*-agent.md
 
 # Remove configuration (optional)
-rm -rf ~/.claude
+rm -rf ~/.claude/cli-tools.json
+rm -rf .workflow/
 ```
 
 ## Troubleshooting
 
+### Command Not Found
+
+If `/ccw` or other CCW commands don't work:
+
+1. **Verify files are in the correct location**:
+   ```bash
+   ls ~/.claude/commands/ccw.md
+   ls ~/.claude/commands/ccw-coordinator.md
+   ```
+
+2. **Restart Claude Code** - Commands may need a restart to be detected
+
+3. **Check file syntax** - Ensure `.md` files have valid frontmatter
+
+### MCP Tools Not Working
+
+If MCP tools (like `mcp__ace-tool__search_context`) don't work:
+
+1. **Verify MCP servers are running**:
+   - Check Claude Code Settings → MCP Servers
+   - Ensure required MCP servers are enabled
+
+2. **Install missing MCP servers**:
+   ```bash
+   # ACE Context Engine
+   npm install -g @anthropic/ace-mcp
+
+   # File System MCP
+   npm install -g @modelcontextprotocol/server-filesystem
+   ```
+
+3. **Check MCP configuration** - See [MCP Setup Guide](./mcp-setup.md)
+
 ### Permission Issues
 
-If you encounter permission errors:
+If you encounter permission errors when copying files:
 
 ```bash
-# Use sudo (not recommended)
-sudo npm install -g claude-code-workflow
+# Use appropriate permissions for your system
+# On Linux/macOS with sudo
+sudo cp -r commands/* ~/.claude/commands/
 
-# Or fix npm permissions (recommended)
-mkdir ~/.npm-global
-npm config set prefix '~/.npm-global'
-export PATH=~/.npm-global/bin:$PATH
+# Fix ownership
+sudo chown -R $USER:$USER ~/.claude/
 ```
 
-### PATH Issues
+### Configuration Errors
 
-Add npm global bin to your PATH:
+If `cli-tools.json` has syntax errors:
 
-```bash
-# For bash/zsh
-echo 'export PATH=$(npm config get prefix)/bin:$PATH' >> ~/.bashrc
+1. **Validate JSON**:
+   ```bash
+   cat ~/.claude/cli-tools.json | python -m json.tool
+   ```
 
-# For fish
-echo 'set -gx PATH (npm config get prefix)/bin $PATH' >> ~/.config/fish/config.fish
-```
+2. **Check for trailing commas** - JSON doesn't allow them
+
+3. **Verify version field** - Should match expected format (e.g., "3.3.0")
 
 ::: info Next Steps
-After installation, check out the [First Workflow](./first-workflow.md) guide.
+After installation, check out the [Quick Start](./getting-started.md) guide.
 :::
 
 ## Quick Start Example
 
 After installation, try these commands to verify everything works:
 
-```bash
+```
 # 1. Initialize in your project
-cd your-project
-ccw init
+/workflow:init
 
-# 2. Try a simple analysis
-ccw cli -p "Analyze the project structure" --tool gemini --mode analysis
+# 2. Try a simple analysis using the CLI tool
+Bash: ccw cli -p "Analyze the project structure" --tool gemini --mode analysis
 
 # 3. Run the main orchestrator
-/ccw "Summarize the codebase architecture"
+/ccw
+# Prompt: "Summarize the codebase architecture"
 
-# 4. Check available commands
-ccw --help
+# 4. Try brainstorming
+/brainstorm "Improve the authentication flow"
 ```
 
 ### Expected Output
 
+**Using /ccw command:**
 ```
-$ ccw --version
-CCW v7.0.5
+You: /ccw
+Claude: CCW Orchestrator - 5-Phase Workflow Execution
 
-$ ccw init
-✔ Created .claude/CLAUDE.md
-✔ Created .ccw/workflows/
-✔ Configuration complete
+Phase 1: Intent Understanding
+What would you like to accomplish? Please describe your task.
+```
 
-$ ccw cli -p "Analyze project" --tool gemini --mode analysis
-Analyzing with Gemini...
-✔ Analysis complete
+**Using workflow init:**
+```
+You: /workflow:init
+✔ Created .workflow/project-tech.json
+✔ Project configuration complete
 ```
 
 ### Common First-Time Issues
 
 | Issue | Solution |
 |-------|----------|
-| `ccw: command not found` | Add npm global bin to PATH, or reinstall |
-| `Permission denied` | Use `sudo` or fix npm permissions |
-| `API key not found` | Configure API keys in `~/.claude/cli-tools.json` |
-| `Node version mismatch` | Update to Node.js >= 18.0.0 |
+| `/ccw` command not recognized | Verify commands copied to `~/.claude/commands/` and restart Claude Code |
+| `Permission denied` copying files | Use `sudo` or fix directory ownership with `chown` |
+| MCP tools not available | Install and configure MCP servers (see [MCP Setup](./mcp-setup.md)) |
+| CLI tools configuration error | Validate `~/.claude/cli-tools.json` has correct JSON syntax |
 
