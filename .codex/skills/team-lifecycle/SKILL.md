@@ -1,8 +1,6 @@
 ---
 name: team-lifecycle
 description: Full lifecycle orchestrator - spec/impl/test. Spawn-wait-close pipeline with inline discuss subagent, shared explore cache, fast-advance, and consensus severity routing.
-agents: analyst, writer, planner, executor, tester, reviewer, architect, fe-developer, fe-qa
-phases: 5
 ---
 
 # Team Lifecycle Orchestrator

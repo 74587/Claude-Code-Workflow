@@ -3,8 +3,6 @@ name: team-planex
 description: |
   Beat pipeline: planner decomposes requirements issue-by-issue, orchestrator spawns
   Codex executor per issue immediately. All execution via Codex CLI only.
-agents: 2
-phases: 3
 ---
 
 # Team PlanEx (Codex)
