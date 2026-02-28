@@ -19,7 +19,7 @@ CCW is a comprehensive development environment that combines:
 
 ```bash
 # Install CCW globally
-npm install -g @ccw/cli
+npm install -g claude-code-workflow
 
 # Or use with npx
 npx ccw --help
@@ -48,7 +48,7 @@ Create a simple workflow in under 5 minutes:
 
 - [Installation Guide](./installation.md) - Detailed installation instructions
 - [First Workflow](./first-workflow.md) - 30-minute quickstart tutorial
-- [Configuration](./configuration.md) - Customize your CCW setup
+- [CLI Tools](./cli-tools.md) - Customize your CCW setup
 
 ::: tip Need Help?
 Check out our [GitHub Discussions](https://github.com/your-repo/ccw/discussions) or join our [Discord community](https://discord.gg/ccw).

@@ -76,11 +76,12 @@ export default defineConfig({
       }
     ],
 
-    // Sidebar - 按照 Trellis 风格组织
+    // Sidebar - 优化导航结构，增加二级标题和归类
     sidebar: {
       '/guide/': [
         {
-          text: 'Guide',
+          text: '📖 指南',
+          collapsible: false,
           items: [
             { text: 'What is Claude_dms3', link: '/guide/ch01-what-is-claude-dms3' },
             { text: 'Getting Started', link: '/guide/ch02-getting-started' },
@@ -89,11 +90,20 @@ export default defineConfig({
             { text: 'Advanced Tips', link: '/guide/ch05-advanced-tips' },
             { text: 'Best Practices', link: '/guide/ch06-best-practices' }
           ]
+        },
+        {
+          text: '🚀 快速入口',
+          collapsible: true,
+          items: [
+            { text: 'Installation', link: '/guide/installation' },
+            { text: 'First Workflow', link: '/guide/first-workflow' },
+            { text: 'CLI Tools', link: '/guide/cli-tools' }
+          ]
         }
       ],
       '/commands/': [
         {
-          text: 'Claude Commands',
+          text: '🤖 Claude Commands',
           collapsible: true,
           items: [
             { text: 'Overview', link: '/commands/claude/' },
@@ -107,7 +117,7 @@ export default defineConfig({
           ]
         },
         {
-          text: 'Codex Prompts',
+          text: '📝 Codex Prompts',
           collapsible: true,
           items: [
             { text: 'Overview', link: '/commands/codex/' },
@@ -118,7 +128,7 @@ export default defineConfig({
       ],
       '/skills/': [
         {
-          text: 'Claude Skills',
+          text: '⚡ Claude Skills',
           collapsible: true,
           items: [
             { text: 'Overview', link: '/skills/claude-index' },
@@ -130,7 +140,7 @@ export default defineConfig({
           ]
         },
         {
-          text: 'Codex Skills',
+          text: '🔧 Codex Skills',
           collapsible: true,
           items: [
             { text: 'Overview', link: '/skills/codex-index' },
@@ -138,17 +148,33 @@ export default defineConfig({
             { text: 'Workflow', link: '/skills/codex-workflow' },
             { text: 'Specialized', link: '/skills/codex-specialized' }
           ]
+        },
+        {
+          text: '🎨 Custom Skills',
+          collapsible: true,
+          items: [
+            { text: 'Overview', link: '/skills/custom' },
+            { text: 'Core Skills', link: '/skills/core-skills' },
+            { text: 'Reference', link: '/skills/reference' }
+          ]
         }
       ],
       '/features/': [
         {
-          text: 'Core Features',
+          text: '⚙️ Core Features',
+          collapsible: false,
           items: [
             { text: 'Spec System', link: '/features/spec' },
             { text: 'Memory System', link: '/features/memory' },
             { text: 'CLI Call', link: '/features/cli' },
             { text: 'Dashboard', link: '/features/dashboard' },
-            { text: 'CodexLens', link: '/features/codexlens' },
+            { text: 'CodexLens', link: '/features/codexlens' }
+          ]
+        },
+        {
+          text: '🔌 Settings',
+          collapsible: true,
+          items: [
             { text: 'API Settings', link: '/features/api-settings' },
             { text: 'System Settings', link: '/features/system-settings' }
           ]
@@ -156,7 +182,7 @@ export default defineConfig({
       ],
       '/mcp/': [
         {
-          text: 'MCP Tools',
+          text: '🔗 MCP Tools',
           collapsible: true,
           items: [
             { text: 'Overview', link: '/mcp/tools' }
@@ -165,7 +191,7 @@ export default defineConfig({
       ],
       '/agents/': [
         {
-          text: 'Agents',
+          text: '🤖 Agents',
           collapsible: true,
           items: [
             { text: 'Overview', link: '/agents/' },
@@ -176,12 +202,13 @@ export default defineConfig({
       ],
       '/workflows/': [
         {
-          text: 'Workflow System',
+          text: '🔄 Workflow System',
           collapsible: true,
           items: [
             { text: 'Overview', link: '/workflows/' },
             { text: '4-Level System', link: '/workflows/4-level' },
-            { text: 'Best Practices', link: '/workflows/best-practices' }
+            { text: 'Best Practices', link: '/workflows/best-practices' },
+            { text: 'Teams', link: '/workflows/teams' }
           ]
         }
       ]
@@ -259,7 +286,7 @@ export default defineConfig({
         nav: [
           { text: '指南', link: '/zh/guide/ch01-what-is-claude-dms3' },
           { text: '命令', link: '/zh/commands/claude/' },
-          { text: '技能', link: '/skills/' },
+          { text: '技能', link: '/zh/skills/claude-index' },
           { text: '功能', link: '/zh/features/spec' },
           {
             text: '语言',
@@ -271,7 +298,8 @@ export default defineConfig({
         sidebar: {
           '/zh/guide/': [
             {
-              text: '指南',
+              text: '📖 指南',
+              collapsible: false,
               items: [
                 { text: 'Claude_dms3 是什么', link: '/zh/guide/ch01-what-is-claude-dms3' },
                 { text: '快速开始', link: '/zh/guide/ch02-getting-started' },
@@ -280,11 +308,20 @@ export default defineConfig({
                 { text: '高级技巧', link: '/zh/guide/ch05-advanced-tips' },
                 { text: '最佳实践', link: '/zh/guide/ch06-best-practices' }
               ]
+            },
+            {
+              text: '🚀 快速入口',
+              collapsible: true,
+              items: [
+                { text: '安装', link: '/zh/guide/installation' },
+                { text: '第一个工作流', link: '/zh/guide/first-workflow' },
+                { text: 'CLI 工具', link: '/zh/guide/cli-tools' }
+              ]
             }
           ],
           '/zh/commands/': [
             {
-              text: 'Claude 命令',
+              text: '🤖 Claude 命令',
               collapsible: true,
               items: [
                 { text: '概述', link: '/zh/commands/claude/' },
@@ -298,7 +335,7 @@ export default defineConfig({
               ]
             },
             {
-              text: 'Codex Prompts',
+              text: '📝 Codex Prompts',
               collapsible: true,
               items: [
                 { text: '概述', link: '/zh/commands/codex/' },
@@ -309,7 +346,7 @@ export default defineConfig({
           ],
           '/zh/skills/': [
             {
-              text: 'Claude Skills',
+              text: '⚡ Claude Skills',
               collapsible: true,
               items: [
                 { text: '概述', link: '/zh/skills/claude-index' },
@@ -321,7 +358,7 @@ export default defineConfig({
               ]
             },
             {
-              text: 'Codex Skills',
+              text: '🔧 Codex Skills',
               collapsible: true,
               items: [
                 { text: '概述', link: '/zh/skills/codex-index' },
@@ -329,17 +366,33 @@ export default defineConfig({
                 { text: '工作流', link: '/zh/skills/codex-workflow' },
                 { text: '专项', link: '/zh/skills/codex-specialized' }
               ]
+            },
+            {
+              text: '🎨 自定义技能',
+              collapsible: true,
+              items: [
+                { text: '概述', link: '/zh/skills/custom' },
+                { text: '核心技能', link: '/zh/skills/core-skills' },
+                { text: '参考', link: '/zh/skills/reference' }
+              ]
             }
           ],
           '/zh/features/': [
             {
-              text: '核心功能',
+              text: '⚙️ 核心功能',
+              collapsible: false,
               items: [
                 { text: 'Spec 规范系统', link: '/zh/features/spec' },
                 { text: 'Memory 记忆系统', link: '/zh/features/memory' },
                 { text: 'CLI 调用', link: '/zh/features/cli' },
                 { text: 'Dashboard 面板', link: '/zh/features/dashboard' },
-                { text: 'CodexLens', link: '/zh/features/codexlens' },
+                { text: 'CodexLens', link: '/zh/features/codexlens' }
+              ]
+            },
+            {
+              text: '🔌 设置',
+              collapsible: true,
+              items: [
                 { text: 'API 设置', link: '/zh/features/api-settings' },
                 { text: '系统设置', link: '/zh/features/system-settings' }
               ]
@@ -347,12 +400,13 @@ export default defineConfig({
           ],
           '/zh/workflows/': [
             {
-              text: '工作流系统',
+              text: '🔄 工作流系统',
               collapsible: true,
               items: [
                 { text: '概述', link: '/zh/workflows/' },
                 { text: '四级体系', link: '/zh/workflows/4-level' },
-                { text: '最佳实践', link: '/zh/workflows/best-practices' }
+                { text: '最佳实践', link: '/zh/workflows/best-practices' },
+                { text: '团队协作', link: '/zh/workflows/teams' }
               ]
             }
           ]

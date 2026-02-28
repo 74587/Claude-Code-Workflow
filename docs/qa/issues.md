@@ -1,6 +1,6 @@
 # CCW Documentation Site - Known Issues
 
-**Generated**: 2026-02-27
+**Generated**: 2026-02-28
 **Status**: Active Tracking
 
 ## Summary
@@ -9,8 +9,8 @@
 |----------|-------|--------|
 | Critical | 0 | All Fixed |
 | High | 0 | - |
-| Medium | 2 | Open |
-| Low | 5 | Suppressed |
+| Medium | 1 | Open |
+| Low | 2 | Suppressed |
 
 ---
 
@@ -41,56 +41,51 @@
 - **Verified**: ✅ Build succeeds
 - **Note**: Links are still broken but no longer block builds
 
+### [FIXED] #4 - Incorrect Package Name
+- **File**: Multiple files
+- **Severity**: Critical
+- **Status**: Fixed (2026-02-28)
+- **Description**: Documentation showed incorrect package names (`@ccw/cli`, `@anthropic/claude-code-workflow`)
+- **Fix Applied**: Updated to correct package name `claude-code-workflow`
+- **Files Updated**:
+  - `guide/installation.md`
+  - `guide/getting-started.md`
+  - `zh/guide/installation.md`
+  - `.vitepress/theme/components/ProfessionalHome.vue`
+
 ---
 
 ## Medium Issues (Open)
 
-### #4 - Missing Documentation Pages
+### #5 - Missing Chinese Documentation Pages
 - **Severity**: Medium
-- **Status**: Open
-- **Description**: 7 documentation pages referenced but not created
-- **Affected Links**:
-  - `/guide/first-workflow` (referenced in getting-started.md)
-  - `/guide/configuration` (referenced in getting-started.md)
-  - `/skills/development` (referenced in core-skills.md)
+- **Status**: Partially Fixed
+- **Description**: Some Chinese documentation pages are missing
+- **Still Missing**:
   - `/zh/guide/first-workflow`
-  - `/zh/guide/configuration`
   - `/zh/guide/cli-tools`
   - `/zh/skills/core-skills`
 
-**Impact**: Users clicking these links will see 404 pages
-
-**Recommendation**: Create stub pages or update references
-
-### #5 - vue-i18n Deprecation Warning
-- **Severity**: Medium
-- **Status**: Open
-- **Description**: vue-i18n v10 is deprecated, v9 and v10 no longer supported
-- **Message**: "v9 and v10 no longer supported. please migrate to v11"
-- **Impact**: Future compatibility risk
-
-**Recommendation**: Plan migration to vue-i18n v11
+**Recommendation**: Create Chinese translations or use VitePress i18n fallback
 
 ---
 
 ## Low Issues (Suppressed)
 
-### #6-12 - Dead Links (Non-Blocking)
+### #6 - Dead Links (Non-Blocking)
 - **Severity**: Low
 - **Status**: Suppressed via `ignoreDeadLinks: true`
-- **Description**: Same 7 dead links from #4, now ignored at build time
-
-**Note**: These are tracked in #4 but listed separately for completeness
+- **Description**: Links to missing Chinese pages
+- **Note**: These are tracked in #5 but suppressed at build time
 
 ---
 
 ## Content Quality Observations
 
-### Potential Improvements
-1. **Breadcrumb component exists but may not be integrated** - Check if breadcrumbs are rendering
-2. **CopyCodeButton component exists** - Verify code blocks have copy buttons
-3. **DarkModeToggle exists** - Verify theme switching works
-4. **ThemeSwitcher/ColorSchemeSelector** - Color theming may need testing in browser
+### Completed Improvements
+1. ✅ Package name corrected to `claude-code-workflow`
+2. ✅ Installation guide updated with correct commands
+3. ✅ Homepage Quick Start shows correct package name
 
 ### Suggested Manual Tests
 1. Test theme switching (light/dark/auto)
@@ -108,5 +103,5 @@
 | #1 | Invalid VitePress Version | 2026-02-27 | 2026-02-27 | Fixed version |
 | #2 | Vite Config Conflict | 2026-02-27 | 2026-02-27 | Removed file |
 | #3 | Dead Links Blocking | 2026-02-27 | 2026-02-27 | Added ignore flag |
-| #4 | Missing Docs Pages | 2026-02-27 | - | Open |
-| #5 | vue-i18n Deprecation | 2026-02-27 | - | Open |
+| #4 | Incorrect Package Name | 2026-02-28 | 2026-02-28 | Updated package name |
+| #5 | Missing Chinese Docs | 2026-02-27 | - | Partial - some still missing |

@@ -15,14 +15,14 @@ Before installing CCW, make sure you have:
 ### Global Installation (Recommended)
 
 ```bash
-npm install -g @ccw/cli
+npm install -g claude-code-workflow
 ```
 
 ### Project-Specific Installation
 
 ```bash
 # In your project directory
-npm install --save-dev @ccw/cli
+npm install --save-dev claude-code-workflow
 
 # Run with npx
 npx ccw [command]
@@ -32,10 +32,10 @@ npx ccw [command]
 
 ```bash
 # Global
-yarn global add @ccw/cli
+yarn global add claude-code-workflow
 
 # Project-specific
-yarn add -D @ccw/cli
+yarn add -D claude-code-workflow
 ```
 
 ## Verify Installation
@@ -98,16 +98,16 @@ Create `CLAUDE.md` in your project root:
 
 ```bash
 # Update to the latest version
-npm update -g @ccw/cli
+npm update -g claude-code-workflow
 
 # Or install a specific version
-npm install -g @ccw/cli@latest
+npm install -g claude-code-workflow@latest
 ```
 
 ## Uninstallation
 
 ```bash
-npm uninstall -g @ccw/cli
+npm uninstall -g claude-code-workflow
 
 # Remove configuration (optional)
 rm -rf ~/.claude
@@ -121,7 +121,7 @@ If you encounter permission errors:
 
 ```bash
 # Use sudo (not recommended)
-sudo npm install -g @ccw/cli
+sudo npm install -g claude-code-workflow
 
 # Or fix npm permissions (recommended)
 mkdir ~/.npm-global

@@ -15,14 +15,14 @@
 ### 全局安装（推荐）
 
 ```bash
-npm install -g @ccw/cli
+npm install -g claude-code-workflow
 ```
 
 ### 项目特定安装
 
 ```bash
 # 在您的项目目录中
-npm install --save-dev @ccw/cli
+npm install --save-dev claude-code-workflow
 
 # 使用 npx 运行
 npx ccw [命令]
@@ -32,10 +32,10 @@ npx ccw [命令]
 
 ```bash
 # 全局
-yarn global add @ccw/cli
+yarn global add claude-code-workflow
 
 # 项目特定
-yarn add -D @ccw/cli
+yarn add -D claude-code-workflow
 ```
 
 ## 验证安装
@@ -98,16 +98,16 @@ ccw --help
 
 ```bash
 # 更新到最新版本
-npm update -g @ccw/cli
+npm update -g claude-code-workflow
 
 # 或安装特定版本
-npm install -g @ccw/cli@latest
+npm install -g claude-code-workflow@latest
 ```
 
 ## 卸载
 
 ```bash
-npm uninstall -g @ccw/cli
+npm uninstall -g claude-code-workflow
 
 # 删除配置（可选）
 rm -rf ~/.claude

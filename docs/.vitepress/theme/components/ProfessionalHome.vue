@@ -299,7 +299,7 @@ const content = {
         label: 'npm',
         lines: [
           { type: 'comment', text: '# Install CCW globally' },
-          { type: 'cmd', text: 'npm install -g @anthropic/claude-code-workflow' },
+          { type: 'cmd', text: 'npm install -g claude-code-workflow' },
           { type: 'output', text: 'added 1 package in 3s' },
           { type: 'comment', text: '# Initialize in your project' },
           { type: 'cmd', text: 'ccw init' },
@@ -314,7 +314,7 @@ const content = {
         label: 'pnpm',
         lines: [
           { type: 'comment', text: '# Install CCW globally' },
-          { type: 'cmd', text: 'pnpm add -g @anthropic/claude-code-workflow' },
+          { type: 'cmd', text: 'pnpm add -g claude-code-workflow' },
           { type: 'output', text: 'Done in 2.1s' },
           { type: 'comment', text: '# Initialize in your project' },
           { type: 'cmd', text: 'ccw init' },
@@ -372,7 +372,7 @@ const content = {
         label: 'npm',
         lines: [
           { type: 'comment', text: '# 全局安装 CCW' },
-          { type: 'cmd', text: 'npm install -g @anthropic/claude-code-workflow' },
+          { type: 'cmd', text: 'npm install -g claude-code-workflow' },
           { type: 'output', text: 'added 1 package in 3s' },
           { type: 'comment', text: '# 在项目中初始化' },
           { type: 'cmd', text: 'ccw init' },
@@ -387,7 +387,7 @@ const content = {
         label: 'pnpm',
         lines: [
           { type: 'comment', text: '# 全局安装 CCW' },
-          { type: 'cmd', text: 'pnpm add -g @anthropic/claude-code-workflow' },
+          { type: 'cmd', text: 'pnpm add -g claude-code-workflow' },
           { type: 'output', text: 'Done in 2.1s' },
           { type: 'comment', text: '# 在项目中初始化' },
           { type: 'cmd', text: 'ccw init' },
