@@ -134,3 +134,46 @@ Coordinator MAY reference these patterns when composing Phase 2-4 content for a 
 - Phase 2: Detect test framework + identify changed files from upstream
 - Phase 3: Run test-fix cycle — iteration count and strategy determined by task
 - Phase 4: Verify pass rate + coverage (Behavioral Traits) + update shared-memory
+
+---
+
+## Knowledge Transfer Protocol
+
+How context flows between roles. Coordinator MUST reference this when composing Phase 2 of any role-spec.
+
+### Transfer Channels
+
+| Channel | Scope | Mechanism | When to Use |
+|---------|-------|-----------|-------------|
+| **Artifacts** | Producer -> Consumer | Write to `<session>/artifacts/<name>.md`, consumer reads in Phase 2 | Structured deliverables (reports, plans, specs) |
+| **shared-memory.json** | Cross-role | Read-merge-write `<session>/shared-memory.json` | Key findings, decisions, metadata (small, structured data) |
+| **Wisdom** | Cross-task | Append to `<session>/wisdom/{learnings,decisions,conventions,issues}.md` | Patterns, conventions, risks discovered during execution |
+| **context_accumulator** | Intra-role (inner loop) | In-memory array, passed to each subsequent task in same-prefix loop | Prior task summaries within same role's inner loop |
+| **Exploration cache** | Cross-role | `<session>/explorations/cache-index.json` + per-angle JSON | Codebase discovery results, prevents duplicate exploration |
+
+### Phase 2 Context Loading (role-spec must specify)
+
+Every generated role-spec Phase 2 MUST declare which upstream sources to load:
+
+```
+1. Extract session path from task description
+2. Read upstream artifacts: <list which artifacts from which upstream role>
+3. Read shared-memory.json for cross-role decisions
+4. Load wisdom files for accumulated knowledge
+5. For inner_loop roles: load context_accumulator from prior tasks
+6. Check exploration cache before running new explorations
+```
+
+### shared-memory.json Usage Convention
+
+- **Read-merge-write**: Read current content -> merge new keys -> write back (NOT overwrite)
+- **Namespaced keys**: Each role writes under its own namespace: `{ "<role_name>": { ... } }`
+- **Small data only**: Key findings, decision summaries, metadata. NOT full documents
+- **Example**:
+  ```json
+  {
+    "researcher": { "key_findings": [...], "scope": "..." },
+    "writer": { "documents_created": [...], "style_decisions": [...] },
+    "developer": { "files_changed": [...], "patterns_used": [...] }
+  }
+  ```

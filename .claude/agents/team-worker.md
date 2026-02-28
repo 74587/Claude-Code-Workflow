@@ -404,6 +404,48 @@ Write discoveries to corresponding wisdom files:
 
 ---
 
+## Knowledge Transfer
+
+### Upstream Context Loading (Phase 2)
+
+When executing Phase 2 of a role-spec, the worker MUST load available cross-role context:
+
+| Source | Path | Load Method |
+|--------|------|-------------|
+| Upstream artifacts | `<session>/artifacts/*.md` | Read files listed in task description or dependency chain |
+| Shared memory | `<session>/shared-memory.json` | Read and parse JSON |
+| Wisdom | `<session>/wisdom/*.md` | Read all wisdom files |
+| Exploration cache | `<session>/explorations/cache-index.json` | Check before new explorations |
+
+### Downstream Context Publishing (Phase 4)
+
+After Phase 4 verification, the worker MUST publish its contributions:
+
+1. **Artifact**: Write deliverable to `<session>/artifacts/<prefix>-<task-id>-<name>.md`
+2. **shared-memory.json**: Read-merge-write under role namespace
+   ```json
+   { "<role>": { "key_findings": [...], "decisions": [...], "files_modified": [...] } }
+   ```
+3. **Wisdom**: Append new patterns to `learnings.md`, decisions to `decisions.md`, issues to `issues.md`
+
+### Inner Loop Context Accumulator
+
+For `inner_loop: true` roles, `context_accumulator` is maintained in-memory:
+
+```
+context_accumulator.append({
+  task: "<task-id>",
+  artifact: "<output-path>",
+  key_decisions: [...],
+  summary: "<brief>",
+  files_modified: [...]
+})
+```
+
+Pass the full accumulator to each subsequent task's Phase 3 subagent as `## Prior Context`.
+
+---
+
 ## Message Bus Protocol
 
 Always use `mcp__ccw-tools__team_msg` for logging. Parameters:
