@@ -30,13 +30,13 @@
 | Command | Function | Difficulty |
 |---------|----------|------------|
 | [`/workflow:lite-lite-lite`](./workflow.md#lite-lite-lite) | Ultra-lightweight multi-tool analysis and direct execution | Intermediate |
-| [`/workflow:lite-plan`](./workflow.md#lite-plan) | Lightweight interactive planning workflow | Intermediate |
+| [`/workflow-lite-plan`](./workflow.md#lite-plan) | Lightweight interactive planning workflow | Intermediate |
 | [`/workflow:lite-execute`](./workflow.md#lite-execute) | Execute tasks based on in-memory plan | Intermediate |
 | [`/workflow:lite-fix`](./workflow.md#lite-fix) | Lightweight bug diagnosis and fix | Intermediate |
-| [`/workflow:plan`](./workflow.md#plan) | 5-phase planning workflow | Intermediate |
-| [`/workflow:execute`](./workflow.md#execute) | Coordinate agent execution of workflow tasks | Intermediate |
+| [`/workflow-plan`](./workflow.md#plan) | 5-phase planning workflow | Intermediate |
+| [`/workflow-execute`](./workflow.md#execute) | Coordinate agent execution of workflow tasks | Intermediate |
 | [`/workflow:replan`](./workflow.md#replan) | Interactive workflow replanning | Intermediate |
-| [`/workflow:multi-cli-plan`](./workflow.md#multi-cli-plan) | Multi-CLI collaborative planning | Intermediate |
+| [`/workflow-multi-cli-plan`](./workflow.md#multi-cli-plan) | Multi-CLI collaborative planning | Intermediate |
 | [`/workflow:review`](./workflow.md#review) | Post-implementation review | Intermediate |
 | [`/workflow:clean`](./workflow.md#clean) | Smart code cleanup | Intermediate |
 | [`/workflow:init`](./workflow.md#init) | Initialize project state | Intermediate |
@@ -129,10 +129,10 @@ Most commands support the `--yes` or `-y` flag to enable auto mode and skip conf
 
 ```bash
 # Create implementation plan
-/workflow:plan "Add OAuth2 authentication with Google and GitHub providers"
+/workflow-plan "Add OAuth2 authentication with Google and GitHub providers"
 
 # Execute with auto mode
-/workflow:execute --yes
+/workflow-execute --yes
 ```
 
 ### Code Review

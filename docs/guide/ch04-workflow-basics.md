@@ -10,7 +10,7 @@
 
 | Workflow | Core Command | Use Case | Roles |
 | --- | --- | --- | --- |
-| **PlanEx** | `/workflow:plan` | New feature development, requirement implementation | planner, executor |
+| **PlanEx** | `/workflow-plan` | New feature development, requirement implementation | planner, executor |
 | **IterDev** | `/refactor-cycle` | Code refactoring, technical debt handling | developer, reviewer |
 | **Lifecycle** | `/unified-execute-with-file` | Complete development cycle | analyzer, developer, tester, reviewer |
 | **Issue** | `/issue:*` | Issue-driven development | discoverer, planner, executor |
@@ -30,7 +30,7 @@
 ### 4.2.2 Launch Method
 
 ```shell
-/workflow:plan
+/workflow-plan
 ```
 
 Or describe requirements directly:
@@ -286,7 +286,7 @@ graph LR
 
 | Requirement | Recommended Workflow | Command |
 | --- | --- | --- |
-| New feature development | PlanEx | `/workflow:plan` |
+| New feature development | PlanEx | `/workflow-plan` |
 | Code refactoring | IterDev | `/refactor-cycle` |
 | Complete development | Lifecycle | `/unified-execute-with-file` |
 | Issue management | Issue | `/issue:*` |

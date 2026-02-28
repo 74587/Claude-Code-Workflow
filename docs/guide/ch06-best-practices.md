@@ -284,7 +284,7 @@ graph LR
 
 | Scenario | Workflow | Command |
 | --- | --- | --- |
-| New Feature | PlanEx | `/workflow:plan` |
+| New Feature | PlanEx | `/workflow-plan` |
 | Bug Fix | Lifecycle | `/unified-execute-with-file` |
 | Refactoring | IterDev | `/refactor-cycle` |
 | Decision | Brainstorm | `/brainstorm-with-file` |

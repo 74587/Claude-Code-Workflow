@@ -11,7 +11,7 @@
 | Command | Function | Syntax |
 |---------|----------|--------|
 | [`lite-lite-lite`](#lite-lite-lite) | Ultra-lightweight multi-tool analysis and direct execution | `/workflow:lite-lite-lite [-y] <task>` |
-| [`lite-plan`](#lite-plan) | Lightweight interactive planning workflow | `/workflow:lite-plan [-y] [-e] "task"` |
+| [`lite-plan`](#lite-plan) | Lightweight interactive planning workflow | `/workflow-lite-plan [-y] [-e] "task"` |
 | [`lite-execute`](#lite-execute) | Execute tasks based on in-memory plan | `/workflow:lite-execute [-y] [--in-memory] [task]` |
 | [`lite-fix`](#lite-fix) | Lightweight bug diagnosis and fix | `/workflow:lite-fix [-y] [--hotfix] "bug description"` |
 
@@ -19,15 +19,15 @@
 
 | Command | Function | Syntax |
 |---------|----------|--------|
-| [`plan`](#plan) | 5-phase planning workflow | `/workflow:plan [-y] "description"\|file.md` |
-| [`execute`](#execute) | Coordinate agent execution of workflow tasks | `/workflow:execute [-y] [--resume-session=ID]` |
+| [`plan`](#plan) | 5-phase planning workflow | `/workflow-plan [-y] "description"\|file.md` |
+| [`execute`](#execute) | Coordinate agent execution of workflow tasks | `/workflow-execute [-y] [--resume-session=ID]` |
 | [`replan`](#replan) | Interactive workflow replanning | `/workflow:replan [-y] [--session ID] [task-id] "requirement"` |
 
 ### Collaborative Workflows
 
 | Command | Function | Syntax |
 |---------|----------|--------|
-| [`multi-cli-plan`](#multi-cli-plan) | Multi-CLI collaborative planning | `/workflow:multi-cli-plan [-y] <task> [--max-rounds=N]` |
+| [`multi-cli-plan`](#multi-cli-plan) | Multi-CLI collaborative planning | `/workflow-multi-cli-plan [-y] <task> [--max-rounds=N]` |
 | [`brainstorm-with-file`](#brainstorm-with-file) | Interactive brainstorming | `/workflow:brainstorm-with-file [-y] [-c] "idea"` |
 | [`analyze-with-file`](#analyze-with-file) | Interactive collaborative analysis | `/workflow:analyze-with-file [-y] [-c] "topic"` |
 | [`debug-with-file`](#debug-with-file) | Interactive hypothesis-driven debugging | `/workflow:debug-with-file [-y] "bug description"` |
@@ -37,16 +37,16 @@
 
 | Command | Function | Syntax |
 |---------|----------|--------|
-| [`tdd-plan`](#tdd-plan) | TDD planning workflow | `/workflow:tdd-plan "feature description"` |
-| [`tdd-verify`](#tdd-verify) | Verify TDD workflow compliance | `/workflow:tdd-verify [--session ID]` |
+| [`tdd-plan`](#tdd-plan) | TDD planning workflow | `/workflow-tdd-plan "feature description"` |
+| [`tdd-verify`](#tdd-verify) | Verify TDD workflow compliance | `/workflow-tdd-verify [--session ID]` |
 
 ### Test Workflows
 
 | Command | Function | Syntax |
 |---------|----------|--------|
-| [`test-fix-gen`](#test-fix-gen) | Create test-fix workflow session | `/workflow:test-fix-gen (session-id\|"description"\|file.md)` |
+| [`test-fix-gen`](#test-fix-gen) | Create test-fix workflow session | `/workflow-test-fix (session-id\|"description"\|file.md)` |
 | [`test-gen`](#test-gen) | Create test session from implementation session | `/workflow:test-gen source-session-id` |
-| [`test-cycle-execute`](#test-cycle-execute) | Execute test-fix workflow | `/workflow:test-cycle-execute [--resume-session=ID]` |
+| [`test-cycle-execute`](#test-cycle-execute) | Execute test-fix workflow | `/workflow-test-fix [--resume-session=ID]` |
 
 ### Review Workflows
 
@@ -63,7 +63,7 @@
 |---------|----------|--------|
 | [`clean`](#clean) | Smart code cleanup | `/workflow:clean [-y] [--dry-run] ["focus area"]` |
 | [`init`](#init) | Initialize project state | `/workflow:init [--regenerate]` |
-| [`plan-verify`](#plan-verify) | Verify planning consistency | `/workflow:plan-verify [--session session-id]` |
+| [`plan-verify`](#plan-verify) | Verify planning consistency | `/workflow-plan-verify [--session session-id]` |
 
 ## Command Details
 
@@ -96,7 +96,7 @@
 
 **Syntax**:
 ```bash
-/workflow:lite-plan [-y|--yes] [-e|--explore] "task description" | file.md
+/workflow-lite-plan [-y|--yes] [-e|--explore] "task description" | file.md
 ```
 
 **Options**:
@@ -105,10 +105,10 @@
 **Examples**:
 ```bash
 # Basic planning
-/workflow:lite-plan "add user avatar feature"
+/workflow-lite-plan "add user avatar feature"
 
 # With exploration
-/workflow:lite-plan -e "refactor authentication module"
+/workflow-lite-plan -e "refactor authentication module"
 ```
 
 ### lite-execute
@@ -159,7 +159,7 @@
 
 **Syntax**:
 ```bash
-/workflow:plan [-y|--yes] "text description" | file.md
+/workflow-plan [-y|--yes] "text description" | file.md
 ```
 
 **Phases**:
@@ -172,10 +172,10 @@
 **Examples**:
 ```bash
 # Plan from description
-/workflow:plan "implement user notification system"
+/workflow-plan "implement user notification system"
 
 # Plan from file
-/workflow:plan requirements.md
+/workflow-plan requirements.md
 ```
 
 ### execute
@@ -184,16 +184,16 @@
 
 **Syntax**:
 ```bash
-/workflow:execute [-y|--yes] [--resume-session="session-id"]
+/workflow-execute [-y|--yes] [--resume-session="session-id"]
 ```
 
 **Examples**:
 ```bash
 # Execute current session
-/workflow:execute
+/workflow-execute
 
 # Resume and execute session
-/workflow:execute --resume-session=WFS-2024-01-15
+/workflow-execute --resume-session=WFS-2024-01-15
 ```
 
 ### replan
@@ -220,7 +220,7 @@
 
 **Syntax**:
 ```bash
-/workflow:multi-cli-plan [-y|--yes] <task description> [--max-rounds=3] [--tools=gemini,codex] [--mode=parallel|serial]
+/workflow-multi-cli-plan [-y|--yes] <task description> [--max-rounds=3] [--tools=gemini,codex] [--mode=parallel|serial]
 ```
 
 **Options**:
@@ -231,10 +231,10 @@
 **Examples**:
 ```bash
 # Multi-CLI planning
-/workflow:multi-cli-plan "design microservice architecture"
+/workflow-multi-cli-plan "design microservice architecture"
 
 # Specify tools and rounds
-/workflow:multi-cli-plan --tools=gemini,codex --max-rounds=5 "database migration plan"
+/workflow-multi-cli-plan --tools=gemini,codex --max-rounds=5 "database migration plan"
 ```
 
 ### brainstorm-with-file

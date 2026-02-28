@@ -627,7 +627,7 @@ Skill(skill="team-ultra-analyze")
 
 **Purpose**: Unified planning skill with 4-phase workflow
 
-**Triggers**: `workflow:plan`, `workflow:plan-verify`, `workflow:replan`
+**Triggers**: `workflow-plan`, `workflow-plan-verify`, `workflow:replan`
 
 **Description**: Plan verification and interactive replanning.
 
@@ -655,7 +655,7 @@ Skill(skill="workflow-plan")
 
 **Purpose**: Lightweight planning and execution skill
 
-**Triggers**: `workflow:lite-plan`, `workflow:lite-execute`
+**Triggers**: `workflow-lite-plan`, `workflow:lite-execute`
 
 **Description**: Route to lite-plan or lite-execute with prompt enhancement.
 
@@ -677,7 +677,7 @@ Skill(skill="workflow-lite-plan")
 
 **Purpose**: Multi-CLI collaborative planning and execution skill
 
-**Triggers**: `workflow:multi-cli-plan`, `workflow:lite-execute`
+**Triggers**: `workflow-multi-cli-plan`, `workflow:lite-execute`
 
 **Description**: Route to multi-cli-plan or lite-execute with prompt enhancement.
 
@@ -699,7 +699,7 @@ Skill(skill="workflow-multi-cli-plan")
 
 **Purpose**: Coordinate agent execution for workflow tasks
 
-**Triggers**: `workflow:execute`
+**Triggers**: `workflow-execute`
 
 **Description**: Automatic session discovery, parallel task processing, and status tracking.
 
@@ -716,11 +716,11 @@ Skill(skill="workflow-execute")
 
 ---
 
-### workflow-tdd
+### workflow-tdd-plan
 
 **Purpose**: Unified TDD workflow skill
 
-**Triggers**: `workflow:tdd-plan`, `workflow:tdd-verify`
+**Triggers**: `workflow-tdd-plan`, `workflow-tdd-verify`
 
 **Description**: 6-phase TDD planning with Red-Green-Refactor task chain generation.
 
@@ -740,7 +740,7 @@ Skill(skill="workflow-execute")
 **Pattern**: Red-Green-Refactor
 
 ```bash
-Skill(skill="workflow-tdd")
+Skill(skill="workflow-tdd-plan")
 ```
 
 ---
@@ -749,7 +749,7 @@ Skill(skill="workflow-tdd")
 
 **Purpose**: Unified test-fix pipeline
 
-**Triggers**: `workflow:test-fix-gen`, `workflow:test-cycle-execute`, `test fix workflow`
+**Triggers**: `workflow-test-fix`, `workflow-test-fix`, `test fix workflow`
 
 **Description**: Combines test generation with iterative test-cycle execution.
 
@@ -851,9 +851,9 @@ Skill(skill="workflow-execute")
 **Use Case**: Test-driven development with Red-Green-Refactor cycle
 
 ```bash
-Skill(skill="workflow-tdd", args="--mode tdd-plan")
+Skill(skill="workflow-tdd-plan", args="--mode tdd-plan")
 Skill(skill="workflow-execute")
-Skill(skill="workflow-tdd", args="--mode tdd-verify")
+Skill(skill="workflow-tdd-plan", args="--mode tdd-verify")
 ```
 
 ---
@@ -1028,7 +1028,7 @@ Skill(skill="skill-tuning")
 | Category | Skills |
 |----------|--------|
 | Session Commands | workflow session start, resume, list, complete, solidify, sync |
-| Dependent Skills | workflow-plan, workflow-tdd, workflow-test-fix |
+| Dependent Skills | workflow-plan, workflow-tdd-plan, workflow-test-fix |
 
 ### Issue Management
 
@@ -1055,12 +1055,12 @@ Quick reference for skill triggers:
 | `brainstorm`, `头脑风暴` | brainstorm |
 | `review code`, `code review`, `审查代码` | review-code |
 | `manage issue` | issue-manage |
-| `workflow:plan` | workflow-plan |
-| `workflow:execute` | workflow-execute |
-| `workflow:lite-plan` | workflow-lite-plan |
-| `workflow:multi-cli-plan` | workflow-multi-cli-plan |
-| `workflow:tdd-plan` | workflow-tdd |
-| `workflow:test-fix-gen` | workflow-test-fix |
+| `workflow-plan` | workflow-plan |
+| `workflow-execute` | workflow-execute |
+| `workflow-lite-plan` | workflow-lite-plan |
+| `workflow-multi-cli-plan` | workflow-multi-cli-plan |
+| `workflow-tdd-plan` | workflow-tdd-plan |
+| `workflow-test-fix` | workflow-test-fix |
 | `team lifecycle` | team-lifecycle-v4 |
 | `team brainstorm` | team-brainstorm |
 | `team frontend` | team-frontend |

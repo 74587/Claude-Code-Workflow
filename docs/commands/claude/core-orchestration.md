@@ -146,7 +146,7 @@ Both commands support the `--yes` flag for auto mode:
 | `workflow-lite-plan` | Lightweight planning workflow |
 | `workflow-plan` | Full planning workflow |
 | `workflow-execute` | Execution workflow |
-| `workflow-tdd` | TDD workflow |
+| `workflow-tdd-plan` | TDD workflow |
 | `review-cycle` | Code review cycle |
 
 ## Comparison

@@ -93,7 +93,7 @@ CCW uses two types of invocations:
 
 | Type | Format | Examples |
 |------|--------|----------|
-| **Skills** | Trigger phrase (no slash) | `workflow:lite-plan`, `brainstorm`, `workflow:plan` |
+| **Skills** | Trigger phrase (no slash) | `workflow-lite-plan`, `brainstorm`, `workflow-plan` |
 | **Commands** | Slash command | `/ccw`, `/workflow/session:start`, `/issue/new` |
 
 ### Choose Your Workflow Skill
@@ -101,11 +101,11 @@ CCW uses two types of invocations:
 <div align="center">
 <table>
 <tr><th>Skill Trigger</th><th>Use Case</th></tr>
-<tr><td><code>workflow:lite-plan</code></td><td>Lightweight planning, single-module features</td></tr>
-<tr><td><code>workflow:multi-cli-plan</code></td><td>Multi-CLI collaborative analysis</td></tr>
-<tr><td><code>workflow:plan</code></td><td>Full planning with session persistence</td></tr>
-<tr><td><code>workflow:tdd-plan</code></td><td>Test-driven development</td></tr>
-<tr><td><code>workflow:test-fix-gen</code></td><td>Test generation and fix cycles</td></tr>
+<tr><td><code>workflow-lite-plan</code></td><td>Lightweight planning, single-module features</td></tr>
+<tr><td><code>workflow-multi-cli-plan</code></td><td>Multi-CLI collaborative analysis</td></tr>
+<tr><td><code>workflow-plan</code></td><td>Full planning with session persistence</td></tr>
+<tr><td><code>workflow-tdd-plan</code></td><td>Test-driven development</td></tr>
+<tr><td><code>workflow-test-fix</code></td><td>Test generation and fix cycles</td></tr>
 <tr><td><code>brainstorm</code></td><td>Multi-role brainstorming analysis</td></tr>
 </table>
 </div>
@@ -114,9 +114,9 @@ CCW uses two types of invocations:
 
 ```bash
 # Skill triggers (no slash - just describe what you want)
-workflow:lite-plan "Add JWT authentication"
-workflow:plan "Implement payment gateway integration"
-workflow:execute
+workflow-lite-plan "Add JWT authentication"
+workflow-plan "Implement payment gateway integration"
+workflow-execute
 
 # Brainstorming
 brainstorm "Design real-time collaboration system"
@@ -278,9 +278,9 @@ ccw upgrade -a        # Upgrade all installations
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Workflow Skills                              │
-│  📝 workflow:lite-plan / workflow:multi-cli-plan (lightweight)  │
-│  📊 workflow:plan / workflow:tdd-plan (session-based)           │
-│  🧪 workflow:test-fix-gen / workflow:test-cycle-execute         │
+│  📝 workflow-lite-plan / workflow-multi-cli-plan (lightweight)  │
+│  📊 workflow-plan / workflow-tdd-plan (session-based)           │
+│  🧪 workflow-test-fix / workflow-test-fix         │
 │  🧠 brainstorm (multi-role analysis)                            │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
@@ -324,7 +324,7 @@ Claude-Code-Workflow/
 │   └── skills/          # 37 modular skills
 │       ├── workflow-lite-plan/
 │       ├── workflow-plan/
-│       ├── workflow-tdd/
+│       ├── workflow-tdd-plan/
 │       ├── workflow-test-fix/
 │       ├── brainstorm/
 │       ├── team-*/      # Team coordination skills

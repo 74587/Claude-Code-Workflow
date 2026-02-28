@@ -1,6 +1,6 @@
 # Phase 1: Multi-CLI Collaborative Planning
 
-Complete multi-CLI collaborative planning pipeline with ACE context gathering and iterative cross-verification. This phase document preserves the full content of the original `workflow:multi-cli-plan` command.
+Complete multi-CLI collaborative planning pipeline with ACE context gathering and iterative cross-verification. This phase document preserves the full content of the original `workflow-multi-cli-plan` command.
 
 ## Auto Mode
 
@@ -12,12 +12,12 @@ When `workflowPreferences.autoYes` is true: Auto-approve plan, use recommended s
 
 ```bash
 # Basic usage
-/workflow:multi-cli-plan "Implement user authentication"
+/workflow-multi-cli-plan "Implement user authentication"
 
 # With options
-/workflow:multi-cli-plan "Add dark mode support" --max-rounds=3
-/workflow:multi-cli-plan "Refactor payment module" --tools=gemini,codex,claude
-/workflow:multi-cli-plan "Fix memory leak" --mode=serial
+/workflow-multi-cli-plan "Add dark mode support" --max-rounds=3
+/workflow-multi-cli-plan "Refactor payment module" --tools=gemini,codex,claude
+/workflow-multi-cli-plan "Fix memory leak" --mode=serial
 ```
 
 **Context Source**: ACE semantic search + Multi-CLI analysis
@@ -585,7 +585,7 @@ TodoWrite({ todos: [
 
 ```bash
 # Simpler single-round planning
-/workflow:lite-plan "task description"
+/workflow-lite-plan "task description"
 
 # Issue-driven discovery
 /issue:discover-by-prompt "find issues"

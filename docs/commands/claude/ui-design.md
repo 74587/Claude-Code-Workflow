@@ -249,7 +249,7 @@
 
 ### design-sync
 
-**Function**: Sync final design system reference to brainstorm artifacts, preparing for consumption by `/workflow:plan`.
+**Function**: Sync final design system reference to brainstorm artifacts, preparing for consumption by `/workflow-plan`.
 
 **Syntax**:
 ```bash

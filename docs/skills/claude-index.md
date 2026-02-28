@@ -31,8 +31,8 @@
 | **team-coordinate** | Universal team coordinator (dynamic roles) | `/team-coordinate` |
 | **team-lifecycle** | Full lifecycle team | `/team-lifecycle` |
 | **team-planex** | Plan-and-execute team | `/team-planex` |
-| **workflow-plan** | Unified planning skill | `/workflow:plan` |
-| **workflow-execute** | Agent-coordinated execution | `/workflow:execute` |
+| **workflow-plan** | Unified planning skill | `/workflow-plan` |
+| **workflow-execute** | Agent-coordinated execution | `/workflow-execute` |
 | **memory-capture** | Memory capture | `/memory-capture` |
 | **review-code** | Multi-dimensional code review | `/review-code` |
 | **brainstorm** | Brainstorming | `/brainstorm` |
@@ -176,14 +176,14 @@ memory/
 
 ```bash
 # Quick task
-/workflow:lite-plan "Fix login bug"
+/workflow-lite-plan "Fix login bug"
 
 # Full development
-/workflow:plan "Add user notifications"
-/workflow:execute
+/workflow-plan "Add user notifications"
+/workflow-execute
 
 # TDD development
-/workflow:tdd "Implement payment processing"
+/workflow-tdd "Implement payment processing"
 ```
 
 ### 3. Use Memory Management
@@ -231,7 +231,7 @@ memory/
 2. **Workflow Selection**:
    - Super simple → `workflow-lite-plan`
    - Complex features → `workflow-plan` → `workflow-execute`
-   - TDD → `workflow-tdd`
+   - TDD → `workflow-tdd-plan`
    - Test fixes → `workflow-test-fix`
 
 3. **Memory Management**:

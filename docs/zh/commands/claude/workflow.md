@@ -11,7 +11,7 @@
 | 命令 | 功能 | 语法 |
 | --- | --- | --- |
 | [`lite-lite-lite`](#lite-lite-lite) | 超轻量级多工具分析和直接执行 | `/workflow:lite-lite-lite [-y] <任务>` |
-| [`lite-plan`](#lite-plan) | 轻量级交互式规划工作流 | `/workflow:lite-plan [-y] [-e] "任务"` |
+| [`lite-plan`](#lite-plan) | 轻量级交互式规划工作流 | `/workflow-lite-plan [-y] [-e] "任务"` |
 | [`lite-execute`](#lite-execute) | 基于内存计划执行任务 | `/workflow:lite-execute [-y] [--in-memory] [任务]` |
 | [`lite-fix`](#lite-fix) | 轻量级 Bug 诊断和修复 | `/workflow:lite-fix [-y] [--hotfix] "Bug 描述"` |
 
@@ -19,15 +19,15 @@
 
 | 命令 | 功能 | 语法 |
 | --- | --- | --- |
-| [`plan`](#plan) | 5 阶段规划工作流 | `/workflow:plan [-y] "描述"\|file.md` |
-| [`execute`](#execute) | 协调代理执行工作流任务 | `/workflow:execute [-y] [--resume-session=ID]` |
+| [`plan`](#plan) | 5 阶段规划工作流 | `/workflow-plan [-y] "描述"\|file.md` |
+| [`execute`](#execute) | 协调代理执行工作流任务 | `/workflow-execute [-y] [--resume-session=ID]` |
 | [`replan`](#replan) | 交互式工作流重新规划 | `/workflow:replan [-y] [--session ID] [task-id] "需求"` |
 
 ### 协作工作流
 
 | 命令 | 功能 | 语法 |
 | --- | --- | --- |
-| [`multi-cli-plan`](#multi-cli-plan) | 多 CLI 协作规划 | `/workflow:multi-cli-plan [-y] <任务> [--max-rounds=N]` |
+| [`multi-cli-plan`](#multi-cli-plan) | 多 CLI 协作规划 | `/workflow-multi-cli-plan [-y] <任务> [--max-rounds=N]` |
 | [`brainstorm-with-file`](#brainstorm-with-file) | 交互式头脑风暴 | `/workflow:brainstorm-with-file [-y] [-c] "想法"` |
 | [`analyze-with-file`](#analyze-with-file) | 交互式协作分析 | `/workflow:analyze-with-file [-y] [-c] "主题"` |
 | [`debug-with-file`](#debug-with-file) | 交互式假设驱动调试 | `/workflow:debug-with-file [-y] "Bug 描述"` |
@@ -37,16 +37,16 @@
 
 | 命令 | 功能 | 语法 |
 | --- | --- | --- |
-| [`tdd-plan`](#tdd-plan) | TDD 规划工作流 | `/workflow:tdd-plan "功能描述"` |
-| [`tdd-verify`](#tdd-verify) | 验证 TDD 工作流合规性 | `/workflow:tdd-verify [--session ID]` |
+| [`tdd-plan`](#tdd-plan) | TDD 规划工作流 | `/workflow-tdd-plan "功能描述"` |
+| [`tdd-verify`](#tdd-verify) | 验证 TDD 工作流合规性 | `/workflow-tdd-verify [--session ID]` |
 
 ### 测试工作流
 
 | 命令 | 功能 | 语法 |
 | --- | --- | --- |
-| [`test-fix-gen`](#test-fix-gen) | 创建测试修复工作流会话 | `/workflow:test-fix-gen (session-id\|"描述"\|file.md)` |
+| [`test-fix-gen`](#test-fix-gen) | 创建测试修复工作流会话 | `/workflow-test-fix (session-id\|"描述"\|file.md)` |
 | [`test-gen`](#test-gen) | 从实现会话创建测试会话 | `/workflow:test-gen source-session-id` |
-| [`test-cycle-execute`](#test-cycle-execute) | 执行测试修复工作流 | `/workflow:test-cycle-execute [--resume-session=ID]` |
+| [`test-cycle-execute`](#test-cycle-execute) | 执行测试修复工作流 | `/workflow-test-fix [--resume-session=ID]` |
 
 ### 审查工作流
 
@@ -63,7 +63,7 @@
 | --- | --- | --- |
 | [`clean`](#clean) | 智能代码清理 | `/workflow:clean [-y] [--dry-run] ["焦点区域"]` |
 | [`init`](#init) | 初始化项目状态 | `/workflow:init [--regenerate]` |
-| [`plan-verify`](#plan-verify) | 验证规划一致性 | `/workflow:plan-verify [--session session-id]` |
+| [`plan-verify`](#plan-verify) | 验证规划一致性 | `/workflow-plan-verify [--session session-id]` |
 
 ## 命令详解
 
@@ -96,7 +96,7 @@
 
 **语法**:
 ```bash
-/workflow:lite-plan [-y|--yes] [-e|--explore] "任务描述" | file.md
+/workflow-lite-plan [-y|--yes] [-e|--explore] "任务描述" | file.md
 ```
 
 **选项**:
@@ -105,10 +105,10 @@
 **示例**:
 ```bash
 # 基础规划
-/workflow:lite-plan "添加用户头像功能"
+/workflow-lite-plan "添加用户头像功能"
 
 # 带探索
-/workflow:lite-plan -e "重构认证模块"
+/workflow-lite-plan -e "重构认证模块"
 ```
 
 ### lite-execute
@@ -159,7 +159,7 @@
 
 **语法**:
 ```bash
-/workflow:plan [-y|--yes] "文本描述" | file.md
+/workflow-plan [-y|--yes] "文本描述" | file.md
 ```
 
 **阶段**:
@@ -172,10 +172,10 @@
 **示例**:
 ```bash
 # 从描述规划
-/workflow:plan "实现用户通知系统"
+/workflow-plan "实现用户通知系统"
 
 # 从文件规划
-/workflow:plan requirements.md
+/workflow-plan requirements.md
 ```
 
 ### execute
@@ -184,16 +184,16 @@
 
 **语法**:
 ```bash
-/workflow:execute [-y|--yes] [--resume-session="session-id"]
+/workflow-execute [-y|--yes] [--resume-session="session-id"]
 ```
 
 **示例**:
 ```bash
 # 执行当前会话
-/workflow:execute
+/workflow-execute
 
 # 恢复并执行会话
-/workflow:execute --resume-session=WFS-2024-01-15
+/workflow-execute --resume-session=WFS-2024-01-15
 ```
 
 ### replan
@@ -220,7 +220,7 @@
 
 **语法**:
 ```bash
-/workflow:multi-cli-plan [-y|--yes] <任务描述> [--max-rounds=3] [--tools=gemini,codex] [--mode=parallel|serial]
+/workflow-multi-cli-plan [-y|--yes] <任务描述> [--max-rounds=3] [--tools=gemini,codex] [--mode=parallel|serial]
 ```
 
 **选项**:
@@ -231,10 +231,10 @@
 **示例**:
 ```bash
 # 多 CLI 规划
-/workflow:multi-cli-plan "设计微服务架构"
+/workflow-multi-cli-plan "设计微服务架构"
 
 # 指定工具和轮数
-/workflow:multi-cli-plan --tools=gemini,codex --max-rounds=5 "数据库迁移方案"
+/workflow-multi-cli-plan --tools=gemini,codex --max-rounds=5 "数据库迁移方案"
 ```
 
 ### brainstorm-with-file

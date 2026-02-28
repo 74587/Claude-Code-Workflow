@@ -165,7 +165,7 @@ graph LR
 
 | Task Objective | Recommended Workflow | Command |
 | --- | --- | --- |
-| New feature development | PlanEx | `/workflow:plan` |
+| New feature development | PlanEx | `/workflow-plan` |
 | Bug fix | Lifecycle | `/debug-with-file` |
 | Code refactoring | IterDev | `/refactor-cycle` |
 | Technical decision | Brainstorm | `/brainstorm-with-file` |

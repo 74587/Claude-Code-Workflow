@@ -27,7 +27,7 @@ The `--type` parameter classifies sessions for CCW dashboard organization:
 |------|-------------|-------------|
 | `workflow` | Standard implementation (default) | `workflow-plan` skill |
 | `review` | Code review sessions | `review-cycle` skill |
-| `tdd` | TDD-based development | `workflow-tdd` skill |
+| `tdd` | TDD-based development | `workflow-tdd-plan` skill |
 | `test` | Test generation/fix sessions | `workflow-test-fix` skill |
 | `docs` | Documentation sessions | `memory-manage` skill |
 

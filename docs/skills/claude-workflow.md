@@ -17,11 +17,11 @@
 
 | Skill | Function | Trigger |
 |-------|----------|---------|
-| `workflow-plan` | Unified planning skill (4-stage workflow) | `/workflow:plan` |
-| `workflow-execute` | Agent-coordinated execution | `/workflow:execute` |
-| `workflow-lite-plan` | Lightweight quick planning | `/workflow:lite-plan` |
-| `workflow-multi-cli-plan` | Multi-CLI collaborative planning | `/workflow:multi-cli-plan` |
-| `workflow-tdd` | TDD workflow | `/workflow:tdd` |
+| `workflow-plan` | Unified planning skill (4-stage workflow) | `/workflow-plan` |
+| `workflow-execute` | Agent-coordinated execution | `/workflow-execute` |
+| `workflow-lite-plan` | Lightweight quick planning | `/workflow-lite-plan` |
+| `workflow-multi-cli-plan` | Multi-CLI collaborative planning | `/workflow-multi-cli-plan` |
+| `workflow-tdd-plan` | TDD workflow | `/workflow-tdd` |
 | `workflow-test-fix` | Test-fix workflow | `/workflow:test-fix` |
 | `workflow-skill-designer` | Skill design workflow | `/workflow:skill-designer` |
 | `workflow-wave-plan` | Wave batch planning | `/workflow:wave-plan` |
@@ -34,8 +34,8 @@
 
 **Trigger**:
 ```shell
-/workflow:plan <task-description>
-/workflow:plan-verify --session <session-id>
+/workflow-plan <task-description>
+/workflow-plan-verify --session <session-id>
 /workflow:replan --session <session-id> [task-id] "requirements"
 ```
 
@@ -47,7 +47,7 @@
 **Mode Detection**:
 ```javascript
 // Skill trigger determines mode
-skillName === 'workflow:plan-verify' → 'verify'
+skillName === 'workflow-plan-verify' → 'verify'
 skillName === 'workflow:replan' → 'replan'
 default → 'plan'
 ```
@@ -107,10 +107,10 @@ Plan Confirmation (User Decision Gate):
 
 **Trigger**:
 ```shell
-/workflow:execute
-/workflow:execute --resume-session="WFS-auth"
-/workflow:execute --yes
-/workflow:execute -y --with-commit
+/workflow-execute
+/workflow-execute --resume-session="WFS-auth"
+/workflow-execute --yes
+/workflow-execute -y --with-commit
 ```
 
 **Features**:
@@ -189,7 +189,7 @@ Phase 5: Completion
 
 **Trigger**:
 ```shell
-/workflow:lite-plan <simple-task>
+/workflow-lite-plan <simple-task>
 ```
 
 **Features**:
@@ -211,7 +211,7 @@ Phase 5: Completion
 
 **Trigger**:
 ```shell
-/workflow:multi-cli-plan <task>
+/workflow-multi-cli-plan <task>
 ```
 
 **Features**:
@@ -226,13 +226,13 @@ Phase 5: Completion
 
 ---
 
-### workflow-tdd
+### workflow-tdd-plan
 
 **One-Liner**: TDD workflow — Test-driven development process
 
 **Trigger**:
 ```shell
-/workflow:tdd <feature-description>
+/workflow-tdd <feature-description>
 ```
 
 **Features**:
@@ -334,7 +334,7 @@ Wave 2: Issue 6-10 → Parallel planning → Parallel execution
 1. **Choose the right workflow**:
    - Super simple tasks → `workflow-lite-plan`
    - Complex features → `workflow-plan` → `workflow-execute`
-   - TDD development → `workflow-tdd`
+   - TDD development → `workflow-tdd-plan`
    - Test fixes → `workflow-test-fix`
    - Skill creation → `workflow-skill-designer`
 

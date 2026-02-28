@@ -1,6 +1,6 @@
 ---
-name: workflow-tdd
-description: Unified TDD workflow skill combining 6-phase TDD planning with Red-Green-Refactor task chain generation, and 4-phase TDD verification with compliance reporting. Triggers on "workflow:tdd-plan", "workflow:tdd-verify".
+name: workflow-tdd-plan-plan
+description: Unified TDD workflow skill combining 6-phase TDD planning with Red-Green-Refactor task chain generation, and 4-phase TDD verification with compliance reporting. Triggers on "workflow-tdd-plan", "workflow-tdd-verify".
 allowed-tools: Skill, Task, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -89,8 +89,8 @@ const mode = detectMode(args)
 
 function detectMode(args) {
   // Skill trigger determines mode
-  if (skillName === 'workflow:tdd-verify') return 'verify'
-  return 'plan'  // default: workflow:tdd-plan
+  if (skillName === 'workflow-tdd-verify') return 'verify'
+  return 'plan'  // default: workflow-tdd-plan
 }
 ```
 
@@ -496,7 +496,7 @@ Similar to workflow-plan, a `planning-notes.md` can accumulate context across ph
 - `phases/07-tdd-verify.md` - Phase 7: Test coverage and cycle analysis (inline)
 
 **Follow-up Skills**:
-- `workflow-tdd` skill (tdd-verify phase) - Verify TDD compliance (can also invoke via verify mode)
+- `workflow-tdd-plan` skill (tdd-verify phase) - Verify TDD compliance (can also invoke via verify mode)
 - `workflow-plan` skill (plan-verify phase) - Verify plan quality and dependencies
 - Display session status inline - Review TDD task breakdown
 - `Skill(skill="workflow-execute")` - Begin TDD implementation

@@ -50,7 +50,7 @@
 | --- | --- | --- |
 | `workflow` | 标准实现 | workflow-plan skill |
 | `review` | 代码审查 | review-cycle skill |
-| `tdd` | TDD 开发 | workflow-tdd skill |
+| `tdd` | TDD 开发 | workflow-tdd-plan skill |
 | `test` | 测试生成/修复 | workflow-test-fix skill |
 | `docs` | 文档会话 | memory-manage skill |
 

@@ -10,7 +10,7 @@
 
 | 工作流 | 核心命令 | 适用场景 | 角色 |
 | --- | --- | --- | --- |
-| **PlanEx** | `/workflow:plan` | 新功能开发、需求实现 | planner, executor |
+| **PlanEx** | `/workflow-plan` | 新功能开发、需求实现 | planner, executor |
 | **IterDev** | `/refactor-cycle` | 代码重构、技术债处理 | developer, reviewer |
 | **Lifecycle** | `/unified-execute-with-file` | 完整开发周期 | analyzer, developer, tester, reviewer |
 | **Issue** | `/issue:*` | Issue 驱动开发 | discoverer, planner, executor |
@@ -30,7 +30,7 @@
 ### 4.2.2 启动方式
 
 ```shell
-/workflow:plan
+/workflow-plan
 ```
 
 或直接描述需求：
@@ -286,7 +286,7 @@ graph LR
 
 | 需求 | 推荐工作流 | 命令 |
 | --- | --- | --- |
-| 新功能开发 | PlanEx | `/workflow:plan` |
+| 新功能开发 | PlanEx | `/workflow-plan` |
 | 代码重构 | IterDev | `/refactor-cycle` |
 | 完整开发 | Lifecycle | `/unified-execute-with-file` |
 | Issue 管理 | Issue | `/issue:*` |

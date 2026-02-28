@@ -165,7 +165,7 @@ graph LR
 
 | 任务目标 | 推荐工作流 | 命令 |
 | --- | --- | --- |
-| 新功能开发 | PlanEx | `/workflow:plan` |
+| 新功能开发 | PlanEx | `/workflow-plan` |
 | Bug 修复 | Lifecycle | `/debug-with-file` |
 | 代码重构 | IterDev | `/refactor-cycle` |
 | 技术决策 | Brainstorm | `/brainstorm-with-file` |

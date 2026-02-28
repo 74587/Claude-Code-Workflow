@@ -17,11 +17,11 @@
 
 | Skill | 功能 | 触发方式 |
 | --- | --- | --- |
-| `workflow-plan` | 统一规划技能（4 阶段工作流） | `/workflow:plan` |
-| `workflow-execute` | 代理协调执行 | `/workflow:execute` |
-| `workflow-lite-plan` | 轻量级快速规划 | `/workflow:lite-plan` |
-| `workflow-multi-cli-plan` | 多 CLI 协作规划 | `/workflow:multi-cli-plan` |
-| `workflow-tdd` | TDD 工作流 | `/workflow:tdd` |
+| `workflow-plan` | 统一规划技能（4 阶段工作流） | `/workflow-plan` |
+| `workflow-execute` | 代理协调执行 | `/workflow-execute` |
+| `workflow-lite-plan` | 轻量级快速规划 | `/workflow-lite-plan` |
+| `workflow-multi-cli-plan` | 多 CLI 协作规划 | `/workflow-multi-cli-plan` |
+| `workflow-tdd-plan` | TDD 工作流 | `/workflow-tdd` |
 | `workflow-test-fix` | 测试修复工作流 | `/workflow:test-fix` |
 | `workflow-skill-designer` | Skill 设计工作流 | `/workflow:skill-designer` |
 | `workflow-wave-plan` | Wave 批处理规划 | `/workflow:wave-plan` |
@@ -34,8 +34,8 @@
 
 **触发**:
 ```shell
-/workflow:plan <task-description>
-/workflow:plan-verify --session <session-id>
+/workflow-plan <task-description>
+/workflow-plan-verify --session <session-id>
 /workflow:replan --session <session-id> [task-id] "requirements"
 ```
 
@@ -47,7 +47,7 @@
 **模式检测**:
 ```javascript
 // Skill 触发器决定模式
-skillName === 'workflow:plan-verify' → 'verify'
+skillName === 'workflow-plan-verify' → 'verify'
 skillName === 'workflow:replan' → 'replan'
 default → 'plan'
 ```
@@ -107,10 +107,10 @@ Phase 4: task-generate-agent --session sessionId
 
 **触发**:
 ```shell
-/workflow:execute
-/workflow:execute --resume-session="WFS-auth"
-/workflow:execute --yes
-/workflow:execute -y --with-commit
+/workflow-execute
+/workflow-execute --resume-session="WFS-auth"
+/workflow-execute --yes
+/workflow-execute -y --with-commit
 ```
 
 **功能**:
@@ -189,7 +189,7 @@ Phase 5: 完成
 
 **触发**:
 ```shell
-/workflow:lite-plan <simple-task>
+/workflow-lite-plan <simple-task>
 ```
 
 **功能**:
@@ -211,7 +211,7 @@ Phase 5: 完成
 
 **触发**:
 ```shell
-/workflow:multi-cli-plan <task>
+/workflow-multi-cli-plan <task>
 ```
 
 **功能**:
@@ -226,13 +226,13 @@ Phase 5: 完成
 
 ---
 
-### workflow-tdd
+### workflow-tdd-plan
 
 **一句话定位**: TDD 工作流 — 测试驱动的开发流程
 
 **触发**:
 ```shell
-/workflow:tdd <feature-description>
+/workflow-tdd <feature-description>
 ```
 
 **功能**:
@@ -334,7 +334,7 @@ Wave 2: Issue 6-10 → 并行规划 → 并行执行
 1. **选择合适的工作流**:
    - 超简单任务 → `workflow-lite-plan`
    - 复杂功能 → `workflow-plan` → `workflow-execute`
-   - TDD 开发 → `workflow-tdd`
+   - TDD 开发 → `workflow-tdd-plan`
    - 测试修复 → `workflow-test-fix`
    - Skill 创建 → `workflow-skill-designer`
 

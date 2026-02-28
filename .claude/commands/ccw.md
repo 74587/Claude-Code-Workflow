@@ -18,7 +18,7 @@ Main process orchestrator: intent analysis → workflow selection → command ch
 | `workflow-lite-plan` | explore → plan → confirm → execute |
 | `workflow-plan` | session → context → convention → gen → verify/replan |
 | `workflow-execute` | session discovery → task processing → commit |
-| `workflow-tdd` | 6-phase TDD plan → verify |
+| `workflow-tdd-plan` | 6-phase TDD plan → verify |
 | `workflow-test-fix` | session → context → analysis → gen → cycle |
 | `workflow-multi-cli-plan` | ACE context → CLI discussion → plan → execute |
 | `review-cycle` | session/module review → fix orchestration |
@@ -53,7 +53,7 @@ Main process orchestrator: intent analysis → workflow selection → command ch
 |---------|-------|------|
 | 轻量 Plan+Execute | `workflow-lite-plan` | 内部完成 plan→execute |
 | 标准 Planning | `workflow-plan` → `workflow-execute` | plan 和 execute 是独立 Skill |
-| TDD Planning | `workflow-tdd` → `workflow-execute` | tdd-plan 和 execute 是独立 Skill |
+| TDD Planning | `workflow-tdd-plan` → `workflow-execute` | tdd-plan 和 execute 是独立 Skill |
 | 测试流水线 | `workflow-test-fix` | 内部完成 gen→cycle |
 | 代码审查 | `review-cycle` | 内部完成 review→fix |
 | 多CLI协作 | `workflow-multi-cli-plan` | ACE context → CLI discussion → plan → execute |
@@ -339,7 +339,7 @@ function buildCommandChain(workflow, analysis) {
     ],
 
     'tdd': [
-      { cmd: 'workflow-tdd', args: `"${analysis.goal}"` },
+      { cmd: 'workflow-tdd-plan', args: `"${analysis.goal}"` },
       { cmd: 'workflow-execute', args: '' }
     ],
 
@@ -649,7 +649,7 @@ Phase 5: Execute Command Chain
 | "重构 auth 模块" | refactor | 3 | workflow:refactor-cycle |
 | "multi-cli plan: API设计" | multi-cli-plan | 3 | workflow-multi-cli-plan → workflow-test-fix |
 | "OAuth2 system" | feature (high) | 3 | workflow-plan → workflow-execute → review-cycle → workflow-test-fix |
-| "Implement with TDD" | tdd | 3 | workflow-tdd → workflow-execute |
+| "Implement with TDD" | tdd | 3 | workflow-tdd-plan → workflow-execute |
 | "Uncertain: real-time" | exploration | 4 | brainstorm → workflow-plan → workflow-execute → workflow-test-fix |
 | "team planex: 用户系统" | team-planex | Team | team-planex |
 | "迭代开发团队: 支付模块" | team-iterdev | Team | team-iterdev |

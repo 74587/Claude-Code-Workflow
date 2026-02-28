@@ -54,12 +54,12 @@ Skills are reusable, domain-specific capabilities that CCW can execute. Each ski
 
 | Skill | Triggers | Description |
 |-------|----------|-------------|
-| [workflow-plan](./core-skills.md#workflow-plan) | `workflow:plan` | 4-phase planning with verification |
-| [workflow-lite-plan](./core-skills.md#workflow-lite-plan) | `workflow:lite-plan` | Lightweight planning |
-| [workflow-multi-cli-plan](./core-skills.md#workflow-multi-cli-plan) | `workflow:multi-cli-plan` | Multi-CLI collaborative planning |
-| [workflow-execute](./core-skills.md#workflow-execute) | `workflow:execute` | Task execution coordination |
-| [workflow-tdd](./core-skills.md#workflow-tdd) | `workflow:tdd-plan` | TDD with Red-Green-Refactor |
-| [workflow-test-fix](./core-skills.md#workflow-test-fix) | `workflow:test-fix-gen` | Test-fix pipeline |
+| [workflow-plan](./core-skills.md#workflow-plan) | `workflow-plan` | 4-phase planning with verification |
+| [workflow-lite-plan](./core-skills.md#workflow-lite-plan) | `workflow-lite-plan` | Lightweight planning |
+| [workflow-multi-cli-plan](./core-skills.md#workflow-multi-cli-plan) | `workflow-multi-cli-plan` | Multi-CLI collaborative planning |
+| [workflow-execute](./core-skills.md#workflow-execute) | `workflow-execute` | Task execution coordination |
+| [workflow-tdd-plan](./core-skills.md#workflow-tdd-plan) | `workflow-tdd-plan` | TDD with Red-Green-Refactor |
+| [workflow-test-fix](./core-skills.md#workflow-test-fix) | `workflow-test-fix` | Test-fix pipeline |
 | [workflow-skill-designer](./core-skills.md#workflow-skill-designer) | `design workflow skill` | Meta-skill for workflow creation |
 
 ## Workflow Combinations
@@ -84,9 +84,9 @@ Skill(skill="workflow-execute")
 
 #### Test-Driven Development
 ```bash
-Skill(skill="workflow-tdd", args="--mode tdd-plan")
+Skill(skill="workflow-tdd-plan", args="--mode tdd-plan")
 Skill(skill="workflow-execute")
-Skill(skill="workflow-tdd", args="--mode tdd-verify")
+Skill(skill="workflow-tdd-plan", args="--mode tdd-verify")
 ```
 
 ## Using Skills
@@ -180,13 +180,13 @@ ccw brainstorm
 # - Data refresh intervals
 
 # Step 2: Plan implementation
-ccw workflow:plan "Build user dashboard with configurable widgets"
+ccw workflow-plan "Build user dashboard with configurable widgets"
 # Outputs: IMPL-001.json with task breakdown
 
 # Step 3: Execute with team
 ccw team lifecycle
 # Or use quick iteration:
-ccw workflow:lite-plan && ccw workflow:execute
+ccw workflow-lite-plan && ccw workflow-execute
 
 # Step 4: Review and refine
 ccw review-code
@@ -206,7 +206,7 @@ ccw workflow:debug-with-file
 # Creates hypothesis, instruments code, analyzes logs
 
 # Step 3: Apply fix
-ccw workflow:execute --task "Fix N+1 query in user endpoint"
+ccw workflow-execute --task "Fix N+1 query in user endpoint"
 ```
 
 ### Example 3: Code Migration
@@ -249,7 +249,7 @@ ccw review-cycle --max-iterations 3
 
 ### Tips for Best Results
 
-1. **Start Small**: Begin with `workflow:lite-plan` for simple tasks
+1. **Start Small**: Begin with `workflow-lite-plan` for simple tasks
 2. **Use Memory**: Capture insights with `memory:capture` for future reference
 3. **Verify Plans**: Always review generated plans before execution
 4. **Iterate**: Use `review-cycle` for continuous improvement
@@ -264,7 +264,7 @@ Skills use these proven patterns:
 | Orchestrator + Workers | team-lifecycle-v4 |
 | Generator-Critic Loop | team-iterdev |
 | Wave Pipeline | team-planex |
-| Red-Green-Refactor | workflow-tdd |
+| Red-Green-Refactor | workflow-tdd-plan |
 
 ::: info See Also
 - [Core Skills Reference](./core-skills.md) - Detailed skill documentation

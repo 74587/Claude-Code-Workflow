@@ -146,7 +146,7 @@ graph TD
 | `workflow-lite-plan` | 轻量级规划工作流 |
 | `workflow-plan` | 完整规划工作流 |
 | `workflow-execute` | 执行工作流 |
-| `workflow-tdd` | TDD 工作流 |
+| `workflow-tdd-plan` | TDD 工作流 |
 | `review-cycle` | 代码审查循环 |
 
 ## 对比

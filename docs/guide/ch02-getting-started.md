@@ -133,7 +133,7 @@ ccw cli -p "Create a React component implementing user login form" --tool qwen -
 ### 2.4.1 Start Planning Workflow
 
 ```
-/workflow:plan
+/workflow-plan
 ```
 
 This launches the PlanEx workflow, including the following steps:
@@ -259,7 +259,7 @@ A: Select based on task type:
 **Q: When to use which workflow?**
 
 A: Select based on task objective:
-- New feature development → `/workflow:plan`
+- New feature development → `/workflow-plan`
 - Problem diagnosis → `/debug-with-file`
 - Code review → `/review-code`
 - Refactoring planning → `/refactor-cycle`
@@ -294,7 +294,7 @@ npm install
 | Command | Function |
 | --- | --- |
 | `/workflow:session:start` | Start session |
-| `/workflow:plan` | Planning workflow |
+| `/workflow-plan` | Planning workflow |
 | `/brainstorm` | Brainstorming |
 | `/review-code` | Code review |
 | `ccw memory list` | View Memory |

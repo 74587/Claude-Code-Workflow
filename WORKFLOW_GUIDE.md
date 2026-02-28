@@ -21,7 +21,7 @@ CCW uses two types of invocations:
 
 | Type | Format | Examples |
 |------|--------|----------|
-| **Skills** | Trigger phrase (no slash) | `workflow:lite-plan`, `brainstorm`, `workflow:plan` |
+| **Skills** | Trigger phrase (no slash) | `workflow-lite-plan`, `brainstorm`, `workflow-plan` |
 | **Commands** | Slash command | `/ccw`, `/workflow/session:start`, `/issue/new` |
 
 ---
@@ -32,7 +32,7 @@ CCW uses two types of invocations:
 
 | Skill Trigger | Purpose | Phases |
 |---------------|---------|--------|
-| `workflow:lite-plan` | Lightweight planning with exploration | 5 phases |
+| `workflow-lite-plan` | Lightweight planning with exploration | 5 phases |
 | `workflow:lite-execute` | Execute lite-plan output | Execution |
 
 **5-Phase Interactive Workflow**:
@@ -48,7 +48,7 @@ Phase 5: Execution & Tracking
 
 | Skill Trigger | Purpose |
 |---------------|---------|
-| `workflow:multi-cli-plan` | Multi-CLI collaborative analysis |
+| `workflow-multi-cli-plan` | Multi-CLI collaborative analysis |
 
 **5-Phase Workflow**:
 ```
@@ -63,16 +63,16 @@ Phase 5: Plan Generation
 
 | Skill Trigger | Purpose | Phases |
 |---------------|---------|--------|
-| `workflow:plan` | Full planning with session | 5 phases |
-| `workflow:plan-verify` | Plan verification | Verification |
+| `workflow-plan` | Full planning with session | 5 phases |
+| `workflow-plan-verify` | Plan verification | Verification |
 | `workflow:replan` | Interactive replanning | Replanning |
 
 ### TDD Workflow
 
 | Skill Trigger | Purpose |
 |---------------|---------|
-| `workflow:tdd-plan` | TDD planning |
-| `workflow:tdd-verify` | TDD verification |
+| `workflow-tdd-plan` | TDD planning |
+| `workflow-tdd-verify` | TDD verification |
 
 **6-Phase TDD Planning + Red-Green-Refactor**:
 ```
@@ -88,8 +88,8 @@ Phase 6: Next cycle
 
 | Skill Trigger | Purpose |
 |---------------|---------|
-| `workflow:test-fix-gen` | Test generation and fix |
-| `workflow:test-cycle-execute` | Execute test cycles |
+| `workflow-test-fix` | Test generation and fix |
+| `workflow-test-fix` | Execute test cycles |
 
 **Progressive Test Layers (L0-L3)**:
 
@@ -232,12 +232,12 @@ Phase 6: Next cycle
 
 | Skill | Trigger |
 |-------|---------|
-| workflow-lite-plan | `workflow:lite-plan`, `workflow:lite-execute` |
-| workflow-multi-cli-plan | `workflow:multi-cli-plan` |
-| workflow-plan | `workflow:plan`, `workflow:plan-verify`, `workflow:replan` |
-| workflow-execute | `workflow:execute` |
-| workflow-tdd | `workflow:tdd-plan`, `workflow:tdd-verify` |
-| workflow-test-fix | `workflow:test-fix-gen`, `workflow:test-cycle-execute` |
+| workflow-lite-plan | `workflow-lite-plan`, `workflow:lite-execute` |
+| workflow-multi-cli-plan | `workflow-multi-cli-plan` |
+| workflow-plan | `workflow-plan`, `workflow-plan-verify`, `workflow:replan` |
+| workflow-execute | `workflow-execute` |
+| workflow-tdd-plan | `workflow-tdd-plan`, `workflow-tdd-verify` |
+| workflow-test-fix | `workflow-test-fix`, `workflow-test-fix` |
 
 ### Specialized Skills
 
@@ -293,25 +293,25 @@ New System         ─┼────────────┼─────�
 Start
   │
   ├─ Is it a quick fix or config change?
-  │    └─> Yes: workflow:lite-plan
+  │    └─> Yes: workflow-lite-plan
   │
   ├─ Is it a single module feature?
-  │    └─> Yes: workflow:lite-plan
+  │    └─> Yes: workflow-lite-plan
   │
   ├─ Does it need multi-CLI analysis?
-  │    └─> Yes: workflow:multi-cli-plan
+  │    └─> Yes: workflow-multi-cli-plan
   │
   ├─ Is it multi-module with session?
-  │    └─> Yes: workflow:plan
+  │    └─> Yes: workflow-plan
   │
   ├─ Is it TDD development?
-  │    └─> Yes: workflow:tdd-plan
+  │    └─> Yes: workflow-tdd-plan
   │
   ├─ Is it test generation?
-  │    └─> Yes: workflow:test-fix-gen
+  │    └─> Yes: workflow-test-fix
   │
   └─ Is it architecture/new system?
-       └─> Yes: brainstorm + workflow:plan
+       └─> Yes: brainstorm + workflow-plan
 ```
 
 ---
@@ -348,10 +348,10 @@ Start
 
 | Skill | When to Use |
 |-------|-------------|
-| `workflow:lite-plan` | Quick fixes, single features |
-| `workflow:plan` | Multi-module development |
+| `workflow-lite-plan` | Quick fixes, single features |
+| `workflow-plan` | Multi-module development |
 | `brainstorm` | Architecture, new features |
-| `workflow:execute` | Execute planned work |
+| `workflow-execute` | Execute planned work |
 
 ### Most Common Commands
 

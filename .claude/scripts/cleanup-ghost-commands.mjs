@@ -43,19 +43,19 @@ function getExistingCommandSources() {
 // These commands were migrated to skills but references were never updated
 const COMMAND_TO_SKILL_MAP = {
   // workflow commands → skills
-  '/workflow:plan': 'workflow-plan',
-  '/workflow:execute': 'workflow-execute',
-  '/workflow:lite-plan': 'workflow-lite-plan',
+  '/workflow-plan': 'workflow-plan',
+  '/workflow-execute': 'workflow-execute',
+  '/workflow-lite-plan': 'workflow-lite-plan',
   '/workflow:lite-execute': 'workflow-lite-plan',  // lite-execute is part of lite-plan skill
   '/workflow:lite-fix': 'workflow-lite-plan',       // lite-fix is part of lite-plan skill
-  '/workflow:multi-cli-plan': 'workflow-multi-cli-plan',
-  '/workflow:plan-verify': 'workflow-plan',          // plan-verify is a phase of workflow-plan
+  '/workflow-multi-cli-plan': 'workflow-multi-cli-plan',
+  '/workflow-plan-verify': 'workflow-plan',          // plan-verify is a phase of workflow-plan
   '/workflow:replan': 'workflow-plan',               // replan is a phase of workflow-plan
-  '/workflow:tdd-plan': 'workflow-tdd',
-  '/workflow:tdd-verify': 'workflow-tdd',            // tdd-verify is a phase of workflow-tdd
-  '/workflow:test-fix-gen': 'workflow-test-fix',
+  '/workflow-tdd-plan': 'workflow-tdd-plan',
+  '/workflow-tdd-verify': 'workflow-tdd-plan',            // tdd-verify is a phase of workflow-tdd-plan
+  '/workflow-test-fix': 'workflow-test-fix',
   '/workflow:test-gen': 'workflow-test-fix',
-  '/workflow:test-cycle-execute': 'workflow-test-fix',
+  '/workflow-test-fix': 'workflow-test-fix',
   '/workflow:review': 'review-cycle',
   '/workflow:review-session-cycle': 'review-cycle',
   '/workflow:review-module-cycle': 'review-cycle',
@@ -70,8 +70,8 @@ const COMMAND_TO_SKILL_MAP = {
   '/workflow:tools:context-gather': 'workflow-plan',
   '/workflow:tools:conflict-resolution': 'workflow-plan',
   '/workflow:tools:task-generate-agent': 'workflow-plan',
-  '/workflow:tools:task-generate-tdd': 'workflow-tdd',
-  '/workflow:tools:tdd-coverage-analysis': 'workflow-tdd',
+  '/workflow:tools:task-generate-tdd': 'workflow-tdd-plan',
+  '/workflow:tools:tdd-coverage-analysis': 'workflow-tdd-plan',
   '/workflow:tools:test-concept-enhanced': 'workflow-test-fix',
   '/workflow:tools:test-context-gather': 'workflow-test-fix',
   '/workflow:tools:test-task-generate': 'workflow-test-fix',
@@ -319,17 +319,17 @@ function fixBrokenReferences() {
     // Pattern: `/ command:name` references that point to non-existent commands
     // These are documentation references - update to point to skill names
     const proseRefFixes = {
-      '`/workflow:plan`': '`workflow-plan` skill',
-      '`/workflow:execute`': '`workflow-execute` skill',
+      '`/workflow-plan`': '`workflow-plan` skill',
+      '`/workflow-execute`': '`workflow-execute` skill',
       '`/workflow:lite-execute`': '`workflow-lite-plan` skill',
       '`/workflow:lite-fix`': '`workflow-lite-plan` skill',
-      '`/workflow:plan-verify`': '`workflow-plan` skill (plan-verify phase)',
+      '`/workflow-plan-verify`': '`workflow-plan` skill (plan-verify phase)',
       '`/workflow:replan`': '`workflow-plan` skill (replan phase)',
-      '`/workflow:tdd-plan`': '`workflow-tdd` skill',
-      '`/workflow:tdd-verify`': '`workflow-tdd` skill (tdd-verify phase)',
-      '`/workflow:test-fix-gen`': '`workflow-test-fix` skill',
+      '`/workflow-tdd-plan`': '`workflow-tdd-plan` skill',
+      '`/workflow-tdd-verify`': '`workflow-tdd-plan` skill (tdd-verify phase)',
+      '`/workflow-test-fix`': '`workflow-test-fix` skill',
       '`/workflow:test-gen`': '`workflow-test-fix` skill',
-      '`/workflow:test-cycle-execute`': '`workflow-test-fix` skill',
+      '`/workflow-test-fix`': '`workflow-test-fix` skill',
       '`/workflow:review`': '`review-cycle` skill',
       '`/workflow:review-session-cycle`': '`review-cycle` skill',
       '`/workflow:review-module-cycle`': '`review-cycle` skill',
@@ -346,8 +346,8 @@ function fixBrokenReferences() {
       '`/workflow:tools:task-generate`': '`workflow-plan` skill (task-generate phase)',
       '`/workflow:ui-design:auto`': '`/workflow:ui-design:explore-auto`',
       '`/workflow:ui-design:update`': '`/workflow:ui-design:generate`',
-      '`/workflow:multi-cli-plan`': '`workflow-multi-cli-plan` skill',
-      '`/workflow:lite-plan`': '`workflow-lite-plan` skill',
+      '`/workflow-multi-cli-plan`': '`workflow-multi-cli-plan` skill',
+      '`/workflow-lite-plan`': '`workflow-lite-plan` skill',
       '`/cli:plan`': '`workflow-lite-plan` skill',
       '`/test-cycle-execute`': '`workflow-test-fix` skill',
     };

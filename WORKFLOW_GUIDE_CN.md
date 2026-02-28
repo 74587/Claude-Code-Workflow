@@ -22,7 +22,7 @@ CCW 使用两种调用方式：
 
 | 类型 | 格式 | 示例 |
 |------|------|------|
-| **Skills** | 触发短语（无斜杠） | `workflow:lite-plan`, `brainstorm`, `workflow:plan` |
+| **Skills** | 触发短语（无斜杠） | `workflow-lite-plan`, `brainstorm`, `workflow-plan` |
 | **Commands** | 斜杠命令 | `/ccw`, `/workflow/session:start`, `/issue/new` |
 
 ---
@@ -33,7 +33,7 @@ CCW 使用两种调用方式：
 
 | Skill 触发词 | 用途 | 阶段 |
 |--------------|------|------|
-| `workflow:lite-plan` | 轻量规划与探索 | 5 阶段 |
+| `workflow-lite-plan` | 轻量规划与探索 | 5 阶段 |
 | `workflow:lite-execute` | 执行 lite-plan 输出 | 执行 |
 
 **5 阶段交互式工作流**：
@@ -49,7 +49,7 @@ CCW 使用两种调用方式：
 
 | Skill 触发词 | 用途 |
 |--------------|------|
-| `workflow:multi-cli-plan` | 多 CLI 协同分析 |
+| `workflow-multi-cli-plan` | 多 CLI 协同分析 |
 
 **5 阶段工作流**：
 ```
@@ -64,16 +64,16 @@ CCW 使用两种调用方式：
 
 | Skill 触发词 | 用途 | 阶段 |
 |--------------|------|------|
-| `workflow:plan` | 完整规划与会话 | 5 阶段 |
-| `workflow:plan-verify` | 规划验证 | 验证 |
+| `workflow-plan` | 完整规划与会话 | 5 阶段 |
+| `workflow-plan-verify` | 规划验证 | 验证 |
 | `workflow:replan` | 交互式重新规划 | 重规划 |
 
 ### TDD 工作流
 
 | Skill 触发词 | 用途 |
 |--------------|------|
-| `workflow:tdd-plan` | TDD 规划 |
-| `workflow:tdd-verify` | TDD 验证 |
+| `workflow-tdd-plan` | TDD 规划 |
+| `workflow-tdd-verify` | TDD 验证 |
 
 **6 阶段 TDD 规划 + Red-Green-Refactor**：
 ```
@@ -89,8 +89,8 @@ CCW 使用两种调用方式：
 
 | Skill 触发词 | 用途 |
 |--------------|------|
-| `workflow:test-fix-gen` | 测试生成与修复 |
-| `workflow:test-cycle-execute` | 执行测试循环 |
+| `workflow-test-fix` | 测试生成与修复 |
+| `workflow-test-fix` | 执行测试循环 |
 
 **渐进式测试层级 (L0-L3)**：
 
@@ -233,12 +233,12 @@ CCW 使用两种调用方式：
 
 | Skill | 触发词 |
 |-------|--------|
-| workflow-lite-plan | `workflow:lite-plan`, `workflow:lite-execute` |
-| workflow-multi-cli-plan | `workflow:multi-cli-plan` |
-| workflow-plan | `workflow:plan`, `workflow:plan-verify`, `workflow:replan` |
-| workflow-execute | `workflow:execute` |
-| workflow-tdd | `workflow:tdd-plan`, `workflow:tdd-verify` |
-| workflow-test-fix | `workflow:test-fix-gen`, `workflow:test-cycle-execute` |
+| workflow-lite-plan | `workflow-lite-plan`, `workflow:lite-execute` |
+| workflow-multi-cli-plan | `workflow-multi-cli-plan` |
+| workflow-plan | `workflow-plan`, `workflow-plan-verify`, `workflow:replan` |
+| workflow-execute | `workflow-execute` |
+| workflow-tdd-plan | `workflow-tdd-plan`, `workflow-tdd-verify` |
+| workflow-test-fix | `workflow-test-fix`, `workflow-test-fix` |
 
 ### 专项 Skills
 
@@ -294,25 +294,25 @@ CCW 使用两种调用方式：
 开始
   │
   ├─ 是快速修复或配置变更？
-  │    └─> 是：workflow:lite-plan
+  │    └─> 是：workflow-lite-plan
   │
   ├─ 是单模块功能？
-  │    └─> 是：workflow:lite-plan
+  │    └─> 是：workflow-lite-plan
   │
   ├─ 需要多 CLI 分析？
-  │    └─> 是：workflow:multi-cli-plan
+  │    └─> 是：workflow-multi-cli-plan
   │
   ├─ 是多模块且需要会话？
-  │    └─> 是：workflow:plan
+  │    └─> 是：workflow-plan
   │
   ├─ 是 TDD 开发？
-  │    └─> 是：workflow:tdd-plan
+  │    └─> 是：workflow-tdd-plan
   │
   ├─ 是测试生成？
-  │    └─> 是：workflow:test-fix-gen
+  │    └─> 是：workflow-test-fix
   │
   └─ 是架构/新系统？
-       └─> 是：brainstorm + workflow:plan
+       └─> 是：brainstorm + workflow-plan
 ```
 
 ---
@@ -349,10 +349,10 @@ CCW 使用两种调用方式：
 
 | Skill | 何时使用 |
 |-------|----------|
-| `workflow:lite-plan` | 快速修复、单功能 |
-| `workflow:plan` | 多模块开发 |
+| `workflow-lite-plan` | 快速修复、单功能 |
+| `workflow-plan` | 多模块开发 |
 | `brainstorm` | 架构、新功能 |
-| `workflow:execute` | 执行已规划的工作 |
+| `workflow-execute` | 执行已规划的工作 |
 
 ### 最常用 Commands
 

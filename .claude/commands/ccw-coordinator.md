@@ -22,7 +22,7 @@ Interactive orchestration tool: analyze task → discover commands → recommend
 | `workflow-execute` | execute |
 | `workflow-multi-cli-plan` | multi-cli-plan |
 | `workflow-test-fix` | test-fix-gen, test-cycle-execute |
-| `workflow-tdd` | tdd-plan, tdd-verify |
+| `workflow-tdd-plan` | tdd-plan, tdd-verify |
 | `review-cycle` | review-session-cycle, review-module-cycle, review-cycle-fix |
 | `brainstorm` | auto-parallel, artifacts, role-analysis, synthesis |
 | `workflow:collaborative-plan-with-file` | understanding agent → parallel agents → plan-note.md |
@@ -257,7 +257,7 @@ Each command has input/output ports (tags) for pipeline composition:
 //            workflow-execute (execute),
 //            workflow-multi-cli-plan (multi-cli-plan),
 //            workflow-test-fix (test-fix-gen, test-cycle-execute),
-//            workflow-tdd (tdd-plan, tdd-verify),
+//            workflow-tdd-plan (tdd-plan, tdd-verify),
 //            review-cycle (review-session-cycle, review-module-cycle, review-cycle-fix)
 //   command: debug, test-gen, review, workflow:brainstorm-with-file,
 //            workflow:debug-with-file, workflow:analyze-with-file, issue:*
@@ -646,9 +646,9 @@ Pipeline (管道视图):
 需求 → lite-plan → 计划 → lite-execute → 代码 → test-cycle-execute → 测试通过
 
 Commands (命令列表):
-1. /workflow:lite-plan
+1. /workflow-lite-plan
 2. /workflow:lite-execute
-3. /workflow:test-cycle-execute
+3. /workflow-test-fix
 
 Proceed? [Confirm / Show Details / Adjust / Cancel]
 ```
@@ -737,7 +737,7 @@ async function executeCommandChain(chain, analysis) {
     // Execute CLI command in background and stop
     // Format: ccw cli -p "PROMPT" --tool <tool> --mode <mode>
     // Note: -y is a command parameter INSIDE the prompt, not a ccw cli parameter
-    // Example prompt: "/workflow:plan -y \"task description here\""
+    // Example prompt: "/workflow-plan -y \"task description here\""
     try {
       const taskId = Bash(
         `ccw cli -p "${escapePrompt(prompt)}" --tool claude --mode write`,
@@ -1000,7 +1000,7 @@ function parseOutput(output) {
   "command_chain": [
     {
       "index": 0,
-      "command": "/workflow:plan",
+      "command": "/workflow-plan",
       "name": "plan",
       "description": "Detailed planning",
       "argumentHint": "[--explore] \"task\"",
@@ -1008,7 +1008,7 @@ function parseOutput(output) {
     },
     {
       "index": 1,
-      "command": "/workflow:execute",
+      "command": "/workflow-execute",
       "name": "execute",
       "description": "Execute with state resume",
       "argumentHint": "[--resume-session=\"WFS-xxx\"]",
@@ -1016,7 +1016,7 @@ function parseOutput(output) {
     },
     {
       "index": 2,
-      "command": "/workflow:test-cycle-execute",
+      "command": "/workflow-test-fix",
       "name": "test-cycle-execute",
       "status": "pending"
     }
@@ -1024,7 +1024,7 @@ function parseOutput(output) {
   "execution_results": [
     {
       "index": 0,
-      "command": "/workflow:plan",
+      "command": "/workflow-plan",
       "status": "completed",
       "task_id": "task-001",
       "session_id": "WFS-plan-20250124",
@@ -1034,7 +1034,7 @@ function parseOutput(output) {
     },
     {
       "index": 1,
-      "command": "/workflow:execute",
+      "command": "/workflow-execute",
       "status": "in-progress",
       "task_id": "task-002",
       "session_id": null,
@@ -1046,13 +1046,13 @@ function parseOutput(output) {
   "prompts_used": [
     {
       "index": 0,
-      "command": "/workflow:plan",
-      "prompt": "/workflow:plan -y \"Implement user registration...\"\n\nTask: Implement user registration..."
+      "command": "/workflow-plan",
+      "prompt": "/workflow-plan -y \"Implement user registration...\"\n\nTask: Implement user registration..."
     },
     {
       "index": 1,
-      "command": "/workflow:execute",
-      "prompt": "/workflow:execute -y --resume-session=\"WFS-plan-20250124\"\n\nTask: Implement user registration\n\nPrevious results:\n- /workflow:plan: WFS-plan-20250124 (IMPL_PLAN.md)"
+      "command": "/workflow-execute",
+      "prompt": "/workflow-execute -y --resume-session=\"WFS-plan-20250124\"\n\nTask: Implement user registration\n\nPrevious results:\n- /workflow-plan: WFS-plan-20250124 (IMPL_PLAN.md)"
     }
   ]
 }
@@ -1131,40 +1131,40 @@ Task: <task_description>
 | `-y` | Auto-confirm flag (inside prompt) | Always include for automation |
 | `<command_parameters>` | Command-specific parameters | Task description, session ID, flags |
 | `<task_description>` | Brief task description | "Implement user authentication", "Fix memory leak" |
-| `<optional_previous_results>` | Context from previous commands | "Previous results:\n- /workflow:plan: WFS-xxx" |
+| `<optional_previous_results>` | Context from previous commands | "Previous results:\n- /workflow-plan: WFS-xxx" |
 
 ### Command Parameter Patterns
 
 | Command Type | Parameter Pattern | Example |
 |--------------|------------------|---------|
-| **Planning** | `"task description"` | `/workflow:plan -y "Implement OAuth2"` |
-| **Execution (with plan)** | `--resume-session="WFS-xxx"` | `/workflow:execute -y --resume-session="WFS-plan-001"` |
+| **Planning** | `"task description"` | `/workflow-plan -y "Implement OAuth2"` |
+| **Execution (with plan)** | `--resume-session="WFS-xxx"` | `/workflow-execute -y --resume-session="WFS-plan-001"` |
 | **Execution (standalone)** | `--in-memory` or `"task"` | `/workflow:lite-execute -y --in-memory` |
-| **Session-based** | `--session="WFS-xxx"` | `/workflow:test-fix-gen -y --session="WFS-impl-001"` |
-| **Fix/Debug** | `--bugfix "problem description"` | `/workflow:lite-plan -y --bugfix "Fix timeout bug"` |
+| **Session-based** | `--session="WFS-xxx"` | `/workflow-test-fix -y --session="WFS-impl-001"` |
+| **Fix/Debug** | `--bugfix "problem description"` | `/workflow-lite-plan -y --bugfix "Fix timeout bug"` |
 
 ### Complete Examples
 
 **Planning Command**:
 ```bash
-ccw cli -p '/workflow:plan -y "Implement user registration with email validation"
+ccw cli -p '/workflow-plan -y "Implement user registration with email validation"
 
 Task: Implement user registration' --tool claude --mode write
 ```
 
 **Execution with Context**:
 ```bash
-ccw cli -p '/workflow:execute -y --resume-session="WFS-plan-20250124"
+ccw cli -p '/workflow-execute -y --resume-session="WFS-plan-20250124"
 
 Task: Implement user registration
 
 Previous results:
-- /workflow:plan: WFS-plan-20250124 (IMPL_PLAN.md)' --tool claude --mode write
+- /workflow-plan: WFS-plan-20250124 (IMPL_PLAN.md)' --tool claude --mode write
 ```
 
 **Standalone Lite Execution**:
 ```bash
-ccw cli -p '/workflow:lite-plan -y --bugfix "Fix login timeout in auth module"
+ccw cli -p '/workflow-lite-plan -y --bugfix "Fix login timeout in auth module"
 
 Task: Fix login timeout' --tool claude --mode write
 ```
@@ -1232,17 +1232,17 @@ Task: <description>
 **Examples**:
 ```bash
 # Planning command
-ccw cli -p '/workflow:plan -y "Implement user registration feature"
+ccw cli -p '/workflow-plan -y "Implement user registration feature"
 
 Task: Implement user registration' --tool claude --mode write
 
 # Execution command (with session reference)
-ccw cli -p '/workflow:execute -y --resume-session="WFS-plan-20250124"
+ccw cli -p '/workflow-execute -y --resume-session="WFS-plan-20250124"
 
 Task: Implement user registration
 
 Previous results:
-- /workflow:plan: WFS-plan-20250124' --tool claude --mode write
+- /workflow-plan: WFS-plan-20250124' --tool claude --mode write
 
 # Lite execution (in-memory from previous plan)
 ccw cli -p '/workflow:lite-execute -y --in-memory
@@ -1261,7 +1261,7 @@ Task: Implement user registration' --tool claude --mode write
 
 ```javascript
 // Example: Execute command and stop
-const prompt = '/workflow:plan -y "Implement user authentication"\n\nTask: Implement user auth system';
+const prompt = '/workflow-plan -y "Implement user authentication"\n\nTask: Implement user auth system';
 const taskId = Bash(`ccw cli -p "${prompt}" --tool claude --mode write`, { run_in_background: true }).task_id;
 state.execution_results.push({ status: 'in-progress', task_id: taskId, ... });
 Write(`${stateDir}/state.json`, JSON.stringify(state, null, 2));
@@ -1283,7 +1283,7 @@ break; // ⚠️ STOP HERE - DO NOT use TaskOutput polling
 | `workflow-execute` | execute |
 | `workflow-multi-cli-plan` | multi-cli-plan |
 | `workflow-test-fix` | test-fix-gen, test-cycle-execute |
-| `workflow-tdd` | tdd-plan, tdd-verify |
+| `workflow-tdd-plan` | tdd-plan, tdd-verify |
 | `review-cycle` | review-session-cycle, review-module-cycle, review-cycle-fix |
 | `brainstorm` | auto-parallel, artifacts, role-analysis, synthesis |
 | `team-planex` | planner + executor wave pipeline |

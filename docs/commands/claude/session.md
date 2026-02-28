@@ -51,7 +51,7 @@
 |------|-------------|----------------|
 | `workflow` | Standard implementation | workflow-plan skill |
 | `review` | Code review | review-cycle skill |
-| `tdd` | TDD development | workflow-tdd skill |
+| `tdd` | TDD development | workflow-tdd-plan skill |
 | `test` | Test generation/fix | workflow-test-fix skill |
 | `docs` | Documentation session | memory-manage skill |
 

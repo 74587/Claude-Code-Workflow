@@ -119,7 +119,7 @@ ccw cli -p "创建一个 React 组件，实现用户登录表单" --tool qwen --
 ### 2.4.1 启动规划工作流
 
 ```
-/workflow:plan
+/workflow-plan
 ```
 
 这会启动 PlanEx 工作流，包含以下步骤：
@@ -245,7 +245,7 @@ A: 根据任务类型选择：
 **Q: 什么时候使用哪个工作流？**
 
 A: 根据任务目标选择：
-- 新功能开发 → `/workflow:plan`
+- 新功能开发 → `/workflow-plan`
 - 问题诊断 → `/debug-with-file`
 - 代码审查 → `/review-code`
 - 重构规划 → `/refactor-cycle`
@@ -280,7 +280,7 @@ npm install
 | 命令 | 功能 |
 | --- | --- |
 | `/workflow:session:start` | 启动会话 |
-| `/workflow:plan` | 规划工作流 |
+| `/workflow-plan` | 规划工作流 |
 | `/brainstorm` | 头脑风暴 |
 | `/review-code` | 代码审查 |
 | `ccw memory list` | 查看 Memory |

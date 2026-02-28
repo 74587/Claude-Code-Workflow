@@ -755,7 +755,7 @@ Read("phases/02-lite-execute.md")
 | Planning agent failure | Fallback to direct planning by Claude |
 | Clarification timeout | Use exploration findings as-is |
 | Confirmation timeout | Save context, display resume instructions |
-| Modify loop > 3 times | Suggest breaking task or using /workflow:plan |
+| Modify loop > 3 times | Suggest breaking task or using /workflow-plan |
 
 ## Next Phase
 

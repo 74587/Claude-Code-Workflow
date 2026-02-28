@@ -40,8 +40,8 @@ Create a simple workflow in under 5 minutes:
 
 # Or use specific workflow commands
 /workflow:init                                  # Initialize project state
-/workflow:plan "Add OAuth2 authentication"     # Create implementation plan
-/workflow:execute                               # Execute planned tasks
+/workflow-plan "Add OAuth2 authentication"     # Create implementation plan
+/workflow-execute                               # Execute planned tasks
 ```
 
 ## Next Steps

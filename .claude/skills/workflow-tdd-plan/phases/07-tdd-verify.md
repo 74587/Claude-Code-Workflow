@@ -50,7 +50,7 @@ process_dir = session_dir/.process
 # Check task files exist
 task_files = Glob(task_dir/*.json)
 IF task_files.count == 0:
-    ERROR: "No task JSON files found. Run /workflow:tdd-plan first"
+    ERROR: "No task JSON files found. Run /workflow-tdd-plan first"
     EXIT
 
 # Check summaries exist (optional but recommended for full analysis)
@@ -596,7 +596,7 @@ Next: Review full report for detailed findings
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| Task files missing | Incomplete planning | Run /workflow:tdd-plan first |
+| Task files missing | Incomplete planning | Run /workflow-tdd-plan first |
 | Invalid JSON | Corrupted task files | Regenerate tasks |
 | Missing summaries | Tasks not executed | Execute tasks before verify |
 
@@ -632,4 +632,4 @@ Next: Review full report for detailed findings
 | PROCEED_WITH_CAVEATS | `workflow-execute` skill | Start with noted caveats |
 | REQUIRE_FIXES | Review report, refine tasks | Address issues before proceed |
 | BLOCK_MERGE | `workflow-plan` skill (replan phase) | Significant restructuring needed |
-| After implementation | Re-run `workflow-tdd` skill (tdd-verify phase) | Verify post-execution compliance |
+| After implementation | Re-run `workflow-tdd-plan` skill (tdd-verify phase) | Verify post-execution compliance |

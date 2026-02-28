@@ -31,7 +31,7 @@
 - `-y, --yes` - 跳过所有确认
 
 **映射技能**：
-- workflow-lite-plan, workflow-plan, workflow-execute, workflow-tdd
+- workflow-lite-plan, workflow-plan, workflow-execute, workflow-tdd-plan
 - workflow-test-fix, workflow-multi-cli-plan, review-cycle, brainstorm
 - team-planex, team-iterdev, team-lifecycle, team-issue
 - team-testing, team-quality-assurance, team-brainstorm, team-uidesign
@@ -363,7 +363,7 @@ workflow req-plan-with-file
 
 **描述**：自动会话发现、并行任务处理和状态跟踪。
 
-**触发器**：`workflow:execute`
+**触发器**：`workflow-execute`
 
 ```bash
 workflow execute

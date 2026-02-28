@@ -284,7 +284,7 @@ graph LR
 
 | 场景 | 工作流 | 命令 |
 | --- | --- | --- |
-| 新功能 | PlanEx | `/workflow:plan` |
+| 新功能 | PlanEx | `/workflow-plan` |
 | Bug 修复 | Lifecycle | `/unified-execute-with-file` |
 | 重构 | IterDev | `/refactor-cycle` |
 | 决策 | Brainstorm | `/brainstorm-with-file` |

@@ -31,8 +31,8 @@
 | **team-coordinate** | 通用团队协调器（动态角色） | `/team-coordinate` |
 | **team-lifecycle** | 全生命周期团队 | `/team-lifecycle` |
 | **team-planex** | 边规划边执行团队 | `/team-planex` |
-| **workflow-plan** | 统一规划技能 | `/workflow:plan` |
-| **workflow-execute** | 代理协调执行 | `/workflow:execute` |
+| **workflow-plan** | 统一规划技能 | `/workflow-plan` |
+| **workflow-execute** | 代理协调执行 | `/workflow-execute` |
 | **memory-capture** | 记忆捕获 | `/memory-capture` |
 | **review-code** | 多维度代码审查 | `/review-code` |
 | **brainstorm** | 头脑风暴 | `/brainstorm` |
@@ -176,14 +176,14 @@ memory/
 
 ```bash
 # 快速任务
-/workflow:lite-plan "Fix login bug"
+/workflow-lite-plan "Fix login bug"
 
 # 完整开发
-/workflow:plan "Add user notifications"
-/workflow:execute
+/workflow-plan "Add user notifications"
+/workflow-execute
 
 # TDD 开发
-/workflow:tdd "Implement payment processing"
+/workflow-tdd "Implement payment processing"
 ```
 
 ### 3. 使用记忆管理
@@ -231,7 +231,7 @@ memory/
 2. **工作流选择**:
    - 超简单 → `workflow-lite-plan`
    - 复杂功能 → `workflow-plan` → `workflow-execute`
-   - TDD → `workflow-tdd`
+   - TDD → `workflow-tdd-plan`
    - 测试修复 → `workflow-test-fix`
 
 3. **记忆管理**:

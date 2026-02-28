@@ -222,7 +222,7 @@ if (skipSpecs) {
 Next steps:
 - Use /workflow:init-specs to create individual specs
 - Use /workflow:init-guidelines to configure specs interactively
-- Use /workflow:plan to start planning
+- Use /workflow-plan to start planning
 `);
   return;
 }
@@ -260,7 +260,7 @@ Next steps:
 - Use /workflow:init-specs to create individual specs
 - Use /workflow:init-guidelines to configure specs interactively
 - Use ccw spec load to import specs from external sources
-- Use /workflow:plan to start planning
+- Use /workflow-plan to start planning
 `);
   }
 } else {
@@ -271,7 +271,7 @@ Next steps:
 - Use /workflow:init-specs to create additional specs
 - Use /workflow:init-guidelines --reset to reconfigure
 - Use /workflow:session:solidify to add individual rules
-- Use /workflow:plan to start planning
+- Use /workflow-plan to start planning
 `);
 }
 ```

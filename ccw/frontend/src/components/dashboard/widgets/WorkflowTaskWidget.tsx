@@ -102,7 +102,7 @@ function HomeEmptyState({ className }: HomeEmptyStateProps) {
           </div>
           <div className="flex flex-col gap-2 w-full">
             <code className="px-3 py-2 bg-muted rounded text-xs font-mono text-center">
-              /workflow:plan
+              /workflow-plan
             </code>
             <p className="text-xs text-muted-foreground text-center">
               {formatMessage({ id: 'home.emptyState.noSessions.hint' })}

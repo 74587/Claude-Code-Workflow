@@ -22,12 +22,12 @@ Quick reference guide for all **32 CCW built-in skills**.
 
 | Skill | Trigger | Purpose |
 |-------|---------|---------|
-| **workflow-plan** | `workflow:plan`, `workflow:plan-verify`, `workflow:replan` | 4-phase planning workflow with verification and interactive replanning |
-| **workflow-lite-plan** | `workflow:lite-plan`, `workflow:lite-execute` | Lightweight planning and execution skill |
-| **workflow-multi-cli-plan** | `workflow:multi-cli-plan` | Multi-CLI collaborative planning with ACE context engine |
-| **workflow-execute** | `workflow:execute` | Coordinate agent execution for workflow tasks |
-| **workflow-tdd** | `workflow:tdd-plan`, `workflow:tdd-verify` | TDD workflow with Red-Green-Refactor task chain |
-| **workflow-test-fix** | `workflow:test-fix-gen`, `workflow:test-cycle-execute` | Unified test-fix pipeline with adaptive strategy |
+| **workflow-plan** | `workflow-plan`, `workflow-plan-verify`, `workflow:replan` | 4-phase planning workflow with verification and interactive replanning |
+| **workflow-lite-plan** | `workflow-lite-plan`, `workflow:lite-execute` | Lightweight planning and execution skill |
+| **workflow-multi-cli-plan** | `workflow-multi-cli-plan` | Multi-CLI collaborative planning with ACE context engine |
+| **workflow-execute** | `workflow-execute` | Coordinate agent execution for workflow tasks |
+| **workflow-tdd-plan** | `workflow-tdd-plan`, `workflow-tdd-verify` | TDD workflow with Red-Green-Refactor task chain |
+| **workflow-test-fix** | `workflow-test-fix`, `workflow-test-fix` | Unified test-fix pipeline with adaptive strategy |
 | **workflow-skill-designer** | `design workflow skill`, `create workflow skill` | Meta-skill for designing orchestrator+phases structured workflow skills |
 
 ## Team Skills
@@ -87,7 +87,7 @@ Skill(skill="workflow-plan", args="--mode verify")
 /ccw "team planex: OAuth2 implementation"
 
 # Direct skill triggers (in some contexts)
-workflow:plan
+workflow-plan
 team lifecycle
 ```
 
@@ -98,12 +98,12 @@ team lifecycle
 | `brainstorm`, `头脑风暴` | brainstorm |
 | `review code`, `code review`, `审查代码` | review-code |
 | `workflow:review-cycle` | review-cycle |
-| `workflow:plan` | workflow-plan |
-| `workflow:lite-plan` | workflow-lite-plan |
-| `workflow:multi-cli-plan` | workflow-multi-cli-plan |
-| `workflow:execute` | workflow-execute |
-| `workflow:tdd-plan` | workflow-tdd |
-| `workflow:test-fix-gen` | workflow-test-fix |
+| `workflow-plan` | workflow-plan |
+| `workflow-lite-plan` | workflow-lite-plan |
+| `workflow-multi-cli-plan` | workflow-multi-cli-plan |
+| `workflow-execute` | workflow-execute |
+| `workflow-tdd-plan` | workflow-tdd-plan |
+| `workflow-test-fix` | workflow-test-fix |
 | `team lifecycle` | team-lifecycle-v4 (or v5) |
 | `team planex` | team-planex |
 | `team iterdev` | team-iterdev |
@@ -156,9 +156,9 @@ The latest team-lifecycle-v5 uses the team-worker agent with dynamic role assign
 | Orchestrator + Workers | team-lifecycle-v4, team-testing, team-quality-assurance |
 | Generator-Critic Loop | team-iterdev |
 | Wave Pipeline | team-planex |
-| Red-Green-Refactor | workflow-tdd |
+| Red-Green-Refactor | workflow-tdd-plan |
 | Pure Orchestrator | workflow-plan, workflow-lite-plan |
-| Progressive Phase Loading | workflow-plan, workflow-tdd, team-lifecycle-v5 |
+| Progressive Phase Loading | workflow-plan, workflow-tdd-plan, team-lifecycle-v5 |
 
 ::: info See Also
 - [Core Skills Detail](./core-skills.md) - Detailed skill documentation

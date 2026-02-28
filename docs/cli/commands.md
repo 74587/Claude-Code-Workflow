@@ -31,7 +31,7 @@ Complete reference for all **43 CCW commands** organized by category, with **7 w
 - `-y, --yes` - Skip all confirmations
 
 **Mapped Skills**:
-- workflow-lite-plan, workflow-plan, workflow-execute, workflow-tdd
+- workflow-lite-plan, workflow-plan, workflow-execute, workflow-tdd-plan
 - workflow-test-fix, workflow-multi-cli-plan, review-cycle, brainstorm
 - team-planex, team-iterdev, team-lifecycle, team-issue
 - team-testing, team-quality-assurance, team-brainstorm, team-uidesign
@@ -363,7 +363,7 @@ workflow req-plan-with-file
 
 **Description**: Automatic session discovery, parallel task processing, and status tracking.
 
-**Triggers**: `workflow:execute`
+**Triggers**: `workflow-execute`
 
 ```bash
 workflow execute
