@@ -86,13 +86,20 @@ Two context channels:
 |--------|------|--------|-------------|
 | `id` | string | Planner | T1, T2, ... |
 | `title` | string | Planner | Task title |
-| `description` | string | Planner | Self-contained task description |
+| `description` | string | Planner | Self-contained task description — what to implement |
+| `test` | string | Planner | Test cases: what tests to write and how to verify (unit/integration/edge) |
+| `acceptance_criteria` | string | Planner | Measurable conditions that define "done" |
+| `scope` | string | Planner | Target file/directory glob — constrains agent write area, prevents cross-task file conflicts |
+| `hints` | string | Planner | Implementation tips + reference files. Format: `tips text \|\| file1;file2`. Either part is optional |
+| `execution_directives` | string | Planner | Execution constraints: commands to run for verification, tool restrictions |
 | `deps` | string | Planner | Dependency task IDs: T1;T2 |
 | `context_from` | string | Planner | Context source IDs: **E1;E2;T1** |
 | `wave` | integer | Wave Engine | Wave number (computed from deps) |
 | `status` | enum | Agent | pending / completed / failed / skipped |
 | `findings` | string | Agent | Execution findings (max 500 chars) |
 | `files_modified` | string | Agent | Files modified (semicolon-separated) |
+| `tests_passed` | boolean | Agent | Whether all defined test cases passed (true/false) |
+| `acceptance_met` | string | Agent | Summary of which acceptance criteria were met/unmet |
 | `error` | string | Agent | Error if failed |
 
 **context_from prefix convention**: `E*` → explore.csv lookup, `T*` → tasks.csv lookup.
@@ -261,12 +268,19 @@ function buildExplorePrompt(row, requirement, sessionFolder) {
 **Requirement**: ${requirement}
 **Focus**: ${row.focus}
 
+### MANDATORY FIRST STEPS
+1. Read shared discoveries: ${sessionFolder}/discoveries.ndjson (if exists, skip if not)
+2. Read project context: .workflow/project-tech.json (if exists)
+
+---
+
 ## Instructions
 Explore the codebase from the **${row.angle}** perspective:
 1. Discover relevant files, modules, and patterns
 2. Identify integration points and dependencies
 3. Note constraints, risks, and conventions
 4. Find existing patterns to follow
+5. Share discoveries: append findings to ${sessionFolder}/discoveries.ndjson
 
 ## Output
 Write findings to: ${sessionFolder}/explore-results/${row.id}.json
@@ -354,22 +368,27 @@ Decompose into execution tasks based on synthesized exploration:
 // 5. Prefer parallel (minimize deps)
 // 6. Use exploration findings: key_files → target files, patterns → references,
 //    integration_points → dependency relationships, constraints → included in description
+// 7. Each task MUST include: test (how to verify), acceptance_criteria (what defines done)
+// 8. scope must not overlap between tasks in the same wave
+// 9. hints = implementation tips + reference files (format: tips || file1;file2)
+// 10. execution_directives = commands to run for verification, tool restrictions
 
 const tasks = []
 // Claude decomposes requirement using exploration synthesis
 // Example:
-// tasks.push({ id: 'T1', title: 'Setup types', description: '...', deps: '', context_from: 'E1;E2' })
-// tasks.push({ id: 'T2', title: 'Implement core', description: '...', deps: 'T1', context_from: 'E1;E2;T1' })
-// tasks.push({ id: 'T3', title: 'Add tests', description: '...', deps: 'T2', context_from: 'E3;T2' })
+// tasks.push({ id: 'T1', title: 'Setup types', description: '...', test: 'Verify types compile', acceptance_criteria: 'All interfaces exported', scope: 'src/types/**', hints: 'Follow existing type patterns || src/types/index.ts', execution_directives: 'tsc --noEmit', deps: '', context_from: 'E1;E2' })
+// tasks.push({ id: 'T2', title: 'Implement core', description: '...', test: 'Unit test: core logic', acceptance_criteria: 'All functions pass tests', scope: 'src/core/**', hints: 'Reuse BaseService || src/services/Base.ts', execution_directives: 'npm test -- --grep core', deps: 'T1', context_from: 'E1;E2;T1' })
+// tasks.push({ id: 'T3', title: 'Add tests', description: '...', test: 'Integration test suite', acceptance_criteria: '>80% coverage', scope: 'tests/**', hints: 'Follow existing test patterns || tests/auth.test.ts', execution_directives: 'npm test', deps: 'T2', context_from: 'E3;T2' })
 
 // Compute waves
 const waves = computeWaves(tasks)
 tasks.forEach(t => { t.wave = waves[t.id] })
 
 // Write tasks.csv
-const header = 'id,title,description,deps,context_from,wave,status,findings,files_modified,error'
+const header = 'id,title,description,test,acceptance_criteria,scope,hints,execution_directives,deps,context_from,wave,status,findings,files_modified,tests_passed,acceptance_met,error'
 const rows = tasks.map(t =>
-  `"${t.id}","${escCSV(t.title)}","${escCSV(t.description)}","${t.deps}","${t.context_from}",${t.wave},"pending","","",""`
+  [t.id, escCSV(t.title), escCSV(t.description), escCSV(t.test), escCSV(t.acceptance_criteria), escCSV(t.scope), escCSV(t.hints), escCSV(t.execution_directives), t.deps, t.context_from, t.wave, 'pending', '', '', '', '', '']
+    .map(v => `"${v}"`).join(',')
 )
 
 Write(`${sessionFolder}/tasks.csv`, [header, ...rows].join('\n'))
@@ -478,6 +497,8 @@ for (let wave = 1; wave <= maxWave; wave++) {
       row.files_modified = Array.isArray(result.files_modified)
         ? result.files_modified.join(';')
         : (result.files_modified || '')
+      row.tests_passed = String(result.tests_passed ?? '')
+      row.acceptance_met = result.acceptance_met || ''
       row.error = result.error || ''
     } else {
       row.status = 'completed'
@@ -533,33 +554,69 @@ function buildExecutePrompt(row, requirement, sessionFolder) {
 
 **ID**: ${row.id}
 **Goal**: ${requirement}
+**Scope**: ${row.scope || 'Not specified'}
 
 ## Description
 ${row.description}
 
+### Implementation Hints & Reference Files
+${row.hints || 'None'}
+
+> Format: \`tips text || file1;file2\`. Read ALL reference files (after ||) before starting. Apply tips (before ||) as guidance.
+
+### Execution Directives
+${row.execution_directives || 'None'}
+
+> Commands to run for verification, tool restrictions, or environment requirements.
+
+### Test Cases
+${row.test || 'None specified'}
+
+### Acceptance Criteria
+${row.acceptance_criteria || 'None specified'}
+
 ## Previous Context (from exploration and predecessor tasks)
 ${row._prev_context}
 
-## Discovery Board
-Read shared discoveries first: ${sessionFolder}/discoveries.ndjson (if exists)
-After execution, append any discoveries:
-echo '{"ts":"<ISO>","worker":"${row.id}","type":"<type>","data":{...}}' >> ${sessionFolder}/discoveries.ndjson
+### MANDATORY FIRST STEPS
+1. Read shared discoveries: ${sessionFolder}/discoveries.ndjson (if exists, skip if not)
+2. Read project context: .workflow/project-tech.json (if exists)
 
-## Instructions
-1. Read the relevant files identified in the context above
-2. Implement changes described in the task description
-3. Ensure changes are consistent with exploration findings
-4. Test changes if applicable
+---
+
+## Execution Protocol
+
+1. **Read references**: Parse hints — read all files listed after \`||\` to understand existing patterns
+2. **Read discoveries**: Load ${sessionFolder}/discoveries.ndjson for shared exploration findings
+3. **Use context**: Apply previous tasks' findings from prev_context above
+4. **Stay in scope**: ONLY create/modify files within ${row.scope || 'project'} — do NOT touch files outside this boundary
+5. **Apply hints**: Follow implementation tips from hints (before \`||\`)
+6. **Implement**: Execute changes described in the task description
+7. **Write tests**: Implement the test cases defined above
+8. **Run directives**: Execute commands from execution_directives to verify your work
+9. **Verify acceptance**: Ensure all acceptance criteria are met before reporting completion
+10. **Share discoveries**: Append exploration findings to shared board:
+   \\\`\\\`\\\`bash
+   echo '{"ts":"<ISO>","worker":"${row.id}","type":"<type>","data":{...}}' >> ${sessionFolder}/discoveries.ndjson
+   \\\`\\\`\\\`
+11. **Report result**: Write JSON to output file
 
 ## Output
 Write results to: ${sessionFolder}/task-results/${row.id}.json
 
 {
-  "status": "completed",
+  "status": "completed" | "failed",
   "findings": "What was done (max 500 chars)",
   "files_modified": ["file1.ts", "file2.ts"],
+  "tests_passed": true | false,
+  "acceptance_met": "Summary of which acceptance criteria were met/unmet",
   "error": ""
-}`
+}
+
+**IMPORTANT**: Set status to "completed" ONLY if:
+- All test cases pass
+- All acceptance criteria are met
+Otherwise set status to "failed" with details in error field.`
 }
 ```
 
@@ -610,11 +667,30 @@ Key files: ${e.key_files || 'none'}`).join('\n\n')}
 ## Task Results
 
 ${finalTasks.map(t => `### ${t.id}: ${t.title} (${t.status})
-- Context from: ${t.context_from || 'none'}
-- Wave: ${t.wave}
-- Findings: ${t.findings || 'N/A'}
-- Files: ${t.files_modified || 'none'}
-${t.error ? `- Error: ${t.error}` : ''}`).join('\n\n')}
+
+| Field | Value |
+|-------|-------|
+| Wave | ${t.wave} |
+| Scope | ${t.scope || 'none'} |
+| Dependencies | ${t.deps || 'none'} |
+| Context From | ${t.context_from || 'none'} |
+| Tests Passed | ${t.tests_passed || 'N/A'} |
+| Acceptance Met | ${t.acceptance_met || 'N/A'} |
+| Error | ${t.error || 'none'} |
+
+**Description**: ${t.description}
+
+**Test Cases**: ${t.test || 'N/A'}
+
+**Acceptance Criteria**: ${t.acceptance_criteria || 'N/A'}
+
+**Hints**: ${t.hints || 'N/A'}
+
+**Execution Directives**: ${t.execution_directives || 'N/A'}
+
+**Findings**: ${t.findings || 'N/A'}
+
+**Files Modified**: ${t.files_modified || 'none'}`).join('\n\n---\n\n')}
 
 ## All Modified Files
 
@@ -739,13 +815,34 @@ function truncate(s, max) {
 
 Shared `discoveries.ndjson` — append-only NDJSON accessible to all agents across all phases.
 
+**Lifecycle**:
+- Created by the first agent to write a discovery
+- Carries over across all phases and waves — never cleared
+- Agents append via `echo '...' >> discoveries.ndjson`
+
+**Format**: NDJSON, each line is a self-contained JSON:
+
 ```jsonl
 {"ts":"...","worker":"E1","type":"code_pattern","data":{"name":"repo-pattern","file":"src/repos/Base.ts"}}
 {"ts":"...","worker":"T2","type":"integration_point","data":{"file":"src/auth/index.ts","exports":["auth"]}}
 ```
 
-**Types**: `code_pattern`, `integration_point`, `convention`, `blocker`, `tech_stack`
-**Rules**: Read first → write immediately → deduplicate → append-only
+**Discovery Types**:
+
+| type | Dedup Key | Description |
+|------|-----------|-------------|
+| `code_pattern` | `data.name` | Reusable code pattern found |
+| `integration_point` | `data.file` | Module connection point |
+| `convention` | singleton | Code style conventions |
+| `blocker` | `data.issue` | Blocking issue encountered |
+| `tech_stack` | singleton | Project technology stack |
+| `test_command` | singleton | Test commands discovered |
+
+**Protocol Rules**:
+1. Read board before own exploration → skip covered areas
+2. Write discoveries immediately via `echo >>` → don't batch
+3. Deduplicate — check existing entries; skip if same type + dedup key exists
+4. Append-only — never modify or delete existing lines
 
 ---
 
@@ -754,11 +851,12 @@ Shared `discoveries.ndjson` — append-only NDJSON accessible to all agents acro
 | Error | Resolution |
 |-------|------------|
 | Explore agent failure | Mark as failed in explore.csv, exclude from planning |
+| All explores failed | Fallback: plan directly from requirement without exploration |
 | Execute agent failure | Mark as failed, skip dependents (cascade) |
+| Agent timeout | Mark as failed in results, continue with wave |
 | Circular dependency | Abort wave computation, report cycle |
-| All explores failed | Fallback: plan directly from requirement |
-| CSV parse error | Re-validate format |
-| discoveries.ndjson corrupt | Ignore malformed lines |
+| CSV parse error | Validate CSV format before execution, show line number |
+| discoveries.ndjson corrupt | Ignore malformed lines, continue with valid entries |
 
 ---
 
@@ -772,3 +870,27 @@ Shared `discoveries.ndjson` — append-only NDJSON accessible to all agents acro
 6. **Discovery Board Append-Only**: Never clear or modify discoveries.ndjson
 7. **Explore Before Execute**: Phase 2 completes before Phase 4 starts
 8. **DO NOT STOP**: Continuous execution until all waves complete or remaining skipped
+
+---
+
+## Best Practices
+
+1. **Exploration Angles**: 1 for simple, 3-4 for complex; avoid redundant angles
+2. **Context Linking**: Link every task to at least one explore row (E*) — exploration was done for a reason
+3. **Task Granularity**: 3-10 tasks optimal; too many = overhead, too few = no parallelism
+4. **Minimize Cross-Wave Deps**: More tasks in wave 1 = more parallelism
+5. **Specific Descriptions**: Agent sees only its CSV row + prev_context — make description self-contained
+6. **Non-Overlapping Scopes**: Same-wave tasks must not write to the same files
+7. **Context From ≠ Deps**: `deps` = execution order constraint; `context_from` = information flow
+
+---
+
+## Usage Recommendations
+
+| Scenario | Recommended Approach |
+|----------|---------------------|
+| Complex feature (unclear architecture) | `workflow:wave-plan` — explore first, then plan |
+| Simple known-pattern task | `$csv-wave-pipeline` — skip exploration, direct execution |
+| Independent parallel tasks | `$csv-wave-pipeline -c 8` — single wave, max parallelism |
+| Diamond dependency (A→B,C→D) | `workflow:wave-plan` — 3 waves with context propagation |
+| Unknown codebase | `workflow:wave-plan` — exploration phase is essential |
