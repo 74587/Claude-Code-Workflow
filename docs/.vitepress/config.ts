@@ -254,14 +254,24 @@ export default defineConfig({
     },
     languages: [
       'bash',
+      'shell',
       'powershell',
       'json',
       'yaml',
       'toml',
       'javascript',
       'typescript',
+      'jsx',
+      'tsx',
       'vue',
-      'markdown'
+      'html',
+      'css',
+      'markdown',
+      'python',
+      'ruby',
+      'diff',
+      'xml',
+      'mermaid'
     ],
     config: (md) => {
       // Add markdown-it plugins if needed

@@ -2,6 +2,8 @@
 
 This page provides practical examples of CCW workflow artifacts with sensitive information redacted.
 
+<div v-pre>
+
 ## Example 1: Lite Plan Output
 
 ### plan.json
@@ -261,13 +263,13 @@ This is an output from `issue:execute` command.
 ### review-report.md
 This is an output from `review-code` skill.
 
-```markdown
+```text
 ## Code Review Report
 
 ### Summary
-- **Review Type**: 6-Dimensional code review
-- **Scope**: All files changed in PR #42
-- **Timestamp**: 2026-02-28
+- Review Type: 6-Dimensional code review
+- Scope: All files changed in PR #42
+- Timestamp: 2026-02-28
 
 ### 1. Correctness
 | Aspect | Score | Issues |
@@ -291,9 +293,9 @@ This is an output from `review-code` skill.
 ### Overall Score: 8.4/10
 
 ### Recommendations
-1. **Performance**: Review bundle size
-2. **Performance**: Optimize database queries
-3. **Maintainability**: Add JSDoc comments
+1. Performance: Review bundle size
+2. Performance: Optimize database queries
+3. Maintainability: Add JSDoc comments
 ```
 
 ---
@@ -303,23 +305,23 @@ This is an output from `review-code` skill.
 ### spec-section.md
 This is an output from `spec-generator` skill.
 
-```markdown
+```text
 ## API: User Authentication
 
 ### Endpoint: POST /api/auth/login
-- **Description**: Authenticate user with email and password
-- **Request**: { "email": "string", "password": "string" }
-- **Response**: { "success": true, "token": "jwt_token", "user": {...} }
+- Description: Authenticate user with email and password
+- Request: { "email": "string", "password": "string" }
+- Response: { "success": true, "token": "jwt_token", "user": {...} }
 
 ### Endpoint: POST /api/auth/oauth2/callback
-- **Description**: Handle OAuth2 provider callback
-- **Request**: { "code": "string", "provider": "string", "state": "string" }
-- **Response**: { "success": true, "token": "jwt_token", "user": {...} }
+- Description: Handle OAuth2 provider callback
+- Request: { "code": "string", "provider": "string", "state": "string" }
+- Response: { "success": true, "token": "jwt_token", "user": {...} }
 
 ### Endpoint: POST /api/auth/logout
-- **Description**: Logout user and invalidate token
-- **Headers**: Authorization: Bearer token
-- **Response**: { "success": true, "message": "Logged out" }
+- Description: Logout user and invalidate token
+- Headers: Authorization: Bearer token
+- Response: { "success": true, "message": "Logged out" }
 
 ### Error Codes
 | Code | Description |
@@ -374,6 +376,8 @@ examples:
   - input: "Generate docs for /api/auth endpoints"
     output: "Created auth-api.md with 5 endpoints"
 ```
+
+</div>
 
 ---
 
