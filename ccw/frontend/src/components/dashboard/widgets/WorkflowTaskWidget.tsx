@@ -119,6 +119,10 @@ const sessionStatusColors: Record<string, { bg: string; text: string }> = {
   in_progress: { bg: 'bg-warning/20', text: 'text-warning' },
   completed: { bg: 'bg-success/20', text: 'text-success' },
   paused: { bg: 'bg-slate-400/20', text: 'text-slate-500' },
+  ready: { bg: 'bg-success/20', text: 'text-success' },
+  initialized: { bg: 'bg-info/20', text: 'text-info' },
+  archived: { bg: 'bg-slate-300/20', text: 'text-slate-400' },
+  failed: { bg: 'bg-destructive/20', text: 'text-destructive' },
 };
 
 // ---- Mini Stat Card with Sparkline ----

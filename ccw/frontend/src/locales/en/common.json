@@ -82,7 +82,8 @@
     "label": "Status",
     "openIssues": "Open Issues",
     "enabled": "Enabled",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "ready": "Ready"
   },
   "priority": {
     "low": "Low",
