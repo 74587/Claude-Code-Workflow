@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6"/>
+      <stop offset="100%" style="stop-color:#8B5CF6"/>
+    </linearGradient>
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#60A5FA"/>
+      <stop offset="100%" style="stop-color:#A78BFA"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background Circle -->
+  <circle cx="100" cy="100" r="95" fill="url(#bgGrad)" opacity="0.9"/>
+  
+  <!-- C Letter -->
+  <path d="M130 50 C80 50 50 80 50 100 C50 120 80 150 130 150" 
+        fill="none" stroke="white" stroke-width="12" stroke-linecap="round"/>
+  
+  <!-- Connection Lines (representing workflow) -->
+  <line x1="100" y1="75" x2="140" y2="75" stroke="url(#iconGrad)" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+  <line x1="100" y1="100" x2="150" y2="100" stroke="url(#iconGrad)" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+  <line x1="100" y1="125" x2="140" y2="125" stroke="url(#iconGrad)" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+  
+  <!-- Agent Dots -->
+  <circle cx="155" cy="75" r="6" fill="#10B981"/>
+  <circle cx="165" cy="100" r="6" fill="#F59E0B"/>
+  <circle cx="155" cy="125" r="6" fill="#EF4444"/>
+  
+  <!-- Orbit Ring -->
+  <circle cx="100" cy="100" r="70" fill="none" stroke="white" stroke-width="1" opacity="0.3"/>
+</svg>

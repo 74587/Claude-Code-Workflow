@@ -138,3 +138,8 @@ ccw/.tmp-ccw-auth-home/
 
 # Skills library (local only)
 .claude/skills_lib/
+
+# Docs site
+docs/node_modules/
+docs/.vitepress/dist/
+docs/.vitepress/cache/

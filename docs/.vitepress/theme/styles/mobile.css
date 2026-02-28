@@ -1,0 +1,346 @@
+/**
+ * Mobile-Responsive Styles
+ * Breakpoints: 320px-768px (mobile), 768px-1024px (tablet), 1024px+ (desktop)
+ * WCAG 2.1 AA compliant
+ */
+
+/* ============================================
+ * Mobile First Approach
+ * ============================================ */
+
+/* Base Mobile Styles (320px+) */
+@media (max-width: 768px) {
+  /* Typography */
+  :root {
+    --vp-font-size-base: 14px;
+    --vp-content-width: 100%;
+  }
+
+  /* Container */
+  .container {
+    padding: 0 16px;
+  }
+
+  /* Navigation */
+  .VPNav {
+    height: 56px;
+  }
+
+  .VPNavBar {
+    padding: 0 16px;
+  }
+
+  /* Sidebar */
+  .VPSidebar {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  /* Content */
+  .VPContent {
+    padding: 16px;
+  }
+
+  /* Doc content adjustments */
+  .VPDoc .content-container {
+    padding: 0 16px;
+  }
+
+  /* Hide outline on mobile */
+  .VPDocOutline {
+    display: none;
+  }
+
+  /* Hero Section */
+  .VPHomeHero {
+    padding: 40px 16px;
+  }
+
+  .VPHomeHero h1 {
+    font-size: 28px;
+    line-height: 1.2;
+  }
+
+  .VPHomeHero p {
+    font-size: 14px;
+  }
+
+  /* Code Blocks */
+  div[class*='language-'] {
+    margin: 12px -16px;
+    border-radius: 0;
+  }
+
+  div[class*='language-'] pre {
+    padding: 12px 16px;
+    font-size: 12px;
+  }
+
+  /* Tables - make them scrollable */
+  .vp-doc table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    font-size: 12px;
+  }
+
+  table th,
+  table td {
+    padding: 8px 12px;
+  }
+
+  /* Buttons */
+  .VPButton {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+
+  /* Cards */
+  .VPFeature {
+    padding: 16px;
+  }
+
+  /* Touch-friendly tap targets (min 44x44px per WCAG) */
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Search */
+  .DocSearch {
+    width: 100%;
+  }
+
+  /* Theme Switcher */
+  .theme-switcher {
+    padding: 12px;
+  }
+
+  /* Breadcrumbs */
+  .breadcrumb {
+    padding: 8px 0;
+    font-size: 12px;
+  }
+
+  /* Table of Contents - hidden on mobile */
+  .page-toc {
+    display: none;
+  }
+
+  /* Typography adjustments for mobile */
+  .vp-doc h1 {
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .vp-doc h2 {
+    font-size: 1.375rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+  }
+
+  .vp-doc h3 {
+    font-size: 1.125rem;
+    margin-top: 1.5rem;
+  }
+
+  .vp-doc p {
+    line-height: 1.7;
+    margin: 1rem 0;
+  }
+
+  .vp-doc ul,
+  .vp-doc ol {
+    margin: 1rem 0;
+    padding-left: 1.25rem;
+  }
+
+  .vp-doc li {
+    margin: 0.375rem 0;
+  }
+}
+
+/* ============================================
+ * Tablet Styles (768px - 1024px)
+ * ============================================ */
+@media (min-width: 768px) and (max-width: 1024px) {
+  :root {
+    --vp-content-width: 760px;
+    --vp-sidebar-width: 240px;
+  }
+
+  .VPContent {
+    padding: 24px;
+  }
+
+  .VPDoc .content-container {
+    padding: 0 24px;
+    max-width: var(--vp-content-width);
+  }
+
+  .VPHomeHero {
+    padding: 60px 24px;
+  }
+
+  .VPHomeHero h1 {
+    font-size: 36px;
+  }
+
+  div[class*='language-'] {
+    margin: 12px 0;
+  }
+
+  /* Outline visible but narrower */
+  .VPDocOutline {
+    width: 200px;
+    padding-left: 16px;
+  }
+
+  .VPDocOutline .outline-link {
+    font-size: 12px;
+  }
+}
+
+/* ============================================
+ * Desktop Styles (1024px+)
+ * ============================================ */
+@media (min-width: 1024px) {
+  :root {
+    --vp-layout-max-width: 1600px;
+    --vp-content-width: 960px;
+    --vp-sidebar-width: 272px;
+  }
+
+  .VPContent {
+    padding: 32px 48px;
+    max-width: var(--vp-layout-max-width);
+  }
+
+  .VPDoc .content-container {
+    max-width: var(--vp-content-width);
+    padding: 0 40px;
+  }
+
+  /* Outline - sticky on desktop with good width */
+  .VPDocOutline {
+    position: sticky;
+    top: calc(var(--vp-nav-height) + 24px);
+    width: 256px;
+    padding-left: 24px;
+    max-height: calc(100vh - var(--vp-nav-height) - 48px);
+    overflow-y: auto;
+  }
+
+  .VPDocOutline .outline-marker {
+    display: block;
+  }
+
+  .VPDocOutline .outline-link {
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 4px 12px;
+    transition: color 0.2s ease;
+  }
+
+  .VPDocOutline .outline-link:hover {
+    color: var(--vp-c-primary);
+  }
+
+  /* Two-column layout for content + TOC */
+  .content-with-toc {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 32px;
+  }
+}
+
+/* ============================================
+ * Large Desktop (1440px+)
+ * ============================================ */
+@media (min-width: 1440px) {
+  :root {
+    --vp-content-width: 1040px;
+    --vp-sidebar-width: 280px;
+  }
+
+  .VPDoc .content-container {
+    padding: 0 48px;
+  }
+
+  .VPDocOutline {
+    width: 280px;
+  }
+}
+
+/* ============================================
+ * Landscape Orientation
+ * ============================================ */
+@media (max-height: 500px) and (orientation: landscape) {
+  .VPNav {
+    height: 48px;
+  }
+
+  .VPHomeHero {
+    padding: 20px 16px;
+  }
+}
+
+/* ============================================
+ * High DPI Displays
+ * ============================================ */
+@media (-webkit-min-device-pixel-ratio: 2),
+       (min-resolution: 192dpi) {
+  /* Optimize images for retina displays */
+  img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* ============================================
+ * Reduced Motion (Accessibility)
+ * ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+ * Dark Mode Specific
+ * ============================================ */
+@media (max-width: 768px) {
+  .dark {
+    --vp-c-bg: #0f172a;
+    --vp-c-text-1: #f1f5f9;
+  }
+}
+
+/* ============================================
+ * Print Styles for Mobile
+ * ============================================ */
+@media print and (max-width: 768px) {
+  .VPContent {
+    font-size: 10pt;
+  }
+
+  h1 {
+    font-size: 14pt;
+  }
+
+  h2 {
+    font-size: 12pt;
+  }
+}

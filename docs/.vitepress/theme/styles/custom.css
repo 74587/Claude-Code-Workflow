@@ -1,0 +1,352 @@
+/**
+ * VitePress Custom Styles
+ * Overrides and extensions for default VitePress theme
+ * Design System: ui-ux-pro-max — dark-mode-first, developer-focused
+ */
+
+/* ============================================
+ * Global Theme Variables
+ * ============================================ */
+:root {
+  --vp-c-brand: var(--vp-c-primary);
+  --vp-c-brand-light: var(--vp-c-primary-300);
+  --vp-c-brand-lighter: var(--vp-c-primary-200);
+  --vp-c-brand-dark: var(--vp-c-primary-700);
+  --vp-c-brand-darker: var(--vp-c-primary-800);
+
+  --vp-home-hero-name-color: var(--vp-c-primary);
+  --vp-home-hero-name-background: linear-gradient(120deg, var(--vp-c-primary-500) 30%, var(--vp-c-secondary-500));
+
+  --vp-button-brand-bg: var(--vp-c-primary);
+  --vp-button-brand-hover-bg: var(--vp-c-primary-600);
+  --vp-button-brand-active-bg: var(--vp-c-primary-700);
+
+  --vp-custom-block-tip-bg: var(--vp-c-primary-50);
+  --vp-custom-block-tip-border: var(--vp-c-primary-200);
+  --vp-custom-block-tip-text: var(--vp-c-primary-700);
+
+  --vp-custom-block-warning-bg: var(--vp-c-accent-50);
+  --vp-custom-block-warning-border: var(--vp-c-accent-200);
+  --vp-custom-block-warning-text: var(--vp-c-accent-700);
+
+  --vp-custom-block-danger-bg: #fef2f2;
+  --vp-custom-block-danger-border: #fecaca;
+  --vp-custom-block-danger-text: #b91c1c;
+
+  /* Layout Width Adjustments */
+  --vp-layout-max-width: 1600px;
+  --vp-content-width: 1000px;
+  --vp-sidebar-width: 272px;
+}
+
+.dark {
+  --vp-custom-block-tip-bg: rgba(59, 130, 246, 0.1);
+  --vp-custom-block-tip-border: rgba(59, 130, 246, 0.3);
+  --vp-custom-block-tip-text: var(--vp-c-primary-300);
+
+  --vp-custom-block-warning-bg: rgba(217, 119, 6, 0.1);
+  --vp-custom-block-warning-border: rgba(217, 119, 6, 0.3);
+  --vp-custom-block-warning-text: var(--vp-c-accent-300);
+
+  --vp-custom-block-danger-bg: rgba(185, 28, 28, 0.1);
+  --vp-custom-block-danger-border: rgba(185, 28, 28, 0.3);
+  --vp-custom-block-danger-text: #fca5a5;
+}
+
+/* ============================================
+ * Layout Container Adjustments
+ * ============================================ */
+.VPDoc .content-container {
+  max-width: var(--vp-content-width);
+  padding: 0 32px;
+}
+
+/* Adjust sidebar and content layout */
+.VPDoc {
+  padding-left: var(--vp-sidebar-width);
+}
+
+/* Right side outline (TOC) adjustments */
+.VPDocOutline {
+  padding-left: 24px;
+}
+
+.VPDocOutline .outline-link {
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 4px 8px;
+}
+
+/* ============================================
+ * Home Page Override
+ * ============================================ */
+.VPHome {
+  padding-bottom: 0;
+}
+
+.VPHomeHero {
+  padding: 80px 24px;
+  background: linear-gradient(180deg, var(--vp-c-bg-soft) 0%, var(--vp-c-bg) 100%);
+}
+
+/* ============================================
+ * Documentation Content Typography
+ * ============================================ */
+.vp-doc h1 {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.5rem;
+}
+
+.vp-doc h2 {
+  font-weight: 700;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  letter-spacing: -0.01em;
+  border-top: 1px solid var(--vp-c-divider);
+}
+
+.vp-doc h2:first-of-type {
+  margin-top: 1.5rem;
+  border-top: none;
+}
+
+.vp-doc h3 {
+  font-weight: 600;
+  margin-top: 2.5rem;
+}
+
+.vp-doc h4 {
+  font-weight: 600;
+  margin-top: 2rem;
+}
+
+.vp-doc p {
+  line-height: 1.8;
+  margin: 1.25rem 0;
+}
+
+.vp-doc ul,
+.vp-doc ol {
+  margin: 1.25rem 0;
+  padding-left: 1.5rem;
+}
+
+.vp-doc li {
+  line-height: 1.8;
+  margin: 0.5rem 0;
+}
+
+.vp-doc li + li {
+  margin-top: 0.5rem;
+}
+
+/* Better spacing for code blocks in lists */
+.vp-doc li > code {
+  margin: 0 2px;
+}
+
+/* ============================================
+ * Command Reference Specific Styles
+ * ============================================ */
+.vp-doc h3[id^="ccw"],
+.vp-doc h3[id^="workflow"],
+.vp-doc h3[id^="issue"],
+.vp-doc h3[id^="cli"],
+.vp-doc h3[id^="memory"] {
+  scroll-margin-top: 80px;
+  position: relative;
+}
+
+/* Add subtle separator between command sections */
+.vp-doc hr {
+  border: none;
+  border-top: 1px solid var(--vp-c-divider);
+  margin: 3rem 0;
+}
+
+/* ============================================
+ * Custom Container Blocks
+ * ============================================ */
+.custom-container {
+  margin: 20px 0;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border-left: 4px solid;
+}
+
+.custom-container.info {
+  background: var(--vp-c-bg-soft);
+  border-color: var(--vp-c-primary);
+}
+
+.custom-container.success {
+  background: var(--vp-c-secondary-50);
+  border-color: var(--vp-c-secondary);
+}
+
+.dark .custom-container.success {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.custom-container.tip {
+  border-radius: 12px;
+}
+
+.custom-container.warning {
+  border-radius: 12px;
+}
+
+.custom-container.danger {
+  border-radius: 12px;
+}
+
+/* ============================================
+ * Code Block Improvements
+ * ============================================ */
+.vp-code-group {
+  margin: 20px 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.vp-code-group .tabs {
+  background: var(--vp-c-bg-soft);
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.vp-code-group div[class*='language-'] {
+  margin: 0;
+  border-radius: 0;
+}
+
+div[class*='language-'] {
+  border-radius: 12px;
+  margin: 20px 0;
+}
+
+div[class*='language-'] pre {
+  line-height: 1.65;
+}
+
+/* Inline code */
+.vp-doc :not(pre) > code {
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 0.875em;
+  font-weight: 500;
+}
+
+/* ============================================
+ * Table Styling
+ * ============================================ */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 20px 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+table th,
+table td {
+  padding: 12px 16px;
+  border: 1px solid var(--vp-c-divider);
+  text-align: left;
+}
+
+table th {
+  background: var(--vp-c-bg-soft);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--vp-c-text-2);
+}
+
+table tr:hover {
+  background: var(--vp-c-bg-soft);
+}
+
+/* ============================================
+ * Sidebar Polish
+ * ============================================ */
+.VPSidebar .group + .group {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--vp-c-divider);
+}
+
+/* ============================================
+ * Scrollbar Styling
+ * ============================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vp-c-surface-2);
+  border-radius: var(--vp-radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vp-c-surface-3);
+}
+
+/* ============================================
+ * Link Improvements
+ * ============================================ */
+a {
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ============================================
+ * Focus States — Accessibility
+ * ============================================ */
+:focus-visible {
+  outline: 2px solid var(--vp-c-primary);
+  outline-offset: 2px;
+}
+
+/* ============================================
+ * Skip Link — Accessibility
+ * ============================================ */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: var(--vp-c-bg);
+  padding: 8px 16px;
+  z-index: 9999;
+  transition: top 0.3s;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ============================================
+ * Print Styles
+ * ============================================ */
+@media print {
+  .VPNav,
+  .VPSidebar,
+  .skip-link {
+    display: none;
+  }
+
+  .VPContent {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}

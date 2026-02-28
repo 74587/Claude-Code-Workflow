@@ -1,0 +1,26 @@
+{
+  "name": "ccw-docs",
+  "version": "1.0.0",
+  "description": "CCW Documentation Site",
+  "type": "module",
+  "scripts": {
+    "docs:prepare": "node scripts/build-search-index.mjs",
+    "docs:dev": "npm run docs:prepare && vitepress dev",
+    "docs:build": "npm run docs:prepare && vitepress build",
+    "docs:preview": "vitepress preview",
+    "docs:serve": "vitepress serve"
+  },
+  "devDependencies": {
+    "vitepress": "^1.0.0",
+    "vue": "^3.4.0",
+    "@vue/devtools-api": "^7.0.0",
+    "flexsearch": "^0.7.43",
+    "shiki": "^1.0.0"
+  },
+  "dependencies": {
+    "vue-i18n": "^10.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
