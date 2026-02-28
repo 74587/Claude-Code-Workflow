@@ -1,16 +1,16 @@
-# What is Claude_dms3
+# What is Claude Code Workflow
 
 ## One-Line Positioning
 
-**Claude_dms3 is an AI-powered development workbench for VS Code** — Through semantic code indexing, multi-model CLI invocation, and team collaboration systems, it enables AI to deeply understand your project and generate high-quality code according to specifications.
+**Claude Code Workflow is an AI-powered development workbench for VS Code** — Through semantic code indexing, multi-model CLI invocation, and team collaboration systems, it enables AI to deeply understand your project and generate high-quality code according to specifications.
 
-> AI capabilities bloom like vines — Claude_dms3 is the trellis that guides AI along your project's architecture, coding standards, and team workflows.
+> AI capabilities bloom like vines — Claude Code Workflow is the trellis that guides AI along your project's architecture, coding standards, and team workflows.
 
 ---
 
 ## 1.1 Pain Points Solved
 
-| Pain Point | Current State | Claude_dms3 Solution |
+| Pain Point | Current State | Claude Code Workflow Solution |
 |------------|---------------|---------------------|
 | **AI doesn't understand the project** | Every new session requires re-explaining project background, tech stack, and coding standards | Memory system persists project context, AI remembers project knowledge across sessions |
 | **Difficult code search** | Keyword search can't find semantically related code, don't know where functions are called | CodexLens semantic indexing, supports natural language search and call chain tracing |
@@ -22,7 +22,7 @@
 
 ## 1.2 vs Traditional Methods
 
-| Dimension | Traditional AI Assistant | **Claude_dms3** |
+| Dimension | Traditional AI Assistant | **Claude Code Workflow** |
 |-----------|-------------------------|-----------------|
 | **Code Search** | Text keyword search | **Semantic vector search + LSP call chain** |
 | **AI Invocation** | Single model fixed call | **Multi-model collaboration, optimal model per task** |
@@ -52,7 +52,7 @@
 
 ```mermaid
 graph TB
-    subgraph Claude_dms3_Architecture[Claude_dms3 Architecture]
+    subgraph Claude Code Workflow_Architecture[Claude Code Workflow Architecture]
         A[CodexLens<br/>Semantic Index]
         B[CCW<br/>CLI Call Framework]
         C[Memory<br/>Persistent Context]

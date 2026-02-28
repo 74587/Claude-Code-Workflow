@@ -2,7 +2,7 @@
 
 ## One-Liner
 
-**Workflow commands are the execution engine of Claude_dms3** — providing complete workflow support from lightweight tasks to complex projects.
+**Workflow commands are the execution engine of Claude Code Workflow** — providing complete workflow support from lightweight tasks to complex projects.
 
 ## Command List
 

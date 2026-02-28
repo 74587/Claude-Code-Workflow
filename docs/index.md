@@ -1,6 +1,6 @@
 ---
 layout: page
-title: CCW Documentation
+title: Claude Code Workflow Documentation
 titleTemplate: Claude Code Workspace
 ---
 

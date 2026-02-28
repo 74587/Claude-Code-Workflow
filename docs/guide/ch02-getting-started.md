@@ -2,7 +2,7 @@
 
 ## One-Line Positioning
 
-**Getting Started is a 5-minute quick-start guide** — Installation, first command, first workflow, quickly experience Claude_dms3's core features.
+**Getting Started is a 5-minute quick-start guide** — Installation, first command, first workflow, quickly experience Claude Code Workflow's core features.
 
 ---
 

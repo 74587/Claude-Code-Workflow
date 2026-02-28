@@ -2,7 +2,7 @@
 
 ## One-Liner
 
-**Core orchestration commands are the workflow brain of Claude_dms3** — analyzing task intent, selecting appropriate workflows, and automatically executing command chains.
+**Core orchestration commands are the workflow brain of Claude Code Workflow** — analyzing task intent, selecting appropriate workflows, and automatically executing command chains.
 
 ## Command List
 

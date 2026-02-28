@@ -7,7 +7,6 @@ import { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useIntl } from 'react-intl';
 import {
-  Workflow,
   Moon,
   Sun,
   RefreshCw,
@@ -19,6 +18,7 @@ import {
   Monitor,
   SquareTerminal,
 } from 'lucide-react';
+import { CCWLogo } from '@/components/icons/CCWLogo';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -72,11 +72,11 @@ export function Header({
         {/* Logo / Brand */}
         <Link
           to="/"
-          className="flex items-center gap-2 text-lg font-semibold text-primary hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2 text-lg font-semibold hover:opacity-80 transition-opacity"
         >
-          <Workflow className="w-6 h-6" />
-          <span className="hidden sm:inline">{formatMessage({ id: 'navigation.header.brand' })}</span>
-          <span className="sm:hidden">{formatMessage({ id: 'navigation.header.brandShort' })}</span>
+          <CCWLogo size={24} className="text-primary" />
+          <span className="hidden sm:inline text-primary">{formatMessage({ id: 'navigation.header.brand' })}</span>
+          <span className="sm:hidden text-primary">{formatMessage({ id: 'navigation.header.brandShort' })}</span>
         </Link>
 
         {/* A2UI Quick Action Button */}

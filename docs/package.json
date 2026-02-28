@@ -1,7 +1,7 @@
 {
   "name": "ccw-docs",
   "version": "1.0.0",
-  "description": "CCW Documentation Site",
+  "description": "Claude Code Workflow Documentation Site",
   "type": "module",
   "scripts": {
     "docs:prepare": "node scripts/build-search-index.mjs",
@@ -11,11 +11,12 @@
     "docs:serve": "vitepress serve"
   },
   "devDependencies": {
-    "vitepress": "^1.0.0",
-    "vue": "^3.4.0",
     "@vue/devtools-api": "^7.0.0",
     "flexsearch": "^0.7.43",
-    "shiki": "^1.0.0"
+    "shiki": "^1.0.0",
+    "vitepress": "^1.0.0",
+    "vitepress-plugin-mermaid": "^2.0.17",
+    "vue": "^3.4.0"
   },
   "dependencies": {
     "vue-i18n": "^10.0.0"

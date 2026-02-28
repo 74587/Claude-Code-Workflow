@@ -6,7 +6,7 @@
 
 ## vs 传统方法对比
 
-| 维度 | 传统方式 | **Claude_dms3** |
+| 维度 | 传统方式 | **Claude Code Workflow** |
 | --- | --- | --- |
 | 任务编排 | 手动管理 | 自动流水线编排 |
 | AI 模型 | 单一模型 | 多模型并行协作 |
@@ -43,7 +43,7 @@
 
 ### 团队架构模型
 
-Claude_dms3 支持两种团队架构模型：
+Claude Code Workflow 支持两种团队架构模型：
 
 1. **team-coordinate** (通用协调器)
    - 只有 coordinator 是内置的

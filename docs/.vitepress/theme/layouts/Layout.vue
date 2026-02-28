@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import DefaultTheme from 'vitepress/theme'
 import { onBeforeUnmount, onMounted } from 'vue'
+import { useDynamicIcon } from '../composables/useDynamicIcon'
 
 let mediaQuery: MediaQueryList | null = null
 let systemThemeChangeHandler: (() => void) | null = null
@@ -17,6 +18,9 @@ function applyColorMode() {
   const isDark = mode === 'dark' || (mode === 'auto' && prefersDark)
   document.documentElement.classList.toggle('dark', isDark)
 }
+
+// Initialize dynamic favicon system
+useDynamicIcon()
 
 onMounted(() => {
   applyTheme()

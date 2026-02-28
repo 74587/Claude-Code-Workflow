@@ -2,7 +2,7 @@
 
 ## One-Liner
 
-**Commands is the command system of Claude_dms3** — comprising Claude Code Commands and Codex Prompts, providing a complete command-line toolchain from specification to implementation to testing to review.
+**Commands is the command system of Claude Code Workflow** — comprising Claude Code Commands and Codex Prompts, providing a complete command-line toolchain from specification to implementation to testing to review.
 
 ## Command Categories
 

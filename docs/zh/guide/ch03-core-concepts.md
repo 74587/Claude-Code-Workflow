@@ -2,17 +2,17 @@
 
 ## 一句话定位
 
-**核心概念是理解 Claude_dms3 的基础** — Commands、Skills、Prompts 三层抽象，Workflow 会话管理，团队协作模式。
+**核心概念是理解 Claude Code Workflow 的基础** — Commands、Skills、Prompts 三层抽象，Workflow 会话管理，团队协作模式。
 
 ---
 
 ## 3.1 三层抽象
 
-Claude_dms3 的命令系统分为三层抽象：
+Claude Code Workflow 的命令系统分为三层抽象：
 
 ### 3.1.1 Commands - 内置命令
 
-**Commands 是 Claude_dms3 的原子操作** — 预定义的可复用命令，完成特定任务。
+**Commands 是 Claude Code Workflow 的原子操作** — 预定义的可复用命令，完成特定任务。
 
 | 类别 | 命令数量 | 说明 |
 | --- | --- | --- |
@@ -137,7 +137,7 @@ graph LR
 
 ### 3.4.1 角色系统
 
-Claude_dms3 支持 8 种团队工作流，每种工作流定义了不同的角色：
+Claude Code Workflow 支持 8 种团队工作流，每种工作流定义了不同的角色：
 
 | 工作流 | 角色 | 说明 |
 | --- | --- | --- |

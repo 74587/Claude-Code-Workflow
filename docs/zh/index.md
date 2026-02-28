@@ -1,6 +1,6 @@
 ---
 layout: page
-title: CCW 文档
+title: Claude Code Workflow 文档
 titleTemplate: Claude Code Workspace
 ---
 

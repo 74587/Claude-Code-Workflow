@@ -312,7 +312,7 @@ graph LR
 
 ## Summary
 
-Claude_dms3 best practices can be summarized as:
+Claude Code Workflow best practices can be summarized as:
 
 1. **Standards First** - Establish clear team standards
 2. **Process Assurance** - Use appropriate workflows
@@ -324,7 +324,7 @@ Claude_dms3 best practices can be summarized as:
 
 ## Related Links
 
-- [What is Claude_dms3](ch01-what-is-claude-dms3.md)
+- [What is Claude Code Workflow](ch01-what-is-claude-dms3.md)
 - [Getting Started](ch02-getting-started.md)
 - [Core Concepts](ch03-core-concepts.md)
 - [Workflow Basics](ch04-workflow-basics.md)

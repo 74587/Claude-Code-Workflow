@@ -2,7 +2,7 @@
 
 ## 一句话定位
 
-**Commands 是 Claude_dms3 的命令系统** — 包含 Claude Code Commands 和 Codex Prompts 两大类别，提供从规范到实现到测试到审查的完整命令行工具链。
+**Commands 是 Claude Code Workflow 的命令系统** — 包含 Claude Code Commands 和 Codex Prompts 两大类别，提供从规范到实现到测试到审查的完整命令行工具链。
 
 ## 命令分类
 

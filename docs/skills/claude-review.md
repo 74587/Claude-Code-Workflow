@@ -6,7 +6,7 @@
 
 ## Pain Points Solved
 
-| Pain Point | Current State | Claude_dms3 Solution |
+| Pain Point | Current State | Claude Code Workflow Solution |
 |------------|---------------|----------------------|
 | **Incomplete review dimensions** | Manual review easily misses dimensions | 6-dimension automatic review |
 | **Chaotic issue classification** | Hard to distinguish severity | Structured issue classification |

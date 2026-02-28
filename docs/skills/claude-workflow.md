@@ -6,7 +6,7 @@
 
 ## Pain Points Solved
 
-| Pain Point | Current State | Claude_dms3 Solution |
+| Pain Point | Current State | Claude Code Workflow Solution |
 |------------|---------------|----------------------|
 | **Manual task breakdown** | Manual decomposition, easy to miss | Automated task generation and dependency management |
 | **Scattered execution state** | Tools independent, state not unified | Unified session management, TodoWrite tracking |

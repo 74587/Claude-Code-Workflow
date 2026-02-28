@@ -56,14 +56,16 @@
 /* ============================================
  * Layout Container Adjustments
  * ============================================ */
-.VPDoc .content-container {
-  max-width: var(--vp-content-width);
+.VPDoc .content-container,
+.VPDoc.has-aside .content-container {
+  max-width: 90% !important;
   padding: 0 32px;
 }
 
 /* Adjust sidebar and content layout */
-.VPDoc {
-  padding-left: var(--vp-sidebar-width);
+.VPDoc,
+.VPDoc[data-v-343c73d6] {
+  padding-left: var(--vp-sidebar-width) !important;
 }
 
 /* Right side outline (TOC) adjustments */
@@ -82,6 +84,28 @@
  * ============================================ */
 .VPHome {
   padding-bottom: 0;
+}
+
+/* Remove horizontal padding for home page only (has .VPHome class) */
+.VPHome .VPDoc {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.VPHome .VPDoc .content-container {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  max-width: 100% !important;
+}
+
+.VPHome .VPDoc .content {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.VPHome .VPContent {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 .VPHomeHero {

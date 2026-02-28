@@ -6,7 +6,7 @@
 
 ## Pain Points Solved
 
-| Pain Point | Current State | Claude_dms3 Solution |
+| Pain Point | Current State | Claude Code Workflow Solution |
 |------------|---------------|----------------------|
 | **Single model limitation** | Can only call one AI model | Multi-role parallel collaboration, leveraging各自专长 |
 | **Chaotic task orchestration** | Manual task dependency and state management | Automatic task discovery, dependency resolution, pipeline orchestration |

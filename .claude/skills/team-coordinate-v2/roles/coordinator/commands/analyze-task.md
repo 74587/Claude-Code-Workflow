@@ -90,15 +90,25 @@ Apply merging rules to reduce role count (cap at 5).
 
 ### Step 6: Role-Spec Metadata Assignment
 
-For each role, determine frontmatter fields:
+For each role, determine frontmatter and generation hints:
 
 | Field | Derivation |
 |-------|------------|
 | `prefix` | From capability prefix (e.g., RESEARCH, DRAFT, IMPL) |
 | `inner_loop` | `true` if role has 2+ serial same-prefix tasks |
-| `subagents` | Inferred from responsibility type: orchestration -> [explore], code-gen (docs) -> [explore], validation -> [] |
+| `subagents` | Suggested, not mandatory — coordinator may adjust based on task needs |
+| `pattern_hint` | Reference pattern name from role-spec-template (research/document/code/analysis/validation) — guides coordinator's Phase 2-4 composition, NOT a rigid template selector |
+| `output_type` | `artifact` (new files in session/artifacts/) / `codebase` (modify existing project files) / `mixed` (both) — determines verification strategy in Behavioral Traits |
 | `message_types.success` | `<prefix>_complete` |
 | `message_types.error` | `error` |
+
+**output_type derivation**:
+
+| Task Signal | output_type | Example |
+|-------------|-------------|---------|
+| "write report", "analyze", "research" | `artifact` | New analysis-report.md in session |
+| "update docs", "modify code", "fix bug" | `codebase` | Modify existing project files |
+| "implement feature + write summary" | `mixed` | Code changes + implementation summary |
 
 ## Phase 4: Output
 
@@ -132,6 +142,8 @@ Write `<session-folder>/task-analysis.json`:
       "inner_loop": false,
       "role_spec_metadata": {
         "subagents": ["explore"],
+        "pattern_hint": "research",
+        "output_type": "artifact",
         "message_types": {
           "success": "research_complete",
           "error": "error"

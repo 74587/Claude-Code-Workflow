@@ -6,7 +6,7 @@
 
 ## vs Traditional Methods Comparison
 
-| Dimension | Traditional Methods | **Claude_dms3** |
+| Dimension | Traditional Methods | **Claude Code Workflow** |
 |-----------|---------------------|-----------------|
 | Task orchestration | Manual management | Automatic pipeline orchestration |
 | AI models | Single model | Multi-model parallel collaboration |
@@ -43,7 +43,7 @@
 
 ### Team Architecture Models
 
-Claude_dms3 supports two team architecture models:
+Claude Code Workflow supports two team architecture models:
 
 1. **team-coordinate** (Universal Coordinator)
    - Only coordinator is built-in

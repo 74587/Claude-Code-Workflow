@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
 const repoName = process.env.GITHUB_REPOSITORY?.split('/')[1]
 const isUserOrOrgSite = Boolean(repoName && repoName.endsWith('.github.io'))
@@ -7,8 +8,8 @@ const base =
   process.env.CCW_DOCS_BASE ||
   (process.env.GITHUB_ACTIONS && repoName && !isUserOrOrgSite ? `/${repoName}/` : '/')
 
-export default defineConfig({
-  title: 'CCW Documentation',
+export default withMermaid(defineConfig({
+  title: 'Claude Code Workflow Documentation',
   description: 'Claude Code Workspace - Advanced AI-Powered Development Environment',
   lang: 'zh-CN',
   base,
@@ -83,7 +84,7 @@ export default defineConfig({
           text: '📖 指南',
           collapsible: false,
           items: [
-            { text: 'What is Claude_dms3', link: '/guide/ch01-what-is-claude-dms3' },
+            { text: 'What is Claude Code Workflow', link: '/guide/ch01-what-is-claude-dms3' },
             { text: 'Getting Started', link: '/guide/ch02-getting-started' },
             { text: 'Core Concepts', link: '/guide/ch03-core-concepts' },
             { text: 'Workflow Basics', link: '/guide/ch04-workflow-basics' },
@@ -287,7 +288,7 @@ export default defineConfig({
     zh: {
       label: '简体中文',
       lang: 'zh-CN',
-      title: 'CCW 文档',
+      title: 'Claude Code Workflow 文档',
       description: 'Claude Code Workspace - 高级 AI 驱动开发环境',
       themeConfig: {
         outline: {
@@ -312,7 +313,7 @@ export default defineConfig({
               text: '📖 指南',
               collapsible: false,
               items: [
-                { text: 'Claude_dms3 是什么', link: '/zh/guide/ch01-what-is-claude-dms3' },
+                { text: 'Claude Code Workflow 是什么', link: '/zh/guide/ch01-what-is-claude-dms3' },
                 { text: '快速开始', link: '/zh/guide/ch02-getting-started' },
                 { text: '核心概念', link: '/zh/guide/ch03-core-concepts' },
                 { text: '工作流基础', link: '/zh/guide/ch04-workflow-basics' },
@@ -425,4 +426,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

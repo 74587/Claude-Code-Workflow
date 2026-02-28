@@ -2,7 +2,7 @@
 
 ## One-Liner
 
-**Claude Commands is the core command system of Claude_dms3** — invoking various workflows, tools, and collaboration features through slash commands.
+**Claude Commands is the core command system of Claude Code Workflow** — invoking various workflows, tools, and collaboration features through slash commands.
 
 ## Core Concepts
 

@@ -6,7 +6,7 @@
 
 ## Pain Points Solved
 
-| Pain Point | Current State | Claude_dms3 Solution |
+| Pain Point | Current State | Claude Code Workflow Solution |
 |------------|---------------|----------------------|
 | **New session amnesia** | Every conversation needs to re-explain project background | Memory persists context |
 | **Knowledge loss** | Valuable insights and decisions disappear with session | Memory compression and Tips recording |

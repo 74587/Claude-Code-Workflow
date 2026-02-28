@@ -23,29 +23,18 @@
           </div>
         </div>
 
-        <div class="terminal-visual">
-          <div class="terminal-window">
-            <div class="terminal-header">
-              <div class="dots"><span></span><span></span><span></span></div>
-              <div class="title">workflow.json — ccw run</div>
-            </div>
-            <div class="terminal-body font-mono">
-              <div v-for="(line, idx) in terminalLines.slice(0, terminalStep)" :key="idx" :class="line.color" class="line">
-                {{ line.text }}
-              </div>
-              <div v-if="terminalStep < terminalLines.length" class="cursor">_</div>
-            </div>
-          </div>
+        <div class="hero-visual">
+          <HeroAnimation />
         </div>
       </div>
     </section>
 
     <!-- Features Grid -->
-    <section class="features-section">
+    <section class="features-section" ref="featuresRef">
       <div class="section-container">
-        <h2 class="section-title">{{ t.featureTitle }}</h2>
+        <h2 class="section-title reveal-text" :class="{ visible: featuresVisible }">{{ t.featureTitle }}</h2>
         <div class="features-grid">
-          <div v-for="(f, i) in t.features" :key="i" class="feature-card">
+          <div v-for="(f, i) in t.features" :key="i" class="feature-card reveal-card" :class="{ visible: featuresVisible }" :style="{ '--card-delay': i * 0.1 + 's' }">
             <div class="feature-icon-box">
               <svg v-if="i === 0" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/><circle cx="12" cy="16" r="1"/>
@@ -68,9 +57,9 @@
     </section>
 
     <!-- Pipeline Visual -->
-    <section class="pipeline-section">
+    <section class="pipeline-section" ref="pipelineRef">
       <div class="section-container">
-        <div class="section-header">
+        <div class="section-header reveal-text" :class="{ visible: pipelineVisible }">
           <h2>{{ t.pipelineTitle }}</h2>
           <p>{{ t.pipelineSubtitle }}</p>
         </div>
@@ -147,9 +136,9 @@
     </section>
 
     <!-- JSON Demo -->
-    <section class="json-section">
+    <section class="json-section" ref="jsonRef">
       <div class="section-container">
-        <div class="json-grid">
+        <div class="json-grid reveal-slide" :class="{ visible: jsonVisible }">
           <div class="json-text">
             <h2>{{ t.jsonTitle }}</h2>
             <p>{{ t.jsonSubtitle }}</p>
@@ -172,9 +161,9 @@
     </section>
 
     <!-- Quick Start Section -->
-    <section class="quickstart-section">
+    <section class="quickstart-section" ref="quickstartRef">
       <div class="section-container">
-        <div class="quickstart-layout">
+        <div class="quickstart-layout reveal-slide" :class="{ visible: quickstartVisible }">
           <div class="quickstart-info">
             <h2 class="quickstart-title">{{ t.quickStartTitle }}</h2>
             <p class="quickstart-desc">{{ t.quickStartDesc }}</p>
@@ -225,9 +214,9 @@
     </section>
 
     <!-- CTA Footer -->
-    <section class="cta-section">
+    <section class="cta-section" ref="ctaRef">
       <div class="section-container">
-        <div class="cta-card">
+        <div class="cta-card reveal-scale" :class="{ visible: ctaVisible }">
           <h2>{{ t.ctaTitle }}</h2>
           <p>{{ t.ctaDesc }}</p>
           <div class="cta-actions">
@@ -248,6 +237,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+import HeroAnimation from './HeroAnimation.vue'
 
 const props = defineProps({
   lang: { type: String, default: 'en' }
@@ -256,6 +246,21 @@ const props = defineProps({
 const localePath = computed(() => props.lang === 'zh' ? '/zh' : '')
 const activeTab = ref(0)
 
+// --- Scroll Reveal ---
+const featuresRef = ref(null)
+const pipelineRef = ref(null)
+const jsonRef = ref(null)
+const quickstartRef = ref(null)
+const ctaRef = ref(null)
+
+const featuresVisible = ref(false)
+const pipelineVisible = ref(false)
+const jsonVisible = ref(false)
+const quickstartVisible = ref(false)
+const ctaVisible = ref(false)
+
+let observer = null
+
 // --- Translations ---
 const content = {
   en: {
@@ -263,7 +268,7 @@ const content = {
     heroTitle: 'JSON-Driven Multi-Agent <br/> <span class="gradient-text">Collaborative Framework</span>',
     heroSubtitle: 'Industrial-grade orchestration blending 21 specialized agents and 32 core skills with precision cadence control.',
     getStarted: 'Get Started',
-    featureTitle: 'The CCW Ecosystem',
+    featureTitle: 'The Claude Code Workflow Ecosystem',
     features: [
       { title: "21 Specialized Agents", desc: "From CLI exploration to TDD implementation and UI design token management." },
       { title: "32 Core Skills", desc: "Standalone, Team, and Workflow skills including brainstorm, spec-gen, and code-review." },
@@ -336,7 +341,7 @@ const content = {
     heroTitle: 'JSON 驱动的多智能体 <br/> <span class="gradient-text">协同开发框架</span>',
     heroSubtitle: '融合 21 个专业代理与 32 项核心技能，通过精准节拍控制实现工业级自动化工作流处理。',
     getStarted: '快速开始',
-    featureTitle: 'CCW 全局生态概览',
+    featureTitle: 'Claude Code Workflow 全局生态概览',
     features: [
       { title: "21 个专业代理", desc: "涵盖 CLI 探索、TDD 实现、UI 设计令牌管理等全流程智能体。" },
       { title: "32 项核心技能", desc: "独立技能、团队技能与工作流技能，覆盖头脑风暴、规格生成、代码审查等场景。" },
@@ -465,11 +470,34 @@ onMounted(() => {
   pipelineInterval = setInterval(() => {
     currentTick.value = (currentTick.value + 1) % sequence.length
   }, 3000)
+
+  // Scroll reveal observer
+  const sectionMap = new Map([
+    [featuresRef.value, featuresVisible],
+    [pipelineRef.value, pipelineVisible],
+    [jsonRef.value, jsonVisible],
+    [quickstartRef.value, quickstartVisible],
+    [ctaRef.value, ctaVisible]
+  ])
+
+  observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const visRef = sectionMap.get(entry.target)
+        if (visRef) visRef.value = true
+      }
+    })
+  }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' })
+
+  sectionMap.forEach((_, el) => {
+    if (el) observer.observe(el)
+  })
 })
 
 onUnmounted(() => {
   clearInterval(terminalInterval)
   clearInterval(pipelineInterval)
+  if (observer) observer.disconnect()
 })
 </script>
 
@@ -483,7 +511,7 @@ onUnmounted(() => {
 .section-container {
   max-width: 1152px;
   margin: 0 auto;
-  padding: 0 1.5rem;
+  padding: 0;
   width: 100%;
 }
 
@@ -493,7 +521,9 @@ onUnmounted(() => {
 .hero-section {
   width: 100%;
   padding: 5rem 0 4rem;
-  background: radial-gradient(ellipse at 70% 20%, var(--vp-c-brand-soft) 0%, transparent 55%);
+  background:
+    radial-gradient(ellipse 120% 80% at 65% 30%, var(--vp-c-brand-soft) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 90% 60%, color-mix(in srgb, var(--vp-c-brand-soft) 40%, transparent) 0%, transparent 100%);
   display: flex;
   justify-content: center;
 }
@@ -502,11 +532,17 @@ onUnmounted(() => {
   max-width: 1152px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 3rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
   align-items: center;
-  padding: 0 1.5rem;
+  padding: 0;
   width: 100%;
+}
+
+.hero-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .hero-badge {
@@ -537,12 +573,6 @@ onUnmounted(() => {
   font-weight: 800;
   margin-bottom: 1.25rem;
   color: var(--vp-c-text-1);
-}
-
-.gradient-text {
-  background: linear-gradient(135deg, var(--vp-c-brand-1), var(--vp-c-brand-2));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .hero-subtitle {
@@ -1046,8 +1076,93 @@ onUnmounted(() => {
 }
 
 /* ============================================
+ * Terminal cursor blink
+ * ============================================ */
+.cursor-blink {
+  color: #10b981;
+  font-weight: bold;
+  animation: cursorBlink 1s step-end infinite;
+}
+
+.term-line {
+  animation: termLineReveal 0.3s ease-out both;
+  animation-delay: calc(var(--line-idx, 0) * 0.05s);
+}
+
+/* ============================================
+ * Scroll Reveal Animations
+ * ============================================ */
+.reveal-text {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-text.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-card {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--card-delay, 0s);
+}
+.reveal-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-slide {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-slide.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reveal-scale {
+  opacity: 0;
+  transform: scale(0.95) translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-scale.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* ============================================
+ * Gradient text shimmer
+ * ============================================ */
+.gradient-text {
+  background: linear-gradient(135deg, var(--vp-c-brand-1), #8B5CF6, var(--vp-c-brand-2));
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientShimmer 6s ease infinite;
+}
+
+/* ============================================
  * Animations
  * ============================================ */
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes termLineReveal {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes gradientShimmer {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 @keyframes pulse {
   0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
   70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
@@ -1063,7 +1178,12 @@ onUnmounted(() => {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .reveal-text, .reveal-card, .reveal-slide, .reveal-scale {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 

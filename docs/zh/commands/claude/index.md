@@ -2,7 +2,7 @@
 
 ## 一句话定位
 
-**Claude Commands 是 Claude_dms3 的核心命令系统** — 通过斜杠命令调用各种工作流、工具和协作功能。
+**Claude Commands 是 Claude Code Workflow 的核心命令系统** — 通过斜杠命令调用各种工作流、工具和协作功能。
 
 ## 核心概念速览
 

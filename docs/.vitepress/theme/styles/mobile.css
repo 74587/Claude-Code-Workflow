@@ -183,7 +183,7 @@
 
   .VPDoc .content-container {
     padding: 0 24px;
-    max-width: var(--vp-content-width);
+    max-width: 90% !important;
   }
 
   .VPHomeHero {
@@ -225,7 +225,7 @@
   }
 
   .VPDoc .content-container {
-    max-width: var(--vp-content-width);
+    max-width: 90% !important;
     padding: 0 40px;
   }
 
@@ -272,6 +272,7 @@
   }
 
   .VPDoc .content-container {
+    max-width: 90% !important;
     padding: 0 48px;
   }
 

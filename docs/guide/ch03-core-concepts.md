@@ -2,17 +2,17 @@
 
 ## One-Line Positioning
 
-**Core Concepts are the foundation for understanding Claude_dms3** — Three-layer abstraction of Commands, Skills, Prompts, Workflow session management, and team collaboration patterns.
+**Core Concepts are the foundation for understanding Claude Code Workflow** — Three-layer abstraction of Commands, Skills, Prompts, Workflow session management, and team collaboration patterns.
 
 ---
 
 ## 3.1 Three-Layer Abstraction
 
-Claude_dms3's command system is divided into three layers of abstraction:
+Claude Code Workflow's command system is divided into three layers of abstraction:
 
 ### 3.1.1 Commands - Built-in Commands
 
-**Commands are the atomic operations of Claude_dms3** — Predefined reusable commands that complete specific tasks.
+**Commands are the atomic operations of Claude Code Workflow** — Predefined reusable commands that complete specific tasks.
 
 | Category | Count | Description |
 | --- | --- | --- |
@@ -137,7 +137,7 @@ graph LR
 
 ### 3.4.1 Role System
 
-Claude_dms3 supports 8 team workflows, each defining different roles:
+Claude Code Workflow supports 8 team workflows, each defining different roles:
 
 | Workflow | Roles | Description |
 | --- | --- | --- |

@@ -1,16 +1,16 @@
-# Claude_dms3 是什么
+# Claude Code Workflow 是什么
 
 ## 一句话定位
 
-**Claude_dms3 是 VS Code 的 AI 辅助开发工作台** — 通过语义代码索引、多模型 CLI 调用和团队协作系统，让 AI 深度理解项目并按规范生成高质量代码。
+**Claude Code Workflow 是 VS Code 的 AI 辅助开发工作台** — 通过语义代码索引、多模型 CLI 调用和团队协作系统，让 AI 深度理解项目并按规范生成高质量代码。
 
-> AI 能力如藤蔓般生长 — Claude_dms3 是引导 AI 沿着您的项目架构、编码规范和团队工作流前行的支架。
+> AI 能力如藤蔓般生长 — Claude Code Workflow 是引导 AI 沿着您的项目架构、编码规范和团队工作流前行的支架。
 
 ---
 
 ## 1.1 解决的痛点
 
-| 痛点 | 现状 | Claude_dms3 方案 |
+| 痛点 | 现状 | Claude Code Workflow 方案 |
 |------|------|------------------|
 | **AI 不理解项目** | 每次新会话都要重新解释项目背景、技术栈和编码规范 | Memory 系统持久化项目上下文，AI 跨会话记住项目知识 |
 | **代码搜索困难** | 关键词搜索找不到语义相关代码，不知道函数在哪里被调用 | CodexLens 语义索引，支持自然语言搜索和调用链追踪 |
@@ -22,7 +22,7 @@
 
 ## 1.2 vs 传统方式对比
 
-| 维度 | 传统 AI 助手 | **Claude_dms3** |
+| 维度 | 传统 AI 助手 | **Claude Code Workflow** |
 |------|-------------|-----------------|
 | **代码搜索** | 文本关键词搜索 | **语义向量搜索 + LSP 调用链** |
 | **AI 调用** | 单一模型固定调用 | **多模型协作，按任务选择最优模型** |
@@ -52,7 +52,7 @@
 
 ```mermaid
 graph TB
-    subgraph Claude_dms3_Architecture[Claude_dms3 架构]
+    subgraph Claude Code Workflow_Architecture[Claude Code Workflow 架构]
         A[CodexLens<br/>语义索引]
         B[CCW<br/>CLI调用框架]
         C[Memory<br/>持久化上下文]

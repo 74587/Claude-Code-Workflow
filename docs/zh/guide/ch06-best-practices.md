@@ -312,7 +312,7 @@ graph LR
 
 ## 总结
 
-Claude_dms3 的最佳实践可以总结为：
+Claude Code Workflow 的最佳实践可以总结为：
 
 1. **规范先行** - 制定清晰的团队规范
 2. **流程保障** - 使用合适的工作流
@@ -324,7 +324,7 @@ Claude_dms3 的最佳实践可以总结为：
 
 ## 相关链接
 
-- [Claude_dms3 是什么](ch01-what-is-claude-dms3.md)
+- [Claude Code Workflow 是什么](ch01-what-is-claude-dms3.md)
 - [快速开始](ch02-getting-started.md)
 - [核心概念](ch03-core-concepts.md)
 - [工作流基础](ch04-workflow-basics.md)
