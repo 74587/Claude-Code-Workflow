@@ -1077,6 +1077,12 @@ export interface Finding {
   created_at: string;
   issue_id?: string; // Associated issue ID if exported
   exported?: boolean; // Whether this finding has been exported as an issue
+  // Additional fields from discovery backend
+  category?: string;
+  suggested_issue?: string;
+  confidence?: number;
+  reference?: string;
+  perspective?: string;
 }
 
 export async function fetchDiscoveries(projectPath?: string): Promise<DiscoverySession[]> {
@@ -1131,7 +1137,11 @@ export async function fetchDiscoveryFindings(
     ? `/api/discoveries/${encodeURIComponent(sessionId)}/findings?path=${encodeURIComponent(projectPath)}`
     : `/api/discoveries/${encodeURIComponent(sessionId)}/findings`;
   const data = await fetchApi<{ findings?: Finding[] }>(url);
-  return data.findings ?? [];
+  // Map backend 'priority' to frontend 'severity' for compatibility
+  return (data.findings ?? []).map(f => ({
+    ...f,
+    severity: f.severity || (f as any).priority || 'medium'
+  }));
 }
 
 /**
