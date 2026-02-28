@@ -228,19 +228,24 @@ Beat Cycle (Coordinator Spawn-and-Stop)
 
 When the pipeline completes (all tasks done, coordinator Phase 5):
 
-```
-AskUserQuestion({
-  questions: [{
-    question: "Team pipeline complete. What would you like to do?",
-    header: "Completion",
-    multiSelect: false,
-    options: [
-      { label: "Archive & Clean (Recommended)", description: "Archive session, clean up tasks and team resources" },
-      { label: "Keep Active", description: "Keep session active for follow-up work or inspection" },
-      { label: "Export Results", description: "Export deliverables to a specified location, then clean" }
-    ]
-  }]
-})
+```javascript
+if (autoYes) {
+  // Auto mode: Archive & Clean without prompting
+  completionAction = "Archive & Clean";
+} else {
+  AskUserQuestion({
+    questions: [{
+      question: "Team pipeline complete. What would you like to do?",
+      header: "Completion",
+      multiSelect: false,
+      options: [
+        { label: "Archive & Clean (Recommended)", description: "Archive session, clean up tasks and team resources" },
+        { label: "Keep Active", description: "Keep session active for follow-up work or inspection" },
+        { label: "Export Results", description: "Export deliverables to a specified location, then clean" }
+      ]
+    }]
+  })
+}
 ```
 
 | Choice | Action |
