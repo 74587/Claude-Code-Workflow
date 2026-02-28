@@ -1,5 +1,8 @@
 import http from 'http';
 import { URL } from 'url';
+import { readFile } from 'fs/promises';
+import { join, extname } from 'path';
+import { existsSync } from 'fs';
 // Import route handlers
 import { handleStatusRoutes } from './routes/status-routes.js';
 import { handleCliRoutes, cleanupStaleExecutions } from './routes/cli-routes.js';
@@ -53,6 +56,7 @@ import { getCorsOrigin } from './cors.js';
 import { csrfValidation } from './auth/csrf-middleware.js';
 import { getCsrfTokenManager } from './auth/csrf-manager.js';
 import { randomBytes } from 'crypto';
+import { getFrontendStaticDir } from '../utils/react-frontend.js';
 
 // Import health check service
 import { getHealthCheckService } from './services/health-check-service.js';
@@ -76,6 +80,54 @@ interface ServerOptions {
 }
 
 type PostHandler = PostRequestHandler;
+
+/**
+ * MIME type mapping for static files
+ */
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.eot': 'application/vnd.ms-fontobject',
+};
+
+/**
+ * Serve static file from frontend dist directory
+ */
+async function serveStaticFile(
+  filePath: string,
+  res: http.ServerResponse
+): Promise<boolean> {
+  try {
+    if (!existsSync(filePath)) {
+      return false;
+    }
+
+    const content = await readFile(filePath);
+    const ext = extname(filePath);
+    const mimeType = MIME_TYPES[ext] || 'application/octet-stream';
+
+    res.writeHead(200, {
+      'Content-Type': mimeType,
+      'Cache-Control': 'public, max-age=31536000',
+    });
+    res.end(content);
+    return true;
+  } catch (error) {
+    console.error(`[Static] Error serving ${filePath}:`, error);
+    return false;
+  }
+}
 
 /**
  * Handle POST request with JSON body
@@ -664,8 +716,31 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         return;
       }
 
-      // React frontend proxy - forward all non-API requests to Vite dev server
+      // React frontend proxy - forward all non-API requests to Vite dev server or serve static files
       {
+        const frontendStaticDir = getFrontendStaticDir();
+
+        // If we have a static build, serve files directly
+        if (frontendStaticDir) {
+          let filePath = join(frontendStaticDir, pathname === '/' ? 'index.html' : pathname.slice(1));
+
+          // Try to serve the file
+          const served = await serveStaticFile(filePath, res);
+
+          // If file not found, serve index.html for SPA routing
+          if (!served && !pathname.startsWith('/api/')) {
+            filePath = join(frontendStaticDir, 'index.html');
+            const indexServed = await serveStaticFile(filePath, res);
+
+            if (!indexServed) {
+              res.writeHead(404, { 'Content-Type': 'text/plain' });
+              res.end('Frontend not found');
+            }
+          }
+          return;
+        }
+
+        // Otherwise, proxy to Vite dev server
         const reactUrl = `http://localhost:${reactPort}${pathname}${url.search}`;
 
         try {

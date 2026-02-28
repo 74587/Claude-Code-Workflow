@@ -9,6 +9,14 @@ const __dirname = dirname(__filename);
 
 let reactProcess: ChildProcess | null = null;
 let reactPort: number | null = null;
+let frontendStaticDir: string | null = null;
+
+/**
+ * Get the frontend directory path (for serving static files in production)
+ */
+export function getFrontendStaticDir(): string | null {
+  return frontendStaticDir;
+}
 
 /**
  * Start React frontend development server
@@ -24,22 +32,49 @@ export async function startReactFrontend(port: number): Promise<void> {
 
   // Try to find frontend directory (relative to ccw package)
   const possiblePaths = [
-    join(__dirname, '../../frontend'),      // From dist/utils
+    join(__dirname, '../../frontend'),      // From dist/utils (dev mode with full frontend)
     join(__dirname, '../frontend'),          // From src/utils (dev)
     join(process.cwd(), 'frontend'),       // Current working directory
   ];
 
+  // Also check for production build (frontend/dist)
+  const possibleDistPaths = [
+    join(__dirname, '../../frontend/dist'), // From dist/utils (production)
+    join(__dirname, '../frontend/dist'),     // From src/utils (dev)
+    join(process.cwd(), 'frontend/dist'),  // Current working directory
+  ];
+
   let frontendDir: string | null = null;
-  for (const path of possiblePaths) {
+  let isProductionBuild = false;
+
+  // First try to find production build
+  for (const path of possibleDistPaths) {
     const resolvedPath = resolve(path);
     try {
       const { existsSync } = await import('fs');
-      if (existsSync(resolvedPath)) {
+      if (existsSync(resolvedPath) && existsSync(join(resolvedPath, 'index.html'))) {
         frontendDir = resolvedPath;
+        isProductionBuild = true;
         break;
       }
     } catch {
       // Continue to next path
+    }
+  }
+
+  // If no production build, try dev mode
+  if (!frontendDir) {
+    for (const path of possiblePaths) {
+      const resolvedPath = resolve(path);
+      try {
+        const { existsSync } = await import('fs');
+        if (existsSync(resolvedPath) && existsSync(join(resolvedPath, 'package.json'))) {
+          frontendDir = resolvedPath;
+          break;
+        }
+      } catch {
+        // Continue to next path
+      }
     }
   }
 
@@ -52,6 +87,18 @@ export async function startReactFrontend(port: number): Promise<void> {
 
   console.log(chalk.cyan(`  Starting React frontend on port ${port}...`));
   console.log(chalk.gray(`  Frontend dir: ${frontendDir}`));
+  console.log(chalk.gray(`  Mode: ${isProductionBuild ? 'production (static)' : 'development (vite)'}`));
+
+  // If production build exists, serve static files instead of running dev server
+  if (isProductionBuild) {
+    frontendStaticDir = frontendDir;
+    console.log(chalk.green(`  React frontend ready at http://localhost:${port} (static files)`));
+    // Return immediately - static files will be served by the main server
+    return;
+  }
+
+  // Reset static dir if we're in dev mode
+  frontendStaticDir = null;
 
   // Check if package.json exists and has dev script
   const packageJsonPath = join(frontendDir, 'package.json');
