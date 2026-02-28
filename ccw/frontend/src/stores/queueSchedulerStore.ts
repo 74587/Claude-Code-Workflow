@@ -309,7 +309,7 @@ export const selectQueueSchedulerStatus = (state: QueueSchedulerStore): QueueSch
 
 /** Select all queue items */
 export const selectQueueItems = (state: QueueSchedulerStore): QueueItem[] =>
-  state?.items ?? [];
+  state?.items ?? EMPTY_ITEMS;
 
 /**
  * Select items that are ready to execute (status 'queued' or 'pending').
@@ -347,7 +347,7 @@ export const selectExecutingItems = (state: QueueSchedulerStore): QueueItem[] =>
  */
 export const selectSchedulerProgress = (state: QueueSchedulerStore): number => {
   if (!state) return 0;
-  const items = state.items ?? [];
+  const items = state.items ?? EMPTY_ITEMS;
   const total = items.length;
   if (total === 0) return 0;
   const terminal = items.filter(
