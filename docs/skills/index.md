@@ -165,6 +165,96 @@ Skill(skill="my-custom-skill", args="input")
 4. **Compact Recovery**: Use TodoWrite for progress tracking
 5. **Documentation**: Include usage examples and expected outputs
 
+## Practical Examples
+
+### Example 1: Feature Development
+
+**Scenario**: Implement a new user dashboard feature
+
+```bash
+# Step 1: Brainstorm the feature
+ccw brainstorm
+# Follow prompts to define:
+# - Dashboard widgets (stats, charts, recent activity)
+# - Layout preferences
+# - Data refresh intervals
+
+# Step 2: Plan implementation
+ccw workflow:plan "Build user dashboard with configurable widgets"
+# Outputs: IMPL-001.json with task breakdown
+
+# Step 3: Execute with team
+ccw team lifecycle
+# Or use quick iteration:
+ccw workflow:lite-plan && ccw workflow:execute
+
+# Step 4: Review and refine
+ccw review-code
+# Fix any issues found
+```
+
+### Example 2: Bug Investigation
+
+**Scenario**: Debug performance issue in API endpoint
+
+```bash
+# Step 1: Quick analysis
+ccw cli -p "Analyze /api/users endpoint for N+1 query issues" --tool gemini --mode analysis
+
+# Step 2: Deep dive if needed
+ccw workflow:debug-with-file
+# Creates hypothesis, instruments code, analyzes logs
+
+# Step 3: Apply fix
+ccw workflow:execute --task "Fix N+1 query in user endpoint"
+```
+
+### Example 3: Code Migration
+
+**Scenario**: Migrate from JavaScript to TypeScript
+
+```bash
+# Step 1: Analyze codebase
+ccw workflow:refactor-cycle
+# Identifies tech debt and creates migration plan
+
+# Step 2: Execute migration in phases
+ccw team roadmap-dev --epic "ts-migration"
+# Progressively migrates modules with tests
+```
+
+### Example 4: Documentation Generation
+
+**Scenario**: Generate API documentation
+
+```bash
+# Step 1: Capture existing patterns
+ccw memory:capture "API patterns: REST, versioning, error handling"
+
+# Step 2: Generate docs
+ccw software-manual --output ./docs/api/
+```
+
+### Example 5: Code Review Pipeline
+
+**Scenario**: Review PR changes
+
+```bash
+# Comprehensive review
+ccw review-code --focus security,performance
+
+# Or use cycle for auto-fix
+ccw review-cycle --max-iterations 3
+```
+
+### Tips for Best Results
+
+1. **Start Small**: Begin with `workflow:lite-plan` for simple tasks
+2. **Use Memory**: Capture insights with `memory:capture` for future reference
+3. **Verify Plans**: Always review generated plans before execution
+4. **Iterate**: Use `review-cycle` for continuous improvement
+5. **Check Sessions**: Use `workflow:session:list` to track progress
+
 ## Design Patterns
 
 Skills use these proven patterns:

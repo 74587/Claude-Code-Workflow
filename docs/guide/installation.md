@@ -144,3 +144,48 @@ echo 'set -gx PATH (npm config get prefix)/bin $PATH' >> ~/.config/fish/config.f
 ::: info Next Steps
 After installation, check out the [First Workflow](./first-workflow.md) guide.
 :::
+
+## Quick Start Example
+
+After installation, try these commands to verify everything works:
+
+```bash
+# 1. Initialize in your project
+cd your-project
+ccw init
+
+# 2. Try a simple analysis
+ccw cli -p "Analyze the project structure" --tool gemini --mode analysis
+
+# 3. Run the main orchestrator
+/ccw "Summarize the codebase architecture"
+
+# 4. Check available commands
+ccw --help
+```
+
+### Expected Output
+
+```
+$ ccw --version
+CCW v7.0.5
+
+$ ccw init
+✔ Created .claude/CLAUDE.md
+✔ Created .ccw/workflows/
+✔ Configuration complete
+
+$ ccw cli -p "Analyze project" --tool gemini --mode analysis
+Analyzing with Gemini...
+✔ Analysis complete
+```
+
+### Common First-Time Issues
+
+| Issue | Solution |
+|-------|----------|
+| `ccw: command not found` | Add npm global bin to PATH, or reinstall |
+| `Permission denied` | Use `sudo` or fix npm permissions |
+| `API key not found` | Configure API keys in `~/.claude/cli-tools.json` |
+| `Node version mismatch` | Update to Node.js >= 18.0.0 |
+

@@ -111,6 +111,110 @@ Most commands support the `--yes` or `-y` flag to enable auto mode and skip conf
 /ccw "implement user authentication" --yes
 ```
 
+## Usage Examples
+
+### Quick Analysis
+
+```bash
+# Analyze codebase structure
+/ccw "Analyze the authentication module architecture"
+
+# Quick bug diagnosis
+/ccw "Diagnose why the login timeout issue occurs"
+```
+
+### Planning & Implementation
+
+```bash
+# Create implementation plan
+/workflow:plan "Add OAuth2 authentication with Google and GitHub providers"
+
+# Execute with auto mode
+/workflow:execute --yes
+```
+
+### Code Review
+
+```bash
+# Review current changes
+/cli:codex-review
+
+# Focus on specific area
+/cli:codex-review "Focus on security vulnerabilities in auth module"
+```
+
+### Session Management
+
+```bash
+# List all sessions
+/workflow:session:list
+
+# Resume a paused session
+/workflow:session:resume "WFS-001"
+
+# Mark session as complete
+/workflow:session:complete "WFS-001"
+```
+
+### Issue Workflow
+
+```bash
+# Discover issues from codebase
+/issue:discover
+
+# Create plan for specific issue
+/issue:plan "ISSUE-001"
+
+# Execute the fix
+/issue:execute --commit
+```
+
+### Memory Management
+
+```bash
+# Capture current session learnings
+/memory:capture "Key insights from authentication refactoring"
+
+# List all memories
+/memory:list
+
+# Search memories
+/memory:search "authentication patterns"
+```
+
+### CLI Tool Invocation
+
+```bash
+# Initialize CLI configuration
+/cli:cli-init
+
+# Run Gemini analysis
+ccw cli -p "Analyze code patterns in src/auth" --tool gemini --mode analysis
+
+# Run with specific rule template
+ccw cli -p "Review code quality" --tool gemini --mode analysis --rule analysis-review-code-quality
+```
+
+### UI Design Workflow
+
+```bash
+# Extract styles from reference image
+/workflow:ui-design:style-extract --input "path/to/reference.png"
+
+# Generate prototype
+/workflow:ui-design:generate --layout "dashboard" --tokens "design-tokens.json"
+```
+
+## Tips
+
+1. **Use Auto Mode Sparingly**: Only use `--yes` or `-y` for routine tasks. Keep manual confirmation for complex decisions.
+
+2. **Session Persistence**: Always complete sessions with `/workflow:session:complete` to preserve learnings.
+
+3. **Memory Capture**: Regularly capture important insights with `/memory:capture` to build project knowledge.
+
+4. **CLI Tool Selection**: Let `/ccw` auto-select the appropriate tool, or explicitly specify with `--tool gemini|qwen|codex`.
+
 ## Related Documentation
 
 - [Skills Reference](../skills/)

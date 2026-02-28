@@ -5,6 +5,7 @@ import DarkModeToggle from './components/DarkModeToggle.vue'
 import CopyCodeButton from './components/CopyCodeButton.vue'
 import Breadcrumb from './components/Breadcrumb.vue'
 import PageToc from './components/PageToc.vue'
+import ProfessionalHome from './components/ProfessionalHome.vue'
 import Layout from './layouts/Layout.vue'
 import './styles/variables.css'
 import './styles/custom.css'
@@ -21,5 +22,6 @@ export default {
     app.component('CopyCodeButton', CopyCodeButton)
     app.component('Breadcrumb', Breadcrumb)
     app.component('PageToc', PageToc)
+    app.component('ProfessionalHome', ProfessionalHome)
   }
 }

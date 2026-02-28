@@ -207,6 +207,7 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/workflows/' },
             { text: '4-Level System', link: '/workflows/4-level' },
+            { text: 'Examples', link: '/workflows/examples' },
             { text: 'Best Practices', link: '/workflows/best-practices' },
             { text: 'Teams', link: '/workflows/teams' }
           ]
