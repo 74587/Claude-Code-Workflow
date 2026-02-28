@@ -32,7 +32,7 @@
 **功能**: 从 GitHub URL 或文本描述创建结构化 Issue，支持需求清晰度检测。
 
 **语法**:
-```
+```bash
 /issue:new [-y|--yes] <github-url | 文本描述> [--priority 1-5]
 ```
 
@@ -92,7 +92,7 @@ interface Issue {
 **功能**: 从多个角度（Bug、UX、测试、质量、安全、性能、可维护性、最佳实践）发现潜在 Issue。
 
 **语法**:
-```
+```bash
 /issue:discover [-y|--yes] <路径模式> [--perspectives=bug,ux,...] [--external]
 ```
 
@@ -125,7 +125,7 @@ interface Issue {
 **功能**: 通过用户提示发现 Issue，使用 Gemini 规划的迭代多代理探索，支持跨模块比较。
 
 **语法**:
-```
+```bash
 /issue:discover-by-prompt [-y|--yes] <提示> [--scope=src/**] [--depth=standard|deep] [--max-iterations=5]
 ```
 
@@ -151,7 +151,7 @@ interface Issue {
 **功能**: 批量规划 Issue 解决方案，使用 issue-plan-agent（探索+规划闭环）。
 
 **语法**:
-```
+```bash
 /issue:plan [-y|--yes] --all-pending <issue-id>[,<issue-id>,...] [--batch-size 3]
 ```
 
@@ -176,7 +176,7 @@ interface Issue {
 **功能**: 从绑定解决方案形成执行队列，使用 issue-queue-agent（解决方案级别）。
 
 **语法**:
-```
+```bash
 /issue:queue [-y|--yes] [--queues <n>] [--issue <id>]
 ```
 
@@ -201,7 +201,7 @@ interface Issue {
 **功能**: 执行队列，使用 DAG 并行编排（每个解决方案一次提交）。
 
 **语法**:
-```
+```bash
 /issue:execute [-y|--yes] --queue <queue-id> [--worktree [<existing-path>]]
 ```
 
@@ -223,7 +223,7 @@ interface Issue {
 **功能**: 转换规划工件（lite-plan、工作流会话、markdown）为 Issue 解决方案。
 
 **语法**:
-```
+```bash
 /issue:convert-to-plan [-y|--yes] [--issue <id>] [--supplement] <来源>
 ```
 
@@ -253,7 +253,7 @@ interface Issue {
 **功能**: 从头脑风暴会话想法转换为 Issue 并生成可执行解决方案。
 
 **语法**:
-```
+```bash
 /issue:from-brainstorm SESSION="会话-id" [--idea=<索引>] [--auto] [-y|--yes]
 ```
 

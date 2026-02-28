@@ -32,7 +32,7 @@
 **一句话定位**: 规范生成器 — 6 阶段文档链生成完整规范包（产品简报、PRD、架构、Epics）
 
 **触发**:
-```
+```shell
 /spec-generator <idea>
 /spec-generator --continue        # 从断点恢复
 /spec-generator -y <idea>        # 自动模式
@@ -46,7 +46,7 @@
 - 纯文档：无代码生成或执行 — 干净移交给现有执行工作流
 
 **架构概览**:
-```
+```plaintext
 Phase 0:   Specification Study (Read specs/ + templates/ - mandatory prerequisite)
            |
 Phase 1:   Discovery               -> spec-config.json + discovery-context.json
@@ -85,7 +85,7 @@ Phase 6:   Readiness Check         -> readiness-report.md + spec-summary.md
 | [templates/epics-template.md](templates/epics-template.md) | Epic/Story 文档模板 |
 
 **输出结构**:
-```
+```plaintext
 .workflow/.spec/SPEC-{slug}-{YYYY-MM-DD}/
 ├── spec-config.json              # 会话配置 + 阶段状态
 ├── discovery-context.json        # 代码库探索结果（可选）
@@ -119,7 +119,7 @@ Phase 6:   Readiness Check         -> readiness-report.md + spec-summary.md
 **一句话定位**: 头脑风暴 — 交互式框架生成、多角色并行分析和跨角色综合
 
 **触发**:
-```
+```shell
 /brainstorm <topic>
 /brainstorm --count 3 "Build platform"
 /brainstorm -y "GOAL: Build SCOPE: Users" --count 5
@@ -169,7 +169,7 @@ Artifacts  N×Role  Synthesis  1×Role
 | `ux-expert` | UX专家 | 用户研究、信息架构、旅程 |
 
 **输出结构**:
-```
+```plaintext
 .workflow/active/WFS-{topic}/
 ├── workflow-session.json              # 会话元数据
 ├── .process/
@@ -204,7 +204,7 @@ Artifacts  N×Role  Synthesis  1×Role
 **一句话定位**: Skill 生成器 — 元技能，用于创建新的 Claude Code Skills
 
 **触发**:
-```
+```shell
 /skill-generator
 /create skill
 /new skill
@@ -242,7 +242,7 @@ Artifacts  N×Role  Synthesis  1×Role
 | [templates/autonomous-action.md](templates/autonomous-action.md) | 自治动作模板 |
 
 **执行流程**:
-```
+```plaintext
 Phase 0: 规范研究（强制）
    - Read: ../_shared/SKILL-DESIGN-SPEC.md
    - Read: All templates/*.md files
@@ -269,7 +269,7 @@ Phase 5: 验证和文档
 ```
 
 **输出结构** (Sequential):
-```
+```plaintext
 .claude/skills/{skill-name}/
 ├── SKILL.md                        # 入口文件
 ├── phases/
@@ -294,7 +294,7 @@ Phase 5: 验证和文档
 **一句话定位**: CCW 命令帮助系统 — 命令搜索、推荐、文档查看
 
 **触发**:
-```
+```shell
 /ccw-help
 /ccw "task description"          # 自动选择工作流并执行
 /ccw-help search <keyword>       # 搜索命令
@@ -356,7 +356,7 @@ Phase 5: 验证和文档
 **一句话定位**: Skill 调优诊断 — 自动化诊断和优化建议
 
 **触发**:
-```
+```shell
 /skill-tuning <skill-name>
 ```
 
@@ -367,7 +367,7 @@ Phase 5: 验证和文档
 - 验证改进
 
 **诊断流程**:
-```
+```plaintext
 分析 Skill → 识别问题 → 生成建议 → 应用优化 → 验证效果
 ```
 
@@ -378,7 +378,7 @@ Phase 5: 验证和文档
 **一句话定位**: 命令生成器 — 生成 Claude 命令
 
 **触发**:
-```
+```shell
 /command-generator
 ```
 
@@ -394,7 +394,7 @@ Phase 5: 验证和文档
 **一句话定位**: Issue 管理 — Issue 创建、更新、状态管理
 
 **触发**:
-```
+```shell
 /issue-manage
 /issue:new
 ```

@@ -50,32 +50,24 @@
 
 ## 1.4 Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Claude_dms3 Architecture                  │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │  CodexLens  │  │     CCW     │  │   Memory    │          │
-│  │ (Semantic   │  │  (CLI Call  │  │ (Persistent │          │
-│  │   Index)    │  │  Framework) │  │   Context)  │          │
-│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘          │
-│         │                │                │                  │
-│         └────────────────┼────────────────┘                  │
-│                          │                                   │
-│                    ┌─────┴─────┐                             │
-│                    │   Spec    │                             │
-│                    │  System   │                             │
-│                    └─────┬─────┘                             │
-│                          │                                   │
-│         ┌────────────────┼────────────────┐                  │
-│         │                │                │                  │
-│    ┌────┴────┐     ┌─────┴─────┐    ┌────┴────┐             │
-│    │  Hooks  │     │  Skills   │    │ Agents  │             │
-│    │(Inject) │     │(Reusable) │    │(Roles)  │             │
-│    └─────────┘     └───────────┘    └─────────┘             │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Claude_dms3_Architecture[Claude_dms3 Architecture]
+        A[CodexLens<br/>Semantic Index]
+        B[CCW<br/>CLI Call Framework]
+        C[Memory<br/>Persistent Context]
+        D[Spec System]
+        E[Hooks<br/>Inject]
+        F[Skills<br/>Reusable]
+        G[Agents<br/>Roles]
+
+        A --> D
+        B --> D
+        C --> D
+        D --> E
+        D --> F
+        D --> G
+    end
 ```
 
 ---

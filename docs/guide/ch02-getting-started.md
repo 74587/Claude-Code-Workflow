@@ -20,8 +20,8 @@
 ### 2.1.2 Clone Project
 
 ```bash
-# Clone repository
-git clone https://github.com/your-repo/claude-dms3.git
+# Clone repository (replace with your fork or the actual repository URL)
+git clone https://github.com/[username]/claude-dms3.git
 cd claude-dms3
 
 # Install dependencies
@@ -30,24 +30,38 @@ npm install
 
 ### 2.1.3 Configure API Keys
 
-Configure API Keys in `~/.claude/settings.json`:
+Configure API Keys in `~/.claude/cli-tools.json`:
 
 ```json
 {
-  "openai": {
-    "apiKey": "sk-xxx"
-  },
-  "anthropic": {
-    "apiKey": "sk-ant-xxx"
-  },
-  "google": {
-    "apiKey": "AIza-xxx"
+  "tools": {
+    "gemini": {
+      "enabled": true,
+      "primaryModel": "gemini-2.5-flash",
+      "settings": {
+        "apiKey": "AIza-xxx"
+      }
+    },
+    "claude": {
+      "enabled": true,
+      "primaryModel": "sonnet",
+      "settings": {
+        "apiKey": "sk-ant-xxx"
+      }
+    },
+    "codex": {
+      "enabled": true,
+      "primaryModel": "gpt-5.2",
+      "settings": {
+        "apiKey": "sk-xxx"
+      }
+    }
   }
 }
 ```
 
 ::: tip Tip
-API Keys can also be configured at the project level in `.claude/settings.json`. Project-level configuration takes priority over global configuration.
+API Keys can also be configured at the project level in `.claude/cli-tools.json`. Project-level configuration takes priority over global configuration.
 :::
 
 ---
@@ -225,8 +239,8 @@ Or use Command Palette (Ctrl+Shift+P) and search "CCW Dashboard".
 **Q: Where to configure API Keys?**
 
 A: Can be configured in two locations:
-- Global configuration: `~/.claude/settings.json`
-- Project configuration: `.claude/settings.json`
+- Global configuration: `~/.claude/cli-tools.json`
+- Project configuration: `.claude/cli-tools.json`
 
 Project configuration takes priority over global configuration.
 
@@ -258,15 +272,15 @@ A: Select based on task objective:
 ### Installation Steps
 
 ```bash
-# 1. Clone project
-git clone https://github.com/your-repo/claude-dms3.git
+# 1. Clone project (replace with your fork or the actual repository URL)
+git clone https://github.com/[username]/claude-dms3.git
 cd claude-dms3
 
 # 2. Install dependencies
 npm install
 
 # 3. Configure API Keys
-# Edit ~/.claude/settings.json
+# Edit ~/.claude/cli-tools.json
 
 # 4. Start workflow session
 /workflow:session:start

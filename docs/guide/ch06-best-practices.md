@@ -68,15 +68,16 @@ Examples:
 
 ### 6.2.2 Review Process
 
-```
-┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐
-│ Submit  │──▶│ Review  │──▶│ Feedback│──▶│  Fix    │
-│ Code    │   │ Code    │   │ Comments│   │ Issues  │
-└─────────┘   └─────────┘   └─────────┘   └─────────┘
-     │            │            │            │
-     ▼            ▼            ▼            ▼
-  Push PR      Auto Review  Manual Review  Fix Verify
-  CI Check     6 Dimensions  Code Walkthrough Re-review
+```mermaid
+graph LR
+    A[Submit Code] --> B[Review Code]
+    B --> C[Feedback Comments]
+    C --> D[Fix Issues]
+
+    A --> A1[Push PR<br/>CI Check]
+    B --> B1[Auto Review<br/>6 Dimensions]
+    C --> C1[Manual Review<br/>Code Walkthrough]
+    D --> D1[Fix Verify<br/>Re-review]
 ```
 
 ### 6.2.3 Review Checklist

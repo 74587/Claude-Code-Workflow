@@ -135,7 +135,7 @@
 
 ### 良好的工作流
 
-```
+```text
 [Specification]
   ↓ Clear requirements with acceptance criteria
 [Planning]
@@ -149,7 +149,7 @@
 
 ### 有问题的工作流
 
-```
+```text
 [Specification]
   ↓ Vague requirements, no acceptance criteria
 [Planning]

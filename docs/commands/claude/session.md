@@ -20,6 +20,7 @@
 | [`start`](#start) | Discover existing sessions or start new workflow session | `/workflow:session:start [--type type] [--auto\|--new] [description]` |
 | [`list`](#list) | List all workflow sessions | `/workflow:session:list` |
 | [`resume`](#resume) | Resume most recently paused workflow session | `/workflow:session:resume` |
+| [`sync`](#sync) | Quick-sync session work to specs and project-tech | `/workflow:session:sync [-y] ["what was done"]` |
 | [`complete`](#complete) | Mark active workflow session as completed | `/workflow:session:complete [-y] [--detailed]` |
 | [`solidify`](#solidify) | Crystallize session learnings into project guidelines | `/workflow:session:solidify [-y] [--type type] [--category category] "rule"` |
 
@@ -30,7 +31,7 @@
 **Function**: Discover existing sessions or start new workflow session, supporting intelligent session management and conflict detection.
 
 **Syntax**:
-```
+```bash
 /workflow:session:start [--type <workflow|review|tdd|test|docs>] [--auto|--new] [optional: task description]
 ```
 
@@ -99,7 +100,7 @@ graph TD
 **Function**: List all workflow sessions, supporting state filtering, displaying session metadata and progress information.
 
 **Syntax**:
-```
+```bash
 /workflow:session:list
 ```
 
@@ -122,7 +123,7 @@ graph TD
 **Function**: Resume most recently paused workflow session, supporting automatic session discovery and state update.
 
 **Syntax**:
-```
+```bash
 /workflow:session:resume
 ```
 
@@ -144,12 +145,50 @@ graph TD
 /workflow:session:resume
 ```
 
+### sync
+
+**Function**: Quick-sync session work to specs and project-tech, extracting guidelines and tech entries from recent changes.
+
+**Syntax**:
+```bash
+/workflow:session:sync [-y|--yes] ["what was done"]
+```
+
+**Options**:
+- `--yes` or `-y`: Skip confirmation, auto-write both files
+
+**Workflow**:
+
+```mermaid
+graph TD
+    A[Start] --> B[Gather Context]
+    B --> C[Extract Updates]
+    C --> D{Auto Mode?}
+    D -->|Yes| E[Write Files]
+    D -->|No| F[Preview & Confirm]
+    F -->|Confirmed| E
+    E --> G[Update specs and project-tech.json]
+    G --> H[Confirm Synced]
+```
+
+**Examples**:
+```bash
+# Sync with confirmation prompt
+/workflow:session:sync "implemented user authentication"
+
+# Auto-sync without confirmation
+/workflow:session:sync --yes "fixed login bug"
+
+# Quick sync with auto-yes
+/workflow:session:sync -y
+```
+
 ### complete
 
 **Function**: Mark active workflow session as completed, archive and learn from experience, update checklist and remove active flag.
 
 **Syntax**:
-```
+```bash
 /workflow:session:complete [-y|--yes] [--detailed]
 ```
 
@@ -189,8 +228,8 @@ graph TD
 **Function**: Crystallize session learnings and user-defined constraints into permanent project guidelines.
 
 **Syntax**:
-```
-/workflow:session:solidify [-y|--yes] [--type <convention|constraint|learning>] [--category <category>] "rule or insight"
+```bash
+/workflow:session:solidify [-y|--yes] [--type <convention|constraint|learning|compress>] [--category <category>] "rule or insight"
 ```
 
 **Options**:
@@ -198,12 +237,14 @@ graph TD
   - `convention`: Code convention
   - `constraint`: Constraint condition
   - `learning`: Experience learning
+  - `compress`: Consolidate multiple memories into core memory
 - `--category=category`: Category name (e.g., `authentication`, `testing`)
 
 **Output Locations**:
 - Conventions: `.workflow/specs/conventions/<category>.md`
 - Constraints: `.workflow/specs/constraints/<category>.md`
 - Learnings: `.workflow/specs/learnings/<category>.md`
+- Compress: Core memory (MEMORY.md)
 
 **Examples**:
 ```bash
@@ -215,6 +256,9 @@ graph TD
 
 # Add learning
 /workflow:session:solidify --type=learning --category=api "REST API design lessons learned"
+
+# Consolidate memories into core memory
+/workflow:session:solidify --type=compress --category=workflow "session learnings summary"
 ```
 
 ## Session Directory Structure

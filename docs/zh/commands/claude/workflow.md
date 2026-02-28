@@ -72,7 +72,7 @@
 **功能**: 超轻量级多工具分析和直接执行。简单任务无工件，复杂任务自动在 `.workflow/.scratchpad/` 创建规划文档。
 
 **语法**:
-```
+```bash
 /workflow:lite-lite-lite [-y|--yes] <任务描述>
 ```
 
@@ -95,7 +95,7 @@
 **功能**: 轻量级交互式规划工作流，支持内存规划、代码探索和执行到 lite-execute。
 
 **语法**:
-```
+```bash
 /workflow:lite-plan [-y|--yes] [-e|--explore] "任务描述" | file.md
 ```
 
@@ -116,7 +116,7 @@
 **功能**: 基于内存计划、提示描述或文件内容执行任务。
 
 **语法**:
-```
+```bash
 /workflow:lite-execute [-y|--yes] [--in-memory] ["任务描述" | file-path]
 ```
 
@@ -137,7 +137,7 @@
 **功能**: 轻量级 Bug 诊断和修复工作流，支持智能严重程度评估和可选的热修复模式。
 
 **语法**:
-```
+```bash
 /workflow:lite-fix [-y|--yes] [--hotfix] "Bug 描述或 Issue 引用"
 ```
 
@@ -158,7 +158,7 @@
 **功能**: 5 阶段规划工作流，输出 IMPL_PLAN.md 和任务 JSON。
 
 **语法**:
-```
+```bash
 /workflow:plan [-y|--yes] "文本描述" | file.md
 ```
 
@@ -183,7 +183,7 @@
 **功能**: 协调代理执行工作流任务，支持自动会话发现、并行任务处理和状态跟踪。
 
 **语法**:
-```
+```bash
 /workflow:execute [-y|--yes] [--resume-session="session-id"]
 ```
 
@@ -201,7 +201,7 @@
 **功能**: 交互式工作流重新规划，支持会话级工件更新和边界澄清。
 
 **语法**:
-```
+```bash
 /workflow:replan [-y|--yes] [--session session-id] [task-id] "需求" | file.md [--interactive]
 ```
 
@@ -219,7 +219,7 @@
 **功能**: 多 CLI 协作规划工作流，使用 ACE 上下文收集和迭代交叉验证。
 
 **语法**:
-```
+```bash
 /workflow:multi-cli-plan [-y|--yes] <任务描述> [--max-rounds=3] [--tools=gemini,codex] [--mode=parallel|serial]
 ```
 
@@ -242,7 +242,7 @@
 **功能**: 交互式头脑风暴，多 CLI 协作、想法扩展和文档化思维演化。
 
 **语法**:
-```
+```bash
 /workflow:brainstorm-with-file [-y|--yes] [-c|--continue] [-m|--mode creative|structured] "想法或主题"
 ```
 
@@ -264,7 +264,7 @@
 **功能**: 交互式协作分析，有文档化的讨论、CLI 辅助探索和演化理解。
 
 **语法**:
-```
+```bash
 /workflow:analyze-with-file [-y|--yes] [-c|--continue] "主题或问题"
 ```
 
@@ -282,7 +282,7 @@
 **功能**: 交互式假设驱动调试，有文档化的探索、理解演化和 Gemini 辅助修正。
 
 **语法**:
-```
+```bash
 /workflow:debug-with-file [-y|--yes] "Bug 描述或错误信息"
 ```
 
@@ -300,7 +300,7 @@
 **功能**: 通用执行引擎，消费任何规划/头脑风暴/分析输出，支持最小进度跟踪、多代理协调和增量执行。
 
 **语法**:
-```
+```bash
 /workflow:unified-execute-with-file [-y|--yes] [-p|--plan <path>] [-m|--mode sequential|parallel] ["执行上下文"]
 ```
 

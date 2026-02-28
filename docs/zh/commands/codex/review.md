@@ -19,7 +19,7 @@
 **功能**: 使用 Codex CLI 通过 ccw 端点进行交互式代码审查，支持可配置的审查目标、模型和自定义指令。
 
 **语法**:
-```
+```bash
 /cli:codex-review [--uncommitted|--base <分支>|--commit <sha>] [--model <模型>] [--title <标题>] [提示]
 ```
 

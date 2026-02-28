@@ -29,31 +29,26 @@
 
 ### 4.2.2 Launch Method
 
-```
+```shell
 /workflow:plan
 ```
 
 Or describe requirements directly:
 
-```
+```plaintext
 Implement user login functionality, supporting email and phone number login
 ```
 
 ### 4.2.3 Workflow Process
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Planner    │────▶│  Executor   │────▶│  Reviewer   │
-│  Planning   │     │  Execution  │     │  Review     │
-└─────────────┘     └─────────────┘     └─────────────┘
-     │                  │                    │
-     ▼                  ▼                    ▼
-┌─────────────┐  ┌─────────────┐    ┌─────────────┐
-│ Requirements│  │ Task        │    │ Code        │
-│ Analysis    │  │ Execution   │    │ Review      │
-│ Task Breakdown│  Code Gen    │    │ Quality     │
-│ Plan Gen    │  │ Test Write  │    │ Feedback    │
-└─────────────┘  └─────────────┘    └─────────────┘
+```mermaid
+graph LR
+    A[Planner<br/>Planning] -->|plan_ready| B[Executor<br/>Execution]
+    B -->|task_complete| C[Reviewer<br/>Review]
+
+    A --> A1[Requirements Analysis<br/>Task Breakdown<br/>Plan Gen]
+    B --> B1[Task Execution<br/>Code Gen<br/>Test Write]
+    C --> C1[Code Review<br/>Quality Check<br/>Feedback]
 ```
 
 ### 4.2.4 Output Artifacts
@@ -75,26 +70,20 @@ Implement user login functionality, supporting email and phone number login
 
 ### 4.3.2 Launch Method
 
-```
+```shell
 /refactor-cycle
 ```
 
 ### 4.3.3 Workflow Process
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Discover   │────▶│   Plan      │────▶│  Refactor   │
-│  Discovery  │     │  Planning   │     │ Refactoring │
-└─────────────┘     └─────────────┘     └─────────────┘
-     │                  │                    │
-     ▼                  ▼                    ▼
-┌─────────────┐  ┌─────────────┐    ┌─────────────┐
-│ Code        │  │ Refactor    │    │ Code        │
-│ Analysis    │  │ Strategy    │    │ Modification│
-│ Problem     │  │ Priority    │    │ Test        │
-│ ID          │  │ Task Breakdown│  │ Verification│
-│ Tech Debt   │  │             │    │ Doc Update  │
-└─────────────┘  └─────────────┘    └─────────────┘
+```mermaid
+graph LR
+    A[Discover<br/>Discovery] -->|discoveries| B[Plan<br/>Planning]
+    B -->|plan| C[Refactor<br/>Refactoring]
+
+    A --> A1[Code Analysis<br/>Problem ID<br/>Tech Debt]
+    B --> B1[Refactor Strategy<br/>Priority<br/>Task Breakdown]
+    C --> C1[Code Modification<br/>Test Verification<br/>Doc Update]
 ```
 
 ### 4.3.4 Use Cases
@@ -117,7 +106,7 @@ Implement user login functionality, supporting email and phone number login
 
 ### 4.4.2 Launch Method
 
-```
+```shell
 /unified-execute-with-file <file>
 ```
 
@@ -132,17 +121,16 @@ Implement user login functionality, supporting email and phone number login
 
 ### 4.4.4 Workflow Process
 
-```
-┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐
-│Analyzer │──▶│Developer│──▶│ Tester  │──▶│Reviewer │
-│ Analysis │   │ Develop │   │ Test    │   │ Review  │
-└─────────┘   └─────────┘   └─────────┘   └─────────┘
-     │            │            │            │
-     ▼            ▼            ▼            ▼
- Requirement   Code         Test         Quality
- Analysis      Implementation Verification Gate
- Code          Unit         Regression   Final
- Exploration   Test         Test         Confirmation
+```mermaid
+graph LR
+    A[Analyzer<br/>Analysis] --> B[Developer<br/>Develop]
+    B --> C[Tester<br/>Test]
+    C --> D[Reviewer<br/>Review]
+
+    A --> A1[Requirement Analysis<br/>Code Exploration]
+    B --> B1[Code Implementation<br/>Unit Test]
+    C --> C1[Test Verification<br/>Regression Test]
+    D --> D1[Quality Gate<br/>Final Confirmation]
 ```
 
 ---
@@ -166,17 +154,16 @@ Implement user login functionality, supporting email and phone number login
 
 ### 4.5.3 Workflow Process
 
-```
-┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐
-│Discover │──▶│  Plan   │──▶│  Queue  │──▶│ Execute │
-│Discovery│   │  Plan   │   │  Queue  │   │ Execute │
-└─────────┘   └─────────┘   └─────────┘   └─────────┘
-     │            │            │            │
-     ▼            ▼            ▼            ▼
-  Identify      Analyze      Priority     Implement
-  Problems      Requirements Sort          Solution
-  Define        Plan         Dependencies Verify
-  Scope                      Results
+```mermaid
+graph LR
+    A[Discover<br/>Discovery] -->|issues| B[Plan<br/>Plan]
+    B -->|plan| C[Queue<br/>Queue]
+    C -->|queue| D[Execute<br/>Execute]
+
+    A --> A1[Identify Problems<br/>Define Scope]
+    B --> B1[Analyze Requirements<br/>Create Plan]
+    C --> C1[Priority Sort<br/>Dependencies]
+    D --> D1[Implement Solution<br/>Verify Results]
 ```
 
 ---
@@ -189,22 +176,20 @@ Implement user login functionality, supporting email and phone number login
 
 ### 4.6.2 Launch Method
 
-```
+```shell
 /integration-test-cycle
 ```
 
 ### 4.6.3 Workflow Process
 
-```
-┌─────────┐   ┌─────────┐   ┌─────────┐
-│Generate │──▶│ Execute │──▶│ Verify  │
-│ Generate │   │ Execute │   │ Verify  │
-└─────────┘   └─────────┘   └─────────┘
-     │            │            │
-     ▼            ▼            ▼
- Test Cases   Run Tests    Coverage
- Mock Data    Failure      Analysis
-              Analysis     Gap Fill
+```mermaid
+graph LR
+    A[Generate<br/>Generate] --> B[Execute<br/>Execute]
+    B --> C[Verify<br/>Verify]
+
+    A --> A1[Test Cases<br/>Mock Data]
+    B --> B1[Run Tests<br/>Failure Analysis]
+    C --> C1[Coverage Analysis<br/>Gap Fill]
 ```
 
 ---
@@ -217,7 +202,7 @@ Implement user login functionality, supporting email and phone number login
 
 ### 4.7.2 Launch Method
 
-```
+```shell
 /review-cycle
 ```
 
@@ -242,7 +227,7 @@ Implement user login functionality, supporting email and phone number login
 
 ### 4.8.2 Launch Method
 
-```
+```shell
 /brainstorm-with-file <file>
 ```
 

@@ -40,7 +40,7 @@
 **One-Liner**: Full lifecycle orchestrator — spawn-wait-close pipeline for spec/implementation/test
 
 **Triggers**:
-```
+```shell
 /team-lifecycle <task-description>
 ```
 
@@ -65,7 +65,7 @@
 | fe-qa | Frontend QA, GC loop | 2.3 Deep Interaction |
 
 **Pipeline Definition**:
-```
+```plaintext
 Spec-only (6 beats):
   RESEARCH-001(+D1) → DRAFT-001(+D2) → DRAFT-002(+D3) → DRAFT-003(+D4) → DRAFT-004(+D5) → QUALITY-001(+D6)
 
@@ -77,7 +77,7 @@ Full-lifecycle (9 beats):
 ```
 
 **Beat Cycle**:
-```
+```plaintext
 event (phase advance / user resume)
       ↓
   [Orchestrator]
@@ -93,7 +93,7 @@ event (phase advance / user resume)
 ```
 
 **Session Directory**:
-```
+```plaintext
 .workflow/.team/TLS-<slug>-<date>/
 ├── team-session.json           # Pipeline state
 ├── spec/                       # Specification artifacts
@@ -112,7 +112,7 @@ event (phase advance / user resume)
 **One-Liner**: Multi-agent parallel development cycle — requirements analysis, exploration planning, code development, validation
 
 **Triggers**:
-```
+```shell
 /parallel-dev-cycle TASK="Implement feature"
 /parallel-dev-cycle --cycle-id=cycle-v1-20260122-abc123
 /parallel-dev-cycle --auto TASK="Add OAuth"
@@ -138,7 +138,7 @@ event (phase advance / user resume)
 - Eliminates redundant codebase exploration
 
 **Session Structure**:
-```
+```plaintext
 {projectRoot}/.workflow/.cycle/
 ├── {cycleId}.json                     # Main state file
 ├── {cycleId}.progress/
@@ -156,7 +156,7 @@ event (phase advance / user resume)
 ```
 
 **Execution Flow**:
-```
+```plaintext
 Phase 1: Session initialization
     ↓ cycleId, state, progressDir
 
@@ -190,13 +190,13 @@ Phase 4: Completion and summary
 **One-Liner**: Collaborative analysis — interactive analysis with documented discussions, inline exploration, and evolving understanding
 
 **Triggers**:
-```
+```shell
 /analyze-with-file TOPIC="<question>"
 /analyze-with-file TOPIC="--depth=deep"
 ```
 
 **Core Workflow**:
-```
+```plaintext
 Topic → Explore → Discuss → Document → Refine → Conclude → (Optional) Quick Execute
 ```
 
@@ -222,7 +222,7 @@ Topic → Explore → Discuss → Document → Refine → Conclude → (Optional
 **One-Liner**: Multi-perspective brainstorming — 4 perspectives (Product, Technical, Risk, User) parallel analysis
 
 **Triggers**:
-```
+```shell
 /brainstorm-with-file TOPIC="<idea>"
 ```
 
@@ -246,12 +246,12 @@ Topic → Explore → Discuss → Document → Refine → Conclude → (Optional
 **One-Liner**: Hypothesis-driven debugging — documented exploration, understanding evolution, analysis-assisted correction
 
 **Triggers**:
-```
+```shell
 /debug-with-file BUG="<bug description>"
 ```
 
 **Core Workflow**:
-```
+```plaintext
 Explore → Document → Log → Analyze → Correct Understanding → Fix → Verify
 ```
 
@@ -262,7 +262,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 - **Learning preservation**: Retain insights from failed attempts
 
 **Session Folder Structure**:
-```
+```plaintext
 {projectRoot}/.workflow/.debug/DBG-{slug}-{date}/
 ├── debug.log           # NDJSON log (execution evidence)
 ├── understanding.md    # Exploration timeline + consolidated understanding
@@ -283,7 +283,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **One-Liner**: Collaborative planning — multi-agent collaborative planning (alternative to team-planex)
 
 **Triggers**:
-```
+```shell
 /collaborative-plan-with-file <task>
 ```
 
@@ -299,7 +299,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **One-Liner**: Universal execution engine — alternative to workflow-execute
 
 **Triggers**:
-```
+```shell
 /unified-execute-with-file <session>
 ```
 
@@ -315,7 +315,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **One-Liner**: Requirement roadmap planning
 
 **Triggers**:
-```
+```shell
 /roadmap-with-file <requirements>
 ```
 
@@ -331,7 +331,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **One-Liner**: Review cycle (Codex version)
 
 **Triggers**:
-```
+```shell
 /review-cycle <target>
 ```
 
@@ -347,7 +347,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **One-Liner**: Test-fix workflow
 
 **Triggers**:
-```
+```shell
 /workflow-test-fix-cycle <failing-tests>
 ```
 
@@ -364,7 +364,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **One-Liner**: Intelligent code cleanup
 
 **Triggers**:
-```
+```shell
 /clean <target>
 ```
 
@@ -380,7 +380,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **One-Liner**: CSV wave processing pipeline
 
 **Triggers**:
-```
+```shell
 /csv-wave-pipeline <csv-file>
 ```
 
@@ -396,7 +396,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **One-Liner**: Memory compression (Codex version)
 
 **Triggers**:
-```
+```shell
 /memory-compact
 ```
 
@@ -412,7 +412,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **One-Liner**: CLI tool execution specification
 
 **Triggers**:
-```
+```shell
 /ccw-cli-tools <command>
 ```
 
@@ -428,7 +428,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **One-Liner**: Issue discovery
 
 **Triggers**:
-```
+```shell
 /issue-discover <context>
 ```
 

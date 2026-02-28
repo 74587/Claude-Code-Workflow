@@ -38,7 +38,7 @@
 **Function**: Delegate to universal-executor agent, analyzing project via Gemini/Qwen CLI and returning JSON core content package for task context.
 
 **Syntax**:
-```
+```bash
 /memory:prepare [--tool gemini|qwen] "task context description"
 ```
 

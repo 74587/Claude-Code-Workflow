@@ -111,6 +111,110 @@
 /ccw "实现用户认证" --yes
 ```
 
+## 使用示例
+
+### 快速分析
+
+```bash
+# 分析代码库结构
+/ccw "分析认证模块的架构"
+
+# 快速 Bug 诊断
+/ccw "诊断登录超时问题发生的原因"
+```
+
+### 规划与实施
+
+```bash
+# 创建实施计划
+/workflow:plan "添加 OAuth2 认证，支持 Google 和 GitHub 提供商"
+
+# 使用自动模式执行
+/workflow:execute --yes
+```
+
+### 代码审查
+
+```bash
+# 审查当前变更
+/cli:codex-review
+
+# 专注于特定区域
+/cli:codex-review "重点关注认证模块中的安全漏洞"
+```
+
+### 会话管理
+
+```bash
+# 列出所有会话
+/workflow:session:list
+
+# 恢复暂停的会话
+/workflow:session:resume "WFS-001"
+
+# 标记会话为完成
+/workflow:session:complete "WFS-001"
+```
+
+### Issue 工作流
+
+```bash
+# 从代码库中发现 Issue
+/issue:discover
+
+# 为特定 Issue 创建计划
+/issue:plan "ISSUE-001"
+
+# 执行修复
+/issue:execute --commit
+```
+
+### Memory 管理
+
+```bash
+# 捕获当前会话的学习内容
+/memory:capture "认证重构的关键见解"
+
+# 列出所有记忆
+/memory:list
+
+# 搜索记忆
+/memory:search "认证模式"
+```
+
+### CLI 工具调用
+
+```bash
+# 初始化 CLI 配置
+/cli:cli-init
+
+# 运行 Gemini 分析
+ccw cli -p "分析 src/auth 中的代码模式" --tool gemini --mode analysis
+
+# 使用特定规则模板运行
+ccw cli -p "审查代码质量" --tool gemini --mode analysis --rule analysis-review-code-quality
+```
+
+### UI 设计工作流
+
+```bash
+# 从参考图片提取样式
+/workflow:ui-design:style-extract --input "path/to/reference.png"
+
+# 生成原型
+/workflow:ui-design:generate --layout "dashboard" --tokens "design-tokens.json"
+```
+
+## 使用技巧
+
+1. **谨慎使用自动模式**：仅在常规任务时使用 `--yes` 或 `-y`。对于复杂决策保持手动确认。
+
+2. **会话持久化**：始终使用 `/workflow:session:complete` 完成会话以保留学习内容。
+
+3. **记忆捕获**：定期使用 `/memory:capture` 捕获重要见解以构建项目知识。
+
+4. **CLI 工具选择**：让 `/ccw` 自动选择合适的工具，或使用 `--tool gemini|qwen|codex` 显式指定。
+
 ## 相关文档
 
 - [Skills 参考](../skills/)

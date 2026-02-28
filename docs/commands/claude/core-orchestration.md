@@ -18,7 +18,7 @@
 **Function**: Main workflow orchestrator - intent analysis -> workflow selection -> command chain execution
 
 **Syntax**:
-```
+```bash
 /ccw "task description"
 ```
 
@@ -80,7 +80,7 @@ graph TD
 **Function**: Command orchestration tool - analyze tasks, recommend command chains, sequential execution, state persistence
 
 **Syntax**:
-```
+```bash
 /ccw-coordinator "task description"
 ```
 

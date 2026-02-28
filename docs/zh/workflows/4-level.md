@@ -4,7 +4,7 @@ CCW 四级工作流系统提供了一种从规格说明到部署的结构化软�
 
 ## 概述
 
-```
+```text
 Level 1: 规格说明 → Level 2: 规划 → Level 3: 实现 → Level 4: 验证
 ```
 
@@ -38,7 +38,7 @@ Level 1: 规格说明 → Level 2: 规划 → Level 3: 实现 → Level 4: 验�
 
 ### 示例任务
 
-```
+```text
 RESEARCH-001 → DRAFT-001 → DRAFT-002 → DRAFT-003 → DRAFT-004 → QUALITY-001
 ```
 
@@ -95,7 +95,7 @@ RESEARCH-001 → DRAFT-001 → DRAFT-002 → DRAFT-003 → DRAFT-004 → QUALITY
 
 任务根据依赖关系按拓扑顺序执行:
 
-```
+```text
 TASK-001 (无依赖) → TASK-002 (依赖 001) → TASK-003 (依赖 002)
 ```
 
@@ -142,7 +142,7 @@ TASK-001 (无依赖) → TASK-002 (依赖 001) → TASK-003 (依赖 002)
 
 事件驱动执行，由协调器编排:
 
-```
+```text
 Event           Coordinator              Workers
 ────────────────────────────────────────────────
 callback/resume → handleCallback ─────────────────┐
@@ -172,7 +172,7 @@ callback <───────────────────────�
 
 对于简单的线性继任，工作器可以直接生成后继者:
 
-```
+```text
 [Worker A] complete
     → Check: 1 ready task? simple successor?
     → YES: Spawn Worker B directly
@@ -183,7 +183,7 @@ callback <───────────────────────�
 
 某些史诗可以并行执行:
 
-```
+```text
 EPIC-003: Content Modules ──┐
                            ├──→ EPIC-005: Interaction Features
 EPIC-004: Search & Nav ────┘

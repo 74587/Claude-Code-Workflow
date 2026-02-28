@@ -4,7 +4,7 @@ The CCW 4-level workflow system provides a structured approach to software devel
 
 ## Overview
 
-```
+```text
 Level 1: SPECIFICATION → Level 2: PLANNING → Level 3: IMPLEMENTATION → Level 4: VALIDATION
 ```
 
@@ -38,7 +38,7 @@ Level 1: SPECIFICATION → Level 2: PLANNING → Level 3: IMPLEMENTATION → Lev
 
 ### Example Tasks
 
-```
+```text
 RESEARCH-001 → DRAFT-001 → DRAFT-002 → DRAFT-003 → DRAFT-004 → QUALITY-001
 ```
 
@@ -95,7 +95,7 @@ RESEARCH-001 → DRAFT-001 → DRAFT-002 → DRAFT-003 → DRAFT-004 → QUALITY
 
 Tasks executed in topological order based on dependencies:
 
-```
+```text
 TASK-001 (no deps) → TASK-002 (depends on 001) → TASK-003 (depends on 002)
 ```
 
@@ -142,7 +142,7 @@ TASK-001 (no deps) → TASK-002 (depends on 001) → TASK-003 (depends on 002)
 
 Event-driven execution with coordinator orchestration:
 
-```
+```text
 Event           Coordinator              Workers
 ────────────────────────────────────────────────
 callback/resume → handleCallback ─────────────────┐
@@ -172,7 +172,7 @@ callback <───────────────────────�
 
 For simple linear successions, workers can spawn successors directly:
 
-```
+```text
 [Worker A] complete
     → Check: 1 ready task? simple successor?
     → YES: Spawn Worker B directly
@@ -183,7 +183,7 @@ For simple linear successions, workers can spawn successors directly:
 
 Some epics can execute in parallel:
 
-```
+```text
 EPIC-003: Content Modules ──┐
                            ├──→ EPIC-005: Interaction Features
 EPIC-004: Search & Nav ────┘

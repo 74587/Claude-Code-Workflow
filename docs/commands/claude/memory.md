@@ -19,7 +19,7 @@
 |---------|----------|--------|
 | [`compact`](#compact) | Compress current session memory to structured text | `/memory:compact [optional: session description]` |
 | [`tips`](#tips) | Quick note-taking | `/memory:tips <note content> [--tag tags] [--context context]` |
-| [`load`](#load) | Load task context via CLI project analysis | `/memory:load [--tool gemini\|qwen] "task context description"` |
+| [`prepare`](#prepare) | Load task context via CLI project analysis | `/memory:prepare [--tool gemini\|qwen] "task context description"` |
 | [`update-full`](#update-full) | Update all CLAUDE.md files | `/memory:update-full [--tool gemini\|qwen\|codex] [--path directory]` |
 | [`update-related`](#update-related) | Update CLAUDE.md for git-changed modules | `/memory:update-related [--tool gemini\|qwen\|codex]` |
 | [`docs-full-cli`](#docs-full-cli) | Generate full project documentation using CLI | `/memory:docs-full-cli [path] [--tool tool]` |
@@ -33,7 +33,7 @@
 **Function**: Compress current session memory to structured text, extracting objectives, plans, files, decisions, constraints, and state, saving via MCP core_memory tool.
 
 **Syntax**:
-```
+```bash
 /memory:compact [optional: session description]
 ```
 
@@ -59,7 +59,7 @@
 **Function**: Quick note-taking command, capturing thoughts, snippets, reminders, and insights for future reference.
 
 **Syntax**:
-```
+```bash
 /memory:tips <note content> [--tag <tag1,tag2>] [--context <context>]
 ```
 
@@ -79,13 +79,13 @@
 /memory:tips "use Redis to cache user sessions" --context "login optimization"
 ```
 
-### load
+### prepare
 
 **Function**: Delegate to universal-executor agent, analyzing project via Gemini/Qwen CLI and returning JSON core content package for task context.
 
 **Syntax**:
-```
-/memory:load [--tool gemini|qwen] "task context description"
+```bash
+/memory:prepare [--tool gemini|qwen] "task context description"
 ```
 
 **Options**:
@@ -96,10 +96,10 @@
 **Examples**:
 ```bash
 # Use default tool
-/memory:load "user authentication module"
+/memory:prepare "user authentication module"
 
 # Specify tool
-/memory:load --tool gemini "payment system architecture"
+/memory:prepare --tool gemini "payment system architecture"
 ```
 
 ### update-full
@@ -107,7 +107,7 @@
 **Function**: Update all CLAUDE.md files, using layer-based execution (Layer 3->1), batch agent processing (4 modules/agent), and gemini->qwen->codex fallback.
 
 **Syntax**:
-```
+```bash
 /memory:update-full [--tool gemini|qwen|codex] [--path <directory>]
 ```
 
@@ -137,7 +137,7 @@
 **Function**: Update CLAUDE.md files for git-changed modules, using batch agent execution (4 modules/agent) and gemini->qwen->codex fallback.
 
 **Syntax**:
-```
+```bash
 /memory:update-related [--tool gemini|qwen|codex]
 ```
 
@@ -158,7 +158,7 @@
 **Function**: Generate full project documentation using CLI (Layer 3->1), batch agent processing (4 modules/agent), gemini->qwen->codex fallback, direct parallel for <20 modules.
 
 **Syntax**:
-```
+```bash
 /memory:docs-full-cli [path] [--tool <gemini|qwen|codex>]
 ```
 
@@ -179,7 +179,7 @@
 **Function**: Generate documentation for git-changed modules using CLI, batch agent processing (4 modules/agent), gemini->qwen->codex fallback, direct execution for <15 modules.
 
 **Syntax**:
-```
+```bash
 /memory:docs-related-cli [--tool <gemini|qwen|codex>]
 ```
 
@@ -197,7 +197,7 @@
 **Function**: Generate SKILL memory package from style reference, facilitating loading and consistent design system usage.
 
 **Syntax**:
-```
+```bash
 /memory:style-skill-memory [package-name] [--regenerate]
 ```
 

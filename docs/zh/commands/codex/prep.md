@@ -38,7 +38,7 @@
 **功能**: 委托给 universal-executor 代理，通过 Gemini/Qwen CLI 分析项目并返回 JSON 核心内容包用于任务上下文。
 
 **语法**:
-```
+```bash
 /memory:prepare [--tool gemini|qwen] "任务上下文描述"
 ```
 

@@ -51,7 +51,7 @@ This is an output from `workflow:lite-plan` command.
 
 ### Execution Steps
 
-```bash
+```shell
 # Execute the plan
 ccw workflow:execute --session WFS-001
 ```

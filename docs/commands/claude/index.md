@@ -11,7 +11,7 @@
 | **Core Orchestration** | 2 | Main workflow orchestrators (ccw, ccw-coordinator) |
 | **Workflow** | 20+ | Planning, execution, review, TDD, testing workflows |
 | **Session Management** | 6 | Session creation, listing, resuming, completion |
-| **Issue Workflow** | 7 | Issue discovery, planning, queue, execution |
+| **Issue Workflow** | 8 | Issue discovery, planning, queue, execution |
 | **Memory** | 8 | Memory capture, update, document generation |
 | **CLI Tools** | 2 | CLI initialization, Codex review |
 | **UI Design** | 10 | UI design prototype generation, style extraction |
@@ -52,6 +52,7 @@
 | [`/workflow:session:start`](./session.md#start) | Discover existing sessions or start new workflow session | Intermediate |
 | [`/workflow:session:list`](./session.md#list) | List all workflow sessions | Beginner |
 | [`/workflow:session:resume`](./session.md#resume) | Resume most recently paused workflow session | Intermediate |
+| [`/workflow:session:sync`](./session.md#sync) | Quick-sync session work to specs and project-tech | Intermediate |
 | [`/workflow:session:complete`](./session.md#complete) | Mark active workflow session as completed | Intermediate |
 | [`/workflow:session:solidify`](./session.md#solidify) | Crystallize session learnings into project guidelines | Intermediate |
 
@@ -62,6 +63,7 @@
 | [`/issue:new`](./issue.md#new) | Create structured issue from GitHub URL or text description | Intermediate |
 | [`/issue:discover`](./issue.md#discover) | Discover potential issues from multiple perspectives | Intermediate |
 | [`/issue:discover-by-prompt`](./issue.md#discover-by-prompt) | Discover issues via user prompt | Intermediate |
+| [`/issue:from-brainstorm`](./issue.md#from-brainstorm) | Convert brainstorm session ideas into issue with executable solution | Intermediate |
 | [`/issue:plan`](./issue.md#plan) | Batch plan issue solutions | Intermediate |
 | [`/issue:queue`](./issue.md#queue) | Form execution queue | Intermediate |
 | [`/issue:execute`](./issue.md#execute) | Execute queue | Intermediate |
@@ -73,7 +75,7 @@
 |---------|----------|------------|
 | [`/memory:compact`](./memory.md#compact) | Compress current session memory to structured text | Intermediate |
 | [`/memory:tips`](./memory.md#tips) | Quick note-taking | Beginner |
-| [`/memory:load`](./memory.md#load) | Load task context via CLI project analysis | Intermediate |
+| [`/memory:prepare`](./memory.md#prepare) | Load task context via CLI project analysis | Intermediate |
 | [`/memory:update-full`](./memory.md#update-full) | Update all CLAUDE.md files | Intermediate |
 | [`/memory:update-related`](./memory.md#update-related) | Update CLAUDE.md for git-changed modules | Intermediate |
 | [`/memory:docs-full-cli`](./memory.md#docs-full-cli) | Generate full project documentation using CLI | Intermediate |

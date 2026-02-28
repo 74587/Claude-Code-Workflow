@@ -113,6 +113,78 @@ npm uninstall -g claude-code-workflow
 rm -rf ~/.claude
 ```
 
+## 故障排除
+
+### 权限问题
+
+如果遇到权限错误：
+
+```bash
+# 使用 sudo（不推荐）
+sudo npm install -g claude-code-workflow
+
+# 或修复 npm 权限（推荐）
+mkdir ~/.npm-global
+npm config set prefix '~/.npm-global'
+export PATH=~/.npm-global/bin:$PATH
+```
+
+### PATH 问题
+
+将 npm 全局 bin 添加到您的 PATH：
+
+```bash
+# 对于 bash/zsh
+echo 'export PATH=$(npm config get prefix)/bin:$PATH' >> ~/.bashrc
+
+# 对于 fish
+echo 'set -gx PATH (npm config get prefix)/bin $PATH' >> ~/.config/fish/config.fish
+```
+
 ::: info 下一步
 安装完成后，查看[第一个工作流](./first-workflow.md)指南。
 :::
+
+## 快速开始示例
+
+安装完成后，尝试以下命令验证一切正常：
+
+```bash
+# 1. 在您的项目中初始化
+cd your-project
+ccw init
+
+# 2. 尝试简单的分析
+ccw cli -p "分析项目结构" --tool gemini --mode analysis
+
+# 3. 运行主编排器
+/ccw "总结代码库架构"
+
+# 4. 检查可用命令
+ccw --help
+```
+
+### 预期输出
+
+```
+$ ccw --version
+CCW v7.0.5
+
+$ ccw init
+✔ Created .claude/CLAUDE.md
+✔ Created .ccw/workflows/
+✔ Configuration complete
+
+$ ccw cli -p "Analyze project" --tool gemini --mode analysis
+Analyzing with Gemini...
+✔ Analysis complete
+```
+
+### 常见首次使用问题
+
+| 问题 | 解决方案 |
+|-------|----------|
+| `ccw: command not found` | 将 npm 全局 bin 添加到 PATH，或重新安装 |
+| `Permission denied` | 使用 `sudo` 或修复 npm 权限 |
+| `API key not found` | 在 `~/.claude/cli-tools.json` 中配置 API 密钥 |
+| `Node version mismatch` | 更新到 Node.js >= 18.0.0 |

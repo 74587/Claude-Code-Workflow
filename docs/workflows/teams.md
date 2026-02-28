@@ -127,7 +127,7 @@ The latest architecture uses the `team-worker` agent with dynamic role assignmen
 
 ### Wave Pipeline (team-planex)
 
-```
+```text
 Wave 1: Plan ──────────────────────────────────┐
          ↓                                      │
 Wave 2: Exec  ←────────────────────────────────┘
@@ -139,7 +139,7 @@ Concurrent planning and execution - executor works on wave N while planner plans
 
 ### Generator-Critic Loop (team-iterdev)
 
-```
+```text
 Generator → Output → Critic → Feedback → Generator
                 ↓
             Integrator → Validator
@@ -149,7 +149,7 @@ Iterative improvement through feedback cycles.
 
 ### CP-9 Dual-Track (team-uidesign)
 
-```
+```text
 Design Track:  Designer → Tokens → Style
                            ↓
 Implementation Track:        Developer → Components
@@ -161,7 +161,7 @@ Design and implementation proceed in parallel tracks.
 
 ### 5-Phase Lifecycle (team-lifecycle-v4)
 
-```
+```text
 1. Spec Planning (coordinator + spec-lead)
 2. Architecture Design (architect)
 3. Implementation Planning (impl-lead + dev team)

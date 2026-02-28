@@ -4,7 +4,7 @@ CCW's 4-level workflow system orchestrates the entire development lifecycle from
 
 ## Workflow Levels
 
-```
+```text
 Level 1: SPECIFICATION
     ↓
 Level 2: PLANNING
@@ -90,8 +90,9 @@ Ensure quality.
 
 ```bash
 # Level 1: Specification
-Skill(skill="team-lifecycle-v4", args="Build user authentication system")
+Skill(skill="team-lifecycle-v5", args="Build user authentication system")
 # => Creates RESEARCH-001, DRAFT-001/002/003/004, QUALITY-001
+# Note: v5 is the latest version with team-worker architecture
 
 # Level 2: Planning (auto-triggered after QUALITY-001)
 # => Creates PLAN-001 with task breakdown
@@ -105,7 +106,7 @@ Skill(skill="team-lifecycle-v4", args="Build user authentication system")
 
 ## Workflow Visualization
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    WORKFLOW ORCHESTRATION                    │
 ├─────────────────────────────────────────────────────────────┤

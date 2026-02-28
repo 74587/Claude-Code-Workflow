@@ -135,7 +135,7 @@ Optimize your CCW workflows for maximum efficiency and quality.
 
 ### Good Workflow
 
-```
+```text
 [Specification]
   ↓ Clear requirements with acceptance criteria
 [Planning]
@@ -149,7 +149,7 @@ Optimize your CCW workflows for maximum efficiency and quality.
 
 ### Problematic Workflow
 
-```
+```text
 [Specification]
   ↓ Vague requirements, no acceptance criteria
 [Planning]

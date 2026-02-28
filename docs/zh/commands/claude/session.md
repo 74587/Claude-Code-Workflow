@@ -30,7 +30,7 @@
 **功能**: 发现现有会话或启动新工作流会话，支持智能会话管理和冲突检测。
 
 **语法**:
-```
+```bash
 /workflow:session:start [--type <workflow|review|tdd|test|docs>] [--auto|--new] [可选: 任务描述]
 ```
 
@@ -99,7 +99,7 @@ graph TD
 **功能**: 列出所有工作流会话，支持状态过滤，显示会话元数据和进度信息。
 
 **语法**:
-```
+```bash
 /workflow:session:list
 ```
 
@@ -122,7 +122,7 @@ graph TD
 **功能**: 恢复最近暂停的工作流会话，支持自动会话发现和状态更新。
 
 **语法**:
-```
+```bash
 /workflow:session:resume
 ```
 
@@ -149,7 +149,7 @@ graph TD
 **功能**: 标记活动工作流会话为完成，归档并学习经验，更新清单并移除活动标志。
 
 **语法**:
-```
+```bash
 /workflow:session:complete [-y|--yes] [--detailed]
 ```
 
@@ -189,7 +189,7 @@ graph TD
 **功能**: 将会话学习和用户定义的约束结晶为永久项目指南。
 
 **语法**:
-```
+```bash
 /workflow:session:solidify [-y|--yes] [--type <convention|constraint|learning>] [--category <类别>] "规则或洞察"
 ```
 

@@ -66,29 +66,15 @@ Codex Prompts are defined in the `.codex/prompts/` directory, optimized specific
 
 ## 3.2 Three-Layer Relationship
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    User Request                      │
-└────────────────────┬────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────┐
-│                  ccw (Orchestrator)                  │
-│  Intent Analysis → Workflow Selection → Execution    │
-└────────────────────┬────────────────────────────────┘
-                     │
-         ┌───────────┼───────────┐
-         ▼           ▼           ▼
-    ┌────────┐  ┌────────┐  ┌────────┐
-    │ Command│  │ Skill  │  │ Prompt │
-    │ (Atom) │  │(Composite)│ │(Template)│
-    └────────┘  └────────┘  └────────┘
-         │           │           │
-         └───────────┼───────────┘
-                     ▼
-            ┌────────────────┐
-            │ AI Model Call   │
-            └────────────────┘
+```mermaid
+graph TB
+    A[User Request] --> B[ccw Orchestrator<br/>Intent Analysis → Workflow Selection → Execution]
+    B --> C[Command Atom]
+    B --> D[Skill Composite]
+    B --> E[Prompt Template]
+    C --> F[AI Model Call]
+    D --> F
+    E --> F
 ```
 
 ### 3.2.1 Call Path
@@ -107,17 +93,13 @@ Codex Prompts are defined in the `.codex/prompts/` directory, optimized specific
 
 ### 3.3.1 Session Lifecycle
 
-```
-┌─────────┐     ┌─────────┐     ┌─────────┐     ┌─────────┐
-│  Start  │────▶│ Resume  │────▶│ Execute │────▶│Complete │
-│  Launch │     │  Resume │     │ Execute │     │ Complete│
-└─────────┘     └─────────┘     └─────────┘     └─────────┘
-     │                                │
-     ▼                                ▼
-┌─────────┐                     ┌─────────┐
-│  List   │                     │ Solidify│
-│  List   │                     │ Solidify│
-└─────────┘                     └─────────┘
+```mermaid
+graph LR
+    A[Start<br/>Launch] --> B[Resume<br/>Resume]
+    B --> C[Execute<br/>Execute]
+    C --> D[Complete<br/>Complete]
+    A --> E[List<br/>List]
+    D --> F[Solidify<br/>Solidify]
 ```
 
 ### 3.3.2 Session Commands
@@ -172,20 +154,11 @@ Claude_dms3 supports 8 team workflows, each defining different roles:
 
 Team members communicate via the message bus:
 
-```
-┌────────────┐                   ┌────────────┐
-│  Planner   │                   │ Executor   │
-└─────┬──────┘                   └──────┬─────┘
-      │                                 │
-      │  [plan_ready]                   │
-      ├────────────────────────────────▶
-      │                                 │
-      │                          [task_complete]
-      │◀────────────────────────────────┤
-      │                                 │
-      │   [plan_approved]               │
-      ├────────────────────────────────▶
-      │                                 │
+```mermaid
+graph LR
+    A[Planner] -->|plan_ready| B[Executor]
+    B -->|task_complete| A
+    A -->|plan_approved| B
 ```
 
 ### 3.4.3 Workflow Selection Guide
@@ -221,38 +194,25 @@ Team members communicate via the message bus:
 
 ## 3.6 Data Flow
 
-```
-User Request
-   │
-   ▼
-┌──────────────┐
-│  CCW Orchestrator│ ──▶ Intent Analysis
-└──────────────┘
-   │
-   ├─▶ Workflow Selection
-   │      │
-   │      ├─▶ PlanEx
-   │      ├─▶ IterDev
-   │      ├─▶ Lifecycle
-   │      └─▶ ...
-   │
-   ├─▶ Command Execution
-   │      │
-   │      ├─▶ Built-in commands
-   │      └─▶ Skill calls
-   │
-   ├─▶ AI Model Invocation
-   │      │
-   │      ├─▶ Gemini
-   │      ├─▶ Qwen
-   │      ├─▶ Codex
-   │      └─▶ Claude
-   │
-   └─▶ Result Return
-          │
-          ├─▶ File modification
-          ├─▶ Memory update
-          └─▶ Dashboard update
+```mermaid
+graph TB
+    A[User Request] --> B[CCW Orchestrator<br/>Intent Analysis]
+    B --> C[Workflow Selection]
+    B --> D[Command Execution]
+    B --> E[AI Model Invocation]
+    B --> F[Result Return]
+    C --> C1[PlanEx]
+    C --> C2[IterDev]
+    C --> C3[Lifecycle]
+    D --> D1[Built-in commands]
+    D --> D2[Skill calls]
+    E --> E1[Gemini]
+    E --> E2[Qwen]
+    E --> E3[Codex]
+    E --> E4[Claude]
+    F --> F1[File modification]
+    F --> F2[Memory update]
+    F --> F3[Dashboard update]
 ```
 
 ---

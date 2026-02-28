@@ -33,7 +33,7 @@
 **功能**: 压缩当前会话记忆为结构化文本，提取目标、计划、文件、决策、约束、状态，并通过 MCP core_memory 工具保存。
 
 **语法**:
-```
+```bash
 /memory:compact [可选: 会话描述]
 ```
 
@@ -59,7 +59,7 @@
 **功能**: 快速笔记记录命令，捕获想法、片段、提醒和洞察供后续参考。
 
 **语法**:
-```
+```bash
 /memory:tips <笔记内容> [--tag <标签1,标签2>] [--context <上下文>]
 ```
 
@@ -84,7 +84,7 @@
 **功能**: 委托给 universal-executor 代理，通过 Gemini/Qwen CLI 分析项目并返回 JSON 核心内容包用于任务上下文。
 
 **语法**:
-```
+```bash
 /memory:load [--tool gemini|qwen] "任务上下文描述"
 ```
 
@@ -107,7 +107,7 @@
 **功能**: 更新所有 CLAUDE.md 文件，使用基于层的执行（Layer 3→1），批量代理处理（4 模块/代理）和 gemini→qwen→codex 回退。
 
 **语法**:
-```
+```bash
 /memory:update-full [--tool gemini|qwen|codex] [--path <目录>]
 ```
 
@@ -137,7 +137,7 @@
 **功能**: 更新 git 变更模块的 CLAUDE.md 文件，使用批量代理执行（4 模块/代理）和 gemini→qwen→codex 回退。
 
 **语法**:
-```
+```bash
 /memory:update-related [--tool gemini|qwen|codex]
 ```
 
@@ -158,7 +158,7 @@
 **功能**: 使用 CLI 执行生成完整项目文档（Layer 3→1），批量代理处理（4 模块/代理）和 gemini→qwen→codex 回退，<20 模块使用直接并行。
 
 **语法**:
-```
+```bash
 /memory:docs-full-cli [路径] [--tool <gemini|qwen|codex>]
 ```
 
@@ -179,7 +179,7 @@
 **功能**: 使用 CLI 执行生成 git 变更模块文档，批量代理处理（4 模块/代理）和 gemini→qwen→codex 回退，<15 模块使用直接执行。
 
 **语法**:
-```
+```bash
 /memory:docs-related-cli [--tool <gemini|qwen|codex>]
 ```
 
@@ -197,7 +197,7 @@
 **功能**: 从样式参考生成 SKILL 记忆包，便于加载和一致的设计系统使用。
 
 **语法**:
-```
+```bash
 /memory:style-skill-memory [包名] [--regenerate]
 ```
 

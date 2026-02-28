@@ -190,11 +190,11 @@ core_memory({
 
 ## MCP Configuration
 
-Configure MCP servers in `~/.claude/mcp.json`:
+Configure MCP servers in `~/.claude/settings.json`:
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "filesystem": {
       "command": "npx",
       "args": ["@modelcontextprotocol/server-filesystem", "/path/to/allowed"]

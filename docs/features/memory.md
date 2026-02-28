@@ -60,7 +60,7 @@ ccw memory search "authentication"
 ## Configuration
 
 ```json
-// ~/.claude/cli-settings.json
+// ~/.claude/settings.json
 {
   "memory": {
     "enabled": true,

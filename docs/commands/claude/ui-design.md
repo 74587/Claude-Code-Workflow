@@ -47,7 +47,7 @@
 **Function**: Interactive exploratory UI design workflow, style-centric batch generation, creating design variants from prompts/images, supporting parallel execution and user selection.
 
 **Syntax**:
-```
+```bash
 /workflow:ui-design:explore-auto [--input "<value>"] [--targets "<list>"] [--target-type "page|component"] [--session <id>] [--style-variants <count>] [--layout-variants <count>]
 ```
 
@@ -76,7 +76,7 @@
 **Function**: UI design workflow supporting direct code/image input for design token extraction and prototype generation.
 
 **Syntax**:
-```
+```bash
 /workflow:ui-design:imitate-auto [--input "<value>"] [--session <id>]
 ```
 
@@ -98,7 +98,7 @@
 **Function**: Extract design styles using Claude analysis from reference images or text prompts, supporting variant generation or refine mode.
 
 **Syntax**:
-```
+```bash
 /workflow:ui-design:style-extract [-y|--yes] [--design-id <id>] [--session <id>] [--images "<glob>"] [--prompt "<description>"] [--variants <count>] [--interactive] [--refine]
 ```
 
@@ -126,7 +126,7 @@
 **Function**: Extract structural layout information using Claude analysis from reference images or text prompts, supporting variant generation or refine mode.
 
 **Syntax**:
-```
+```bash
 /workflow:ui-design:layout-extract [-y|--yes] [--design-id <id>] [--session <id>] [--images "<glob>"] [--prompt "<description>"] [--targets "<list>"] [--variants <count>] [--device-type <desktop|mobile|tablet|responsive>] [--interactive] [--refine]
 ```
 
@@ -151,7 +151,7 @@
 **Function**: Extract animation and transition patterns from prompts inference and image references for design system documentation.
 
 **Syntax**:
-```
+```bash
 /workflow:ui-design:animation-extract [-y|--yes] [--design-id <id>] [--session <id>] [--images "<glob>"] [--focus "<type>"] [--interactive] [--refine]
 ```
 
@@ -172,7 +172,7 @@
 **Function**: Import design system from code files (CSS/JS/HTML/SCSS), using automatic file discovery and parallel agent analysis.
 
 **Syntax**:
-```
+```bash
 /workflow:ui-design:import-from-code [--design-id <id>] [--session <id>] [--source <path>]
 ```
 
@@ -193,7 +193,7 @@
 **Function**: Orchestrator extracts styles from code and generates shareable reference package, supporting preview (automatic file discovery).
 
 **Syntax**:
-```
+```bash
 /workflow:ui-design:codify-style <path> [--package-name <name>] [--output-dir <path>] [--overwrite]
 ```
 
@@ -216,7 +216,7 @@
 **Function**: Extract and generate multi-component reference pages and documentation from design run.
 
 **Syntax**:
-```
+```bash
 /workflow:ui-design:reference-page-generator [--design-run <path>] [--package-name <name>] [--output-dir <path>]
 ```
 
@@ -234,7 +234,7 @@
 **Function**: Assemble UI prototypes, combining layout templates with design tokens (default animation support), pure assembler with no new content generation.
 
 **Syntax**:
-```
+```bash
 /workflow:ui-design:generate [--design-id <id>] [--session <id>]
 ```
 
@@ -252,7 +252,7 @@
 **Function**: Sync final design system reference to brainstorm artifacts, preparing for consumption by `/workflow:plan`.
 
 **Syntax**:
-```
+```bash
 /workflow:ui-design:design-sync --session <session_id> [--selected-prototypes "<list>"]
 ```
 
@@ -286,7 +286,7 @@ graph TD
 
 ## Design Run Structure
 
-```
+```plaintext
 .workflow/ui-design-runs/<run-id>/
 ├── design-tokens.json       # Design tokens
 ├── layouts/                 # Layout templates

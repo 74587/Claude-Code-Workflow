@@ -72,7 +72,7 @@
 **Function**: Ultra-lightweight multi-tool analysis and direct execution. Simple tasks have no artifacts, complex tasks automatically create planning documents in `.workflow/.scratchpad/`.
 
 **Syntax**:
-```
+```bash
 /workflow:lite-lite-lite [-y|--yes] <task description>
 ```
 
@@ -95,7 +95,7 @@
 **Function**: Lightweight interactive planning workflow, supporting in-memory planning, code exploration, and execution to lite-execute.
 
 **Syntax**:
-```
+```bash
 /workflow:lite-plan [-y|--yes] [-e|--explore] "task description" | file.md
 ```
 
@@ -116,7 +116,7 @@
 **Function**: Execute tasks based on in-memory plan, prompt description, or file content.
 
 **Syntax**:
-```
+```bash
 /workflow:lite-execute [-y|--yes] [--in-memory] ["task description" | file-path]
 ```
 
@@ -137,7 +137,7 @@
 **Function**: Lightweight bug diagnosis and fix workflow, supporting intelligent severity assessment and optional hotfix mode.
 
 **Syntax**:
-```
+```bash
 /workflow:lite-fix [-y|--yes] [--hotfix] "bug description or issue reference"
 ```
 
@@ -158,7 +158,7 @@
 **Function**: 5-phase planning workflow, outputting IMPL_PLAN.md and task JSON.
 
 **Syntax**:
-```
+```bash
 /workflow:plan [-y|--yes] "text description" | file.md
 ```
 
@@ -183,7 +183,7 @@
 **Function**: Coordinate agent execution of workflow tasks, supporting automatic session discovery, parallel task processing, and state tracking.
 
 **Syntax**:
-```
+```bash
 /workflow:execute [-y|--yes] [--resume-session="session-id"]
 ```
 
@@ -201,7 +201,7 @@
 **Function**: Interactive workflow replanning, supporting session-level artifact updates and scope clarification.
 
 **Syntax**:
-```
+```bash
 /workflow:replan [-y|--yes] [--session session-id] [task-id] "requirement" | file.md [--interactive]
 ```
 
@@ -219,7 +219,7 @@
 **Function**: Multi-CLI collaborative planning workflow, using ACE context collection and iterative cross-validation.
 
 **Syntax**:
-```
+```bash
 /workflow:multi-cli-plan [-y|--yes] <task description> [--max-rounds=3] [--tools=gemini,codex] [--mode=parallel|serial]
 ```
 
@@ -242,7 +242,7 @@
 **Function**: Interactive brainstorming, multi-CLI collaboration, idea expansion, and documented thinking evolution.
 
 **Syntax**:
-```
+```bash
 /workflow:brainstorm-with-file [-y|--yes] [-c|--continue] [-m|--mode creative|structured] "idea or topic"
 ```
 
@@ -264,7 +264,7 @@
 **Function**: Interactive collaborative analysis with documented discussion, CLI-assisted exploration, and evolving understanding.
 
 **Syntax**:
-```
+```bash
 /workflow:analyze-with-file [-y|--yes] [-c|--continue] "topic or question"
 ```
 
@@ -282,7 +282,7 @@
 **Function**: Interactive hypothesis-driven debugging with documented exploration, understanding evolution, and Gemini-assisted correction.
 
 **Syntax**:
-```
+```bash
 /workflow:debug-with-file [-y|--yes] "bug description or error message"
 ```
 
@@ -300,7 +300,7 @@
 **Function**: Universal execution engine consuming any planning/brainstorming/analysis output, supporting minimal progress tracking, multi-agent coordination, and incremental execution.
 
 **Syntax**:
-```
+```bash
 /workflow:unified-execute-with-file [-y|--yes] [-p|--plan <path>] [-m|--mode sequential|parallel] ["execution context"]
 ```
 

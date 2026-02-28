@@ -22,8 +22,8 @@
 |---------|------|--------|
 | **Gemini** | Builtin | gemini-2.5-flash, gemini-2.5-pro |
 | **Qwen** | Builtin | coder-model |
-| **Codex** | Builtin | gpt-4o, gpt-4o-mini |
-| **Claude** | Builtin | claude-sonnet, claude-haiku |
+| **Codex** | Builtin | gpt-5.2 |
+| **Claude** | Builtin | sonnet, haiku |
 | **OpenCode** | Builtin | opencode/glm-4.7-free |
 
 ---
@@ -44,7 +44,8 @@
     },
     "codex": {
       "enabled": true,
-      "primaryModel": "gpt-4o",
+      "primaryModel": "gpt-5.2",
+      "secondaryModel": "gpt-5.2",
       "tags": [],
       "type": "builtin"
     }

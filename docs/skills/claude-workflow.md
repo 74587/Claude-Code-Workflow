@@ -33,7 +33,7 @@
 **One-Liner**: Unified planning skill — 4-stage workflow, plan verification, interactive re-planning
 
 **Trigger**:
-```
+```shell
 /workflow:plan <task-description>
 /workflow:plan-verify --session <session-id>
 /workflow:replan --session <session-id> [task-id] "requirements"
@@ -61,7 +61,7 @@ default → 'plan'
 6. **Accumulated state**: planning-notes.md carries context across phases for N+1 decisions
 
 **Plan Mode Data Flow**:
-```
+```plaintext
 User Input (task description)
     ↓
 [Convert to structured format]
@@ -106,7 +106,7 @@ Plan Confirmation (User Decision Gate):
 **One-Liner**: Agent-coordinated execution — Systematic task discovery, agent coordination, and state tracking
 
 **Trigger**:
-```
+```shell
 /workflow:execute
 /workflow:execute --resume-session="WFS-auth"
 /workflow:execute --yes
@@ -125,7 +125,7 @@ Plan Confirmation (User Decision Gate):
 - **Completion selection**: Auto-complete session (run `/workflow:session:complete --yes`)
 
 **Execution Process**:
-```
+```plaintext
 Phase 1: Discovery
    ├─ Count active sessions
    └─ Decision:
@@ -188,7 +188,7 @@ Phase 5: Completion
 **One-Liner**: Lightweight quick planning — Quick planning and execution for super simple tasks
 
 **Trigger**:
-```
+```shell
 /workflow:lite-plan <simple-task>
 ```
 
@@ -210,7 +210,7 @@ Phase 5: Completion
 **One-Liner**: Multi-CLI collaborative planning — Analysis and planning with multiple CLI tools collaborating
 
 **Trigger**:
-```
+```shell
 /workflow:multi-cli-plan <task>
 ```
 
@@ -231,7 +231,7 @@ Phase 5: Completion
 **One-Liner**: TDD workflow — Test-driven development process
 
 **Trigger**:
-```
+```shell
 /workflow:tdd <feature-description>
 ```
 
@@ -242,7 +242,7 @@ Phase 5: Completion
 - Loop until passing
 
 **Pipeline**:
-```
+```plaintext
 Plan Tests → Write Tests → [Fail] → Implement Feature → [Pass] → Complete
                     ↑___________|
 ```
@@ -254,7 +254,7 @@ Plan Tests → Write Tests → [Fail] → Implement Feature → [Pass] → Compl
 **One-Liner**: Test-fix workflow — Diagnosis and fixing of failing tests
 
 **Trigger**:
-```
+```shell
 /workflow:test-fix <failing-tests>
 ```
 
@@ -265,7 +265,7 @@ Plan Tests → Write Tests → [Fail] → Implement Feature → [Pass] → Compl
 - Loop until passing
 
 **Pipeline**:
-```
+```plaintext
 Diagnose Failure → Identify Root Cause → [Code Issue] → Fix Code → Verify
                           ↑___________|
 ```
@@ -277,7 +277,7 @@ Diagnose Failure → Identify Root Cause → [Code Issue] → Fix Code → Verif
 **One-Liner**: Skill design workflow — Create new Claude Code Skills
 
 **Trigger**:
-```
+```shell
 /workflow:skill-designer <skill-idea>
 ```
 
@@ -289,7 +289,7 @@ Diagnose Failure → Identify Root Cause → [Code Issue] → Fix Code → Verif
 - Verification and documentation
 
 **Output Structure**:
-```
+```plaintext
 .claude/skills/{skill-name}/
 ├── SKILL.md              # Entry file
 ├── phases/
@@ -307,7 +307,7 @@ Diagnose Failure → Identify Root Cause → [Code Issue] → Fix Code → Verif
 **One-Liner**: Wave batch planning — Parallel processing planning for batch issues
 
 **Trigger**:
-```
+```shell
 /workflow:wave-plan <issue-list>
 ```
 
@@ -318,7 +318,7 @@ Diagnose Failure → Identify Root Cause → [Code Issue] → Fix Code → Verif
 - Execution queue generation
 
 **Wave Model**:
-```
+```plaintext
 Wave 1: Issue 1-5 → Parallel planning → Parallel execution
 Wave 2: Issue 6-10 → Parallel planning → Parallel execution
 ...

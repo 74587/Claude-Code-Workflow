@@ -32,7 +32,7 @@
 **One-Liner**: Specification generator — 6-stage document chain generates complete specification package (product brief, PRD, architecture, Epics)
 
 **Trigger**:
-```
+```shell
 /spec-generator <idea>
 /spec-generator --continue        # Resume from checkpoint
 /spec-generator -y <idea>        # Auto mode
@@ -46,7 +46,7 @@
 - Documentation only: No code generation or execution — clean handoff to existing execution workflows
 
 **Architecture Overview**:
-```
+```plaintext
 Phase 0:   Specification Study (Read specs/ + templates/ - mandatory prerequisite)
            |
 Phase 1:   Discovery               -> spec-config.json + discovery-context.json
@@ -85,7 +85,7 @@ Phase 6:   Readiness Check         -> readiness-report.md + spec-summary.md
 | [templates/epics-template.md](templates/epics-template.md) | Epic/Story document template |
 
 **Output Structure**:
-```
+```plaintext
 .workflow/.spec/SPEC-{slug}-{YYYY-MM-DD}/
 ├── spec-config.json              # Session config + stage status
 ├── discovery-context.json        # Codebase exploration results (optional)
@@ -119,7 +119,7 @@ Phase 6:   Readiness Check         -> readiness-report.md + spec-summary.md
 **One-Liner**: Brainstorming — Interactive framework generation, multi-role parallel analysis, and cross-role synthesis
 
 **Trigger**:
-```
+```shell
 /brainstorm <topic>
 /brainstorm --count 3 "Build platform"
 /brainstorm -y "GOAL: Build SCOPE: Users" --count 5
@@ -169,7 +169,7 @@ Artifacts  N×Role  Synthesis  1×Role
 | `ux-expert` | UX Expert | User research, information architecture, journeys |
 
 **Output Structure**:
-```
+```plaintext
 .workflow/active/WFS-{topic}/
 ├── workflow-session.json              # Session metadata
 ├── .process/
@@ -204,7 +204,7 @@ Artifacts  N×Role  Synthesis  1×Role
 **One-Liner**: Skill generator — Meta-skill for creating new Claude Code Skills
 
 **Trigger**:
-```
+```shell
 /skill-generator
 /create skill
 /new skill
@@ -242,7 +242,7 @@ Artifacts  N×Role  Synthesis  1×Role
 | [templates/autonomous-action.md](templates/autonomous-action.md) | Autonomous action template |
 
 **Execution Flow**:
-```
+```plaintext
 Phase 0: Specification Study (Mandatory)
    - Read: ../_shared/SKILL-DESIGN-SPEC.md
    - Read: All templates/*.md files
@@ -269,7 +269,7 @@ Phase 5: Verification and Documentation
 ```
 
 **Output Structure** (Sequential):
-```
+```plaintext
 .claude/skills/{skill-name}/
 ├── SKILL.md                        # Entry file
 ├── phases/
@@ -294,7 +294,7 @@ Phase 5: Verification and Documentation
 **One-Liner**: CCW command help system — Command search, recommendations, documentation viewing
 
 **Trigger**:
-```
+```shell
 /ccw-help
 /ccw "task description"          # Auto-select workflow and execute
 /ccw-help search <keyword>       # Search commands
@@ -356,7 +356,7 @@ Phase 5: Verification and Documentation
 **One-Liner**: Skill tuning diagnosis — Automated diagnosis and optimization recommendations
 
 **Trigger**:
-```
+```shell
 /skill-tuning <skill-name>
 ```
 
@@ -367,7 +367,7 @@ Phase 5: Verification and Documentation
 - Verify improvements
 
 **Diagnosis Flow**:
-```
+```plaintext
 Analyze Skill → Identify issues → Generate recommendations → Apply optimizations → Verify effects
 ```
 
@@ -378,7 +378,7 @@ Analyze Skill → Identify issues → Generate recommendations → Apply optimiz
 **One-Liner**: Command generator — Generate Claude commands
 
 **Trigger**:
-```
+```shell
 /command-generator
 ```
 
@@ -394,7 +394,7 @@ Analyze Skill → Identify issues → Generate recommendations → Apply optimiz
 **One-Liner**: Issue management — Issue creation, updates, status management
 
 **Trigger**:
-```
+```shell
 /issue-manage
 /issue:new
 ```

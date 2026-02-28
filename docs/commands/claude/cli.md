@@ -26,7 +26,7 @@
 **Function**: Generate `.gemini/` and `.qwen/` configuration directories based on workspace tech detection, including settings.json and ignore files.
 
 **Syntax**:
-```
+```bash
 /cli:cli-init [--tool gemini|qwen|all] [--output path] [--preview]
 ```
 
@@ -36,7 +36,7 @@
 - `--preview`: Preview mode (don't actually create)
 
 **Generated File Structure**:
-```
+```plaintext
 .gemini/
 ├── settings.json      # Gemini configuration
 └── ignore            # Ignore patterns
@@ -75,7 +75,7 @@
 **Function**: Interactive code review using Codex CLI via ccw endpoint, supporting configurable review targets, models, and custom instructions.
 
 **Syntax**:
-```
+```bash
 /cli:codex-review [--uncommitted|--base <branch>|--commit <sha>] [--model <model>] [--title <title>] [prompt]
 ```
 

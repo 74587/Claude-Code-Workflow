@@ -26,7 +26,7 @@
 **功能**: 根据工作空间技术检测生成 `.gemini/` 和 `.qwen/` 配置目录，包含 settings.json 和 ignore 文件。
 
 **语法**:
-```
+```bash
 /cli:cli-init [--tool gemini|qwen|all] [--output path] [--preview]
 ```
 
@@ -75,7 +75,7 @@
 **功能**: 使用 Codex CLI 通过 ccw 端点进行交互式代码审查，支持可配置的审查目标、模型和自定义指令。
 
 **语法**:
-```
+```bash
 /cli:codex-review [--uncommitted|--base <branch>|--commit <sha>] [--model <model>] [--title <title>] [prompt]
 ```
 

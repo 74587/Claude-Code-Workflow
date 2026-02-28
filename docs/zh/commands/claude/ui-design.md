@@ -47,7 +47,7 @@
 **功能**: 交互式探索性 UI 设计工作流，以样式为中心的批量生成，从提示/图片创建设计变体，支持并行执行和用户选择。
 
 **语法**:
-```
+```bash
 /workflow:ui-design:explore-auto [--input "<值>"] [--targets "<列表>"] [--target-type "page|component"] [--session <id>] [--style-variants <数量>] [--layout-variants <数量>]
 ```
 
@@ -76,7 +76,7 @@
 **功能**: UI 设计工作流，支持直接代码/图片输入进行设计令牌提取和原型生成。
 
 **语法**:
-```
+```bash
 /workflow:ui-design:imitate-auto [--input "<值>"] [--session <id>]
 ```
 
@@ -98,7 +98,7 @@
 **功能**: 从参考图片或文本提示使用 Claude 分析提取设计样式，支持变体生成或精化模式。
 
 **语法**:
-```
+```bash
 /workflow:ui-design:style-extract [-y|--yes] [--design-id <id>] [--session <id>] [--images "<glob>"] [--prompt "<描述>"] [--variants <数量>] [--interactive] [--refine]
 ```
 
@@ -126,7 +126,7 @@
 **功能**: 从参考图片或文本提示使用 Claude 分析提取结构布局信息，支持变体生成或精化模式。
 
 **语法**:
-```
+```bash
 /workflow:ui-design:layout-extract [-y|--yes] [--design-id <id>] [--session <id>] [--images "<glob>"] [--prompt "<描述>"] [--targets "<列表>"] [--variants <数量>] [--device-type <desktop|mobile|tablet|responsive>] [--interactive] [--refine]
 ```
 
@@ -151,7 +151,7 @@
 **功能**: 从提示推断和图片引用提取动画和过渡模式，用于设计系统文档。
 
 **语法**:
-```
+```bash
 /workflow:ui-design:animation-extract [-y|--yes] [--design-id <id>] [--session <id>] [--images "<glob>"] [--focus "<类型>"] [--interactive] [--refine]
 ```
 
@@ -172,7 +172,7 @@
 **功能**: 从代码文件（CSS/JS/HTML/SCSS）导入设计系统，使用自动文件发现和并行代理分析。
 
 **语法**:
-```
+```bash
 /workflow:ui-design:import-from-code [--design-id <id>] [--session <id>] [--source <path>]
 ```
 
@@ -193,7 +193,7 @@
 **功能**: 编排器从代码提取样式并生成可共享引用包，支持预览（自动文件发现）。
 
 **语法**:
-```
+```bash
 /workflow:ui-design:codify-style <path> [--package-name <name>] [--output-dir <path>] [--overwrite]
 ```
 
@@ -216,7 +216,7 @@
 **功能**: 从设计运行提取生成多组件参考页面和文档。
 
 **语法**:
-```
+```bash
 /workflow:ui-design:reference-page-generator [--design-run <path>] [--package-name <name>] [--output-dir <path>]
 ```
 
@@ -234,7 +234,7 @@
 **功能**: 组装 UI 原型，将布局模板与设计令牌（默认动画支持）组合，纯组装器无新内容生成。
 
 **语法**:
-```
+```bash
 /workflow:ui-design:generate [--design-id <id>] [--session <id>]
 ```
 
@@ -252,7 +252,7 @@
 **功能**: 同步最终设计系统引用到头脑风暴工件，准备供 `/workflow:plan` 消费。
 
 **语法**:
-```
+```bash
 /workflow:ui-design:design-sync --session <session_id> [--selected-prototypes "<列表>"]
 ```
 

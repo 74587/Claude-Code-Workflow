@@ -21,7 +21,7 @@
 **Initial State**: Build failed with critical Vue SFC parsing errors
 
 **Iteration 1**:
-```
+```text
 Error: At least one <template> or <script> is required in a single file component
 File: ColorSchemeSelector.vue
 Severity: CRITICAL
@@ -41,7 +41,7 @@ Severity: CRITICAL
 | VitePress config | Added `ignoreDeadLinks: true` for incomplete docs | ✅ Applied |
 
 **Final Build Result**:
-```
+```text
 ✓ building client + server bundles...
 ✓ rendering pages...
 build complete in 113.68s
@@ -62,7 +62,7 @@ build complete in 113.68s
 **Distribution Directory**: `D:\ccw-doc2\.vitepress\dist\`
 
 **Generated Assets**:
-```
+```text
 ✓ 404.html
 ✓ index.html
 ✓ README.html

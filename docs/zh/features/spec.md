@@ -80,7 +80,7 @@ ccw spec init
 ```
 
 **输出**:
-```
+```bash
 Initializing spec system...
 
 Directories created:

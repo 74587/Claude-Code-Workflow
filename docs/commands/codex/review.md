@@ -19,7 +19,7 @@
 **Function**: Interactive code review using Codex CLI via ccw endpoint, supporting configurable review targets, models, and custom instructions.
 
 **Syntax**:
-```
+```bash
 /cli:codex-review [--uncommitted|--base <branch>|--commit <sha>] [--model <model>] [--title <title>] [prompt]
 ```
 

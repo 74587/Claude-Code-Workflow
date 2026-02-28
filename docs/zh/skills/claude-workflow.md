@@ -33,7 +33,7 @@
 **一句话定位**: 统一规划技能 — 4 阶段工作流、计划验证、交互式重规划
 
 **触发**:
-```
+```shell
 /workflow:plan <task-description>
 /workflow:plan-verify --session <session-id>
 /workflow:replan --session <session-id> [task-id] "requirements"
@@ -61,7 +61,7 @@ default → 'plan'
 6. **累积状态**: planning-notes.md 跨阶段携带上下文用于 N+1 决策
 
 **计划模式数据流**:
-```
+```plaintext
 用户输入（任务描述）
     ↓
 [转换为结构化格式]
@@ -106,7 +106,7 @@ Phase 4: task-generate-agent --session sessionId
 **一句话定位**: 代理协调执行 — 系统化任务发现、代理协调和状态跟踪
 
 **触发**:
-```
+```shell
 /workflow:execute
 /workflow:execute --resume-session="WFS-auth"
 /workflow:execute --yes
@@ -125,7 +125,7 @@ Phase 4: task-generate-agent --session sessionId
 - **完成选择**: 自动完成会话（运行 `/workflow:session:complete --yes`）
 
 **执行过程**:
-```
+```plaintext
 Phase 1: 发现
    ├─ 计算活跃会话数
    └─ 决策:
@@ -188,7 +188,7 @@ Phase 5: 完成
 **一句话定位**: 轻量级快速规划 — 超简单任务的快速规划和执行
 
 **触发**:
-```
+```shell
 /workflow:lite-plan <simple-task>
 ```
 
@@ -210,7 +210,7 @@ Phase 5: 完成
 **一句话定位**: 多 CLI 协作规划 — 多个 CLI 工具协作的分析和规划
 
 **触发**:
-```
+```shell
 /workflow:multi-cli-plan <task>
 ```
 
@@ -231,7 +231,7 @@ Phase 5: 完成
 **一句话定位**: TDD 工作流 — 测试驱动的开发流程
 
 **触发**:
-```
+```shell
 /workflow:tdd <feature-description>
 ```
 
@@ -242,7 +242,7 @@ Phase 5: 完成
 - 循环直到通过
 
 **流水线**:
-```
+```plaintext
 规划测试 → 编写测试 → [失败] → 实现功能 → [通过] → 完成
                     ↑___________|
 ```
@@ -254,7 +254,7 @@ Phase 5: 完成
 **一句话定位**: 测试修复工作流 — 失败测试的诊断和修复
 
 **触发**:
-```
+```shell
 /workflow:test-fix <failing-tests>
 ```
 
@@ -265,7 +265,7 @@ Phase 5: 完成
 - 循环直到通过
 
 **流水线**:
-```
+```plaintext
 诊断失败 → 确定根因 → [代码问题] → 修复代码 → 验证
                           ↑___________|
 ```
@@ -277,7 +277,7 @@ Phase 5: 完成
 **一句话定位**: Skill 设计工作流 — 创建新的 Claude Code Skills
 
 **触发**:
-```
+```shell
 /workflow:skill-designer <skill-idea>
 ```
 
@@ -289,7 +289,7 @@ Phase 5: 完成
 - 验证和文档
 
 **输出结构**:
-```
+```plaintext
 .claude/skills/{skill-name}/
 ├── SKILL.md              # 入口文件
 ├── phases/
@@ -307,7 +307,7 @@ Phase 5: 完成
 **一句话定位**: Wave 批处理规划 — 批量 Issue 的并行处理规划
 
 **触发**:
-```
+```shell
 /workflow:wave-plan <issue-list>
 ```
 
@@ -318,7 +318,7 @@ Phase 5: 完成
 - 执行队列生成
 
 **Wave 模型**:
-```
+```plaintext
 Wave 1: Issue 1-5 → 并行规划 → 并行执行
 Wave 2: Issue 6-10 → 并行规划 → 并行执行
 ...

@@ -40,7 +40,7 @@
 **一句话定位**: 全生命周期编排器 — 规范/实现/测试的 spawn-wait-close 流水线
 
 **触发**:
-```
+```shell
 /team-lifecycle <task-description>
 ```
 
@@ -65,7 +65,7 @@
 | fe-qa | 前端 QA、GC 循环 | 2.3 Deep Interaction |
 
 **流水线定义**:
-```
+```plaintext
 Spec-only (6 beats):
   RESEARCH-001(+D1) → DRAFT-001(+D2) → DRAFT-002(+D3) → DRAFT-003(+D4) → DRAFT-004(+D5) → QUALITY-001(+D6)
 
@@ -77,7 +77,7 @@ Full-lifecycle (9 beats):
 ```
 
 **Beat Cycle**:
-```
+```plaintext
 event (phase advance / user resume)
       ↓
   [Orchestrator]
@@ -93,7 +93,7 @@ event (phase advance / user resume)
 ```
 
 **会话目录**:
-```
+```plaintext
 .workflow/.team/TLS-<slug>-<date>/
 ├── team-session.json           # 流水线状态
 ├── spec/                       # 规范产物
@@ -112,7 +112,7 @@ event (phase advance / user resume)
 **一句话定位**: 多代理并行开发循环 — 需求分析、探索规划、代码开发、验证
 
 **触发**:
-```
+```shell
 /parallel-dev-cycle TASK="Implement feature"
 /parallel-dev-cycle --cycle-id=cycle-v1-20260122-abc123
 /parallel-dev-cycle --auto TASK="Add OAuth"
@@ -138,7 +138,7 @@ event (phase advance / user resume)
 - 消除冗余代码库探索
 
 **会话结构**:
-```
+```plaintext
 {projectRoot}/.workflow/.cycle/
 ├── {cycleId}.json                     # 主状态文件
 ├── {cycleId}.progress/
@@ -156,7 +156,7 @@ event (phase advance / user resume)
 ```
 
 **执行流程**:
-```
+```plaintext
 Phase 1: 会话初始化
     ↓ cycleId, state, progressDir
 
@@ -190,13 +190,13 @@ Phase 4: 完成和摘要
 **一句话定位**: 协作分析 — 文档化讨论、内联探索、理解演进的交互式分析
 
 **触发**:
-```
+```shell
 /analyze-with-file TOPIC="<question>"
 /analyze-with-file TOPIC="--depth=deep"
 ```
 
 **核心工作流**:
-```
+```plaintext
 Topic → Explore → Discuss → Document → Refine → Conclude → (Optional) Quick Execute
 ```
 
@@ -222,7 +222,7 @@ Topic → Explore → Discuss → Document → Refine → Conclude → (Optional
 **一句话定位**: 多视角头脑风暴 — 4 视角（Product、Technical、Risk、User）并行分析
 
 **触发**:
-```
+```shell
 /brainstorm-with-file TOPIC="<idea>"
 ```
 
@@ -246,12 +246,12 @@ Topic → Explore → Discuss → Document → Refine → Conclude → (Optional
 **一句话定位**: 假设驱动调试 — 文档化探索、理解演进、分析辅助修正
 
 **触发**:
-```
+```shell
 /debug-with-file BUG="<bug description>"
 ```
 
 **核心工作流**:
-```
+```plaintext
 Explore → Document → Log → Analyze → Correct Understanding → Fix → Verify
 ```
 
@@ -262,7 +262,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 - **学习保留**: 保留从失败尝试中学到的内容
 
 **会话文件夹结构**:
-```
+```plaintext
 {projectRoot}/.workflow/.debug/DBG-{slug}-{date}/
 ├── debug.log           # NDJSON 日志（执行证据）
 ├── understanding.md    # 探索时间线 + 整合理解
@@ -283,7 +283,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **一句话定位**: 协作规划 — 多代理协作规划（替代 team-planex）
 
 **触发**:
-```
+```shell
 /collaborative-plan-with-file <task>
 ```
 
@@ -299,7 +299,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **一句话定位**: 通用执行引擎 — 替代 workflow-execute
 
 **触发**:
-```
+```shell
 /unified-execute-with-file <session>
 ```
 
@@ -315,7 +315,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **一句话定位**: 需求路线图规划
 
 **触发**:
-```
+```shell
 /roadmap-with-file <requirements>
 ```
 
@@ -331,7 +331,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **一句话定位**: 审查循环（Codex 版本）
 
 **触发**:
-```
+```shell
 /review-cycle <target>
 ```
 
@@ -347,7 +347,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **一句话定位**: 测试修复工作流
 
 **触发**:
-```
+```shell
 /workflow-test-fix-cycle <failing-tests>
 ```
 
@@ -364,7 +364,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **一句话定位**: 智能代码清理
 
 **触发**:
-```
+```shell
 /clean <target>
 ```
 
@@ -380,7 +380,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **一句话定位**: CSV 波处理管道
 
 **触发**:
-```
+```shell
 /csv-wave-pipeline <csv-file>
 ```
 
@@ -396,7 +396,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **一句话定位**: Memory 压缩（Codex 版本）
 
 **触发**:
-```
+```shell
 /memory-compact
 ```
 
@@ -412,7 +412,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **一句话定位**: CLI 工具执行规范
 
 **触发**:
-```
+```shell
 /ccw-cli-tools <command>
 ```
 
@@ -428,7 +428,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 **一句话定位**: Issue 发现
 
 **触发**:
-```
+```shell
 /issue-discover <context>
 ```
 

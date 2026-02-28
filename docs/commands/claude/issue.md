@@ -32,7 +32,7 @@
 **Function**: Create structured issue from GitHub URL or text description, supporting requirement clarity detection.
 
 **Syntax**:
-```
+```bash
 /issue:new [-y|--yes] <github-url | text description> [--priority 1-5]
 ```
 
@@ -92,7 +92,7 @@ interface Issue {
 **Function**: Discover potential issues from multiple perspectives (Bug, UX, Test, Quality, Security, Performance, Maintainability, Best Practices).
 
 **Syntax**:
-```
+```bash
 /issue:discover [-y|--yes] <path pattern> [--perspectives=bug,ux,...] [--external]
 ```
 
@@ -125,7 +125,7 @@ interface Issue {
 **Function**: Discover issues via user prompt, using Gemini-planned iterative multi-agent exploration, supporting cross-module comparison.
 
 **Syntax**:
-```
+```bash
 /issue:discover-by-prompt [-y|--yes] <prompt> [--scope=src/**] [--depth=standard|deep] [--max-iterations=5]
 ```
 
@@ -151,7 +151,7 @@ interface Issue {
 **Function**: Batch plan issue solutions, using issue-plan-agent (explore + plan closed loop).
 
 **Syntax**:
-```
+```bash
 /issue:plan [-y|--yes] --all-pending <issue-id>[,<issue-id>,...] [--batch-size 3]
 ```
 
@@ -176,7 +176,7 @@ interface Issue {
 **Function**: Form execution queue from bound solutions, using issue-queue-agent (solution level).
 
 **Syntax**:
-```
+```bash
 /issue:queue [-y|--yes] [--queues <n>] [--issue <id>]
 ```
 
@@ -201,7 +201,7 @@ interface Issue {
 **Function**: Execute queue, using DAG parallel orchestration (one commit per solution).
 
 **Syntax**:
-```
+```bash
 /issue:execute [-y|--yes] --queue <queue-id> [--worktree [<existing-path>]]
 ```
 
@@ -223,7 +223,7 @@ interface Issue {
 **Function**: Convert planning artifact (lite-plan, workflow session, markdown) to issue solution.
 
 **Syntax**:
-```
+```bash
 /issue:convert-to-plan [-y|--yes] [--issue <id>] [--supplement] <source>
 ```
 
@@ -253,7 +253,7 @@ interface Issue {
 **Function**: Convert brainstorm session ideas to issues and generate executable solutions.
 
 **Syntax**:
-```
+```bash
 /issue:from-brainstorm SESSION="session-id" [--idea=<index>] [--auto] [-y|--yes]
 ```
 

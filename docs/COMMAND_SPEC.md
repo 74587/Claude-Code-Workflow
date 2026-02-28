@@ -1,8 +1,8 @@
 
 # Claude Code Workflow (CCW) - Command Specification
 
-**Version**: 6.2.0
-**Updated**: 2025-12-20
+**Version**: 7.0.6
+**Updated**: 2026-02-28
 
 ## 1. Introduction
 
