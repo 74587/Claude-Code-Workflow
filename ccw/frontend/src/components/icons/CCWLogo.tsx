@@ -3,6 +3,7 @@
 // ========================================
 // Line-style logo for Claude Code Workflow
 
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface CCWLogoProps {
@@ -15,10 +16,53 @@ interface CCWLogoProps {
 }
 
 /**
+ * Hook to get reactive theme accent color
+ */
+function useThemeAccentColor(): string {
+  const [accentColor, setAccentColor] = useState<string>(() => {
+    if (typeof document === 'undefined') return 'hsl(220, 60%, 65%)';
+    const root = document.documentElement;
+    const accentValue = getComputedStyle(root).getPropertyValue('--accent').trim();
+    return accentValue ? `hsl(${accentValue})` : 'hsl(220, 60%, 65%)';
+  });
+
+  useEffect(() => {
+    const updateAccentColor = () => {
+      const root = document.documentElement;
+      const accentValue = getComputedStyle(root).getPropertyValue('--accent').trim();
+      setAccentColor(accentValue ? `hsl(${accentValue})` : 'hsl(220, 60%, 65%)');
+    };
+
+    // Initial update
+    updateAccentColor();
+
+    // Watch for theme changes via MutationObserver
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'data-theme') {
+          updateAccentColor();
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  return accentColor;
+}
+
+/**
  * Line-style CCW logo component
  * Features three horizontal lines with a status dot that follows theme color
  */
 export function CCWLogo({ size = 24, className, showDot = true }: CCWLogoProps) {
+  const accentColor = useThemeAccentColor();
+
   return (
     <svg
       width={size}
@@ -27,7 +71,7 @@ export function CCWLogo({ size = 24, className, showDot = true }: CCWLogoProps) 
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={cn('ccw-logo', className)}
-      style={{ color: 'hsl(var(--accent))' }}
+      style={{ color: accentColor }}
       aria-label="Claude Code Workflow"
     >
       {/* Three horizontal lines - line style */}

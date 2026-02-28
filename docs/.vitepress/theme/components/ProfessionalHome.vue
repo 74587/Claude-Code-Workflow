@@ -509,9 +509,9 @@ onUnmounted(() => {
 }
 
 .section-container {
-  max-width: 1152px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 0;
+  padding: 0 2rem;
   width: 100%;
 }
 
@@ -529,13 +529,13 @@ onUnmounted(() => {
 }
 
 .hero-container {
-  max-width: 1152px;
+  max-width: 1200px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
   align-items: center;
-  padding: 0;
+  padding: 0 2rem;
   width: 100%;
 }
 
@@ -568,7 +568,7 @@ onUnmounted(() => {
 }
 
 .hero-title {
-  font-size: 3.5rem;
+  font-size: 2.75rem;
   line-height: 1.15;
   font-weight: 800;
   margin-bottom: 1.25rem;
@@ -863,8 +863,10 @@ onUnmounted(() => {
   grid-template-columns: 1fr 1.2fr;
   gap: 3rem;
   align-items: center;
-  padding: 5rem 0;
+  padding: 5rem 2rem;
   width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 .json-text h2 { font-size: 2.25rem; font-weight: 700; margin-bottom: 1.25rem; color: var(--vp-c-text-1); line-height: 1.2; }
 .json-text p { font-size: 1.05rem; color: var(--vp-c-text-2); margin-bottom: 2rem; line-height: 1.7; }
@@ -910,6 +912,9 @@ onUnmounted(() => {
   grid-template-columns: 0.85fr 1.15fr;
   gap: 3rem;
   align-items: start;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
 }
 
 .quickstart-title {
@@ -1037,6 +1042,8 @@ onUnmounted(() => {
 .cta-card {
   text-align: center;
   padding: 3.5rem 2rem;
+  max-width: 800px;
+  margin: 0 auto;
   background: var(--vp-c-bg-soft);
   border: 1px solid var(--vp-c-divider);
   border-radius: 24px;

@@ -870,6 +870,16 @@
 /* ===========================
    CCW Logo
    =========================== */
-.ccw-logo {
-  color: hsl(var(--accent));
+.ccw-logo,
+svg.ccw-logo,
+header .ccw-logo {
+  color: hsl(var(--accent)) !important;
 }
+
+/* Ensure dot inherits color */
+.ccw-logo circle,
+svg.ccw-logo circle {
+  fill: currentColor;
+}
+
+/* Theme-specific accent colors are applied automatically via --accent variable */

@@ -2,6 +2,7 @@
 import DefaultTheme from 'vitepress/theme'
 import { onBeforeUnmount, onMounted } from 'vue'
 import { useDynamicIcon } from '../composables/useDynamicIcon'
+import ThemeLogo from '../components/ThemeLogo.vue'
 
 let mediaQuery: MediaQueryList | null = null
 let systemThemeChangeHandler: (() => void) | null = null
@@ -50,6 +51,11 @@ onBeforeUnmount(() => {
 
 <template>
   <DefaultTheme.Layout>
+    <!-- Custom logo in navbar that follows theme color -->
+    <template #nav-bar-title-before>
+      <ThemeLogo class="nav-logo" />
+    </template>
+
     <template #home-hero-after>
       <div class="hero-extensions">
         <div class="hero-stats">
@@ -118,6 +124,18 @@ onBeforeUnmount(() => {
   gap: 12px;
   margin-left: auto;
   padding-left: 16px;
+}
+
+.nav-logo {
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+/* Hide the default VitePress logo image since we use our custom component */
+:deep(.VPNavBarTitle .logo) {
+  display: none;
 }
 
 .skip-link {

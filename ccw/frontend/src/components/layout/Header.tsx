@@ -74,7 +74,7 @@ export function Header({
           to="/"
           className="flex items-center gap-2 text-lg font-semibold hover:opacity-80 transition-opacity"
         >
-          <CCWLogo size={24} className="text-primary" />
+          <CCWLogo size={24} />
           <span className="hidden sm:inline text-primary">{formatMessage({ id: 'navigation.header.brand' })}</span>
           <span className="sm:hidden text-primary">{formatMessage({ id: 'navigation.header.brandShort' })}</span>
         </Link>
