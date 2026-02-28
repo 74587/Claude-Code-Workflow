@@ -1,34 +1,37 @@
 ---
 name: team-planex
 description: |
-  Beat pipeline: planner decomposes requirements issue-by-issue, orchestrator spawns
-  Codex executor per issue immediately. All execution via Codex CLI only.
+  Inline planning + delegated execution pipeline. Main flow does planning directly,
+  spawns Codex executor per issue immediately. All execution via Codex CLI only.
 ---
 
 # Team PlanEx (Codex)
 
-逐 Issue 节拍流水线。Planner 每完成一个 issue 的 solution 立即输出 `ISSUE_READY` 信号，Orchestrator 即刻 spawn 独立 Codex executor 并行实现，无需等待 planner 完成全部规划。
+主流程内联规划 + 委托执行。SKILL.md 自身完成规划（不再 spawn planner agent），每完成一个 issue 的 solution 后立即 spawn executor agent 并行实现，无需等待所有规划完成。
 
 ## Architecture
 
 ```
-Input (Issue IDs / --text / --plan)
-  → Orchestrator: parse input → init session → spawn planner
-  → Beat loop:
-      wait(planner) → ISSUE_READY:{issueId} → spawn_agent(executor)
-                   → send_input(planner, "Continue")
-                   → ALL_PLANNED:{count}   → close_agent(planner)
-  → wait(all executors) → report
+┌────────────────────────────────────────┐
+│  SKILL.md (主流程 = 规划 + 节拍控制)     │
+│                                         │
+│  Phase 1: 解析输入 + 初始化 session      │
+│  Phase 2: 逐 issue 规划循环 (内联)       │
+│    ├── issue-plan → 写 solution artifact │
+│    ├── spawn executor agent ────────────┼──> [executor] 实现
+│    └── continue (不等 executor)          │
+│  Phase 3: 等待所有 executors             │
+│  Phase 4: 汇总报告                       │
+└────────────────────────────────────────┘
 ```
 
 ## Agent Registry
 
 | Agent | Role File | Responsibility |
 |-------|-----------|----------------|
-| `planner` | `~/.codex/agents/planex-planner.md` | Issue decomp → solution design → ISSUE_READY signals |
 | `executor` | `~/.codex/agents/planex-executor.md` | Codex CLI implementation per issue |
 
-> Both agents must be deployed to `~/.codex/agents/` before use.
+> Executor agent must be deployed to `~/.codex/agents/` before use.
 > Source: `.codex/skills/team-planex/agents/`
 
 ---
@@ -39,18 +42,29 @@ Supported input types (parse from `$ARGUMENTS`):
 
 | Type | Detection | Handler |
 |------|-----------|---------|
-| Issue IDs | `ISS-\d{8}-\d{6}` regex | Pass directly to planner |
-| Text | `--text '...'` flag | Planner creates issue(s) first |
-| Plan file | `--plan <path>` flag | Planner reads file, batch creates issues |
+| Issue IDs | `ISS-\d{8}-\d{6}` regex | Use directly for planning |
+| Text | `--text '...'` flag | Create issue(s) first via CLI |
+| Plan file | `--plan <path>` flag | Read file, parse phases, batch create issues |
+
+### Issue Creation (when needed)
+
+For `--text` input:
+```bash
+ccw issue create --data '{"title":"<title>","description":"<description>"}' --json
+```
+
+For `--plan` input:
+- Match `## Phase N: Title`, `## Step N: Title`, or `### N. Title`
+- Each match → one issue (title + description from section content)
+- Fallback: no structure found → entire file as single issue
 
 ---
 
 ## Session Setup
 
-Before spawning agents, initialize session directory:
+Before processing issues, initialize session directory:
 
 ```javascript
-// Generate session slug from input description (max 20 chars, kebab-case)
 const slug = toSlug(inputDescription).slice(0, 20)
 const date = new Date().toISOString().slice(0, 10).replace(/-/g, '')
 const sessionDir = `.workflow/.team/PEX-${slug}-${date}`
@@ -58,7 +72,6 @@ const artifactsDir = `${sessionDir}/artifacts/solutions`
 
 Bash(`mkdir -p "${artifactsDir}"`)
 
-// Write initial session state
 Write({
   file_path: `${sessionDir}/team-session.json`,
   content: JSON.stringify({
@@ -74,114 +87,90 @@ Write({
 
 ---
 
-## Phase 1: Spawn Planner
+## Phase 1: Parse Input + Initialize
+
+1. Parse `$ARGUMENTS` to determine input type
+2. Create issues if needed (--text / --plan)
+3. Collect all issue IDs
+4. Initialize session directory
+
+---
+
+## Phase 2: Inline Planning Loop
+
+For each issue, execute planning inline (no planner agent):
+
+### 2a. Generate Solution via issue-plan-agent
 
 ```javascript
-const plannerAgent = spawn_agent({
+const planAgent = spawn_agent({
   message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/planex-planner.md (MUST read first)
-2. Run: `ccw spec load --category "planning execution"`
+1. **Read role definition**: ~/.codex/agents/issue-plan-agent.md (MUST read first)
 
 ---
 
-## Session
-Session directory: ${sessionDir}
-Artifacts directory: ${artifactsDir}
+issue_ids: ["${issueId}"]
+project_root: "${projectRoot}"
 
-## Input
-${inputType === 'issues' ? `Issue IDs: ${issueIds.join(' ')}` : ''}
-${inputType === 'text' ? `Requirement: ${requirementText}` : ''}
-${inputType === 'plan' ? `Plan file: ${planPath}` : ''}
-
-## Beat Protocol (CRITICAL)
-Process issues one at a time. After completing each issue's solution:
-1. Write solution JSON to: ${artifactsDir}/{issueId}.json
-2. Output EXACTLY this line: ISSUE_READY:{issueId}
-3. STOP and wait — do NOT continue until you receive "Continue"
-
-When ALL issues are processed:
-1. Output EXACTLY: ALL_PLANNED:{totalCount}
+## Requirements
+- Generate solution for this issue
+- Auto-bind single solution
+- Output solution JSON when complete
 `
+})
+
+const result = wait({ ids: [planAgent], timeout_ms: 600000 })
+close_agent({ id: planAgent })
+```
+
+### 2b. Write Solution Artifact
+
+```javascript
+const solution = parseSolution(result)
+
+Write({
+  file_path: `${artifactsDir}/${issueId}.json`,
+  content: JSON.stringify({
+    session_id: sessionId,
+    issue_id: issueId,
+    solution: solution,
+    planned_at: new Date().toISOString()
+  }, null, 2)
 })
 ```
 
----
-
-## Phase 2: Beat Loop
-
-Orchestrator coordinates the planner-executor pipeline:
+### 2c. Spawn Executor Immediately
 
 ```javascript
-const executorIds = []
-const executorIssueMap = {}
-
-while (true) {
-  // Wait for planner beat signal (up to 10 min per issue)
-  const plannerOut = wait({ ids: [plannerAgent], timeout_ms: 600000 })
-
-  // Handle timeout: urge convergence and retry
-  if (plannerOut.timed_out) {
-    send_input({
-      id: plannerAgent,
-      message: "Please output ISSUE_READY:{issueId} for current issue or ALL_PLANNED if done."
-    })
-    continue
-  }
-
-  const output = plannerOut.status[plannerAgent].completed
-
-  // Detect ALL_PLANNED — pipeline complete
-  if (output.includes('ALL_PLANNED')) {
-    const match = output.match(/ALL_PLANNED:(\d+)/)
-    const total = match ? parseInt(match[1]) : executorIds.length
-    close_agent({ id: plannerAgent })
-    break
-  }
-
-  // Detect ISSUE_READY — spawn executor immediately
-  const issueMatch = output.match(/ISSUE_READY:(ISS-\d{8}-\d{6}|[A-Z0-9-]+)/)
-  if (issueMatch) {
-    const issueId = issueMatch[1]
-    const solutionFile = `${artifactsDir}/${issueId}.json`
-
-    const executorId = spawn_agent({
-      message: `
+const executorId = spawn_agent({
+  message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/planex-executor.md (MUST read first)
-2. Run: `ccw spec load --category "planning execution"`
 
 ---
 
 ## Issue
 Issue ID: ${issueId}
-Solution file: ${solutionFile}
+Solution file: ${artifactsDir}/${issueId}.json
 Session: ${sessionDir}
 
 ## Execution
 Load solution from file → implement via Codex CLI → verify tests → commit → report.
 `
-    })
+})
 
-    executorIds.push(executorId)
-    executorIssueMap[executorId] = issueId
-
-    // Signal planner to continue to next issue
-    send_input({ id: plannerAgent, message: "Continue with next issue." })
-    continue
-  }
-
-  // Unexpected output: urge convergence
-  send_input({
-    id: plannerAgent,
-    message: "Output ISSUE_READY:{issueId} when solution is ready, or ALL_PLANNED when all done."
-  })
-}
+executorIds.push(executorId)
+executorIssueMap[executorId] = issueId
 ```
+
+### 2d. Continue to Next Issue
+
+Do NOT wait for executor. Proceed to next issue immediately.
 
 ---
 
@@ -189,13 +178,10 @@ Load solution from file → implement via Codex CLI → verify tests → commit 
 
 ```javascript
 if (executorIds.length > 0) {
-  // Extended timeout: Codex CLI execution per issue (~10-20 min each)
   const execResults = wait({ ids: executorIds, timeout_ms: 1800000 })
 
   if (execResults.timed_out) {
-    const completed = executorIds.filter(id => execResults.status[id]?.completed)
-    const pending   = executorIds.filter(id => !execResults.status[id]?.completed)
-    // Log pending issues for manual follow-up
+    const pending = executorIds.filter(id => !execResults.status[id]?.completed)
     if (pending.length > 0) {
       const pendingIssues = pending.map(id => executorIssueMap[id])
       Write({
@@ -216,12 +202,29 @@ if (executorIds.length > 0) {
   executorIds.forEach(id => {
     try { close_agent({ id }) } catch { /* already closed */ }
   })
+}
+```
 
-  // Final report
-  const completed = summaries.filter(s => s.status === 'completed').length
-  const failed    = summaries.filter(s => s.status === 'timeout').length
+---
 
-  return `
+## Phase 4: Report
+
+```javascript
+const completed = summaries.filter(s => s.status === 'completed').length
+const failed = summaries.filter(s => s.status === 'timeout').length
+
+// Update session
+Write({
+  file_path: `${sessionDir}/team-session.json`,
+  content: JSON.stringify({
+    ...session,
+    status: "completed",
+    completed_at: new Date().toISOString(),
+    results: { total: executorIds.length, completed, failed }
+  }, null, 2)
+})
+
+return `
 ## Pipeline Complete
 
 **Total issues**: ${executorIds.length}
@@ -232,7 +235,6 @@ ${summaries.map(s => `- ${s.issue_id}: ${s.status}`).join('\n')}
 
 Session: ${sessionDir}
 `
-}
 ```
 
 ---
@@ -244,29 +246,7 @@ During execution, the user may issue:
 | Command | Action |
 |---------|--------|
 | `check` / `status` | Show executor progress summary |
-| `resume` / `continue` | Urge stalled planner or executor |
-| `add <issue-ids>` | `send_input` to planner with new issue IDs |
-| `add --text '...'` | `send_input` to planner to create and plan new issue |
-| `add --plan <path>` | `send_input` to planner to parse and batch create from plan file |
-
-**`add` handler** (inject mid-execution):
-
-```javascript
-// Get current planner agent ID from session state
-const session = JSON.parse(Read(`${sessionDir}/team-session.json`))
-const plannerAgentId = session.planner_agent_id  // saved during Phase 1
-
-send_input({
-  id: plannerAgentId,
-  message: `
-## NEW ISSUES INJECTED
-${newInput}
-
-Process these after current issue (or immediately if idle).
-Follow beat protocol: ISSUE_READY → wait for Continue → next issue.
-`
-})
-```
+| `resume` / `continue` | Urge stalled executor |
 
 ---
 
@@ -274,9 +254,8 @@ Follow beat protocol: ISSUE_READY → wait for Continue → next issue.
 
 | Scenario | Resolution |
 |----------|------------|
-| Planner timeout (>10 min per issue) | `send_input` urge convergence, re-enter loop |
-| Planner never outputs ISSUE_READY | After 3 retries, `close_agent` + report stall |
+| issue-plan-agent timeout (>10 min) | Skip issue, log error, continue to next |
+| issue-plan-agent failure | Retry once, then skip with error log |
 | Solution file not written | Executor reports error, logs to `${sessionDir}/errors.json` |
 | Executor (Codex CLI) failure | Executor handles resume; logs CLI resume command |
-| ALL_PLANNED never received | After 60 min total, close planner, wait remaining executors |
-| No issues to process | AskUserQuestion for clarification |
+| No issues to process | Report error: no issues found |
