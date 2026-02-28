@@ -4,10 +4,6 @@
     <section class="hero-section">
       <div class="hero-container">
         <div class="hero-content">
-          <div class="hero-badge">
-            <span class="pulse-dot"></span>
-            {{ t.badge }}
-          </div>
           <h1 class="hero-title" v-html="t.heroTitle"></h1>
           <p class="hero-subtitle">{{ t.heroSubtitle }}</p>
 
@@ -154,7 +150,7 @@
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               workflow.json
             </div>
-            <pre class="font-mono"><code>{{ workflowJson }}</code></pre>
+            <pre class="font-mono json-pre"><code v-html="highlightedWorkflowJson"></code></pre>
           </div>
         </div>
       </div>
@@ -446,19 +442,59 @@ const sequence = [
 ]
 const currentStep = computed(() => sequence[currentTick.value])
 
-const workflowJson = `{
-  "project": "next-gen-api",
-  "cadence": "strict-sync",
-  "team": {
-    "arch": { "cli": "gemini" },
-    "coder": { "cli": "qwen" },
-    "audit": { "cli": "codex" }
-  },
-  "stages": [
-    { "id": "design", "agent": "arch" },
-    { "id": "impl", "agent": "coder" }
+// JSON with syntax highlighting and tooltips
+const jsonTooltips = {
+  'project': '项目名称，用于标识工作流实例',
+  'cadence': '节拍模式：strict-sync(严格同步) | async(异步) | hybrid(混合)',
+  'team': '团队成员配置，每个角色映射到特定 CLI 工具',
+  'arch': '架构师角色：负责系统设计和文档生成',
+  'coder': '开发者角色：负责代码实现',
+  'audit': '审计员角色：负责质量检查和代码审查',
+  'cli': 'CLI 工具：gemini | qwen | codex | claude',
+  'stages': '执行阶段定义，按顺序执行',
+  'id': '阶段唯一标识符',
+  'agent': '执行该阶段的团队成员角色'
+}
+
+const highlightedWorkflowJson = computed(() => {
+  const lines = [
+    { text: '{', type: 'bracket' },
+    { text: '  "project": "next-gen-api",', key: 'project', type: 'string' },
+    { text: '  "cadence": "strict-sync",', key: 'cadence', type: 'string' },
+    { text: '  "team": {', key: 'team', type: 'object' },
+    { text: '    "arch": { "cli": "gemini" },', key: 'arch', type: 'object' },
+    { text: '    "coder": { "cli": "qwen" },', key: 'coder', type: 'object' },
+    { text: '    "audit": { "cli": "codex" }', key: 'audit', type: 'object' },
+    { text: '  },', type: 'bracket' },
+    { text: '  "stages": [', key: 'stages', type: 'array' },
+    { text: '    { "id": "design", "agent": "arch" },', type: 'object' },
+    { text: '    { "id": "impl", "agent": "coder" }', type: 'object' },
+    { text: '  ]', type: 'bracket' },
+    { text: '}', type: 'bracket' }
   ]
-}`
+
+  return lines.map(line => {
+    if (line.key && jsonTooltips[line.key]) {
+      const tooltip = jsonTooltips[line.key]
+      const highlighted = line.text
+        .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+        .replace(/: "([^"]+)"/g, ': <span class="json-string">"$1"</span>')
+        .replace(/: \[/g, ': <span class="json-bracket">[</span>')
+        .replace(/\]/g, '<span class="json-bracket">]</span>')
+        .replace(/: \{/g, ': <span class="json-bracket">{</span>')
+        .replace(/\}/g, '<span class="json-bracket">}</span>')
+      return `<span class="json-line" title="${tooltip}">${highlighted}</span>`
+    }
+    const highlighted = line.text
+      .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+      .replace(/: "([^"]+)"/g, ': <span class="json-string">"$1"</span>')
+      .replace(/\[/g, '<span class="json-bracket">[</span>')
+      .replace(/\]/g, '<span class="json-bracket">]</span>')
+      .replace(/\{/g, '<span class="json-bracket">{</span>')
+      .replace(/\}/g, '<span class="json-bracket">}</span>')
+    return `<span class="json-line">${highlighted}</span>`
+  }).join('\n')
+})
 
 let terminalInterval, pipelineInterval
 
@@ -885,7 +921,51 @@ onUnmounted(() => {
   border-radius: 16px;
   padding: 1.5rem;
   border: 1px solid rgba(255,255,255,0.08);
+  overflow: hidden;
 }
+.json-pre {
+  margin: 0;
+  color: #e2e8f0;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  white-space: pre;
+  overflow-x: auto;
+}
+.json-line {
+  display: block;
+  cursor: default;
+  transition: background 0.2s ease;
+  padding: 2px 8px;
+  margin: 0 -8px;
+  border-radius: 4px;
+}
+.json-line[title]:hover {
+  background: rgba(99, 102, 241, 0.15);
+  position: relative;
+}
+.json-line[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: calc(100% + 16px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  max-width: 280px;
+  white-space: normal;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.1);
+  z-index: 10;
+  pointer-events: none;
+}
+.json-key { color: #7dd3fc; font-weight: 500; }
+.json-string { color: #a5f3fc; }
+.json-bracket { color: #94a3b8; }
+.json-number { color: #fbbf24; }
 .code-header {
   display: flex;
   align-items: center;
