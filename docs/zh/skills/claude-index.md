@@ -183,7 +183,7 @@ memory/
 /workflow-execute
 
 # TDD 开发
-/workflow-tdd "Implement payment processing"
+/workflow-tdd-plan "Implement payment processing"
 ```
 
 ### 3. 使用记忆管理

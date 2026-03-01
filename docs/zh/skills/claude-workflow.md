@@ -21,10 +21,9 @@
 | `workflow-execute` | 代理协调执行 | `/workflow-execute` |
 | `workflow-lite-plan` | 轻量级快速规划 | `/workflow-lite-plan` |
 | `workflow-multi-cli-plan` | 多 CLI 协作规划 | `/workflow-multi-cli-plan` |
-| `workflow-tdd-plan` | TDD 工作流 | `/workflow-tdd` |
-| `workflow-test-fix` | 测试修复工作流 | `/workflow:test-fix` |
-| `workflow-skill-designer` | Skill 设计工作流 | `/workflow:skill-designer` |
-| `workflow-wave-plan` | Wave 批处理规划 | `/workflow:wave-plan` |
+| `workflow-tdd-plan` | TDD 工作流 | `/workflow-tdd-plan` |
+| `workflow-test-fix` | 测试修复工作流 | `/workflow-test-fix` |
+| `workflow-skill-designer` | Skill 设计工作流 | `/workflow-skill-designer` |
 
 ## Skills 详解
 

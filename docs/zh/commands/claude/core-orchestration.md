@@ -324,7 +324,7 @@ Task: <description>
       "session_id": "WFS-plan-20250124", "artifacts": ["IMPL_PLAN.md"] }
   ],
   "prompts_used": [
-    { "index": 0, "command": "plan", "prompt": "/workflow:plan -y \"...\"" }
+    { "index": 0, "command": "plan", "prompt": "/workflow-plan -y \"...\"" }
   ]
 }
 ```

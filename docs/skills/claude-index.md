@@ -188,7 +188,7 @@ memory/
 /workflow-execute
 
 # TDD development
-/workflow-tdd "Implement payment processing"
+/workflow-tdd-plan "Implement payment processing"
 ```
 
 ### 3. Use Memory Management

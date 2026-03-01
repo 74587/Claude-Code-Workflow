@@ -21,10 +21,9 @@
 | `workflow-execute` | Agent-coordinated execution | `/workflow-execute` |
 | `workflow-lite-plan` | Lightweight quick planning | `/workflow-lite-plan` |
 | `workflow-multi-cli-plan` | Multi-CLI collaborative planning | `/workflow-multi-cli-plan` |
-| `workflow-tdd-plan` | TDD workflow | `/workflow-tdd` |
-| `workflow-test-fix` | Test-fix workflow | `/workflow:test-fix` |
-| `workflow-skill-designer` | Skill design workflow | `/workflow:skill-designer` |
-| `workflow-wave-plan` | Wave batch planning | `/workflow:wave-plan` |
+| `workflow-tdd-plan` | TDD workflow | `/workflow-tdd-plan` |
+| `workflow-test-fix` | Test-fix workflow | `/workflow-test-fix` |
+| `workflow-skill-designer` | Skill design workflow | `/workflow-skill-designer` |
 
 ## Skills Details
 
