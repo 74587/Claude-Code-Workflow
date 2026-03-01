@@ -21,7 +21,7 @@
 
 ```bash
 # Clone repository (replace with your fork or the actual repository URL)
-git clone https://github.com/[username]/claude-dms3.git
+git clone https://github.com/catlog22/Claude-Code-Workflow.git
 cd claude-dms3
 
 # Install dependencies
@@ -273,7 +273,7 @@ A: Select based on task objective:
 
 ```bash
 # 1. Clone project (replace with your fork or the actual repository URL)
-git clone https://github.com/[username]/claude-dms3.git
+git clone https://github.com/catlog22/Claude-Code-Workflow.git
 cd claude-dms3
 
 # 2. Install dependencies
