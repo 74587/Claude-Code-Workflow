@@ -29,6 +29,7 @@
 |---------|----------|--------|
 | [`add`](#add) | Create tasks manually or import from issue | `/idaw:add [-y] [--from-issue <id>] "description" [--type <type>] [--priority 1-5]` |
 | [`run`](#run) | Execute task queue with git checkpoints | `/idaw:run [-y] [--task <id,...>] [--dry-run]` |
+| [`run-coordinate`](#run-coordinate) | Execute via external CLI with hook callbacks | `/idaw:run-coordinate [-y] [--task <id,...>] [--tool <tool>]` |
 | [`status`](#status) | View task and session progress | `/idaw:status [session-id]` |
 | [`resume`](#resume) | Resume interrupted session | `/idaw:resume [-y] [session-id]` |
 
@@ -131,6 +132,66 @@ Phase 6: Report
 
 # Preview execution plan
 /idaw:run --dry-run
+```
+
+---
+
+### run-coordinate
+
+**Function**: Coordinator variant of `/idaw:run` — executes via external CLI with hook callbacks instead of blocking Skill() calls.
+
+**Syntax**:
+```bash
+/idaw:run-coordinate [-y|--yes] [--task <id>[,<id>,...]] [--dry-run] [--tool <tool>]
+```
+
+**Options**:
+- `--tool <tool>`: CLI tool to use (`claude`, `gemini`, `qwen`, default: `claude`)
+- `--task <id,...>`: Execute specific tasks
+- `--dry-run`: Preview plan without executing
+- `-y`: Auto mode
+
+**Execution Model**:
+
+```
+Launch skill via ccw cli --tool <tool> --mode write (background)
+    ↓
+★ STOP — wait for hook callback
+    ↓
+Hook fires → handleStepCompletion()
+    ├─ More skills in chain → launch next → STOP
+    ├─ Chain complete → git checkpoint → next task → STOP
+    └─ All done → Report
+```
+
+**When to Use**:
+
+| Scenario | Command |
+|----------|---------|
+| Standard execution (main process, blocking) | `/idaw:run` |
+| External CLI, isolated context per skill | `/idaw:run-coordinate` |
+| Long-running tasks, avoid context pressure | `/idaw:run-coordinate` |
+| Need specific CLI tool (claude/gemini) | `/idaw:run-coordinate --tool gemini` |
+
+**Differences from `/idaw:run`**:
+
+| Aspect | `/idaw:run` | `/idaw:run-coordinate` |
+|--------|-------------|----------------------|
+| Execution | `Skill()` blocking | `ccw cli` background + hook |
+| Context | Shared main context | Isolated per CLI call |
+| Tool selection | N/A | `--tool claude\|gemini\|qwen` |
+| State | session.json | session.json + prompts_used |
+
+**Examples**:
+```bash
+# Execute via claude CLI (default)
+/idaw:run-coordinate -y
+
+# Use gemini as execution tool
+/idaw:run-coordinate -y --tool gemini
+
+# Specific tasks
+/idaw:run-coordinate --task IDAW-001,IDAW-003 --tool claude
 ```
 
 ---

@@ -29,6 +29,7 @@
 |------|------|------|
 | [`add`](#add) | 手动创建或从 issue 导入任务 | `/idaw:add [-y] [--from-issue <id>] "描述" [--type <类型>] [--priority 1-5]` |
 | [`run`](#run) | 串行执行任务队列并 git checkpoint | `/idaw:run [-y] [--task <id,...>] [--dry-run]` |
+| [`run-coordinate`](#run-coordinate) | 通过外部 CLI 和 hook 回调执行 | `/idaw:run-coordinate [-y] [--task <id,...>] [--tool <tool>]` |
 | [`status`](#status) | 查看任务和会话进度 | `/idaw:status [session-id]` |
 | [`resume`](#resume) | 从断点恢复中断的会话 | `/idaw:resume [-y] [session-id]` |
 
@@ -124,6 +125,69 @@ Phase 6: 报告
 
 # 预览执行计划
 /idaw:run --dry-run
+```
+
+---
+
+### run-coordinate
+
+**功能**：`/idaw:run` 的协调器变体 — 通过外部 CLI 后台执行，使用 hook 回调驱动流程推进。
+
+**语法**：
+```bash
+/idaw:run-coordinate [-y|--yes] [--task <id>[,<id>,...]] [--dry-run] [--tool <tool>]
+```
+
+**参数**：
+- `--tool <tool>`：使用的 CLI 工具（`claude`、`gemini`、`qwen`，默认：`claude`）
+- `--task <id,...>`：执行特定任务
+- `--dry-run`：预览计划，不实际执行
+- `-y`：自动模式
+
+**执行模型**：
+
+```
+通过 ccw cli --tool <tool> --mode write 后台启动 Skill
+    ↓
+★ 暂停 — 等待 hook 回调
+    ↓
+Hook 触发 → handleStepCompletion()
+    ├─ 链中还有 Skill → 启动下一个 → 暂停
+    ├─ 链完成 → git checkpoint → 下一个任务 → 暂停
+    └─ 全部完成 → 生成报告
+```
+
+**适用场景**：
+
+| 场景 | 命令 |
+|------|------|
+| 标准执行（主进程，阻塞） | `/idaw:run` |
+| 外部 CLI，每个 Skill 独立上下文 | `/idaw:run-coordinate` |
+| 长时间任务，避免上下文压力 | `/idaw:run-coordinate` |
+| 需要指定 CLI 工具 | `/idaw:run-coordinate --tool gemini` |
+
+**与 `/idaw:run` 的区别**：
+
+| 对比维度 | `/idaw:run` | `/idaw:run-coordinate` |
+|----------|-------------|----------------------|
+| 执行方式 | `Skill()` 阻塞调用 | `ccw cli` 后台 + hook |
+| 上下文 | 共享主进程上下文 | 每次 CLI 调用独立上下文 |
+| 工具选择 | N/A | `--tool claude\|gemini\|qwen` |
+| 状态追踪 | session.json | session.json + prompts_used |
+
+**示例**：
+```bash
+# 通过 claude CLI 执行（默认）
+/idaw:run-coordinate -y
+
+# 使用 gemini 作为执行工具
+/idaw:run-coordinate -y --tool gemini
+
+# 执行特定任务
+/idaw:run-coordinate --task IDAW-001,IDAW-003 --tool claude
+
+# 预览计划
+/idaw:run-coordinate --dry-run
 ```
 
 ---

@@ -74,6 +74,7 @@
 | --- | --- | --- |
 | [`/idaw:add`](./idaw.md#add) | 手动创建或从 issue 导入任务 | Beginner |
 | [`/idaw:run`](./idaw.md#run) | 串行执行任务 Skill 链并 git checkpoint | Intermediate |
+| [`/idaw:run-coordinate`](./idaw.md#run-coordinate) | 通过外部 CLI 和 hook 回调执行任务 | Intermediate |
 | [`/idaw:status`](./idaw.md#status) | 查看任务和会话进度 | Beginner |
 | [`/idaw:resume`](./idaw.md#resume) | 从断点恢复中断的会话 | Intermediate |
 

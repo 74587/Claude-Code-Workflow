@@ -12,7 +12,7 @@
 | **Workflow** | 20+ | Planning, execution, review, TDD, testing workflows |
 | **Session Management** | 6 | Session creation, listing, resuming, completion |
 | **Issue Workflow** | 8 | Issue discovery, planning, queue, execution |
-| **IDAW** | 4 | Batch autonomous task execution with git checkpoints |
+| **IDAW** | 5 | Batch autonomous task execution with git checkpoints |
 | **Memory** | 8 | Memory capture, update, document generation |
 | **CLI Tools** | 2 | CLI initialization, Codex review |
 | **UI Design** | 10 | UI design prototype generation, style extraction |
@@ -76,6 +76,7 @@
 |---------|----------|------------|
 | [`/idaw:add`](./idaw.md#add) | Create tasks manually or import from ccw issue | Beginner |
 | [`/idaw:run`](./idaw.md#run) | Execute task queue with skill chains and git checkpoints | Intermediate |
+| [`/idaw:run-coordinate`](./idaw.md#run-coordinate) | Execute via external CLI with hook callbacks | Intermediate |
 | [`/idaw:status`](./idaw.md#status) | View task and session progress | Beginner |
 | [`/idaw:resume`](./idaw.md#resume) | Resume interrupted session from last checkpoint | Intermediate |
 
