@@ -3,6 +3,7 @@ import DefaultTheme from 'vitepress/theme'
 import { onBeforeUnmount, onMounted } from 'vue'
 import { useDynamicIcon } from '../composables/useDynamicIcon'
 import ThemeLogo from '../components/ThemeLogo.vue'
+import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 
 let mediaQuery: MediaQueryList | null = null
 let systemThemeChangeHandler: (() => void) | null = null
@@ -84,6 +85,7 @@ onBeforeUnmount(() => {
         <DocSearch />
         <DarkModeToggle />
         <ThemeSwitcher />
+        <LanguageSwitcher />
       </div>
     </template>
   </DefaultTheme.Layout>

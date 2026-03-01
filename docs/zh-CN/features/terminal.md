@@ -1,52 +1,52 @@
-# Terminal Dashboard
+# 终端仪表板
 
-## One-Liner
-**The Terminal Dashboard provides a terminal-first workspace with resizable panes, floating panels, and integrated tools for session monitoring and orchestration.**
-
----
-
-## Pain Points Solved
-
-| Pain Point | Current State | Terminal Dashboard Solution |
-|------------|---------------|-----------------------------|
-| **Scattered terminals** | Multiple terminal windows | Unified tmux-style grid layout |
-| **No context linkage** | Can't associate terminal output with issues | Association highlight provider |
-| **Panel overload** | Fixed layout wastes space | Floating panels (mutually exclusive) |
-| **Missing tools** | Switch between apps | Integrated issues, queue, inspector, scheduler |
-| **Limited workspace** | Can't see code and terminals together | Resizable three-column layout |
+## 一句话概述
+**终端仪表板提供以终端为首的工作空间，具有可调整大小的窗格、浮动面板和用于会话监控与编排的集成工具。**
 
 ---
 
-## Overview
+## 解决的痛点
 
-**Location**: `ccw/frontend/src/pages/TerminalDashboardPage.tsx`
+| 痛点 | 当前状态 | 终端仪表板解决方案 |
+|------|----------|---------------------|
+| **终端分散** | 多个终端窗口 | 统一的 tmux 风格网格布局 |
+| **无上下文关联** | 无法将终端输出与问题关联 | 关联高亮提供程序 |
+| **面板过多** | 固定布局浪费空间 | 浮动面板（互斥） |
+| **缺少工具** | 在应用间切换 | 集成问题、队列、检查器、调度器 |
+| **工作空间有限** | 无法同时查看代码和终端 | 可调整大小的三列布局 |
 
-**Purpose**: Terminal-first layout for multi-terminal session management with integrated tools and resizable panels.
+---
 
-**Access**: Navigation → Terminal Dashboard (`/terminal-dashboard`)
+## 概述
 
-**Layout**:
+**位置**: `ccw/frontend/src/pages/TerminalDashboardPage.tsx`
+
+**用途**: 用于多终端会话管理的终端优先布局，配备集成工具和可调整大小的面板。
+
+**访问方式**: 导航 → 终端仪表板 (`/terminal-dashboard`)
+
+**布局**:
 ```
 +--------------------------------------------------------------------------+
-|  Dashboard Toolbar (panel toggles, layout presets, fullscreen)              |
+|  仪表板工具栏（面板切换、布局预设、全屏）                                    |
 +--------------------------------------------------------------------------+
 |  +----------------+-------------------------------------------+------------+ |
-|  | Session        |  Terminal Grid (tmux-style)             | File       | |
-|  | Group Tree     |  +----------+  +----------+              | Sidebar    | |
-|  | (resizable)    |  | Term 1   |  | Term 2   |              | (resizable)| |
+|  | 会话           |  终端网格（tmux 风格）               | 文件       | |
+|  | 分组树         |  +----------+  +----------+              | 侧边栏     | |
+|  | （可调整大小） |  | 终端 1   |  | 终端 2   |              |（可调整大小）| |
 |  |                |  +----------+  +----------+              |            | |
 |  |                |  +----------+  +----------+              |            | |
-|  |                |  | Term 3   |  | Term 4   |              |            | |
+|  |                |  | 终端 3   |  | 终端 4   |              |            | |
 |  |                |  +----------+  +----------+              |            | |
 |  +----------------+-------------------------------------------+------------+ |
 +--------------------------------------------------------------------------+
-|  [Floating Panel: Issues+Queue OR Inspector OR Execution OR Scheduler]   |
+|  [浮动面板: 问题+队列 或 检查器 或 执行 或 调度器]                         |
 +--------------------------------------------------------------------------+
 ```
 
 ---
 
-## Live Demo
+## 实时演示
 
 :::demo TerminalDashboardOverview
 # terminal-dashboard-overview.tsx
@@ -174,47 +174,47 @@ export function TerminalDashboardOverview() {
 
 ---
 
-## Core Features
+## 核心功能
 
-| Feature | Description |
-|---------|-------------|
-| **Three-Column Layout** | Resizable panes using Allotment: Session tree (left), Terminal grid (center), File sidebar (right) |
-| **Terminal Grid** | Tmux-style split panes with layout presets (single, split-h, split-v, grid-2x2) |
-| **Session Group Tree** | Hierarchical view of CLI sessions with grouping by tags |
-| **Floating Panels** | Mutually exclusive overlay panels (Issues+Queue, Inspector, Execution Monitor, Scheduler) |
-| **Association Highlight** | Cross-panel linking between terminals, issues, and queue items |
-| **Layout Presets** | Quick layout buttons: single pane, horizontal split, vertical split, 2x2 grid |
-| **Launch CLI** | Config modal for creating new CLI sessions with tool, model, and settings |
-| **Fullscreen Mode** | Immersive mode hides app chrome (header + sidebar) |
-| **Feature Flags** | Panel visibility controlled by feature flags (queue, inspector, execution monitor) |
+| 功能 | 描述 |
+|------|------|
+| **三列布局** | 使用 Allotment 的可调整大小窗格：会话树（左）、终端网格（中）、文件侧边栏（右） |
+| **终端网格** | Tmux 风格的分割窗格，带布局预设（单格、水平分割、垂直分割、2x2 网格） |
+| **会话分组树** | CLI 会话的分层视图，按标签分组 |
+| **浮动面板** | 互斥的叠加面板（问题+队列、检查器、执行监控器、调度器） |
+| **关联高亮** | 终端、问题和队列项之间的跨面板链接 |
+| **布局预设** | 快速布局按钮：单格窗格、水平分割、垂直分割、2x2 网格 |
+| **启动 CLI** | 用于创建新 CLI 会话的配置模态框，可选择工具、模型和设置 |
+| **全屏模式** | 沉浸模式隐藏应用框架（标题栏 + 侧边栏） |
+| **功能标志** | 面板可见性由功能标志控制（队列、检查器、执行监控器） |
 
 ---
 
-## Component Hierarchy
+## 组件层次结构
 
 ```
 TerminalDashboardPage
-├── AssociationHighlightProvider (context)
+├── AssociationHighlightProvider（上下文）
 ├── DashboardToolbar
-│   ├── Layout Preset Buttons (Single | Split-H | Split-V | Grid-2x2)
-│   ├── Panel Toggles (Sessions | Files | Issues | Queue | Inspector | Execution | Scheduler)
-│   ├── Fullscreen Toggle
-│   └── Launch CLI Button
-├── Allotment (Three-Column Layout)
+│   ├── 布局预设按钮（单格 | 水平分割 | 垂直分割 | 2x2 网格）
+│   ├── 面板切换（会话 | 文件 | 问题 | 队列 | 检查器 | 执行 | 调度器）
+│   ├── 全屏切换
+│   └── 启动 CLI 按钮
+├── Allotment（三列布局）
 │   ├── SessionGroupTree
-│   │   └── Session Group Items (collapsible)
+│   │   └── 会话分组项（可折叠）
 │   ├── TerminalGrid
-│   │   ├── GridGroupRenderer (recursive)
+│   │   ├── GridGroupRenderer（递归）
 │   │   └── TerminalPane
 │   └── FileSidebarPanel
-│       └── File Tree View
-└── FloatingPanel (multiple, mutually exclusive)
-    ├── Issues+Queue (split panel)
+│       └── 文件树视图
+└── FloatingPanel（多个，互斥）
+    ├── 问题+队列（分割面板）
     │   ├── IssuePanel
     │   └── QueueListColumn
-    ├── QueuePanel (feature flag)
-    ├── InspectorContent (feature flag)
-    ├── ExecutionMonitorPanel (feature flag)
+    ├── QueuePanel（功能标志）
+    ├── InspectorContent（功能标志）
+    ├── ExecutionMonitorPanel（功能标志）
     └── SchedulerPanel
 ```
 
@@ -224,58 +224,58 @@ TerminalDashboardPage
 
 ### TerminalDashboardPage
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| - | - | - | This page component accepts no props (state managed via hooks and Zustand stores) |
+| Prop | 类型 | 默认值 | 描述 |
+|------|------|--------|------|
+| - | - | - | 此页面组件不接受任何 props（状态通过 hooks 和 Zustand stores 管理） |
 
 ### DashboardToolbar
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `activePanel` | `PanelId \| null` | `null` | Currently active floating panel |
-| `onTogglePanel` | `(panelId: PanelId) => void` | - | Callback to toggle panel visibility |
-| `isFileSidebarOpen` | `boolean` | `true` | File sidebar visibility state |
-| `onToggleFileSidebar` | `() => void` | - | Toggle file sidebar callback |
-| `isSessionSidebarOpen` | `boolean` | `true` | Session sidebar visibility state |
-| `onToggleSessionSidebar` | `() => void` | - | Toggle session sidebar callback |
-| `isFullscreen` | `boolean` | `false` | Fullscreen mode state |
-| `onToggleFullscreen` | `() => void` | - | Toggle fullscreen callback |
+| Prop | 类型 | 默认值 | 描述 |
+|------|------|--------|------|
+| `activePanel` | `PanelId \| null` | `null` | 当前活动的浮动面板 |
+| `onTogglePanel` | `(panelId: PanelId) => void` | - | 切换面板可见性的回调 |
+| `isFileSidebarOpen` | `boolean` | `true` | 文件侧边栏可见性状态 |
+| `onToggleFileSidebar` | `() => void` | - | 切换文件侧边栏回调 |
+| `isSessionSidebarOpen` | `boolean` | `true` | 会话侧边栏可见性状态 |
+| `onToggleSessionSidebar` | `() => void` | - | 切换会话侧边栏回调 |
+| `isFullscreen` | `boolean` | `false` | 全屏模式状态 |
+| `onToggleFullscreen` | `() => void` | - | 切换全屏回调 |
 
 ### FloatingPanel
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `isOpen` | `boolean` | `false` | Panel open state |
-| `onClose` | `() => void` | - | Close callback |
-| `title` | `string` | - | Panel title |
-| `side` | `'left' \| 'right'` | `'left'` | Panel side |
-| `width` | `number` | `400` | Panel width in pixels |
-| `children` | `ReactNode` | - | Panel content |
+| Prop | 类型 | 默认值 | 描述 |
+|------|------|--------|------|
+| `isOpen` | `boolean` | `false` | 面板打开状态 |
+| `onClose` | `() => void` | - | 关闭回调 |
+| `title` | `string` | - | 面板标题 |
+| `side` | `'left' \| 'right'` | `'left'` | 面板侧边 |
+| `width` | `number` | `400` | 面板宽度（像素） |
+| `children` | `ReactNode` | - | 面板内容 |
 
 ---
 
-## State Management
+## 状态管理
 
-### Local State
+### 本地状态
 
-| State | Type | Description |
-|-------|------|-------------|
-| `activePanel` | `PanelId \| null` | Currently active floating panel (mutually exclusive) |
-| `isFileSidebarOpen` | `boolean` | File sidebar visibility |
-| `isSessionSidebarOpen` | `boolean` | Session sidebar visibility |
+| 状态 | 类型 | 描述 |
+|------|------|------|
+| `activePanel` | `PanelId \| null` | 当前活动的浮动面板（互斥） |
+| `isFileSidebarOpen` | `boolean` | 文件侧边栏可见性 |
+| `isSessionSidebarOpen` | `boolean` | 会话侧边栏可见性 |
 
 ### Zustand Stores
 
-| Store | Selector | Purpose |
-|-------|----------|---------|
-| `workflowStore` | `selectProjectPath` | Current project path for file sidebar |
-| `appStore` | `selectIsImmersiveMode` | Fullscreen mode state |
-| `configStore` | `featureFlags` | Feature flag configuration |
-| `terminalGridStore` | Grid layout and focused pane state |
-| `executionMonitorStore` | Active execution count |
-| `queueSchedulerStore` | Scheduler status and settings |
+| Store | 选择器 | 用途 |
+|-------|--------|------|
+| `workflowStore` | `selectProjectPath` | 文件侧边栏的当前项目路径 |
+| `appStore` | `selectIsImmersiveMode` | 全屏模式状态 |
+| `configStore` | `featureFlags` | 功能标志配置 |
+| `terminalGridStore` | 网格布局和焦点窗格状态 |
+| `executionMonitorStore` | 活动执行计数 |
+| `queueSchedulerStore` | 调度器状态和设置 |
 
-### Panel ID Type
+### 面板 ID 类型
 
 ```typescript
 type PanelId = 'issues' | 'queue' | 'inspector' | 'execution' | 'scheduler';
@@ -283,18 +283,18 @@ type PanelId = 'issues' | 'queue' | 'inspector' | 'execution' | 'scheduler';
 
 ---
 
-## Usage Examples
+## 使用示例
 
-### Basic Terminal Dashboard
+### 基本终端仪表板
 
 ```tsx
 import { TerminalDashboardPage } from '@/pages/TerminalDashboardPage'
 
-// The terminal dashboard is automatically rendered at /terminal-dashboard
-// No props needed - layout state managed internally
+// 终端仪表板自动在 /terminal-dashboard 渲染
+// 不需要 props - 布局状态内部管理
 ```
 
-### Using FloatingPanel Component
+### 使用 FloatingPanel 组件
 
 ```tsx
 import { FloatingPanel } from '@/components/terminal-dashboard/FloatingPanel'
@@ -307,7 +307,7 @@ function CustomLayout() {
     <FloatingPanel
       isOpen={isOpen}
       onClose={() => setIsOpen(false)}
-      title="Issues"
+      title="问题"
       side="left"
       width={700}
     >
@@ -317,31 +317,11 @@ function CustomLayout() {
 }
 ```
 
-### Panel Toggle Pattern
-
-```tsx
-import { useState, useCallback } from 'react'
-
-function usePanelToggle() {
-  const [activePanel, setActivePanel] = useState<string | null>(null)
-
-  const togglePanel = useCallback((panelId: string) => {
-    setActivePanel((prev) => (prev === panelId ? null : panelId))
-  }, [])
-
-  const closePanel = useCallback(() => {
-    setActivePanel(null)
-  }, [])
-
-  return { activePanel, togglePanel, closePanel }
-}
-```
-
 ---
 
-## Interactive Demos
+## 交互演示
 
-### Layout Presets Demo
+### 布局预设演示
 
 :::demo TerminalLayoutPresets
 # terminal-layout-presets.tsx
@@ -393,7 +373,7 @@ export function TerminalLayoutPresets() {
 }
 :::
 
-### Floating Panels Demo
+### 浮动面板演示
 
 :::demo FloatingPanelsDemo
 # floating-panels-demo.tsx
@@ -479,7 +459,7 @@ export function FloatingPanelsDemo() {
 }
 :::
 
-### Resizable Panes Demo
+### 可调整大小窗格演示
 
 :::demo ResizablePanesDemo
 # resizable-panes-demo.tsx
@@ -571,62 +551,62 @@ export function ResizablePanesDemo() {
 
 ---
 
-## Configuration
+## 配置
 
-### Feature Flags
+### 功能标志
 
-| Flag | Controls |
-|------|----------|
-| `dashboardQueuePanelEnabled` | Queue panel visibility |
-| `dashboardInspectorEnabled` | Inspector panel visibility |
-| `dashboardExecutionMonitorEnabled` | Execution Monitor panel visibility |
+| 标志 | 控制 |
+|------|------|
+| `dashboardQueuePanelEnabled` | 队列面板可见性 |
+| `dashboardInspectorEnabled` | 检查器面板可见性 |
+| `dashboardExecutionMonitorEnabled` | 执行监控器面板可见性 |
 
-### Layout Presets
+### 布局预设
 
-| Preset | Layout |
-|--------|--------|
-| **Single** | One terminal pane |
-| **Split-H** | Two panes side by side |
-| **Split-V** | Two panes stacked vertically |
-| **Grid-2x2** | Four panes in 2x2 grid |
+| 预设 | 布局 |
+|------|------|
+| **单格** | 一个终端窗格 |
+| **水平分割** | 两个窗格并排 |
+| **垂直分割** | 两个窗格垂直堆叠 |
+| **2x2 网格** | 2x2 网格中的四个窗格 |
 
-### Panel Types
+### 面板类型
 
-| Panel | Content | Position | Feature Flag |
-|-------|---------|----------|--------------|
-| **Issues+Queue** | Combined Issues panel + Queue list column | Left (overlay) | - |
-| **Queue** | Full queue management panel | Right (overlay) | `dashboardQueuePanelEnabled` |
-| **Inspector** | Association chain inspector | Right (overlay) | `dashboardInspectorEnabled` |
-| **Execution Monitor** | Real-time execution tracking | Right (overlay) | `dashboardExecutionMonitorEnabled` |
-| **Scheduler** | Queue scheduler controls | Right (overlay) | - |
-
----
-
-## Accessibility
-
-- **Keyboard Navigation**:
-  - <kbd>Tab</kbd> - Navigate through toolbar buttons
-  - <kbd>Enter</kbd>/<kbd>Space</kbd> - Activate toolbar buttons
-  - <kbd>Escape</kbd> - Close floating panels
-  - <kbd>F11</kbd> - Toggle fullscreen mode
-
-- **ARIA Attributes**:
-  - `aria-label` on toolbar buttons
-  - `aria-expanded` on sidebar toggles
-  - `aria-hidden` on inactive floating panels
-  - `role="dialog"` on floating panels
-
-- **Screen Reader Support**:
-  - Panel state announced when toggled
-  - Layout changes announced
-  - Focus management when panels open/close
+| 面板 | 内容 | 位置 | 功能标志 |
+|------|------|------|----------|
+| **问题+队列** | 组合的问题面板 + 队列列表列 | 左侧（叠加） | - |
+| **队列** | 完整的队列管理面板 | 右侧（叠加） | `dashboardQueuePanelEnabled` |
+| **检查器** | 关联链检查器 | 右侧（叠加） | `dashboardInspectorEnabled` |
+| **执行监控器** | 实时执行跟踪 | 右侧（叠加） | `dashboardExecutionMonitorEnabled` |
+| **调度器** | 队列调度器控制 | 右侧（叠加） | - |
 
 ---
 
-## Related Links
+## 可访问性
 
-- [Orchestrator](/features/orchestrator) - Visual workflow editor
-- [Sessions](/features/sessions) - Session management
-- [Issue Hub](/features/issue-hub) - Issues, queue, discovery
-- [Explorer](/features/explorer) - File explorer
-- [Queue](/features/queue) - Queue management standalone page
+- **键盘导航**:
+  - <kbd>Tab</kbd> - 在工具栏按钮之间导航
+  - <kbd>Enter</kbd>/<kbd>Space</kbd> - 激活工具栏按钮
+  - <kbd>Escape</kbd> - 关闭浮动面板
+  - <kbd>F11</kbd> - 切换全屏模式
+
+- **ARIA 属性**:
+  - 工具栏按钮上的 `aria-label`
+  - 侧边栏切换上的 `aria-expanded`
+  - 非活动浮动面板上的 `aria-hidden`
+  - 浮动面板上的 `role="dialog"`
+
+- **屏幕阅读器支持**:
+  - 切换面板时宣布面板状态
+  - 布局更改被宣布
+  - 面板打开/关闭时的焦点管理
+
+---
+
+## 相关链接
+
+- [编排器](/features/orchestrator) - 可视化工作流编辑器
+- [会话](/features/sessions) - 会话管理
+- [问题中心](/features/issue-hub) - 问题、队列、发现
+- [资源管理器](/features/explorer) - 文件资源管理器
+- [队列](/features/queue) - 队列管理独立页面

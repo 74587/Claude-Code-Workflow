@@ -1,5 +1,7 @@
 import { defineConfig } from 'vitepress'
 import { withMermaid } from 'vitepress-plugin-mermaid'
+import { transformDemoBlocks } from './theme/markdownTransform'
+import path from 'path'
 
 const repoName = process.env.GITHUB_REPOSITORY?.split('/')[1]
 const isUserOrOrgSite = Boolean(repoName && repoName.endsWith('.github.io'))
@@ -11,7 +13,7 @@ const base =
 export default withMermaid(defineConfig({
   title: 'Claude Code Workflow Documentation',
   description: 'Claude Code Workspace - Advanced AI-Powered Development Environment',
-  lang: 'zh-CN',
+  lang: 'en-US',
   base,
 
   // Ignore dead links for incomplete docs
@@ -44,12 +46,22 @@ export default withMermaid(defineConfig({
 
   // Vite build/dev optimizations
   vite: {
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '../../ccw/frontend/src'),
+        '@/components': path.resolve(__dirname, '../../ccw/frontend/src/components'),
+        '@/lib': path.resolve(__dirname, '../../ccw/frontend/src/lib')
+      }
+    },
     optimizeDeps: {
-      include: ['flexsearch']
+      include: ['flexsearch', 'react', 'react-dom']
     },
     build: {
       target: 'es2019',
       cssCodeSplit: true
+    },
+    ssr: {
+      noExternal: ['react', 'react-dom', 'class-variance-authority', 'clsx', 'tailwind-merge']
     }
   },
 
@@ -68,13 +80,7 @@ export default withMermaid(defineConfig({
       { text: 'Guide', link: '/guide/ch01-what-is-claude-dms3' },
       { text: 'Commands', link: '/commands/claude/' },
       { text: 'Skills', link: '/skills/' },
-      { text: 'Features', link: '/features/spec' },
-      {
-        text: 'Languages',
-        items: [
-          { text: '简体中文', link: '/zh/guide/ch01-what-is-claude-dms3' }
-        ]
-      }
+      { text: 'Features', link: '/features/spec' }
     ],
 
     // Sidebar - 优化导航结构，增加二级标题和归类
@@ -181,6 +187,17 @@ export default withMermaid(defineConfig({
           ]
         }
       ],
+      '/components/': [
+        {
+          text: 'UI Components',
+          collapsible: true,
+          items: [
+            { text: 'Button', link: '/components/ui/button' },
+            { text: 'Card', link: '/components/ui/card' },
+            { text: 'Input', link: '/components/ui/input' }
+          ]
+        }
+      ],
       '/mcp/': [
         {
           text: '🔗 MCP Tools',
@@ -276,6 +293,14 @@ export default withMermaid(defineConfig({
     ],
     config: (md) => {
       // Add markdown-it plugins if needed
+      // Custom demo block transform is handled by markdownTransform.ts
+      md.core.ruler.before('block', 'demo-blocks', (state) => {
+        const src = state.src
+        const transformed = transformDemoBlocks(src, { path: '' })
+        if (transformed !== src) {
+          state.src = transformed
+        }
+      })
     }
   },
 
@@ -299,13 +324,7 @@ export default withMermaid(defineConfig({
           { text: '指南', link: '/zh/guide/ch01-what-is-claude-dms3' },
           { text: '命令', link: '/zh/commands/claude/' },
           { text: '技能', link: '/zh/skills/claude-index' },
-          { text: '功能', link: '/zh/features/spec' },
-          {
-            text: '语言',
-            items: [
-              { text: 'English', link: '/guide/ch01-what-is-claude-dms3' }
-            ]
-          }
+          { text: '功能', link: '/zh/features/spec' }
         ],
         sidebar: {
           '/zh/guide/': [
@@ -419,6 +438,74 @@ export default withMermaid(defineConfig({
                 { text: '四级体系', link: '/zh/workflows/4-level' },
                 { text: '最佳实践', link: '/zh/workflows/best-practices' },
                 { text: '团队协作', link: '/zh/workflows/teams' }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    'zh-CN': {
+      label: '简体中文',
+      lang: 'zh-CN',
+      title: 'Claude Code Workflow 文档',
+      description: 'Claude Code Workspace - 高级 AI 驱动开发环境',
+      themeConfig: {
+        outline: {
+          level: [2, 3],
+          label: '本页目录'
+        },
+        nav: [
+          { text: '指南', link: '/zh-CN/guide/ch01-what-is-claude-dms3' },
+          { text: '命令', link: '/zh-CN/commands/claude/' },
+          { text: '技能', link: '/zh-CN/skills/claude-index' },
+          { text: '功能', link: '/zh-CN/features/spec' },
+          { text: '组件', link: '/zh-CN/components/' }
+        ],
+        sidebar: {
+          '/zh-CN/guide/': [
+            {
+              text: '📖 指南',
+              collapsible: false,
+              items: [
+                { text: 'Claude Code Workflow 是什么', link: '/zh-CN/guide/ch01-what-is-claude-dms3' },
+                { text: '快速开始', link: '/zh-CN/guide/ch02-getting-started' },
+                { text: '核心概念', link: '/zh-CN/guide/ch03-core-concepts' },
+                { text: '工作流基础', link: '/zh-CN/guide/ch04-workflow-basics' },
+                { text: '高级技巧', link: '/zh-CN/guide/ch05-advanced-tips' },
+                { text: '最佳实践', link: '/zh-CN/guide/ch06-best-practices' }
+              ]
+            },
+            {
+              text: '🚀 快速入口',
+              collapsible: true,
+              items: [
+                { text: '安装', link: '/zh-CN/guide/installation' },
+                { text: '第一个工作流', link: '/zh-CN/guide/first-workflow' },
+                { text: 'CLI 工具', link: '/zh-CN/guide/cli-tools' }
+              ]
+            }
+          ],
+          '/zh-CN/features/': [
+            {
+              text: '⚙️ 核心功能',
+              collapsible: false,
+              items: [
+                { text: 'Spec 规范系统', link: '/zh-CN/features/spec' },
+                { text: 'Memory 记忆系统', link: '/zh-CN/features/memory' },
+                { text: 'CLI 调用', link: '/zh-CN/features/cli' },
+                { text: 'Dashboard 面板', link: '/zh-CN/features/dashboard' },
+                { text: 'CodexLens', link: '/zh-CN/features/codexlens' }
+              ]
+            }
+          ],
+          '/zh-CN/components/': [
+            {
+              text: 'UI 组件',
+              collapsible: true,
+              items: [
+                { text: 'Button 按钮', link: '/zh-CN/components/ui/button' },
+                { text: 'Card 卡片', link: '/zh-CN/components/ui/card' },
+                { text: 'Input 输入框', link: '/zh-CN/components/ui/input' }
               ]
             }
           ]

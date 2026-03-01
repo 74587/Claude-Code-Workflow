@@ -1,97 +1,97 @@
-# Dashboard
+# 仪表板
 
-## One-Liner
-**The Dashboard provides an at-a-glance overview of your project's workflow status, statistics, and recent activity through an intuitive widget-based interface.**
-
----
-
-## Pain Points Solved
-
-| Pain Point | Current State | Dashboard Solution |
-|------------|---------------|-------------------|
-| **No project visibility** | Can't see overall project health | Project info banner with tech stack and development index |
-| **Scattered metrics** | Stats across multiple locations | Centralized statistics with sparklines |
-| **Unknown workflow status** | Hard to track session progress | Pie chart with status breakdown |
-| **Lost in recent work** | No quick access to active sessions | Session carousel with task details |
-| **Indexing status unclear** | Don't know if code is indexed | Real-time index status indicator |
+## 一句话概述
+**仪表板通过直观的基于小部件的界面，提供项目工作流状态、统计信息和最近活动的概览。**
 
 ---
 
-## Overview
+## 解决的痛点
 
-**Location**: `ccw/frontend/src/pages/HomePage.tsx`
+| 痛点 | 当前状态 | 仪表板解决方案 |
+|------|----------|----------------|
+| **项目可见性不足** | 无法查看整体项目健康状况 | 带有技术栈和开发索引的项目信息横幅 |
+| **指标分散** | 统计信息分布在多个位置 | 集中式统计数据，带有迷你趋势图 |
+| **工作流状态未知** | 难以跟踪会话进度 | 带有状态细分的饼图 |
+| **最近工作丢失** | 无法快速访问活动会话 | 带有任务详情的会话轮播 |
+| **索引状态不明确** | 不知道代码是否已索引 | 实时索引状态指示器 |
 
-**Purpose**: Dashboard home page providing project overview, statistics, workflow status, and recent activity monitoring.
+---
 
-**Access**: Navigation → Dashboard (default home page at `/`)
+## 概述
 
-**Layout**:
+**位置**: `ccw/frontend/src/pages/HomePage.tsx`
+
+**用途**: 仪表板主页，提供项目概览、统计信息、工作流状态和最近活动监控。
+
+**访问**: 导航 → 仪表板（默认首页，路径为 `/`）
+
+**布局**:
 ```
 +--------------------------------------------------------------------------+
-|  Dashboard Header (title + refresh)                                      |
+|  仪表板头部（标题 + 刷新）                                            |
 +--------------------------------------------------------------------------+
-|  WorkflowTaskWidget (Combined Card)                                      |
+|  WorkflowTaskWidget（组合卡片）                                        |
 |  +--------------------------------------------------------------------+  |
-|  | Project Info Banner (expandable)                                   |  |
-|  | - Project name, description, tech stack badges                      |  |
-|  | - Quick stats (features, bugfixes, enhancements)                    |  |
-|  | - Index status indicator                                           |  |
+|  | 项目信息横幅（可展开）                                           |  |
+|  | - 项目名称、描述、技术栈徽章                                    |  |
+|  | - 快速统计（功能、bug修复、增强）                                |  |
+|  | - 索引状态指示器                                                 |  |
 |  +----------------------------------+---------------------------------+  |
-|  | Stats Section | Workflow Status |  Task Details (Carousel)     |  |
-|  | - 6 mini cards | - Pie chart     | - Session nav                 |  |
-|  | - Sparklines   | - Legend       | - Task list (2 columns)       |  |
+|  | 统计部分 | 工作流状态 |  任务详情（轮播）         |  |
+|  | - 6 个迷你卡片 | - 饼图       | - 会话导航                 |  |
+|  | - 迷你趋势图   | - 图例       | - 任务列表（2 列）         |  |
 |  +----------------+-----------------+-------------------------------+  |
 +--------------------------------------------------------------------------+
 |  RecentSessionsWidget                                                     |
 |  +--------------------------------------------------------------------+  |
-|  | Tabs: All Tasks | Workflow | Lite Tasks                           |  |
+|  | 标签页：所有任务 | 工作流 | 轻量任务                            |  |
 |  | +---------------+---------------+-------------------------------+ |  |
-|  | | Task cards with status, progress, tags, time                     | |  |
+|  | | 带有状态、进度、标签、时间的任务卡片                        | |  |
 |  | +---------------------------------------------------------------+ |  |
 +--------------------------------------------------------------------------+
 ```
 
 ---
 
-## Live Demo
+## 实时演示
 
 :::demo DashboardOverview
 # dashboard-overview.tsx
 /**
- * Dashboard Overview Demo
- * Shows the main dashboard layout with widgets
+ * 仪表板概览演示
+ * 显示带有小部件的主仪表板布局
  */
 export function DashboardOverview() {
   return (
     <div className="space-y-6 p-6 bg-background min-h-[600px]">
-      {/* Header */}
+      {/* 头部 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <h1 className="text-2xl font-bold">仪表板</h1>
           <p className="text-sm text-muted-foreground">
-            Project overview and activity monitoring
+            项目概览和活动监控
           </p>
         </div>
         <button className="px-3 py-1.5 text-sm border rounded-md hover:bg-accent">
-          Refresh
+          刷新
         </button>
       </div>
 
-      {/* Workflow Stats Widget */}
+      {/* 工作流统计小部件 */}
       <div className="border rounded-lg overflow-hidden">
         <div className="p-4 border-b bg-muted/30">
-          <h2 className="font-semibold">Project Overview & Statistics</h2>
+          <h2 className="font-semibold">项目概览与统计</h2>
         </div>
         <div className="p-4">
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-3">
-              <div className="text-xs font-medium text-muted-foreground">Statistics</div>
+              <div className="text-xs font-medium text-muted-foreground">统计数据</div>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: 'Active Sessions', value: '12', color: 'text-blue-500' },
-                  { label: 'Total Tasks', value: '48', color: 'text-green-500' },
-                  { label: 'Completed', value: '35', color: 'text-emerald-500' },
-                  { label: 'Pending', value: '8', color: 'text-amber-500' },
+                  { label: '活动会话', value: '12', color: 'text-blue-500' },
+                  { label: '总任务', value: '48', color: 'text-green-500' },
+                  { label: '已完成', value: '35', color: 'text-emerald-500' },
+                  { label: '待处理', value: '8', color: 'text-amber-500' },
                 ].map((stat, i) => (
                   <div key={i} className="p-2 bg-muted/50 rounded">
                     <div className={`text-lg font-bold ${stat.color}`}>{stat.value}</div>
@@ -102,7 +102,7 @@ export function DashboardOverview() {
             </div>
 
             <div className="space-y-3">
-              <div className="text-xs font-medium text-muted-foreground">Workflow Status</div>
+              <div className="text-xs font-medium text-muted-foreground">工作流状态</div>
               <div className="flex items-center justify-center h-24">
                 <div className="relative w-20 h-20">
                   <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
@@ -115,30 +115,30 @@ export function DashboardOverview() {
               <div className="text-xs text-center space-y-1">
                 <div className="flex items-center justify-center gap-1">
                   <div className="w-2 h-2 rounded-full bg-blue-500"/>
-                  <span>Completed: 70%</span>
+                  <span>已完成：70%</span>
                 </div>
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="text-xs font-medium text-muted-foreground">Recent Session</div>
+              <div className="text-xs font-medium text-muted-foreground">最近会话</div>
               <div className="p-3 bg-accent/20 rounded border">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Feature: Auth Flow</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-600">Running</span>
+                  <span className="text-sm font-medium">功能：身份验证流程</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-600">运行中</span>
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2 text-xs">
                     <div className="w-3 h-3 rounded bg-green-500"/>
-                    <span>Implement login</span>
+                    <span>实现登录表单</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     <div className="w-3 h-3 rounded bg-amber-500"/>
-                    <span>Add OAuth</span>
+                    <span>添加 OAuth 提供商</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     <div className="w-3 h-3 rounded bg-muted"/>
-                    <span className="text-muted-foreground">Test flow</span>
+                    <span className="text-muted-foreground">测试流程</span>
                   </div>
                 </div>
               </div>
@@ -147,11 +147,11 @@ export function DashboardOverview() {
         </div>
       </div>
 
-      {/* Recent Sessions Widget */}
+      {/* 最近会话小部件 */}
       <div className="border rounded-lg overflow-hidden">
         <div className="border-b bg-muted/30">
           <div className="flex gap-1 p-2">
-            {['All Tasks', 'Workflow', 'Lite Tasks'].map((tab, i) => (
+            {['所有任务', '工作流', '轻量任务'].map((tab, i) => (
               <button
                 key={tab}
                 className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
@@ -166,16 +166,16 @@ export function DashboardOverview() {
         <div className="p-4">
           <div className="grid grid-cols-3 gap-3">
             {[
-              { name: 'Refactor UI Components', status: 'In Progress', progress: 65 },
-              { name: 'Fix Login Bug', status: 'Pending', progress: 0 },
-              { name: 'Add Dark Mode', status: 'Completed', progress: 100 },
+              { name: '重构 UI 组件', status: '进行中', progress: 65 },
+              { name: '修复登录 Bug', status: '待处理', progress: 0 },
+              { name: '添加深色模式', status: '已完成', progress: 100 },
             ].map((task, i) => (
               <div key={i} className="p-3 bg-muted/30 rounded border cursor-pointer hover:border-primary/30">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium line-clamp-1">{task.name}</span>
                   <span className={`text-xs px-1.5 py-0.5 rounded ${
-                    task.status === 'Completed' ? 'bg-green-500/20 text-green-600' :
-                    task.status === 'In Progress' ? 'bg-blue-500/20 text-blue-600' :
+                    task.status === '已完成' ? 'bg-green-500/20 text-green-600' :
+                    task.status === '进行中' ? 'bg-blue-500/20 text-blue-600' :
                     'bg-gray-500/20 text-gray-600'
                   }`}>{task.status}</span>
                 </div>
@@ -196,86 +196,86 @@ export function DashboardOverview() {
 
 ---
 
-## Core Features
+## 核心功能
 
-| Feature | Description |
-|---------|-------------|
-| **Project Info Banner** | Expandable banner showing project name, description, tech stack (languages, frameworks, architecture), development index (features/bugfixes/enhancements), and real-time index status |
-| **Statistics Section** | 6 mini stat cards (Active Sessions, Total Tasks, Completed Tasks, Pending Tasks, Failed Tasks, Today Activity) with 7-day sparkline trends |
-| **Workflow Status Pie Chart** | Donut chart showing session status breakdown (completed, in progress, planning, paused, archived) with percentages |
-| **Session Carousel** | Auto-rotating (5s) session cards with task list, progress bar, and manual navigation arrows |
-| **Recent Sessions Widget** | Tabbed view of recent tasks across all task types with filtering, status badges, and progress indicators |
-| **Real-time Updates** | Auto-refresh every 60 seconds for stats and 30 seconds for index status |
+| 功能 | 描述 |
+|------|------|
+| **项目信息横幅** | 可展开的横幅，显示项目名称、描述、技术栈（语言、框架、架构）、开发索引（功能/bug修复/增强）和实时索引状态 |
+| **统计部分** | 6 个迷你统计卡片（活动会话、总任务、已完成任务、待处理任务、失败任务、今日活动），带有 7 天迷你趋势图 |
+| **工作流状态饼图** | 环形图显示会话状态细分（已完成、进行中、计划中、已暂停、已归档），附带百分比 |
+| **会话轮播** | 自动轮播（5秒间隔）的会话卡片，带有任务列表、进度条和手动导航箭头 |
+| **最近会话小部件** | 所有任务类型的标签页视图，带有筛选、状态徽章和进度指示器 |
+| **实时更新** | 统计数据每 60 秒自动刷新，索引状态每 30 秒刷新 |
 
 ---
 
-## Component Hierarchy
+## 组件层次结构
 
 ```
 HomePage
 ├── DashboardHeader
-│   ├── Title
-│   └── Refresh Action Button
+│   ├── 标题
+│   └── 刷新操作按钮
 ├── WorkflowTaskWidget
-│   ├── ProjectInfoBanner (expandable)
-│   │   ├── Project Name & Description
-│   │   ├── Tech Stack Badges
-│   │   ├── Quick Stats Cards
-│   │   ├── Index Status Indicator
-│   │   ├── Architecture Section
-│   │   ├── Key Components
-│   │   └── Design Patterns
-│   ├── Stats Section
-│   │   └── MiniStatCard (6 cards with Sparkline)
+│   ├── ProjectInfoBanner（可展开）
+│   │   ├── 项目名称和描述
+│   │   ├── 技术栈徽章
+│   │   ├── 快速统计卡片
+│   │   ├── 索引状态指示器
+│   │   ├── 架构部分
+│   │   ├── 关键组件
+│   │   └── 设计模式
+│   ├── 统计部分
+│   │   └── MiniStatCard（6 个卡片，带迷你趋势图）
 │   ├── WorkflowStatusChart
-│   │   └── Pie Chart with Legend
+│   │   └── 饼图与图例
 │   └── SessionCarousel
-│       ├── Navigation Arrows
-│       └── Session Cards (Task List)
+│       ├── 导航箭头
+│       └── 会话卡片（任务列表）
 └── RecentSessionsWidget
-    ├── Tab Navigation (All | Workflow | Lite)
-    ├── Task Grid
+    ├── 标签导航（全部 | 工作流 | 轻量任务）
+    ├── 任务网格
     │   └── TaskItemCard
-    └── Loading/Empty States
+    └── 加载/空状态
 ```
 
 ---
 
 ## Props API
 
-### HomePage Component
+### HomePage 组件
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| - | - | - | This page component accepts no props (data fetched via hooks) |
+| Prop | 类型 | 默认值 | 描述 |
+|------|------|--------|------|
+| - | - | - | 此页面组件不接受任何 props（数据通过 hooks 获取） |
 
 ### WorkflowTaskWidget
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `className` | `string` | `undefined` | Additional CSS classes for styling |
+| Prop | 类型 | 默认值 | 描述 |
+|------|------|--------|------|
+| `className` | `string` | `undefined` | 用于样式的额外 CSS 类 |
 
 ### RecentSessionsWidget
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `className` | `string` | `undefined` | Additional CSS classes |
-| `maxItems` | `number` | `6` | Maximum number of items to display |
+| Prop | 类型 | 默认值 | 描述 |
+|------|------|--------|------|
+| `className` | `string` | `undefined` | 用于样式的额外 CSS 类 |
+| `maxItems` | `number` | `6` | 要显示的最大项目数量 |
 
 ---
 
-## Usage Examples
+## 使用示例
 
-### Basic Dashboard
+### 基础仪表板
 
 ```tsx
 import { HomePage } from '@/pages/HomePage'
 
-// The dashboard is automatically rendered at the root route (/)
-// No props needed - data is fetched via hooks
+// 仪表板在根路由 (/) 自动渲染
+// 不需要 props - 数据通过 hooks 获取
 ```
 
-### Embedding WorkflowTaskWidget
+### 嵌入 WorkflowTaskWidget
 
 ```tsx
 import { WorkflowTaskWidget } from '@/components/dashboard/widgets/WorkflowTaskWidget'
@@ -289,7 +289,7 @@ function CustomDashboard() {
 }
 ```
 
-### Custom Recent Sessions Widget
+### 自定义最近会话小部件
 
 ```tsx
 import { RecentSessionsWidget } from '@/components/dashboard/widgets/RecentSessionsWidget'
@@ -305,54 +305,54 @@ function ActivityFeed() {
 
 ---
 
-## State Management
+## 状态管理
 
-### Local State
+### 本地状态
 
-| State | Type | Description |
-|-------|------|-------------|
-| `hasError` | `boolean` | Error tracking for critical failures |
-| `projectExpanded` | `boolean` | Project info banner expansion state |
-| `currentSessionIndex` | `number` | Active session index in carousel |
-| `activeTab` | `'all' \| 'workflow' \| 'lite'` | Recent sessions widget filter tab |
+| 状态 | 类型 | 描述 |
+|------|------|------|
+| `hasError` | `boolean` | 关键错误的错误跟踪 |
+| `projectExpanded` | `boolean` | 项目信息横幅展开状态 |
+| `currentSessionIndex` | `number` | 轮播中活动会话的索引 |
+| `activeTab` | `'all' \| 'workflow' \| 'lite'` | 最近会话小部件筛选标签页 |
 
-### Store Selectors (Zustand)
+### Store 选择器（Zustand）
 
-| Store | Selector | Purpose |
-|-------|----------|---------|
-| `appStore` | `selectIsImmersiveMode` | Check if immersive mode is active |
+| Store | 选择器 | 用途 |
+|-------|--------|------|
+| `appStore` | `selectIsImmersiveMode` | 检查沉浸模式是否激活 |
 
-### Custom Hooks (Data Fetching)
+### 自定义 Hooks（数据获取）
 
-| Hook | Description | Refetch Interval |
-|------|-------------|------------------|
-| `useWorkflowStatusCounts` | Session status distribution data | - |
-| `useDashboardStats` | Statistics with sparkline data | 60 seconds |
-| `useProjectOverview` | Project information and tech stack | - |
-| `useIndexStatus` | Real-time index status | 30 seconds |
-| `useSessions` | Active sessions data | - |
-| `useLiteTasks` | Lite tasks data for recent widget | - |
+| Hook | 描述 | 重新获取间隔 |
+|------|-------------|--------------|
+| `useWorkflowStatusCounts` | 会话状态分布数据 | - |
+| `useDashboardStats` | 带迷你趋势图的统计数据 | 60 秒 |
+| `useProjectOverview` | 项目信息和技术栈 | - |
+| `useIndexStatus` | 实时索引状态 | 30 秒 |
+| `useSessions` | 活动会话数据 | - |
+| `useLiteTasks` | 最近小部件的轻量任务数据 | - |
 
 ---
 
-## Interactive Demos
+## 交互演示
 
-### Statistics Cards Demo
+### 统计卡片演示
 
 :::demo MiniStatCards
 # mini-stat-cards.tsx
 /**
- * Mini Stat Cards Demo
- * Individual statistics cards with sparkline trends
+ * 迷你统计卡片演示
+ * 带有迷你趋势图的独立统计卡片
  */
 export function MiniStatCards() {
   const stats = [
-    { label: 'Active Sessions', value: 12, trend: [8, 10, 9, 11, 10, 12, 12], color: 'blue' },
-    { label: 'Total Tasks', value: 48, trend: [40, 42, 45, 44, 46, 47, 48], color: 'green' },
-    { label: 'Completed', value: 35, trend: [25, 28, 30, 32, 33, 34, 35], color: 'emerald' },
-    { label: 'Pending', value: 8, trend: [12, 10, 11, 9, 8, 7, 8], color: 'amber' },
-    { label: 'Failed', value: 5, trend: [3, 4, 3, 5, 4, 5, 5], color: 'red' },
-    { label: 'Today Activity', value: 23, trend: [5, 10, 15, 18, 20, 22, 23], color: 'purple' },
+    { label: '活动会话', value: 12, trend: [8, 10, 9, 11, 10, 12, 12], color: 'blue' },
+    { label: '总任务', value: 48, trend: [40, 42, 45, 44, 46, 47, 48], color: 'green' },
+    { label: '已完成', value: 35, trend: [25, 28, 30, 32, 33, 34, 35], color: 'emerald' },
+    { label: '待处理', value: 8, trend: [12, 10, 11, 9, 8, 7, 8], color: 'amber' },
+    { label: '失败', value: 5, trend: [3, 4, 3, 5, 4, 5, 5], color: 'red' },
+    { label: '今日活动', value: 23, trend: [5, 10, 15, 18, 20, 22, 23], color: 'purple' },
   ]
 
   const colorMap = {
@@ -366,7 +366,7 @@ export function MiniStatCards() {
 
   return (
     <div className="p-6 bg-background">
-      <h3 className="text-sm font-semibold mb-4">Statistics with Sparklines</h3>
+      <h3 className="text-sm font-semibold mb-4">带迷你趋势图的统计</h3>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {stats.map((stat, i) => (
           <div key={i} className="p-4 border rounded-lg bg-card">
@@ -395,26 +395,26 @@ export function MiniStatCards() {
 }
 :::
 
-### Project Info Banner Demo
+### 项目信息横幅演示
 
 :::demo ProjectInfoBanner
 # project-info-banner.tsx
 /**
- * Project Info Banner Demo
- * Expandable project information with tech stack
+ * 项目信息横幅演示
+ * 带有技术栈的可展开项目信息
  */
 export function ProjectInfoBanner() {
   const [expanded, setExpanded] = React.useState(false)
 
   return (
     <div className="p-6 bg-background">
-      <h3 className="text-sm font-semibold mb-4">Project Info Banner</h3>
+      <h3 className="text-sm font-semibold mb-4">项目信息横幅</h3>
       <div className="border rounded-lg overflow-hidden">
-        {/* Banner Header */}
+        {/* 横幅头部 */}
         <div className="p-4 bg-muted/30 flex items-center justify-between">
           <div>
-            <h4 className="font-semibold">My Awesome Project</h4>
-            <p className="text-sm text-muted-foreground">A modern web application built with React</p>
+            <h4 className="font-semibold">我的项目</h4>
+            <p className="text-sm text-muted-foreground">使用 React 构建的现代化 Web 应用</p>
           </div>
           <button
             onClick={() => setExpanded(!expanded)}
@@ -426,7 +426,7 @@ export function ProjectInfoBanner() {
           </button>
         </div>
 
-        {/* Tech Stack Badges */}
+        {/* 技术栈徽章 */}
         <div className="px-4 pb-3 flex flex-wrap gap-2">
           {['TypeScript', 'React', 'Vite', 'Tailwind CSS', 'Zustand'].map((tech) => (
             <span key={tech} className="px-2 py-1 text-xs rounded-full bg-primary/10 text-primary">
@@ -435,21 +435,21 @@ export function ProjectInfoBanner() {
           ))}
         </div>
 
-        {/* Expanded Content */}
+        {/* 展开内容 */}
         {expanded && (
           <div className="p-4 border-t bg-muted/20 space-y-4">
             <div>
-              <h5 className="text-xs font-semibold mb-2">Architecture</h5>
+              <h5 className="text-xs font-semibold mb-2">架构</h5>
               <div className="text-sm text-muted-foreground space-y-1">
-                <div>• Component-based UI architecture</div>
-                <div>• Centralized state management</div>
-                <div>• RESTful API integration</div>
+                <div>• 基于组件的 UI 架构</div>
+                <div>• 集中式状态管理</div>
+                <div>• RESTful API 集成</div>
               </div>
             </div>
             <div>
-              <h5 className="text-xs font-semibold mb-2">Key Components</h5>
+              <h5 className="text-xs font-semibold mb-2">关键组件</h5>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                {['Session Manager', 'Dashboard', 'Task Scheduler', 'Analytics'].map((comp) => (
+                {['会话管理器', '仪表板', '任务调度器', '分析'].map((comp) => (
                   <div key={comp} className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary"/>
                     {comp}
@@ -465,42 +465,42 @@ export function ProjectInfoBanner() {
 }
 :::
 
-### Session Carousel Demo
+### 会话轮播演示
 
 :::demo SessionCarousel
 # session-carousel.tsx
 /**
- * Session Carousel Demo
- * Auto-rotating session cards with navigation
+ * 会话轮播演示
+ * 带有导航的自动轮播会话卡片
  */
 export function SessionCarousel() {
   const [currentIndex, setCurrentIndex] = React.useState(0)
   const sessions = [
     {
-      name: 'Feature: User Authentication',
+      name: '功能：用户身份验证',
       status: 'running',
       tasks: [
-        { name: 'Implement login form', status: 'completed' },
-        { name: 'Add OAuth provider', status: 'in-progress' },
-        { name: 'Create session management', status: 'pending' },
+        { name: '实现登录表单', status: 'completed' },
+        { name: '添加 OAuth 提供商', status: 'in-progress' },
+        { name: '创建会话管理', status: 'pending' },
       ],
     },
     {
-      name: 'Bug Fix: Memory Leak',
+      name: 'Bug 修复：内存泄漏',
       status: 'running',
       tasks: [
-        { name: 'Identify leak source', status: 'completed' },
-        { name: 'Fix cleanup handlers', status: 'in-progress' },
-        { name: 'Add unit tests', status: 'pending' },
+        { name: '识别泄漏源', status: 'completed' },
+        { name: '修复清理处理器', status: 'in-progress' },
+        { name: '添加单元测试', status: 'pending' },
       ],
     },
     {
-      name: 'Refactor: API Layer',
+      name: '重构：API 层',
       status: 'planning',
       tasks: [
-        { name: 'Design new interface', status: 'pending' },
-        { name: 'Migrate existing endpoints', status: 'pending' },
-        { name: 'Update documentation', status: 'pending' },
+        { name: '设计新接口', status: 'pending' },
+        { name: '迁移现有端点', status: 'pending' },
+        { name: '更新文档', status: 'pending' },
       ],
     },
   ]
@@ -520,10 +520,10 @@ export function SessionCarousel() {
 
   return (
     <div className="p-6 bg-background">
-      <h3 className="text-sm font-semibold mb-4">Session Carousel (auto-rotates every 5s)</h3>
+      <h3 className="text-sm font-semibold mb-4">会话轮播（每 5 秒自动轮播）</h3>
       <div className="border rounded-lg p-4 bg-card">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-medium">Session {currentIndex + 1} of {sessions.length}</span>
+          <span className="text-sm font-medium">会话 {currentIndex + 1} / {sessions.length}</span>
           <div className="flex gap-1">
             {sessions.map((_, i) => (
               <button
@@ -543,7 +543,7 @@ export function SessionCarousel() {
             <span className={`text-xs px-2 py-1 rounded-full ${
               sessions[currentIndex].status === 'running' ? 'bg-green-500/20 text-green-600' : 'bg-blue-500/20 text-blue-600'
             }`}>
-              {sessions[currentIndex].status}
+              {sessions[currentIndex].status === 'running' ? '运行中' : sessions[currentIndex].status === 'planning' ? '计划中' : sessions[currentIndex].status}
             </span>
           </div>
 
@@ -562,13 +562,13 @@ export function SessionCarousel() {
             onClick={() => setCurrentIndex((i) => (i - 1 + sessions.length) % sessions.length)}
             className="px-3 py-1.5 text-sm border rounded-md hover:bg-accent"
           >
-            ← Previous
+            ← 上一页
           </button>
           <button
             onClick={() => setCurrentIndex((i) => (i + 1) % sessions.length)}
             className="px-3 py-1.5 text-sm border rounded-md hover:bg-accent"
           >
-            Next →
+            下一页 →
           </button>
         </div>
       </div>
@@ -579,29 +579,29 @@ export function SessionCarousel() {
 
 ---
 
-## Accessibility
+## 可访问性
 
-- **Keyboard Navigation**:
-  - <kbd>Tab</kbd> - Navigate through interactive elements
-  - <kbd>Enter</kbd>/<kbd>Space</kbd> - Activate buttons and cards
-  - <kbd>Arrow</kbd> keys - Navigate carousel sessions
+- **键盘导航**：
+  - <kbd>Tab</kbd> - 在交互元素之间导航
+  - <kbd>Enter</kbd>/<kbd>Space</kbd> - 激活按钮和卡片
+  - <kbd>方向键</kbd> - 导航轮播会话
 
-- **ARIA Attributes**:
-  - `aria-label` on navigation buttons
-  - `aria-expanded` on expandable sections
-  - `aria-live` regions for real-time updates
+- **ARIA 属性**：
+  - 导航按钮上的 `aria-label`
+  - 可展开部分的 `aria-expanded`
+  - 实时更新的 `aria-live` 区域
 
-- **Screen Reader Support**:
-  - All charts have text descriptions
-  - Status indicators include text labels
-  - Navigation is announced properly
+- **屏幕阅读器支持**：
+  - 所有图表都有文字描述
+  - 状态指示器包含文字标签
+  - 导航被正确宣布
 
 ---
 
-## Related Links
+## 相关链接
 
-- [Sessions](/features/sessions) - View and manage all sessions
-- [Terminal Dashboard](/features/terminal) - Terminal-first monitoring interface
-- [Queue](/features/queue) - Issue execution queue management
-- [Memory](/features/memory) - Persistent memory management
-- [Settings](/features/settings) - Global application settings
+- [会话](/features/sessions) - 查看和管理所有会话
+- [终端仪表板](/features/terminal) - 终端优先监控界面
+- [队列](/features/queue) - 问题执行队列管理
+- [内存](/features/memory) - 持久化内存管理
+- [设置](/features/settings) - 全局应用设置
