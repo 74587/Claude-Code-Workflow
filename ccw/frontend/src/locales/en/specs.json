@@ -309,6 +309,27 @@
   "form": {
     "readMode": "Read Mode",
     "priority": "Priority",
-    "keywords": "Keywords"
+    "keywords": "Keywords",
+    "title": "Title",
+    "titlePlaceholder": "Enter spec title",
+    "addKeyword": "Add Keyword",
+    "keywordsHint": "Keywords help match optional specs to relevant tasks",
+    "fileInfo": "File: {file}",
+    "saving": "Saving..."
+  },
+
+  "validation": {
+    "titleRequired": "Title is required"
+  },
+
+  "dialog": {
+    "editTitle": "Edit Spec: {title}",
+    "editDescription": "Modify spec metadata and settings."
+  },
+
+  "hooks": {
+    "installSuccess": "Hook installed successfully",
+    "installError": "Failed to install hook",
+    "installAllSuccess": "All hooks installed successfully"
   }
 }

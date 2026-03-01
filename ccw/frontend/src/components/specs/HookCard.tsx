@@ -105,15 +105,15 @@ const eventConfig: Record<
 
 // Event label keys for i18n
 const eventLabelKeys: Record<HookEvent, string> = {
-  SessionStart: 'hooks.events.sessionStart',
-  UserPromptSubmit: 'hooks.events.userPromptSubmit',
-  SessionEnd: 'hooks.events.sessionEnd',
+  SessionStart: 'specs.hook.event.SessionStart',
+  UserPromptSubmit: 'specs.hook.event.UserPromptSubmit',
+  SessionEnd: 'specs.hook.event.SessionEnd',
 };
 
 // Scope label keys for i18n
 const scopeLabelKeys: Record<HookScope, string> = {
-  global: 'hooks.scope.global',
-  project: 'hooks.scope.project',
+  global: 'specs.hook.scope.global',
+  project: 'specs.hook.scope.project',
 };
 
 /**
@@ -136,7 +136,7 @@ export function HookCard({
     variant: 'default' as const,
     icon: <Zap className="h-3 w-3" />,
   };
-  const eventLabel = formatMessage({ id: eventLabelKeys[hook.event] || 'hooks.events.unknown' });
+  const eventLabel = formatMessage({ id: eventLabelKeys[hook.event] || 'specs.hook.event.SessionStart' });
 
   const scopeIcon = hook.scope === 'global' ? <Globe className="h-3 w-3" /> : <Folder className="h-3 w-3" />;
   const scopeLabel = formatMessage({ id: scopeLabelKeys[hook.scope] });
@@ -194,7 +194,7 @@ export function HookCard({
               disabled={actionsDisabled}
               className="ml-4"
             >
-              {formatMessage({ id: 'hooks.actions.install' })}
+              {formatMessage({ id: 'specs.hook.install' })}
             </Button>
           </div>
         </CardContent>
@@ -256,7 +256,7 @@ export function HookCard({
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={(e) => handleAction(e, 'edit')}>
                     <Edit className="mr-2 h-4 w-4" />
-                    {formatMessage({ id: 'hooks.actions.edit' })}
+                    {formatMessage({ id: 'specs.hook.edit' })}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -264,7 +264,7 @@ export function HookCard({
                     className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    {formatMessage({ id: 'hooks.actions.uninstall' })}
+                    {formatMessage({ id: 'specs.hook.uninstall' })}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

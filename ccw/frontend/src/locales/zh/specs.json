@@ -316,6 +316,27 @@
   "form": {
     "readMode": "读取模式",
     "priority": "优先级",
-    "keywords": "关键词"
+    "keywords": "关键词",
+    "title": "标题",
+    "titlePlaceholder": "输入规范标题",
+    "addKeyword": "添加关键词",
+    "keywordsHint": "关键词有助于将选读规范匹配到相关任务",
+    "fileInfo": "文件：{file}",
+    "saving": "保存中..."
+  },
+
+  "validation": {
+    "titleRequired": "标题为必填项"
+  },
+
+  "dialog": {
+    "editTitle": "编辑规范：{title}",
+    "editDescription": "修改规范元数据和设置。"
+  },
+
+  "hooks": {
+    "installSuccess": "钩子安装成功",
+    "installError": "钩子安装失败",
+    "installAllSuccess": "所有钩子安装成功"
   }
 }
