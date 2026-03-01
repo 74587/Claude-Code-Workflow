@@ -489,110 +489,17 @@ export default withMermaid(defineConfig({
           label: '本页目录'
         },
         nav: [
-          { text: '指南', link: '/zh-CN/guide/ch01-what-is-claude-dms3' },
-          { text: '命令', link: '/zh-CN/commands/claude/' },
-          { text: '技能', link: '/zh-CN/skills/claude-index' },
-          { text: '功能', link: '/zh-CN/features/spec' },
-          { text: '组件', link: '/zh-CN/components/' }
+          { text: '功能', link: '/zh-CN/features/dashboard' }
         ],
         sidebar: {
-          '/zh-CN/guide/': [
-            {
-              text: '📖 指南',
-              collapsible: false,
-              items: [
-                { text: 'Claude Code Workflow 是什么', link: '/zh-CN/guide/ch01-what-is-claude-dms3' },
-                { text: '快速开始', link: '/zh-CN/guide/ch02-getting-started' },
-                { text: '核心概念', link: '/zh-CN/guide/ch03-core-concepts' },
-                { text: '工作流基础', link: '/zh-CN/guide/ch04-workflow-basics' },
-                { text: '高级技巧', link: '/zh-CN/guide/ch05-advanced-tips' },
-                { text: '最佳实践', link: '/zh-CN/guide/ch06-best-practices' }
-              ]
-            },
-            {
-              text: '🚀 快速入口',
-              collapsible: true,
-              items: [
-                { text: '安装', link: '/zh-CN/guide/installation' },
-                { text: '第一个工作流', link: '/zh-CN/guide/first-workflow' },
-                { text: 'CLI 工具', link: '/zh-CN/guide/cli-tools' }
-              ]
-            }
-          ],
-          '/zh-CN/skills/': [
-            {
-              text: '概述',
-              collapsible: false,
-              items: [
-                { text: '技能指南', link: '/zh-CN/skills/' }
-              ]
-            },
-            {
-              text: '📚 规范',
-              collapsible: true,
-              items: [
-                { text: '命名规范', link: '/zh-CN/skills/naming-conventions' }
-              ]
-            },
-            {
-              text: '⚡ Claude Skills',
-              collapsible: true,
-              items: [
-                { text: '概述', link: '/zh-CN/skills/claude-index' },
-                { text: '协作', link: '/zh-CN/skills/claude-collaboration' },
-                { text: '工作流', link: '/zh-CN/skills/claude-workflow' },
-                { text: '记忆', link: '/zh-CN/skills/claude-memory' },
-                { text: '审查', link: '/zh-CN/skills/claude-review' },
-                { text: '元技能', link: '/zh-CN/skills/claude-meta' }
-              ]
-            },
-            {
-              text: '🔧 Codex Skills',
-              collapsible: true,
-              items: [
-                { text: '概述', link: '/zh-CN/skills/codex-index' },
-                { text: '生命周期', link: '/zh-CN/skills/codex-lifecycle' },
-                { text: '工作流', link: '/zh-CN/skills/codex-workflow' },
-                { text: '专项', link: '/zh-CN/skills/codex-specialized' }
-              ]
-            },
-            {
-              text: '🎨 自定义技能',
-              collapsible: true,
-              items: [
-                { text: '概述', link: '/zh-CN/skills/custom' },
-                { text: '核心技能', link: '/zh-CN/skills/core-skills' },
-                { text: '参考', link: '/zh-CN/skills/reference' }
-              ]
-            }
-          ],
           '/zh-CN/features/': [
             {
               text: '⚙️ 核心功能',
               collapsible: false,
               items: [
-                { text: 'Spec 规范系统', link: '/zh-CN/features/spec' },
-                { text: 'Memory 记忆系统', link: '/zh-CN/features/memory' },
-                { text: 'CLI 调用', link: '/zh-CN/features/cli' },
                 { text: 'Dashboard 面板', link: '/zh-CN/features/dashboard' },
                 { text: 'Terminal 终端监控', link: '/zh-CN/features/terminal' },
-                { text: 'Queue 队列管理', link: '/zh-CN/features/queue' },
-                { text: 'CodexLens', link: '/zh-CN/features/codexlens' }
-              ]
-            }
-          ],
-          '/zh-CN/components/': [
-            {
-              text: 'UI 组件',
-              collapsible: true,
-              items: [
-                { text: '概述', link: '/zh-CN/components/index' },
-                { text: 'Button 按钮', link: '/zh-CN/components/ui/button' },
-                { text: 'Card 卡片', link: '/zh-CN/components/ui/card' },
-                { text: 'Input 输入框', link: '/zh-CN/components/ui/input' },
-                { text: 'Select 选择器', link: '/zh-CN/components/ui/select' },
-                { text: 'Checkbox 复选框', link: '/zh-CN/components/ui/checkbox' },
-                { text: 'Badge 徽标', link: '/zh-CN/components/ui/badge' }
+                { text: 'Queue 队列管理', link: '/zh-CN/features/queue' }
               ]
             }
           ]
