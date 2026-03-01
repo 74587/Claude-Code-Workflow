@@ -12,6 +12,7 @@
 | **工作流** | 20+ | 规划、执行、审查、TDD、测试等工作流 |
 | **会话管理** | 6 | 会话创建、列表、恢复、完成等 |
 | **Issue 工作流** | 7 | Issue 发现、规划、队列、执行 |
+| **IDAW** | 4 | 批量任务自治执行引擎 |
 | **Memory** | 8 | 记忆捕获、更新、文档生成 |
 | **CLI 工具** | 2 | CLI 初始化、Codex 审查 |
 | **UI 设计** | 10 | UI 设计原型生成、样式提取 |
@@ -67,7 +68,16 @@
 | [`/issue:execute`](./issue.md#execute) | 执行队列 | Intermediate |
 | [`/issue:convert-to-plan`](./issue.md#convert-to-plan) | 转换规划工件为 Issue 解决方案 | Intermediate |
 
-### 5. Memory 命令
+### 5. IDAW 命令
+
+| 命令 | 功能 | 难度 |
+| --- | --- | --- |
+| [`/idaw:add`](./idaw.md#add) | 手动创建或从 issue 导入任务 | Beginner |
+| [`/idaw:run`](./idaw.md#run) | 串行执行任务 Skill 链并 git checkpoint | Intermediate |
+| [`/idaw:status`](./idaw.md#status) | 查看任务和会话进度 | Beginner |
+| [`/idaw:resume`](./idaw.md#resume) | 从断点恢复中断的会话 | Intermediate |
+
+### 6. Memory 命令
 
 | 命令 | 功能 | 难度 |
 | --- | --- | --- |
@@ -80,14 +90,14 @@
 | [`/memory:docs-related-cli`](./memory.md#docs-related-cli) | 生成 git 变更模块文档 | Intermediate |
 | [`/memory:style-skill-memory`](./memory.md#style-skill-memory) | 从样式参考生成 SKILL 记忆包 | Intermediate |
 
-### 6. CLI 工具命令
+### 7. CLI 工具命令
 
 | 命令 | 功能 | 难度 |
 | --- | --- | --- |
 | [`/cli:cli-init`](./cli.md#cli-init) | 生成配置目录和设置文件 | Intermediate |
 | [`/cli:codex-review`](./cli.md#codex-review) | 使用 Codex CLI 进行交互式代码审查 | Intermediate |
 
-### 7. UI 设计命令
+### 8. UI 设计命令
 
 | 命令 | 功能 | 难度 |
 | --- | --- | --- |

@@ -39,14 +39,22 @@
         <!-- Main badge -->
         <rect x="-56" y="-20" width="112" height="40" rx="12" class="ccw-bg" filter="url(#ccwShadow)"/>
         <rect x="-56" y="-20" width="112" height="40" rx="12" fill="none" stroke="url(#ccwBorder)" stroke-width="1.2"/>
-        <!-- Logo icon (simplified favicon: blue square + white lines + green dot) -->
+        <!-- Logo icon (orbital design) -->
         <g transform="translate(-48, -13)">
           <rect width="26" height="26" rx="6" fill="var(--vp-c-brand-1)" opacity="0.12"/>
           <rect width="26" height="26" rx="6" fill="none" stroke="var(--vp-c-brand-1)" stroke-width="0.8" opacity="0.25"/>
-          <line x1="6" y1="9" x2="20" y2="9" stroke="var(--vp-c-brand-1)" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
-          <line x1="6" y1="13" x2="17" y2="13" stroke="var(--vp-c-brand-1)" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
-          <line x1="6" y1="17" x2="14" y2="17" stroke="var(--vp-c-brand-1)" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
-          <circle cx="19" cy="17.5" r="3" fill="#22C55E" opacity="0.8"/>
+          <svg x="1" y="1" width="24" height="24" viewBox="-1 -1 26 26" fill="none" stroke="var(--vp-c-brand-1)" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 12 A8 3 0 0 1 20 12" stroke-width="0.8" opacity="0.2"/>
+            <path d="M16.9 19.5 A8 3 30 0 1 7.1 4.5" stroke-width="0.8" opacity="0.2"/>
+            <path d="M7.1 19.5 A8 3 -30 0 1 16.9 4.5" stroke-width="0.8" opacity="0.2"/>
+            <circle cx="12" cy="12" r="1.5" fill="var(--vp-c-brand-1)" stroke="none" opacity="0.15"/>
+            <path d="M20 12 A8 3 0 0 1 4 12" stroke-width="1.2" opacity="0.5"/>
+            <path d="M7.1 4.5 A8 3 30 0 1 16.9 19.5" stroke-width="1.2" opacity="0.5"/>
+            <path d="M16.9 4.5 A8 3 -30 0 1 7.1 19.5" stroke-width="1.2" opacity="0.5"/>
+            <circle cx="17" cy="10.5" r="1.5" fill="#D97757" stroke="none" opacity="0.8"/>
+            <circle cx="8" cy="16" r="1.5" fill="#10A37F" stroke="none" opacity="0.8"/>
+            <circle cx="14" cy="5.5" r="1.5" fill="#4285F4" stroke="none" opacity="0.8"/>
+          </svg>
         </g>
         <!-- Text — shifted right to avoid logo overlap -->
         <text x="16" y="0" text-anchor="middle" class="ccw-label">CCW</text>

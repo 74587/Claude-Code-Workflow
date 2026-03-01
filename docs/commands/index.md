@@ -19,6 +19,7 @@
 - [Workflow](/commands/claude/workflow) - workflow series commands
 - [Session Management](/commands/claude/session) - session series commands
 - [Issue](/commands/claude/issue) - issue series commands
+- [IDAW](/commands/claude/idaw) - batch autonomous task execution
 - [Memory](/commands/claude/memory) - memory series commands
 - [CLI](/commands/claude/cli) - cli series commands
 - [UI Design](/commands/claude/ui-design) - ui-design series commands

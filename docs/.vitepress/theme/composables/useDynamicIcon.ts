@@ -77,17 +77,22 @@ export function getStatusColor(isDark: boolean): string {
 }
 
 /**
- * Generate favicon SVG with dynamic colors (line style)
+ * Generate favicon SVG with orbital design
  */
 export function generateFaviconSvg(theme: ThemeName, isDark: boolean): string {
-  const lineColor = getThemeColor(theme, isDark)
-  const dotColor = getThemeColor(theme, isDark)  // Dot follows theme color
+  const orbitColor = getThemeColor(theme, isDark)
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
-  <line x1="3" y1="6" x2="18" y2="6" stroke="${lineColor}" stroke-width="2" stroke-linecap="round"/>
-  <line x1="3" y1="12" x2="15" y2="12" stroke="${lineColor}" stroke-width="2" stroke-linecap="round"/>
-  <line x1="3" y1="18" x2="12" y2="18" stroke="${lineColor}" stroke-width="2" stroke-linecap="round"/>
-  <circle cx="19" cy="17" r="3" fill="${dotColor}"/>
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 26 26" fill="none" stroke="${orbitColor}" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M4 12 A8 3 0 0 1 20 12" stroke-width="0.9" opacity="0.15"/>
+  <path d="M16.9 19.5 A8 3 30 0 1 7.1 4.5" stroke-width="0.9" opacity="0.15"/>
+  <path d="M7.1 19.5 A8 3 -30 0 1 16.9 4.5" stroke-width="0.9" opacity="0.15"/>
+  <circle cx="12" cy="12" r="1.5" fill="${orbitColor}" stroke="none" opacity="0.2"/>
+  <path d="M20 12 A8 3 0 0 1 4 12" stroke-width="1.3" opacity="0.75"/>
+  <path d="M7.1 4.5 A8 3 30 0 1 16.9 19.5" stroke-width="1.3" opacity="0.75"/>
+  <path d="M16.9 4.5 A8 3 -30 0 1 7.1 19.5" stroke-width="1.3" opacity="0.75"/>
+  <circle cx="17" cy="10.5" r="1.8" fill="#D97757" stroke="none"/>
+  <circle cx="8" cy="16" r="1.8" fill="#10A37F" stroke="none"/>
+  <circle cx="14" cy="5.5" r="1.8" fill="#4285F4" stroke="none"/>
 </svg>`
 }
 

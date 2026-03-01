@@ -119,6 +119,7 @@ export default withMermaid(defineConfig({
             { text: 'Workflow', link: '/commands/claude/workflow' },
             { text: 'Session', link: '/commands/claude/session' },
             { text: 'Issue', link: '/commands/claude/issue' },
+            { text: 'IDAW', link: '/commands/claude/idaw' },
             { text: 'Memory', link: '/commands/claude/memory' },
             { text: 'CLI', link: '/commands/claude/cli' },
             { text: 'UI Design', link: '/commands/claude/ui-design' }
@@ -378,6 +379,7 @@ export default withMermaid(defineConfig({
                 { text: '工作流', link: '/zh/commands/claude/workflow' },
                 { text: '会话管理', link: '/zh/commands/claude/session' },
                 { text: 'Issue', link: '/zh/commands/claude/issue' },
+                { text: 'IDAW', link: '/zh/commands/claude/idaw' },
                 { text: 'Memory', link: '/zh/commands/claude/memory' },
                 { text: 'CLI', link: '/zh/commands/claude/cli' },
                 { text: 'UI 设计', link: '/zh/commands/claude/ui-design' }

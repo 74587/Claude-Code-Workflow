@@ -19,6 +19,7 @@
 - [工作流](/commands/claude/workflow) - workflow 系列命令
 - [会话管理](/commands/claude/session) - session 系列命令
 - [Issue](/commands/claude/issue) - issue 系列命令
+- [IDAW](/commands/claude/idaw) - 批量任务自治执行
 - [Memory](/commands/claude/memory) - memory 系列命令
 - [CLI](/commands/claude/cli) - cli 系列命令
 - [UI 设计](/commands/claude/ui-design) - ui-design 系列命令

@@ -12,6 +12,7 @@
 | **Workflow** | 20+ | Planning, execution, review, TDD, testing workflows |
 | **Session Management** | 6 | Session creation, listing, resuming, completion |
 | **Issue Workflow** | 8 | Issue discovery, planning, queue, execution |
+| **IDAW** | 4 | Batch autonomous task execution with git checkpoints |
 | **Memory** | 8 | Memory capture, update, document generation |
 | **CLI Tools** | 2 | CLI initialization, Codex review |
 | **UI Design** | 10 | UI design prototype generation, style extraction |
@@ -69,7 +70,16 @@
 | [`/issue:execute`](./issue.md#execute) | Execute queue | Intermediate |
 | [`/issue:convert-to-plan`](./issue.md#convert-to-plan) | Convert planning artifact to issue solution | Intermediate |
 
-### 5. Memory Commands
+### 5. IDAW Commands
+
+| Command | Function | Difficulty |
+|---------|----------|------------|
+| [`/idaw:add`](./idaw.md#add) | Create tasks manually or import from ccw issue | Beginner |
+| [`/idaw:run`](./idaw.md#run) | Execute task queue with skill chains and git checkpoints | Intermediate |
+| [`/idaw:status`](./idaw.md#status) | View task and session progress | Beginner |
+| [`/idaw:resume`](./idaw.md#resume) | Resume interrupted session from last checkpoint | Intermediate |
+
+### 6. Memory Commands
 
 | Command | Function | Difficulty |
 |---------|----------|------------|
@@ -82,14 +92,14 @@
 | [`/memory:docs-related-cli`](./memory.md#docs-related-cli) | Generate documentation for git-changed modules | Intermediate |
 | [`/memory:style-skill-memory`](./memory.md#style-skill-memory) | Generate SKILL memory package from style reference | Intermediate |
 
-### 6. CLI Tool Commands
+### 7. CLI Tool Commands
 
 | Command | Function | Difficulty |
 |---------|----------|------------|
 | [`/cli:cli-init`](./cli.md#cli-init) | Generate configuration directory and settings files | Intermediate |
 | [`/cli:codex-review`](./cli.md#codex-review) | Interactive code review using Codex CLI | Intermediate |
 
-### 7. UI Design Commands
+### 8. UI Design Commands
 
 | Command | Function | Difficulty |
 |---------|----------|------------|
