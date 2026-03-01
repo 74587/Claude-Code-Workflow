@@ -36,9 +36,15 @@ const STORAGE_KEY_THEME = 'ccw-theme'
 const STORAGE_KEY_COLOR_MODE = 'ccw-color-mode'
 
 /**
+ * Check if running in browser environment
+ */
+const isBrowser = typeof window !== 'undefined' && typeof localStorage !== 'undefined'
+
+/**
  * Get current theme from localStorage or default
  */
 export function getCurrentTheme(): ThemeName {
+  if (!isBrowser) return 'blue'
   const saved = localStorage.getItem(STORAGE_KEY_THEME)
   if (saved && saved in THEME_COLORS) {
     return saved as ThemeName
@@ -50,6 +56,7 @@ export function getCurrentTheme(): ThemeName {
  * Check if dark mode is active
  */
 export function isDarkMode(): boolean {
+  if (!isBrowser) return false
   const mode = localStorage.getItem(STORAGE_KEY_COLOR_MODE) || 'auto'
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
   return mode === 'dark' || (mode === 'auto' && prefersDark)

@@ -1,12 +1,17 @@
+---
+适用CLI: claude
+分类: specialized
+---
+
 # Core Skills
 
-CCW includes **32 built-in skills** organized across 3 categories, with **15 workflow combinations** for common development scenarios.
+CCW includes **33 built-in skills** organized across 3 categories, with **15 workflow combinations** for common development scenarios.
 
 ## Categories Overview
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| [Standalone](#standalone-skills) | 11 | Single-purpose skills for specific tasks |
+| [Standalone](#standalone-skills) | 12 | Single-purpose skills for specific tasks |
 | [Team](#team-skills) | 14 | Multi-agent collaborative skills |
 | [Workflow](#workflow-skills) | 7 | Planning and execution pipeline skills |
 
@@ -255,15 +260,38 @@ Skill(skill="software-manual")
 
 ---
 
+### command-generator
+
+**Purpose**: Command file generation meta-skill
+
+**Triggers**: `generate command`
+
+**Description**: Generates CCW command files with standardized structure.
+
+**Phases**:
+1. Requirements Gathering
+2. Command File Generation
+3. Validation
+
+**Outputs**: Command definition files
+
+```bash
+Skill(skill="command-generator")
+```
+
+---
+
 ## Team Skills
 
-### team-lifecycle-v4
+### team-lifecycle-v4 [已废弃]
 
 **Purpose**: Unified team skill for full lifecycle - spec/impl/test
 
 **Triggers**: `team lifecycle`
 
-**Description**: Optimized cadence with inline discuss subagent and shared explore.
+**Description**: **[已废弃]** 请使用 `team-lifecycle` (v5)。v4 保留用于向后兼容。
+
+**Status**: Legacy - 已被 team-lifecycle (v5) 取代
 
 **Roles**:
 
@@ -677,7 +705,7 @@ Skill(skill="workflow-lite-plan")
 
 **Purpose**: Multi-CLI collaborative planning and execution skill
 
-**Triggers**: `workflow-multi-cli-plan`, `workflow:lite-execute`
+**Triggers**: `workflow-multi-cli-plan`, `workflow:multi-cli-plan`
 
 **Description**: Route to multi-cli-plan or lite-execute with prompt enhancement.
 
@@ -812,7 +840,7 @@ Skill(skill="workflow-execute")
 Skill(skill="review-cycle")
 ```
 
-**Team Alternative**: `team-lifecycle-v4`
+**Team Alternative**: `team-lifecycle`
 
 ---
 
@@ -1013,13 +1041,13 @@ Skill(skill="skill-tuning")
 | Meta Skills | skill-generator, skill-tuning, workflow-skill-designer |
 | Orchestrators | workflow-plan, workflow-lite-plan, workflow-multi-cli-plan |
 | Executors | workflow-execute |
-| Team Leads | team-lifecycle-v4, team-lifecycle-v3 |
+| Team Leads | team-lifecycle (v5) |
 
 ### Integrations
 
 | Integration | Skills |
 |-------------|--------|
-| ui-ux-pro-max | team-uidesign, team-frontend, team-lifecycle-v4 |
+| ui-ux-pro-max | team-uidesign, team-frontend, team-lifecycle |
 | ACE Context | workflow-multi-cli-plan |
 | Chrome MCP | software-manual |
 
@@ -1055,18 +1083,27 @@ Quick reference for skill triggers:
 | `brainstorm`, `头脑风暴` | brainstorm |
 | `review code`, `code review`, `审查代码` | review-code |
 | `manage issue` | issue-manage |
-| `workflow-plan` | workflow-plan |
+| `workflow-plan`, `workflow-plan-verify`, `workflow:replan` | workflow-plan |
 | `workflow-execute` | workflow-execute |
 | `workflow-lite-plan` | workflow-lite-plan |
-| `workflow-multi-cli-plan` | workflow-multi-cli-plan |
+| `workflow-multi-cli-plan`, `workflow:multi-cli-plan` | workflow-multi-cli-plan |
 | `workflow-tdd-plan` | workflow-tdd-plan |
-| `workflow-test-fix` | workflow-test-fix |
-| `team lifecycle` | team-lifecycle-v4 |
+| `workflow-test-fix`, `test fix workflow` | workflow-test-fix |
+| `design workflow skill`, `create workflow skill`, `workflow skill designer` | workflow-skill-designer |
+| `generate command` | command-generator |
+| `team lifecycle` | team-lifecycle (v5) |
 | `team brainstorm` | team-brainstorm |
 | `team frontend` | team-frontend |
 | `team issue` | team-issue |
-| `team qa` | team-quality-assurance |
-| `tech debt cleanup`, `技术债务` | team-tech-debt |
+| `team qa`, `team quality-assurance` | team-quality-assurance |
+| `tech debt cleanup`, `team tech-debt`, `技术债务` | team-tech-debt |
+| `team ultra-analyze`, `team analyze` | team-ultra-analyze |
+| `memory capture`, `compact session`, `记录`, `压缩会话` | memory-capture |
+| `memory manage`, `update claude`, `update memory`, `generate docs`, `更新记忆`, `生成文档` | memory-manage |
+| `generate spec`, `create specification`, `spec generator`, `workflow:spec` | spec-generator |
+| `create skill`, `new skill` | skill-generator |
+| `skill tuning`, `tune skill`, `skill diagnosis` | skill-tuning |
+| `software manual`, `user guide`, `generate manual`, `create docs` | software-manual |
 
 ---
 

@@ -82,25 +82,61 @@ onBeforeUnmount(() => {
 
     <template #nav-bar-content-after>
       <div class="nav-extensions">
-        <DocSearch />
-        <DarkModeToggle />
-        <ThemeSwitcher />
-        <LanguageSwitcher />
+        <DocSearch class="nav-item-always" />
+        <DarkModeToggle class="nav-item-desktop" />
+        <ThemeSwitcher class="nav-item-desktop" />
+        <LanguageSwitcher class="nav-item-desktop" />
       </div>
     </template>
   </DefaultTheme.Layout>
 </template>
 
 <style scoped>
+/* ============================================
+ * Container Query Context Definitions
+ * Enables component-level responsive design
+ * ============================================ */
+
+/* Set container context on layout root */
+:deep(.Layout) {
+  container-type: inline-size;
+  container-name: layout;
+}
+
+/* Sidebar container context */
+:deep(.VPSidebar) {
+  container-type: inline-size;
+  container-name: sidebar;
+}
+
+/* Main content container context */
+:deep(.VPContent) {
+  container-type: inline-size;
+  container-name: content;
+}
+
+/* Document outline container context */
+:deep(.VPDocOutline) {
+  container-type: inline-size;
+  container-name: outline;
+}
+
+/* Navigation container context */
+:deep(.VPNav) {
+  container-type: inline-size;
+  container-name: nav;
+}
+
+/* Hero section with fluid spacing */
 .hero-extensions {
-  margin-top: 40px;
+  margin-top: var(--spacing-fluid-lg);
   text-align: center;
 }
 
 .hero-stats {
   display: flex;
   justify-content: center;
-  gap: 48px;
+  gap: var(--spacing-fluid-xl);
   flex-wrap: wrap;
 }
 
@@ -109,23 +145,23 @@ onBeforeUnmount(() => {
 }
 
 .stat-value {
-  font-size: 32px;
+  font-size: clamp(1.5rem, 1.25rem + 1.25vw, 2rem);
   font-weight: 700;
   color: var(--vp-c-primary);
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
   color: var(--vp-c-text-2);
-  margin-top: 4px;
+  margin-top: var(--spacing-fluid-xs);
 }
 
 .nav-extensions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--spacing-fluid-sm);
   margin-left: auto;
-  padding-left: 16px;
+  padding-left: var(--spacing-fluid-sm);
 }
 
 .nav-logo {
@@ -156,22 +192,64 @@ onBeforeUnmount(() => {
   top: 0;
 }
 
+/* Mobile overrides now handled by fluid spacing variables */
+/* Container queries in mobile.css provide additional responsiveness */
+
+/* Mobile-specific styles */
 @media (max-width: 768px) {
+  .hero-extensions {
+    margin-top: 1rem;
+    padding: 0 12px;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
   .hero-stats {
-    gap: 24px;
+    gap: 1rem;
   }
 
   .stat-value {
-    font-size: 24px;
+    font-size: 1.5rem;
   }
 
   .stat-label {
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .nav-extensions {
-    gap: 8px;
-    padding-left: 8px;
+    gap: 0.25rem;
+    padding-left: 0.25rem;
+    overflow: visible !important;
+  }
+
+  /* Hide desktop-only nav items on mobile */
+  .nav-item-desktop {
+    display: none !important;
+  }
+
+  /* Keep always-visible items */
+  .nav-item-always {
+    display: flex !important;
+  }
+
+  /* Ensure nav bar allows dropdown overflow */
+  :deep(.VPNavBar) {
+    overflow: visible !important;
+  }
+
+  :deep(.VPNavBar .content) {
+    overflow: visible !important;
+  }
+
+  /* Fix dropdown positioning for mobile */
+  :deep(.VPNavBarMenuGroup .items) {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: 56px !important;
+    max-width: none !important;
+    width: auto !important;
   }
 }
 </style>

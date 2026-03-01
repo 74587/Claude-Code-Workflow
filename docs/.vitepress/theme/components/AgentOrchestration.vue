@@ -264,7 +264,7 @@ function hideTooltip() {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .agent-orchestration {
     padding: 2rem 1rem;
   }

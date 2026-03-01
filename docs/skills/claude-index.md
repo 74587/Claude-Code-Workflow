@@ -1,3 +1,8 @@
+---
+适用CLI: claude
+分类: specialized
+---
+
 # Claude Skills Overview
 
 ## One-Liner
@@ -50,7 +55,7 @@ Claude Code Workflow supports two team architecture models:
    - All worker roles are dynamically generated at runtime
    - Supports dynamic teams for any task type
 
-2. **team-lifecycle-v5** (Full Lifecycle Team)
+2. **team-lifecycle** (Full Lifecycle Team)
    - Based on team-worker agent architecture
    - All workers share the same agent definition
    - Role-specific Phase 2-4 loaded from markdown specs

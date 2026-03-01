@@ -258,6 +258,19 @@ AskUserQuestion({
 - Need More Analysis → Phase 2 with feedback
 - Cancel → Save session for resumption
 
+**TodoWrite Update (Phase 4 Decision)**:
+```javascript
+const executionLabel = userSelection.execution_method  // "Agent" / "Codex" / "Auto"
+
+TodoWrite({ todos: [
+  { content: "Phase 1: Context Gathering", status: "completed", activeForm: "Gathering context" },
+  { content: "Phase 2: Multi-CLI Discussion", status: "completed", activeForm: "Running discussion" },
+  { content: "Phase 3: Present Options", status: "completed", activeForm: "Presenting options" },
+  { content: `Phase 4: User Decision [${executionLabel}]`, status: "completed", activeForm: "Decision recorded" },
+  { content: `Phase 5: Plan Generation [${executionLabel}]`, status: "in_progress", activeForm: `Generating plan [${executionLabel}]` }
+]})
+```
+
 ### Phase 5: Plan Generation & Execution Handoff
 
 **Step 1: Build Context-Package** (Orchestrator responsibility):

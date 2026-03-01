@@ -1,3 +1,8 @@
+---
+适用CLI: claude
+分类: team
+---
+
 # Claude Skills - Team Collaboration
 
 ## One-Liner
@@ -18,7 +23,7 @@
 | Skill | Function | Trigger |
 |-------|----------|---------|
 | `team-coordinate` | Universal team coordinator (dynamic role generation) | `/team-coordinate` |
-| `team-lifecycle-v5` | Full lifecycle team (spec→impl→test→review) | `/team-lifecycle` |
+| `team-lifecycle` | Full lifecycle team (spec→impl→test→review) | `/team-lifecycle` |
 | `team-planex` | Plan-execute pipeline (plan while executing) | `/team-planex` |
 | `team-review` | Code review team (scan→review→fix) | `/team-review` |
 | `team-testing` | Testing team (strategy→generate→execute→analyze) | `/team-testing` |
@@ -68,7 +73,7 @@ Task Analysis → Generate Roles → Initialize Session → Create Task Chain �
 
 ---
 
-### team-lifecycle-v5
+### team-lifecycle
 
 **One-Liner**: Full lifecycle team — Complete pipeline from specification to implementation to testing to review
 

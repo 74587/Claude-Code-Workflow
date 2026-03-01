@@ -1,6 +1,6 @@
 # Skills Library
 
-Complete reference for all **32 CCW built-in skills** across 3 categories, plus custom skill development.
+Complete reference for all **33 CCW built-in skills** across 3 categories, plus custom skill development.
 
 ## What are Skills?
 
@@ -10,7 +10,7 @@ Skills are reusable, domain-specific capabilities that CCW can execute. Each ski
 
 | Category | Count | Description |
 |----------|-------|-------------|
-| [Standalone](./core-skills.md#standalone-skills) | 11 | Single-purpose skills for specific tasks |
+| [Standalone](./core-skills.md#standalone-skills) | 12 | Single-purpose skills for specific tasks |
 | [Team](./core-skills.md#team-skills) | 14 | Multi-agent collaborative skills |
 | [Workflow](./core-skills.md#workflow-skills) | 7 | Planning and execution pipeline skills |
 
@@ -23,14 +23,15 @@ Skills are reusable, domain-specific capabilities that CCW can execute. Each ski
 | [brainstorm](./core-skills.md#brainstorm) | `brainstorm`, `头脑风暴` | Unified brainstorming with dual-mode operation |
 | [ccw-help](./core-skills.md#ccw-help) | `ccw-help`, `ccw-issue` | Command help system |
 | [memory-capture](./core-skills.md#memory-capture) | `memory capture`, `compact session` | Session compact or quick tips |
-| [memory-manage](./core-skills.md#memory-manage) | `memory manage`, `update claude` | CLAUDE.md updates and docs generation |
+| [memory-manage](./core-skills.md#memory-manage) | `memory manage`, `update claude`, `更新记忆` | CLAUDE.md updates and docs generation |
 | [issue-manage](./core-skills.md#issue-manage) | `manage issue`, `list issues` | Interactive issue management |
 | [review-code](./core-skills.md#review-code) | `review code`, `code review` | 6-dimensional code review |
 | [review-cycle](./core-skills.md#review-cycle) | `workflow:review-cycle` | Review with automated fix |
 | [skill-generator](./core-skills.md#skill-generator) | `create skill`, `new skill` | Meta-skill for creating skills |
 | [skill-tuning](./core-skills.md#skill-tuning) | `skill tuning`, `tune skill` | Skill diagnosis and optimization |
-| [spec-generator](./core-skills.md#spec-generator) | `generate spec`, `spec generator` | 6-phase specification generation |
+| [spec-generator](./core-skills.md#spec-generator) | `generate spec`, `create specification`, `spec generator` | 6-phase specification generation |
 | [software-manual](./core-skills.md#software-manual) | `software manual`, `user guide` | Interactive HTML documentation |
+| [command-generator](./core-skills.md#command-generator) | `generate command` | Command file generation |
 
 ### Team Skills
 
@@ -42,25 +43,25 @@ Skills are reusable, domain-specific capabilities that CCW can execute. Each ski
 | [team-issue](./core-skills.md#team-issue) | `team issue` | 6 | Issue resolution pipeline |
 | [team-iterdev](./core-skills.md#team-iterdev) | `team iterdev` | 5 | Generator-critic loop |
 | [team-planex](./core-skills.md#team-planex) | `team planex` | 3 | Plan-and-execute pipeline |
-| [team-quality-assurance](./core-skills.md#team-quality-assurance) | `team qa` | 6 | QA testing workflow |
+| [team-quality-assurance](./core-skills.md#team-quality-assurance) | `team qa`, `team quality-assurance` | 6 | QA testing workflow |
 | [team-review](./core-skills.md#team-review) | `team-review` | 4 | Code scanning and fix |
 | [team-roadmap-dev](./core-skills.md#team-roadmap-dev) | `team roadmap-dev` | 4 | Roadmap-driven development |
-| [team-tech-debt](./core-skills.md#team-tech-debt) | `tech debt cleanup` | 6 | Tech debt identification |
+| [team-tech-debt](./core-skills.md#team-tech-debt) | `tech debt cleanup`, `技术债务` | 6 | Tech debt identification |
 | [team-testing](./core-skills.md#team-testing) | `team testing` | 5 | Progressive test coverage |
 | [team-uidesign](./core-skills.md#team-uidesign) | `team uidesign` | 4 | UI design with tokens |
-| [team-ultra-analyze](./core-skills.md#team-ultra-analyze) | `team analyze` | 5 | Deep collaborative analysis |
+| [team-ultra-analyze](./core-skills.md#team-ultra-analyze) | `team ultra-analyze`, `team analyze` | 5 | Deep collaborative analysis |
 
 ### Workflow Skills
 
 | Skill | Triggers | Description |
 |-------|----------|-------------|
-| [workflow-plan](./core-skills.md#workflow-plan) | `workflow-plan` | 4-phase planning with verification |
+| [workflow-plan](./core-skills.md#workflow-plan) | `workflow-plan`, `workflow-plan-verify`, `workflow:replan` | 4-phase planning with verification |
 | [workflow-lite-plan](./core-skills.md#workflow-lite-plan) | `workflow-lite-plan` | Lightweight planning |
-| [workflow-multi-cli-plan](./core-skills.md#workflow-multi-cli-plan) | `workflow-multi-cli-plan` | Multi-CLI collaborative planning |
+| [workflow-multi-cli-plan](./core-skills.md#workflow-multi-cli-plan) | `workflow-multi-cli-plan`, `workflow:multi-cli-plan` | Multi-CLI collaborative planning |
 | [workflow-execute](./core-skills.md#workflow-execute) | `workflow-execute` | Task execution coordination |
 | [workflow-tdd-plan](./core-skills.md#workflow-tdd-plan) | `workflow-tdd-plan` | TDD with Red-Green-Refactor |
-| [workflow-test-fix](./core-skills.md#workflow-test-fix) | `workflow-test-fix` | Test-fix pipeline |
-| [workflow-skill-designer](./core-skills.md#workflow-skill-designer) | `design workflow skill` | Meta-skill for workflow creation |
+| [workflow-test-fix](./core-skills.md#workflow-test-fix) | `workflow-test-fix`, `test fix workflow` | Test-fix pipeline |
+| [workflow-skill-designer](./core-skills.md#workflow-skill-designer) | `design workflow skill`, `create workflow skill` | Meta-skill for workflow creation |
 
 ## Workflow Combinations
 

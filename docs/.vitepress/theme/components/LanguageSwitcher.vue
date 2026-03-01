@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useData } from 'vitepress'
 
 const { site, lang, page } = useData()
 
 const isOpen = ref(false)
 const switcherRef = ref<HTMLElement>()
+const buttonRef = ref<HTMLElement>()
+const dropdownPosition = ref({ top: 0, left: 0 })
 
 // Get available locales from VitePress config
 const locales = computed(() => {
@@ -36,46 +38,101 @@ const getAltLink = (localeCode: string) => {
 
 const switchLanguage = (localeCode: string) => {
   const altLink = getAltLink(localeCode)
+  isOpen.value = false
   window.location.href = altLink
 }
 
-// Close dropdown when clicking outside
-onMounted(() => {
-  const handleClickOutside = (e: MouseEvent) => {
-    if (switcherRef.value && !switcherRef.value.contains(e.target as Node)) {
-      isOpen.value = false
+// Calculate dropdown position
+const updatePosition = () => {
+  if (buttonRef.value) {
+    const rect = buttonRef.value.getBoundingClientRect()
+    const isMobile = window.innerWidth <= 768
+
+    if (isMobile) {
+      dropdownPosition.value = {
+        top: rect.bottom + 8,
+        left: 12
+      }
+    } else {
+      dropdownPosition.value = {
+        top: rect.bottom + 4,
+        left: rect.right - 150
+      }
     }
   }
+}
+
+const toggleDropdown = async () => {
+  isOpen.value = !isOpen.value
+  if (isOpen.value) {
+    await nextTick()
+    updatePosition()
+  }
+}
+
+// Close dropdown when clicking outside
+const handleClickOutside = (e: MouseEvent) => {
+  if (switcherRef.value && !switcherRef.value.contains(e.target as Node)) {
+    isOpen.value = false
+  }
+}
+
+// Handle scroll to close dropdown
+const handleScroll = () => {
+  if (isOpen.value) {
+    isOpen.value = false
+  }
+}
+
+onMounted(() => {
   document.addEventListener('click', handleClickOutside)
+  window.addEventListener('scroll', handleScroll, true)
+  window.addEventListener('resize', updatePosition)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside)
+  window.removeEventListener('scroll', handleScroll, true)
+  window.removeEventListener('resize', updatePosition)
 })
 </script>
 
 <template>
   <div ref="switcherRef" class="language-switcher">
     <button
+      ref="buttonRef"
       class="switcher-button"
       :aria-expanded="isOpen"
       aria-label="Switch language"
-      @click="isOpen = !isOpen"
+      @click.stop="toggleDropdown"
     >
       <span class="current-locale">{{ currentLocale?.label }}</span>
       <span class="dropdown-icon" :class="{ open: isOpen }">▼</span>
     </button>
 
-    <Transition name="fade">
-      <ul v-if="isOpen" class="locale-list">
-        <li v-for="locale in locales" :key="locale.code">
-          <button
-            class="locale-button"
-            :class="{ active: locale.code === lang }"
-            @click="switchLanguage(locale.code)"
-          >
-            <span class="locale-label">{{ locale.label }}</span>
-            <span v-if="locale.code === lang" class="check-icon">✓</span>
-          </button>
-        </li>
-      </ul>
-    </Transition>
+    <Teleport to="body">
+      <Transition name="fade">
+        <ul
+          v-if="isOpen"
+          class="locale-list"
+          :style="{
+            top: dropdownPosition.top + 'px',
+            left: dropdownPosition.left + 'px'
+          }"
+        >
+          <li v-for="locale in locales" :key="locale.code">
+            <button
+              class="locale-button"
+              :class="{ active: locale.code === lang }"
+              @click="switchLanguage(locale.code)"
+            >
+              <span class="locale-label">{{ locale.label }}</span>
+              <span v-if="locale.code === lang" class="check-icon">✓</span>
+            </button>
+          </li>
+        </ul>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -117,19 +174,19 @@ onMounted(() => {
   transform: rotate(180deg);
 }
 
+/* Locale list - rendered at body level via Teleport */
 .locale-list {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
+  position: fixed;
   min-width: 150px;
+  max-width: calc(100vw - 24px);
   list-style: none;
   margin: 0;
-  padding: 4px;
+  padding: 8px 0;
   background: var(--vp-c-bg);
   border: 1px solid var(--vp-c-border);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
 }
 
 .locale-button {
@@ -137,14 +194,14 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 16px;
   border: none;
-  border-radius: 4px;
   background: transparent;
   color: var(--vp-c-text-1);
   font-size: 14px;
   cursor: pointer;
   transition: background 0.2s;
+  text-align: left;
 }
 
 .locale-button:hover {
@@ -173,14 +230,24 @@ onMounted(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-8px);
 }
 
 /* Responsive */
 @media (max-width: 768px) {
   .locale-list {
-    right: auto;
-    left: 0;
+    width: calc(100vw - 24px) !important;
+    max-width: 300px !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25) !important;
+  }
+
+  .switcher-button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .locale-button {
+    padding: 12px 16px;
   }
 }
 </style>

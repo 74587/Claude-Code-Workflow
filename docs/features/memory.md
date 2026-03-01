@@ -157,7 +157,7 @@ The V2 Pipeline tab monitors background jobs for:
 - **Local state**:
   - `activeTab`: TabValue
   - `searchQuery`: string
-  - `selectedMemories`: Set<string>
+  - `selectedMemories`: Set&lt;string&gt;
   - `filters`: { sourceType?: string; tags?: string[] }
   - `dialogStates`: create, edit, delete
 

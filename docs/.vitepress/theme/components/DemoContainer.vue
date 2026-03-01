@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { createRoot } from 'react-dom/client'
+import React from 'react'
 import type { Root } from 'react-dom/client'
 import CodeViewer from './CodeViewer.vue'
 
 interface Props {
-  name: string              // Demo component name
+  id: string               // Demo unique ID
+  name: string             // Demo component name
   file?: string            // Optional: explicit source file
+  hasInlineCode?: boolean  // Whether inline code is provided
+  inlineCode?: string      // Base64 encoded inline code (for display)
+  virtualModule?: string   // Virtual module path for inline demos
   height?: string          // Demo container height
   expandable?: boolean     // Allow expand/collapse
   showCode?: boolean       // Show code tab
@@ -14,6 +19,9 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  hasInlineCode: false,
+  inlineCode: '',
+  virtualModule: '',
   height: 'auto',
   expandable: true,
   showCode: true,
@@ -33,25 +41,64 @@ const demoTitle = computed(() => props.title || props.name)
 
 onMounted(async () => {
   try {
-    // Dynamically import demo component
-    const demoModule = await import(`../demos/${props.name}.tsx`)
-    const DemoComponent = demoModule.default || demoModule[props.name]
+    // Handle inline code mode with virtual module
+    if (props.hasInlineCode && props.virtualModule) {
+      // Decode base64 for source code display
+      if (props.inlineCode) {
+        sourceCode.value = atob(props.inlineCode)
+      }
 
-    if (!DemoComponent) {
-      throw new Error(`Demo component "${props.name}" not found`)
-    }
+      // Dynamically import the virtual module
+      // @vite-ignore is needed for dynamic imports with variable paths
+      const inlineDemoModule = await import(/* @vite-ignore */ props.virtualModule)
+      const DemoComponent = inlineDemoModule.default
 
-    // Mount React component
-    if (demoRoot.value) {
-      reactRoot.value = createRoot(demoRoot.value)
-      reactRoot.value.render(DemoComponent)
+      if (!DemoComponent) {
+        throw new Error(`Inline demo component "${props.name}" not found in virtual module`)
+      }
 
-      // Extract source code
-      try {
-        const rawModule = await import(`../demos/${props.name}.tsx?raw`)
-        sourceCode.value = rawModule.default || rawModule
-      } catch {
-        sourceCode.value = '// Source code not available'
+      // Mount React component properly
+      if (demoRoot.value) {
+        reactRoot.value = createRoot(demoRoot.value)
+        reactRoot.value.render(React.createElement(DemoComponent))
+      }
+    } else if (props.hasInlineCode && props.inlineCode) {
+      // Fallback: inline code without virtual module (display only, no execution)
+      const decodedCode = atob(props.inlineCode)
+      sourceCode.value = decodedCode
+
+      if (demoRoot.value) {
+        // Show a message that preview is not available
+        const noticeEl = document.createElement('div')
+        noticeEl.className = 'inline-demo-notice'
+        noticeEl.innerHTML = `
+          <p><strong>Preview not available</strong></p>
+          <p>Inline demo "${props.name}" requires virtual module support.</p>
+          <p>Check the "Code" tab to see the source.</p>
+        `
+        demoRoot.value.appendChild(noticeEl)
+      }
+    } else {
+      // Dynamically import demo component from file
+      const demoModule = await import(`../demos/${props.name}.tsx`)
+      const DemoComponent = demoModule.default || demoModule[props.name]
+
+      if (!DemoComponent) {
+        throw new Error(`Demo component "${props.name}" not found`)
+      }
+
+      // Mount React component
+      if (demoRoot.value) {
+        reactRoot.value = createRoot(demoRoot.value)
+        reactRoot.value.render(DemoComponent)
+
+        // Extract source code
+        try {
+          const rawModule = await import(`../demos/${props.name}.tsx?raw`)
+          sourceCode.value = rawModule.default || rawModule
+        } catch {
+          sourceCode.value = '// Source code not available'
+        }
       }
     }
   } catch (err) {
@@ -248,6 +295,43 @@ const switchTab = (tab: 'preview' | 'code') => {
 
 .demo-container.expanded .demo-content {
   height: auto !important;
+}
+
+/* Inline demo notice (fallback mode) */
+:deep(.inline-demo-notice) {
+  padding: 20px;
+  background: var(--vp-c-warning-soft);
+  border-radius: 4px;
+  text-align: center;
+}
+
+:deep(.inline-demo-notice p) {
+  margin: 8px 0;
+  color: var(--vp-c-text-2);
+}
+
+:deep(.inline-demo-notice strong) {
+  color: var(--vp-c-warning-1);
+}
+
+/* Inline demo preview styles */
+:deep(.inline-demo-preview) {
+  padding: 16px;
+  background: var(--vp-c-bg-soft);
+  border-radius: 4px;
+}
+
+:deep(.inline-demo-preview button) {
+  margin: 4px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: 1px solid var(--vp-c-border);
+  background: var(--vp-c-bg);
+  cursor: pointer;
+}
+
+:deep(.inline-demo-preview button:hover) {
+  background: var(--vp-c-bg-soft);
 }
 
 /* Responsive */

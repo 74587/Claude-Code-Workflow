@@ -1275,23 +1275,199 @@ onUnmounted(() => {
 }
 
 /* ============================================
- * Responsive
+ * Responsive (Standardized Breakpoints)
+ * Mobile: < 768px | Tablet: 768px-1024px | Desktop: > 1024px
+ * WCAG 2.1 AA: Touch targets min 44x44px
  * ============================================ */
-@media (max-width: 1100px) {
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
   .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .hero-container { gap: 1.5rem; }
+  .hero-title { font-size: 2.25rem; }
+  .section-container { padding: 0 1.5rem; }
 }
 
-@media (max-width: 960px) {
-  .hero-container, .json-grid, .quickstart-layout { grid-template-columns: 1fr; text-align: center; }
-  .hero-subtitle { margin-left: auto; margin-right: auto; }
-  .hero-actions { justify-content: center; }
-  .hero-title { font-size: 2.5rem; }
-  .logic-panel { grid-template-columns: 1fr; }
-  .features-grid { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; }
-  .feature-card { text-align: center; }
-  .feature-icon-box { margin-left: auto; margin-right: auto; }
-  .quickstart-info { text-align: center; }
-  .qs-step { flex-direction: column; align-items: center; text-align: center; }
-  .cta-actions { flex-direction: column; }
+/* Mobile (< 768px) */
+@media (max-width: 768px) {
+  /* Hero Section - add extra padding-top to clear fixed nav (56px) */
+  .hero-section {
+    padding: 4.5rem 0 2rem;
+    background:
+      radial-gradient(ellipse 150% 100% at 50% 20%, var(--vp-c-brand-soft) 0%, transparent 60%),
+      var(--vp-c-bg);
+  }
+  .hero-container {
+    grid-template-columns: 1fr;
+    text-align: center;
+    padding: 0 12px;
+    gap: 2rem;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .hero-content { order: 1; }
+  .hero-visual { order: 2; }
+  .hero-title {
+    font-size: 1.875rem;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+  }
+  .hero-subtitle {
+    font-size: 1rem;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 1.75rem;
+    max-width: 100%;
+  }
+  .hero-actions {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  .btn-primary,
+  .btn-secondary {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
+  }
+  .hero-visual { min-height: 200px; }
+
+  /* Section Container */
+  .section-container {
+    padding: 0 12px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Features Grid */
+  .features-section { padding: 3rem 0; }
+  .section-title {
+    font-size: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .features-grid {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+    margin: 0 auto;
+    gap: 1rem;
+  }
+  .feature-card {
+    text-align: center;
+    padding: 1.5rem;
+    min-height: auto;
+  }
+  .feature-icon-box {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 1rem;
+  }
+  .feature-card h3 { font-size: 1.05rem; }
+  .feature-card p { font-size: 0.9rem; }
+
+  /* Pipeline Section */
+  .pipeline-section { padding: 3rem 0; }
+  .section-header h2 { font-size: 1.5rem; }
+  .section-header p { font-size: 0.9rem; }
+  .pipeline-card {
+    padding: 1.25rem;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+  .pipeline-flow {
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .stage-node { flex-direction: row; justify-content: flex-start; gap: 1rem; }
+  .stage-icon { width: 44px; height: 44px; min-width: 44px; }
+  .stage-info { text-align: left; }
+  .stage-info h4 { margin-top: 0; font-size: 0.9rem; }
+  .stage-info p { font-size: 0.8rem; }
+  .logic-panel { grid-template-columns: 1fr; gap: 1rem; }
+  .law-content, .log-content { padding: 1rem; font-size: 0.8rem; min-height: 60px; }
+
+  /* JSON Section */
+  .json-section { padding: 0; overflow-x: hidden; }
+  .json-grid {
+    grid-template-columns: 1fr;
+    text-align: center;
+    padding: 3rem 12px;
+    gap: 2rem;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .json-text h2 { font-size: 1.5rem; }
+  .json-text p { font-size: 0.95rem; }
+  .json-benefits { text-align: left; }
+  .json-benefits li { font-size: 0.9rem; }
+  .json-code {
+    padding: 1rem;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: auto;
+  }
+  .json-pre { font-size: 0.75rem; }
+
+  /* Quick Start */
+  .quickstart-section { padding: 3rem 0; }
+  .quickstart-layout {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 2rem;
+  }
+  .quickstart-info { order: 2; }
+  .quickstart-terminal { order: 1; }
+  .qs-step {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.75rem;
+  }
+  .qs-step-num { width: 44px; height: 44px; min-width: 44px; }
+  .qs-terminal-body { min-height: 200px; padding: 1rem; }
+  .qs-terminal-header { padding: 0.4rem 0.6rem; }
+  .qs-tab { min-height: 36px; padding: 0.25rem 0.5rem; }
+
+  /* CTA Section */
+  .cta-section { padding: 3rem 0; }
+  .cta-card {
+    padding: 2rem 1rem;
+    margin: 0 12px;
+    max-width: calc(100% - 24px);
+    box-sizing: border-box;
+  }
+  .cta-card h2 { font-size: 1.5rem; }
+  .cta-card p { font-size: 0.95rem; margin-bottom: 1.5rem; }
+  .cta-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+  }
+  .cta-actions .btn-primary,
+  .cta-actions .btn-outline,
+  .cta-actions .btn-secondary {
+    width: 100%;
+    justify-content: center;
+    min-height: 48px;
+  }
+}
+
+/* Small Mobile (< 480px) */
+@media (max-width: 480px) {
+  .hero-title { font-size: 1.5rem; }
+  .hero-actions { flex-direction: column; width: 100%; }
+  .hero-actions .btn-primary,
+  .hero-actions .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+  .section-title { font-size: 1.25rem; }
+  .pipeline-flow { gap: 0.75rem; }
+  .stage-icon { width: 40px; height: 40px; border-radius: 10px; }
+  .json-text h2 { font-size: 1.25rem; }
+  .cta-card { padding: 1.5rem 1rem; }
+  .cta-card h2 { font-size: 1.25rem; }
 }
 </style>

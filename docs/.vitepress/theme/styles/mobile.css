@@ -1,8 +1,249 @@
 /**
  * Mobile-Responsive Styles
  * Breakpoints: 320px-768px (mobile), 768px-1024px (tablet), 1024px+ (desktop)
+ * Uses CSS custom properties from variables.css: --bp-mobile, --bp-tablet, --bp-desktop
  * WCAG 2.1 AA compliant
  */
+
+/* ============================================
+ * Container Query Support
+ * Enable component-level responsive design
+ * Fallback: Uses @supports to provide media query fallbacks
+ * ============================================ */
+
+/* Fallback for browsers without container query support */
+@supports not (container-type: inline-size) {
+  /* Sidebar fallback */
+  .VPSidebar {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  @media (min-width: 768px) {
+    .VPSidebar {
+      width: var(--vp-sidebar-width, 272px);
+      max-width: none;
+    }
+  }
+
+  /* Content fallback */
+  .VPContent {
+    padding: 16px;
+  }
+
+  @media (min-width: 768px) {
+    .VPContent {
+      padding: 24px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .VPContent {
+      padding: 32px 48px;
+    }
+  }
+
+  /* Outline fallback */
+  .VPDocOutline {
+    display: none;
+  }
+
+  @media (min-width: 768px) {
+    .VPDocOutline {
+      display: block;
+      width: 200px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .VPDocOutline {
+      width: 256px;
+    }
+  }
+}
+
+/* Container Query Rules (modern browsers) */
+@supports (container-type: inline-size) {
+  /* Sidebar Container Queries */
+  @container sidebar (max-width: 480px) {
+    .VPSidebar .group {
+      padding: 12px 16px;
+    }
+
+    .VPSidebar .title {
+      font-size: 13px;
+    }
+  }
+
+  @container sidebar (min-width: 480px) and (max-width: 768px) {
+    .VPSidebar .group {
+      padding: 16px 20px;
+    }
+
+    .VPSidebar .title {
+      font-size: 14px;
+    }
+  }
+
+  @container sidebar (min-width: 768px) {
+    .VPSidebar .group {
+      padding: 16px 24px;
+    }
+
+    .VPSidebar .title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+  }
+
+  /* Content Container Queries */
+  @container content (max-width: 640px) {
+    .VPDoc .content-container {
+      padding: 0 var(--spacing-fluid-sm);
+    }
+
+    .vp-doc h1 {
+      font-size: 1.75rem;
+    }
+
+    .vp-doc h2 {
+      font-size: 1.375rem;
+    }
+
+    .vp-doc pre {
+      font-size: 12px;
+      padding: 12px 16px;
+    }
+  }
+
+  @container content (min-width: 640px) and (max-width: 960px) {
+    .VPDoc .content-container {
+      padding: 0 var(--spacing-fluid-md);
+    }
+
+    .vp-doc h1 {
+      font-size: 2rem;
+    }
+
+    .vp-doc h2 {
+      font-size: 1.5rem;
+    }
+
+    .vp-doc pre {
+      font-size: 13px;
+      padding: 16px 20px;
+    }
+  }
+
+  @container content (min-width: 960px) {
+    .VPDoc .content-container {
+      padding: 0 var(--spacing-fluid-lg);
+    }
+
+    .vp-doc h1 {
+      font-size: 2.25rem;
+    }
+
+    .vp-doc h2 {
+      font-size: 1.625rem;
+    }
+
+    .vp-doc pre {
+      font-size: 14px;
+      padding: 20px 24px;
+    }
+  }
+
+  /* Outline Container Queries */
+  @container outline (max-width: 200px) {
+    .VPDocOutline .outline-link {
+      font-size: 11px;
+      padding: 3px 8px;
+    }
+
+    .VPDocOutline .outline-marker {
+      width: 2px;
+    }
+  }
+
+  @container outline (min-width: 200px) and (max-width: 280px) {
+    .VPDocOutline .outline-link {
+      font-size: 12px;
+      padding: 4px 10px;
+    }
+
+    .VPDocOutline .outline-marker {
+      width: 3px;
+    }
+  }
+
+  @container outline (min-width: 280px) {
+    .VPDocOutline .outline-link {
+      font-size: 13px;
+      padding: 4px 12px;
+    }
+
+    .VPDocOutline .outline-marker {
+      width: 4px;
+    }
+  }
+
+  /* Navigation Container Queries */
+  @container nav (max-width: 640px) {
+    .VPNavBar {
+      padding: 0 12px;
+    }
+
+    .VPNavBar .nav-extensions {
+      gap: 8px;
+    }
+  }
+
+  @container nav (min-width: 640px) and (max-width: 960px) {
+    .VPNavBar {
+      padding: 0 20px;
+    }
+
+    .VPNavBar .nav-extensions {
+      gap: 12px;
+    }
+  }
+
+  @container nav (min-width: 960px) {
+    .VPNavBar {
+      padding: 0 32px;
+    }
+
+    .VPNavBar .nav-extensions {
+      gap: 16px;
+    }
+  }
+}
+
+/* Generic Container-Responsive Utility Class */
+@container (max-width: 480px) {
+  .container-responsive {
+    padding: 0 var(--spacing-fluid-xs);
+  }
+}
+
+@container (min-width: 480px) and (max-width: 768px) {
+  .container-responsive {
+    padding: 0 var(--spacing-fluid-sm);
+  }
+}
+
+@container (min-width: 768px) and (max-width: 1024px) {
+  .container-responsive {
+    padding: 0 var(--spacing-fluid-md);
+  }
+}
+
+@container (min-width: 1024px) {
+  .container-responsive {
+    padding: 0 var(--spacing-fluid-lg);
+  }
+}
 
 /* ============================================
  * Mobile First Approach
@@ -18,32 +259,218 @@
 
   /* Container */
   .container {
-    padding: 0 16px;
+    padding: 0 12px;
   }
 
-  /* Navigation */
+  /* Navigation - ensure hamburger menu is visible */
   .VPNav {
     height: 56px;
+    overflow: visible !important;
   }
 
   .VPNavBar {
-    padding: 0 16px;
+    padding: 0 12px;
+    overflow: visible !important;
   }
 
-  /* Sidebar */
+  /* Navigation bar content wrapper */
+  .VPNavBar .content {
+    overflow: visible !important;
+  }
+
+  /* Show hamburger menu button on mobile */
+  .VPNavBar .VPNavBarHamburger {
+    display: flex !important;
+  }
+
+  /* Hide desktop nav links on mobile, use hamburger menu */
+  .VPNavBar .VPNavBarMenu {
+    display: none;
+  }
+
+  /* Ensure nav title is visible */
+  .VPNavBar .VPNavBarTitle {
+    flex: 1;
+  }
+
+  /* Reduce nav-extensions gap on mobile */
+  .VPNavBar .nav-extensions {
+    gap: 0.25rem;
+    padding-left: 0.25rem;
+    overflow: visible !important;
+  }
+
+  /* Hide non-essential nav items on mobile */
+  .nav-extensions .nav-item-desktop {
+    display: none !important;
+  }
+
+  /* Style search button for mobile */
+  .nav-extensions .DocSearch {
+    min-height: 40px;
+  }
+
+  /* Ensure VitePress social link is hidden on mobile (uses sidebar) */
+  .VPNavBar .VPNavBarSocialLinks {
+    display: none;
+  }
+
+  /* Fix dropdown menus overflow on mobile */
+  .VPNavBar .VPNavBarMenuGroup {
+    position: relative;
+    overflow: visible !important;
+  }
+
+  .VPNavBar .VPNavBarMenuGroup .items {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 180px;
+    max-width: calc(100vw - 24px);
+    max-height: 60vh;
+    overflow-y: auto;
+    background: var(--vp-c-bg);
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    padding: 8px 0;
+  }
+
+  /* Language switcher dropdown fix */
+  .language-switcher {
+    position: relative !important;
+    overflow: visible !important;
+  }
+
+  .language-switcher .locale-list {
+    position: fixed !important;
+    top: auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    right: auto !important;
+    min-width: 200px !important;
+    max-width: calc(100vw - 24px) !important;
+    z-index: 1000 !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  /* Sidebar - fix display issues */
   .VPSidebar {
-    width: 100%;
-    max-width: 320px;
+    width: 100% !important;
+    max-width: 320px !important;
+    padding-top: 0 !important;
+    top: 56px !important;
+    height: calc(100vh - 56px) !important;
+    max-height: calc(100vh - 56px) !important;
+    overflow: visible !important;
+    position: fixed !important;
+    left: 0 !important;
+    z-index: 40 !important;
+    background: var(--vp-c-bg) !important;
+    transition: transform 0.25s ease !important;
   }
 
-  /* Content */
+  /* Sidebar when open */
+  .VPSidebar.open,
+  .sidebar-open .VPSidebar {
+    transform: translateX(0) !important;
+  }
+
+  /* Sidebar when closed */
+  .VPSidebar:not(.open) {
+    transform: translateX(-100%) !important;
+  }
+
+  /* Sidebar nav container */
+  .VPSidebar .VPSidebarNav {
+    padding: 12px 0;
+    height: 100%;
+    min-height: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Sidebar groups */
+  .VPSidebar .VPSidebarGroup {
+    padding: 8px 16px;
+  }
+
+  /* Sidebar items */
+  .VPSidebar .VPSidebarItem {
+    padding: 6px 0;
+  }
+
+  /* Ensure sidebar links are properly sized */
+  .VPSidebar .link {
+    padding: 8px 12px;
+    display: block;
+  }
+
+  /* Local nav for mobile */
+  .VPLocalNav {
+    display: flex !important;
+    position: sticky;
+    top: 56px;
+    z-index: 10;
+  }
+
+  /* Sidebar curtain/backdrop */
+  .VPSidebar curtain,
+  .VPSidebar .curtain {
+    display: none;
+  }
+
+  /* Sidebar scroll container */
+  .VPSidebar .sidebar-container,
+  .VPSidebar nav {
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Make sure all sidebar content is visible */
+  .VPSidebar .group {
+    margin: 0;
+    padding: 12px 16px;
+  }
+
+  .VPSidebar .title {
+    font-size: 14px;
+    font-weight: 600;
+    padding: 4px 0;
+    color: var(--vp-c-text-1);
+  }
+
+  /* Sidebar text styling */
+  .VPSidebar .text {
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 6px 12px;
+  }
+
+  /* Ensure nested items are visible */
+  .VPSidebar .items {
+    padding: 0;
+  }
+
+  /* Backdrop for sidebar */
+  .VPBackdrop {
+    position: fixed;
+    inset: 0;
+    top: 56px;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 39;
+  }
+
+  /* Content - reduce padding for better space usage */
   .VPContent {
-    padding: 16px;
+    padding: 12px;
   }
 
-  /* Doc content adjustments */
+  /* Doc content adjustments - reduce padding */
   .VPDoc .content-container {
-    padding: 0 16px;
+    padding: 0 12px;
   }
 
   /* Hide outline on mobile */
@@ -53,7 +480,7 @@
 
   /* Hero Section */
   .VPHomeHero {
-    padding: 40px 16px;
+    padding: 40px 12px;
   }
 
   .VPHomeHero h1 {
@@ -65,14 +492,14 @@
     font-size: 14px;
   }
 
-  /* Code Blocks */
+  /* Code Blocks - reduce margins */
   div[class*='language-'] {
-    margin: 12px -16px;
+    margin: 12px -12px;
     border-radius: 0;
   }
 
   div[class*='language-'] pre {
-    padding: 12px 16px;
+    padding: 12px;
     font-size: 12px;
   }
 
@@ -316,6 +743,230 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+ * ProfessionalHome Component - Mobile Optimizations
+ * ============================================ */
+@media (max-width: 768px) {
+  /* Root level overflow prevention */
+  html, body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  /* VitePress Layout container fix */
+  .Layout {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  /* VPContent container fix */
+  .VPContent {
+    max-width: 100vw;
+    overflow-x: hidden;
+    padding: 0 !important;
+  }
+
+  /* Hero extensions in Layout.vue - add proper padding */
+  .hero-extensions {
+    padding: 0 12px;
+    box-sizing: border-box;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .hero-stats {
+    gap: 1rem;
+  }
+
+  /* ProfessionalHome - Hero Section */
+  .pro-home .hero-section {
+    min-height: auto;
+    padding-top: 4.5rem; /* Clear fixed nav (56px) */
+    padding-bottom: 1.5rem;
+  }
+
+  /* Prevent horizontal scroll */
+  .pro-home {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  .pro-home .hero-container {
+    max-width: 100%;
+    padding-left: 12px;
+    padding-right: 12px;
+    box-sizing: border-box;
+  }
+
+  /* Fix section containers */
+  .pro-home .section-container {
+    max-width: 100%;
+    box-sizing: border-box;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* ProfessionalHome - Feature Cards */
+  .pro-home .feature-card {
+    border-radius: 12px;
+    touch-action: manipulation;
+  }
+
+  .pro-home .feature-card:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+
+  /* ProfessionalHome - Pipeline Animation */
+  .pro-home .cadence-track {
+    margin: 1rem 0 2rem;
+  }
+
+  .pro-home .tick-node {
+    width: 12px;
+    height: 12px;
+    min-width: 12px;
+  }
+
+  /* ProfessionalHome - Terminal Window */
+  .pro-home .terminal-window,
+  .pro-home .qs-terminal-window {
+    font-size: 0.75rem;
+    border-radius: 8px;
+  }
+
+  .pro-home .terminal-header,
+  .pro-home .qs-terminal-header {
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* ProfessionalHome - Code Blocks */
+  .pro-home .json-code {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -1rem;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  /* ProfessionalHome - Buttons touch targets */
+  .pro-home .btn-primary,
+  .pro-home .btn-secondary,
+  .pro-home .btn-outline,
+  .pro-home .btn-ghost {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+  }
+
+  /* ProfessionalHome - CTA Section */
+  .pro-home .cta-card {
+    margin: 0 0.5rem;
+    border-radius: 16px;
+    max-width: calc(100% - 1rem);
+    box-sizing: border-box;
+  }
+
+  /* ProfessionalHome - Animation adjustments */
+  .pro-home .reveal-text,
+  .pro-home .reveal-card,
+  .pro-home .reveal-slide {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  /* ProfessionalHome - Stage nodes in pipeline */
+  .pro-home .stage-node {
+    touch-action: manipulation;
+  }
+
+  /* Quick Start Section - prevent overflow */
+  .pro-home .quickstart-section {
+    padding: 3rem 0;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .pro-home .quickstart-layout {
+    padding: 0 12px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .pro-home .quickstart-info,
+  .pro-home .quickstart-terminal {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Ensure all text content wraps properly */
+  .pro-home .json-text,
+  .pro-home .json-benefits,
+  .pro-home .qs-step-content {
+    max-width: 100%;
+    box-sizing: border-box;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Features section overflow fix */
+  .pro-home .features-section {
+    max-width: 100vw;
+    overflow-x: hidden;
+    padding: 3rem 0;
+  }
+
+  /* Pipeline section overflow fix */
+  .pro-home .pipeline-section {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+}
+
+/* ProfessionalHome - Tablet Optimizations */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .pro-home .hero-section {
+    padding: 3rem 0 2.5rem;
+  }
+
+  .pro-home .hero-title {
+    font-size: 2.25rem;
+  }
+
+  .pro-home .features-grid {
+    gap: 1.25rem;
+  }
+
+  .pro-home .json-grid {
+    gap: 2rem;
+    padding: 3rem 1.5rem;
+  }
+}
+
+/* ProfessionalHome - Small Mobile (< 480px) */
+@media (max-width: 480px) {
+  .pro-home .hero-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  .pro-home .section-title {
+    font-size: 1.25rem;
+  }
+
+  .pro-home .pipeline-card {
+    padding: 1rem;
+  }
+
+  /* Ensure touch targets */
+  .pro-home .btn-primary,
+  .pro-home .btn-secondary {
+    padding: 0.875rem 1rem;
   }
 }
 

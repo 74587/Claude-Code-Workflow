@@ -104,6 +104,17 @@ const sessionFolder = `.workflow/.lite-plan/${sessionId}`
 bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${sessionFolder}" || echo "FAILED: ${sessionFolder}"`)
 ```
 
+**TodoWrite (Phase 1 start)**:
+```javascript
+TodoWrite({ todos: [
+  { content: "Phase 1: Exploration", status: "in_progress", activeForm: "Exploring codebase" },
+  { content: "Phase 2: Clarification", status: "pending", activeForm: "Collecting clarifications" },
+  { content: "Phase 3: Planning", status: "pending", activeForm: "Generating plan" },
+  { content: "Phase 4: Confirmation", status: "pending", activeForm: "Awaiting confirmation" },
+  { content: "Phase 5: Execution", status: "pending", activeForm: "Executing tasks" }
+]})
+```
+
 **Exploration Decision Logic**:
 ```javascript
 // Check if task description already contains prior analysis context (from analyze-with-file)
@@ -305,6 +316,17 @@ ${explorationManifest.explorations.map(e => `- exploration-${e.angle}.json (angl
 Manifest: explorations-manifest.json
 Angles explored: ${explorationManifest.explorations.map(e => e.angle).join(', ')}
 `)
+```
+
+**TodoWrite (Phase 1 complete)**:
+```javascript
+TodoWrite({ todos: [
+  { content: "Phase 1: Exploration", status: "completed", activeForm: "Exploring codebase" },
+  { content: "Phase 2: Clarification", status: "in_progress", activeForm: "Collecting clarifications" },
+  { content: "Phase 3: Planning", status: "pending", activeForm: "Generating plan" },
+  { content: "Phase 4: Confirmation", status: "pending", activeForm: "Awaiting confirmation" },
+  { content: "Phase 5: Execution", status: "pending", activeForm: "Executing tasks" }
+]})
 ```
 
 **Output**:
@@ -560,6 +582,17 @@ Note: Use files[].change (not modification_points), convergence.criteria (not ac
 
 **Output**: `${sessionFolder}/plan.json`
 
+**TodoWrite (Phase 3 complete)**:
+```javascript
+TodoWrite({ todos: [
+  { content: "Phase 1: Exploration", status: "completed", activeForm: "Exploring codebase" },
+  { content: "Phase 2: Clarification", status: "completed", activeForm: "Collecting clarifications" },
+  { content: "Phase 3: Planning", status: "completed", activeForm: "Generating plan" },
+  { content: "Phase 4: Confirmation", status: "in_progress", activeForm: "Awaiting confirmation" },
+  { content: "Phase 5: Execution", status: "pending", activeForm: "Executing tasks" }
+]})
+```
+
 ---
 
 ### Phase 4: Task Confirmation & Execution Selection
@@ -647,6 +680,19 @@ if (autoYes) {
     ]
   })
 }
+```
+
+**TodoWrite (Phase 4 confirmed)**:
+```javascript
+const executionLabel = userSelection.execution_method
+
+TodoWrite({ todos: [
+  { content: "Phase 1: Exploration", status: "completed", activeForm: "Exploring codebase" },
+  { content: "Phase 2: Clarification", status: "completed", activeForm: "Collecting clarifications" },
+  { content: "Phase 3: Planning", status: "completed", activeForm: "Generating plan" },
+  { content: `Phase 4: Confirmed [${executionLabel}]`, status: "completed", activeForm: "Confirmed" },
+  { content: `Phase 5: Execution [${executionLabel}]`, status: "in_progress", activeForm: `Executing [${executionLabel}]` }
+]})
 ```
 
 ---

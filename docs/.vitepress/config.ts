@@ -80,7 +80,8 @@ export default withMermaid(defineConfig({
       { text: 'Guide', link: '/guide/ch01-what-is-claude-dms3' },
       { text: 'Commands', link: '/commands/claude/' },
       { text: 'Skills', link: '/skills/' },
-      { text: 'Features', link: '/features/spec' }
+      { text: 'Features', link: '/features/spec' },
+      { text: 'Components', link: '/components/' }
     ],
 
     // Sidebar - 优化导航结构，增加二级标题和归类
@@ -134,6 +135,20 @@ export default withMermaid(defineConfig({
         }
       ],
       '/skills/': [
+        {
+          text: 'Overview',
+          collapsible: false,
+          items: [
+            { text: 'Skills Guide', link: '/skills/' }
+          ]
+        },
+        {
+          text: '📚 Conventions',
+          collapsible: true,
+          items: [
+            { text: 'Naming Conventions', link: '/skills/naming-conventions' }
+          ]
+        },
         {
           text: '⚡ Claude Skills',
           collapsible: true,
@@ -192,9 +207,13 @@ export default withMermaid(defineConfig({
           text: 'UI Components',
           collapsible: true,
           items: [
+            { text: 'Overview', link: '/components/index' },
             { text: 'Button', link: '/components/ui/button' },
             { text: 'Card', link: '/components/ui/card' },
-            { text: 'Input', link: '/components/ui/input' }
+            { text: 'Input', link: '/components/ui/input' },
+            { text: 'Select', link: '/components/ui/select' },
+            { text: 'Checkbox', link: '/components/ui/checkbox' },
+            { text: 'Badge', link: '/components/ui/badge' }
           ]
         }
       ],
@@ -292,11 +311,10 @@ export default withMermaid(defineConfig({
       'mermaid'
     ],
     config: (md) => {
-      // Add markdown-it plugins if needed
-      // Custom demo block transform is handled by markdownTransform.ts
       md.core.ruler.before('block', 'demo-blocks', (state) => {
         const src = state.src
-        const transformed = transformDemoBlocks(src, { path: '' })
+        const filePath = (state as any).path || ''
+        const transformed = transformDemoBlocks(src, { path: filePath })
         if (transformed !== src) {
           state.src = transformed
         }
@@ -376,6 +394,20 @@ export default withMermaid(defineConfig({
             }
           ],
           '/zh/skills/': [
+            {
+              text: '概述',
+              collapsible: false,
+              items: [
+                { text: '技能指南', link: '/zh/skills/' }
+              ]
+            },
+            {
+              text: '📚 规范',
+              collapsible: true,
+              items: [
+                { text: '命名规范', link: '/zh/skills/naming-conventions' }
+              ]
+            },
             {
               text: '⚡ Claude Skills',
               collapsible: true,
@@ -485,6 +517,53 @@ export default withMermaid(defineConfig({
               ]
             }
           ],
+          '/zh-CN/skills/': [
+            {
+              text: '概述',
+              collapsible: false,
+              items: [
+                { text: '技能指南', link: '/zh-CN/skills/' }
+              ]
+            },
+            {
+              text: '📚 规范',
+              collapsible: true,
+              items: [
+                { text: '命名规范', link: '/zh-CN/skills/naming-conventions' }
+              ]
+            },
+            {
+              text: '⚡ Claude Skills',
+              collapsible: true,
+              items: [
+                { text: '概述', link: '/zh-CN/skills/claude-index' },
+                { text: '协作', link: '/zh-CN/skills/claude-collaboration' },
+                { text: '工作流', link: '/zh-CN/skills/claude-workflow' },
+                { text: '记忆', link: '/zh-CN/skills/claude-memory' },
+                { text: '审查', link: '/zh-CN/skills/claude-review' },
+                { text: '元技能', link: '/zh-CN/skills/claude-meta' }
+              ]
+            },
+            {
+              text: '🔧 Codex Skills',
+              collapsible: true,
+              items: [
+                { text: '概述', link: '/zh-CN/skills/codex-index' },
+                { text: '生命周期', link: '/zh-CN/skills/codex-lifecycle' },
+                { text: '工作流', link: '/zh-CN/skills/codex-workflow' },
+                { text: '专项', link: '/zh-CN/skills/codex-specialized' }
+              ]
+            },
+            {
+              text: '🎨 自定义技能',
+              collapsible: true,
+              items: [
+                { text: '概述', link: '/zh-CN/skills/custom' },
+                { text: '核心技能', link: '/zh-CN/skills/core-skills' },
+                { text: '参考', link: '/zh-CN/skills/reference' }
+              ]
+            }
+          ],
           '/zh-CN/features/': [
             {
               text: '⚙️ 核心功能',
@@ -494,6 +573,8 @@ export default withMermaid(defineConfig({
                 { text: 'Memory 记忆系统', link: '/zh-CN/features/memory' },
                 { text: 'CLI 调用', link: '/zh-CN/features/cli' },
                 { text: 'Dashboard 面板', link: '/zh-CN/features/dashboard' },
+                { text: 'Terminal 终端监控', link: '/zh-CN/features/terminal' },
+                { text: 'Queue 队列管理', link: '/zh-CN/features/queue' },
                 { text: 'CodexLens', link: '/zh-CN/features/codexlens' }
               ]
             }
@@ -503,9 +584,13 @@ export default withMermaid(defineConfig({
               text: 'UI 组件',
               collapsible: true,
               items: [
+                { text: '概述', link: '/zh-CN/components/index' },
                 { text: 'Button 按钮', link: '/zh-CN/components/ui/button' },
                 { text: 'Card 卡片', link: '/zh-CN/components/ui/card' },
-                { text: 'Input 输入框', link: '/zh-CN/components/ui/input' }
+                { text: 'Input 输入框', link: '/zh-CN/components/ui/input' },
+                { text: 'Select 选择器', link: '/zh-CN/components/ui/select' },
+                { text: 'Checkbox 复选框', link: '/zh-CN/components/ui/checkbox' },
+                { text: 'Badge 徽标', link: '/zh-CN/components/ui/badge' }
               ]
             }
           ]

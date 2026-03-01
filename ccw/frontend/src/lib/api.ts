@@ -104,41 +104,131 @@ export interface ApiError {
 // ========== CSRF Token Handling ==========
 
 /**
- * In-memory CSRF token storage
- * The token is obtained from X-CSRF-Token response header and stored here
- * because the XSRF-TOKEN cookie is HttpOnly and cannot be read by JavaScript
+ * CSRF token pool for concurrent request support
+ * The pool maintains multiple tokens to support parallel mutating requests
  */
-let csrfToken: string | null = null;
+const MAX_CSRF_TOKEN_POOL_SIZE = 5;
+
+// Token pool queue - FIFO for fair distribution
+let csrfTokenQueue: string[] = [];
 
 /**
- * Get CSRF token from memory
+ * Get a CSRF token from the pool
+ * @returns Token string or undefined if pool is empty
  */
-function getCsrfToken(): string | null {
-  return csrfToken;
+function getCsrfTokenFromPool(): string | undefined {
+  return csrfTokenQueue.shift();
 }
 
 /**
- * Set CSRF token from response header
+ * Add a CSRF token to the pool with deduplication
+ * @param token - Token to add
+ */
+function addCsrfTokenToPool(token: string): void {
+  if (!token) return;
+  // Deduplication: don't add if already in pool
+  if (csrfTokenQueue.includes(token)) return;
+  // Limit pool size
+  if (csrfTokenQueue.length >= MAX_CSRF_TOKEN_POOL_SIZE) return;
+  csrfTokenQueue.push(token);
+}
+
+/**
+ * Get current pool size (for debugging)
+ */
+export function getCsrfPoolSize(): number {
+  return csrfTokenQueue.length;
+}
+
+/**
+ * Lock for deduplicating concurrent token fetch requests
+ * Prevents multiple simultaneous calls to fetchTokenSynchronously
+ */
+let tokenFetchPromise: Promise<string> | null = null;
+
+/**
+ * Synchronously fetch a single token when pool is depleted
+ * This blocks the request until a token is available
+ * Uses lock mechanism to prevent concurrent fetch deduplication
+ */
+async function fetchTokenSynchronously(): Promise<string> {
+  // If a fetch is already in progress, wait for it
+  if (tokenFetchPromise) {
+    return tokenFetchPromise;
+  }
+
+  // Create new fetch promise and store as lock
+  tokenFetchPromise = (async () => {
+    try {
+      const response = await fetch('/api/csrf-token', {
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch CSRF token');
+      }
+      const data = await response.json();
+      const token = data.csrfToken;
+      if (!token) {
+        throw new Error('No CSRF token in response');
+      }
+      return token;
+    } finally {
+      // Release lock after completion (success or failure)
+      tokenFetchPromise = null;
+    }
+  })();
+
+  return tokenFetchPromise;
+}
+
+/**
+ * Set CSRF token from response header (adds to pool)
  */
 function updateCsrfToken(response: Response): void {
   const token = response.headers.get('X-CSRF-Token');
   if (token) {
-    csrfToken = token;
+    addCsrfTokenToPool(token);
   }
 }
 
 /**
- * Initialize CSRF token by fetching from server
+ * Initialize CSRF token pool by fetching multiple tokens from server
  * Should be called once on app initialization
  */
 export async function initializeCsrfToken(): Promise<void> {
   try {
-    const response = await fetch('/api/csrf-token', {
+    // Prefetch 5 tokens for pool
+    const response = await fetch(`/api/csrf-token?count=${MAX_CSRF_TOKEN_POOL_SIZE}`, {
       credentials: 'same-origin',
     });
-    updateCsrfToken(response);
+
+    if (!response.ok) {
+      throw new Error('Failed to initialize CSRF token pool');
+    }
+
+    const data = await response.json();
+
+    // Handle both single token and batch response formats
+    if (data.tokens && Array.isArray(data.tokens)) {
+      // Batch response - add all tokens to pool
+      for (const token of data.tokens) {
+        addCsrfTokenToPool(token);
+      }
+    } else if (data.csrfToken) {
+      // Single token response - add to pool
+      addCsrfTokenToPool(data.csrfToken);
+    }
+
+    console.log(`[CSRF] Token pool initialized with ${csrfTokenQueue.length} tokens`);
   } catch (error) {
-    console.error('[CSRF] Failed to initialize CSRF token:', error);
+    console.error('[CSRF] Failed to initialize CSRF token pool:', error);
+    // Fallback: try to get at least one token
+    try {
+      const token = await fetchTokenSynchronously();
+      addCsrfTokenToPool(token);
+    } catch (fallbackError) {
+      console.error('[CSRF] Fallback token fetch failed:', fallbackError);
+    }
   }
 }
 
@@ -155,7 +245,18 @@ async function fetchApi<T>(
 
   // Add CSRF token for mutating requests
   if (options.method && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method)) {
-    const token = getCsrfToken();
+    let token = getCsrfTokenFromPool();
+
+    // If pool is depleted, synchronously fetch a new token
+    if (!token) {
+      console.warn('[CSRF] Token pool depleted, fetching synchronously');
+      try {
+        token = await fetchTokenSynchronously();
+      } catch (error) {
+        throw new Error('Failed to acquire CSRF token for request');
+      }
+    }
+
     if (token) {
       headers.set('X-CSRF-Token', token);
     }
@@ -172,7 +273,7 @@ async function fetchApi<T>(
     credentials: 'same-origin',
   });
 
-  // Update CSRF token from response header
+  // Update CSRF token from response header (adds to pool)
   updateCsrfToken(response);
 
   if (!response.ok) {
@@ -2963,6 +3064,18 @@ export interface ReviewDimension {
   findings: ReviewFinding[];
 }
 
+export interface ReviewSummary {
+  phase?: string;
+  status?: string;
+  severityDistribution?: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  criticalFiles?: string[];
+}
+
 export interface ReviewSession {
   session_id: string;
   title?: string;
@@ -2970,6 +3083,7 @@ export interface ReviewSession {
   type: 'review';
   phase?: string;
   reviewDimensions?: ReviewDimension[];
+  reviewSummary?: ReviewSummary;
   _isActive?: boolean;
   created_at?: string;
   updated_at?: string;
@@ -2986,6 +3100,17 @@ export interface ReviewSessionsResponse {
       progress?: unknown;
     }>;
   };
+  // New: Support activeSessions with review type
+  activeSessions?: Array<{
+    session_id: string;
+    project?: string;
+    type?: string;
+    status?: string;
+    created_at?: string;
+    hasReview?: boolean;
+    reviewSummary?: ReviewSummary;
+    reviewDimensions?: ReviewDimension[];
+  }>;
 }
 
 /**
@@ -2994,12 +3119,34 @@ export interface ReviewSessionsResponse {
 export async function fetchReviewSessions(): Promise<ReviewSession[]> {
   const data = await fetchApi<ReviewSessionsResponse>('/api/data');
 
-  // If reviewSessions field exists (legacy format), use it
+  // Priority 1: Use activeSessions with type='review' or hasReview=true
+  if (data.activeSessions) {
+    const reviewSessions = data.activeSessions.filter(
+      session => session.type === 'review' || session.hasReview
+    );
+    if (reviewSessions.length > 0) {
+      return reviewSessions.map(session => ({
+        session_id: session.session_id,
+        title: session.project || session.session_id,
+        description: '',
+        type: 'review' as const,
+        phase: session.reviewSummary?.phase,
+        reviewDimensions: session.reviewDimensions || [],
+        reviewSummary: session.reviewSummary,
+        _isActive: true,
+        created_at: session.created_at,
+        updated_at: undefined,
+        status: session.status
+      }));
+    }
+  }
+
+  // Priority 2: Legacy reviewSessions field
   if (data.reviewSessions && data.reviewSessions.length > 0) {
     return data.reviewSessions;
   }
 
-  // Otherwise, transform reviewData.sessions into ReviewSession format
+  // Priority 3: Legacy reviewData.sessions format
   if (data.reviewData?.sessions) {
     return data.reviewData.sessions.map(session => ({
       session_id: session.session_id,
