@@ -303,13 +303,16 @@
     "hookCommand": "Command",
     "hookScope": "Scope",
     "hookTimeout": "Timeout (ms)",
-    "hookFailMode": "Fail Mode"
+    "hookFailMode": "Fail Mode",
+    "editTitle": "Edit Spec: {title}",
+    "editDescription": "Modify spec metadata and settings."
   },
 
   "form": {
     "readMode": "Read Mode",
     "priority": "Priority",
     "keywords": "Keywords",
+    "keywordsPlaceholder": "Enter keywords, press Enter or comma to add",
     "title": "Title",
     "titlePlaceholder": "Enter spec title",
     "addKeyword": "Add Keyword",
@@ -320,11 +323,6 @@
 
   "validation": {
     "titleRequired": "Title is required"
-  },
-
-  "dialog": {
-    "editTitle": "Edit Spec: {title}",
-    "editDescription": "Modify spec metadata and settings."
   },
 
   "hooks": {

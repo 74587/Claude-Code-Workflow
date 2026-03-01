@@ -46,7 +46,7 @@ import {
   Layers,
   Filter,
 } from 'lucide-react';
-import { useInstallRecommendedHooks } from '@/hooks/useSystemSettings';
+import { useInstallRecommendedHooks, useSystemSettings } from '@/hooks/useSystemSettings';
 import type { InjectionPreviewFile, InjectionPreviewResponse } from '@/lib/api';
 import { getInjectionPreview, COMMAND_PREVIEWS, type CommandPreviewConfig } from '@/lib/api';
 
@@ -196,6 +196,9 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
 
   // State for hooks installation
   const [installingHookIds, setInstallingHookIds] = useState<string[]>([]);
+
+  // Fetch system settings (for hooks installation status)
+  const systemSettingsQuery = useSystemSettings();
 
   // State for injection preview
   const [previewMode, setPreviewMode] = useState<'required' | 'all'>('required');
@@ -349,10 +352,18 @@ export function InjectionControlTab({ className }: InjectionControlTabProps) {
 
   const installedHookIds = useMemo(() => {
     const installed = new Set<string>();
+    const hooks = systemSettingsQuery.data?.recommendedHooks;
+    if (hooks) {
+      hooks.forEach(hook => {
+        if (hook.installed) {
+          installed.add(hook.id);
+        }
+      });
+    }
     return installed;
-  }, []);
+  }, [systemSettingsQuery.data?.recommendedHooks]);
 
-  const installedCount = 0;
+  const installedCount = installedHookIds.size;
   const allHooksInstalled = installedCount === RECOMMENDED_HOOKS.length;
 
   const handleInstallHook = useCallback(async (hookId: string) => {

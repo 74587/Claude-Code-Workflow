@@ -310,13 +310,16 @@
     "hookCommand": "执行命令",
     "hookScope": "作用域",
     "hookTimeout": "超时时间(ms)",
-    "hookFailMode": "失败模式"
+    "hookFailMode": "失败模式",
+    "editTitle": "编辑规范：{title}",
+    "editDescription": "修改规范元数据和设置。"
   },
 
   "form": {
     "readMode": "读取模式",
     "priority": "优先级",
     "keywords": "关键词",
+    "keywordsPlaceholder": "输入关键词，按回车或逗号添加",
     "title": "标题",
     "titlePlaceholder": "输入规范标题",
     "addKeyword": "添加关键词",
@@ -327,11 +330,6 @@
 
   "validation": {
     "titleRequired": "标题为必填项"
-  },
-
-  "dialog": {
-    "editTitle": "编辑规范：{title}",
-    "editDescription": "修改规范元数据和设置。"
   },
 
   "hooks": {

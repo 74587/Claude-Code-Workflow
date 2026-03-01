@@ -7555,6 +7555,7 @@ export interface SystemSettings {
     description: string;
     scope: 'global' | 'project';
     autoInstall: boolean;
+    installed: boolean;
   }>;
 }
 

@@ -1,4 +1,6 @@
 {
+  "cancel": "Cancel",
+  "save": "Save",
   "aria": {
     "toggleNavigation": "Toggle navigation menu",
     "refreshWorkspace": "Refresh workspace",

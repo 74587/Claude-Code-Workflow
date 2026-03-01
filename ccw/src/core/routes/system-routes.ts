@@ -91,17 +91,44 @@ function readSettingsFile(filePath: string): Record<string, unknown> {
 }
 
 /**
+ * Check if a recommended hook is installed in settings
+ */
+function isHookInstalled(
+  settings: Record<string, unknown> & { hooks?: Record<string, unknown[]> },
+  hook: typeof RECOMMENDED_HOOKS[number]
+): boolean {
+  const hooks = settings.hooks;
+  if (!hooks) return false;
+
+  const eventHooks = hooks[hook.event];
+  if (!eventHooks || !Array.isArray(eventHooks)) return false;
+
+  // Check if hook exists in nested hooks array (by command)
+  return eventHooks.some((entry) => {
+    const entryHooks = (entry as Record<string, unknown>).hooks as Array<Record<string, unknown>> | undefined;
+    if (!entryHooks || !Array.isArray(entryHooks)) return false;
+    return entryHooks.some((h) => (h as Record<string, unknown>).command === hook.command);
+  });
+}
+
+/**
  * Get system settings from global settings file
  */
 function getSystemSettings(): {
   injectionControl: typeof DEFAULT_INJECTION_CONTROL;
   personalSpecDefaults: typeof DEFAULT_PERSONAL_SPEC_DEFAULTS;
   devProgressInjection: typeof DEFAULT_DEV_PROGRESS_INJECTION;
-  recommendedHooks: typeof RECOMMENDED_HOOKS;
+  recommendedHooks: Array<typeof RECOMMENDED_HOOKS[number] & { installed: boolean }>;
 } {
-  const settings = readSettingsFile(GLOBAL_SETTINGS_PATH) as Record<string, unknown>;
+  const settings = readSettingsFile(GLOBAL_SETTINGS_PATH) as Record<string, unknown> & { hooks?: Record<string, unknown[]> };
   const system = (settings.system || {}) as Record<string, unknown>;
   const user = (settings.user || {}) as Record<string, unknown>;
+
+  // Check installation status for each recommended hook
+  const recommendedHooksWithStatus = RECOMMENDED_HOOKS.map(hook => ({
+    ...hook,
+    installed: isHookInstalled(settings, hook)
+  }));
 
   return {
     injectionControl: {
@@ -116,7 +143,7 @@ function getSystemSettings(): {
       ...DEFAULT_DEV_PROGRESS_INJECTION,
       ...((system.devProgressInjection || {}) as Record<string, unknown>)
     } as typeof DEFAULT_DEV_PROGRESS_INJECTION,
-    recommendedHooks: RECOMMENDED_HOOKS
+    recommendedHooks: recommendedHooksWithStatus
   };
 }
 
