@@ -366,8 +366,13 @@ function assembleSkillArgs(skillName, task, previousResult, autoYes, isFirst) {
   let args = '';
 
   if (isFirst) {
-    const goal = `${task.title}\n${task.description}`;
-    args = `"${goal.replace(/"/g, '\\"')}"`;
+    // Sanitize for shell safety
+    const goal = `${task.title}\n${task.description}`
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\$/g, '\\$')
+      .replace(/`/g, '\\`');
+    args = `"${goal}"`;
     if (task.task_type === 'bugfix-hotfix') args += ' --hotfix';
   } else if (previousResult?.session_id) {
     args = `--session="${previousResult.session_id}"`;

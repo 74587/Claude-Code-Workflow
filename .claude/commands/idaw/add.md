@@ -54,11 +54,16 @@ When `--yes` or `-y`: Skip clarification questions, create task with inferred de
 
 ```javascript
 const args = $ARGUMENTS;
-const autoYes = /(-y|--yes)/.test(args);
+const autoYes = /(-y|--yes)\b/.test(args);
 const fromIssue = args.match(/--from-issue\s+([\w,-]+)/)?.[1];
 const typeFlag = args.match(/--type\s+([\w-]+)/)?.[1];
 const priorityFlag = args.match(/--priority\s+(\d)/)?.[1];
-const description = args.replace(/(-y|--yes|--from-issue\s+[\w,-]+|--type\s+[\w-]+|--priority\s+\d)/g, '').trim().replace(/^["']|["']$/g, '');
+
+// Extract description: content inside quotes (preferred), or fallback to stripping flags
+const quotedMatch = args.match(/(?:^|\s)["']([^"']+)["']/);
+const description = quotedMatch
+  ? quotedMatch[1].trim()
+  : args.replace(/(-y|--yes|--from-issue\s+[\w,-]+|--type\s+[\w-]+|--priority\s+\d)/g, '').trim();
 ```
 
 ### Phase 2: Route — Import or Manual
@@ -74,10 +79,19 @@ const description = args.replace(/(-y|--yes|--from-issue\s+[\w,-]+|--type\s+[\w-
 ```javascript
 const issueIds = fromIssue.split(',');
 
-for (const issueId of issueIds) {
-  // 1. Fetch issue data
+// Fetch all issues once (outside loop)
+let issues = [];
+try {
   const issueJson = Bash(`ccw issue list --json`);
-  const issues = JSON.parse(issueJson).issues;
+  issues = JSON.parse(issueJson).issues || [];
+} catch (e) {
+  console.log(`Error fetching CCW issues: ${e.message || e}`);
+  console.log('Ensure ccw is installed and issues exist. Use /issue:new to create issues first.');
+  return;
+}
+
+for (const issueId of issueIds) {
+  // 1. Find issue data
   const issue = issues.find(i => i.id === issueId.trim());
   if (!issue) {
     console.log(`Warning: Issue ${issueId} not found, skipping`);
