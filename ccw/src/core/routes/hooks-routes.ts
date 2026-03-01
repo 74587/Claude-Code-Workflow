@@ -95,6 +95,75 @@ function getHooksConfig(projectPath: string): { global: { path: string; hooks: u
 }
 
 /**
+ * Normalize hook data to Claude Code's official nested format
+ * Official format: { matcher?: string, hooks: [{ type: 'command', command: string, timeout?: number }] }
+ *
+ * IMPORTANT: All timeout values from frontend are in MILLISECONDS and must be converted to SECONDS.
+ * Official Claude Code spec requires timeout in seconds.
+ *
+ * @param {Object} hookData - Hook configuration (may be flat or nested format)
+ * @returns {Object} Normalized hook data in official format
+ */
+function normalizeHookFormat(hookData: Record<string, unknown>): Record<string, unknown> {
+  /**
+   * Convert timeout from milliseconds to seconds
+   * Frontend always sends milliseconds, Claude Code expects seconds
+   */
+  const convertTimeout = (timeout: number): number => {
+    // Always convert from milliseconds to seconds
+    // This is safe because:
+    // - Frontend (HookWizard) uses milliseconds (e.g., 5000ms)
+    // - Claude Code official spec requires seconds
+    // - Minimum valid timeout is 1 second, so any value < 1000ms becomes 1s
+    return Math.max(1, Math.ceil(timeout / 1000));
+  };
+
+  // If already in nested format with hooks array, validate and convert
+  if (hookData.hooks && Array.isArray(hookData.hooks)) {
+    // Ensure each hook in the array has required fields
+    const normalizedHooks = (hookData.hooks as Array<Record<string, unknown>>).map(h => {
+      const normalized: Record<string, unknown> = {
+        type: h.type || 'command',
+        command: h.command || '',
+      };
+      // Convert timeout from milliseconds to seconds
+      if (typeof h.timeout === 'number') {
+        normalized.timeout = convertTimeout(h.timeout);
+      }
+      return normalized;
+    });
+
+    return {
+      ...(hookData.matcher !== undefined ? { matcher: hookData.matcher } : { matcher: '' }),
+      hooks: normalizedHooks,
+    };
+  }
+
+  // Convert flat format to nested format
+  // Old format: { command: '...', timeout: 5000, name: '...', failMode: '...' }
+  // New format: { matcher: '', hooks: [{ type: 'command', command: '...', timeout: 5 }] }
+  if (hookData.command && typeof hookData.command === 'string') {
+    const nestedHook: Record<string, unknown> = {
+      type: 'command',
+      command: hookData.command,
+    };
+
+    // Convert timeout from milliseconds to seconds
+    if (typeof hookData.timeout === 'number') {
+      nestedHook.timeout = convertTimeout(hookData.timeout);
+    }
+
+    return {
+      matcher: typeof hookData.matcher === 'string' ? hookData.matcher : '',
+      hooks: [nestedHook],
+    };
+  }
+
+  // Return as-is if we can't normalize (let Claude Code validate)
+  return hookData;
+}
+
+/**
  * Save a hook to settings file
  * @param {string} projectPath
  * @param {string} scope - 'global' or 'project'
@@ -125,17 +194,19 @@ function saveHookToSettings(
       settings.hooks[event] = [settings.hooks[event]];
     }
 
+    // Normalize hook data to official format
+    const normalizedData = normalizeHookFormat(hookData);
+
     // Check if we're replacing an existing hook
     if (typeof hookData.replaceIndex === 'number') {
       const index = hookData.replaceIndex;
-      delete hookData.replaceIndex;
       const hooksForEvent = settings.hooks[event] as unknown[];
       if (index >= 0 && index < hooksForEvent.length) {
-        hooksForEvent[index] = hookData;
+        hooksForEvent[index] = normalizedData;
       }
     } else {
       // Add new hook
-      (settings.hooks[event] as unknown[]).push(hookData);
+      (settings.hooks[event] as unknown[]).push(normalizedData);
     }
 
     // Ensure directory exists and write file

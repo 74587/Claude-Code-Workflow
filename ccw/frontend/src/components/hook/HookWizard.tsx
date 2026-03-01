@@ -84,6 +84,9 @@ interface HookTemplate {
   timeout?: number;
 }
 
+// NOTE: Hook input is received via stdin (not environment variable)
+// Node.js: const fs=require('fs');const p=JSON.parse(fs.readFileSync(0,'utf8')||'{}');
+// Bash: INPUT=$(cat)
 const HOOK_TEMPLATES: Record<string, HookTemplate> = {
   'memory-update-queue': {
     event: 'Stop',
@@ -95,13 +98,13 @@ const HOOK_TEMPLATES: Record<string, HookTemplate> = {
     event: 'UserPromptSubmit',
     matcher: '',
     command: 'node',
-    args: ['-e', "const p=JSON.parse(process.env.HOOK_INPUT||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify({prompt:p.user_prompt||''})],{stdio:'inherit'})"],
+    args: ['-e', "const fs=require('fs');const p=JSON.parse(fs.readFileSync(0,'utf8')||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify({prompt:p.prompt||''})],{stdio:'inherit'})"],
   },
   'skill-context-auto': {
     event: 'UserPromptSubmit',
     matcher: '',
     command: 'node',
-    args: ['-e', "const p=JSON.parse(process.env.HOOK_INPUT||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify({mode:'auto',prompt:p.user_prompt||''})],{stdio:'inherit'})"],
+    args: ['-e', "const fs=require('fs');const p=JSON.parse(fs.readFileSync(0,'utf8')||'{}');require('child_process').spawnSync('ccw',['tool','exec','skill_context_loader',JSON.stringify({mode:'auto',prompt:p.prompt||''})],{stdio:'inherit'})"],
   },
   'danger-bash-confirm': {
     event: 'PreToolUse',
@@ -114,7 +117,7 @@ const HOOK_TEMPLATES: Record<string, HookTemplate> = {
     event: 'PreToolUse',
     matcher: 'Write|Edit',
     command: 'bash',
-    args: ['-c', 'INPUT=$(cat); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); PROTECTED=".env|.git/|package-lock.json|yarn.lock|.credentials|secrets|id_rsa|.pem$|.key$"; if echo "$FILE" | grep -qiE "$PROTECTED"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"deny\\",\\"permissionDecisionReason\\":\\"Protected file cannot be modified: $FILE\\"}}" && exit 0; fi; exit 0'],
+    args: ['-c', 'INPUT=$(cat); FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); PROTECTED=".env|.git/|package-lock.json|yarn.lock|.credentials|secrets|id_rsa|.pem$|.key$"; if echo "$FILE" | grep -qiE "$PROTECTED"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"deny\\",\\"permissionDecisionReason\\":\\"Protected file cannot be modified: $FILE\\"}}" >&2 && exit 2; fi; exit 0'],
     timeout: 5000,
   },
   'danger-git-destructive': {
@@ -135,7 +138,7 @@ const HOOK_TEMPLATES: Record<string, HookTemplate> = {
     event: 'PreToolUse',
     matcher: 'Write|Edit|Bash',
     command: 'bash',
-    args: ['-c', 'INPUT=$(cat); TOOL=$(echo "$INPUT" | jq -r ".tool_name // empty"); if [ "$TOOL" = "Bash" ]; then CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); SYS_PATHS="/etc/|/usr/|/bin/|/sbin/|/boot/|/sys/|/proc/|C:\\\\Windows|C:\\\\Program Files"; if echo "$CMD" | grep -qiE "$SYS_PATHS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"System path operation requires confirmation\\"}}" && exit 0; fi; else FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); SYS_PATHS="/etc/|/usr/|/bin/|/sbin/|C:\\\\Windows|C:\\\\Program Files"; if echo "$FILE" | grep -qiE "$SYS_PATHS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"deny\\",\\"permissionDecisionReason\\":\\"Cannot modify system file: $FILE\\"}}" && exit 0; fi; fi; exit 0'],
+    args: ['-c', 'INPUT=$(cat); TOOL=$(echo "$INPUT" | jq -r ".tool_name // empty"); if [ "$TOOL" = "Bash" ]; then CMD=$(echo "$INPUT" | jq -r ".tool_input.command // empty"); SYS_PATHS="/etc/|/usr/|/bin/|/sbin/|/boot/|/sys/|/proc/|C:\\\\Windows|C:\\\\Program Files"; if echo "$CMD" | grep -qiE "$SYS_PATHS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"ask\\",\\"permissionDecisionReason\\":\\"System path operation requires confirmation\\"}}" && exit 0; fi; else FILE=$(echo "$INPUT" | jq -r ".tool_input.file_path // .tool_input.path // empty"); SYS_PATHS="/etc/|/usr/|/bin/|/sbin/|C:\\\\Windows|C:\\\\Program Files"; if echo "$FILE" | grep -qiE "$SYS_PATHS"; then echo "{\\"hookSpecificOutput\\":{\\"hookEventName\\":\\"PreToolUse\\",\\"permissionDecision\\":\\"deny\\",\\"permissionDecisionReason\\":\\"Cannot modify system file: $FILE\\"}}" >&2 && exit 2; fi; fi; exit 0'],
     timeout: 5000,
   },
   'danger-permission-change': {

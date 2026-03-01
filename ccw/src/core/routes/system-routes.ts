@@ -202,22 +202,27 @@ function installRecommendedHook(
       settings.hooks[event] = [];
     }
 
-    // Check if hook already exists (by command)
+    // Check if hook already exists (by command in nested hooks array)
     const existingHooks = (settings.hooks[event] || []) as Array<Record<string, unknown>>;
-    const existingIndex = existingHooks.findIndex(
-      (h) => (h as Record<string, unknown>).command === hook.command
-    );
+    const existingIndex = existingHooks.findIndex((entry) => {
+      const hooks = (entry as Record<string, unknown>).hooks as Array<Record<string, unknown>> | undefined;
+      if (!hooks || !Array.isArray(hooks)) return false;
+      return hooks.some((h) => (h as Record<string, unknown>).command === hook.command);
+    });
 
     if (existingIndex >= 0) {
       return { success: true, installed: { id: hookId, event, status: 'already-exists' } };
     }
 
-    // Add new hook
+    // Add new hook in Claude Code's official nested format
+    // Format: { matcher: '', hooks: [{ type: 'command', command: '...', timeout: 5 }] }
     settings.hooks[event].push({
-      name: hook.name,
-      command: hook.command,
-      timeout: 5000,
-      failMode: 'silent'
+      matcher: '',
+      hooks: [{
+        type: 'command',
+        command: hook.command,
+        timeout: 5  // seconds, not milliseconds
+      }]
     });
 
     // Ensure directory exists

@@ -63,6 +63,8 @@ export interface HookQuickTemplatesProps {
 }
 
 // ========== Hook Templates ==========
+// NOTE: Hook input is received via stdin (not environment variable)
+// Use: const fs=require('fs');const p=JSON.parse(fs.readFileSync(0,'utf8')||'{}');
 
 /**
  * Predefined hook templates for quick installation
@@ -90,7 +92,7 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
     command: 'node',
     args: [
       '-e',
-      'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(/workflow-session\\.json$|session-metadata\\.json$/.test(file)){const fs=require("fs");try{const content=fs.readFileSync(file,"utf8");const data=JSON.parse(content);const cp=require("child_process");const payload=JSON.stringify({type:"SESSION_STATE_CHANGED",file:file,sessionId:data.session_id||"",status:data.status||"unknown",project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})}catch(e){}}'
+      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(/workflow-session\\.json$|session-metadata\\.json$/.test(file)){try{const content=fs.readFileSync(file,"utf8");const data=JSON.parse(content);const cp=require("child_process");const payload=JSON.stringify({type:"SESSION_STATE_CHANGED",file:file,sessionId:data.session_id||"",status:data.status||"unknown",project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})}catch(e){}}'
     ]
   },
   // --- Notification ---
@@ -117,7 +119,7 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
     command: 'node',
     args: [
       '-e',
-      'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(file){const cp=require("child_process");cp.spawnSync("npx",["prettier","--write",file],{stdio:"inherit",shell:true})}'
+      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(file){const cp=require("child_process");cp.spawnSync("npx",["prettier","--write",file],{stdio:"inherit",shell:true})}'
     ]
   },
   {
@@ -130,7 +132,7 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
     command: 'node',
     args: [
       '-e',
-      'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(file){const cp=require("child_process");cp.spawnSync("npx",["eslint","--fix",file],{stdio:"inherit",shell:true})}'
+      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(file){const cp=require("child_process");cp.spawnSync("npx",["eslint","--fix",file],{stdio:"inherit",shell:true})}'
     ]
   },
   {
@@ -143,7 +145,7 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
     command: 'node',
     args: [
       '-e',
-      'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(/\\.env|secret|credential|\\.key$/.test(file)){process.stderr.write("Blocked: modifying sensitive file "+file);process.exit(2)}'
+      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(/\\.env|secret|credential|\\.key$/.test(file)){process.stderr.write("Blocked: modifying sensitive file "+file);process.exit(2)}'
     ]
   },
   {
@@ -169,7 +171,7 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
     command: 'node',
     args: [
       '-e',
-      'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(file){const cp=require("child_process");const payload=JSON.stringify({type:"FILE_MODIFIED",file:file,project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})}'
+      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(file){const cp=require("child_process");const payload=JSON.stringify({type:"FILE_MODIFIED",file:file,project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})}'
     ]
   },
   {
@@ -181,7 +183,7 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
     command: 'node',
     args: [
       '-e',
-      'const p=JSON.parse(process.env.HOOK_INPUT||"{}");const cp=require("child_process");const payload=JSON.stringify({type:"SESSION_SUMMARY",transcript:p.transcript_path||"",project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})'
+      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const cp=require("child_process");const payload=JSON.stringify({type:"SESSION_SUMMARY",transcript:p.transcript_path||"",project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})'
     ]
   },
   {
@@ -221,7 +223,7 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
     description: 'Sync memory V2 status to dashboard on changes',
     category: 'notification',
     trigger: 'PostToolUse',
-    matcher: 'core_memory',
+    matcher: 'mcp__ccw-tools__core_memory',
     command: 'node',
     args: [
       '-e',
