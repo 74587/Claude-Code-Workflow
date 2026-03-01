@@ -9,6 +9,7 @@ keywords:
   - pattern
 readMode: required
 priority: high
+scope: project
 ---
 
 # Architecture Constraints

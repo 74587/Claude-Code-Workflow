@@ -9,6 +9,7 @@ keywords:
   - convention
 readMode: required
 priority: high
+scope: project
 ---
 
 # Coding Conventions
