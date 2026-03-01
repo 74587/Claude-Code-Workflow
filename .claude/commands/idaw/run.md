@@ -231,6 +231,25 @@ for (let taskIdx = 0; taskIdx < tasks.length; taskIdx++) {
   console.log(`\n--- [${taskIdx + 1}/${tasks.length}] ${task.id}: ${task.title} ---`);
   console.log(`Chain: ${chain.join(' → ')}`);
 
+  // ━━━ Pre-Task CLI Context Analysis (for complex/bugfix tasks) ━━━
+  if (['bugfix', 'bugfix-hotfix', 'feature-complex'].includes(resolvedType)) {
+    console.log(`  Pre-analysis: gathering context for ${resolvedType} task...`);
+    const affectedFiles = (task.context?.affected_files || []).join(', ');
+    const preAnalysisPrompt = `PURPOSE: Pre-analyze codebase context for IDAW task before execution.
+TASK: • Understand current state of: ${affectedFiles || 'files related to: ' + task.title} • Identify dependencies and risk areas • Note existing patterns to follow
+MODE: analysis
+CONTEXT: @**/*
+EXPECTED: Brief context summary (affected modules, dependencies, risk areas) in 3-5 bullet points
+CONSTRAINTS: Keep concise | Focus on execution-relevant context`;
+    const preAnalysis = Bash(`ccw cli -p '${preAnalysisPrompt.replace(/'/g, "'\\''")}' --tool gemini --mode analysis 2>&1 || echo "Pre-analysis skipped"`);
+    task.execution.skill_results.push({
+      skill: 'cli-pre-analysis',
+      status: 'completed',
+      context_summary: preAnalysis?.substring(0, 500),
+      timestamp: new Date().toISOString()
+    });
+  }
+
   // Execute each skill in chain
   let previousResult = null;
   let taskFailed = false;
@@ -250,18 +269,36 @@ for (let taskIdx = 0; taskIdx < tasks.length; taskIdx++) {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      // Retry once
-      console.log(`  Retry: ${skillName} (first attempt failed)`);
+      // ━━━ CLI-Assisted Error Recovery ━━━
+      // Step 1: Invoke CLI diagnosis (auto-invoke trigger: self-repair fails)
+      console.log(`  Diagnosing failure: ${skillName}...`);
+      const diagnosisPrompt = `PURPOSE: Diagnose why skill "${skillName}" failed during IDAW task execution.
+TASK: • Analyze error: ${String(error).substring(0, 300)} • Check affected files: ${(task.context?.affected_files || []).join(', ') || 'unknown'} • Identify root cause • Suggest fix strategy
+MODE: analysis
+CONTEXT: @**/* | Memory: IDAW task ${task.id}: ${task.title}
+EXPECTED: Root cause + actionable fix recommendation (1-2 sentences)
+CONSTRAINTS: Focus on actionable diagnosis`;
+      const diagnosisResult = Bash(`ccw cli -p '${diagnosisPrompt.replace(/'/g, "'\\''")}' --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause 2>&1 || echo "CLI diagnosis unavailable"`);
+
+      task.execution.skill_results.push({
+        skill: `cli-diagnosis:${skillName}`,
+        status: 'completed',
+        diagnosis: diagnosisResult?.substring(0, 500),
+        timestamp: new Date().toISOString()
+      });
+
+      // Step 2: Retry with diagnosis context
+      console.log(`  Retry with diagnosis: ${skillName}`);
       try {
         const retryResult = Skill({ skill: skillName, args: skillArgs });
         previousResult = retryResult;
         task.execution.skill_results.push({
           skill: skillName,
-          status: 'completed-retry',
+          status: 'completed-retry-with-diagnosis',
           timestamp: new Date().toISOString()
         });
       } catch (retryError) {
-        // Failed after retry
+        // Step 3: Failed after CLI-assisted retry
         task.execution.skill_results.push({
           skill: skillName,
           status: 'failed',
@@ -275,7 +312,7 @@ for (let taskIdx = 0; taskIdx < tasks.length; taskIdx++) {
         } else {
           const answer = AskUserQuestion({
             questions: [{
-              question: `${skillName} failed: ${String(retryError).substring(0, 100)}. How to proceed?`,
+              question: `${skillName} failed after CLI diagnosis + retry: ${String(retryError).substring(0, 100)}. How to proceed?`,
               header: 'Error',
               multiSelect: false,
               options: [
@@ -441,6 +478,48 @@ function formatDuration(ms) {
   if (minutes > 0) return `${minutes}m ${remainingSeconds}s`;
   return `${seconds}s`;
 }
+```
+
+## CLI-Assisted Analysis
+
+IDAW integrates `ccw cli` (Gemini) for intelligent analysis at two key points:
+
+### Pre-Task Context Analysis
+
+For `bugfix`, `bugfix-hotfix`, and `feature-complex` tasks, IDAW automatically invokes CLI analysis **before** executing the skill chain to gather codebase context:
+
+```
+Task starts → CLI pre-analysis (gemini) → Context gathered → Skill chain executes
+```
+
+- Identifies dependencies and risk areas
+- Notes existing patterns to follow
+- Results stored in `task.execution.skill_results` as `cli-pre-analysis`
+
+### Error Recovery with CLI Diagnosis
+
+When a skill fails, instead of blind retry, IDAW uses CLI-assisted diagnosis:
+
+```
+Skill fails → CLI diagnosis (gemini, analysis-diagnose-bug-root-cause)
+           → Root cause identified → Retry with diagnosis context
+           → Still fails → Skip (autoYes) or Ask user (interactive)
+```
+
+- Uses `--rule analysis-diagnose-bug-root-cause` template
+- Diagnosis results stored in `task.execution.skill_results` as `cli-diagnosis:{skill}`
+- Follows CLAUDE.md auto-invoke trigger pattern: "self-repair fails → invoke CLI analysis"
+
+### Execution Flow (with CLI analysis)
+
+```
+Phase 4 Main Loop (per task):
+  ├─ [bugfix/complex only] CLI pre-analysis → context summary
+  ├─ Skill 1: execute
+  │   ├─ Success → next skill
+  │   └─ Failure → CLI diagnosis → retry → success/fail
+  ├─ Skill 2: execute ...
+  └─ Phase 5: git checkpoint
 ```
 
 ## Examples

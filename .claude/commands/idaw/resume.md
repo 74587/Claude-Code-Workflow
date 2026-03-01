@@ -237,6 +237,25 @@ for (let taskIdx = 0; taskIdx < remainingTasks.length; taskIdx++) {
   console.log(`\n--- [${taskIdx + 1}/${remainingTasks.length}] ${task.id}: ${task.title} ---`);
   console.log(`Chain: ${chain.join(' → ')}`);
 
+  // ━━━ Pre-Task CLI Context Analysis (for complex/bugfix tasks) ━━━
+  if (['bugfix', 'bugfix-hotfix', 'feature-complex'].includes(resolvedType)) {
+    console.log(`  Pre-analysis: gathering context for ${resolvedType} task...`);
+    const affectedFiles = (task.context?.affected_files || []).join(', ');
+    const preAnalysisPrompt = `PURPOSE: Pre-analyze codebase context for IDAW task before execution.
+TASK: • Understand current state of: ${affectedFiles || 'files related to: ' + task.title} • Identify dependencies and risk areas • Note existing patterns to follow
+MODE: analysis
+CONTEXT: @**/*
+EXPECTED: Brief context summary (affected modules, dependencies, risk areas) in 3-5 bullet points
+CONSTRAINTS: Keep concise | Focus on execution-relevant context`;
+    const preAnalysis = Bash(`ccw cli -p '${preAnalysisPrompt.replace(/'/g, "'\\''")}' --tool gemini --mode analysis 2>&1 || echo "Pre-analysis skipped"`);
+    task.execution.skill_results.push({
+      skill: 'cli-pre-analysis',
+      status: 'completed',
+      context_summary: preAnalysis?.substring(0, 500),
+      timestamp: new Date().toISOString()
+    });
+  }
+
   // Execute skill chain
   let previousResult = null;
   let taskFailed = false;
@@ -244,6 +263,8 @@ for (let taskIdx = 0; taskIdx < remainingTasks.length; taskIdx++) {
   for (let skillIdx = 0; skillIdx < chain.length; skillIdx++) {
     const skillName = chain[skillIdx];
     const skillArgs = assembleSkillArgs(skillName, task, previousResult, autoYes, skillIdx === 0);
+
+    console.log(`  [${skillIdx + 1}/${chain.length}] ${skillName}`);
 
     try {
       const result = Skill({ skill: skillName, args: skillArgs });
@@ -254,13 +275,31 @@ for (let taskIdx = 0; taskIdx < remainingTasks.length; taskIdx++) {
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      // Retry once
+      // ━━━ CLI-Assisted Error Recovery ━━━
+      console.log(`  Diagnosing failure: ${skillName}...`);
+      const diagnosisPrompt = `PURPOSE: Diagnose why skill "${skillName}" failed during IDAW task execution.
+TASK: • Analyze error: ${String(error).substring(0, 300)} • Check affected files: ${(task.context?.affected_files || []).join(', ') || 'unknown'} • Identify root cause • Suggest fix strategy
+MODE: analysis
+CONTEXT: @**/* | Memory: IDAW task ${task.id}: ${task.title}
+EXPECTED: Root cause + actionable fix recommendation (1-2 sentences)
+CONSTRAINTS: Focus on actionable diagnosis`;
+      const diagnosisResult = Bash(`ccw cli -p '${diagnosisPrompt.replace(/'/g, "'\\''")}' --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause 2>&1 || echo "CLI diagnosis unavailable"`);
+
+      task.execution.skill_results.push({
+        skill: `cli-diagnosis:${skillName}`,
+        status: 'completed',
+        diagnosis: diagnosisResult?.substring(0, 500),
+        timestamp: new Date().toISOString()
+      });
+
+      // Retry with diagnosis context
+      console.log(`  Retry with diagnosis: ${skillName}`);
       try {
         const retryResult = Skill({ skill: skillName, args: skillArgs });
         previousResult = retryResult;
         task.execution.skill_results.push({
           skill: skillName,
-          status: 'completed-retry',
+          status: 'completed-retry-with-diagnosis',
           timestamp: new Date().toISOString()
         });
       } catch (retryError) {
@@ -278,7 +317,7 @@ for (let taskIdx = 0; taskIdx < remainingTasks.length; taskIdx++) {
 
         const answer = AskUserQuestion({
           questions: [{
-            question: `${skillName} failed: ${String(retryError).substring(0, 100)}`,
+            question: `${skillName} failed after CLI diagnosis + retry: ${String(retryError).substring(0, 100)}`,
             header: 'Error',
             multiSelect: false,
             options: [
