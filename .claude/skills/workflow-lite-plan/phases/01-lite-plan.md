@@ -529,15 +529,17 @@ ${task_description}
 
 ## Multi-Angle Exploration Context
 
-${manifest.explorations.map(exp => `### Exploration: ${exp.angle} (${exp.file})
+${manifest.explorations.length > 0
+  ? manifest.explorations.map(exp => `### Exploration: ${exp.angle} (${exp.file})
 Path: ${exp.path}
 
-Read this file for detailed ${exp.angle} analysis.`).join('\n\n')}
+Read this file for detailed ${exp.angle} analysis.`).join('\n\n') + `
 
 Total explorations: ${manifest.exploration_count}
 Angles covered: ${manifest.explorations.map(e => e.angle).join(', ')}
 
-Manifest: ${sessionFolder}/explorations-manifest.json
+Manifest: ${sessionFolder}/explorations-manifest.json`
+  : `No exploration files. Task Description above contains "## Prior Analysis" with analysis summary, key files, and findings — use it as primary planning context.`}
 
 ## User Clarifications
 ${JSON.stringify(clarificationContext) || "None"}
