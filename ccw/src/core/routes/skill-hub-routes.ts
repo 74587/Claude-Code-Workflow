@@ -11,11 +11,12 @@
  * - GET  /api/skill-hub/updates      - Check for available updates
  */
 
-import { readFileSync, existsSync, readdirSync, statSync, mkdirSync, cpSync, rmSync, writeFileSync } from 'fs';
+import { readFileSync, existsSync, readdirSync, statSync, mkdirSync, cpSync, rmSync, writeFileSync, copyFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { validatePath as validateAllowedPath } from '../../utils/path-validator.js';
+import { createManifest, addFileEntry, addDirectoryEntry, saveManifest, findManifest, type Manifest } from '../manifest.js';
 import type { RouteContext } from './types.js';
 
 // ES Module __dirname equivalent
@@ -712,6 +713,49 @@ function removeInstalledSkill(skillId: string, cliType: CliType): void {
 // ============================================================================
 
 /**
+ * Copy directory recursively with manifest tracking
+ * @param src - Source directory
+ * @param dest - Destination directory
+ * @param manifest - Manifest to track files
+ * @returns Count of files and directories copied
+ */
+function copyDirectoryWithManifest(
+  src: string,
+  dest: string,
+  manifest: Manifest
+): { files: number; directories: number } {
+  let files = 0;
+  let directories = 0;
+
+  // Create destination directory
+  if (!existsSync(dest)) {
+    mkdirSync(dest, { recursive: true });
+    directories++;
+    addDirectoryEntry(manifest, dest);
+  }
+
+  const entries = readdirSync(src);
+
+  for (const entry of entries) {
+    const srcPath = join(src, entry);
+    const destPath = join(dest, entry);
+    const stat = statSync(srcPath);
+
+    if (stat.isDirectory()) {
+      const result = copyDirectoryWithManifest(srcPath, destPath, manifest);
+      files += result.files;
+      directories += result.directories;
+    } else {
+      copyFileSync(srcPath, destPath);
+      files++;
+      addFileEntry(manifest, destPath);
+    }
+  }
+
+  return { files, directories };
+}
+
+/**
  * Install skill from local path
  */
 async function installSkillFromLocal(
@@ -767,12 +811,22 @@ async function installSkillFromLocal(
       return { success: false, message: `Skill '${skillName}' already exists in ${cliType}` };
     }
 
-    // Copy skill directory
-    cpSync(localPath, targetSkillDir, { recursive: true });
+    // Get or create manifest for global installation (skill-hub always installs to home directory)
+    const installPath = homedir();
+    const existingManifest = findManifest(installPath, 'Global');
+
+    // Use existing manifest or create new one for tracking skill-hub installations
+    const manifest = existingManifest || createManifest('Global', installPath);
+
+    // Copy skill directory with manifest tracking
+    const { files } = copyDirectoryWithManifest(localPath, targetSkillDir, manifest);
+
+    // Save manifest with tracked files
+    saveManifest(manifest);
 
     return {
       success: true,
-      message: `Skill '${skillName}' installed to ${cliType}`,
+      message: `Skill '${skillName}' installed to ${cliType} (${files} files tracked)`,
       installedPath: targetSkillDir,
     };
   } catch (error) {
@@ -836,9 +890,21 @@ async function installSkillFromRemote(
       return { success: false, message: `Skill '${skillName}' already exists in ${cliType}` };
     }
 
+    // Get or create manifest for global installation
+    const installPath = homedir();
+    const existingManifest = findManifest(installPath, 'Global');
+    const manifest = existingManifest || createManifest('Global', installPath);
+
     // Create skill directory and write SKILL.md
     mkdirSync(targetSkillDir, { recursive: true });
-    writeFileSync(join(targetSkillDir, 'SKILL.md'), skillContent, 'utf8');
+    addDirectoryEntry(manifest, targetSkillDir);
+
+    const skillMdPath = join(targetSkillDir, 'SKILL.md');
+    writeFileSync(skillMdPath, skillContent, 'utf8');
+    addFileEntry(manifest, skillMdPath);
+
+    // Save manifest with tracked files
+    saveManifest(manifest);
 
     // Cache the skill locally
     try {
@@ -855,7 +921,7 @@ async function installSkillFromRemote(
 
     return {
       success: true,
-      message: `Skill '${skillName}' installed to ${cliType}`,
+      message: `Skill '${skillName}' installed to ${cliType} (1 file tracked)`,
       installedPath: targetSkillDir,
     };
   } catch (error) {
@@ -897,20 +963,39 @@ async function installSkillFromRemotePath(
       return { success: false, message: `Skill '${skillName}' already exists in ${cliType}` };
     }
 
+    // Get or create manifest for global installation
+    const installPath = homedir();
+    const existingManifest = findManifest(installPath, 'Global');
+    const manifest = existingManifest || createManifest('Global', installPath);
+
     // Create skill directory
     mkdirSync(targetSkillDir, { recursive: true });
+    addDirectoryEntry(manifest, targetSkillDir);
 
     // Download entire skill directory
     console.log(`[SkillHub] Downloading skill directory: ${skillPath}`);
     const result = await downloadSkillDirectory(skillPath, targetSkillDir);
 
-    if (!result.success || result.files.length === 0) {
+    // Track downloaded files in manifest
+    let trackedFiles = 0;
+    if (result.success && result.files.length > 0) {
+      for (const file of result.files) {
+        addFileEntry(manifest, file);
+        trackedFiles++;
+      }
+    } else {
       // Fallback: download only SKILL.md
       console.log('[SkillHub] Directory download failed, falling back to SKILL.md only');
       const skillMdUrl = buildDownloadUrlFromPath(skillPath);
       const skillContent = await fetchRemoteSkill(skillMdUrl);
-      writeFileSync(join(targetSkillDir, 'SKILL.md'), skillContent, 'utf8');
+      const skillMdPath = join(targetSkillDir, 'SKILL.md');
+      writeFileSync(skillMdPath, skillContent, 'utf8');
+      addFileEntry(manifest, skillMdPath);
+      trackedFiles = 1;
     }
+
+    // Save manifest with tracked files
+    saveManifest(manifest);
 
     // Cache the skill locally
     try {
@@ -927,7 +1012,7 @@ async function installSkillFromRemotePath(
 
     return {
       success: true,
-      message: `Skill '${skillName}' installed to ${cliType} (${result.files.length} files)`,
+      message: `Skill '${skillName}' installed to ${cliType} (${trackedFiles} files tracked)`,
       installedPath: targetSkillDir,
     };
   } catch (error) {
