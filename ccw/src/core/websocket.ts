@@ -13,8 +13,54 @@ import type {
   QueueSchedulerConfigUpdatedMessage,
 } from '../types/queue-types.js';
 
+// WebSocket configuration for connection limits and rate limiting
+const WS_MAX_CONNECTIONS = 100;
+const WS_MESSAGE_RATE_LIMIT = 10; // messages per second per client
+const WS_RATE_LIMIT_WINDOW = 1000; // 1 second window
+
 // WebSocket clients for real-time notifications
 export const wsClients = new Set<Duplex>();
+
+// Track message counts per client for rate limiting
+export const wsClientMessageCounts = new Map<Duplex, { count: number; resetTime: number }>();
+
+/**
+ * Check if a new WebSocket connection should be accepted
+ * Returns true if connection allowed, false if limit reached
+ */
+export function canAcceptWebSocketConnection(): boolean {
+  return wsClients.size < WS_MAX_CONNECTIONS;
+}
+
+/**
+ * Check if a client has exceeded their message rate limit
+ * Returns true if rate limit OK, false if exceeded
+ */
+export function checkClientRateLimit(client: Duplex): boolean {
+  const now = Date.now();
+  const tracking = wsClientMessageCounts.get(client);
+
+  if (!tracking || now > tracking.resetTime) {
+    // First message or window expired - reset tracking
+    wsClientMessageCounts.set(client, { count: 1, resetTime: now + WS_RATE_LIMIT_WINDOW });
+    return true;
+  }
+
+  if (tracking.count >= WS_MESSAGE_RATE_LIMIT) {
+    return false; // Rate limit exceeded
+  }
+
+  tracking.count++;
+  return true;
+}
+
+/**
+ * Clean up client tracking when they disconnect
+ */
+export function removeClientTracking(client: Duplex): void {
+  wsClients.delete(client);
+  wsClientMessageCounts.delete(client);
+}
 
 /**
  * WebSocket message types for Loop monitoring
@@ -154,6 +200,24 @@ export function handleWebSocketUpgrade(req: IncomingMessage, socket: Duplex, _he
     socket.end();
     return;
   }
+
+  // Check connection limit
+  if (!canAcceptWebSocketConnection()) {
+    const responseHeaders = [
+      'HTTP/1.1 429 Too Many Requests',
+      'Content-Type: text/plain',
+      'Connection: close',
+      '',
+      'WebSocket connection limit reached. Please try again later.',
+      '',
+      ''
+    ].join('\r\n');
+    socket.write(responseHeaders);
+    socket.end();
+    console.warn(`[WS] Connection rejected: limit reached (${wsClients.size}/${WS_MAX_CONNECTIONS})`);
+    return;
+  }
+
   const acceptKey = createHash('sha1')
     .update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
     .digest('base64');
@@ -171,6 +235,8 @@ export function handleWebSocketUpgrade(req: IncomingMessage, socket: Duplex, _he
 
   // Add to clients set
   wsClients.add(socket);
+  // Initialize rate limit tracking
+  wsClientMessageCounts.set(socket, { count: 0, resetTime: Date.now() + WS_RATE_LIMIT_WINDOW });
   console.log(`[WS] Client connected (${wsClients.size} total)`);
 
   // Replay any buffered A2UI surfaces to the new client
@@ -194,6 +260,11 @@ export function handleWebSocketUpgrade(req: IncomingMessage, socket: Duplex, _he
         switch (opcode) {
           case 0x1: // Text frame
             if (payload) {
+              // Check rate limit before processing
+              if (!checkClientRateLimit(socket)) {
+                console.warn('[WS] Rate limit exceeded for client');
+                break;
+              }
               console.log('[WS] Received:', payload);
               // Try to handle as A2UI message
               const handledAsA2UI = handleA2UIMessage(payload, a2uiWebSocketHandler, handleAnswer);
@@ -227,12 +298,12 @@ export function handleWebSocketUpgrade(req: IncomingMessage, socket: Duplex, _he
 
   // Handle disconnect
   socket.on('close', () => {
-    wsClients.delete(socket);
+    removeClientTracking(socket);
     console.log(`[WS] Client disconnected (${wsClients.size} remaining)`);
   });
 
   socket.on('error', () => {
-    wsClients.delete(socket);
+    removeClientTracking(socket);
   });
 }
 
