@@ -28,7 +28,7 @@ Main process orchestrator: intent analysis → workflow selection → command ch
 | `workflow:roadmap-with-file` | strategic requirement roadmap → issue creation → execution-plan.json |
 | `workflow:integration-test-cycle` | explore → test dev → test-fix cycle → reflection |
 | `workflow:refactor-cycle` | tech debt discovery → prioritize → execute → validate |
-| `team-planex` | planner + executor wave pipeline（适合大量零散 issue 或 roadmap 产出的清晰 issue，实现 0→1 开发）|
+| `team-planex` | planner + executor wave pipeline（适合大量零散 issue 或 roadmap 产出的清晰 issue）|
 
 ## Core Concept: Self-Contained Skills (自包含 Skill)
 
@@ -51,9 +51,11 @@ Main process orchestrator: intent analysis → workflow selection → command ch
 | 代码审查 | `review-cycle` | 内部完成 review→fix |
 | 多CLI协作 | `workflow-multi-cli-plan` | ACE context → CLI discussion → plan → execute |
 | 分析→规划 | `workflow:analyze-with-file` → `workflow-lite-plan` | 协作分析产物自动传递给 lite-plan |
-| 头脑风暴→规划 | `workflow:brainstorm-with-file` → `workflow-lite-plan` | 头脑风暴产物自动传递给 lite-plan |
+| 头脑风暴→规划 | `workflow:brainstorm-with-file` → `workflow-plan` → `workflow-execute` | 头脑风暴产物自动传递给正式规划 |
+| 0→1 开发(小) | `workflow:brainstorm-with-file` → `workflow-plan` → `workflow-execute` | 小规模从零开始，探索+正式规划+实现 |
+| 0→1 开发(中/大) | `workflow:brainstorm-with-file` → `workflow-plan` → `workflow-execute` | 探索后正式规划+执行 |
 | 协作规划 | `workflow:collaborative-plan-with-file` → `workflow:unified-execute-with-file` | 多 agent 协作规划→通用执行 |
-| 需求路线图 | `workflow:roadmap-with-file` → `team-planex` | 需求拆解→issue 创建→wave pipeline 执行 |
+| 需求路线图 | `workflow:roadmap-with-file` → `team-planex` | 需求拆解→issue 创建→wave pipeline 执行（需明确 roadmap 关键词）|
 | 集成测试循环 | `workflow:integration-test-cycle` | 自迭代集成测试闭环 |
 | 重构循环 | `workflow:refactor-cycle` | 技术债务发现→重构→验证 |
 
@@ -124,12 +126,14 @@ function detectTaskType(text) {
   const patterns = {
     'bugfix-hotfix': /urgent|production|critical/ && /fix|bug/,
     // With-File workflows (documented exploration → auto chain to lite-plan)
+    // 0→1 Greenfield detection (priority over brainstorm/roadmap)
+    'greenfield': /从零开始|from scratch|0.*to.*1|greenfield|全新.*开发|新项目|new project|build.*from.*ground/,
     'brainstorm': /brainstorm|ideation|头脑风暴|创意|发散思维|creative thinking|multi-perspective.*think|compare perspectives|探索.*可能/,
     'brainstorm-to-issue': /brainstorm.*issue|头脑风暴.*issue|idea.*issue|想法.*issue|从.*头脑风暴|convert.*brainstorm/,
     'debug-file': /debug.*document|hypothesis.*debug|troubleshoot.*track|investigate.*log|调试.*记录|假设.*验证|systematic debug|深度调试/,
     'analyze-file': /analyze.*document|explore.*concept|understand.*architecture|investigate.*discuss|collaborative analysis|分析.*讨论|深度.*理解|协作.*分析/,
     'collaborative-plan': /collaborative.*plan|协作.*规划|多人.*规划|multi.*agent.*plan|Plan Note|分工.*规划/,
-    'roadmap': /roadmap|需求.*规划|需求.*拆解|requirement.*plan|progressive.*plan|路线.*图/,
+    'roadmap': /roadmap|路线.*图/,  // Narrowed: only explicit roadmap keywords (需求规划/需求拆解 moved to greenfield routing)
     'spec-driven': /spec.*gen|specification|PRD|产品需求|产品文档|产品规格/,
     // Cycle workflows (self-iterating with reflection)
     'integration-test': /integration.*test|集成测试|端到端.*测试|e2e.*test|integration.*cycle/,
@@ -184,13 +188,18 @@ async function clarifyRequirements(analysis) {
 function selectWorkflow(analysis) {
   const levelMap = {
     'bugfix-hotfix':     { level: 2, flow: 'bugfix.hotfix' },
+    // 0→1 Greenfield (complexity-adaptive routing)
+    'greenfield':        { level: analysis.complexity === 'high' ? 4 : 3,
+                           flow: analysis.complexity === 'high' ? 'greenfield-phased'    // large: brainstorm → workflow-plan → execute
+                                : analysis.complexity === 'medium' ? 'greenfield-plan'   // medium: brainstorm → workflow-plan → execute
+                                : 'brainstorm-to-plan' },                                // small: brainstorm → workflow-plan
     // With-File workflows → auto chain to lite-plan
-    'brainstorm':        { level: 4, flow: 'brainstorm-to-plan' },     // brainstorm-with-file → lite-plan
+    'brainstorm':        { level: 4, flow: 'brainstorm-to-plan' },     // brainstorm-with-file → workflow-plan
     'brainstorm-to-issue': { level: 4, flow: 'brainstorm-to-issue' },  // Brainstorm → Issue workflow
     'debug-file':        { level: 3, flow: 'debug-with-file' },         // Hypothesis-driven debugging (standalone)
     'analyze-file':      { level: 3, flow: 'analyze-to-plan' },         // analyze-with-file → lite-plan
     'collaborative-plan': { level: 3, flow: 'collaborative-plan' },     // Multi-agent collaborative planning
-    'roadmap':           { level: 4, flow: 'roadmap' },                 // roadmap → team-planex
+    'roadmap':           { level: 4, flow: 'roadmap' },                 // roadmap → team-planex (explicit roadmap only)
     'spec-driven':       { level: 4, flow: 'spec-driven' },             // spec-generator → plan → execute
     // Cycle workflows (self-iterating with reflection)
     'integration-test':  { level: 3, flow: 'integration-test-cycle' },
@@ -266,7 +275,11 @@ function buildCommandChain(workflow, analysis) {
 
     'brainstorm-to-plan': [
       { cmd: 'workflow:brainstorm-with-file', args: `"${analysis.goal}"` },
-      { cmd: 'workflow-lite-plan', args: '' }  // auto receives brainstorm artifacts (brainstorm.md)
+      { cmd: 'workflow-plan', args: '' },         // formal planning with brainstorm artifacts
+      { cmd: 'workflow-execute', args: '' },
+      ...(analysis.constraints?.includes('skip-tests') ? [] : [
+        { cmd: 'workflow-test-fix', args: '' }
+      ])
     ],
 
     'debug-with-file': [
@@ -279,6 +292,26 @@ function buildCommandChain(workflow, analysis) {
       { cmd: 'issue:from-brainstorm', args: `SESSION="${extractBrainstormSession(analysis)}" --auto` },
       { cmd: 'issue:queue', args: '' },
       { cmd: 'issue:execute', args: '--queue auto' }
+    ],
+
+    // 0→1 Greenfield (complexity-adaptive)
+    'greenfield-plan': [
+      { cmd: 'workflow:brainstorm-with-file', args: `"${analysis.goal}"` },
+      { cmd: 'workflow-plan', args: '' },         // formal planning after exploration
+      { cmd: 'workflow-execute', args: '' },
+      ...(analysis.constraints?.includes('skip-tests') ? [] : [
+        { cmd: 'workflow-test-fix', args: '' }
+      ])
+    ],
+
+    'greenfield-phased': [
+      { cmd: 'workflow:brainstorm-with-file', args: `"${analysis.goal}"` },
+      { cmd: 'workflow-plan', args: '' },         // formal planning after exploration
+      { cmd: 'workflow-execute', args: '' },
+      { cmd: 'review-cycle', args: '' },
+      ...(analysis.constraints?.includes('skip-tests') ? [] : [
+        { cmd: 'workflow-test-fix', args: '' }
+      ])
     ],
 
     // Universal Plan+Execute
@@ -338,7 +371,7 @@ function buildCommandChain(workflow, analysis) {
       { cmd: 'workflow-execute', args: '' }
     ],
 
-    // Level 4 - Full Exploration
+    // Level 4 - Full Exploration (brainstorm → formal planning → execute)
     'full': [
       { cmd: 'brainstorm', args: `"${analysis.goal}"` },
       { cmd: 'workflow-plan', args: '' },
@@ -600,10 +633,12 @@ Phase 5: Execute Command Chain
 | "Use issue workflow" | issue-transition | 2.5 | workflow-lite-plan(plan-only) → convert-to-plan → queue → execute |
 | "协作分析: 认证架构" | analyze-file | 3 | analyze-with-file → workflow-lite-plan |
 | "深度调试 WebSocket" | debug-file | 3 | workflow:debug-with-file |
-| "头脑风暴: 通知系统" | brainstorm | 4 | brainstorm-with-file → workflow-lite-plan |
+| "从零开始: 用户系统" | greenfield (medium) | 3 | brainstorm-with-file → workflow-plan → workflow-execute → workflow-test-fix |
+| "greenfield: 大型平台" | greenfield (high) | 4 | brainstorm-with-file → workflow-plan → workflow-execute → review-cycle → workflow-test-fix |
+| "头脑风暴: 通知系统" | brainstorm | 4 | brainstorm-with-file → workflow-plan → workflow-execute → workflow-test-fix |
 | "从头脑风暴创建 issue" | brainstorm-to-issue | 4 | issue:from-brainstorm → issue:queue → issue:execute |
 | "协作规划: 实时通知系统" | collaborative-plan | 3 | collaborative-plan-with-file → unified-execute-with-file |
-| "需求路线图: OAuth + 2FA" | roadmap | 4 | roadmap-with-file → team-planex |
+| "roadmap: OAuth + 2FA" | roadmap | 4 | roadmap-with-file → team-planex |
 | "specification: 用户系统" | spec-driven | 4 | spec-generator → workflow-plan → workflow-execute → workflow-test-fix |
 | "集成测试: 支付流程" | integration-test | 3 | workflow:integration-test-cycle |
 | "重构 auth 模块" | refactor | 3 | workflow:refactor-cycle |
@@ -687,13 +722,13 @@ todos = [
 
 | Workflow | Purpose | Auto Chain | Output Folder |
 |----------|---------|------------|---------------|
-| **brainstorm-with-file** | Multi-perspective ideation | → workflow-lite-plan (auto) | `.workflow/.brainstorm/` |
+| **brainstorm-with-file** | Multi-perspective ideation | → workflow-plan → workflow-execute (auto) | `.workflow/.brainstorm/` |
 | **debug-with-file** | Hypothesis-driven debugging | Standalone (self-contained) | `.workflow/.debug/` |
 | **analyze-with-file** | Collaborative analysis | → workflow-lite-plan (auto) | `.workflow/.analysis/` |
 | **collaborative-plan-with-file** | Multi-agent collaborative planning | → unified-execute-with-file | `.workflow/.planning/` |
 | **roadmap-with-file** | Strategic requirement roadmap | → team-planex | `.workflow/.planning/` |
 
-**Auto Chain Mechanism**: When `analyze-with-file` or `brainstorm-with-file` completes, its artifacts (discussion.md / brainstorm.md) are automatically passed to `workflow-lite-plan` as context input. No user intervention needed.
+**Auto Chain Mechanism**: When `analyze-with-file` completes, its artifacts (discussion.md) are automatically passed to `workflow-lite-plan`. When `brainstorm-with-file` completes, its artifacts (brainstorm.md) are passed to `workflow-plan` for formal planning. No user intervention needed.
 
 **Detection Keywords**:
 - **brainstorm**: 头脑风暴, 创意, 发散思维, multi-perspective, compare perspectives
@@ -752,9 +787,14 @@ todos = [
 # Multi-CLI collaborative planning
 /ccw "multi-cli plan: 支付网关API设计"               # → workflow-multi-cli-plan → workflow-test-fix
 
-# With-File workflows → auto chain to lite-plan
+# 0→1 Greenfield development (exploration-first)
+/ccw "从零开始: 用户认证系统"                   # → brainstorm-with-file → workflow-plan → workflow-execute → workflow-test-fix
+/ccw "new project: 数据导出模块"               # → brainstorm-with-file → workflow-plan → workflow-execute → workflow-test-fix
+/ccw "全新开发: 实时通知系统"                   # → brainstorm-with-file → workflow-plan → workflow-execute → review-cycle → workflow-test-fix
+
+# With-File workflows → auto chain
 /ccw "协作分析: 理解现有认证架构的设计决策"     # → analyze-with-file → workflow-lite-plan
-/ccw "头脑风暴: 用户通知系统重新设计"           # → brainstorm-with-file → workflow-lite-plan
+/ccw "头脑风暴: 用户通知系统重新设计"           # → brainstorm-with-file → workflow-plan → workflow-execute → workflow-test-fix
 /ccw "深度调试: 系统随机崩溃问题"              # → debug-with-file (standalone)
 /ccw "从头脑风暴 BS-通知系统-2025-01-28 创建 issue"  # → brainstorm-to-issue (bridge)
 
@@ -763,8 +803,8 @@ todos = [
 
 # Collaborative planning & requirement workflows
 /ccw "协作规划: 实时通知系统架构"              # → collaborative-plan-with-file → unified-execute
-/ccw "需求路线图: 用户认证 OAuth + 2FA"        # → roadmap-with-file → team-planex
-/ccw "roadmap: 数据导出功能路线图"             # → roadmap-with-file → team-planex
+/ccw "roadmap: 用户认证 OAuth + 2FA 路线图"    # → roadmap-with-file → team-planex (explicit roadmap only)
+/ccw "roadmap: 数据导出功能路线图"             # → roadmap-with-file → team-planex (explicit roadmap only)
 
 # Team workflows (kept: team-planex)
 /ccw "team planex: 用户认证系统"               # → team-planex (planner + executor wave pipeline)
