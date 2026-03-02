@@ -6,6 +6,8 @@
 import { createBrowserRouter, RouteObject, Navigate } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { AppShell } from '@/components/layout';
+import { ChunkErrorBoundary } from '@/components/ChunkErrorBoundary';
+import { PageSkeleton } from '@/components/PageSkeleton';
 
 // Import HomePage directly (no lazy - needed immediately)
 import { HomePage } from '@/pages/HomePage';
@@ -42,12 +44,17 @@ const TerminalDashboardPage = lazy(() => import('@/pages/TerminalDashboardPage')
 const AnalysisPage = lazy(() => import('@/pages/AnalysisPage').then(m => ({ default: m.AnalysisPage })));
 const SpecsSettingsPage = lazy(() => import('@/pages/SpecsSettingsPage').then(m => ({ default: m.SpecsSettingsPage })));
 
-// Loading fallback component for lazy-loaded routes
-function PageSkeleton() {
+/**
+ * Helper to wrap lazy-loaded components with error boundary and suspense
+ * Catches chunk load failures and provides retry mechanism
+ */
+function withErrorHandling(element: React.ReactElement) {
   return (
-    <div className="flex items-center justify-center h-full">
-      <div className="animate-pulse text-muted-foreground">Loading...</div>
-    </div>
+    <ChunkErrorBoundary>
+      <Suspense fallback={<PageSkeleton />}>
+        {element}
+      </Suspense>
+    </ChunkErrorBoundary>
   );
 }
 
@@ -58,11 +65,7 @@ function PageSkeleton() {
 const routes: RouteObject[] = [
   {
     path: 'cli-sessions/share',
-    element: (
-      <Suspense fallback={<PageSkeleton />}>
-        <CliSessionSharePage />
-      </Suspense>
-    ),
+    element: withErrorHandling(<CliSessionSharePage />),
   },
   {
     path: '/',
@@ -74,68 +77,36 @@ const routes: RouteObject[] = [
       },
       {
         path: 'sessions',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <SessionsPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<SessionsPage />),
       },
       {
         path: 'sessions/:sessionId',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <SessionDetailPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<SessionDetailPage />),
       },
       {
         path: 'sessions/:sessionId/fix',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <FixSessionPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<FixSessionPage />),
       },
       {
         path: 'sessions/:sessionId/review',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <ReviewSessionPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<ReviewSessionPage />),
       },
       {
         path: 'lite-tasks',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <LiteTasksPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<LiteTasksPage />),
       },
       // /lite-tasks/:sessionId route removed - now using TaskDrawer
       {
         path: 'project',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <ProjectOverviewPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<ProjectOverviewPage />),
       },
       {
         path: 'history',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <HistoryPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<HistoryPage />),
       },
       {
         path: 'orchestrator',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <OrchestratorPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<OrchestratorPage />),
       },
       {
         path: 'loops',
@@ -143,19 +114,11 @@ const routes: RouteObject[] = [
       },
       {
         path: 'cli-viewer',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <CliViewerPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<CliViewerPage />),
       },
       {
         path: 'issues',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <IssueHubPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<IssueHubPage />),
       },
       // Legacy routes - redirect to hub with tab parameter
       {
@@ -168,147 +131,75 @@ const routes: RouteObject[] = [
       },
       {
         path: 'skills',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <SkillsManagerPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<SkillsManagerPage />),
       },
       {
         path: 'commands',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <CommandsManagerPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<CommandsManagerPage />),
       },
       {
         path: 'memory',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <MemoryPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<MemoryPage />),
       },
       {
         path: 'prompts',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <PromptHistoryPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<PromptHistoryPage />),
       },
       {
         path: 'settings',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <SettingsPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<SettingsPage />),
       },
       {
         path: 'settings/mcp',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <McpManagerPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<McpManagerPage />),
       },
       {
         path: 'settings/endpoints',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <EndpointsPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<EndpointsPage />),
       },
       {
         path: 'settings/installations',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <InstallationsPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<InstallationsPage />),
       },
       {
         path: 'settings/rules',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <RulesManagerPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<RulesManagerPage />),
       },
       {
         path: 'settings/specs',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <SpecsSettingsPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<SpecsSettingsPage />),
       },
       {
         path: 'settings/codexlens',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <CodexLensManagerPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<CodexLensManagerPage />),
       },
       {
         path: 'api-settings',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <ApiSettingsPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<ApiSettingsPage />),
       },
       {
         path: 'hooks',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <HookManagerPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<HookManagerPage />),
       },
       {
         path: 'explorer',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <ExplorerPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<ExplorerPage />),
       },
       {
         path: 'graph',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <GraphExplorerPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<GraphExplorerPage />),
       },
       {
         path: 'teams',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <TeamPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<TeamPage />),
       },
       {
         path: 'analysis',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <AnalysisPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<AnalysisPage />),
       },
       {
         path: 'terminal-dashboard',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <TerminalDashboardPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<TerminalDashboardPage />),
       },
       {
         path: 'skill-hub',
@@ -317,11 +208,7 @@ const routes: RouteObject[] = [
       // Catch-all route for 404
       {
         path: '*',
-        element: (
-          <Suspense fallback={<PageSkeleton />}>
-            <NotFoundPage />
-          </Suspense>
-        ),
+        element: withErrorHandling(<NotFoundPage />),
       },
     ],
   },

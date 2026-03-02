@@ -1,4 +1,4 @@
-# Phase 1: Lite-Plan
+# LP-Phase 1: Lite-Plan
 
 Complete planning pipeline: task analysis, multi-angle exploration, clarification, adaptive planning, confirmation, and execution handoff.
 
@@ -15,6 +15,14 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 - Adaptive planning: Low complexity → Direct Claude; Medium/High → cli-lite-planning-agent
 - Two-step confirmation: plan display → multi-dimensional input collection
 - Execution handoff with complete context to lite-execute
+
+## Context Isolation
+
+> **⚠️ CRITICAL**: If this phase was invoked from analyze-with-file (via "生成任务"),
+> the analyze-with-file session is **COMPLETE** and all its phase instructions
+> are FINISHED and MUST NOT be referenced.
+> Only follow the LP-Phase 1-5 defined in THIS document (01-lite-plan.md).
+> Phase numbers in this document are INDEPENDENT of any prior workflow.
 
 ## Input
 
@@ -53,42 +61,42 @@ When `workflowPreferences.autoYes === true`:
 ## Execution Process
 
 ```
-Phase 1: Task Analysis & Exploration
+LP-Phase 1: Task Analysis & Exploration
    ├─ Parse input (description or .md file)
    ├─ intelligent complexity assessment (Low/Medium/High)
    ├─ Exploration decision (auto-detect or workflowPreferences.forceExplore)
    ├─ Context protection: If file reading ≥50k chars → force cli-explore-agent
    └─ Decision:
       ├─ needsExploration=true → Launch parallel cli-explore-agents (1-4 based on complexity)
-      └─ needsExploration=false → Skip to Phase 2/3
+      └─ needsExploration=false → Skip to LP-Phase 2/3
 
-Phase 2: Clarification (optional, multi-round)
+LP-Phase 2: Clarification (optional, multi-round)
    ├─ Aggregate clarification_needs from all exploration angles
    ├─ Deduplicate similar questions
    └─ Decision:
       ├─ Has clarifications → AskUserQuestion (max 4 questions per round, multiple rounds allowed)
-      └─ No clarifications → Skip to Phase 3
+      └─ No clarifications → Skip to LP-Phase 3
 
-Phase 3: Planning (NO CODE EXECUTION - planning only)
-   └─ Decision (based on Phase 1 complexity):
+LP-Phase 3: Planning (NO CODE EXECUTION - planning only)
+   └─ Decision (based on LP-Phase 1 complexity):
       ├─ Low → Load schema: cat ~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.json → Direct Claude planning (following schema) → plan.json
       └─ Medium/High → cli-lite-planning-agent → plan.json (agent internally executes quality check)
 
-Phase 4: Confirmation & Selection
+LP-Phase 4: Confirmation & Selection
    ├─ Display plan summary (tasks, complexity, estimated time)
    └─ AskUserQuestion:
       ├─ Confirm: Allow / Modify / Cancel
       ├─ Execution: Agent / Codex / Auto
       └─ Review: Gemini / Agent / Skip
 
-Phase 5: Execute
+LP-Phase 5: Execute
    ├─ Build executionContext (plan + explorations + clarifications + selections)
    └─ Direct handoff: Read phases/02-lite-execute.md → Execute with executionContext (Mode 1)
 ```
 
 ## Implementation
 
-### Phase 1: Intelligent Multi-Angle Exploration
+### LP-Phase 1: Intelligent Multi-Angle Exploration
 
 **Session Setup** (MANDATORY - follow exactly):
 ```javascript
@@ -104,14 +112,14 @@ const sessionFolder = `.workflow/.lite-plan/${sessionId}`
 bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${sessionFolder}" || echo "FAILED: ${sessionFolder}"`)
 ```
 
-**TodoWrite (Phase 1 start)**:
+**TodoWrite (LP-Phase 1 start)**:
 ```javascript
 TodoWrite({ todos: [
-  { content: "Phase 1: Exploration", status: "in_progress", activeForm: "Exploring codebase" },
-  { content: "Phase 2: Clarification", status: "pending", activeForm: "Collecting clarifications" },
-  { content: "Phase 3: Planning", status: "pending", activeForm: "Generating plan" },
-  { content: "Phase 4: Confirmation", status: "pending", activeForm: "Awaiting confirmation" },
-  { content: "Phase 5: Execution", status: "pending", activeForm: "Executing tasks" }
+  { content: "LP-Phase 1: Exploration", status: "in_progress", activeForm: "Exploring codebase" },
+  { content: "LP-Phase 2: Clarification", status: "pending", activeForm: "Collecting clarifications" },
+  { content: "LP-Phase 3: Planning", status: "pending", activeForm: "Generating plan" },
+  { content: "LP-Phase 4: Confirmation", status: "pending", activeForm: "Awaiting confirmation" },
+  { content: "LP-Phase 5: Execution", status: "pending", activeForm: "Executing tasks" }
 ]})
 ```
 
@@ -129,7 +137,7 @@ needsExploration = workflowPreferences.forceExplore ? true
 
 if (!needsExploration) {
   // Skip exploration — analysis context already in task description (or not needed)
-  // manifest is absent; Phase 3 loads it with safe fallback
+  // manifest is absent; LP-Phase 3 loads it with safe fallback
   proceed_to_next_phase()
 }
 ```
@@ -318,14 +326,14 @@ Angles explored: ${explorationManifest.explorations.map(e => e.angle).join(', ')
 `)
 ```
 
-**TodoWrite (Phase 1 complete)**:
+**TodoWrite (LP-Phase 1 complete)**:
 ```javascript
 TodoWrite({ todos: [
-  { content: "Phase 1: Exploration", status: "completed", activeForm: "Exploring codebase" },
-  { content: "Phase 2: Clarification", status: "in_progress", activeForm: "Collecting clarifications" },
-  { content: "Phase 3: Planning", status: "pending", activeForm: "Generating plan" },
-  { content: "Phase 4: Confirmation", status: "pending", activeForm: "Awaiting confirmation" },
-  { content: "Phase 5: Execution", status: "pending", activeForm: "Executing tasks" }
+  { content: "LP-Phase 1: Exploration", status: "completed", activeForm: "Exploring codebase" },
+  { content: "LP-Phase 2: Clarification", status: "in_progress", activeForm: "Collecting clarifications" },
+  { content: "LP-Phase 3: Planning", status: "pending", activeForm: "Generating plan" },
+  { content: "LP-Phase 4: Confirmation", status: "pending", activeForm: "Awaiting confirmation" },
+  { content: "LP-Phase 5: Execution", status: "pending", activeForm: "Executing tasks" }
 ]})
 ```
 
@@ -337,7 +345,7 @@ TodoWrite({ todos: [
 
 ---
 
-### Phase 2: Clarification (Optional, Multi-Round)
+### LP-Phase 2: Clarification (Optional, Multi-Round)
 
 **Skip if**: No exploration or `clarification_needs` is empty across all explorations
 
@@ -379,7 +387,7 @@ if (autoYes) {
   // Auto mode: Skip clarification phase
   console.log(`[Auto] Skipping ${dedupedClarifications.length} clarification questions`)
   console.log(`Proceeding to planning with exploration results...`)
-  // Continue to Phase 3
+  // Continue to LP-Phase 3
 } else if (dedupedClarifications.length > 0) {
   // Interactive mode: Multi-round clarification
   const BATCH_SIZE = 4
@@ -412,11 +420,11 @@ if (autoYes) {
 
 ---
 
-### Phase 3: Planning
+### LP-Phase 3: Planning
 
-**Planning Strategy Selection** (based on Phase 1 complexity):
+**Planning Strategy Selection** (based on LP-Phase 1 complexity):
 
-**IMPORTANT**: Phase 3 is **planning only** - NO code execution. All execution happens in Phase 5 via lite-execute.
+**IMPORTANT**: LP-Phase 3 is **planning only** - NO code execution. All execution happens in LP-Phase 5 via lite-execute.
 
 **Executor Assignment** (Claude 智能分配，plan 生成后执行):
 
@@ -494,7 +502,7 @@ const plan = {
 // Step 6: Write plan overview to session folder
 Write(`${sessionFolder}/plan.json`, JSON.stringify(plan, null, 2))
 
-// Step 7: MUST continue to Phase 4 (Confirmation) - DO NOT execute code here
+// Step 7: MUST continue to LP-Phase 4 (Confirmation) - DO NOT execute code here
 ```
 
 **Medium/High Complexity** - Invoke cli-lite-planning-agent:
@@ -584,20 +592,20 @@ Note: Use files[].change (not modification_points), convergence.criteria (not ac
 
 **Output**: `${sessionFolder}/plan.json`
 
-**TodoWrite (Phase 3 complete)**:
+**TodoWrite (LP-Phase 3 complete)**:
 ```javascript
 TodoWrite({ todos: [
-  { content: "Phase 1: Exploration", status: "completed", activeForm: "Exploring codebase" },
-  { content: "Phase 2: Clarification", status: "completed", activeForm: "Collecting clarifications" },
-  { content: "Phase 3: Planning", status: "completed", activeForm: "Generating plan" },
-  { content: "Phase 4: Confirmation", status: "in_progress", activeForm: "Awaiting confirmation" },
-  { content: "Phase 5: Execution", status: "pending", activeForm: "Executing tasks" }
+  { content: "LP-Phase 1: Exploration", status: "completed", activeForm: "Exploring codebase" },
+  { content: "LP-Phase 2: Clarification", status: "completed", activeForm: "Collecting clarifications" },
+  { content: "LP-Phase 3: Planning", status: "completed", activeForm: "Generating plan" },
+  { content: "LP-Phase 4: Confirmation", status: "in_progress", activeForm: "Awaiting confirmation" },
+  { content: "LP-Phase 5: Execution", status: "pending", activeForm: "Executing tasks" }
 ]})
 ```
 
 ---
 
-### Phase 4: Task Confirmation & Execution Selection
+### LP-Phase 4: Task Confirmation & Execution Selection
 
 **Step 4.1: Display Plan**
 ```javascript
@@ -684,22 +692,22 @@ if (autoYes) {
 }
 ```
 
-**TodoWrite (Phase 4 confirmed)**:
+**TodoWrite (LP-Phase 4 confirmed)**:
 ```javascript
 const executionLabel = userSelection.execution_method
 
 TodoWrite({ todos: [
-  { content: "Phase 1: Exploration", status: "completed", activeForm: "Exploring codebase" },
-  { content: "Phase 2: Clarification", status: "completed", activeForm: "Collecting clarifications" },
-  { content: "Phase 3: Planning", status: "completed", activeForm: "Generating plan" },
-  { content: `Phase 4: Confirmed [${executionLabel}]`, status: "completed", activeForm: "Confirmed" },
-  { content: `Phase 5: Execution [${executionLabel}]`, status: "in_progress", activeForm: `Executing [${executionLabel}]` }
+  { content: "LP-Phase 1: Exploration", status: "completed", activeForm: "Exploring codebase" },
+  { content: "LP-Phase 2: Clarification", status: "completed", activeForm: "Collecting clarifications" },
+  { content: "LP-Phase 3: Planning", status: "completed", activeForm: "Generating plan" },
+  { content: `LP-Phase 4: Confirmed [${executionLabel}]`, status: "completed", activeForm: "Confirmed" },
+  { content: `LP-Phase 5: Execution [${executionLabel}]`, status: "in_progress", activeForm: `Executing [${executionLabel}]` }
 ]})
 ```
 
 ---
 
-### Phase 5: Handoff to Execution
+### LP-Phase 5: Handoff to Execution
 
 **CRITICAL**: lite-plan NEVER executes code directly. ALL execution MUST go through lite-execute.
 
@@ -807,4 +815,4 @@ Read("phases/02-lite-execute.md")
 
 ## Next Phase
 
-After Phase 5 handoff, execution continues in [Phase 2: Lite-Execute](02-lite-execute.md).
+After LP-Phase 5 handoff, execution continues in [Phase 2: Lite-Execute](02-lite-execute.md).

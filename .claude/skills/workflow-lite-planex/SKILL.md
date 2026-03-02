@@ -39,7 +39,7 @@ Trigger `workflow-lite-planex` → dispatches to Phase 1 (lite-plan). Phase 1 in
 | Phase | Document | Description |
 |-------|----------|-------------|
 | Phase 1 | [phases/01-lite-plan.md](phases/01-lite-plan.md) | Planning pipeline (explore → plan → confirm → handoff to Phase 2) |
-| Phase 2 | [phases/02-lite-execute.md](phases/02-lite-execute.md) | Execution engine (internal, called by Phase 1 Phase 5) |
+| Phase 2 | [phases/02-lite-execute.md](phases/02-lite-execute.md) | Execution engine (internal, called by Phase 1 LP-Phase 5) |
 
 ## Interactive Preference Collection
 
@@ -108,8 +108,8 @@ console.log('Project context loaded via: ccw spec load --category planning')
 1. Collect preferences via AskUserQuestion (autoYes, forceExplore)
 2. Enhance prompt with project context availability
 3. Read phases/01-lite-plan.md
-4. Execute lite-plan pipeline (Phase 1-5 within the phase doc)
-5. lite-plan Phase 5 directly reads and executes Phase 2 (lite-execute) with executionContext
+4. Execute lite-plan pipeline (LP-Phase 1-5 within the phase doc)
+5. lite-plan LP-Phase 5 directly reads and executes Phase 2 (lite-execute) with executionContext
 ```
 
 ## Usage

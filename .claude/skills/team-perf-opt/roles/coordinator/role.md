@@ -55,6 +55,8 @@ When coordinator is invoked, detect invocation type:
 | Detection | Condition | Handler |
 |-----------|-----------|---------|
 | Worker callback | Message contains role tag [profiler], [strategist], [optimizer], [benchmarker], [reviewer] | -> handleCallback |
+| Branch callback | Message contains branch tag [optimizer-B01], [benchmarker-B02], etc. | -> handleCallback (branch-aware) |
+| Pipeline callback | Message contains pipeline tag [profiler-A], [optimizer-B], etc. | -> handleCallback (pipeline-aware) |
 | Consensus blocked | Message contains "consensus_blocked" | -> handleConsensus |
 | Status check | Arguments contain "check" or "status" | -> handleCheck |
 | Manual resume | Arguments contain "resume" or "continue" | -> handleResume |
@@ -68,10 +70,10 @@ For callback/check/resume/complete: load `commands/monitor.md` and execute match
 
 1. **Load session context** (if exists):
    - Scan `.workflow/.team/PERF-OPT-*/team-session.json` for active/paused sessions
-   - If found, extract session folder path and status
+   - If found, extract session folder path, status, and `parallel_mode`
 
 2. **Parse $ARGUMENTS** for detection keywords:
-   - Check for role name tags in message content
+   - Check for role name tags in message content (including branch variants like `[optimizer-B01]`)
    - Check for "check", "status", "resume", "continue" keywords
    - Check for "consensus_blocked" signal
 
@@ -114,15 +116,26 @@ TeamCreate({ team_name: "perf-opt" })
 ## Phase 1: Requirement Clarification
 
 1. Parse user task description from $ARGUMENTS
-2. Identify optimization target:
+2. **Parse parallel mode flags**:
+
+| Flag | Value | Default |
+|------|-------|---------|
+| `--parallel-mode` | `single`, `fan-out`, `independent`, `auto` | `auto` |
+| `--max-branches` | integer 1-10 | 5 (from config) |
+
+   - For `independent` mode: remaining positional arguments after flags are `independent_targets` array
+   - Example: `--parallel-mode=independent "optimize rendering" "optimize API"` -> targets = ["optimize rendering", "optimize API"]
+
+3. Identify optimization target:
 
 | Signal | Target |
 |--------|--------|
 | Specific file/module mentioned | Scoped optimization |
 | "slow", "performance", generic | Full application profiling |
 | Specific metric mentioned (FCP, memory, startup) | Targeted metric optimization |
+| Multiple quoted targets (independent mode) | Per-target scoped optimization |
 
-3. If target is unclear, ask for clarification:
+4. If target is unclear, ask for clarification:
 
 ```
 AskUserQuestion({
@@ -133,7 +146,7 @@ AskUserQuestion({
 })
 ```
 
-4. Record optimization requirement with scope and target metrics
+5. Record optimization requirement with scope, target metrics, parallel_mode, and max_branches
 
 ---
 
@@ -145,12 +158,38 @@ AskUserQuestion({
 Bash("mkdir -p .workflow/<session-id>/artifacts .workflow/<session-id>/explorations .workflow/<session-id>/wisdom .workflow/<session-id>/discussions")
 ```
 
-2. Write session.json with status="active", team_name, requirement, timestamp
+   For independent mode, also create pipeline subdirectories:
+```
+// For each target in independent_targets
+Bash("mkdir -p .workflow/<session-id>/artifacts/pipelines/A .workflow/<session-id>/artifacts/pipelines/B ...")
+```
+
+2. Write session.json with extended fields:
+
+```json
+{
+  "status": "active",
+  "team_name": "perf-opt",
+  "requirement": "<requirement>",
+  "timestamp": "<ISO-8601>",
+  "parallel_mode": "<auto|single|fan-out|independent>",
+  "max_branches": 5,
+  "branches": [],
+  "independent_targets": [],
+  "fix_cycles": {}
+}
+```
+
+   - `parallel_mode`: from Phase 1 parsing (default: "auto")
+   - `max_branches`: from Phase 1 parsing (default: 5)
+   - `branches`: populated at CP-2.5 for fan-out mode (e.g., ["B01", "B02", "B03"])
+   - `independent_targets`: populated for independent mode (e.g., ["optimize rendering", "optimize API"])
+   - `fix_cycles`: populated per-branch/pipeline as fix cycles occur
 
 3. Initialize shared-memory.json:
 
 ```
-Write("<session>/wisdom/shared-memory.json", { "session_id": "<session-id>", "requirement": "<requirement>" })
+Write("<session>/wisdom/shared-memory.json", { "session_id": "<session-id>", "requirement": "<requirement>", "parallel_mode": "<mode>" })
 ```
 
 4. Create team:

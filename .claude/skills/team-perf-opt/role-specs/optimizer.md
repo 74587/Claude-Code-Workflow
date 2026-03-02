@@ -24,17 +24,36 @@ Implement optimization changes following the strategy plan. For FIX tasks, apply
 
 | Input | Source | Required |
 |-------|--------|----------|
-| Optimization plan | <session>/artifacts/optimization-plan.md | Yes (IMPL) |
+| Optimization plan | <session>/artifacts/optimization-plan.md | Yes (IMPL, no branch) |
+| Branch optimization detail | <session>/artifacts/branches/B{NN}/optimization-detail.md | Yes (IMPL with branch) |
+| Pipeline optimization plan | <session>/artifacts/pipelines/{P}/optimization-plan.md | Yes (IMPL with pipeline) |
 | Review/bench feedback | From task description | Yes (FIX) |
 | shared-memory.json | <session>/wisdom/shared-memory.json | Yes |
 | Wisdom files | <session>/wisdom/patterns.md | No |
 | Context accumulator | From prior IMPL/FIX tasks | Yes (inner loop) |
 
 1. Extract session path and task mode (IMPL or FIX) from task description
-2. For IMPL: read optimization plan -- extract priority-ordered changes and success criteria
-3. For FIX: parse review/benchmark feedback for specific issues to address
-4. Use `explore` subagent to load implementation context for target files
-5. For inner loop: load context_accumulator from prior IMPL/FIX tasks to avoid re-reading
+2. **Detect branch/pipeline context** from task description:
+
+| Task Description Field | Value | Context |
+|----------------------|-------|---------|
+| `BranchId: B{NN}` | Present | Fan-out branch -- load single optimization detail |
+| `PipelineId: {P}` | Present | Independent pipeline -- load pipeline-scoped plan |
+| Neither present | - | Single mode -- load full optimization plan |
+
+3. **Load optimization context by mode**:
+   - **Single mode (no branch)**: Read `<session>/artifacts/optimization-plan.md` -- extract ALL priority-ordered changes
+   - **Fan-out branch**: Read `<session>/artifacts/branches/B{NN}/optimization-detail.md` -- extract ONLY this branch's optimization (single OPT-ID)
+   - **Independent pipeline**: Read `<session>/artifacts/pipelines/{P}/optimization-plan.md` -- extract this pipeline's plan
+
+4. For FIX: parse review/benchmark feedback for specific issues to address
+5. Use `explore` subagent to load implementation context for target files
+6. For inner loop (single mode only): load context_accumulator from prior IMPL/FIX tasks
+
+**Shared-memory namespace**:
+- Single: write to `optimizer` namespace
+- Fan-out: write to `optimizer.B{NN}` namespace
+- Independent: write to `optimizer.{P}` namespace
 
 ## Phase 3: Code Implementation
 
@@ -46,7 +65,9 @@ Implementation backend selection:
 | Direct | Single-file changes or targeted fixes | Inline Edit/Write tools |
 
 For IMPL tasks:
-- Apply optimizations in plan priority order (P0 first, then P1, etc.)
+- **Single mode**: Apply optimizations in plan priority order (P0 first, then P1, etc.)
+- **Fan-out branch**: Apply ONLY this branch's single optimization (from optimization-detail.md)
+- **Independent pipeline**: Apply this pipeline's optimizations in priority order
 - Follow implementation guidance from plan (target files, patterns)
 - Preserve existing behavior -- optimization must not break functionality
 
@@ -71,6 +92,11 @@ General rules:
 
 If validation fails, attempt auto-fix (max 2 attempts) before reporting error.
 
-Append to context_accumulator for next IMPL/FIX task:
+Append to context_accumulator for next IMPL/FIX task (single/inner-loop mode only):
 - Files modified, optimizations applied, validation results
 - Any discovered patterns or caveats for subsequent iterations
+
+**Branch output paths**:
+- Single: write artifacts to `<session>/artifacts/`
+- Fan-out: write artifacts to `<session>/artifacts/branches/B{NN}/`
+- Independent: write artifacts to `<session>/artifacts/pipelines/{P}/`

@@ -67,24 +67,42 @@ Always route to coordinator. Coordinator reads `roles/coordinator/role.md` and e
 
 User just provides task description.
 
-**Invocation**: `Skill(skill="team-perf-opt", args="<task-description>")`
+**Invocation**:
+```bash
+Skill(skill="team-perf-opt", args="<task-description>")                           # auto mode
+Skill(skill="team-perf-opt", args="--parallel-mode=fan-out <task-description>")    # force fan-out
+Skill(skill="team-perf-opt", args='--parallel-mode=independent "target1" "target2"')  # independent
+Skill(skill="team-perf-opt", args="--max-branches=3 <task-description>")           # limit branches
+```
+
+**Parallel Modes**:
+
+| Mode | Description | When to Use |
+|------|-------------|------------|
+| `auto` (default) | count <= 2 -> single, count >= 3 -> fan-out | General optimization requests |
+| `single` | Linear pipeline, no branching | Simple or tightly coupled optimizations |
+| `fan-out` | Shared PROFILE+STRATEGY, then N parallel IMPL->BENCH+REVIEW branches | Multiple independent bottlenecks |
+| `independent` | M fully independent pipelines from profiling to review | Separate optimization targets |
 
 **Lifecycle**:
 ```
-User provides task description
-  -> coordinator Phase 1-3: Requirement clarification -> TeamCreate -> Create task chain
+User provides task description + optional --parallel-mode / --max-branches
+  -> coordinator Phase 1-3: Parse flags -> TeamCreate -> Create task chain (mode-aware)
   -> coordinator Phase 4: spawn first batch workers (background) -> STOP
   -> Worker (team-worker agent) executes -> SendMessage callback -> coordinator advances
-  -> Loop until pipeline complete -> Phase 5 report + completion action
+  -> [auto/fan-out] CP-2.5: Strategy complete -> create N branch tasks -> spawn all IMPL-B* in parallel
+  -> [independent] All pipelines run in parallel from the start
+  -> Per-branch/pipeline fix cycles run independently
+  -> All branches/pipelines complete -> AGGREGATE -> Phase 5 report + completion action
 ```
 
 **User Commands** (wake paused coordinator):
 
 | Command | Action |
 |---------|--------|
-| `check` / `status` | Output execution status graph, no advancement |
+| `check` / `status` | Output execution status graph (branch-grouped), no advancement |
 | `resume` / `continue` | Check worker states, advance next step |
-| `revise <TASK-ID> [feedback]` | Create revision task + cascade downstream |
+| `revise <TASK-ID> [feedback]` | Create revision task + cascade downstream (scoped to branch) |
 | `feedback <text>` | Analyze feedback impact, create targeted revision chain |
 | `recheck` | Re-run quality check |
 | `improve [dimension]` | Auto-improve weakest dimension |
@@ -147,25 +165,49 @@ Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Pha
 
 ## Pipeline Definitions
 
-### Pipeline Diagram
+### Pipeline Diagrams
 
+**Single Mode** (linear, backward compatible):
 ```
-Pipeline: Linear with Review-Fix Cycle
+Pipeline: Single (Linear with Review-Fix Cycle)
 =====================================================================
 Stage 1           Stage 2           Stage 3           Stage 4
-(W:1)             (W:2)             (W:3)             (W:4)
-                                                   +-----------+
-PROFILE-001  -->  STRATEGY-001 -->  IMPL-001   --> | BENCH-001 |
-[profiler]        [strategist]      [optimizer]    | [bench]   |
-                                        ^          +-----------+
-                                        |               |
-                                        |          +-----------+
-                                        +<--FIX--->| REVIEW-001|
-                                        |          | [reviewer]|
-                                        |          +-----------+
-                                        |               |
-                                  (max 3 iterations)    v
+PROFILE-001  -->  STRATEGY-001 -->  IMPL-001   --> BENCH-001
+[profiler]        [strategist]      [optimizer]    [benchmarker]
+                                        ^               |
+                                        +<--FIX-001---->+
+                                        |          REVIEW-001
+                                        +<-------->  [reviewer]
+                                  (max 3 iterations)    |
                                                    COMPLETE
+=====================================================================
+```
+
+**Fan-out Mode** (shared stages 1-2, parallel branches 3-4):
+```
+Pipeline: Fan-out (N parallel optimization branches)
+=====================================================================
+Stage 1           Stage 2         CP-2.5          Stage 3+4 (per branch)
+                                (branch creation)
+PROFILE-001 --> STRATEGY-001 --+-> IMPL-B01 --> BENCH-B01 + REVIEW-B01 (fix cycle)
+[profiler]      [strategist]   |   [optimizer]   [bench]     [reviewer]
+                               +-> IMPL-B02 --> BENCH-B02 + REVIEW-B02 (fix cycle)
+                               |   [optimizer]   [bench]     [reviewer]
+                               +-> IMPL-B0N --> BENCH-B0N + REVIEW-B0N (fix cycle)
+                                                          |
+                                                     AGGREGATE -> Phase 5
+=====================================================================
+```
+
+**Independent Mode** (M fully independent pipelines):
+```
+Pipeline: Independent (M complete pipelines)
+=====================================================================
+Pipeline A: PROFILE-A01 --> STRATEGY-A01 --> IMPL-A01 --> BENCH-A01 + REVIEW-A01
+Pipeline B: PROFILE-B01 --> STRATEGY-B01 --> IMPL-B01 --> BENCH-B01 + REVIEW-B01
+Pipeline C: PROFILE-C01 --> STRATEGY-C01 --> IMPL-C01 --> BENCH-C01 + REVIEW-C01
+                                                          |
+                                                     AGGREGATE -> Phase 5
 =====================================================================
 ```
 
@@ -247,10 +289,13 @@ Beat View: Performance Optimization Pipeline
 |------------|---------|----------|----------|
 | CP-1 | PROFILE-001 complete | After Stage 1 | User reviews bottleneck report, can refine scope |
 | CP-2 | STRATEGY-001 complete | After Stage 2 | User reviews optimization plan, can adjust priorities |
-| CP-3 | REVIEW/BENCH fail | Stage 4 | Auto-create FIX task, re-enter Stage 3 (max 3x) |
-| CP-4 | All tasks complete | Phase 5 | Interactive completion action |
+| CP-2.5 | STRATEGY-001 complete (auto/fan-out) | After Stage 2 | Auto-create N branch tasks from optimization plan, spawn all IMPL-B* in parallel |
+| CP-3 | REVIEW/BENCH fail | Stage 4 (per-branch) | Auto-create FIX task for that branch only (max 3x per branch) |
+| CP-4 | All tasks/branches complete | Phase 5 | Aggregate results, interactive completion action |
 
 ### Task Metadata Registry
+
+**Single mode** (backward compatible):
 
 | Task ID | Role | Phase | Dependencies | Description |
 |---------|------|-------|-------------|-------------|
@@ -260,6 +305,38 @@ Beat View: Performance Optimization Pipeline
 | BENCH-001 | benchmarker | Stage 4 | IMPL-001 | Run benchmarks, compare vs baseline |
 | REVIEW-001 | reviewer | Stage 4 | IMPL-001 | Review optimization code for correctness |
 | FIX-001 | optimizer | Stage 3 (cycle) | REVIEW-001 or BENCH-001 | Fix issues found in review/benchmark |
+
+**Fan-out mode** (branch tasks created at CP-2.5):
+
+| Task ID | Role | Phase | Dependencies | Description |
+|---------|------|-------|-------------|-------------|
+| PROFILE-001 | profiler | Stage 1 (shared) | (none) | Profile application |
+| STRATEGY-001 | strategist | Stage 2 (shared) | PROFILE-001 | Design plan with discrete OPT-IDs |
+| IMPL-B{NN} | optimizer | Stage 3 (branch) | STRATEGY-001 | Implement OPT-{NNN} only |
+| BENCH-B{NN} | benchmarker | Stage 4 (branch) | IMPL-B{NN} | Benchmark branch B{NN} |
+| REVIEW-B{NN} | reviewer | Stage 4 (branch) | IMPL-B{NN} | Review branch B{NN} |
+| FIX-B{NN}-{cycle} | optimizer | Fix (branch) | (none) | Fix issues in branch B{NN} |
+| BENCH-B{NN}-R{cycle} | benchmarker | Retry (branch) | FIX-B{NN}-{cycle} | Re-benchmark after fix |
+| REVIEW-B{NN}-R{cycle} | reviewer | Retry (branch) | FIX-B{NN}-{cycle} | Re-review after fix |
+
+**Independent mode**:
+
+| Task ID | Role | Phase | Dependencies | Description |
+|---------|------|-------|-------------|-------------|
+| PROFILE-{P}01 | profiler | Stage 1 | (none) | Profile for pipeline {P} target |
+| STRATEGY-{P}01 | strategist | Stage 2 | PROFILE-{P}01 | Strategy for pipeline {P} |
+| IMPL-{P}01 | optimizer | Stage 3 | STRATEGY-{P}01 | Implement pipeline {P} optimizations |
+| BENCH-{P}01 | benchmarker | Stage 4 | IMPL-{P}01 | Benchmark pipeline {P} |
+| REVIEW-{P}01 | reviewer | Stage 4 | IMPL-{P}01 | Review pipeline {P} |
+| FIX-{P}01-{cycle} | optimizer | Fix | (none) | Fix issues in pipeline {P} |
+
+### Task Naming Rules
+
+| Mode | Stage 3 | Stage 4 | Fix | Retry |
+|------|---------|---------|-----|-------|
+| Single | IMPL-001 | BENCH-001, REVIEW-001 | FIX-001 | BENCH-001-R1, REVIEW-001-R1 |
+| Fan-out | IMPL-B01 | BENCH-B01, REVIEW-B01 | FIX-B01-1 | BENCH-B01-R1, REVIEW-B01-R1 |
+| Independent | IMPL-A01 | BENCH-A01, REVIEW-A01 | FIX-A01-1 | BENCH-A01-R1, REVIEW-A01-R1 |
 
 ---
 
@@ -292,9 +369,10 @@ AskUserQuestion({
 
 ## Session Directory
 
+**Single mode**:
 ```
 .workflow/<session-id>/
-+-- session.json                    # Session metadata + status
++-- session.json                    # Session metadata + status + parallel_mode
 +-- artifacts/
 |   +-- baseline-metrics.json       # Profiler: before-optimization metrics
 |   +-- bottleneck-report.md        # Profiler: ranked bottleneck findings
@@ -310,6 +388,47 @@ AskUserQuestion({
 +-- discussions/
 |   +-- DISCUSS-OPT.md              # Strategy discussion record
 |   +-- DISCUSS-REVIEW.md           # Review discussion record
+```
+
+**Fan-out mode** (adds branches/ directory):
+```
+.workflow/<session-id>/
++-- session.json                    # + parallel_mode, branches, fix_cycles
++-- artifacts/
+|   +-- baseline-metrics.json       # Shared baseline (all branches use this)
+|   +-- bottleneck-report.md        # Shared bottleneck report
+|   +-- optimization-plan.md        # Shared plan with discrete OPT-IDs
+|   +-- aggregate-results.json      # Aggregated results from all branches
+|   +-- branches/
+|       +-- B01/
+|       |   +-- optimization-detail.md   # Extracted OPT-001 detail
+|       |   +-- benchmark-results.json   # Branch B01 benchmark
+|       |   +-- review-report.md         # Branch B01 review
+|       +-- B02/
+|       |   +-- optimization-detail.md
+|       |   +-- benchmark-results.json
+|       |   +-- review-report.md
+|       +-- B0N/
++-- explorations/ wisdom/ discussions/  # Same as single
+```
+
+**Independent mode** (adds pipelines/ directory):
+```
+.workflow/<session-id>/
++-- session.json                    # + parallel_mode, independent_targets, fix_cycles
++-- artifacts/
+|   +-- aggregate-results.json      # Aggregated results from all pipelines
+|   +-- pipelines/
+|       +-- A/
+|       |   +-- baseline-metrics.json
+|       |   +-- bottleneck-report.md
+|       |   +-- optimization-plan.md
+|       |   +-- benchmark-results.json
+|       |   +-- review-report.md
+|       +-- B/
+|           +-- baseline-metrics.json
+|           +-- ...
++-- explorations/ wisdom/ discussions/  # Same as single
 ```
 
 ## Session Resume
@@ -345,5 +464,11 @@ Coordinator supports `--resume` / `--continue` for interrupted sessions:
 | team-worker agent unavailable | Error: requires .claude/agents/team-worker.md |
 | Completion action timeout | Default to Keep Active |
 | Profiling tool not available | Fallback to static analysis methods |
-| Benchmark regression detected | Auto-create FIX task with regression details |
-| Review-fix cycle exceeds 3 iterations | Escalate to user with summary of remaining issues |
+| Benchmark regression detected | Auto-create FIX task with regression details (scoped to branch/pipeline) |
+| Review-fix cycle exceeds 3 iterations | Escalate to user with summary of remaining issues (per-branch/pipeline scope) |
+| One branch IMPL fails | Mark that branch failed, other branches continue to completion |
+| Branch scope overlap detected | Strategist constrains non-overlapping target files; IMPL logs warning on detection |
+| Shared-memory concurrent writes | Each worker writes only its own namespace key (e.g., `optimizer.B01`) |
+| Branch fix cycle >= 3 | Escalate only that branch to user, other branches continue independently |
+| max_branches exceeded | Coordinator truncates to top N optimizations by priority at CP-2.5 |
+| Independent pipeline partial failure | Failed pipeline marked, others continue; aggregate reports partial results |

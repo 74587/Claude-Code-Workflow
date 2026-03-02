@@ -196,13 +196,12 @@ onBeforeUnmount(() => {
 /* Container queries in mobile.css provide additional responsiveness */
 
 /* Mobile-specific styles */
-@media (max-width: 768px) {
+@media (max-width: var(--bp-sm)) {
   .hero-extensions {
     margin-top: 1rem;
     padding: 0 12px;
-    max-width: 100vw;
+    max-width: 100%;
     box-sizing: border-box;
-    overflow-x: hidden;
   }
 
   .hero-stats {

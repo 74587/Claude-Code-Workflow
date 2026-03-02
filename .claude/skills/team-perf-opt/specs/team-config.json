@@ -5,7 +5,7 @@
   "skill_name": "team-perf-opt",
   "skill_path": ".claude/skills/team-perf-opt/",
   "worker_agent": "team-worker",
-  "pipeline_type": "Linear with Review-Fix Cycle",
+  "pipeline_type": "Linear with Review-Fix Cycle (Parallel-Capable)",
   "completion_action": "interactive",
   "has_inline_discuss": true,
   "has_shared_explore": true,
@@ -125,6 +125,16 @@
     }
   ],
 
+  "parallel_config": {
+    "modes": ["single", "fan-out", "independent", "auto"],
+    "default_mode": "auto",
+    "max_branches": 5,
+    "auto_mode_rules": {
+      "single": "optimization_count <= 2",
+      "fan-out": "optimization_count >= 3"
+    }
+  },
+
   "pipeline": {
     "stages": [
       {
@@ -162,6 +172,24 @@
         }
       }
     ],
+    "parallel_pipelines": {
+      "fan-out": {
+        "shared_stages": [1, 2],
+        "branch_stages": [3, 4],
+        "branch_prefix": "B",
+        "review_fix_cycle": {
+          "scope": "per_branch",
+          "max_iterations": 3
+        }
+      },
+      "independent": {
+        "pipeline_prefix_chars": "ABCDEFGHIJ",
+        "review_fix_cycle": {
+          "scope": "per_pipeline",
+          "max_iterations": 3
+        }
+      }
+    },
     "diagram": "See pipeline-diagram section"
   },
 
@@ -187,22 +215,50 @@
     {
       "name": "Performance Baseline",
       "path": "<session>/artifacts/baseline-metrics.json",
-      "usage": "Before-optimization metrics for comparison"
+      "usage": "Before-optimization metrics for comparison",
+      "scope": "shared (fan-out) / per-pipeline (independent)"
     },
     {
       "name": "Bottleneck Report",
       "path": "<session>/artifacts/bottleneck-report.md",
-      "usage": "Profiler output consumed by strategist"
+      "usage": "Profiler output consumed by strategist",
+      "scope": "shared (fan-out) / per-pipeline (independent)"
     },
     {
       "name": "Optimization Plan",
       "path": "<session>/artifacts/optimization-plan.md",
-      "usage": "Strategist output consumed by optimizer"
+      "usage": "Strategist output consumed by optimizer",
+      "scope": "shared (fan-out) / per-pipeline (independent)"
     },
     {
       "name": "Benchmark Results",
       "path": "<session>/artifacts/benchmark-results.json",
-      "usage": "Benchmarker output consumed by reviewer"
+      "usage": "Benchmarker output consumed by reviewer",
+      "scope": "per-branch (fan-out) / per-pipeline (independent)"
     }
-  ]
+  ],
+
+  "shared_memory_namespacing": {
+    "single": {
+      "profiler": "profiler",
+      "strategist": "strategist",
+      "optimizer": "optimizer",
+      "benchmarker": "benchmarker",
+      "reviewer": "reviewer"
+    },
+    "fan-out": {
+      "profiler": "profiler",
+      "strategist": "strategist",
+      "optimizer": "optimizer.B{NN}",
+      "benchmarker": "benchmarker.B{NN}",
+      "reviewer": "reviewer.B{NN}"
+    },
+    "independent": {
+      "profiler": "profiler.{P}",
+      "strategist": "strategist.{P}",
+      "optimizer": "optimizer.{P}",
+      "benchmarker": "benchmarker.{P}",
+      "reviewer": "reviewer.{P}"
+    }
+  }
 }

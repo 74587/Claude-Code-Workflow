@@ -39,6 +39,11 @@ const FEISHU_HOSTNAMES = ['feishu.cn', 'larksuite.com', 'lark.com'];
 const DINGTALK_HOSTNAMES = ['dingtalk.com', 'oapi.dingtalk.com'];
 const WECOM_HOSTNAMES = ['qyapi.weixin.qq.com', 'work.weixin.qq.com'];
 
+// Pattern for safe header values - only printable ASCII characters (no control chars)
+// This prevents XSS by ensuring header values don't contain HTML/JS metacharacters
+// Space (0x20) through tilde (0x7E) are printable ASCII characters
+const SAFE_HEADER_VALUE_REGEX = /^[\x20-\x7E]+$/;
+
 /**
  * Validate URL format (must be http or https)
  */
@@ -112,6 +117,11 @@ function isValidHeaders(headers: unknown): { valid: boolean; error?: string } {
     }
     if (typeof value !== 'string') {
       return { valid: false, error: `Header '${key}' value must be a string` };
+    }
+    // Sanitize header value - only allow printable ASCII characters
+    // This prevents XSS by blocking HTML/JS metacharacters and control characters
+    if (!SAFE_HEADER_VALUE_REGEX.test(value)) {
+      return { valid: false, error: `Header '${key}' contains invalid characters. Only printable ASCII characters (space through tilde) are allowed.` };
     }
     // Block potentially dangerous headers
     const lowerKey = key.toLowerCase();

@@ -143,9 +143,15 @@
   --vp-z-index-toast: 200;
 
   /* Responsive Breakpoints (VitePress standard) */
-  --bp-mobile: 768px;    /* Mobile: < 768px */
-  --bp-tablet: 1024px;   /* Tablet: 768px - 1024px */
-  --bp-desktop: 1440px;  /* Desktop: > 1024px, large: > 1440px */
+  --bp-xs: 480px;        /* Extra Small: < 480px */
+  --bp-sm: 768px;        /* Small (Mobile): < 768px */
+  --bp-md: 1024px;       /* Medium (Tablet): 768px - 1024px */
+  --bp-lg: 1440px;       /* Large (Desktop): > 1024px, extra large: > 1440px */
+
+  /* Legacy aliases for backward compatibility */
+  --bp-mobile: var(--bp-sm);
+  --bp-tablet: var(--bp-md);
+  --bp-desktop: var(--bp-lg);
 
   /* Container Query Breakpoints
    * Aligned with media query breakpoints for consistency

@@ -62,12 +62,53 @@ Define measurable success criteria per optimization (target metric value or impr
 ## Phase 4: Plan Output
 
 1. Write optimization plan to `<session>/artifacts/optimization-plan.md`:
-   - Priority-ordered list of optimizations
-   - Per optimization: target bottleneck, strategy, expected improvement %, risk level
-   - Success criteria: specific metric thresholds to verify
-   - Implementation guidance: files to modify, patterns to apply
+
+   Each optimization MUST have a unique OPT-ID and self-contained detail block:
+
+   ```markdown
+   ### OPT-001: <title>
+   - Priority: P0
+   - Target bottleneck: <bottleneck from report>
+   - Target files: <file-list>
+   - Strategy: <selected approach>
+   - Expected improvement: <metric> by <X%>
+   - Risk level: <Low/Medium/High>
+   - Success criteria: <specific threshold to verify>
+   - Implementation guidance:
+     1. <step 1>
+     2. <step 2>
+     3. <step 3>
+
+   ### OPT-002: <title>
+   ...
+   ```
+
+   Requirements:
+   - Each OPT-ID is sequentially numbered (OPT-001, OPT-002, ...)
+   - Each optimization must be **non-overlapping** in target files (no two OPT-IDs modify the same file unless explicitly noted with conflict resolution)
+   - Implementation guidance must be self-contained -- a branch optimizer should be able to work from a single OPT block without reading others
 
 2. Update `<session>/wisdom/shared-memory.json` under `strategist` namespace:
-   - Read existing -> merge `{ "strategist": { complexity, optimization_count, priorities, discuss_used } }` -> write back
+   - Read existing -> merge -> write back:
+   ```json
+   {
+     "strategist": {
+       "complexity": "<Low|Medium|High>",
+       "optimization_count": 4,
+       "priorities": ["P0", "P0", "P1", "P2"],
+       "discuss_used": false,
+       "optimizations": [
+         {
+           "id": "OPT-001",
+           "title": "<title>",
+           "priority": "P0",
+           "target_files": ["src/a.ts", "src/b.ts"],
+           "expected_improvement": "<metric> by <X%>",
+           "success_criteria": "<threshold>"
+         }
+       ]
+     }
+   }
+   ```
 
 3. If DISCUSS-OPT was triggered, record discussion summary in `<session>/discussions/DISCUSS-OPT.md`

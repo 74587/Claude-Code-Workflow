@@ -19,15 +19,34 @@ Review optimization code changes for correctness, side effects, regression risks
 | Input | Source | Required |
 |-------|--------|----------|
 | Optimization code changes | From IMPL task artifacts / git diff | Yes |
-| Optimization plan | <session>/artifacts/optimization-plan.md | Yes |
-| Benchmark results | <session>/artifacts/benchmark-results.json | No |
+| Optimization plan / detail | Varies by mode (see below) | Yes |
+| Benchmark results | Varies by mode (see below) | No |
 | shared-memory.json | <session>/wisdom/shared-memory.json | Yes |
 
 1. Extract session path from task description
-2. Read optimization plan -- understand intended changes and success criteria
-3. Load shared-memory.json for optimizer namespace (files modified, patterns applied)
-4. Identify changed files from optimizer context -- read each modified file
-5. If benchmark results available, read for cross-reference with code quality
+2. **Detect branch/pipeline context** from task description:
+
+| Task Description Field | Value | Context |
+|----------------------|-------|---------|
+| `BranchId: B{NN}` | Present | Fan-out branch -- review only this branch's changes |
+| `PipelineId: {P}` | Present | Independent pipeline -- review pipeline-scoped changes |
+| Neither present | - | Single mode -- review all optimization changes |
+
+3. **Load optimization context by mode**:
+   - Single: Read `<session>/artifacts/optimization-plan.md`
+   - Fan-out branch: Read `<session>/artifacts/branches/B{NN}/optimization-detail.md`
+   - Independent: Read `<session>/artifacts/pipelines/{P}/optimization-plan.md`
+
+4. Load shared-memory.json for scoped optimizer namespace:
+   - Single: `optimizer` namespace
+   - Fan-out: `optimizer.B{NN}` namespace
+   - Independent: `optimizer.{P}` namespace
+
+5. Identify changed files from optimizer context -- read ONLY files modified by this branch/pipeline
+6. If benchmark results available, read from scoped path:
+   - Single: `<session>/artifacts/benchmark-results.json`
+   - Fan-out: `<session>/artifacts/branches/B{NN}/benchmark-results.json`
+   - Independent: `<session>/artifacts/pipelines/{P}/benchmark-results.json`
 
 ## Phase 3: Multi-Dimension Review
 
@@ -58,12 +77,15 @@ Classify overall verdict based on findings:
 | REVISE | Has High findings, no Critical | Send fix_required with detailed feedback |
 | REJECT | Has Critical findings or fundamental approach flaw | Send fix_required + flag for strategist escalation |
 
-1. Write review report to `<session>/artifacts/review-report.md`:
-   - Per-dimension findings with severity, file:line, description
-   - Overall verdict with rationale
-   - Specific fix instructions for REVISE/REJECT verdicts
+1. Write review report to scoped output path:
+   - Single: `<session>/artifacts/review-report.md`
+   - Fan-out: `<session>/artifacts/branches/B{NN}/review-report.md`
+   - Independent: `<session>/artifacts/pipelines/{P}/review-report.md`
+   - Content: Per-dimension findings with severity, file:line, description; Overall verdict with rationale; Specific fix instructions for REVISE/REJECT verdicts
 
-2. Update `<session>/wisdom/shared-memory.json` under `reviewer` namespace:
-   - Read existing -> merge `{ "reviewer": { verdict, finding_count, critical_count, dimensions_reviewed } }` -> write back
+2. Update `<session>/wisdom/shared-memory.json` under scoped namespace:
+   - Single: merge `{ "reviewer": { verdict, finding_count, critical_count, dimensions_reviewed } }`
+   - Fan-out: merge `{ "reviewer.B{NN}": { verdict, finding_count, critical_count, dimensions_reviewed } }`
+   - Independent: merge `{ "reviewer.{P}": { verdict, finding_count, critical_count, dimensions_reviewed } }`
 
-3. If DISCUSS-REVIEW was triggered, record discussion summary in `<session>/discussions/DISCUSS-REVIEW.md`
+3. If DISCUSS-REVIEW was triggered, record discussion summary in `<session>/discussions/DISCUSS-REVIEW.md` (or `DISCUSS-REVIEW-B{NN}.md` for branch-scoped discussions)

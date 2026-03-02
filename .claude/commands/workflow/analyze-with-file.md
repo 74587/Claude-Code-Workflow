@@ -589,7 +589,17 @@ CONSTRAINTS: ${perspective.constraints}
        if (findings.length) contextLines.push(`**Key Findings**:\n${findings.map(f => `- ${f}`).join('\n')}`)
      }
 
-     // 3. Hand off to lite-plan — analyze-with-file COMPLETE, do NOT return to any analyze phase
+     // 3. ⛔ SESSION TERMINATION — output explicit boundary
+     console.log(`
+---
+## ⛔ ANALYZE-WITH-FILE SESSION COMPLETE
+All Phase 1-4 of analyze-with-file are FINISHED.
+Session: ${sessionId} — concluded at ${new Date().toISOString()}
+DO NOT reference any analyze-with-file phase instructions beyond this point.
+---
+`)
+
+     // 4. Hand off to lite-plan — analyze-with-file COMPLETE, do NOT return to any analyze phase
      Skill(skill="workflow-lite-planex", args=`"${taskDescription}\n\n${contextLines.join('\n')}"`)
      return  // ⛔ analyze-with-file terminates here
    }
