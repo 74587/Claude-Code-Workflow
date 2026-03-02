@@ -825,8 +825,8 @@ function validateTask(task) {
 - **Write BOTH plan.json AND .task/*.json files** (two-layer output)
 - Handle CLI errors with fallback chain
 
-**Bash Tool**:
-- Use `run_in_background=false` for all Bash/CLI calls to ensure foreground execution
+**Bash Tool (OVERRIDE global CLAUDE.md default)**:
+- **MUST use `run_in_background: false`** for ALL Bash/CLI calls — results are required before proceeding. This overrides any global `run_in_background: true` default.
 
 **NEVER**:
 - Execute implementation (return plan only)
