@@ -1,5 +1,5 @@
 ---
-name: wave-plan-pipeline
+name: workflow-lite-planex
 description: Explore-first wave pipeline. Decomposes requirement into exploration angles, runs wave exploration via spawn_agents_on_csv, synthesizes findings into execution tasks with cross-phase context linking (E*→T*), then wave-executes via spawn_agents_on_csv.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"requirement description\""
 allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
@@ -9,15 +9,15 @@ allowed-tools: spawn_agents_on_csv, Read, Write, Edit, Bash, Glob, Grep, AskUser
 
 When `--yes` or `-y`: Auto-confirm decomposition, skip interactive validation, use defaults.
 
-# Wave Plan Pipeline
+# Workflow Lite Planex
 
 ## Usage
 
 ```bash
-$wave-plan-pipeline "Implement user authentication with OAuth, JWT, and 2FA"
-$wave-plan-pipeline -c 4 "Refactor payment module with Stripe and PayPal"
-$wave-plan-pipeline -y "Build notification system with email and SMS"
-$wave-plan-pipeline --continue "auth-20260228"
+$workflow-lite-planex "Implement user authentication with OAuth, JWT, and 2FA"
+$workflow-lite-planex -c 4 "Refactor payment module with Stripe and PayPal"
+$workflow-lite-planex -y "Build notification system with email and SMS"
+$workflow-lite-planex --continue "auth-20260228"
 ```
 
 **Flags**:
@@ -25,7 +25,7 @@ $wave-plan-pipeline --continue "auth-20260228"
 - `-c, --concurrency N`: Max concurrent agents within each wave (default: 4)
 - `--continue`: Resume existing session
 
-**Output Directory**: `.workflow/.wave-plan/{session-id}/`
+**Output Directory**: `.workflow/.lite-plan/{session-id}/`
 
 ---
 
@@ -37,7 +37,7 @@ Explore-first wave-based pipeline using `spawn_agents_on_csv`. Two-stage CSV exe
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                    WAVE PLAN PIPELINE                                │
+│                    WORKFLOW LITE PLANEX                               │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  Phase 1: Requirement → explore.csv                                  │
@@ -191,7 +191,7 @@ The `prev_context` column is built from `context_from` by looking up completed r
 ## Session Structure
 
 ```
-.workflow/.wave-plan/{session-id}/
+.workflow/.lite-plan/{session-id}/
 ├── explore.csv              # Exploration state
 ├── tasks.csv                # Execution state
 ├── results.csv              # Final results export
@@ -225,14 +225,14 @@ const slug = requirement.toLowerCase()
   .substring(0, 40)
 const dateStr = getUtc8ISOString().substring(0, 10).replace(/-/g, '')
 const sessionId = `wpp-${slug}-${dateStr}`
-const sessionFolder = `.workflow/.wave-plan/${sessionId}`
+const sessionFolder = `.workflow/.lite-plan/${sessionId}`
 
 // Continue mode: find existing session
 if (continueMode) {
-  const existing = Bash(`ls -t .workflow/.wave-plan/ 2>/dev/null | head -1`).trim()
+  const existing = Bash(`ls -t .workflow/.lite-plan/ 2>/dev/null | head -1`).trim()
   if (existing) {
     sessionId = existing
-    sessionFolder = `.workflow/.wave-plan/${sessionId}`
+    sessionFolder = `.workflow/.lite-plan/${sessionId}`
     // Check which phase to resume: if tasks.csv exists → Phase 4, else → Phase 2
   }
 }
@@ -304,7 +304,7 @@ REQUIREMENT: ${requirement}" --tool gemini --mode analysis --rule planning-break
      })
 
      if (answer.Validation === "Modify") {
-       console.log(`Edit: ${sessionFolder}/explore.csv\nResume: $wave-plan-pipeline --continue`)
+       console.log(`Edit: ${sessionFolder}/explore.csv\nResume: $workflow-lite-planex --continue`)
        return
      } else if (answer.Validation === "Cancel") {
        return
@@ -599,7 +599,7 @@ ${wt.map(t => `  - [${t.id}] ${t.title} (scope: ${t.scope}, from: ${t.context_fr
      })
 
      if (answer.Confirm === "Modify") {
-       console.log(`Edit: ${sessionFolder}/tasks.csv\nResume: $wave-plan-pipeline --continue`)
+       console.log(`Edit: ${sessionFolder}/tasks.csv\nResume: $workflow-lite-planex --continue`)
        return
      } else if (answer.Confirm === "Cancel") {
        return
@@ -897,7 +897,7 @@ Otherwise set status to "failed" with details in error field.
    const failed = finalTasks.filter(t => t.status === 'failed')
    const skipped = finalTasks.filter(t => t.status === 'skipped')
 
-   const contextContent = `# Wave Plan Execution Report
+   const contextContent = `# Lite Planex Execution Report
 
 **Session**: ${sessionId}
 **Requirement**: ${requirement}
@@ -969,7 +969,7 @@ ${[...new Set(finalTasks.flatMap(t => (t.files_modified || '').split(';')).filte
 
    ```javascript
    console.log(`
-## Wave Plan Complete
+## Lite Planex Complete
 
 - **Session**: ${sessionId}
 - **Explore**: ${exploreCSV.filter(r => r.status === 'completed').length}/${exploreCSV.length} angles
@@ -1134,8 +1134,8 @@ All agents across all phases share `discoveries.ndjson`. This eliminates redunda
 
 | Scenario | Recommended Approach |
 |----------|---------------------|
-| Complex feature (unclear architecture) | `$wave-plan-pipeline` — explore first, then plan |
-| Simple known-pattern task | `$csv-wave-pipeline` — skip exploration, direct execution |
-| Independent parallel tasks | `$csv-wave-pipeline -c 8` — single wave, max parallelism |
-| Diamond dependency (A→B,C→D) | `$wave-plan-pipeline` — 3 waves with context propagation |
-| Unknown codebase | `$wave-plan-pipeline` — exploration phase is essential |
+| Complex feature (unclear architecture) | `$workflow-lite-planex` — explore first, then plan |
+| Simple known-pattern task | `$workflow-lite-planex` — skip exploration, direct execution |
+| Independent parallel tasks | `$workflow-lite-planex -c 8` — single wave, max parallelism |
+| Diamond dependency (A→B,C→D) | `$workflow-lite-planex` — 3 waves with context propagation |
+| Unknown codebase | `$workflow-lite-planex` — exploration phase is essential |

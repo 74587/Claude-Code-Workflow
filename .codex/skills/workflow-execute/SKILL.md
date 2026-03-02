@@ -282,6 +282,10 @@ const taskJsons = taskFiles.map(f => {
   const content = Read(f)
   const json = JSON.parse(content)
   json._filePath = f
+  // Fallback: derive id from filename if missing
+  if (!json.id) {
+    json.id = f.split('/').pop().replace('.json', '')
+  }
   return json
 })
 
@@ -860,7 +864,7 @@ let todoMd = Read(`${sessionFolder}/TODO_LIST.md`)
 for (const task of finalTasks) {
   if (task.status === 'completed') {
     // Ensure marked as [x] in TODO_LIST.md
-    const uncheckedPattern = new RegExp(`^(- \\[ \\] ${task.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:.*)$`, 'm')
+    const uncheckedPattern = new RegExp(`^(- \\[ \\] ${task.id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(:.*)?)$`, 'm')
     todoMd = todoMd.replace(uncheckedPattern, (match, line) => line.replace('- [ ]', '- [x]'))
   }
 }
