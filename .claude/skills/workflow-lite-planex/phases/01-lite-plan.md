@@ -18,7 +18,7 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 
 ## Context Isolation
 
-> **⚠️ CRITICAL**: If this phase was invoked from analyze-with-file (via "生成任务"),
+> **⚠️ CRITICAL**: If this phase was invoked from analyze-with-file (via "执行任务"),
 > the analyze-with-file session is **COMPLETE** and all its phase instructions
 > are FINISHED and MUST NOT be referenced.
 > Only follow the LP-Phase 1-5 defined in THIS document (01-lite-plan.md).

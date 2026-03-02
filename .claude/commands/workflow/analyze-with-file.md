@@ -526,7 +526,7 @@ CONSTRAINTS: ${perspective.constraints}
    - **📌 Decision summary**: How key decisions shaped the final conclusions (link conclusions back to decisions)
    - Write to conclusions.json
 
-2. **Final discussion.md Update**
+3. **Final discussion.md Update**
    - Append conclusions section:
      - **Summary**: High-level overview
      - **Key Conclusions**: Ranked with evidence and confidence
@@ -542,33 +542,51 @@ CONSTRAINTS: ${perspective.constraints}
      - **Trade-offs Made**: Key trade-offs and why certain paths were chosen over others
    - Add session statistics: rounds, duration, sources, artifacts, **decision count**
 
-3. **Post-Completion Options** (⚠️ TERMINAL — analyze-with-file ends after user selection)
+4. **Display Conclusions Summary**
+   - Present analysis conclusions to the user before asking for next steps:
+   ```javascript
+   console.log(`
+## Analysis Report
+
+**Summary**: ${conclusions.summary}
+
+**Key Conclusions** (${conclusions.key_conclusions.length}):
+${conclusions.key_conclusions.map((c, i) => `${i+1}. [${c.confidence}] ${c.point}`).join('\n')}
+
+**Recommendations** (${conclusions.recommendations.length}):
+${conclusions.recommendations.map((r, i) => `${i+1}. [${r.priority}] ${r.action} — ${r.rationale}`).join('\n')}
+${conclusions.open_questions.length > 0 ? `\n**Open Questions**:\n${conclusions.open_questions.map(q => '- ' + q).join('\n')}` : ''}
+
+📄 Full report: ${sessionFolder}/discussion.md
+`)
+   ```
+
+5. **Post-Completion Options** (⚠️ TERMINAL — analyze-with-file ends after user selection)
 
    > **WORKFLOW BOUNDARY**: After user selects any option below, the analyze-with-file workflow is **COMPLETE**.
-   > If "生成任务" is selected, workflow-lite-planex takes over exclusively — do NOT return to any analyze-with-file phase.
-   > The "Phase" numbers in workflow-lite-planex (Phase 1-5) are SEPARATE from analyze-with-file phases.
+   > If "执行任务" is selected, workflow-lite-planex takes over exclusively — do NOT return to any analyze-with-file phase.
+   > The "Phase" numbers in workflow-lite-planex (LP-Phase 1-5) are SEPARATE from analyze-with-file phases.
 
    ```javascript
    const hasActionableRecs = conclusions.recommendations?.some(r => r.priority === 'high' || r.priority === 'medium')
 
    const nextStep = AskUserQuestion({
      questions: [{
-       question: "Analysis complete. What's next?",
+       question: "Report generated. What would you like to do next?",
        header: "Next Step",
        multiSelect: false,
        options: [
-         { label: hasActionableRecs ? "生成任务 (Recommended)" : "生成任务", description: "Launch workflow-lite-planex with analysis context" },
-         { label: "创建Issue", description: "Launch issue-discover with conclusions" },
-         { label: "导出报告", description: "Generate standalone analysis report" },
+         { label: hasActionableRecs ? "执行任务 (Recommended)" : "执行任务", description: "Launch workflow-lite-planex to plan & execute" },
+         { label: "产出Issue", description: "Launch issue-discover with conclusions" },
          { label: "完成", description: "No further action" }
        ]
      }]
    })
    ```
 
-   **Handle "生成任务"** (⚠️ TERMINAL — analyze-with-file ends here, lite-plan takes over exclusively):
+   **Handle "执行任务"** (⚠️ TERMINAL — analyze-with-file ends here, lite-plan takes over exclusively):
    ```javascript
-   if (nextStep.includes("生成任务")) {
+   if (nextStep.includes("执行任务")) {
      // 1. Build task description from high/medium priority recommendations
      const taskDescription = conclusions.recommendations
        .filter(r => r.priority === 'high' || r.priority === 'medium')
@@ -784,7 +802,7 @@ User agrees with current direction, wants deeper code analysis
 - Need simple task breakdown
 - Focus on quick execution planning
 
-> **Note**: Phase 4「生成任务」assembles analysis context as inline `## Prior Analysis` block in task description, allowing lite-plan to skip redundant exploration automatically.
+> **Note**: Phase 4「执行任务」assembles analysis context as inline `## Prior Analysis` block in task description, allowing lite-plan to skip redundant exploration automatically.
 
 ---
 
