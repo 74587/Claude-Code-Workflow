@@ -831,14 +831,14 @@ ${selectedMode === 'progressive' ? `**Progressive Mode**:
 
      case 'done':
        // Output paths and end
-       console.log(`
-Roadmap saved: ${sessionFolder}/roadmap.md
-Issues created: ${issueIds.length}
-
-To execute later:
-  $team-planex ${issueIds.slice(0, 3).join(' ')}...
-  ccw issue list --session ${sessionId}
-`)
+       console.log([
+         `Roadmap saved: ${sessionFolder}/roadmap.md`,
+         `Issues created: ${issueIds.length}`,
+         '',
+         'To execute later:',
+         `  $team-planex ${issueIds.slice(0, 3).join(' ')}...`,
+         `  ccw issue list --session ${sessionId}`
+       ].join('\n'))
        break
    }
    ```
@@ -897,3 +897,7 @@ To execute later:
 | Collaborative multi-agent planning | `$collaborative-plan-with-file` |
 | Full specification documents | `$spec-generator` |
 | Code implementation from existing plan | `$workflow-lite-planex` |
+
+---
+
+**Now execute roadmap-with-file for**: $ARGUMENTS
