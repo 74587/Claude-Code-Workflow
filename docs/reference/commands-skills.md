@@ -4,23 +4,6 @@
 
 ---
 
-## Table of Contents
-
-1. [Main Orchestrator Commands](#1-main-orchestrator-commands)
-2. [Workflow Session Commands](#2-workflow-session-commands)
-3. [Issue Workflow Commands](#3-issue-workflow-commands)
-4. [IDAW Commands](#4-idaw-commands)
-5. [With-File Workflows](#5-with-file-workflows)
-6. [Cycle Workflows](#6-cycle-workflows)
-7. [CLI Commands](#7-cli-commands)
-8. [Memory Commands](#8-memory-commands)
-9. [Team Skills](#9-team-skills)
-10. [Workflow Skills](#10-workflow-skills)
-11. [Utility Skills](#11-utility-skills)
-12. [Codex Capabilities](#12-codex-capabilities)
-
----
-
 ## Quick Reference Table
 
 ### Commands Quick Reference

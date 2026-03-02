@@ -267,53 +267,37 @@ export class CliHistoryStore {
       const hasProjectRoot = tableInfo.some(col => col.name === 'project_root');
       const hasRelativePath = tableInfo.some(col => col.name === 'relative_path');
 
+      // Silent migrations - only log warnings/errors
       if (!hasCategory) {
-        console.log('[CLI History] Migrating database: adding category column...');
-        this.db.exec(`
-          ALTER TABLE conversations ADD COLUMN category TEXT DEFAULT 'user';
-        `);
-        // Create index separately to handle potential errors
+        this.db.exec(`ALTER TABLE conversations ADD COLUMN category TEXT DEFAULT 'user';`);
         try {
           this.db.exec(`CREATE INDEX IF NOT EXISTS idx_conversations_category ON conversations(category);`);
         } catch (indexErr) {
           console.warn('[CLI History] Category index creation warning:', (indexErr as Error).message);
         }
-        console.log('[CLI History] Migration complete: category column added');
       }
 
       if (!hasParentExecutionId) {
-        console.log('[CLI History] Migrating database: adding parent_execution_id column...');
-        this.db.exec(`
-          ALTER TABLE conversations ADD COLUMN parent_execution_id TEXT;
-        `);
+        this.db.exec(`ALTER TABLE conversations ADD COLUMN parent_execution_id TEXT;`);
         try {
           this.db.exec(`CREATE INDEX IF NOT EXISTS idx_conversations_parent ON conversations(parent_execution_id);`);
         } catch (indexErr) {
           console.warn('[CLI History] Parent execution index creation warning:', (indexErr as Error).message);
         }
-        console.log('[CLI History] Migration complete: parent_execution_id column added');
       }
 
       // Add hierarchical storage support columns
       if (!hasProjectRoot) {
-        console.log('[CLI History] Migrating database: adding project_root column for hierarchical storage...');
-        this.db.exec(`
-          ALTER TABLE conversations ADD COLUMN project_root TEXT;
-        `);
+        this.db.exec(`ALTER TABLE conversations ADD COLUMN project_root TEXT;`);
         try {
           this.db.exec(`CREATE INDEX IF NOT EXISTS idx_conversations_project_root ON conversations(project_root);`);
         } catch (indexErr) {
           console.warn('[CLI History] Project root index creation warning:', (indexErr as Error).message);
         }
-        console.log('[CLI History] Migration complete: project_root column added');
       }
 
       if (!hasRelativePath) {
-        console.log('[CLI History] Migrating database: adding relative_path column for hierarchical storage...');
-        this.db.exec(`
-          ALTER TABLE conversations ADD COLUMN relative_path TEXT;
-        `);
-        console.log('[CLI History] Migration complete: relative_path column added');
+        this.db.exec(`ALTER TABLE conversations ADD COLUMN relative_path TEXT;`);
       }
 
       // Add missing timestamp index for turns table (for time-based queries)
@@ -324,9 +308,7 @@ export class CliHistoryStore {
         `).get();
 
         if (!indexExists) {
-          console.log('[CLI History] Adding missing timestamp index to turns table...');
           this.db.exec(`CREATE INDEX IF NOT EXISTS idx_turns_timestamp ON turns(timestamp DESC);`);
-          console.log('[CLI History] Migration complete: turns timestamp index added');
         }
       } catch (indexErr) {
         console.warn('[CLI History] Turns timestamp index creation warning:', (indexErr as Error).message);
@@ -353,15 +335,11 @@ export class CliHistoryStore {
         }
       }
 
-      // Batch migration - only output log if there are columns to migrate
+      // Batch migration - silent
       if (missingTurnsColumns.length > 0) {
-        console.log(`[CLI History] Migrating turns table: adding ${missingTurnsColumns.length} columns (${missingTurnsColumns.join(', ')})...`);
-
         for (const col of missingTurnsColumns) {
           this.db.exec(`ALTER TABLE turns ADD COLUMN ${col} ${turnsColumnDefs[col]};`);
         }
-
-        console.log('[CLI History] Migration complete: turns table updated');
       }
 
       // Add transaction_id column to native_session_mapping table for concurrent session disambiguation
@@ -369,16 +347,12 @@ export class CliHistoryStore {
       const hasTransactionId = mappingInfo.some(col => col.name === 'transaction_id');
 
       if (!hasTransactionId) {
-        console.log('[CLI History] Migrating database: adding transaction_id column to native_session_mapping...');
-        this.db.exec(`
-          ALTER TABLE native_session_mapping ADD COLUMN transaction_id TEXT;
-        `);
+        this.db.exec(`ALTER TABLE native_session_mapping ADD COLUMN transaction_id TEXT;`);
         try {
           this.db.exec(`CREATE INDEX IF NOT EXISTS idx_native_transaction_id ON native_session_mapping(transaction_id);`);
         } catch (indexErr) {
           console.warn('[CLI History] Transaction ID index creation warning:', (indexErr as Error).message);
         }
-        console.log('[CLI History] Migration complete: transaction_id column added');
       }
     } catch (err) {
       console.error('[CLI History] Migration error:', (err as Error).message);

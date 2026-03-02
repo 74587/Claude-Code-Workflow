@@ -2,255 +2,180 @@
 
 ## 一句话定位
 
-**高级技巧是提升效率的关键** — CLI 工具链深度使用、多模型协作优化、记忆管理最佳实践。
+**用自然语言驱动 AI 编排工具链** — 语义化 CLI 调用、多模型协作、智能记忆管理。
 
 ---
 
-## 5.1 CLI 工具链使用
+## 5.1 语义化工具调度
 
-### 5.1.1 CLI 配置
+### 5.1.1 核心理念
 
-CLI 工具配置文件：`~/.claude/cli-tools.json`
+CCW 的 CLI 工具是 **AI 自动调用的能力扩展**，用户只需用自然语言描述需求，AI 会自动选择并调用合适的工具。
+
+::: tip 关键理解
+- 用户说："用 Gemini 分析这段代码"
+- AI 自动：调用 Gemini CLI + 应用分析规则 + 返回结果
+- 用户无需关心 `ccw cli` 命令细节
+:::
+
+### 5.1.2 可用工具与能力
+
+| 工具 | 擅长领域 | 典型触发词 |
+| --- | --- | --- |
+| **Gemini** | 深度分析、架构设计、Bug 诊断 | "用 Gemini 分析"、"深度理解" |
+| **Qwen** | 代码生成、功能实现 | "让 Qwen 实现"、"代码生成" |
+| **Codex** | 代码审查、Git 操作 | "用 Codex 审查"、"代码评审" |
+| **OpenCode** | 开源多模型 | "用 OpenCode" |
+
+### 5.1.3 语义触发示例
+
+只需在对话中自然表达，AI 会自动调用对应工具：
+
+| 目标 | 用户语义描述 | AI 自动执行 |
+| :--- | :--- | :--- |
+| **安全评估** | "用 Gemini 扫描认证模块的安全漏洞" | Gemini + 安全分析规则 |
+| **代码实现** | "让 Qwen 帮我实现一个速率限制中间件" | Qwen + 功能实现规则 |
+| **代码审查** | "用 Codex 审查这个 PR 的改动" | Codex + 审查规则 |
+| **Bug 诊断** | "用 Gemini 分析这个内存泄漏的根因" | Gemini + 诊断规则 |
+
+### 5.1.4 底层配置（可选了解）
+
+AI 调用工具的配置文件位于 `~/.claude/cli-tools.json`：
 
 ```json
 {
-  "version": "3.3.0",
   "tools": {
     "gemini": {
       "enabled": true,
       "primaryModel": "gemini-2.5-flash",
-      "secondaryModel": "gemini-2.5-flash",
-      "tags": ["分析", "Debug"],
-      "type": "builtin"
+      "tags": ["分析", "Debug"]
     },
     "qwen": {
       "enabled": true,
       "primaryModel": "coder-model",
-      "secondaryModel": "coder-model",
-      "tags": [],
-      "type": "builtin"
-    },
-    "codex": {
-      "enabled": true,
-      "primaryModel": "gpt-5.2",
-      "secondaryModel": "gpt-5.2",
-      "tags": [],
-      "type": "builtin"
+      "tags": ["实现"]
     }
   }
 }
 ```
 
-### 5.1.2 标签路由
-
-根据任务类型自动选择模型：
-
-| 标签 | 适用模型 | 任务类型 |
-| --- | --- | --- |
-| **分析** | Gemini | 代码分析、架构设计 |
-| **Debug** | Gemini | 根因分析、问题诊断 |
-| **实现** | Qwen | 功能开发、代码生成 |
-| **审查** | Codex | 代码审查、Git 操作 |
-
-### 5.1.3 CLI 命令模板
-
-#### 分析任务
-
-```bash
-ccw cli -p "PURPOSE: 识别安全漏洞
-TASK: • 扫描 SQL 注入 • 检查 XSS • 验证 CSRF
-MODE: analysis
-CONTEXT: @src/auth/**/*
-EXPECTED: 安全报告，含严重性分级和修复建议
-CONSTRAINTS: 聚焦认证模块" --tool gemini --mode analysis --rule analysis-assess-security-risks
-```
-
-#### 实现任务
-
-```bash
-ccw cli -p "PURPOSE: 实现速率限制
-TASK: • 创建中间件 • 配置路由 • Redis 后端
-MODE: write
-CONTEXT: @src/middleware/**/* @src/config/**/*
-EXPECTED: 生产代码 + 单元测试 + 集成测试
-CONSTRAINTS: 遵循现有中间件模式" --tool qwen --mode write --rule development-implement-feature
-```
-
-### 5.1.4 规则模板
-
-| 规则 | 用途 |
-| --- | --- |
-| **analysis-diagnose-bug-root-cause** | Bug 根因分析 |
-| **analysis-analyze-code-patterns** | 代码模式分析 |
-| **analysis-review-architecture** | 架构审查 |
-| **analysis-assess-security-risks** | 安全评估 |
-| **development-implement-feature** | 功能实现 |
-| **development-refactor-codebase** | 代码重构 |
-| **development-generate-tests** | 测试生成 |
+::: info 说明
+标签（tags）帮助 AI 根据任务类型自动选择最合适的工具。用户通常无需修改此配置。
+:::
 
 ---
 
 ## 5.2 多模型协作
 
-### 5.2.1 模型选择指南
+### 5.2.1 协作模式
 
-| 任务 | 推荐模型 | 理由 |
+通过语义描述，可以让多个 AI 模型协同工作：
+
+| 模式 | 描述方式 | 适用场景 |
 | --- | --- | --- |
-| **代码分析** | Gemini | 擅长深度代码理解和模式识别 |
+| **协作型** | "让 Gemini 和 Codex 共同分析架构问题" | 多角度分析同一问题 |
+| **流水线型** | "Gemini 设计方案，Qwen 实现，Codex 审查" | 分阶段完成复杂任务 |
+| **迭代型** | "用 Gemini 诊断问题，Codex 修复，迭代直到通过测试" | Bug 修复循环 |
+| **并行型** | "让 Gemini 和 Qwen 分别给出优化建议" | 对比不同方案 |
+
+### 5.2.2 语义示例
+
+**协作分析**
+```
+用户：让 Gemini 和 Codex 共同分析 src/auth 模块的安全性和性能问题
+AI：[自动调用两个模型，综合分析结果]
+```
+
+**流水线开发**
+```
+用户：我需要实现一个 WebSocket 实时通知功能。
+      请 Gemini 设计架构，Qwen 实现代码，最后用 Codex 审查。
+AI：[依次调用三个模型，完成设计→实现→审查流程]
+```
+
+**迭代修复**
+```
+用户：测试失败了，用 Gemini 诊断原因，让 Qwen 修复，循环直到测试通过。
+AI：[自动迭代诊断-修复流程，直到问题解决]
+```
+
+### 5.2.3 模型选择建议
+
+| 任务类型 | 推荐模型 | 理由 |
+| --- | --- | --- |
+| **架构分析** | Gemini | 擅长深度理解和模式识别 |
 | **Bug 诊断** | Gemini | 强大的根因分析能力 |
-| **功能开发** | Qwen | 代码生成效率高 |
-| **代码审查** | Codex (GPT) | Git 集成好，审查格式标准 |
-| **长文本** | Claude | 上下文窗口大 |
-
-### 5.2.2 协作模式
-
-#### 串行协作
-
-```bash
-# 步骤 1: Gemini 分析
-ccw cli -p "分析代码架构" --tool gemini --mode analysis
-
-# 步骤 2: Qwen 实现
-ccw cli -p "基于分析结果实现功能" --tool qwen --mode write
-
-# 步骤 3: Codex 审查
-ccw cli -p "审查实现代码" --tool codex --mode review
-```
-
-#### 并行协作
-
-使用 `--tool gemini` 和 `--tool qwen` 同时分析同一问题：
-
-```bash
-# 终端 1
-ccw cli -p "从性能角度分析" --tool gemini --mode analysis &
-
-# 终端 2
-ccw cli -p "从安全角度分析" --tool codex --mode analysis &
-```
-
-### 5.2.3 会话恢复
-
-跨模型会话恢复：
-
-```bash
-# 第一次调用
-ccw cli -p "分析认证模块" --tool gemini --mode analysis
-
-# 恢复会话继续
-ccw cli -p "基于上次分析，设计改进方案" --tool qwen --mode write --resume
-```
+| **代码生成** | Qwen | 代码生成效率高 |
+| **代码审查** | Codex | Git 集成好，审查格式标准 |
+| **长文本处理** | Claude | 上下文窗口大 |
 
 ---
 
-## 5.3 Memory 管理
+## 5.3 智能记忆管理
 
-### 5.3.1 Memory 分类
+### 5.3.1 记忆系统概述
 
-| 分类 | 用途 | 示例内容 |
+CCW 的记忆系统是 **AI 自主管理** 的知识库，包括：
+
+| 分类 | 用途 | 示例 |
 | --- | --- | --- |
-| **learnings** | 学习心得 | 新技术使用经验 |
-| **decisions** | 架构决策 | 技术选型理由 |
-| **conventions** | 编码规范 | 命名约定、模式 |
-| **issues** | 已知问题 | Bug、限制、TODO |
+| **learnings** | 学习心得 | 新技术使用经验、最佳实践 |
+| **decisions** | 架构决策 | 技术选型理由、设计权衡 |
+| **conventions** | 编码规范 | 命名约定、代码风格 |
+| **issues** | 已知问题 | Bug 记录、限制说明 |
 
-### 5.3.2 Memory 命令
+### 5.3.2 记忆的自动使用
 
-| 命令 | 功能 | 示例 |
-| --- | --- | --- |
-| **list** | 列出所有记忆 | `ccw memory list` |
-| **search** | 搜索记忆 | `ccw memory search "认证"` |
-| **export** | 导出记忆 | `ccw memory export <id>` |
-| **import** | 导入记忆 | `ccw memory import "..."` |
-| **embed** | 生成嵌入 | `ccw memory embed <id>` |
+AI 在执行任务时会自动检索和应用相关记忆：
 
-### 5.3.3 Memory 最佳实践
-
-::: tip 提示
-- **定期整理**: 每周整理一次 Memory，删除过时内容
-- **结构化**: 使用标准格式，便于搜索和复用
-- **上下文**: 记录决策背景，不只是结论
-- **链接**: 相关内容互相引用
-:::
-
-### 5.3.4 Memory 模板
-
-```markdown
-## 标题
-### 背景
-- **问题**: ...
-- **影响**: ...
-
-### 决策
-- **方案**: ...
-- **理由**: ...
-
-### 结果
-- **效果**: ...
-- **经验**: ...
-
-### 相关
-- [相关记忆 1](memory-id-1)
-- [相关文档](link)
 ```
+用户：帮我实现用户认证模块
+AI：[自动检索记忆中的认证相关 decisions 和 conventions]
+    根据之前的技术决策，我们使用 JWT + bcrypt 方案...
+```
+
+### 5.3.3 用户如何引导记忆
+
+虽然 AI 自动管理记忆，但用户可以主动强化：
+
+**明确要求记住**
+```
+用户：记住这个命名规范：所有 API 路由使用 kebab-case
+AI：[将此规范存入 conventions 记忆]
+```
+
+**要求回顾决策**
+```
+用户：我们之前为什么选择 Redis 做缓存？
+AI：[检索 decisions 记忆并回答]
+```
+
+**纠正错误记忆**
+```
+用户：之前的决定改了，我们现在用 PostgreSQL 代替 MongoDB
+AI：[更新相关 decision 记忆]
+```
+
+### 5.3.4 记忆文件位置
+
+- **全局记忆**: `~/.claude/projects/{project-name}/memory/`
+- **项目记忆**: `.claude/memory/` 或 `MEMORY.md`
 
 ---
 
-## 5.4 CodexLens 高级用法
+## 5.4 Hook 自动化
 
-### 5.4.1 混合搜索
+### 5.4.1 Hook 概念
 
-结合向量搜索和关键词搜索：
-
-```bash
-# 纯向量搜索
-ccw search --mode vector "用户认证"
-
-# 混合搜索（默认）
-ccw search --mode hybrid "用户认证"
-
-# 纯关键词搜索
-ccw search --mode keyword "authenticate"
-```
-
-### 5.4.2 调用链追踪
-
-追踪函数的完整调用链：
-
-```bash
-# 向上追踪（谁调用了我）
-ccw search --trace-up "authenticateUser"
-
-# 向下追踪（我调用了谁）
-ccw search --trace-down "authenticateUser"
-
-# 完整调用链
-ccw search --trace-full "authenticateUser"
-```
-
-### 5.4.3 语义搜索技巧
-
-| 技巧 | 示例 | 效果 |
-| --- | --- | --- |
-| **功能描述** | "处理用户登录" | 找到登录相关代码 |
-| **问题描述** | "内存泄漏的地方" | 找到潜在问题 |
-| **模式描述** | "单例模式的实现" | 找到设计模式 |
-| **技术描述** | "使用 React Hooks" | 找到相关用法 |
-
----
-
-## 5.5 Hook 自动注入
-
-### 5.5.1 Hook 类型
+Hook 是 AI 执行任务前后的自动化流程，用户无需手动触发：
 
 | Hook 类型 | 触发时机 | 用途 |
 | --- | --- | --- |
-| **pre-command** | 命令执行前 | 注入规范、加载上下文 |
-| **post-command** | 命令执行后 | 保存 Memory、更新状态 |
+| **pre-command** | AI 思考前 | 加载项目规范、检索记忆 |
+| **post-command** | AI 完成后 | 保存决策、更新索引 |
 | **pre-commit** | Git 提交前 | 代码审查、规范检查 |
-| **file-change** | 文件变更时 | 自动格式化、更新索引 |
 
-### 5.5.2 Hook 配置
+### 5.4.2 配置示例
 
 在 `.claude/hooks.json` 中配置：
 
@@ -258,19 +183,14 @@ ccw search --trace-full "authenticateUser"
 {
   "pre-command": [
     {
-      "name": "inject-specs",
-      "description": "注入项目规范",
+      "name": "load-project-specs",
+      "description": "加载项目规范",
       "command": "cat .workflow/specs/project-constraints.md"
-    },
-    {
-      "name": "load-memory",
-      "description": "加载相关 Memory",
-      "command": "ccw memory search \"{query}\""
     }
   ],
   "post-command": [
     {
-      "name": "save-memory",
+      "name": "save-decisions",
       "description": "保存重要决策",
       "command": "ccw memory import \"{content}\""
     }
@@ -280,49 +200,54 @@ ccw search --trace-full "authenticateUser"
 
 ---
 
-## 5.6 性能优化
+## 5.5 ACE 语义搜索
 
-### 5.6.1 索引优化
+### 5.5.1 什么是 ACE
 
-| 优化项 | 说明 |
+ACE (Augment Context Engine) 是 AI 的 **代码感知能力**，让 AI 能理解整个代码库的语义。
+
+### 5.5.2 AI 如何使用 ACE
+
+当用户提问时，AI 会自动使用 ACE 搜索相关代码：
+
+```
+用户：认证流程是怎么实现的？
+AI：[通过 ACE 语义搜索 auth 相关代码]
+    根据代码分析，认证流程是...
+```
+
+### 5.5.3 配置参考
+
+| 配置方式 | 链接 |
 | --- | --- |
-| **增量索引** | 只索引变更文件 |
-| **并行索引** | 多进程并行处理 |
-| **缓存策略** | 向量嵌入缓存 |
-
-### 5.6.2 搜索优化
-
-| 优化项 | 说明 |
-| --- | --- |
-| **结果缓存** | 相同查询返回缓存 |
-| **分页加载** | 大结果集分页返回 |
-| **智能去重** | 相似结果自动去重 |
+| **官方文档** | [Augment MCP Documentation](https://docs.augmentcode.com/context-services/mcp/overview) |
+| **代理工具** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
 
 ---
 
-## 5.7 快速参考
+## 5.6 语义提示速查
 
-### CLI 命令速查
+### 常用语义模式
 
-| 命令 | 功能 |
+| 目标 | 语义描述示例 |
 | --- | --- |
-| `ccw cli -p "..." --tool gemini --mode analysis` | 分析任务 |
-| `ccw cli -p "..." --tool qwen --mode write` | 实现任务 |
-| `ccw cli -p "..." --tool codex --mode review` | 审查任务 |
-| `ccw memory list` | 列出记忆 |
-| `ccw memory search "..."` | 搜索记忆 |
-| `ccw search "..."` | 语义搜索 |
-| `ccw search --trace "..."` | 调用链追踪 |
+| **分析代码** | "用 Gemini 分析 src/auth 的架构设计" |
+| **安全审计** | "用 Gemini 扫描安全漏洞，重点关注 OWASP Top 10" |
+| **实现功能** | "让 Qwen 实现一个带缓存的用户仓库" |
+| **代码审查** | "用 Codex 审查最近的改动" |
+| **Bug 诊断** | "用 Gemini 分析这个内存泄漏的根因" |
+| **多模型协作** | "Gemini 设计方案，Qwen 实现，Codex 审查" |
+| **记住规范** | "记住：所有 API 使用 RESTful 风格" |
+| **回顾决策** | "我们之前为什么选择这个技术栈？" |
 
-### 规则模板速查
+### 协作模式速查
 
-| 规则 | 用途 |
+| 模式 | 语义示例 |
 | --- | --- |
-| `analysis-diagnose-bug-root-cause` | Bug 分析 |
-| `analysis-assess-security-risks` | 安全评估 |
-| `development-implement-feature` | 功能实现 |
-| `development-refactor-codebase` | 代码重构 |
-| `development-generate-tests` | 测试生成 |
+| **协作** | "让 Gemini 和 Codex 共同分析..." |
+| **流水线** | "Gemini 设计，Qwen 实现，Codex 审查" |
+| **迭代** | "诊断并修复，直到测试通过" |
+| **并行** | "让多个模型分别给出建议" |
 
 ---
 

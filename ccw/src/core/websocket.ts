@@ -67,12 +67,8 @@ const THROTTLE_CONFIG = new Map<string, { interval: number; category: ThrottleCa
     ['COORDINATOR_QUESTION_ASKED', { interval: 0, category: 'immediate' }],
     ['COORDINATOR_ANSWER_RECEIVED', { interval: 0, category: 'immediate' }],
     ['LOOP_COMPLETED', { interval: 0, category: 'immediate' }],
-    ['LOOP_COMPLETED' as any, { interval: 0, category: 'immediate' }],
-  ].filter(([key]) => key !== 'LOOP_COMPLETED' as any)
+  ] as const
 );
-
-// Add LOOP_COMPLETED separately to avoid type issues
-THROTTLE_CONFIG.set('LOOP_COMPLETED', { interval: 0, category: 'immediate' });
 
 /** Per-message-type throttle tracking */
 const throttleState = new Map<string, ThrottleEntry>();
@@ -561,36 +557,6 @@ export function parseWebSocketFrame(buffer: Buffer): { opcode: number; payload: 
   }
 
   return { opcode, payload: payload.toString('utf8'), frameLength };
-}
-
-/**
- * Create WebSocket frame
- */
-export function createWebSocketFrame(data: unknown): Buffer {
-  const payload = Buffer.from(JSON.stringify(data), 'utf8');
-  const length = payload.length;
-
-  let frame;
-  if (length <= 125) {
-    frame = Buffer.alloc(2 + length);
-    frame[0] = 0x81; // Text frame, FIN
-    frame[1] = length;
-    payload.copy(frame, 2);
-  } else if (length <= 65535) {
-    frame = Buffer.alloc(4 + length);
-    frame[0] = 0x81;
-    frame[1] = 126;
-    frame.writeUInt16BE(length, 2);
-    payload.copy(frame, 4);
-  } else {
-    frame = Buffer.alloc(10 + length);
-    frame[0] = 0x81;
-    frame[1] = 127;
-    frame.writeBigUInt64BE(BigInt(length), 2);
-    payload.copy(frame, 10);
-  }
-
-  return frame;
 }
 
 /**

@@ -13,27 +13,78 @@
 | **协作流程割裂** | 团队成员各自为战 | 统一消息总线、共享状态、进度同步 |
 | **资源浪费** | 重复上下文加载 | Wisdom 累积、探索缓存、产物复用 |
 
-## Skills 列表
+---
 
-| Skill | 功能 | 触发方式 |
+## Skills 总览
+
+| Skill | 功能 | 适用场景 |
 | --- | --- | --- |
-| `team-coordinate` | 通用团队协调器（动态角色生成） | `/team-coordinate` |
-| `team-lifecycle-v5` | 全生命周期团队（规范→实现→测试→审查） | `/team-lifecycle` |
-| `team-planex` | 规划-执行流水线（边规划边执行） | `/team-planex` |
-| `team-review` | 代码审查团队（扫描→审查→修复） | `/team-review` |
-| `team-testing` | 测试团队（策略→生成→执行→分析） | `/team-testing` |
+| `team-coordinate-v2` | 通用团队协调器（动态角色生成） | 任意复杂任务 |
+| `team-lifecycle-v5` | 全生命周期团队（规范→实现→测试） | 完整功能开发 |
+| `team-planex` | 规划-执行流水线 | Issue 批处理 |
+| `team-review` | 代码审查团队 | 代码审查、漏洞扫描 |
+| `team-testing` | 测试团队 | 测试覆盖、用例生成 |
+| `team-arch-opt` | 架构优化团队 | 重构、架构分析 |
+| `team-perf-opt` | 性能优化团队 | 性能调优、瓶颈分析 |
+| `team-brainstorm` | 头脑风暴团队 | 多角度分析、创意生成 |
+| `team-frontend` | 前端开发团队 | UI 开发、设计系统 |
+| `team-uidesign` | UI 设计团队 | 设计系统、组件规范 |
+| `team-issue` | Issue 处理团队 | Issue 分析、实现 |
+| `team-iterdev` | 迭代开发团队 | 增量交付、敏捷开发 |
+| `team-quality-assurance` | 质量保证团队 | 质量扫描、缺陷管理 |
+| `team-roadmap-dev` | 路线图开发团队 | 分阶段开发、里程碑 |
+| `team-tech-debt` | 技术债务团队 | 债务清理、代码治理 |
+| `team-ultra-analyze` | 深度分析团队 | 复杂问题分析、协作探索 |
+| `team-executor-v2` | 轻量执行器 | 会话恢复、纯执行 |
+
+---
+
+## 核心架构
+
+所有 Team Skills 共享统一的 **team-worker agent 架构**：
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  Skill(skill="team-xxx", args="任务描述")                 │
+└────────────────────────┬─────────────────────────────────┘
+                         │ Role Router
+              ┌──── --role present? ────┐
+              │ NO                      │ YES
+              ↓                         ↓
+       Orchestration Mode         Role Dispatch
+       (auto → coordinator)      (route to role.md)
+              │
+    ┌─────────┴─────────┬───────────────┬──────────────┐
+    ↓                   ↓               ↓              ↓
+┌────────┐         ┌────────┐      ┌────────┐     ┌────────┐
+│ coord  │         │worker 1│      │worker 2│     │worker N│
+│ (编排) │         │(执行)  │      │(执行)  │     │(执行)  │
+└────────┘         └────────┘      └────────┘     └────────┘
+    │                   │               │              │
+    └───────────────────┴───────────────┴──────────────┘
+                         │
+              Message Bus (消息总线)
+```
+
+**核心组件**:
+- **Coordinator**: 内置编排器，负责任务分析、派发、监控
+- **Team-Worker Agent**: 统一代理，加载 role-spec 执行角色逻辑
+- **Role Router**: `--role=xxx` 参数路由到角色执行
+- **Message Bus**: 团队成员间通信协议
+- **Shared Memory**: 跨任务知识累积 (Wisdom)
+
+---
 
 ## Skills 详解
 
-### team-coordinate
+### team-coordinate-v2
 
 **一句话定位**: 通用团队协调器 — 根据任务分析动态生成角色并编排执行
 
 **触发**:
-```
-/team-coordinate <task-description>
-/team-coordinate --role=coordinator <task>
-/team-coordinate --role=<worker> --session=<path>
+```bash
+team-coordinate <task-description>
+team-coordinate --role=coordinator <task>
 ```
 
 **功能**:
@@ -41,17 +92,6 @@
 - 支持内循环角色（处理多个同前缀任务）
 - Fast-Advance 机制跳过协调器直接派生后继任务
 - Wisdom 累积跨任务知识
-
-**角色注册表**:
-| 角色 | 文件 | 任务前缀 | 类型 |
-|------|------|----------|------|
-| coordinator | roles/coordinator/role.md | (无) | 编排器 |
-| (动态) | `<session>/roles/<role>.md` | (动态) | 工作者 |
-
-**流水线**:
-```
-任务分析 → 生成角色 → 初始化会话 → 创建任务链 → 派生首批工作者 → 循环推进 → 完成报告
-```
 
 **会话目录**:
 ```
@@ -61,8 +101,6 @@
 ├── roles/                      # 动态角色定义
 ├── artifacts/                  # 所有 MD 交付产物
 ├── wisdom/                     # 跨任务知识
-├── explorations/               # 共享探索缓存
-├── discussions/                # 内联讨论记录
 └── .msg/                       # 团队消息总线日志
 ```
 
@@ -73,8 +111,8 @@
 **一句话定位**: 全生命周期团队 — 从规范到实现到测试到审查的完整流水线
 
 **触发**:
-```
-/team-lifecycle <task-description>
+```bash
+team-lifecycle <task-description>
 ```
 
 **功能**:
@@ -92,164 +130,67 @@
 | executor | role-specs/executor.md | IMPL-* | true |
 | tester | role-specs/tester.md | TEST-* | false |
 | reviewer | role-specs/reviewer.md | REVIEW-* | false |
-| architect | role-specs/architect.md | ARCH-* | false |
-| fe-developer | role-specs/fe-developer.md | DEV-FE-* | false |
-| fe-qa | role-specs/fe-qa.md | QA-FE-* | false |
 
 **流水线定义**:
 ```
-规范流水线 (6 任务):
-  RESEARCH-001 → DRAFT-001 → DRAFT-002 → DRAFT-003 → DRAFT-004 → QUALITY-001
-
-实现流水线 (4 任务):
-  PLAN-001 → IMPL-001 → TEST-001 + REVIEW-001
-
-全生命周期 (10 任务):
-  [规范流水线] → PLAN-001 → IMPL-001 → TEST-001 + REVIEW-001
-
-前端流水线:
-  PLAN-001 → DEV-FE-001 → QA-FE-001 (GC 循环，最多 2 轮)
+规范流水线:  RESEARCH → DRAFT → QUALITY
+实现流水线:  PLAN → IMPL → TEST + REVIEW
+全生命周期:  [规范流水线] → [实现流水线]
 ```
-
-**质量关卡** (QUALITY-001 完成后):
-```
-═════════════════════════════════════════
-SPEC PHASE COMPLETE
-Quality Gate: <PASS|REVIEW|FAIL> (<score>%)
-
-Dimension Scores:
-  Completeness:  <bar> <n>%
-  Consistency:   <bar> <n>%
-  Traceability:  <bar> <n>%
-  Depth:         <bar> <n>%
-  Coverage:      <bar> <n>%
-
-Available Actions:
-  resume              -> Proceed to implementation
-  improve             -> Auto-improve weakest dimension
-  improve <dimension> -> Improve specific dimension
-  revise <TASK-ID>    -> Revise specific document
-  recheck             -> Re-run quality check
-  feedback <text>     -> Inject feedback, create revision
-═════════════════════════════════════════
-```
-
-**用户命令** (唤醒暂停的协调器):
-| 命令 | 动作 |
-|------|------|
-| `check` / `status` | 输出执行状态图，不推进 |
-| `resume` / `continue` | 检查工作者状态，推进下一步 |
-| `revise <TASK-ID> [feedback]` | 创建修订任务 + 级联下游 |
-| `feedback <text>` | 分析反馈影响，创建定向修订链 |
-| `recheck` | 重新运行 QUALITY-001 质量检查 |
-| `improve [dimension]` | 自动改进 readiness-report 中最弱维度 |
 
 ---
 
 ### team-planex
 
-**一句话定位**: 边规划边执行团队 — 通过逐 Issue 节拍流水线实现 planner 和 executor 并行工作
+**一句话定位**: 边规划边执行团队 — 逐 Issue 节拍流水线
 
 **触发**:
-```
-/team-planex <task-description>
-/team-planex --role=planner <input>
-/team-planex --role=executor --input <solution-file>
+```bash
+team-planex <task-description>
+team-planex --role=planner <input>
+team-planex --role=executor --input <solution-file>
 ```
 
 **功能**:
 - 2 成员团队（planner + executor），planner 担任 lead 角色
-- 逐 Issue 节拍：planner 每完成一个 issue 的 solution 后立即创建 EXEC-* 任务
+- 逐 Issue 节拍：planner 完成后立即创建 EXEC-* 任务
 - Solution 写入中间产物文件，executor 从文件加载
-- 支持多种执行后端（agent/codex/gemini）
 
-**角色注册表**:
-| 角色 | 文件 | 任务前缀 | 类型 |
-|------|------|----------|------|
-| planner | roles/planner.md | PLAN-* | pipeline (lead) |
-| executor | roles/executor.md | EXEC-* | pipeline |
-
-**输入类型**:
-| 输入类型 | 格式 | 示例 |
-|----------|------|------|
-| Issue IDs | 直接传入 ID | `--role=planner ISS-20260215-001 ISS-20260215-002` |
-| 需求文本 | `--text '...'` | `--role=planner --text '实现用户认证模块'` |
-| Plan 文件 | `--plan path` | `--role=planner --plan plan/2026-02-15-auth.md` |
-
-**Wave Pipeline** (逐 Issue 节拍):
+**Wave Pipeline**:
 ```
-Issue 1:  planner 规划 solution → 写中间产物 → 冲突检查 → 创建 EXEC-* → issue_ready
-                ↓ (executor 立即开始)
-Issue 2:  planner 规划 solution → 写中间产物 → 冲突检查 → 创建 EXEC-* → issue_ready
-                ↓ (executor 并行消费)
-Issue N:  ...
-Final:    planner 发送 all_planned → executor 完成剩余 EXEC-* → 结束
+Issue 1:  planner 规划 → 写产物 → 创建 EXEC-* → executor 执行
+Issue 2:  planner 规划 → 写产物 → 创建 EXEC-* → executor 并行消费
+Final:    planner 发送 all_planned → executor 完成剩余 → 结束
 ```
-
-**执行方法选择**:
-| 执行器 | 后端 | 适用场景 |
-|--------|------|----------|
-| `agent` | code-developer subagent | 简单任务、同步执行 |
-| `codex` | `ccw cli --tool codex --mode write` | 复杂任务、后台执行 |
-| `gemini` | `ccw cli --tool gemini --mode write` | 分析类任务、后台执行 |
-
-**用户命令**:
-| 命令 | 动作 |
-|------|------|
-| `check` / `status` | 输出执行状态图，不推进 |
-| `resume` / `continue` | 检查工作者状态，推进下一步 |
-| `add <issue-ids or --text '...' or --plan path>` | 追加新任务到 planner 队列 |
 
 ---
 
 ### team-review
 
-**一句话定位**: 代码审查团队 — 统一的代码扫描、漏洞审查、优化建议和自动修复
+**一句话定位**: 代码审查团队 — 统一的代码扫描、漏洞审查、自动修复
 
 **触发**:
+```bash
+team-review <target-path>
+team-review --full <target-path>      # scan + review + fix
+team-review --fix <review-files>      # fix only
+team-review -q <target-path>          # quick scan only
 ```
-/team-review <target-path>
-/team-review --full <target-path>      # scan + review + fix
-/team-review --fix <review-files>      # fix only
-/team-review -q <target-path>          # quick scan only
-```
-
-**功能**:
-- 4 角色团队（coordinator, scanner, reviewer, fixer）
-- 多维度审查：安全性、正确性、性能、可维护性
-- 自动修复循环（审查 → 修复 → 验证）
 
 **角色注册表**:
-| 角色 | 文件 | 任务前缀 | 类型 |
-|------|------|----------|------|
-| coordinator | roles/coordinator/role.md | RC-* | 编排器 |
-| scanner | roles/scanner/role.md | SCAN-* | 只读分析 |
-| reviewer | roles/reviewer/role.md | REV-* | 只读分析 |
-| fixer | roles/fixer/role.md | FIX-* | 代码生成 |
+| 角色 | 任务前缀 | 类型 |
+|------|----------|------|
+| coordinator | RC-* | 编排器 |
+| scanner | SCAN-* | 只读分析 |
+| reviewer | REV-* | 只读分析 |
+| fixer | FIX-* | 代码生成 |
 
-**流水线** (CP-1 Linear):
+**流水线**:
 ```
-coordinator dispatch
-  → SCAN-* (scanner: 工具链 + LLM 扫描)
-  → REV-*  (reviewer: 深度分析 + 报告)
-  → [用户确认]
-  → FIX-*  (fixer: 规划 + 执行 + 验证)
+SCAN-* (扫描) → REV-* (审查) → [用户确认] → FIX-* (修复)
 ```
 
-**检查点**:
-| 触发 | 位置 | 行为 |
-|------|------|------|
-| Review→Fix 过渡 | REV-* 完成 | 暂停，展示审查报告，等待用户 `resume` 确认修复 |
-| 快速模式 (`-q`) | SCAN-* 后 | 流水线在扫描后结束，无审查/修复 |
-| 仅修复模式 (`--fix`) | 入口 | 跳过扫描/审查，直接进入 fixer |
-
-**审查维度**:
-| 维度 | 检查点 |
-|------|--------|
-| 安全性 (sec) | 注入漏洞、敏感信息泄露、权限控制 |
-| 正确性 (cor) | 边界条件、错误处理、类型安全 |
-| 性能 (perf) | 算法复杂度、I/O 优化、资源使用 |
-| 可维护性 (maint) | 代码结构、命名规范、注释质量 |
+**审查维度**: 安全性、正确性、性能、可维护性
 
 ---
 
@@ -258,75 +199,318 @@ coordinator dispatch
 **一句话定位**: 测试团队 — 通过 Generator-Critic 循环实现渐进式测试覆盖
 
 **触发**:
+```bash
+team-testing <task-description>
 ```
-/team-testing <task-description>
-```
-
-**功能**:
-- 5 角色团队（coordinator, strategist, generator, executor, analyst）
-- 三种流水线：Targeted、Standard、Comprehensive
-- Generator-Critic 循环自动改进测试覆盖率
 
 **角色注册表**:
-| 角色 | 文件 | 任务前缀 | 类型 |
-|------|------|----------|------|
-| coordinator | roles/coordinator.md | (无) | 编排器 |
-| strategist | roles/strategist.md | STRATEGY-* | pipeline |
-| generator | roles/generator.md | TESTGEN-* | pipeline |
-| executor | roles/executor.md | TESTRUN-* | pipeline |
-| analyst | roles/analyst.md | TESTANA-* | pipeline |
+| 角色 | 任务前缀 | 类型 |
+|------|----------|------|
+| coordinator | (无) | 编排器 |
+| strategist | STRATEGY-* | pipeline |
+| generator | TESTGEN-* | pipeline |
+| executor | TESTRUN-* | pipeline |
+| analyst | TESTANA-* | pipeline |
 
 **三种流水线**:
 ```
-Targeted (小范围变更):
-  STRATEGY-001 → TESTGEN-001(L1 unit) → TESTRUN-001
-
-Standard (渐进式):
-  STRATEGY-001 → TESTGEN-001(L1) → TESTRUN-001(L1) → TESTGEN-002(L2) → TESTRUN-002(L2) → TESTANA-001
-
-Comprehensive (完整覆盖):
-  STRATEGY-001 → [TESTGEN-001(L1) + TESTGEN-002(L2)](并行) → [TESTRUN-001(L1) + TESTRUN-002(L2)](并行) → TESTGEN-003(L3) → TESTRUN-003(L3) → TESTANA-001
+Targeted:   STRATEGY → TESTGEN(L1) → TESTRUN
+Standard:   STRATEGY → TESTGEN(L1) → TESTRUN → TESTGEN(L2) → TESTRUN → TESTANA
+Comprehensive: STRATEGY → [TESTGEN(L1+L2) 并行] → [TESTRUN 并行] → TESTGEN(L3) → TESTRUN → TESTANA
 ```
 
-**Generator-Critic 循环**:
-```
-TESTGEN → TESTRUN → (如果覆盖率 < 目标) → TESTGEN-fix → TESTRUN-2
-                     (如果覆盖率 >= 目标) → 下一层或 TESTANA
+**测试层**: L1: Unit (80%) → L2: Integration (60%) → L3: E2E (40%)
+
+---
+
+### team-arch-opt
+
+**一句话定位**: 架构优化团队 — 分析架构问题、设计重构策略、实施改进
+
+**触发**:
+```bash
+team-arch-opt <task-description>
 ```
 
-**测试层定义**:
-| 层级 | 覆盖目标 | 示例 |
+**角色注册表**:
+| 角色 | 任务前缀 | 功能 |
 |------|----------|------|
-| L1: Unit | 80% | 单元测试、函数级测试 |
-| L2: Integration | 60% | 集成测试、模块间交互 |
-| L3: E2E | 40% | 端到端测试、用户场景 |
+| coordinator | (无) | 编排器 |
+| analyzer | ANALYZE-* | 架构分析 |
+| designer | DESIGN-* | 重构设计 |
+| refactorer | REFACT-* | 实施重构 |
+| validator | VALID-* | 验证改进 |
+| reviewer | REVIEW-* | 代码审查 |
 
-**共享内存** (shared-memory.json):
-| 角色 | 字段 |
+**检测范围**: 依赖循环、耦合/内聚、分层违规、上帝类、死代码
+
+---
+
+### team-perf-opt
+
+**一句话定位**: 性能优化团队 — 性能分析、瓶颈识别、优化实施
+
+**触发**:
+```bash
+team-perf-opt <task-description>
+```
+
+**角色注册表**:
+| 角色 | 任务前缀 | 功能 |
+|------|----------|------|
+| coordinator | (无) | 编排器 |
+| profiler | PROFILE-* | 性能分析 |
+| strategist | STRAT-* | 优化策略 |
+| optimizer | OPT-* | 实施优化 |
+| benchmarker | BENCH-* | 基准测试 |
+| reviewer | REVIEW-* | 代码审查 |
+
+---
+
+### team-brainstorm
+
+**一句话定位**: 头脑风暴团队 — 多角度创意分析、Generator-Critic 循环
+
+**触发**:
+```bash
+team-brainstorm <topic>
+team-brainstorm --role=ideator <topic>
+```
+
+**角色注册表**:
+| 角色 | 任务前缀 | 功能 |
+|------|----------|------|
+| coordinator | (无) | 编排器 |
+| ideator | IDEA-* | 创意生成 |
+| challenger | CHALLENGE-* | 批判质疑 |
+| synthesizer | SYNTH-* | 综合整合 |
+| evaluator | EVAL-* | 评估评分 |
+
+---
+
+### team-frontend
+
+**一句话定位**: 前端开发团队 — 内置 ui-ux-pro-max 设计智能
+
+**触发**:
+```bash
+team-frontend <task-description>
+```
+
+**角色注册表**:
+| 角色 | 任务前缀 | 功能 |
+|------|----------|------|
+| coordinator | (无) | 编排器 |
+| analyst | ANALYZE-* | 需求分析 |
+| architect | ARCH-* | 架构设计 |
+| developer | DEV-* | 前端实现 |
+| qa | QA-* | 质量保证 |
+
+---
+
+### team-uidesign
+
+**一句话定位**: UI 设计团队 — 设计系统分析、Token 定义、组件规范
+
+**触发**:
+```bash
+team-uidesign <task>
+```
+
+**角色注册表**:
+| 角色 | 任务前缀 | 功能 |
+|------|----------|------|
+| coordinator | (无) | 编排器 |
+| researcher | RESEARCH-* | 设计研究 |
+| designer | DESIGN-* | 设计定义 |
+| reviewer | AUDIT-* | 无障碍审计 |
+| implementer | BUILD-* | 代码实现 |
+
+---
+
+### team-issue
+
+**一句话定位**: Issue 处理团队 — Issue 处理流水线
+
+**触发**:
+```bash
+team-issue <issue-ids>
+```
+
+**角色注册表**:
+| 角色 | 任务前缀 | 功能 |
+|------|----------|------|
+| coordinator | (无) | 编排器 |
+| explorer | EXPLORE-* | 代码探索 |
+| planner | PLAN-* | 方案规划 |
+| implementer | IMPL-* | 代码实现 |
+| reviewer | REVIEW-* | 代码审查 |
+| integrator | INTEG-* | 集成验证 |
+
+---
+
+### team-iterdev
+
+**一句话定位**: 迭代开发团队 — Generator-Critic 循环、增量交付
+
+**触发**:
+```bash
+team-iterdev <task-description>
+```
+
+**角色注册表**:
+| 角色 | 任务前缀 | 功能 |
+|------|----------|------|
+| coordinator | (无) | 编排器 |
+| architect | ARCH-* | 架构设计 |
+| developer | DEV-* | 功能开发 |
+| tester | TEST-* | 测试验证 |
+| reviewer | REVIEW-* | 代码审查 |
+
+**特点**: Developer-Reviewer 循环（最多 3 轮），Task Ledger 实时进度
+
+---
+
+### team-quality-assurance
+
+**一句话定位**: 质量保证团队 — Issue 发现 + 测试验证闭环
+
+**触发**:
+```bash
+team-quality-assurance <task-description>
+team-qa <task-description>
+```
+
+**角色注册表**:
+| 角色 | 任务前缀 | 功能 |
+|------|----------|------|
+| coordinator | (无) | 编排器 |
+| scout | SCOUT-* | 问题发现 |
+| strategist | QASTRAT-* | 策略制定 |
+| generator | QAGEN-* | 测试生成 |
+| executor | QARUN-* | 测试执行 |
+| analyst | QAANA-* | 结果分析 |
+
+---
+
+### team-roadmap-dev
+
+**一句话定位**: 路线图开发团队 — 分阶段开发、里程碑管理
+
+**触发**:
+```bash
+team-roadmap-dev <task-description>
+```
+
+**角色注册表**:
+| 角色 | 任务前缀 | 功能 |
+|------|----------|------|
+| coordinator | (无) | 人机交互 |
+| planner | PLAN-* | 阶段规划 |
+| executor | EXEC-* | 阶段执行 |
+| verifier | VERIFY-* | 阶段验证 |
+
+---
+
+### team-tech-debt
+
+**一句话定位**: 技术债务团队 — 债务扫描、评估、清理、验证
+
+**触发**:
+```bash
+team-tech-debt <task-description>
+```
+
+**角色注册表**:
+| 角色 | 任务前缀 | 功能 |
+|------|----------|------|
+| coordinator | (无) | 编排器 |
+| scanner | TDSCAN-* | 债务扫描 |
+| assessor | TDEVAL-* | 量化评估 |
+| planner | TDPLAN-* | 治理规划 |
+| executor | TDFIX-* | 清理执行 |
+| validator | TDVAL-* | 验证回归 |
+
+---
+
+### team-ultra-analyze
+
+**一句话定位**: 深度分析团队 — 多角色协作探索、渐进式理解
+
+**触发**:
+```bash
+team-ultra-analyze <topic>
+team-analyze <topic>
+```
+
+**角色注册表**:
+| 角色 | 任务前缀 | 功能 |
+|------|----------|------|
+| coordinator | (无) | 编排器 |
+| explorer | EXPLORE-* | 代码探索 |
+| analyst | ANALYZE-* | 深度分析 |
+| discussant | DISCUSS-* | 讨论交互 |
+| synthesizer | SYNTH-* | 综合输出 |
+
+**特点**: 支持 Quick/Standard/Deep 三种深度模式
+
+---
+
+### team-executor-v2
+
+**一句话定位**: 轻量执行器 — 恢复会话、纯执行模式
+
+**触发**:
+```bash
+team-executor --session=<path>
+```
+
+**功能**:
+- 无分析、无角色生成 — 仅加载并执行现有会话
+- 用于恢复中断的 team-coordinate 会话
+
+---
+
+## 用户命令
+
+所有 Team Skills 支持统一的用户命令（唤醒暂停的协调器）：
+
+| 命令 | 动作 |
 |------|------|
-| strategist | `test_strategy` |
-| generator | `generated_tests` |
-| executor | `execution_results`, `defect_patterns` |
-| analyst | `analysis_report`, `coverage_history` |
+| `check` / `status` | 输出执行状态图，不推进 |
+| `resume` / `continue` | 检查工作者状态，推进下一步 |
+| `revise <TASK-ID>` | 创建修订任务 + 级联下游 |
+| `feedback <text>` | 分析反馈影响，创建定向修订链 |
+
+---
+
+## 最佳实践
+
+1. **选择合适的团队类型**:
+   - 通用任务 → `team-coordinate-v2`
+   - 完整功能开发 → `team-lifecycle-v5`
+   - Issue 批处理 → `team-planex`
+   - 代码审查 → `team-review`
+   - 测试覆盖 → `team-testing`
+   - 架构优化 → `team-arch-opt`
+   - 性能调优 → `team-perf-opt`
+   - 头脑风暴 → `team-brainstorm`
+   - 前端开发 → `team-frontend`
+   - UI 设计 → `team-uidesign`
+   - 技术债务 → `team-tech-debt`
+   - 深度分析 → `team-ultra-analyze`
+
+2. **利用内循环角色**: 设置 `inner_loop: true` 让单个工作者处理多个同前缀任务
+
+3. **Wisdom 累积**: 团队会话中的所有角色都会累积知识到 `wisdom/` 目录
+
+4. **Fast-Advance**: 简单线性后继任务会自动跳过协调器直接派生
+
+5. **断点恢复**: 所有团队技能支持会话恢复，通过 `--resume` 或 `resume` 命令继续
+
+---
 
 ## 相关命令
 
 - [Claude Commands - Workflow](../commands/claude/workflow.md)
 - [Claude Commands - Session](../commands/claude/session.md)
-
-## 最佳实践
-
-1. **选择合适的团队类型**:
-   - 通用任务 → `team-coordinate`
-   - 完整功能开发 → `team-lifecycle`
-   - Issue 批处理 → `team-planex`
-   - 代码审查 → `team-review`
-   - 测试覆盖 → `team-testing`
-
-2. **利用内循环角色**: 对于有多个同前缀串行任务的角色，设置 `inner_loop: true` 让单个工作者处理全部任务，避免重复派生开销
-
-3. **Wisdom 累积**: 团队会话中的所有角色都会累积知识到 `wisdom/` 目录，后续任务可复用这些模式、决策和约定
-
-4. **Fast-Advance**: 简单线性后继任务会自动跳过协调器直接派生，减少协调开销
-
-5. **断点恢复**: 所有团队技能支持会话恢复，通过 `--resume` 或用户命令 `resume` 继续中断的会话

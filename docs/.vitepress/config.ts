@@ -75,8 +75,7 @@ export default withMermaid(defineConfig({
       { text: 'Guide', link: '/guide/ch01-what-is-claude-dms3' },
       { text: 'Commands', link: '/commands/claude/' },
       { text: 'Skills', link: '/skills/' },
-      { text: 'Features', link: '/features/spec' },
-      { text: 'Components', link: '/components/' }
+      { text: 'Features', link: '/features/spec' }
     ],
 
     // Sidebar - 优化导航结构，增加二级标题和归类
@@ -423,7 +422,6 @@ export default withMermaid(defineConfig({
           { text: '命令', link: '/zh/commands/claude/' },
           { text: '技能', link: '/zh/skills/claude-index' },
           { text: '功能', link: '/zh/features/spec' },
-          { text: '组件', link: '/zh/components/' },
           { text: '参考', link: '/zh/reference/commands-skills' }
         ],
         sidebar: {

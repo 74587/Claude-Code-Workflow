@@ -2,255 +2,180 @@
 
 ## One-Line Positioning
 
-**Advanced Tips are the key to efficiency improvement** — Deep CLI toolchain usage, multi-model collaboration optimization, memory management best practices.
+**Drive AI tool orchestration with natural language** — Semantic CLI invocation, multi-model collaboration, intelligent memory management.
 
 ---
 
-## 5.1 CLI Toolchain Usage
+## 5.1 Semantic Tool Orchestration
 
-### 5.1.1 CLI Configuration
+### 5.1.1 Core Concept
 
-CLI tool configuration file: `~/.claude/cli-tools.json`
+CCW's CLI tools are **AI-automated capability extensions**. Users simply describe needs in natural language, and AI automatically selects and invokes the appropriate tools.
+
+::: tip Key Understanding
+- User says: "Use Gemini to analyze this code"
+- AI automatically: Invokes Gemini CLI + applies analysis rules + returns results
+- Users don't need to know `ccw cli` command details
+:::
+
+### 5.1.2 Available Tools & Capabilities
+
+| Tool | Strengths | Typical Trigger Words |
+| --- | --- | --- |
+| **Gemini** | Deep analysis, architecture design, bug diagnosis | "use Gemini", "deep understanding" |
+| **Qwen** | Code generation, feature implementation | "let Qwen implement", "code generation" |
+| **Codex** | Code review, Git operations | "use Codex", "code review" |
+| **OpenCode** | Open-source multi-model | "use OpenCode" |
+
+### 5.1.3 Semantic Trigger Examples
+
+Simply express naturally in conversation, AI will automatically invoke the corresponding tool:
+
+| Goal | User Semantic Description | AI Auto-Executes |
+| :--- | :--- | :--- |
+| **Security Assessment** | "Use Gemini to scan auth module for security vulnerabilities" | Gemini + Security analysis rule |
+| **Code Implementation** | "Let Qwen implement a rate limiting middleware" | Qwen + Feature implementation rule |
+| **Code Review** | "Use Codex to review this PR's changes" | Codex + Review rule |
+| **Bug Diagnosis** | "Use Gemini to analyze the root cause of this memory leak" | Gemini + Diagnosis rule |
+
+### 5.1.4 Underlying Configuration (Optional)
+
+AI tool invocation configuration file at `~/.claude/cli-tools.json`:
 
 ```json
 {
-  "version": "3.3.0",
   "tools": {
     "gemini": {
       "enabled": true,
       "primaryModel": "gemini-2.5-flash",
-      "secondaryModel": "gemini-2.5-flash",
-      "tags": ["analysis", "Debug"],
-      "type": "builtin"
+      "tags": ["analysis", "Debug"]
     },
     "qwen": {
       "enabled": true,
       "primaryModel": "coder-model",
-      "secondaryModel": "coder-model",
-      "tags": [],
-      "type": "builtin"
-    },
-    "codex": {
-      "enabled": true,
-      "primaryModel": "gpt-5.2",
-      "secondaryModel": "gpt-5.2",
-      "tags": [],
-      "type": "builtin"
+      "tags": ["implementation"]
     }
   }
 }
 ```
 
-### 5.1.2 Tag Routing
-
-Automatically select models based on task type:
-
-| Tag | Applicable Model | Task Type |
-| --- | --- | --- |
-| **analysis** | Gemini | Code analysis, architecture design |
-| **Debug** | Gemini | Root cause analysis, problem diagnosis |
-| **implementation** | Qwen | Feature development, code generation |
-| **review** | Codex | Code review, Git operations |
-
-### 5.1.3 CLI Command Templates
-
-#### Analysis Task
-
-```bash
-ccw cli -p "PURPOSE: Identify security vulnerabilities
-TASK: • Scan for SQL injection • Check XSS • Verify CSRF
-MODE: analysis
-CONTEXT: @src/auth/**/*
-EXPECTED: Security report with severity grading and fix recommendations
-CONSTRAINTS: Focus on auth module" --tool gemini --mode analysis --rule analysis-assess-security-risks
-```
-
-#### Implementation Task
-
-```bash
-ccw cli -p "PURPOSE: Implement rate limiting
-TASK: • Create middleware • Configure routes • Redis backend
-MODE: write
-CONTEXT: @src/middleware/**/* @src/config/**/*
-EXPECTED: Production code + unit tests + integration tests
-CONSTRAINTS: Follow existing middleware patterns" --tool qwen --mode write --rule development-implement-feature
-```
-
-### 5.1.4 Rule Templates
-
-| Rule | Purpose |
-| --- | --- |
-| **analysis-diagnose-bug-root-cause** | Bug root cause analysis |
-| **analysis-analyze-code-patterns** | Code pattern analysis |
-| **analysis-review-architecture** | Architecture review |
-| **analysis-assess-security-risks** | Security assessment |
-| **development-implement-feature** | Feature implementation |
-| **development-refactor-codebase** | Code refactoring |
-| **development-generate-tests** | Test generation |
+::: info Note
+Tags help AI automatically select the most suitable tool based on task type. Users typically don't need to modify this configuration.
+:::
 
 ---
 
 ## 5.2 Multi-Model Collaboration
 
-### 5.2.1 Model Selection Guide
+### 5.2.1 Collaboration Patterns
 
-| Task | Recommended Model | Reason |
+Through semantic descriptions, multiple AI models can work together:
+
+| Pattern | Description Style | Use Case |
 | --- | --- | --- |
-| **Code Analysis** | Gemini | Strong at deep code understanding and pattern recognition |
+| **Collaborative** | "Let Gemini and Codex jointly analyze architecture issues" | Multi-perspective analysis of the same problem |
+| **Pipeline** | "Gemini designs, Qwen implements, Codex reviews" | Stage-by-stage complex task completion |
+| **Iterative** | "Use Gemini to diagnose, Codex to fix, iterate until tests pass" | Bug fix loop |
+| **Parallel** | "Let Gemini and Qwen each provide optimization suggestions" | Compare different approaches |
+
+### 5.2.2 Semantic Examples
+
+**Collaborative Analysis**
+```
+User: Let Gemini and Codex jointly analyze security and performance of src/auth module
+AI: [Automatically invokes both models, synthesizes analysis results]
+```
+
+**Pipeline Development**
+```
+User: I need to implement a WebSocket real-time notification feature.
+      Please have Gemini design the architecture, Qwen implement the code, and Codex review.
+AI: [Sequentially invokes three models, completing design→implement→review flow]
+```
+
+**Iterative Fix**
+```
+User: Tests failed. Use Gemini to diagnose the issue, have Qwen fix it, loop until tests pass.
+AI: [Automatically iterates diagnose-fix loop until problem is resolved]
+```
+
+### 5.2.3 Model Selection Guide
+
+| Task Type | Recommended Model | Reason |
+| --- | --- | --- |
+| **Architecture Analysis** | Gemini | Strong at deep understanding and pattern recognition |
 | **Bug Diagnosis** | Gemini | Powerful root cause analysis capability |
-| **Feature Development** | Qwen | High code generation efficiency |
-| **Code Review** | Codex (GPT) | Good Git integration, standard review format |
-| **Long Text** | Claude | Large context window |
-
-### 5.2.2 Collaboration Patterns
-
-#### Serial Collaboration
-
-```bash
-# Step 1: Gemini analysis
-ccw cli -p "Analyze code architecture" --tool gemini --mode analysis
-
-# Step 2: Qwen implementation
-ccw cli -p "Implement feature based on analysis" --tool qwen --mode write
-
-# Step 3: Codex review
-ccw cli -p "Review implementation code" --tool codex --mode review
-```
-
-#### Parallel Collaboration
-
-Use `--tool gemini` and `--tool qwen` to analyze the same problem simultaneously:
-
-```bash
-# Terminal 1
-ccw cli -p "Analyze from performance perspective" --tool gemini --mode analysis &
-
-# Terminal 2
-ccw cli -p "Analyze from security perspective" --tool codex --mode analysis &
-```
-
-### 5.2.3 Session Resume
-
-Cross-model session resume:
-
-```bash
-# First call
-ccw cli -p "Analyze authentication module" --tool gemini --mode analysis
-
-# Resume session to continue
-ccw cli -p "Based on previous analysis, design improvement plan" --tool qwen --mode write --resume
-```
+| **Code Generation** | Qwen | High code generation efficiency |
+| **Code Review** | Codex | Good Git integration, standard review format |
+| **Long Text Processing** | Claude | Large context window |
 
 ---
 
-## 5.3 Memory Management
+## 5.3 Intelligent Memory Management
 
-### 5.3.1 Memory Categories
+### 5.3.1 Memory System Overview
 
-| Category | Purpose | Example Content |
+CCW's memory system is an **AI self-managed** knowledge base, including:
+
+| Category | Purpose | Example |
 | --- | --- | --- |
-| **learnings** | Learning insights | New technology usage experience |
-| **decisions** | Architecture decisions | Technology selection rationale |
-| **conventions** | Coding standards | Naming conventions, patterns |
-| **issues** | Known issues | Bugs, limitations, TODOs |
+| **learnings** | Learning insights | New technology usage experience, best practices |
+| **decisions** | Architecture decisions | Technology selection rationale, design tradeoffs |
+| **conventions** | Coding standards | Naming conventions, code style |
+| **issues** | Known issues | Bug records, limitations |
 
-### 5.3.2 Memory Commands
+### 5.3.2 Automatic Memory Usage
 
-| Command | Function | Example |
-| --- | --- | --- |
-| **list** | List all memories | `ccw memory list` |
-| **search** | Search memories | `ccw memory search "authentication"` |
-| **export** | Export memory | `ccw memory export <id>` |
-| **import** | Import memory | `ccw memory import "..."` |
-| **embed** | Generate embeddings | `ccw memory embed <id>` |
+AI automatically retrieves and applies relevant memories when executing tasks:
 
-### 5.3.3 Memory Best Practices
-
-::: tip Tip
-- **Regular cleanup**: Organize Memory weekly, delete outdated content
-- **Structure**: Use standard format for easy search and reuse
-- **Context**: Record decision background, not just conclusions
-- **Linking**: Cross-reference related content
-:::
-
-### 5.3.4 Memory Template
-
-```markdown
-## Title
-### Background
-- **Problem**: ...
-- **Impact**: ...
-
-### Decision
-- **Solution**: ...
-- **Rationale**: ...
-
-### Result
-- **Effect**: ...
-- **Lessons Learned**: ...
-
-### Related
-- [Related Memory 1](memory-id-1)
-- [Related Documentation](link)
 ```
+User: Help me implement the user authentication module
+AI: [Automatically retrieves authentication-related decisions and conventions from memory]
+    Based on previous technical decisions, we use JWT + bcrypt approach...
+```
+
+### 5.3.3 How Users Guide Memory
+
+While AI manages memory automatically, users can actively reinforce:
+
+**Explicitly Request to Remember**
+```
+User: Remember this naming convention: all API routes use kebab-case
+AI: [Stores this convention in conventions memory]
+```
+
+**Request to Review Decisions**
+```
+User: Why did we choose Redis for caching before?
+AI: [Retrieves from decisions memory and responds]
+```
+
+**Correct Wrong Memory**
+```
+User: The previous decision changed, we now use PostgreSQL instead of MongoDB
+AI: [Updates related decision memory]
+```
+
+### 5.3.4 Memory File Locations
+
+- **Global Memory**: `~/.claude/projects/{project-name}/memory/`
+- **Project Memory**: `.claude/memory/` or `MEMORY.md`
 
 ---
 
-## 5.4 CodexLens Advanced Usage
+## 5.4 Hook Automation
 
-### 5.4.1 Hybrid Search
+### 5.4.1 Hook Concept
 
-Combine vector search and keyword search:
-
-```bash
-# Pure vector search
-ccw search --mode vector "user authentication"
-
-# Hybrid search (default)
-ccw search --mode hybrid "user authentication"
-
-# Pure keyword search
-ccw search --mode keyword "authenticate"
-```
-
-### 5.4.2 Call Chain Tracing
-
-Trace complete call chains of functions:
-
-```bash
-# Trace up (who called me)
-ccw search --trace-up "authenticateUser"
-
-# Trace down (who I called)
-ccw search --trace-down "authenticateUser"
-
-# Full call chain
-ccw search --trace-full "authenticateUser"
-```
-
-### 5.4.3 Semantic Search Techniques
-
-| Technique | Example | Effect |
-| --- | --- | --- |
-| **Functional description** | "handle user login" | Find login-related code |
-| **Problem description** | "memory leak locations" | Find potential issues |
-| **Pattern description** | "singleton implementation" | Find design patterns |
-| **Technical description** | "using React Hooks" | Find related usage |
-
----
-
-## 5.5 Hook Auto-Injection
-
-### 5.5.1 Hook Types
+Hooks are automated processes before and after AI executes tasks, users don't need to trigger manually:
 
 | Hook Type | Trigger Time | Purpose |
 | --- | --- | --- |
-| **pre-command** | Before command execution | Inject specifications, load context |
-| **post-command** | After command execution | Save Memory, update state |
+| **pre-command** | Before AI thinking | Load project specs, retrieve memory |
+| **post-command** | After AI completion | Save decisions, update index |
 | **pre-commit** | Before Git commit | Code review, standard checks |
-| **file-change** | On file change | Auto-format, update index |
 
-### 5.5.2 Hook Configuration
+### 5.4.2 Configuration Example
 
 Configure in `.claude/hooks.json`:
 
@@ -258,19 +183,14 @@ Configure in `.claude/hooks.json`:
 {
   "pre-command": [
     {
-      "name": "inject-specs",
-      "description": "Inject project specifications",
+      "name": "load-project-specs",
+      "description": "Load project specifications",
       "command": "cat .workflow/specs/project-constraints.md"
-    },
-    {
-      "name": "load-memory",
-      "description": "Load related Memory",
-      "command": "ccw memory search \"{query}\""
     }
   ],
   "post-command": [
     {
-      "name": "save-memory",
+      "name": "save-decisions",
       "description": "Save important decisions",
       "command": "ccw memory import \"{content}\""
     }
@@ -280,49 +200,54 @@ Configure in `.claude/hooks.json`:
 
 ---
 
-## 5.6 Performance Optimization
+## 5.5 ACE Semantic Search
 
-### 5.6.1 Indexing Optimization
+### 5.5.1 What is ACE
 
-| Optimization | Description |
+ACE (Augment Context Engine) is AI's **code perception capability**, enabling AI to understand the entire codebase semantically.
+
+### 5.5.2 How AI Uses ACE
+
+When users ask questions, AI automatically uses ACE to search for relevant code:
+
+```
+User: How is the authentication flow implemented?
+AI: [Uses ACE semantic search for auth-related code]
+    Based on code analysis, the authentication flow is...
+```
+
+### 5.5.3 Configuration Reference
+
+| Configuration Method | Link |
 | --- | --- |
-| **Incremental indexing** | Only index changed files |
-| **Parallel indexing** | Multi-process parallel processing |
-| **Caching strategy** | Vector embedding cache |
-
-### 5.6.2 Search Optimization
-
-| Optimization | Description |
-| --- | --- |
-| **Result caching** | Same query returns cached results |
-| **Paginated loading** | Large result sets paginated |
-| **Smart deduplication** | Auto-duplicate similar results |
+| **Official Docs** | [Augment MCP Documentation](https://docs.augmentcode.com/context-services/mcp/overview) |
+| **Proxy Tool** | [ace-tool (GitHub)](https://github.com/eastxiaodong/ace-tool) |
 
 ---
 
-## 5.7 Quick Reference
+## 5.6 Semantic Prompt Cheatsheet
 
-### CLI Command Cheatsheet
+### Common Semantic Patterns
 
-| Command | Function |
+| Goal | Semantic Description Example |
 | --- | --- |
-| `ccw cli -p "..." --tool gemini --mode analysis` | Analysis task |
-| `ccw cli -p "..." --tool qwen --mode write` | Implementation task |
-| `ccw cli -p "..." --tool codex --mode review` | Review task |
-| `ccw memory list` | List memories |
-| `ccw memory search "..."` | Search memories |
-| `ccw search "..."` | Semantic search |
-| `ccw search --trace "..."` | Call chain tracing |
+| **Analyze Code** | "Use Gemini to analyze the architecture design of src/auth" |
+| **Security Audit** | "Use Gemini to scan for security vulnerabilities, focus on OWASP Top 10" |
+| **Implement Feature** | "Let Qwen implement a cached user repository" |
+| **Code Review** | "Use Codex to review recent changes" |
+| **Bug Diagnosis** | "Use Gemini to analyze the root cause of this memory leak" |
+| **Multi-Model Collaboration** | "Gemini designs, Qwen implements, Codex reviews" |
+| **Remember Convention** | "Remember: all APIs use RESTful style" |
+| **Review Decision** | "Why did we choose this tech stack before?" |
 
-### Rule Template Cheatsheet
+### Collaboration Pattern Cheatsheet
 
-| Rule | Purpose |
+| Pattern | Semantic Example |
 | --- | --- |
-| `analysis-diagnose-bug-root-cause` | Bug analysis |
-| `analysis-assess-security-risks` | Security assessment |
-| `development-implement-feature` | Feature implementation |
-| `development-refactor-codebase` | Code refactoring |
-| `development-generate-tests` | Test generation |
+| **Collaborative** | "Let Gemini and Codex jointly analyze..." |
+| **Pipeline** | "Gemini designs, Qwen implements, Codex reviews" |
+| **Iterative** | "Diagnose and fix until tests pass" |
+| **Parallel** | "Let multiple models each provide suggestions" |
 
 ---
 
