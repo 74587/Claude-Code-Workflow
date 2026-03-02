@@ -56,6 +56,26 @@ export class CsrfTokenManager {
    */
   generateToken(sessionId: string): string {
     const tokens = this.generateTokens(sessionId, 1);
+    // If no slots available (session at max capacity), force generate anyway
+    // This ensures we always return a valid token
+    if (tokens.length === 0) {
+      const token = randomBytes(32).toString('hex');
+      const expiresAtMs = Date.now() + this.tokenTtlMs;
+      const record: CsrfTokenRecord = {
+        sessionId,
+        expiresAtMs,
+        used: false,
+      };
+      // Get or create session map
+      let sessionMap = this.sessionTokens.get(sessionId);
+      if (!sessionMap) {
+        sessionMap = new Map();
+        this.sessionTokens.set(sessionId, sessionMap);
+      }
+      sessionMap.set(token, record);
+      this.tokenToSession.set(token, sessionId);
+      return token;
+    }
     return tokens[0];
   }
 
