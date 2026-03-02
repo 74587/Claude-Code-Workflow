@@ -230,9 +230,9 @@ EXPECTED:
 **Total**: [time]
 
 CONSTRAINTS:
-- Follow schema structure from {schema_path}
+- Output as structured markdown text following the EXPECTED format above
 - Task IDs use format TASK-001, TASK-002, etc. (FIX-001 for fix-plan)
-- Complexity determines required fields:
+- Complexity determines required sections:
   * Low: base fields only
   * Medium: + rationale + verification + design_decisions
   * High: + risks + code_skeleton + data_flow
