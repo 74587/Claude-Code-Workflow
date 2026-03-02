@@ -362,17 +362,6 @@
       "source": "../../commands/workflow/init.md"
     },
     {
-      "name": "lite-execute",
-      "command": "/workflow:lite-execute",
-      "description": "Execute tasks based on in-memory plan, prompt description, or file content",
-      "arguments": "[-y|--yes] [--in-memory] [\\\"task description\\\"|file-path]",
-      "category": "workflow",
-      "subcategory": null,
-      "usage_scenario": "implementation",
-      "difficulty": "Intermediate",
-      "source": "../../commands/workflow/lite-execute.md"
-    },
-    {
       "name": "lite-fix",
       "command": "/workflow:lite-fix",
       "description": "Lightweight bug diagnosis and fix workflow with intelligent severity assessment and optional hotfix mode for production incidents",
@@ -396,8 +385,8 @@
     },
     {
       "name": "lite-plan",
-      "command": "/workflow-lite-plan",
-      "description": "Lightweight interactive planning workflow with in-memory planning, code exploration, and execution execute to lite-execute after user confirmation",
+      "command": "/workflow-lite-planex",
+      "description": "Lightweight interactive planning and execution workflow (Phase 1: plan, Phase 2: execute) with in-memory planning, code exploration, and automatic execution after user confirmation",
       "arguments": "[-y|--yes] [-e|--explore] \\\"task description\\\"|file.md",
       "category": "workflow",
       "subcategory": null,

@@ -11,8 +11,7 @@
 | 命令 | 功能 | 语法 |
 | --- | --- | --- |
 | [`lite-lite-lite`](#lite-lite-lite) | 超轻量级多工具分析和直接执行 | `/workflow:lite-lite-lite [-y] <任务>` |
-| [`lite-plan`](#lite-plan) | 轻量级交互式规划工作流 | `/workflow-lite-plan [-y] [-e] "任务"` |
-| [`lite-execute`](#lite-execute) | 基于内存计划执行任务 | `/workflow:lite-execute [-y] [--in-memory] [任务]` |
+| [`lite-plan`](#lite-plan) | 轻量级交互式规划工作流 | `/workflow-lite-planex [-y] [-e] "任务"` |
 | [`lite-fix`](#lite-fix) | 轻量级 Bug 诊断和修复 | `/workflow:lite-fix [-y] [--hotfix] "Bug 描述"` |
 
 ### 标准工作流
@@ -92,11 +91,11 @@
 
 ### lite-plan
 
-**功能**: 轻量级交互式规划工作流，支持内存规划、代码探索和执行到 lite-execute。
+**功能**: 轻量级交互式规划和执行工作流（Phase 1: 规划，Phase 2: 执行），支持内存规划、代码探索和确认后自动执行。
 
 **语法**:
 ```bash
-/workflow-lite-plan [-y|--yes] [-e|--explore] "任务描述" | file.md
+/workflow-lite-planex [-y|--yes] [-e|--explore] "任务描述" | file.md
 ```
 
 **选项**:
@@ -105,31 +104,10 @@
 **示例**:
 ```bash
 # 基础规划
-/workflow-lite-plan "添加用户头像功能"
+/workflow-lite-planex "添加用户头像功能"
 
 # 带探索
-/workflow-lite-plan -e "重构认证模块"
-```
-
-### lite-execute
-
-**功能**: 基于内存计划、提示描述或文件内容执行任务。
-
-**语法**:
-```bash
-/workflow:lite-execute [-y|--yes] [--in-memory] ["任务描述" | file-path]
-```
-
-**选项**:
-- `--in-memory`: 使用内存计划
-
-**示例**:
-```bash
-# 执行任务
-/workflow:lite-execute "实现头像上传 API"
-
-# 使用内存计划
-/workflow:lite-execute --in-memory
+/workflow-lite-planex -e "重构认证模块"
 ```
 
 ### lite-fix

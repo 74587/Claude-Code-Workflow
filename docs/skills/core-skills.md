@@ -679,24 +679,24 @@ Skill(skill="workflow-plan")
 
 ---
 
-### workflow-lite-plan
+### workflow-lite-planex
 
 **Purpose**: Lightweight planning and execution skill
 
-**Triggers**: `workflow-lite-plan`, `workflow:lite-execute`
+**Triggers**: `workflow-lite-planex`
 
-**Description**: Route to lite-plan or lite-execute with prompt enhancement.
+**Description**: Unified planning and execution skill (Phase 1: plan, Phase 2: execute) with prompt enhancement.
 
 **Phases**:
-1. Phase 1: Lite Plan
-2. Phase 2: Lite Execute
+1. Phase 1: Lite Plan (planning pipeline)
+2. Phase 2: Lite Execute (execution engine, internal)
 
-**Modes**: `lite-plan`, `lite-execute`
+**Modes**: `plan` (Phase 1 → Phase 2 automatically)
 
 **Artifacts**: LITE_PLAN.md, execution results
 
 ```bash
-Skill(skill="workflow-lite-plan")
+Skill(skill="workflow-lite-planex")
 ```
 
 ---
@@ -707,7 +707,7 @@ Skill(skill="workflow-lite-plan")
 
 **Triggers**: `workflow-multi-cli-plan`, `workflow:multi-cli-plan`
 
-**Description**: Route to multi-cli-plan or lite-execute with prompt enhancement.
+**Description**: Multi-CLI collaborative planning and execution skill (Phase 1: plan, Phase 2: execute) with prompt enhancement.
 
 **Phases**:
 1. Phase 1: Multi-CLI Plan (ACE context → discussion → plan → execute)
@@ -851,7 +851,7 @@ Skill(skill="review-cycle")
 **Use Case**: Quick iterations and rapid prototyping
 
 ```bash
-Skill(skill="workflow-lite-plan")
+Skill(skill="workflow-lite-planex")
 Skill(skill="workflow-execute")
 ```
 
@@ -1039,7 +1039,7 @@ Skill(skill="skill-tuning")
 | Level | Skills |
 |-------|--------|
 | Meta Skills | skill-generator, skill-tuning, workflow-skill-designer |
-| Orchestrators | workflow-plan, workflow-lite-plan, workflow-multi-cli-plan |
+| Orchestrators | workflow-plan, workflow-lite-planex, workflow-multi-cli-plan |
 | Executors | workflow-execute |
 | Team Leads | team-lifecycle (v5) |
 
@@ -1085,7 +1085,7 @@ Quick reference for skill triggers:
 | `manage issue` | issue-manage |
 | `workflow-plan`, `workflow-plan-verify`, `workflow:replan` | workflow-plan |
 | `workflow-execute` | workflow-execute |
-| `workflow-lite-plan` | workflow-lite-plan |
+| `workflow-lite-planex` | workflow-lite-planex |
 | `workflow-multi-cli-plan`, `workflow:multi-cli-plan` | workflow-multi-cli-plan |
 | `workflow-tdd-plan` | workflow-tdd-plan |
 | `workflow-test-fix`, `test fix workflow` | workflow-test-fix |

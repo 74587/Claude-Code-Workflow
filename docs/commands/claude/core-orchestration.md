@@ -88,9 +88,9 @@ graph TD
 
 | Unit Name | Command Chain | Output |
 |-----------|---------------|--------|
-| **Quick Implementation** | lite-plan -> lite-execute | Working code |
-| **Multi-CLI Planning** | multi-cli-plan -> lite-execute | Working code |
-| **Bug Fix** | lite-plan (--bugfix) -> lite-execute | Fixed code |
+| **Quick Implementation** | lite-plan (Phase 1: plan → Phase 2: execute) | Working code |
+| **Multi-CLI Planning** | multi-cli-plan (Phase 1: plan → Phase 2: execute) | Working code |
+| **Bug Fix** | lite-plan --bugfix (Phase 1: plan → Phase 2: execute) | Fixed code |
 | **Full Plan+Execute** | plan -> execute | Working code |
 | **Verified Plan+Execute** | plan -> plan-verify -> execute | Working code |
 | **TDD Plan+Execute** | tdd-plan -> execute | Working code |
@@ -143,7 +143,7 @@ Both commands support the `--yes` flag for auto mode:
 
 | Skill | Function |
 |-------|----------|
-| `workflow-lite-plan` | Lightweight planning workflow |
+| `workflow-lite-planex` | Lightweight planning workflow |
 | `workflow-plan` | Full planning workflow |
 | `workflow-execute` | Execution workflow |
 | `workflow-tdd-plan` | TDD workflow |

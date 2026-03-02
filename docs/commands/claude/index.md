@@ -31,8 +31,7 @@
 | Command | Function | Difficulty |
 |---------|----------|------------|
 | [`/workflow:lite-lite-lite`](./workflow.md#lite-lite-lite) | Ultra-lightweight multi-tool analysis and direct execution | Intermediate |
-| [`/workflow-lite-plan`](./workflow.md#lite-plan) | Lightweight interactive planning workflow | Intermediate |
-| [`/workflow:lite-execute`](./workflow.md#lite-execute) | Execute tasks based on in-memory plan | Intermediate |
+| [`/workflow-lite-planex`](./workflow.md#lite-plan) | Lightweight interactive planning workflow | Intermediate |
 | [`/workflow:lite-fix`](./workflow.md#lite-fix) | Lightweight bug diagnosis and fix | Intermediate |
 | [`/workflow-plan`](./workflow.md#plan) | 5-phase planning workflow | Intermediate |
 | [`/workflow-execute`](./workflow.md#execute) | Coordinate agent execution of workflow tasks | Intermediate |

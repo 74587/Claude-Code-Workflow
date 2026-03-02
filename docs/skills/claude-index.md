@@ -181,7 +181,7 @@ memory/
 
 ```bash
 # Quick task
-/workflow-lite-plan "Fix login bug"
+/workflow-lite-planex "Fix login bug"
 
 # Full development
 /workflow-plan "Add user notifications"
@@ -234,7 +234,7 @@ memory/
    - Test coverage → `team-testing`
 
 2. **Workflow Selection**:
-   - Super simple → `workflow-lite-plan`
+   - Super simple → `workflow-lite-planex`
    - Complex features → `workflow-plan` → `workflow-execute`
    - TDD → `workflow-tdd-plan`
    - Test fixes → `workflow-test-fix`

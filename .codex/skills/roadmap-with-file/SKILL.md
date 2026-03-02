@@ -896,4 +896,4 @@ To execute later:
 | Quick task breakdown, immediate execution | `$lite-plan` |
 | Collaborative multi-agent planning | `$collaborative-plan-with-file` |
 | Full specification documents | `$spec-generator` |
-| Code implementation from existing plan | `$lite-execute` |
+| Code implementation from existing plan | `$workflow-lite-planex` |

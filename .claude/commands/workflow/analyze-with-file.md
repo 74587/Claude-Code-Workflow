@@ -545,8 +545,8 @@ CONSTRAINTS: ${perspective.constraints}
 3. **Post-Completion Options** (⚠️ TERMINAL — analyze-with-file ends after user selection)
 
    > **WORKFLOW BOUNDARY**: After user selects any option below, the analyze-with-file workflow is **COMPLETE**.
-   > If "生成任务" is selected, workflow-lite-plan takes over exclusively — do NOT return to any analyze-with-file phase.
-   > The "Phase" numbers in workflow-lite-plan (Phase 1-5) are SEPARATE from analyze-with-file phases.
+   > If "生成任务" is selected, workflow-lite-planex takes over exclusively — do NOT return to any analyze-with-file phase.
+   > The "Phase" numbers in workflow-lite-planex (Phase 1-5) are SEPARATE from analyze-with-file phases.
 
    ```javascript
    const hasActionableRecs = conclusions.recommendations?.some(r => r.priority === 'high' || r.priority === 'medium')
@@ -557,7 +557,7 @@ CONSTRAINTS: ${perspective.constraints}
        header: "Next Step",
        multiSelect: false,
        options: [
-         { label: hasActionableRecs ? "生成任务 (Recommended)" : "生成任务", description: "Launch workflow-lite-plan with analysis context" },
+         { label: hasActionableRecs ? "生成任务 (Recommended)" : "生成任务", description: "Launch workflow-lite-planex with analysis context" },
          { label: "创建Issue", description: "Launch issue-discover with conclusions" },
          { label: "导出报告", description: "Generate standalone analysis report" },
          { label: "完成", description: "No further action" }
@@ -590,7 +590,7 @@ CONSTRAINTS: ${perspective.constraints}
      }
 
      // 3. Hand off to lite-plan — analyze-with-file COMPLETE, do NOT return to any analyze phase
-     Skill(skill="workflow-lite-plan", args=`"${taskDescription}\n\n${contextLines.join('\n')}"`)
+     Skill(skill="workflow-lite-planex", args=`"${taskDescription}\n\n${contextLines.join('\n')}"`)
      return  // ⛔ analyze-with-file terminates here
    }
    ```
@@ -769,7 +769,7 @@ User agrees with current direction, wants deeper code analysis
 - Quick information gathering without multi-round iteration
 - Follow-up analysis building on existing session
 
-**Use `Skill(skill="workflow-lite-plan", args="\"task description\"")` when:**
+**Use `Skill(skill="workflow-lite-planex", args="\"task description\"")` when:**
 - Ready to implement (past analysis phase)
 - Need simple task breakdown
 - Focus on quick execution planning

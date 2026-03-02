@@ -1,27 +1,26 @@
 ---
-name: workflow-lite-plan
-description: Lightweight planning and execution skill - route to lite-plan or lite-execute with prompt enhancement. Triggers on "workflow-lite-plan", "workflow:lite-execute".
+name: workflow-lite-planex
+description: Lightweight planning and execution skill (Phase 1: plan, Phase 2: execute). Triggers on "workflow-lite-planex".
 allowed-tools: Skill, Task, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep
 ---
 
-# Workflow Lite-Plan
+# Workflow Lite-Planex
 
-Unified lightweight planning and execution skill. Routes to lite-plan (planning pipeline) or lite-execute (execution engine) based on trigger, with prompt enhancement for both modes.
+Unified lightweight planning and execution skill (planex = plan + execute). Phase 1 handles planning pipeline, Phase 2 handles execution.
 
 ## Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│  SKILL.md (Router + Prompt Enhancement)              │
-│  → Detect mode → Enhance prompt → Dispatch to phase │
+│  SKILL.md (Prompt Enhancement + Dispatch)             │
+│  → Enhance prompt → Dispatch to Phase 1 (lite-plan)  │
 └──────────────────────┬──────────────────────────────┘
                        │
-           ┌───────────┼───────────┐
-           ↓                       ↓
+                       ↓
      ┌───────────┐           ┌───────────┐
      │ lite-plan │           │lite-execute│
-     │ Phase 1   │           │ Phase 2    │
-     │ Plan+Exec │─direct──→│ Standalone │
+     │ Phase 1   │──handoff─→│ Phase 2    │
+     │ Plan      │           │ Execute    │
      └───────────┘           └───────────┘
 ```
 
@@ -33,24 +32,14 @@ Multi-phase execution (lite-plan → lite-execute) spans long conversations that
 > The phase currently marked `in_progress` is the active execution phase — preserve its FULL content.
 > Only compress phases marked `completed` or `pending`.
 
-## Mode Detection & Routing
+## Routing
 
-```javascript
-const args = $ARGUMENTS
-const mode = detectMode()
+Trigger `workflow-lite-planex` → dispatches to Phase 1 (lite-plan). Phase 1 internally hands off to Phase 2 (lite-execute) after plan confirmation.
 
-function detectMode() {
-  if (skillName === 'workflow:lite-execute') return 'execute'
-  return 'plan'  // default: workflow-lite-plan
-}
-```
-
-**Routing Table**:
-
-| Trigger | Mode | Phase Document | Description |
-|---------|------|----------------|-------------|
-| `workflow-lite-plan` | plan | [phases/01-lite-plan.md](phases/01-lite-plan.md) | Full planning pipeline (explore → plan → confirm → execute) |
-| `workflow:lite-execute` | execute | [phases/02-lite-execute.md](phases/02-lite-execute.md) | Standalone execution (in-memory / prompt / file) |
+| Phase | Document | Description |
+|-------|----------|-------------|
+| Phase 1 | [phases/01-lite-plan.md](phases/01-lite-plan.md) | Planning pipeline (explore → plan → confirm → handoff to Phase 2) |
+| Phase 2 | [phases/02-lite-execute.md](phases/02-lite-execute.md) | Execution engine (internal, called by Phase 1 Phase 5) |
 
 ## Interactive Preference Collection
 
@@ -90,25 +79,6 @@ if (autoYes) {
     autoYes: prefResponse.autoMode === 'Auto',
     forceExplore: prefResponse.exploration === 'Force explore'
   }
-} else if (mode !== 'plan') {
-  // Execute mode (standalone, not in-memory)
-  const prefResponse = AskUserQuestion({
-    questions: [
-      {
-        question: "是否跳过所有确认步骤（自动模式）？",
-        header: "Auto Mode",
-        multiSelect: false,
-        options: [
-          { label: "Interactive (Recommended)", description: "交互模式，包含确认步骤" },
-          { label: "Auto", description: "跳过所有确认，自动执行" }
-        ]
-      }
-    ]
-  })
-  workflowPreferences = {
-    autoYes: prefResponse.autoMode === 'Auto',
-    forceExplore: false
-  }
 }
 ```
 
@@ -125,12 +95,9 @@ Bash('ccw spec load --category planning')
 // Step 2: Log available context
 console.log('Project context loaded via: ccw spec load --category planning')
 
-// Step 3: Dispatch to phase (workflowPreferences available as context)
-if (mode === 'plan') {
-  // Read phases/01-lite-plan.md and execute
-} else {
-  // Read phases/02-lite-execute.md and execute
-}
+// Step 3: Dispatch to Phase 1 (workflowPreferences available as context)
+// Read phases/01-lite-plan.md and execute
+// Phase 1 internally hands off to Phase 2 (lite-execute) after plan confirmation
 ```
 
 ## Execution Flow
@@ -145,21 +112,11 @@ if (mode === 'plan') {
 5. lite-plan Phase 5 directly reads and executes Phase 2 (lite-execute) with executionContext
 ```
 
-### Execute Mode
-
-```
-1. Collect preferences via AskUserQuestion (autoYes)
-2. Enhance prompt with project context availability
-3. Read phases/02-lite-execute.md
-4. Execute lite-execute pipeline (input detection → execution → review)
-```
-
 ## Usage
 
-Plan mode and execute mode are triggered by skill name routing (see Mode Detection). Workflow preferences (auto mode, force explore) are collected interactively via AskUserQuestion before dispatching to phases.
+Task description provided as arguments → interactive preference collection → planning pipeline → execution.
 
-**Plan mode**: Task description provided as arguments → interactive preference collection → planning pipeline
-**Execute mode**: Task description, file path, or in-memory context → interactive preference collection → execution pipeline
+**Plan mode only**: lite-plan handles planning (Phase 1) and automatically hands off to lite-execute (Phase 2) for execution. There is no standalone execute mode.
 
 ## Phase Reference Documents
 
