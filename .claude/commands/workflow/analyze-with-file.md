@@ -542,7 +542,11 @@ CONSTRAINTS: ${perspective.constraints}
      - **Trade-offs Made**: Key trade-offs and why certain paths were chosen over others
    - Add session statistics: rounds, duration, sources, artifacts, **decision count**
 
-3. **Post-Completion Options**
+3. **Post-Completion Options** (⚠️ TERMINAL — analyze-with-file ends after user selection)
+
+   > **WORKFLOW BOUNDARY**: After user selects any option below, the analyze-with-file workflow is **COMPLETE**.
+   > If "生成任务" is selected, workflow-lite-plan takes over exclusively — do NOT return to any analyze-with-file phase.
+   > The "Phase" numbers in workflow-lite-plan (Phase 1-5) are SEPARATE from analyze-with-file phases.
 
    ```javascript
    const hasActionableRecs = conclusions.recommendations?.some(r => r.priority === 'high' || r.priority === 'medium')
@@ -562,7 +566,7 @@ CONSTRAINTS: ${perspective.constraints}
    })
    ```
 
-   **Handle "生成任务"**:
+   **Handle "生成任务"** (⚠️ TERMINAL — analyze-with-file ends here, lite-plan takes over exclusively):
    ```javascript
    if (nextStep.includes("生成任务")) {
      // 1. Build task description from high/medium priority recommendations
@@ -585,8 +589,9 @@ CONSTRAINTS: ${perspective.constraints}
        if (findings.length) contextLines.push(`**Key Findings**:\n${findings.map(f => `- ${f}`).join('\n')}`)
      }
 
-     // 3. Call lite-plan with enriched task description (no special flags)
+     // 3. Hand off to lite-plan — analyze-with-file COMPLETE, do NOT return to any analyze phase
      Skill(skill="workflow-lite-plan", args=`"${taskDescription}\n\n${contextLines.join('\n')}"`)
+     return  // ⛔ analyze-with-file terminates here
    }
    ```
 
