@@ -195,9 +195,21 @@ export const useQueueSchedulerStore = create<QueueSchedulerStore>()(
             'loadInitialState'
           );
         } catch (error) {
+          // Silently ignore network errors (backend not connected)
+          // Only log non-network errors
           const message = error instanceof Error ? error.message : 'Unknown error';
-          console.error('[QueueScheduler] loadInitialState error:', message);
-          set({ error: message }, false, 'loadInitialState/error');
+          const isNetworkError =
+            message.includes('Failed to fetch') ||
+            message.includes('NetworkError') ||
+            message.includes('Network request failed') ||
+            message.includes('ERR_CONNECTION_REFUSED') ||
+            message.includes('ERR_CONNECTION_RESET');
+
+          if (!isNetworkError) {
+            console.error('[QueueScheduler] loadInitialState error:', message);
+            set({ error: message }, false, 'loadInitialState/error');
+          }
+          // For network errors, keep state as-is without showing error
         }
       },
 

@@ -41,6 +41,43 @@ describe('CcwToolsMcpCard', () => {
     vi.clearAllMocks();
   });
 
+  it('disables all tools when clicking "Disable All" button', async () => {
+    const { CcwToolsMcpCard } = await import('./CcwToolsMcpCard');
+    const onUpdateConfigMock = vi.fn();
+
+    render(
+      <CcwToolsMcpCard
+        target="codex"
+        isInstalled={true}
+        enabledTools={['write_file', 'read_file', 'edit_file']}
+        onToggleTool={vi.fn()}
+        onUpdateConfig={onUpdateConfigMock}
+        onInstall={vi.fn()}
+      />,
+      { locale: 'en' }
+    );
+
+    const user = userEvent.setup();
+    // Expand the card
+    await act(async () => {
+      await user.click(screen.getByText(/CCW MCP Server|mcp\.ccw\.title/i));
+    });
+
+    // Find and click "Disable All" button
+    const disableAllButton = screen.getByRole('button', {
+      name: /Disable All|mcp\.ccw\.actions\.disableAll/i,
+    });
+    expect(disableAllButton).toBeEnabled();
+    await act(async () => {
+      await user.click(disableAllButton);
+    });
+
+    // Verify onUpdateConfig was called with empty enabledTools array
+    await waitFor(() => {
+      expect(onUpdateConfigMock).toHaveBeenCalledWith({ enabledTools: [] });
+    });
+  });
+
   it('preserves enabledTools when saving config (Codex)', async () => {
     const { CcwToolsMcpCard } = await import('./CcwToolsMcpCard');
     const updateCodexMock = vi.mocked(apiMock.updateCcwConfigForCodex);

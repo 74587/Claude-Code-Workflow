@@ -100,14 +100,16 @@ export async function handleAuthRoutes(ctx: RouteContext): Promise<boolean> {
     } else {
       // Batch token response (pool pattern)
       const tokens = tokenManager.generateTokens(sessionId, count);
-      const firstToken = tokens[0];
+
+      // If no tokens generated (session at max capacity), force generate one
+      const firstToken = tokens.length > 0 ? tokens[0] : tokenManager.generateToken(sessionId);
 
       // Set header and cookie with first token for compatibility
       res.setHeader('X-CSRF-Token', firstToken);
       setCsrfCookie(res, firstToken, 15 * 60);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({
-        tokens,
+        tokens: tokens.length > 0 ? tokens : [firstToken],
         expiresIn: 15 * 60, // seconds
       }));
     }

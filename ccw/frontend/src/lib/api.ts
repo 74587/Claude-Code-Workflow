@@ -4371,7 +4371,9 @@ function buildCcwMcpServerConfig(config: {
 }): { command: string; args: string[]; env: Record<string, string> } {
   const env: Record<string, string> = {};
 
-  if (config.enabledTools && config.enabledTools.length > 0) {
+  // Only use default when enabledTools is undefined (not provided)
+  // When enabledTools is an empty array, set to empty string to disable all tools
+  if (config.enabledTools !== undefined) {
     env.CCW_ENABLED_TOOLS = config.enabledTools.join(',');
   } else {
     env.CCW_ENABLED_TOOLS = 'write_file,edit_file,read_file,core_memory,ask_question,smart_search';
@@ -4455,11 +4457,20 @@ export async function fetchCcwMcpConfig(currentProjectPath?: string): Promise<Cc
     }
 
     // Parse enabled tools from env
+    // Note: CCW_ENABLED_TOOLS can be empty string (all tools disabled), 'all' (default set), or comma-separated list
     const env = ccwServer.env || {};
-    const enabledToolsStr = env.CCW_ENABLED_TOOLS || 'all';
-    const enabledTools = enabledToolsStr === 'all'
-      ? ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question']
-      : enabledToolsStr.split(',').map((t: string) => t.trim());
+    const enabledToolsStr = env.CCW_ENABLED_TOOLS;
+    let enabledTools: string[];
+    if (enabledToolsStr === undefined || enabledToolsStr === null) {
+      // No setting = use default tools
+      enabledTools = ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'];
+    } else if (enabledToolsStr === '' || enabledToolsStr === 'all') {
+      // Empty string = all tools disabled, 'all' = default set (for backward compatibility)
+      enabledTools = enabledToolsStr === '' ? [] : ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'];
+    } else {
+      // Comma-separated list
+      enabledTools = enabledToolsStr.split(',').map((t: string) => t.trim()).filter(Boolean);
+    }
 
     return {
       isInstalled: true,
@@ -4601,10 +4612,19 @@ export async function fetchCcwMcpConfigForCodex(): Promise<CcwMcpConfig> {
     }
 
     const env = ccwServer.env || {};
-    const enabledToolsStr = env.CCW_ENABLED_TOOLS || 'all';
-    const enabledTools = enabledToolsStr === 'all'
-      ? ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search']
-      : enabledToolsStr.split(',').map((t: string) => t.trim());
+    // Note: CCW_ENABLED_TOOLS can be empty string (all tools disabled), 'all' (default set), or comma-separated list
+    const enabledToolsStr = env.CCW_ENABLED_TOOLS;
+    let enabledTools: string[];
+    if (enabledToolsStr === undefined || enabledToolsStr === null) {
+      // No setting = use default tools
+      enabledTools = ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'];
+    } else if (enabledToolsStr === '' || enabledToolsStr === 'all') {
+      // Empty string = all tools disabled, 'all' = default set (for backward compatibility)
+      enabledTools = enabledToolsStr === '' ? [] : ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'];
+    } else {
+      // Comma-separated list
+      enabledTools = enabledToolsStr.split(',').map((t: string) => t.trim()).filter(Boolean);
+    }
 
     return {
       isInstalled: true,
@@ -4630,7 +4650,9 @@ function buildCcwMcpServerConfigForCodex(config: {
 }): { command: string; args: string[]; env: Record<string, string> } {
   const env: Record<string, string> = {};
 
-  if (config.enabledTools && config.enabledTools.length > 0) {
+  // Only use default when enabledTools is undefined (not provided)
+  // When enabledTools is an empty array, set to empty string to disable all tools
+  if (config.enabledTools !== undefined) {
     env.CCW_ENABLED_TOOLS = config.enabledTools.join(',');
   } else {
     env.CCW_ENABLED_TOOLS = 'write_file,edit_file,read_file,core_memory,ask_question,smart_search';
