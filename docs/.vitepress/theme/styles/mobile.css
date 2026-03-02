@@ -658,11 +658,11 @@
  * ============================================ */
 @media (min-width: 1024px) {
   :root {
-    --vp-layout-max-width: 1440px;
-    --vp-content-width: 860px;
-    --vp-sidebar-width: 280px;
-    --vp-prose-width: 720px;
-    --vp-toc-width: 220px;
+    --vp-layout-max-width: 90rem; /* 1440px / 16 */
+    --vp-content-width: 53.75rem; /* 860px / 16 */
+    --vp-sidebar-width: 17.5rem; /* 280px / 16 */
+    --vp-prose-width: 45rem; /* 720px / 16 */
+    --vp-toc-width: 13.75rem; /* 220px / 16 */
   }
 
   .VPContent {
@@ -691,14 +691,14 @@
 
   /* Ensure content has proper margin-left to clear the sidebar */
   .VPContent.has-sidebar {
-    margin-left: var(--vp-sidebar-width, 280px) !important;
-    margin-right: calc(var(--vp-toc-width, 220px) + 48px) !important;
+    margin-left: var(--vp-sidebar-width) !important;
+    margin-right: calc(var(--vp-toc-width) + 3rem) !important; /* 48px = 3rem */
     padding: var(--vp-spacing-8) var(--vp-spacing-12) !important;
   }
 
-  /* Adjust doc container - remove auto margin to prevent offset */
+  /* Adjust doc container - allow content to scale with zoom */
   .VPDoc.has-aside .content-container {
-    max-width: 100%;
+    width: 100%;
     padding: 0 var(--vp-spacing-10);
   }
 
@@ -781,14 +781,14 @@
  * ============================================ */
 @media (min-width: 1440px) {
   :root {
-    --vp-content-width: 920px;
-    --vp-sidebar-width: 300px;
-    --vp-prose-width: 760px;
-    --vp-toc-width: 260px;
+    --vp-content-width: 57.5rem; /* 920px / 16 */
+    --vp-sidebar-width: 18.75rem; /* 300px / 16 */
+    --vp-prose-width: 47.5rem; /* 760px / 16 */
+    --vp-toc-width: 16.25rem; /* 260px / 16 */
   }
 
   .VPDoc.has-aside .content-container {
-    max-width: 100%;
+    width: 100%;
     padding: 0 var(--vp-spacing-12);
     margin-left: 0;
     margin-right: 0;

@@ -33,14 +33,14 @@
   --vp-custom-block-danger-border: #fecaca;
   --vp-custom-block-danger-text: #b91c1c;
 
-  /* Layout Width - Wider content area */
-  --vp-layout-max-width: 1600px;
-  --vp-content-width: 920px;
-  --vp-sidebar-width: 280px;
-  --vp-toc-width: 200px;
+  /* Layout Width - Wider content area (using rem for zoom responsiveness) */
+  --vp-layout-max-width: 100rem; /* 1600px / 16 */
+  --vp-content-width: 57.5rem; /* 920px / 16 */
+  --vp-sidebar-width: 17.5rem; /* 280px / 16 */
+  --vp-toc-width: 12.5rem; /* 200px / 16 */
 
   /* Prose width for optimal readability */
-  --vp-prose-width: 820px;
+  --vp-prose-width: 51.25rem; /* 820px / 16 */
 }
 
 .dark {
@@ -575,6 +575,39 @@ div[class*='language-'] .vp-copy:hover {
   padding: var(--vp-spacing-2) var(--vp-spacing-4);
 }
 
+/* Sidebar numbering and indentation */
+/* Initialize counter on the sidebar container */
+.VPSidebar .VPSidebarGroup,
+.VPSidebar nav {
+  counter-reset: sidebar-item;
+}
+
+/* Increment counter for level-1 items only */
+.VPSidebar .VPSidebarItem.level-1 {
+  counter-increment: sidebar-item;
+}
+
+/* Add numbers to sidebar items */
+.VPSidebar .VPSidebarItem.level-1 .link::before {
+  content: counter(sidebar-item) ". ";
+  color: var(--vp-c-text-3);
+  font-weight: 500;
+  margin-right: 8px;
+}
+
+/* Indentation for different levels */
+.VPSidebar .VPSidebarItem.level-1 {
+  padding-left: 16px;
+}
+
+.VPSidebar .VPSidebarItem.level-2 {
+  padding-left: 32px;
+}
+
+.VPSidebar .VPSidebarItem.level-3 {
+  padding-left: 48px;
+}
+
 /* ============================================
  * Navigation Polish
  * ============================================ */
@@ -662,15 +695,20 @@ div[class*='language-'] .vp-copy:hover {
   background: var(--vp-c-bg-soft);
 }
 
-.VPDocOutline .outline-link.is-active {
-  color: var(--vp-c-primary);
-  font-weight: 500;
-  background: var(--vp-c-bg-soft);
+/* Match VitePress actual DOM structure: <li><a class="outline-link active">...</a></li> */
+/* Override VitePress scoped styles with higher specificity */
+.VPDocAside .VPDocAsideOutline .outline-link.active {
+  color: var(--vp-c-brand) !important;
+  font-weight: 600 !important;
+  background: var(--vp-c-bg-soft) !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  transition: all 0.25s !important;
 }
 
 .VPDocOutline .outline-marker {
-  width: 2px;
-  background: var(--vp-c-primary);
+  width: 3px;
+  background: var(--vp-c-brand);
   border-radius: var(--vp-radius-full);
 }
 
