@@ -122,19 +122,24 @@ const planObject = generatePlanFromSchema(schema, context)
 
 ## Execution Flow
 
+**Prior Analysis Fast Path**: When prompt contains "No exploration files" or exploration context is empty, SKIP Phase 2 (CLI execution). Instead, generate plan directly from the task description's `## Prior Analysis` block + schema. This saves tool budget for file writing (Phase 4). Go: Phase 1 → Phase 3 (direct generation) → Phase 4 → Phase 5.
+
 ```
 Phase 1: Schema & Context Loading
 ├─ Read schema reference (plan-overview-base-schema or plan-overview-fix-schema)
 ├─ Aggregate multi-angle context (explorations or diagnoses)
+├─ **Check**: Has exploration files?
+│   ├─ YES → Continue to Phase 2
+│   └─ NO (Prior Analysis) → Skip Phase 2, generate plan directly in Phase 3
 └─ Determine output structure from schema
 
-Phase 2: CLI Execution
+Phase 2: CLI Execution (SKIP when no explorations)
 ├─ Construct CLI command with planning template
 ├─ Execute Gemini (fallback: Qwen → degraded mode)
 └─ Timeout: 60 minutes
 
 Phase 3: Parsing & Enhancement
-├─ Parse CLI output sections
+├─ (Normal) Parse CLI output sections OR (Prior Analysis) Generate tasks directly from task description
 ├─ Validate and enhance task objects
 └─ Infer missing fields from context
 
