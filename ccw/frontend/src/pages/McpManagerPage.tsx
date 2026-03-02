@@ -412,8 +412,7 @@ export function McpManagerPage() {
   };
 
   const handleUpdateCcwConfig = async (config: Partial<CcwMcpConfig>) => {
-    // Read BEFORE optimistic update to capture actual server state
-    const currentConfig = queryClient.getQueryData<CcwMcpConfig>(ccwMcpQueryKey) ?? ccwConfig;
+    // Read BEFORE optimistic update to capture previous state for rollback
     const previousConfig = queryClient.getQueryData<CcwMcpConfig>(ccwMcpQueryKey);
 
     // Optimistic cache update for immediate UI response
@@ -422,8 +421,17 @@ export function McpManagerPage() {
       return { ...old, ...config };
     });
 
+    // Read AFTER optimistic update to get the latest merged state
+    const currentConfig = queryClient.getQueryData<CcwMcpConfig>(ccwMcpQueryKey) ?? ccwConfig;
+
     try {
-      await updateCcwConfig({ ...currentConfig, ...config });
+      // Only pass the fields that updateCcwConfig expects
+      await updateCcwConfig({
+        enabledTools: currentConfig.enabledTools,
+        projectRoot: currentConfig.projectRoot,
+        allowedDirs: currentConfig.allowedDirs,
+        enableSandbox: currentConfig.enableSandbox,
+      });
     } catch (error) {
       console.error('Failed to update CCW config:', error);
       queryClient.setQueryData(ccwMcpQueryKey, previousConfig);

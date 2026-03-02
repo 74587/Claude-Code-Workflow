@@ -4373,10 +4373,13 @@ function buildCcwMcpServerConfig(config: {
 
   // Only use default when enabledTools is undefined (not provided)
   // When enabledTools is an empty array, set to empty string to disable all tools
+  console.log('[buildCcwMcpServerConfig] config.enabledTools:', config.enabledTools);
   if (config.enabledTools !== undefined) {
     env.CCW_ENABLED_TOOLS = config.enabledTools.join(',');
+    console.log('[buildCcwMcpServerConfig] Set CCW_ENABLED_TOOLS to:', env.CCW_ENABLED_TOOLS);
   } else {
     env.CCW_ENABLED_TOOLS = 'write_file,edit_file,read_file,core_memory,ask_question,smart_search';
+    console.log('[buildCcwMcpServerConfig] Using default CCW_ENABLED_TOOLS');
   }
 
   if (config.projectRoot) {

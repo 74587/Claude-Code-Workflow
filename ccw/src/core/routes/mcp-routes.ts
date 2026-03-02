@@ -945,6 +945,11 @@ function addGlobalMcpServer(serverName: string, serverConfig: unknown) {
       config.mcpServers = {};
     }
 
+    // Debug logging for ccw-tools
+    if (serverName === 'ccw-tools') {
+      console.log('[addGlobalMcpServer] Saving ccw-tools config:', JSON.stringify(serverConfig, null, 2));
+    }
+
     // Add the server to top-level mcpServers
     config.mcpServers[serverName] = serverConfig;
 
