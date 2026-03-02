@@ -24,6 +24,9 @@
 | `workflow-tdd-plan` | TDD workflow | `/workflow-tdd-plan` |
 | `workflow-test-fix` | Test-fix workflow | `/workflow-test-fix` |
 | `workflow-skill-designer` | Skill design workflow | `/workflow-skill-designer` |
+| `team-arch-opt` | Architecture optimization | `/team-arch-opt` |
+
+> **New in 7.2.1**: `team-arch-opt` skill added for architecture analysis and optimization. `workflow-lite-planex` renamed from `workflow-lite-plan`.
 
 ## Skills Details
 
@@ -322,6 +325,30 @@ Wave 1: Issue 1-5 → Parallel planning → Parallel execution
 Wave 2: Issue 6-10 → Parallel planning → Parallel execution
 ...
 ```
+
+---
+
+### team-arch-opt
+
+**One-Liner**: Architecture optimization — Analyze and optimize system architecture
+
+**Trigger**:
+```shell
+/team-arch-opt
+/ccw "team arch opt: analyze module structure"
+```
+
+**Features**:
+- Architecture analysis and assessment
+- Optimization recommendations
+- Team-based architecture review
+- Role-spec-driven worker agents
+
+**Use Cases**:
+- Architecture health assessment
+- Module dependency analysis
+- Performance bottleneck identification
+- Technical debt evaluation
 
 ## Related Commands
 

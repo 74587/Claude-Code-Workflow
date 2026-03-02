@@ -1093,7 +1093,7 @@ export async function handleCliRoutes(ctx: RouteContext): Promise<boolean> {
           return { error: 'Execution not found', status: 404 };
         }
 
-        const review = historyStore.saveReview({
+        const review = await historyStore.saveReview({
           execution_id: executionId,
           status,
           rating,

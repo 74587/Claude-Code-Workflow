@@ -19,22 +19,7 @@ export default withMermaid(defineConfig({
   // Ignore dead links for incomplete docs
   ignoreDeadLinks: true,
   head: [
-    ['link', { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' }],
-    [
-      'script',
-      {},
-      `(() => {
-  try {
-    const theme = localStorage.getItem('ccw-theme') || 'blue'
-    document.documentElement.setAttribute('data-theme', theme)
-
-    const mode = localStorage.getItem('ccw-color-mode') || 'auto'
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-    const isDark = mode === 'dark' || (mode === 'auto' && prefersDark)
-    document.documentElement.classList.toggle('dark', isDark)
-  } catch {}
-})()`
-    ],
+    ['link', { rel: 'icon', href: `${base}favicon.svg`, type: 'image/svg+xml' }],
     ['meta', { name: 'theme-color', content: '#3b82f6' }],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:locale', content: 'en_US' }],
@@ -227,6 +212,16 @@ export default withMermaid(defineConfig({
           ]
         }
       ],
+      '/reference/': [
+        {
+          text: '📚 Reference',
+          collapsible: true,
+          items: [
+            { text: 'Commands & Skills', link: '/reference/commands-skills' },
+            { text: 'Claude Code Hooks', link: '/reference/claude-code-hooks-guide' }
+          ]
+        }
+      ],
       '/agents/': [
         {
           text: '🤖 Agents',
@@ -244,6 +239,7 @@ export default withMermaid(defineConfig({
           collapsible: true,
           items: [
             { text: 'Overview', link: '/workflows/' },
+            { text: 'Comparison Table', link: '/workflows/comparison-table' },
             { text: '4-Level System', link: '/workflows/4-level' },
             { text: 'Examples', link: '/workflows/examples' },
             { text: 'Best Practices', link: '/workflows/best-practices' },
@@ -343,7 +339,8 @@ export default withMermaid(defineConfig({
           { text: '指南', link: '/zh/guide/ch01-what-is-claude-dms3' },
           { text: '命令', link: '/zh/commands/claude/' },
           { text: '技能', link: '/zh/skills/claude-index' },
-          { text: '功能', link: '/zh/features/spec' }
+          { text: '功能', link: '/zh/features/spec' },
+          { text: '参考', link: '/zh/reference/commands-skills' }
         ],
         sidebar: {
           '/zh/guide/': [
@@ -469,9 +466,19 @@ export default withMermaid(defineConfig({
               collapsible: true,
               items: [
                 { text: '概述', link: '/zh/workflows/' },
+                { text: '工作流对比', link: '/zh/workflows/comparison-table' },
                 { text: '四级体系', link: '/zh/workflows/4-level' },
                 { text: '最佳实践', link: '/zh/workflows/best-practices' },
                 { text: '团队协作', link: '/zh/workflows/teams' }
+              ]
+            }
+          ],
+          '/zh/reference/': [
+            {
+              text: '📚 参考',
+              collapsible: true,
+              items: [
+                { text: '命令与技能参考', link: '/zh/reference/commands-skills' }
               ]
             }
           ]
