@@ -174,7 +174,7 @@ TASK:
 • Identify dependencies and execution phases
 • Generate complexity-appropriate fields (rationale, verification, risks, code_skeleton, data_flow)
 MODE: analysis
-CONTEXT: @**/* | Memory: {context_summary}
+CONTEXT: @**/* | Memory: {context_summary}. If task description contains '## Prior Analysis', treat it as primary planning context with pre-analyzed files, findings, and recommendations.
 EXPECTED:
 ## Summary
 [overview]
@@ -257,8 +257,8 @@ function extractSection(cliOutput, header) {
 // Parse structured tasks from CLI output
 function extractStructuredTasks(cliOutput, complexity) {
   const tasks = []
-  // Split by task headers (supports both TASK-NNN and T\d+ formats)
-  const taskBlocks = cliOutput.split(/### (TASK-\d+|T\d+):/).slice(1)
+  // Split by task headers (flexible: 1-3 #, optional colon, supports TASK-NNN and T\d+)
+  const taskBlocks = cliOutput.split(/#{1,3}\s*(TASK-\d+|T\d+):?\s*/).slice(1)
 
   for (let i = 0; i < taskBlocks.length; i += 2) {
     const rawId = taskBlocks[i].trim()
