@@ -20,6 +20,16 @@ export default withMermaid(defineConfig({
   ignoreDeadLinks: true,
   head: [
     ['link', { rel: 'icon', href: `${base}favicon.svg`, type: 'image/svg+xml' }],
+    [
+      'script',
+      {},
+      `(function() {
+  try {
+    var theme = localStorage.getItem('ccw-theme') || 'blue';
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {}
+})()`
+    ],
     ['meta', { name: 'theme-color', content: '#3b82f6' }],
     ['meta', { name: 'og:type', content: 'website' }],
     ['meta', { name: 'og:locale', content: 'en_US' }],
