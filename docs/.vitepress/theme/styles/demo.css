@@ -35,7 +35,7 @@
 }
 
 /* Responsive design */
-@media (max-width: var(--bp-sm)) {
+@media (max-width: 767px) {
   .demo-header {
     flex-direction: column;
     align-items: flex-start;

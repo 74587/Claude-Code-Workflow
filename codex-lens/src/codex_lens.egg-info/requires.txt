@@ -42,18 +42,18 @@ onnxruntime~=1.15.0
 transformers~=4.36.0
 
 [semantic]
-numpy~=1.24.0
+numpy~=1.26.0
 fastembed~=0.2.0
 hnswlib~=0.8.0
 
 [semantic-directml]
-numpy~=1.24.0
+numpy~=1.26.0
 fastembed~=0.2.0
 hnswlib~=0.8.0
 onnxruntime-directml~=1.15.0
 
 [semantic-gpu]
-numpy~=1.24.0
+numpy~=1.26.0
 fastembed~=0.2.0
 hnswlib~=0.8.0
 onnxruntime-gpu~=1.15.0

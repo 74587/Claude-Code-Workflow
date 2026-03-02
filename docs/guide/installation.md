@@ -178,25 +178,99 @@ cp -r agents/* ~/.claude/agents/
 
 ## Uninstallation
 
+CCW provides a smart uninstall command that automatically handles installation manifests, orphan file cleanup, and global file protection.
+
+### Using CCW Uninstall Command (Recommended)
+
 ```bash
-# Remove CCW commands
-rm ~/.claude/commands/ccw.md
-rm ~/.claude/commands/ccw-coordinator.md
+ccw uninstall
+```
+
+Uninstallation flow:
+
+1. **Scan Installation Manifests** - Automatically detects all installed CCW instances (Global and Path modes)
+2. **Interactive Selection** - Displays installation list for you to choose which to uninstall
+3. **Smart Protection** - When uninstalling Path mode, if a Global installation exists, global files (workflows, scripts, templates) are automatically preserved
+4. **Orphan File Cleanup** - Automatically cleans up skills and commands files no longer referenced by any installation
+5. **Empty Directory Cleanup** - Removes empty directories left behind
+6. **Git Bash Fix Removal** - On Windows, after the last installation is removed, asks whether to remove the Git Bash multi-line prompt fix
+
+### Uninstall Output Example
+
+```
+  Found installations:
+
+  1. Global
+     Path: /Users/username/my-project
+     Date: 2026/3/2
+     Version: 7.0.5
+     Files: 156 | Dirs: 23
+
+──────────────────────────────────────
+? Select installation to uninstall: Global - /Users/username/my-project
+? Are you sure you want to uninstall Global installation? Yes
+
+✔ Removing files...
+✔ Uninstall complete!
+
+╔══════════════════════════════════════╗
+║           Uninstall Summary          ║
+╠══════════════════════════════════════╣
+║ ✓ Successfully Uninstalled           ║
+║                                      ║
+║ Files removed: 156                   ║
+║ Directories removed: 23              ║
+║ Orphan files cleaned: 3              ║
+║                                      ║
+║ Manifest removed                     ║
+╚══════════════════════════════════════╝
+```
+
+### Manual Uninstallation
+
+If you need to manually remove CCW files (not recommended):
+
+```bash
+# CCW installed directories (safe to remove)
+rm -rf ~/.claude/commands/ccw.md
+rm -rf ~/.claude/commands/ccw-coordinator.md
 rm -rf ~/.claude/commands/workflow
 rm -rf ~/.claude/commands/issue
 rm -rf ~/.claude/commands/cli
 rm -rf ~/.claude/commands/memory
-
-# Remove CCW skills and agents
+rm -rf ~/.claude/commands/idaw
 rm -rf ~/.claude/skills/workflow-*
 rm -rf ~/.claude/skills/team-*
+rm -rf ~/.claude/skills/review-*
 rm -rf ~/.claude/agents/team-worker.md
 rm -rf ~/.claude/agents/cli-*-agent.md
+rm -rf ~/.claude/workflows
+rm -rf ~/.claude/scripts
+rm -rf ~/.claude/templates
+rm -rf ~/.claude/manifests
+rm -rf ~/.claude/version.json
 
-# Remove configuration (optional)
-rm -rf ~/.claude/cli-tools.json
-rm -rf .workflow/
+# Codex related directories
+rm -rf ~/.codex/prompts
+rm -rf ~/.codex/skills
+rm -rf ~/.codex/agents
+
+# Other CLI directories
+rm -rf ~/.gemini
+rm -rf ~/.qwen
+
+# CCW core directory
+rm -rf ~/.ccw
 ```
+
+::: danger Danger
+**Do NOT** run `rm -rf ~/.claude` - this will delete your Claude Code personal configurations:
+- `~/.claude/settings.json` - Your Claude Code settings
+- `~/.claude/settings.local.json` - Local override settings
+- MCP server configurations, etc.
+
+Always use `ccw uninstall` for controlled uninstallation.
+:::
 
 ## Troubleshooting
 

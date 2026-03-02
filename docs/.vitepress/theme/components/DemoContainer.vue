@@ -80,7 +80,7 @@ onMounted(async () => {
       }
     } else {
       // Dynamically import demo component from file
-      const demoModule = await import(`../demos/${props.name}.tsx`)
+      const demoModule = await import(`../../demos/${props.name}.tsx`)
       const DemoComponent = demoModule.default || demoModule[props.name]
 
       if (!DemoComponent) {
@@ -94,7 +94,7 @@ onMounted(async () => {
 
         // Extract source code
         try {
-          const rawModule = await import(`../demos/${props.name}.tsx?raw`)
+          const rawModule = await import(`../../demos/${props.name}.tsx?raw`)
           sourceCode.value = rawModule.default || rawModule
         } catch {
           sourceCode.value = '// Source code not available'

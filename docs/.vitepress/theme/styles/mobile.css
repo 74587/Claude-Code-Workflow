@@ -1,8 +1,10 @@
 /**
  * Mobile-Responsive Styles
  * Breakpoints: < 480px (xs), < 768px (sm/mobile), 768px-1024px (md/tablet), > 1024px (lg/desktop)
- * Uses CSS custom properties from variables.css: --bp-xs, --bp-sm, --bp-md, --bp-lg
  * WCAG 2.1 AA compliant
+ *
+ * NOTE: Media/container queries MUST use literal pixel values (CSS spec limitation)
+ * --bp-xs: 480px, --bp-sm: 768px, --bp-md: 1024px, --bp-lg: 1440px
  */
 
 /* ============================================
@@ -19,7 +21,7 @@
     max-width: 320px;
   }
 
-  @media (min-width: var(--bp-sm)) {
+  @media (min-width: 768px) {
     .VPSidebar {
       width: var(--vp-sidebar-width, 272px);
       max-width: none;
@@ -31,13 +33,13 @@
     padding: 16px;
   }
 
-  @media (min-width: var(--bp-sm)) {
+  @media (min-width: 768px) {
     .VPContent {
       padding: 24px;
     }
   }
 
-  @media (min-width: var(--bp-md)) {
+  @media (min-width: 1024px) {
     .VPContent {
       padding: 32px 48px;
     }
@@ -48,14 +50,14 @@
     display: none;
   }
 
-  @media (min-width: var(--bp-sm)) {
+  @media (min-width: 768px) {
     .VPDocOutline {
       display: block;
       width: 200px;
     }
   }
 
-  @media (min-width: var(--bp-md)) {
+  @media (min-width: 1024px) {
     .VPDocOutline {
       width: 256px;
     }
@@ -65,7 +67,7 @@
 /* Container Query Rules (modern browsers) */
 @supports (container-type: inline-size) {
   /* Sidebar Container Queries */
-  @container sidebar (max-width: var(--bp-xs)) {
+  @container sidebar (max-width: 480px) {
     .VPSidebar .group {
       padding: 12px 16px;
     }
@@ -75,7 +77,7 @@
     }
   }
 
-  @container sidebar (min-width: var(--bp-xs)) and (max-width: var(--bp-sm)) {
+  @container sidebar (min-width: 480px) and (max-width: 768px) {
     .VPSidebar .group {
       padding: 16px 20px;
     }
@@ -85,7 +87,7 @@
     }
   }
 
-  @container sidebar (min-width: var(--bp-sm)) {
+  @container sidebar (min-width: 768px) {
     .VPSidebar .group {
       padding: 16px 24px;
     }
@@ -221,25 +223,25 @@
 }
 
 /* Generic Container-Responsive Utility Class */
-@container (max-width: var(--bp-xs)) {
+@container (max-width: 480px) {
   .container-responsive {
     padding: 0 var(--spacing-fluid-xs);
   }
 }
 
-@container (min-width: var(--bp-xs)) and (max-width: var(--bp-sm)) {
+@container (min-width: 480px) and (max-width: 768px) {
   .container-responsive {
     padding: 0 var(--spacing-fluid-sm);
   }
 }
 
-@container (min-width: var(--bp-sm)) and (max-width: var(--bp-md)) {
+@container (min-width: 768px) and (max-width: 1024px) {
   .container-responsive {
     padding: 0 var(--spacing-fluid-md);
   }
 }
 
-@container (min-width: var(--bp-md)) {
+@container (min-width: 1024px) {
   .container-responsive {
     padding: 0 var(--spacing-fluid-lg);
   }
@@ -250,7 +252,7 @@
  * ============================================ */
 
 /* Base Mobile Styles (320px+) */
-@media (max-width: var(--bp-sm)) {
+@media (max-width: 767px) {
   /* Typography */
   :root {
     --vp-font-size-base: 14px;
@@ -598,7 +600,7 @@
 /* ============================================
  * Tablet Styles (768px - 1024px)
  * ============================================ */
-@media (min-width: var(--bp-sm)) and (max-width: var(--bp-md)) {
+@media (min-width: 768px) and (max-width: 1023px) {
   :root {
     --vp-content-width: 760px;
     --vp-sidebar-width: 240px;
@@ -639,7 +641,7 @@
 /* ============================================
  * Desktop Styles (1024px+)
  * ============================================ */
-@media (min-width: var(--bp-md)) {
+@media (min-width: 1024px) {
   :root {
     --vp-layout-max-width: 1600px;
     --vp-content-width: 960px;
@@ -692,7 +694,7 @@
 /* ============================================
  * Large Desktop (1440px+)
  * ============================================ */
-@media (min-width: var(--bp-lg)) {
+@media (min-width: 1440px) {
   :root {
     --vp-content-width: 1040px;
     --vp-sidebar-width: 280px;
@@ -749,7 +751,7 @@
 /* ============================================
  * ProfessionalHome Component - Mobile Optimizations
  * ============================================ */
-@media (max-width: var(--bp-sm)) {
+@media (max-width: 767px) {
   /* Root level overflow prevention */
   html, body {
     max-width: 100vw;
@@ -921,7 +923,7 @@
 }
 
 /* ProfessionalHome - Tablet Optimizations */
-@media (min-width: var(--bp-sm)) and (max-width: var(--bp-md)) {
+@media (min-width: 768px) and (max-width: 1023px) {
   .pro-home .hero-section {
     padding: 3rem 0 2.5rem;
   }
@@ -941,7 +943,7 @@
 }
 
 /* ProfessionalHome - Small Mobile (< 480px) */
-@media (max-width: var(--bp-xs)) {
+@media (max-width: 479px) {
   .pro-home .hero-badge {
     font-size: 0.7rem;
     padding: 0.2rem 0.5rem;
@@ -965,7 +967,7 @@
 /* ============================================
  * Dark Mode Specific
  * ============================================ */
-@media (max-width: var(--bp-sm)) {
+@media (max-width: 767px) {
   .dark {
     --vp-c-bg: #0f172a;
     --vp-c-text-1: #f1f5f9;
@@ -975,7 +977,7 @@
 /* ============================================
  * Print Styles for Mobile
  * ============================================ */
-@media print and (max-width: var(--bp-sm)) {
+@media print and (max-width: 767px) {
   .VPContent {
     font-size: 10pt;
   }

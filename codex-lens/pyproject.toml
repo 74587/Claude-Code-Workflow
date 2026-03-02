@@ -30,7 +30,7 @@ dependencies = [
 [project.optional-dependencies]
 # Semantic search using fastembed (ONNX-based, lightweight ~200MB)
 semantic = [
-    "numpy~=1.24.0",
+    "numpy~=1.26.0",
     "fastembed~=0.2.0",
     "hnswlib~=0.8.0",
 ]
@@ -38,7 +38,7 @@ semantic = [
 # GPU acceleration for semantic search (NVIDIA CUDA)
 # Install with: pip install codexlens[semantic-gpu]
 semantic-gpu = [
-    "numpy~=1.24.0",
+    "numpy~=1.26.0",
     "fastembed~=0.2.0",
     "hnswlib~=0.8.0",
     "onnxruntime-gpu~=1.15.0",  # CUDA support
@@ -47,7 +47,7 @@ semantic-gpu = [
 # GPU acceleration for Windows (DirectML - supports NVIDIA/AMD/Intel)
 # Install with: pip install codexlens[semantic-directml]
 semantic-directml = [
-    "numpy~=1.24.0",
+    "numpy~=1.26.0",
     "fastembed~=0.2.0",
     "hnswlib~=0.8.0",
     "onnxruntime-directml~=1.15.0",  # DirectML support

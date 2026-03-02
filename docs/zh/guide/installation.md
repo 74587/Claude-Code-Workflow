@@ -106,12 +106,108 @@ npm install -g claude-code-workflow@latest
 
 ## 卸载
 
-```bash
-npm uninstall -g claude-code-workflow
+CCW 提供了智能卸载命令，会自动处理安装清单、孤立文件清理和全局文件保护。
 
-# 删除配置（可选）
-rm -rf ~/.claude
+### 使用 CCW 卸载命令（推荐）
+
+```bash
+ccw uninstall
 ```
+
+卸载流程：
+
+1. **扫描安装清单** - 自动检测所有已安装的 CCW 实例（Global 和 Path 模式）
+2. **交互选择** - 显示安装列表，让您选择要卸载的实例
+3. **智能保护** - 卸载 Path 模式时，如果存在 Global 安装，会自动保护全局文件（workflows、scripts、templates）
+4. **孤立文件清理** - 自动清理不再被任何安装引用的 skills 和 commands 文件
+5. **空目录清理** - 移除安装留下的空目录
+6. **Git Bash 修复移除** - Windows 上最后一个安装卸载后，询问是否移除 Git Bash 多行提示修复
+
+### 卸载输出示例
+
+```
+  Found installations:
+
+  1. Global
+     Path: /Users/username/my-project
+     Date: 2026/3/2
+     Version: 7.0.5
+     Files: 156 | Dirs: 23
+
+──────────────────────────────────────
+? Select installation to uninstall: Global - /Users/username/my-project
+? Are you sure you want to uninstall Global installation? Yes
+
+✔ Removing files...
+✔ Uninstall complete!
+
+╔══════════════════════════════════════╗
+║           Uninstall Summary          ║
+╠══════════════════════════════════════╣
+║ ✓ Successfully Uninstalled           ║
+║                                      ║
+║ Files removed: 156                   ║
+║ Directories removed: 23              ║
+║ Orphan files cleaned: 3              ║
+║                                      ║
+║ Manifest removed                     ║
+╚══════════════════════════════════════╝
+```
+
+### 手动卸载 npm 包
+
+如果需要完全移除 CCW npm 包：
+
+```bash
+# 卸载全局 npm 包
+npm uninstall -g claude-code-workflow
+```
+
+### 手动删除 CCW 文件（不推荐）
+
+如果必须手动删除，以下是 CCW 安装的具体路径：
+
+```bash
+# CCW 安装的目录（可安全删除）
+rm -rf ~/.claude/commands/ccw.md
+rm -rf ~/.claude/commands/ccw-coordinator.md
+rm -rf ~/.claude/commands/workflow
+rm -rf ~/.claude/commands/issue
+rm -rf ~/.claude/commands/cli
+rm -rf ~/.claude/commands/memory
+rm -rf ~/.claude/commands/idaw
+rm -rf ~/.claude/skills/workflow-*
+rm -rf ~/.claude/skills/team-*
+rm -rf ~/.claude/skills/review-*
+rm -rf ~/.claude/agents/team-worker.md
+rm -rf ~/.claude/agents/cli-*-agent.md
+rm -rf ~/.claude/workflows
+rm -rf ~/.claude/scripts
+rm -rf ~/.claude/templates
+rm -rf ~/.claude/manifests
+rm -rf ~/.claude/version.json
+
+# Codex 相关目录
+rm -rf ~/.codex/prompts
+rm -rf ~/.codex/skills
+rm -rf ~/.codex/agents
+
+# 其他 CLI 目录
+rm -rf ~/.gemini
+rm -rf ~/.qwen
+
+# CCW 核心目录
+rm -rf ~/.ccw
+```
+
+::: danger 危险
+**不要**执行 `rm -rf ~/.claude`，这会删除您的 Claude Code 个人配置：
+- `~/.claude/settings.json` - 您的 Claude Code 设置
+- `~/.claude/settings.local.json` - 本地覆盖设置
+- MCP 服务器配置等
+
+建议始终使用 `ccw uninstall` 进行受控卸载。
+:::
 
 ## 故障排除
 

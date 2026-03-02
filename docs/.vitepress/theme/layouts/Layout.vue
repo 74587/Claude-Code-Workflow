@@ -196,7 +196,7 @@ onBeforeUnmount(() => {
 /* Container queries in mobile.css provide additional responsiveness */
 
 /* Mobile-specific styles */
-@media (max-width: var(--bp-sm)) {
+@media (max-width: 767px) {
   .hero-extensions {
     margin-top: 1rem;
     padding: 0 12px;

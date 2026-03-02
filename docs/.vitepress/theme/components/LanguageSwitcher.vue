@@ -27,13 +27,20 @@ const currentLocale = computed(() => {
 
 // Get alternate language link for current page
 const getAltLink = (localeCode: string) => {
-  if (localeCode === 'root') localeCode = ''
+  // Get current path and strip any existing locale prefix
+  let currentPath = page.value.relativePath
 
-  // Get current page path without locale prefix
-  const currentPath = page.value.relativePath
-  const altPath = localeCode ? `/${localeCode}/${currentPath}` : `/${currentPath}`
+  // Strip locale prefixes (zh/, zh-CN/) from path
+  currentPath = currentPath.replace(/^(zh-CN|zh)\//, '')
 
-  return altPath
+  // Remove .md extension for clean URL (VitePress uses .html)
+  currentPath = currentPath.replace(/\.md$/, '')
+
+  // Construct target path with locale prefix
+  if (localeCode === 'root' || localeCode === '') {
+    return `/${currentPath}`
+  }
+  return `/${localeCode}/${currentPath}`
 }
 
 const switchLanguage = (localeCode: string) => {

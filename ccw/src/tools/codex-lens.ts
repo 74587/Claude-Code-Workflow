@@ -516,6 +516,36 @@ async function ensureLiteLLMEmbedderReady(): Promise<BootstrapResult> {
   // Fallback: Use pip for installation
   const pipPath = getCodexLensPip();
 
+  // UV-created venvs may not ship with pip.exe. Ensure pip exists before using pip fallback.
+  if (!existsSync(pipPath)) {
+    const venvPython = getCodexLensPython();
+    console.warn(`[CodexLens] pip not found at: ${pipPath}. Attempting to bootstrap pip with ensurepip...`);
+    try {
+      execSync(`\"${venvPython}\" -m ensurepip --upgrade`, {
+        stdio: 'inherit',
+        timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
+      });
+    } catch (err) {
+      console.warn(`[CodexLens] ensurepip failed: ${(err as Error).message}`);
+    }
+  }
+
+  if (!existsSync(pipPath)) {
+    return {
+      success: false,
+      error: `pip not found at ${pipPath}. Delete ${getCodexLensVenvDir()} and retry, or reinstall using UV.`,
+      diagnostics: {
+        packagePath: localPath || undefined,
+        venvPath: getCodexLensVenvDir(),
+        installer: 'pip',
+        editable,
+        searchedPaths: !localPath ? discovery.searchedPaths : undefined,
+      },
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
+  }
+
+
   try {
     if (localPath) {
       const pipFlag = editable ? '-e' : '';
@@ -1011,7 +1041,45 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
     // Install codex-lens
     try {
       console.log('[CodexLens] Installing codex-lens package...');
-    const pipPath = getCodexLensPip();
+      const pipPath = getCodexLensPip();
+
+      // UV-created venvs may not ship with pip.exe. Ensure pip exists before using pip fallback.
+      if (!existsSync(pipPath)) {
+        const venvPython = getCodexLensPython();
+        console.warn(`[CodexLens] pip not found at: ${pipPath}. Attempting to bootstrap pip with ensurepip...`);
+        try {
+          execSync(`\"${venvPython}\" -m ensurepip --upgrade`, {
+            stdio: 'inherit',
+            timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
+          });
+        } catch (err) {
+          console.warn(`[CodexLens] ensurepip failed: ${(err as Error).message}`);
+        }
+      }
+
+      // If pip is still missing, recreate the venv using system Python (guarantees pip).
+      if (!existsSync(pipPath)) {
+        console.warn('[CodexLens] pip still missing after ensurepip; recreating venv with system Python...');
+        try {
+          rmSync(venvDir, { recursive: true, force: true });
+          const pythonCmd = getSystemPython();
+          execSync(`${pythonCmd} -m venv \"${venvDir}\"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PROCESS_SPAWN });
+        } catch (err) {
+          return {
+            success: false,
+            error: `Failed to recreate venv for pip fallback: ${(err as Error).message}`,
+            warnings: warnings.length > 0 ? warnings : undefined,
+          };
+        }
+
+        if (!existsSync(pipPath)) {
+          return {
+            success: false,
+            error: `pip not found at ${pipPath} after venv recreation. Ensure your Python installation includes ensurepip/pip.`,
+            warnings: warnings.length > 0 ? warnings : undefined,
+          };
+        }
+      }
 
     // Try local path using unified discovery
     const discovery = findCodexLensPath();
