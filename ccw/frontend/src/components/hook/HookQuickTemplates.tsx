@@ -248,7 +248,8 @@ const CATEGORY_ICONS: Record<TemplateCategory, { icon: typeof Bell; color: strin
   notification: { icon: Bell, color: 'text-blue-500', bg: 'bg-blue-500/10' },
   indexing: { icon: Database, color: 'text-purple-500', bg: 'bg-purple-500/10' },
   automation: { icon: Wrench, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-  utility: { icon: Settings, color: 'text-gray-500', bg: 'bg-gray-500/10' }
+  utility: { icon: Settings, color: 'text-gray-500', bg: 'bg-gray-500/10' },
+  protection: { icon: Shield, color: 'text-red-500', bg: 'bg-red-500/10' },
 };
 
 // ========== Template Icons ==========
