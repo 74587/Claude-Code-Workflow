@@ -10,7 +10,6 @@
 
 | 命令 | 功能 | 语法 |
 | --- | --- | --- |
-| [`lite-lite-lite`](#lite-lite-lite) | 超轻量级多工具分析和直接执行 | `/workflow:lite-lite-lite [-y] <任务>` |
 | [`lite-plan`](#lite-plan) | 轻量级交互式规划工作流 | `/workflow-lite-planex [-y] [-e] "任务"` |
 | [`lite-fix`](#lite-fix) | 轻量级 Bug 诊断和修复 | `/workflow:lite-fix [-y] [--hotfix] "Bug 描述"` |
 
@@ -65,29 +64,6 @@
 | [`plan-verify`](#plan-verify) | 验证规划一致性 | `/workflow-plan-verify [--session session-id]` |
 
 ## 命令详解
-
-### lite-lite-lite
-
-**功能**: 超轻量级多工具分析和直接执行。简单任务无工件，复杂任务自动在 `.workflow/.scratchpad/` 创建规划文档。
-
-**语法**:
-```bash
-/workflow:lite-lite-lite [-y|--yes] <任务描述>
-```
-
-**使用场景**:
-- 超简单快速任务
-- 不需要规划文档的代码修改
-- 自动工具选择
-
-**示例**:
-```bash
-# 超简单任务
-/workflow:lite-lite-lite "修复 header 样式"
-
-# 自动模式
-/workflow:lite-lite-lite -y "更新 README 链接"
-```
 
 ### lite-plan
 

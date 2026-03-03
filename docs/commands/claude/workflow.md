@@ -10,7 +10,6 @@
 
 | Command | Function | Syntax |
 |---------|----------|--------|
-| [`lite-lite-lite`](#lite-lite-lite) | Ultra-lightweight multi-tool analysis and direct execution | `/workflow:lite-lite-lite [-y] <task>` |
 | [`lite-plan`](#lite-plan) | Lightweight interactive planning workflow | `/workflow-lite-planex [-y] [-e] "task"` |
 | [`lite-fix`](#lite-fix) | Lightweight bug diagnosis and fix | `/workflow:lite-fix [-y] [--hotfix] "bug description"` |
 
@@ -65,29 +64,6 @@
 | [`plan-verify`](#plan-verify) | Verify planning consistency | `/workflow-plan-verify [--session session-id]` |
 
 ## Command Details
-
-### lite-lite-lite
-
-**Function**: Ultra-lightweight multi-tool analysis and direct execution. Simple tasks have no artifacts, complex tasks automatically create planning documents in `.workflow/.scratchpad/`.
-
-**Syntax**:
-```bash
-/workflow:lite-lite-lite [-y|--yes] <task description>
-```
-
-**Use Cases**:
-- Ultra-simple quick tasks
-- Code modifications not needing planning documents
-- Automatic tool selection
-
-**Examples**:
-```bash
-# Ultra-simple task
-/workflow:lite-lite-lite "fix header styles"
-
-# Auto mode
-/workflow:lite-lite-lite -y "update README links"
-```
 
 ### lite-plan
 
