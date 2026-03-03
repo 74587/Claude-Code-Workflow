@@ -56,22 +56,37 @@ Parse the following fields from your prompt:
 
 ---
 
-## Main Execution Loop
+## Execution Flow
 
 ```
 Entry:
   Parse prompt → extract role, role_spec, session, session_id, team_name, inner_loop
-  Read role_spec → parse frontmatter (prefix, discuss_rounds, etc.)
-  Read role_spec body → store Phase 2-4 instructions
+  Read role_spec → parse frontmatter + body (Phase 2-4 instructions)
   Load wisdom files from <session>/wisdom/ (if exist)
+
+  context_accumulator = []   ← inner_loop only, in-memory across iterations
 
   Main Loop:
     Phase 1: Task Discovery [built-in]
     Phase 2-4: Execute Role Spec [from .md]
     Phase 5: Report [built-in]
-      inner_loop AND more same-prefix tasks? → Phase 5-L → back to Phase 1
-      no more tasks? → Phase 5-F → STOP
+      inner_loop=true AND more same-prefix tasks? → Phase 5-L → back to Phase 1
+      inner_loop=false OR no more tasks? → Phase 5-F → STOP
 ```
+
+**Inner loop** (`inner_loop=true`): Processes ALL same-prefix tasks sequentially in a single agent instance. `context_accumulator` is passed to each subsequent subagent as `## Prior Context` for knowledge continuity.
+
+| Step | Phase 5-L (loop) | Phase 5-F (final) |
+|------|-----------------|------------------|
+| TaskUpdate completed | YES | YES |
+| team_msg state_update | YES | YES |
+| Accumulate summary | YES | - |
+| SendMessage to coordinator | NO | YES (all tasks) |
+| Fast-Advance check | - | YES |
+
+**Interrupt conditions** (break inner loop immediately):
+- consensus_blocked HIGH → SendMessage → STOP
+- Cumulative errors >= 3 → SendMessage → STOP
 
 ---
 
@@ -232,25 +247,32 @@ Discussion: <session-folder>/discussions/<round-id>-discussion.md
 
 ## Phase 5: Report + Fast-Advance (Built-in)
 
-After Phase 4 completes, determine Phase 5 variant:
+After Phase 4 completes, determine Phase 5 variant (see Execution Flow for decision table).
 
-### Phase 5-L: Loop Completion (when inner_loop=true AND more same-prefix tasks pending)
+### Phase 5-L: Loop Completion (inner_loop=true AND more same-prefix tasks pending)
 
 1. **TaskUpdate**: Mark current task `completed`
-2. **Message Bus**: Log completion with verification evidence
+2. **Message Bus**: Log state_update (combines state publish + audit log)
    ```
    mcp__ccw-tools__team_msg(
      operation="log",
-     team=<session_id>,
+     team_session_id=<session_id>,
      from=<role>,
-     to="coordinator",
-     type=<message_types.success>,
-     summary="[<role>] <task-id> complete. <brief-summary>. Verified: <verification_method>",
-     ref=<artifact-path>
+     type="state_update",
+     data={
+       status: "task_complete",
+       task_id: "<task-id>",
+       ref: "<artifact-path>",
+       key_findings: <from Phase 4>,
+       decisions: <from Phase 4>,
+       files_modified: <from Phase 4>,
+       artifact_path: "<artifact-path>",
+       verification: "<verification_method>"
+     }
    )
    ```
-   **CLI fallback**: `ccw team log --team <session_id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
-3. **Accumulate summary** to context_accumulator (in-memory):
+   > `to` defaults to "coordinator", `summary` auto-generated. `type="state_update"` auto-syncs data to `meta.json.role_state[<role>]`.
+3. **Accumulate** to `context_accumulator` (in-memory):
    ```
    context_accumulator.append({
      task: "<task-id>",
@@ -258,38 +280,36 @@ After Phase 4 completes, determine Phase 5 variant:
      key_decisions: <from Phase 4>,
      discuss_verdict: <from Phase 4 or "none">,
      discuss_rating: <from Phase 4 or null>,
-     summary: "<brief summary>"
+     summary: "<brief summary>",
+     files_modified: <from Phase 4>
    })
    ```
-4. **Interrupt check**:
-   - consensus_blocked HIGH → SendMessage to coordinator → STOP
-   - Cumulative errors >= 3 → SendMessage to coordinator → STOP
-5. **Loop**: Return to Phase 1 to find next same-prefix task
+4. **Interrupt check**: consensus_blocked HIGH or errors >= 3 → SendMessage → STOP
+5. **Loop**: Return to Phase 1
 
 **Phase 5-L does NOT**: SendMessage to coordinator, Fast-Advance, spawn successors.
 
-### Phase 5-F: Final Report (when no more same-prefix tasks OR inner_loop=false)
+### Phase 5-F: Final Report (no more same-prefix tasks OR inner_loop=false)
 
 1. **TaskUpdate**: Mark current task `completed`
-2. **Message Bus**: Log completion (same as Phase 5-L step 2)
-3. **Compile final report**: All task summaries + discuss results + artifact paths
-4. **Fast-Advance Check**:
-   - Call `TaskList()`, find pending tasks whose blockedBy are ALL completed
-   - Apply fast-advance rules (see table below)
-5. **SendMessage** to coordinator OR **spawn successor** directly
-
-### Fast-Advance Rules
+2. **Message Bus**: Log state_update (same call as Phase 5-L step 2)
+3. **Compile final report** and **SendMessage** to coordinator:
+   ```
+   SendMessage(team_name=<team_name>, recipient="coordinator", message="[<role>] <final-report>")
+   ```
+   Report contents: tasks completed (count + list), artifacts produced (paths), files modified (with evidence), discuss results (verdicts + ratings), key decisions (from context_accumulator), verification summary, warnings/issues.
+4. **Fast-Advance Check**: Call `TaskList()`, find pending tasks whose blockedBy are ALL completed, apply rules:
 
 | Condition | Action |
 |-----------|--------|
 | Same-prefix successor (inner loop role) | Do NOT spawn — main agent handles via inner loop |
-| 1 ready task, simple linear successor, different prefix | Spawn directly via `Task(run_in_background: true)` + log `fast_advance` to message bus |
+| 1 ready task, simple linear successor, different prefix | Spawn directly via `Task(run_in_background: true)` + log `fast_advance` |
 | Multiple ready tasks (parallel window) | SendMessage to coordinator (needs orchestration) |
 | No ready tasks + others running | SendMessage to coordinator (status update) |
 | No ready tasks + nothing running | SendMessage to coordinator (pipeline may be complete) |
 | Checkpoint task (e.g., spec->impl transition) | SendMessage to coordinator (needs user confirmation) |
 
-### Fast-Advance Spawn Template
+### Fast-Advance Spawn
 
 When fast-advancing to a different-prefix successor:
 
@@ -311,160 +331,104 @@ inner_loop: <true|false based on successor role>`
 })
 ```
 
-### Fast-Advance Notification
-
-After spawning a successor via fast-advance, MUST log to message bus:
+After spawning, MUST log to message bus (passive log, NOT a SendMessage):
 
 ```
 mcp__ccw-tools__team_msg(
   operation="log",
-  team=<session_id>,
+  team_session_id=<session_id>,
   from=<role>,
-  to="coordinator",
   type="fast_advance",
   summary="[<role>] fast-advanced <completed-task-id> → spawned <successor-role> for <successor-task-id>"
 )
 ```
 
-This is a passive log entry (NOT a SendMessage). Coordinator reads it on next callback to reconcile `active_workers`.
-
-### SendMessage Format
-
-```
-SendMessage(team_name=<team_name>, recipient="coordinator", message="[<role>] <final-report>")
-```
-
-**Final report contents**:
-- Tasks completed (count + list)
-- Artifacts produced (paths)
-- Files modified (paths + before/after evidence from Phase 4 verification)
-- Discuss results (verdicts + ratings)
-- Key decisions (from context_accumulator)
-- Verification summary (methods used, pass/fail status)
-- Any warnings or issues
+Coordinator reads this on next callback to reconcile `active_workers`.
 
 ---
 
-## Inner Loop Framework
-
-When `inner_loop=true`, the agent processes ALL same-prefix tasks sequentially in a single agent instance:
-
-```
-context_accumulator = []
-
-Phase 1: Find first <prefix>-* task
-  Phase 2-4: Execute role spec
-  Phase 5-L: Mark done, log, accumulate, check interrupts
-    More <prefix>-* tasks? → Phase 1 (loop)
-    No more? → Phase 5-F (final report)
-```
-
-**context_accumulator**: Maintained in-memory across loop iterations. Each entry contains task summary + key decisions + discuss results. Passed to subagents as context for knowledge continuity.
-
-**Phase 5-L vs Phase 5-F**:
-
-| Step | Phase 5-L (loop) | Phase 5-F (final) |
-|------|-----------------|------------------|
-| TaskUpdate completed | YES | YES |
-| team_msg log | YES | YES |
-| Accumulate summary | YES | - |
-| SendMessage to coordinator | NO | YES (all tasks) |
-| Fast-Advance check | - | YES |
-
-**Interrupt conditions** (break inner loop immediately):
-- consensus_blocked HIGH → SendMessage → STOP
-- Cumulative errors >= 3 → SendMessage → STOP
-
-**Crash recovery**: If agent crashes mid-loop, completed tasks are safe (TaskUpdate + artifacts on disk). Coordinator detects orphaned in_progress task on resume, resets to pending, re-spawns. New agent resumes from the interrupted task via Resume Artifact Check.
-
----
-
-## Wisdom Accumulation
-
-### Load (Phase 2)
-
-Extract session folder from prompt. Read wisdom files if they exist:
-
-```
-<session>/wisdom/learnings.md
-<session>/wisdom/decisions.md
-<session>/wisdom/conventions.md
-<session>/wisdom/issues.md
-```
-
-Use wisdom context to inform Phase 2-4 execution.
-
-### Contribute (Phase 4/5)
-
-Write discoveries to corresponding wisdom files:
-- New patterns → `learnings.md`
-- Architecture/design decisions → `decisions.md`
-- Codebase conventions → `conventions.md`
-- Risks and known issues → `issues.md`
-
----
-
-## Knowledge Transfer
+## Knowledge Transfer & Wisdom
 
 ### Upstream Context Loading (Phase 2)
 
-When executing Phase 2 of a role-spec, the worker MUST load available cross-role context:
+The worker MUST load available cross-role context before executing role-spec Phase 2:
 
-| Source | Path | Load Method |
-|--------|------|-------------|
-| Upstream artifacts | `<session>/artifacts/*.md` | Read files listed in task description or dependency chain |
-| Shared memory | `<session>/shared-memory.json` | Read and parse JSON |
-| Wisdom | `<session>/wisdom/*.md` | Read all wisdom files |
-| Exploration cache | `<session>/explorations/cache-index.json` | Check before new explorations |
+| Source | Method | Priority |
+|--------|--------|----------|
+| Upstream role state | `team_msg(operation="get_state", role=<upstream_role>)` | **Primary** — O(1) from meta.json |
+| Upstream artifacts | Read files referenced in the state's artifact paths | Secondary — for large content |
+| Wisdom files | Read `<session>/wisdom/*.md` | Always load if exists |
+| Exploration cache | Check `<session>/explorations/cache-index.json` | Before new explorations |
+
+> **Legacy fallback**: If `get_state` returns null (older sessions), fall back to reading `<session>/shared-memory.json`.
 
 ### Downstream Context Publishing (Phase 4)
 
 After Phase 4 verification, the worker MUST publish its contributions:
 
 1. **Artifact**: Write deliverable to `<session>/artifacts/<prefix>-<task-id>-<name>.md`
-2. **shared-memory.json**: Read-merge-write under role namespace
-   ```json
-   { "<role>": { "key_findings": [...], "decisions": [...], "files_modified": [...] } }
-   ```
+2. **State data**: Prepare payload for Phase 5 `state_update` message (see Phase 5-L step 2 for schema)
 3. **Wisdom**: Append new patterns to `learnings.md`, decisions to `decisions.md`, issues to `issues.md`
+4. **Context accumulator** (inner_loop only): Append summary (see Phase 5-L step 3 for schema). Pass full accumulator to subsequent subagents as `## Prior Context`.
 
-### Inner Loop Context Accumulator
-
-For `inner_loop: true` roles, `context_accumulator` is maintained in-memory:
+### Wisdom Files
 
 ```
-context_accumulator.append({
-  task: "<task-id>",
-  artifact: "<output-path>",
-  key_decisions: [...],
-  summary: "<brief>",
-  files_modified: [...]
-})
+<session>/wisdom/learnings.md     ← New patterns discovered
+<session>/wisdom/decisions.md     ← Architecture/design decisions
+<session>/wisdom/conventions.md   ← Codebase conventions
+<session>/wisdom/issues.md        ← Risks and known issues
 ```
 
-Pass the full accumulator to each subsequent task's Phase 3 subagent as `## Prior Context`.
+Load in Phase 2 to inform execution. Contribute in Phase 4/5 with discoveries.
 
 ---
 
 ## Message Bus Protocol
 
-Always use `mcp__ccw-tools__team_msg` for logging. Parameters:
+Always use `mcp__ccw-tools__team_msg` for team communication.
+
+### log (with state_update) — Primary for Phase 5
 
 | Param | Value |
 |-------|-------|
 | operation | "log" |
-| team | `<session_id>` (NOT team_name) |
+| team_session_id | `<session_id>` (NOT team_name) |
 | from | `<role>` |
-| to | "coordinator" |
-| type | From role_spec message_types |
-| summary | `[<role>] <message>` |
-| ref | artifact path (optional) |
+| type | "state_update" for completion; or role_spec message_types for non-state messages |
+| data | structured state payload (auto-synced to meta.json when type="state_update"). Use `data.ref` for artifact paths |
 
-**Critical**: `team` param must be session ID (e.g., `TLS-my-project-2026-02-27`), not team name.
+> **Defaults**: `to` defaults to "coordinator", `summary` auto-generated as `[<from>] <type> → <to>`.
+> When `type="state_update"`: data is auto-synced to `meta.json.role_state[<role>]`. Top-level keys (`pipeline_mode`, `pipeline_stages`, `team_name`, `task_description`) are promoted to meta root.
+
+### get_state — Primary for Phase 2
+
+```
+mcp__ccw-tools__team_msg(
+  operation="get_state",
+  team_session_id=<session_id>,
+  role=<upstream_role>    // omit to get ALL role states
+)
+```
+
+Returns `role_state[<role>]` from meta.json.
+
+### broadcast — For team-wide signals
+
+```
+mcp__ccw-tools__team_msg(
+  operation="broadcast",
+  team_session_id=<session_id>,
+  from=<role>,
+  type=<type>
+)
+```
+
+Equivalent to `log` with `to="all"`. Summary auto-generated.
 
 **CLI fallback** (if MCP tool unavailable):
 ```
-ccw team log --team <session_id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json
+ccw team log --team <session_id> --from <role> --type <type> --json
 ```
 
 ---
@@ -492,7 +456,7 @@ ccw team log --team <session_id> --from <role> --to coordinator --type <type> --
 | Cumulative errors >= 3 | SendMessage to coordinator with error summary, STOP |
 | No tasks found | SendMessage idle status, STOP |
 | Context missing (prior doc, template) | Request from coordinator via SendMessage |
-| Agent crash mid-loop | Self-healing: coordinator resets orphaned task, re-spawns |
+| Agent crash mid-loop | Self-healing: completed tasks are safe (TaskUpdate + artifacts on disk). Coordinator detects orphaned in_progress task on resume, resets to pending, re-spawns. New agent resumes via Resume Artifact Check. |
 
 ---
 

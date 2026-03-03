@@ -432,13 +432,14 @@ export async function handleTeamRoutes(ctx: RouteContext): Promise<boolean> {
       const sessionDir = getSessionDir(artifactsTeamName, root);
 
       if (!existsSync(sessionDir)) {
-        // Check if it's a legacy team with session_id
+        // Check if it's a legacy team with session_id in meta
         const meta = getEffectiveTeamMeta(artifactsTeamName);
-        if (meta.session_id) {
+        const legacySessionId = (meta as Record<string, unknown>).session_id as string | undefined;
+        if (legacySessionId) {
           // Legacy team with session_id - redirect to session directory
-          const legacySessionDir = getSessionDir(meta.session_id, root);
+          const legacySessionDir = getSessionDir(legacySessionId, root);
           if (existsSync(legacySessionDir)) {
-            serveArtifacts(legacySessionDir, meta.session_id, meta, artifactPath, res);
+            serveArtifacts(legacySessionDir, legacySessionId, meta, artifactPath, res);
             return true;
           }
         }

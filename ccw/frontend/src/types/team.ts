@@ -26,6 +26,7 @@ export type TeamMessageType =
   | 'fix_required'
   | 'error'
   | 'shutdown'
+  | 'state_update'
   | 'message';
 
 export interface TeamMember {
@@ -49,6 +50,8 @@ export interface TeamSummaryExtended extends TeamSummary {
   updated_at: string;
   archived_at?: string;
   pipeline_mode?: string;
+  pipeline_stages?: string[];
+  role_state?: Record<string, Record<string, unknown>>;
   memberCount: number;
   members: string[];  // Always provided by backend
 }

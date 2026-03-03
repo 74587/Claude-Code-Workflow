@@ -358,15 +358,15 @@ export function run(argv: string[]): void {
   program
     .command('team [subcommand] [args...]')
     .description('Team message bus for Agent Team communication')
-    .option('--team <name>', 'Team name')
+    .option('--team <name>', 'Session ID (e.g., TLS-my-project-2026-02-27)')
     .option('--from <role>', 'Sender role name')
-    .option('--to <role>', 'Recipient role name')
+    .option('--to <role>', 'Recipient role name (default: coordinator)')
     .option('--type <type>', 'Message type')
-    .option('--summary <text>', 'One-line summary')
-    .option('--ref <path>', 'File path reference')
+    .option('--summary <text>', 'One-line summary (auto-generated if omitted)')
     .option('--data <json>', 'JSON structured data')
-    .option('--id <id>', 'Message ID (for read)')
+    .option('--id <id>', 'Message ID (for read/delete)')
     .option('--last <n>', 'Last N messages (for list)')
+    .option('--role <role>', 'Role name (for get_state)')
     .option('--json', 'Output as JSON')
     .action((subcommand, args, options) => teamCommand(subcommand, args, options));
 
