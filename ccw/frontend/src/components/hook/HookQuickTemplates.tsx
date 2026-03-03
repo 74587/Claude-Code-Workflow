@@ -1,7 +1,9 @@
 // ========================================
 // Hook Quick Templates Component
 // ========================================
-// Predefined hook templates for quick installation
+// Frontend component for displaying and installing hook templates
+// Templates are defined in backend: ccw/src/core/hooks/hook-templates.ts
+// All templates use `ccw hook template exec <id> --stdin` to avoid Windows quote issues
 
 import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
@@ -32,10 +34,10 @@ import type { HookTriggerType } from './HookCard';
 /**
  * Template category type
  */
-export type TemplateCategory = 'notification' | 'indexing' | 'automation' | 'utility';
+export type TemplateCategory = 'notification' | 'indexing' | 'automation' | 'utility' | 'protection';
 
 /**
- * Hook template definition
+ * Hook template definition (frontend view of backend templates)
  */
 export interface HookTemplate {
   id: string;
@@ -43,8 +45,6 @@ export interface HookTemplate {
   description: string;
   category: TemplateCategory;
   trigger: HookTriggerType;
-  command: string;
-  args?: string[];
   matcher?: string;
 }
 
@@ -63,24 +63,22 @@ export interface HookQuickTemplatesProps {
 }
 
 // ========== Hook Templates ==========
-// NOTE: Hook input is received via stdin (not environment variable)
-// Use: const fs=require('fs');const p=JSON.parse(fs.readFileSync(0,'utf8')||'{}');
+// NOTE: Templates are defined in backend (ccw/src/core/hooks/hook-templates.ts)
+// This is a copy for frontend display purposes.
+// All templates use `ccw hook template exec <id> --stdin` format.
 
 /**
  * Predefined hook templates for quick installation
+ * These mirror the backend templates in ccw/src/core/hooks/hook-templates.ts
  */
 export const HOOK_TEMPLATES: readonly HookTemplate[] = [
+  // ============ Notification ============
   {
     id: 'session-start-notify',
     name: 'Session Start Notify',
     description: 'Notify dashboard when a new workflow session is created',
     category: 'notification',
     trigger: 'SessionStart',
-    command: 'node',
-    args: [
-      '-e',
-      'const cp=require("child_process");const payload=JSON.stringify({type:"SESSION_CREATED",timestamp:Date.now(),project:process.env.CLAUDE_PROJECT_DIR||process.cwd()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})'
-    ]
   },
   {
     id: 'session-state-watch',
@@ -89,133 +87,13 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
     category: 'notification',
     trigger: 'PostToolUse',
     matcher: 'Write|Edit',
-    command: 'node',
-    args: [
-      '-e',
-      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(/workflow-session\\.json$|session-metadata\\.json$/.test(file)){try{const content=fs.readFileSync(file,"utf8");const data=JSON.parse(content);const cp=require("child_process");const payload=JSON.stringify({type:"SESSION_STATE_CHANGED",file:file,sessionId:data.session_id||"",status:data.status||"unknown",project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})}catch(e){}}'
-    ]
   },
-  // --- Notification ---
   {
     id: 'stop-notify',
     name: 'Stop Notify',
     description: 'Notify dashboard when Claude finishes responding',
     category: 'notification',
     trigger: 'Stop',
-    command: 'node',
-    args: [
-      '-e',
-      'const cp=require("child_process");const payload=JSON.stringify({type:"TASK_COMPLETED",timestamp:Date.now(),project:process.env.CLAUDE_PROJECT_DIR||process.cwd()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})'
-    ]
-  },
-  // --- Automation ---
-  {
-    id: 'auto-format-on-write',
-    name: 'Auto Format on Write',
-    description: 'Auto-format files after Claude writes or edits them',
-    category: 'automation',
-    trigger: 'PostToolUse',
-    matcher: 'Write|Edit',
-    command: 'node',
-    args: [
-      '-e',
-      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(file){const cp=require("child_process");cp.spawnSync("npx",["prettier","--write",file],{stdio:"inherit",shell:true})}'
-    ]
-  },
-  {
-    id: 'auto-lint-on-write',
-    name: 'Auto Lint on Write',
-    description: 'Auto-lint files after Claude writes or edits them',
-    category: 'automation',
-    trigger: 'PostToolUse',
-    matcher: 'Write|Edit',
-    command: 'node',
-    args: [
-      '-e',
-      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(file){const cp=require("child_process");cp.spawnSync("npx",["eslint","--fix",file],{stdio:"inherit",shell:true})}'
-    ]
-  },
-  {
-    id: 'block-sensitive-files',
-    name: 'Block Sensitive Files',
-    description: 'Block modifications to sensitive files (.env, secrets, credentials)',
-    category: 'automation',
-    trigger: 'PreToolUse',
-    matcher: 'Write|Edit',
-    command: 'node',
-    args: [
-      '-e',
-      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(/\\.env|secret|credential|\\.key$/.test(file)){process.stderr.write("Blocked: modifying sensitive file "+file);process.exit(2)}'
-    ]
-  },
-  {
-    id: 'git-auto-stage',
-    name: 'Git Auto Stage',
-    description: 'Auto stage all modified files when Claude finishes responding',
-    category: 'automation',
-    trigger: 'Stop',
-    command: 'node',
-    args: [
-      '-e',
-      'const cp=require("child_process");cp.spawnSync("git",["add","-u"],{stdio:"inherit",shell:true})'
-    ]
-  },
-  // --- Indexing ---
-  {
-    id: 'post-edit-index',
-    name: 'Post Edit Index',
-    description: 'Notify indexing service when files are modified',
-    category: 'indexing',
-    trigger: 'PostToolUse',
-    matcher: 'Write|Edit',
-    command: 'node',
-    args: [
-      '-e',
-      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const file=(p.tool_input&&p.tool_input.file_path)||"";if(file){const cp=require("child_process");const payload=JSON.stringify({type:"FILE_MODIFIED",file:file,project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})}'
-    ]
-  },
-  {
-    id: 'session-end-summary',
-    name: 'Session End Summary',
-    description: 'Send session summary to dashboard on session end',
-    category: 'indexing',
-    trigger: 'Stop',
-    command: 'node',
-    args: [
-      '-e',
-      'const fs=require("fs");const p=JSON.parse(fs.readFileSync(0,"utf8")||"{}");const cp=require("child_process");const payload=JSON.stringify({type:"SESSION_SUMMARY",transcript:p.transcript_path||"",project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})'
-    ]
-  },
-  {
-    id: 'project-state-inject',
-    name: 'Project State Inject',
-    description: 'Inject project guidelines and recent dev history at session start',
-    category: 'indexing',
-    trigger: 'SessionStart',
-    command: 'ccw',
-    args: ['hook', 'project-state', '--stdin']
-  },
-  // --- Memory V2 ---
-  {
-    id: 'memory-v2-extract',
-    name: 'Memory V2 Extract',
-    description: 'Trigger Phase 1 extraction when session ends (after idle period)',
-    category: 'indexing',
-    trigger: 'Stop',
-    command: 'ccw',
-    args: ['core-memory', 'extract', '--max-sessions', '10']
-  },
-  {
-    id: 'memory-v2-auto-consolidate',
-    name: 'Memory V2 Auto Consolidate',
-    description: 'Trigger Phase 2 consolidation after extraction jobs complete',
-    category: 'indexing',
-    trigger: 'Stop',
-    command: 'node',
-    args: [
-      '-e',
-      'const cp=require("child_process");const r=cp.spawnSync("ccw",["core-memory","extract","--json"],{encoding:"utf8",shell:true});try{const d=JSON.parse(r.stdout);if(d&&d.total_stage1>=5){cp.spawnSync("ccw",["core-memory","consolidate"],{stdio:"inherit",shell:true})}}catch(e){}'
-    ]
   },
   {
     id: 'memory-sync-dashboard',
@@ -224,30 +102,122 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
     category: 'notification',
     trigger: 'PostToolUse',
     matcher: 'mcp__ccw-tools__core_memory',
-    command: 'node',
-    args: [
-      '-e',
-      'const cp=require("child_process");const payload=JSON.stringify({type:"MEMORY_V2_STATUS_UPDATED",project:process.env.CLAUDE_PROJECT_DIR||process.cwd(),timestamp:Date.now()});cp.spawnSync("curl",["-s","-X","POST","-H","Content-Type: application/json","-d",payload,"http://localhost:3456/api/hook"],{stdio:"inherit",shell:true})'
-    ]
   },
-  // --- Memory Operations ---
+
+  // ============ Automation ============
+  {
+    id: 'auto-format-on-write',
+    name: 'Auto Format on Write',
+    description: 'Auto-format files after Claude writes or edits them',
+    category: 'automation',
+    trigger: 'PostToolUse',
+    matcher: 'Write|Edit',
+  },
+  {
+    id: 'auto-lint-on-write',
+    name: 'Auto Lint on Write',
+    description: 'Auto-lint files after Claude writes or edits them',
+    category: 'automation',
+    trigger: 'PostToolUse',
+    matcher: 'Write|Edit',
+  },
+  {
+    id: 'git-auto-stage',
+    name: 'Git Auto Stage',
+    description: 'Auto stage all modified files when Claude finishes responding',
+    category: 'automation',
+    trigger: 'Stop',
+  },
+
+  // ============ Protection ============
+  {
+    id: 'block-sensitive-files',
+    name: 'Block Sensitive Files',
+    description: 'Block modifications to sensitive files (.env, secrets, credentials)',
+    category: 'protection',
+    trigger: 'PreToolUse',
+    matcher: 'Write|Edit',
+  },
+  {
+    id: 'danger-bash-confirm',
+    name: 'Danger Bash Confirm',
+    description: 'Require confirmation for dangerous bash commands',
+    category: 'protection',
+    trigger: 'PreToolUse',
+    matcher: 'Bash',
+  },
+  {
+    id: 'danger-file-protection',
+    name: 'Danger File Protection',
+    description: 'Block modifications to protected files',
+    category: 'protection',
+    trigger: 'PreToolUse',
+    matcher: 'Write|Edit',
+  },
+  {
+    id: 'danger-git-destructive',
+    name: 'Danger Git Destructive',
+    description: 'Require confirmation for destructive git operations',
+    category: 'protection',
+    trigger: 'PreToolUse',
+    matcher: 'Bash',
+  },
+  {
+    id: 'danger-network-confirm',
+    name: 'Danger Network Confirm',
+    description: 'Require confirmation for network operations',
+    category: 'protection',
+    trigger: 'PreToolUse',
+    matcher: 'Bash|WebFetch',
+  },
+  {
+    id: 'danger-system-paths',
+    name: 'Danger System Paths',
+    description: 'Block modifications to system paths',
+    category: 'protection',
+    trigger: 'PreToolUse',
+    matcher: 'Write|Edit|Bash',
+  },
+  {
+    id: 'danger-permission-change',
+    name: 'Danger Permission Change',
+    description: 'Require confirmation for permission changes',
+    category: 'protection',
+    trigger: 'PreToolUse',
+    matcher: 'Bash',
+  },
+
+  // ============ Indexing ============
+  {
+    id: 'post-edit-index',
+    name: 'Post Edit Index',
+    description: 'Notify indexing service when files are modified',
+    category: 'indexing',
+    trigger: 'PostToolUse',
+    matcher: 'Write|Edit',
+  },
+  {
+    id: 'session-end-summary',
+    name: 'Session End Summary',
+    description: 'Send session summary to dashboard on session end',
+    category: 'indexing',
+    trigger: 'Stop',
+  },
+
+  // ============ Utility ============
   {
     id: 'memory-auto-compress',
     name: 'Auto Memory Compress',
     description: 'Automatically compress memory when entries exceed threshold',
-    category: 'automation',
+    category: 'utility',
     trigger: 'Stop',
-    command: 'ccw',
-    args: ['memory', 'consolidate', '--threshold', '50']
   },
   {
     id: 'memory-preview-extract',
     name: 'Memory Preview & Extract',
     description: 'Preview extraction queue and extract eligible sessions',
-    category: 'automation',
+    category: 'utility',
     trigger: 'SessionStart',
-    command: 'ccw',
-    args: ['memory', 'preview', '--include-native']
   },
   {
     id: 'memory-status-check',
@@ -255,9 +225,21 @@ export const HOOK_TEMPLATES: readonly HookTemplate[] = [
     description: 'Check memory extraction and consolidation status',
     category: 'utility',
     trigger: 'SessionStart',
-    command: 'ccw',
-    args: ['memory', 'status']
-  }
+  },
+  {
+    id: 'memory-v2-extract',
+    name: 'Memory V2 Extract',
+    description: 'Trigger Phase 1 extraction when session ends',
+    category: 'utility',
+    trigger: 'Stop',
+  },
+  {
+    id: 'memory-v2-auto-consolidate',
+    name: 'Memory V2 Auto Consolidate',
+    description: 'Trigger Phase 2 consolidation after extraction jobs complete',
+    category: 'utility',
+    trigger: 'Stop',
+  },
 ] as const;
 
 // ========== Category Icons ==========

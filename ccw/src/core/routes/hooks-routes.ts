@@ -708,6 +708,78 @@ export async function handleHooksRoutes(ctx: HooksRouteContext): Promise<boolean
     return true;
   }
 
+  // API: Get hook templates list
+  if (pathname === '/api/hooks/templates' && req.method === 'GET') {
+    (async () => {
+      try {
+        const { getAllTemplates, listTemplatesByCategory } = await import('../hooks/hook-templates.js');
+        const category = url.searchParams.get('category');
+
+        if (category) {
+          const byCategory = listTemplatesByCategory();
+          const templates = byCategory[category as keyof typeof byCategory] || [];
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, templates }));
+        } else {
+          const templates = getAllTemplates();
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, templates }));
+        }
+      } catch (error) {
+        console.error('[Hooks] Failed to get templates:', error);
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: (error as Error).message }));
+      }
+    })();
+    return true;
+  }
+
+  // API: Install hook template
+  if (pathname === '/api/hooks/templates/install' && req.method === 'POST') {
+    handlePostRequest(req, res, async (body) => {
+      if (typeof body !== 'object' || body === null) {
+        return { error: 'Invalid request body', status: 400 };
+      }
+
+      const { templateId, scope = 'project', projectPath } = body as {
+        templateId?: unknown;
+        scope?: unknown;
+        projectPath?: unknown;
+      };
+
+      if (typeof templateId !== 'string') {
+        return { error: 'templateId is required', status: 400 };
+      }
+
+      try {
+        const { installTemplateToSettings } = await import('../hooks/hook-templates.js');
+        const resolvedProjectPath = typeof projectPath === 'string' && projectPath.trim().length > 0
+          ? projectPath
+          : initialPath;
+
+        // Override process.cwd() for project-scoped installation
+        const originalCwd = process.cwd;
+        if (scope === 'project') {
+          process.cwd = () => resolvedProjectPath;
+        }
+
+        const result = installTemplateToSettings(
+          templateId,
+          (scope === 'global' ? 'global' : 'project') as 'global' | 'project'
+        );
+
+        // Restore original cwd
+        process.cwd = originalCwd;
+
+        return result;
+      } catch (error) {
+        console.error('[Hooks] Failed to install template:', error);
+        return { success: false, error: (error as Error).message };
+      }
+    });
+    return true;
+  }
+
   return false;
 }
 

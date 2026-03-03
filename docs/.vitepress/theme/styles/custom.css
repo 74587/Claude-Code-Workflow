@@ -898,10 +898,31 @@ textarea:focus-visible {
  * "Intelligent Responsive Content Width" section.
  */
 @media (min-width: 1024px) {
-  /* Expand .content to fill available space */
+  /* Remove padding from VPDoc to maximize content width */
+  .VPDoc.has-aside {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Remove padding from container to maximize content width */
+  .VPDoc.has-aside .container {
+    justify-content: flex-start !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Keep .aside at fixed width */
+  .VPDoc.has-aside .container .aside {
+    flex: 0 0 auto !important;
+  }
+
+  /* Expand .content to fill available space and remove padding */
   .VPDoc.has-aside .container .content {
-    flex-grow: 1 !important;
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
     max-width: none !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
 
   /* Use multiple selectors to increase specificity and override scoped styles */
@@ -910,9 +931,6 @@ textarea:focus-visible {
   .content-container {
     max-width: none !important;
     width: 100% !important;
-    min-width: 100% !important;
-    flex-grow: 1 !important;
-    flex-basis: 100% !important;
   }
 
   .vp-doc {
