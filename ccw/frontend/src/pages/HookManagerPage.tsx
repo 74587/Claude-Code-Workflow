@@ -28,7 +28,6 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { HookCard, HookFormDialog, HookQuickTemplates, HookWizard, type HookCardData, type HookFormData, type HookTriggerType, HOOK_TEMPLATES, type WizardType } from '@/components/hook';
 import { useHooks, useToggleHook } from '@/hooks';
-import { installHookTemplate } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 // ========== Types ==========

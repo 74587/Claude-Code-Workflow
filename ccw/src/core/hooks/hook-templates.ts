@@ -12,7 +12,7 @@
 
 import { spawnSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { join, resolve, basename } from 'path';
 import { homedir } from 'os';
 
 // ============================================================================
@@ -79,22 +79,24 @@ export interface HookOutput {
 // ============================================================================
 
 /**
- * Send notification to dashboard via HTTP
+ * Send notification to dashboard via HTTP (using native fetch)
  */
 function notifyDashboard(type: string, payload: Record<string, unknown>): void {
-  const data = JSON.stringify({
+  const data = {
     type,
     ...payload,
     project: process.env.CLAUDE_PROJECT_DIR || process.cwd(),
     timestamp: Date.now(),
-  });
+  };
 
-  spawnSync('curl', [
-    '-s', '-X', 'POST',
-    '-H', 'Content-Type: application/json',
-    '-d', data,
-    'http://localhost:3456/api/hook'
-  ], { stdio: 'inherit', shell: true });
+  // Use native fetch (Node.js 18+) to avoid shell command injection
+  fetch('http://localhost:3456/api/hook', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  }).catch(() => {
+    // Silently ignore errors - dashboard may not be running
+  });
 }
 
 /**
@@ -145,6 +147,80 @@ function isDangerousGitCommand(cmd: string): boolean {
 }
 
 /**
+ * Safely extract string value from unknown input
+ */
+function getStringInput(value: unknown): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  return '';
+}
+
+/**
+ * Validate file path to prevent command injection
+ * Returns null if path is invalid, otherwise returns the sanitized path
+ */
+function validateFilePath(filePath: string): string | null {
+  if (!filePath || typeof filePath !== 'string') {
+    return null;
+  }
+
+  // Check for dangerous characters that could be used for command injection
+  const dangerousPatterns = /[;&|`$(){}[\]<>!\\]/;
+  if (dangerousPatterns.test(filePath)) {
+    return null;
+  }
+
+  // Check for path traversal attempts
+  if (filePath.includes('..')) {
+    return null;
+  }
+
+  // Check for null bytes
+  if (filePath.includes('\0')) {
+    return null;
+  }
+
+  return filePath;
+}
+
+/**
+ * Safe spawnSync wrapper that avoids shell: true to prevent command injection
+ * On Windows, this uses .cmd extension for npm/npx commands
+ */
+function safeSpawnSync(command: string, args: string[]): { stdout: string; stderr: string; status: number | null } {
+  // Use spawnSync without shell to avoid command injection
+  // Note: On Windows, npx/npm/git may need .cmd extension
+  const isWindows = process.platform === 'win32';
+  const execCommand = isWindows && !command.endsWith('.cmd') && ['npx', 'npm', 'git', 'ccw'].includes(command)
+    ? `${command}.cmd`
+    : command;
+
+  return spawnSync(execCommand, args, {
+    stdio: ['inherit', 'pipe', 'pipe'],
+    shell: false,
+    encoding: 'utf8',
+    cwd: process.cwd(),
+  });
+}
+
+/**
+ * Safe spawnSync with inherited stdio (for tools that need interactive output)
+ */
+function safeSpawnSyncInherit(command: string, args: string[]): void {
+  const isWindows = process.platform === 'win32';
+  const execCommand = isWindows && !command.endsWith('.cmd') && ['npx', 'npm', 'git', 'ccw'].includes(command)
+    ? `${command}.cmd`
+    : command;
+
+  spawnSync(execCommand, args, {
+    stdio: 'inherit',
+    shell: false,
+    cwd: process.cwd(),
+  });
+}
+
+/**
  * Check if file is in protected system paths
  */
 function isSystemPath(path: string): boolean {
@@ -187,8 +263,8 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     trigger: 'PostToolUse',
     matcher: 'Write|Edit',
     execute: (data) => {
-      const file = (data.tool_input?.file_path as string) || '';
-      if (/workflow-session\.json$|session-metadata\.json$/.test(file)) {
+      const file = getStringInput(data.tool_input?.file_path);
+      if (file && /workflow-session\.json$|session-metadata\.json$/.test(file)) {
         try {
           if (existsSync(file)) {
             const content = readFileSync(file, 'utf8');
@@ -239,9 +315,10 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     trigger: 'PostToolUse',
     matcher: 'Write|Edit',
     execute: (data) => {
-      const file = (data.tool_input?.file_path as string) || '';
+      const rawFile = getStringInput(data.tool_input?.file_path);
+      const file = validateFilePath(rawFile);
       if (file) {
-        spawnSync('npx', ['prettier', '--write', file], { stdio: 'inherit', shell: true });
+        safeSpawnSyncInherit('npx', ['prettier', '--write', file]);
       }
       return { exitCode: 0 };
     }
@@ -254,9 +331,10 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     trigger: 'PostToolUse',
     matcher: 'Write|Edit',
     execute: (data) => {
-      const file = (data.tool_input?.file_path as string) || '';
+      const rawFile = getStringInput(data.tool_input?.file_path);
+      const file = validateFilePath(rawFile);
       if (file) {
-        spawnSync('npx', ['eslint', '--fix', file], { stdio: 'inherit', shell: true });
+        safeSpawnSyncInherit('npx', ['eslint', '--fix', file]);
       }
       return { exitCode: 0 };
     }
@@ -268,7 +346,7 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     category: 'automation',
     trigger: 'Stop',
     execute: () => {
-      spawnSync('git', ['add', '-u'], { stdio: 'inherit', shell: true });
+      safeSpawnSyncInherit('git', ['add', '-u']);
       return { exitCode: 0 };
     }
   },
@@ -282,8 +360,8 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     trigger: 'PreToolUse',
     matcher: 'Write|Edit',
     execute: (data) => {
-      const file = (data.tool_input?.file_path as string) || '';
-      if (isSensitiveFile(file)) {
+      const file = getStringInput(data.tool_input?.file_path);
+      if (file && isSensitiveFile(file)) {
         return {
           exitCode: 2,
           stderr: `Blocked: modifying sensitive file ${file}`,
@@ -324,9 +402,9 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     trigger: 'PreToolUse',
     matcher: 'Write|Edit',
     execute: (data) => {
-      const file = (data.tool_input?.file_path as string) || '';
+      const file = getStringInput(data.tool_input?.file_path);
       const protectedPatterns = /\.env|\.git\/|package-lock\.json|yarn\.lock|\.credentials|secrets|id_rsa|\.pem$|\.key$/i;
-      if (protectedPatterns.test(file)) {
+      if (file && protectedPatterns.test(file)) {
         return {
           exitCode: 2,
           jsonOutput: {
@@ -431,8 +509,8 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
           };
         }
       } else {
-        const file = (data.tool_input?.file_path as string) || '';
-        if (isSystemPath(file)) {
+        const file = getStringInput(data.tool_input?.file_path);
+        if (file && isSystemPath(file)) {
           return {
             exitCode: 2,
             jsonOutput: {
@@ -483,7 +561,7 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     trigger: 'PostToolUse',
     matcher: 'Write|Edit',
     execute: (data) => {
-      const file = (data.tool_input?.file_path as string) || '';
+      const file = getStringInput(data.tool_input?.file_path);
       if (file) {
         notifyDashboard('FILE_MODIFIED', { file });
       }
@@ -512,7 +590,7 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     category: 'utility',
     trigger: 'Stop',
     execute: () => {
-      spawnSync('ccw', ['memory', 'consolidate', '--threshold', '50'], { stdio: 'inherit', shell: true });
+      safeSpawnSyncInherit('ccw', ['memory', 'consolidate', '--threshold', '50']);
       return { exitCode: 0 };
     }
   },
@@ -523,7 +601,7 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     category: 'utility',
     trigger: 'SessionStart',
     execute: () => {
-      spawnSync('ccw', ['memory', 'preview', '--include-native'], { stdio: 'inherit', shell: true });
+      safeSpawnSyncInherit('ccw', ['memory', 'preview', '--include-native']);
       return { exitCode: 0 };
     }
   },
@@ -534,7 +612,7 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     category: 'utility',
     trigger: 'SessionStart',
     execute: () => {
-      spawnSync('ccw', ['memory', 'status'], { stdio: 'inherit', shell: true });
+      safeSpawnSyncInherit('ccw', ['memory', 'status']);
       return { exitCode: 0 };
     }
   },
@@ -545,7 +623,7 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     category: 'utility',
     trigger: 'Stop',
     execute: () => {
-      spawnSync('ccw', ['core-memory', 'extract', '--max-sessions', '10'], { stdio: 'inherit', shell: true });
+      safeSpawnSyncInherit('ccw', ['core-memory', 'extract', '--max-sessions', '10']);
       return { exitCode: 0 };
     }
   },
@@ -556,14 +634,11 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     category: 'utility',
     trigger: 'Stop',
     execute: () => {
-      const result = spawnSync('ccw', ['core-memory', 'extract', '--json'], {
-        encoding: 'utf8',
-        shell: true
-      });
+      const result = safeSpawnSync('ccw', ['core-memory', 'extract', '--json']);
       try {
         const d = JSON.parse(result.stdout);
         if (d && d.total_stage1 >= 5) {
-          spawnSync('ccw', ['core-memory', 'consolidate'], { stdio: 'inherit', shell: true });
+          safeSpawnSyncInherit('ccw', ['core-memory', 'consolidate']);
         }
       } catch {
         // Ignore parse errors
@@ -681,8 +756,8 @@ export function installTemplateToSettings(
   }
 
   // Check if already installed
-  const triggerHooks = hooks[template.trigger];
-  const alreadyInstalled = triggerHooks.some((h: Record<string, unknown>) =>
+  const triggerHooks = hooks[template.trigger] as Array<Record<string, unknown>>;
+  const alreadyInstalled = triggerHooks.some((h) =>
     h._templateId === templateId
   );
 

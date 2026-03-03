@@ -274,7 +274,8 @@ function getCategoryName(category: TemplateCategory, formatMessage: ReturnType<t
     notification: formatMessage({ id: 'cliHooks.templates.categories.notification' }),
     indexing: formatMessage({ id: 'cliHooks.templates.categories.indexing' }),
     automation: formatMessage({ id: 'cliHooks.templates.categories.automation' }),
-    utility: formatMessage({ id: 'cliHooks.templates.categories.utility' })
+    utility: formatMessage({ id: 'cliHooks.templates.categories.utility' }),
+    protection: formatMessage({ id: 'cliHooks.templates.categories.protection' }),
   };
   return names[category];
 }
@@ -304,7 +305,7 @@ export function HookQuickTemplates({
   }, []);
 
   // Define category order
-  const categoryOrder: TemplateCategory[] = ['notification', 'indexing', 'automation'];
+  const categoryOrder: TemplateCategory[] = ['notification', 'indexing', 'automation', 'protection', 'utility'];
 
   const handleInstall = async (templateId: string) => {
     await onInstallTemplate(templateId);

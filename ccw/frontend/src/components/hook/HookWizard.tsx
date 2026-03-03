@@ -79,12 +79,6 @@ interface SkillContextConfig {
 // All templates use `ccw hook template exec <id> --stdin` format
 // This avoids Windows Git Bash quote handling issues
 
-interface HookTemplate {
-  event: string;
-  matcher: string;
-  timeout?: number;
-}
-
 // Template IDs that map to backend templates
 const TEMPLATE_IDS = {
   'memory-update-queue': 'memory-auto-compress',
@@ -105,72 +99,6 @@ const DANGER_OPTIONS = [
   { id: 'system-paths', templateId: 'danger-system-paths', labelKey: 'cliHooks.wizards.dangerProtection.options.systemPaths', descKey: 'cliHooks.wizards.dangerProtection.options.systemPathsDesc' },
   { id: 'permission-change', templateId: 'danger-permission-change', labelKey: 'cliHooks.wizards.dangerProtection.options.permissionChange', descKey: 'cliHooks.wizards.dangerProtection.options.permissionChangeDesc' },
 ] as const;
-
-// ========== convertToClaudeCodeFormat (ported from old hook-manager.js) ==========
-
-function convertToClaudeCodeFormat(hookData: {
-  command: string;
-  args: string[];
-  matcher?: string;
-  timeout?: number;
-}): Record<string, unknown> {
-  let commandStr = hookData.command || '';
-
-  if (hookData.args && Array.isArray(hookData.args)) {
-    if (commandStr === 'bash' && hookData.args.length >= 2 && hookData.args[0] === '-c') {
-      const script = hookData.args[1];
-      const escapedScript = script.replace(/'/g, "'\\''");
-      commandStr = `bash -c '${escapedScript}'`;
-      if (hookData.args.length > 2) {
-        const additionalArgs = hookData.args.slice(2).map(arg =>
-          arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")
-            ? `"${arg.replace(/"/g, '\\"')}"`
-            : arg
-        );
-        commandStr += ' ' + additionalArgs.join(' ');
-      }
-    } else if (commandStr === 'node' && hookData.args.length >= 2 && hookData.args[0] === '-e') {
-      const script = hookData.args[1];
-      const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Win');
-      if (isWindows) {
-        const escapedScript = script.replace(/"/g, '\\"');
-        commandStr = `node -e "${escapedScript}"`;
-      } else {
-        const escapedScript = script.replace(/'/g, "'\\''");
-        commandStr = `node -e '${escapedScript}'`;
-      }
-      if (hookData.args.length > 2) {
-        const additionalArgs = hookData.args.slice(2).map(arg =>
-          arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")
-            ? `"${arg.replace(/"/g, '\\"')}"`
-            : arg
-        );
-        commandStr += ' ' + additionalArgs.join(' ');
-      }
-    } else {
-      const quotedArgs = hookData.args.map(arg =>
-        arg.includes(' ') && !arg.startsWith('"') && !arg.startsWith("'")
-          ? `"${arg.replace(/"/g, '\\"')}"`
-          : arg
-      );
-      commandStr = `${commandStr} ${quotedArgs.join(' ')}`.trim();
-    }
-  }
-
-  const converted: Record<string, unknown> = {
-    hooks: [{
-      type: 'command',
-      command: commandStr,
-      ...(hookData.timeout ? { timeout: Math.ceil(hookData.timeout / 1000) } : {}),
-    }],
-  };
-
-  if (hookData.matcher) {
-    converted.matcher = hookData.matcher;
-  }
-
-  return converted;
-}
 
 // ========== Wizard Definitions ==========
 

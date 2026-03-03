@@ -745,8 +745,8 @@ async function templateAction(subcommand: string, args: string[], options: HookO
     listTemplatesByCategory,
     executeTemplate,
     installTemplateToSettings,
-    type HookInputData,
   } = await import('../core/hooks/hook-templates.js');
+  type HookInputData = import('../core/hooks/hook-templates.js').HookInputData;
 
   switch (subcommand) {
     case 'list': {

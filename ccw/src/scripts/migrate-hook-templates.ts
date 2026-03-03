@@ -16,6 +16,7 @@ import { join } from 'path';
 interface OldHookEntry {
   matcher?: string;
   command?: string;
+  _templateId?: string;
   hooks?: Array<{
     type?: string;
     command?: string;
@@ -29,56 +30,45 @@ interface Settings {
 
 // Command patterns that indicate old-style inline scripts
 const OLD_PATTERNS = [
-  // Bash inline with jq
   /bash\s+-c.*jq/,
-  // Node inline with complex scripts
   /node\s+-e.*child_process/,
   /node\s+-e.*spawnSync/,
-  // Long inline commands
   /command.*node -e ".*\{.*\}.*"/,
 ];
 
 // Mapping from old patterns to new template IDs
 const MIGRATION_MAP: Record<string, string> = {
-  // Danger protection patterns
   'danger-bash-confirm': 'danger-bash-confirm',
   'danger-file-protection': 'danger-file-protection',
   'danger-git-destructive': 'danger-git-destructive',
   'danger-network-confirm': 'danger-network-confirm',
   'danger-system-paths': 'danger-system-paths',
   'danger-permission-change': 'danger-permission-change',
-  // Memory patterns
   'memory-update-queue': 'memory-auto-compress',
   'memory-v2-extract': 'memory-v2-extract',
-  // Notification patterns
   'session-start-notify': 'session-start-notify',
   'stop-notify': 'stop-notify',
   'session-state-watch': 'session-state-watch',
-  // Automation patterns
   'auto-format-on-write': 'auto-format-on-write',
   'auto-lint-on-write': 'auto-lint-on-write',
   'block-sensitive-files': 'block-sensitive-files',
   'git-auto-stage': 'git-auto-stage',
-  // Utility patterns
+  'post-edit-index': 'post-edit-index',
   'memory-preview-extract': 'memory-preview-extract',
   'memory-status-check': 'memory-status-check',
-  'post-edit-index': 'post-edit-index',
 };
 
 function detectTemplateFromCommand(command: string): string | null {
-  // Check for explicit template ID patterns
   for (const [pattern, templateId] of Object.entries(MIGRATION_MAP)) {
     if (command.includes(pattern)) {
       return templateId;
     }
   }
 
-  // Check for jq usage in bash (indicates old-style danger detection)
   if (command.includes('jq -r') && command.includes('DANGEROUS_PATTERNS')) {
     return 'danger-bash-confirm';
   }
 
-  // Check for curl to localhost:3456 (dashboard notification)
   if (command.includes('localhost:3456/api/hook')) {
     if (command.includes('SESSION_CREATED')) return 'session-start-notify';
     if (command.includes('TASK_COMPLETED')) return 'stop-notify';
@@ -86,22 +76,18 @@ function detectTemplateFromCommand(command: string): string | null {
     if (command.includes('SESSION_STATE_CHANGED')) return 'session-state-watch';
   }
 
-  // Check for prettier
   if (command.includes('prettier --write')) {
     return 'auto-format-on-write';
   }
 
-  // Check for eslint
   if (command.includes('eslint --fix')) {
     return 'auto-lint-on-write';
   }
 
-  // Check for git add
   if (command.includes('git add -u')) {
     return 'git-auto-stage';
   }
 
-  // Check for sensitive file patterns
   if (command.includes('.env') && command.includes('credential')) {
     return 'block-sensitive-files';
   }
@@ -156,9 +142,8 @@ function migrateSettings(settings: Settings, dryRun: boolean): Settings {
         const migratedEntry = migrateHookEntry(entry, trigger);
         newEntries.push(migratedEntry);
       } else {
-        // Check if already using template approach
         if (entry.hooks?.[0]?.command?.includes('ccw hook template')) {
-          console.log(`  ✓ Already using template: ${entry._templateId || 'unknown'}`);
+          console.log(`  ✓ Already using template: ${(entry as OldHookEntry & { _templateId?: string })._templateId || 'unknown'}`);
         }
         newEntries.push(entry);
       }
@@ -179,7 +164,6 @@ async function main(): Promise<void> {
   if (settingsIndex >= 0 && args[settingsIndex + 1]) {
     settingsPath = args[settingsIndex + 1];
   } else {
-    // Default to project settings
     settingsPath = join(process.cwd(), '.claude', 'settings.json');
   }
 
@@ -208,12 +192,10 @@ async function main(): Promise<void> {
     console.log('\n📄 Migrated settings (dry run):');
     console.log(JSON.stringify(migrated, null, 2));
   } else {
-    // Backup original
     const backupPath = `${settingsPath}.backup-${Date.now()}`;
     writeFileSync(backupPath, JSON.stringify(settings, null, 2));
     console.log(`\n💾 Backup saved to: ${backupPath}`);
 
-    // Write migrated
     writeFileSync(settingsPath, JSON.stringify(migrated, null, 2));
     console.log(`\n✅ Settings migrated successfully!`);
   }
