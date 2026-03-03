@@ -74,20 +74,16 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: **<session-id>**,  // MUST be session ID (e.g., ISS-xxx-date), NOT team name. Extract from Session: field.
+  session_id: <session-id>,
   from: "coordinator",
-  to: "<recipient>",
   type: <message-type>,
-  summary: "[coordinator] <summary>",
-  ref: <artifact-path>
+  data: {ref: <artifact-path>}
 })
 ```
 
-**CLI fallback** (when MCP unavailable):
+`to` and `summary` auto-defaulted -- do NOT specify explicitly.
 
-```
-Bash("ccw team log --team <session-id> --from coordinator --to <recipient> --type <message-type> --summary \"[coordinator] ...\" --json")
-```
+**CLI fallback**: `ccw team log --session-id <session-id> --from coordinator --type <type> --json`
 
 ---
 

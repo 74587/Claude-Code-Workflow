@@ -134,27 +134,44 @@ Extract changed files and modules for pipeline selection.
 
 3. Call TeamCreate with team name
 4. Initialize wisdom directory (learnings.md, decisions.md, conventions.md, issues.md)
-5. Initialize shared memory:
+5. Initialize shared state via `team_msg(type='state_update')` and write `meta.json`:
 
 ```
-Write("<session-folder>/shared-memory.json", {
-  task: <description>,
-  pipeline: <selected-pipeline>,
-  changed_files: [...],
-  changed_modules: [...],
-  coverage_targets: {...},
-  gc_round: 0,
-  max_gc_rounds: 3,
-  test_strategy: null,
-  generated_tests: [],
-  execution_results: [],
-  defect_patterns: [],
-  effective_test_patterns: [],
-  coverage_history: []
+Write("<session-folder>/.msg/meta.json", {
+  session_id: <session-id>,
+  mode: <selected-mode>,
+  scope: <scope>,
+  status: "active"
 })
 ```
 
-6. Write session file with: session_id, mode, scope, status="active"
+6. Initialize cross-role state via team_msg(type='state_update'):
+
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: <session-id>,
+  from: "coordinator",
+  type: "state_update",
+  data: {
+    task: <description>,
+    pipeline: <selected-pipeline>,
+    changed_files: [...],
+    changed_modules: [...],
+    coverage_targets: {...},
+    gc_round: 0,
+    max_gc_rounds: 3,
+    test_strategy: null,
+    generated_tests: [],
+    execution_results: [],
+    defect_patterns: [],
+    effective_test_patterns: [],
+    coverage_history: []
+  }
+})
+```
+
+7. Write session state with: session_id, mode, scope, status="active"
 
 **Success**: Team created, session file written, wisdom initialized.
 
@@ -238,10 +255,10 @@ When receiving `tests_failed` or `coverage_report`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., TST-xxx-date), NOT team name. Extract from Session: field in task description.
-  from: "coordinator", to: "generator",
+  session_id: <session-id>,
+  from: "coordinator",
   type: "gc_loop_trigger",
-  summary: "[coordinator] GC round <N>: coverage <X>% < target <Y>%, revise tests"
+  data: {ref: "<session-folder>"}
 })
 ```
 

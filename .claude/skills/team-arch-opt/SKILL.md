@@ -384,7 +384,9 @@ AskUserQuestion({
 |   +-- <hash>.md                   # Cached exploration results
 +-- wisdom/
 |   +-- patterns.md                 # Discovered patterns and conventions
-|   +-- shared-memory.json          # Cross-role structured data
++-- .msg/
+|   +-- messages.jsonl              # Message bus log
+|   +-- meta.json                   # Session state + cross-role state
 +-- discussions/
 |   +-- DISCUSS-REFACTOR.md         # Refactoring design discussion record
 |   +-- DISCUSS-REVIEW.md           # Review discussion record
@@ -468,7 +470,7 @@ Coordinator supports `--resume` / `--continue` for interrupted sessions:
 | Review-fix cycle exceeds 3 iterations | Escalate to user with summary of remaining issues (per-branch/pipeline scope) |
 | One branch REFACTOR fails | Mark that branch failed, other branches continue to completion |
 | Branch scope overlap detected | Designer constrains non-overlapping target files; REFACTOR logs warning on detection |
-| Shared-memory concurrent writes | Each worker writes only its own namespace key (e.g., `refactorer.B01`) |
+| Meta.json concurrent writes | Each worker writes only its own namespace key (e.g., `refactorer.B01`) |
 | Branch fix cycle >= 3 | Escalate only that branch to user, other branches continue independently |
 | max_branches exceeded | Coordinator truncates to top N refactorings by priority at CP-2.5 |
 | Independent pipeline partial failure | Failed pipeline marked, others continue; aggregate reports partial results |

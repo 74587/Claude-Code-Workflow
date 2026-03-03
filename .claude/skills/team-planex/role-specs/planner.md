@@ -88,7 +88,6 @@ InnerLoop: true`,
 
 Send message via team_msg + SendMessage to coordinator:
 - type: `issue_ready`
-- summary: `[planner] Solution ready for <issueId>`
 
 ### 3f. Continue Loop
 

@@ -172,9 +172,8 @@ const fixPlan = {
 Bash(`mkdir -p "${sessionFolder}/fix"`)
 Write(`${sessionFolder}/fix/fix-plan.json`, JSON.stringify(fixPlan, null, 2))
 
-mcp__ccw-tools__team_msg({ operation:"log", team:"team-review", from:"fixer",
+mcp__ccw-tools__team_msg({ operation:"log", session_id: sessionId, from:"fixer",
   to:"coordinator", type:"fix_progress",
-  summary:`[fixer] Fix plan: ${totalGroups} groups, ${totalFindings} findings, path=${isQuickPath ? 'quick' : 'standard'}` })
 ```
 
 ## Error Handling

@@ -14,7 +14,7 @@ Test validator. Responsible for test execution, fix cycles, and regression detec
 
 - Only process `VERIFY-*` prefixed tasks
 - All output must carry `[tester]` identifier
-- Phase 2: Read shared-memory.json, Phase 5: Write test_patterns
+- Phase 2: Read .msg/meta.json, Phase 5: Write test_patterns
 - Work strictly within test validation responsibility scope
 
 ### MUST NOT
@@ -54,24 +54,21 @@ Test validator. Responsible for test execution, fix cycles, and regression detec
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
-**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
 
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // e.g., "TID-project-2026-02-27", NOT "iterdev"
+  session_id: <session-id>,
   from: "tester",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[tester] VERIFY complete: <task-subject>",
-  ref: <verify-path>
+  data: { ref: <verify-path> }
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from tester --to coordinator --type <message-type> --summary \"[tester] VERIFY complete\" --ref <verify-path> --json")
+Bash("ccw team log --session-id <session-id> --from tester --type <message-type> --json")
 ```
 
 ---
@@ -91,17 +88,17 @@ Standard task discovery flow: TaskList -> filter by prefix `VERIFY-*` + owner ma
 | Input | Source | Required |
 |-------|--------|----------|
 | Session path | Task description (Session: <path>) | Yes |
-| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Shared memory | <session-folder>/.msg/meta.json | Yes |
 | Changed files | Git diff | Yes |
 | Wisdom | <session-folder>/wisdom/ | No |
 
 **Detection steps**:
 
 1. Extract session path from task description
-2. Read shared-memory.json
+2. Read .msg/meta.json
 
 ```
-Read(<session-folder>/shared-memory.json)
+Read(<session-folder>/.msg/meta.json)
 ```
 
 3. Get changed files:
@@ -197,7 +194,7 @@ sharedMemory.test_patterns = sharedMemory.test_patterns || []
 if (passRate >= 0.95) {
   sharedMemory.test_patterns.push(`verify-<num>: passed in <iterations> iterations`)
 }
-Write(<session-folder>/shared-memory.json, JSON.stringify(sharedMemory, null, 2))
+Write(<session-folder>/.msg/meta.json, JSON.stringify(sharedMemory, null, 2))
 ```
 
 2. **Determine message type**:
@@ -212,10 +209,9 @@ Write(<session-folder>/shared-memory.json, JSON.stringify(sharedMemory, null, 2)
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: <session-id>, from: "tester", to: "coordinator",  // team = session ID, e.g., "TID-project-2026-02-27"
+  operation: "log", session_id: <session-id>, from: "tester",
   type: <message-type>,
-  summary: "[tester] <message-type>: pass_rate=<rate>%, iterations=<count>",
-  ref: <verify-path>
+  data: { ref: <verify-path> }
 })
 
 SendMessage({
@@ -226,7 +222,6 @@ SendMessage({
 **Iterations**: <count>/<MAX>
 **Regression**: <passed/failed>
 **Status**: <PASSED/NEEDS FIX>`,
-  summary: "[tester] <PASSED/FAILED>: <rate>%"
 })
 ```
 

@@ -159,9 +159,10 @@ Every worker executes the same task discovery flow on startup:
 Standard reporting flow after task completion:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Parameters: operation="log", team="roadmap-dev", from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **CLI fallback**: When MCP unavailable → `ccw team log --team roadmap-dev --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
-2. **SendMessage**: Send result to coordinator (content and summary both prefixed with `[<role>]`)
+   - Parameters: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
+   - `to` and `summary` auto-defaulted -- do NOT specify explicitly
+   - **CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
+2. **SendMessage**: Send result to coordinator
 3. **TaskUpdate**: Mark task completed
 4. **Loop**: Return to Phase 1 to check next task
 
@@ -362,7 +363,9 @@ Session: <session-folder>
 │   └── verification.md
 ├── phase-2/
 │   └── ...
-└── shared-memory.json         # Cross-role state
+├── .msg/
+│   ├── messages.jsonl              # Team message bus log
+│   └── meta.json                   # Session metadata + shared state
 ```
 
 ## Session Resume

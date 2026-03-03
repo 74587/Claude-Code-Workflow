@@ -59,21 +59,19 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,
+  session_id: <session-id>,
   from: "designer",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[designer] DESIGN complete: <task-subject>",
   ref: <artifact-path>
 })
 ```
 
-> **Note**: `team` must be session ID (e.g., `UDS-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+> `to` and `summary` are auto-defaulted by the tool.
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from designer --to coordinator --type <message-type> --summary \"[designer] DESIGN complete\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from designer --type <message-type> --json")
 ```
 
 ---
@@ -99,7 +97,7 @@ Standard task discovery flow: TaskList -> filter by prefix `DESIGN-*` + owner ma
 **Loading steps**:
 
 1. Extract session path from task description
-2. Read shared-memory.json
+2. Read role states via team_msg(operation="get_state")
 3. Read research findings:
 
 | File | Content |

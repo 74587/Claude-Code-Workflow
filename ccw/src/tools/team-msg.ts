@@ -186,9 +186,12 @@ export interface StatusEntry {
 const ParamsSchema = z.object({
   operation: z.enum(['log', 'read', 'list', 'status', 'delete', 'clear', 'broadcast', 'get_state']).describe('Operation to perform'),
 
-  // Accept both 'team' (legacy) and 'team_session_id' (preferred)
-  team: z.string().optional().describe('[deprecated] Use team_session_id instead'),
-  team_session_id: z.string().optional().describe('Session ID that determines message storage path (e.g., TLS-my-project-2026-02-27)'),
+  // Session identifier (primary)
+  session_id: z.string().optional().describe('Session ID that determines message storage path (e.g., TLS-my-project-2026-02-27)'),
+
+  // Legacy params (backward compat)
+  team_session_id: z.string().optional().describe('[deprecated] Use session_id'),
+  team: z.string().optional().describe('[deprecated] Use session_id'),
 
   // log/broadcast params
   from: z.string().optional().describe('[log/broadcast/list] Sender role name'),
@@ -206,16 +209,15 @@ const ParamsSchema = z.object({
   // get_state params
   role: z.string().optional().describe('[get_state] Role name to query. Omit to get all role states'),
 
-  // Legacy backward compat (accepted but ignored — team_session_id replaces this)
+  // Legacy backward compat (accepted but ignored — session_id replaces this)
   ref: z.string().optional().describe('[deprecated] Use data.ref instead'),
-  session_id: z.string().optional().describe('[deprecated] Use team_session_id instead'),
 });
 
 type Params = z.infer<typeof ParamsSchema>;
 
-/** Resolve team session ID from params, supporting legacy 'team' and new 'team_session_id' */
+/** Resolve team session ID from params, supporting legacy 'team_session_id' and 'team' */
 function resolveTeamId(params: Params): string | null {
-  return params.team_session_id || params.team || params.session_id || null;
+  return params.session_id || params.team_session_id || params.team || null;
 }
 
 // --- Tool Schema ---
@@ -231,15 +233,15 @@ Directory Structure (LEGACY):
   .workflow/.team-msg/{team-name}/messages.jsonl
 
 Operations:
-  team_msg(operation="log", team_session_id="TLS-xxx", from="planner", type="plan_ready", data={ref: "plan.json"})
-  team_msg(operation="log", team_session_id="TLS-xxx", from="coordinator", type="state_update", data={pipeline_mode: "full"})
-  team_msg(operation="broadcast", team_session_id="TLS-xxx", from="coordinator", type="shutdown")
-  team_msg(operation="get_state", team_session_id="TLS-xxx", role="researcher")
-  team_msg(operation="read", team_session_id="TLS-xxx", id="MSG-003")
-  team_msg(operation="list", team_session_id="TLS-xxx", from="tester", last=5)
-  team_msg(operation="status", team_session_id="TLS-xxx")
-  team_msg(operation="delete", team_session_id="TLS-xxx", id="MSG-003")
-  team_msg(operation="clear", team_session_id="TLS-xxx")
+  team_msg(operation="log", session_id="TLS-xxx", from="planner", type="plan_ready", data={ref: "plan.json"})
+  team_msg(operation="log", session_id="TLS-xxx", from="coordinator", type="state_update", data={pipeline_mode: "full"})
+  team_msg(operation="broadcast", session_id="TLS-xxx", from="coordinator", type="shutdown")
+  team_msg(operation="get_state", session_id="TLS-xxx", role="researcher")
+  team_msg(operation="read", session_id="TLS-xxx", id="MSG-003")
+  team_msg(operation="list", session_id="TLS-xxx", from="tester", last=5)
+  team_msg(operation="status", session_id="TLS-xxx")
+  team_msg(operation="delete", session_id="TLS-xxx", id="MSG-003")
+  team_msg(operation="clear", session_id="TLS-xxx")
 
 Defaults: to="coordinator", summary=auto-generated if omitted, type="message"
 Message types: plan_ready, plan_approved, plan_revision, task_unblocked, impl_complete, impl_progress, test_result, review_result, fix_required, error, shutdown, state_update`,
@@ -251,7 +253,7 @@ Message types: plan_ready, plan_approved, plan_revision, task_unblocked, impl_co
         enum: ['log', 'read', 'list', 'status', 'delete', 'clear', 'broadcast', 'get_state'],
         description: 'Operation: log | read | list | status | delete | clear | broadcast | get_state',
       },
-      team_session_id: {
+      session_id: {
         type: 'string',
         description: 'Session ID (e.g., TLS-my-project-2026-02-27). Maps to .workflow/.team/{session-id}/.msg/',
       },
@@ -264,9 +266,9 @@ Message types: plan_ready, plan_approved, plan_revision, task_unblocked, impl_co
       last: { type: 'number', description: '[list] Last N messages (default 20)', minimum: 1, maximum: 100 },
       role: { type: 'string', description: '[get_state] Role name to query. Omit for all roles' },
       // Legacy params (backward compat)
-      team: { type: 'string', description: '[deprecated] Use team_session_id' },
+      team_session_id: { type: 'string', description: '[deprecated] Use session_id' },
+      team: { type: 'string', description: '[deprecated] Use session_id' },
       ref: { type: 'string', description: '[deprecated] Use data.ref instead' },
-      session_id: { type: 'string', description: '[deprecated] Use team_session_id' },
     },
     required: ['operation'],
   },
@@ -541,10 +543,10 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
 
   const p = parsed.data;
 
-  // Resolve team ID from team_session_id / team / session_id (backward compat)
+  // Resolve team ID from session_id / team_session_id / team (backward compat)
   const teamId = resolveTeamId(p);
   if (!teamId) {
-    return { success: false, error: 'Missing required parameter: team_session_id (or legacy "team")' };
+    return { success: false, error: 'Missing required parameter: session_id (or legacy "team_session_id" / "team")' };
   }
 
   switch (p.operation) {

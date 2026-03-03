@@ -15,7 +15,7 @@
 - 仅处理 `CHALLENGE-*` 前缀的任务
 - 所有输出必须带 `[challenger]` 标识
 - 仅通过 SendMessage 与 coordinator 通信
-- Phase 2 读取 shared-memory.json，Phase 5 写入 critique_insights
+- Phase 2 读取 .msg/meta.json，Phase 5 写入 critique_insights
 - 为每个创意标记挑战严重度 (LOW/MEDIUM/HIGH/CRITICAL)
 
 ### MUST NOT
@@ -23,7 +23,7 @@
 - 生成创意、综合想法或评估排序
 - 直接与其他 worker 角色通信
 - 为其他角色创建任务
-- 修改 shared-memory.json 中不属于自己的字段
+- 修改 .msg/meta.json 中不属于自己的字段
 - 在输出中省略 `[challenger]` 标识
 
 ---
@@ -37,7 +37,7 @@
 | `TaskList` | Built-in | Phase 1 | Discover pending CHALLENGE-* tasks |
 | `TaskGet` | Built-in | Phase 1 | Get task details |
 | `TaskUpdate` | Built-in | Phase 1/5 | Update task status |
-| `Read` | Built-in | Phase 2 | Read shared-memory.json, idea files |
+| `Read` | Built-in | Phase 2 | Read .msg/meta.json, idea files |
 | `Write` | Built-in | Phase 3/5 | Write critique files, update shared memory |
 | `Glob` | Built-in | Phase 2 | Find idea files |
 | `SendMessage` | Built-in | Phase 5 | Report to coordinator |
@@ -59,19 +59,17 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: **<session-id>**,  // MUST be session ID (e.g., BRS-xxx-date), NOT team name. Extract from Session: field.
+  session_id: <session-id>,
   from: "challenger",
-  to: "coordinator",
   type: "critique_ready",
-  summary: "[challenger] Critique complete: <critical>C/<high>H/<medium>M/<low>L -- Signal: <signal>",
-  ref: <output-path>
+  data: {ref: <output-path>}
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from challenger --to coordinator --type critique_ready --summary \"[challenger] Critique complete\" --ref <output-path> --json")
+Bash("ccw team log --session-id <session-id> --from challenger --type critique_ready --json")
 ```
 
 ---
@@ -90,14 +88,14 @@ Standard task discovery flow: TaskList -> filter by prefix `CHALLENGE-*` + owner
 |-------|--------|----------|
 | Session folder | Task description (Session: line) | Yes |
 | Ideas | ideas/*.md files | Yes |
-| Previous critiques | shared-memory.json.critique_insights | No (avoid repeating) |
+| Previous critiques | .msg/meta.json.critique_insights | No (avoid repeating) |
 
 **Loading steps**:
 
 1. Extract session path from task description (match "Session: <path>")
 2. Glob idea files from session folder
 3. Read all idea files for analysis
-4. Read shared-memory.json.critique_insights to avoid repeating
+4. Read .msg/meta.json.critique_insights to avoid repeating
 
 ### Phase 3: Critical Analysis
 
@@ -151,7 +149,7 @@ Standard task discovery flow: TaskList -> filter by prefix `CHALLENGE-*` + owner
 Standard report flow: team_msg log -> SendMessage with `[challenger]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
 **Shared Memory Update**:
-1. Append challenges to shared-memory.json.critique_insights
+1. Append challenges to .msg/meta.json.critique_insights
 2. Each entry: idea, severity, key_challenge, round
 
 ---

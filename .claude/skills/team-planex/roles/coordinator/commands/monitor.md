@@ -16,7 +16,7 @@ Event-driven pipeline coordination with Spawn-and-Stop pattern. Three wake-up so
 
 | Input | Source | Required |
 |-------|--------|----------|
-| Session file | `<session-folder>/team-session.json` | Yes |
+| Session file | `<session-folder>/.msg/meta.json` | Yes |
 | Task list | `TaskList()` | Yes |
 | Active workers | session.active_workers[] | Yes |
 

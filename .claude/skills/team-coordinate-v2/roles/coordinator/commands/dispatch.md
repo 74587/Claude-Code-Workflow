@@ -35,7 +35,7 @@ CONTEXT:
   - Session: <session-folder>
   - Upstream artifacts: <artifact-1.md>, <artifact-2.md>
   - Key files: <file1>, <file2>
-  - Shared memory: <session>/shared-memory.json
+  - Shared state: team_msg(operation="get_state", session_id=<session-id>)
 EXPECTED: <deliverable path> + <quality criteria>
 CONSTRAINTS: <scope limits>
 ---
@@ -63,7 +63,7 @@ CONTEXT:
   - Session: <session-folder>
   - Upstream artifacts: <comma-separated list from task-analysis.json#tasks[].upstream_artifacts[]>
   - Key files: <comma-separated list from task-analysis.json#tasks[].key_files[]>
-  - Shared memory: <session>/shared-memory.json
+  - Shared state: team_msg(operation="get_state", session_id=<session-id>)
 EXPECTED: <artifact path from task-analysis.json#capabilities[].artifacts[]> + <quality criteria based on capability type>
 CONSTRAINTS: <constraints from task-analysis.json#tasks[].constraints>
 ---

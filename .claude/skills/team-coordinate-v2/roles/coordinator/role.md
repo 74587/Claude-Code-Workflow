@@ -198,10 +198,12 @@ Regardless of complexity score or role count, coordinator MUST:
 8. **Initialize shared infrastructure**:
    - `wisdom/learnings.md`, `wisdom/decisions.md`, `wisdom/issues.md` (empty with headers)
    - `explorations/cache-index.json` (`{ "entries": [] }`)
-   - `shared-memory.json` (`{}`)
    - `discussions/` (empty directory)
 
-9. **Write team-session.json** with: session_id, task_description, status="active", roles, pipeline (empty), active_workers=[], completion_action="interactive", created_at
+9. **Initialize cross-role state** via team_msg:
+   - `team_msg(operation="log", session_id=<session-id>, from="coordinator", type="state_update", data={})`
+
+10. **Write team-session.json** with: session_id, task_description, status="active", roles, pipeline (empty), active_workers=[], completion_action="interactive", created_at
 
 **Success**: Session created, role-spec files generated, shared infrastructure initialized.
 

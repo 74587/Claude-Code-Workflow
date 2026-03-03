@@ -101,9 +101,9 @@ Every worker executes the same task discovery flow on startup:
 Standard reporting flow after task completion:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Parameters: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **Note**: `team` must be session ID (e.g., `UDS-xxx-date`), NOT team name. Extract from `Session:` field in task description.
-   - **CLI fallback**: When MCP unavailable → `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+   - Parameters: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
+   - `to` and `summary` auto-defaulted -- do NOT specify explicitly
+   - **CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
 2. **SendMessage**: Send result to coordinator (content and summary both prefixed with `[<role>]`)
 3. **TaskUpdate**: Mark task completed
 4. **Loop**: Return to Phase 1 to check next task
@@ -130,7 +130,7 @@ Cross-task knowledge accumulation. Coordinator creates `wisdom/` directory at se
 |---------|-----------|
 | Process tasks with own prefix | Process tasks with other role prefixes |
 | SendMessage to coordinator | Communicate directly with other workers |
-| Read/write shared-memory.json (own fields) | Create tasks for other roles |
+| Share state via team_msg(type='state_update') | Create tasks for other roles |
 | Delegate to commands/ files | Modify resources outside own responsibility |
 
 Coordinator additional restrictions: Do not write/modify code directly, do not call implementation subagents, do not execute analysis/audits, do not bypass workers.
@@ -143,11 +143,11 @@ All outputs must carry `[role_name]` prefix in both SendMessage content/summary 
 
 Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
 
-**Parameters**: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+**Parameters**: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
 
-> **Note**: `team` must be session ID (e.g., `UDS-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+> `to` and `summary` are auto-defaulted by the tool.
 
-**CLI fallback**: When MCP unavailable → `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+**CLI fallback**: When MCP unavailable → `ccw team log --session-id <session-id> --from <role> --type <type> --json`
 
 **Message types by role**:
 
@@ -159,9 +159,9 @@ Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
 | reviewer | `audit_result`, `audit_passed`, `fix_required`, `error` |
 | implementer | `build_complete`, `build_progress`, `error` |
 
-### Shared Memory
+### Shared State
 
-All roles read in Phase 2 and write in Phase 5 to `shared-memory.json`:
+All roles share state via `team_msg(type='state_update')` + `meta.json`:
 
 | Role | Field |
 |------|-------|
@@ -200,7 +200,6 @@ design-intelligence.json
 |---------|-------|
 | Team name | uidesign |
 | Session directory | `.workflow/.team/UDS-<slug>-<date>/` |
-| Shared memory | `shared-memory.json` in session dir |
 
 ---
 
@@ -378,8 +377,8 @@ Session: <session-folder>
 
 ```
 .workflow/.team/UDS-<slug>-<YYYY-MM-DD>/
-├── team-session.json           # Session state
-├── shared-memory.json          # Cross-role accumulated knowledge
+├── .msg/messages.jsonl          # Message bus log
+├── .msg/meta.json               # Session metadata
 ├── wisdom/                     # Cross-task knowledge
 │   ├── learnings.md
 │   ├── decisions.md

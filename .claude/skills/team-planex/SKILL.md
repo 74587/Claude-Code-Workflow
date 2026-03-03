@@ -260,7 +260,7 @@ if (autoYes) {
 
 ```
 .workflow/.team/PEX-{slug}-{date}/
-├── team-session.json           # Session state
+├── .msg/meta.json           # Session state
 ├── artifacts/
 │   └── solutions/              # Planner solution output per issue
 │       ├── {issueId-1}.json
@@ -270,7 +270,8 @@ if (autoYes) {
 │   ├── decisions.md
 │   ├── conventions.md
 │   └── issues.md
-└── shared-memory.json          # Cross-role state
+├── .msg/messages.jsonl          # Team message bus
+└── .msg/meta.json               # Session metadata
 ```
 
 ---
@@ -279,8 +280,9 @@ if (autoYes) {
 
 每次 SendMessage 前，先调用 `mcp__ccw-tools__team_msg` 记录：
 
-- 参数: operation="log", team=`<session-id>`, from=`<role>`, to=`<target-role>`, type=`<type>`, summary="[`<role>`] `<summary>`"
-- **注意**: `team` 必须是 **session ID** (如 `PEX-project-2026-02-27`), 不是 team name.
+- 参数: operation="log", session_id=`<session-id>`, from=`<role>`, type=`<type>`, data={ref: "`<artifact-path>`"}
+- `to` and `summary` auto-defaulted -- do NOT specify explicitly
+- **CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
 
 **Message types by role**:
 

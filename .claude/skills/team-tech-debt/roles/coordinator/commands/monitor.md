@@ -47,7 +47,7 @@ const STAGE_WORKER_MAP = {
 ### Step 1: Context Preparation
 
 ```javascript
-const sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+const sharedMemory = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`))
 
 let fixVerifyIteration = 0
 const MAX_FIX_VERIFY_ITERATIONS = 3
@@ -76,9 +76,8 @@ for (const stageTask of pipelineTasks) {
 
   if (!workerConfig) {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
-      to: "user", type: "error",
-      summary: `[coordinator] 未知阶段前缀: ${stagePrefix}，跳过`
+      operation: "log", session_id: sessionId, from: "coordinator",
+      type: "error",
     })
     continue
   }
@@ -87,15 +86,14 @@ for (const stageTask of pipelineTasks) {
   TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
 
   mcp__ccw-tools__team_msg({
-    operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
+    operation: "log", session_id: sessionId, from: "coordinator",
     to: workerConfig.role, type: "task_unblocked",
-    summary: `[coordinator] 启动阶段: ${stageTask.subject} → ${workerConfig.role}`
   })
 
   // 3. 同步 spawn worker — 阻塞直到 worker 返回（Stop-Wait 核心）
   //    Task() 本身就是等待机制，无需 sleep/poll
   const workerResult = Task({
-    subagent_type: "general-purpose",
+    subagent_type: "team-worker",
     description: `Spawn ${workerConfig.role} worker for ${stageTask.subject}`,
     team_name: teamName,
     name: workerConfig.role,
@@ -111,9 +109,8 @@ for (const stageTask of pipelineTasks) {
     handleStageFailure(stageTask, taskState, workerConfig, autoYes)
   } else {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
-      to: "user", type: "quality_gate",
-      summary: `[coordinator] 阶段完成: ${stageTask.subject}`
+      operation: "log", session_id: sessionId, from: "coordinator",
+      type: "quality_gate",
     })
   }
 
@@ -127,9 +124,8 @@ for (const stageTask of pipelineTasks) {
     }
 
     mcp__ccw-tools__team_msg({
-      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
-      to: "user", type: "plan_approval",
-      summary: `[coordinator] 治理方案已生成，等待审批`
+      operation: "log", session_id: sessionId, from: "coordinator",
+      type: "plan_approval",
     })
 
     if (!autoYes) {
@@ -166,9 +162,8 @@ for (const stageTask of pipelineTasks) {
         continue  // 跳到下一阶段（即刚插入的修订任务）
       } else if (planDecision === "终止") {
         mcp__ccw-tools__team_msg({
-          operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
-          to: "user", type: "shutdown",
-          summary: `[coordinator] 用户终止流水线（方案审批阶段）`
+          operation: "log", session_id: sessionId, from: "coordinator",
+          type: "shutdown",
         })
         break  // 退出 pipeline 循环
       }
@@ -189,14 +184,13 @@ for (const stageTask of pipelineTasks) {
 
     // 存入 shared memory
     sharedMemory.worktree = { path: worktreePath, branch: branchName }
-    Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
+    Write(`${sessionFolder}/.msg/meta.json`, JSON.stringify(sharedMemory, null, 2))
 
     worktreeCreated = true
 
     mcp__ccw-tools__team_msg({
-      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
-      to: "user", type: "worktree_created",
-      summary: `[coordinator] Worktree 已创建: ${worktreePath} (branch: ${branchName})`
+      operation: "log", session_id: sessionId, from: "coordinator",
+      type: "worktree_created",
     })
   }
 
@@ -231,32 +225,22 @@ function buildWorkerPrompt(stageTask, workerConfig, sessionFolder, taskDescripti
 - 禁止在主工作树中修改任何文件`
   }
 
-  return `你是 team "${teamName}" 的 ${workerConfig.role.toUpperCase()}。
+  return `## Role Assignment
+role: ${workerConfig.role}
+role_spec: .claude/skills/team-tech-debt/role-specs/${workerConfig.role}.md
+session: ${sessionFolder}
+session_id: ${sessionId}
+team_name: ${teamName}
+requirement: ${stageTask.description || taskDescription}
+inner_loop: false
 
-## ⚠️ 首要指令（MUST）
-你的所有工作必须通过调用 Skill 获取角色定义后执行，禁止自行发挥：
-Skill(skill="team-tech-debt", args="${workerConfig.skillArgs}")
-此调用会加载你的角色定义（role.md）、可用命令（commands/*.md）和完整执行逻辑。
-
-## 当前任务
-- 任务 ID: ${stageTask.id}
-- 任务: ${stageTask.subject}
-- 描述: ${stageTask.description || taskDescription}
-- Session: ${sessionFolder}
+## Current Task
+- Task ID: ${stageTask.id}
+- Task: ${stageTask.subject}
+- Task Prefix: ${stagePrefix}
 ${worktreeSection}
-## 角色准则（强制）
-- 你只能处理 ${stagePrefix}-* 前缀的任务
-- 所有输出必须带 [${workerConfig.role}] 标识前缀
-- 仅与 coordinator 通信，不得直接联系其他 worker
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-## 工作流程（严格按顺序）
-1. 调用 Skill(skill="team-tech-debt", args="${workerConfig.skillArgs}") 获取角色定义和执行逻辑
-2. 按 role.md 中的 5-Phase 流程执行
-3. team_msg log + SendMessage 结果给 coordinator
-4. TaskUpdate({ taskId: "${stageTask.id}", status: "completed" })`
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`
 }
 ```
 
@@ -266,9 +250,8 @@ ${worktreeSection}
 function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
   if (autoYes) {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
-      to: "user", type: "error",
-      summary: `[coordinator] [auto] 阶段 ${stageTask.subject} 未完成 (status=${taskState.status})，自动跳过`
+      operation: "log", session_id: sessionId, from: "coordinator",
+      type: "error",
     })
     TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
     return 'skip'
@@ -292,7 +275,7 @@ function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
     // 重新 spawn worker（递归单次）
     TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
     const retryResult = Task({
-      subagent_type: "general-purpose",
+      subagent_type: "team-worker",
       description: `Retry ${workerConfig.role} worker for ${stageTask.subject}`,
       team_name: teamName,
       name: workerConfig.role,
@@ -309,9 +292,8 @@ function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
     return 'skip'
   } else {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
-      to: "user", type: "shutdown",
-      summary: `[coordinator] 用户终止流水线，当前阶段: ${stageTask.subject}`
+      operation: "log", session_id: sessionId, from: "coordinator",
+      type: "shutdown",
     })
     return 'abort'
   }
@@ -322,7 +304,7 @@ function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
 
 ```javascript
 function evaluateValidationResult(sessionFolder) {
-  const latestMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+  const latestMemory = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`))
   const debtBefore = latestMemory.debt_score_before || 0
   const debtAfter = latestMemory.debt_score_after || 0
   const regressions = latestMemory.validation_results?.regressions || 0
@@ -333,9 +315,8 @@ function evaluateValidationResult(sessionFolder) {
   else if (!improved) status = 'CONDITIONAL'
 
   mcp__ccw-tools__team_msg({
-    operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
-    to: "user", type: "quality_gate",
-    summary: `[coordinator] 质量门控: ${status} (债务分 ${debtBefore} → ${debtAfter}, 回归 ${regressions})`
+    operation: "log", session_id: sessionId, from: "coordinator",
+    type: "quality_gate",
   })
 
   return regressions > 0
@@ -346,7 +327,7 @@ function evaluateValidationResult(sessionFolder) {
 
 ```javascript
 // 汇总所有结果
-const finalSharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+const finalSharedMemory = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`))
 const allFinalTasks = TaskList()
 const workerTasks = allFinalTasks.filter(t => t.owner && t.owner !== 'coordinator')
 
@@ -387,18 +368,16 @@ EOF
 )"`)
 
   mcp__ccw-tools__team_msg({
-    operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
-    to: "user", type: "pr_created",
-    summary: `[coordinator] PR 已创建: branch ${branch}`
+    operation: "log", session_id: sessionId, from: "coordinator",
+    type: "pr_created",
   })
 
   // Cleanup worktree
   Bash(`git worktree remove "${wtPath}" 2>/dev/null || true`)
 } else if (finalSharedMemory.worktree && !finalSharedMemory.validation_results?.passed) {
   mcp__ccw-tools__team_msg({
-    operation: "log", team: sessionId  // MUST be session ID (e.g., TD-xxx-date), NOT team name, from: "coordinator",
-    to: "user", type: "quality_gate",
-    summary: `[coordinator] 验证未通过，worktree 保留于 ${finalSharedMemory.worktree.path}，请手动检查`
+    operation: "log", session_id: sessionId, from: "coordinator",
+    type: "quality_gate",
   })
 }
 

@@ -15,7 +15,7 @@
 - 仅处理 `SYNTH-*` 前缀的任务
 - 所有输出必须带 `[synthesizer]` 标识
 - 仅通过 SendMessage 与 coordinator 通信
-- Phase 2 读取 shared-memory.json，Phase 5 写入 synthesis_themes
+- Phase 2 读取 .msg/meta.json，Phase 5 写入 synthesis_themes
 - 从所有创意和挑战中提取共同主题
 - 解决相互矛盾的想法，生成整合方案
 
@@ -24,7 +24,7 @@
 - 生成新创意、挑战假设或评分排序
 - 直接与其他 worker 角色通信
 - 为其他角色创建任务
-- 修改 shared-memory.json 中不属于自己的字段
+- 修改 .msg/meta.json 中不属于自己的字段
 - 在输出中省略 `[synthesizer]` 标识
 
 ---
@@ -38,7 +38,7 @@
 | `TaskList` | Built-in | Phase 1 | Discover pending SYNTH-* tasks |
 | `TaskGet` | Built-in | Phase 1 | Get task details |
 | `TaskUpdate` | Built-in | Phase 1/5 | Update task status |
-| `Read` | Built-in | Phase 2 | Read shared-memory.json, idea files, critique files |
+| `Read` | Built-in | Phase 2 | Read .msg/meta.json, idea files, critique files |
 | `Write` | Built-in | Phase 3/5 | Write synthesis files, update shared memory |
 | `Glob` | Built-in | Phase 2 | Find idea and critique files |
 | `SendMessage` | Built-in | Phase 5 | Report to coordinator |
@@ -60,19 +60,17 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: **<session-id>**,  // MUST be session ID (e.g., BRS-xxx-date), NOT team name. Extract from Session: field.
+  session_id: <session-id>,
   from: "synthesizer",
-  to: "coordinator",
   type: "synthesis_ready",
-  summary: "[synthesizer] Synthesis complete: <themeCount> themes, <proposalCount> proposals",
-  ref: <output-path>
+  data: {ref: <output-path>}
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from synthesizer --to coordinator --type synthesis_ready --summary \"[synthesizer] Synthesis complete\" --ref <output-path> --json")
+Bash("ccw team log --session-id <session-id> --from synthesizer --type synthesis_ready --json")
 ```
 
 ---
@@ -92,7 +90,7 @@ Standard task discovery flow: TaskList -> filter by prefix `SYNTH-*` + owner mat
 | Session folder | Task description (Session: line) | Yes |
 | All ideas | ideas/*.md files | Yes |
 | All critiques | critiques/*.md files | Yes |
-| GC rounds completed | shared-memory.json.gc_round | Yes |
+| GC rounds completed | .msg/meta.json.gc_round | Yes |
 
 **Loading steps**:
 
@@ -100,7 +98,7 @@ Standard task discovery flow: TaskList -> filter by prefix `SYNTH-*` + owner mat
 2. Glob all idea files from session/ideas/
 3. Glob all critique files from session/critiques/
 4. Read all idea and critique files for synthesis
-5. Read shared-memory.json for context
+5. Read .msg/meta.json for context
 
 ### Phase 3: Synthesis Execution
 
@@ -152,7 +150,7 @@ Standard task discovery flow: TaskList -> filter by prefix `SYNTH-*` + owner mat
 Standard report flow: team_msg log -> SendMessage with `[synthesizer]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
 **Shared Memory Update**:
-1. Set shared-memory.json.synthesis_themes
+1. Set .msg/meta.json.synthesis_themes
 2. Each entry: name, strength, supporting_ideas
 
 ---

@@ -16,7 +16,7 @@
 - All output (SendMessage, team_msg, logs) must carry `[explorer]` identifier
 - Only communicate with coordinator via SendMessage
 - Work strictly within codebase exploration responsibility scope
-- Write exploration results to shared-memory.json `explorations` field
+- Share exploration results via team_msg(type='state_update')
 
 ### MUST NOT
 
@@ -64,21 +64,19 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,
+  session_id: <session-id>,
   from: "explorer",
-  to: "coordinator",
   type: "exploration_ready",
-  summary: "[explorer] EXPLORE complete: <summary>",
   ref: "<output-path>"
 })
 ```
 
-> **Note**: `team` must be session ID (e.g., `UAN-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+> `to` and `summary` are auto-defaulted by the tool.
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from explorer --to coordinator --type exploration_ready --summary \"[explorer] ...\" --ref <path> --json")
+Bash("ccw team log --session-id <session-id> --from explorer --type exploration_ready --ref <path> --json")
 ```
 
 ---
@@ -99,7 +97,7 @@ For parallel instances, parse `--agent-name` from arguments for owner matching. 
 
 1. Extract session path from task description
 2. Extract topic, perspective, dimensions from task metadata
-3. Read shared-memory.json for existing context
+3. Read role states via team_msg(operation="get_state") for existing context
 4. Determine exploration number from task subject (EXPLORE-N)
 
 **Context extraction**:

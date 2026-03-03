@@ -62,19 +62,17 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: **<session-id>**,  // MUST be session ID (e.g., ISS-xxx-date), NOT team name. Extract from Session: field.
+  session_id: <session-id>,
   from: "integrator",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[integrator] <task-prefix> complete: <task-subject>",
-  ref: <artifact-path>
+  data: {ref: <artifact-path>}
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from integrator --to coordinator --type <message-type> --summary \"[integrator] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from integrator --type <message-type> --json")
 ```
 
 ---
@@ -116,15 +114,13 @@ Bash("ccw issue solutions <issueId> --json")
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: **<session-id>**, from: "integrator", to: "coordinator",  // MUST be session ID, NOT team name
+  operation: "log", session_id: <session-id>, from: "integrator",
   type: "error",
-  summary: "[integrator] Unbound issues: <issueIds> - cannot form queue"
 })
 
 SendMessage({
   type: "message", recipient: "coordinator",
   content: "## [integrator] Error: Unbound Issues\n\nThe following issues have no bound solution:\n<unbound list>\n\nPlanner must create solutions before queue formation.",
-  summary: "[integrator] error: <count> unbound issues"
 })
 ```
 
@@ -192,15 +188,13 @@ Read(".workflow/issues/queue/execution-queue.json")
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: **<session-id>**, from: "integrator", to: "coordinator",  // MUST be session ID, NOT team name
+  operation: "log", session_id: <session-id>, from: "integrator",
   type: "conflict_found",
-  summary: "[integrator] <count> unresolved conflicts in queue"
 })
 
 SendMessage({
   type: "message", recipient: "coordinator",
   content: "## [integrator] Conflicts Found\n\n**Unresolved Conflicts**: <count>\n\n<conflict details>\n\n**Action Required**: Coordinator should present conflicts to user for resolution, then re-trigger MARSHAL.",
-  summary: "[integrator] conflict_found: <count> conflicts"
 })
 ```
 

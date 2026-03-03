@@ -14,7 +14,7 @@ Code implementer. Responsible for implementing code according to design, increme
 
 - Only process `DEV-*` prefixed tasks
 - All output must carry `[developer]` identifier
-- Phase 2: Read shared-memory.json + design, Phase 5: Write implementation_context
+- Phase 2: Read .msg/meta.json + design, Phase 5: Write implementation_context
 - For fix tasks (DEV-fix-*): Reference review feedback
 - Work strictly within code implementation responsibility scope
 
@@ -56,24 +56,21 @@ Code implementer. Responsible for implementing code according to design, increme
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
-**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
 
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // e.g., "TID-project-2026-02-27", NOT "iterdev"
+  session_id: <session-id>,
   from: "developer",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[developer] DEV complete: <task-subject>",
-  ref: <dev-log-path>
+  data: { ref: <dev-log-path> }
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from developer --to coordinator --type <message-type> --summary \"[developer] DEV complete\" --ref <dev-log-path> --json")
+Bash("ccw team log --session-id <session-id> --from developer --type <message-type> --json")
 ```
 
 ---
@@ -93,7 +90,7 @@ Standard task discovery flow: TaskList -> filter by prefix `DEV-*` + owner match
 | Input | Source | Required |
 |-------|--------|----------|
 | Session path | Task description (Session: <path>) | Yes |
-| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Shared memory | <session-folder>/.msg/meta.json | Yes |
 | Design document | <session-folder>/design/design-001.md | For non-fix tasks |
 | Task breakdown | <session-folder>/design/task-breakdown.json | For non-fix tasks |
 | Review feedback | <session-folder>/review/*.md | For fix tasks |
@@ -102,10 +99,10 @@ Standard task discovery flow: TaskList -> filter by prefix `DEV-*` + owner match
 **Loading steps**:
 
 1. Extract session path from task description
-2. Read shared-memory.json
+2. Read .msg/meta.json
 
 ```
-Read(<session-folder>/shared-memory.json)
+Read(<session-folder>/.msg/meta.json)
 ```
 
 3. Check if this is a fix task (GC loop):
@@ -227,17 +224,16 @@ sharedMemory.implementation_context.push({
   is_fix: <is-fix-task>,
   syntax_clean: <has-syntax-errors>
 })
-Write(<session-folder>/shared-memory.json, JSON.stringify(sharedMemory, null, 2))
+Write(<session-folder>/.msg/meta.json, JSON.stringify(sharedMemory, null, 2))
 ```
 
 2. **Log and send message**:
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: <session-id>, from: "developer", to: "coordinator",  // team = session ID, e.g., "TID-project-2026-02-27"
+  operation: "log", session_id: <session-id>, from: "developer",
   type: "dev_complete",
-  summary: "[developer] <Fix|Implementation> complete: <file-count> files changed",
-  ref: <dev-log-path>
+  data: { ref: <dev-log-path> }
 })
 
 SendMessage({
@@ -252,7 +248,6 @@ SendMessage({
 ### Files
 - <file-1>
 - <file-2>`,
-  summary: "[developer] <file-count> files <fixed|implemented>"
 })
 ```
 

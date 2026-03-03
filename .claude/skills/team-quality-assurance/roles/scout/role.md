@@ -86,7 +86,7 @@ const changedFiles = Bash(`git diff --name-only HEAD~5 2>/dev/null || echo ""`)
 // 读取 shared memory 获取历史缺陷模式
 const sessionFolder = task.description.match(/session:\s*(.+)/)?.[1] || '.'
 let sharedMemory = {}
-try { sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`)) } catch {}
+try { sharedMemory = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`)) } catch {}
 const knownPatterns = sharedMemory.defect_patterns || []
 
 // 确定扫描视角
@@ -164,7 +164,7 @@ const discoveredIssues = allFindings.critical
 
 // 更新 shared memory
 sharedMemory.discovered_issues = discoveredIssues
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
+Write(`${sessionFolder}/.msg/meta.json`, JSON.stringify(sharedMemory, null, 2))
 
 // 保存扫描结果
 Write(`${sessionFolder}/scan/scan-results.json`, JSON.stringify({
@@ -189,12 +189,10 @@ const resultSummary = `发现 ${discoveredIssues.length} 个问题（Critical: $
 
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: teamName,
+  session_id: teamName,
   from: "scout",
-  to: "coordinator",
   type: discoveredIssues.length > 0 ? "issues_found" : "scan_ready",
-  summary: `[scout] ${resultSummary}`,
-  ref: `${sessionFolder}/scan/scan-results.json`
+  data: { ref: `${sessionFolder}/scan/scan-results.json` }
 })
 
 SendMessage({

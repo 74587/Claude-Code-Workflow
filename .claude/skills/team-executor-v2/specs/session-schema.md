@@ -13,7 +13,9 @@ Required session structure for team-executor v2. All components MUST exist for v
 |   +-- <role-2>.md
 +-- artifacts/                  # All MD deliverables from workers
 |   +-- <artifact>.md
-+-- shared-memory.json          # Cross-role state store
++-- .msg/                       # Team message bus + state
+|   +-- messages.jsonl          # Message log
+|   +-- meta.json               # Session metadata + cross-role state
 +-- wisdom/                     # Cross-task knowledge
 |   +-- learnings.md
 |   +-- decisions.md
@@ -23,7 +25,6 @@ Required session structure for team-executor v2. All components MUST exist for v
 |   +-- explore-<angle>.json
 +-- discussions/                # Inline discuss records
 |   +-- <round>.md
-+-- .msg/                       # Team message bus logs
 ```
 
 ## Validation Checklist
@@ -238,7 +239,7 @@ For each role-spec in role-specs/<role>.md:
 |   +-- developer.md            # YAML frontmatter + Phase 2-4
 |   +-- tester.md               # YAML frontmatter + Phase 2-4
 +-- artifacts/                  # (may be empty)
-+-- shared-memory.json          # Valid JSON (may be {})
++-- .msg/                       # Team message bus + state (messages.jsonl + meta.json)
 +-- wisdom/
 |   +-- learnings.md
 |   +-- decisions.md
@@ -246,7 +247,6 @@ For each role-spec in role-specs/<role>.md:
 +-- explorations/
 |   +-- cache-index.json
 +-- discussions/                # (may be empty)
-+-- .msg/                       # (may be empty)
 ```
 
 ---

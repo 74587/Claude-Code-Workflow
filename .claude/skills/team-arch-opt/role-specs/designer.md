@@ -18,13 +18,13 @@ Analyze architecture reports and baseline metrics to design a prioritized refact
 |-------|--------|----------|
 | Architecture report | <session>/artifacts/architecture-report.md | Yes |
 | Architecture baseline | <session>/artifacts/architecture-baseline.json | Yes |
-| shared-memory.json | <session>/wisdom/shared-memory.json | Yes |
+| .msg/meta.json | <session>/wisdom/.msg/meta.json | Yes |
 | Wisdom files | <session>/wisdom/patterns.md | No |
 
 1. Extract session path from task description
 2. Read architecture report -- extract ranked issue list with severities and categories
 3. Read architecture baseline -- extract current structural metrics
-4. Load shared-memory.json for analyzer findings (project_type, scope)
+4. Load .msg/meta.json for analyzer findings (project_type, scope)
 5. Assess overall refactoring complexity:
 
 | Issue Count | Severity Mix | Complexity |
@@ -91,7 +91,7 @@ Define measurable success criteria per refactoring (target metric improvement or
    - Each refactoring must be **non-overlapping** in target files (no two REFACTOR-IDs modify the same file unless explicitly noted with conflict resolution)
    - Implementation guidance must be self-contained -- a branch refactorer should be able to work from a single REFACTOR block without reading others
 
-2. Update `<session>/wisdom/shared-memory.json` under `designer` namespace:
+2. Update `<session>/wisdom/.msg/meta.json` under `designer` namespace:
    - Read existing -> merge -> write back:
    ```json
    {

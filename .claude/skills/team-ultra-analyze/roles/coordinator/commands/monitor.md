@@ -67,8 +67,8 @@ const autoYes = /\b(-y|--yes)\b/.test(args)
 ### Step 1: Context Preparation
 
 ```javascript
-// 从 shared memory 获取当前状态
-const sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+// 从 role state 获取当前状态
+const sharedMemory = mcp__ccw-tools__team_msg({ operation: "get_state", session_id: sessionId })
 
 let discussionRound = 0
 const MAX_DISCUSSION_ROUNDS = pipelineMode === 'deep' ? 5 : (pipelineMode === 'standard' ? 1 : 0)
@@ -102,36 +102,32 @@ for (const stageTask of preDiscussionTasks) {
   TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
 
   mcp__ccw-tools__team_msg({
-    operation: "log", team: sessionId, from: "coordinator",
+    operation: "log", session_id: sessionId, from: "coordinator",
     to: workerConfig.role, type: "task_unblocked",
     summary: `[coordinator] 启动阶段: ${stageTask.subject} → ${workerConfig.role}`
   })
 
   // 3. 同步 spawn worker — 阻塞直到 worker 返回（Stop-Wait 核心）
   const workerResult = Task({
-    subagent_type: "general-purpose",
+    subagent_type: "team-worker",
     description: `Spawn ${workerConfig.role} worker for ${stageTask.subject}`,
     team_name: teamName,
     name: workerConfig.role,
-    prompt: `你是 team "${teamName}" 的 ${workerConfig.role.toUpperCase()}。
+    prompt: `## Role Assignment
+role: ${workerConfig.role}
+role_spec: .claude/skills/team-ultra-analyze/role-specs/${workerConfig.role}.md
+session: ${sessionFolder}
+session_id: ${sessionId}
+team_name: ${teamName}
+requirement: ${stageTask.description || taskDescription}
+inner_loop: false
 
-## ⚠️ 首要指令（MUST）
-Skill(skill="team-ultra-analyze", args="${workerConfig.skillArgs}")
+## Current Task
+- Task ID: ${stageTask.id}
+- Task: ${stageTask.subject}
 
-## 当前任务
-- 任务 ID: ${stageTask.id}
-- 任务: ${stageTask.subject}
-- 描述: ${stageTask.description || taskDescription}
-- Session: ${sessionFolder}
-
-## 角色准则（强制）
-- 所有输出必须带 [${workerConfig.role}] 标识前缀
-- 仅与 coordinator 通信
-
-## 工作流程
-1. Skill(skill="team-ultra-analyze", args="${workerConfig.skillArgs}") 获取角色定义
-2. 执行任务 → 汇报结果
-3. TaskUpdate({ taskId: "${stageTask.id}", status: "completed" })`,
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`,
     run_in_background: false
   })
 
@@ -142,7 +138,7 @@ Skill(skill="team-ultra-analyze", args="${workerConfig.skillArgs}")
     handleStageTimeout(stageTask, 0, autoYes)
   } else {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: sessionId, from: "coordinator",
+      operation: "log", session_id: sessionId, from: "coordinator",
       to: "user", type: "quality_gate",
       summary: `[coordinator] 阶段完成: ${stageTask.subject}`
     })
@@ -206,26 +202,25 @@ if (MAX_DISCUSSION_ROUNDS === 0) {
     if (discussTask) {
       TaskUpdate({ taskId: discussTask.id, status: 'in_progress' })
       const discussResult = Task({
-        subagent_type: "general-purpose",
+        subagent_type: "team-worker",
         description: `Spawn discussant worker for ${discussTask.subject}`,
         team_name: teamName,
         name: "discussant",
-        prompt: `你是 team "${teamName}" 的 DISCUSSANT。
+        prompt: `## Role Assignment
+role: discussant
+role_spec: .claude/skills/team-ultra-analyze/role-specs/discussant.md
+session: ${sessionFolder}
+session_id: ${sessionId}
+team_name: ${teamName}
+requirement: Discussion round ${discussionRound + 1}
+inner_loop: false
 
-## Primary Directive
-Skill(skill="team-ultra-analyze", args="--role=discussant")
-
-## Assignment
+## Current Task
 - Task ID: ${discussTask.id}
 - Task: ${discussTask.subject}
-- Session: ${sessionFolder}
 
-## Workflow
-1. Skill(skill="team-ultra-analyze", args="--role=discussant") to load role definition
-2. Execute task per role.md
-3. TaskUpdate({ taskId: "${discussTask.id}", status: "completed" })
-
-All outputs carry [discussant] tag.`,
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`,
         run_in_background: false
       })
     }
@@ -248,14 +243,19 @@ All outputs carry [discussant] tag.`,
     const feedback = feedbackResult["Discussion Feedback"]
 
     // 📌 记录用户反馈到 decision_trail
-    const latestMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+    const latestMemory = mcp__ccw-tools__team_msg({ operation: "get_state", session_id: sessionId })
+    latestMemory.decision_trail = latestMemory.decision_trail || []
     latestMemory.decision_trail.push({
       round: discussionRound + 1,
       decision: feedback,
       context: `User feedback at discussion round ${discussionRound + 1}`,
       timestamp: new Date().toISOString()
     })
-    Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(latestMemory, null, 2))
+    mcp__ccw-tools__team_msg({
+      operation: "log", session_id: sessionId, from: "coordinator",
+      type: "state_update",
+      data: { decision_trail: latestMemory.decision_trail }
+    })
 
     if (feedback === "分析完成") {
       // 📌 Record completion decision
@@ -356,7 +356,7 @@ ${data.updated_understanding || '(Updated by discussant)'}
 function handleStageTimeout(stageTask, _unused, autoYes) {
   if (autoYes) {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: sessionId, from: "coordinator",
+      operation: "log", session_id: sessionId, from: "coordinator",
       to: "user", type: "error",
       summary: `[coordinator] [auto] 阶段 ${stageTask.subject} worker 返回但未完成，自动跳过`
     })
@@ -382,7 +382,7 @@ function handleStageTimeout(stageTask, _unused, autoYes) {
     TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
   } else if (answer === "终止流水线") {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: sessionId, from: "coordinator",
+      operation: "log", session_id: sessionId, from: "coordinator",
       to: "user", type: "shutdown",
       summary: `[coordinator] 用户终止流水线，当前阶段: ${stageTask.subject}`
     })
@@ -423,7 +423,7 @@ All outputs carry [synthesizer] tag.`,
 }
 
 // 汇总所有结果
-const finalMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+const finalMemory = mcp__ccw-tools__team_msg({ operation: "get_state", session_id: sessionId })
 const allFinalTasks = TaskList()
 const workerTasks = allFinalTasks.filter(t => t.owner && t.owner !== 'coordinator')
 const summary = {

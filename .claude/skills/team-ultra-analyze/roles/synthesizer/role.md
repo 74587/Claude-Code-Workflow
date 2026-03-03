@@ -17,7 +17,7 @@
 - Only communicate with coordinator via SendMessage
 - Work strictly within synthesis responsibility scope
 - Integrate all role outputs to generate final conclusions
-- Write synthesis results to shared-memory.json `synthesis` field
+- Share synthesis results via team_msg(type='state_update')
 - Update discussion.md conclusions section
 
 ### MUST NOT
@@ -65,21 +65,19 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,
+  session_id: <session-id>,
   from: "synthesizer",
-  to: "coordinator",
   type: "synthesis_ready",
-  summary: "[synthesizer] SYNTH complete: <summary>",
   ref: "<output-path>"
 })
 ```
 
-> **Note**: `team` must be session ID (e.g., `UAN-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+> `to` and `summary` are auto-defaulted by the tool.
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from synthesizer --to coordinator --type synthesis_ready --summary \"[synthesizer] ...\" --ref <path> --json")
+Bash("ccw team log --session-id <session-id> --from synthesizer --type synthesis_ready --ref <path> --json")
 ```
 
 ---
@@ -100,7 +98,7 @@ Falls back to `synthesizer` for single-instance role.
 
 1. Extract session path from task description
 2. Extract topic
-3. Read shared-memory.json
+3. Read role states via team_msg(operation="get_state")
 4. Read all exploration files
 5. Read all analysis files
 6. Read all discussion round files

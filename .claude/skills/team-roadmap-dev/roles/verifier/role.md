@@ -70,11 +70,9 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., RD-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "verifier",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[verifier] <task-prefix> complete: <task-subject>",
   ref: <artifact-path>
 })
 ```
@@ -82,7 +80,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from verifier --to coordinator --type <type> --summary \"[verifier] <summary>\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from verifier --type <type> --ref <artifact-path> --json")
 ```
 
 ---
@@ -218,7 +216,6 @@ Standard report flow: team_msg log -> SendMessage with `[verifier]` prefix -> Ta
 **Report message**:
 ```
 SendMessage({
-  to: "coordinator",
   message: "[verifier] Phase <N> verification complete.
 - Status: <status>
 - Tasks: <passed>/<total> passed

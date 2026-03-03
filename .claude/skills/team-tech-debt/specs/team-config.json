@@ -96,7 +96,7 @@
   },
 
   "shared_memory": {
-    "file": "shared-memory.json",
+    "file": ".msg/meta.json",
     "fields": {
       "debt_inventory": { "owner": "scanner", "type": "array" },
       "assessment_matrix": { "owner": "assessor", "type": "object" },

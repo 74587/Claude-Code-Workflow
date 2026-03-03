@@ -59,11 +59,9 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., TD-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "validator",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[validator] <task-prefix> complete: <task-subject>",
   ref: <artifact-path>
 })
 ```
@@ -71,7 +69,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from validator --to coordinator --type <message-type> --summary \"[validator] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from validator --type <message-type> --ref <artifact-path> --json")
 ```
 
 ---
@@ -89,13 +87,13 @@ Standard task discovery flow: TaskList -> filter by prefix `TDVAL-*` + owner mat
 | Input | Source | Required |
 |-------|--------|----------|
 | Session folder | task.description (regex: `session:\s*(.+)`) | Yes |
-| Shared memory | `<session-folder>/shared-memory.json` | Yes |
+| Shared memory | `<session-folder>/.msg/meta.json` | Yes |
 | Fix log | `<session-folder>/fixes/fix-log.json` | No |
 
 **Loading steps**:
 
 1. Extract session path from task description
-2. Read shared-memory.json for:
+2. Read .msg/meta.json for:
 
 | Field | Description |
 |-------|-------------|
@@ -198,7 +196,7 @@ Delegate to `commands/verify.md` if available, otherwise execute inline.
 **Save outputs**:
 
 1. Write `<session-folder>/validation/validation-report.json`
-2. Update shared-memory.json with `validation_results` and `debt_score_after`
+2. Update .msg/meta.json with `validation_results` and `debt_score_after`
 
 ### Phase 5: Report to Coordinator
 

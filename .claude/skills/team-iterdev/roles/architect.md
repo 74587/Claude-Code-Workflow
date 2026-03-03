@@ -14,7 +14,7 @@ Technical architect. Responsible for technical design, task decomposition, and a
 
 - Only process `DESIGN-*` prefixed tasks
 - All output must carry `[architect]` identifier
-- Phase 2: Read shared-memory.json, Phase 5: Write architecture_decisions
+- Phase 2: Read .msg/meta.json, Phase 5: Write architecture_decisions
 - Work strictly within technical design responsibility scope
 
 ### MUST NOT
@@ -53,24 +53,21 @@ Technical architect. Responsible for technical design, task decomposition, and a
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
-**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
 
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // e.g., "TID-project-2026-02-27", NOT "iterdev"
+  session_id: <session-id>,
   from: "architect",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[architect] DESIGN complete: <task-subject>",
-  ref: <design-path>
+  data: { ref: <design-path> }
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from architect --to coordinator --type <message-type> --summary \"[architect] DESIGN complete\" --ref <design-path> --json")
+Bash("ccw team log --session-id <session-id> --from architect --type <message-type> --json")
 ```
 
 ---
@@ -90,17 +87,17 @@ Standard task discovery flow: TaskList -> filter by prefix `DESIGN-*` + owner ma
 | Input | Source | Required |
 |-------|--------|----------|
 | Session path | Task description (Session: <path>) | Yes |
-| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Shared memory | <session-folder>/.msg/meta.json | Yes |
 | Codebase | Project files | Yes |
 | Wisdom | <session-folder>/wisdom/ | No |
 
 **Loading steps**:
 
 1. Extract session path from task description
-2. Read shared-memory.json for context
+2. Read .msg/meta.json for context
 
 ```
-Read(<session-folder>/shared-memory.json)
+Read(<session-folder>/.msg/meta.json)
 ```
 
 3. Multi-angle codebase exploration via cli-explore-agent:
@@ -217,17 +214,16 @@ sharedMemory.architecture_decisions.push({
   components: <component-names>,
   task_count: <count>
 })
-Write(<session-folder>/shared-memory.json, JSON.stringify(sharedMemory, null, 2))
+Write(<session-folder>/.msg/meta.json, JSON.stringify(sharedMemory, null, 2))
 ```
 
 2. **Log and send message**:
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: <session-id>, from: "architect", to: "coordinator",  // team = session ID, e.g., "TID-project-2026-02-27"
+  operation: "log", session_id: <session-id>, from: "architect",
   type: "design_ready",
-  summary: "[architect] Design complete: <count> components, <task-count> tasks",
-  ref: <design-path>
+  data: { ref: <design-path> }
 })
 
 SendMessage({
@@ -238,7 +234,6 @@ SendMessage({
 **Tasks**: <task-count>
 **Design**: <design-path>
 **Breakdown**: <breakdown-path>`,
-  summary: "[architect] Design: <task-count> tasks"
 })
 ```
 

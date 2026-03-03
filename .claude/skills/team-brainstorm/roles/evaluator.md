@@ -15,7 +15,7 @@
 - 仅处理 `EVAL-*` 前缀的任务
 - 所有输出必须带 `[evaluator]` 标识
 - 仅通过 SendMessage 与 coordinator 通信
-- Phase 2 读取 shared-memory.json，Phase 5 写入 evaluation_scores
+- Phase 2 读取 .msg/meta.json，Phase 5 写入 evaluation_scores
 - 使用标准化评分维度，确保评分可追溯
 - 为每个方案提供评分理由和推荐
 
@@ -24,7 +24,7 @@
 - 生成新创意、挑战假设或综合整合
 - 直接与其他 worker 角色通信
 - 为其他角色创建任务
-- 修改 shared-memory.json 中不属于自己的字段
+- 修改 .msg/meta.json 中不属于自己的字段
 - 在输出中省略 `[evaluator]` 标识
 
 ---
@@ -38,7 +38,7 @@
 | `TaskList` | Built-in | Phase 1 | Discover pending EVAL-* tasks |
 | `TaskGet` | Built-in | Phase 1 | Get task details |
 | `TaskUpdate` | Built-in | Phase 1/5 | Update task status |
-| `Read` | Built-in | Phase 2 | Read shared-memory.json, synthesis files, ideas, critiques |
+| `Read` | Built-in | Phase 2 | Read .msg/meta.json, synthesis files, ideas, critiques |
 | `Write` | Built-in | Phase 3/5 | Write evaluation files, update shared memory |
 | `Glob` | Built-in | Phase 2 | Find synthesis, idea, critique files |
 | `SendMessage` | Built-in | Phase 5 | Report to coordinator |
@@ -60,19 +60,17 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: **<session-id>**,  // MUST be session ID (e.g., BRS-xxx-date), NOT team name. Extract from Session: field.
+  session_id: <session-id>,
   from: "evaluator",
-  to: "coordinator",
   type: "evaluation_ready",
-  summary: "[evaluator] Evaluation complete: Top pick \"<title>\" (<score>/10)",
-  ref: <output-path>
+  data: {ref: <output-path>}
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from evaluator --to coordinator --type evaluation_ready --summary \"[evaluator] Evaluation complete\" --ref <output-path> --json")
+Bash("ccw team log --session-id <session-id> --from evaluator --type evaluation_ready --json")
 ```
 
 ---
@@ -141,7 +139,7 @@ weightedScore = (Feasibility * 0.30) + (Innovation * 0.25) + (Impact * 0.25) + (
 Standard report flow: team_msg log -> SendMessage with `[evaluator]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
 **Shared Memory Update**:
-1. Set shared-memory.json.evaluation_scores
+1. Set .msg/meta.json.evaluation_scores
 2. Each entry: title, weighted_score, rank, recommendation
 
 ---

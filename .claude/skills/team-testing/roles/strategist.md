@@ -16,8 +16,8 @@ Test strategy designer. Analyzes git diff, determines test layers, defines cover
 - All output (SendMessage, team_msg, logs) must carry `[strategist]` identifier
 - Only communicate with coordinator via SendMessage
 - Work strictly within read-only analysis responsibility scope
-- Phase 2: Read shared-memory.json
-- Phase 5: Write test_strategy to shared-memory.json
+- Phase 2: Read role states via team_msg(operation='get_state')
+- Phase 5: Share test_strategy via team_msg(type='state_update')
 
 ### MUST NOT
 
@@ -35,7 +35,7 @@ Test strategy designer. Analyzes git diff, determines test layers, defines cover
 
 | Tool | Type | Used By | Purpose |
 |------|------|---------|---------|
-| Read | Read | Phase 2 | Load shared-memory.json, existing test patterns |
+| Read | Read | Phase 2 | Load role states, existing test patterns |
 | Bash | Read | Phase 2 | Git diff analysis, framework detection |
 | Glob | Read | Phase 2 | Find test files, config files |
 | Write | Write | Phase 3 | Create test-strategy.md |
@@ -58,19 +58,17 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., TST-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "strategist",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[strategist] STRATEGY complete: <summary>",
-  ref: <artifact-path>
+  data: {ref: "<artifact-path>"}
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from strategist --to coordinator --type <message-type> --summary \"[strategist] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from strategist --type <message-type> --json")
 ```
 
 ---
@@ -90,17 +88,17 @@ Standard task discovery flow: TaskList -> filter by prefix `STRATEGY-*` + owner 
 | Input | Source | Required |
 |-------|--------|----------|
 | Session path | Task description (Session: <path>) | Yes |
-| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Role state | team_msg(operation="get_state", session_id=<session-id>) | Yes |
 | Git diff | `git diff HEAD~1` or `git diff --cached` | Yes |
 | Changed files | From git diff --name-only | Yes |
 
 **Loading steps**:
 
 1. Extract session path from task description (look for `Session: <path>`)
-2. Read shared-memory.json for changed files and modules
+2. Read role states for changed files and modules
 
 ```
-Read("<session-folder>/shared-memory.json")
+mcp__ccw-tools__team_msg({ operation: "get_state", session_id: <session-id> })
 ```
 
 3. Get detailed git diff for analysis:
@@ -162,27 +160,31 @@ Write("<session-folder>/strategy/test-strategy.md", <strategy-content>)
 
 > See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-1. **Update shared memory**:
+1. **Share test strategy via team_msg(type='state_update')**:
 
 ```
-sharedMemory.test_strategy = {
-  framework: <detected-framework>,
-  layers: { L1: [...], L2: [...], L3: [...] },
-  coverage_targets: { L1: <n>, L2: <n>, L3: <n> },
-  priority_files: [...],
-  risks: [...]
-}
-Write("<session-folder>/shared-memory.json", <updated-json>)
+mcp__ccw-tools__team_msg({
+  operation: "log", session_id: <session-id>, from: "strategist",
+  type: "state_update",
+  data: {
+    test_strategy: {
+      framework: <detected-framework>,
+      layers: { L1: [...], L2: [...], L3: [...] },
+      coverage_targets: { L1: <n>, L2: <n>, L3: <n> },
+      priority_files: [...],
+      risks: [...]
+    }
+  }
+})
 ```
 
 2. **Log via team_msg**:
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "testing", from: "strategist", to: "coordinator",
+  operation: "log", session_id: <session-id>, from: "strategist",
   type: "strategy_ready",
-  summary: "[strategist] Strategy complete: <file-count> files, L1-L3 layers defined",
-  ref: "<session-folder>/strategy/test-strategy.md"
+  data: {ref: "<session-folder>/strategy/test-strategy.md"}
 })
 ```
 

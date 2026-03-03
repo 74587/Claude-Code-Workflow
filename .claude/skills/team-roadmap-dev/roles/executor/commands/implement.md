@@ -203,10 +203,9 @@ ${(task.convergence?.criteria || []).map(c => `- [ ] ${c}`).join('\n')}
 
   // 2e. Report wave progress
   mcp__ccw-tools__team_msg({
-    operation: "log", team: "roadmap-dev",
-    from: "executor", to: "coordinator",
+    operation: "log", session_id: sessionId,
+    from: "executor",
     type: "exec_progress",
-    summary: `[executor] Wave ${waveNum}/${totalWaves} complete (${completedTasks}/${totalTasks} tasks done)`,
     ref: `${sessionFolder}/phase-${phaseNumber}/`
   })
 }
@@ -216,10 +215,9 @@ ${(task.convergence?.criteria || []).map(c => `- [ ] ${c}`).join('\n')}
 
 ```javascript
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "roadmap-dev",
-  from: "executor", to: "coordinator",
+  operation: "log", session_id: sessionId,
+  from: "executor",
   type: "exec_complete",
-  summary: `[executor] All ${totalTasks} tasks executed across ${totalWaves} waves for phase ${phaseNumber}`,
   ref: `${sessionFolder}/phase-${phaseNumber}/`
 })
 ```

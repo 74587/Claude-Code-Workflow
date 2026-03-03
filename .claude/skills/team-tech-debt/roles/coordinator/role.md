@@ -29,18 +29,56 @@
 
 ---
 
+## Command Execution Protocol
+
+When coordinator needs to execute a command (dispatch, monitor):
+
+1. **Read the command file**: `roles/coordinator/commands/<command-name>.md`
+2. **Follow the workflow** defined in the command file (Phase 2-4 structure)
+3. **Commands are inline execution guides** -- NOT separate agents or subprocesses
+4. **Execute synchronously** -- complete the command workflow before proceeding
+
+Example:
+```
+Phase 3 needs task dispatch
+  -> Read roles/coordinator/commands/dispatch.md
+  -> Execute Phase 2 (Context Loading)
+  -> Execute Phase 3 (Task Chain Creation)
+  -> Execute Phase 4 (Validation)
+  -> Continue to Phase 4
+```
+
+---
+
 ## Entry Router
 
-When coordinator is invoked, first detect the invocation type:
+When coordinator is invoked, detect invocation type:
 
 | Detection | Condition | Handler |
 |-----------|-----------|---------|
-| Worker callback | Message contains `[role-name]` tag from a known worker role | -> handleCallback: auto-advance pipeline |
-| Status check | Arguments contain "check" or "status" | -> handleCheck: output execution graph, no advancement |
-| Manual resume | Arguments contain "resume" or "continue" | -> handleResume: check worker states, advance pipeline |
-| New session | None of the above | -> Phase 0 (Session Resume Check) |
+| Worker callback | Message contains role tag [scanner], [assessor], [planner], [executor], [validator] | -> handleCallback |
+| Status check | Arguments contain "check" or "status" | -> handleCheck |
+| Manual resume | Arguments contain "resume" or "continue" | -> handleResume |
+| Pipeline complete | All tasks have status "completed" | -> handleComplete |
+| Interrupted session | Active/paused session exists | -> Phase 0 (Session Resume Check) |
+| New session | None of above | -> Phase 1 |
 
-For callback/check/resume: load `commands/monitor.md` and execute the appropriate handler, then STOP.
+For callback/check/resume/complete: load `commands/monitor.md` and execute matched handler, then STOP.
+
+### Router Implementation
+
+1. **Load session context** (if exists):
+   - Scan `.workflow/.team/TD-*/.msg/meta.json` for active/paused sessions
+   - If found, extract session folder path, status, and pipeline mode
+
+2. **Parse $ARGUMENTS** for detection keywords:
+   - Check for role name tags in message content
+   - Check for "check", "status", "resume", "continue" keywords
+
+3. **Route to handler**:
+   - For monitor handlers: Read `commands/monitor.md`, execute matched handler, STOP
+   - For Phase 0: Execute Session Resume Check below
+   - For Phase 1: Execute Requirement Clarification below
 
 ---
 
@@ -86,11 +124,9 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., TD-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "coordinator",
-  to: "user",
   type: <message-type>,
-  summary: "[coordinator] <summary>",
   ref: <artifact-path>
 })
 ```
@@ -98,7 +134,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from coordinator --to user --type <message-type> --summary \"[coordinator] ...\" --json")
+Bash("ccw team log --session-id <session-id> --from coordinator --type <message-type> --json")
 ```
 
 ---
@@ -188,7 +224,7 @@ Bash("ccw team log --team <session-id> --from coordinator --to user --type <mess
     └── issues.md
 ```
 
-3. Initialize shared-memory.json:
+3. Initialize .msg/meta.json:
 
 | Field | Initial Value |
 |-------|---------------|
@@ -308,7 +344,7 @@ Session: <session-folder>
 **Worktree Creation** (before TDFIX):
 
 1. Create worktree: `git worktree add <path> -b <branch>`
-2. Update shared-memory.json with worktree info
+2. Update .msg/meta.json with worktree info
 3. Notify user via team_msg
 
 **Fix-Verify Loop** (when TDVAL finds regressions):

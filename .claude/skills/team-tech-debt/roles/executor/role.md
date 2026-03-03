@@ -61,11 +61,9 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., TD-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "executor",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[executor] <task-prefix> complete: <task-subject>",
   ref: <artifact-path>
 })
 ```
@@ -73,7 +71,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from executor --to coordinator --type <message-type> --summary \"[executor] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from executor --type <message-type> --ref <artifact-path> --json")
 ```
 
 ---
@@ -91,13 +89,13 @@ Standard task discovery flow: TaskList -> filter by prefix `TDFIX-*` + owner mat
 | Input | Source | Required |
 |-------|--------|----------|
 | Session folder | task.description (regex: `session:\s*(.+)`) | Yes |
-| Shared memory | `<session-folder>/shared-memory.json` | Yes |
+| Shared memory | `<session-folder>/.msg/meta.json` | Yes |
 | Remediation plan | `<session-folder>/plan/remediation-plan.json` | Yes |
 
 **Loading steps**:
 
 1. Extract session path from task description
-2. Read shared-memory.json for worktree info:
+2. Read .msg/meta.json for worktree info:
 
 | Field | Description |
 |-------|-------------|
@@ -194,7 +192,7 @@ Execute tech debt cleanup for <batch-type> items.
 2. Run lint check -> record PASS/FAIL
 3. Update fix_results.self_validation
 4. Write `<session-folder>/fixes/fix-log.json`
-5. Update shared-memory.json with fix_results
+5. Update .msg/meta.json with fix_results
 
 ### Phase 5: Report to Coordinator
 

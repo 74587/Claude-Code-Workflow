@@ -384,7 +384,8 @@ AskUserQuestion({
 |   +-- <hash>.md                   # Cached exploration results
 +-- wisdom/
 |   +-- patterns.md                 # Discovered patterns and conventions
-|   +-- shared-memory.json          # Cross-role structured data
+|   +-- .msg/messages.jsonl          # Team message bus
+|   +-- .msg/meta.json               # Session metadata
 +-- discussions/
 |   +-- DISCUSS-OPT.md              # Strategy discussion record
 |   +-- DISCUSS-REVIEW.md           # Review discussion record

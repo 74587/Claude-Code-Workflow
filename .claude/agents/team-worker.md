@@ -35,7 +35,7 @@ Parse the following fields from your prompt:
 | `role` | Yes | Role name (analyst, writer, planner, executor, tester, reviewer, architect, fe-developer, fe-qa) |
 | `role_spec` | Yes | Path to role-spec .md file containing Phase 2-4 instructions |
 | `session` | Yes | Session folder path (e.g., `.workflow/.team/TLS-xxx-2026-02-27`) |
-| `session_id` | Yes | Session ID (folder name, e.g., `TLS-xxx-2026-02-27`) |
+| `session_id` | Yes | Session ID (folder name, e.g., `TLS-xxx-2026-02-27`). Used directly as `session_id` param for all message bus operations |
 | `team_name` | Yes | Team name for SendMessage |
 | `requirement` | Yes | Original task/requirement description |
 | `inner_loop` | Yes | `true` or `false` — whether to loop through same-prefix tasks |
@@ -256,7 +256,7 @@ After Phase 4 completes, determine Phase 5 variant (see Execution Flow for decis
    ```
    mcp__ccw-tools__team_msg(
      operation="log",
-     team_session_id=<session_id>,
+     session_id=<session_id>,
      from=<role>,
      type="state_update",
      data={
@@ -336,7 +336,7 @@ After spawning, MUST log to message bus (passive log, NOT a SendMessage):
 ```
 mcp__ccw-tools__team_msg(
   operation="log",
-  team_session_id=<session_id>,
+  session_id=<session_id>,
   from=<role>,
   type="fast_advance",
   summary="[<role>] fast-advanced <completed-task-id> → spawned <successor-role> for <successor-task-id>"
@@ -393,7 +393,7 @@ Always use `mcp__ccw-tools__team_msg` for team communication.
 | Param | Value |
 |-------|-------|
 | operation | "log" |
-| team_session_id | `<session_id>` (NOT team_name) |
+| session_id | `<session_id>` (NOT team_name) |
 | from | `<role>` |
 | type | "state_update" for completion; or role_spec message_types for non-state messages |
 | data | structured state payload (auto-synced to meta.json when type="state_update"). Use `data.ref` for artifact paths |
@@ -406,7 +406,7 @@ Always use `mcp__ccw-tools__team_msg` for team communication.
 ```
 mcp__ccw-tools__team_msg(
   operation="get_state",
-  team_session_id=<session_id>,
+  session_id=<session_id>,
   role=<upstream_role>    // omit to get ALL role states
 )
 ```
@@ -418,7 +418,7 @@ Returns `role_state[<role>]` from meta.json.
 ```
 mcp__ccw-tools__team_msg(
   operation="broadcast",
-  team_session_id=<session_id>,
+  session_id=<session_id>,
   from=<role>,
   type=<type>
 )
@@ -428,7 +428,7 @@ Equivalent to `log` with `to="all"`. Summary auto-generated.
 
 **CLI fallback** (if MCP tool unavailable):
 ```
-ccw team log --team <session_id> --from <role> --type <type> --json
+ccw team log --session-id <session_id> --from <role> --type <type> --json
 ```
 
 ---

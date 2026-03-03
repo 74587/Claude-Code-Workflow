@@ -116,10 +116,10 @@ Every worker executes the same task discovery flow on startup:
 Standard reporting flow after task completion:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Parameters: operation="log", team=**<session-id>**, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **CLI fallback**: When MCP unavailable → `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
-   - **Note**: `team` must be session ID (e.g., `ISS-xxx-date`), NOT team name. Extract from `Session:` field in task description.
-2. **SendMessage**: Send result to coordinator (content and summary both prefixed with `[<role>]`)
+   - Parameters: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
+   - `to` and `summary` auto-defaulted -- do NOT specify explicitly
+   - **CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
+2. **SendMessage**: Send result to coordinator
 3. **TaskUpdate**: Mark task completed
 4. **Loop**: Return to Phase 1 to check next task
 
@@ -158,11 +158,12 @@ All outputs must carry `[role_name]` prefix in both SendMessage content/summary 
 
 Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
 
-**Parameters**: operation="log", team=**<session-id>**, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+**Parameters**: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
 
-**CLI fallback**: When MCP unavailable → `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+`to` and `summary` auto-defaulted -- do NOT specify explicitly.
 
-**Note**: `team` must be session ID (e.g., `ISS-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+**CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
+
 
 **Message types by role**:
 
@@ -399,8 +400,9 @@ Skill(skill="team-issue", args="--role=<role> --agent-name=<role>-<N>")
 
 ```
 .workflow/.team-plan/issue/
-├── team-session.json           # Session state
-├── shared-memory.json          # Cross-role state
+├── .msg/
+│   ├── messages.jsonl          # Message bus log
+│   └── meta.json               # Session state + cross-role state
 ├── wisdom/                     # Cross-task knowledge
 │   ├── learnings.md
 │   ├── decisions.md

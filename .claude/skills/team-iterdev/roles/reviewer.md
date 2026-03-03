@@ -14,7 +14,7 @@ Code reviewer. Responsible for multi-dimensional review, quality scoring, and im
 
 - Only process `REVIEW-*` prefixed tasks
 - All output must carry `[reviewer]` identifier
-- Phase 2: Read shared-memory.json + design, Phase 5: Write review_feedback_trends
+- Phase 2: Read .msg/meta.json + design, Phase 5: Write review_feedback_trends
 - Mark each issue with severity (CRITICAL/HIGH/MEDIUM/LOW)
 - Provide quality score (1-10)
 - Work strictly within code review responsibility scope
@@ -55,24 +55,21 @@ Code reviewer. Responsible for multi-dimensional review, quality scoring, and im
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
-**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
 
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // e.g., "TID-project-2026-02-27", NOT "iterdev"
+  session_id: <session-id>,
   from: "reviewer",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[reviewer] REVIEW complete: <task-subject>",
-  ref: <review-path>
+  data: { ref: <review-path> }
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from reviewer --to coordinator --type <message-type> --summary \"[reviewer] REVIEW complete\" --ref <review-path> --json")
+Bash("ccw team log --session-id <session-id> --from reviewer --type <message-type> --json")
 ```
 
 ---
@@ -92,7 +89,7 @@ Standard task discovery flow: TaskList -> filter by prefix `REVIEW-*` + owner ma
 | Input | Source | Required |
 |-------|--------|----------|
 | Session path | Task description (Session: <path>) | Yes |
-| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Shared memory | <session-folder>/.msg/meta.json | Yes |
 | Design document | <session-folder>/design/design-001.md | For requirements alignment |
 | Changed files | Git diff | Yes |
 | Wisdom | <session-folder>/wisdom/ | No |
@@ -100,10 +97,10 @@ Standard task discovery flow: TaskList -> filter by prefix `REVIEW-*` + owner ma
 **Loading steps**:
 
 1. Extract session path from task description
-2. Read shared-memory.json
+2. Read .msg/meta.json
 
 ```
-Read(<session-folder>/shared-memory.json)
+Read(<session-folder>/.msg/meta.json)
 ```
 
 3. Read design document for requirements alignment:
@@ -245,7 +242,7 @@ sharedMemory.review_feedback_trends.push({
   dimensions: <dimension-list>,
   gc_round: sharedMemory.gc_round || 0
 })
-Write(<session-folder>/shared-memory.json, JSON.stringify(sharedMemory, null, 2))
+Write(<session-folder>/.msg/meta.json, JSON.stringify(sharedMemory, null, 2))
 ```
 
 2. **Determine message type**:
@@ -260,10 +257,9 @@ Write(<session-folder>/shared-memory.json, JSON.stringify(sharedMemory, null, 2)
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: <session-id>, from: "reviewer", to: "coordinator",  // team = session ID, e.g., "TID-project-2026-02-27"
+  operation: "log", session_id: <session-id>, from: "reviewer",
   type: <message-type>,
-  summary: "[reviewer] Review <message-type>: score=<score>/10, <critical-count>C/<high-count>H",
-  ref: <review-path>
+  data: { ref: <review-path> }
 })
 
 SendMessage({
@@ -279,7 +275,6 @@ SendMessage({
 ### Top Issues
 - **[CRITICAL/HIGH]** <title> (<file>:<line>)
 ...`,
-  summary: "[reviewer] <message-type>: <score>/10"
 })
 ```
 

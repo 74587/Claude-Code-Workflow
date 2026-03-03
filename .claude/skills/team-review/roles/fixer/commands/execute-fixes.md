@@ -139,9 +139,8 @@ if (isQuickPath) {
       results_so_far:{fixed:results.fixed.length, failed:results.failed.length}
     }, null, 2))
 
-    mcp__ccw-tools__team_msg({ operation:"log", team:"team-review", from:"fixer",
+    mcp__ccw-tools__team_msg({ operation:"log", session_id: sessionId, from:"fixer",
       to:"coordinator", type:"fix_progress",
-      summary:`[fixer] Group ${gid}: ${results.fixed.length} fixed, ${results.failed.length} failed` })
   }
 }
 ```

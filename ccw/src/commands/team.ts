@@ -3,21 +3,21 @@
  * Delegates to team-msg.ts handler for JSONL-based persistent messaging
  *
  * Commands:
- *   ccw team log       --team <session-id> --from <role> [--to <role>] [--type <type>] [--summary "..."]
- *   ccw team broadcast --team <session-id> --from <role> [--type <type>] [--summary "..."]
- *   ccw team get_state --team <session-id> [--role <role>]
- *   ccw team read      --team <session-id> --id <MSG-NNN>
- *   ccw team list      --team <session-id> [--from <role>] [--to <role>] [--type <type>] [--last <n>]
- *   ccw team status    --team <session-id>
- *   ccw team delete    --team <session-id> --id <MSG-NNN>
- *   ccw team clear     --team <session-id>
+ *   ccw team log       --session-id <id> --from <role> [--to <role>] [--type <type>] [--summary "..."]
+ *   ccw team broadcast --session-id <id> --from <role> [--type <type>] [--summary "..."]
+ *   ccw team get_state --session-id <id> [--role <role>]
+ *   ccw team read      --session-id <id> --id <MSG-NNN>
+ *   ccw team list      --session-id <id> [--from <role>] [--to <role>] [--type <type>] [--last <n>]
+ *   ccw team status    --session-id <id>
+ *   ccw team delete    --session-id <id> --id <MSG-NNN>
+ *   ccw team clear     --session-id <id>
  */
 
 import chalk from 'chalk';
 import { handler } from '../tools/team-msg.js';
 
 interface TeamOptions {
-  team?: string;
+  sessionId?: string;
   from?: string;
   to?: string;
   type?: string;
@@ -40,15 +40,15 @@ export async function teamCommand(
     return;
   }
 
-  if (!options.team) {
-    console.error(chalk.red('Error: --team is required'));
+  if (!options.sessionId) {
+    console.error(chalk.red('Error: --session-id is required'));
     process.exit(1);
   }
 
   // Build params for handler
   const params: Record<string, unknown> = {
     operation: subcommand,
-    team: options.team,
+    session_id: options.sessionId,
   };
 
   if (options.from) params.from = options.from;
@@ -165,7 +165,7 @@ function printHelp(): void {
   console.log(chalk.gray('    clear               Clear all messages for a team'));
   console.log();
   console.log('  Required:');
-  console.log(chalk.gray('    --team <session-id> Session ID (e.g., TLS-my-project-2026-02-27), NOT team name'));
+  console.log(chalk.gray('    --session-id <id>   Session ID (e.g., TLS-my-project-2026-02-27), NOT team name'));
   console.log();
   console.log('  Log/Broadcast Options:');
   console.log(chalk.gray('    --from <role>       Sender role name (required)'));
@@ -190,11 +190,11 @@ function printHelp(): void {
   console.log(chalk.gray('    --json              Output as JSON'));
   console.log();
   console.log('  Examples:');
-  console.log(chalk.gray('    ccw team log --team TLS-xxx --from executor --type state_update --data \'{"status":"done"}\''));
-  console.log(chalk.gray('    ccw team broadcast --team TLS-xxx --from coordinator --type shutdown'));
-  console.log(chalk.gray('    ccw team get_state --team TLS-xxx --role executor'));
-  console.log(chalk.gray('    ccw team list --team TLS-xxx --last 5'));
-  console.log(chalk.gray('    ccw team read --team TLS-xxx --id MSG-003'));
-  console.log(chalk.gray('    ccw team status --team TLS-xxx'));
+  console.log(chalk.gray('    ccw team log --session-id TLS-xxx --from executor --type state_update --data \'{"status":"done"}\''));
+  console.log(chalk.gray('    ccw team broadcast --session-id TLS-xxx --from coordinator --type shutdown'));
+  console.log(chalk.gray('    ccw team get_state --session-id TLS-xxx --role executor'));
+  console.log(chalk.gray('    ccw team list --session-id TLS-xxx --last 5'));
+  console.log(chalk.gray('    ccw team read --session-id TLS-xxx --id MSG-003'));
+  console.log(chalk.gray('    ccw team status --session-id TLS-xxx'));
   console.log();
 }

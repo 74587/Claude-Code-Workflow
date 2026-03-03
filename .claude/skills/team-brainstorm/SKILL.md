@@ -11,23 +11,23 @@ Unified team skill: multi-angle brainstorming via Generator-Critic loops, shared
 ## Architecture
 
 ```
-┌───────────────────────────────────────────────────┐
-│  Skill(skill="team-brainstorm")                    │
-│  args="<topic>" or args="--role=xxx"               │
-└───────────────────┬───────────────────────────────┘
-                    │ Role Router
-         ┌──── --role present? ────┐
-         │ NO                      │ YES
-         ↓                         ↓
-  Orchestration Mode         Role Dispatch
-  (auto → coordinator)      (route to role.md)
-         │
-    ┌────┴────┬───────────┬───────────┬───────────┐
-    ↓         ↓           ↓           ↓           ↓
-┌──────────┐┌─────────┐┌──────────┐┌──────────┐┌─────────┐
-│coordinator││ ideator ││challenger││synthesizer││evaluator│
-│          ││ IDEA-*  ││CHALLENGE-*││ SYNTH-*  ││ EVAL-*  │
-└──────────┘└─────────┘└──────────┘└──────────┘└─────────┘
++---------------------------------------------------+
+|  Skill(skill="team-brainstorm")                    |
+|  args="<topic-description>"                        |
++-------------------+-------------------------------+
+                    |
+         Orchestration Mode (auto -> coordinator)
+                    |
+              Coordinator (inline)
+              Phase 0-5 orchestration
+                    |
+    +-------+-------+-------+-------+
+    v       v       v       v
+ [tw]    [tw]    [tw]    [tw]
+ideator  chall-  synthe- evalua-
+         enger   sizer   tor
+
+(tw) = team-worker agent
 ```
 
 ## Role Router
@@ -38,13 +38,13 @@ Parse `$ARGUMENTS` to extract `--role`. If absent → Orchestration Mode (auto r
 
 ### Role Registry
 
-| Role | File | Task Prefix | Type | Compact |
-|------|------|-------------|------|---------|
-| coordinator | [roles/coordinator.md](roles/coordinator.md) | (none) | orchestrator | **⚠️ 压缩后必须重读** |
-| ideator | [roles/ideator.md](roles/ideator.md) | IDEA-* | pipeline | 压缩后必须重读 |
-| challenger | [roles/challenger.md](roles/challenger.md) | CHALLENGE-* | pipeline | 压缩后必须重读 |
-| synthesizer | [roles/synthesizer.md](roles/synthesizer.md) | SYNTH-* | pipeline | 压缩后必须重读 |
-| evaluator | [roles/evaluator.md](roles/evaluator.md) | EVAL-* | pipeline | 压缩后必须重读 |
+| Role | Spec | Task Prefix | Inner Loop |
+|------|------|-------------|------------|
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | (none) | - |
+| ideator | [role-specs/ideator.md](role-specs/ideator.md) | IDEA-* | false |
+| challenger | [role-specs/challenger.md](role-specs/challenger.md) | CHALLENGE-* | false |
+| synthesizer | [role-specs/synthesizer.md](role-specs/synthesizer.md) | SYNTH-* | false |
+| evaluator | [role-specs/evaluator.md](role-specs/evaluator.md) | EVAL-* | false |
 
 > **⚠️ COMPACT PROTECTION**: 角色文件是执行文档，不是参考资料。当 context compression 发生后，角色指令仅剩摘要时，**必须立即 `Read` 对应 role.md 重新加载后再继续执行**。不得基于摘要执行任何 Phase。
 
@@ -101,10 +101,10 @@ Every worker executes the same task discovery flow on startup:
 Standard reporting flow after task completion:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Parameters: operation="log", team=**<session-id>**, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **CLI fallback**: When MCP unavailable → `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
-   - **Note**: `team` must be session ID (e.g., `BRS-xxx-date`), NOT team name. Extract from `Session:` field in task description.
-2. **SendMessage**: Send result to coordinator (content and summary both prefixed with `[<role>]`)
+   - Parameters: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
+   - `to` and `summary` auto-defaulted -- do NOT specify explicitly
+   - **CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
+2. **SendMessage**: Send result to coordinator
 3. **TaskUpdate**: Mark task completed
 4. **Loop**: Return to Phase 1 to check next task
 
@@ -130,7 +130,7 @@ Cross-task knowledge accumulation. Coordinator creates `wisdom/` directory at se
 |---------|-----------|
 | Process tasks with own prefix | Process tasks with other role prefixes |
 | SendMessage to coordinator | Communicate directly with other workers |
-| Read/write shared-memory.json (own fields) | Create tasks for other roles |
+| Share state via team_msg(type="state_update") | Create tasks for other roles |
 | Delegate to commands/ files | Modify resources outside own responsibility |
 
 Coordinator additional restrictions: Do not generate ideas directly, do not evaluate/challenge ideas, do not execute analysis/synthesis, do not bypass workers.
@@ -143,11 +143,12 @@ All outputs must carry `[role_name]` prefix in both SendMessage content/summary 
 
 Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
 
-**Parameters**: operation="log", team=**<session-id>**, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+**Parameters**: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
 
-**CLI fallback**: When MCP unavailable → `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+`to` and `summary` auto-defaulted -- do NOT specify explicitly.
 
-**Note**: `team` must be session ID (e.g., `BRS-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+**CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
+
 
 **Message types by role**:
 
@@ -159,12 +160,12 @@ Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
 | synthesizer | `synthesis_ready`, `error` |
 | evaluator | `evaluation_ready`, `error` |
 
-### Shared Memory
+### Shared State
 
-All roles read in Phase 2 and write in Phase 5 to `shared-memory.json`:
+Cross-role state is shared via `team_msg(type="state_update")` messages, persisted in `.msg/meta.json`:
 
-| Role | Field |
-|------|-------|
+| Role | State Key |
+|------|-----------|
 | ideator | `generated_ideas` |
 | challenger | `critique_insights` |
 | synthesizer | `synthesis_themes` |
@@ -176,7 +177,7 @@ All roles read in Phase 2 and write in Phase 5 to `shared-memory.json`:
 |---------|-------|
 | Team name | brainstorm |
 | Session directory | `.workflow/.team/BRS-<slug>-<date>/` |
-| Shared memory | `shared-memory.json` in session dir |
+| Message store | `.msg/messages.jsonl` + `.msg/meta.json` in session dir |
 
 ---
 
@@ -291,79 +292,61 @@ Beat  1                    2              3-4        5         6
 
 ## Coordinator Spawn Template
 
-When coordinator spawns workers, use background mode (Spawn-and-Stop).
+### v5 Worker Spawn (all roles)
 
-**Standard spawn** (single agent per role): For Quick/Deep pipeline, spawn one ideator. Challenger, synthesizer, and evaluator are always single agents.
-
-**Parallel spawn** (Full pipeline): For Full pipeline with N idea angles, spawn N ideator agents in parallel (`ideator-1`, `ideator-2`, ...) with `run_in_background: true`. Each parallel ideator only processes tasks where owner matches its agent name. After all parallel ideators complete, proceed with single challenger for batch critique.
-
-**Spawn template**:
+When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
 Task({
-  subagent_type: "general-purpose",
+  subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: "brainstorm",
   name: "<role>",
   run_in_background: true,
-  prompt: `You are team "brainstorm" <ROLE>.
+  prompt: `## Role Assignment
+role: <role>
+role_spec: .claude/skills/team-brainstorm/role-specs/<role>.md
+session: <session-folder>
+session_id: <session-id>
+team_name: brainstorm
+requirement: <topic-description>
+inner_loop: <true|false>
 
-## Primary Directive
-All your work must be executed through Skill to load role definition:
-Skill(skill="team-brainstorm", args="--role=<role>")
-
-Current topic: <topic-description>
-Session: <session-folder>
-
-## Role Guidelines
-- Only process <PREFIX>-* tasks, do not execute other role work
-- All output prefixed with [<role>] identifier
-- Only communicate with coordinator
-- Do not use TaskCreate for other roles
-- Call mcp__ccw-tools__team_msg before every SendMessage
-
-## Workflow
-1. Call Skill -> load role definition and execution logic
-2. Follow role.md 5-Phase flow
-3. team_msg + SendMessage results to coordinator
-4. TaskUpdate completed -> check next task`
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
 
+**All roles** (ideator, challenger, synthesizer, evaluator): Set `inner_loop: false`.
+
 **Parallel ideator spawn** (Full pipeline with N angles):
 
-> When Full pipeline has N parallel IDEA tasks assigned to ideator role, spawn N distinct agents named `ideator-1`, `ideator-2`, etc. Each agent only processes tasks where owner matches its agent name.
+> When Full pipeline has N parallel IDEA tasks assigned to ideator role, spawn N distinct team-worker agents named `ideator-1`, `ideator-2`, etc. Each agent only processes tasks where owner matches its agent name.
 
 | Condition | Action |
 |-----------|--------|
-| Full pipeline with N idea angles (N > 1) | Spawn N agents: `ideator-1`, `ideator-2`, ... `ideator-N` with `run_in_background: true` |
-| Quick/Deep pipeline (single ideator) | Standard spawn: single `ideator` agent |
+| Full pipeline with N idea angles (N > 1) | Spawn N team-worker agents: `ideator-1`, `ideator-2`, ... `ideator-N` with `run_in_background: true` |
+| Quick/Deep pipeline (single ideator) | Standard spawn: single `ideator` team-worker agent |
 
 ```
 Task({
-  subagent_type: "general-purpose",
+  subagent_type: "team-worker",
   description: "Spawn ideator-<N> worker",
   team_name: "brainstorm",
   name: "ideator-<N>",
   run_in_background: true,
-  prompt: `You are team "brainstorm" IDEATOR (ideator-<N>).
-Your agent name is "ideator-<N>", use this name for task discovery owner matching.
+  prompt: `## Role Assignment
+role: ideator
+role_spec: .claude/skills/team-brainstorm/role-specs/ideator.md
+session: <session-folder>
+session_id: <session-id>
+team_name: brainstorm
+requirement: <topic-description>
+agent_name: ideator-<N>
+inner_loop: false
 
-## Primary Directive
-Skill(skill="team-brainstorm", args="--role=ideator --agent-name=ideator-<N>")
-
-Current topic: <topic-description>
-Session: <session-folder>
-
-## Role Guidelines
-- Only process tasks where owner === "ideator-<N>" with IDEA-* prefix
-- All output prefixed with [ideator] identifier
-
-## Workflow
-1. TaskList -> find tasks where owner === "ideator-<N>" with IDEA-* prefix
-2. Skill -> execute role definition
-3. team_msg + SendMessage results to coordinator
-4. TaskUpdate completed -> check next task`
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery, owner=ideator-<N>) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
 
@@ -371,12 +354,40 @@ Session: <session-folder>
 
 ---
 
+## Completion Action
+
+When the pipeline completes (all tasks done, coordinator Phase 5):
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Brainstorm pipeline complete. What would you like to do?",
+    header: "Completion",
+    multiSelect: false,
+    options: [
+      { label: "Archive & Clean (Recommended)", description: "Archive session, clean up tasks and team resources" },
+      { label: "Keep Active", description: "Keep session active for follow-up work or inspection" },
+      { label: "Export Results", description: "Export deliverables to a specified location, then clean" }
+    ]
+  }]
+})
+```
+
+| Choice | Action |
+|--------|--------|
+| Archive & Clean | Update session status="completed" -> TeamDelete(brainstorm) -> output final summary |
+| Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-brainstorm", args="resume")` |
+| Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
+
+---
+
 ## Unified Session Directory
 
 ```
 .workflow/.team/BRS-<slug>-<YYYY-MM-DD>/
-├── team-session.json           # Session state
-├── shared-memory.json          # Cumulative: generated_ideas / critique_insights / synthesis_themes / evaluation_scores
+├── .msg/
+│   ├── messages.jsonl          # Message bus log
+│   └── meta.json               # Session state + cross-role state
 ├── wisdom/                     # Cross-task knowledge
 │   ├── learnings.md
 │   ├── decisions.md

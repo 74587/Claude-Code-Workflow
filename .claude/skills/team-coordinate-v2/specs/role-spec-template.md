@@ -91,7 +91,7 @@ Phase 4 must produce a verification summary with these fields:
 - Phase 4 MUST verify Phase 3's **actual output** (not planned output)
 - Verification fails → retry Phase 3 (max 2 retries)
 - Still fails → report `partial_completion` with details, NOT `completed`
-- Update `shared-memory.json` with key findings after verification passes
+- Update shared state via `team_msg(operation="log", type="state_update", data={...})` after verification passes
 
 ### Error Protocol
 
@@ -107,33 +107,33 @@ Coordinator MAY reference these patterns when composing Phase 2-4 content for a 
 
 ### Research / Exploration
 
-- Phase 2: Define exploration scope + load prior knowledge from shared-memory and wisdom
+- Phase 2: Define exploration scope + load prior knowledge from shared state and wisdom
 - Phase 3: Explore via subagents, direct tool calls, or codebase search — approach chosen by agent
-- Phase 4: Verify findings documented (Behavioral Traits) + update shared-memory
+- Phase 4: Verify findings documented (Behavioral Traits) + update shared state
 
 ### Document / Content
 
 - Phase 2: Load upstream artifacts + read target files (if modifying existing docs)
 - Phase 3: Create new documents OR modify existing documents — determined by task, not template
-- Phase 4: Verify documents exist with expected content (Behavioral Traits) + update shared-memory
+- Phase 4: Verify documents exist with expected content (Behavioral Traits) + update shared state
 
 ### Code Implementation
 
 - Phase 2: Load design/spec artifacts from upstream
 - Phase 3: Implement code changes — subagent choice and approach determined by task complexity
-- Phase 4: Syntax check + file verification (Behavioral Traits) + update shared-memory
+- Phase 4: Syntax check + file verification (Behavioral Traits) + update shared state
 
 ### Analysis / Audit
 
 - Phase 2: Load analysis targets (artifacts or source files)
 - Phase 3: Multi-dimension analysis — perspectives and depth determined by task
-- Phase 4: Verify report exists + severity classification (Behavioral Traits) + update shared-memory
+- Phase 4: Verify report exists + severity classification (Behavioral Traits) + update shared state
 
 ### Validation / Testing
 
 - Phase 2: Detect test framework + identify changed files from upstream
 - Phase 3: Run test-fix cycle — iteration count and strategy determined by task
-- Phase 4: Verify pass rate + coverage (Behavioral Traits) + update shared-memory
+- Phase 4: Verify pass rate + coverage (Behavioral Traits) + update shared state
 
 ---
 
@@ -146,7 +146,7 @@ How context flows between roles. Coordinator MUST reference this when composing 
 | Channel | Scope | Mechanism | When to Use |
 |---------|-------|-----------|-------------|
 | **Artifacts** | Producer -> Consumer | Write to `<session>/artifacts/<name>.md`, consumer reads in Phase 2 | Structured deliverables (reports, plans, specs) |
-| **shared-memory.json** | Cross-role | Read-merge-write `<session>/shared-memory.json` | Key findings, decisions, metadata (small, structured data) |
+| **State Updates** | Cross-role | `team_msg(operation="log", type="state_update", data={...})` / `team_msg(operation="get_state", session_id=<session-id>)` | Key findings, decisions, metadata (small, structured data) |
 | **Wisdom** | Cross-task | Append to `<session>/wisdom/{learnings,decisions,conventions,issues}.md` | Patterns, conventions, risks discovered during execution |
 | **context_accumulator** | Intra-role (inner loop) | In-memory array, passed to each subsequent task in same-prefix loop | Prior task summaries within same role's inner loop |
 | **Exploration cache** | Cross-role | `<session>/explorations/cache-index.json` + per-angle JSON | Codebase discovery results, prevents duplicate exploration |
@@ -158,22 +158,29 @@ Every generated role-spec Phase 2 MUST declare which upstream sources to load:
 ```
 1. Extract session path from task description
 2. Read upstream artifacts: <list which artifacts from which upstream role>
-3. Read shared-memory.json for cross-role decisions
+3. Read cross-role state via `team_msg(operation="get_state", session_id=<session-id>)`
 4. Load wisdom files for accumulated knowledge
 5. For inner_loop roles: load context_accumulator from prior tasks
 6. Check exploration cache before running new explorations
 ```
 
-### shared-memory.json Usage Convention
+### State Update Convention
 
-- **Read-merge-write**: Read current content -> merge new keys -> write back (NOT overwrite)
-- **Namespaced keys**: Each role writes under its own namespace: `{ "<role_name>": { ... } }`
+Cross-role state is managed via `team_msg` state updates instead of a separate file:
+
+- **Write state**: `team_msg(operation="log", session_id=<session-id>, from=<role>, type="state_update", data={ "<role_name>": { ... } })`
+- **Read state**: `team_msg(operation="get_state", session_id=<session-id>)`
+- **Namespaced keys**: Each role writes under its own namespace key in `data`
 - **Small data only**: Key findings, decision summaries, metadata. NOT full documents
-- **Example**:
-  ```json
-  {
-    "researcher": { "key_findings": [...], "scope": "..." },
-    "writer": { "documents_created": [...], "style_decisions": [...] },
-    "developer": { "files_changed": [...], "patterns_used": [...] }
-  }
+- **State stored in**: `.msg/meta.json` (auto-managed by team_msg)
+- **Example write**:
+  ```
+  team_msg(operation="log", session_id="TC-auth-2026-03-03", from="researcher", type="state_update", data={
+    "researcher": { "key_findings": [...], "scope": "..." }
+  })
+  ```
+- **Example read**:
+  ```
+  team_msg(operation="get_state", session_id="TC-auth-2026-03-03")
+  // Returns merged state from all state_update messages
   ```

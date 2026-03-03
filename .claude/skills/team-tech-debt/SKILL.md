@@ -61,7 +61,7 @@ roles/
 
 ### Input Parsing
 
-Parse `$ARGUMENTS` to extract `--role` and optional `--agent-name`, `--team` (default: "tech-debt"), `--mode` (scan/remediate/targeted).
+Parse `$ARGUMENTS` to extract `--role` and optional `--agent-name`, `--mode` (scan/remediate/targeted).
 
 If no `--role` -> Orchestration Mode (auto route to coordinator).
 
@@ -134,7 +134,7 @@ If no `--role` -> Orchestration Mode (auto route to coordinator).
 |-----|-------|
 | name | tech-debt |
 | sessionDir | `.workflow/.team/TD-{slug}-{date}/` |
-| sharedMemory | shared-memory.json |
+| sharedMemory | team_msg(type="state_update") + .msg/meta.json |
 | worktree.basePath | `.worktrees` |
 | worktree.branchPrefix | `tech-debt/TD-` |
 | worktree.autoCleanup | true (remove worktree after PR creation) |
@@ -166,7 +166,7 @@ If no `--role` -> Orchestration Mode (auto route to coordinator).
 | 允许 | 禁止 |
 |------|------|
 | 处理自己前缀的任务 | 处理其他角色前缀的任务 |
-| 读写 shared-memory.json (自己的字段) | 为其他角色创建任务 |
+| Share state via team_msg(type='state_update') | 为其他角色创建任务 |
 | SendMessage 给 coordinator | 直接与其他 worker 通信 |
 
 ### Worker Phase 1: Task Discovery (所有 worker 共享)
@@ -188,9 +188,10 @@ If no `--role` -> Orchestration Mode (auto route to coordinator).
 任务完成后的标准报告流程:
 
 1. **Message Bus**: 调用 `mcp__ccw-tools__team_msg` 记录消息
-   - 参数: operation="log", team=`<team-name>`, from=`<role>`, to="coordinator", type=`<消息类型>`, summary="[`<role>`] `<摘要>`", ref=`<产物路径>`
-   - **CLI fallback**: 当 MCP 不可用时 -> `ccw team log --team <team> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
-2. **SendMessage**: 发送结果给 coordinator (content 和 summary 都带 `[<role>]` 前缀)
+   - 参数: operation="log", session_id=<session-id>, from=`<role>`, type=`<消息类型>`, data={ref: "`<产物路径>`"}
+   - `to` 和 `summary` 自动生成 -- 无需显式指定
+   - **CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
+2. **SendMessage**: 发送结果给 coordinator
 3. **TaskUpdate**: 标记任务 completed
 4. **Loop**: 回到 Phase 1 检查下一个任务
 
@@ -429,8 +430,9 @@ Beat  1       ⏸      2       3
 
 ```
 .workflow/.team/TD-{slug}-{YYYY-MM-DD}/
-├── team-session.json
-├── shared-memory.json          # 债务清单 / 评估矩阵 / 治理方案 / 修复结果 / 验证结果 / worktree 信息
+├── .msg/
+│   ├── messages.jsonl              # Team message bus log
+│   └── meta.json                   # Session metadata + shared state
 ├── scan/                       # Scanner output
 │   └── debt-inventory.json
 ├── assessment/                 # Assessor output
@@ -447,7 +449,7 @@ Beat  1       ⏸      2       3
     ├── conventions.md
     └── issues.md
 
-# shared-memory.json worktree 字段（TDFIX 前由 coordinator 写入）:
+# .msg/meta.json worktree 字段（TDFIX 前由 coordinator 写入）:
 # {
 #   ...
 #   "worktree": {

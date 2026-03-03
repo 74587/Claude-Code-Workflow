@@ -11,23 +11,23 @@ Unified team skill: progressive test coverage through Generator-Critic loops (ge
 ## Architecture
 
 ```
-┌───────────────────────────────────────────────────┐
-│  Skill(skill="team-testing")                       │
-│  args="<task>" or args="--role=xxx"                │
-└───────────────────┬───────────────────────────────┘
-                    │ Role Router
-         ┌──── --role present? ────┐
-         │ NO                      │ YES
-         ↓                         ↓
-  Orchestration Mode         Role Dispatch
-  (auto → coordinator)      (route to role.md)
-         │
-    ┌────┴────┬───────────┬───────────┬───────────┐
-    ↓         ↓           ↓           ↓           ↓
-┌──────────┐┌──────────┐┌──────────┐┌──────────┐┌─────────┐
-│coordinator││strategist││generator ││ executor ││ analyst │
-│          ││STRATEGY-*││TESTGEN-* ││TESTRUN-* ││TESTANA-*│
-└──────────┘└──────────┘└──────────┘└──────────┘└─────────┘
++---------------------------------------------------+
+|  Skill(skill="team-testing")                       |
+|  args="<task-description>"                         |
++-------------------+-------------------------------+
+                    |
+         Orchestration Mode (auto -> coordinator)
+                    |
+              Coordinator (inline)
+              Phase 0-5 orchestration
+                    |
+    +-------+-------+-------+-------+
+    v       v       v       v
+ [tw]    [tw]    [tw]    [tw]
+strate-  genera- execu-  analyst
+gist     tor     tor
+
+(tw) = team-worker agent
 ```
 
 ## Role Router
@@ -38,13 +38,13 @@ Parse `$ARGUMENTS` to extract `--role`. If absent → Orchestration Mode (auto r
 
 ### Role Registry
 
-| Role | File | Task Prefix | Type | Compact |
-|------|------|-------------|------|---------|
-| coordinator | [roles/coordinator.md](roles/coordinator.md) | (none) | orchestrator | **⚠️ 压缩后必须重读** |
-| strategist | [roles/strategist.md](roles/strategist.md) | STRATEGY-* | pipeline | 压缩后必须重读 |
-| generator | [roles/generator.md](roles/generator.md) | TESTGEN-* | pipeline | 压缩后必须重读 |
-| executor | [roles/executor.md](roles/executor.md) | TESTRUN-* | pipeline | 压缩后必须重读 |
-| analyst | [roles/analyst.md](roles/analyst.md) | TESTANA-* | pipeline | 压缩后必须重读 |
+| Role | Spec | Task Prefix | Inner Loop |
+|------|------|-------------|------------|
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | (none) | - |
+| strategist | [role-specs/strategist.md](role-specs/strategist.md) | STRATEGY-* | false |
+| generator | [role-specs/generator.md](role-specs/generator.md) | TESTGEN-* | true |
+| executor | [role-specs/executor.md](role-specs/executor.md) | TESTRUN-* | true |
+| analyst | [role-specs/analyst.md](role-specs/analyst.md) | TESTANA-* | false |
 
 > **⚠️ COMPACT PROTECTION**: 角色文件是执行文档，不是参考资料。当 context compression 发生后，角色指令仅剩摘要时，**必须立即 `Read` 对应 role.md 重新加载后再继续执行**。不得基于摘要执行任何 Phase。
 
@@ -101,8 +101,9 @@ Every worker executes the same task discovery flow on startup:
 Standard reporting flow after task completion:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Parameters: operation="log", team="testing", from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **CLI fallback**: When MCP unavailable → `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`  // team must be session ID
+   - Parameters: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
+   - `to` and `summary` auto-defaulted -- do NOT specify explicitly
+   - **CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
 2. **SendMessage**: Send result to coordinator (content and summary both prefixed with `[<role>]`)
 3. **TaskUpdate**: Mark task completed
 4. **Loop**: Return to Phase 1 to check next task
@@ -129,7 +130,7 @@ Cross-task knowledge accumulation. Coordinator creates `wisdom/` directory at se
 |---------|-----------|
 | Process tasks with own prefix | Process tasks with other role prefixes |
 | SendMessage to coordinator | Communicate directly with other workers |
-| Read/write shared-memory.json (own fields) | Create tasks for other roles |
+| Share state via team_msg(type='state_update') | Create tasks for other roles |
 | Delegate to commands/ files | Modify resources outside own responsibility |
 
 Coordinator additional restrictions: Do not write tests directly, do not execute tests, do not analyze coverage, do not bypass workers.
@@ -142,11 +143,11 @@ All outputs must carry `[role_name]` prefix in both SendMessage content/summary 
 
 Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
 
-**Parameters**: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
+**Parameters**: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
 
-> **CRITICAL**: `team` must be session ID (e.g., TST-xxx-date), NOT team name. Extract from Session: field in task description.
+> `to` and `summary` are auto-defaulted by the tool.
 
-**CLI fallback**: When MCP unavailable → `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+**CLI fallback**: When MCP unavailable → `ccw team log --session-id <session-id> --from <role> --type <type> --json`
 
 **Message types by role**:
 
@@ -158,9 +159,9 @@ Every SendMessage **before**, must call `mcp__ccw-tools__team_msg` to log:
 | executor | `tests_passed`, `tests_failed`, `coverage_report`, `error` |
 | analyst | `analysis_ready`, `error` |
 
-### Shared Memory
+### Shared State
 
-All roles read in Phase 2 and write in Phase 5 to `shared-memory.json`:
+All roles share state via `team_msg(type='state_update')` + `meta.json`:
 
 | Role | Field |
 |------|-------|
@@ -175,7 +176,6 @@ All roles read in Phase 2 and write in Phase 5 to `shared-memory.json`:
 |---------|-------|
 | Team name | testing |
 | Session directory | `.workflow/.team/TST-<slug>-<date>/` |
-| Shared memory | `shared-memory.json` in session dir |
 | Test layers | L1: Unit (80%), L2: Integration (60%), L3: E2E (40%) |
 
 ---
@@ -330,8 +330,8 @@ Session: <session-folder>
 
 ```
 .workflow/.team/TST-<slug>-<YYYY-MM-DD>/
-├── team-session.json           # Session state
-├── shared-memory.json          # Defect patterns / effective test patterns / coverage history
+├── .msg/messages.jsonl          # Message bus log
+├── .msg/meta.json               # Session metadata
 ├── wisdom/                     # Cross-task knowledge
 │   ├── learnings.md
 │   ├── decisions.md

@@ -183,7 +183,7 @@ sharedMemory.execution_results = sharedMemory.execution_results || {}
 sharedMemory.execution_results[targetLayer] = resultData
 sharedMemory.execution_results.pass_rate = passRate
 sharedMemory.execution_results.coverage = coverage
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
+Write(`${sessionFolder}/.msg/meta.json`, JSON.stringify(sharedMemory, null, 2))
 ```
 
 ## Output Format

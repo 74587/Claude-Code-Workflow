@@ -17,7 +17,7 @@
 - Only communicate with coordinator via SendMessage
 - Work strictly within deep analysis responsibility scope
 - Base analysis on explorer exploration results
-- Write analysis results to shared-memory.json `analyses` field
+- Share analysis results via team_msg(type='state_update')
 
 ### MUST NOT
 
@@ -72,21 +72,19 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,
+  session_id: <session-id>,
   from: "analyst",
-  to: "coordinator",
   type: "analysis_ready",
-  summary: "[analyst] ANALYZE complete: <summary>",
   ref: "<output-path>"
 })
 ```
 
-> **Note**: `team` must be session ID (e.g., `UAN-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+> `to` and `summary` are auto-defaulted by the tool.
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from analyst --to coordinator --type analysis_ready --summary \"[analyst] ...\" --ref <path> --json")
+Bash("ccw team log --session-id <session-id> --from analyst --type analysis_ready --ref <path> --json")
 ```
 
 ---
@@ -108,7 +106,7 @@ For parallel instances, parse `--agent-name` from arguments for owner matching. 
 1. Extract session path from task description
 2. Extract topic, perspective, dimensions from task metadata
 3. Check for direction-fix type (补充分析)
-4. Read shared-memory.json for existing context
+4. Read role states via team_msg(operation="get_state") for existing context
 5. Read corresponding exploration results
 
 **Context extraction**:

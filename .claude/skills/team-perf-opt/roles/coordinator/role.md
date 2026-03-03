@@ -69,7 +69,7 @@ For callback/check/resume/complete: load `commands/monitor.md` and execute match
 ### Router Implementation
 
 1. **Load session context** (if exists):
-   - Scan `.workflow/.team/PERF-OPT-*/team-session.json` for active/paused sessions
+   - Scan `.workflow/.team/PERF-OPT-*/.msg/meta.json` for active/paused sessions
    - If found, extract session folder path, status, and `parallel_mode`
 
 2. **Parse $ARGUMENTS** for detection keywords:
@@ -186,10 +186,10 @@ Bash("mkdir -p .workflow/<session-id>/artifacts/pipelines/A .workflow/<session-i
    - `independent_targets`: populated for independent mode (e.g., ["optimize rendering", "optimize API"])
    - `fix_cycles`: populated per-branch/pipeline as fix cycles occur
 
-3. Initialize shared-memory.json:
+3. Initialize .msg/meta.json:
 
 ```
-Write("<session>/wisdom/shared-memory.json", { "session_id": "<session-id>", "requirement": "<requirement>", "parallel_mode": "<mode>" })
+Write("<session>/.msg/meta.json", { "session_id": "<session-id>", "requirement": "<requirement>", "parallel_mode": "<mode>" })
 ```
 
 4. Create team:

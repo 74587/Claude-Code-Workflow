@@ -30,7 +30,7 @@ const STAGE_WORKER_MAP = {
 ### Step 1: Context Preparation
 
 ```javascript
-const sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+const sharedMemory = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`))
 
 // Get pipeline tasks in creation order (= dependency order)
 const allTasks = TaskList()
@@ -55,9 +55,8 @@ for (const stageTask of pipelineTasks) {
 
   if (!workerConfig) {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
-      to: "user", type: "error",
-      summary: `[coordinator] Unknown stage prefix: ${stagePrefix}, skipping`
+      operation: "log", session_id: sessionId, from: "coordinator",
+      type: "error",
     })
     continue
   }
@@ -66,9 +65,8 @@ for (const stageTask of pipelineTasks) {
   TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
 
   mcp__ccw-tools__team_msg({
-    operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
+    operation: "log", session_id: sessionId, from: "coordinator",
     to: workerConfig.role, type: "stage_transition",
-    summary: `[coordinator] Starting stage: ${stageTask.subject} -> ${workerConfig.role}`
   })
 
   // 3. Build worker arguments
@@ -86,19 +84,17 @@ for (const stageTask of pipelineTasks) {
     if (action === 'skip') continue
   } else {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
-      to: "user", type: "stage_transition",
-      summary: `[coordinator] Stage complete: ${stageTask.subject}`
+      operation: "log", session_id: sessionId, from: "coordinator",
+      type: "stage_transition",
     })
   }
 
   // 6. Post-stage: After SCAN check findings
   if (stagePrefix === 'SCAN') {
-    const mem = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+    const mem = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`))
     if ((mem.findings_count || 0) === 0) {
-      mcp__ccw-tools__team_msg({ operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
-        to: "user", type: "pipeline_complete",
-        summary: `[coordinator] 0 findings. Code is clean. Skipping review/fix.` })
+      mcp__ccw-tools__team_msg({ operation: "log", session_id: sessionId, from: "coordinator",
+        type: "pipeline_complete",
       for (const r of pipelineTasks.slice(pipelineTasks.indexOf(stageTask) + 1))
         TaskUpdate({ taskId: r.id, status: 'deleted' })
       break
@@ -107,7 +103,7 @@ for (const stageTask of pipelineTasks) {
 
   // 7. Post-stage: After REV confirm fix scope
   if (stagePrefix === 'REV' && pipelineMode === 'full') {
-    const mem = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+    const mem = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`))
 
     if (!autoYes) {
       const conf = AskUserQuestion({ questions: [{
@@ -126,7 +122,7 @@ for (const stageTask of pipelineTasks) {
         break
       }
       mem.fix_scope = conf["Fix Confirmation"] === "Fix critical/high only" ? 'critical,high' : 'all'
-      Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(mem, null, 2))
+      Write(`${sessionFolder}/.msg/meta.json`, JSON.stringify(mem, null, 2))
     }
 
     Write(`${sessionFolder}/fix/fix-manifest.json`, JSON.stringify({
@@ -163,9 +159,8 @@ function buildWorkerArgs(stageTask, workerConfig) {
 ```javascript
 function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
   if (autoYes) {
-    mcp__ccw-tools__team_msg({ operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
-      to: "user", type: "error",
-      summary: `[coordinator] [auto] ${stageTask.subject} incomplete, skipping` })
+    mcp__ccw-tools__team_msg({ operation: "log", session_id: sessionId, from: "coordinator",
+      type: "error",
     TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
     return 'skip'
   }
@@ -191,9 +186,8 @@ function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
     TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
     return 'skip'
   } else {
-    mcp__ccw-tools__team_msg({ operation: "log", team: sessionId  // MUST be session ID (e.g., RC-xxx-date), NOT team name, from: "coordinator",
-      to: "user", type: "error",
-      summary: `[coordinator] User aborted at: ${stageTask.subject}` })
+    mcp__ccw-tools__team_msg({ operation: "log", session_id: sessionId, from: "coordinator",
+      type: "error",
     return 'abort'
   }
 }
@@ -202,10 +196,10 @@ function handleStageFailure(stageTask, taskState, workerConfig, autoYes) {
 ### Step 3: Finalize
 
 ```javascript
-const finalMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+const finalMemory = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`))
 finalMemory.pipeline_status = 'complete'
 finalMemory.completed_at = new Date().toISOString()
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(finalMemory, null, 2))
+Write(`${sessionFolder}/.msg/meta.json`, JSON.stringify(finalMemory, null, 2))
 ```
 
 ## Error Handling

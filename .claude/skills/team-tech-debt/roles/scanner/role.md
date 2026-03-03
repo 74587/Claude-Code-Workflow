@@ -58,11 +58,9 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., TD-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "scanner",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[scanner] <task-prefix> complete: <task-subject>",
   ref: <artifact-path>
 })
 ```
@@ -70,7 +68,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from scanner --to coordinator --type <message-type> --summary \"[scanner] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from scanner --type <message-type> --ref <artifact-path> --json")
 ```
 
 ---
@@ -89,12 +87,12 @@ Standard task discovery flow: TaskList -> filter by prefix `TDSCAN-*` + owner ma
 |-------|--------|----------|
 | Scan scope | task.description (regex: `scope:\s*(.+)`) | No (default: `**/*`) |
 | Session folder | task.description (regex: `session:\s*(.+)`) | Yes |
-| Shared memory | `<session-folder>/shared-memory.json` | Yes |
+| Shared memory | `<session-folder>/.msg/meta.json` | Yes |
 
 **Loading steps**:
 
 1. Extract session path from task description
-2. Read shared-memory.json for team context
+2. Read .msg/meta.json for team context
 3. Detect project type and framework:
 
 | Detection | Method |
@@ -182,7 +180,7 @@ For each finding, create entry:
 
 **Save outputs**:
 
-1. Update shared-memory.json with `debt_inventory` and `debt_score_before`
+1. Update .msg/meta.json with `debt_inventory` and `debt_score_before`
 2. Write `<session-folder>/scan/debt-inventory.json`:
 
 | Field | Description |

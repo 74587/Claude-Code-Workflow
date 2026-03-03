@@ -16,8 +16,8 @@ Test executor. Executes tests, collects coverage, attempts auto-fix for failures
 - All output (SendMessage, team_msg, logs) must carry `[executor]` identifier
 - Only communicate with coordinator via SendMessage
 - Work strictly within validation responsibility scope
-- Phase 2: Read shared-memory.json
-- Phase 5: Write execution_results + defect_patterns to shared-memory.json
+- Phase 2: Read role states via team_msg(operation='get_state')
+- Phase 5: Share execution_results + defect_patterns via team_msg(type='state_update')
 - Report coverage and pass rate for coordinator's GC decision
 
 ### MUST NOT
@@ -36,7 +36,7 @@ Test executor. Executes tests, collects coverage, attempts auto-fix for failures
 
 | Tool | Type | Used By | Purpose |
 |------|------|---------|---------|
-| Read | Read | Phase 2 | Load shared-memory.json |
+| Read | Read | Phase 2 | Load role states |
 | Glob | Read | Phase 2 | Find test files to execute |
 | Bash | Execute | Phase 3 | Run test commands |
 | Write | Write | Phase 3 | Save test results |
@@ -62,19 +62,17 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., TST-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "executor",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[executor] TESTRUN complete: <summary>",
-  ref: <artifact-path>
+  data: {ref: "<artifact-path>"}
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from executor --to coordinator --type <message-type> --summary \"[executor] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from executor --type <message-type> --json")
 ```
 
 ---
@@ -94,7 +92,7 @@ Standard task discovery flow: TaskList -> filter by prefix `TESTRUN-*` + owner m
 | Input | Source | Required |
 |-------|--------|----------|
 | Session path | Task description (Session: <path>) | Yes |
-| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Role state | team_msg(operation="get_state", session_id=<session-id>) | Yes |
 | Test directory | Task description (Input: <path>) | Yes |
 | Coverage target | Task description | Yes |
 
@@ -105,7 +103,7 @@ Standard task discovery flow: TaskList -> filter by prefix `TESTRUN-*` + owner m
 3. Extract coverage target from task description (default: 80%)
 
 ```
-Read("<session-folder>/shared-memory.json")
+mcp__ccw-tools__team_msg({ operation: "get_state", session_id: <session-id> })
 ```
 
 4. Determine test framework from shared memory:
@@ -219,39 +217,39 @@ Write("<session-folder>/results/run-<N>.json", <result-json>)
 
 > See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-1. **Update shared memory**:
+1. **Share execution results via team_msg(type='state_update')**:
 
 ```
-sharedMemory.execution_results.push(<result-data>)
-if (<result-data>.defect_patterns) {
-  sharedMemory.defect_patterns = [
-    ...sharedMemory.defect_patterns,
-    ...<result-data>.defect_patterns
-  ]
-}
-if (<result-data>.effective_patterns) {
-  sharedMemory.effective_test_patterns = [
-    ...new Set([...sharedMemory.effective_test_patterns, ...<result-data>.effective_patterns])
-  ]
-}
-sharedMemory.coverage_history.push({
-  layer: <test-dir>,
-  coverage: <coverage>,
-  target: <target>,
-  pass_rate: <pass_rate>,
-  timestamp: <ISO-date>
+mcp__ccw-tools__team_msg({
+  operation: "log", session_id: <session-id>, from: "executor",
+  type: "state_update",
+  data: {
+    execution_results: [...sharedMemory.execution_results, <result-data>],
+    defect_patterns: [
+      ...sharedMemory.defect_patterns,
+      ...(<result-data>.defect_patterns || [])
+    ],
+    effective_test_patterns: [
+      ...new Set([...sharedMemory.effective_test_patterns, ...(<result-data>.effective_patterns || [])])
+    ],
+    coverage_history: [...sharedMemory.coverage_history, {
+      layer: <test-dir>,
+      coverage: <coverage>,
+      target: <target>,
+      pass_rate: <pass_rate>,
+      timestamp: <ISO-date>
+    }]
+  }
 })
-Write("<session-folder>/shared-memory.json", <updated-json>)
 ```
 
 2. **Log via team_msg**:
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: <session-id>  // MUST be session ID, NOT team name, from: "executor", to: "coordinator",
+  operation: "log", session_id: <session-id>, from: "executor",
   type: <passed ? "tests_passed" : "tests_failed">,
-  summary: "[executor] <passed|failed>: pass=<pass_rate>%, coverage=<coverage>% (target: <target>%), iterations=<N>",
-  ref: "<session-folder>/results/run-<N>.json"
+  data: {ref: "<session-folder>/results/run-<N>.json"}
 })
 ```
 

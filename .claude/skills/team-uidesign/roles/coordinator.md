@@ -127,8 +127,8 @@ For callback/check/resume: load coordination logic and execute the appropriate h
 
 ```
 UDS-<slug>-<date>/
-├── team-session.json
-├── shared-memory.json
+├── .msg/messages.jsonl
+├── .msg/meta.json
 ├── wisdom/
 │   ├── learnings.md
 │   ├── decisions.md
@@ -144,17 +144,28 @@ UDS-<slug>-<date>/
     └── component-files/
 ```
 
-5. Initialize shared-memory.json with:
-   - design_intelligence: {}
-   - design_token_registry: { colors, typography, spacing, shadows, borders }
-   - style_decisions: []
-   - component_inventory: []
-   - accessibility_patterns: []
-   - audit_history: []
-   - industry_context: { industry, config }
-   - _metadata: { created_at, pipeline }
+5. Initialize cross-role state via team_msg(type='state_update'):
 
-6. Write team-session.json with:
+```
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: <session-id>,
+  from: "coordinator",
+  type: "state_update",
+  data: {
+    design_intelligence: {},
+    design_token_registry: { colors: {}, typography: {}, spacing: {}, shadows: {}, borders: {} },
+    style_decisions: [],
+    component_inventory: [],
+    accessibility_patterns: [],
+    audit_history: [],
+    industry_context: { industry: <industry>, config: <config> },
+    _metadata: { created_at: <timestamp>, pipeline: <pipeline> }
+  }
+})
+```
+
+6. Write meta.json with:
    - session_id, team_name, topic, pipeline, status
    - current_phase, completed_tasks, sync_points
    - gc_state: { round, max_rounds: 2, converged }

@@ -16,8 +16,8 @@ Test case generator. Generates test code by layer (L1 unit / L2 integration / L3
 - All output (SendMessage, team_msg, logs) must carry `[generator]` identifier
 - Only communicate with coordinator via SendMessage
 - Work strictly within code generation responsibility scope
-- Phase 2: Read shared-memory.json + test strategy
-- Phase 5: Write generated_tests to shared-memory.json
+- Phase 2: Read role states via team_msg(operation='get_state') + test strategy
+- Phase 5: Share generated_tests via team_msg(type='state_update')
 - Generate executable test code
 
 ### MUST NOT
@@ -36,7 +36,7 @@ Test case generator. Generates test code by layer (L1 unit / L2 integration / L3
 
 | Tool | Type | Used By | Purpose |
 |------|------|---------|---------|
-| Read | Read | Phase 2 | Load shared-memory.json, strategy, source files |
+| Read | Read | Phase 2 | Load role states, strategy, source files |
 | Glob | Read | Phase 2 | Find test files, source files |
 | Write | Write | Phase 3 | Create test files |
 | Edit | Write | Phase 3 | Modify existing test files |
@@ -62,19 +62,17 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., TST-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "generator",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[generator] TESTGEN complete: <summary>",
-  ref: <artifact-path>
+  data: {ref: "<artifact-path>"}
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from generator --to coordinator --type <message-type> --summary \"[generator] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from generator --type <message-type> --json")
 ```
 
 ---
@@ -94,7 +92,7 @@ Standard task discovery flow: TaskList -> filter by prefix `TESTGEN-*` + owner m
 | Input | Source | Required |
 |-------|--------|----------|
 | Session path | Task description (Session: <path>) | Yes |
-| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Role state | team_msg(operation="get_state", session_id=<session-id>) | Yes |
 | Test strategy | <session-folder>/strategy/test-strategy.md | Yes |
 | Source files | From test_strategy.priority_files | Yes |
 | Wisdom | <session-folder>/wisdom/ | No |
@@ -104,10 +102,10 @@ Standard task discovery flow: TaskList -> filter by prefix `TESTGEN-*` + owner m
 1. Extract session path from task description (look for `Session: <path>`)
 2. Extract layer from task description (look for `Layer: <L1-unit|L2-integration|L3-e2e>`)
 
-3. Read shared memory:
+3. Read role states:
 
 ```
-Read("<session-folder>/shared-memory.json")
+mcp__ccw-tools__team_msg({ operation: "get_state", session_id: <session-id> })
 ```
 
 4. Read test strategy:
@@ -213,29 +211,33 @@ If syntax errors found, attempt auto-fix for common issues (imports, types).
 
 > See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-1. **Update shared memory**:
+1. **Share generated tests via team_msg(type='state_update')**:
 
 ```
-sharedMemory.generated_tests = [
-  ...sharedMemory.generated_tests,
-  ...<new-test-files>.map(f => ({
-    file: f,
-    layer: <layer>,
-    round: <is-revision ? gc_round : 0>,
-    revised: <is-revision>
-  }))
-]
-Write("<session-folder>/shared-memory.json", <updated-json>)
+mcp__ccw-tools__team_msg({
+  operation: "log", session_id: <session-id>, from: "generator",
+  type: "state_update",
+  data: {
+    generated_tests: [
+      ...sharedMemory.generated_tests,
+      ...<new-test-files>.map(f => ({
+        file: f,
+        layer: <layer>,
+        round: <is-revision ? gc_round : 0>,
+        revised: <is-revision>
+      }))
+    ]
+  }
+})
 ```
 
 2. **Log via team_msg**:
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: <session-id>  // MUST be session ID, NOT team name, from: "generator", to: "coordinator",
+  operation: "log", session_id: <session-id>, from: "generator",
   type: <is-revision ? "tests_revised" : "tests_generated">,
-  summary: "[generator] <Generated|Revised> <file-count> <layer> test files",
-  ref: "<session-folder>/tests/<layer>/"
+  data: {ref: "<session-folder>/tests/<layer>/"}
 })
 ```
 

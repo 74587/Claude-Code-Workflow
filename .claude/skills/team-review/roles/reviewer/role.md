@@ -66,11 +66,9 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., RC-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "reviewer",
-  to: "coordinator",
   type: "review_complete",
-  summary: "[reviewer] Review complete: <count> findings (<severity-summary>)",
   ref: "<session-folder>/review/review-report.json"
 })
 ```
@@ -78,7 +76,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from reviewer --to coordinator --type review_complete --summary \"[reviewer] Review complete\" --ref <path> --json")
+Bash("ccw team log --session-id <session-id> --from reviewer --type review_complete --ref <path> --json")
 ```
 
 ---
@@ -200,7 +198,7 @@ Delegate to `commands/generate-report.md`.
 
 **Workflow**:
 
-1. Update shared-memory.json with review results summary
+1. Update .msg/meta.json with review results summary
 2. Build top findings summary (critical/high, max 8)
 3. Log via team_msg with `[reviewer]` prefix
 4. SendMessage to coordinator

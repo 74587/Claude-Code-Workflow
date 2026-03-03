@@ -168,10 +168,9 @@ Each task: cli_execution.id = "RD-${sessionFolder.split('/').pop()}-{task_id}"
 const taskFiles = Glob(`${taskDir}/IMPL-*.json`)
 if (!taskFiles || taskFiles.length === 0) {
   mcp__ccw-tools__team_msg({
-    operation: "log", team: "roadmap-dev",
-    from: "planner", to: "coordinator",
+    operation: "log", session_id: sessionId,
+    from: "planner",
     type: "error",
-    summary: `[planner] action-planning-agent produced no task JSONs for phase ${phaseNumber}`
   })
   return
 }
@@ -185,10 +184,9 @@ for (const taskFile of taskFiles) {
   for (const field of requiredFields) {
     if (!taskJson[field]) {
       mcp__ccw-tools__team_msg({
-        operation: "log", team: "roadmap-dev",
-        from: "planner", to: "coordinator",
+        operation: "log", session_id: sessionId,
+        from: "planner",
         type: "plan_progress",
-        summary: `[planner] Warning: ${taskFile} missing field: ${field}`
       })
     }
   }
@@ -196,20 +194,18 @@ for (const taskFile of taskFiles) {
   // Convergence criteria check
   if (!taskJson.convergence?.criteria || taskJson.convergence.criteria.length === 0) {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: "roadmap-dev",
-      from: "planner", to: "coordinator",
+      operation: "log", session_id: sessionId,
+      from: "planner",
       type: "plan_progress",
-      summary: `[planner] Warning: ${taskFile} has no convergence criteria`
     })
   }
 
   // Dependency cycle check (simple: task cannot depend on itself)
   if (taskJson.depends_on?.includes(taskJson.id)) {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: "roadmap-dev",
-      from: "planner", to: "coordinator",
+      operation: "log", session_id: sessionId,
+      from: "planner",
       type: "error",
-      summary: `[planner] Self-dependency detected in ${taskJson.id}`
     })
   }
 }
@@ -223,10 +219,9 @@ for (const task of allTasks) {
   for (const dep of (task.depends_on || [])) {
     if (!taskIds.has(dep)) {
       mcp__ccw-tools__team_msg({
-        operation: "log", team: "roadmap-dev",
-        from: "planner", to: "coordinator",
+        operation: "log", session_id: sessionId,
+        from: "planner",
         type: "plan_progress",
-        summary: `[planner] Warning: ${task.id} depends on unknown task ${dep}`
       })
     }
   }
@@ -236,10 +231,9 @@ for (const task of allTasks) {
 const implPlanExists = Bash(`test -f "${implPlanPath}" && echo "EXISTS" || echo "NOT_FOUND"`).trim()
 if (implPlanExists === "NOT_FOUND") {
   mcp__ccw-tools__team_msg({
-    operation: "log", team: "roadmap-dev",
-    from: "planner", to: "coordinator",
+    operation: "log", session_id: sessionId,
+    from: "planner",
     type: "plan_progress",
-    summary: `[planner] Warning: IMPL_PLAN.md not generated, creating minimal version`
   })
   // Create minimal IMPL_PLAN.md from task JSONs
   generateMinimalImplPlan(allTasks, implPlanPath, phaseGoal, phaseNumber)
@@ -284,10 +278,9 @@ const { waves, totalWaves } = computeWaves(allTasks)
 const taskCount = allTasks.length
 
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "roadmap-dev",
-  from: "planner", to: "coordinator",
+  operation: "log", session_id: sessionId,
+  from: "planner",
   type: "plan_progress",
-  summary: `[planner] Created ${taskCount} tasks across ${totalWaves} waves for phase ${phaseNumber}`,
   ref: `${sessionFolder}/phase-${phaseNumber}/`
 })
 

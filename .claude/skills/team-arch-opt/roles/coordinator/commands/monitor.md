@@ -104,8 +104,8 @@ Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`
 
 When both VALIDATE-001 and REVIEW-001 are completed:
 
-1. Read validation verdict from shared-memory (validator namespace)
-2. Read review verdict from shared-memory (reviewer namespace)
+1. Read validation verdict from .msg/meta.json (validator namespace)
+2. Read review verdict from .msg/meta.json (reviewer namespace)
 
 | Validate Verdict | Review Verdict | Action |
 |-----------------|----------------|--------|
@@ -166,7 +166,7 @@ CONTEXT:
   - Session: <session-folder>
   - Branch: B{NN}
   - Upstream artifacts: branches/B{NN}/review-report.md, branches/B{NN}/validation-results.json
-  - Shared memory: <session>/wisdom/shared-memory.json (namespace: refactorer.B{NN})
+  - Shared memory: <session>/wisdom/.msg/meta.json (namespace: refactorer.B{NN})
 EXPECTED: Fixed source files for B{NN} only
 CONSTRAINTS: Targeted fixes only | Do not touch other branches
 ---

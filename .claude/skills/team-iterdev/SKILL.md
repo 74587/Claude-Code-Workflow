@@ -98,10 +98,10 @@ Each worker executes the same task discovery flow on startup:
 Standard report flow after task completion:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Parameters: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
-   - **CLI fallback**: When MCP unavailable -> `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
-2. **SendMessage**: Send result to coordinator (content and summary both with `[<role>]` prefix)
+   - Parameters: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
+   - `to` and `summary` auto-defaulted -- do NOT specify explicitly
+   - **CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
+2. **SendMessage**: Send result to coordinator
 3. **TaskUpdate**: Mark task completed
 4. **Loop**: Return to Phase 1 to check next task
 
@@ -110,18 +110,17 @@ Standard report flow after task completion:
 | Allowed | Prohibited |
 |---------|------------|
 | Process tasks with own prefix | Process other roles' prefix tasks |
-| Read/write shared-memory.json (own fields) | Create tasks for other roles |
+| Share state via team_msg(type='state_update') | Create tasks for other roles |
 | SendMessage to coordinator | Communicate directly with other workers |
 
 **Coordinator additional restrictions**: No direct code writing, no calling implementation-type subagents, no directly executing analysis/testing/review.
 
 ### Message Bus
 
-Call `mcp__ccw-tools__team_msg` with: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<type>, summary="[<role>] <summary>", ref="<file_path>"
+Call `mcp__ccw-tools__team_msg` with: operation="log", session_id=<session-id>, from=<role>, type=<type>, data={ref: "<file_path>"}
+`to` and `summary` auto-defaulted -- do NOT specify explicitly.
 
-**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
-
-**CLI Fallback**: `ccw team log --team "<session-id>" --from "<role>" --to "coordinator" --type "<type>" --summary "<summary>" --json`
+**CLI Fallback**: `ccw team log --session-id "<session-id>" --from "<role>" --type "<type>" --json`
 
 | Role | Message Types |
 |------|---------------|
@@ -137,7 +136,7 @@ Call `mcp__ccw-tools__team_msg` with: operation="log", team=<session-id>, from=<
 |---------|-------|
 | Team name | iterdev |
 | Session directory | `.workflow/.team/IDS-{slug}-{date}/` |
-| Shared memory file | shared-memory.json |
+| State sharing | team_msg(type='state_update') + .msg/meta.json |
 | Task ledger file | task-ledger.json |
 
 ---
@@ -154,7 +153,7 @@ Concurrency control for shared resources. Prevents multiple workers from modifyi
 
 | Action | Trigger Condition | Coordinator Behavior |
 |--------|-------------------|----------------------|
-| Acquire lock | Worker requests exclusive access to a resource | Check `resource_locks` in shared-memory.json. If unlocked, record lock with task ID, timestamp, and holder role. Log `resource_locked` message. Return success. |
+| Acquire lock | Worker requests exclusive access to a resource | Check `resource_locks` via team_msg(type='state_update'). If unlocked, record lock with task ID, timestamp, and holder role. Log `resource_locked` message. Return success. |
 | Deny lock | Resource already locked by another task | Return failure with current holder's task ID. Log `resource_contention` message. Worker must wait or request alternative resource. |
 | Release lock | Worker completes task or explicitly releases | Remove lock entry from `resource_locks`. Log `resource_unlocked` message to all workers. |
 | Force release | Lock held beyond timeout (5 min) | Force-remove lock entry. Notify original holder and coordinator. Log warning. |
@@ -196,7 +195,7 @@ Saves and restores task execution state for interruption recovery.
 
 | Action | Trigger Condition | Coordinator Behavior |
 |--------|-------------------|----------------------|
-| Save checkpoint | Task reaches significant progress milestone | Store checkpoint in `task_checkpoints` in shared-memory.json with timestamp and state data pointer. Retain last 5 checkpoints per task. Log `context_checkpoint_saved`. |
+| Save checkpoint | Task reaches significant progress milestone | Store checkpoint in `task_checkpoints` via team_msg(type='state_update') with timestamp and state data pointer. Retain last 5 checkpoints per task. Log `context_checkpoint_saved`. |
 | Restore checkpoint | Task resumes after interruption | Load latest checkpoint for task. Read state data from pointer path. Log `context_restored`. Return state data to worker. |
 | Checkpoint not found | Resume requested but no checkpoints exist | Return failure with reason. Worker starts fresh from Phase 1. |
 
@@ -206,7 +205,7 @@ Collects, categorizes, and tracks user feedback throughout the sprint.
 
 | Action | Trigger Condition | Coordinator Behavior |
 |--------|-------------------|----------------------|
-| Receive feedback | User provides feedback (via AskUserQuestion or direct) | Create feedback item with ID (FB-xxx), severity, category, timestamp. Store in `user_feedback_items` in shared-memory.json (max 50 items). Log `user_feedback_received`. |
+| Receive feedback | User provides feedback (via AskUserQuestion or direct) | Create feedback item with ID (FB-xxx), severity, category, timestamp. Store in `user_feedback_items` via team_msg(type='state_update') (max 50 items). Log `user_feedback_received`. |
 | Link to task | Feedback relates to specific task | Update feedback item's `source_task_id` and set status to "reviewed". |
 | Triage feedback | New feedback with high/critical severity | Prioritize in next sprint planning. Create task if actionable. |
 
@@ -216,7 +215,7 @@ Identifies, tracks, and prioritizes technical debt discovered during development
 
 | Action | Trigger Condition | Coordinator Behavior |
 |--------|-------------------|----------------------|
-| Identify debt | Worker reports tech debt during development or review | Create debt item with ID (TD-xxx), category (code/design/test/documentation), severity, estimated effort. Store in `tech_debt_items` in shared-memory.json. Log `tech_debt_identified`. |
+| Identify debt | Worker reports tech debt during development or review | Create debt item with ID (TD-xxx), category (code/design/test/documentation), severity, estimated effort. Store in `tech_debt_items` via team_msg(type='state_update'). Log `tech_debt_identified`. |
 | Generate report | Sprint retrospective or user request | Aggregate debt items by severity and category. Report totals, open items, and in-progress items. |
 | Prioritize debt | Sprint planning phase | Rank debt items by severity and priority. Recommend items for current sprint based on estimated effort and available capacity. |
 | Resolve debt | Developer completes debt resolution task | Update debt item status to "resolved". Record resolution in sprint history. |
@@ -444,8 +443,9 @@ Session: <session-folder>
 
 ```
 .workflow/.team/IDS-{slug}-{YYYY-MM-DD}/
-+-- team-session.json
-+-- shared-memory.json          # Cross-sprint learning
++-- .msg/meta.json
++-- .msg/messages.jsonl          # Team message bus
++-- .msg/meta.json               # Session metadata
 +-- task-ledger.json            # Real-time task progress ledger
 +-- wisdom/                     # Cross-task knowledge accumulation
 |   +-- learnings.md
@@ -467,7 +467,7 @@ Session: <session-folder>
 
 Coordinator supports `--resume` / `--continue` for interrupted sessions:
 
-1. Scan `.workflow/.team/IDS-*/team-session.json` for active/paused sessions
+1. Scan `.workflow/.team/IDS-*/.msg/meta.json` for active/paused sessions
 2. Multiple matches -> AskUserQuestion for selection
 3. Audit TaskList -> reconcile session state with task status
 4. Reset in_progress -> pending (interrupted tasks)

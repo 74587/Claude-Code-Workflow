@@ -15,7 +15,7 @@
 - 仅处理 `IDEA-*` 前缀的任务
 - 所有输出（SendMessage、team_msg、日志）必须带 `[ideator]` 标识
 - 仅通过 SendMessage 与 coordinator 通信
-- Phase 2 读取 shared-memory.json，Phase 5 写入 generated_ideas
+- Phase 2 读取 .msg/meta.json，Phase 5 写入 generated_ideas
 - 针对每个指定角度产出至少3个创意
 
 ### MUST NOT
@@ -23,7 +23,7 @@
 - 执行挑战/评估/综合等其他角色工作
 - 直接与其他 worker 角色通信
 - 为其他角色创建任务（TaskCreate 是 coordinator 专属）
-- 修改 shared-memory.json 中不属于自己的字段
+- 修改 .msg/meta.json 中不属于自己的字段
 - 在输出中省略 `[ideator]` 标识
 
 ---
@@ -37,7 +37,7 @@
 | `TaskList` | Built-in | Phase 1 | Discover pending IDEA-* tasks |
 | `TaskGet` | Built-in | Phase 1 | Get task details |
 | `TaskUpdate` | Built-in | Phase 1/5 | Update task status |
-| `Read` | Built-in | Phase 2 | Read shared-memory.json, critique files |
+| `Read` | Built-in | Phase 2 | Read .msg/meta.json, critique files |
 | `Write` | Built-in | Phase 3/5 | Write idea files, update shared memory |
 | `Glob` | Built-in | Phase 2 | Find critique files |
 | `SendMessage` | Built-in | Phase 5 | Report to coordinator |
@@ -60,19 +60,17 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: **<session-id>**,  // MUST be session ID (e.g., BRS-xxx-date), NOT team name. Extract from Session: field.
+  session_id: <session-id>,
   from: "ideator",
-  to: "coordinator",
   type: <ideas_ready|ideas_revised>,
-  summary: "[ideator] <Generated|Revised> <count> ideas (round <num>)",
-  ref: <output-path>
+  data: {ref: <output-path>}
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from ideator --to coordinator --type <message-type> --summary \"[ideator] ideas complete\" --ref <output-path> --json")
+Bash("ccw team log --session-id <session-id> --from ideator --type <message-type> --json")
 ```
 
 ---
@@ -92,20 +90,20 @@ For parallel instances, parse `--agent-name` from arguments for owner matching. 
 | Input | Source | Required |
 |-------|--------|----------|
 | Session folder | Task description (Session: line) | Yes |
-| Topic | shared-memory.json | Yes |
-| Angles | shared-memory.json | Yes |
-| GC Round | shared-memory.json | Yes |
+| Topic | .msg/meta.json | Yes |
+| Angles | .msg/meta.json | Yes |
+| GC Round | .msg/meta.json | Yes |
 | Previous critique | critiques/*.md | For revision tasks only |
-| Previous ideas | shared-memory.json.generated_ideas | No |
+| Previous ideas | .msg/meta.json.generated_ideas | No |
 
 **Loading steps**:
 
 1. Extract session path from task description (match "Session: <path>")
-2. Read shared-memory.json for topic, angles, gc_round
+2. Read .msg/meta.json for topic, angles, gc_round
 3. If task is revision (subject contains "revision" or "fix"):
    - Glob critique files
    - Read latest critique for revision context
-4. Read previous ideas from shared-memory.generated_ideas
+4. Read previous ideas from .msg/meta.json generated_ideas state
 
 ### Phase 3: Idea Generation
 
@@ -143,7 +141,7 @@ For parallel instances, parse `--agent-name` from arguments for owner matching. 
 Standard report flow: team_msg log -> SendMessage with `[ideator]` prefix -> TaskUpdate completed -> Loop to Phase 1 for next task.
 
 **Shared Memory Update**:
-1. Append new ideas to shared-memory.json.generated_ideas
+1. Append new ideas to .msg/meta.json.generated_ideas
 2. Each entry: id, title, round, revised flag
 
 ---

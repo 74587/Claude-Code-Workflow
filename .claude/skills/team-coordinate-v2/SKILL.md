@@ -193,7 +193,9 @@ Beat Cycle (single beat)
 |   +-- <role-2>.md
 +-- artifacts/                  # All MD deliverables from workers
 |   +-- <artifact>.md
-+-- shared-memory.json          # Cross-role state store
++-- .msg/                       # Team message bus + state
+|   +-- messages.jsonl          # Message log
+|   +-- meta.json               # Session metadata + cross-role state
 +-- wisdom/                     # Cross-task knowledge
 |   +-- learnings.md
 |   +-- decisions.md
@@ -203,7 +205,6 @@ Beat Cycle (single beat)
 |   +-- explore-<angle>.json
 +-- discussions/                # Inline discuss records
 |   +-- <round>.md
-+-- .msg/                       # Team message bus logs
 ```
 
 ### team-session.json Schema

@@ -58,11 +58,9 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., TD-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "planner",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[planner] <task-prefix> complete: <task-subject>",
   ref: <artifact-path>
 })
 ```
@@ -70,7 +68,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from planner --to coordinator --type <message-type> --summary \"[planner] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from planner --type <message-type> --ref <artifact-path> --json")
 ```
 
 ---
@@ -88,13 +86,13 @@ Standard task discovery flow: TaskList -> filter by prefix `TDPLAN-*` + owner ma
 | Input | Source | Required |
 |-------|--------|----------|
 | Session folder | task.description (regex: `session:\s*(.+)`) | Yes |
-| Shared memory | `<session-folder>/shared-memory.json` | Yes |
+| Shared memory | `<session-folder>/.msg/meta.json` | Yes |
 | Priority matrix | `<session-folder>/assessment/priority-matrix.json` | Yes |
 
 **Loading steps**:
 
 1. Extract session path from task description
-2. Read shared-memory.json for debt_inventory
+2. Read .msg/meta.json for debt_inventory
 3. Read priority-matrix.json for quadrant groupings
 4. Group items by priority quadrant:
 
@@ -157,7 +155,7 @@ Delegate to `commands/create-plan.md` if available, otherwise execute inline.
 
 1. Write `<session-folder>/plan/remediation-plan.md` (markdown format)
 2. Write `<session-folder>/plan/remediation-plan.json` (machine-readable)
-3. Update shared-memory.json with `remediation_plan` summary
+3. Update .msg/meta.json with `remediation_plan` summary
 
 ### Phase 5: Report to Coordinator
 

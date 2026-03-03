@@ -67,11 +67,9 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., RC-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "scanner",
-  to: "coordinator",
   type: "scan_complete",
-  summary: "[scanner] Scan complete: <count> findings (<dimension-summary>)",
   ref: "<session-folder>/scan/scan-results.json"
 })
 ```
@@ -79,7 +77,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from scanner --to coordinator --type scan_complete --summary \"[scanner] Scan complete\" --ref <path> --json")
+Bash("ccw team log --session-id <session-id> --from scanner --type scan_complete --ref <path> --json")
 ```
 
 ---
@@ -222,7 +220,7 @@ If no source files found -> report empty, complete task cleanly.
 
 **Workflow**:
 
-1. Update shared-memory.json with scan results summary
+1. Update .msg/meta.json with scan results summary
 2. Build top findings summary (critical/high, max 10)
 3. Log via team_msg with `[scanner]` prefix
 4. SendMessage to coordinator

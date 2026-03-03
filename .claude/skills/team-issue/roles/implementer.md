@@ -72,19 +72,17 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: **<session-id>**,  // MUST be session ID (e.g., ISS-xxx-date), NOT team name. Extract from Session: field.
+  session_id: <session-id>,
   from: "implementer",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[implementer] <task-prefix> complete: <task-subject>",
-  ref: <artifact-path>
+  data: {ref: <artifact-path>}
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from implementer --to coordinator --type <message-type> --summary \"[implementer] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from implementer --type <message-type> --json")
 ```
 
 ---
@@ -264,15 +262,13 @@ Bash("<testCmd> 2>&1 || echo \"TEST_FAILED\"")
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: **<session-id>**, from: "implementer", to: "coordinator",  // MUST be session ID, NOT team name
+  operation: "log", session_id: <session-id>, from: "implementer",
   type: "impl_failed",
-  summary: "[implementer] Tests failing for <issueId> after implementation (via <executor>)"
 })
 
 SendMessage({
   type: "message", recipient: "coordinator",
   content: "## [implementer] Implementation Failed\n\n**Issue**: <issueId>\n**Executor**: <executor>\n**Status**: Tests failing\n**Test Output** (truncated):\n<truncated output>\n\n**Action**: May need solution revision or manual intervention.",
-  summary: "[implementer] impl_failed: <issueId> (<executor>)"
 })
 ```
 

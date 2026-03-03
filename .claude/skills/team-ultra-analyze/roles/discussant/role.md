@@ -17,7 +17,7 @@
 - Only communicate with coordinator via SendMessage
 - Work strictly within discussion processing responsibility scope
 - Execute deep exploration based on user feedback and existing analysis
-- Write discussion results to shared-memory.json `discussions` field
+- Share discussion results via team_msg(type='state_update')
 - Update discussion.md discussion timeline
 
 ### MUST NOT
@@ -71,21 +71,19 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,
+  session_id: <session-id>,
   from: "discussant",
-  to: "coordinator",
   type: "discussion_processed",
-  summary: "[discussant] DISCUSS complete: <summary>",
   ref: "<output-path>"
 })
 ```
 
-> **Note**: `team` must be session ID (e.g., `UAN-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+> `to` and `summary` are auto-defaulted by the tool.
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from discussant --to coordinator --type discussion_processed --summary \"[discussant] ...\" --ref <path> --json")
+Bash("ccw team log --session-id <session-id> --from discussant --type discussion_processed --ref <path> --json")
 ```
 
 ---
@@ -106,7 +104,7 @@ Falls back to `discussant` for single-instance role.
 
 1. Extract session path from task description
 2. Extract topic, round number, discussion type, user feedback
-3. Read shared-memory.json for existing context
+3. Read role states via team_msg(operation="get_state") for existing context
 4. Read all analysis results
 5. Read all exploration results
 6. Aggregate current findings, insights, questions

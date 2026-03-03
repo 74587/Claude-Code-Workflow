@@ -47,20 +47,16 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: **<session-id>**,  // MUST be session ID (e.g., BRS-xxx-date), NOT team name. Extract from Session: field.
+  session_id: <session-id>,
   from: "coordinator",
-  to: <recipient>,
   type: <message-type>,
-  summary: "[coordinator] <action> complete: <subject>",
-  ref: <artifact-path>
+  data: {ref: <artifact-path>}
 })
 ```
 
-**CLI fallback** (when MCP unavailable):
+`to` and `summary` auto-defaulted -- do NOT specify explicitly.
 
-```
-Bash("ccw team log --team <session-id> --from coordinator --to <recipient> --type <message-type> --summary \"[coordinator] <action> complete\" --ref <artifact-path> --json")
-```
+**CLI fallback**: `ccw team log --session-id <session-id> --from coordinator --type <type> --json`
 
 ---
 
@@ -147,8 +143,8 @@ For callback/check/resume: load monitor logic and execute the appropriate handle
 2. Create session folder structure
 3. Call TeamCreate with team name
 4. Initialize subdirectories: ideas/, critiques/, synthesis/, evaluation/
-5. Initialize shared-memory.json with: topic, pipeline, angles, gc_round, generated_ideas, critique_insights, synthesis_themes, evaluation_scores
-6. Write team-session.json with: session_id, team_name, topic, pipeline, status="active", created_at, updated_at
+5. Initialize .msg/meta.json with: topic, pipeline, angles, gc_round, generated_ideas, critique_insights, synthesis_themes, evaluation_scores
+6. Write .msg/meta.json with: session_id, team_name, topic, pipeline, status="active", created_at, updated_at
 7. Workers are NOT pre-spawned here -> spawned per-stage in Phase 4
 
 **Success**: Team created, session file written, directories initialized.
@@ -219,9 +215,9 @@ For callback/check/resume: load monitor logic and execute the appropriate handle
 **GC Round Tracking**:
 1. Read critique file
 2. Count severity: HIGH and CRITICAL
-3. Read shared-memory.json for gc_round
+3. Read .msg/meta.json for gc_round
 4. If criticalCount > 0 AND gcRound < max_gc_rounds:
-   - Increment gc_round in shared-memory.json
+   - Increment gc_round in .msg/meta.json
    - Log team_msg with type "gc_loop_trigger"
    - Unblock IDEA-fix task
 5. Else: Log team_msg with type "task_unblocked", unblock SYNTH

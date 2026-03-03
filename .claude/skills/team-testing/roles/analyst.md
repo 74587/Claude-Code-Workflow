@@ -16,8 +16,8 @@ Test quality analyst. Responsible for defect pattern analysis, coverage gap iden
 - All output (SendMessage, team_msg, logs) must carry `[analyst]` identifier
 - Only communicate with coordinator via SendMessage
 - Work strictly within read-only analysis responsibility scope
-- Phase 2: Read shared-memory.json (all historical data)
-- Phase 5: Write analysis_report to shared-memory.json
+- Phase 2: Read role states via team_msg(operation='get_state')
+- Phase 5: Share analysis_report via team_msg(type='state_update')
 
 ### MUST NOT
 
@@ -35,7 +35,7 @@ Test quality analyst. Responsible for defect pattern analysis, coverage gap iden
 
 | Tool | Type | Used By | Purpose |
 |------|------|---------|---------|
-| Read | Read | Phase 2 | Load shared-memory.json, strategy, results |
+| Read | Read | Phase 2 | Load role states, strategy, results |
 | Glob | Read | Phase 2 | Find result files, test files |
 | Write | Write | Phase 3 | Create quality-report.md |
 | TaskUpdate | Write | Phase 5 | Mark task completed |
@@ -57,19 +57,17 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., TST-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "analyst",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[analyst] TESTANA complete: <summary>",
-  ref: <artifact-path>
+  data: {ref: "<artifact-path>"}
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from analyst --to coordinator --type <message-type> --summary \"[analyst] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from analyst --type <message-type> --json")
 ```
 
 ---
@@ -89,7 +87,7 @@ Standard task discovery flow: TaskList -> filter by prefix `TESTANA-*` + owner m
 | Input | Source | Required |
 |-------|--------|----------|
 | Session path | Task description (Session: <path>) | Yes |
-| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Role state | team_msg(operation="get_state", session_id=<session-id>) | Yes |
 | Execution results | <session-folder>/results/run-*.json | Yes |
 | Test strategy | <session-folder>/strategy/test-strategy.md | Yes |
 | Test files | <session-folder>/tests/**/* | Yes |
@@ -98,10 +96,10 @@ Standard task discovery flow: TaskList -> filter by prefix `TESTANA-*` + owner m
 
 1. Extract session path from task description (look for `Session: <path>`)
 
-2. Read shared memory:
+2. Read role states:
 
 ```
-Read("<session-folder>/shared-memory.json")
+mcp__ccw-tools__team_msg({ operation: "get_state", session_id: <session-id> })
 ```
 
 3. Read all execution results:
@@ -186,7 +184,7 @@ Write("<session-folder>/analysis/quality-report.md", <report-content>)
 **Historical comparison**:
 
 ```
-Glob({ pattern: ".workflow/.team/TST-*/shared-memory.json" })
+Glob({ pattern: ".workflow/.team/TST-*/.msg/meta.json" })
 ```
 
 If multiple sessions exist:
@@ -198,27 +196,31 @@ If multiple sessions exist:
 
 > See SKILL.md Shared Infrastructure -> Worker Phase 5: Report
 
-1. **Update shared memory**:
+1. **Share analysis report via team_msg(type='state_update')**:
 
 ```
-sharedMemory.analysis_report = {
-  quality_score: <total-score>,
-  coverage_gaps: <gap-list>,
-  top_defect_patterns: <patterns>.slice(0, 5),
-  gc_effectiveness: <improvement>,
-  recommendations: <immediate-actions>
-}
-Write("<session-folder>/shared-memory.json", <updated-json>)
+mcp__ccw-tools__team_msg({
+  operation: "log", session_id: <session-id>, from: "analyst",
+  type: "state_update",
+  data: {
+    analysis_report: {
+      quality_score: <total-score>,
+      coverage_gaps: <gap-list>,
+      top_defect_patterns: <patterns>.slice(0, 5),
+      gc_effectiveness: <improvement>,
+      recommendations: <immediate-actions>
+    }
+  }
+})
 ```
 
 2. **Log via team_msg**:
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: <session-id>  // MUST be session ID, NOT team name, from: "analyst", to: "coordinator",
+  operation: "log", session_id: <session-id>, from: "analyst",
   type: "analysis_ready",
-  summary: "[analyst] Quality report: score <score>/10, <pattern-count> defect patterns, <gap-count> coverage gaps",
-  ref: "<session-folder>/analysis/quality-report.md"
+  data: {ref: "<session-folder>/analysis/quality-report.md"}
 })
 ```
 

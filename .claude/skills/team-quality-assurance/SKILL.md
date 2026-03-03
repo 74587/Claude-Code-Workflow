@@ -135,10 +135,10 @@ Every worker executes the same task discovery flow on startup:
 Standard reporting flow after task completion:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Parameters: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **NOTE**: `team` must be **session ID** (e.g., `TQA-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
-   - **CLI fallback**: When MCP unavailable -> `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
-2. **SendMessage**: Send result to coordinator (content and summary both prefixed with `[<role>]`)
+   - Parameters: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
+   - `to` and `summary` auto-defaulted -- do NOT specify explicitly
+   - **CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
+2. **SendMessage**: Send result to coordinator
 3. **TaskUpdate**: Mark task completed
 4. **Loop**: Return to Phase 1 to check next task
 
@@ -178,7 +178,7 @@ All outputs must carry `[role_name]` prefix.
 | Allowed | Forbidden |
 |---------|-----------|
 | Process tasks with own prefix | Process tasks with other role prefixes |
-| Read/write shared-memory.json (own fields) | Create tasks for other roles |
+| Share state via team_msg(type='state_update') | Create tasks for other roles |
 | SendMessage to coordinator | Communicate directly with other workers |
 | Delegate to commands/ files | Modify resources outside own responsibility |
 
@@ -193,7 +193,7 @@ All outputs must carry `[role_name]` prefix.
 
 ### Shared Memory
 
-Cross-role accumulated knowledge stored in `shared-memory.json`:
+Cross-role accumulated knowledge stored via team_msg(type='state_update'):
 
 | Field | Owner | Content |
 |-------|-------|---------|
@@ -431,8 +431,9 @@ Skill(skill="team-quality-assurance", args="--role=<role> --agent-name=<role>-<N
 
 ```
 .workflow/.team/QA-<slug>-<YYYY-MM-DD>/
-├── team-session.json           # Session state
-├── shared-memory.json          # Discovered issues / test strategy / defect patterns / coverage history
+├── .msg/meta.json           # Session state
+├── .msg/messages.jsonl          # Team message bus
+├── .msg/meta.json               # Session metadata
 ├── wisdom/                     # Cross-task knowledge
 │   ├── learnings.md
 │   ├── decisions.md

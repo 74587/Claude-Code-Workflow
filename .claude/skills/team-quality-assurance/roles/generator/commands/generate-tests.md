@@ -228,7 +228,7 @@ const testInfo = {
 
 sharedMemory.generated_tests = sharedMemory.generated_tests || {}
 sharedMemory.generated_tests[targetLayer] = testInfo
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
+Write(`${sessionFolder}/.msg/meta.json`, JSON.stringify(sharedMemory, null, 2))
 ```
 
 ## Output Format

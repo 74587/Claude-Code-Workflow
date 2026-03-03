@@ -67,11 +67,9 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., RC-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "fixer",
-  to: "coordinator",
   type: "fix_complete",
-  summary: "[fixer] Fix: <fixed>/<total> (<rate>%)",
   ref: "<session-folder>/fix/fix-summary.json"
 })
 ```
@@ -79,7 +77,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from fixer --to coordinator --type fix_complete --summary \"[fixer] Fix complete\" --ref <path> --json")
+Bash("ccw team log --session-id <session-id> --from fixer --type fix_complete --ref <path> --json")
 ```
 
 ---
@@ -214,7 +212,7 @@ Delegate to `commands/execute-fixes.md`.
 
 1. Generate fix-summary.json with: fix_id, fix_date, scope, total, fixed, failed, skipped, fix_rate, verification results
 2. Generate fix-summary.md (human-readable)
-3. Update shared-memory.json with fix results
+3. Update .msg/meta.json with fix results
 4. Log via team_msg with `[fixer]` prefix
 5. SendMessage to coordinator
 6. TaskUpdate completed

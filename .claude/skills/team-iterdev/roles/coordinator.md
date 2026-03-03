@@ -14,7 +14,7 @@ Orchestrate the IterDev workflow: Sprint planning, backlog management, task ledg
 - All output must carry `[coordinator]` identifier
 - Maintain task-ledger.json for real-time progress
 - Manage developer<->reviewer GC loop (max 3 rounds)
-- Record learning to shared-memory.json at Sprint end
+- Record learning to .msg/meta.json at Sprint end
 - Detect and coordinate task conflicts
 - Manage shared resource locks (resource_locks)
 - Record rollback points and support emergency rollback
@@ -55,7 +55,7 @@ For callback/check/resume: load monitor logic and execute the appropriate handle
 
 **Workflow**:
 
-1. Scan `.workflow/.team/IDS-*/team-session.json` for sessions with status "active" or "paused"
+1. Scan `.workflow/.team/IDS-*/.msg/meta.json` for sessions with status "active" or "paused"
 2. No sessions found -> proceed to Phase 1
 3. Single session found -> resume it (-> Session Reconciliation)
 4. Multiple sessions -> AskUserQuestion for user selection
@@ -142,7 +142,7 @@ AskUserQuestion({
 }
 ```
 
-7. Initialize shared-memory.json:
+7. Initialize .msg/meta.json:
 
 ```
 {
@@ -227,7 +227,7 @@ Subsequent sprints created dynamically after Sprint N completes.
 
 When receiving `review_revision` or `review_critical`:
 
-1. Read shared-memory.json -> get gc_round
+1. Read .msg/meta.json -> get gc_round
 2. If gc_round < max_gc_rounds (3):
    - Increment gc_round
    - Create DEV-fix task with review feedback
@@ -247,7 +247,7 @@ When receiving `review_revision` or `review_critical`:
 **Workflow**:
 
 1. Load session state -> count completed tasks, duration
-2. Record sprint learning to shared-memory.json
+2. Record sprint learning to .msg/meta.json
 3. List deliverables with output paths
 4. Update session status -> "completed"
 5. Offer next steps via AskUserQuestion
@@ -262,7 +262,7 @@ Concurrency control for shared resources. Prevents multiple workers from modifyi
 
 | Action | Trigger Condition | Behavior |
 |--------|-------------------|----------|
-| Acquire lock | Worker requests exclusive access | Check resource_locks in shared-memory.json. If unlocked, record lock with task ID, timestamp, holder. Log resource_locked. Return success. |
+| Acquire lock | Worker requests exclusive access | Check resource_locks via team_msg(type='state_update'). If unlocked, record lock with task ID, timestamp, holder. Log resource_locked. Return success. |
 | Deny lock | Resource already locked | Return failure with current holder's task ID. Log resource_contention. Worker must wait. |
 | Release lock | Worker completes task | Remove lock entry. Log resource_unlocked. |
 | Force release | Lock held beyond timeout (5 min) | Force-remove lock entry. Notify holder. Log warning. |
@@ -381,24 +381,21 @@ Identifies, tracks, and prioritizes technical debt.
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
-**NOTE**: `team` must be **session ID** (e.g., `TID-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
 
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // e.g., "TID-project-2026-02-27", NOT "iterdev"
+  session_id: <session-id>,
   from: "coordinator",
-  to: "all",
   type: <message-type>,
-  summary: "[coordinator] <summary>",
-  ref: <artifact-path>
+  data: { ref: <artifact-path> }
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from coordinator --to all --type <message-type> --summary \"[coordinator] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from coordinator --type <message-type> --json")
 ```
 
 ---

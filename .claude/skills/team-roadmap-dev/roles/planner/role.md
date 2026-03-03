@@ -71,11 +71,9 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., RD-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "planner",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[planner] <task-prefix> complete: <task-subject>",
   ref: <artifact-path>
 })
 ```
@@ -83,7 +81,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from planner --to coordinator --type <type> --summary \"[planner] <summary>\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from planner --type <type> --ref <artifact-path> --json")
 ```
 
 ---
@@ -129,10 +127,9 @@ Delegate to `commands/research.md`:
 **Report progress via team_msg**:
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: "roadmap-dev",
-  from: "planner", to: "coordinator",
+  operation: "log", session_id: sessionId,
+  from: "planner",
   type: "plan_progress",
-  summary: "[planner] Research complete for phase <N>. Context written.",
   ref: "<session>/phase-<N>/context.md"
 })
 ```
@@ -211,7 +208,6 @@ Standard report flow: team_msg log -> SendMessage with `[planner]` prefix -> Tas
 **Report message**:
 ```
 SendMessage({
-  to: "coordinator",
   message: "[planner] Phase <N> planning complete.
 - Tasks: <count>
 - Waves: <wave-count>

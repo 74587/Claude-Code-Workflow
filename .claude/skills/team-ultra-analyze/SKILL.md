@@ -130,9 +130,9 @@ Each worker executes the same task discovery flow on startup:
 Standard report flow after task completion:
 
 1. **Message Bus**: Call `mcp__ccw-tools__team_msg` to log message
-   - Parameters: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<artifact-path>
-   - **Note**: `team` must be session ID (e.g., `UAN-xxx-date`), NOT team name. Extract from `Session:` field in task description.
-   - **CLI fallback**: When MCP unavailable -> `ccw team log --team <session-id> --from <role> --to coordinator --type <type> --summary "[<role>] ..." --json`
+   - Parameters: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<artifact-path>"}
+   - `to` and `summary` auto-defaulted -- do NOT specify explicitly
+   - **CLI fallback**: `ccw team log --session-id <session-id> --from <role> --type <type> --json`
 2. **SendMessage**: Send result to coordinator (both content and summary prefixed with `[<role>]`)
 3. **TaskUpdate**: Mark task completed
 4. **Loop**: Return to Phase 1 to check for next task
@@ -159,16 +159,16 @@ Cross-task knowledge accumulation. Coordinator creates `wisdom/` directory durin
 |---------|-----------|
 | Process tasks matching own prefix | Process tasks with other role prefixes |
 | SendMessage to coordinator | Communicate directly with other workers |
-| Read/write shared-memory.json (own fields) | Create tasks for other roles |
+| Share state via team_msg(type='state_update') | Create tasks for other roles |
 | Delegate to commands/*.md | Modify resources outside own responsibility |
 
 Coordinator additionally prohibited: directly executing code exploration or analysis, directly calling cli-explore-agent or CLI analysis tools, bypassing workers to complete work.
 
-### Shared Memory
+### Cross-Role State
 
-Core shared artifact stored at `<session-folder>/shared-memory.json`. Each role reads the full memory but writes only to its own designated field:
+Cross-role state managed via `team_msg(type='state_update')`, stored in `.msg/meta.json.role_state`. Each role reads all states but writes only to its own designated field:
 
-| Role | Write Field |
+| Role | State Field |
 |------|-------------|
 | explorer | `explorations` |
 | analyst | `analyses` |
@@ -176,13 +176,13 @@ Core shared artifact stored at `<session-folder>/shared-memory.json`. Each role 
 | synthesizer | `synthesis` |
 | coordinator | `decision_trail` + `current_understanding` |
 
-On startup, read the file. After completing work, update own field and write back. If file does not exist, initialize with empty object.
+On startup, read role states via `team_msg(operation="get_state", session_id=<session-id>)`. After completing work, share results via `team_msg(operation="log", session_id=<session-id>, from=<role>, type="state_update", data={...})`.
 
 ### Message Bus (All Roles)
 
-All roles log messages before sending via SendMessage. Call `mcp__ccw-tools__team_msg` with: operation="log", team=<session-id>, from=<role>, to="coordinator", type=<message-type>, summary="[<role>] <summary>", ref=<file-path>.
+All roles log messages before sending via SendMessage. Call `mcp__ccw-tools__team_msg` with: operation="log", session_id=<session-id>, from=<role>, type=<message-type>, data={ref: "<file-path>"}. `to` and `summary` are auto-defaulted.
 
-> **Note**: `team` must be session ID (e.g., `UAN-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+
 
 | Role | Types |
 |------|-------|
@@ -192,9 +192,8 @@ All roles log messages before sending via SendMessage. Call `mcp__ccw-tools__tea
 | discussant | `discussion_processed`, `error` |
 | synthesizer | `synthesis_ready`, `error` |
 
-**CLI fallback**: When MCP unavailable -> `ccw team log --team "<session-id>" --from "<role>" --to "coordinator" --type "<type>" --summary "<summary>" --json`
+**CLI fallback**: When MCP unavailable -> `ccw team log --session-id <session-id> --from <role> --type <type> --json`
 
-> **Note**: `team` must be session ID (e.g., `UAN-xxx-date`), NOT team name.
 
 ---
 
@@ -393,7 +392,7 @@ Session: <session-folder>
 |---------|-------|
 | Team name | ultra-analyze |
 | Session directory | .workflow/.team/UAN-{slug}-{date}/ |
-| Shared memory file | shared-memory.json |
+
 | Analysis dimensions | architecture, implementation, performance, security, concept, comparison, decision |
 | Max discussion rounds | 5 |
 
@@ -401,7 +400,8 @@ Session: <session-folder>
 
 ```
 .workflow/.team/UAN-{slug}-{YYYY-MM-DD}/
-+-- shared-memory.json          # Exploration/analysis/discussion/synthesis shared memory
++-- .msg/messages.jsonl          # Message bus log
++-- .msg/meta.json               # Session metadata
 +-- discussion.md               # Understanding evolution and discussion timeline
 +-- explorations/               # Explorer output
 |   +-- exploration-001.json

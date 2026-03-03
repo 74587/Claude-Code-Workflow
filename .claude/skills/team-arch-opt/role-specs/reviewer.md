@@ -21,7 +21,7 @@ Review refactoring code changes for correctness, pattern consistency, completene
 | Refactoring code changes | From REFACTOR task artifacts / git diff | Yes |
 | Refactoring plan / detail | Varies by mode (see below) | Yes |
 | Validation results | Varies by mode (see below) | No |
-| shared-memory.json | <session>/wisdom/shared-memory.json | Yes |
+| .msg/meta.json | <session>/wisdom/.msg/meta.json | Yes |
 
 1. Extract session path from task description
 2. **Detect branch/pipeline context** from task description:
@@ -37,7 +37,7 @@ Review refactoring code changes for correctness, pattern consistency, completene
    - Fan-out branch: Read `<session>/artifacts/branches/B{NN}/refactoring-detail.md`
    - Independent: Read `<session>/artifacts/pipelines/{P}/refactoring-plan.md`
 
-4. Load shared-memory.json for scoped refactorer namespace:
+4. Load .msg/meta.json for scoped refactorer namespace:
    - Single: `refactorer` namespace
    - Fan-out: `refactorer.B{NN}` namespace
    - Independent: `refactorer.{P}` namespace
@@ -108,7 +108,7 @@ Classify overall verdict based on findings:
    - Independent: `<session>/artifacts/pipelines/{P}/review-report.md`
    - Content: Per-dimension findings with severity, file:line, description; Overall verdict with rationale; Specific fix instructions for REVISE/REJECT verdicts
 
-2. Update `<session>/wisdom/shared-memory.json` under scoped namespace:
+2. Update `<session>/wisdom/.msg/meta.json` under scoped namespace:
    - Single: merge `{ "reviewer": { verdict, finding_count, critical_count, dimensions_reviewed } }`
    - Fan-out: merge `{ "reviewer.B{NN}": { verdict, finding_count, critical_count, dimensions_reviewed } }`
    - Independent: merge `{ "reviewer.{P}": { verdict, finding_count, critical_count, dimensions_reviewed } }`

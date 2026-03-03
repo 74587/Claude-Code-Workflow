@@ -28,7 +28,7 @@ Implement optimization changes following the strategy plan. For FIX tasks, apply
 | Branch optimization detail | <session>/artifacts/branches/B{NN}/optimization-detail.md | Yes (IMPL with branch) |
 | Pipeline optimization plan | <session>/artifacts/pipelines/{P}/optimization-plan.md | Yes (IMPL with pipeline) |
 | Review/bench feedback | From task description | Yes (FIX) |
-| shared-memory.json | <session>/wisdom/shared-memory.json | Yes |
+| .msg/meta.json | <session>/.msg/meta.json | Yes |
 | Wisdom files | <session>/wisdom/patterns.md | No |
 | Context accumulator | From prior IMPL/FIX tasks | Yes (inner loop) |
 

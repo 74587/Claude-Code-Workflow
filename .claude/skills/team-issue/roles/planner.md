@@ -62,19 +62,17 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: **<session-id>**,  // MUST be session ID (e.g., ISS-xxx-date), NOT team name. Extract from Session: field.
+  session_id: <session-id>,
   from: "planner",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[planner] <task-prefix> complete: <task-subject>",
-  ref: <artifact-path>
+  data: {ref: <artifact-path>}
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from planner --to coordinator --type <message-type> --summary \"[planner] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from planner --type <message-type> --json")
 ```
 
 ---
@@ -159,15 +157,13 @@ Design an ALTERNATIVE approach that addresses the reviewer's concerns.
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: **<session-id>**, from: "planner", to: "coordinator",  // MUST be session ID, NOT team name
+  operation: "log", session_id: <session-id>, from: "planner",
   type: "solution_ready",
-  summary: "[planner] Solution <solution_id> bound to <issue_id> (<task_count> tasks)"
 })
 
 SendMessage({
   type: "message", recipient: "coordinator",
   content: "## [planner] Solution Ready\n\n**Issue**: <issue_id>\n**Solution**: <solution_id>\n**Tasks**: <task_count>\n**Status**: Auto-bound (single solution)",
-  summary: "[planner] SOLVE complete: <issue_id>"
 })
 ```
 
@@ -175,15 +171,13 @@ SendMessage({
 
 ```
 mcp__ccw-tools__team_msg({
-  operation: "log", team: **<session-id>**, from: "planner", to: "coordinator",  // MUST be session ID, NOT team name
+  operation: "log", session_id: <session-id>, from: "planner",
   type: "multi_solution",
-  summary: "[planner] <count> solutions for <issue_id>, user selection needed"
 })
 
 SendMessage({
   type: "message", recipient: "coordinator",
   content: "## [planner] Multiple Solutions\n\n**Issue**: <issue_id>\n**Solutions**: <count> options\n\n### Options\n<solution details>\n\n**Action Required**: Coordinator should present options to user for selection.",
-  summary: "[planner] multi_solution: <issue_id>"
 })
 ```
 

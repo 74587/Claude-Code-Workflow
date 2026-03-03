@@ -171,26 +171,25 @@ function spawnPlanner(phase, gapIteration, sessionFolder) {
 
   // Synchronous call - blocks until planner returns
   Task({
-    subagent_type: "general-purpose",
+    subagent_type: "team-worker",
     description: `Spawn planner worker for phase ${phase}`,
     team_name: "roadmap-dev",
     name: "planner",
-    prompt: `You are the PLANNER for team "roadmap-dev".
+    prompt: `## Role Assignment
+role: planner
+role_spec: .claude/skills/team-roadmap-dev/role-specs/planner.md
+session: ${sessionFolder}
+session_id: ${sessionId}
+team_name: roadmap-dev
+requirement: Phase ${phase} planning${gapContext}
+inner_loop: false
 
-## Primary Directive
-Skill(skill="team-roadmap-dev", args="--role=planner")
-
-## Assignment
-- Session: ${sessionFolder}
+## Current Task
+- Task: PLAN-${phase}${suffix}
 - Phase: ${phase}
-- Task: PLAN-${phase}${suffix}${gapContext}
 
-## Workflow
-1. Skill(skill="team-roadmap-dev", args="--role=planner")
-2. TaskList → find PLAN-${phase}${suffix} → execute
-3. TaskUpdate completed when done
-
-All outputs carry [planner] tag.`,
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`,
     run_in_background: false  // CRITICAL: Stop-Wait, blocks until done
   })
 }
@@ -203,26 +202,25 @@ function spawnExecutor(phase, gapIteration, sessionFolder) {
   const suffix = gapIteration === 0 ? "01" : `0${gapIteration + 1}`
 
   Task({
-    subagent_type: "general-purpose",
+    subagent_type: "team-worker",
     description: `Spawn executor worker for phase ${phase}`,
     team_name: "roadmap-dev",
     name: "executor",
-    prompt: `You are the EXECUTOR for team "roadmap-dev".
+    prompt: `## Role Assignment
+role: executor
+role_spec: .claude/skills/team-roadmap-dev/role-specs/executor.md
+session: ${sessionFolder}
+session_id: ${sessionId}
+team_name: roadmap-dev
+requirement: Phase ${phase} execution
+inner_loop: false
 
-## Primary Directive
-Skill(skill="team-roadmap-dev", args="--role=executor")
-
-## Assignment
-- Session: ${sessionFolder}
-- Phase: ${phase}
+## Current Task
 - Task: EXEC-${phase}${suffix}
+- Phase: ${phase}
 
-## Workflow
-1. Skill(skill="team-roadmap-dev", args="--role=executor")
-2. TaskList → find EXEC-${phase}${suffix} → execute plans
-3. TaskUpdate completed when done
-
-All outputs carry [executor] tag.`,
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`,
     run_in_background: false  // CRITICAL: Stop-Wait
   })
 }
@@ -235,26 +233,25 @@ function spawnVerifier(phase, gapIteration, sessionFolder) {
   const suffix = gapIteration === 0 ? "01" : `0${gapIteration + 1}`
 
   Task({
-    subagent_type: "general-purpose",
+    subagent_type: "team-worker",
     description: `Spawn verifier worker for phase ${phase}`,
     team_name: "roadmap-dev",
     name: "verifier",
-    prompt: `You are the VERIFIER for team "roadmap-dev".
+    prompt: `## Role Assignment
+role: verifier
+role_spec: .claude/skills/team-roadmap-dev/role-specs/verifier.md
+session: ${sessionFolder}
+session_id: ${sessionId}
+team_name: roadmap-dev
+requirement: Phase ${phase} verification
+inner_loop: false
 
-## Primary Directive
-Skill(skill="team-roadmap-dev", args="--role=verifier")
-
-## Assignment
-- Session: ${sessionFolder}
-- Phase: ${phase}
+## Current Task
 - Task: VERIFY-${phase}${suffix}
+- Phase: ${phase}
 
-## Workflow
-1. Skill(skill="team-roadmap-dev", args="--role=verifier")
-2. TaskList → find VERIFY-${phase}${suffix} → verify against success criteria
-3. TaskUpdate completed when done
-
-All outputs carry [verifier] tag.`,
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`,
     run_in_background: false  // CRITICAL: Stop-Wait
   })
 }
@@ -271,7 +268,6 @@ function triggerGapClosure(phase, iteration, gaps, sessionFolder) {
     operation: "log", team: sessionId  // MUST be session ID (e.g., RD-xxx-date), NOT team name,
     from: "coordinator", to: "planner",
     type: "gap_closure",
-    summary: `[coordinator] Gap closure iteration ${iteration} for phase ${phase}: ${gaps.length} gaps`,
     ref: `${sessionFolder}/phase-${phase}/verification.md`
   })
 
@@ -337,7 +333,6 @@ mcp__ccw-tools__team_msg({
   operation: "log", team: sessionId  // MUST be session ID (e.g., RD-xxx-date), NOT team name,
   from: "coordinator", to: "all",
   type: "project_complete",
-  summary: `[coordinator] All ${totalPhases} phases complete.`,
   ref: `${sessionFolder}/roadmap.md`
 })
 ```

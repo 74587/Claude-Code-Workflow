@@ -38,7 +38,7 @@ CONTEXT:
   - Scope: <refactoring-scope>
   - Branch: <branch-id or 'none'>
   - Upstream artifacts: <artifact-1>, <artifact-2>
-  - Shared memory: <session>/wisdom/shared-memory.json
+  - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <deliverable path> + <quality criteria>
 CONSTRAINTS: <scope limits, focus areas>
 ---
@@ -77,7 +77,7 @@ CONTEXT:
   - Session: <session-folder>
   - Scope: <refactoring-scope>
   - Branch: none
-  - Shared memory: <session>/wisdom/shared-memory.json
+  - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/artifacts/architecture-baseline.json + <session>/artifacts/architecture-report.md | Quantified metrics with evidence
 CONSTRAINTS: Focus on <refactoring-scope> | Analyze before any changes
 ---
@@ -101,7 +101,7 @@ CONTEXT:
   - Scope: <refactoring-scope>
   - Branch: none
   - Upstream artifacts: architecture-baseline.json, architecture-report.md
-  - Shared memory: <session>/wisdom/shared-memory.json
+  - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/artifacts/refactoring-plan.md | Priority-ordered with structural improvement targets, discrete REFACTOR-IDs
 CONSTRAINTS: Focus on highest-impact refactorings | Risk assessment required | Non-overlapping file targets per REFACTOR-ID
 ---
@@ -126,7 +126,7 @@ CONTEXT:
   - Scope: <refactoring-scope>
   - Branch: none
   - Upstream artifacts: refactoring-plan.md
-  - Shared memory: <session>/wisdom/shared-memory.json
+  - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: Modified source files + validation passing | Refactorings applied without regressions
 CONSTRAINTS: Preserve existing behavior | Update all references | Follow code conventions
 ---
@@ -152,7 +152,7 @@ CONTEXT:
   - Scope: <refactoring-scope>
   - Branch: none
   - Upstream artifacts: architecture-baseline.json, refactoring-plan.md
-  - Shared memory: <session>/wisdom/shared-memory.json
+  - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/artifacts/validation-results.json | Per-dimension validation with verdicts
 CONSTRAINTS: Must compare against baseline | Flag any regressions or broken imports
 ---
@@ -176,7 +176,7 @@ CONTEXT:
   - Scope: <refactoring-scope>
   - Branch: none
   - Upstream artifacts: refactoring-plan.md, validation-results.json (if available)
-  - Shared memory: <session>/wisdom/shared-memory.json
+  - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/artifacts/review-report.md | Per-dimension findings with severity
 CONSTRAINTS: Focus on refactoring changes only | Provide specific file:line references
 ---
@@ -220,7 +220,7 @@ TaskCreate({ subject: "REVIEW-<P>01", ... })        // blockedBy: ["REFACTOR-<P>
 Task descriptions follow same template as single mode, with additions:
 - `Pipeline: <P>` in CONTEXT
 - Artifact paths use `<session>/artifacts/pipelines/<P>/` instead of `<session>/artifacts/`
-- Shared-memory namespace uses `<role>.<P>` (e.g., `analyzer.A`, `refactorer.B`)
+- Meta.json namespace uses `<role>.<P>` (e.g., `analyzer.A`, `refactorer.B`)
 - Each pipeline's scope is its specific target from `independent_targets[i]`
 
 Example for pipeline A with target "refactor auth module":
@@ -236,7 +236,7 @@ CONTEXT:
   - Session: <session-folder>
   - Scope: refactor auth module
   - Pipeline: A
-  - Shared memory: <session>/wisdom/shared-memory.json (namespace: analyzer.A)
+  - Shared memory: <session>/wisdom/.msg/meta.json (namespace: analyzer.A)
 EXPECTED: <session>/artifacts/pipelines/A/architecture-baseline.json + architecture-report.md
 CONSTRAINTS: Focus on auth module scope
 ---
@@ -255,7 +255,7 @@ PipelineId: A",
 **Procedure**:
 
 1. Read `<session>/artifacts/refactoring-plan.md` to count REFACTOR-IDs
-2. Read `shared-memory.json` -> `designer.refactoring_count`
+2. Read `.msg/meta.json` -> `designer.refactoring_count`
 3. **Auto mode decision**:
 
 | Refactoring Count | Decision |
@@ -293,7 +293,7 @@ CONTEXT:
   - Session: <session-folder>
   - Branch: B{NN}
   - Upstream artifacts: branches/B{NN}/refactoring-detail.md
-  - Shared memory: <session>/wisdom/shared-memory.json (namespace: refactorer.B{NN})
+  - Shared memory: <session>/wisdom/.msg/meta.json (namespace: refactorer.B{NN})
 EXPECTED: Modified source files for REFACTOR-{NNN} only
 CONSTRAINTS: Only implement this branch's refactoring | Do not touch files outside REFACTOR-{NNN} scope
 ---
@@ -314,7 +314,7 @@ CONTEXT:
   - Session: <session-folder>
   - Branch: B{NN}
   - Upstream artifacts: architecture-baseline.json, branches/B{NN}/refactoring-detail.md
-  - Shared memory: <session>/wisdom/shared-memory.json (namespace: validator.B{NN})
+  - Shared memory: <session>/wisdom/.msg/meta.json (namespace: validator.B{NN})
 EXPECTED: <session>/artifacts/branches/B{NN}/validation-results.json
 CONSTRAINTS: Only validate this branch's changes
 ---
@@ -328,14 +328,14 @@ TaskCreate({
   subject: "REVIEW-B{NN}",
   description: "PURPOSE: Review branch B{NN} refactoring code | Success: Code quality verified for REFACTOR-{NNN}
 TASK:
-  - Load modified files from refactorer.B{NN} shared-memory namespace
+  - Load modified files from refactorer.B{NN} namespace in .msg/meta.json
   - Review across 5 dimensions for this branch's changes only
   - Issue verdict: APPROVE, REVISE, or REJECT
 CONTEXT:
   - Session: <session-folder>
   - Branch: B{NN}
   - Upstream artifacts: branches/B{NN}/refactoring-detail.md
-  - Shared memory: <session>/wisdom/shared-memory.json (namespace: reviewer.B{NN})
+  - Shared memory: <session>/wisdom/.msg/meta.json (namespace: reviewer.B{NN})
 EXPECTED: <session>/artifacts/branches/B{NN}/review-report.md
 CONSTRAINTS: Only review this branch's changes
 ---

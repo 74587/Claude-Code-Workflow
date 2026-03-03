@@ -57,24 +57,21 @@ Test case generator. Generate test code according to strategist's strategy and l
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
-**NOTE**: `team` must be **session ID** (e.g., `TQA-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
 
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // e.g., "TQA-project-2026-02-27", NOT "quality-assurance"
+  session_id: <session-id>,
   from: "generator",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[generator] <layer> test generation complete: <file-count> files",
-  ref: <first-test-file>
+  data: { ref: <first-test-file> }
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from generator --to coordinator --type <message-type> --summary \"[generator] test generation complete\" --ref <test-file> --json")
+Bash("ccw team log --session-id <session-id> --from generator --type <message-type> --json")
 ```
 
 ---
@@ -98,7 +95,7 @@ For parallel instances, parse `--agent-name` from arguments for owner matching. 
 
 | Input | Source | Required |
 |-------|--------|----------|
-| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Shared memory | <session-folder>/.msg/meta.json | Yes |
 | Test strategy | sharedMemory.test_strategy | Yes |
 | Target layer | task description or strategy.layers[0] | Yes |
 

@@ -82,7 +82,7 @@ if (mode === 'direct') {
   Bash(`ccw cli -p "PURPOSE: Perform deep quality analysis on QA results to identify defect patterns, coverage trends, and improvement opportunities
 TASK: • Classify defects by root cause pattern (logic errors, integration issues, missing validation, etc.) • Identify files with highest defect density • Analyze coverage gaps vs risk levels • Compare actual coverage to targets • Generate actionable improvement recommendations
 MODE: analysis
-CONTEXT: @${sessionFolder}/shared-memory.json @${sessionFolder}/results/**/*
+CONTEXT: @${sessionFolder}/.msg/meta.json @${sessionFolder}/results/**/*
 EXPECTED: Structured analysis with: defect pattern taxonomy, risk-coverage matrix, quality score rationale, top 5 improvement recommendations with expected impact
 CONSTRAINTS: Be data-driven, avoid speculation without evidence" --tool gemini --mode analysis --rule analysis-analyze-code-patterns`, {
     run_in_background: true
@@ -277,7 +277,7 @@ sharedMemory.coverage_history.push({
   quality_score: analysis.quality_score,
   issues: analysis.defect_patterns.total
 })
-Write(`${sessionFolder}/shared-memory.json`, JSON.stringify(sharedMemory, null, 2))
+Write(`${sessionFolder}/.msg/meta.json`, JSON.stringify(sharedMemory, null, 2))
 
 function generateReportMarkdown(analysis) {
   return `# Quality Assurance Report

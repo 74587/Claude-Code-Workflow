@@ -2,7 +2,6 @@
 
 > 阶段驱动的协调循环。按 pipeline 阶段顺序等待 worker 完成，路由消息，触发 GC 循环，执行质量门控。
 
-**NOTE**: `teamName` variable must be **session ID** (e.g., `TQA-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
 
 ## When to Use
 
@@ -77,7 +76,7 @@ const autoYes = /\b(-y|--yes)\b/.test(args)
 
 ```javascript
 // 从 shared memory 获取覆盖率目标
-const sharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+const sharedMemory = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`))
 const strategy = sharedMemory.test_strategy || {}
 const coverageTargets = {}
 for (const layer of (strategy.layers || [])) {
@@ -108,9 +107,7 @@ for (const stageTask of pipelineTasks) {
 
   if (!workerConfig) {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
-      to: "user", type: "error",
-      summary: `[coordinator] 未知阶段前缀: ${stagePrefix}，跳过`
+      operation: "log", session_id: teamName, from: "coordinator",
     })
     continue
   }
@@ -119,36 +116,31 @@ for (const stageTask of pipelineTasks) {
   TaskUpdate({ taskId: stageTask.id, status: 'in_progress' })
 
   mcp__ccw-tools__team_msg({
-    operation: "log", team: teamName, from: "coordinator",
+    operation: "log", session_id: teamName, from: "coordinator",
     to: workerConfig.role, type: "task_unblocked",
-    summary: `[coordinator] 启动阶段: ${stageTask.subject} → ${workerConfig.role}`
   })
 
   // 3. 同步 spawn worker — 阻塞直到 worker 返回（Stop-Wait 核心）
   const workerResult = Task({
-    subagent_type: "general-purpose",
+    subagent_type: "team-worker",
     description: `Spawn ${workerConfig.role} worker for ${stageTask.subject}`,
     team_name: teamName,
     name: workerConfig.role,
-    prompt: `你是 team "${teamName}" 的 ${workerConfig.role.toUpperCase()}。
+    prompt: `## Role Assignment
+role: ${workerConfig.role}
+role_spec: .claude/skills/team-quality-assurance/role-specs/${workerConfig.role}.md
+session: ${sessionFolder}
+session_id: ${sessionId}
+team_name: ${teamName}
+requirement: ${stageTask.description || taskDescription}
+inner_loop: false
 
-## ⚠️ 首要指令（MUST）
-Skill(skill="team-quality-assurance", args="${workerConfig.skillArgs}")
+## Current Task
+- Task ID: ${stageTask.id}
+- Task: ${stageTask.subject}
 
-## 当前任务
-- 任务 ID: ${stageTask.id}
-- 任务: ${stageTask.subject}
-- 描述: ${stageTask.description || taskDescription}
-- Session: ${sessionFolder}
-
-## 角色准则（强制）
-- 所有输出必须带 [${workerConfig.role}] 标识前缀
-- 仅与 coordinator 通信
-
-## 工作流程
-1. Skill(skill="team-quality-assurance", args="${workerConfig.skillArgs}") 获取角色定义
-2. 执行任务 → 汇报结果
-3. TaskUpdate({ taskId: "${stageTask.id}", status: "completed" })`,
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`,
     run_in_background: false
   })
 
@@ -159,9 +151,8 @@ Skill(skill="team-quality-assurance", args="${workerConfig.skillArgs}")
     // Worker 返回但未标记 completed → 异常处理
     if (autoYes) {
       mcp__ccw-tools__team_msg({
-        operation: "log", team: teamName, from: "coordinator",
-        to: "user", type: "error",
-        summary: `[coordinator] [auto] 阶段 ${stageTask.subject} 未完成，自动跳过`
+        operation: "log", session_id: teamName, from: "coordinator",
+        type: "error",
       })
       TaskUpdate({ taskId: stageTask.id, status: 'deleted' })
       continue
@@ -186,24 +177,21 @@ Skill(skill="team-quality-assurance", args="${workerConfig.skillArgs}")
       continue
     } else if (answer === "终止") {
       mcp__ccw-tools__team_msg({
-        operation: "log", team: teamName, from: "coordinator",
+        operation: "log", session_id: teamName, from: "coordinator",
         to: "user", type: "shutdown",
-        summary: `[coordinator] 用户终止流水线，当前阶段: ${stageTask.subject}`
       })
       break
     }
     // 重试: continue to next iteration will re-process if logic wraps
   } else {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
-      to: "user", type: "quality_gate",
-      summary: `[coordinator] 阶段完成: ${stageTask.subject}`
+      operation: "log", session_id: teamName, from: "coordinator",
     })
   }
 
   // 5. 阶段间检查（QARUN 阶段检查覆盖率，决定 GC 循环）
   if (stagePrefix === 'QARUN') {
-    const latestMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+    const latestMemory = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`))
     const coverage = latestMemory.execution_results?.coverage || 0
     const targetLayer = stageTask.metadata?.layer || 'L1'
     const target = coverageTargets[targetLayer] || 80
@@ -211,9 +199,8 @@ Skill(skill="team-quality-assurance", args="${workerConfig.skillArgs}")
     if (coverage < target && gcIteration < MAX_GC_ITERATIONS) {
       gcIteration++
       mcp__ccw-tools__team_msg({
-        operation: "log", team: teamName, from: "coordinator",
+        operation: "log", session_id: teamName, from: "coordinator",
         to: "generator", type: "gc_loop_trigger",
-        summary: `[coordinator] GC循环 #${gcIteration}: 覆盖率 ${coverage}% < ${target}%，请修复`
       })
       // 创建 GC 修复任务追加到 pipeline
     }
@@ -247,16 +234,15 @@ function processMessage(msg, handler) {
 
     case 'quality_gate': {
       // 重新读取最新 shared memory
-      const latestMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+      const latestMemory = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`))
       const qualityScore = latestMemory.quality_score || 0
       let status = 'PASS'
       if (qualityScore < 60) status = 'FAIL'
       else if (qualityScore < 80) status = 'CONDITIONAL'
 
       mcp__ccw-tools__team_msg({
-        operation: "log", team: teamName, from: "coordinator",
+        operation: "log", session_id: teamName, from: "coordinator",
         to: "user", type: "quality_gate",
-        summary: `[coordinator] 质量门控: ${status} (score: ${qualityScore})`
       })
       break
     }
@@ -266,7 +252,6 @@ function processMessage(msg, handler) {
       if (severity === 'critical') {
         SendMessage({
           content: `## [coordinator] Critical Error from ${msg.from}\n\n${msg.summary}`,
-          summary: `[coordinator] Critical error: ${msg.summary}`
         })
       }
       break
@@ -278,17 +263,13 @@ function handleGCDecision(coverage, targetLayer) {
   if (gcIteration < MAX_GC_ITERATIONS) {
     gcIteration++
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
-      to: "generator", type: "gc_loop_trigger",
-      summary: `[coordinator] GC循环 #${gcIteration}: 覆盖率 ${coverage}% 未达标，请修复`,
+      operation: "log", session_id: teamName, from: "coordinator",
       data: { iteration: gcIteration, layer: targetLayer, coverage }
     })
     // 创建 GC 修复任务（参见 dispatch.md createGCLoopTasks）
   } else {
     mcp__ccw-tools__team_msg({
-      operation: "log", team: teamName, from: "coordinator",
-      to: "user", type: "quality_gate",
-      summary: `[coordinator] GC循环已达上限(${MAX_GC_ITERATIONS})，接受当前覆盖率 ${coverage}%`
+      operation: "log", session_id: teamName, from: "coordinator",
     })
   }
 }
@@ -298,7 +279,7 @@ function handleGCDecision(coverage, targetLayer) {
 
 ```javascript
 // 汇总所有结果
-const finalSharedMemory = JSON.parse(Read(`${sessionFolder}/shared-memory.json`))
+const finalSharedMemory = JSON.parse(Read(`${sessionFolder}/.msg/meta.json`))
 const allFinalTasks = TaskList()
 const workerTasks = allFinalTasks.filter(t => t.owner && t.owner !== 'coordinator')
 const summary = {

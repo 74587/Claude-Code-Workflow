@@ -58,11 +58,9 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // MUST be session ID (e.g., TD-xxx-date), NOT team name. Extract from Session: field in task description.
+  session_id: <session-id>,
   from: "assessor",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[assessor] <task-prefix> complete: <task-subject>",
   ref: <artifact-path>
 })
 ```
@@ -70,7 +68,7 @@ mcp__ccw-tools__team_msg({
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from assessor --to coordinator --type <message-type> --summary \"[assessor] ...\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from assessor --type <message-type> --ref <artifact-path> --json")
 ```
 
 ---
@@ -88,13 +86,13 @@ Standard task discovery flow: TaskList -> filter by prefix `TDEVAL-*` + owner ma
 | Input | Source | Required |
 |-------|--------|----------|
 | Session folder | task.description (regex: `session:\s*(.+)`) | Yes |
-| Shared memory | `<session-folder>/shared-memory.json` | Yes |
-| Debt inventory | shared-memory.debt_inventory OR `<session-folder>/scan/debt-inventory.json` | Yes |
+| Shared memory | `<session-folder>/.msg/meta.json` | Yes |
+| Debt inventory | meta.json:debt_inventory OR `<session-folder>/scan/debt-inventory.json` | Yes |
 
 **Loading steps**:
 
 1. Extract session path from task description
-2. Read shared-memory.json
+2. Read .msg/meta.json
 3. Load debt_inventory from shared memory or fallback to debt-inventory.json file
 4. If debt_inventory is empty -> report empty assessment and exit
 
@@ -156,7 +154,7 @@ Delegate to `commands/evaluate.md` if available, otherwise execute inline.
 **Save outputs**:
 
 1. Write `<session-folder>/assessment/priority-matrix.json`
-2. Update shared-memory.json with `priority_matrix` summary and evaluated `debt_inventory`
+2. Update .msg/meta.json with `priority_matrix` summary and evaluated `debt_inventory`
 
 ### Phase 5: Report to Coordinator
 

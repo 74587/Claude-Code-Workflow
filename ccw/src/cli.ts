@@ -358,7 +358,7 @@ export function run(argv: string[]): void {
   program
     .command('team [subcommand] [args...]')
     .description('Team message bus for Agent Team communication')
-    .option('--team <name>', 'Session ID (e.g., TLS-my-project-2026-02-27)')
+    .option('--session-id <id>', 'Session ID (e.g., TLS-my-project-2026-02-27)')
     .option('--from <role>', 'Sender role name')
     .option('--to <role>', 'Recipient role name (default: coordinator)')
     .option('--type <type>', 'Message type')

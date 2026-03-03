@@ -88,8 +88,7 @@ ccw issue update <issueId> --status completed
 
 ### Report
 
-Send `impl_complete` message to coordinator via team_msg + SendMessage:
-- summary: `[executor] Implemented <issueId>: <title>`
+Send `impl_complete` message to coordinator via team_msg + SendMessage.
 
 ## Boundaries
 

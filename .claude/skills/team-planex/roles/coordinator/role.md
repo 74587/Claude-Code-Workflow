@@ -14,7 +14,7 @@ Orchestrate the team-planex pipeline: parse input, create team, dispatch tasks, 
 - Create team and initialize session directory
 - Dispatch tasks via `commands/dispatch.md`
 - Monitor progress via `commands/monitor.md` with Spawn-and-Stop pattern
-- Maintain session state (team-session.json)
+- Maintain session state (.msg/meta.json)
 
 ### MUST NOT
 - Execute planning or implementation work directly (delegate to workers)
@@ -62,7 +62,7 @@ For callback/check/resume: load `commands/monitor.md` and execute the appropriat
 
 ## Phase 0: Session Resume Check
 
-1. Scan `.workflow/.team/PEX-*/team-session.json` for sessions with status "active" or "paused"
+1. Scan `.workflow/.team/PEX-*/.msg/meta.json` for sessions with status "active" or "paused"
 2. No sessions found -> proceed to Phase 1
 3. Single session found -> resume (Session Reconciliation)
 4. Multiple sessions -> AskUserQuestion for selection
@@ -95,7 +95,7 @@ For callback/check/resume: load `commands/monitor.md` and execute the appropriat
 3. Create subdirectories: `artifacts/solutions/`, `wisdom/`
 4. Call `TeamCreate` with team name (default: "planex")
 5. Initialize wisdom files (learnings.md, decisions.md, conventions.md, issues.md)
-6. Write team-session.json:
+6. Write .msg/meta.json:
 
 ```
 {

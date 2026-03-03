@@ -17,7 +17,7 @@ Analyze codebase architecture to identify structural issues: dependency cycles, 
 |-------|--------|----------|
 | Task description | From task subject/description | Yes |
 | Session path | Extracted from task description | Yes |
-| shared-memory.json | <session>/wisdom/shared-memory.json | No |
+| .msg/meta.json | <session>/wisdom/.msg/meta.json | No |
 
 1. Extract session path and target scope from task description
 2. Detect project type by scanning for framework markers:
@@ -76,5 +76,5 @@ Execute analysis based on detected project type:
    - Evidence summary per issue
    - Detected project type and analysis methods used
 
-3. Update `<session>/wisdom/shared-memory.json` under `analyzer` namespace:
+3. Update `<session>/wisdom/.msg/meta.json` under `analyzer` namespace:
    - Read existing -> merge `{ "analyzer": { project_type, issue_count, top_issue, scope, categories } }` -> write back

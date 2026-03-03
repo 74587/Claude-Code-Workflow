@@ -59,21 +59,19 @@ Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,
+  session_id: <session-id>,
   from: "researcher",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[researcher] RESEARCH complete: <task-subject>",
   ref: <artifact-path>
 })
 ```
 
-> **Note**: `team` must be session ID (e.g., `UDS-xxx-date`), NOT team name. Extract from `Session:` field in task description.
+> `to` and `summary` are auto-defaulted by the tool.
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from researcher --to coordinator --type <message-type> --summary \"[researcher] RESEARCH complete\" --ref <artifact-path> --json")
+Bash("ccw team log --session-id <session-id> --from researcher --type <message-type> --json")
 ```
 
 ---
@@ -91,7 +89,7 @@ Standard task discovery flow: TaskList -> filter by prefix `RESEARCH-*` + owner 
 **Loading steps**:
 
 1. Extract session path from task description (pattern: `Session: <path>`)
-2. Read shared-memory.json from session folder
+2. Read role states via team_msg(operation="get_state") from session
 3. Load existing component_inventory and accessibility_patterns if available
 
 **Input Sources**:
@@ -99,7 +97,7 @@ Standard task discovery flow: TaskList -> filter by prefix `RESEARCH-*` + owner 
 | Input | Source | Required |
 |-------|--------|----------|
 | Session folder | Task description | Yes |
-| shared-memory.json | Session folder | Yes |
+| Role state | team_msg(operation="get_state", session_id=<session-id>) | Yes |
 | Wisdom files | Session/wisdom/ | No |
 
 ### Phase 3: Research Execution

@@ -57,25 +57,21 @@ Test executor. Run test suites, collect coverage data, and perform automatic fix
 
 Before every SendMessage, log via `mcp__ccw-tools__team_msg`:
 
-**NOTE**: `team` must be **session ID** (e.g., `TQA-project-2026-02-27`), NOT team name. Extract from `Session:` field in task description.
 
 ```
 mcp__ccw-tools__team_msg({
   operation: "log",
-  team: <session-id>,  // e.g., "TQA-project-2026-02-27", NOT "quality-assurance"
+  session_id: <session-id>,
   from: "executor",
-  to: "coordinator",
   type: <message-type>,
-  summary: "[executor] <layer>: <status-message>",
-  ref: <results-file>,
-  data: { pass_rate, coverage, iterations }
+  data: { ref: <results-file>, pass_rate, coverage, iterations }
 })
 ```
 
 **CLI fallback** (when MCP unavailable):
 
 ```
-Bash("ccw team log --team <session-id> --from executor --to coordinator --type <message-type> --summary \"[executor] test execution complete\" --ref <results-file> --json")
+Bash("ccw team log --session-id <session-id> --from executor --type <message-type> --json")
 ```
 
 ---
@@ -99,7 +95,7 @@ For parallel instances, parse `--agent-name` from arguments for owner matching. 
 
 | Input | Source | Required |
 |-------|--------|----------|
-| Shared memory | <session-folder>/shared-memory.json | Yes |
+| Shared memory | <session-folder>/.msg/meta.json | Yes |
 | Test strategy | sharedMemory.test_strategy | Yes |
 | Generated tests | sharedMemory.generated_tests | Yes |
 | Target layer | task description | Yes |
