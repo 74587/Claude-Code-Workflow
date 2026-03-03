@@ -232,7 +232,7 @@
   font-size: var(--vp-font-size-base);
   line-height: var(--vp-line-height-relaxed);
   margin: var(--vp-spacing-5) 0;
-  max-width: var(--vp-prose-width);
+  max-width: 100%;
 }
 
 /* Lists with proper spacing */
@@ -242,7 +242,7 @@
   line-height: var(--vp-line-height-relaxed);
   margin: var(--vp-spacing-5) 0;
   padding-left: var(--vp-spacing-6);
-  max-width: var(--vp-prose-width);
+  max-width: 100%;
 }
 
 .vp-doc li {
@@ -835,5 +835,88 @@ textarea:focus-visible {
   .VPContent {
     margin: 0 !important;
     padding: 0 !important;
+  }
+}
+
+/*
+ * ===================================================================
+ *  智能响应式内容宽度方案 (Intelligent Responsive Content Width)
+ * ===================================================================
+ *  目的: 根据视口宽度动态调整内容区域占比，优化空间利用。
+ *  原理: 使用rem单位的padding，在不同视口宽度下提供合适的留白。
+ *        窄屏使用较小padding，超宽屏使用较大padding。
+ */
+
+/* 步骤1: 在所有桌面视图下，让.container可以填满父级空间 */
+@media (min-width: 1024px) {
+  .VPDoc.has-aside .container {
+    max-width: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 var(--vp-spacing-8) !important;
+  }
+  
+  .VPContent.has-sidebar {
+    margin-left: var(--vp-sidebar-width) !important;
+    margin-right: var(--vp-toc-width) !important;
+    width: calc(100vw - var(--vp-sidebar-width) - var(--vp-toc-width)) !important;
+    box-sizing: border-box;
+  }
+}
+
+/* 窄屏 (1024px - 1439px): 使用2rem padding */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .VPContent.has-sidebar {
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+  }
+}
+
+/* 标准宽屏 (1440px - 1919px): 使用3rem padding */
+@media (min-width: 1440px) and (max-width: 1919px) {
+  .VPContent.has-sidebar {
+    padding-left: 3rem !important;
+    padding-right: 3rem !important;
+  }
+}
+
+/* 超宽屏 (>= 1920px): 使用5rem padding */
+@media (min-width: 1920px) {
+  .VPContent.has-sidebar {
+    padding-left: 5rem !important;
+    padding-right: 5rem !important;
+  }
+}
+
+/* ============================================
+ * Widen Doc Content to Fill Container
+ * ============================================ */
+/*
+ * Overrides VitePress's default readability width limit for .vp-doc
+ * and .content-container on desktop layouts, allowing content to use
+ * the full available space defined by the responsive padding in the
+ * "Intelligent Responsive Content Width" section.
+ */
+@media (min-width: 1024px) {
+  /* Expand .content to fill available space */
+  .VPDoc.has-aside .container .content {
+    flex-grow: 1 !important;
+    max-width: none !important;
+  }
+
+  /* Use multiple selectors to increase specificity and override scoped styles */
+  .VPDoc.has-aside .container .content-container,
+  .VPDoc.has-aside .content-container[class],
+  .content-container {
+    max-width: none !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    flex-grow: 1 !important;
+    flex-basis: 100% !important;
+  }
+
+  .vp-doc {
+    max-width: 100% !important;
+    width: 100% !important;
   }
 }

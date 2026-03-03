@@ -692,8 +692,8 @@
   /* Ensure content has proper margin-left to clear the sidebar */
   .VPContent.has-sidebar {
     margin-left: var(--vp-sidebar-width) !important;
-    margin-right: calc(var(--vp-toc-width) + 3rem) !important; /* 48px = 3rem */
-    padding: var(--vp-spacing-8) var(--vp-spacing-12) !important;
+    margin-right: var(--vp-toc-width) !important;
+    /* padding moved to custom.css for responsive width control */
   }
 
   /* Adjust doc container - allow content to scale with zoom */
