@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import { CheckCircle2, Circle, Loader2, Ban, SkipForward } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { cn } from '@/lib/utils';
-import { TeamPipeline } from './TeamPipeline';
 import type { DynamicStage, DynamicStageStatus, PhaseInfo } from '@/types/team';
 
 interface DynamicPipelineProps {
@@ -70,9 +69,18 @@ function Arrow() {
 export function DynamicPipeline({ stages, phaseInfo }: DynamicPipelineProps) {
   const { formatMessage } = useIntl();
 
-  // Fallback to static pipeline when no dynamic stages
+  // Fallback: empty state when no dynamic stages are available
   if (stages.length === 0) {
-    return <TeamPipeline messages={[]} />;
+    return (
+      <div className="flex flex-col h-full">
+        <h3 className="text-sm font-medium text-muted-foreground">
+          {formatMessage({ id: 'team.pipeline.title' })}
+        </h3>
+        <p className="text-xs text-muted-foreground text-center py-8">
+          {formatMessage({ id: 'team.pipeline.noStages' })}
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -91,7 +99,7 @@ export function DynamicPipeline({ stages, phaseInfo }: DynamicPipelineProps) {
             </Badge>
             {phaseInfo.currentStep && (
               <Badge variant="secondary">
-                {phaseInfo.currentStep}
+                {formatMessage({ id: 'team.coordinates.step' })}: {phaseInfo.currentStep}
               </Badge>
             )}
             {phaseInfo.gapIteration > 0 && (

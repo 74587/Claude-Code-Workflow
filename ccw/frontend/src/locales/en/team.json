@@ -79,7 +79,8 @@
     "inProgress": "In Progress",
     "pending": "Pending",
     "blocked": "Blocked",
-    "skipped": "Skipped"
+    "skipped": "Skipped",
+    "noStages": "No pipeline stages defined for this session"
   },
   "coordinates": {
     "phase": "Phase",

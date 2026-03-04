@@ -79,7 +79,8 @@
     "inProgress": "进行中",
     "pending": "待处理",
     "blocked": "已阻塞",
-    "skipped": "已跳过"
+    "skipped": "已跳过",
+    "noStages": "此会话未定义流水线阶段"
   },
   "coordinates": {
     "phase": "阶段",

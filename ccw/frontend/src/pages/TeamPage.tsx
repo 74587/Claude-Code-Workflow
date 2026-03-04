@@ -77,8 +77,8 @@ export function TeamPage() {
     [teamData?.role_state]
   );
 
-  // List view
-  if (viewMode === 'list' || !selectedTeam) {
+  // List view (also fallback when selected team data is not available)
+  if (viewMode === 'list' || !selectedTeam || (viewMode === 'detail' && teams.length > 0 && !teamData)) {
     return (
       <div className="space-y-6">
         <TeamListView />
@@ -163,11 +163,15 @@ export function TeamPage() {
         tabs={tabs}
       />
 
-      {/* Pipeline Tab */}
+      {/* Pipeline Tab - shows role details */}
       {detailTab === 'pipeline' && (
         <Card>
           <CardContent className="p-6">
-            <DynamicPipeline stages={stages} phaseInfo={phaseInfo} />
+            <TeamRolePanel
+              members={members}
+              stages={stages}
+              roleState={teamData?.role_state}
+            />
           </CardContent>
         </Card>
       )}
