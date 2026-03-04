@@ -17,7 +17,7 @@ Available CLI endpoints are dynamically defined by the config file
 
 ### Agent Calls
 - **Always use `run_in_background: false`** for Agent tool calls: `Agent({ subagent_type: "xxx", prompt: "...", run_in_background: false })` to ensure synchronous execution and immediate result visibility
-- **TaskOutput usage**: Only use `TaskOutput({ task_id: "xxx", block: false })` + sleep loop to poll completion status. NEVER read intermediate output during agent/CLI execution - wait for final result only
+
 
 ### CLI Tool Calls (ccw cli)
 - **Default**: CLI calls (`ccw cli`) default to background execution (`run_in_background: true`):
