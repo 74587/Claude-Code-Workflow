@@ -27,6 +27,17 @@
   "command": "Command",
   "args": "Arguments",
   "env": "Environment Variables",
+  "transport": {
+    "http": "HTTP",
+    "stdio": "STDIO"
+  },
+  "http": {
+    "url": "Server URL",
+    "headers": "HTTP Headers",
+    "showValue": "Show value",
+    "hideValue": "Hide value",
+    "envVar": "Env Var"
+  },
   "codex": {
     "configPath": "Config Path",
     "readOnly": "Read-only",

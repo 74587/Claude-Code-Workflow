@@ -32,6 +32,8 @@ import {
   saveMcpTemplate,
   type McpServer,
   type McpProjectConfigType,
+  isStdioMcpServer,
+  isHttpMcpServer,
 } from '@/lib/api';
 import { mcpServersKeys, useMcpTemplates } from '@/hooks';
 import { cn } from '@/lib/utils';
@@ -120,11 +122,6 @@ function HttpHeadersInput({ headers, onChange, disabled }: HttpHeadersInputProps
       }
       return next;
     });
-  };
-
-  const maskValue = (value: string) => {
-    if (!value) return '';
-    return '*'.repeat(Math.min(value.length, 8));
   };
 
   return (
@@ -246,9 +243,8 @@ export function McpServerDialog({
   // Helper to detect transport type from server data
   const detectTransportType = useCallback((serverData: McpServer | undefined): McpTransportType => {
     if (!serverData) return 'stdio';
-    // If server has url field (from extended McpServer type), it's HTTP
-    const extendedServer = serverData as McpServer & { url?: string };
-    if (extendedServer.url) return 'http';
+    // Use type guard to check for HTTP server
+    if (isHttpMcpServer(serverData)) return 'http';
     return 'stdio';
   }, []);
 
@@ -258,50 +254,56 @@ export function McpServerDialog({
       const detectedType = detectTransportType(server);
       setTransportType(detectedType);
 
-      const extendedServer = server as McpServer & {
-        url?: string;
-        http_headers?: Record<string, string>;
-        env_http_headers?: Record<string, string>;
-        bearer_token_env_var?: string;
-      };
-
-      // Parse HTTP headers if present
+      // Parse HTTP headers if present (for HTTP servers)
       const httpHeaders: HttpHeader[] = [];
-      if (extendedServer.http_headers) {
-        Object.entries(extendedServer.http_headers).forEach(([name, value], idx) => {
-          httpHeaders.push({
-            id: `header-http-${idx}`,
-            name,
-            value,
-            isEnvVar: false,
+      if (isHttpMcpServer(server)) {
+        // HTTP server - extract headers
+        if (server.httpHeaders) {
+          Object.entries(server.httpHeaders).forEach(([name, value], idx) => {
+            httpHeaders.push({
+              id: `header-http-${idx}`,
+              name,
+              value,
+              isEnvVar: false,
+            });
           });
-        });
-      }
-      if (extendedServer.env_http_headers) {
-        Object.entries(extendedServer.env_http_headers).forEach(([name, envVar], idx) => {
-          httpHeaders.push({
-            id: `header-env-${idx}`,
-            name,
-            value: envVar,
-            isEnvVar: true,
+        }
+        if (server.envHttpHeaders) {
+          // envHttpHeaders is an array of header names that get values from env vars
+          server.envHttpHeaders.forEach((headerName, idx) => {
+            httpHeaders.push({
+              id: `header-env-${idx}`,
+              name: headerName,
+              value: '', // Env var name is not stored in value
+              isEnvVar: true,
+            });
           });
-        });
+        }
       }
+
+      // Get STDIO fields safely using type guard
+      const stdioCommand = isStdioMcpServer(server) ? server.command : '';
+      const stdioArgs = isStdioMcpServer(server) ? (server.args || []) : [];
+      const stdioEnv = isStdioMcpServer(server) ? (server.env || {}) : {};
+
+      // Get HTTP fields safely using type guard
+      const httpUrl = isHttpMcpServer(server) ? server.url : '';
+      const httpBearerToken = isHttpMcpServer(server) ? (server.bearerTokenEnvVar || '') : '';
 
       setFormData({
         name: server.name,
-        command: server.command || '',
-        args: server.args || [],
-        env: server.env || {},
-        url: extendedServer.url || '',
+        command: stdioCommand,
+        args: stdioArgs,
+        env: stdioEnv,
+        url: httpUrl,
         headers: httpHeaders,
-        bearerTokenEnvVar: extendedServer.bearer_token_env_var || '',
+        bearerTokenEnvVar: httpBearerToken,
         scope: server.scope,
         enabled: server.enabled,
       });
-      setArgsInput((server.args || []).join(', '));
+      setArgsInput(stdioArgs.join(', '));
       setEnvInput(
-        Object.entries(server.env || {})
+        Object.entries(stdioEnv)
           .map(([k, v]) => `${k}=${v}`)
           .join('\n')
       );
@@ -488,50 +490,46 @@ export function McpServerDialog({
       return;
     }
 
-    // Build server config based on transport type
-    const serverConfig: McpServer & {
-      url?: string;
-      http_headers?: Record<string, string>;
-      env_http_headers?: Record<string, string>;
-      bearer_token_env_var?: string;
-    } = {
-      name: formData.name,
-      scope: formData.scope,
-      enabled: formData.enabled,
-    };
+    // Build server config based on transport type using discriminated union
+    let serverConfig: McpServer;
 
     if (transportType === 'stdio') {
-      serverConfig.command = formData.command;
-      serverConfig.args = formData.args;
-      serverConfig.env = formData.env;
+      serverConfig = {
+        name: formData.name,
+        transport: 'stdio',
+        command: formData.command,
+        args: formData.args.length > 0 ? formData.args : undefined,
+        env: Object.keys(formData.env).length > 0 ? formData.env : undefined,
+        scope: formData.scope,
+        enabled: formData.enabled,
+      };
     } else {
-      // HTTP transport
-      serverConfig.url = formData.url;
-      serverConfig.command = ''; // Empty command for HTTP servers
-
-      // Separate headers into static and env-based
+      // HTTP transport - separate headers into static and env-based
       const httpHeaders: Record<string, string> = {};
-      const envHttpHeaders: Record<string, string> = {};
+      const envHttpHeaders: string[] = [];
 
       formData.headers.forEach((h) => {
         if (h.name.trim()) {
           if (h.isEnvVar) {
-            envHttpHeaders[h.name.trim()] = h.value.trim();
+            // For env-based headers, store the header name that will be populated from env var
+            envHttpHeaders.push(h.name.trim());
           } else {
             httpHeaders[h.name.trim()] = h.value.trim();
           }
         }
       });
 
-      if (Object.keys(httpHeaders).length > 0) {
-        serverConfig.http_headers = httpHeaders;
-      }
-      if (Object.keys(envHttpHeaders).length > 0) {
-        serverConfig.env_http_headers = envHttpHeaders;
-      }
-      if (formData.bearerTokenEnvVar.trim()) {
-        serverConfig.bearer_token_env_var = formData.bearerTokenEnvVar.trim();
-      }
+      serverConfig = {
+        name: formData.name,
+        transport: 'http',
+        url: formData.url,
+        headers: Object.keys(httpHeaders).length > 0 ? httpHeaders : undefined,
+        httpHeaders: Object.keys(httpHeaders).length > 0 ? httpHeaders : undefined,
+        envHttpHeaders: envHttpHeaders.length > 0 ? envHttpHeaders : undefined,
+        bearerTokenEnvVar: formData.bearerTokenEnvVar.trim() || undefined,
+        scope: formData.scope,
+        enabled: formData.enabled,
+      };
     }
 
     // Save as template if checked (only for STDIO)

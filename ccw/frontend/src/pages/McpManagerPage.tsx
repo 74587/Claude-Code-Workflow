@@ -22,6 +22,9 @@ import {
   ChevronUp,
   BookmarkPlus,
   AlertTriangle,
+  Link,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -54,6 +57,9 @@ import {
   type McpServer,
   type McpServerConflict,
   type CcwMcpConfig,
+  type HttpMcpServer,
+  isHttpMcpServer,
+  isStdioMcpServer,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -70,8 +76,68 @@ interface McpServerCardProps {
   conflictInfo?: McpServerConflict;
 }
 
+/**
+ * Mask a header value for display (show first 4 chars + ***)
+ */
+function maskHeaderValue(value: string): string {
+  if (!value || value.length <= 4) return '****';
+  return value.substring(0, 4) + '****';
+}
+
 function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, onDelete, onSaveAsTemplate, conflictInfo }: McpServerCardProps) {
   const { formatMessage } = useIntl();
+  const [showHeaderValues, setShowHeaderValues] = useState<Record<string, boolean>>({});
+
+  const isHttp = isHttpMcpServer(server);
+  const isStdio = isStdioMcpServer(server);
+
+  // Get display text for server summary line
+  const getServerSummary = () => {
+    if (isHttp) {
+      return server.url;
+    }
+    return `${server.command} ${server.args?.join(' ') || ''}`.trim();
+  };
+
+  // Get all headers for HTTP server (combine Claude + Codex formats)
+  const getHttpHeaders = (): Array<{ name: string; value: string; isEnvVar?: boolean }> => {
+    if (!isHttp) return [];
+
+    const headers: Array<{ name: string; value: string; isEnvVar?: boolean }> = [];
+
+    // Claude format: headers object
+    if (server.headers) {
+      Object.entries(server.headers).forEach(([name, value]) => {
+        headers.push({ name, value });
+      });
+    }
+
+    // Codex format: httpHeaders object
+    if (server.httpHeaders) {
+      Object.entries(server.httpHeaders).forEach(([name, value]) => {
+        headers.push({ name, value });
+      });
+    }
+
+    // Codex format: bearerTokenEnvVar (adds Authorization header)
+    if (server.bearerTokenEnvVar) {
+      headers.push({
+        name: 'Authorization',
+        value: `Bearer $${server.bearerTokenEnvVar}`,
+        isEnvVar: true,
+      });
+    }
+
+    return headers;
+  };
+
+  // Toggle header value visibility
+  const toggleHeaderValue = (headerName: string) => {
+    setShowHeaderValues(prev => ({
+      ...prev,
+      [headerName]: !prev[headerName]
+    }));
+  };
 
   return (
     <Card className={cn('overflow-hidden', !server.enabled && 'opacity-60')}>
@@ -96,6 +162,13 @@ function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, o
                 <span className="text-sm font-medium text-foreground">
                   {server.name}
                 </span>
+                {/* Transport type badge */}
+                {isHttp && (
+                  <Badge variant="outline" className="text-xs text-blue-600 border-blue-300">
+                    <Link className="w-3 h-3 mr-1" />
+                    {formatMessage({ id: 'mcp.transport.http' })}
+                  </Badge>
+                )}
                 <Badge variant={server.scope === 'global' ? 'default' : 'secondary'} className="text-xs">
                   {server.scope === 'global' ? (
                     <><Globe className="w-3 h-3 mr-1" />{formatMessage({ id: 'mcp.scope.global' })}</>
@@ -115,8 +188,8 @@ function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, o
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground mt-1 font-mono">
-                {server.command} {server.args?.join(' ') || ''}
+              <p className="text-sm text-muted-foreground mt-1 font-mono truncate max-w-md" title={getServerSummary()}>
+                {getServerSummary()}
               </p>
             </div>
           </div>
@@ -178,44 +251,100 @@ function McpServerCard({ server, isExpanded, onToggleExpand, onToggle, onEdit, o
       {/* Expanded Content */}
       {isExpanded && (
         <div className="border-t border-border p-4 space-y-3 bg-muted/30">
-          {/* Command details */}
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'mcp.command' })}</p>
-            <code className="text-sm bg-background px-2 py-1 rounded block overflow-x-auto">
-              {server.command}
-            </code>
-          </div>
-
-          {/* Args */}
-          {server.args && server.args.length > 0 && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'mcp.args' })}</p>
-              <div className="flex flex-wrap gap-1">
-                {server.args.map((arg, idx) => (
-                  <Badge key={idx} variant="outline" className="font-mono text-xs">
-                    {arg}
-                  </Badge>
-                ))}
+          {/* HTTP Server Details */}
+          {isHttp && (
+            <>
+              {/* URL */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'mcp.http.url' })}</p>
+                <code className="text-sm bg-background px-2 py-1 rounded block overflow-x-auto break-all">
+                  {server.url}
+                </code>
               </div>
-            </div>
+
+              {/* HTTP Headers */}
+              {getHttpHeaders().length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'mcp.http.headers' })}</p>
+                  <div className="space-y-1">
+                    {getHttpHeaders().map((header) => (
+                      <div key={header.name} className="flex items-center gap-2 text-sm">
+                        <Badge variant="secondary" className="font-mono">{header.name}</Badge>
+                        <span className="text-muted-foreground">=</span>
+                        <code className="text-xs bg-background px-2 py-1 rounded flex-1 overflow-x-auto">
+                          {showHeaderValues[header.name] ? header.value : maskHeaderValue(header.value)}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => toggleHeaderValue(header.name)}
+                          title={showHeaderValues[header.name]
+                            ? formatMessage({ id: 'mcp.http.hideValue' })
+                            : formatMessage({ id: 'mcp.http.showValue' })}
+                        >
+                          {showHeaderValues[header.name] ? (
+                            <EyeOff className="w-3 h-3 text-muted-foreground" />
+                          ) : (
+                            <Eye className="w-3 h-3 text-muted-foreground" />
+                          )}
+                        </Button>
+                        {header.isEnvVar && (
+                          <Badge variant="outline" className="text-xs text-blue-500">
+                            {formatMessage({ id: 'mcp.http.envVar' })}
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
-          {/* Environment variables */}
-          {server.env && Object.keys(server.env).length > 0 && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'mcp.env' })}</p>
-              <div className="space-y-1">
-                {Object.entries(server.env).map(([key, value]) => (
-                  <div key={key} className="flex items-center gap-2 text-sm">
-                    <Badge variant="secondary" className="font-mono">{key}</Badge>
-                    <span className="text-muted-foreground">=</span>
-                    <code className="text-xs bg-background px-2 py-1 rounded flex-1 overflow-x-auto">
-                      {value as string}
-                    </code>
-                  </div>
-                ))}
+          {/* STDIO Server Details */}
+          {isStdio && (
+            <>
+              {/* Command details */}
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'mcp.command' })}</p>
+                <code className="text-sm bg-background px-2 py-1 rounded block overflow-x-auto">
+                  {server.command}
+                </code>
               </div>
-            </div>
+
+              {/* Args */}
+              {server.args && server.args.length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'mcp.args' })}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {server.args.map((arg, idx) => (
+                      <Badge key={idx} variant="outline" className="font-mono text-xs">
+                        {arg}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Environment variables */}
+              {server.env && Object.keys(server.env).length > 0 && (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">{formatMessage({ id: 'mcp.env' })}</p>
+                  <div className="space-y-1">
+                    {Object.entries(server.env).map(([key, value]) => (
+                      <div key={key} className="flex items-center gap-2 text-sm">
+                        <Badge variant="secondary" className="font-mono">{key}</Badge>
+                        <span className="text-muted-foreground">=</span>
+                        <code className="text-xs bg-background px-2 py-1 rounded flex-1 overflow-x-auto">
+                          {value as string}
+                        </code>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* Conflict warning panel */}
@@ -609,18 +738,28 @@ export function McpManagerPage() {
   };
 
   // Filter servers by search query
-  const filteredServers = servers.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.command.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredServers = servers.filter((s) => {
+    const query = searchQuery.toLowerCase();
+    const nameMatch = s.name.toLowerCase().includes(query);
+    // For STDIO servers, search in command; for HTTP servers, search in url
+    const transportMatch = isHttpMcpServer(s)
+      ? s.url?.toLowerCase().includes(query)
+      : s.command?.toLowerCase().includes(query);
+    return nameMatch || transportMatch;
+  });
 
   // Filter Codex servers by search query
   const codexServers = codexQuery.data?.servers ?? [];
   const codexConfigPath = codexQuery.data?.configPath ?? '';
-  const filteredCodexServers = codexServers.filter((s) =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.command.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredCodexServers = codexServers.filter((s) => {
+    const query = searchQuery.toLowerCase();
+    const nameMatch = s.name.toLowerCase().includes(query);
+    // For STDIO servers, search in command; for HTTP servers, search in url
+    const transportMatch = isHttpMcpServer(s)
+      ? s.url?.toLowerCase().includes(query)
+      : s.command?.toLowerCase().includes(query);
+    return nameMatch || transportMatch;
+  });
 
   const currentServers = cliMode === 'codex' ? filteredCodexServers : filteredServers;
   const currentExpanded = cliMode === 'codex' ? codexExpandedServers : expandedServers;
