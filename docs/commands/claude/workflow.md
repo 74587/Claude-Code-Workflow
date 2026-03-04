@@ -11,7 +11,6 @@
 | Command | Function | Syntax |
 |---------|----------|--------|
 | [`lite-plan`](#lite-plan) | Lightweight interactive planning workflow | `/workflow-lite-planex [-y] [-e] "task"` |
-| [`lite-fix`](#lite-fix) | Lightweight bug diagnosis and fix | `/workflow:lite-fix [-y] [--hotfix] "bug description"` |
 
 ### Standard Workflows
 
@@ -84,27 +83,6 @@
 
 # With exploration
 /workflow-lite-planex -e "refactor authentication module"
-```
-
-### lite-fix
-
-**Function**: Lightweight bug diagnosis and fix workflow, supporting intelligent severity assessment and optional hotfix mode.
-
-**Syntax**:
-```bash
-/workflow:lite-fix [-y|--yes] [--hotfix] "bug description or issue reference"
-```
-
-**Options**:
-- `--hotfix`: Hotfix mode (quick fix for production incidents)
-
-**Examples**:
-```bash
-# Bug fix
-/workflow:lite-fix "login returns 500 error"
-
-# Hotfix
-/workflow:lite-fix --hotfix "payment gateway timeout"
 ```
 
 ### plan

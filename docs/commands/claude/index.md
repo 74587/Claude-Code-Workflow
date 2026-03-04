@@ -31,7 +31,6 @@
 | Command | Function | Difficulty |
 |---------|----------|------------|
 | [`/workflow-lite-planex`](./workflow.md#lite-plan) | Lightweight interactive planning workflow | Intermediate |
-| [`/workflow:lite-fix`](./workflow.md#lite-fix) | Lightweight bug diagnosis and fix | Intermediate |
 | [`/workflow-plan`](./workflow.md#plan) | 5-phase planning workflow | Intermediate |
 | [`/workflow-execute`](./workflow.md#execute) | Coordinate agent execution of workflow tasks | Intermediate |
 | [`/workflow:replan`](./workflow.md#replan) | Interactive workflow replanning | Intermediate |
@@ -229,5 +228,5 @@ ccw cli -p "Review code quality" --tool gemini --mode analysis --rule analysis-r
 ## Related Documentation
 
 - [Skills Reference](../skills/)
-- [CLI Invocation System](../features/cli.md)
-- [Workflow Guide](../guide/ch04-workflow-basics.md)
+- [CLI Invocation System](../../features/cli.md)
+- [Workflow Guide](../../guide/ch04-workflow-basics.md)

@@ -31,7 +31,6 @@
 | 命令 | 功能 | 难度 |
 | --- | --- | --- |
 | [`/workflow-lite-planex`](./workflow.md#lite-plan) | 轻量级交互式规划工作流 | Intermediate |
-| [`/workflow:lite-fix`](./workflow.md#lite-fix) | 轻量级 Bug 诊断和修复 | Intermediate |
 | [`/workflow-plan`](./workflow.md#plan) | 5 阶段规划工作流 | Intermediate |
 | [`/workflow-execute`](./workflow.md#execute) | 协调代理执行工作流任务 | Intermediate |
 | [`/workflow:replan`](./workflow.md#replan) | 交互式工作流重新规划 | Intermediate |
@@ -227,5 +226,5 @@ ccw cli -p "审查代码质量" --tool gemini --mode analysis --rule analysis-re
 ## 相关文档
 
 - [Skills 参考](../skills/)
-- [CLI 调用系统](../features/cli.md)
-- [工作流指南](../guide/ch04-workflow-basics.md)
+- [CLI 调用系统](../../features/cli.md)
+- [工作流指南](../../guide/ch04-workflow-basics.md)

@@ -38,11 +38,12 @@ export function deriveStageStatus(
 }
 
 /**
- * Three-tier pipeline stage detection.
+ * Four-tier pipeline stage detection.
  *
  * Tier 1 - explicit `pipeline_stages` from meta
- * Tier 2 - inferred from message senders (excluding "coordinator")
- * Tier 3 - legacy 4-stage fallback
+ * Tier 2 - explicit `roles` list from meta (excluding coordinator)
+ * Tier 3 - inferred from message senders (excluding "coordinator")
+ * Tier 4 - legacy 4-stage fallback
  */
 export function derivePipelineStages(
   meta: {
@@ -67,7 +68,20 @@ export function derivePipelineStages(
     });
   }
 
-  // Tier 2: extract from message senders
+  // Tier 2: explicit roles list from meta (authoritative source from coordinator)
+  if (meta.roles && meta.roles.length > 0) {
+    const workerRoles = meta.roles.filter((r) => r.toLowerCase() !== 'coordinator');
+    if (workerRoles.length > 0) {
+      return workerRoles.map((role) => ({
+        id: role.toUpperCase(),
+        label: formatStageLabel(role),
+        role,
+        status: deriveStageStatus(role, messages),
+      }));
+    }
+  }
+
+  // Tier 3: extract from message senders
   if (messages.length > 0) {
     const seen = new Map<string, string>(); // lowercase sender -> original sender
     for (const msg of messages) {
@@ -89,7 +103,7 @@ export function derivePipelineStages(
     }
   }
 
-  // Tier 3: legacy fallback
+  // Tier 4: legacy fallback
   return LEGACY_STAGES.map((stage) => ({
     id: stage.toUpperCase(),
     label: formatStageLabel(stage),

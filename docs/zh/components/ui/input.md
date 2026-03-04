@@ -113,6 +113,6 @@ function Example() {
 
 ## 相关组件
 
-- [Button 按钮](/zh-CN/components/ui/button)
-- [Select 选择器](/zh-CN/components/ui/select)
-- [Checkbox 复选框](/zh-CN/components/ui/checkbox)
+- [Button 按钮](/zh/components/ui/button)
+- [Select 选择器](/zh/components/ui/select)
+- [Checkbox 复选框](/zh/components/ui/checkbox)

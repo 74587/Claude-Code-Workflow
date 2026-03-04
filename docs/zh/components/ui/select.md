@@ -122,6 +122,6 @@ const selectedValue = ref('')
 
 ## 相关组件
 
-- [Input 输入框](/zh-CN/components/ui/input)
-- [Checkbox 复选框](/zh-CN/components/ui/checkbox)
-- [Button 按钮](/zh-CN/components/ui/button)
+- [Input 输入框](/zh/components/ui/input)
+- [Checkbox 复选框](/zh/components/ui/checkbox)
+- [Button 按钮](/zh/components/ui/button)

@@ -12,7 +12,7 @@
 
 **Location**: `ccw/frontend/src/pages/LiteTasksPage.tsx`
 
-**Purpose**: Lite-plan and lite-fix task list page with TaskDrawer for details.
+**Purpose**: Lite-plan and multi-cli-plan task list page with TaskDrawer for details.
 
 **Access**: Navigation → Lite Tasks
 
@@ -20,7 +20,7 @@
 
 | Feature | Description |
 |---------|-------------|
-| **Type Tabs** | Switch between lite-plan, lite-fix, multi-cli-plan types |
+| **Type Tabs** | Switch between lite-plan, multi-cli-plan types |
 | **Task Cards** | Display task title, description, status, tags, progress |
 | **TaskDrawer** | Slide-over panel with full task context and synthesis |
 | **Round Synthesis** | Multi-perspective analysis results |
@@ -34,7 +34,6 @@
 | Type | Description |
 |------|-------------|
 | **lite-plan** | Quick planning tasks |
-| **lite-fix** | Quick bug fix tasks |
 | **multi-cli-plan** | Multi-perspective planning with multiple tools |
 
 ### Task Status Flow

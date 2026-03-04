@@ -202,7 +202,7 @@ CLI tool configuration commands.
   /cli:cli-init
   ```
 
-> **Note**: For analysis, planning, and bug fixing, use workflow commands (`/workflow-lite-planex`, `/workflow:lite-fix`) or semantic invocation through natural language. Claude will automatically use appropriate CLI tools (Gemini/Qwen/Codex) with templates as needed.
+> **Note**: For analysis, planning, and bug fixing, use workflow commands (`/workflow-lite-planex`, `/workflow:debug-with-file`) or semantic invocation through natural language. Claude will automatically use appropriate CLI tools (Gemini/Qwen/Codex) with templates as needed.
 
 ---
 

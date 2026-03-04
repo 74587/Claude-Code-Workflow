@@ -102,6 +102,6 @@ sidebar: auto
 
 ## 相关组件
 
-- [Button 按钮](/zh-CN/components/ui/button)
-- [Badge 徽章](/zh-CN/components/ui/badge)
-- [Separator 分隔线](/zh-CN/components/ui/separator)
+- [Button 按钮](/zh/components/ui/button)
+- [Badge 徽章](/zh/components/ui/badge)
+- [Separator 分隔线](/zh/components/ui/separator)

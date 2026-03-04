@@ -11,7 +11,6 @@
 | 命令 | 功能 | 语法 |
 | --- | --- | --- |
 | [`lite-plan`](#lite-plan) | 轻量级交互式规划工作流 | `/workflow-lite-planex [-y] [-e] "任务"` |
-| [`lite-fix`](#lite-fix) | 轻量级 Bug 诊断和修复 | `/workflow:lite-fix [-y] [--hotfix] "Bug 描述"` |
 
 ### 标准工作流
 
@@ -84,27 +83,6 @@
 
 # 带探索
 /workflow-lite-planex -e "重构认证模块"
-```
-
-### lite-fix
-
-**功能**: 轻量级 Bug 诊断和修复工作流，支持智能严重程度评估和可选的热修复模式。
-
-**语法**:
-```bash
-/workflow:lite-fix [-y|--yes] [--hotfix] "Bug 描述或 Issue 引用"
-```
-
-**选项**:
-- `--hotfix`: 热修复模式（生产事故快速修复）
-
-**示例**:
-```bash
-# Bug 修复
-/workflow:lite-fix "登录时出现 500 错误"
-
-# 热修复
-/workflow:lite-fix --hotfix "支付网关超时"
 ```
 
 ### plan

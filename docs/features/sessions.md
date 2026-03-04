@@ -182,6 +182,6 @@ interface SessionsFilter {
 ## Related Links
 
 - [Dashboard](/features/dashboard) - Overview of all sessions with statistics
-- [Lite Tasks](/features/tasks-history) - Lite-plan and lite-fix task management
+- [Lite Tasks](/features/tasks-history) - Lite-plan and multi-cli-plan task management
 - [Terminal Dashboard](/features/terminal-dashboard) - Terminal-first session monitoring
 - [Orchestrator](/features/orchestrator) - Workflow template editor

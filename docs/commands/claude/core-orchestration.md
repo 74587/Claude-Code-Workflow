@@ -47,7 +47,7 @@ graph TD
 
 | Type | Trigger Keywords | Workflow |
 |------|------------------|----------|
-| **Bug Fix** | urgent, production, critical + fix, bug | lite-fix |
+| **Bug Fix** | urgent, production, critical + fix, bug | debug-with-file |
 | **Brainstorming** | brainstorm, ideation | brainstorm-with-file |
 | **Debug Document** | debug document, hypothesis | debug-with-file |
 | **Collaborative Analysis** | analyze document | analyze-with-file |
@@ -163,4 +163,4 @@ Both commands support the `--yes` flag for auto mode:
 
 - [Workflow Commands](./workflow.md)
 - [Session Management](./session.md)
-- [CLI Invocation System](../features/cli.md)
+- [CLI Invocation System](../../features/cli.md)

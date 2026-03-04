@@ -75,6 +75,6 @@ sidebar: auto
 
 ## 相关组件
 
-- [Input 输入框](/zh-CN/components/ui/input)
-- [Select 选择器](/zh-CN/components/ui/select)
-- [Dialog 对话框](/zh-CN/components/ui/dialog)
+- [Input 输入框](/zh/components/ui/input)
+- [Select 选择器](/zh/components/ui/select)
+- [Dialog 对话框](/zh/components/ui/dialog)

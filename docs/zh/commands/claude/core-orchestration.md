@@ -82,7 +82,7 @@ graph TD
 
 | 优先级 | 类型 | 触发关键词 | 工作流 |
 |--------|------|-----------|--------|
-| 1 | Bug 修复 (紧急) | urgent, production, critical + fix, bug | lite-fix (--hotfix) |
+| 1 | Bug 修复 (紧急) | urgent, production, critical + fix, bug | debug-with-file |
 | 2 | 头脑风暴 | brainstorm, ideation, 头脑风暴, 创意, 发散思维 | brainstorm-with-file |
 | 3 | 头脑风暴→Issue | brainstorm.*issue, 头脑风暴.*issue | issue:from-brainstorm |
 | 4 | 调试文档 | debug.*document, hypothesis, 假设验证, 深度调试 | debug-with-file |
@@ -94,7 +94,7 @@ graph TD
 | 10 | 重构 | refactor, 重构, tech.*debt, 技术债务 | refactor-cycle |
 | 11 | 团队工作流 | team.*plan.*exec, 团队规划执行, wave pipeline | team-planex |
 | 12 | 多CLI协作 | multi.*cli, 多CLI, 多模型协作 | multi-cli-plan |
-| 13 | Bug 修复 | fix, bug, error, crash, fail, debug | lite-fix |
+| 13 | Bug 修复 | fix, bug, error, crash, fail, debug | debug-with-file |
 | 14 | Issue 批量 | issues?.*batch, 批量issue | issue:discover → execute |
 | 15 | Issue 转换 | issue workflow, structured workflow | lite-plan → convert-to-plan |
 | 16 | 探索 | uncertain, explore, 研究, what if | brainstorm → plan |
@@ -411,4 +411,4 @@ Task: <description>
 
 - [工作流命令](./workflow.md)
 - [会话管理](./session.md)
-- [CLI 调用系统](../features/cli.md)
+- [CLI 调用系统](../../features/cli.md)
