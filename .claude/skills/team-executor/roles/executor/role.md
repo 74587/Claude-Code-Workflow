@@ -23,7 +23,7 @@ Orchestrate the team-executor workflow: session validation, state reconciliation
 ### MUST NOT
 - Execute task work directly (delegate to workers)
 - Modify task output artifacts (workers own their deliverables)
-- Call implementation subagents (code-developer, etc.) directly
+- Call CLI tools or spawn utility members directly for implementation (code-developer, etc.)
 - Generate new role-specs (use existing session role-specs only)
 - Skip session validation
 - Override consensus_blocked HIGH without user confirmation

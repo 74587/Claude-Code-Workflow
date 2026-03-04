@@ -11,7 +11,7 @@ Template used by coordinator to generate lightweight worker role-spec files at r
 role: <role_name>
 prefix: <PREFIX>
 inner_loop: <true|false>
-subagents: [<subagent-names>]
+CLI tools: [<CLI tool-names>]
 message_types:
   success: <prefix>_complete
   error: error
@@ -45,7 +45,7 @@ message_types:
 | `role` | Yes | Role name matching session registry |
 | `prefix` | Yes | Task prefix to filter (e.g., RESEARCH, DRAFT, IMPL) |
 | `inner_loop` | Yes | Whether team-worker loops through same-prefix tasks |
-| `subagents` | No | Array of subagent types this role may call |
+| `CLI tools` | No | Array of CLI tool types this role may call |
 | `message_types` | Yes | Message type mapping for team_msg |
 | `message_types.success` | Yes | Type string for successful completion |
 | `message_types.error` | Yes | Type string for errors (usually "error") |
@@ -61,13 +61,13 @@ message_types:
 | ~80 lines target | Lightweight, domain-focused |
 | No pseudocode | Decision tables + text + tool calls only |
 | `<placeholder>` notation | Use angle brackets for variable substitution |
-| Reference subagents by name | team-worker resolves invocation from its delegation templates |
+| Reference CLI tools by name | team-worker resolves invocation from its delegation templates |
 
 ## Behavioral Traits
 
 All dynamically generated role-specs MUST embed these traits into Phase 4. Coordinator copies this section verbatim into every generated role-spec as a Phase 4 appendix.
 
-**Design principle**: Constrain behavioral characteristics (accuracy, feedback, quality gates), NOT specific actions (which tool, which subagent, which path). Tasks are diverse — the coordinator composes task-specific Phase 2-3 instructions, while these traits ensure execution quality regardless of task type.
+**Design principle**: Constrain behavioral characteristics (accuracy, feedback, quality gates), NOT specific actions (which tool, which CLI tool, which path). Tasks are diverse — the coordinator composes task-specific Phase 2-3 instructions, while these traits ensure execution quality regardless of task type.
 
 ### Accuracy — outputs must be verifiable
 
@@ -95,7 +95,7 @@ Phase 4 must produce a verification summary with these fields:
 
 ### Error Protocol
 
-- Primary approach fails → try alternative (different subagent / different tool)
+- Primary approach fails → try alternative (different CLI tool / different tool)
 - 2 retries exhausted → escalate to coordinator with failure details
 - NEVER: skip verification and report completed
 
@@ -108,7 +108,7 @@ Coordinator MAY reference these patterns when composing Phase 2-4 content for a 
 ### Research / Exploration
 
 - Phase 2: Define exploration scope + load prior knowledge from shared state and wisdom
-- Phase 3: Explore via subagents, direct tool calls, or codebase search — approach chosen by agent
+- Phase 3: Explore via CLI tools, direct tool calls, or codebase search — approach chosen by agent
 - Phase 4: Verify findings documented (Behavioral Traits) + update shared state
 
 ### Document / Content
@@ -120,7 +120,7 @@ Coordinator MAY reference these patterns when composing Phase 2-4 content for a 
 ### Code Implementation
 
 - Phase 2: Load design/spec artifacts from upstream
-- Phase 3: Implement code changes — subagent choice and approach determined by task complexity
+- Phase 3: Implement code changes — CLI tool choice and approach determined by task complexity
 - Phase 4: Syntax check + file verification (Behavioral Traits) + update shared state
 
 ### Analysis / Audit

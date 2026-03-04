@@ -1,7 +1,7 @@
 ---
 prefix: EXPLORE
 inner_loop: false
-subagents: [cli-explore-agent]
+additional_members: []
 message_types:
   success: context_ready
   error: error
@@ -44,8 +44,8 @@ Bash("ccw issue status <issueId> --json")
 
 | Score | Complexity | Strategy |
 |-------|------------|----------|
-| >= 4 | High | Deep exploration via cli-explore-agent |
-| 2-3 | Medium | Hybrid: ACE search + selective agent |
+| >= 4 | High | Deep exploration via CLI tool |
+| 2-3 | Medium | Hybrid: ACE search + selective CLI |
 | 0-1 | Low | Direct ACE search only |
 
 **Exploration execution**:

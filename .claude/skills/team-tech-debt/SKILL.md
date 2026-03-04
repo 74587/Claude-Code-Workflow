@@ -224,7 +224,7 @@ TDSCAN-001 内部并行架构:
          ┌────────────────────────────────────────────────────┐
          │                  Scanner Worker                     │
          │                                                     │
-         │  Fan-out A: Subagent Exploration (并行 cli-explore) │
+         │  Fan-out A: CLI Exploration (parallel CLI explore)    │
          │  ┌──────────┐ ┌──────────┐ ┌──────────┐            │
          │  │structure  │ │patterns  │ │deps      │            │
          │  │角度       │ │角度      │ │角度      │             │

@@ -192,7 +192,7 @@ All outputs must carry `[role_name]` prefix.
 | Allowed | Forbidden |
 |---------|-----------|
 | Discuss roadmap with user (AskUserQuestion) | Direct code writing/modification |
-| Create task chain (TaskCreate) | Calling implementation subagents |
+| Create task chain (TaskCreate) | Calling CLI tools for implementation |
 | Dispatch tasks to workers | Direct analysis/testing/verification |
 | Monitor progress (message bus) | Bypassing workers |
 | Report results to user | Modifying source code |

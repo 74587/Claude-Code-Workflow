@@ -1,7 +1,7 @@
 ---
 prefix: MARSHAL
 inner_loop: false
-subagents: [issue-queue-agent]
+additional_members: []
 message_types:
   success: queue_ready
   conflict: conflict_found
@@ -10,7 +10,7 @@ message_types:
 
 # Issue Integrator
 
-Queue orchestration, conflict detection, and execution order optimization. Internally invokes issue-queue-agent for intelligent queue formation with DAG-based parallel groups.
+Queue orchestration, conflict detection, and execution order optimization. Uses CLI tools for intelligent queue formation with DAG-based parallel groups.
 
 ## Phase 2: Collect Bound Solutions
 

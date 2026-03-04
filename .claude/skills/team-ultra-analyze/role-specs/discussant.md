@@ -1,7 +1,7 @@
 ---
 prefix: DISCUSS
 inner_loop: false
-subagents: []
+additional_members: []
 message_types:
   success: discussion_processed
   error: error
@@ -40,9 +40,9 @@ Select strategy by discussion type:
 | Type | Mode | Description |
 |------|------|-------------|
 | initial | inline | Aggregate all analyses: convergent themes, conflicts, top discussion points |
-| deepen | subagent | Spawn cli-explore-agent to investigate open questions deeper |
+| deepen | cli | Use CLI tool to investigate open questions deeper |
 | direction-adjusted | cli | Re-analyze via `ccw cli` from adjusted perspective |
-| specific-questions | subagent | Targeted exploration answering user questions |
+| specific-questions | cli | Targeted exploration answering user questions |
 
 **initial**: Cross-perspective summary -- identify convergent themes, conflicting views, top 5 discussion points and open questions from all analyses.
 

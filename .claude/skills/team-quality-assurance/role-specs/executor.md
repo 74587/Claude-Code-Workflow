@@ -2,7 +2,7 @@
 prefix: QARUN
 inner_loop: true
 additional_prefixes: [QARUN-gc]
-subagents: []
+additional_members: []
 message_types:
   success: tests_passed
   failure: tests_failed
@@ -50,7 +50,7 @@ Per iteration:
 4. If pass rate >= 95% and iteration >= 2 -> exit loop (good enough)
 5. If iteration >= MAX -> exit loop (report current state)
 6. Extract failure details (error lines, assertion failures)
-7. Delegate fix to code-developer subagent with constraints:
+7. Delegate fix via CLI tool with constraints:
    - ONLY modify test files, NEVER modify source code
    - Fix: incorrect assertions, missing imports, wrong mocks, setup issues
    - Do NOT: skip tests, add `@ts-ignore`, use `as any`

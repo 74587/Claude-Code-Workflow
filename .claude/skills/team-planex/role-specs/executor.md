@@ -85,6 +85,6 @@ Send `impl_complete` message to coordinator via team_msg + SendMessage.
 |---------|-----------|
 | Load solution from file | Create or modify issues |
 | Implement via CLI tools (Codex/Gemini) | Modify solution artifacts |
-| Run tests | Spawn subagents (use CLI tools instead) |
+| Run tests | Spawn additional agents (use CLI tools instead) |
 | git commit | Direct user interaction |
 | Update issue status | Create tasks for other roles |

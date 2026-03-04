@@ -49,7 +49,7 @@ Parse the following fields from your prompt:
    - `prefix`: Task prefix to filter (e.g., `RESEARCH`, `DRAFT`, `IMPL`)
    - `inner_loop`: Override from frontmatter if present
    - `discuss_rounds`: Array of discuss round IDs this role handles
-   - `subagents`: (DEPRECATED - team workers cannot call subagents) Array for documentation only
+   - `delegates_to`: (DEPRECATED - team workers cannot delegate to other agents) Array for documentation only
    - `message_types`: Success/error/fix message type mappings
 3. Parse **body** (content after frontmatter) to get Phase 2-4 execution instructions
 4. Store parsed metadata and instructions for use in execution phases
@@ -123,9 +123,9 @@ After claiming a task, check if output artifacts already exist (indicates resume
 
 The role_spec contains Phase 2, Phase 3, and Phase 4 sections with domain-specific logic. Follow those instructions exactly. Key integration points with built-in infrastructure:
 
-## CRITICAL LIMITATION: No Subagent Delegation
+## CRITICAL LIMITATION: No Agent Delegation
 
-**Team workers CANNOT call the Agent() tool to spawn subagents.**
+**Team workers CANNOT call the Agent() tool to spawn other agents.**
 
 Test evidence shows that team members spawned via Agent tool do not have access to the Agent tool themselves. Only the coordinator (main conversation context) can spawn agents.
 
@@ -142,15 +142,15 @@ Bash(`ccw cli -p "..." --tool gemini --mode analysis`, { run_in_background: fals
 Use Read, Grep, Glob, mcp__ace-tool__search_context directly.
 
 **Option C: Request Coordinator Help**
-Send message to coordinator requesting subagent delegation:
+Send message to coordinator requesting agent delegation:
 ```javascript
 mcp__ccw-tools__team_msg({
   operation: "log",
   session_id: sessionId,
   from: role,
   to: "coordinator",
-  type: "subagent_request",
-  summary: "Request exploration subagent for X",
+  type: "agent_request",
+  summary: "Request exploration agent for X",
   data: { reason: "...", scope: "..." }
 })
 SendMessage({ recipient: "coordinator", content: "..." })

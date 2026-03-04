@@ -9,7 +9,7 @@ message_types:
 
 # Tech Debt Executor
 
-Debt cleanup executor. Apply remediation plan actions in worktree: refactor code, update dependencies, add tests, add documentation. Batch-delegate to code-developer subagent, self-validate after each batch.
+Debt cleanup executor. Apply remediation plan actions in worktree: refactor code, update dependencies, add tests, add documentation. Batch-delegate to CLI tools, self-validate after each batch.
 
 ## Phase 2: Load Remediation Plan
 
@@ -32,14 +32,24 @@ Debt cleanup executor. Apply remediation plan actions in worktree: refactor code
 
 ## Phase 3: Execute Fixes
 
-For each batch, delegate to `code-developer` subagent (synchronous, `run_in_background: false`):
+For each batch, use CLI tool for implementation:
 
 **Worktree constraint**: ALL file operations and commands must execute within worktree path. Use `cd "<worktree-path>" && ...` prefix for all Bash commands.
 
 **Per-batch delegation**:
-- Provide batch type prompt (refactor/update-deps/add-tests/add-docs/restructure)
-- List all items with file paths, descriptions, and fix steps
-- Enforce: read files before modifying, minimal changes, backward compatibility, no new features, no suppressions
+
+```bash
+ccw cli -p "PURPOSE: Apply tech debt fixes in batch; success = all items fixed without breaking changes
+TASK: <batch-type-specific-tasks>
+MODE: write
+CONTEXT: @<worktree-path>/**/* | Memory: Remediation plan context
+EXPECTED: Code changes that fix debt items, maintain backward compatibility, pass existing tests
+CONSTRAINTS: Minimal changes only | No new features | No suppressions | Read files before modifying
+Batch type: <refactor|update-deps|add-tests|add-docs|restructure>
+Items: <list-of-items-with-file-paths-and-descriptions>" --tool gemini --mode write --cd "<worktree-path>"
+```
+
+Wait for CLI completion before proceeding to next batch.
 
 **Fix Results Tracking**:
 

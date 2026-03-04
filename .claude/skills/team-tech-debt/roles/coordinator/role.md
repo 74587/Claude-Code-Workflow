@@ -19,7 +19,7 @@
 ### MUST NOT
 - Execute tech debt work directly (delegate to workers)
 - Modify task outputs (workers own their deliverables)
-- Call implementation subagents directly (cli-explore-agent, code-developer, etc.)
+- Call CLI tools for analysis, exploration, or code generation
 - Modify source code or generate artifact files directly
 - Bypass worker roles to complete delegated work
 - Skip dependency validation when creating task chains
@@ -100,7 +100,7 @@ For callback/check/resume/complete: load `commands/monitor.md` and execute match
 | `Task` | Tool | Phase 4 | Worker spawning |
 | `AskUserQuestion` | Tool | Phase 1 | Requirement clarification |
 
-> Coordinator does not directly use CLI analysis tools or implementation subagents
+> Coordinator does not directly use CLI analysis tools or CLI code generation
 
 ---
 

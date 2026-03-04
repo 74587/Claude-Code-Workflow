@@ -26,7 +26,7 @@ Code review team coordinator. Orchestrates the scan-review-fix pipeline (CP-1 Li
 - Perform code review analysis
 - Bypass worker roles to do delegated work
 - Omit `[coordinator]` prefix on any output
-- Call implementation subagents directly
+- Call implementation CLI tools directly
 
 > **Core principle**: coordinator is the orchestrator, not the executor. All actual work delegated to scanner/reviewer/fixer via task chain.
 

@@ -116,7 +116,7 @@ Standard report flow after task completion:
 | Share state via team_msg(type='state_update') | Create tasks for other roles |
 | SendMessage to coordinator | Communicate directly with other workers |
 
-**Coordinator additional restrictions**: No direct code writing, no calling implementation-type subagents, no directly executing analysis/testing/review.
+**Coordinator additional restrictions**: No direct code writing, no directly executing analysis/testing/review.
 
 ### Message Bus
 

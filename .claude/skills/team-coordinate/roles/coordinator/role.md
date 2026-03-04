@@ -25,7 +25,7 @@ Orchestrate the team-coordinate workflow: task analysis, dynamic role-spec gener
 - **Read source code or perform codebase exploration** (delegate to worker roles)
 - Execute task work directly (delegate to workers)
 - Modify task output artifacts (workers own their deliverables)
-- Call implementation subagents (code-developer, etc.) directly
+- Call implementation agents (code-developer, etc.) directly
 - Skip dependency validation when creating task chains
 - Generate more than 5 worker roles (merge if exceeded)
 - Override consensus_blocked HIGH without user confirmation

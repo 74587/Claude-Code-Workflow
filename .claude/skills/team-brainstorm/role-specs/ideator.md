@@ -1,7 +1,7 @@
 ---
 prefix: IDEA
 inner_loop: false
-subagents: []
+delegates_to: []
 message_types:
   success: ideas_ready
   error: error

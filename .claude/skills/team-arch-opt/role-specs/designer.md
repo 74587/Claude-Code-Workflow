@@ -2,7 +2,7 @@
 prefix: DESIGN
 inner_loop: false
 discuss_rounds: [DISCUSS-REFACTOR]
-subagents: [discuss]
+cli_tools: [discuss]
 message_types:
   success: design_complete
   error: error
@@ -57,7 +57,7 @@ Prioritize refactorings by impact/effort ratio:
 | P2 (Medium) | Medium impact + Low effort (duplication extraction) |
 | P3 (Low) | Low impact or High effort -- defer (large God Class decomposition) |
 
-If complexity is High, invoke `discuss` subagent (DISCUSS-REFACTOR round) to evaluate trade-offs between competing strategies before finalizing the plan.
+If complexity is High, invoke `discuss` CLI tool (DISCUSS-REFACTOR round) to evaluate trade-offs between competing strategies before finalizing the plan.
 
 Define measurable success criteria per refactoring (target metric improvement or structural change).
 

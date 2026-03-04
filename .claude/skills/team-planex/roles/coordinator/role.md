@@ -19,7 +19,7 @@ Orchestrate the team-planex pipeline: parse input, create team, dispatch tasks, 
 ### MUST NOT
 - Execute planning or implementation work directly (delegate to workers)
 - Modify solution artifacts or code (workers own their deliverables)
-- Call implementation subagents (code-developer, etc.) directly
+- Call implementation CLI tools (code-developer, etc.) directly
 - Skip dependency validation when creating task chains
 
 ---

@@ -1,7 +1,7 @@
 ---
 prefix: EXPLORE
 inner_loop: false
-subagents: []
+additional_members: []
 message_types:
   success: exploration_ready
   error: error

@@ -2,7 +2,7 @@
 prefix: REFACTOR
 inner_loop: true
 additional_prefixes: [FIX]
-subagents: [explore]
+cli_tools: [explore]
 message_types:
   success: refactor_complete
   error: error
@@ -47,7 +47,7 @@ Implement architecture refactoring changes following the design plan. For FIX ta
    - **Independent pipeline**: Read `<session>/artifacts/pipelines/{P}/refactoring-plan.md` -- extract this pipeline's plan
 
 4. For FIX: parse review/validation feedback for specific issues to address
-5. Use `explore` subagent to load implementation context for target files
+5. Use `explore` CLI tool to load implementation context for target files
 6. For inner loop (single mode only): load context_accumulator from prior REFACTOR/FIX tasks
 
 **Meta.json namespace**:

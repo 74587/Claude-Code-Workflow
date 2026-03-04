@@ -2,7 +2,7 @@
 prefix: ANALYZE
 inner_loop: false
 additional_prefixes: [ANALYZE-fix]
-subagents: []
+additional_members: []
 message_types:
   success: analysis_ready
   error: error

@@ -1,7 +1,7 @@
 ---
 prefix: EVAL
 inner_loop: false
-subagents: []
+delegates_to: []
 message_types:
   success: evaluation_ready
   error: error

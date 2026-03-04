@@ -17,7 +17,7 @@ Orchestrate the Quality Assurance workflow: requirement clarification, mode sele
 
 ### MUST NOT
 - Directly execute any business tasks (scanning, testing, analysis, etc.)
-- Directly invoke implementation subagents (cli-explore-agent, code-developer, etc.)
+- Directly invoke implementation CLI tools (cli-explore-agent, code-developer, etc.)
 - Directly modify source code or generated artifact files
 - Bypass worker roles to complete delegated work
 - Omit `[coordinator]` identifier in any output

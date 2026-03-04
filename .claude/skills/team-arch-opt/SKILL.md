@@ -27,7 +27,7 @@ Unified team skill: Analyze codebase architecture, identify structural issues (d
 analyzer desig-  refact- valid-  review-
          ner     orer    ator    er
 
-  Subagents (callable by workers, not team members):
+  CLI Tools (callable by workers inline):
     [explore]  [discuss]
 
 (tw) = team-worker agent
@@ -52,12 +52,12 @@ Parse `$ARGUMENTS`. No `--role` needed -- always routes to coordinator.
 | validator | [role-specs/validator.md](role-specs/validator.md) | VALIDATE-* | validation | false |
 | reviewer | [role-specs/reviewer.md](role-specs/reviewer.md) | REVIEW-* / QUALITY-* | read_only_analysis | false |
 
-### Subagent Registry
+### CLI Tool Registry
 
-| Subagent | Spec | Callable By | Purpose |
-|----------|------|-------------|---------|
-| explore | [subagents/explore-subagent.md](subagents/explore-subagent.md) | analyzer, refactorer | Shared codebase exploration for architecture-critical structures and dependency graphs |
-| discuss | [subagents/discuss-subagent.md](subagents/discuss-subagent.md) | designer, reviewer | Multi-perspective discussion for refactoring approaches and review findings |
+| Tool | Spec | Used By | Purpose |
+|------|------|---------|---------|
+| explore | [cli-tools/explore.md](cli-tools/explore.md) | analyzer, refactorer | Shared codebase exploration for architecture-critical structures and dependency graphs |
+| discuss | [cli-tools/discuss.md](cli-tools/discuss.md) | designer, reviewer | Multi-perspective discussion for refactoring approaches and review findings |
 
 ### Dispatch
 
@@ -460,7 +460,7 @@ Coordinator supports `--resume` / `--continue` for interrupted sessions:
 |----------|------------|
 | Role spec file not found | Error with expected path (role-specs/<name>.md) |
 | Command file not found | Fallback to inline execution in coordinator role.md |
-| Subagent spec not found | Error with expected path (subagents/<name>-subagent.md) |
+| CLI tool spec not found | Error with expected path (cli-tools/<name>.md) |
 | Fast-advance orphan detected | Coordinator resets task to pending on next check |
 | consensus_blocked HIGH | Coordinator creates revision task or pauses pipeline |
 | team-worker agent unavailable | Error: requires .claude/agents/team-worker.md |

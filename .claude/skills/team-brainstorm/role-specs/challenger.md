@@ -1,7 +1,7 @@
 ---
 prefix: CHALLENGE
 inner_loop: false
-subagents: []
+delegates_to: []
 message_types:
   success: critique_ready
   error: error

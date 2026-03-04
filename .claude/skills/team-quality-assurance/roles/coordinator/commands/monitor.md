@@ -132,7 +132,7 @@ const STAGE_WORKER_MAP = {
 
 ```
 Agent({
-  subagent_type: "team-worker",
+  agent_type: "team-worker",
   description: "Spawn <role> worker for <task-id>",
   team_name: "quality-assurance",
   name: "<role>",

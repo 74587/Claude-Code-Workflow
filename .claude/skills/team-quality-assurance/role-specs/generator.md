@@ -2,7 +2,7 @@
 prefix: QAGEN
 inner_loop: false
 additional_prefixes: [QAGEN-fix]
-subagents: []
+additional_members: []
 message_types:
   success: tests_generated
   revised: tests_revised
@@ -38,7 +38,7 @@ Generate test code according to strategist's strategy and layers. Support L1 uni
 |-----------|------|
 | GC fix task | Read failure info from `<session>/results/run-<layer>.json`, fix failing tests only |
 | <= 3 focus files | Direct: inline Read source -> Write test file |
-| > 3 focus files | Batch by module, delegate to code-developer subagent |
+| > 3 focus files | Batch by module, delegate via CLI tool |
 
 **Direct generation flow** (per source file):
 1. Read source file content, extract exports

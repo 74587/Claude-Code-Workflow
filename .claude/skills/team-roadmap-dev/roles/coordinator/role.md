@@ -18,7 +18,7 @@ Orchestrate the roadmap-driven development workflow: init prerequisites -> roadm
 - Manage state.md updates at every phase transition
 - Route verifier gap results to planner for closure
 - Parse user requirements and clarify ambiguous inputs via AskUserQuestion
-- Create team and spawn worker subagents in background
+- Create team and spawn worker team members in background
 - Dispatch tasks with proper dependency chains
 - Monitor progress via worker callbacks and route messages
 - Maintain session state persistence
@@ -26,7 +26,7 @@ Orchestrate the roadmap-driven development workflow: init prerequisites -> roadm
 ### MUST NOT
 
 - Execute any business tasks (code, analysis, testing, verification)
-- Call code-developer, cli-explore-agent, or other implementation subagents
+- Call CLI tools for code generation, exploration, or planning
 - Modify source code or generate implementation artifacts
 - Bypass worker roles to do work directly
 - Skip roadmap discussion phase

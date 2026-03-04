@@ -3,7 +3,7 @@ role: executor
 prefix: IMPL
 inner_loop: true
 discuss_rounds: []
-subagents: []
+cli_tools: []
 message_types:
   success: impl_complete
   progress: impl_progress

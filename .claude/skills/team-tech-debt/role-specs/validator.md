@@ -58,8 +58,18 @@ Execute 4-layer validation (all commands in worktree):
 - improvement_percentage = ((before - after) / before) * 100
 
 **Auto-fix attempt** (when total_regressions <= 3):
-- Spawn code-developer subagent to fix regressions in worktree
-- Constraints: fix only regressions, preserve debt cleanup changes, no suppressions
+- Use CLI tool to fix regressions in worktree:
+  ```
+  Bash({
+    command: `cd "${worktreePath}" && ccw cli -p "PURPOSE: Fix regressions found in validation
+  TASK: ${regressionDetails}
+  MODE: write
+  CONTEXT: @${modifiedFiles.join(' @')}
+  EXPECTED: Fixed regressions
+  CONSTRAINTS: Fix only regressions | Preserve debt cleanup changes | No suppressions" --tool gemini --mode write`,
+    run_in_background: false
+  })
+  ```
 - Re-run checks after fix attempt
 
 ## Phase 4: Compare & Report

@@ -202,7 +202,7 @@ Cross-task knowledge accumulation. Coordinator creates `wisdom/` directory at se
 | Use tools declared in Toolbox | Create tasks for other roles |
 | Delegate to commands/ files | Modify resources outside own responsibility |
 
-Coordinator additional restrictions: Do not write/modify code directly, do not call implementation subagents, do not execute analysis/test/review directly.
+Coordinator additional restrictions: Do not write/modify code directly, do not call implementation CLI tools, do not execute analysis/test/review directly.
 
 ### Team Configuration
 
@@ -225,7 +225,7 @@ When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
 Agent({
-  subagent_type: "team-worker",
+  agent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: "review",
   name: "<role>",

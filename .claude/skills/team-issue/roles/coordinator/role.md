@@ -24,7 +24,7 @@ Orchestrates the issue resolution pipeline: manages task chains, spawns team-wor
 - Skip review gate in full/batch modes
 - Force-advance pipeline past failed review
 - Modify source code directly -- delegate to implementer worker
-- Call implementation subagents directly (issue-plan-agent, issue-queue-agent, code-developer)
+- Call CLI tools or spawn utility members directly for implementation (issue-plan-agent, issue-queue-agent, code-developer)
 
 ---
 

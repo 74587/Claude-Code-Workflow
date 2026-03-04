@@ -27,9 +27,6 @@ Unified team skill: Profile application performance, identify bottlenecks, desig
 profiler strate- optim-  bench-  review-
          gist    izer    marker  er
 
-  Subagents (callable by workers, not team members):
-    [explore]  [discuss]
-
 (tw) = team-worker agent
 ```
 
@@ -51,13 +48,6 @@ Parse `$ARGUMENTS`. No `--role` needed -- always routes to coordinator.
 | optimizer | [role-specs/optimizer.md](role-specs/optimizer.md) | IMPL-* / FIX-* | code_generation | true |
 | benchmarker | [role-specs/benchmarker.md](role-specs/benchmarker.md) | BENCH-* | validation | false |
 | reviewer | [role-specs/reviewer.md](role-specs/reviewer.md) | REVIEW-* / QUALITY-* | read_only_analysis | false |
-
-### Subagent Registry
-
-| Subagent | Spec | Callable By | Purpose |
-|----------|------|-------------|---------|
-| explore | [subagents/explore-subagent.md](subagents/explore-subagent.md) | profiler, optimizer | Shared codebase exploration for performance-critical code paths |
-| discuss | [subagents/discuss-subagent.md](subagents/discuss-subagent.md) | strategist, reviewer | Multi-perspective discussion for optimization approaches and review findings |
 
 ### Dispatch
 
@@ -459,7 +449,7 @@ Coordinator supports `--resume` / `--continue` for interrupted sessions:
 |----------|------------|
 | Role spec file not found | Error with expected path (role-specs/<name>.md) |
 | Command file not found | Fallback to inline execution in coordinator role.md |
-| Subagent spec not found | Error with expected path (subagents/<name>-subagent.md) |
+| Role file not found | Error with expected path (role-specs/<name>.md) |
 | Fast-advance orphan detected | Coordinator resets task to pending on next check |
 | consensus_blocked HIGH | Coordinator creates revision task or pauses pipeline |
 | team-worker agent unavailable | Error: requires .claude/agents/team-worker.md |

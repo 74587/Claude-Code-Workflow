@@ -34,10 +34,10 @@ Unified team skill: specification -> implementation -> testing -> review. Built 
                                         | fe-qa  |
                                         +--------+
 
-  Subagents (callable by any worker, not team members):
-    [discuss-subagent]  - multi-perspective critique
-    [explore-subagent]  - codebase exploration with cache
-    [doc-generation]    - document generation (CLI execution)
+  Utility Functions (callable by workers):
+    [multi-perspective discussion]  - CLI tools for critique
+    [codebase exploration]          - Explore agent with cache
+    [document generation]           - CLI execution
 ```
 
 ## Role Router
@@ -63,13 +63,13 @@ Parse `$ARGUMENTS`. No `--role` needed — always routes to coordinator.
 | fe-developer | [role-specs/fe-developer.md](role-specs/fe-developer.md) | DEV-FE-* | frontend | false |
 | fe-qa | [role-specs/fe-qa.md](role-specs/fe-qa.md) | QA-FE-* | frontend | false |
 
-### Subagent Registry
+### Utility Functions
 
-| Subagent | Spec | Callable By | Purpose |
-|----------|------|-------------|---------|
-| discuss | [subagents/discuss-subagent.md](subagents/discuss-subagent.md) | analyst, writer, reviewer | Multi-perspective critique |
-| explore | [subagents/explore-subagent.md](subagents/explore-subagent.md) | analyst, planner, any role | Codebase exploration with cache |
-| doc-generation | [subagents/doc-generation-subagent.md](subagents/doc-generation-subagent.md) | writer | Document generation (CLI execution) |
+| Function | Implementation | Callable By | Purpose |
+|----------|----------------|-------------|---------|
+| Multi-perspective discussion | CLI tools (ccw cli --mode analysis) | analyst, writer, reviewer | Multi-perspective critique |
+| Codebase exploration | Explore agent | analyst, planner, any role | Codebase exploration with cache |
+| Document generation | CLI tools (ccw cli --mode write) | writer | Document generation |
 
 ### Dispatch
 
@@ -306,9 +306,6 @@ Coordinator supports `--resume` / `--continue` for interrupted sessions:
 | Requirements Template | [templates/requirements-prd.md](templates/requirements-prd.md) | DRAFT-002 |
 | Architecture Template | [templates/architecture-doc.md](templates/architecture-doc.md) | DRAFT-003 |
 | Epics Template | [templates/epics-template.md](templates/epics-template.md) | DRAFT-004 |
-| Discuss Subagent | [subagents/discuss-subagent.md](subagents/discuss-subagent.md) | Inline discuss protocol |
-| Explore Subagent | [subagents/explore-subagent.md](subagents/explore-subagent.md) | Shared exploration utility |
-| Doc-Gen Subagent | [subagents/doc-generation-subagent.md](subagents/doc-generation-subagent.md) | Document generation engine |
 
 ## Error Handling
 
@@ -317,6 +314,6 @@ Coordinator supports `--resume` / `--continue` for interrupted sessions:
 | Unknown command | Error with available command list |
 | Role spec file not found | Error with expected path |
 | Command file not found | Fallback to inline execution |
-| Discuss subagent fails | Worker proceeds without discuss, logs warning |
+| Multi-perspective discussion fails | Worker proceeds without discuss, logs warning |
 | Explore cache corrupt | Clear cache, re-explore |
 | Fast-advance spawns wrong task | Coordinator reconciles on next callback |

@@ -3,7 +3,7 @@ prefix: REVIEW
 inner_loop: false
 additional_prefixes: [QUALITY]
 discuss_rounds: [DISCUSS-REVIEW]
-subagents: [discuss]
+cli_tools: [discuss]
 message_types:
   success: review_complete
   error: error
@@ -90,7 +90,7 @@ Per-dimension review process:
 - Dependency direction follows layer conventions (dependencies flow inward)
 - Appropriate abstraction level (not over-engineered, not under-abstracted)
 
-If any Critical findings detected, invoke `discuss` subagent (DISCUSS-REVIEW round) to validate the assessment before issuing verdict.
+If any Critical findings detected, invoke `discuss` CLI tool (DISCUSS-REVIEW round) to validate the assessment before issuing verdict.
 
 ## Phase 4: Verdict & Feedback
 

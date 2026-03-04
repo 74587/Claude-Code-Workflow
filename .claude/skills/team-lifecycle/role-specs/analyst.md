@@ -3,7 +3,7 @@ role: analyst
 prefix: RESEARCH
 inner_loop: false
 discuss_rounds: [DISCUSS-001]
-subagents: [discuss]
+cli_tools: [discuss]
 message_types:
   success: research_ready
   progress: research_progress
@@ -76,7 +76,7 @@ Parse CLI output to build codebase context: tech_stack, architecture_patterns, c
 
 ### 4b: Inline Discuss (DISCUSS-001)
 
-Call discuss subagent with:
+Invoke multi-perspective discussion using CLI tools:
 - Artifact: `<session-folder>/spec/discovery-context.json`
 - Round: DISCUSS-001
 - Perspectives: product, risk, coverage
@@ -93,4 +93,4 @@ Handle discuss verdict per team-worker consensus handling protocol.
 | Codebase detection failed | Continue as new project |
 | Topic too vague | Report with clarification questions |
 | CLI exploration fails | Continue without codebase context |
-| Discuss subagent fails | Proceed without discuss, log warning |
+| Multi-perspective discussion fails | Proceed without discuss, log warning |

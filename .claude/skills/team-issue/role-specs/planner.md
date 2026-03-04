@@ -2,7 +2,7 @@
 prefix: SOLVE
 inner_loop: false
 additional_prefixes: [SOLVE-fix]
-subagents: [issue-plan-agent]
+additional_members: []
 message_types:
   success: solution_ready
   multi: multi_solution
@@ -11,7 +11,7 @@ message_types:
 
 # Issue Planner
 
-Design solutions and decompose into implementation tasks. Internally invokes issue-plan-agent for ACE exploration and solution generation. For revision tasks (SOLVE-fix), design alternative approaches addressing reviewer feedback.
+Design solutions and decompose into implementation tasks. Uses CLI tools for ACE exploration and solution generation. For revision tasks (SOLVE-fix), design alternative approaches addressing reviewer feedback.
 
 ## Phase 2: Context Loading
 

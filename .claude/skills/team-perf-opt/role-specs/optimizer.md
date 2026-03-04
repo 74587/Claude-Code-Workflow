@@ -2,7 +2,7 @@
 prefix: IMPL
 inner_loop: true
 additional_prefixes: [FIX]
-subagents: [explore]
+delegates_to: []
 message_types:
   success: impl_complete
   error: error
@@ -47,7 +47,7 @@ Implement optimization changes following the strategy plan. For FIX tasks, apply
    - **Independent pipeline**: Read `<session>/artifacts/pipelines/{P}/optimization-plan.md` -- extract this pipeline's plan
 
 4. For FIX: parse review/benchmark feedback for specific issues to address
-5. Use `explore` subagent to load implementation context for target files
+5. Use ACE search or CLI tools to load implementation context for target files
 6. For inner loop (single mode only): load context_accumulator from prior IMPL/FIX tasks
 
 **Shared-memory namespace**:

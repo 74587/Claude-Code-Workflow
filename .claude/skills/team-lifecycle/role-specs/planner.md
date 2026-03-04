@@ -3,7 +3,7 @@ role: planner
 prefix: PLAN
 inner_loop: true
 discuss_rounds: []
-subagents: []
+cli_tools: [explore]
 message_types:
   success: plan_ready
   revision: plan_revision
@@ -27,8 +27,8 @@ If `<session-folder>/spec/` exists → load requirements/_index.md, architecture
 | Complexity | Criteria | Strategy |
 |------------|----------|----------|
 | Low | < 200 chars, no refactor/architecture keywords | ACE semantic search only |
-| Medium | 200-500 chars or moderate scope | 2-3 angle explore subagent |
-| High | > 500 chars, refactor/architecture, multi-module | 3-5 angle explore subagent |
+| Medium | 200-500 chars or moderate scope | 2-3 angle CLI explore |
+| High | > 500 chars, refactor/architecture, multi-module | 3-5 angle CLI explore |
 
 For each angle, use CLI exploration (cache-aware — check cache-index.json before each call):
 

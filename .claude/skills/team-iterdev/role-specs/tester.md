@@ -43,12 +43,25 @@ Common commands: npm test, pytest, go test ./..., cargo test
 | 2 | Parse results, check pass rate |
 | 3 | Pass rate >= 95% -> exit loop (success) |
 | 4 | Extract failing test details |
-| 5 | Delegate fix to code-developer subagent |
+| 5 | Apply fix using CLI tool |
 | 6 | Increment iteration counter |
 | 7 | iteration >= MAX (5) -> exit loop (report failures) |
 | 8 | Go to Step 1 |
 
-**Fix delegation**: Spawn code-developer subagent with test output and changed file list. Run synchronously (run_in_background: false).
+**Fix delegation**: Use CLI tool to fix failing tests:
+
+```bash
+ccw cli -p "PURPOSE: Fix failing tests; success = all listed tests pass
+TASK: • Analyze test failure output • Identify root cause in changed files • Apply minimal fix
+MODE: write
+CONTEXT: @<changed-files> | Memory: Test output from current iteration
+EXPECTED: Code fixes that make failing tests pass without breaking other tests
+CONSTRAINTS: Only modify files in changed list | Minimal changes
+Test output: <test-failure-details>
+Changed files: <file-list>" --tool gemini --mode write --rule development-debug-runtime-issues
+```
+
+Wait for CLI completion before re-running tests.
 
 ## Phase 4: Regression Check + Report
 

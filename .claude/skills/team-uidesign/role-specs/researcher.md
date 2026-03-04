@@ -1,7 +1,7 @@
 ---
 prefix: RESEARCH
 inner_loop: false
-subagents: [explore]
+additional_members: [explore]
 message_types:
   success: research_ready
   progress: research_progress
@@ -32,7 +32,7 @@ Analyze existing design system, build component inventory, assess accessibility 
 | @shadcn/ui | shadcn |
 | (default) | html-tailwind |
 
-3. Use `explore` subagent to scan for existing design tokens, component files, styling patterns
+3. Use CLI tools (e.g., `ccw cli -p "..." --tool gemini --mode analysis`) or direct tools (Glob, Grep, mcp__ace-tool__search_context) to scan for existing design tokens, component files, styling patterns
 4. Read industry context from session config (industry, strictness, must-have features)
 
 ## Phase 3: Research Execution

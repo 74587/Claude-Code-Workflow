@@ -1,7 +1,7 @@
 ---
 prefix: SYNTH
 inner_loop: false
-subagents: []
+delegates_to: []
 message_types:
   success: synthesis_ready
   error: error

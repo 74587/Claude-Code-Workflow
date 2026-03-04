@@ -142,7 +142,7 @@ Cross-task knowledge accumulation. Coordinator creates `wisdom/` directory at se
 | Share state via team_msg(type='state_update') | Create tasks for other roles |
 | Delegate to commands/ files | Modify resources outside own responsibility |
 
-Coordinator additional restrictions: Do not write/modify code directly, do not call implementation subagents, do not execute analysis/audits, do not bypass workers.
+Coordinator additional restrictions: Do not write/modify code directly, do not spawn implementation workers directly, do not execute analysis/audits, do not bypass workers.
 
 ### Output Tagging
 

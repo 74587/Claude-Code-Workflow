@@ -6,7 +6,6 @@
   "architecture": "team-worker agent + role-specs",
   "role_structure": "role-specs/{name}.md (Phase 2-4 only)",
   "worker_agent": "team-worker",
-  "subagent_structure": "subagents/{name}-subagent.md",
 
   "roles": {
     "coordinator": {
@@ -27,7 +26,6 @@
       "role_spec": "role-specs/writer.md",
       "responsibility": "Product Brief / PRD / Architecture / Epics document generation + inline discuss",
       "inner_loop": true,
-      "subagent_type": "universal-executor",
       "inline_discuss": ["DISCUSS-002", "DISCUSS-003", "DISCUSS-004", "DISCUSS-005"],
       "message_types": ["draft_ready", "draft_revision", "error"]
     },
@@ -88,24 +86,24 @@
     }
   },
 
-  "subagents": {
+  "utility_functions": {
     "discuss": {
-      "spec": "subagents/discuss-subagent.md",
-      "type": "cli-discuss-agent",
+      "type": "cli-tool",
       "callable_by": ["analyst", "writer", "reviewer"],
-      "purpose": "Multi-perspective critique with CLI tools, consensus synthesis"
+      "purpose": "Multi-perspective critique with CLI tools, consensus synthesis",
+      "implementation": "Bash with ccw cli --mode analysis"
     },
     "explore": {
-      "spec": "subagents/explore-subagent.md",
-      "type": "cli-explore-agent",
+      "type": "explore-agent",
       "callable_by": ["analyst", "planner", "any"],
-      "purpose": "Codebase exploration with centralized cache"
+      "purpose": "Codebase exploration with centralized cache",
+      "implementation": "Agent with subagent_type: Explore"
     },
     "doc-generation": {
-      "spec": "subagents/doc-generation-subagent.md",
-      "type": "universal-executor",
+      "type": "cli-tool",
       "callable_by": ["writer"],
-      "purpose": "Document generation engine (CLI execution)"
+      "purpose": "Document generation engine (CLI execution)",
+      "implementation": "Bash with ccw cli --mode write"
     }
   },
 
@@ -199,7 +197,7 @@
       "style_decisions": "Accumulated design decisions",
       "qa_history": "From fe-qa, audit trail",
       "industry_context": "Industry + strictness config",
-      "exploration_cache": "From explore subagent, shared by all roles"
+      "exploration_cache": "From exploration utility (Explore agent), shared by all roles"
     }
   },
 

@@ -360,7 +360,7 @@ When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
 Agent({
-  subagent_type: "team-worker",
+  agent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: "quality-assurance",
   name: "<role>",
@@ -398,7 +398,7 @@ Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Pha
 
 ```
 Agent({
-  subagent_type: "team-worker",
+  agent_type: "team-worker",
   description: "Spawn <role>-<N> worker",
   team_name: "quality-assurance",
   name: "<role>-<N>",

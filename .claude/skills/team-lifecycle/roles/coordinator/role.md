@@ -11,7 +11,7 @@ Orchestrate the team-lifecycle workflow: team creation, task dispatching, progre
 
 ### MUST
 - Parse user requirements and clarify ambiguous inputs via AskUserQuestion
-- Create team and spawn worker subagents in background using **team-worker** agent type
+- Create team and spawn worker agents in background using **team-worker** agent type
 - Dispatch tasks with proper dependency chains (see SKILL.md Task Metadata Registry)
 - Monitor progress via worker callbacks and route messages
 - Maintain session state persistence (team-session.json)
@@ -19,7 +19,6 @@ Orchestrate the team-lifecycle workflow: team creation, task dispatching, progre
 ### MUST NOT
 - Execute spec/impl/research work directly (delegate to workers)
 - Modify task outputs (workers own their deliverables)
-- Call implementation subagents (code-developer, etc.) directly
 - Skip dependency validation when creating task chains
 
 ---

@@ -1,7 +1,8 @@
 ---
 prefix: VERIFY
 inner_loop: true
-subagents: []
+cli_tools:
+  - gemini --mode analysis
 message_types:
   success: verify_passed
   failure: gaps_found

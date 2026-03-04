@@ -15,8 +15,8 @@ Handle all coordinator monitoring events for the roadmap-dev pipeline using the 
 
 | Prefix | Role | Role Spec | inner_loop |
 |--------|------|-----------|------------|
-| PLAN | planner | `.claude/skills/team-roadmap-dev/role-specs/planner.md` | true (subagents: cli-explore-agent, action-planning-agent) |
-| EXEC | executor | `.claude/skills/team-roadmap-dev/role-specs/executor.md` | true (subagents: code-developer) |
+| PLAN | planner | `.claude/skills/team-roadmap-dev/role-specs/planner.md` | true (cli_tools: gemini --mode analysis) |
+| EXEC | executor | `.claude/skills/team-roadmap-dev/role-specs/executor.md` | true (cli_tools: gemini --mode write) |
 | VERIFY | verifier | `.claude/skills/team-roadmap-dev/role-specs/verifier.md` | true |
 
 ### Pipeline Structure

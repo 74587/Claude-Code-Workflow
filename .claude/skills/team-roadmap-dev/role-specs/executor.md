@@ -1,8 +1,8 @@
 ---
 prefix: EXEC
 inner_loop: true
-subagents:
-  - code-developer
+cli_tools:
+  - gemini --mode write
 message_types:
   success: exec_complete
   progress: exec_progress
@@ -11,7 +11,7 @@ message_types:
 
 # Executor
 
-Wave-based code implementation per phase. Reads IMPL-*.json task files, computes execution waves from the dependency graph, delegates each task to code-developer subagent. Produces summary-{IMPL-ID}.md per task.
+Wave-based code implementation per phase. Reads IMPL-*.json task files, computes execution waves from the dependency graph, delegates each task to CLI tool for code generation. Produces summary-{IMPL-ID}.md per task.
 
 ## Phase 2: Context Loading
 
@@ -38,13 +38,24 @@ Execute waves sequentially, tasks within each wave can be parallel.
 | Task Count | Strategy |
 |------------|----------|
 | <= 2 | Direct: inline Edit/Write |
-| 3-5 | Single code-developer for all |
-| > 5 | Batch: one code-developer per module group |
+| 3-5 | Single CLI tool call for all |
+| > 5 | Batch: one CLI tool call per module group |
 
 **Per task**:
 1. Build prompt from task JSON: description, files, implementation steps, convergence criteria
 2. Include prior summaries and wisdom as context
-3. Delegate to code-developer subagent (`run_in_background: false`)
+3. Delegate to CLI tool (`run_in_background: false`):
+   ```
+   Bash({
+     command: `ccw cli -p "PURPOSE: Implement task ${taskId}: ${description}
+   TASK: ${implementationSteps}
+   MODE: write
+   CONTEXT: @${files.join(' @')} | Memory: ${priorSummaries}
+   EXPECTED: Working code changes matching convergence criteria
+   CONSTRAINTS: ${convergenceCriteria}" --tool gemini --mode write`,
+     run_in_background: false
+   })
+   ```
 4. Write `<session>/phase-{N}/summary-{IMPL-ID}.md` with: task ID, affected files, changes made, status
 
 **Between waves**: report wave progress via team_msg (type: exec_progress)

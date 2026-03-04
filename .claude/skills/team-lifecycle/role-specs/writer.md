@@ -3,7 +3,7 @@ role: writer
 prefix: DRAFT
 inner_loop: true
 discuss_rounds: [DISCUSS-002, DISCUSS-003, DISCUSS-004, DISCUSS-005]
-subagents: [discuss]
+cli_tools: [discuss]
 message_types:
   success: draft_ready
   revision: draft_revision
@@ -54,7 +54,7 @@ message_types:
 | Discussion feedback | `<session-folder>/discussions/<discuss-file>` | If exists |
 | Prior decisions | context_accumulator (in-memory) | If prior tasks exist |
 
-## Phase 3: Subagent Document Generation
+## Phase 3: CLI Document Generation
 
 **Objective**: Generate document using CLI tool.
 
@@ -87,10 +87,18 @@ Parse CLI output for artifact path and summary. Document is written to disk by C
 
 ### 4b: Inline Discuss
 
-Call discuss subagent for this task's discuss round:
+Call CLI discuss tool for this task's discuss round:
 - Artifact: `<output-path>` (the generated document)
 - Round: `<DISCUSS-NNN>` from mapping table
 - Perspectives: from mapping table
+
+```bash
+ccw cli -p "PURPOSE: Multi-perspective critique of <doc-type>
+TASK: Review from <perspectives>
+ARTIFACT: @<output-path>
+MODE: analysis
+EXPECTED: JSON with perspectives[], consensus, severity, recommendations[]" --tool gemini --mode analysis
+```
 
 Handle discuss verdict per team-worker consensus handling protocol.
 
@@ -101,7 +109,7 @@ Handle discuss verdict per team-worker consensus handling protocol.
 | Scenario | Resolution |
 |----------|------------|
 | CLI failure | Retry once with alternative tool. Still fails → log error, continue next task |
-| Discuss subagent fails | Skip discuss, log warning |
+| CLI discuss fails | Skip discuss, log warning |
 | Cumulative 3 task failures | SendMessage to coordinator, STOP |
 | Prior doc not found | Notify coordinator, request prerequisite |
 | Discussion contradicts prior docs | Note conflict, flag for coordinator |

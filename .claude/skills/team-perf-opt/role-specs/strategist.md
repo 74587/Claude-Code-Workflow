@@ -2,7 +2,7 @@
 prefix: STRATEGY
 inner_loop: false
 discuss_rounds: [DISCUSS-OPT]
-subagents: [discuss]
+delegates_to: []
 message_types:
   success: strategy_complete
   error: error
@@ -55,7 +55,7 @@ Prioritize optimizations by impact/effort ratio:
 | P2 (Medium) | Medium impact + Low effort |
 | P3 (Low) | Low impact or High effort -- defer |
 
-If complexity is High, invoke `discuss` subagent (DISCUSS-OPT round) to evaluate trade-offs between competing strategies before finalizing the plan.
+If complexity is High, use CLI tools for multi-perspective analysis (DISCUSS-OPT round) to evaluate trade-offs between competing strategies before finalizing the plan.
 
 Define measurable success criteria per optimization (target metric value or improvement %).
 

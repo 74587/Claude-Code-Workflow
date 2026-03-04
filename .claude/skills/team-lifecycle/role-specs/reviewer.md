@@ -4,7 +4,7 @@ prefix: REVIEW
 additional_prefixes: [QUALITY, IMPROVE]
 inner_loop: false
 discuss_rounds: [DISCUSS-006]
-subagents: [discuss]
+cli_tools: [discuss]
 message_types:
   success_review: review_result
   success_quality: quality_result
@@ -73,10 +73,18 @@ message_types:
 
 ### Spec Quality Inline Discuss (DISCUSS-006)
 
-After generating readiness-report.md, call discuss subagent:
+After generating readiness-report.md, call CLI discuss tool:
 - Artifact: `<session-folder>/spec/readiness-report.md`
 - Round: DISCUSS-006
 - Perspectives: product, technical, quality, risk, coverage (all 5)
+
+```bash
+ccw cli -p "PURPOSE: Multi-perspective critique of spec readiness
+TASK: Review from product, technical, quality, risk, coverage perspectives
+ARTIFACT: @<session-folder>/spec/readiness-report.md
+MODE: analysis
+EXPECTED: JSON with perspectives[], consensus, severity, recommendations[]" --tool gemini --mode analysis
+```
 
 Handle discuss verdict per team-worker consensus handling protocol.
 
@@ -91,4 +99,4 @@ Handle discuss verdict per team-worker consensus handling protocol.
 | Missing context | Request from coordinator |
 | Invalid mode | Abort with error |
 | Analysis failure | Retry, then fallback template |
-| Discuss subagent fails | Proceed without final discuss, log warning |
+| CLI discuss fails | Proceed without final discuss, log warning |

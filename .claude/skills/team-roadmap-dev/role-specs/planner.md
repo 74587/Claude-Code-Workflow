@@ -1,9 +1,8 @@
 ---
 prefix: PLAN
 inner_loop: true
-subagents:
-  - cli-explore-agent
-  - action-planning-agent
+cli_tools:
+  - gemini --mode analysis
 message_types:
   success: plan_ready
   progress: plan_progress
@@ -12,7 +11,7 @@ message_types:
 
 # Planner
 
-Research and plan creation per roadmap phase. Gathers codebase context via cli-explore-agent, then generates wave-based execution plans with convergence criteria via action-planning-agent.
+Research and plan creation per roadmap phase. Gathers codebase context via CLI exploration, then generates wave-based execution plans with convergence criteria via CLI planning tool.
 
 ## Phase 2: Context Loading + Research
 
@@ -27,7 +26,18 @@ Research and plan creation per roadmap phase. Gathers codebase context via cli-e
 2. Read config.json for depth setting (quick/standard/comprehensive)
 3. Load prior phase summaries for dependency context
 4. Detect gap closure mode (task description contains "Gap closure")
-5. Launch cli-explore-agent with phase requirements as exploration query:
+5. Launch CLI exploration with phase requirements as exploration query:
+   ```
+   Bash({
+     command: `ccw cli -p "PURPOSE: Explore codebase for phase requirements
+   TASK: • Identify files needing modification • Map patterns and dependencies • Assess test infrastructure • Identify risks
+   MODE: analysis
+   CONTEXT: @**/* | Memory: Phase goal: ${phaseGoal}
+   EXPECTED: Structured exploration results with file lists, patterns, risks
+   CONSTRAINTS: Read-only analysis" --tool gemini --mode analysis`,
+     run_in_background: false
+   })
+   ```
    - Target: files needing modification, patterns, dependencies, test infrastructure, risks
 6. If depth=comprehensive: run Gemini CLI analysis (`--mode analysis --rule analysis-analyze-code-patterns`)
 7. Write `<session>/phase-{N}/context.md` combining roadmap requirements + exploration results
@@ -36,12 +46,19 @@ Research and plan creation per roadmap phase. Gathers codebase context via cli-e
 
 1. Load context.md from Phase 2
 2. Create output directory: `<session>/phase-{N}/.task/`
-3. Delegate to action-planning-agent with:
-   - Phase context + roadmap section + prior summaries
-   - Task ID format: `IMPL-{phase}{seq}` (e.g., IMPL-101, IMPL-102)
-   - Convergence criteria rules: measurable, goal-backward, includes file existence + export checks + test checks
-   - Hard limits: <= 10 tasks per phase, valid DAG, no cycles
-4. Agent produces: `IMPL_PLAN.md`, `.task/IMPL-*.json`, `TODO_LIST.md`
+3. Delegate to CLI planning tool with:
+   ```
+   Bash({
+     command: `ccw cli -p "PURPOSE: Generate wave-based execution plan for phase ${phaseNum}
+   TASK: • Break down requirements into tasks • Define convergence criteria • Build dependency graph • Assign waves
+   MODE: write
+   CONTEXT: @${contextMd} | Memory: ${priorSummaries}
+   EXPECTED: IMPL_PLAN.md + IMPL-*.json files + TODO_LIST.md
+   CONSTRAINTS: <= 10 tasks | Valid DAG | Measurable convergence criteria" --tool gemini --mode write`,
+     run_in_background: false
+   })
+   ```
+4. CLI tool produces: `IMPL_PLAN.md`, `.task/IMPL-*.json`, `TODO_LIST.md`
 5. If gap closure: only create tasks for gaps, starting from next available ID
 
 ## Phase 4: Self-Validation

@@ -27,9 +27,9 @@ Universal team coordination skill: analyze task -> generate role-specs -> dispat
  [team-worker agents, each loaded with a dynamic role-spec]
   (roles generated at runtime from task analysis)
 
-  Subagents (callable by any worker, not team members):
-    [discuss-subagent]  - multi-perspective critique (dynamic perspectives)
-    [explore-subagent]  - codebase exploration with cache
+  CLI Tools (callable by any worker):
+    ccw cli --mode analysis  - analysis and exploration
+    ccw cli --mode write     - code generation and modification
 ```
 
 ## Role Router
@@ -49,12 +49,14 @@ Only coordinator is statically registered. All other roles are dynamic, stored a
 | coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | built-in orchestrator |
 | (dynamic) | `<session>/role-specs/<role-name>.md` | runtime-generated role-spec |
 
-### Subagent Registry
+### CLI Tool Usage
 
-| Subagent | Spec | Callable By | Purpose |
-|----------|------|-------------|---------|
-| discuss | [subagents/discuss-subagent.md](subagents/discuss-subagent.md) | any role | Multi-perspective critique (dynamic perspectives) |
-| explore | [subagents/explore-subagent.md](subagents/explore-subagent.md) | any role | Codebase exploration with cache |
+Workers can use CLI tools for analysis and code operations:
+
+| Tool | Purpose |
+|------|---------|
+| ccw cli --mode analysis | Analysis, exploration, pattern discovery |
+| ccw cli --mode write | Code generation, modification, refactoring |
 
 ### Dispatch
 
@@ -259,7 +261,7 @@ Coordinator supports `resume` / `continue` for interrupted sessions:
 | Unknown command | Error with available command list |
 | Dynamic role-spec not found | Error, coordinator may need to regenerate |
 | Command file not found | Fallback to inline execution |
-| Discuss subagent fails | Worker proceeds without discuss, logs warning |
+| CLI tool fails | Worker proceeds with direct implementation, logs warning |
 | Explore cache corrupt | Clear cache, re-explore |
 | Fast-advance spawns wrong task | Coordinator reconciles on next callback |
 | capability_gap reported | Coordinator generates new role-spec via handleAdapt |

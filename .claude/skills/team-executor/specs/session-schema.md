@@ -163,7 +163,7 @@ team-executor validates the following before execution:
       "responsibility_type": "<type>",
       "inner_loop": false,
       "role_spec_metadata": {
-        "subagents": [],
+        "additional_members": [],
         "message_types": {
           "success": "<prefix>_complete",
           "error": "error"

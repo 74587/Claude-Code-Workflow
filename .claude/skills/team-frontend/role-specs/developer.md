@@ -1,7 +1,7 @@
 ---
 prefix: DEV
 inner_loop: true
-subagents: []
+additional_members: []
 message_types:
   success: dev_complete
   error: error

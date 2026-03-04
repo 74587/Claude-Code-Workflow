@@ -144,7 +144,7 @@ Ready tasks found?
 
 ```
 Agent({
-  subagent_type: "team-worker",
+  agent_type: "team-worker",
   description: "Spawn <role> worker for <subject>",
   team_name: "review",
   name: "<role>",

@@ -1,7 +1,7 @@
 ---
 prefix: ANALYZE
 inner_loop: false
-subagents: [explore]
+cli_tools: [explore]
 message_types:
   success: analyze_complete
   error: error
@@ -31,7 +31,7 @@ Analyze codebase architecture to identify structural issues: dependency cycles, 
 | CLI entry / bin/ directory | CLI Tool | Command structure, plugin architecture, configuration layering |
 | No detection | Generic | All architecture dimensions |
 
-3. Use `explore` subagent to map module structure, dependency graph, and layer boundaries within target scope
+3. Use `explore` CLI tool to map module structure, dependency graph, and layer boundaries within target scope
 4. Detect available analysis tools (linters, dependency analyzers, build tools)
 
 ## Phase 3: Architecture Analysis

@@ -1,7 +1,6 @@
 ---
 prefix: TDSCAN
 inner_loop: false
-subagents: []
 message_types:
   success: scan_complete
   error: error
@@ -47,8 +46,8 @@ Multi-dimension tech debt scanner. Scan codebase across 5 dimensions (code, arch
 
 | Score | Complexity | Strategy |
 |-------|------------|----------|
-| >= 4 | High | Triple Fan-out: subagent explore + CLI 5 dimensions + multi-perspective Gemini |
-| 2-3 | Medium | Dual Fan-out: subagent explore + CLI 3 dimensions |
+| >= 4 | High | Triple Fan-out: CLI explore + CLI 5 dimensions + multi-perspective Gemini |
+| 2-3 | Medium | Dual Fan-out: CLI explore + CLI 3 dimensions |
 | 0-1 | Low | Inline: ACE search + Grep |
 
 ## Phase 3: Multi-Dimension Scan
@@ -58,7 +57,7 @@ Multi-dimension tech debt scanner. Scan codebase across 5 dimensions (code, arch
 - Classify findings into dimensions
 
 **Medium/High Complexity** (Fan-out):
-- Fan-out A: Subagent exploration (structure, patterns, dependencies angles) via `cli-explore-agent`
+- Fan-out A: CLI exploration (structure, patterns, dependencies angles) via `ccw cli --tool gemini --mode analysis`
 - Fan-out B: CLI dimension analysis (parallel gemini per dimension -- code, architecture, testing, dependency, documentation)
 - Fan-out C (High only): Multi-perspective Gemini analysis (security, performance, code-quality, architecture)
 - Fan-in: Merge results, cross-deduplicate by file:line, boost severity for multi-source findings
