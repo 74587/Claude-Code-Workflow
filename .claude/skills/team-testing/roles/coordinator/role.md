@@ -157,10 +157,22 @@ Bash("mkdir -p .workflow/.team/TST-<slug>-<date>/strategy .workflow/.team/TST-<s
 }
 ```
 
-3. Initialize .msg/meta.json:
-
-```
-Write("<session>/wisdom/.msg/meta.json", { "session_id": "<session-id>", "requirement": "<requirement>", "pipeline": "<mode>" })
+3. Initialize .msg/meta.json with pipeline metadata:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<targeted|standard|comprehensive>",
+    pipeline_stages: ["strategist", "generator", "executor", "analyst"],
+    roles: ["coordinator", "strategist", "generator", "executor", "analyst"],
+    team_name: "testing"
+  }
+})
 ```
 
 4. Create team:

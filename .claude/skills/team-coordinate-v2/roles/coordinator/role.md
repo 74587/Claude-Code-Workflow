@@ -200,8 +200,24 @@ Regardless of complexity score or role count, coordinator MUST:
    - `explorations/cache-index.json` (`{ "entries": [] }`)
    - `discussions/` (empty directory)
 
-9. **Initialize cross-role state** via team_msg:
-   - `team_msg(operation="log", session_id=<session-id>, from="coordinator", type="state_update", data={})`
+9. **Initialize pipeline metadata** via team_msg:
+```typescript
+// 使用 team_msg 将 pipeline 元数据写入 .msg/meta.json
+// 注意: 此处为动态角色，执行时需将 <placeholders> 替换为 task-analysis.json 中生成的实际角色列表
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<mode>",
+    pipeline_stages: ["<role1>", "<role2>", "<...dynamic-roles>"],
+    roles: ["coordinator", "<role1>", "<role2>", "<...dynamic-roles>"],
+    team_name: "<team-name>" // 从 session ID 或任务描述中提取
+  }
+})
+```
 
 10. **Write team-session.json** with: session_id, task_description, status="active", roles, pipeline (empty), active_workers=[], completion_action="interactive", created_at
 

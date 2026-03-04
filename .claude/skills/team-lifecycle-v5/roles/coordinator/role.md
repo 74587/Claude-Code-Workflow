@@ -127,17 +127,37 @@ For callback/check/resume: load `commands/monitor.md` and execute the appropriat
 4. Initialize wisdom directory (learnings.md, decisions.md, conventions.md, issues.md)
 5. Initialize explorations directory with empty cache-index.json
 6. Write team-session.json
+7. **Initialize meta.json with pipeline metadata** (CRITICAL for UI):
+
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<mode>",           // e.g., "full", "spec-only", "impl-only"
+    pipeline_stages: ["analyst", "writer", "planner", "executor", "tester", "reviewer"],  // Roles as stages
+    roles: ["coordinator", "analyst", "writer", "planner", "executor", "tester", "reviewer"],
+    team_name: "lifecycle"             // Skill name for badge display
+  }
+})
+```
+
+**pipeline_stages format**: Array of role names that represent pipeline stages. The UI will display these as the pipeline workflow.
 
 **Task counts by mode**:
 
-| Mode | Tasks |
-|------|-------|
-| spec-only | 6 |
-| impl-only | 4 |
-| fe-only | 3 |
-| fullstack | 6 |
-| full-lifecycle | 10 |
-| full-lifecycle-fe | 12 |
+| Mode | Tasks | pipeline_stages |
+|------|-------|-----------------|
+| spec-only | 6 | `["analyst", "writer", "reviewer"]` |
+| impl-only | 4 | `["planner", "executor", "tester", "reviewer"]` |
+| fe-only | 3 | `["planner", "fe-developer", "fe-qa"]` |
+| fullstack | 6 | `["planner", "executor", "fe-developer", "tester", "fe-qa", "reviewer"]` |
+| full-lifecycle | 10 | `["analyst", "writer", "planner", "executor", "tester", "reviewer"]` |
+| full-lifecycle-fe | 12 | `["analyst", "writer", "planner", "executor", "fe-developer", "tester", "fe-qa", "reviewer"]` |
 
 ---
 

@@ -253,7 +253,7 @@ memory/
 
 - [Claude Commands](../commands/claude/)
 - [Codex Skills](./codex-index.md)
-- [功能文档](../features/)
+- [功能文档](../features/spec)
 
 ## 统计数据
 

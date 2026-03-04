@@ -440,7 +440,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 ## Related Documentation
 
 - [Claude Skills](./claude-index.md)
-- [Feature Documentation](../features/)
+- [Feature Documentation](../features/spec)
 
 ## Best Practices
 

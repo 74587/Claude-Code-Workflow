@@ -104,4 +104,4 @@ All Card components accept standard HTML div attributes:
 
 - [Button](/components/ui/button)
 - [Badge](/components/ui/badge)
-- [Separator](/components/ui/separator)
+- Separator

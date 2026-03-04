@@ -117,4 +117,4 @@ const state = ref('indeterminate')
 
 - [Input](/components/ui/input)
 - [Select](/components/ui/select)
-- [Radio Group](/components/ui/radio-group)
+- Radio Group

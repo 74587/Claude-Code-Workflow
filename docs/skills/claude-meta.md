@@ -230,7 +230,7 @@ Artifacts  N×Role  Synthesis  1×Role
 **Core Specifications** (required):
 | Document | Purpose | Priority |
 |----------|---------|----------|
-| [../_shared/SKILL-DESIGN-SPEC.md](../_shared/SKILL-DESIGN-SPEC.md) | General design spec — Defines structure, naming, quality standards for all Skills | **P0 - Critical** |
+| [_shared/SKILL-DESIGN-SPEC.md](./_shared/SKILL-DESIGN-SPEC.md) | General design spec — Defines structure, naming, quality standards for all Skills | **P0 - Critical** |
 | [specs/reference-docs-spec.md](specs/reference-docs-spec.md) | Reference doc generation spec — Ensures generated Skills have appropriate stage-based reference docs | **P0 - Critical** |
 
 **Template Files** (read before generation):

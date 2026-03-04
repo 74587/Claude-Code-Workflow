@@ -304,4 +304,4 @@ graph TD
 
 - [核心编排](./core-orchestration.md)
 - [工作流命令](./workflow.md)
-- [头脑风暴](../../features/)
+- [头脑风暴](../../features/spec)

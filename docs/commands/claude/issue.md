@@ -291,4 +291,4 @@ graph TD
 
 - [Workflow Commands](./workflow.md)
 - [Core Orchestration](./core-orchestration.md)
-- [Team System](../../features/)
+- [Team System](../../features/spec)

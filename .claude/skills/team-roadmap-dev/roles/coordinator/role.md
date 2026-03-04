@@ -198,8 +198,27 @@ Delegate to `commands/roadmap-discuss.md`:
 **Workflow**:
 
 1. Call `TeamCreate({ team_name: "roadmap-dev" })`
-2. Spawn worker roles (see SKILL.md Coordinator Spawn Template)
-3. Load `commands/dispatch.md` for task chain creation
+
+2. Initialize meta.json with pipeline metadata:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "roadmap-driven",
+    pipeline_stages: ["planner", "executor", "verifier"],
+    roles: ["coordinator", "planner", "executor", "verifier"],
+    team_name: "roadmap-dev"
+  }
+})
+```
+
+3. Spawn worker roles (see SKILL.md Coordinator Spawn Template)
+4. Load `commands/dispatch.md` for task chain creation
 
 | Step | Action |
 |------|--------|

@@ -194,4 +194,4 @@ git log --oneline -10
 
 - [Prep Prompts](./prep.md)
 - [CLI Tool Commands](../claude/cli.md)
-- [Code Review](../../features/)
+- [Code Review](../../features/spec)

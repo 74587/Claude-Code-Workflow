@@ -43,7 +43,7 @@ ccw cli -p "添加用户认证" --mode write
 
 - [安装指南](./installation.md) - 详细安装说明
 - [第一个工作流](./first-workflow.md) - 30 分钟快速入门教程
-- [配置指南](./configuration.md) - 自定义 CCW 设置
+- [配置指南](/guide/cli-tools) - 自定义 CCW 设置
 
 ::: tip 需要帮助？
 查看我们的 [GitHub Discussions](https://github.com/your-repo/ccw/discussions) 或加入 [Discord 社区](https://discord.gg/ccw)。

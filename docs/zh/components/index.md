@@ -34,53 +34,53 @@
 |------|------|------|
 | [Button](/components/ui/button) | 可点击的操作按钮，带变体和尺寸 | `variant`, `size`, `asChild` |
 | [Input](/components/ui/input) | 文本输入字段 | `error` |
-| [Textarea](/components/ui/textarea) | 多行文本输入 | `error` |
+| Textarea | 多行文本输入 | `error` |
 | [Select](/components/ui/select) | 下拉选择（Radix） | Select 组件 |
 | [Checkbox](/components/ui/checkbox) | 布尔复选框（Radix） | `checked`, `onCheckedChange` |
-| [Switch](/components/ui/switch) | 切换开关 | `checked`, `onCheckedChange` |
+| Switch | 切换开关 | `checked`, `onCheckedChange` |
 
 ### 布局组件
 
 | 组件 | 描述 | Props |
 |------|------|------|
 | [Card](/components/ui/card) | 带标题/脚注的内容容器 | 嵌套组件 |
-| [Separator](/components/ui/separator) | 视觉分隔符 | `orientation` |
-| [ScrollArea](/components/ui/scroll-area) | 自定义滚动条容器 | - |
+| Separator | 视觉分隔符 | `orientation` |
+| ScrollArea | 自定义滚动条容器 | - |
 
 ### 反馈组件
 
 | 组件 | 描述 | Props |
 |------|------|------|
 | [Badge](/components/ui/badge) | 状态指示器标签 | `variant` |
-| [Progress](/components/ui/progress) | 进度条 | `value` |
-| [Alert](/components/ui/alert) | 通知消息 | `variant` |
-| [Toast](/components/ui/toast) | 临时通知（Radix） | Toast 组件 |
+| Progress | 进度条 | `value` |
+| Alert | 通知消息 | `variant` |
+| Toast | 临时通知（Radix） | Toast 组件 |
 
 ### 导航组件
 
 | 组件 | 描述 | Props |
 |------|------|------|
-| [Tabs](/components/ui/tabs) | 标签页导航（Radix） | Tabs 组件 |
-| [TabsNavigation](/components/ui/tabs-navigation) | 自定义标签栏 | `tabs`, `value`, `onValueChange` |
-| [Breadcrumb](/components/ui/breadcrumb) | 导航面包屑 | Breadcrumb 组件 |
+| Tabs | 标签页导航（Radix） | Tabs 组件 |
+| TabsNavigation | 自定义标签栏 | `tabs`, `value`, `onValueChange` |
+| Breadcrumb | 导航面包屑 | Breadcrumb 组件 |
 
 ### 叠加层组件
 
 | 组件 | 描述 | Props |
 |------|------|------|
-| [Dialog](/components/ui/dialog) | 模态对话框（Radix） | `open`, `onOpenChange` |
-| [Drawer](/components/ui/drawer) | 侧边面板（Radix） | `open`, `onOpenChange` |
-| [Dropdown Menu](/components/ui/dropdown) | 上下文菜单（Radix） | Dropdown 组件 |
-| [Popover](/components/ui/popover) | 浮动内容（Radix） | `open`, `onOpenChange` |
-| [Tooltip](/components/ui/tooltip) | 悬停工具提示（Radix） | `content` |
-| [AlertDialog](/components/ui/alert-dialog) | 确认对话框（Radix） | Dialog 组件 |
+| Dialog | 模态对话框（Radix） | `open`, `onOpenChange` |
+| Drawer | 侧边面板（Radix） | `open`, `onOpenChange` |
+| Dropdown Menu | 上下文菜单（Radix） | Dropdown 组件 |
+| Popover | 浮动内容（Radix） | `open`, `onOpenChange` |
+| Tooltip | 悬停工具提示（Radix） | `content` |
+| AlertDialog | 确认对话框（Radix） | Dialog 组件 |
 
 ### 展开组件
 
 | 组件 | 描述 | Props |
 |------|------|------|
-| [Collapsible](/components/ui/collapsible) | 展开/折叠内容（Radix） | `open`, `onOpenChange` |
-| [Accordion](/components/ui/accordion) | 可折叠部分（Radix） | Accordion 组件 |
+| Collapsible | 展开/折叠内容（Radix） | `open`, `onOpenChange` |
+| Accordion | 可折叠部分（Radix） | Accordion 组件 |
 
 ---
 

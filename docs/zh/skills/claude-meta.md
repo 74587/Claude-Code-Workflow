@@ -73,16 +73,16 @@ Phase 6:   Readiness Check         -> readiness-report.md + spec-summary.md
 **规范文档**（必读）:
 | 文档 | 用途 | 优先级 |
 |------|------|--------|
-| [specs/document-standards.md](specs/document-standards.md) | 文档格式、frontmatter、命名约定 | **P0 - 执行前必读** |
-| [specs/quality-gates.md](specs/quality-gates.md) | 每阶段质量关卡标准和评分 | **P0 - 执行前必读** |
+| [specs/document-standards.md](/skills/specs/document-standards) | 文档格式、frontmatter、命名约定 | **P0 - 执行前必读** |
+| [specs/quality-gates.md](/skills/specs/quality-gates) | 每阶段质量关卡标准和评分 | **P0 - 执行前必读** |
 
 **模板文件**（生成前必读）:
 | 文档 | 用途 |
 |------|------|
-| [templates/product-brief.md](templates/product-brief.md) | 产品简报文档模板 |
-| [templates/requirements-prd.md](templates/requirements-prd.md) | PRD 文档模板 |
-| [templates/architecture-doc.md](templates/architecture-doc.md) | 架构文档模板 |
-| [templates/epics-template.md](templates/epics-template.md) | Epic/Story 文档模板 |
+| [templates/product-brief.md](/skills/templates/product-brief) | 产品简报文档模板 |
+| [templates/requirements-prd.md](/skills/templates/requirements-prd) | PRD 文档模板 |
+| [templates/architecture-doc.md](/skills/templates/architecture-doc) | 架构文档模板 |
+| [templates/epics-template.md](/skills/templates/epics-template) | Epic/Story 文档模板 |
 
 **输出结构**:
 ```plaintext
@@ -230,16 +230,16 @@ Artifacts  N×Role  Synthesis  1×Role
 **核心规范**（必读）:
 | 文档 | 用途 | 优先级 |
 |------|------|--------|
-| [../_shared/SKILL-DESIGN-SPEC.md](../_shared/SKILL-DESIGN-SPEC.md) | 通用设计规范 — 定义所有 Skills 的结构、命名、质量标准 | **P0 - 关键** |
-| [specs/reference-docs-spec.md](specs/reference-docs-spec.md) | 参考文档生成规范 — 确保生成的 Skills 有适当的基于阶段的参考文档 | **P0 - 关键** |
+| [_shared/SKILL-DESIGN-SPEC.md](/skills/_shared/SKILL-DESIGN-SPEC) | 通用设计规范 — 定义所有 Skills 的结构、命名、质量标准 | **P0 - 关键** |
+| [specs/reference-docs-spec.md](/skills/specs/reference-docs-spec) | 参考文档生成规范 — 确保生成的 Skills 有适当的基于阶段的参考文档 | **P0 - 关键** |
 
 **模板文件**（生成前必读）:
 | 文档 | 用途 |
 |------|------|
-| [templates/skill-md.md](templates/skill-md.md) | SKILL.md 入口文件模板 |
-| [templates/sequential-phase.md](templates/sequential-phase.md) | 顺序阶段模板 |
-| [templates/autonomous-orchestrator.md](templates/autonomous-orchestrator.md) | 自治编排器模板 |
-| [templates/autonomous-action.md](templates/autonomous-action.md) | 自治动作模板 |
+| [templates/skill-md.md](/skills/templates/skill-md) | SKILL.md 入口文件模板 |
+| [templates/sequential-phase.md](/skills/templates/sequential-phase) | 顺序阶段模板 |
+| [templates/autonomous-orchestrator.md](/skills/templates/autonomous-orchestrator) | 自治编排器模板 |
+| [templates/autonomous-action.md](/skills/templates/autonomous-action) | 自治动作模板 |
 
 **执行流程**:
 ```plaintext

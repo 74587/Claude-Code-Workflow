@@ -156,7 +156,24 @@ TeamCreate({ team_name: "ultra-analyze" })
 ```
 
 3. Write session.json with mode, requirement, timestamp
-4. Initialize .msg/meta.json
+4. Initialize .msg/meta.json with pipeline metadata:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<Quick|Deep|Standard>",
+    pipeline_stages: ["explorer", "analyst", "discussant", "synthesizer"],
+    roles: ["coordinator", "explorer", "analyst", "discussant", "synthesizer"],
+    team_name: "ultra-analyze"
+  }
+})
+```
+
 5. Call `TeamCreate({ team_name: "ultra-analyze" })`
 
 ---

@@ -104,4 +104,4 @@ sidebar: auto
 
 - [Button 按钮](/zh/components/ui/button)
 - [Badge 徽章](/zh/components/ui/badge)
-- [Separator 分隔线](/zh/components/ui/separator)
+- Separator 分隔线

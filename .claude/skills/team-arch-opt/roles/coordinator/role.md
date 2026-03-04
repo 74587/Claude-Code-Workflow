@@ -186,13 +186,25 @@ Bash("mkdir -p .workflow/<session-id>/artifacts/pipelines/A .workflow/<session-i
    - `independent_targets`: populated for independent mode (e.g., ["refactor auth", "refactor API"])
    - `fix_cycles`: populated per-branch/pipeline as fix cycles occur
 
-3. Initialize .msg/meta.json:
-
+4. Initialize meta.json with pipeline metadata:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<parallel_mode>",
+    pipeline_stages: ["analyzer", "designer", "refactorer", "validator", "reviewer"],
+    roles: ["coordinator", "analyzer", "designer", "refactorer", "validator", "reviewer"],
+    team_name: "arch-opt"
+  }
+})
 ```
-Write("<session>/wisdom/.msg/meta.json", { "session_id": "<session-id>", "requirement": "<requirement>", "parallel_mode": "<mode>" })
-```
 
-4. Create team:
+5. Create team:
 
 ```
 TeamCreate({ team_name: "arch-opt" })

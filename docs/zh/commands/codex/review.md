@@ -194,4 +194,4 @@ git log --oneline -10
 
 - [Prep 提示](./prep.md)
 - [CLI 工具命令](../claude/cli.md)
-- [代码审查](../../features/)
+- [代码审查](../../features/spec)

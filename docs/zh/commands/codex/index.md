@@ -53,4 +53,4 @@ CONSTRAINTS: [关注约束]
 
 - [Claude Commands](../claude/)
 - [CLI 调用系统](../../features/cli.md)
-- [代码审查](../../features/)
+- [代码审查](../../features/spec)

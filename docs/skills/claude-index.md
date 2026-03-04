@@ -258,7 +258,7 @@ memory/
 
 - [Claude Commands](../commands/claude/)
 - [Codex Skills](./codex-index.md)
-- [Features](../features/)
+- [Features](../features/spec)
 
 ## Statistics
 

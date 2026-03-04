@@ -186,22 +186,26 @@ Bash("mkdir -p .workflow/.team/<session-id>/ideas .workflow/.team/<session-id>/c
 }
 ```
 
-4. Initialize .msg/meta.json:
-
-```json
-{
-  "session_id": "<session-id>",
-  "team_name": "brainstorm",
-  "topic": "<topic>",
-  "pipeline": "<mode>",
-  "angles": [],
-  "gc_round": 0,
-  "generated_ideas": [],
-  "critique_insights": [],
-  "synthesis_themes": [],
-  "evaluation_scores": [],
-  "status": "active"
-}
+4. Initialize meta.json with pipeline metadata:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<mode>",
+    pipeline_stages: ["ideator", "challenger", "synthesizer", "evaluator"],
+    roles: ["coordinator", "ideator", "challenger", "synthesizer", "evaluator"],
+    team_name: "brainstorm",
+    topic: "<topic>",
+    angles: ["<angle1>", "<angle2>"],
+    gc_round": 0,
+    status: "active"
+  }
+})
 ```
 
 5. Create team:

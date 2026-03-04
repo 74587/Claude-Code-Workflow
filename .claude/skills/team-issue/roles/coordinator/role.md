@@ -160,21 +160,22 @@ Bash("ccw issue list --status registered,pending --json")
 Bash("mkdir -p .workflow/.team-plan/issue/explorations .workflow/.team-plan/issue/solutions .workflow/.team-plan/issue/audits .workflow/.team-plan/issue/queue .workflow/.team-plan/issue/builds .workflow/.team-plan/issue/wisdom")
 ```
 
-2. Write session state to `.msg/meta.json`:
-
-```json
-{
-  "session_id": "<session-id>",
-  "status": "active",
-  "team_name": "issue",
-  "mode": "<quick|full|batch>",
-  "issue_ids": [],
-  "requirement": "<requirement>",
-  "execution_method": "<method>",
-  "code_review": "<setting>",
-  "timestamp": "<ISO-8601>",
-  "fix_cycles": {}
-}
+2. Initialize meta.json with pipeline metadata:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<quick|full|batch>",
+    pipeline_stages: ["explorer", "planner", "reviewer", "integrator", "implementer"],
+    roles: ["coordinator", "explorer", "planner", "reviewer", "integrator", "implementer"],
+    team_name: "issue"
+  }
+})
 ```
 
 3. Initialize wisdom directory (learnings.md, decisions.md, conventions.md, issues.md)

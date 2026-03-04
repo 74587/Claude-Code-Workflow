@@ -117,4 +117,4 @@ const state = ref('indeterminate')
 
 - [Input 输入框](/zh/components/ui/input)
 - [Select 选择器](/zh/components/ui/select)
-- [Radio Group 单选框组](/zh/components/ui/radio-group)
+- Radio Group 单选框组

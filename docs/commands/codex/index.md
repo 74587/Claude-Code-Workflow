@@ -53,4 +53,4 @@ CONSTRAINTS: [focus constraints]
 
 - [Claude Commands](../claude/)
 - [CLI Invocation System](../../features/cli.md)
-- [Code Review](../../features/)
+- [Code Review](../../features/spec)

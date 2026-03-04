@@ -162,20 +162,22 @@ Bash("mkdir -p .workflow/.team/<session-id>/design .workflow/.team/<session-id>/
 }
 ```
 
-7. Initialize .msg/meta.json:
-
-```json
-{
-  "session_id": "<session-id>",
-  "requirement": "<requirement>",
-  "pipeline": "<pipeline>",
-  "architecture_decisions": [],
-  "implementation_context": [],
-  "review_feedback_trends": [],
-  "gc_round": 0,
-  "max_gc_rounds": 3,
-  "sprint_history": []
-}
+7. Initialize meta.json with pipeline metadata:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<patch|sprint|multi-sprint>",
+    pipeline_stages: ["architect", "developer", "tester", "reviewer"],
+    roles: ["coordinator", "architect", "developer", "tester", "reviewer"],
+    team_name: "iterdev"
+  }
+})
 ```
 
 ---

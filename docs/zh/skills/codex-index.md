@@ -440,7 +440,7 @@ Explore → Document → Log → Analyze → Correct Understanding → Fix → V
 ## 相关文档
 
 - [Claude Skills](./claude-index.md)
-- [功能文档](../features/)
+- [功能文档](../features/spec)
 
 ## 最佳实践
 

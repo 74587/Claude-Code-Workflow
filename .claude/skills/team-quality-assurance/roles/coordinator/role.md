@@ -139,22 +139,33 @@ For callback/check/resume/complete: load `commands/monitor.md` and execute match
 1. Generate session ID
 2. Create session folder
 3. Call TeamCreate with team name
-4. Initialize .msg/meta.json with empty fields
+4. Initialize meta.json with pipeline metadata and shared state:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<discovery|testing|full>",
+    pipeline_stages: ["scout", "strategist", "generator", "executor", "analyst"],
+    roles: ["coordinator", "scout", "strategist", "generator", "executor", "analyst"],
+    team_name: "quality-assurance",
+    discovered_issues: [],
+    test_strategy: {},
+    generated_tests: {},
+    execution_results: {},
+    defect_patterns: [],
+    coverage_history: [],
+    quality_score: null
+  }
+})
+```
+
 5. Initialize wisdom directory (learnings.md, decisions.md, conventions.md, issues.md)
 6. Write session file with: session_id, mode, scope, status="active"
-
-**Shared Memory Structure**:
-```
-{
-  "discovered_issues": [],
-  "test_strategy": {},
-  "generated_tests": {},
-  "execution_results": {},
-  "defect_patterns": [],
-  "coverage_history": [],
-  "quality_score": null
-}
-```
 
 **Success**: Team created, session file written, shared memory initialized.
 

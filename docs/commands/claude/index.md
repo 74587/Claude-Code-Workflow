@@ -227,6 +227,6 @@ ccw cli -p "Review code quality" --tool gemini --mode analysis --rule analysis-r
 
 ## Related Documentation
 
-- [Skills Reference](../skills/)
+- [Skills Reference](../../skills/)
 - [CLI Invocation System](../../features/cli.md)
 - [Workflow Guide](../../guide/ch04-workflow-basics.md)

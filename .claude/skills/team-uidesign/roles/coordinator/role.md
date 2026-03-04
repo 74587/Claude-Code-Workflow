@@ -170,10 +170,22 @@ Bash("mkdir -p .workflow/.team/UDS-<slug>-<date>/research .workflow/.team/UDS-<s
 }
 ```
 
-3. Initialize .msg/meta.json:
-
-```
-Write("<session>/wisdom/.msg/meta.json", { "session_id": "<session-id>", "requirement": "<requirement>", "pipeline": "<pipeline>" })
+3. Initialize .msg/meta.json with pipeline metadata:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<component|system|full-system>",
+    pipeline_stages: ["researcher", "designer", "reviewer", "implementer"],
+    roles: ["coordinator", "researcher", "designer", "reviewer", "implementer"],
+    team_name: "uidesign"
+  }
+})
 ```
 
 4. Create team:

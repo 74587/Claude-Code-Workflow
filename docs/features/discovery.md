@@ -160,4 +160,4 @@ const { sessions, findings, /* ... */ } = useIssueDiscovery({
 - [Issue Hub](/features/issue-hub) - Unified issues, queue, and discovery management
 - [Queue](/features/queue) - Issue execution queue management
 - [Issues Panel](/features/issue-hub) - Issue list and GitHub sync
-- [Terminal Dashboard](/features/terminal-dashboard) - Real-time session monitoring
+- [Terminal Dashboard](/features/terminal) - Real-time session monitoring

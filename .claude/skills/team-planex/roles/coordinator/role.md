@@ -95,18 +95,24 @@ For callback/check/resume: load `commands/monitor.md` and execute the appropriat
 3. Create subdirectories: `artifacts/solutions/`, `wisdom/`
 4. Call `TeamCreate` with team name (default: "planex")
 5. Initialize wisdom files (learnings.md, decisions.md, conventions.md, issues.md)
-6. Write .msg/meta.json:
-
-```
-{
+6. Initialize meta.json with pipeline metadata:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
   session_id: "<session-id>",
-  input_type: "<issues|text|plan>",
-  input: "<raw-input>",
-  execution_method: "<agent|codex|gemini>",
-  status: "active",
-  active_workers: [],
-  started_at: "<ISO timestamp>"
-}
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "plan-execute",
+    pipeline_stages: ["planner", "executor"],
+    roles: ["coordinator", "planner", "executor"],
+    team_name: "planex",
+    input_type: "<issues|text|plan>",
+    execution_method: "<agent|codex|gemini>"
+  }
+})
 ```
 
 ---

@@ -77,15 +77,15 @@
 **规范文档**（必读）:
 | 文档 | 用途 | 优先级 |
 |------|------|--------|
-| [specs/review-dimensions.md](specs/review-dimensions.md) | 审查维度定义和检查点 | **P0 - 最高** |
-| [specs/issue-classification.md](specs/issue-classification.md) | 问题分类和严重程度标准 | **P0 - 最高** |
-| [specs/quality-standards.md](specs/quality-standards.md) | 审查质量标准 | P1 |
+| [specs/review-dimensions.md](/skills/specs/review-dimensions) | 审查维度定义和检查点 | **P0 - 最高** |
+| [specs/issue-classification.md](/skills/specs/issue-classification) | 问题分类和严重程度标准 | **P0 - 最高** |
+| [specs/quality-standards.md](/skills/specs/quality-standards) | 审查质量标准 | P1 |
 
 **模板文件**（生成前必读）:
 | 文档 | 用途 |
 |------|------|
-| [templates/review-report.md](templates/review-report.md) | 审查报告模板 |
-| [templates/issue-template.md](templates/issue-template.md) | 问题记录模板 |
+| [templates/review-report.md](/skills/templates/review-report) | 审查报告模板 |
+| [templates/issue-template.md](/skills/templates/issue-template) | 问题记录模板 |
 
 **执行流程**:
 ```
@@ -234,5 +234,5 @@ const query = 'SELECT * FROM users WHERE username = ?';
 await db.query(query, [username]);
 ```
 
-**Reference**: [specs/review-dimensions.md](specs/review-dimensions.md) - Security section
+**Reference**: [specs/review-dimensions.md](/skills/specs/review-dimensions) - Security section
 ```

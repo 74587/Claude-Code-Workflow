@@ -291,4 +291,4 @@ graph TD
 
 - [工作流命令](./workflow.md)
 - [核心编排](./core-orchestration.md)
-- [团队系统](../../features/)
+- [团队系统](../../features/spec)

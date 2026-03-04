@@ -77,8 +77,8 @@ export function inferTeamStatus(team: string): TeamMeta['status'] {
 export function getEffectiveTeamMeta(team: string): TeamMeta {
   const meta = readTeamMeta(team);
   if (meta) {
-    // Enrich from legacy files if role_state/pipeline_mode missing
-    if (!meta.role_state || !meta.pipeline_mode) {
+    // Enrich from legacy files if key fields are missing
+    if (!meta.role_state || !meta.pipeline_mode || !meta.roles || !meta.pipeline_stages) {
       const legacyData = readLegacyFiles(team);
       if (!meta.pipeline_mode && legacyData.pipeline_mode) {
         meta.pipeline_mode = legacyData.pipeline_mode;
@@ -91,6 +91,9 @@ export function getEffectiveTeamMeta(team: string): TeamMeta {
       }
       if (!meta.team_name && legacyData.team_name) {
         meta.team_name = legacyData.team_name;
+      }
+      if (!meta.roles && legacyData.roles) {
+        meta.roles = legacyData.roles;
       }
     }
     return meta;
@@ -155,7 +158,14 @@ function readLegacyFiles(team: string): Partial<TeamMeta> {
       if (!result.pipeline_stages && session.pipeline_stages) result.pipeline_stages = session.pipeline_stages;
       if (session.team_name) result.team_name = session.team_name;
       if (session.task_description) result.task_description = session.task_description;
-      if (session.roles) result.roles = session.roles;
+      // Handle both string[] and { name: string }[] formats
+      if (session.roles && Array.isArray(session.roles)) {
+        if (typeof session.roles[0] === 'string') {
+          result.roles = session.roles;
+        } else if (typeof session.roles[0] === 'object' && session.roles[0] !== null && 'name' in session.roles[0]) {
+          result.roles = session.roles.map((r: { name: string }) => r.name);
+        }
+      }
     } catch { /* ignore parse errors */ }
   }
 

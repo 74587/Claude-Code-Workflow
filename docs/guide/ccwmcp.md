@@ -291,4 +291,4 @@ edit_file(
 
 - [MCP Setup Guide](./mcp-setup.md) - Configure external MCP servers
 - [Installation](./installation.md) - CCW installation guide
-- [Team Workflows](../skills/team-workflows.md) - team-lifecycle documentation
+- [Team Workflows](/workflows/teams) - team-lifecycle documentation

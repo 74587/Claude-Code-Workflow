@@ -116,4 +116,4 @@ Badge with brand gradient background for featured or highlighted items.
 
 - [Card](/components/ui/card)
 - [Button](/components/ui/button)
-- [Avatar](/components/ui/avatar)
+- Avatar

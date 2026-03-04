@@ -171,5 +171,5 @@
 
 - [4级系统](./4-level.md) - 详细工作流说明
 - [最佳实践](./best-practices.md) - 工作流优化技巧
-- [示例](./examples.md) - 工作流使用示例
+- [示例](/workflows/examples) - 工作流使用示例
 - [团队](./teams.md) - 团队工作流协调

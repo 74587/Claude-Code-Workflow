@@ -224,17 +224,30 @@ Bash("ccw team log --session-id <session-id> --from coordinator --type <message-
     └── issues.md
 ```
 
-3. Initialize .msg/meta.json:
-
-| Field | Initial Value |
-|-------|---------------|
-| `debt_inventory` | [] |
-| `priority_matrix` | {} |
-| `remediation_plan` | {} |
-| `fix_results` | {} |
-| `validation_results` | {} |
-| `debt_score_before` | null |
-| `debt_score_after` | null |
+3. Initialize .msg/meta.json with pipeline metadata:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<scan|remediate|targeted>",
+    pipeline_stages: ["scanner", "assessor", "planner", "executor", "validator"],
+    roles: ["coordinator", "scanner", "assessor", "planner", "executor", "validator"],
+    team_name: "tech-debt",
+    debt_inventory: [],
+    priority_matrix: {},
+    remediation_plan: {},
+    fix_results: {},
+    validation_results: {},
+    debt_score_before: null,
+    debt_score_after: null
+  }
+})
+```
 
 4. Call TeamCreate with team name "tech-debt"
 

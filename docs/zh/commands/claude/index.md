@@ -225,6 +225,6 @@ ccw cli -p "审查代码质量" --tool gemini --mode analysis --rule analysis-re
 
 ## 相关文档
 
-- [Skills 参考](../skills/)
+- [Skills 参考](../../skills/)
 - [CLI 调用系统](../../features/cli.md)
 - [工作流指南](../../guide/ch04-workflow-basics.md)

@@ -33,53 +33,53 @@
 |-----------|-------------|-------|
 | [Button](/components/ui/button) | Clickable action buttons with variants and sizes | `variant`, `size`, `asChild` |
 | [Input](/components/ui/input) | Text input field | `error` |
-| [Textarea](/components/ui/textarea) | Multi-line text input | `error` |
+| Textarea | Multi-line text input | `error` |
 | [Select](/components/ui/select) | Dropdown selection (Radix) | Select components |
 | [Checkbox](/components/ui/checkbox) | Boolean checkbox (Radix) | `checked`, `onCheckedChange` |
-| [Switch](/components/ui/switch) | Toggle switch | `checked`, `onCheckedChange` |
+| Switch | Toggle switch | `checked`, `onCheckedChange` |
 
 ### Layout Components
 
 | Component | Description | Props |
 |-----------|-------------|-------|
 | [Card](/components/ui/card) | Content container with header/footer | Nested components |
-| [Separator](/components/ui/separator) | Visual divider | `orientation` |
-| [ScrollArea](/components/ui/scroll-area) | Custom scrollbar container | - |
+| Separator | Visual divider | `orientation` |
+| ScrollArea | Custom scrollbar container | - |
 
 ### Feedback Components
 
 | Component | Description | Props |
 |-----------|-------------|-------|
 | [Badge](/components/ui/badge) | Status indicator label | `variant` |
-| [Progress](/components/ui/progress) | Progress bar | `value` |
-| [Alert](/components/ui/alert) | Notification message | `variant` |
-| [Toast](/components/ui/toast) | Temporary notification (Radix) | Toast components |
+| Progress | Progress bar | `value` |
+| Alert | Notification message | `variant` |
+| Toast | Temporary notification (Radix) | Toast components |
 
 ### Navigation Components
 
 | Component | Description | Props |
 |-----------|-------------|-------|
-| [Tabs](/components/ui/tabs) | Tab navigation (Radix) | Tabs components |
-| [TabsNavigation](/components/ui/tabs-navigation) | Custom tab bar | `tabs`, `value`, `onValueChange` |
-| [Breadcrumb](/components/ui/breadcrumb) | Navigation breadcrumb | Breadcrumb components |
+| Tabs | Tab navigation (Radix) | Tabs components |
+| TabsNavigation | Custom tab bar | `tabs`, `value`, `onValueChange` |
+| Breadcrumb | Navigation breadcrumb | Breadcrumb components |
 
 ### Overlay Components
 
 | Component | Description | Props |
 |-----------|-------------|-------|
-| [Dialog](/components/ui/dialog) | Modal dialog (Radix) | `open`, `onOpenChange` |
-| [Drawer](/components/ui/drawer) | Side panel (Radix) | `open`, `onOpenChange` |
-| [Dropdown Menu](/components/ui/dropdown) | Context menu (Radix) | Dropdown components |
-| [Popover](/components/ui/popover) | Floating content (Radix) | `open`, `onOpenChange` |
-| [Tooltip](/components/ui/tooltip) | Hover tooltip (Radix) | `content` |
-| [AlertDialog](/components/ui/alert-dialog) | Confirmation dialog (Radix) | Dialog components |
+| Dialog | Modal dialog (Radix) | `open`, `onOpenChange` |
+| Drawer | Side panel (Radix) | `open`, `onOpenChange` |
+| Dropdown Menu | Context menu (Radix) | Dropdown components |
+| Popover | Floating content (Radix) | `open`, `onOpenChange` |
+| Tooltip | Hover tooltip (Radix) | `content` |
+| AlertDialog | Confirmation dialog (Radix) | Dialog components |
 
 ### Disclosure Components
 
 | Component | Description | Props |
 |-----------|-------------|-------|
-| [Collapsible](/components/ui/collapsible) | Expand/collapse content (Radix) | `open`, `onOpenChange` |
-| [Accordion](/components/ui/accordion) | Collapsible sections (Radix) | Accordion components |
+| Collapsible | Expand/collapse content (Radix) | `open`, `onOpenChange` |
+| Accordion | Collapsible sections (Radix) | Accordion components |
 
 ---
 

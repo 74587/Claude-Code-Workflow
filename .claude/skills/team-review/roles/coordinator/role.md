@@ -197,7 +197,26 @@ Bash("ccw team log --session-id <session-id> --from coordinator --type dispatch_
 │   └── meta.json
 ```
 
-3. Initialize .msg/meta.json with: workflow_id, mode, target, dimensions, auto flag
+3. Initialize .msg/meta.json with pipeline metadata:
+```typescript
+// Use team_msg to write pipeline metadata to .msg/meta.json
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: "<session-id>",
+  from: "coordinator",
+  type: "state_update",
+  summary: "Session initialized",
+  data: {
+    pipeline_mode: "<default|full|fix-only|quick>",
+    pipeline_stages: ["scanner", "reviewer", "fixer"],
+    roles: ["coordinator", "scanner", "reviewer", "fixer"],
+    team_name: "review",
+    target: "<target>",
+    dimensions: "<dimensions>",
+    auto_confirm: "<auto_confirm>"
+  }
+})
+```
 
 **Success**: Session folder created, shared memory initialized.
 

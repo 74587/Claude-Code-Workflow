@@ -304,4 +304,4 @@ graph TD
 
 - [Core Orchestration](./core-orchestration.md)
 - [Workflow Commands](./workflow.md)
-- [Brainstorming](../../features/)
+- [Brainstorming](../../features/spec)

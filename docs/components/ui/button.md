@@ -77,4 +77,4 @@ Gradient Primary buttons use the primary theme gradient with an enhanced glow ef
 
 - [Input](/components/ui/input)
 - [Select](/components/ui/select)
-- [Dialog](/components/ui/dialog)
+- Dialog
