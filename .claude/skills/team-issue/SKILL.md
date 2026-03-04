@@ -13,35 +13,23 @@ Unified team skill: issue processing pipeline (explore → plan → implement �
 ## Architecture
 
 ```
-┌───────────────────────────────────────────────┐
-│  Skill(skill="team-issue")                     │
-│  args="<issue-ids>" or args="--role=xxx"       │
-└───────────────────┬───────────────────────────┘
-                    │ Role Router
-         ┌──── --role present? ────┐
-         │ NO                      │ YES
-         ↓                         ↓
-  Orchestration Mode         Role Dispatch
-  (auto → coordinator)      (route to role.md)
-         │
-    ┌────┴────┬───────────┬───────────┬───────────┬───────────┐
-    ↓         ↓           ↓           ↓           ↓           ↓
-┌──────────┐┌─────────┐┌─────────┐┌─────────┐┌──────────┐┌──────────┐
-│coordinator││explorer ││planner  ││reviewer ││integrator││implementer│
-│          ││EXPLORE-*││SOLVE-*  ││AUDIT-*  ││MARSHAL-* ││BUILD-*   │
-└──────────┘└─────────┘└─────────┘└─────────┘└──────────┘└──────────┘
-```
++---------------------------------------------------+
+|  Skill(skill="team-issue")                         |
+|  args="<issue-ids>"                                |
++-------------------+-------------------------------+
+                    |
+         Orchestration Mode (auto -> coordinator)
+                    |
+              Coordinator (inline)
+              Phase 0-5 orchestration
+                    |
+    +-----+-----+-----+-----+-----+
+    v     v     v     v     v
+ [tw]  [tw]  [tw]  [tw]  [tw]
+explor plann review integ- imple-
+er     er    er     rator  menter
 
-## Command Architecture
-
-```
-roles/
-├── coordinator.md      # Pipeline orchestration (Phase 1/5 inline, Phase 2-4 core logic)
-├── explorer.md         # Context analysis (ACE + cli-explore-agent)
-├── planner.md          # Solution design (wraps issue-plan-agent)
-├── reviewer.md         # Solution review (technical feasibility + risk assessment)
-├── integrator.md       # Queue orchestration (wraps issue-queue-agent)
-└── implementer.md      # Code implementation (wraps code-developer)
+(tw) = team-worker agent
 ```
 
 ## Role Router
@@ -52,14 +40,14 @@ Parse `$ARGUMENTS` to extract `--role`. If absent → Orchestration Mode (auto r
 
 ### Role Registry
 
-| Role | File | Task Prefix | Type | Compact |
-|------|------|-------------|------|---------|
-| coordinator | [roles/coordinator.md](roles/coordinator.md) | (none) | orchestrator | **⚠️ 压缩后必须重读** |
-| explorer | [roles/explorer.md](roles/explorer.md) | EXPLORE-* | pipeline | 压缩后必须重读 |
-| planner | [roles/planner.md](roles/planner.md) | SOLVE-* | pipeline | 压缩后必须重读 |
-| reviewer | [roles/reviewer.md](roles/reviewer.md) | AUDIT-* | pipeline | 压缩后必须重读 |
-| integrator | [roles/integrator.md](roles/integrator.md) | MARSHAL-* | pipeline | 压缩后必须重读 |
-| implementer | [roles/implementer.md](roles/implementer.md) | BUILD-* | pipeline | 压缩后必须重读 |
+| Role | Spec | Task Prefix | Inner Loop |
+|------|------|-------------|------------|
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | (none) | - |
+| explorer | [role-specs/explorer.md](role-specs/explorer.md) | EXPLORE-* | false |
+| planner | [role-specs/planner.md](role-specs/planner.md) | SOLVE-* | false |
+| reviewer | [role-specs/reviewer.md](role-specs/reviewer.md) | AUDIT-* | false |
+| integrator | [role-specs/integrator.md](role-specs/integrator.md) | MARSHAL-* | false |
+| implementer | [role-specs/implementer.md](role-specs/implementer.md) | BUILD-* | false |
 
 > **⚠️ COMPACT PROTECTION**: 角色文件是执行文档，不是参考资料。当 context compression 发生后，角色指令仅剩摘要时，**必须立即 `Read` 对应 role.md 重新加载后再继续执行**。不得基于摘要执行任何 Phase。
 
@@ -308,91 +296,103 @@ Beat  1                    2                 3         4              5
 
 ## Coordinator Spawn Template
 
-When coordinator spawns workers, use background mode (Spawn-and-Stop).
+### v5 Worker Spawn (all roles)
 
-**Standard spawn** (single agent per role): For Quick/Full mode, spawn one agent per role. Explorer, planner, reviewer, integrator each get a single agent.
-
-**Parallel spawn** (Batch mode): For Batch mode with multiple issues, spawn N explorer agents in parallel (max 5) and M implementer agents in parallel (max 3). Each parallel agent only processes tasks where owner matches its agent name.
-
-**Spawn template**:
+When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
 Task({
-  subagent_type: "general-purpose",
+  subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: "issue",
   name: "<role>",
   run_in_background: true,
-  prompt: `You are team "issue" <ROLE>.
+  prompt: `## Role Assignment
+role: <role>
+role_spec: .claude/skills/team-issue/role-specs/<role>.md
+session: <session-folder>
+session_id: <session-id>
+team_name: issue
+requirement: <task-description>
+inner_loop: false
 
-## Primary Directive
-All your work must be executed through Skill to load role definition:
-Skill(skill="team-issue", args="--role=<role>")
-
-Current requirement: <task-description>
-Session: <session-folder>
-
-## Role Guidelines
-- Only process <PREFIX>-* tasks, do not execute other role work
-- All output prefixed with [<role>] identifier
-- Only communicate with coordinator
-- Do not use TaskCreate for other roles
-- Call mcp__ccw-tools__team_msg before every SendMessage
-
-## Workflow
-1. Call Skill -> load role definition and execution logic
-2. Follow role.md 5-Phase flow
-3. team_msg + SendMessage results to coordinator
-4. TaskUpdate completed -> check next task`
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
 
+**All roles** (explorer, planner, reviewer, integrator, implementer): Set `inner_loop: false`.
+
 ### Parallel Spawn (Batch Mode)
 
-> When Batch mode has parallel tasks assigned to the same role, spawn N distinct agents with unique names. A single agent can only process tasks serially.
+> When Batch mode has parallel tasks assigned to the same role, spawn N distinct team-worker agents with unique names.
 
 **Explorer parallel spawn** (Batch mode, N issues):
 
 | Condition | Action |
 |-----------|--------|
-| Batch mode with N issues (N > 1) | Spawn min(N, 5) agents: `explorer-1`, `explorer-2`, ... with `run_in_background: true` |
-| Quick/Full mode (single explorer) | Standard spawn: single `explorer` agent |
+| Batch mode with N issues (N > 1) | Spawn min(N, 5) team-worker agents: `explorer-1`, `explorer-2`, ... with `run_in_background: true` |
+| Quick/Full mode (single explorer) | Standard spawn: single `explorer` team-worker agent |
 
 **Implementer parallel spawn** (Batch mode, M BUILD tasks):
 
 | Condition | Action |
 |-----------|--------|
-| Batch mode with M BUILD tasks (M > 2) | Spawn min(M, 3) agents: `implementer-1`, `implementer-2`, ... with `run_in_background: true` |
-| Quick/Full mode (single implementer) | Standard spawn: single `implementer` agent |
+| Batch mode with M BUILD tasks (M > 2) | Spawn min(M, 3) team-worker agents: `implementer-1`, `implementer-2`, ... with `run_in_background: true` |
+| Quick/Full mode (single implementer) | Standard spawn: single `implementer` team-worker agent |
 
 **Parallel spawn template**:
 
 ```
 Task({
-  subagent_type: "general-purpose",
+  subagent_type: "team-worker",
   description: "Spawn <role>-<N> worker",
   team_name: "issue",
   name: "<role>-<N>",
   run_in_background: true,
-  prompt: `You are team "issue" <ROLE> (<role>-<N>).
-Your agent name is "<role>-<N>", use this name for task discovery owner matching.
+  prompt: `## Role Assignment
+role: <role>
+role_spec: .claude/skills/team-issue/role-specs/<role>.md
+session: <session-folder>
+session_id: <session-id>
+team_name: issue
+requirement: <task-description>
+agent_name: <role>-<N>
+inner_loop: false
 
-## Primary Directive
-Skill(skill="team-issue", args="--role=<role> --agent-name=<role>-<N>")
-
-## Role Guidelines
-- Only process tasks where owner === "<role>-<N>" with <PREFIX>-* prefix
-- All output prefixed with [<role>] identifier
-
-## Workflow
-1. TaskList -> find tasks where owner === "<role>-<N>" with <PREFIX>-* prefix
-2. Skill -> execute role definition
-3. team_msg + SendMessage results to coordinator
-4. TaskUpdate completed -> check next task`
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery, owner=<role>-<N>) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
 
-**Dispatch must match agent names**: When dispatching parallel tasks, coordinator sets each task's owner to the corresponding instance name (`explorer-1`, `explorer-2`, etc. or `implementer-1`, `implementer-2`, etc.). In role.md, task discovery uses `--agent-name` for owner matching.
+**Dispatch must match agent names**: When dispatching parallel tasks, coordinator sets each task's owner to the corresponding instance name (`explorer-1`, `explorer-2`, etc. or `implementer-1`, `implementer-2`, etc.).
+
+---
+
+## Completion Action
+
+When the pipeline completes (all tasks done, coordinator Phase 5):
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Issue resolution pipeline complete. What would you like to do?",
+    header: "Completion",
+    multiSelect: false,
+    options: [
+      { label: "Archive & Clean (Recommended)", description: "Archive session, clean up tasks and team resources" },
+      { label: "Keep Active", description: "Keep session active for follow-up work or inspection" },
+      { label: "Export Results", description: "Export deliverables to a specified location, then clean" }
+    ]
+  }]
+})
+```
+
+| Choice | Action |
+|--------|--------|
+| Archive & Clean | Update session status="completed" -> TeamDelete(issue) -> output final summary |
+| Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-issue", args="resume")` |
+| Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
 
 ---
 

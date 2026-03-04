@@ -1,7 +1,7 @@
 ---
 name: team-review
-description: "Unified team skill for code scanning, vulnerability review, optimization suggestions, and automated fix. 4-role team: coordinator, scanner, reviewer, fixer. Triggers on team-review."
-allowed-tools: Task, AskUserQuestion, TaskCreate, TaskUpdate, TaskList, TaskGet, Read, Write, Edit, Bash, Glob, Grep, Skill, mcp__ace-tool__search_context
+description: "Unified team skill for code review. Uses team-worker agent architecture with role-spec files. 3-role pipeline: scanner, reviewer, fixer. Triggers on team-review."
+allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Task(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), mcp__ace-tool__search_context(*)
 ---
 
 # Team Review
@@ -11,23 +11,23 @@ Unified team skill: code scanning, vulnerability review, optimization suggestion
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Skill(skill="team-review")                                 │
-│  args="<target>" or args="--role=xxx"                       │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ Role Router
-                ┌──── --role present? ────┐
-                │ NO                      │ YES
-                ↓                         ↓
-         Orchestration Mode         Role Dispatch
-         (auto → coordinator)      (route to role.md)
-                │
-           ┌────┴────┬───────────┬───────────┐
-           ↓         ↓           ↓           ↓
-      ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐
-      │ coord  │ │scanner │ │reviewer│ │ fixer  │
-      │ (RC-*) │ │(SCAN-*)│ │(REV-*) │ │(FIX-*) │
-      └────────┘ └────────┘ └────────┘ └────────┘
++---------------------------------------------------+
+|  Skill(skill="team-review")                        |
+|  args="<task-description>"                         |
++-------------------+-------------------------------+
+                    |
+         Orchestration Mode (auto -> coordinator)
+                    |
+              Coordinator (inline)
+              Phase 0-5 orchestration
+                    |
+    +-------+-------+-------+
+    v       v       v
+ [tw]    [tw]    [tw]
+scann-  review- fixer
+er      er
+
+(tw) = team-worker agent
 ```
 
 ## Role Router
@@ -38,12 +38,12 @@ Parse `$ARGUMENTS` to extract `--role`. If absent → Orchestration Mode (auto r
 
 ### Role Registry
 
-| Role | File | Task Prefix | Type | Compact |
-|------|------|-------------|------|---------|
-| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | RC-* | orchestrator | **⚠️ 压缩后必须重读** |
-| scanner | [roles/scanner/role.md](roles/scanner/role.md) | SCAN-* | read-only-analysis | 压缩后必须重读 |
-| reviewer | [roles/reviewer/role.md](roles/reviewer/role.md) | REV-* | read-only-analysis | 压缩后必须重读 |
-| fixer | [roles/fixer/role.md](roles/fixer/role.md) | FIX-* | code-generation | 压缩后必须重读 |
+| Role | Spec | Task Prefix | Inner Loop |
+|------|------|-------------|------------|
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | (none) | - |
+| scanner | [role-specs/scanner.md](role-specs/scanner.md) | SCAN-* | false |
+| reviewer | [role-specs/reviewer.md](role-specs/reviewer.md) | REV-* | false |
+| fixer | [role-specs/fixer.md](role-specs/fixer.md) | FIX-* | true |
 
 > **⚠️ COMPACT PROTECTION**: 角色文件是执行文档，不是参考资料。当 context compression 发生后，角色指令仅剩摘要时，**必须立即 `Read` 对应 role.md 重新加载后再继续执行**。不得基于摘要执行任何 Phase。
 
@@ -204,9 +204,12 @@ Cross-task knowledge accumulation. Coordinator creates `wisdom/` directory at se
 
 Coordinator additional restrictions: Do not write/modify code directly, do not call implementation subagents, do not execute analysis/test/review directly.
 
-| Component | Location |
-|-----------|----------|
-| Session directory | `.workflow/.team-review/<workflow_id>/` |
+### Team Configuration
+
+| Setting | Value |
+|---------|-------|
+| Team name | review |
+| Session directory | `.workflow/.team/RV-<slug>-<date>/` |
 | Shared memory | `.msg/meta.json` in session dir |
 | Team config | `specs/team-config.json` |
 | Finding schema | `specs/finding-schema.json` |
@@ -216,13 +219,34 @@ Coordinator additional restrictions: Do not write/modify code directly, do not c
 
 ## Coordinator Spawn Template
 
-When coordinator spawns workers, use Skill invocation:
+### v5 Worker Spawn (all roles)
+
+When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
-Skill(skill="team-review", args="--role=scanner <target> <flags>")
-Skill(skill="team-review", args="--role=reviewer --input <scan-output> <flags>")
-Skill(skill="team-review", args="--role=fixer --input <fix-manifest> <flags>")
+Task({
+  subagent_type: "team-worker",
+  description: "Spawn <role> worker",
+  team_name: "review",
+  name: "<role>",
+  run_in_background: true,
+  prompt: `## Role Assignment
+role: <role>
+role_spec: .claude/skills/team-review/role-specs/<role>.md
+session: <session-folder>
+session_id: <session-id>
+team_name: review
+requirement: <task-description>
+inner_loop: <true|false>
+
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`
+})
 ```
+
+**Inner Loop roles** (fixer): Set `inner_loop: true`.
+
+**Single-task roles** (scanner, reviewer): Set `inner_loop: false`.
 
 ## Usage
 
@@ -244,6 +268,55 @@ Skill(skill="team-review", args="--role=fixer --input fix-manifest.json")
 -q / --quick                       # quick scan mode
 --full                             # full pipeline (scan → review → fix)
 --fix                              # fix mode only
+```
+
+---
+
+## Completion Action
+
+When the pipeline completes (all tasks done, coordinator Phase 5):
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Review pipeline complete. What would you like to do?",
+    header: "Completion",
+    multiSelect: false,
+    options: [
+      { label: "Archive & Clean (Recommended)", description: "Archive session, clean up tasks and team resources" },
+      { label: "Keep Active", description: "Keep session active for follow-up work or inspection" },
+      { label: "Export Results", description: "Export deliverables to a specified location, then clean" }
+    ]
+  }]
+})
+```
+
+| Choice | Action |
+|--------|--------|
+| Archive & Clean | Update session status="completed" -> TeamDelete(review) -> output final summary |
+| Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-review", args="resume")` |
+| Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
+
+---
+
+## Session Directory
+
+```
+.workflow/.team/RV-<slug>-<YYYY-MM-DD>/
+├── .msg/
+│   ├── messages.jsonl          # Message bus log
+│   └── meta.json               # Session state + cross-role state
+├── wisdom/                     # Cross-task knowledge
+│   ├── learnings.md
+│   ├── decisions.md
+│   ├── conventions.md
+│   └── issues.md
+├── scan/                       # Scanner output
+│   └── scan-results.json
+├── review/                     # Reviewer output
+│   └── review-report.json
+└── fix/                        # Fixer output
+    └── fix-manifest.json
 ```
 
 ## Error Handling

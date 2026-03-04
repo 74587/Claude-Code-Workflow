@@ -50,7 +50,7 @@ Claude Code Workflow 支持两种团队架构模型：
    - 所有工作者角色都是运行时动态生成
    - 支持任意任务类型的动态团队
 
-2. **team-lifecycle-v5** (全生命周期团队)
+2. **team-lifecycle** (全生命周期团队)
    - 基于 team-worker agent 架构
    - 所有工作者共享同一代理定义
    - 角色特定的 Phase 2-4 从 markdown 规范加载

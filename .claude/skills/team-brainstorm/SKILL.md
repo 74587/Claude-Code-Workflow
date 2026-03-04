@@ -30,6 +30,15 @@ ideator  chall-  synthe- evalua-
 (tw) = team-worker agent
 ```
 
+## Command Execution Protocol
+
+When coordinator needs to execute a command (dispatch, monitor):
+
+1. **Read the command file**: `roles/coordinator/commands/<command-name>.md`
+2. **Follow the workflow** defined in the command file (Phase 2-4 structure)
+3. **Commands are inline execution guides** -- NOT separate agents or subprocesses
+4. **Execute synchronously** -- complete the command workflow before proceeding
+
 ## Role Router
 
 ### Input Parsing

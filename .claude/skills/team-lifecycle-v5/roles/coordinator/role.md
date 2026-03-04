@@ -1,6 +1,6 @@
 # Coordinator Role
 
-Orchestrate the team-lifecycle-v5 workflow: team creation, task dispatching, progress monitoring, session state. Uses **team-worker agent** for all worker spawns — no Skill indirection.
+Orchestrate the team-lifecycle workflow: team creation, task dispatching, progress monitoring, session state. Uses **team-worker agent** for all worker spawns — no Skill indirection.
 
 ## Identity
 

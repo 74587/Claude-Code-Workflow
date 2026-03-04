@@ -21,7 +21,7 @@
 | review-cycle | Code review | 3 (Standard) | YES |
 | spec-generator | Specification packages | 4 (Full) | NO (chains to plan) |
 | team-planex | Issue batch execution | Team | YES |
-| team-lifecycle-v5 | Full lifecycle | Team | YES |
+| team-lifecycle | Full lifecycle | Team | YES |
 | issue pipeline | Issue management | 2.5 (Bridge) | YES |
 
 ---
@@ -51,7 +51,7 @@
 | spec-generator | `/ccw "specification: ..."` | study → discovery → brief → PRD → architecture → epics | Complete specification package | 4 (Full) | YES (docs only) | workflow-plan / team-planex |
 | **Team Workflows** |
 | team-planex | `/ccw "team planex: ..."` | coordinator → planner wave → executor wave | Issue-based parallel execution | Team | YES | (complete pipeline) |
-| team-lifecycle-v5 | `/ccw "team lifecycle: ..."` | spec pipeline → impl pipeline | Full lifecycle specification to validation | Team | YES | (complete lifecycle) |
+| team-lifecycle | `/ccw "team lifecycle: ..."` | spec pipeline → impl pipeline | Full lifecycle specification to validation | Team | YES | (complete lifecycle) |
 | team-arch-opt | (architecture optimization) | architecture analysis → optimization | Architecture optimization | Team | YES | (complete) |
 | **Cycle Workflows** |
 | integration-test-cycle | `/ccw "integration test: ..."` | explore → test dev → test-fix cycle → reflection | Integration testing with iteration | 3 (Standard) | YES | (self-iterating) |
@@ -71,7 +71,7 @@
 | **2.5 (Bridge)** | issue pipeline, rapid-to-issue | Bridge to issue workflow |
 | **3 (Standard)** | workflow-plan, workflow-execute, workflow-tdd-plan, workflow-test-fix, review-cycle, debug-with-file, analyze-with-file, workflow-multi-cli-plan | Full planning/execution, multi-phase |
 | **4 (Full)** | brainstorm, spec-generator, brainstorm-with-file, roadmap-with-file | Complete exploration, specification |
-| **Team** | team-planex, team-lifecycle-v5, team-arch-opt | Multi-agent parallel execution |
+| **Team** | team-planex, team-lifecycle, team-arch-opt | Multi-agent parallel execution |
 | **Cycle** | integration-test-cycle, refactor-cycle | Self-iterating with reflection |
 
 ---
@@ -108,7 +108,7 @@
 | review-cycle | YES | Complete review + optional fix |
 | spec-generator | YES (docs) | NO for implementation |
 | team-planex | YES | Complete team pipeline |
-| team-lifecycle-v5 | YES | Complete lifecycle |
+| team-lifecycle | YES | Complete lifecycle |
 | debug-with-file | YES | Complete debugging |
 | integration-test-cycle | YES | Self-iterating |
 | refactor-cycle | YES | Self-iterating |
@@ -149,7 +149,7 @@
 | Issue management | `/issue:new` → `/issue:plan` → `/issue:queue` → `/issue:execute` | issue workflow |
 | Multi-issue batch | `/issue:discover` → `/issue:plan --all-pending` | issue batch workflow |
 | Code review | `/cli:codex-review --uncommitted` | codex review |
-| Team coordination | `team-lifecycle-v5` or `team-planex` | team workflow |
+| Team coordination | `team-lifecycle` or `team-planex` | team workflow |
 | TDD development | `/ccw "Implement with TDD"` | tdd-plan → execute |
 | Integration testing | `/ccw "integration test: ..."` | integration-test-cycle |
 | Tech debt | `/ccw "refactor: ..."` | refactor-cycle |

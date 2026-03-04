@@ -117,9 +117,35 @@ async function serveStaticFile(
     const ext = extname(filePath);
     const mimeType = MIME_TYPES[ext] || 'application/octet-stream';
 
+    // Determine cache strategy based on file type
+    const fileName = filePath.split('/').pop() || '';
+    const isIndexHtml = filePath.endsWith('index.html');
+    const isAssetFile = fileName.startsWith('index-') && (ext === '.js' || ext === '.css');
+
+    // For index.html: use no-cache to prevent stale content issues
+    if (isIndexHtml) {
+      res.writeHead(200, {
+        'Content-Type': mimeType,
+        'Cache-Control': 'no-cache',
+      });
+      res.end(content);
+      return true;
+    }
+
+    // For assets (JS/CSS with hash in filenames), use long-term cache
+    if (isAssetFile) {
+      res.writeHead(200, {
+        'Content-Type': mimeType,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+      });
+      res.end(content);
+      return true;
+    }
+
+    // For other files (fallback to index.html for SPA), use no-cache
     res.writeHead(200, {
       'Content-Type': mimeType,
-      'Cache-Control': 'public, max-age=31536000',
+      'Cache-Control': 'no-cache',
     });
     res.end(content);
     return true;

@@ -7,8 +7,8 @@ CCW provides a comprehensive workflow system built on **Team Architecture v2** a
 ## What's New in v7.0
 
 **Major New Features**:
-- **Team Architecture v2**: `team-coordinate-v2` and `team-executor-v2` with unified team-worker agent
-- **team-lifecycle-v5**: Unified team skill for full lifecycle (spec -> impl -> test -> review)
+- **Team Architecture v2**: `team-coordinate` and `team-executor` with unified team-worker agent
+- **team-lifecycle**: Unified team skill for full lifecycle (spec -> impl -> test -> review)
 - **Queue Scheduler**: Background task execution with dependency resolution
 - **Workflow Session Commands**: `start`, `resume`, `complete`, `sync` for full lifecycle management
 - **Beat/Cadence Orchestration**: Event-driven coordination model
@@ -149,9 +149,9 @@ Phase 6: Next cycle
 
 | Skill | Purpose |
 |-------|---------|
-| `team-coordinate-v2` | Dynamic role generation and coordination |
-| `team-executor-v2` | Pure execution of existing sessions |
-| `team-lifecycle-v5` | Full lifecycle (spec -> impl -> test) |
+| `team-coordinate` | Dynamic role generation and coordination |
+| `team-executor` | Pure execution of existing sessions |
+| `team-lifecycle` | Full lifecycle (spec -> impl -> test) |
 | `team-brainstorm` | Brainstorming team |
 | `team-frontend` | Frontend development team |
 | `team-testing` | Testing team |

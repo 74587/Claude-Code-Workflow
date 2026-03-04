@@ -9,7 +9,7 @@ CCW 提供多个支持多角色协调复杂任务的团队协作技能。
 | **team-planex** | 3 (planner + executor) | 波浪流水线（边规划边执行） | 规划和执行并行 |
 | **team-iterdev** | 5 (generator → critic → integrator → validator) | 生成器-评论者循环 | 带反馈循环的迭代开发 |
 | **team-lifecycle-v4** | 8 (spec → architect → impl → test) | 5 阶段生命周期 | 完整规范 → 实现 → 测试工作流 |
-| **team-lifecycle-v5** | 可变 (team-worker) | 内置阶段 | 最新 team-worker 架构 |
+| **team-lifecycle** | 可变 (team-worker) | 内置阶段 | 最新 team-worker 架构 |
 | **team-issue** | 6 (explorer → planner → implementer → reviewer → integrator) | 5 阶段问题解决 | 多角色问题求解 |
 | **team-testing** | 5 (strategist → generator → executor → analyst) | 4 阶段测试 | 综合测试覆盖 |
 | **team-quality-assurance** | 6 (scout → strategist → generator → executor → analyst) | 5 阶段 QA | 质量保障闭环 |
@@ -21,9 +21,9 @@ CCW 提供多个支持多角色协调复杂任务的团队协作技能。
 | **team-tech-debt** | 6 (scanner → assessor → planner → executor → validator) | 5 阶段清理 | 技术债务识别和解决 |
 | **team-ultra-analyze** | 5 (explorer → analyst → discussant → synthesizer) | 4 阶段分析 | 深度协作代码库分析 |
 | **team-coordinate** | 可变 | 通用协调 | 通用团队协调（旧版） |
-| **team-coordinate-v2** | 可变 (team-worker) | team-worker 架构 | 现代 team-worker 协调 |
+| **team-coordinate** | 可变 (team-worker) | team-worker 架构 | 现代 team-worker 协调 |
 | **team-executor** | 可变 | 轻量级执行 | 基于会话的执行 |
-| **team-executor-v2** | 可变 (team-worker) | team-worker 执行 | 现代 team-worker 执行 |
+| **team-executor** | 可变 (team-worker) | team-worker 执行 | 现代 team-worker 执行 |
 
 ## 使用方法
 
@@ -45,7 +45,7 @@ CCW 提供多个支持多角色协调复杂任务的团队协作技能。
 
 ```javascript
 // 编程调用
-Skill(skill="team-lifecycle-v5", args="Build user authentication system")
+Skill(skill="team-lifecycle", args="Build user authentication system")
 Skill(skill="team-planex", args="Implement OAuth2 with concurrent planning")
 Skill(skill="team-quality-assurance", args="Quality audit of payment system")
 
@@ -177,7 +177,7 @@ Implementation Track:        Developer → Components
 |----------|-------------------|
 | 需要并行规划和执行 | **team-planex** |
 | 带多次迭代的复杂功能 | **team-iterdev** |
-| 完整规范 → 实现 → 测试工作流 | **team-lifecycle-v5** |
+| 完整规范 → 实现 → 测试工作流 | **team-lifecycle** |
 | 问题解决 | **team-issue** |
 | 综合测试 | **team-testing** |
 | 质量审计 | **team-quality-assurance** |

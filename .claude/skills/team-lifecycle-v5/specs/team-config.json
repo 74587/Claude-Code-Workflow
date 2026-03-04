@@ -1,6 +1,6 @@
 {
   "team_name": "team-lifecycle",
-  "team_display_name": "Team Lifecycle v5",
+  "team_display_name": "Team Lifecycle",
   "description": "Unified team-worker agent architecture: shared Phase 1/5/Inner Loop in agent, role-specific Phase 2-4 from spec files",
   "version": "5.0.0",
   "architecture": "team-worker agent + role-specs",

@@ -21,7 +21,7 @@
 | review-cycle | 代码审查 | 3 (标准) | 是 |
 | spec-generator | 规格文档包 | 4 (完整) | 否 (链式到 plan) |
 | team-planex | Issue 批量执行 | Team | 是 |
-| team-lifecycle-v5 | 完整生命周期 | Team | 是 |
+| team-lifecycle | 完整生命周期 | Team | 是 |
 | issue pipeline | Issue 管理 | 2.5 (桥接) | 是 |
 
 ---
@@ -51,7 +51,7 @@
 | spec-generator | `/ccw "specification: ..."` | study → discovery → brief → PRD → architecture → epics | 完整规格文档包 | 4 (完整) | 是 (仅文档) | workflow-plan / team-planex |
 | **团队工作流** |
 | team-planex | `/ccw "team planex: ..."` | coordinator → planner wave → executor wave | 基于 Issue 的并行执行 | Team | 是 | (完整流水线) |
-| team-lifecycle-v5 | `/ccw "team lifecycle: ..."` | spec pipeline → impl pipeline | 从规格到验证的完整生命周期 | Team | 是 | (完整生命周期) |
+| team-lifecycle | `/ccw "team lifecycle: ..."` | spec pipeline → impl pipeline | 从规格到验证的完整生命周期 | Team | 是 | (完整生命周期) |
 | team-arch-opt | (架构优化) | architecture analysis → optimization | 架构优化 | Team | 是 | (完整) |
 | **循环工作流** |
 | integration-test-cycle | `/ccw "integration test: ..."` | explore → test dev → test-fix cycle → reflection | 带迭代的集成测试 | 3 (标准) | 是 | (自迭代) |
@@ -71,7 +71,7 @@
 | **2.5 (桥接)** | issue pipeline, rapid-to-issue | 桥接到 Issue 工作流 |
 | **3 (标准)** | workflow-plan, workflow-execute, workflow-tdd-plan, workflow-test-fix, review-cycle, debug-with-file, analyze-with-file, workflow-multi-cli-plan | 完整规划/执行、多阶段 |
 | **4 (完整)** | brainstorm, spec-generator, brainstorm-with-file, roadmap-with-file | 完整探索、规格化 |
-| **Team** | team-planex, team-lifecycle-v5, team-arch-opt | 多代理并行执行 |
+| **Team** | team-planex, team-lifecycle, team-arch-opt | 多代理并行执行 |
 | **Cycle** | integration-test-cycle, refactor-cycle | 带反思的自迭代 |
 
 ---
@@ -108,7 +108,7 @@
 | review-cycle | 是 | 完整审查 + 可选修复 |
 | spec-generator | 是 (文档) | 否 (实现) |
 | team-planex | 是 | 完整团队流水线 |
-| team-lifecycle-v5 | 是 | 完整生命周期 |
+| team-lifecycle | 是 | 完整生命周期 |
 | debug-with-file | 是 | 完整调试 |
 | integration-test-cycle | 是 | 自迭代 |
 | refactor-cycle | 是 | 自迭代 |
@@ -149,7 +149,7 @@
 | Issue 管理 | `/issue:new` → `/issue:plan` → `/issue:queue` → `/issue:execute` | issue workflow |
 | 多 Issue 批量 | `/issue:discover` → `/issue:plan --all-pending` | issue batch workflow |
 | 代码审查 | `/cli:codex-review --uncommitted` | codex review |
-| 团队协调 | `team-lifecycle-v5` 或 `team-planex` | team workflow |
+| 团队协调 | `team-lifecycle` 或 `team-planex` | team workflow |
 | TDD 开发 | `/ccw "Implement with TDD"` | tdd-plan → execute |
 | 集成测试 | `/ccw "integration test: ..."` | integration-test-cycle |
 | 技术债务 | `/ccw "refactor: ..."` | refactor-cycle |

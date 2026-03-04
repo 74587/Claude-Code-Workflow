@@ -55,7 +55,7 @@ name: my-skill-v2
 
 3. **Use version suffixes for iterations**: Not "v2" but purpose
    ```yaml
-   name: team-lifecycle-v5   # Version iteration
+   name: team-lifecycle   # Version iteration
    name: workflow-lite       # Lightweight variant
    ```
 

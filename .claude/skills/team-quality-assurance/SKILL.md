@@ -11,23 +11,23 @@ Unified team skill: quality assurance combining issue discovery and software tes
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  Skill(skill="team-quality-assurance")                    │
-│  args="<task-description>" or args="--role=xxx"           │
-└────────────────────────────┬─────────────────────────────┘
-                             │ Role Router
-                  ┌──── --role present? ────┐
-                  │ NO                      │ YES
-                  ↓                         ↓
-           Orchestration Mode         Role Dispatch
-           (auto -> coordinator)     (route to role.md)
-                  │
-    ┌─────┬──────┴──────┬───────────┬──────────┬──────────┐
-    ↓     ↓             ↓           ↓          ↓          ↓
-┌────────┐┌───────┐┌──────────┐┌─────────┐┌────────┐┌────────┐
-│ coord  ││scout  ││strategist││generator││executor││analyst │
-│        ││SCOUT-*││QASTRAT-* ││QAGEN-*  ││QARUN-* ││QAANA-* │
-└────────┘└───────┘└──────────┘└─────────┘└────────┘└────────┘
++---------------------------------------------------+
+|  Skill(skill="team-quality-assurance")             |
+|  args="<task-description>"                         |
++-------------------+-------------------------------+
+                    |
+         Orchestration Mode (auto -> coordinator)
+                    |
+              Coordinator (inline)
+              Phase 0-5 orchestration
+                    |
+    +-----+-----+-----+-----+-----+
+    v     v     v     v     v
+ [tw]  [tw]  [tw]  [tw]  [tw]
+scout  stra-  gene- execu- analy-
+       tegist rator tor    st
+
+(tw) = team-worker agent
 ```
 
 ## Command Architecture
@@ -71,14 +71,14 @@ Parse `$ARGUMENTS` to extract `--role`. If absent -> Orchestration Mode (auto ro
 
 ### Role Registry
 
-| Role | File | Task Prefix | Type | Compact |
-|------|------|-------------|------|---------|
-| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | (none) | orchestrator | **compressed -> must re-read** |
-| scout | [roles/scout/role.md](roles/scout/role.md) | SCOUT-* | pipeline | compressed -> must re-read |
-| strategist | [roles/strategist/role.md](roles/strategist/role.md) | QASTRAT-* | pipeline | compressed -> must re-read |
-| generator | [roles/generator/role.md](roles/generator/role.md) | QAGEN-* | pipeline | compressed -> must re-read |
-| executor | [roles/executor/role.md](roles/executor/role.md) | QARUN-* | pipeline | compressed -> must re-read |
-| analyst | [roles/analyst/role.md](roles/analyst/role.md) | QAANA-* | pipeline | compressed -> must re-read |
+| Role | Spec | Task Prefix | Inner Loop |
+|------|------|-------------|------------|
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | (none) | - |
+| scout | [role-specs/scout.md](role-specs/scout.md) | SCOUT-* | false |
+| strategist | [role-specs/strategist.md](role-specs/strategist.md) | QASTRAT-* | false |
+| generator | [role-specs/generator.md](role-specs/generator.md) | QAGEN-* | false |
+| executor | [role-specs/executor.md](role-specs/executor.md) | QARUN-* | true |
+| analyst | [role-specs/analyst.md](role-specs/analyst.md) | QAANA-* | false |
 
 > **COMPACT PROTECTION**: Role files are execution documents, not reference material. When context compression occurs and role instructions are reduced to summaries, **you MUST immediately `Read` the corresponding role.md to reload before continuing execution**. Do not execute any Phase based on summaries.
 
@@ -354,42 +354,38 @@ Beat  1       2       3              4              5       6
 
 ## Coordinator Spawn Template
 
-When coordinator spawns workers, use background mode (Spawn-and-Stop):
+### v5 Worker Spawn (all roles)
+
+When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
 Task({
-  subagent_type: "general-purpose",
+  subagent_type: "team-worker",
   description: "Spawn <role> worker",
-  team_name: <team-name>,
+  team_name: "quality-assurance",
   name: "<role>",
   run_in_background: true,
-  prompt: `You are team "<team-name>" <ROLE>.
+  prompt: `## Role Assignment
+role: <role>
+role_spec: .claude/skills/team-quality-assurance/role-specs/<role>.md
+session: <session-folder>
+session_id: <session-id>
+team_name: quality-assurance
+requirement: <task-description>
+inner_loop: <true|false>
 
-## Primary Directive
-All your work must be executed through Skill to load role definition:
-Skill(skill="team-quality-assurance", args="--role=<role>")
-
-Current requirement: <task-description>
-Session: <session-folder>
-
-## Role Guidelines
-- Only process <PREFIX>-* tasks, do not execute other role work
-- All output prefixed with [<role>] identifier
-- Only communicate with coordinator
-- Do not use TaskCreate for other roles
-- Call mcp__ccw-tools__team_msg before every SendMessage
-
-## Workflow
-1. Call Skill -> load role definition and execution logic
-2. Follow role.md 5-Phase flow
-3. team_msg + SendMessage results to coordinator
-4. TaskUpdate completed -> check next task`
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
 
+**Inner Loop roles** (executor): Set `inner_loop: true`.
+
+**Single-task roles** (scout, strategist, generator, analyst): Set `inner_loop: false`.
+
 ### Parallel Spawn (N agents for same role)
 
-> When pipeline has parallel tasks assigned to the same role, spawn N distinct agents with unique names. A single agent can only process tasks serially.
+> When pipeline has parallel tasks assigned to the same role, spawn N distinct team-worker agents with unique names.
 
 **Parallel detection**:
 
@@ -402,30 +398,54 @@ Session: <session-folder>
 
 ```
 Task({
-  subagent_type: "general-purpose",
+  subagent_type: "team-worker",
   description: "Spawn <role>-<N> worker",
-  team_name: <team-name>,
+  team_name: "quality-assurance",
   name: "<role>-<N>",
   run_in_background: true,
-  prompt: `You are team "<team-name>" <ROLE> (<role>-<N>).
-Your agent name is "<role>-<N>", use this name for task discovery owner matching.
+  prompt: `## Role Assignment
+role: <role>
+role_spec: .claude/skills/team-quality-assurance/role-specs/<role>.md
+session: <session-folder>
+session_id: <session-id>
+team_name: quality-assurance
+requirement: <task-description>
+agent_name: <role>-<N>
+inner_loop: <true|false>
 
-## Primary Directive
-Skill(skill="team-quality-assurance", args="--role=<role> --agent-name=<role>-<N>")
-
-## Role Guidelines
-- Only process tasks where owner === "<role>-<N>" with <PREFIX>-* prefix
-- All output prefixed with [<role>] identifier
-
-## Workflow
-1. TaskList -> find tasks where owner === "<role>-<N>" with <PREFIX>-* prefix
-2. Skill -> execute role definition
-3. team_msg + SendMessage results to coordinator
-4. TaskUpdate completed -> check next task`
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery, owner=<role>-<N>) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
 
-**Dispatch must match agent names**: In dispatch, parallel tasks use instance-specific owner: `<role>-<N>`. In role.md, task discovery uses --agent-name for owner matching.
+**Dispatch must match agent names**: In dispatch, parallel tasks use instance-specific owner: `<role>-<N>`.
+
+---
+
+## Completion Action
+
+When the pipeline completes (all tasks done, coordinator Phase 5):
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Quality Assurance pipeline complete. What would you like to do?",
+    header: "Completion",
+    multiSelect: false,
+    options: [
+      { label: "Archive & Clean (Recommended)", description: "Archive session, clean up tasks and team resources" },
+      { label: "Keep Active", description: "Keep session active for follow-up work or inspection" },
+      { label: "Export Results", description: "Export deliverables to a specified location, then clean" }
+    ]
+  }]
+})
+```
+
+| Choice | Action |
+|--------|--------|
+| Archive & Clean | Update session status="completed" -> TeamDelete(quality-assurance) -> output final summary |
+| Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-quality-assurance", args="resume")` |
+| Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
 
 ## Unified Session Directory
 

@@ -88,22 +88,22 @@ This is an output from `team-coordinate` with a team of specialists.
     {
       "name": "architect",
       "type": "team-worker",
-      "role_spec": ".claude/skills/team-lifecycle-v5/role-specs/architect.md"
+      "role_spec": ".claude/skills/team-lifecycle/role-specs/architect.md"
     },
     {
       "name": "frontend-dev",
       "type": "team-worker",
-      "role_spec": ".claude/skills/team-lifecycle-v5/role-specs/frontend-dev.md"
+      "role_spec": ".claude/skills/team-lifecycle/role-specs/frontend-dev.md"
     },
     {
       "name": "backend-dev",
       "type": "team-worker",
-      "role_spec": ".claude/skills/team-lifecycle-v5/role-specs/backend-dev.md"
+      "role_spec": ".claude/skills/team-lifecycle/role-specs/backend-dev.md"
     },
     {
       "name": "qa-engineer",
       "type": "team-worker",
-      "role_spec": ".claude/skills/team-lifecycle-v5/role-specs/qa.md"
+      "role_spec": ".claude/skills/team-lifecycle/role-specs/qa.md"
     }
   ],
   "deliverables": [

@@ -7142,7 +7142,7 @@ export async function fetchCcwTools(): Promise<CcwToolInfo[]> {
 
 // ========== Team API ==========
 
-export async function fetchTeams(location?: string): Promise<{ teams: Array<{ name: string; messageCount: number; lastActivity: string; status: string; created_at: string; updated_at: string; archived_at?: string; pipeline_mode?: string; memberCount: number; members?: string[] }> }> {
+export async function fetchTeams(location?: string): Promise<{ teams: Array<{ name: string; messageCount: number; lastActivity: string; status: string; created_at: string; updated_at: string; archived_at?: string; pipeline_mode?: string; pipeline_stages?: string[]; role_state?: Record<string, Record<string, unknown>>; roles?: string[]; team_name?: string; memberCount: number; members?: string[] }> }> {
   const params = new URLSearchParams();
   if (location) params.set('location', location);
   const qs = params.toString();

@@ -196,7 +196,7 @@ team_msg(
 
 ## CCWMCP in Team Workflows
 
-CCWMCP is essential for CCW's team-lifecycle-v5 system:
+CCWMCP is essential for CCW's team-lifecycle system:
 
 - **Team Messaging**: Enables communication between team members (analyst, writer, planner, executor, tester, reviewer)
 - **Fast-Advance**: Coordinates workflow progression through team pipeline
@@ -291,4 +291,4 @@ edit_file(
 
 - [MCP Setup Guide](./mcp-setup.md) - Configure external MCP servers
 - [Installation](./installation.md) - CCW installation guide
-- [Team Workflows](../skills/team-workflows.md) - Team-lifecycle-v5 documentation
+- [Team Workflows](../skills/team-workflows.md) - team-lifecycle documentation

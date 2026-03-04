@@ -50,7 +50,7 @@
 | **Workflow** | workflow-test-fix | session → context → analysis → gen → cycle | 测试生成与修复 |
 | **Workflow** | workflow-multi-cli-plan | ACE context → CLI discussion → plan → execute | 多视角规划 |
 | **Workflow** | workflow-skill-designer | - | 创建新技能 |
-| **Team** | team-lifecycle-v5 | spec pipeline → impl pipeline | 完整生命周期 |
+| **Team** | team-lifecycle | spec pipeline → impl pipeline | 完整生命周期 |
 | **Team** | team-planex | planner wave → executor wave | Issue 批量执行 |
 | **Team** | team-arch-opt | architecture analysis → optimization | 架构优化 |
 | **Utility** | brainstorm | framework → parallel analysis → synthesis | 多视角创意 |
@@ -577,10 +577,10 @@
 
 | 技能 | 描述 |
 |-------|-------------|
-| team-lifecycle-v5 | 带角色规格驱动工作代理的完整团队生命周期 |
+| team-lifecycle | 带角色规格驱动工作代理的完整团队生命周期 |
 | team-planex | 规划器 + 执行器波流水线 (用于大批量 Issue 或路线图输出) |
-| team-coordinate-v2 | 团队协调和编排 |
-| team-executor-v2 | 带工作代理的任务执行 |
+| team-coordinate | 团队协调和编排 |
+| team-executor | 带工作代理的任务执行 |
 | team-arch-opt | 架构优化技能 |
 
 ### 团队领域技能

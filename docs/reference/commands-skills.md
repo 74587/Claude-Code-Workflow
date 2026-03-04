@@ -50,7 +50,7 @@
 | **Workflow** | workflow-test-fix | session → context → analysis → gen → cycle | Test generation and fixes |
 | **Workflow** | workflow-multi-cli-plan | ACE context → CLI discussion → plan → execute | Multi-perspective planning |
 | **Workflow** | workflow-skill-designer | - | Create new skills |
-| **Team** | team-lifecycle-v5 | spec pipeline → impl pipeline | Full lifecycle |
+| **Team** | team-lifecycle | spec pipeline → impl pipeline | Full lifecycle |
 | **Team** | team-planex | planner wave → executor wave | Issue batch execution |
 | **Team** | team-arch-opt | architecture analysis → optimization | Architecture optimization |
 | **Utility** | brainstorm | framework → parallel analysis → synthesis | Multi-perspective ideation |
@@ -577,10 +577,10 @@
 
 | Skill | Description |
 |-------|-------------|
-| team-lifecycle-v5 | Full team lifecycle with role-spec-driven worker agents |
+| team-lifecycle | Full team lifecycle with role-spec-driven worker agents |
 | team-planex | Planner + executor wave pipeline (for large issue batches or roadmap outputs) |
-| team-coordinate-v2 | Team coordination and orchestration |
-| team-executor-v2 | Task execution with worker agents |
+| team-coordinate | Team coordination and orchestration |
+| team-executor | Task execution with worker agents |
 | team-arch-opt | Architecture optimization skill |
 
 ### Team Domain Skills

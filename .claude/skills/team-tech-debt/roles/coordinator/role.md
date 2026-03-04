@@ -300,32 +300,24 @@ Delegate to `commands/dispatch.md` which creates the full task chain.
 
 ```
 Task({
-  subagent_type: "general-purpose",
+  subagent_type: "team-worker",
   description: "Spawn <role> worker",
-  prompt: `你是 team "tech-debt" 的 <ROLE>.
+  prompt: `## Role Assignment
+role: <role>
+role_spec: .claude/skills/team-tech-debt/role-specs/<role>.md
+session: <session-folder>
+session_id: <session-id>
+team_name: tech-debt
+requirement: <task-description>
+inner_loop: false
 
-## 首要指令（MUST）
-你的所有工作必须通过调用 Skill 获取角色定义后执行，禁止自行发挥：
-Skill(skill="team-tech-debt", args="--role=<role>")
-此调用会加载你的角色定义（role.md）、可用命令（commands/*.md）和完整执行逻辑。
+## Current Task
+- Task ID: <task-id>
+- Task: <PREFIX>-<NNN>
+- Task Prefix: <PREFIX>
 
-当前需求: <task-description>
-Session: <session-folder>
-
-## 角色准则（强制）
-- 你只能处理 <PREFIX>-* 前缀的任务，不得执行其他角色的工作
-- 所有输出（SendMessage、team_msg）必须带 [<role>] 标识前缀
-- 仅与 coordinator 通信，不得直接联系其他 worker
-- 不得使用 TaskCreate 为其他角色创建任务
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-## 工作流程（严格按顺序）
-1. 调用 Skill(skill="team-tech-debt", args="--role=<role>") 获取角色定义和执行逻辑
-2. 按 role.md 中的 5-Phase 流程执行（TaskList -> 找到 <PREFIX>-* 任务 -> 执行 -> 汇报）
-3. team_msg log + SendMessage 结果给 coordinator（带 [<role>] 标识）
-4. TaskUpdate completed -> 检查下一个任务 -> 回到步骤 1`,
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`,
   run_in_background: false  // Stop-Wait: synchronous blocking
 })
 ```

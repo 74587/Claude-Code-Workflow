@@ -41,9 +41,9 @@
 |------|--------|------|------|
 | **team-lifecycle** | `team lifecycle` | 可变 | 完整 spec/impl/test 生命周期团队（v5，team-worker 架构） |
 | **team-coordinate** | `team coordinate` | 可变 | 通用团队协调（legacy） |
-| **team-coordinate-v2** | - | 可变 | team-worker 架构协调 |
+| **team-coordinate** | - | 可变 | team-worker 架构协调 |
 | **team-executor** | `team executor` | 可变 | 轻量级会话执行 |
-| **team-executor-v2** | - | 可变 | team-worker 架构执行 |
+| **team-executor** | - | 可变 | team-worker 架构执行 |
 | **team-planex** | `team planex` | 3 | 规划-执行波浪流水线 |
 | **team-iterdev** | `team iterdev` | 5 | 生成器-评论者循环迭代开发 |
 | **team-issue** | `team issue` | 6 | 问题解决流水线 |

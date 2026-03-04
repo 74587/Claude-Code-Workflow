@@ -8,7 +8,7 @@ allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), Task
 
 Unified team skill: plan-and-execute pipeline for issue-based development. Built on **team-worker agent architecture** — all worker roles share a single agent definition with role-specific Phase 2-4 loaded from markdown specs.
 
-> **Note**: This skill has its own coordinator implementation (`roles/coordinator/role.md`), independent of `team-lifecycle-v5`. It follows the same v5 architectural patterns (team-worker agents, role-specs, Spawn-and-Stop) but with a simplified 2-role pipeline (planner + executor) tailored for plan-and-execute workflows.
+> **Note**: This skill has its own coordinator implementation (`roles/coordinator/role.md`), independent of `team-lifecycle`. It follows the same v5 architectural patterns (team-worker agents, role-specs, Spawn-and-Stop) but with a simplified 2-role pipeline (planner + executor) tailored for plan-and-execute workflows.
 
 ## Architecture
 

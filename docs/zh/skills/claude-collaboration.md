@@ -19,8 +19,8 @@
 
 | Skill | 功能 | 适用场景 |
 | --- | --- | --- |
-| `team-coordinate-v2` | 通用团队协调器（动态角色生成） | 任意复杂任务 |
-| `team-lifecycle-v5` | 全生命周期团队（规范→实现→测试） | 完整功能开发 |
+| `team-coordinate` | 通用团队协调器（动态角色生成） | 任意复杂任务 |
+| `team-lifecycle` | 全生命周期团队（规范→实现→测试） | 完整功能开发 |
 | `team-planex` | 规划-执行流水线 | Issue 批处理 |
 | `team-review` | 代码审查团队 | 代码审查、漏洞扫描 |
 | `team-testing` | 测试团队 | 测试覆盖、用例生成 |
@@ -35,7 +35,7 @@
 | `team-roadmap-dev` | 路线图开发团队 | 分阶段开发、里程碑 |
 | `team-tech-debt` | 技术债务团队 | 债务清理、代码治理 |
 | `team-ultra-analyze` | 深度分析团队 | 复杂问题分析、协作探索 |
-| `team-executor-v2` | 轻量执行器 | 会话恢复、纯执行 |
+| `team-executor` | 轻量执行器 | 会话恢复、纯执行 |
 
 ---
 
@@ -77,7 +77,7 @@
 
 ## Skills 详解
 
-### team-coordinate-v2
+### team-coordinate
 
 **一句话定位**: 通用团队协调器 — 根据任务分析动态生成角色并编排执行
 
@@ -106,7 +106,7 @@ team-coordinate --role=coordinator <task>
 
 ---
 
-### team-lifecycle-v5
+### team-lifecycle
 
 **一句话定位**: 全生命周期团队 — 从规范到实现到测试到审查的完整流水线
 
@@ -456,7 +456,7 @@ team-analyze <topic>
 
 ---
 
-### team-executor-v2
+### team-executor
 
 **一句话定位**: 轻量执行器 — 恢复会话、纯执行模式
 
@@ -487,8 +487,8 @@ team-executor --session=<path>
 ## 最佳实践
 
 1. **选择合适的团队类型**:
-   - 通用任务 → `team-coordinate-v2`
-   - 完整功能开发 → `team-lifecycle-v5`
+   - 通用任务 → `team-coordinate`
+   - 完整功能开发 → `team-lifecycle`
    - Issue 批处理 → `team-planex`
    - 代码审查 → `team-review`
    - 测试覆盖 → `team-testing`

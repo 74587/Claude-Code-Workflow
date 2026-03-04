@@ -30,6 +30,15 @@ gist     tor     tor
 (tw) = team-worker agent
 ```
 
+## Command Execution Protocol
+
+When coordinator needs to execute a command (dispatch, monitor):
+
+1. **Read the command file**: `roles/coordinator/commands/<command-name>.md`
+2. **Follow the workflow** defined in the command file (Phase 2-4 structure)
+3. **Commands are inline execution guides** -- NOT separate agents or subprocesses
+4. **Execute synchronously** -- complete the command workflow before proceeding
+
 ## Role Router
 
 ### Input Parsing
@@ -291,38 +300,61 @@ Beat  1                  2                       3              4         5
 
 ## Coordinator Spawn Template
 
-When coordinator spawns workers, use background mode (Spawn-and-Stop):
+### v5 Worker Spawn (all roles)
+
+When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
 Task({
-  subagent_type: "general-purpose",
+  subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: "testing",
   name: "<role>",
   run_in_background: true,
-  prompt: `You are team "testing" <ROLE>.
+  prompt: `## Role Assignment
+role: <role>
+role_spec: .claude/skills/team-testing/role-specs/<role>.md
+session: <session-folder>
+session_id: <session-id>
+team_name: testing
+requirement: <task-description>
+inner_loop: <true|false>
 
-## Primary Directive
-All your work must be executed through Skill to load role definition:
-Skill(skill="team-testing", args="--role=<role>")
-
-Current task: <task-description>
-Session: <session-folder>
-
-## Role Guidelines
-- Only process <PREFIX>-* tasks, do not execute other role work
-- All output prefixed with [<role>] identifier
-- Only communicate with coordinator
-- Do not use TaskCreate for other roles
-- Call mcp__ccw-tools__team_msg before every SendMessage
-
-## Workflow
-1. Call Skill -> load role definition and execution logic
-2. Follow role.md 5-Phase flow
-3. team_msg + SendMessage results to coordinator
-4. TaskUpdate completed -> check next task`
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
+
+**Inner Loop roles** (generator, executor): Set `inner_loop: true`. The team-worker agent handles the loop internally.
+
+**Single-task roles** (strategist, analyst): Set `inner_loop: false`.
+
+---
+
+## Completion Action
+
+When the pipeline completes (all tasks done, coordinator Phase 5):
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Testing pipeline complete. What would you like to do?",
+    header: "Completion",
+    multiSelect: false,
+    options: [
+      { label: "Archive & Clean (Recommended)", description: "Archive session, clean up tasks and team resources" },
+      { label: "Keep Active", description: "Keep session active for follow-up work or inspection" },
+      { label: "Export Results", description: "Export deliverables to a specified location, then clean" }
+    ]
+  }]
+})
+```
+
+| Choice | Action |
+|--------|--------|
+| Archive & Clean | Update session status="completed" -> TeamDelete(testing) -> output final summary |
+| Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-testing", args="resume")` |
+| Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
 
 ---
 

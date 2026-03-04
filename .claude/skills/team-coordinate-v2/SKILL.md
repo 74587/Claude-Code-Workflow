@@ -1,10 +1,10 @@
 ---
-name: team-coordinate-v2
-description: Universal team coordination skill with dynamic role generation. Uses team-worker agent architecture with role-spec files. Only coordinator is built-in -- all worker roles are generated at runtime as role-specs and spawned via team-worker agent. Beat/cadence model for orchestration. Triggers on "team coordinate v2".
+name: team-coordinate
+description: Universal team coordination skill with dynamic role generation. Uses team-worker agent architecture with role-spec files. Only coordinator is built-in -- all worker roles are generated at runtime as role-specs and spawned via team-worker agent. Beat/cadence model for orchestration. Triggers on "Team Coordinate ".
 allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Task(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
-# Team Coordinate v2
+# Team Coordinate 
 
 Universal team coordination skill: analyze task -> generate role-specs -> dispatch -> execute -> deliver. Only the **coordinator** is built-in. All worker roles are **dynamically generated** as lightweight role-spec files and spawned via the `team-worker` agent.
 
@@ -13,7 +13,7 @@ Universal team coordination skill: analyze task -> generate role-specs -> dispat
 
 ```
 +---------------------------------------------------+
-|  Skill(skill="team-coordinate-v2")                 |
+|  Skill(skill="team-coordinate")                 |
 |  args="task description"                           |
 +-------------------+-------------------------------+
                     |
@@ -64,7 +64,7 @@ Always route to coordinator. Coordinator reads `roles/coordinator/role.md` and e
 
 User just provides task description.
 
-**Invocation**: `Skill(skill="team-coordinate-v2", args="task description")`
+**Invocation**: `Skill(skill="team-coordinate", args="task description")`
 
 **Lifecycle**:
 ```
@@ -143,7 +143,7 @@ AskUserQuestion({
 | Choice | Steps |
 |--------|-------|
 | Archive & Clean | Update session status="completed" -> TeamDelete -> output final summary with artifact paths |
-| Keep Active | Update session status="paused" -> output: "Resume with: Skill(skill='team-coordinate-v2', args='resume')" |
+| Keep Active | Update session status="paused" -> output: "Resume with: Skill(skill='team-coordinate', args='resume')" |
 | Export Results | AskUserQuestion(target path) -> copy artifacts to target -> Archive & Clean |
 
 ---

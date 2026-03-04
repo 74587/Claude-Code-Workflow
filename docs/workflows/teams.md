@@ -9,7 +9,7 @@ CCW provides multiple team collaboration Skills that support multi-role coordina
 | **team-planex** | 3 (planner + executor) | Wave pipeline (边规划边执行) | Planning and execution in parallel waves |
 | **team-iterdev** | 5 (generator → critic → integrator → validator) | Generator-critic loop | Iterative development with feedback cycles |
 | **team-lifecycle-v4** | 8 (spec → architect → impl → test) | 5-phase lifecycle | Full spec → impl → test workflow |
-| **team-lifecycle-v5** | Variable (team-worker) | Built-in phases | Latest team-worker architecture |
+| **team-lifecycle** | Variable (team-worker) | Built-in phases | Latest team-worker architecture |
 | **team-issue** | 6 (explorer → planner → implementer → reviewer → integrator) | 5-phase issue resolution | Multi-role issue solving |
 | **team-testing** | 5 (strategist → generator → executor → analyst) | 4-phase testing | Comprehensive test coverage |
 | **team-quality-assurance** | 6 (scout → strategist → generator → executor → analyst) | 5-phase QA | Quality assurance closed loop |
@@ -21,9 +21,9 @@ CCW provides multiple team collaboration Skills that support multi-role coordina
 | **team-tech-debt** | 6 (scanner → assessor → planner → executor → validator) | 5-phase cleanup | Technical debt identification and resolution |
 | **team-ultra-analyze** | 5 (explorer → analyst → discussant → synthesizer) | 4-phase analysis | Deep collaborative codebase analysis |
 | **team-coordinate** | Variable | Generic coordination | Generic team coordination (legacy) |
-| **team-coordinate-v2** | Variable (team-worker) | team-worker architecture | Modern team-worker coordination |
+| **team-coordinate** | Variable (team-worker) | team-worker architecture | Modern team-worker coordination |
 | **team-executor** | Variable | Lightweight execution | Session-based execution |
-| **team-executor-v2** | Variable (team-worker) | team-worker execution | Modern team-worker execution |
+| **team-executor** | Variable (team-worker) | team-worker execution | Modern team-worker execution |
 
 ## Usage
 
@@ -45,7 +45,7 @@ CCW provides multiple team collaboration Skills that support multi-role coordina
 
 ```javascript
 // Programmatic invocation
-Skill(skill="team-lifecycle-v5", args="Build user authentication system")
+Skill(skill="team-lifecycle", args="Build user authentication system")
 Skill(skill="team-planex", args="Implement OAuth2 with concurrent planning")
 Skill(skill="team-quality-assurance", args="Quality audit of payment system")
 
@@ -177,7 +177,7 @@ Linear progression through all lifecycle phases.
 |----------|-------------------|
 | Need parallel planning and execution | **team-planex** |
 | Complex feature with multiple iterations | **team-iterdev** |
-| Full spec → impl → test workflow | **team-lifecycle-v5** |
+| Full spec → impl → test workflow | **team-lifecycle** |
 | Issue resolution | **team-issue** |
 | Comprehensive testing | **team-testing** |
 | Quality audit | **team-quality-assurance** |

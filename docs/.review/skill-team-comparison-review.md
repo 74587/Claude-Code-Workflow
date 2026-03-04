@@ -41,22 +41,22 @@
 
 ---
 
-#### CORR-002 [Medium] team-executor-v2 前置条件描述不完整
+#### CORR-002 [Medium] team-executor 前置条件描述不完整
 
 **Location**: 行 70, 84
 
-**Issue**: 文档说 team-executor-v2 需要"现有team-coordinate会话"，但实际它可以恢复任何 team-* 会话。
+**Issue**: 文档说 team-executor 需要"现有team-coordinate会话"，但实际它可以恢复任何 team-* 会话。
 
 **Current**:
 ```
-| **team-executor-v2** | (动态角色) | team-worker agents | 恢复执行 | 纯执行，无分析，需现有会话 |
+| **team-executor** | (动态角色) | team-worker agents | 恢复执行 | 纯执行，无分析，需现有会话 |
 ```
 
 **Expected**: 更准确的描述
 
 **Fix**:
 ```markdown
-| **team-executor-v2** | (继承会话角色) | team-worker agents | 恢复执行 | 纯执行，无分析，需现有team会话 |
+| **team-executor** | (继承会话角色) | team-worker agents | 恢复执行 | 纯执行，无分析，需现有team会话 |
 ```
 
 ---
@@ -129,7 +129,7 @@
 
 ### Should Fix (Next Iteration)
 
-2. **CORR-002**: 更新 team-executor-v2 描述
+2. **CORR-002**: 更新 team-executor 描述
 3. **CORR-003**: 添加遗漏的命令
 
 ### Nice to Have
@@ -158,4 +158,4 @@
 ---
 
 *Review completed: 2026-03-01*
-*Reviewer: Claude Code (team-coordinate-v2)*
+*Reviewer: Claude Code (team-coordinate)*

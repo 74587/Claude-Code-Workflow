@@ -146,10 +146,10 @@ Team Skills 使用 `team-worker` agent 架构，Coordinator 编排流水线，Wo
 | Skill | 用途 | 架构 |
 |-------|------|------|
 | `team-planex` | 规划+执行 wave pipeline | planner + executor, 适合清晰 issue/roadmap |
-| `team-lifecycle-v5` | 完整生命周期 (spec/impl/test) | team-worker agents with role-specs |
+| `team-lifecycle` | 完整生命周期 (spec/impl/test) | team-worker agents with role-specs |
 | `team-lifecycle-v4` | 优化版生命周期 | Optimized pipeline |
 | `team-lifecycle-v3` | 基础版生命周期 | All roles invoke unified skill |
-| `team-coordinate-v2` | 通用动态团队协调 | 运行时动态生成 role-specs |
+| `team-coordinate` | 通用动态团队协调 | 运行时动态生成 role-specs |
 | `team-coordinate` | 通用团队协调 v1 | Dynamic role generation |
 | `team-brainstorm` | 团队头脑风暴 | Multi-perspective analysis |
 | `team-frontend` | 前端开发团队 | Frontend specialists |
@@ -163,7 +163,7 @@ Team Skills 使用 `team-worker` agent 架构，Coordinator 编排流水线，Wo
 | `team-uidesign` | UI 设计团队 | Design system + prototyping |
 | `team-ultra-analyze` | 深度协作分析 | Deep collaborative analysis |
 | `team-executor` | 轻量执行 (恢复会话) | Resume existing sessions |
-| `team-executor-v2` | 轻量执行 v2 | Improved session resumption |
+| `team-executor` | 轻量执行 v2 | Improved session resumption |
 
 ### Standalone Skills (独立技能)
 

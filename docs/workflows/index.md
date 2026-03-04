@@ -90,7 +90,7 @@ Ensure quality.
 
 ```bash
 # Level 1: Specification
-Skill(skill="team-lifecycle-v5", args="Build user authentication system")
+Skill(skill="team-lifecycle", args="Build user authentication system")
 # => Creates RESEARCH-001, DRAFT-001/002/003/004, QUALITY-001
 # Note: v5 is the latest version with team-worker architecture
 

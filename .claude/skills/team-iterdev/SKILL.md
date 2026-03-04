@@ -11,20 +11,23 @@ Iterative development team skill. Generator-Critic loops (developer<->reviewer, 
 ## Architecture
 
 ```
-+-------------------------------------------------+
-|  Skill(skill="team-iterdev")                    |
-|  args="task description" or args="--role=xxx"   |
-+-------------------+-----------------------------+
-                    | Role Router
-         +---- --role present? ----+
-         | NO                      | YES
-         v                         v
-  Orchestration Mode         Role Dispatch
-  (auto -> coordinator)      (route to role.md)
-         |
-    +----+----+----------+---------+---------+
-    v         v          v         v         v
- coordinator architect developer tester  reviewer
++---------------------------------------------------+
+|  Skill(skill="team-iterdev")                       |
+|  args="<task-description>"                         |
++-------------------+-------------------------------+
+                    |
+         Orchestration Mode (auto -> coordinator)
+                    |
+              Coordinator (inline)
+              Phase 0-5 orchestration
+                    |
+    +-------+-------+-------+-------+
+    v       v       v       v
+ [tw]    [tw]    [tw]    [tw]
+archi-   devel-  tester  review-
+tect     oper            er
+
+(tw) = team-worker agent
 ```
 
 ## Role Router
@@ -35,13 +38,13 @@ Parse `$ARGUMENTS` to extract `--role`. If absent -> Orchestration Mode (auto ro
 
 ### Role Registry
 
-| Role | File | Task Prefix | Type | Compact |
-|------|------|-------------|------|---------|
-| coordinator | [roles/coordinator.md](roles/coordinator.md) | (none) | orchestrator | **MUST re-read after compression** |
-| architect | [roles/architect.md](roles/architect.md) | DESIGN-* | pipeline | MUST re-read after compression |
-| developer | [roles/developer.md](roles/developer.md) | DEV-* | pipeline | MUST re-read after compression |
-| tester | [roles/tester.md](roles/tester.md) | VERIFY-* | pipeline | MUST re-read after compression |
-| reviewer | [roles/reviewer.md](roles/reviewer.md) | REVIEW-* | pipeline | MUST re-read after compression |
+| Role | Spec | Task Prefix | Inner Loop |
+|------|------|-------------|------------|
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | (none) | - |
+| architect | [role-specs/architect.md](role-specs/architect.md) | DESIGN-* | false |
+| developer | [role-specs/developer.md](role-specs/developer.md) | DEV-* | true |
+| tester | [role-specs/tester.md](role-specs/tester.md) | VERIFY-* | false |
+| reviewer | [role-specs/reviewer.md](role-specs/reviewer.md) | REVIEW-* | false |
 
 > **COMPACT PROTECTION**: Role files are execution documents, not reference material. When context compression occurs and role instructions are reduced to summaries, you **MUST immediately `Read` the corresponding role.md to reload before continuing execution**. Never execute any Phase based on summaries alone.
 
@@ -404,38 +407,61 @@ Real-time tracking of all sprint task progress. Coordinator updates at each task
 
 ## Coordinator Spawn Template
 
-When coordinator spawns workers, use background mode (Spawn-and-Stop):
+### v5 Worker Spawn (all roles)
+
+When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
 Task({
-  subagent_type: "general-purpose",
+  subagent_type: "team-worker",
   description: "Spawn <role> worker",
-  team_name: <team-name>,
+  team_name: "iterdev",
   name: "<role>",
   run_in_background: true,
-  prompt: `You are team "<team-name>" <ROLE>.
+  prompt: `## Role Assignment
+role: <role>
+role_spec: .claude/skills/team-iterdev/role-specs/<role>.md
+session: <session-folder>
+session_id: <session-id>
+team_name: iterdev
+requirement: <task-description>
+inner_loop: <true|false>
 
-## Primary Instruction
-All your work must be executed by calling Skill to load role definition:
-Skill(skill="team-iterdev", args="--role=<role>")
-
-Current requirement: <task-description>
-Session: <session-folder>
-
-## Role Guidelines
-- Only process <PREFIX>-* tasks, do not execute other roles' work
-- All output must have [<role>] identifier prefix
-- Communicate only with coordinator
-- Do not use TaskCreate to create tasks for other roles
-- Before each SendMessage, call mcp__ccw-tools__team_msg to log
-
-## Workflow
-1. Call Skill -> load role definition and execution logic
-2. Follow role.md 5-Phase flow
-3. team_msg + SendMessage result to coordinator
-4. TaskUpdate completed -> check next task`
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
+
+**Inner Loop roles** (developer): Set `inner_loop: true`. The team-worker agent handles the loop internally.
+
+**Single-task roles** (architect, tester, reviewer): Set `inner_loop: false`.
+
+---
+
+## Completion Action
+
+When the pipeline completes (all tasks done, coordinator Phase 5):
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "IterDev pipeline complete. What would you like to do?",
+    header: "Completion",
+    multiSelect: false,
+    options: [
+      { label: "Archive & Clean (Recommended)", description: "Archive session, clean up tasks and team resources" },
+      { label: "Keep Active", description: "Keep session active for follow-up work or inspection" },
+      { label: "Export Results", description: "Export deliverables to a specified location, then clean" }
+    ]
+  }]
+})
+```
+
+| Choice | Action |
+|--------|--------|
+| Archive & Clean | Update session status="completed" -> TeamDelete(iterdev) -> output final summary |
+| Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-iterdev", args="resume")` |
+| Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
 
 ---
 

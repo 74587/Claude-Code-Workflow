@@ -11,17 +11,23 @@ allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), Task
 ## Architecture Overview
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│  Skill(skill="team-tech-debt", args="--role=xxx")         │
-└────────────────────────┬─────────────────────────────────┘
-                         │ Role Router
-    ┌────────┬───────────┼───────────┬──────────┬──────────┐
-    ↓        ↓           ↓           ↓          ↓          ↓
-┌────────┐┌────────┐┌──────────┐┌─────────┐┌────────┐┌─────────┐
-│coordi- ││scanner ││assessor  ││planner  ││executor││validator│
-│nator   ││TDSCAN-*││TDEVAL-*  ││TDPLAN-* ││TDFIX-* ││TDVAL-*  │
-│ roles/ ││ roles/ ││ roles/   ││ roles/  ││ roles/ ││ roles/  │
-└────────┘└────────┘└──────────┘└─────────┘└────────┘└─────────┘
++---------------------------------------------------+
+|  Skill(skill="team-tech-debt")                     |
+|  args="<task-description>"                         |
++-------------------+-------------------------------+
+                    |
+         Orchestration Mode (auto -> coordinator)
+                    |
+              Coordinator (inline)
+              Phase 0-5 orchestration
+                    |
+    +-----+-----+-----+-----+-----+
+    v     v     v     v     v
+ [tw]  [tw]  [tw]  [tw]  [tw]
+scann- asses- plan-  execu- valid-
+er     sor    ner    tor    ator
+
+(tw) = team-worker agent
 ```
 
 ## Command Architecture
@@ -67,14 +73,14 @@ If no `--role` -> Orchestration Mode (auto route to coordinator).
 
 ### Role Registry
 
-| Role | File | Task Prefix | Type | Compact |
-|------|------|-------------|------|---------|
-| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | (none) | orchestrator | **压缩后必须重读** |
-| scanner | [roles/scanner/role.md](roles/scanner/role.md) | TDSCAN-* | pipeline | 压缩后必须重读 |
-| assessor | [roles/assessor/role.md](roles/assessor/role.md) | TDEVAL-* | pipeline | 压缩后必须重读 |
-| planner | [roles/planner/role.md](roles/planner/role.md) | TDPLAN-* | pipeline | 压缩后必须重读 |
-| executor | [roles/executor/role.md](roles/executor/role.md) | TDFIX-* | pipeline | 压缩后必须重读 |
-| validator | [roles/validator/role.md](roles/validator/role.md) | TDVAL-* | pipeline | 压缩后必须重读 |
+| Role | Spec | Task Prefix | Inner Loop |
+|------|------|-------------|------------|
+| coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | (none) | - |
+| scanner | [role-specs/scanner.md](role-specs/scanner.md) | TDSCAN-* | false |
+| assessor | [role-specs/assessor.md](role-specs/assessor.md) | TDEVAL-* | false |
+| planner | [role-specs/planner.md](role-specs/planner.md) | TDPLAN-* | false |
+| executor | [role-specs/executor.md](role-specs/executor.md) | TDFIX-* | true |
+| validator | [role-specs/validator.md](role-specs/validator.md) | TDVAL-* | false |
 
 > **COMPACT PROTECTION**: 角色文件是执行文档，不是参考资料。当 context compression 发生后，角色指令仅剩摘要时，**必须立即 `Read` 对应 role.md 重新加载后再继续执行**。不得基于摘要执行任何 Phase。
 
@@ -263,53 +269,71 @@ TDFIX -> TDVAL -> (if regression or quality drop) -> TDFIX-fix -> TDVAL-2
 
 ## Coordinator Spawn Template
 
-> **Note**: This skill uses Stop-Wait coordination (`run_in_background: false`). Each role completes before next spawns. This is intentionally different from the v3 default of `run_in_background: true` (Spawn-and-Stop). The Stop-Wait strategy ensures sequential pipeline execution where each phase's output is fully available before the next phase begins -- critical for the scan->assess->plan->execute->validate dependency chain.
+### v5 Worker Spawn (all roles)
 
-> 以下模板作为 worker prompt 参考。在 Stop-Wait 策略下，coordinator 不在 Phase 2 预先 spawn 所有 worker。而是在 Phase 4 (monitor) 中，按 pipeline 阶段逐个 spawn worker（同步阻塞 `Task(run_in_background: false)`），worker 返回即阶段完成。详见 `roles/coordinator/commands/monitor.md`。
+> **Note**: This skill uses Stop-Wait coordination (`run_in_background: false`). Each role completes before next spawns. This is intentionally different from the default `run_in_background: true` (Spawn-and-Stop). The Stop-Wait strategy ensures sequential pipeline execution where each phase's output is fully available before the next phase begins -- critical for the scan->assess->plan->execute->validate dependency chain.
 
-**通用 Worker Spawn 格式**:
+When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
 Task({
-  subagent_type: "general-purpose",
+  subagent_type: "team-worker",
   description: "Spawn <role> worker",
-  prompt: `你是 team "<team-name>" 的 <ROLE>.
+  prompt: `## Role Assignment
+role: <role>
+role_spec: .claude/skills/team-tech-debt/role-specs/<role>.md
+session: <session-folder>
+session_id: <session-id>
+team_name: tech-debt
+requirement: <task-description>
+inner_loop: <true|false>
 
-## 首要指令（MUST）
-你的所有工作必须通过调用 Skill 获取角色定义后执行，禁止自行发挥：
-Skill(skill="team-tech-debt", args="--role=<role>")
-此调用会加载你的角色定义（role.md）、可用命令（commands/*.md）和完整执行逻辑。
-
-当前需求: <task-description>
-约束: <constraints>
-
-## 角色准则（强制）
-- 你只能处理 <PREFIX>-* 前缀的任务，不得执行其他角色的工作
-- 所有输出（SendMessage、team_msg）必须带 [<role>] 标识前缀
-- 仅与 coordinator 通信，不得直接联系其他 worker
-- 不得使用 TaskCreate 为其他角色创建任务
-
-## 消息总线（必须）
-每次 SendMessage 前，先调用 mcp__ccw-tools__team_msg 记录。
-
-## 工作流程（严格按顺序）
-1. 调用 Skill(skill="team-tech-debt", args="--role=<role>") 获取角色定义和执行逻辑
-2. 按 role.md 中的 5-Phase 流程执行（TaskList -> 找到 <PREFIX>-* 任务 -> 执行 -> 汇报）
-3. team_msg log + SendMessage 结果给 coordinator（带 [<role>] 标识）
-4. TaskUpdate completed -> 检查下一个任务 -> 回到步骤 1`,
-  run_in_background: false  // Stop-Wait: 同步阻塞，等待 worker 完成
+Read role_spec file to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`,
+  run_in_background: false  // Stop-Wait: synchronous blocking, wait for worker completion
 })
 ```
 
-**各角色 Spawn 参数**:
+**Inner Loop roles** (executor): Set `inner_loop: true`.
 
-| Role | Prefix | Skill Args |
+**Single-task roles** (scanner, assessor, planner, validator): Set `inner_loop: false`.
+
+**Role-specific spawn parameters**:
+
+| Role | Prefix | inner_loop |
 |------|--------|------------|
-| scanner | TDSCAN-* | `--role=scanner` |
-| assessor | TDEVAL-* | `--role=assessor` |
-| planner | TDPLAN-* | `--role=planner` |
-| executor | TDFIX-* | `--role=executor` |
-| validator | TDVAL-* | `--role=validator` |
+| scanner | TDSCAN-* | false |
+| assessor | TDEVAL-* | false |
+| planner | TDPLAN-* | false |
+| executor | TDFIX-* | true |
+| validator | TDVAL-* | false |
+
+---
+
+## Completion Action
+
+When the pipeline completes (all tasks done, coordinator Phase 5):
+
+```
+AskUserQuestion({
+  questions: [{
+    question: "Tech Debt pipeline complete. What would you like to do?",
+    header: "Completion",
+    multiSelect: false,
+    options: [
+      { label: "Archive & Clean (Recommended)", description: "Archive session, clean up tasks and team resources" },
+      { label: "Keep Active", description: "Keep session active for follow-up work or inspection" },
+      { label: "Export Results", description: "Export deliverables to a specified location, then clean" }
+    ]
+  }]
+})
+```
+
+| Choice | Action |
+|--------|--------|
+| Archive & Clean | Update session status="completed" -> TeamDelete(tech-debt) -> output final summary |
+| Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-tech-debt", args="resume")` |
+| Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
 
 ---
 

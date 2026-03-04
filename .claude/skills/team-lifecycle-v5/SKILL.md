@@ -1,10 +1,10 @@
 ---
-name: team-lifecycle-v5
+name: team-lifecycle
 description: Unified team skill for full lifecycle - spec/impl/test. Uses team-worker agent architecture with role-spec files for domain logic. Coordinator orchestrates pipeline, workers are team-worker agents loaded with role-specific Phase 2-4 specs. Triggers on "team lifecycle".
 allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Task(*), AskUserQuestion(*), TodoWrite(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
-# Team Lifecycle v5
+# Team Lifecycle
 
 Unified team skill: specification -> implementation -> testing -> review. Built on **team-worker agent architecture** — all worker roles share a single agent definition with role-specific Phase 2-4 loaded from markdown specs.
 
@@ -12,7 +12,7 @@ Unified team skill: specification -> implementation -> testing -> review. Built 
 
 ```
 +---------------------------------------------------+
-|  Skill(skill="team-lifecycle-v5")                  |
+|  Skill(skill="team-lifecycle")                  |
 |  args="task description"                           |
 +-------------------+-------------------------------+
                     |
@@ -79,7 +79,7 @@ Always route to coordinator. Coordinator reads `roles/coordinator/role.md` and e
 
 User just provides task description.
 
-**Invocation**: `Skill(skill="team-lifecycle-v5", args="task description")`
+**Invocation**: `Skill(skill="team-lifecycle", args="task description")`
 
 **Lifecycle**:
 ```
@@ -118,7 +118,7 @@ Task({
   run_in_background: true,
   prompt: `## Role Assignment
 role: <role>
-role_spec: .claude/skills/team-lifecycle-v5/role-specs/<role>.md
+role_spec: .claude/skills/team-lifecycle/role-specs/<role>.md
 session: <session-folder>
 session_id: <session-id>
 team_name: <team-name>

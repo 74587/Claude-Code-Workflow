@@ -43,6 +43,7 @@
     "backToList": "Back to Teams"
   },
   "tabs": {
+    "pipeline": "Pipeline",
     "artifacts": "Artifacts",
     "messages": "Messages"
   },
@@ -77,7 +78,13 @@
     "completed": "Completed",
     "inProgress": "In Progress",
     "pending": "Pending",
-    "blocked": "Blocked"
+    "blocked": "Blocked",
+    "skipped": "Skipped"
+  },
+  "coordinates": {
+    "phase": "Phase",
+    "step": "Step",
+    "gap": "Gap"
   },
   "membersPanel": {
     "title": "Team Members",

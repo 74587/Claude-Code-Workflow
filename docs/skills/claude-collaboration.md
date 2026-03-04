@@ -19,8 +19,8 @@
 
 | Skill | Function | Use Case |
 | --- | --- | --- |
-| `team-coordinate-v2` | Universal team coordinator (dynamic role generation) | Any complex task |
-| `team-lifecycle-v5` | Full lifecycle team (spec→impl→test) | Complete feature development |
+| `team-coordinate` | Universal team coordinator (dynamic role generation) | Any complex task |
+| `team-lifecycle` | Full lifecycle team (spec→impl→test) | Complete feature development |
 | `team-planex` | Plan-execute pipeline | Issue batch processing |
 | `team-review` | Code review team | Code review, vulnerability scanning |
 | `team-testing` | Testing team | Test coverage, test case generation |
@@ -35,7 +35,7 @@
 | `team-roadmap-dev` | Roadmap development team | Phased development, milestones |
 | `team-tech-debt` | Tech debt team | Debt cleanup, code governance |
 | `team-ultra-analyze` | Deep analysis team | Complex problem analysis, collaborative exploration |
-| `team-executor-v2` | Lightweight executor | Session resume, pure execution |
+| `team-executor` | Lightweight executor | Session resume, pure execution |
 
 ---
 
@@ -77,7 +77,7 @@ All Team Skills share a unified **team-worker agent architecture**:
 
 ## Skills Details
 
-### team-coordinate-v2
+### team-coordinate
 
 **One-Liner**: Universal team coordinator — Dynamically generates roles and orchestrates execution based on task analysis
 
@@ -106,7 +106,7 @@ team-coordinate --role=coordinator <task>
 
 ---
 
-### team-lifecycle-v5
+### team-lifecycle
 
 **One-Liner**: Full lifecycle team — Complete pipeline from specification to implementation to testing to review
 
@@ -456,7 +456,7 @@ team-analyze <topic>
 
 ---
 
-### team-executor-v2
+### team-executor
 
 **One-Liner**: Lightweight executor — Resume session, pure execution mode
 
@@ -487,8 +487,8 @@ All Team Skills support unified user commands (wake paused coordinator):
 ## Best Practices
 
 1. **Choose the right team type**:
-   - General tasks → `team-coordinate-v2`
-   - Complete feature development → `team-lifecycle-v5`
+   - General tasks → `team-coordinate`
+   - Complete feature development → `team-lifecycle`
    - Issue batch processing → `team-planex`
    - Code review → `team-review`
    - Test coverage → `team-testing`
