@@ -331,13 +331,39 @@ function addCodexMcpServer(serverName: string, serverConfig: Record<string, any>
     }
 
     // Handle HTTP servers (url-based)
+    // Supports dual-format parsing:
+    // - Claude format: { type: 'http', url, headers }
+    // - Codex format: { url, bearer_token_env_var, http_headers, env_http_headers }
     if (serverConfig.url) {
       codexServerConfig.url = serverConfig.url;
+
+      // Codex format: bearer_token_env_var
       if (serverConfig.bearer_token_env_var) {
         codexServerConfig.bearer_token_env_var = serverConfig.bearer_token_env_var;
       }
+
+      // Codex format: http_headers
       if (serverConfig.http_headers) {
         codexServerConfig.http_headers = serverConfig.http_headers;
+      }
+
+      // Codex format: env_http_headers (array of env var names)
+      if (serverConfig.env_http_headers) {
+        codexServerConfig.env_http_headers = serverConfig.env_http_headers;
+      }
+
+      // Claude format: headers (convert to Codex http_headers for storage)
+      if (serverConfig.headers) {
+        // Merge with existing http_headers if present
+        codexServerConfig.http_headers = {
+          ...(codexServerConfig.http_headers || {}),
+          ...serverConfig.headers
+        };
+      }
+
+      // Claude format: type field (optional marker)
+      if (serverConfig.type) {
+        codexServerConfig.type = serverConfig.type;
       }
     }
 

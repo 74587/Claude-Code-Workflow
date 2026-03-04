@@ -84,7 +84,25 @@
       "envPlaceholder": "Key=value pairs (one per line), e.g.,\nAPI_KEY=your_key\nDEBUG=true",
       "envHint": "Enter one key=value pair per line",
       "scope": "Scope",
-      "enabled": "Enable this server"
+      "enabled": "Enable this server",
+      "transportType": "Transport Type",
+      "transportStdio": "STDIO (Local Process)",
+      "transportHttp": "HTTP (Remote Server)",
+      "transportHint": "STDIO runs a local command, HTTP connects to a remote MCP server",
+      "http": {
+        "url": "Server URL",
+        "urlPlaceholder": "https://api.example.com/mcp",
+        "urlHint": "The MCP server endpoint URL",
+        "bearerToken": "Bearer Token Env Var",
+        "bearerTokenPlaceholder": "API_TOKEN",
+        "bearerTokenHint": "Environment variable name containing the bearer token for Authorization header",
+        "headers": "Custom Headers",
+        "headersHint": "Add custom HTTP headers for authentication or configuration",
+        "headerName": "Header Name",
+        "headerValue": "Header Value",
+        "isEnvVar": "Env Var",
+        "addHeader": "Add Header"
+      }
     },
     "templates": {
       "npx-stdio": "NPX STDIO",
@@ -94,7 +112,9 @@
     "validation": {
       "nameRequired": "Server name is required",
       "nameExists": "A server with this name already exists",
-      "commandRequired": "Command is required"
+      "commandRequired": "Command is required",
+      "urlRequired": "Server URL is required",
+      "urlInvalid": "Please enter a valid URL"
     },
     "actions": {
       "save": "Save",
