@@ -1,7 +1,7 @@
 ---
 name: team-planex
 description: Unified team skill for plan-and-execute pipeline. Uses team-worker agent architecture with role-spec files for domain logic. Coordinator orchestrates pipeline, workers are team-worker agents. Triggers on "team planex".
-allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Task(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
 # Team PlanEx
@@ -128,7 +128,7 @@ When coordinator needs to execute a command (dispatch, monitor):
 When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: <team-name>,

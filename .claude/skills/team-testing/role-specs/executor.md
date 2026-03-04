@@ -59,7 +59,7 @@ Bash("<test-command> 2>&1 || true")
 **Auto-fix delegation** (on failure):
 
 ```
-Task({
+Agent({
   subagent_type: "code-developer",
   run_in_background: false,
   description: "Fix test failures (iteration <N>)",

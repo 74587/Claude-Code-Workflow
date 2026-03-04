@@ -85,7 +85,7 @@ Every task description uses structured format for clarity:
 ```
 TaskCreate({
   subject: "<TASK-ID>",
-  owner: "<role>",
+ 
   description: "PURPOSE: <what this task achieves> | Success: <measurable completion criteria>
 TASK:
   - <step 1: specific action>
@@ -102,8 +102,8 @@ CONSTRAINTS: <scope limits, focus areas>
 ---
 InlineDiscuss: <DISCUSS-NNN or none>
 InnerLoop: <true|false>",
-  blockedBy: [<dependency-list>],
-  status: "pending"
+  addBlockedBy: [<dependency-list>]
+  
 })
 ```
 
@@ -186,7 +186,7 @@ EXPECTED: Improved artifacts + quality improvement summary
 CONSTRAINTS: Focus on <dimension> only
 ---
 InnerLoop: true",
-  status: "pending"
+  
 })
 ```
 

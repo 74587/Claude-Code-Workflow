@@ -1,7 +1,7 @@
 ---
 name: team-perf-opt
 description: Unified team skill for performance optimization. Uses team-worker agent architecture with role-spec files for domain logic. Coordinator orchestrates pipeline, workers are team-worker agents. Triggers on "team perf-opt".
-allowed-tools: Task, TaskCreate, TaskList, TaskGet, TaskUpdate, TeamCreate, TeamDelete, SendMessage, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, mcp__ace-tool__search_context
+allowed-tools: Agent, TaskCreate, TaskList, TaskGet, TaskUpdate, TeamCreate, TeamDelete, SendMessage, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, mcp__ace-tool__search_context
 ---
 
 # Team Performance Optimization
@@ -137,7 +137,7 @@ Phase 3 needs task dispatch
 When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: <team-name>,
@@ -361,7 +361,7 @@ AskUserQuestion({
 
 | Choice | Action |
 |--------|--------|
-| Archive & Clean | Update session status="completed" -> TeamDelete(perf-opt) -> output final summary |
+| Archive & Clean | Update session status="completed" -> TeamDelete() -> output final summary |
 | Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-perf-opt", args="resume")` |
 | Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
 

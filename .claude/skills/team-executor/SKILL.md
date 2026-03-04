@@ -1,7 +1,7 @@
 ---
 name: team-executor
 description: Lightweight session execution skill. Resumes existing team-coordinate sessions for pure execution via team-worker agents. No analysis, no role generation -- only loads and executes. Session path required. Triggers on "Team Executor".
-allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Task(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
 # Team Executor
@@ -107,7 +107,7 @@ Validate session
 When executor spawns workers, use `team-worker` agent with role-spec path:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: <team-name>,

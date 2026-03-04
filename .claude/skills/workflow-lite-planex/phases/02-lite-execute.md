@@ -373,7 +373,7 @@ function executeBatch(batch) {
 
   if (executor === 'agent') {
     // Agent execution (synchronous)
-    return Task({
+    return Agent({
       subagent_type: "code-developer",
       run_in_background: false,
       description: batch.taskSummary,

@@ -47,7 +47,7 @@ EXPECTED: JSON with: problem_statement, target_users[], domain, constraints[], e
 **When project detected**: Call explore subagent with `angle: general`, `keywords: <from seed analysis>`.
 
 ```
-Task({
+Agent({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore general context",

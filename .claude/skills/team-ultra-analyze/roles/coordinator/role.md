@@ -195,7 +195,7 @@ Execute `commands/dispatch.md` inline (Command Execution Protocol):
 Find first unblocked tasks and spawn their workers:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn explorer worker",
   team_name: "ultra-analyze",
@@ -263,7 +263,7 @@ AskUserQuestion({
 
 | Choice | Steps |
 |--------|-------|
-| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete("ultra-analyze") -> output final summary |
+| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete() -> output final summary |
 | Keep Active | Update session status="paused" -> output resume instructions |
 | Export Results | AskUserQuestion for target directory -> copy artifacts -> Archive & Clean |
 

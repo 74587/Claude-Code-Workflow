@@ -11,7 +11,7 @@ Codebase exploration is a read-only operation shared between profiler (mapping b
 Called by profiler, optimizer after needing codebase context for performance analysis or implementation:
 
 ```
-Task({
+Agent({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore codebase for performance-critical paths in <target-scope>",

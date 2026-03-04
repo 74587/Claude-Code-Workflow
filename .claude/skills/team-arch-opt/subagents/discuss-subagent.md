@@ -11,7 +11,7 @@ Complex refactoring decisions (e.g., choosing between dependency inversion vs me
 Called by designer, reviewer after their primary analysis when complexity warrants multi-perspective evaluation:
 
 ```
-Task({
+Agent({
   subagent_type: "cli-discuss-agent",
   run_in_background: false,
   description: "Discuss <round-id>: <topic> for architecture optimization",

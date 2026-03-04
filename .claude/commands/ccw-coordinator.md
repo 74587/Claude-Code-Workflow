@@ -2,7 +2,7 @@
 name: ccw-coordinator
 description: Command orchestration tool - analyze requirements, recommend chain, execute sequentially with state persistence
 argument-hint: "[task description]"
-allowed-tools: Task(*), AskUserQuestion(*), Read(*), Write(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: Agent(*), AskUserQuestion(*), Read(*), Write(*), Bash(*), Glob(*), Grep(*)
 ---
 
 # CCW Coordinator Command

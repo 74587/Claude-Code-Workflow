@@ -303,7 +303,7 @@ function generatePhaseFromRequirements(phase, config) {
     for (const agentType of phase.agentTypes) {
       phaseContent += `### Step: ${agentType} Delegation\n\n`;
       phaseContent += '```javascript\n';
-      phaseContent += `const result = Task({\n`;
+      phaseContent += `const result = Agent({\n`;
       phaseContent += `  subagent_type: "${mapAgentType(agentType)}",\n`;
       phaseContent += `  prompt: \`\n`;
       phaseContent += `    [ROLE] ${agentType}\n`;

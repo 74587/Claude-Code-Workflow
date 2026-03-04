@@ -14,7 +14,7 @@ Results were scattered across different directories and never shared. In v4, all
 ## Invocation
 
 ```
-Task({
+Agent({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore <angle>",
@@ -135,9 +135,10 @@ For complex queries, call cli-explore-agent per angle. The calling role determin
 
 ```
 # After seed analysis, explore codebase context
-Task({
+Agent({
   subagent_type: "cli-explore-agent",
   description: "Explore general context",
+  run_in_background: false,
   prompt: "Explore codebase for: <topic>\nFocus angle: general\n..."
 })
 # Result feeds into discovery-context.json
@@ -148,9 +149,10 @@ Task({
 ```
 # Multi-angle exploration before plan generation
 for angle in selected_angles:
-  Task({
+  Agent({
     subagent_type: "cli-explore-agent",
     description: "Explore <angle>",
+    run_in_background: false,
     prompt: "Explore codebase for: <task>\nFocus angle: <angle>\n..."
   })
 # Explorations manifest built from cache-index.json

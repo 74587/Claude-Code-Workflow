@@ -39,7 +39,7 @@ For each issue, execute in sequence:
 Delegate to `issue-plan-agent` subagent:
 
 ```
-Task({
+Agent({
   subagent_type: "issue-plan-agent",
   description: "Plan issue <issueId>",
   prompt: `issue_ids: ["<issueId>"]

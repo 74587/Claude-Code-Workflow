@@ -5,7 +5,7 @@ Shared codebase exploration utility with centralized caching. Callable by any ro
 ## Invocation
 
 ```
-Task({
+Agent({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore <angle>",

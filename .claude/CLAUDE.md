@@ -16,7 +16,7 @@ Available CLI endpoints are dynamically defined by the config file
 - **File Modification**: @~/.ccw/workflows/file-modification.md
 
 ### Agent Calls
-- **Always use `run_in_background: false`** for Task tool agent calls: `Task({ subagent_type: "xxx", prompt: "...", run_in_background: false })` to ensure synchronous execution and immediate result visibility
+- **Always use `run_in_background: false`** for Agent tool calls: `Agent({ subagent_type: "xxx", prompt: "...", run_in_background: false })` to ensure synchronous execution and immediate result visibility
 - **TaskOutput usage**: Only use `TaskOutput({ task_id: "xxx", block: false })` + sleep loop to poll completion status. NEVER read intermediate output during agent/CLI execution - wait for final result only
 
 ### CLI Tool Calls (ccw cli)
@@ -27,7 +27,7 @@ Available CLI endpoints are dynamically defined by the config file
     run_in_background: true  // Bash tool parameter, not ccw cli parameter
   })
   ```
-- **CRITICAL — Agent-specific instructions ALWAYS override this default.** If an agent's definition file (`.claude/agents/*.md`) specifies `run_in_background: false`, that instruction takes highest priority. Subagents (Task tool agents) CANNOT receive hook callbacks, so they MUST use `run_in_background: false` for CLI calls that produce required results.
+- **CRITICAL — Agent-specific instructions ALWAYS override this default.** If an agent's definition file (`.claude/agents/*.md`) specifies `run_in_background: false`, that instruction takes highest priority. Subagents (Agent tool agents) CANNOT receive hook callbacks, so they MUST use `run_in_background: false` for CLI calls that produce required results.
 - **After CLI call (main conversation only)**: Stop output immediately - let CLI execute in background. **DO NOT use TaskOutput polling** - wait for hook callback to receive results
 
 ### CLI Analysis Calls

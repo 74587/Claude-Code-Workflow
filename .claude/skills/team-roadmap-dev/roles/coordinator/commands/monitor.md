@@ -239,7 +239,7 @@ Ready tasks found?
 **Spawn worker tool call** (one per ready task):
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <subject>",
   team_name: "roadmap-dev",

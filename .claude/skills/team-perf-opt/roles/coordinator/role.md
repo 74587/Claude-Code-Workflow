@@ -229,7 +229,7 @@ Execute `commands/dispatch.md` inline (Command Execution Protocol):
 Find first unblocked task and spawn its worker:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn profiler worker",
   team_name: "perf-opt",
@@ -298,6 +298,6 @@ AskUserQuestion({
 
 | Choice | Steps |
 |--------|-------|
-| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete("perf-opt") -> output final summary with artifact paths |
+| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete() -> output final summary with artifact paths |
 | Keep Active | Update session status="paused" -> output: "Session paused. Resume with: Skill(skill='team-perf-opt', args='resume')" |
 | Export Results | AskUserQuestion for target directory -> copy all artifacts -> Archive & Clean flow |

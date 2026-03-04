@@ -1,7 +1,7 @@
 ---
 name: team-uidesign
 description: Unified team skill for UI design team. All roles invoke this skill with --role arg for role-specific execution. CP-9 Dual-Track design+implementation.
-allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Task(*), AskUserQuestion(*), TodoWrite(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), WebFetch(*), WebSearch(*)
+allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), TodoWrite(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), WebFetch(*), WebSearch(*)
 ---
 
 # Team UI Design
@@ -352,7 +352,7 @@ Beat 1         2              3           4                      5         6    
 When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: "uidesign",
@@ -397,7 +397,7 @@ AskUserQuestion({
 
 | Choice | Action |
 |--------|--------|
-| Archive & Clean | Update session status="completed" -> TeamDelete(uidesign) -> output final summary |
+| Archive & Clean | Update session status="completed" -> TeamDelete() -> output final summary |
 | Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-uidesign", args="resume")` |
 | Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
 

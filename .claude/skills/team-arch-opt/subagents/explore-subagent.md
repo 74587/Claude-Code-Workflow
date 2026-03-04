@@ -11,7 +11,7 @@ Codebase exploration is a read-only operation shared between analyzer (mapping s
 Called by analyzer, refactorer after needing codebase context for architecture analysis or implementation:
 
 ```
-Task({
+Agent({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore codebase for architecture-critical structures in <target-scope>",

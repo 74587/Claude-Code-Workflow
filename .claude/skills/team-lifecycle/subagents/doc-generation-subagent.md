@@ -12,7 +12,7 @@ writer 只拿到压缩摘要，可在多任务间保持上下文连续。
 ## Invocation
 
 ```
-Task({
+Agent({
   subagent_type: "universal-executor",
   run_in_background: false,
   description: "Generate <doc-type>",

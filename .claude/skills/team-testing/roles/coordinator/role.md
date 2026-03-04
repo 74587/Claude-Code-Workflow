@@ -202,7 +202,7 @@ Execute `commands/dispatch.md` inline (Command Execution Protocol):
 Find first unblocked task and spawn its worker:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn strategist worker",
   team_name: "testing",
@@ -269,7 +269,7 @@ AskUserQuestion({
 
 | Choice | Steps |
 |--------|-------|
-| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete("testing") -> output final summary |
+| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete() -> output final summary |
 | Keep Active | Update session status="paused" -> output: "Session paused. Resume with: Skill(skill='team-testing', args='resume')" |
 | Deepen Coverage | Create additional TESTGEN+TESTRUN tasks for next layer -> Phase 4 |
 

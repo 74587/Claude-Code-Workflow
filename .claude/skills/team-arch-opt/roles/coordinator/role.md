@@ -229,7 +229,7 @@ Execute `commands/dispatch.md` inline (Command Execution Protocol):
 Find first unblocked task and spawn its worker:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn analyzer worker",
   team_name: "arch-opt",
@@ -298,6 +298,6 @@ AskUserQuestion({
 
 | Choice | Steps |
 |--------|-------|
-| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete("arch-opt") -> output final summary with artifact paths |
+| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete() -> output final summary with artifact paths |
 | Keep Active | Update session status="paused" -> output: "Session paused. Resume with: Skill(skill='team-arch-opt', args='resume')" |
 | Export Results | AskUserQuestion for target directory -> copy all artifacts -> Archive & Clean flow |

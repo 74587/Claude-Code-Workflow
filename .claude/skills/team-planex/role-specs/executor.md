@@ -39,7 +39,7 @@ Single-issue implementation agent. Loads solution from artifact file, routes to 
 ### Agent Backend
 
 ```
-Task({
+Agent({
   subagent_type: "code-developer",
   description: "Implement <issue-title>",
   prompt: `Issue: <issueId>

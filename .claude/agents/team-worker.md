@@ -105,7 +105,7 @@ Execute on every loop iteration:
    - If inner loop continuation → proceed to Phase 5-F (all done)
 4. **Has matching tasks** → pick first by ID order
 5. `TaskGet(taskId)` → read full task details
-6. `TaskUpdate(taskId, status="in_progress")` → claim the task
+6. `TaskUpdate({ taskId: taskId, status: "in_progress" })` → claim the task
 
 ### Resume Artifact Check
 
@@ -130,7 +130,7 @@ When role_spec instructs to call a subagent, use these templates:
 **Discuss subagent** (for inline discuss rounds):
 
 ```
-Task({
+Agent({
   subagent_type: "cli-discuss-agent",
   run_in_background: false,
   description: "Discuss <round-id>",
@@ -169,7 +169,7 @@ JSON with: verdict (consensus_reached|consensus_blocked), severity (HIGH|MEDIUM|
 **Explore subagent** (for codebase exploration):
 
 ```
-Task({
+Agent({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore <angle>",
@@ -196,7 +196,7 @@ Return summary: file count, pattern count, top 5 files, output path`
 **Doc-generation subagent** (for writer document generation):
 
 ```
-Task({
+Agent({
   subagent_type: "universal-executor",
   run_in_background: false,
   description: "Generate <doc-type>",
@@ -294,8 +294,13 @@ After Phase 4 completes, determine Phase 5 variant (see Execution Flow for decis
 1. **TaskUpdate**: Mark current task `completed`
 2. **Message Bus**: Log state_update (same call as Phase 5-L step 2)
 3. **Compile final report** and **SendMessage** to coordinator:
-   ```
-   SendMessage(team_name=<team_name>, recipient="coordinator", message="[<role>] <final-report>")
+   ```javascript
+   SendMessage({
+     type: "message",
+     recipient: "coordinator",
+     content: "[<role>] <final-report>",
+     summary: "[<role>] Final report delivered"
+   })
    ```
    Report contents: tasks completed (count + list), artifacts produced (paths), files modified (with evidence), discuss results (verdicts + ratings), key decisions (from context_accumulator), verification summary, warnings/issues.
 4. **Fast-Advance Check**: Call `TaskList()`, find pending tasks whose blockedBy are ALL completed, apply rules:
@@ -303,7 +308,7 @@ After Phase 4 completes, determine Phase 5 variant (see Execution Flow for decis
 | Condition | Action |
 |-----------|--------|
 | Same-prefix successor (inner loop role) | Do NOT spawn — main agent handles via inner loop |
-| 1 ready task, simple linear successor, different prefix | Spawn directly via `Task(run_in_background: true)` + log `fast_advance` |
+| 1 ready task, simple linear successor, different prefix | Spawn directly via `Agent(run_in_background: true)` + log `fast_advance` |
 | Multiple ready tasks (parallel window) | SendMessage to coordinator (needs orchestration) |
 | No ready tasks + others running | SendMessage to coordinator (status update) |
 | No ready tasks + nothing running | SendMessage to coordinator (pipeline may be complete) |
@@ -314,7 +319,7 @@ After Phase 4 completes, determine Phase 5 variant (see Execution Flow for decis
 When fast-advancing to a different-prefix successor:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <successor-role> worker",
   team_name: <team_name>,

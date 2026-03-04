@@ -2,7 +2,7 @@
 name: debug-with-file
 description: Interactive hypothesis-driven debugging with documented exploration, understanding evolution, and Gemini-assisted correction
 argument-hint: "[-y|--yes] \"bug description or error message\""
-allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*), Bash(*), Edit(*), Write(*)
+allowed-tools: TodoWrite(*), Agent(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*), Bash(*), Edit(*), Write(*)
 ---
 
 ## Auto Mode

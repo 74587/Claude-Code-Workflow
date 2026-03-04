@@ -1,7 +1,7 @@
 ---
 name: team-tech-debt
 description: Unified team skill for tech debt identification and cleanup. All roles invoke this skill with --role arg for role-specific execution. Triggers on "team tech-debt", "tech debt cleanup", "技术债务".
-allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Task(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
 # Team Tech Debt
@@ -276,7 +276,7 @@ TDFIX -> TDVAL -> (if regression or quality drop) -> TDFIX-fix -> TDVAL-2
 When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker",
   prompt: `## Role Assignment
@@ -331,7 +331,7 @@ AskUserQuestion({
 
 | Choice | Action |
 |--------|--------|
-| Archive & Clean | Update session status="completed" -> TeamDelete(tech-debt) -> output final summary |
+| Archive & Clean | Update session status="completed" -> TeamDelete() -> output final summary |
 | Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-tech-debt", args="resume")` |
 | Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
 

@@ -11,7 +11,7 @@ Complex optimization decisions (e.g., choosing between algorithmic change vs cac
 Called by strategist, reviewer after their primary analysis when complexity warrants multi-perspective evaluation:
 
 ```
-Task({
+Agent({
   subagent_type: "cli-discuss-agent",
   run_in_background: false,
   description: "Discuss <round-id>: <topic> for performance optimization",

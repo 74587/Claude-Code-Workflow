@@ -1,7 +1,7 @@
 ---
 name: team-roadmap-dev
 description: Unified team skill for roadmap-driven development workflow. Coordinator discusses roadmap with user, then dispatches phased execution pipeline (plan -> execute -> verify). All roles invoke this skill with --role arg. Triggers on "team roadmap-dev".
-allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Task(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
 # Team Roadmap Dev
@@ -313,7 +313,7 @@ Phase N:  PLAN-N01 → EXEC-N01 → VERIFY-N01 → Complete
 When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: "roadmap-dev",
@@ -358,7 +358,7 @@ AskUserQuestion({
 
 | Choice | Action |
 |--------|--------|
-| Archive & Clean | Update session status="completed" -> TeamDelete(roadmap-dev) -> output final summary |
+| Archive & Clean | Update session status="completed" -> TeamDelete() -> output final summary |
 | Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-roadmap-dev", args="resume")` |
 | Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
 

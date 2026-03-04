@@ -2,7 +2,7 @@
 name: roadmap-with-file
 description: Strategic requirement roadmap with iterative decomposition and issue creation. Outputs roadmap.md (human-readable, single source) + issues.jsonl (machine-executable). Handoff to team-planex.
 argument-hint: "[-y|--yes] [-c|--continue] [-m progressive|direct|auto] \"requirement description\""
-allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*), Bash(*), Edit(*), Write(*)
+allowed-tools: TodoWrite(*), Agent(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*), Bash(*), Edit(*), Write(*)
 ---
 
 ## Auto Mode
@@ -355,12 +355,12 @@ Bash(`mkdir -p ${sessionFolder}`)
 
 **Agent Prompt Template**:
 ```javascript
-Task({
+Agent({
   subagent_type: "cli-roadmap-plan-agent",
   run_in_background: false,
   description: `Roadmap decomposition: ${slug}`,
   prompt: `
-## Roadmap Decomposition Task
+## Roadmap Decomposition Agent
 
 ### Input Context
 - **Requirement**: ${requirement}

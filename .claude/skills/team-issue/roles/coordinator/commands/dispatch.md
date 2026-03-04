@@ -25,7 +25,6 @@ Every task description uses structured format:
 ```
 TaskCreate({
   subject: "<TASK-ID>",
-  owner: "<role>",
   description: "PURPOSE: <what this task achieves> | Success: <completion criteria>
 TASK:
   - <step 1>
@@ -40,10 +39,9 @@ CONSTRAINTS: <scope limits>
 ---
 InnerLoop: false
 execution_method: <method>
-code_review: <setting>",
-  blockedBy: [<dependency-list>],
-  status: "pending"
+code_review: <setting>"
 })
+TaskUpdate({ taskId: "<TASK-ID>", addBlockedBy: [<dependency-list>], owner: "<role>" })
 ```
 
 ### Pipeline Router
@@ -62,7 +60,6 @@ code_review: <setting>",
 ```
 TaskCreate({
   subject: "EXPLORE-001",
-  owner: "explorer",
   description: "PURPOSE: Analyze issue context and map codebase impact | Success: Context report with relevant files and dependencies
 TASK:
   - Load issue details via ccw issue status
@@ -74,17 +71,15 @@ CONTEXT:
 EXPECTED: <session>/explorations/context-<issueId>.json with relevant files, dependencies, and impact assessment
 CONSTRAINTS: Exploration and analysis only, no solution design
 ---
-InnerLoop: false",
-  blockedBy: [],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "EXPLORE-001", owner: "explorer" })
 ```
 
 **SOLVE-001** (planner):
 ```
 TaskCreate({
   subject: "SOLVE-001",
-  owner: "planner",
   description: "PURPOSE: Design solution and decompose into implementation tasks | Success: Bound solution with task decomposition
 TASK:
   - Load explorer context report
@@ -97,17 +92,15 @@ CONTEXT:
 EXPECTED: <session>/solutions/solution-<issueId>.json with solution plan and task list
 CONSTRAINTS: Solution design only, no code implementation
 ---
-InnerLoop: false",
-  blockedBy: ["EXPLORE-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "SOLVE-001", addBlockedBy: ["EXPLORE-001"], owner: "planner" })
 ```
 
 **MARSHAL-001** (integrator):
 ```
 TaskCreate({
   subject: "MARSHAL-001",
-  owner: "integrator",
   description: "PURPOSE: Form execution queue with conflict detection and ordering | Success: Execution queue file with resolved conflicts
 TASK:
   - Verify all issues have bound solutions
@@ -120,17 +113,15 @@ CONTEXT:
 EXPECTED: .workflow/issues/queue/execution-queue.json with queue, conflicts, parallel groups
 CONSTRAINTS: Queue formation only, no implementation
 ---
-InnerLoop: false",
-  blockedBy: ["SOLVE-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "MARSHAL-001", addBlockedBy: ["SOLVE-001"], owner: "integrator" })
 ```
 
 **BUILD-001** (implementer):
 ```
 TaskCreate({
   subject: "BUILD-001",
-  owner: "implementer",
   description: "PURPOSE: Implement solution plan and verify with tests | Success: Code changes committed, tests pass
 TASK:
   - Load bound solution and explorer context
@@ -146,10 +137,9 @@ CONSTRAINTS: Follow solution plan, no scope creep
 ---
 InnerLoop: false
 execution_method: <execution_method>
-code_review: <code_review>",
-  blockedBy: ["MARSHAL-001"],
-  status: "pending"
+code_review: <code_review>"
 })
+TaskUpdate({ taskId: "BUILD-001", addBlockedBy: ["MARSHAL-001"], owner: "implementer" })
 ```
 
 ### Full Pipeline
@@ -162,7 +152,6 @@ Creates 5 tasks. First 2 same as Quick, then AUDIT gate before MARSHAL and BUILD
 ```
 TaskCreate({
   subject: "AUDIT-001",
-  owner: "reviewer",
   description: "PURPOSE: Review solution for technical feasibility, risk, and completeness | Success: Clear verdict (approved/rejected/concerns) with scores
 TASK:
   - Load explorer context and bound solution
@@ -175,10 +164,9 @@ CONTEXT:
 EXPECTED: <session>/audits/audit-report.json with per-issue scores and overall verdict
 CONSTRAINTS: Review only, do not modify solutions
 ---
-InnerLoop: false",
-  blockedBy: ["SOLVE-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "AUDIT-001", addBlockedBy: ["SOLVE-001"], owner: "reviewer" })
 ```
 
 **MARSHAL-001** (integrator): Same as Quick, but `blockedBy: ["AUDIT-001"]`.
@@ -201,7 +189,6 @@ For each issue in issue_ids, create an EXPLORE task. When N > 1, assign distinct
 ```
 TaskCreate({
   subject: "EXPLORE-<NNN>",
-  owner: "explorer-<N>",
   description: "PURPOSE: Analyze issue <issueId> context and map codebase impact | Success: Context report for <issueId>
 TASK:
   - Load issue details for <issueId>
@@ -213,20 +200,18 @@ CONTEXT:
 EXPECTED: <session>/explorations/context-<issueId>.json
 CONSTRAINTS: Single issue scope, exploration only
 ---
-InnerLoop: false",
-  blockedBy: [],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "EXPLORE-<NNN>", owner: "explorer-<N>" })
 ```
 
 **SOLVE-001..N** (planner, sequential after all EXPLORE):
 
-For each issue, create a SOLVE task blocked by all EXPLORE tasks:
+For each issue, create a SOLVE task blocked by all EXPLORE tasks
 
 ```
 TaskCreate({
   subject: "SOLVE-<NNN>",
-  owner: "planner",
   description: "PURPOSE: Design solution for <issueId> | Success: Bound solution with tasks
 TASK:
   - Load explorer context for <issueId>
@@ -239,17 +224,15 @@ CONTEXT:
 EXPECTED: <session>/solutions/solution-<issueId>.json
 CONSTRAINTS: Solution design only
 ---
-InnerLoop: false",
-  blockedBy: ["EXPLORE-001", ..., "EXPLORE-<N>"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "SOLVE-<NNN>", addBlockedBy: ["EXPLORE-001", ..., "EXPLORE-<N>"], owner: "planner" })
 ```
 
 **AUDIT-001** (reviewer, batch review):
 ```
 TaskCreate({
   subject: "AUDIT-001",
-  owner: "reviewer",
   description: "PURPOSE: Batch review all solutions | Success: Verdict for each solution
 TASK:
   - Load all explorer contexts and bound solutions
@@ -262,10 +245,9 @@ CONTEXT:
 EXPECTED: <session>/audits/audit-report.json with batch results
 CONSTRAINTS: Review only
 ---
-InnerLoop: false",
-  blockedBy: ["SOLVE-001", ..., "SOLVE-<N>"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "AUDIT-001", addBlockedBy: ["SOLVE-001", ..., "SOLVE-<N>"], owner: "reviewer" })
 ```
 
 **MARSHAL-001** (integrator): `blockedBy: ["AUDIT-001"]`.
@@ -282,7 +264,6 @@ After MARSHAL produces execution queue, create M BUILD tasks based on parallel g
 ```
 TaskCreate({
   subject: "BUILD-<NNN>",
-  owner: "implementer-<M>",
   description: "PURPOSE: Implement solution for <issueId> | Success: Code committed, tests pass
 TASK:
   - Load bound solution and explorer context
@@ -297,10 +278,9 @@ CONSTRAINTS: Follow solution plan
 ---
 InnerLoop: false
 execution_method: <execution_method>
-code_review: <code_review>",
-  blockedBy: ["MARSHAL-001"],
-  status: "pending"
+code_review: <code_review>"
 })
+TaskUpdate({ taskId: "BUILD-<NNN>", addBlockedBy: ["MARSHAL-001"], owner: "implementer-<M>" })
 ```
 
 > **Note**: In Batch mode, BUILD task count M may not be known at dispatch time (depends on MARSHAL queue output). Create BUILD tasks with placeholder count, or defer BUILD task creation to handleCallback when MARSHAL completes. Coordinator should check for deferred BUILD task creation in monitor.md handleCallback for integrator.
@@ -313,7 +293,6 @@ When AUDIT rejects a solution, coordinator creates fix tasks dynamically (NOT at
 ```
 TaskCreate({
   subject: "SOLVE-fix-001",
-  owner: "planner",
   description: "PURPOSE: Revise solution addressing reviewer feedback (fix cycle <round>) | Success: Revised solution addressing rejection reasons
 TASK:
   - Read reviewer feedback from audit report
@@ -327,17 +306,15 @@ CONTEXT:
 EXPECTED: <session>/solutions/solution-<issueId>.json (revised)
 CONSTRAINTS: Address reviewer concerns specifically
 ---
-InnerLoop: false",
-  blockedBy: ["AUDIT-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "SOLVE-fix-001", addBlockedBy: ["AUDIT-001"], owner: "planner" })
 ```
 
 **AUDIT-002** (reviewer, re-review):
 ```
 TaskCreate({
   subject: "AUDIT-002",
-  owner: "reviewer",
   description: "PURPOSE: Re-review revised solution (fix cycle <round>) | Success: Verdict on revised solution
 TASK:
   - Load revised solution
@@ -350,10 +327,9 @@ CONTEXT:
 EXPECTED: <session>/audits/audit-report.json (updated)
 CONSTRAINTS: Focus on previously rejected dimensions
 ---
-InnerLoop: false",
-  blockedBy: ["SOLVE-fix-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "AUDIT-002", addBlockedBy: ["SOLVE-fix-001"], owner: "reviewer" })
 ```
 
 These fix tasks are created dynamically by handleCallback in monitor.md when reviewer reports rejection, NOT during initial dispatch.

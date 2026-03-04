@@ -3,10 +3,11 @@
 // ========================================
 // Main page for team execution - list/detail dual view with tabbed detail
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useIntl } from 'react-intl';
-import { Package, MessageSquare, Maximize2, Minimize2, GitBranch } from 'lucide-react';
+import { Package, MessageSquare, Maximize2, Minimize2, GitBranch, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 import { TabsNavigation, type TabItem } from '@/components/ui/TabsNavigation';
@@ -43,7 +44,7 @@ export function TeamPage() {
   const toggleImmersiveMode = useAppStore((s) => s.toggleImmersiveMode);
 
   // Data hooks
-  const { teams } = useTeams(locationFilter);
+  const { teams, error: teamsError, isLoading: teamsLoading } = useTeams(locationFilter);
   const { messages, total: messageTotal } = useTeamMessages(
     viewMode === 'detail' ? selectedTeam : null,
     messageFilter
@@ -57,6 +58,14 @@ export function TeamPage() {
     () => teams.find((t) => t.name === selectedTeam),
     [teams, selectedTeam]
   );
+
+  // Auto-reset to list view when in detail mode but team data is missing after loading
+  useEffect(() => {
+    if (viewMode === 'detail' && selectedTeam && !teamsLoading && teams.length > 0 && !teamData) {
+      // Team no longer exists or is filtered out, return to list
+      backToList();
+    }
+  }, [viewMode, selectedTeam, teamsLoading, teams.length, teamData, backToList]);
 
   // Derive dynamic pipeline stages and multi-phase info
   const stages = useMemo(
@@ -76,6 +85,36 @@ export function TeamPage() {
     () => detectMultiPhase(teamData?.role_state),
     [teamData?.role_state]
   );
+
+  // Error state - show error page with back button when API fails
+  if (teamsError && viewMode === 'detail') {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] p-8">
+        <div className="text-center max-w-md">
+          <div className="mb-4">
+            <AlertTriangle className="w-16 h-16 mx-auto text-destructive" />
+          </div>
+          <h2 className="text-xl font-semibold mb-2">
+            {formatMessage({ id: 'team.error.loadFailed' })}
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            {teamsError instanceof Error ? teamsError.message : String(teamsError)}
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button onClick={backToList} variant="default">
+              {formatMessage({ id: 'team.detail.backToList' })}
+            </Button>
+            <Button
+              onClick={() => window.location.reload()}
+              variant="outline"
+            >
+              {formatMessage({ id: 'common.actions.retry' })}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // List view (also fallback when selected team data is not available)
   if (viewMode === 'list' || !selectedTeam || (viewMode === 'detail' && teams.length > 0 && !teamData)) {

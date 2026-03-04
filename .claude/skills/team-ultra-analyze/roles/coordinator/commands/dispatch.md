@@ -24,7 +24,6 @@ Every task description uses structured format:
 ```
 TaskCreate({
   subject: "<TASK-ID>",
-  owner: "<role>",
   description: "PURPOSE: <what this task achieves> | Success: <measurable completion criteria>
 TASK:
   - <step 1: specific action>
@@ -39,10 +38,9 @@ CONTEXT:
 EXPECTED: <deliverable path> + <quality criteria>
 CONSTRAINTS: <scope limits, focus areas>
 ---
-InnerLoop: false",
-  blockedBy: [<dependency-list>],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "<TASK-ID>", addBlockedBy: [<dependency-list>], owner: "<role>" })
 ```
 
 ### Mode Router
@@ -75,9 +73,9 @@ CONTEXT:
 EXPECTED: <session>/explorations/exploration-001.json | Structured exploration with files and findings
 CONSTRAINTS: Focus on <topic> scope
 ---
-InnerLoop: false",
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "EXPLORE-001", owner: "explorer" })
 ```
 
 **ANALYZE-001** (analyst):
@@ -99,10 +97,9 @@ CONTEXT:
 EXPECTED: <session>/analyses/analysis-001.json | Structured analysis with evidence
 CONSTRAINTS: Focus on technical perspective | <dimensions>
 ---
-InnerLoop: false",
-  blockedBy: ["EXPLORE-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "ANALYZE-001", addBlockedBy: ["EXPLORE-001"], owner: "analyst" })
 ```
 
 **SYNTH-001** (synthesizer):
@@ -122,10 +119,9 @@ CONTEXT:
 EXPECTED: <session>/conclusions.json + discussion.md update | Final conclusions with confidence levels
 CONSTRAINTS: Pure integration, no new exploration
 ---
-InnerLoop: false",
-  blockedBy: ["ANALYZE-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "SYNTH-001", addBlockedBy: ["ANALYZE-001"], owner: "synthesizer" })
 ```
 
 ---
@@ -140,7 +136,6 @@ Create tasks in dependency order with parallel exploration and analysis windows:
 // For each perspective[i]:
 TaskCreate({
   subject: "EXPLORE-<NNN>",
-  owner: "explorer-<i+1>",
   description: "PURPOSE: Explore codebase from <perspective> angle | Success: Perspective-specific files and patterns collected
 TASK:
   - Search codebase from <perspective> perspective
@@ -155,9 +150,9 @@ CONTEXT:
 EXPECTED: <session>/explorations/exploration-<NNN>.json
 CONSTRAINTS: Focus on <perspective> angle
 ---
-InnerLoop: false",
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "EXPLORE-<NNN>", owner: "explorer-<i+1>" })
 ```
 
 **ANALYZE-001..N** (analyst, parallel): One per perspective. Each blocked by its corresponding EXPLORE-N.
@@ -165,7 +160,6 @@ InnerLoop: false",
 ```
 TaskCreate({
   subject: "ANALYZE-<NNN>",
-  owner: "analyst-<i+1>",
   description: "PURPOSE: Deep analysis from <perspective> perspective | Success: Insights with confidence and evidence
 TASK:
   - Load exploration-<NNN> results
@@ -181,10 +175,9 @@ CONTEXT:
 EXPECTED: <session>/analyses/analysis-<NNN>.json
 CONSTRAINTS: <perspective> perspective | <dimensions>
 ---
-InnerLoop: false",
-  blockedBy: ["EXPLORE-<NNN>"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "ANALYZE-<NNN>", addBlockedBy: ["EXPLORE-<NNN>"], owner: "analyst-<i+1>" })
 ```
 
 **DISCUSS-001** (discussant): Blocked by all ANALYZE tasks.
@@ -207,10 +200,9 @@ CONTEXT:
 EXPECTED: <session>/discussions/discussion-round-001.json + discussion.md update
 CONSTRAINTS: Aggregate only, no new exploration
 ---
-InnerLoop: false",
-  blockedBy: ["ANALYZE-001", ..., "ANALYZE-<N>"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "DISCUSS-001", addBlockedBy: ["ANALYZE-001", ..., "ANALYZE-<N>"], owner: "discussant" })
 ```
 
 **SYNTH-001** (synthesizer): Blocked by DISCUSS-001.
@@ -220,9 +212,8 @@ TaskCreate({
   subject: "SYNTH-001",
   description: "PURPOSE: Cross-perspective integration into final conclusions | Success: Executive summary with prioritized recommendations
 ...same as Quick mode SYNTH-001 but blocked by DISCUSS-001..."
-  blockedBy: ["DISCUSS-001"],
-  status: "pending"
 })
+TaskUpdate({ taskId: "SYNTH-001", addBlockedBy: ["DISCUSS-001"], owner: "synthesizer" })
 ```
 
 ---
@@ -255,9 +246,9 @@ CONTEXT:
   - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/discussions/discussion-round-<NNN>.json
 ---
-InnerLoop: false",
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "DISCUSS-<NNN>", owner: "discussant" })
 ```
 
 **ANALYZE-fix-N** (direction adjustment):
@@ -277,9 +268,9 @@ CONTEXT:
   - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/analyses/analysis-fix-<N>.json
 ---
-InnerLoop: false",
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "ANALYZE-fix-<N>", owner: "analyst" })
 ```
 
 ## Phase 4: Validation

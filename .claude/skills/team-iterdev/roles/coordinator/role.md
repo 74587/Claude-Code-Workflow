@@ -199,7 +199,7 @@ Execute `commands/dispatch.md` inline (Command Execution Protocol):
 Find first unblocked task and spawn its worker:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: "iterdev",
@@ -266,6 +266,6 @@ AskUserQuestion({
 
 | Choice | Steps |
 |--------|-------|
-| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete("iterdev") -> output final summary |
+| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete() -> output final summary |
 | Keep Active | Update session status="paused" -> output: "Session paused. Resume with: Skill(skill='team-iterdev', args='resume')" |
 | Export Results | AskUserQuestion for target directory -> copy all artifacts -> Archive & Clean flow |

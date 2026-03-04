@@ -24,7 +24,6 @@ Every task description uses structured format:
 ```
 TaskCreate({
   subject: "<TASK-ID>",
-  owner: "<role>",
   description: "PURPOSE: <what this task achieves> | Success: <measurable criteria>
 TASK:
   - <step 1: specific action>
@@ -38,10 +37,9 @@ CONTEXT:
 EXPECTED: <deliverable path> + <quality criteria>
 CONSTRAINTS: <scope limits, focus areas>
 ---
-InnerLoop: <true|false>",
-  blockedBy: [<dependency-list>],
-  status: "pending"
+InnerLoop: <true|false>"
 })
+TaskUpdate({ taskId: "<TASK-ID>", addBlockedBy: [<dependency-list>], owner: "<role>" })
 ```
 
 ### Mode Router
@@ -71,10 +69,9 @@ CONTEXT:
 EXPECTED: <session>/strategy/test-strategy.md
 CONSTRAINTS: Read-only analysis
 ---
-InnerLoop: false",
-  blockedBy: [],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "STRATEGY-001", owner: "strategist" })
 ```
 
 **TESTGEN-001** (generator, L1):
@@ -93,10 +90,9 @@ CONTEXT:
 EXPECTED: <session>/tests/L1-unit/
 CONSTRAINTS: Only generate test code, do not modify source
 ---
-InnerLoop: true",
-  blockedBy: ["STRATEGY-001"],
-  status: "pending"
+InnerLoop: true"
 })
+TaskUpdate({ taskId: "TESTGEN-001", addBlockedBy: ["STRATEGY-001"], owner: "generator" })
 ```
 
 **TESTRUN-001** (executor, L1):
@@ -115,10 +111,9 @@ CONTEXT:
 EXPECTED: <session>/results/run-001.json
 CONSTRAINTS: Only fix test files, not source code
 ---
-InnerLoop: true",
-  blockedBy: ["TESTGEN-001"],
-  status: "pending"
+InnerLoop: true"
 })
+TaskUpdate({ taskId: "TESTRUN-001", addBlockedBy: ["TESTGEN-001"], owner: "executor" })
 ```
 
 ### Standard Pipeline

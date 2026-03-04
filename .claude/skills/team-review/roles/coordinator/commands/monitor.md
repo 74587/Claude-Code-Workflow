@@ -143,7 +143,7 @@ Ready tasks found?
 **Spawn worker tool call**:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <subject>",
   team_name: "review",

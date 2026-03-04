@@ -48,7 +48,7 @@ Select strategy by discussion type:
 
 **deepen**: Spawn cli-explore-agent focused on open questions and uncertain insights:
 ```
-Task({
+Agent({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
   prompt: "Focus on open questions: <questions>. Find evidence for uncertain insights. Write to: <session>/discussions/deepen-<num>.json"
@@ -62,7 +62,12 @@ ccw cli -p "Re-analyze '<topic>' with adjusted focus on '<userFeedback>'" --tool
 
 **specific-questions**: Spawn cli-explore-agent targeting user's questions:
 ```
-Task({ subagent_type: "cli-explore-agent", prompt: "Answer: <userFeedback>. Write to: <session>/discussions/questions-<num>.json" })
+Agent({
+  subagent_type: "cli-explore-agent",
+  description: "Answer specific user questions",
+  run_in_background: false,
+  prompt: "Answer: <userFeedback>. Write to: <session>/discussions/questions-<num>.json"
+})
 ```
 
 ## Phase 4: Update Discussion Timeline

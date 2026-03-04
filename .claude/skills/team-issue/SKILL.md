@@ -1,7 +1,7 @@
 ---
 name: team-issue
 description: Unified team skill for issue resolution. All roles invoke this skill with --role arg for role-specific execution. Triggers on "team issue".
-allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Task(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
 # Team Issue Resolution
@@ -301,7 +301,7 @@ Beat  1                    2                 3         4              5
 When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: "issue",
@@ -344,7 +344,7 @@ Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Pha
 **Parallel spawn template**:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role>-<N> worker",
   team_name: "issue",
@@ -390,7 +390,7 @@ AskUserQuestion({
 
 | Choice | Action |
 |--------|--------|
-| Archive & Clean | Update session status="completed" -> TeamDelete(issue) -> output final summary |
+| Archive & Clean | Update session status="completed" -> TeamDelete() -> output final summary |
 | Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-issue", args="resume")` |
 | Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
 

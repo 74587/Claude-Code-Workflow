@@ -117,7 +117,7 @@ Collect task states from TaskList()
       |   +- PLAN-* -> planner
       |   +- EXEC-* -> executor
       +- Spawn team-worker:
-         Task({
+         Agent({
            subagent_type: "team-worker",
            description: "Spawn <role> worker for <subject>",
            team_name: <team-name>,

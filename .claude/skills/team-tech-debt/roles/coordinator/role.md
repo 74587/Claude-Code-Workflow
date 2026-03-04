@@ -312,7 +312,7 @@ Delegate to `commands/dispatch.md` which creates the full task chain.
 **Worker Spawn Template**:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker",
   prompt: `## Role Assignment

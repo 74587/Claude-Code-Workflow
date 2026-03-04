@@ -1,7 +1,7 @@
 ---
 name: workflow-multi-cli-plan
 description: Multi-CLI collaborative planning and execution skill with integrated execution phase. Triggers on "workflow-multi-cli-plan".
-allowed-tools: Skill, Task, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep, mcp__ace-tool__search_context
+allowed-tools: Skill, Agent, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep, mcp__ace-tool__search_context
 ---
 
 # Workflow Multi-CLI Plan

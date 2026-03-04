@@ -25,7 +25,6 @@ Create task chains from dynamic dependency graphs. Builds pipelines from the tas
 ```
 TaskCreate({
   subject: "<PREFIX>-<NNN>",
-  owner: "<role-name>",
   description: "PURPOSE: <goal> | Success: <success_criteria>
 TASK:
   - <step 1>
@@ -40,10 +39,9 @@ EXPECTED: <deliverable path> + <quality criteria>
 CONSTRAINTS: <scope limits>
 ---
 InnerLoop: <true|false>
-RoleSpec: <session-folder>/role-specs/<role-name>.md",
-  blockedBy: [<dependency-list from graph>],
-  status: "pending"
+RoleSpec: <session-folder>/role-specs/<role-name>.md"
 })
+TaskUpdate({ taskId: "<PREFIX>-<NNN>", addBlockedBy: [<dependency-list from graph>], owner: "<role-name>" })
 ```
 
 5. **Update team-session.json** with pipeline and tasks_total

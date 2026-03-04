@@ -160,7 +160,7 @@ const STAGE_WORKER_MAP = {
 5. Spawn team-worker (one at a time for sequential pipeline):
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <task-id>",
   team_name: "tech-debt",

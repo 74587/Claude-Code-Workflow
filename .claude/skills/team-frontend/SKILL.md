@@ -1,7 +1,7 @@
 ---
 name: team-frontend
 description: Unified team skill for frontend development. Uses team-worker agent architecture with role-spec files for domain logic. Coordinator orchestrates pipeline, workers are team-worker agents. Built-in ui-ux-pro-max design intelligence. Triggers on "team frontend".
-allowed-tools: Task, TaskCreate, TaskList, TaskGet, TaskUpdate, TeamCreate, TeamDelete, SendMessage, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, mcp__ace-tool__search_context
+allowed-tools: Agent, TaskCreate, TaskList, TaskGet, TaskUpdate, TeamCreate, TeamDelete, SendMessage, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, mcp__ace-tool__search_context
 ---
 
 # Team Frontend Development
@@ -108,7 +108,7 @@ Phase 3 needs task dispatch
 When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: "frontend",
@@ -233,7 +233,7 @@ AskUserQuestion({
 
 | Choice | Steps |
 |--------|-------|
-| Archive & Clean | Verify completed -> update status -> TeamDelete("frontend") -> final summary |
+| Archive & Clean | Verify completed -> update status -> TeamDelete() -> final summary |
 | Keep Active | Status="paused" -> "Resume with: Skill(skill='team-frontend', args='resume')" |
 | Export Results | Ask target dir -> copy artifacts -> Archive flow |
 

@@ -47,6 +47,9 @@
     "artifacts": "产物",
     "messages": "消息"
   },
+  "error": {
+    "loadFailed": "加载团队数据失败"
+  },
   "artifacts": {
     "title": "团队产物",
     "plan": "计划",

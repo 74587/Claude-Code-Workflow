@@ -68,7 +68,7 @@ Find and spawn the next ready tasks.
 2. For each ready task, spawn team-worker:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <task-id>",
   team_name: "uidesign",
@@ -126,10 +126,9 @@ CONTEXT:
   - Upstream artifacts: audit/audit-<NNN>.md
   - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: Updated design artifacts | All flagged issues addressed
-CONSTRAINTS: Targeted fixes only",
-  blockedBy: [],
-  status: "pending"
+CONSTRAINTS: Targeted fixes only"
 })
+TaskUpdate({ taskId: "DESIGN-fix-<round>", owner: "designer" })
 ```
 
 After fix completes, create new AUDIT task blocked by the fix task. Increment gc_state.round.

@@ -43,7 +43,7 @@ Explore codebase structure through cli-explore-agent, collecting structured cont
 Spawn `cli-explore-agent` subagent for actual exploration:
 
 ```
-Task({
+Agent({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore codebase: <topic> (<perspective>)",

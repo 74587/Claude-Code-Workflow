@@ -39,7 +39,7 @@ Bash("ccw issue solutions <issueId> --json")
 **Agent invocation**:
 
 ```
-Task({
+Agent({
   subagent_type: "issue-queue-agent",
   run_in_background: false,
   description: "Form queue for <count> issues",

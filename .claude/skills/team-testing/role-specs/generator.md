@@ -61,7 +61,7 @@ For revision mode:
 **Agent delegation** (medium/high complexity):
 
 ```
-Task({
+Agent({
   subagent_type: "code-developer",
   run_in_background: false,
   description: "Generate <layer> tests",

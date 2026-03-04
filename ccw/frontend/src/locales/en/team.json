@@ -47,6 +47,9 @@
     "artifacts": "Artifacts",
     "messages": "Messages"
   },
+  "error": {
+    "loadFailed": "Failed to Load Team Data"
+  },
   "artifacts": {
     "title": "Team Artifacts",
     "plan": "Plan",

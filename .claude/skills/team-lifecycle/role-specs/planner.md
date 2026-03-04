@@ -33,7 +33,7 @@ If `<session-folder>/spec/` exists → load requirements/_index.md, architecture
 For each angle, call explore subagent (cache-aware — check cache-index.json before each call):
 
 ```
-Task({
+Agent({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: "Explore <angle>",
@@ -53,7 +53,7 @@ Task({
 **Agent call** (Medium/High):
 
 ```
-Task({
+Agent({
   subagent_type: "cli-lite-planning-agent",
   run_in_background: false,
   description: "Generate implementation plan",

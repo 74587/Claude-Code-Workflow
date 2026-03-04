@@ -1,7 +1,7 @@
 ---
 name: team-brainstorm
 description: Unified team skill for brainstorming team. All roles invoke this skill with --role arg for role-specific execution. Triggers on "team brainstorm".
-allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Task(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
 # Team Brainstorm
@@ -306,7 +306,7 @@ Beat  1                    2              3-4        5         6
 When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: "brainstorm",
@@ -338,7 +338,7 @@ Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Pha
 | Quick/Deep pipeline (single ideator) | Standard spawn: single `ideator` team-worker agent |
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn ideator-<N> worker",
   team_name: "brainstorm",
@@ -384,7 +384,7 @@ AskUserQuestion({
 
 | Choice | Action |
 |--------|--------|
-| Archive & Clean | Update session status="completed" -> TeamDelete(brainstorm) -> output final summary |
+| Archive & Clean | Update session status="completed" -> TeamDelete() -> output final summary |
 | Keep Active | Update session status="paused" -> output resume instructions: `Skill(skill="team-brainstorm", args="resume")` |
 | Export Results | AskUserQuestion for target path -> copy deliverables -> Archive & Clean |
 

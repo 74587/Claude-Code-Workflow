@@ -13,7 +13,7 @@ In v4, discuss is a **subagent call** from within the producing role, reducing e
 Called by produce roles after artifact creation:
 
 ```
-Task({
+Agent({
   subagent_type: "cli-discuss-agent",
   run_in_background: false,
   description: "Discuss <round-id>",

@@ -23,7 +23,6 @@ Every task description uses structured format:
 ```
 TaskCreate({
   subject: "<TASK-ID>",
-  owner: "<role>",
   description: "PURPOSE: <what this task achieves> | Success: <completion criteria>
 TASK:
   - <step 1>
@@ -37,10 +36,9 @@ CONTEXT:
 EXPECTED: <deliverable path> + <quality criteria>
 CONSTRAINTS: <scope limits>
 ---
-InnerLoop: false",
-  blockedBy: [<dependency-list>],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "<TASK-ID>", addBlockedBy: [<dependency-list>], owner: "<role>" })
 ```
 
 ### Pipeline Router
@@ -59,7 +57,6 @@ InnerLoop: false",
 ```
 TaskCreate({
   subject: "IDEA-001",
-  owner: "ideator",
   description: "PURPOSE: Generate multi-angle ideas for brainstorm topic | Success: >= 6 unique ideas across all angles
 TASK:
   - Read topic and angles from session context
@@ -72,17 +69,15 @@ CONTEXT:
 EXPECTED: <session>/ideas/idea-001.md with >= 6 ideas
 CONSTRAINTS: Divergent thinking only, no evaluation
 ---
-InnerLoop: false",
-  blockedBy: [],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "IDEA-001", owner: "ideator" })
 ```
 
 **CHALLENGE-001** (challenger):
 ```
 TaskCreate({
   subject: "CHALLENGE-001",
-  owner: "challenger",
   description: "PURPOSE: Challenge assumptions and assess feasibility of generated ideas | Success: Each idea rated by severity
 TASK:
   - Read all idea files from ideas/ directory
@@ -95,17 +90,15 @@ CONTEXT:
 EXPECTED: <session>/critiques/critique-001.md with severity table and GC signal
 CONSTRAINTS: Critical analysis only, do not generate alternative ideas
 ---
-InnerLoop: false",
-  blockedBy: ["IDEA-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "CHALLENGE-001", addBlockedBy: ["IDEA-001"], owner: "challenger" })
 ```
 
 **SYNTH-001** (synthesizer):
 ```
 TaskCreate({
   subject: "SYNTH-001",
-  owner: "synthesizer",
   description: "PURPOSE: Synthesize ideas and critiques into integrated proposals | Success: >= 1 consolidated proposal
 TASK:
   - Read all ideas and critiques
@@ -117,10 +110,9 @@ CONTEXT:
 EXPECTED: <session>/synthesis/synthesis-001.md with proposals
 CONSTRAINTS: Integration and synthesis only, no new ideas
 ---
-InnerLoop: false",
-  blockedBy: ["CHALLENGE-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "SYNTH-001", addBlockedBy: ["CHALLENGE-001"], owner: "synthesizer" })
 ```
 
 ### Deep Pipeline
@@ -131,7 +123,6 @@ Creates all 6 tasks. First 2 same as Quick, then:
 ```
 TaskCreate({
   subject: "IDEA-002",
-  owner: "ideator",
   description: "PURPOSE: Revise ideas based on critique feedback (GC Round 1) | Success: HIGH/CRITICAL challenges addressed
 TASK:
   - Read critique feedback from critiques/
@@ -143,17 +134,15 @@ CONTEXT:
 EXPECTED: <session>/ideas/idea-002.md with revised ideas
 CONSTRAINTS: Address critique only, focused revision
 ---
-InnerLoop: false",
-  blockedBy: ["CHALLENGE-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "IDEA-002", addBlockedBy: ["CHALLENGE-001"], owner: "ideator" })
 ```
 
 **CHALLENGE-002** (challenger, round 2):
 ```
 TaskCreate({
   subject: "CHALLENGE-002",
-  owner: "challenger",
   description: "PURPOSE: Validate revised ideas (GC Round 2) | Success: Severity assessment of revised ideas
 TASK:
   - Read revised idea files
@@ -165,10 +154,9 @@ CONTEXT:
 EXPECTED: <session>/critiques/critique-002.md
 CONSTRAINTS: Focus on revised/new ideas
 ---
-InnerLoop: false",
-  blockedBy: ["IDEA-002"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "CHALLENGE-002", addBlockedBy: ["IDEA-002"], owner: "challenger" })
 ```
 
 **SYNTH-001** blocked by CHALLENGE-002. **EVAL-001** blocked by SYNTH-001:
@@ -176,7 +164,6 @@ InnerLoop: false",
 ```
 TaskCreate({
   subject: "EVAL-001",
-  owner: "evaluator",
   description: "PURPOSE: Score and rank synthesized proposals | Success: Ranked list with weighted scores
 TASK:
   - Read synthesis results
@@ -188,10 +175,9 @@ CONTEXT:
 EXPECTED: <session>/evaluation/evaluation-001.md with scoring matrix
 CONSTRAINTS: Evaluation only, no new proposals
 ---
-InnerLoop: false",
-  blockedBy: ["SYNTH-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "EVAL-001", addBlockedBy: ["SYNTH-001"], owner: "evaluator" })
 ```
 
 ### Full Pipeline

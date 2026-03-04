@@ -24,7 +24,6 @@ Every task description uses structured format for clarity:
 ```
 TaskCreate({
   subject: "<TASK-ID>",
-  owner: "<role>",
   description: "PURPOSE: <what this task achieves> | Success: <measurable completion criteria>
 TASK:
   - <step 1: specific action>
@@ -38,10 +37,9 @@ CONTEXT:
 EXPECTED: <deliverable path> + <quality criteria>
 CONSTRAINTS: <scope limits, focus areas>
 ---
-InnerLoop: <true|false>",
-  blockedBy: [<dependency-list>],
-  status: "pending"
+InnerLoop: <true|false>"
 })
+TaskUpdate({ taskId: "<TASK-ID>", addBlockedBy: [<dependency-list>], owner: "<role>" })
 ```
 
 ### Mode Router
@@ -60,7 +58,6 @@ InnerLoop: <true|false>",
 ```
 TaskCreate({
   subject: "DEV-001",
-  owner: "developer",
   description: "PURPOSE: Implement fix | Success: Fix applied, syntax clean
 TASK:
   - Load target files and understand context
@@ -73,16 +70,15 @@ CONTEXT:
 EXPECTED: Modified source files + <session>/code/dev-log.md | Syntax clean
 CONSTRAINTS: Minimal changes | Preserve existing behavior
 ---
-InnerLoop: true",
-  status: "pending"
+InnerLoop: true"
 })
+TaskUpdate({ taskId: "DEV-001", owner: "developer" })
 ```
 
 **VERIFY-001** (tester):
 ```
 TaskCreate({
   subject: "VERIFY-001",
-  owner: "tester",
   description: "PURPOSE: Verify fix correctness | Success: Tests pass, no regressions
 TASK:
   - Detect test framework
@@ -96,10 +92,9 @@ CONTEXT:
 EXPECTED: <session>/verify/verify-001.json | Pass rate >= 95%
 CONSTRAINTS: Focus on changed files | Report any regressions
 ---
-InnerLoop: false",
-  blockedBy: ["DEV-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "VERIFY-001", addBlockedBy: ["DEV-001"], owner: "tester" })
 ```
 
 ---
@@ -110,7 +105,6 @@ InnerLoop: false",
 ```
 TaskCreate({
   subject: "DESIGN-001",
-  owner: "architect",
   description: "PURPOSE: Technical design and task breakdown | Success: Design document + task breakdown ready
 TASK:
   - Explore codebase for patterns and dependencies
@@ -123,16 +117,15 @@ CONTEXT:
 EXPECTED: <session>/design/design-001.md + <session>/design/task-breakdown.json | Components defined, tasks actionable
 CONSTRAINTS: Focus on <task-scope> | Risk assessment required
 ---
-InnerLoop: false",
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "DESIGN-001", owner: "architect" })
 ```
 
 **DEV-001** (developer):
 ```
 TaskCreate({
   subject: "DEV-001",
-  owner: "developer",
   description: "PURPOSE: Implement design | Success: All design tasks implemented, syntax clean
 TASK:
   - Load design and task breakdown
@@ -146,17 +139,15 @@ CONTEXT:
 EXPECTED: Modified source files + <session>/code/dev-log.md | Syntax clean, all tasks done
 CONSTRAINTS: Follow design | Preserve existing behavior | Follow code conventions
 ---
-InnerLoop: true",
-  blockedBy: ["DESIGN-001"],
-  status: "pending"
+InnerLoop: true"
 })
+TaskUpdate({ taskId: "DEV-001", addBlockedBy: ["DESIGN-001"], owner: "developer" })
 ```
 
 **VERIFY-001** (tester, parallel with REVIEW-001):
 ```
 TaskCreate({
   subject: "VERIFY-001",
-  owner: "tester",
   description: "PURPOSE: Verify implementation | Success: Tests pass, no regressions
 TASK:
   - Detect test framework
@@ -170,17 +161,15 @@ CONTEXT:
 EXPECTED: <session>/verify/verify-001.json | Pass rate >= 95%
 CONSTRAINTS: Focus on changed files | Report regressions
 ---
-InnerLoop: false",
-  blockedBy: ["DEV-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "VERIFY-001", addBlockedBy: ["DEV-001"], owner: "tester" })
 ```
 
 **REVIEW-001** (reviewer, parallel with VERIFY-001):
 ```
 TaskCreate({
   subject: "REVIEW-001",
-  owner: "reviewer",
   description: "PURPOSE: Code review for correctness and quality | Success: All dimensions reviewed, verdict issued
 TASK:
   - Load changed files and design document
@@ -194,10 +183,9 @@ CONTEXT:
 EXPECTED: <session>/review/review-001.md | Per-dimension findings with severity
 CONSTRAINTS: Focus on implementation changes | Provide file:line references
 ---
-InnerLoop: false",
-  blockedBy: ["DEV-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "REVIEW-001", addBlockedBy: ["DEV-001"], owner: "reviewer" })
 ```
 
 ---
@@ -212,7 +200,6 @@ Create Sprint 1 tasks using sprint templates above, plus:
 ```
 TaskCreate({
   subject: "DEV-002",
-  owner: "developer",
   description: "PURPOSE: Incremental implementation | Success: Remaining tasks implemented
 TASK:
   - Load remaining tasks from breakdown
@@ -226,10 +213,9 @@ CONTEXT:
 EXPECTED: Modified source files + updated dev-log.md
 CONSTRAINTS: Incremental delivery | Follow existing patterns
 ---
-InnerLoop: true",
-  blockedBy: ["DEV-001"],
-  status: "pending"
+InnerLoop: true"
 })
+TaskUpdate({ taskId: "DEV-002", addBlockedBy: ["DEV-001"], owner: "developer" })
 ```
 
 Subsequent sprints created dynamically after Sprint N completes.

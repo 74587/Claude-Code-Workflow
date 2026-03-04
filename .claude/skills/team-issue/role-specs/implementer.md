@@ -15,7 +15,7 @@ Load solution plan, route to execution backend (Agent/Codex/Gemini), run tests, 
 
 | Backend | Condition | Method |
 |---------|-----------|--------|
-| agent | task_count <= 3 or explicit | `Task({ subagent_type: "code-developer", run_in_background: false })` |
+| agent | task_count <= 3 or explicit | `Agent({ subagent_type: "code-developer", run_in_background: false })` |
 | codex | task_count > 3 or explicit | `ccw cli --tool codex --mode write --id issue-<issueId>` |
 | gemini | explicit | `ccw cli --tool gemini --mode write --id issue-<issueId>` |
 
@@ -69,7 +69,7 @@ Dependencies: <explorerContext.dependencies>
 ```
 
 Route by executor:
-- **agent**: `Task({ subagent_type: "code-developer", run_in_background: false, prompt: <prompt> })`
+- **agent**: `Agent({ subagent_type: "code-developer", run_in_background: false, prompt: <prompt> })`
 - **codex**: `Bash("ccw cli -p \"<prompt>\" --tool codex --mode write --id issue-<issueId>")`
 - **gemini**: `Bash("ccw cli -p \"<prompt>\" --tool gemini --mode write --id issue-<issueId>")`
 

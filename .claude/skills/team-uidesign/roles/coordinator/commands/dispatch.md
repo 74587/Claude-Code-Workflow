@@ -24,7 +24,6 @@ Every task description uses structured format:
 ```
 TaskCreate({
   subject: "<TASK-ID>",
-  owner: "<role>",
   description: "PURPOSE: <what this task achieves> | Success: <measurable completion criteria>
 TASK:
   - <step 1: specific action>
@@ -37,10 +36,9 @@ CONTEXT:
   - Upstream artifacts: <artifact-1>, <artifact-2>
   - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <deliverable path> + <quality criteria>
-CONSTRAINTS: <scope limits, focus areas>",
-  blockedBy: [<dependency-list>],
-  status: "pending"
+CONSTRAINTS: <scope limits, focus areas>"
 })
+TaskUpdate({ taskId: "<TASK-ID>", addBlockedBy: [<dependency-list>], owner: "<role>" })
 ```
 
 ### Mode Router
@@ -71,9 +69,9 @@ CONTEXT:
   - Industry: <industry>
   - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/research/*.json | All 4 research files with valid JSON
-CONSTRAINTS: Read-only analysis | Focus on <design-scope>",
-  status: "pending"
+CONSTRAINTS: Read-only analysis | Focus on <design-scope>"
 })
+TaskUpdate({ taskId: "RESEARCH-001", owner: "researcher" })
 ```
 
 **DESIGN-001** (designer):
@@ -93,10 +91,9 @@ CONTEXT:
   - Upstream artifacts: research/*.json
   - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/design/design-tokens.json + component-specs/*.md | Complete token system + spec
-CONSTRAINTS: Follow W3C Design Tokens Format | All color tokens need light/dark",
-  blockedBy: ["RESEARCH-001"],
-  status: "pending"
+CONSTRAINTS: Follow W3C Design Tokens Format | All color tokens need light/dark"
 })
+TaskUpdate({ taskId: "DESIGN-001", addBlockedBy: ["RESEARCH-001"], owner: "designer" })
 ```
 
 **AUDIT-001** (reviewer):
@@ -116,10 +113,9 @@ CONTEXT:
   - Upstream artifacts: design/design-tokens.json, design/component-specs/*.md
   - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/audit/audit-001.md | 5-dimension scored report
-CONSTRAINTS: Read-only analysis | GC convergence: score >= 8 and 0 critical",
-  blockedBy: ["DESIGN-001"],
-  status: "pending"
+CONSTRAINTS: Read-only analysis | GC convergence: score >= 8 and 0 critical"
 })
+TaskUpdate({ taskId: "AUDIT-001", addBlockedBy: ["DESIGN-001"], owner: "reviewer" })
 ```
 
 **BUILD-001** (implementer):
@@ -139,10 +135,9 @@ CONTEXT:
   - Upstream artifacts: design/design-tokens.json, design/component-specs/*.md, audit/audit-001.md
   - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/build/**/* | Component + tokens CSS/TS + tests
-CONSTRAINTS: Use var(--token-name) only | Follow project patterns",
-  blockedBy: ["AUDIT-001"],
-  status: "pending"
+CONSTRAINTS: Use var(--token-name) only | Follow project patterns"
 })
+TaskUpdate({ taskId: "BUILD-001", addBlockedBy: ["AUDIT-001"], owner: "implementer" })
 ```
 
 ---

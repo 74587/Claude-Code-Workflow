@@ -25,7 +25,6 @@ Every task description uses structured format:
 ```
 TaskCreate({
   subject: "<TASK-ID>",
-  owner: "<role>",
   description: "PURPOSE: <what this task achieves> | Success: <measurable completion criteria>
 TASK:
   - <step 1: specific action>
@@ -38,10 +37,9 @@ CONTEXT:
   - Upstream artifacts: <artifact-1>, <artifact-2>
   - Shared memory: <session>/.msg/meta.json
 EXPECTED: <deliverable path> + <quality criteria>
-CONSTRAINTS: <scope limits, focus areas>",
-  blockedBy: [<dependency-list>],
-  status: "pending"
+CONSTRAINTS: <scope limits, focus areas>"
 })
+TaskUpdate({ taskId: "<TASK-ID>", addBlockedBy: [<dependency-list>], owner: "<role>" })
 ```
 
 ### Mode Router
@@ -72,9 +70,9 @@ CONTEXT:
   - Scope: <scope>
   - Shared memory: <session>/.msg/meta.json
 EXPECTED: <session>/analysis/design-intelligence.json + requirements.md | Structured design data
-CONSTRAINTS: Read-only analysis | No code modifications",
-  status: "pending"
+CONSTRAINTS: Read-only analysis | No code modifications"
 })
+TaskUpdate({ taskId: "ANALYZE-001", owner: "analyst" })
 ```
 
 **ARCH-001** (architect):
@@ -94,10 +92,9 @@ CONTEXT:
   - Upstream artifacts: design-intelligence.json, requirements.md
   - Shared memory: <session>/.msg/meta.json
 EXPECTED: <session>/architecture/design-tokens.json + component-specs/ + project-structure.md
-CONSTRAINTS: Use ui-ux-pro-max recommendations for token values | Support light/dark mode",
-  blockedBy: ["ANALYZE-001"],
-  status: "pending"
+CONSTRAINTS: Use ui-ux-pro-max recommendations for token values | Support light/dark mode"
 })
+TaskUpdate({ taskId: "ARCH-001", addBlockedBy: ["ANALYZE-001"], owner: "architect" })
 ```
 
 **DEV-001** (developer):
@@ -117,10 +114,9 @@ CONTEXT:
   - Upstream artifacts: design-tokens.json, component-specs/, project-structure.md
   - Shared memory: <session>/.msg/meta.json
 EXPECTED: src/styles/tokens.css + component files | Design-token compliant code
-CONSTRAINTS: Use CSS variables from tokens | Mobile-first responsive | WCAG AA",
-  blockedBy: ["ARCH-001"],
-  status: "pending"
+CONSTRAINTS: Use CSS variables from tokens | Mobile-first responsive | WCAG AA"
 })
+TaskUpdate({ taskId: "DEV-001", addBlockedBy: ["ARCH-001"], owner: "developer" })
 ```
 
 **QA-001** (qa):
@@ -140,10 +136,9 @@ CONTEXT:
   - Upstream artifacts: design-intelligence.json, design-tokens.json, src/**
   - Shared memory: <session>/.msg/meta.json
 EXPECTED: <session>/qa/audit-001.md | Weighted score + verdict + categorized issues
-CONSTRAINTS: Read-only review | No code modifications",
-  blockedBy: ["DEV-001"],
-  status: "pending"
+CONSTRAINTS: Read-only review | No code modifications"
 })
+TaskUpdate({ taskId: "QA-001", addBlockedBy: ["DEV-001"], owner: "qa" })
 ```
 
 ---

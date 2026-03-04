@@ -68,7 +68,6 @@ When executor reports test results:
 ```
 TaskCreate({
   subject: "TESTGEN-<layer>-fix-<round>",
-  owner: "generator",
   description: "PURPOSE: Revise tests to fix failures and improve coverage
 TASK:
   - Read previous test results and failure details
@@ -80,10 +79,9 @@ CONTEXT:
   - Previous results: <session>/results/run-<N>.json
 EXPECTED: Revised test files in <session>/tests/<layer>/
 ---
-InnerLoop: true",
-  blockedBy: [],
-  status: "pending"
+InnerLoop: true"
 })
+TaskUpdate({ taskId: "TESTGEN-<layer>-fix-<round>", owner: "generator" })
 ```
 
 Create TESTRUN-fix blocked on TESTGEN-fix.
@@ -108,7 +106,7 @@ Find and spawn the next ready tasks.
 3. Spawn team-worker:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <task-id>",
   team_name: "testing",

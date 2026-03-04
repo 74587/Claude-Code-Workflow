@@ -22,6 +22,15 @@ interface ChunkErrorBoundaryState {
  * Error displayed when a chunk fails to load
  */
 function ChunkLoadError({ error, onRetry }: { error: Error | null; onRetry: () => void }) {
+  const handleGoBack = () => {
+    // Try to go back in history, fallback to home if no history
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      window.location.href = '/';
+    }
+  };
+
   return (
     <div className="flex items-center justify-center h-full p-8">
       <div className="text-center max-w-md">
@@ -46,11 +55,14 @@ function ChunkLoadError({ error, onRetry }: { error: Error | null; onRetry: () =
             ? 'A network error occurred while loading this page. Please check your connection and try again.'
             : 'An error occurred while loading this page. Please try refreshing.'}
         </p>
-        <div className="flex gap-3 justify-center">
+        <div className="flex gap-3 justify-center flex-wrap">
           <Button onClick={onRetry} variant="default">
             Try Again
           </Button>
-          <Button onClick={() => window.location.href = '/'} variant="outline">
+          <Button onClick={handleGoBack} variant="outline">
+            Go Back
+          </Button>
+          <Button onClick={() => window.location.href = '/'} variant="ghost">
             Go Home
           </Button>
         </div>

@@ -83,7 +83,7 @@ Find and spawn the next ready tasks.
 2. For each ready task, spawn team-worker:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <task-id>",
   team_name: "issue",
@@ -116,7 +116,7 @@ Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`
 4. **Parallel spawn** (Batch mode with multiple ready tasks for same role):
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role>-<N> worker for <task-id>",
   team_name: "issue",

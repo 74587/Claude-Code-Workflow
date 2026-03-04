@@ -53,7 +53,7 @@ Bash("ccw issue status <issueId> --json")
 | Complexity | Execution |
 |------------|-----------|
 | Low | Direct ACE search: `mcp__ace-tool__search_context(project_root_path, query)` |
-| Medium/High | Spawn cli-explore-agent: `Task({ subagent_type: "cli-explore-agent", run_in_background: false })` |
+| Medium/High | Spawn cli-explore-agent: `Agent({ subagent_type: "cli-explore-agent", run_in_background: false })` |
 
 **cli-explore-agent prompt template**:
 

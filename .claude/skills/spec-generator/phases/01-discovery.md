@@ -117,7 +117,7 @@ const hasCodebase = Glob('**/*.{ts,js,py,java,go,rs}').length > 0
   || Glob('Cargo.toml').length > 0;
 
 if (hasCodebase) {
-  Task({
+  Agent({
     subagent_type: "cli-explore-agent",
     run_in_background: false,
     description: `Explore codebase for spec: ${slug}`,

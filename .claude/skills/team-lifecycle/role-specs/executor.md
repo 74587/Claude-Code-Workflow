@@ -42,7 +42,7 @@ message_types:
 
 | Backend | Invocation | Use Case |
 |---------|-----------|----------|
-| agent | `Task({ subagent_type: "code-developer", run_in_background: false })` | Simple, direct edits |
+| agent | `Agent({ subagent_type: "code-developer", run_in_background: false })` | Simple, direct edits |
 | codex | `ccw cli --tool codex --mode write` (background) | Complex, architecture |
 | gemini | `ccw cli --tool gemini --mode write` (background) | Analysis-heavy |
 

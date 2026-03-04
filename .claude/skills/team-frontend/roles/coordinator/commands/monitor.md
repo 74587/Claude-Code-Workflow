@@ -69,10 +69,9 @@ CONTEXT:
   - Upstream artifacts: <session>/qa/audit-<NNN>.md
   - Shared memory: <session>/.msg/meta.json
 EXPECTED: Fixed source files | QA issues resolved
-CONSTRAINTS: Targeted fixes only | Do not introduce regressions",
-  blockedBy: [],
-  status: "pending"
+CONSTRAINTS: Targeted fixes only | Do not introduce regressions"
 })
+TaskUpdate({ taskId: "DEV-fix-<round>", owner: "developer" })
 
 TaskCreate({
   subject: "QA-recheck-<round>",
@@ -86,10 +85,9 @@ CONTEXT:
   - Review type: code-review
   - Shared memory: <session>/.msg/meta.json
 EXPECTED: <session>/qa/audit-<NNN>.md | Improved score
-CONSTRAINTS: Read-only review",
-  blockedBy: ["DEV-fix-<round>"],
-  status: "pending"
+CONSTRAINTS: Read-only review"
 })
+TaskUpdate({ taskId: "QA-recheck-<round>", addBlockedBy: ["DEV-fix-<round>"], owner: "qa" })
 ```
 
 6. Proceed to handleSpawnNext
@@ -105,7 +103,7 @@ Find and spawn the next ready tasks.
 2. For each ready task, spawn team-worker:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <task-id>",
   team_name: "frontend",

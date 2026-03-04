@@ -1,7 +1,7 @@
 ---
 name: workflow-lite-planex
 description: Lightweight planning and execution skill (Phase 1: plan, Phase 2: execute). Triggers on "workflow-lite-planex".
-allowed-tools: Skill, Task, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep
+allowed-tools: Skill, Agent, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Workflow Lite-Planex

@@ -27,7 +27,6 @@ Every task description uses structured format for clarity:
 ```
 TaskCreate({
   subject: "<TASK-ID>",
-  owner: "<role>",
   description: "PURPOSE: <what this task achieves> | Success: <measurable completion criteria>
 TASK:
   - <step 1: specific action>
@@ -43,10 +42,9 @@ EXPECTED: <deliverable path> + <quality criteria>
 CONSTRAINTS: <scope limits, focus areas>
 ---
 InnerLoop: <true|false>
-BranchId: <B01|A|none>",
-  blockedBy: [<dependency-list>],
-  status: "pending"
+BranchId: <B01|A|none>"
 })
+TaskUpdate({ taskId: "<TASK-ID>", addBlockedBy: [<dependency-list>], owner: "<role>" })
 ```
 
 ### Mode Router
@@ -81,9 +79,9 @@ CONTEXT:
 EXPECTED: <session>/artifacts/architecture-baseline.json + <session>/artifacts/architecture-report.md | Quantified metrics with evidence
 CONSTRAINTS: Focus on <refactoring-scope> | Analyze before any changes
 ---
-InnerLoop: false",
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "ANALYZE-001", owner: "analyzer" })
 ```
 
 **DESIGN-001** (designer, Stage 2):
@@ -105,10 +103,9 @@ CONTEXT:
 EXPECTED: <session>/artifacts/refactoring-plan.md | Priority-ordered with structural improvement targets, discrete REFACTOR-IDs
 CONSTRAINTS: Focus on highest-impact refactorings | Risk assessment required | Non-overlapping file targets per REFACTOR-ID
 ---
-InnerLoop: false",
-  blockedBy: ["ANALYZE-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "DESIGN-001", addBlockedBy: ["ANALYZE-001"], owner: "designer" })
 ```
 
 **REFACTOR-001** (refactorer, Stage 3):
@@ -130,10 +127,9 @@ CONTEXT:
 EXPECTED: Modified source files + validation passing | Refactorings applied without regressions
 CONSTRAINTS: Preserve existing behavior | Update all references | Follow code conventions
 ---
-InnerLoop: true",
-  blockedBy: ["DESIGN-001"],
-  status: "pending"
+InnerLoop: true"
 })
+TaskUpdate({ taskId: "REFACTOR-001", addBlockedBy: ["DESIGN-001"], owner: "refactorer" })
 ```
 
 **VALIDATE-001** (validator, Stage 4 - parallel):
@@ -156,10 +152,9 @@ CONTEXT:
 EXPECTED: <session>/artifacts/validation-results.json | Per-dimension validation with verdicts
 CONSTRAINTS: Must compare against baseline | Flag any regressions or broken imports
 ---
-InnerLoop: false",
-  blockedBy: ["REFACTOR-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "VALIDATE-001", addBlockedBy: ["REFACTOR-001"], owner: "validator" })
 ```
 
 **REVIEW-001** (reviewer, Stage 4 - parallel):
@@ -180,10 +175,9 @@ CONTEXT:
 EXPECTED: <session>/artifacts/review-report.md | Per-dimension findings with severity
 CONSTRAINTS: Focus on refactoring changes only | Provide specific file:line references
 ---
-InnerLoop: false",
-  blockedBy: ["REFACTOR-001"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "REVIEW-001", addBlockedBy: ["REFACTOR-001"], owner: "reviewer" })
 ```
 
 ---
@@ -210,11 +204,15 @@ For each target index `i` (0-based), with prefix char `P = pipeline_prefix_chars
 // Create session subdirectory for this pipeline
 Bash("mkdir -p <session>/artifacts/pipelines/<P>")
 
-TaskCreate({ subject: "ANALYZE-<P>01", ... })      // blockedBy: []
-TaskCreate({ subject: "DESIGN-<P>01", ... })        // blockedBy: ["ANALYZE-<P>01"]
-TaskCreate({ subject: "REFACTOR-<P>01", ... })      // blockedBy: ["DESIGN-<P>01"]
-TaskCreate({ subject: "VALIDATE-<P>01", ... })      // blockedBy: ["REFACTOR-<P>01"]
-TaskCreate({ subject: "REVIEW-<P>01", ... })        // blockedBy: ["REFACTOR-<P>01"]
+TaskCreate({ subject: "ANALYZE-<P>01", ... })
+TaskCreate({ subject: "DESIGN-<P>01", ... })
+TaskUpdate({ taskId: "DESIGN-<P>01", addBlockedBy: ["ANALYZE-<P>01"] })
+TaskCreate({ subject: "REFACTOR-<P>01", ... })
+TaskUpdate({ taskId: "REFACTOR-<P>01", addBlockedBy: ["DESIGN-<P>01"] })
+TaskCreate({ subject: "VALIDATE-<P>01", ... })
+TaskUpdate({ taskId: "VALIDATE-<P>01", addBlockedBy: ["REFACTOR-<P>01"] })
+TaskCreate({ subject: "REVIEW-<P>01", ... })
+TaskUpdate({ taskId: "REVIEW-<P>01", addBlockedBy: ["REFACTOR-<P>01"] })
 ```
 
 Task descriptions follow same template as single mode, with additions:
@@ -241,9 +239,9 @@ EXPECTED: <session>/artifacts/pipelines/A/architecture-baseline.json + architect
 CONSTRAINTS: Focus on auth module scope
 ---
 InnerLoop: false
-PipelineId: A",
-  status: "pending"
+PipelineId: A"
 })
+TaskUpdate({ taskId: "ANALYZE-A01", owner: "analyzer" })
 ```
 
 ---
@@ -298,10 +296,9 @@ EXPECTED: Modified source files for REFACTOR-{NNN} only
 CONSTRAINTS: Only implement this branch's refactoring | Do not touch files outside REFACTOR-{NNN} scope
 ---
 InnerLoop: false
-BranchId: B{NN}",
-  blockedBy: ["DESIGN-001"],
-  status: "pending"
+BranchId: B{NN}"
 })
+TaskUpdate({ taskId: "REFACTOR-B{NN}", addBlockedBy: ["DESIGN-001"], owner: "refactorer" })
 
 TaskCreate({
   subject: "VALIDATE-B{NN}",
@@ -319,10 +316,9 @@ EXPECTED: <session>/artifacts/branches/B{NN}/validation-results.json
 CONSTRAINTS: Only validate this branch's changes
 ---
 InnerLoop: false
-BranchId: B{NN}",
-  blockedBy: ["REFACTOR-B{NN}"],
-  status: "pending"
+BranchId: B{NN}"
 })
+TaskUpdate({ taskId: "VALIDATE-B{NN}", addBlockedBy: ["REFACTOR-B{NN}"], owner: "validator" })
 
 TaskCreate({
   subject: "REVIEW-B{NN}",
@@ -340,10 +336,9 @@ EXPECTED: <session>/artifacts/branches/B{NN}/review-report.md
 CONSTRAINTS: Only review this branch's changes
 ---
 InnerLoop: false
-BranchId: B{NN}",
-  blockedBy: ["REFACTOR-B{NN}"],
-  status: "pending"
+BranchId: B{NN}"
 })
+TaskUpdate({ taskId: "REVIEW-B{NN}", addBlockedBy: ["REFACTOR-B{NN}"], owner: "reviewer" })
 ```
 
 7. Update session.json:

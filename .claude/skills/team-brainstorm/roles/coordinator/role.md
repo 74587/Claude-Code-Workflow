@@ -231,7 +231,7 @@ Execute `commands/dispatch.md` inline (Command Execution Protocol):
 Find first unblocked task(s) and spawn worker(s):
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn ideator worker",
   team_name: "brainstorm",
@@ -255,7 +255,7 @@ For **Full pipeline** with parallel ideators, spawn N team-worker agents:
 
 ```
 // For each parallel IDEA task (IDEA-001, IDEA-002, IDEA-003)
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn ideator worker for IDEA-<N>",
   team_name: "brainstorm",
@@ -316,6 +316,6 @@ AskUserQuestion({
 
 | Choice | Steps |
 |--------|-------|
-| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete("brainstorm") -> output final summary with artifact paths |
+| Archive & Clean | TaskList -> verify all completed -> update session status="completed" -> TeamDelete() -> output final summary with artifact paths |
 | Keep Active | Update session status="paused" -> output: "Session paused. Resume with: Skill(skill='team-brainstorm', args='resume')" |
 | Export Results | AskUserQuestion for target directory -> copy all artifacts -> Archive & Clean flow |

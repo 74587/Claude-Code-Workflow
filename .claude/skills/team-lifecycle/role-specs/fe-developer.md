@@ -42,7 +42,7 @@ message_types:
 
 | Task Size | Strategy |
 |-----------|----------|
-| Simple (<= 3 files, single component) | `Task({ subagent_type: "code-developer", run_in_background: false })` |
+| Simple (<= 3 files, single component) | `Agent({ subagent_type: "code-developer", run_in_background: false })` |
 | Complex (system, multi-component) | `ccw cli --tool gemini --mode write` (background) |
 
 **Coding standards** (include in agent/CLI prompt):

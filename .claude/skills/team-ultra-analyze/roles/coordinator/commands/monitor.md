@@ -133,9 +133,9 @@ CONTEXT:
   - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/discussions/discussion-round-<NNN>.json
 ---
-InnerLoop: false",
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "DISCUSS-<NNN>", owner: "discussant" })
 ```
 
 ANALYZE-fix-N (direction adjustment):
@@ -155,9 +155,9 @@ CONTEXT:
   - Shared memory: <session>/wisdom/.msg/meta.json
 EXPECTED: <session>/analyses/analysis-fix-<N>.json
 ---
-InnerLoop: false",
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "ANALYZE-fix-<N>", owner: "analyst" })
 ```
 
 SYNTH-001 (created dynamically in deep mode):
@@ -177,10 +177,9 @@ CONTEXT:
 EXPECTED: <session>/conclusions.json + discussion.md update
 CONSTRAINTS: Pure integration, no new exploration
 ---
-InnerLoop: false",
-  blockedBy: ["<last-DISCUSS-task-id>"],
-  status: "pending"
+InnerLoop: false"
 })
+TaskUpdate({ taskId: "SYNTH-001", addBlockedBy: ["<last-DISCUSS-task-id>"], owner: "synthesizer" })
 ```
 
 7. Record user feedback to decision_trail via team_msg:
@@ -220,7 +219,7 @@ Find and spawn the next ready tasks.
 3. Spawn team-worker for each ready task:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <task-subject>",
   team_name: "ultra-analyze",

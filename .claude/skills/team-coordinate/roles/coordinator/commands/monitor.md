@@ -141,7 +141,7 @@ Ready tasks found?
 **Spawn worker tool call** (one per ready task):
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <subject>",
   team_name: <team-name>,
@@ -190,7 +190,7 @@ All tasks completed (no pending, no in_progress)
       |   })
       |   +- "Archive & Clean":
       |   |   Update session status="completed"
-      |   |   TeamDelete(<team-name>)
+      |   |   TeamDelete()
       |   |   Output final summary with artifact paths
       |   +- "Keep Active":
       |   |   Update session status="paused"

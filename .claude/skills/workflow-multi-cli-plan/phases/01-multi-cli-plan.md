@@ -132,7 +132,7 @@ const aceQueries = [
 
 **Agent Invocation**:
 ```javascript
-Task({
+Agent({
   subagent_type: "cli-discuss-agent",
   run_in_background: false,
   description: `Discussion round ${currentRound}`,
@@ -364,7 +364,7 @@ Write(`${sessionFolder}/context-package.json`, JSON.stringify(contextPackage, nu
 
 **Step 2: Invoke Planning Agent**:
 ```javascript
-Task({
+Agent({
   subagent_type: "cli-lite-planning-agent",
   run_in_background: false,
   description: "Generate implementation plan",

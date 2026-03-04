@@ -65,7 +65,7 @@ Find and spawn the next ready tasks.
 2. For each ready task, spawn team-worker:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <task-id>",
   team_name: "arch-opt",
@@ -171,10 +171,9 @@ EXPECTED: Fixed source files for B{NN} only
 CONSTRAINTS: Targeted fixes only | Do not touch other branches
 ---
 InnerLoop: false
-BranchId: B{NN}",
-  blockedBy: [],
-  status: "pending"
+BranchId: B{NN}"
 })
+TaskUpdate({ taskId: "FIX-B{NN}-{cycle}", owner: "refactorer" })
 ```
 
 Create new VALIDATE and REVIEW with retry suffix:
@@ -186,9 +185,8 @@ Create new VALIDATE and REVIEW with retry suffix:
 TaskCreate({
   subject: "FIX-{P}01-{cycle}",
   ...same pattern with pipeline prefix...
-  blockedBy: [],
-  status: "pending"
 })
+TaskUpdate({ taskId: "FIX-{P}01-{cycle}", owner: "refactorer" })
 ```
 
 Create `VALIDATE-{P}01-R{cycle}` and `REVIEW-{P}01-R{cycle}`.

@@ -74,7 +74,7 @@ Find and spawn the next ready tasks.
 2. For each ready task, spawn team-worker:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <task-id>",
   team_name: "brainstorm",

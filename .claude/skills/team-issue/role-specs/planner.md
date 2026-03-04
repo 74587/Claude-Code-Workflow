@@ -40,7 +40,7 @@ Read("<session>/explorations/context-<issueId>.json")
 **Agent invocation**:
 
 ```
-Task({
+Agent({
   subagent_type: "issue-plan-agent",
   run_in_background: false,
   description: "Plan solution for <issueId>",

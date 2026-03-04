@@ -2,7 +2,7 @@
 name: analyze-with-file
 description: Interactive collaborative analysis with documented discussions, CLI-assisted exploration, and evolving understanding
 argument-hint: "[-y|--yes] [-c|--continue] \"topic or question\""
-allowed-tools: TodoWrite(*), Task(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*), Bash(*), Edit(*), Write(*)
+allowed-tools: TodoWrite(*), Agent(*), AskUserQuestion(*), Read(*), Grep(*), Glob(*), Bash(*), Edit(*), Write(*)
 ---
 
 ## Auto Mode
@@ -226,7 +226,7 @@ Interactive collaborative analysis workflow with **documented discussion process
 
 **Single Exploration Example**:
 ```javascript
-Task({
+Agent({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
   description: `Explore codebase: ${topicSlug}`,
@@ -256,7 +256,7 @@ Schema: {relevant_files, patterns, key_findings, questions_for_user, _metadata}
 ```javascript
 // Launch parallel explorations for each selected perspective
 selectedPerspectives.forEach(perspective => {
-  Task({
+  Agent({
     subagent_type: "cli-explore-agent",
     run_in_background: false,  // Sequential execution, wait for each
     description: `Explore ${perspective.name}: ${topicSlug}`,
@@ -399,7 +399,7 @@ CONSTRAINTS: ${perspective.constraints}
 - explorations.json contains initial findings
 - discussion.md has Round 1 results
 
-**Guideline**: For complex tasks (code analysis, implementation, refactoring), delegate to agents via Task tool (cli-explore-agent, code-developer, universal-executor) or CLI calls (ccw cli). Avoid direct analysis/execution in main process.
+**Guideline**: For complex tasks (code analysis, implementation, refactoring), delegate to agents via Agent tool (cli-explore-agent, code-developer, universal-executor) or CLI calls (ccw cli). Avoid direct analysis/execution in main process.
 
 **Workflow Steps**:
 
@@ -739,7 +739,7 @@ In round 1 we discussed X, then in round 2 user said Y...
 ## Best Practices
 
 1. **Clear Topic Definition**: Detailed topics lead to better dimension identification
-2. **Agent-First for Complex Tasks**: For code analysis, implementation, or refactoring tasks during discussion, delegate to agents via Task tool (cli-explore-agent, code-developer, universal-executor) or CLI calls (ccw cli). Avoid direct analysis/execution in main process
+2. **Agent-First for Complex Tasks**: For code analysis, implementation, or refactoring tasks during discussion, delegate to agents via Agent tool (cli-explore-agent, code-developer, universal-executor) or CLI calls (ccw cli). Avoid direct analysis/execution in main process
 3. **Review discussion.md**: Check understanding evolution before conclusions
 4. **Embrace Corrections**: Track wrong-to-right transformations as learnings
 5. **Document Evolution**: discussion.md captures full thinking process

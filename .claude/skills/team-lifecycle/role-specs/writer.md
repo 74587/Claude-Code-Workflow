@@ -61,7 +61,7 @@ message_types:
 Do NOT execute CLI calls in main agent. Delegate to subagent:
 
 ```
-Task({
+Agent({
   subagent_type: "universal-executor",
   run_in_background: false,
   description: "Generate <doc-type> document",

@@ -83,7 +83,7 @@ Find and spawn the next ready tasks.
 3. Spawn team-worker:
 
 ```
-Task({
+Agent({
   subagent_type: "team-worker",
   description: "Spawn <role> worker for <task-id>",
   team_name: "iterdev",
