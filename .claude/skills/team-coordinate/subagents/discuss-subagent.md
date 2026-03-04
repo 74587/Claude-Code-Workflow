@@ -10,12 +10,11 @@ Unlike team-lifecycle-v4's fixed perspective definitions (product, technical, qu
 
 Called by roles after artifact creation:
 
-```
-Agent({
-  subagent_type: "cli-discuss-agent",
-  run_in_background: false,
-  description: "Discuss <round-id>",
-  prompt: `## Multi-Perspective Critique: <round-id>
+```javascript
+// Multi-perspective critique using CLI tools
+// The coordinator reads the artifact and launches parallel CLI analyses for each perspective
+Bash({
+  command: `ccw cli -p "## Multi-Perspective Critique: <round-id>
 
 ### Input
 - Artifact: <artifact-path>

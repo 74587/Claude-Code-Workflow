@@ -59,11 +59,16 @@ Bash("<test-command> 2>&1 || true")
 **Auto-fix delegation** (on failure):
 
 ```
-Agent({
-  subagent_type: "code-developer",
-  run_in_background: false,
-  description: "Fix test failures (iteration <N>)",
-  prompt: "Fix these test failures:\n<test-output>\nOnly fix test files, not source code."
+Bash({
+  command: `ccw cli -p "PURPOSE: Fix test failures to achieve pass rate >= 0.95; success = all tests pass
+TASK: • Analyze test failure output • Identify root causes • Fix test code only (not source) • Preserve test intent
+MODE: write
+CONTEXT: @<session>/<test-dir>/**/* | Memory: Test framework: <framework>, iteration <N>/3
+EXPECTED: Fixed test files with: corrected assertions, proper async handling, fixed imports, maintained coverage
+CONSTRAINTS: Only modify test files | Preserve test structure | No source code changes
+Test failures:
+<test-output>" --tool gemini --mode write --cd <session>`,
+  run_in_background: false
 })
 ```
 

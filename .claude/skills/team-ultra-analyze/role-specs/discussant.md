@@ -1,7 +1,7 @@
 ---
 prefix: DISCUSS
 inner_loop: false
-subagents: [cli-explore-agent]
+subagents: []
 message_types:
   success: discussion_processed
   error: error
@@ -46,27 +46,39 @@ Select strategy by discussion type:
 
 **initial**: Cross-perspective summary -- identify convergent themes, conflicting views, top 5 discussion points and open questions from all analyses.
 
-**deepen**: Spawn cli-explore-agent focused on open questions and uncertain insights:
-```
-Agent({
-  subagent_type: "cli-explore-agent",
-  run_in_background: false,
-  prompt: "Focus on open questions: <questions>. Find evidence for uncertain insights. Write to: <session>/discussions/deepen-<num>.json"
+**deepen**: Use CLI tool for deep investigation:
+```javascript
+Bash({
+  command: `ccw cli -p "PURPOSE: Investigate open questions and uncertain insights; success = evidence-based findings
+TASK: • Focus on open questions: <questions> • Find supporting evidence • Validate uncertain insights • Document findings
+MODE: analysis
+CONTEXT: @**/* | Memory: Session <session-folder>, previous analyses
+EXPECTED: JSON output with investigation results | Write to <session>/discussions/deepen-<num>.json
+CONSTRAINTS: Evidence-based analysis only
+" --tool gemini --mode analysis --rule analysis-trace-code-execution`,
+  run_in_background: false
 })
 ```
 
 **direction-adjusted**: CLI re-analysis from adjusted focus:
-```
-ccw cli -p "Re-analyze '<topic>' with adjusted focus on '<userFeedback>'" --tool gemini --mode analysis
+```javascript
+Bash({
+  command: `ccw cli -p "Re-analyze '<topic>' with adjusted focus on '<userFeedback>'" --tool gemini --mode analysis`,
+  run_in_background: false
+})
 ```
 
-**specific-questions**: Spawn cli-explore-agent targeting user's questions:
-```
-Agent({
-  subagent_type: "cli-explore-agent",
-  description: "Answer specific user questions",
-  run_in_background: false,
-  prompt: "Answer: <userFeedback>. Write to: <session>/discussions/questions-<num>.json"
+**specific-questions**: Use CLI tool for targeted Q&A:
+```javascript
+Bash({
+  command: `ccw cli -p "PURPOSE: Answer specific user questions about <topic>; success = clear, evidence-based answers
+TASK: • Answer: <userFeedback> • Provide code references • Explain context
+MODE: analysis
+CONTEXT: @**/* | Memory: Session <session-folder>
+EXPECTED: JSON output with answers and evidence | Write to <session>/discussions/questions-<num>.json
+CONSTRAINTS: Direct answers with code references
+" --tool gemini --mode analysis`,
+  run_in_background: false
 })
 ```
 

@@ -42,9 +42,9 @@ message_types:
 
 | Backend | Invocation | Use Case |
 |---------|-----------|----------|
-| agent | `Agent({ subagent_type: "code-developer", run_in_background: false })` | Simple, direct edits |
-| codex | `ccw cli --tool codex --mode write` (background) | Complex, architecture |
-| gemini | `ccw cli --tool gemini --mode write` (background) | Analysis-heavy |
+| gemini | `ccw cli --tool gemini --mode write` (foreground) | Simple, direct edits |
+| codex | `ccw cli --tool codex --mode write` (foreground) | Complex, architecture |
+| qwen | `ccw cli --tool qwen --mode write` (foreground) | Alternative backend |
 
 ## Phase 4: Self-Validation
 
@@ -63,5 +63,5 @@ message_types:
 |----------|------------|
 | Syntax errors | Retry with error context (max 3) |
 | Missing dependencies | Request from coordinator |
-| Backend unavailable | Fallback to agent |
+| Backend unavailable | Fallback to alternative tool |
 | Circular dependencies | Abort, report graph |

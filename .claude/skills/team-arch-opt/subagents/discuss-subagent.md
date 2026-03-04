@@ -10,12 +10,46 @@ Complex refactoring decisions (e.g., choosing between dependency inversion vs me
 
 Called by designer, reviewer after their primary analysis when complexity warrants multi-perspective evaluation:
 
+```javascript
+// Multi-perspective discussion using CLI tools
+Bash({
+  command: `ccw cli -p "PURPOSE: Conduct multi-perspective discussion on <topic> for architecture optimization
+TASK: • Evaluate architecture impact • Assess risks and trade-offs • Consider maintainability • Explore alternatives
+MODE: analysis
+CONTEXT: @<session-folder>/discussions/<round-id>.md | Memory: <relevant-context-from-calling-role>
+EXPECTED: Structured recommendation with consensus verdict (proceed/revise/escalate), confidence level, key trade-offs, recommended approach with rationale, dissenting perspectives
+CONSTRAINTS: Focus on <round-id> topic
+
+Round: <round-id>
+Topic: <discussion-topic>
+Session: <session-folder>
+
+Context:
+<relevant-context-from-calling-role>
+
+Perspectives to consider:
+- Architecture impact: Will this actually improve the target structural metric?
+- Risk assessment: What could break? Dangling references? Behavioral changes? Migration risk?
+- Maintainability: Is the refactored code more understandable and maintainable?
+- Alternative approaches: Are there simpler or safer ways to achieve the same structural improvement?
+
+Evaluate trade-offs and provide a structured recommendation with:
+- Consensus verdict: proceed / revise / escalate
+- Confidence level: high / medium / low
+- Key trade-offs identified
+- Recommended approach with rationale
+- Dissenting perspectives (if any)" --tool gemini --mode analysis`,
+  run_in_background: false
+})
 ```
-Agent({
-  subagent_type: "cli-discuss-agent",
-  run_in_background: false,
-  description: "Discuss <round-id>: <topic> for architecture optimization",
-  prompt: `Conduct a multi-perspective discussion on the following topic.
+
+**Alternative: Direct multi-perspective analysis**
+
+For simpler discussions, call CLI tool directly without wrapper:
+
+```javascript
+Bash({
+  command: `ccw cli -p "Conduct a multi-perspective discussion on the following topic.
 
 Round: <round-id>
 Topic: <discussion-topic>

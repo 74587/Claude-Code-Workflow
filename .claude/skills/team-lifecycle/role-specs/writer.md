@@ -3,7 +3,7 @@ role: writer
 prefix: DRAFT
 inner_loop: true
 discuss_rounds: [DISCUSS-002, DISCUSS-003, DISCUSS-004, DISCUSS-005]
-subagents: [discuss, doc-generation]
+subagents: [discuss]
 message_types:
   success: draft_ready
   revision: draft_revision
@@ -56,42 +56,23 @@ message_types:
 
 ## Phase 3: Subagent Document Generation
 
-**Objective**: Delegate document generation to doc-generation subagent.
+**Objective**: Generate document using CLI tool.
 
-Do NOT execute CLI calls in main agent. Delegate to subagent:
+Use Gemini CLI for document generation:
 
 ```
-Agent({
-  subagent_type: "universal-executor",
-  run_in_background: false,
-  description: "Generate <doc-type> document",
-  prompt: `<from subagents/doc-generation-subagent.md>
-
-## Task
-- Document type: <doc-type>
-- Session folder: <session-folder>
-- Template: <template-path>
-
-## Context
-- Spec config: <spec-config content>
-- Discovery context: <discovery-context summary>
-- Prior discussion feedback: <discussion-file content if exists>
-- Prior decisions (from writer accumulator):
-  <context_accumulator serialized>
-
-## Expected Output
-Return JSON:
-{
-  "artifact_path": "<output-path>",
-  "summary": "<100-200 char summary>",
-  "key_decisions": ["<decision-1>", ...],
-  "sections_generated": ["<section-1>", ...],
-  "warnings": ["<warning if any>"]
-}`
+Bash({
+  command: `ccw cli -p "PURPOSE: Generate <doc-type> document following template and standards
+TASK: • Load template from <template-path> • Apply spec config and discovery context • Integrate prior discussion feedback • Generate all required sections
+MODE: write
+CONTEXT: @<session-folder>/spec/*.json @<template-path> | Memory: Prior decisions: <context_accumulator summary>
+EXPECTED: Document at <output-path> with: YAML frontmatter, all template sections, cross-references, session_id
+CONSTRAINTS: Follow document-standards.md" --tool gemini --mode write --rule development-implement-feature --cd <session-folder>`,
+  run_in_background: false
 })
 ```
 
-Main agent receives only the JSON summary. Document is written to disk by subagent.
+Parse CLI output for artifact path and summary. Document is written to disk by CLI.
 
 ## Phase 4: Self-Validation + Inline Discuss
 
@@ -119,7 +100,7 @@ Handle discuss verdict per team-worker consensus handling protocol.
 
 | Scenario | Resolution |
 |----------|------------|
-| Subagent failure | Retry once with alternative subagent_type. Still fails → log error, continue next task |
+| CLI failure | Retry once with alternative tool. Still fails → log error, continue next task |
 | Discuss subagent fails | Skip discuss, log warning |
 | Cumulative 3 task failures | SendMessage to coordinator, STOP |
 | Prior doc not found | Notify coordinator, request prerequisite |

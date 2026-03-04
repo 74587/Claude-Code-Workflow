@@ -12,7 +12,7 @@ Called by analyzer, refactorer after needing codebase context for architecture a
 
 ```
 Agent({
-  subagent_type: "cli-explore-agent",
+  subagent_type: "Explore",
   run_in_background: false,
   description: "Explore codebase for architecture-critical structures in <target-scope>",
   prompt: `Explore the codebase to identify architecture-critical structures.

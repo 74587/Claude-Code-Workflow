@@ -99,11 +99,10 @@ When coordinator needs to execute a command (dispatch, monitor):
 
 ## Execution Method Selection
 
-支持 3 种执行后端：
+支持 2 种执行后端：
 
 | Executor | 后端 | 适用场景 |
 |----------|------|----------|
-| `agent` | code-developer subagent | 简单任务、同步执行 |
 | `codex` | `ccw cli --tool codex --mode write` | 复杂任务、后台执行 |
 | `gemini` | `ccw cli --tool gemini --mode write` | 分析类任务、后台执行 |
 
@@ -111,12 +110,11 @@ When coordinator needs to execute a command (dispatch, monitor):
 
 | Condition | Execution Method |
 |-----------|-----------------|
-| `--exec=agent` specified | Agent |
 | `--exec=codex` specified | Codex |
 | `--exec=gemini` specified | Gemini |
-| `-y` or `--yes` flag present | Auto (default Agent) |
+| `-y` or `--yes` flag present | Auto (default Gemini) |
 | No flags (interactive) | AskUserQuestion -> user choice |
-| Auto + task_count <= 3 | Agent |
+| Auto + task_count <= 3 | Gemini |
 | Auto + task_count > 3 | Codex |
 
 ---

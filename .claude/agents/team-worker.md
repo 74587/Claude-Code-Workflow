@@ -49,7 +49,7 @@ Parse the following fields from your prompt:
    - `prefix`: Task prefix to filter (e.g., `RESEARCH`, `DRAFT`, `IMPL`)
    - `inner_loop`: Override from frontmatter if present
    - `discuss_rounds`: Array of discuss round IDs this role handles
-   - `subagents`: Array of subagent types this role may call
+   - `subagents`: (DEPRECATED - team workers cannot call subagents) Array for documentation only
    - `message_types`: Success/error/fix message type mappings
 3. Parse **body** (content after frontmatter) to get Phase 2-4 execution instructions
 4. Store parsed metadata and instructions for use in execution phases
@@ -74,7 +74,7 @@ Entry:
       inner_loop=false OR no more tasks? → Phase 5-F → STOP
 ```
 
-**Inner loop** (`inner_loop=true`): Processes ALL same-prefix tasks sequentially in a single agent instance. `context_accumulator` is passed to each subsequent subagent as `## Prior Context` for knowledge continuity.
+**Inner loop** (`inner_loop=true`): Processes ALL same-prefix tasks sequentially in a single agent instance. `context_accumulator` maintains context across task iterations for knowledge continuity.
 
 | Step | Phase 5-L (loop) | Phase 5-F (final) |
 |------|-----------------|------------------|
@@ -123,107 +123,42 @@ After claiming a task, check if output artifacts already exist (indicates resume
 
 The role_spec contains Phase 2, Phase 3, and Phase 4 sections with domain-specific logic. Follow those instructions exactly. Key integration points with built-in infrastructure:
 
-### Subagent Delegation
+## CRITICAL LIMITATION: No Subagent Delegation
 
-When role_spec instructs to call a subagent, use these templates:
+**Team workers CANNOT call the Agent() tool to spawn subagents.**
 
-**Discuss subagent** (for inline discuss rounds):
+Test evidence shows that team members spawned via Agent tool do not have access to the Agent tool themselves. Only the coordinator (main conversation context) can spawn agents.
 
+### Alternatives for Team Workers
+
+When role-spec instructions require analysis or exploration:
+
+**Option A: CLI Tools** (Recommended)
+```javascript
+Bash(`ccw cli -p "..." --tool gemini --mode analysis`, { run_in_background: false })
 ```
-Agent({
-  subagent_type: "cli-discuss-agent",
-  run_in_background: false,
-  description: "Discuss <round-id>",
-  prompt: `## Multi-Perspective Critique: <round-id>
 
-### Input
-- Artifact: <artifact-path>
-- Round: <round-id>
-- Perspectives: <perspective-list-from-role-spec>
-- Session: <session-folder>
-- Discovery Context: <session-folder>/spec/discovery-context.json
+**Option B: Direct Tools**
+Use Read, Grep, Glob, mcp__ace-tool__search_context directly.
 
-### Perspective Routing
-
-| Perspective | CLI Tool | Role | Focus Areas |
-|-------------|----------|------|-------------|
-| Product | gemini | Product Manager | Market fit, user value, business viability |
-| Technical | codex | Tech Lead | Feasibility, tech debt, performance, security |
-| Quality | claude | QA Lead | Completeness, testability, consistency |
-| Risk | gemini | Risk Analyst | Risk identification, dependencies, failure modes |
-| Coverage | gemini | Requirements Analyst | Requirement completeness vs discovery-context |
-
-### Execution Steps
-1. Read artifact from <artifact-path>
-2. For each perspective, launch CLI analysis in background
-3. Wait for all CLI results
-4. Divergence detection + consensus determination
-5. Synthesize convergent/divergent themes + action items
-6. Write discussion record to: <session-folder>/discussions/<round-id>-discussion.md
-
-### Return Value
-JSON with: verdict (consensus_reached|consensus_blocked), severity (HIGH|MEDIUM|LOW), average_rating, divergences, action_items, recommendation, discussion_path`
+**Option C: Request Coordinator Help**
+Send message to coordinator requesting subagent delegation:
+```javascript
+mcp__ccw-tools__team_msg({
+  operation: "log",
+  session_id: sessionId,
+  from: role,
+  to: "coordinator",
+  type: "subagent_request",
+  summary: "Request exploration subagent for X",
+  data: { reason: "...", scope: "..." }
 })
-```
-
-**Explore subagent** (for codebase exploration):
-
-```
-Agent({
-  subagent_type: "cli-explore-agent",
-  run_in_background: false,
-  description: "Explore <angle>",
-  prompt: `Explore codebase for: <query>
-
-Focus angle: <angle>
-Keywords: <keyword-list>
-Session folder: <session-folder>
-
-## Cache Check
-1. Read <session-folder>/explorations/cache-index.json (if exists)
-2. Look for entry with matching angle
-3. If found AND file exists -> read cached result, return summary
-4. If not found -> proceed to exploration
-
-## Output
-Write JSON to: <session-folder>/explorations/explore-<angle>.json
-Update cache-index.json with new entry
-
-Return summary: file count, pattern count, top 5 files, output path`
-})
-```
-
-**Doc-generation subagent** (for writer document generation):
-
-```
-Agent({
-  subagent_type: "universal-executor",
-  run_in_background: false,
-  description: "Generate <doc-type>",
-  prompt: `## Document Generation: <doc-type>
-
-### Session
-- Folder: <session-folder>
-- Spec config: <spec-config-path>
-
-### Document Config
-- Type: <doc-type>
-- Template: <template-path>
-- Output: <output-path>
-- Prior discussion: <discussion-file or "none">
-
-### Writer Accumulator (prior decisions)
-<JSON array of prior task summaries from context_accumulator>
-
-### Output Requirements
-1. Write document to <output-path>
-2. Return JSON: { artifact_path, summary, key_decisions[], sections_generated[], warnings[] }`
-})
+SendMessage({ recipient: "coordinator", content: "..." })
 ```
 
 ### Consensus Handling
 
-After a discuss subagent returns, handle the verdict:
+When role-spec instructions require consensus/discussion, handle the verdict:
 
 | Verdict | Severity | Action |
 |---------|----------|--------|
@@ -374,7 +309,7 @@ After Phase 4 verification, the worker MUST publish its contributions:
 1. **Artifact**: Write deliverable to `<session>/artifacts/<prefix>-<task-id>-<name>.md`
 2. **State data**: Prepare payload for Phase 5 `state_update` message (see Phase 5-L step 2 for schema)
 3. **Wisdom**: Append new patterns to `learnings.md`, decisions to `decisions.md`, issues to `issues.md`
-4. **Context accumulator** (inner_loop only): Append summary (see Phase 5-L step 3 for schema). Pass full accumulator to subsequent subagents as `## Prior Context`.
+4. **Context accumulator** (inner_loop only): Append summary (see Phase 5-L step 3 for schema). Maintain full accumulator for context continuity across iterations.
 
 ### Wisdom Files
 
@@ -444,7 +379,7 @@ ccw team log --session-id <session_id> --from <role> --type <type> --json
 |---------|-----------|
 | Process own prefix tasks | Process other role's prefix tasks |
 | SendMessage to coordinator | Directly communicate with other workers |
-| Use declared subagents (discuss, explore, doc-gen) | Create tasks for other roles |
+| Use CLI tools for analysis/exploration | Create tasks for other roles |
 | Fast-advance simple successors | Spawn parallel worker batches |
 | Write to own artifacts + wisdom | Modify resources outside own scope |
 
@@ -455,9 +390,7 @@ ccw team log --session-id <session_id> --from <role> --type <type> --json
 | Scenario | Resolution |
 |----------|------------|
 | Role spec file not found | Report error via SendMessage, STOP |
-| Subagent failure | Retry once with alternative subagent_type. Still fails → log warning, continue if possible |
-| Discuss subagent failure | Skip discuss, log warning in report. Proceed without discuss verdict |
-| Explore subagent failure | Continue without codebase context |
+| CLI tool failure | Retry once. Still fails → log warning, continue with available data |
 | Cumulative errors >= 3 | SendMessage to coordinator with error summary, STOP |
 | No tasks found | SendMessage idle status, STOP |
 | Context missing (prior doc, template) | Request from coordinator via SendMessage |

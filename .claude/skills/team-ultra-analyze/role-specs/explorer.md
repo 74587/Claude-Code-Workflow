@@ -1,7 +1,7 @@
 ---
 prefix: EXPLORE
 inner_loop: false
-subagents: [cli-explore-agent]
+subagents: []
 message_types:
   success: exploration_ready
   error: error
@@ -40,39 +40,23 @@ Explore codebase structure through cli-explore-agent, collecting structured cont
 
 ## Phase 3: Codebase Exploration
 
-Spawn `cli-explore-agent` subagent for actual exploration:
+Use CLI tool for codebase exploration:
 
-```
-Agent({
-  subagent_type: "cli-explore-agent",
-  run_in_background: false,
-  description: "Explore codebase: <topic> (<perspective>)",
-  prompt: `
-## Analysis Context
-Topic: <topic>
-Perspective: <perspective> -- <strategy.focus>
-Dimensions: <dimensions>
-Session: <session-folder>
-
-## MANDATORY FIRST STEPS
-1. Run: ccw tool exec get_modules_by_depth '{}'
-2. Execute searches based on topic + perspective keywords
-3. Run: ccw spec load --category exploration
-
-## Exploration Focus (<perspective> angle)
-<dimension-specific exploration instructions>
-
-## Output
-Write findings to: <session>/explorations/exploration-<num>.json
-Schema: { perspective, relevant_files: [{path, relevance, summary}], patterns: [string],
-  key_findings: [string], module_map: {module: [files]}, questions_for_analysis: [string],
-  _metadata: {agent, perspective, search_queries, timestamp} }
-`
+```javascript
+Bash({
+  command: `ccw cli -p "PURPOSE: Explore codebase for <topic> from <perspective> perspective; success = structured findings with relevant files and patterns
+TASK: • Run module depth analysis • Search for topic-related patterns • Identify key files and their relationships • Extract architectural insights
+MODE: analysis
+CONTEXT: @**/* | Memory: Session <session-folder>, perspective <perspective>
+EXPECTED: JSON output with: relevant_files (path, relevance, summary), patterns, key_findings, module_map, questions_for_analysis, _metadata (perspective, search_queries, timestamp)
+CONSTRAINTS: Focus on <perspective> angle - <strategy.focus> | Write to <session>/explorations/exploration-<num>.json
+" --tool gemini --mode analysis --rule analysis-analyze-code-patterns`,
+  run_in_background: false
 })
 ```
 
-**ACE fallback** (when cli-explore-agent produces no output):
-```
+**ACE fallback** (when CLI produces no output):
+```javascript
 mcp__ace-tool__search_context({ project_root_path: ".", query: "<topic> <perspective>" })
 ```
 

@@ -58,17 +58,21 @@ For revision mode:
 2. Generate test code: happy path, edge cases, error handling
 3. Write test file
 
-**Agent delegation** (medium/high complexity):
+**CLI delegation** (medium/high complexity):
 
 ```
-Agent({
-  subagent_type: "code-developer",
-  run_in_background: false,
-  description: "Generate <layer> tests",
-  prompt: "Generate <layer> tests using <framework>...
-  <file-list-with-content>
-  <if-revision: previous failures + effective patterns>
-  Write test files to: <session>/tests/<layer>/"
+Bash({
+  command: `ccw cli -p "PURPOSE: Generate <layer> tests using <framework> to achieve coverage target; success = all priority files covered with quality tests
+TASK: • Analyze source files • Generate test cases (happy path, edge cases, errors) • Write test files with proper structure • Ensure import resolution
+MODE: write
+CONTEXT: @<source-files> @<session>/strategy/test-strategy.md | Memory: Framework: <framework>, Layer: <layer>, Round: <round>
+<if-revision: Previous failures: <failure-details>
+Effective patterns: <patterns-from-meta>>
+EXPECTED: Test files in <session>/tests/<layer>/ with: proper test structure, comprehensive coverage, correct imports, framework conventions
+CONSTRAINTS: Follow test strategy priorities | Use framework best practices | <layer>-appropriate assertions
+Source files to test:
+<file-list-with-content>" --tool gemini --mode write --cd <session>`,
+  run_in_background: false
 })
 ```
 

@@ -42,8 +42,8 @@ message_types:
 
 | Task Size | Strategy |
 |-----------|----------|
-| Simple (<= 3 files, single component) | `Agent({ subagent_type: "code-developer", run_in_background: false })` |
-| Complex (system, multi-component) | `ccw cli --tool gemini --mode write` (background) |
+| Simple (<= 3 files, single component) | `ccw cli --tool gemini --mode write` (foreground) |
+| Complex (system, multi-component) | `ccw cli --tool codex --mode write` (foreground) |
 
 **Coding standards** (include in agent/CLI prompt):
 - Use design token CSS variables, never hardcode colors/spacing
@@ -76,4 +76,4 @@ Contribute to wisdom/conventions.md. Update shared-memory.json with component in
 |----------|------------|
 | Design tokens not found | Use project defaults |
 | Tech stack undetected | Default HTML + CSS |
-| Subagent failure | Fallback to CLI write mode |
+| CLI failure | Retry with alternative tool |

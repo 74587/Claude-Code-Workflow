@@ -15,9 +15,9 @@ Load solution plan, route to execution backend (Agent/Codex/Gemini), run tests, 
 
 | Backend | Condition | Method |
 |---------|-----------|--------|
-| agent | task_count <= 3 or explicit | `Agent({ subagent_type: "code-developer", run_in_background: false })` |
 | codex | task_count > 3 or explicit | `ccw cli --tool codex --mode write --id issue-<issueId>` |
-| gemini | explicit | `ccw cli --tool gemini --mode write --id issue-<issueId>` |
+| gemini | task_count <= 3 or explicit | `ccw cli --tool gemini --mode write --id issue-<issueId>` |
+| qwen | explicit | `ccw cli --tool qwen --mode write --id issue-<issueId>` |
 
 ## Phase 2: Load Solution & Resolve Executor
 
@@ -26,7 +26,7 @@ Load solution plan, route to execution backend (Agent/Codex/Gemini), run tests, 
 | Issue ID | Task description (GH-\d+ or ISS-\d{8}-\d{6}) | Yes |
 | Bound solution | `ccw issue solutions <id> --json` | Yes |
 | Explorer context | `<session>/explorations/context-<issueId>.json` | No |
-| Execution method | Task description (`execution_method: Agent|Codex|Gemini|Auto`) | Yes |
+| Execution method | Task description (`execution_method: Codex|Gemini|Qwen|Auto`) | Yes |
 | Code review | Task description (`code_review: Skip|Gemini Review|Codex Review`) | No |
 
 1. Extract issue ID from task description
@@ -34,7 +34,7 @@ Load solution plan, route to execution backend (Agent/Codex/Gemini), run tests, 
 3. Load bound solution: `Bash("ccw issue solutions <issueId> --json")`
 4. If no bound solution -> report error, STOP
 5. Load explorer context (if available)
-6. Resolve execution method (Auto: task_count <= 3 -> agent, else codex)
+6. Resolve execution method (Auto: task_count <= 3 -> gemini, else codex)
 7. Update issue status: `Bash("ccw issue update <issueId> --status in-progress")`
 
 ## Phase 3: Implementation (Multi-Backend Routing)
@@ -69,9 +69,9 @@ Dependencies: <explorerContext.dependencies>
 ```
 
 Route by executor:
-- **agent**: `Agent({ subagent_type: "code-developer", run_in_background: false, prompt: <prompt> })`
-- **codex**: `Bash("ccw cli -p \"<prompt>\" --tool codex --mode write --id issue-<issueId>")`
-- **gemini**: `Bash("ccw cli -p \"<prompt>\" --tool gemini --mode write --id issue-<issueId>")`
+- **codex**: `Bash("ccw cli -p \"<prompt>\" --tool codex --mode write --id issue-<issueId>", { run_in_background: false })`
+- **gemini**: `Bash("ccw cli -p \"<prompt>\" --tool gemini --mode write --id issue-<issueId>", { run_in_background: false })`
+- **qwen**: `Bash("ccw cli -p \"<prompt>\" --tool qwen --mode write --id issue-<issueId>", { run_in_background: false })`
 
 On CLI failure, resume: `ccw cli -p "Continue" --resume issue-<issueId> --tool <tool> --mode write`
 

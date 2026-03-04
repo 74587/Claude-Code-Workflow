@@ -35,39 +35,38 @@ Read("<session>/explorations/context-<issueId>.json")
    - Design alternative approach addressing reviewer concerns
 5. Load wisdom files for accumulated codebase knowledge
 
-## Phase 3: Solution Generation via issue-plan-agent
+## Phase 3: Solution Generation via CLI
 
-**Agent invocation**:
+**CLI invocation**:
 
 ```
-Agent({
-  subagent_type: "issue-plan-agent",
-  run_in_background: false,
-  description: "Plan solution for <issueId>",
-  prompt: "
-issue_ids: [\"<issueId>\"]
-project_root: \"<projectRoot>\"
+Bash("ccw cli -p \"
+PURPOSE: Design solution for issue <issueId> and decompose into implementation tasks; success = solution bound to issue with task breakdown
 
-## Explorer Context (pre-gathered)
+TASK: • Load issue details from ccw issue status • Analyze explorer context • Design solution approach • Break down into implementation tasks • Generate solution JSON • Bind solution to issue
+
+MODE: analysis
+
+CONTEXT: @**/* | Memory: Issue <issueId> - <issue.title> (Priority: <issue.priority>)
+Explorer findings: <explorerContext.key_findings>
 Relevant files: <explorerContext.relevant_files>
-Key findings: <explorerContext.key_findings>
 Complexity: <explorerContext.complexity_assessment>
 
-## Revision Required (if SOLVE-fix)
-Previous solution was rejected by reviewer. Feedback:
-<reviewFeedback>
+EXPECTED: Solution JSON with: issue_id, solution_id, approach, tasks (ordered list with descriptions), estimated_files, dependencies
+Write to: <session>/solutions/solution-<issueId>.json
+Then bind: ccw issue bind <issueId> <solution_id>
 
-Design an ALTERNATIVE approach that addresses the reviewer's concerns.
-"
-})
+CONSTRAINTS: Follow existing patterns | Minimal changes | Address reviewer feedback if SOLVE-fix task
+\" --tool gemini --mode analysis", { run_in_background: true })
 ```
 
-**Expected agent result**:
+**Expected CLI output**: Solution file path and binding confirmation
 
-| Field | Description |
-|-------|-------------|
-| `bound` | Array of auto-bound solutions: `[{issue_id, solution_id, task_count}]` |
-| `pending_selection` | Array of multi-solution issues: `[{issue_id, solutions: [...]}]` |
+**Parse result**:
+
+```
+Read("<session>/solutions/solution-<issueId>.json")
+```
 
 ## Phase 4: Solution Selection & Reporting
 

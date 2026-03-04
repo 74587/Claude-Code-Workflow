@@ -34,32 +34,25 @@ Bash("ccw issue solutions <issueId> --json")
 | All issues bound | Proceed to Phase 3 |
 | Any issue unbound | Report error to coordinator, STOP |
 
-## Phase 3: Queue Formation via issue-queue-agent
+## Phase 3: Queue Formation via CLI
 
-**Agent invocation**:
+**CLI invocation**:
 
 ```
-Agent({
-  subagent_type: "issue-queue-agent",
-  run_in_background: false,
-  description: "Form queue for <count> issues",
-  prompt: "
-## Issues to Queue
-Issue IDs: <issueIds>
+Bash("ccw cli -p \"
+PURPOSE: Form execution queue for <count> issues with conflict detection and optimal ordering; success = DAG-based queue with parallel groups written to execution-queue.json
 
-## Bound Solutions
-<solution list with issue_id, solution_id, task_count>
+TASK: • Load all bound solutions from .workflow/issues/solutions/ • Analyze file conflicts between solutions • Build dependency graph • Determine optimal execution order (DAG-based) • Identify parallel execution groups • Write queue JSON
 
-## Instructions
-1. Load all bound solutions from .workflow/issues/solutions/
-2. Analyze file conflicts between solutions using Gemini CLI
-3. Determine optimal execution order (DAG-based)
-4. Produce ordered execution queue
+MODE: analysis
 
-## Expected Output
-Write queue to: .workflow/issues/queue/execution-queue.json
-"
-})
+CONTEXT: @.workflow/issues/solutions/**/*.json | Memory: Issues to queue: <issueIds>
+
+EXPECTED: Queue JSON with: ordered issue list, conflict analysis, parallel_groups (issues that can run concurrently), depends_on relationships
+Write to: .workflow/issues/queue/execution-queue.json
+
+CONSTRAINTS: Resolve file conflicts | Optimize for parallelism | Maintain dependency order
+\" --tool gemini --mode analysis", { run_in_background: true })
 ```
 
 **Parse queue result**:

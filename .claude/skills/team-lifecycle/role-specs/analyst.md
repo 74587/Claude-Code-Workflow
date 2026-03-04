@@ -3,7 +3,7 @@ role: analyst
 prefix: RESEARCH
 inner_loop: false
 discuss_rounds: [DISCUSS-001]
-subagents: [explore, discuss]
+subagents: [discuss]
 message_types:
   success: research_ready
   progress: research_progress
@@ -44,18 +44,21 @@ EXPECTED: JSON with: problem_statement, target_users[], domain, constraints[], e
 | package.json / Cargo.toml / pyproject.toml / go.mod exists | Explore codebase |
 | No project files | Skip → codebase context = null |
 
-**When project detected**: Call explore subagent with `angle: general`, `keywords: <from seed analysis>`.
+**When project detected**: Use CLI exploration with Gemini.
 
 ```
-Agent({
-  subagent_type: "cli-explore-agent",
-  run_in_background: false,
-  description: "Explore general context",
-  prompt: "Explore codebase for: <topic>\nFocus angle: general\nKeywords: <seed analysis keywords>\nSession folder: <session-folder>\n..."
+Bash({
+  command: `ccw cli -p "PURPOSE: Explore codebase for general context to inform spec generation
+TASK: • Identify tech stack and frameworks • Map architecture patterns • Document conventions • List integration points
+MODE: analysis
+CONTEXT: @**/* | Memory: Seed analysis keywords: <keywords>
+EXPECTED: JSON with: tech_stack[], architecture_patterns[], conventions[], integration_points[]
+CONSTRAINTS: Focus on general context" --tool gemini --mode analysis --rule analysis-analyze-code-patterns`,
+  run_in_background: false
 })
 ```
 
-Use exploration results to build codebase context: tech_stack, architecture_patterns, conventions, integration_points.
+Parse CLI output to build codebase context: tech_stack, architecture_patterns, conventions, integration_points.
 
 ## Phase 4: Context Packaging + Inline Discuss
 
@@ -89,5 +92,5 @@ Handle discuss verdict per team-worker consensus handling protocol.
 | Gemini CLI failure | Fallback to direct Claude analysis |
 | Codebase detection failed | Continue as new project |
 | Topic too vague | Report with clarification questions |
-| Explore subagent fails | Continue without codebase context |
+| CLI exploration fails | Continue without codebase context |
 | Discuss subagent fails | Proceed without discuss, log warning |

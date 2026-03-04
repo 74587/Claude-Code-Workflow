@@ -53,31 +53,22 @@ Bash("ccw issue status <issueId> --json")
 | Complexity | Execution |
 |------------|-----------|
 | Low | Direct ACE search: `mcp__ace-tool__search_context(project_root_path, query)` |
-| Medium/High | Spawn cli-explore-agent: `Agent({ subagent_type: "cli-explore-agent", run_in_background: false })` |
+| Medium/High | CLI exploration: `Bash("ccw cli -p \"<exploration_prompt>\" --tool gemini --mode analysis", { run_in_background: false })` |
 
-**cli-explore-agent prompt template**:
+**CLI exploration prompt template**:
 
 ```
-## Issue Context
-ID: <issueId>
-Title: <issue.title>
-Description: <issue.context>
-Priority: <issue.priority>
+PURPOSE: Explore codebase for issue <issueId> to identify relevant files, dependencies, and impact scope; success = comprehensive context report written to <session>/explorations/context-<issueId>.json
 
-## MANDATORY FIRST STEPS
-1. Run: ccw tool exec get_modules_by_depth '{}'
-2. Execute ACE searches based on issue keywords
-3. Run: ccw spec load --category exploration
+TASK: • Run ccw tool exec get_modules_by_depth '{}' • Execute ACE searches for issue keywords • Map file dependencies and integration points • Assess impact scope • Find existing patterns • Check git log for related changes
 
-## Exploration Focus
-- Identify files directly related to this issue
-- Map dependencies and integration points
-- Assess impact scope (how many modules/files affected)
-- Find existing patterns relevant to the fix
-- Check for previous related changes (git log)
+MODE: analysis
 
-## Output
-Write findings to: <session>/explorations/context-<issueId>.json
+CONTEXT: @**/* | Memory: Issue <issueId> - <issue.title> (Priority: <issue.priority>)
+
+EXPECTED: JSON report with: relevant_files (path + relevance), dependencies, impact_scope (low/medium/high), existing_patterns, related_changes, key_findings, complexity_assessment
+
+CONSTRAINTS: Focus on issue context | Write output to <session>/explorations/context-<issueId>.json
 ```
 
 **Report schema**:

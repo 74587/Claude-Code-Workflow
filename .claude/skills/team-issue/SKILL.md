@@ -1,7 +1,7 @@
 ---
 name: team-issue
 description: Unified team skill for issue resolution. All roles invoke this skill with --role arg for role-specific execution. Triggers on "team issue".
-allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: TeamCreate(*), TeamDelete(*), SendMessage(*), TaskCreate(*), TaskUpdate(*), TaskList(*), TaskGet(*), Agent(*), AskUserQuestion(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), mcp__ace-tool__search_context(*), mcp__ccw-tools__team_msg(*)
 ---
 
 # Team Issue Resolution
@@ -136,7 +136,7 @@ Cross-task knowledge accumulation. Coordinator creates `wisdom/` directory at se
 | Use tools declared in Toolbox | Create tasks for other roles |
 | Delegate to reused agents | Modify resources outside own responsibility |
 
-Coordinator additional restrictions: Do not write/modify code directly, do not call implementation subagents (issue-plan-agent etc.), do not execute analysis/review directly.
+Coordinator additional restrictions: Do not write/modify code directly, do not execute analysis/review directly. Team members use CLI tools for analysis/implementation tasks.
 
 ### Output Tagging
 

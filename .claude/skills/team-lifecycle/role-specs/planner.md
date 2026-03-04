@@ -3,7 +3,7 @@ role: planner
 prefix: PLAN
 inner_loop: true
 discuss_rounds: []
-subagents: [explore]
+subagents: []
 message_types:
   success: plan_ready
   revision: plan_revision
@@ -30,14 +30,17 @@ If `<session-folder>/spec/` exists → load requirements/_index.md, architecture
 | Medium | 200-500 chars or moderate scope | 2-3 angle explore subagent |
 | High | > 500 chars, refactor/architecture, multi-module | 3-5 angle explore subagent |
 
-For each angle, call explore subagent (cache-aware — check cache-index.json before each call):
+For each angle, use CLI exploration (cache-aware — check cache-index.json before each call):
 
 ```
-Agent({
-  subagent_type: "cli-explore-agent",
-  run_in_background: false,
-  description: "Explore <angle>",
-  prompt: "Explore codebase for: <task>\nFocus angle: <angle>\nKeywords: <keywords>\nSession folder: <session-folder>\n..."
+Bash({
+  command: `ccw cli -p "PURPOSE: Explore codebase from <angle> perspective to inform planning
+TASK: • Search for <angle>-specific patterns • Identify relevant files • Document integration points
+MODE: analysis
+CONTEXT: @**/* | Memory: Task keywords: <keywords>
+EXPECTED: JSON with: relevant_files[], patterns[], integration_points[], recommendations[]
+CONSTRAINTS: Focus on <angle> perspective" --tool gemini --mode analysis --rule analysis-analyze-code-patterns`,
+  run_in_background: false
 })
 ```
 
@@ -50,20 +53,17 @@ Agent({
 | Low | Direct planning → single TASK-001 with plan.json |
 | Medium/High | cli-lite-planning-agent with exploration results |
 
-**Agent call** (Medium/High):
+**CLI call** (Medium/High):
 
 ```
-Agent({
-  subagent_type: "cli-lite-planning-agent",
-  run_in_background: false,
-  description: "Generate implementation plan",
-  prompt: "Generate plan.
-Output: <plan-dir>/plan.json + <plan-dir>/.task/TASK-*.json
-Schema: cat ~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.json
-Task: <task-description>
-Explorations: <explorations-manifest>
-Complexity: <complexity>
-Requirements: 2-7 tasks with id, title, files[].change, convergence.criteria, depends_on"
+Bash({
+  command: `ccw cli -p "PURPOSE: Generate structured implementation plan from exploration results
+TASK: • Create plan.json with overview • Generate TASK-*.json files (2-7 tasks) • Define dependencies • Set convergence criteria
+MODE: write
+CONTEXT: @<session-folder>/explorations/*.json | Memory: Complexity: <complexity>
+EXPECTED: Files: plan.json + .task/TASK-*.json. Schema: ~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.json
+CONSTRAINTS: 2-7 tasks, include id/title/files[].change/convergence.criteria/depends_on" --tool gemini --mode write --rule planning-breakdown-task-steps`,
+  run_in_background: false
 })
 ```
 
@@ -91,8 +91,8 @@ Requirements: 2-7 tasks with id, title, files[].change, convergence.criteria, de
 
 | Scenario | Resolution |
 |----------|------------|
-| Exploration agent failure | Plan from description only |
-| Planning agent failure | Fallback to direct planning |
+| CLI exploration failure | Plan from description only |
+| CLI planning failure | Fallback to direct planning |
 | Plan rejected 3+ times | Notify coordinator, suggest alternative |
 | Schema not found | Use basic structure |
 | Cache index corrupt | Clear cache, re-explore all angles |
