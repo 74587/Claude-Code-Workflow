@@ -18,6 +18,49 @@ interface SwitchWorkspaceResult {
 }
 
 /**
+ * Safely parse JSON response with content-type validation
+ * Provides better error messages when response is not JSON (e.g., proxy errors)
+ */
+async function safeParseJson<T>(response: Response, endpoint: string): Promise<T> {
+  const contentType = response.headers.get('content-type');
+
+  // Check if response is JSON
+  if (!contentType?.includes('application/json')) {
+    // Get response text for error message (truncated to avoid huge output)
+    const text = await response.text();
+    const preview = text.substring(0, 200);
+
+    // Detect common proxy errors
+    if (text.includes('APIKEY') || text.includes('api key') || text.includes('apiKey')) {
+      throw new Error(
+        `Request to ${endpoint} was intercepted by a proxy requiring API key. ` +
+        `Check HTTP_PROXY/HTTPS_PROXY environment variables. ` +
+        `Response: ${preview}`
+      );
+    }
+
+    throw new Error(
+      `Unexpected response from ${endpoint} (expected JSON, got: ${contentType || 'unknown'}). ` +
+      `This may indicate a proxy or network issue. Response: ${preview}`
+    );
+  }
+
+  // Check for HTTP errors
+  if (!response.ok) {
+    let errorMessage = response.statusText;
+    try {
+      const body = await response.json() as { error?: string; message?: string };
+      errorMessage = body.error || body.message || response.statusText;
+    } catch {
+      // Ignore JSON parse errors for error response
+    }
+    throw new Error(`HTTP ${response.status}: ${errorMessage}`);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+/**
  * Check if server is already running on the specified port
  * @param {number} port - Port to check
  * @returns {Promise<boolean>} True if server is running
@@ -47,15 +90,20 @@ async function isServerRunning(port: number): Promise<boolean> {
  */
 async function switchWorkspace(port: number, path: string): Promise<SwitchWorkspaceResult> {
   try {
+    // Get auth token with content-type validation
     const tokenResponse = await fetch(`http://localhost:${port}/api/auth/token`);
-    const tokenData = await tokenResponse.json() as { token?: string };
+    const tokenData = await safeParseJson<{ token?: string; expiresAt?: string }>(
+      tokenResponse,
+      '/api/auth/token'
+    );
     const token = tokenData.token;
 
+    // Switch workspace with content-type validation
     const response = await fetch(
       `http://localhost:${port}/api/switch-path?path=${encodeURIComponent(path)}`,
       token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
     );
-    return await response.json() as SwitchWorkspaceResult;
+    return safeParseJson<SwitchWorkspaceResult>(response, '/api/switch-path');
   } catch (err) {
     const error = err as Error;
     return { success: false, error: error.message };

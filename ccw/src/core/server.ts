@@ -51,7 +51,7 @@ import { handleSpecRoutes } from './routes/spec-routes.js';
 import { handleWebSocketUpgrade, broadcastToClients, extractSessionIdFromPath } from './websocket.js';
 
 import { getTokenManager } from './auth/token-manager.js';
-import { authMiddleware, isLocalhostRequest, setAuthCookie } from './auth/middleware.js';
+import { authMiddleware, isLocalhostRequest, isWildcardHost, setAuthCookie } from './auth/middleware.js';
 import { getCorsOrigin } from './cors.js';
 import { csrfValidation } from './auth/csrf-middleware.js';
 import { getCsrfTokenManager } from './auth/csrf-manager.js';
@@ -418,9 +418,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
         server
       };
 
-      // Token acquisition endpoint (localhost-only)
+      // Token acquisition endpoint (localhost-only, or any interface when bound to 0.0.0.0)
       if (pathname === '/api/auth/token') {
-        if (!isLocalhostRequest(req)) {
+        // Allow from any interface when server is bound to 0.0.0.0 or ::
+        const allowAllInterfaces = isWildcardHost(host);
+        if (!isLocalhostRequest(req, allowAllInterfaces)) {
           res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
           res.end(JSON.stringify({ error: 'Forbidden' }));
           return;
