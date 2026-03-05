@@ -1,4 +1,10 @@
-# LP-Phase 1: Lite-Plan
+---
+name: workflow-lite-plan
+description: Lightweight planning skill - task analysis, multi-angle exploration, clarification, adaptive planning, confirmation, and execution handoff
+allowed-tools: Skill, Agent, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep
+---
+
+# Workflow-Lite-Plan
 
 Complete planning pipeline: task analysis, multi-angle exploration, clarification, adaptive planning, confirmation, and execution handoff.
 
@@ -6,15 +12,15 @@ Complete planning pipeline: task analysis, multi-angle exploration, clarificatio
 
 ## Overview
 
-Intelligent lightweight planning command with dynamic workflow adaptation based on task complexity. Focuses on planning phases (exploration, clarification, planning, confirmation) and delegates execution to Phase 2 (lite-execute).
+Intelligent lightweight planning command with dynamic workflow adaptation based on task complexity. Focuses on planning phases (exploration, clarification, planning, confirmation) and delegates execution to workflow-lite-execute skill.
 
 **Core capabilities:**
 - Intelligent task analysis with automatic exploration detection
 - Dynamic code exploration (cli-explore-agent) when codebase understanding needed
-- Interactive clarification after exploration to gather missing information
-- Adaptive planning: Low complexity → Direct Claude; Medium/High → cli-lite-planning-agent
-- Two-step confirmation: plan display → multi-dimensional input collection
-- Execution handoff with complete context to lite-execute
+ - Interactive clarification after exploration to gather missing information
+ - Adaptive planning: Low complexity → Direct Claude; Medium/High → cli-lite-planning-agent
+ - Two-step confirmation: plan display → multi-dimensional input collection
+ - Execution handoff with complete context to workflow-lite-execute
 
 ## Context Isolation
 
@@ -91,7 +97,7 @@ LP-Phase 4: Confirmation & Selection
 
 LP-Phase 5: Execute
    ├─ Build executionContext (plan + explorations + clarifications + selections)
-   └─ Direct handoff: Read phases/02-lite-execute.md → Execute with executionContext (Mode 1)
+   └─ Direct handoff: Skill("lite-execute") → Execute with executionContext (Mode 1)
 ```
 
 ## Implementation
@@ -764,11 +770,9 @@ executionContext = {
 **Step 5.2: Handoff**
 
 ```javascript
-// ⚠️ COMPACT PROTECTION: Phase 2 instructions MUST persist in memory throughout execution.
-// If compact compresses Phase 2 content at any point, re-read this file before continuing.
-// See SKILL.md "Compact Protection" section for full protocol.
-Read("phases/02-lite-execute.md")
-// Execute Phase 2 with executionContext (Mode 1: In-Memory Plan)
+// Invoke lite-execute skill with executionContext
+Skill("lite-execute")
+// executionContext is passed as global variable (Mode 1: In-Memory Plan)
 ```
 
 ## Session Folder Structure
@@ -815,4 +819,4 @@ Read("phases/02-lite-execute.md")
 
 ## Next Phase
 
-After LP-Phase 5 handoff, execution continues in [Phase 2: Lite-Execute](02-lite-execute.md).
+After LP-Phase 5 handoff, execution continues in the workflow-lite-execute skill.

@@ -1,9 +1,10 @@
-# Phase 2: Lite-Execute
+---
+name: workflow-lite-execute
+description: Lightweight execution engine - multi-mode input, task grouping, batch execution, code review, and project state sync
+allowed-tools: Skill, Agent, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep
+---
 
-> **📌 COMPACT SENTINEL [Phase 2: Lite-Execute]**
-> This phase contains 6 execution steps (Step 1 — 6).
-> If you can read this sentinel but cannot find the full Step protocol below, context has been compressed.
-> Recovery: `Read("phases/02-lite-execute.md")`
+# Workflow-Lite-Execute
 
 Complete execution engine: multi-mode input, task grouping, batch execution, code review, and development index update.
 
@@ -28,16 +29,16 @@ Flexible task execution command supporting three input modes: in-memory plan (fr
 <input>                    Task description string, or path to file (required)
 ```
 
-Mode 1 (In-Memory) is triggered by lite-plan direct handoff when `executionContext` is available.
+Mode 1 (In-Memory) is triggered by workflow-lite-plan direct handoff when `executionContext` is available.
 Workflow preferences (`autoYes`) are passed from SKILL.md via `workflowPreferences` context variable.
 
 ## Input Modes
 
 ### Mode 1: In-Memory Plan
 
-**Trigger**: Called by lite-plan direct handoff after Phase 4 approval (executionContext available)
+**Trigger**: Called by workflow-lite-plan direct handoff after Phase 4 approval (executionContext available)
 
-**Input Source**: `executionContext` global variable set by lite-plan
+**Input Source**: `executionContext` global variable set by workflow-lite-plan
 
 **Content**: Complete execution context (see Data Structures section)
 
@@ -120,7 +121,7 @@ fileContent = Read(filePath)
 try {
   jsonData = JSON.parse(fileContent)
 
-  // Check if plan.json from lite-plan session (two-layer format: task_ids[])
+  // Check if plan.json from workflow-lite-plan session (two-layer format: task_ids[])
   if (jsonData.summary && jsonData.approach && jsonData.task_ids) {
     planObject = jsonData
     originalUserInput = jsonData.summary
@@ -209,7 +210,7 @@ Output:
 **Operations**:
 - Initialize result tracking for multi-execution scenarios
 - Set up `previousExecutionResults` array for context continuity
-- **In-Memory Mode**: Echo execution strategy from lite-plan for transparency
+- **In-Memory Mode**: Echo execution strategy from workflow-lite-plan for transparency
 
 ```javascript
 // Initialize result tracking
@@ -681,7 +682,7 @@ Summary 取值优先级：`originalUserInput` → `planObject.summary` → git l
 
 ## Best Practices
 
-**Input Modes**: In-memory (lite-plan), prompt (standalone), file (JSON/text)
+**Input Modes**: In-memory (workflow-lite-plan), prompt (standalone), file (JSON/text)
 **Task Grouping**: Based on explicit depends_on only; independent tasks split by executor, each batch runs as separate CLI instance
 **Execution**: Independent task batches launch concurrently via single Claude message with multiple tool calls (one tool call per batch)
 
