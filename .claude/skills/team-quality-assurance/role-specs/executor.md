@@ -2,7 +2,6 @@
 prefix: QARUN
 inner_loop: true
 additional_prefixes: [QARUN-gc]
-additional_members: []
 message_types:
   success: tests_passed
   failure: tests_failed

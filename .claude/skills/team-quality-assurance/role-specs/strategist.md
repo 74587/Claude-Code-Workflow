@@ -1,7 +1,6 @@
 ---
 prefix: QASTRAT
 inner_loop: false
-additional_members: []
 message_types:
   success: strategy_ready
   error: error

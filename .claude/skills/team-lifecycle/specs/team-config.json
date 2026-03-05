@@ -97,7 +97,7 @@
       "type": "explore-agent",
       "callable_by": ["analyst", "planner", "any"],
       "purpose": "Codebase exploration with centralized cache",
-      "implementation": "Agent with subagent_type: Explore"
+      "implementation": "Agent with agent_type: Explore"
     },
     "doc-generation": {
       "type": "cli-tool",

@@ -1,7 +1,6 @@
 ---
 prefix: EXPLORE
 inner_loop: false
-additional_members: []
 message_types:
   success: exploration_ready
   error: error

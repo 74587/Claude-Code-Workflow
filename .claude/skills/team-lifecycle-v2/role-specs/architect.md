@@ -3,7 +3,6 @@ role: architect
 prefix: ARCH
 inner_loop: false
 discuss_rounds: []
-subagents: [explore]
 message_types:
   success: arch_ready
   concern: arch_concern

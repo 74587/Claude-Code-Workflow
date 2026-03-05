@@ -130,7 +130,7 @@ For callback/check/resume/adapt/complete: load `commands/monitor.md` and execute
    - Dependency graph: build DAG of work streams
    - Complexity scoring: count capabilities, cross-domain factor, parallel tracks
    - Role minimization: merge overlapping, absorb trivial, cap at 5
-   - **Role-spec metadata**: Generate frontmatter fields (prefix, inner_loop, subagents, message_types)
+   - **Role-spec metadata**: Generate frontmatter fields (prefix, inner_loop, additional_members, message_types)
 
 4. **Output**: Write `<session>/task-analysis.json`
 
@@ -185,10 +185,10 @@ Regardless of complexity score or role count, coordinator MUST:
 5. **Read `specs/role-spec-template.md`** for Behavioral Traits + Reference Patterns
 
 6. **For each role in task-analysis.json#roles**:
-   - Fill YAML frontmatter: role, prefix, inner_loop, subagents, message_types
+   - Fill YAML frontmatter: role, prefix, inner_loop, additional_members, message_types
    - **Compose Phase 2-4 content** (NOT copy from template):
      - Phase 2: Derive input sources and context loading steps from **task description + upstream dependencies**
-     - Phase 3: Describe **execution goal** (WHAT to achieve) from task description — do NOT prescribe specific subagent or tool
+     - Phase 3: Describe **execution goal** (WHAT to achieve) from task description — do NOT prescribe specific CLI tool or approach
      - Phase 4: Combine **Behavioral Traits** (from template) + **output_type** (from task analysis) to compose verification steps
      - Reference Patterns may guide phase structure, but task description determines specific content
    - Write generated role-spec to `<session>/role-specs/<role-name>.md`

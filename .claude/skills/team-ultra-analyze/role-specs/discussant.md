@@ -1,7 +1,6 @@
 ---
 prefix: DISCUSS
 inner_loop: false
-additional_members: []
 message_types:
   success: discussion_processed
   error: error

@@ -1,7 +1,6 @@
 ---
 prefix: RESEARCH
 inner_loop: false
-additional_members: [explore]
 message_types:
   success: research_ready
   progress: research_progress

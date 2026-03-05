@@ -1,6 +1,8 @@
 ---
 prefix: TDFIX
 inner_loop: true
+cli_tools:
+  - gemini --mode write
 message_types:
   success: fix_complete
   progress: fix_progress

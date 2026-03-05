@@ -1,6 +1,8 @@
 ---
 prefix: TDSCAN
 inner_loop: false
+cli_tools:
+  - gemini --mode analysis
 message_types:
   success: scan_complete
   error: error

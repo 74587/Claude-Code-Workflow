@@ -129,7 +129,7 @@ Collect task states from TaskList()
       +- team_msg log -> task_unblocked
       +- Spawn team-worker:
          Agent({
-           subagent_type: "team-worker",
+           agent_type: "team-worker",
            description: "Spawn <role> worker for <subject>",
            team_name: <team-name>,
            name: "<role>",

@@ -1,7 +1,6 @@
 ---
 prefix: SCOUT
 inner_loop: false
-additional_members: []
 message_types:
   success: scan_ready
   error: error

@@ -1,7 +1,6 @@
 ---
 prefix: MARSHAL
 inner_loop: false
-additional_members: []
 message_types:
   success: queue_ready
   conflict: conflict_found

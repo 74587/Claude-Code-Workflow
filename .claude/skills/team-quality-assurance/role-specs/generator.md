@@ -2,7 +2,6 @@
 prefix: QAGEN
 inner_loop: false
 additional_prefixes: [QAGEN-fix]
-additional_members: []
 message_types:
   success: tests_generated
   revised: tests_revised

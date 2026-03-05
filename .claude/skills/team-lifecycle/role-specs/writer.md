@@ -43,7 +43,7 @@ message_types:
 | architecture | + requirements/_index.md |
 | epics | + architecture/_index.md |
 
-**Prior decisions from accumulator**: Pass context_accumulator summaries as "Prior Decisions" to subagent.
+**Prior decisions from accumulator**: Pass context_accumulator summaries as "Prior Decisions" to CLI tool.
 
 | Input | Source | Required |
 |-------|--------|----------|

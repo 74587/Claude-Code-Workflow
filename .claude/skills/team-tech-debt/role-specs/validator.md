@@ -70,6 +70,9 @@ Execute 4-layer validation (all commands in worktree):
     run_in_background: false
   })
   ```
+- Re-run validation checks after fix attempt
+  })
+  ```
 - Re-run checks after fix attempt
 
 ## Phase 4: Compare & Report

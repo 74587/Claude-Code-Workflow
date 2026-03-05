@@ -1,7 +1,6 @@
 ---
 prefix: ARCH
 inner_loop: false
-additional_members: []
 message_types:
   success: arch_ready
   error: error

@@ -2,7 +2,6 @@
 prefix: SOLVE
 inner_loop: false
 additional_prefixes: [SOLVE-fix]
-additional_members: []
 message_types:
   success: solution_ready
   multi: multi_solution

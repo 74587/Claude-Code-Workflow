@@ -1,7 +1,6 @@
 ---
 prefix: QAANA
 inner_loop: false
-additional_members: []
 message_types:
   success: analysis_ready
   report: quality_report

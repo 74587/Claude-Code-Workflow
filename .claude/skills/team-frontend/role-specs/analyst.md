@@ -1,7 +1,6 @@
 ---
 prefix: ANALYZE
 inner_loop: false
-additional_members: []
 message_types:
   success: analyze_ready
   error: error

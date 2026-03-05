@@ -111,7 +111,7 @@ When coordinator spawns workers, use `team-worker` agent with role-spec path:
 
 ```
 Agent({
-  subagent_type: "team-worker",
+  agent_type: "team-worker",
   description: "Spawn <role> worker",
   team_name: <team-name>,
   name: "<role>",
