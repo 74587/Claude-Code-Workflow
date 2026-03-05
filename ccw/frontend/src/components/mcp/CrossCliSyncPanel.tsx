@@ -324,7 +324,9 @@ export function CrossCliSyncPanel({ onSuccess, className }: CrossCliSyncPanelPro
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground font-mono truncate">
-                        {server.displayText}
+                        {isHttpMcpServer(server)
+                          ? server.url
+                          : (isStdioMcpServer(server) ? server.command : '')}
                       </p>
                     </label>
                   </div>

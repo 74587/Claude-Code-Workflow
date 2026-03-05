@@ -3507,7 +3507,8 @@ function requireProjectPath(projectPath: string | undefined, ctx: string): strin
 function toServerConfig(server: Partial<McpServer>): UnknownRecord {
   // Check if this is an HTTP server
   if (server.transport === 'http') {
-    const config: UnknownRecord = { url: server.url };
+    const url = 'url' in server && typeof server.url === 'string' ? server.url : '';
+    const config: UnknownRecord = { url };
 
     // Claude format: type field
     config.type = 'http';
@@ -3538,23 +3539,60 @@ function toServerConfig(server: Partial<McpServer>): UnknownRecord {
   // STDIO server (default)
   const config: UnknownRecord = {};
 
-  if (typeof server.command === 'string') {
-    config.command = server.command;
-  }
-
-  if (server.args && server.args.length > 0) {
-    config.args = server.args;
-  }
-
-  if (server.env && Object.keys(server.env).length > 0) {
-    config.env = server.env;
-  }
-
-  if (server.cwd) {
-    config.cwd = server.cwd;
-  }
+  if ('command' in server && typeof server.command === 'string') config.command = server.command;
+  if ('args' in server && Array.isArray(server.args) && server.args.length > 0) config.args = server.args;
+  if ('env' in server && server.env && Object.keys(server.env).length > 0) config.env = server.env;
+  if ('cwd' in server && typeof server.cwd === 'string' && server.cwd.trim()) config.cwd = server.cwd;
 
   return config;
+}
+
+function _buildFallbackServer(serverName: string, config: Partial<McpServer>): McpServer {
+  const transport = config.transport ?? 'stdio';
+  const enabled = config.enabled ?? true;
+  const scope = config.scope ?? 'project';
+
+  if (transport === 'http') {
+    const url = 'url' in config && typeof config.url === 'string' ? config.url : '';
+    return {
+      name: serverName,
+      transport: 'http',
+      url,
+      enabled,
+      scope,
+    };
+  }
+
+  const command =
+    'command' in config && typeof config.command === 'string'
+      ? config.command
+      : '';
+
+  const args =
+    'args' in config && Array.isArray(config.args)
+      ? config.args
+      : undefined;
+
+  const env =
+    'env' in config && config.env && typeof config.env === 'object'
+      ? (config.env as Record<string, string>)
+      : undefined;
+
+  const cwd =
+    'cwd' in config && typeof config.cwd === 'string'
+      ? config.cwd
+      : undefined;
+
+  return {
+    name: serverName,
+    transport: 'stdio',
+    command,
+    args,
+    env,
+    cwd,
+    enabled,
+    scope,
+  };
 }
 
 /**
@@ -3572,12 +3610,14 @@ export async function updateMcpServer(
 
   // Validate based on transport type
   if (config.transport === 'http') {
-    if (typeof config.url !== 'string' || !config.url.trim()) {
+    const url = 'url' in config ? config.url : undefined;
+    if (typeof url !== 'string' || !url.trim()) {
       throw new Error('updateMcpServer: url is required for HTTP servers');
     }
   } else {
     // STDIO server (default)
-    if (typeof config.command !== 'string' || !config.command.trim()) {
+    const command = 'command' in config ? config.command : undefined;
+    if (typeof command !== 'string' || !command.trim()) {
       throw new Error('updateMcpServer: command is required for STDIO servers');
     }
   }
@@ -3619,26 +3659,13 @@ export async function updateMcpServer(
 
   if (options.projectPath) {
     const servers = await fetchMcpServers(options.projectPath);
-    return [...servers.project, ...servers.global].find((s) => s.name === serverName) ?? {
-      name: serverName,
-      transport: config.transport ?? 'stdio',
-      ...(config.transport === 'http' ? { url: config.url! } : { command: config.command! }),
-      args: config.args,
-      env: config.env,
-      enabled: config.enabled ?? true,
-      scope: config.scope,
-    } as McpServer;
+    return (
+      [...servers.project, ...servers.global].find((s) => s.name === serverName) ??
+      _buildFallbackServer(serverName, config)
+    );
   }
 
-  return {
-    name: serverName,
-    transport: config.transport ?? 'stdio',
-    ...(config.transport === 'http' ? { url: config.url! } : { command: config.command! }),
-    args: config.args,
-    env: config.env,
-    enabled: config.enabled ?? true,
-    scope: config.scope,
-  } as McpServer;
+  return _buildFallbackServer(serverName, config);
 }
 
 /**
@@ -3756,12 +3783,15 @@ export async function toggleMcpServer(
   }
 
   const servers = await fetchMcpServers(projectPath);
-  return [...servers.project, ...servers.global].find((s) => s.name === serverName) ?? {
-    name: serverName,
-    command: '',
-    enabled,
-    scope: 'project',
-  };
+  return (
+    [...servers.project, ...servers.global].find((s) => s.name === serverName) ?? {
+      name: serverName,
+      transport: 'stdio',
+      command: '',
+      enabled,
+      scope: 'project',
+    }
+  );
 }
 
 // ========== Codex MCP API ==========
@@ -3769,9 +3799,7 @@ export async function toggleMcpServer(
  * Codex MCP Server - Read-only server with config path
  * Extends McpServer with optional configPath field
  */
-export interface CodexMcpServer extends McpServer {
-  configPath?: string;
-}
+export type CodexMcpServer = McpServer & { configPath?: string };
 
 export interface CodexMcpServersResponse {
   servers: CodexMcpServer[];
@@ -3958,13 +3986,16 @@ export async function fetchOtherProjectsServers(
     servers[path] = Object.entries(projectServersRecord)
       // Exclude globally-defined servers; this section is meant for project-local discovery
       .filter(([name]) => !(name in userServers) && !(name in enterpriseServers))
-      .map(([name, raw]) => {
+      .flatMap(([name, raw]) => {
         const normalized = normalizeServerConfig(raw);
-        return {
+        if (normalized.transport !== 'stdio') return [];
+        return [{
           name,
-          ...normalized,
+          command: normalized.command,
+          args: normalized.args,
+          env: normalized.env,
           enabled: !disabledSet.has(name),
-        };
+        }];
       });
   }
 
@@ -4553,58 +4584,6 @@ export interface CcwMcpConfig {
 }
 
 /**
- * Platform detection for cross-platform MCP config
- */
-const isWindows = typeof navigator !== 'undefined' && navigator.platform?.toLowerCase().includes('win');
-
-/**
- * Build CCW MCP server config
- */
-function buildCcwMcpServerConfig(config: {
-  enabledTools?: string[];
-  projectRoot?: string;
-  allowedDirs?: string;
-  enableSandbox?: boolean;
-}): { command: string; args: string[]; env: Record<string, string> } {
-  const env: Record<string, string> = {};
-
-  // Only use default when enabledTools is undefined (not provided)
-  // When enabledTools is an empty array, set to empty string to disable all tools
-  console.log('[buildCcwMcpServerConfig] config.enabledTools:', config.enabledTools);
-  if (config.enabledTools !== undefined) {
-    env.CCW_ENABLED_TOOLS = config.enabledTools.join(',');
-    console.log('[buildCcwMcpServerConfig] Set CCW_ENABLED_TOOLS to:', env.CCW_ENABLED_TOOLS);
-  } else {
-    env.CCW_ENABLED_TOOLS = 'write_file,edit_file,read_file,core_memory,ask_question,smart_search';
-    console.log('[buildCcwMcpServerConfig] Using default CCW_ENABLED_TOOLS');
-  }
-
-  if (config.projectRoot) {
-    env.CCW_PROJECT_ROOT = config.projectRoot;
-  }
-  if (config.allowedDirs) {
-    env.CCW_ALLOWED_DIRS = config.allowedDirs;
-  }
-  if (config.enableSandbox) {
-    env.CCW_ENABLE_SANDBOX = '1';
-  }
-
-  // Cross-platform config
-  if (isWindows) {
-    return {
-      command: 'cmd',
-      args: ['/c', 'npx', '-y', 'ccw-mcp'],
-      env
-    };
-  }
-  return {
-    command: 'npx',
-    args: ['-y', 'ccw-mcp'],
-    env
-  };
-}
-
-/**
  * Fetch CCW Tools MCP configuration by checking if ccw-tools server exists
  */
 export async function fetchCcwMcpConfig(currentProjectPath?: string): Promise<CcwMcpConfig> {
@@ -4698,13 +4677,14 @@ export async function updateCcwConfig(config: {
   allowedDirs?: string;
   enableSandbox?: boolean;
 }): Promise<CcwMcpConfig> {
-  const serverConfig = buildCcwMcpServerConfig(config);
-
-  // Install/update to global config
-  const result = await addGlobalMcpServer('ccw-tools', serverConfig);
-  if (!result.success) {
-    throw new Error(result.error || 'Failed to update CCW config');
-  }
+  const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-install-ccw', {
+    method: 'POST',
+    body: JSON.stringify({
+      scope: 'global',
+      env: config,
+    }),
+  });
+  if (result?.error) throw new Error(result.error || 'Failed to update CCW config');
 
   return fetchCcwMcpConfig();
 }
@@ -4716,31 +4696,21 @@ export async function installCcwMcp(
   scope: 'global' | 'project' = 'global',
   projectPath?: string
 ): Promise<CcwMcpConfig> {
-  const serverConfig = buildCcwMcpServerConfig({
-    enabledTools: ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'],
+  const path = scope === 'project' ? requireProjectPath(projectPath, 'installCcwMcp') : undefined;
+
+  const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-install-ccw', {
+    method: 'POST',
+    body: JSON.stringify({
+      scope,
+      projectPath: path,
+      env: {
+        enabledTools: ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'],
+      },
+    }),
   });
+  if (result?.error) throw new Error(result.error || `Failed to install CCW MCP (${scope})`);
 
-  if (scope === 'project' && projectPath) {
-    const result = await fetchApi<{ success?: boolean; error?: string }>('/api/mcp-copy-server', {
-      method: 'POST',
-      body: JSON.stringify({
-        projectPath,
-        serverName: 'ccw-tools',
-        serverConfig,
-        configType: 'mcp',
-      }),
-    });
-    if (result?.error) {
-      throw new Error(result.error || 'Failed to install CCW MCP to project');
-    }
-  } else {
-    const result = await addGlobalMcpServer('ccw-tools', serverConfig);
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to install CCW MCP');
-    }
-  }
-
-  return fetchCcwMcpConfig();
+  return fetchCcwMcpConfig(path);
 }
 
 /**
@@ -4811,7 +4781,7 @@ export async function fetchCcwMcpConfigForCodex(): Promise<CcwMcpConfig> {
       return { isInstalled: false, enabledTools: [], installedScopes: [] };
     }
 
-    const env = ccwServer.env || {};
+    const env = isStdioMcpServer(ccwServer) ? (ccwServer.env || {}) : {};
     // Note: CCW_ENABLED_TOOLS can be empty string (all tools disabled), 'all' (default set), or comma-separated list
     const enabledToolsStr = env.CCW_ENABLED_TOOLS;
     let enabledTools: string[];

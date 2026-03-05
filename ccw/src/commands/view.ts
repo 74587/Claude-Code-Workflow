@@ -22,42 +22,81 @@ interface SwitchWorkspaceResult {
  * Provides better error messages when response is not JSON (e.g., proxy errors)
  */
 async function safeParseJson<T>(response: Response, endpoint: string): Promise<T> {
-  const contentType = response.headers.get('content-type');
+  const contentType = response.headers.get('content-type') || 'unknown';
+  const isJson = contentType.includes('application/json');
 
-  // Check if response is JSON
-  if (!contentType?.includes('application/json')) {
-    // Get response text for error message (truncated to avoid huge output)
+  const truncate = (text: string, maxLen: number = 200): string => {
+    const trimmed = text.trim();
+    if (trimmed.length <= maxLen) return trimmed;
+    return `${trimmed.slice(0, maxLen)}…`;
+  };
+
+  const isApiKeyProxyMessage = (text: string): boolean => {
+    return /APIKEY|api\s*key|apiKey/i.test(text);
+  };
+
+  // If response claims to not be JSON, surface a helpful error with a preview.
+  if (!isJson) {
     const text = await response.text();
-    const preview = text.substring(0, 200);
+    const preview = truncate(text);
 
-    // Detect common proxy errors
-    if (text.includes('APIKEY') || text.includes('api key') || text.includes('apiKey')) {
+    if (isApiKeyProxyMessage(text)) {
       throw new Error(
-        `Request to ${endpoint} was intercepted by a proxy requiring API key. ` +
+        `Request to ${endpoint} was intercepted by a proxy requiring an API key. ` +
         `Check HTTP_PROXY/HTTPS_PROXY environment variables. ` +
         `Response: ${preview}`
       );
     }
 
     throw new Error(
-      `Unexpected response from ${endpoint} (expected JSON, got: ${contentType || 'unknown'}). ` +
+      `Unexpected response from ${endpoint} (expected JSON, got: ${contentType}). ` +
       `This may indicate a proxy or network issue. Response: ${preview}`
     );
   }
 
-  // Check for HTTP errors
+  // Read text once so we can provide good errors even when JSON parsing fails.
+  const text = await response.text();
+  const preview = truncate(text);
+
+  // Check for HTTP errors first; try to parse error JSON if possible.
   if (!response.ok) {
-    let errorMessage = response.statusText;
-    try {
-      const body = await response.json() as { error?: string; message?: string };
-      errorMessage = body.error || body.message || response.statusText;
-    } catch {
-      // Ignore JSON parse errors for error response
+    if (isApiKeyProxyMessage(text)) {
+      throw new Error(
+        `Request to ${endpoint} was intercepted by a proxy requiring an API key. ` +
+        `Check HTTP_PROXY/HTTPS_PROXY environment variables. ` +
+        `Response: ${preview}`
+      );
     }
-    throw new Error(`HTTP ${response.status}: ${errorMessage}`);
+
+    let errorMessage = response.statusText;
+    if (text.trim()) {
+      try {
+        const body = JSON.parse(text) as { error?: string; message?: string };
+        errorMessage = body.error || body.message || response.statusText;
+      } catch {
+        errorMessage = `${response.statusText} (invalid JSON body)`;
+      }
+    }
+
+    throw new Error(`HTTP ${response.status}: ${errorMessage}${preview ? `. Response: ${preview}` : ''}`);
   }
 
-  return response.json() as Promise<T>;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    if (isApiKeyProxyMessage(text)) {
+      throw new Error(
+        `Request to ${endpoint} was intercepted by a proxy requiring an API key. ` +
+        `Check HTTP_PROXY/HTTPS_PROXY environment variables. ` +
+        `Response: ${preview}`
+      );
+    }
+
+    throw new Error(
+      `Unexpected response from ${endpoint} (invalid JSON despite content-type: ${contentType}). ` +
+      `This may indicate a proxy or network issue. Response: ${preview}`
+    );
+  }
 }
 
 /**

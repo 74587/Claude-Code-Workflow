@@ -57,7 +57,6 @@ import {
   type McpServer,
   type McpServerConflict,
   type CcwMcpConfig,
-  type HttpMcpServer,
   isHttpMcpServer,
   isStdioMcpServer,
 } from '@/lib/api';
@@ -656,14 +655,31 @@ export function McpManagerPage() {
 
   // Template handlers
   const handleInstallTemplate = (template: any) => {
-    setEditingServer({
-      name: template.name,
-      command: template.serverConfig.command,
-      args: template.serverConfig.args || [],
-      env: template.serverConfig.env,
-      scope: 'project',
-      enabled: true,
-    });
+    const serverConfig = template?.serverConfig ?? {};
+    const isHttp =
+      serverConfig.type === 'http' ||
+      serverConfig.transport === 'http' ||
+      typeof serverConfig.url === 'string';
+
+    if (isHttp) {
+      setEditingServer({
+        name: template.name,
+        transport: 'http',
+        url: serverConfig.url ?? '',
+        scope: 'project',
+        enabled: true,
+      });
+    } else {
+      setEditingServer({
+        name: template.name,
+        transport: 'stdio',
+        command: serverConfig.command,
+        args: serverConfig.args || [],
+        env: serverConfig.env,
+        scope: 'project',
+        enabled: true,
+      });
+    }
     setDialogOpen(true);
   };
 
@@ -1076,9 +1092,21 @@ export function McpManagerPage() {
         }}
         onSave={handleSaveAsTemplate}
         defaultName={serverToSaveAsTemplate?.name}
-        defaultCommand={serverToSaveAsTemplate?.command}
-        defaultArgs={serverToSaveAsTemplate?.args}
-        defaultEnv={serverToSaveAsTemplate?.env as Record<string, string>}
+        defaultCommand={
+          serverToSaveAsTemplate && isStdioMcpServer(serverToSaveAsTemplate)
+            ? serverToSaveAsTemplate.command
+            : undefined
+        }
+        defaultArgs={
+          serverToSaveAsTemplate && isStdioMcpServer(serverToSaveAsTemplate)
+            ? serverToSaveAsTemplate.args
+            : undefined
+        }
+        defaultEnv={
+          serverToSaveAsTemplate && isStdioMcpServer(serverToSaveAsTemplate)
+            ? (serverToSaveAsTemplate.env as Record<string, string>)
+            : undefined
+        }
       />
     </div>
   );
