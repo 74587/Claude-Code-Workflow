@@ -234,27 +234,55 @@ function resolveTeamId(params: Params): string | null {
 
 export const schema: ToolSchema = {
   name: 'team_msg',
-  description: `Team message bus - persistent JSONL log for Agent Team communication.
+  description: `Team message bus - persistent JSONL log for Agent Team communication. Choose an operation and provide its required parameters.
 
-Directory Structure (NEW):
-  .workflow/.team/{session-id}/.msg/messages.jsonl
+**Storage Location:** .workflow/.team/{session-id}/.msg/messages.jsonl
 
-Directory Structure (LEGACY):
-  .workflow/.team-msg/{team-name}/messages.jsonl
+**Operations & Required Parameters:**
 
-Operations:
-  team_msg(operation="log", session_id="TLS-xxx", from="planner", type="plan_ready", data={ref: "plan.json"})
-  team_msg(operation="log", session_id="TLS-xxx", from="coordinator", type="state_update", data={pipeline_mode: "full"})
-  team_msg(operation="broadcast", session_id="TLS-xxx", from="coordinator", type="shutdown")
-  team_msg(operation="get_state", session_id="TLS-xxx", role="researcher")
-  team_msg(operation="read", session_id="TLS-xxx", id="MSG-003")
-  team_msg(operation="list", session_id="TLS-xxx", from="tester", last=5)
-  team_msg(operation="status", session_id="TLS-xxx")
-  team_msg(operation="delete", session_id="TLS-xxx", id="MSG-003")
-  team_msg(operation="clear", session_id="TLS-xxx")
+*   **log**: Append a message to the log.
+    *   **session_id** (string, **REQUIRED**): Session ID (e.g., TLS-my-project-2026-02-27).
+    *   **from** (string, **REQUIRED**): Sender role name (e.g., "planner", "coordinator").
+    *   *to* (string): Recipient role (default: "coordinator").
+    *   *type* (string): Message type (default: "message").
+    *   *summary* (string): One-line summary (auto-generated if omitted).
+    *   *data* (object): Structured data payload. Use data.ref for file paths.
 
-Defaults: to="coordinator", summary=auto-generated if omitted, type="message"
-Message types: plan_ready, plan_approved, plan_revision, task_unblocked, impl_complete, impl_progress, test_result, review_result, fix_required, error, shutdown, state_update`,
+*   **broadcast**: Send message to all team members.
+    *   **session_id** (string, **REQUIRED**): Session ID.
+    *   **from** (string, **REQUIRED**): Sender role name.
+    *   *type* (string): Message type (e.g., "shutdown").
+    *   *summary* (string): One-line summary.
+    *   *data* (object): Structured data payload.
+
+*   **read**: Read a specific message by ID.
+    *   **session_id** (string, **REQUIRED**): Session ID.
+    *   **id** (string, **REQUIRED**): Message ID (e.g., "MSG-003").
+
+*   **list**: List recent messages.
+    *   **session_id** (string, **REQUIRED**): Session ID.
+    *   *last* (number): Number of messages to show (default: 20, max: 100).
+    *   *from* (string): Filter by sender role.
+    *   *to* (string): Filter by recipient role.
+    *   *type* (string): Filter by message type.
+
+*   **status**: Summarize team member activity.
+    *   **session_id** (string, **REQUIRED**): Session ID.
+
+*   **get_state**: Get state for a specific role.
+    *   **session_id** (string, **REQUIRED**): Session ID.
+    *   *role* (string): Role name to query (omit for all roles).
+
+*   **delete**: Delete a message by ID.
+    *   **session_id** (string, **REQUIRED**): Session ID.
+    *   **id** (string, **REQUIRED**): Message ID to delete.
+
+*   **clear**: Clear all messages for a session.
+    *   **session_id** (string, **REQUIRED**): Session ID.
+
+**Common Message Types:** plan_ready, plan_approved, plan_revision, task_unblocked, impl_complete, impl_progress, test_result, review_result, fix_required, error, shutdown, state_update
+
+**Session ID Format:** TLS-{name}-{date} (e.g., TLS-my-project-2026-02-27)`,
   inputSchema: {
     type: 'object',
     properties: {

@@ -1340,11 +1340,30 @@ async function executeCliTool(
 export const schema: ToolSchema = {
   name: 'cli_executor',
   description: `Execute external CLI tools (gemini/qwen/codex) with unified interface.
-Modes:
-- analysis: Read-only operations (default)
-- write: File modifications allowed
-- auto: Full autonomous operations (codex only)
-- review: Code review mode (codex uses 'codex review' subcommand, others accept but no operation change)`,
+
+**Required Parameters:**
+  **tool** (string): CLI tool to execute - "gemini" | "qwen" | "codex".
+  **prompt** (string): Prompt to send to the CLI tool.
+
+**Optional Parameters:**
+  *mode* (string): Execution mode (default: "analysis").
+    - "analysis": Read-only operations, no file modifications.
+    - "write": File modifications allowed.
+    - "auto": Full autonomous operations (codex only).
+    - "review": Code review mode (codex uses 'codex review' subcommand).
+  *model* (string): Model override (tool-specific, e.g., "gemini-2.5-pro").
+  *cd* (string): Working directory for execution.
+  *includeDirs* (string): Additional directories (comma-separated).
+
+**Examples:**
+  cli_executor(tool="gemini", prompt="Analyze the auth module")
+  cli_executor(tool="gemini", prompt="Fix the bug", mode="write")
+  cli_executor(tool="codex", prompt="Review changes", mode="review")
+  cli_executor(tool="qwen", prompt="Implement feature", mode="write", cd="src/auth")
+
+**Mode-Tool Compatibility:**
+  - gemini/qwen: analysis, write
+  - codex: analysis, write, auto, review`,
   inputSchema: {
     type: 'object',
     properties: {
