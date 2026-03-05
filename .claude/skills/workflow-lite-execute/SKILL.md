@@ -29,8 +29,12 @@ Flexible task execution command supporting three input modes: in-memory plan (fr
 <input>                    Task description string, or path to file (required)
 ```
 
-Mode 1 (In-Memory) is triggered by workflow-lite-plan direct handoff when `executionContext` is available.
-Workflow preferences (`autoYes`) are passed from SKILL.md via `workflowPreferences` context variable.
+### Flags
+| Flag | Description |
+|------|-------------|
+| `--in-memory` | Mode 1: Use executionContext from workflow-lite-plan handoff (via Skill({ skill: "workflow-lite-execute", args: "--in-memory" }) |
+
+Mode 1 (In-Memory) is triggered by `--in-memory` flag or when `executionContext` global variable is available.
 
 ## Input Modes
 

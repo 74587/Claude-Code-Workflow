@@ -36,6 +36,13 @@ Intelligent lightweight planning command with dynamic workflow adaptation based 
 <task-description>         Task description or path to .md file (required)
 ```
 
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `-y`, `--yes` | Auto mode: Skip clarification, auto-confirm plan, auto-select execution, skip review |
+| `--force-explore` | Force code exploration even when task has prior analysis |
+
 Workflow preferences (`autoYes`, `forceExplore`) are collected by SKILL.md via AskUserQuestion and passed as `workflowPreferences` context variable.
 
 ## Output Artifacts
@@ -767,12 +774,24 @@ executionContext = {
 }
 ```
 
-**Step 5.2: Handoff**
+**Step 5.2: Handoff with Tracking**
 
 ```javascript
+// Update TodoWrite to show handoff to lite-execute
+const taskCount = (plan.task_ids || []).length
+TodoWrite({ todos: [
+  { content: "LP-Phase 1: Exploration", status: "completed", activeForm: "Exploring codebase" },
+  { content: "LP-Phase 2: Clarification", status: "completed", activeForm: "Collecting clarifications" },
+  { content: "LP-Phase 3: Planning", status: "completed", activeForm: "Generating plan" },
+  { content: `LP-Phase 4: Confirmed [${executionLabel}]`, status: "completed", activeForm: "Confirmed" },
+  { content: `LP-Phase 5: Handoff → lite-execute`, status: "completed", activeForm: "Handoff to execution" },
+  { content: `LE-Phase 1: Task Loading [${taskCount} tasks]`, status: "in_progress", activeForm: "Loading tasks" }
+]})
+
 // Invoke lite-execute skill with executionContext
 Skill("lite-execute")
 // executionContext is passed as global variable (Mode 1: In-Memory Plan)
+// lite-execute will continue TodoWrite tracking with LE-Phase prefix
 ```
 
 ## Session Folder Structure
