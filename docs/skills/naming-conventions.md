@@ -83,8 +83,8 @@ Short aliases for common commands:
 | Full Command | Short Alias |
 |--------------|-------------|
 | `workflow:multi-cli-plan` | `workflow:multi-cli-plan` |
-| `team:lifecycle-v4` | `team lifecycle` |
-| `brainstorm:auto` | `brainstorm` |
+| `team-lifecycle-v4` | (via `/ccw "从零开始: ..."` or `Skill()`) |
+| `brainstorm` | (via `/ccw "头脑风暴: ..."` or `Skill()`) |
 
 ## File Naming
 

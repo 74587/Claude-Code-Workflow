@@ -92,18 +92,24 @@ Skill(skill="workflow-tdd-plan", args="--mode tdd-verify")
 
 ## 使用技能
 
-### CLI 接口
+### 推荐方式：CCW 编排器
+
+使用 `/ccw` 命令配合自然语言描述 - CCW 自动分析意图并选择合适的 skill：
 
 ```bash
-# 通过 ccw 命令调用
-ccw --help
+# CCW 自动路由到 brainstorm skill
+/ccw "头脑风暴: 用户通知系统设计"
 
-# 或直接使用触发器
-ccw brainstorm
-ccw team lifecycle
+# CCW 自动路由到 team lifecycle 工作流
+/ccw "从零开始: 用户认证系统"
+
+# CCW 自动路由到代码审查
+/ccw "review: 代码质量检查"
 ```
 
-### 编程接口
+### 直接调用 Skill
+
+使用 `Skill()` 工具直接调用：
 
 ```javascript
 // 基本使用
@@ -114,6 +120,17 @@ Skill(skill="team-lifecycle-v4", args="Build user authentication")
 
 // 带模式选择
 Skill(skill="workflow-plan", args="--mode verify")
+```
+
+### CCW Team CLI（仅消息总线）
+
+`ccw team` **仅用于**团队消息总线操作，不能用于调用 team skill：
+
+```bash
+# 消息总线操作
+ccw team log --session-id TLS-xxx --from executor --type state_update
+ccw team list --session-id TLS-xxx --last 5
+ccw team status --session-id TLS-xxx
 ```
 
 ## 自定义技能
@@ -173,24 +190,23 @@ Skill(skill="my-custom-skill", args="input")
 **场景**：实现新的用户仪表板功能
 
 ```bash
-# 步骤 1：头脑风暴功能
-ccw brainstorm
-# 按提示定义：
-# - 仪表板小部件（统计、图表、最近活动）
-# - 布局偏好
-# - 数据刷新间隔
+# 步骤 1：头脑风暴功能（通过 CCW 编排器）
+/ccw "头脑风暴: 用户仪表板功能设计"
+# 或直接调用 Skill:
+# Skill(skill="brainstorm")
 
-# 步骤 2：规划实现
-ccw workflow-plan "Build user dashboard with configurable widgets"
-# 输出：IMPL-001.json 包含任务分解
+# 步骤 2：规划实现（通过 CCW 编排器）
+/ccw "Plan: Build user dashboard with configurable widgets"
+# 或直接调用 Skill:
+# Skill(skill="workflow-plan", args="Build user dashboard")
 
 # 步骤 3：团队执行
-ccw team lifecycle
-# 或使用快速迭代：
-ccw workflow-lite-planex && ccw workflow-execute
+Skill(skill="team-lifecycle-v4", args="Build user dashboard")
+# 或使用快速迭代:
+# Skill(skill="workflow-lite-planex")
 
 # 步骤 4：审查和优化
-ccw review-code
+Skill(skill="review-code")
 # 修复发现的问题
 ```
 
@@ -215,12 +231,13 @@ ccw workflow-execute --task "Fix N+1 query in user endpoint"
 **场景**：从 JavaScript 迁移到 TypeScript
 
 ```bash
-# 步骤 1：分析代码库
-ccw workflow:refactor-cycle
-# 识别技术债务并创建迁移计划
+# 步骤 1：分析代码库（通过 CCW 编排器）
+/ccw "refactor: JavaScript to TypeScript 迁移"
+# 或直接调用 Skill:
+# Skill(skill="workflow:refactor-cycle")
 
 # 步骤 2：分阶段执行迁移
-ccw team roadmap-dev --epic "ts-migration"
+Skill(skill="team-roadmap-dev", args="--epic ts-migration")
 # 渐进式迁移模块并测试
 ```
 
