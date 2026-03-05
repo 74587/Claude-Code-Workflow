@@ -37,13 +37,13 @@
 
 | Concept | Description | Location/Command |
 |---------|-------------|------------------|
-| **CodexLens** | Semantic code indexing and search engine | `ccw search` |
+| **CodexLens** | Semantic code indexing and search engine | `mcp__ace-tool__search_context(project_root_path="...", query="...")` |
 | **CCW** | Unified CLI tool invocation framework | `ccw cli` |
-| **Memory** | Cross-session knowledge persistence | `ccw memory` |
+| **Memory** | Cross-session knowledge persistence | `mcp__ccw-tools__core_memory(operation="list")` |
 | **Spec** | Project specification and constraint system | `.workflow/specs/` |
 | **Hook** | Auto-triggered context injection scripts | `.claude/hooks/` |
 | **Agent** | Specialized AI subprocess for specific roles | `.claude/agents/` |
-| **Skill** | Reusable AI capability modules | `.claude/skills/` |
+| **Skill** | Reusable AI capability modules | `Skill(skill="<name>")` |
 | **Workflow** | Multi-phase development orchestration | `/workflow:*` |
 
 ---

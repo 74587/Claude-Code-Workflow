@@ -185,7 +185,7 @@ graph LR
 | **Prompt** | Codex prompt templates | `.codex/prompts/` |
 | **Workflow** | Team collaboration process | `/workflow:*` |
 | **Session** | Session context management | `/workflow:session:*` |
-| **Memory** | Cross-session knowledge persistence | `ccw memory` |
+| **Memory** | Cross-session knowledge persistence | `mcp__ccw-tools__core_memory(operation="list")` |
 | **Spec** | Project specification constraints | `.workflow/specs/` |
 | **CodexLens** | Semantic code indexing | `.codex-lens/` |
 | **CCW** | CLI invocation framework | `ccw` directory |

@@ -396,10 +396,10 @@ Task({
 
 **Capabilities**:
 - Orchestrates parallel CLAUDE.md updates
-- Uses ccw tool exec update_module_claude
+- Uses MCP tools directly for module documentation
 - Processes every module path
 
-**Tools**: `Bash`, `ccw tool exec`, `TodoWrite`
+**Tools**: `Bash`, `mcp__ccw-tools__*`, `TodoWrite`
 
 ```javascript
 Task({
@@ -511,7 +511,7 @@ Specialized agents use: `mcp__ace-tool__search_context`, `mcp__ccw-tools__smart_
 
 ### CLI Tools
 
-CLI-capable agents use: `ccw cli`, `ccw tool exec`
+CLI-capable agents use: `ccw cli`, MCP tools directly
 
 ### Workflow Tools
 

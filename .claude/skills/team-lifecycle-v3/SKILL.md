@@ -78,12 +78,25 @@ Workers use CLI tools for complex analysis:
 
 ### Coordinator-Only Utility Members
 
+**⚠️ COORDINATOR ONLY**: Utility members can only be spawned by Coordinator.
+Workers CANNOT call Agent() to spawn utility members.
+
 Coordinator can spawn utility members for team-level orchestration:
 
-| Utility Member | Purpose | When |
-|----------------|---------|------|
-| explorer | Parallel multi-angle exploration | High complexity analysis |
-| discussant | Aggregate multi-CLI critique | Critical decision points |
+| Utility Member | Purpose | When | Callable By |
+|----------------|---------|------|-------------|
+| explorer | Parallel multi-angle exploration | High complexity analysis | **Coordinator only** |
+| discussant | Aggregate multi-CLI critique | Critical decision points | **Coordinator only** |
+
+### Worker Alternatives
+
+Workers needing similar capabilities must use CLI tools:
+
+| Capability | CLI Command | Example |
+|------------|-------------|---------|
+| Codebase exploration | `ccw cli --tool gemini --mode analysis` | Explore architecture patterns |
+| Multi-perspective critique | Parallel CLI calls | Security + performance + quality reviews |
+| Document generation | `ccw cli --tool gemini --mode write` | Generate PRD from research |
 
 ### Dynamic Role Injection
 

@@ -50,8 +50,8 @@ The workflow executes automatically:
 
 After a checkpoint, resume the workflow:
 
-```bash
-ccw workflow resume
+```javascript
+Skill(skill="workflow-execute", args="--resume")
 ```
 
 ## Workflow Tasks
@@ -163,21 +163,21 @@ Always review checkpoints:
 
 Provide feedback during workflow:
 
-```bash
-# Add feedback during review
-ccw workflow feedback --task REVIEW-001 --message "Tests need more edge cases"
+```javascript
+// Add feedback during review
+Skill(skill="workflow-execute", args="--feedback --task REVIEW-001")
 ```
 
 ### 4. Monitor Progress
 
 Track workflow status:
 
-```bash
-# Check workflow status
-ccw workflow status
+```javascript
+// Check workflow status
+Skill(skill="workflow-execute", args="--status")
 
-# View task details
-ccw workflow task IMPL-001
+// View task details
+Skill(skill="workflow-execute", args="--task IMPL-001")
 ```
 
 ## Troubleshooting
@@ -186,21 +186,21 @@ ccw workflow task IMPL-001
 
 If a workflow stalls:
 
-```bash
-# Check for blocked tasks
-ccw workflow status --blocked
+```javascript
+// Check for blocked tasks
+Skill(skill="workflow-execute", args="--status --blocked")
 
-# Reset stuck tasks
-ccw workflow reset --task IMPL-001
+// Reset stuck tasks
+Skill(skill="workflow-execute", args="--reset --task IMPL-001")
 ```
 
 ### Failed Tasks
 
 Retry failed tasks:
 
-```bash
-# Retry with new prompt
-ccw workflow retry --task IMPL-001 --prompt "Fix the TypeScript errors"
+```javascript
+// Retry with new prompt
+Skill(skill="workflow-execute", args="--retry --task IMPL-001")
 ```
 
 ::: info See Also

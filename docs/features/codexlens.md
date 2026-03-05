@@ -41,21 +41,17 @@
 
 ## Usage
 
-### Indexing Project
+### Via MCP Tool (Recommended)
 
-```bash
-ccw index
-ccw index --watch  # Continuous indexing
+```typescript
+// ACE semantic search
+mcp__ace-tool__search_context({
+  project_root_path: "/path/to/project",
+  query: "authentication logic"
+})
 ```
 
-### Searching
-
-```bash
-ccw search "authentication logic"
-ccw search "where is user validation" --top 10
-```
-
-### Via MCP Tool
+> **Note**: The CLI commands `ccw index` and `ccw search` are deprecated. Use MCP tools directly for semantic search.
 
 ```typescript
 // ACE semantic search

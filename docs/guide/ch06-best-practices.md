@@ -301,12 +301,14 @@ graph LR
 
 ### Memory Maintenance
 
-| Operation | Command |
+| Operation | MCP Tool |
 | --- | --- |
-| List memories | `ccw memory list` |
-| Search memories | `ccw memory search "..."` |
-| Import memory | `ccw memory import "..."` |
-| Export memory | `ccw memory export <id>` |
+| List memories | `mcp__ccw-tools__core_memory(operation="list")` |
+| Search memories | `mcp__ccw-tools__core_memory(operation="search", query="...")` |
+| Import memory | `mcp__ccw-tools__core_memory(operation="import", text="...")` |
+| Export memory | `mcp__ccw-tools__core_memory(operation="export", id="...")` |
+
+> **Note**: The CLI commands `ccw memory *` are deprecated. Use MCP tools directly.
 
 ---
 

@@ -3,7 +3,6 @@ role: fe-developer
 prefix: DEV-FE
 inner_loop: false
 discuss_rounds: []
-subagents: []
 message_types:
   success: dev_fe_complete
   progress: dev_fe_progress

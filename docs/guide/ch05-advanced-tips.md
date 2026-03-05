@@ -192,7 +192,7 @@ Configure in `.claude/hooks.json`:
     {
       "name": "save-decisions",
       "description": "Save important decisions",
-      "command": "ccw memory import \"{content}\""
+      "command": "mcp__ccw-tools__core_memory(operation=\"import\", text=\"{content}\")"
     }
   ]
 }

@@ -261,7 +261,7 @@ describe('my-skill', () => {
 
 ```bash
 export CCW_DEBUG=1
-ccw skill run my-skill "test input"
+Skill(skill="my-skill", args="\"test input\"")
 ```
 
 ::: info 参见

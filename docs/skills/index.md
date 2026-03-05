@@ -246,8 +246,8 @@ Skill(skill="team-roadmap-dev", args="--epic ts-migration")
 **Scenario**: Generate API documentation
 
 ```bash
-# Step 1: Capture existing patterns
-ccw memory:capture "API patterns: REST, versioning, error handling"
+# Step 1: Capture existing patterns via memory skill
+Skill(skill="memory-capture", args="API patterns: REST, versioning, error handling")
 
 # Step 2: Generate docs
 ccw software-manual --output ./docs/api/

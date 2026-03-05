@@ -3,7 +3,6 @@ role: tester
 prefix: TEST
 inner_loop: false
 discuss_rounds: []
-subagents: []
 message_types:
   success: test_result
   fix: fix_required

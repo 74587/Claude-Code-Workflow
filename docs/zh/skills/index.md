@@ -219,11 +219,11 @@ Skill(skill="review-code")
 ccw cli -p "Analyze /api/users endpoint for N+1 query issues" --tool gemini --mode analysis
 
 # 步骤 2：深度调查（如需要）
-ccw workflow:debug-with-file
+Skill(skill="workflow:debug-with-file")
 # 创建假设、植入代码、分析日志
 
 # 步骤 3：应用修复
-ccw workflow-execute --task "Fix N+1 query in user endpoint"
+Skill(skill="workflow-execute", args="--task \"Fix N+1 query in user endpoint\"")
 ```
 
 ### 示例 3：代码迁移
@@ -247,10 +247,10 @@ Skill(skill="team-roadmap-dev", args="--epic ts-migration")
 
 ```bash
 # 步骤 1：捕获现有模式
-ccw memory:capture "API patterns: REST, versioning, error handling"
+Skill(skill="memory-capture", args="\"API patterns: REST, versioning, error handling\"")
 
 # 步骤 2：生成文档
-ccw software-manual --output ./docs/api/
+Skill(skill="software-manual", args="--output ./docs/api/")
 ```
 
 ### 示例 5：代码审查流水线
@@ -259,10 +259,10 @@ ccw software-manual --output ./docs/api/
 
 ```bash
 # 全面审查
-ccw review-code --focus security,performance
+Skill(skill="review-code", args="--focus security,performance")
 
 # 或使用循环自动修复
-ccw review-cycle --max-iterations 3
+Skill(skill="review-cycle", args="--max-iterations 3")
 ```
 
 ### 最佳效果提示

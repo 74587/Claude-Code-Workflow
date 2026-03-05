@@ -3,7 +3,6 @@ role: fe-qa
 prefix: QA-FE
 inner_loop: false
 discuss_rounds: []
-subagents: []
 message_types:
   success: qa_fe_passed
   result: qa_fe_result

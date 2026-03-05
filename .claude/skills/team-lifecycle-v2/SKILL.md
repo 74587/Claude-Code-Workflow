@@ -34,8 +34,8 @@ Optimized lifecycle: specification → implementation → testing → review. Bu
                                         | fe-qa  |
                                         +--------+
 
-  Subagent (callable by analyst, writer, reviewer):
-    [discuss-subagent]  - multi-perspective critique (3 rounds)
+  ⚠️ ARCHITECTURAL CONSTRAINT: Workers CANNOT spawn subagents.
+  Workers use CLI tools for complex analysis (see "CLI Tool Usage in Workers" section).
 ```
 
 ## Role Router

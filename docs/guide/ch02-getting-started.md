@@ -164,16 +164,16 @@ Multi-perspective brainstorming for diverse viewpoints:
 
 ### 2.5.1 View Project Memory
 
-```bash
-ccw memory list
+```typescript
+mcp__ccw-tools__core_memory(operation="list")
 ```
 
 Display all project memories, including learnings, decisions, conventions, and issues.
 
 ### 2.5.2 Search Related Memory
 
-```bash
-ccw memory search "authentication"
+```typescript
+mcp__ccw-tools__core_memory(operation="search", query="authentication")
 ```
 
 Semantic search for memories related to "authentication".
@@ -192,20 +192,16 @@ Interactively capture important knowledge points from the current session.
 
 ### 2.6.1 Semantic Search
 
-Use CodexLens search in VS Code:
+Use ACE semantic search via MCP tool:
 
-```bash
-# Search via CodexLens MCP endpoint
-ccw search "user login logic"
+```typescript
+mcp__ace-tool__search_context(
+  project_root_path="/path/to/project",
+  query="user login logic"
+)
 ```
 
-### 2.6.2 Call Chain Tracing
-
-Search function definitions and all call locations:
-
-```bash
-ccw search --trace "authenticateUser"
-```
+> **Note**: The CLI commands `ccw search` and `ccw memory` are deprecated. Use MCP tools directly.
 
 ---
 
@@ -297,7 +293,7 @@ npm install
 | `/workflow-plan` | Planning workflow |
 | `/brainstorm` | Brainstorming |
 | `/review-code` | Code review |
-| `ccw memory list` | View Memory |
+| `mcp__ccw-tools__core_memory(operation="list")` | View Memory |
 | `ccw cli -p "..."` | CLI invocation |
 
 ---

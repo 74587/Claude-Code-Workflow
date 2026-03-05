@@ -3,7 +3,6 @@ role: planner
 prefix: PLAN
 inner_loop: true
 discuss_rounds: []
-subagents: []
 message_types:
   success: plan_ready
   revision: plan_revision

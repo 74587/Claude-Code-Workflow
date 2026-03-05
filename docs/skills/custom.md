@@ -257,12 +257,14 @@ describe('my-skill', () => {
 
 ## Debugging
 
-Enable debug logging:
+Enable debug logging and invoke skill directly:
 
 ```bash
 export CCW_DEBUG=1
-ccw skill run my-skill "test input"
+Skill(skill="my-skill", args="test input")
 ```
+
+> **Note**: The CLI command `ccw skill run` is deprecated. Use `Skill()` tool directly.
 
 ::: info See Also
 - [Core Skills](./core-skills.md) - Built-in skill reference
