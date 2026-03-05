@@ -1639,26 +1639,54 @@ async function cleanIndexes(params: Params): Promise<ExecuteResult> {
 // Tool schema for MCP
 export const schema: ToolSchema = {
   name: 'codex_lens',
-  description: `CodexLens - Code indexing and semantic search.
+  description: `CodexLens - Code indexing and semantic search. Choose an action and provide its required parameters.
 
-Usage:
-  codex_lens(action="init", path=".")           # Index directory (auto-generates embeddings if available)
-  codex_lens(action="search", query="func")     # Search code (auto: hybrid if embeddings exist, else exact)
-  codex_lens(action="search", query="func", mode="hybrid")  # Force hybrid search
-  codex_lens(action="search_files", query="x")  # Search, return paths only
+**Actions & Required Parameters:**
 
-Graph Enrichment:
-  codex_lens(action="search", query="func", enrich=true)  # Enrich results with code relationships
+*   **init**: Index directory (auto-generates embeddings if available).
+    *   *path* (string): Directory to index (default: current).
+    *   *languages* (array): Languages to index (e.g., ["javascript", "typescript", "python"]).
 
-Search Modes:
-  - auto: Auto-detect (hybrid if embeddings exist, exact otherwise) [default]
-  - exact/text: Exact FTS for code identifiers
-  - hybrid: Exact + Fuzzy + Vector fusion (best results, requires embeddings)
-  - fuzzy: Typo-tolerant search
-  - vector: Semantic + keyword
-  - pure-vector/semantic: Pure semantic search
+*   **search**: Search code content.
+    *   **query** (string, **REQUIRED**): Search query text.
+    *   *path* (string): Directory to search (default: current).
+    *   *mode* (string): Search mode (default: "auto").
+        - "auto": Auto-detect (hybrid if embeddings exist, exact otherwise).
+        - "exact"/"text": Exact FTS for code identifiers.
+        - "hybrid": Exact + Fuzzy + Vector fusion (best results, requires embeddings).
+        - "fuzzy": Typo-tolerant search.
+        - "vector": Semantic + keyword.
+        - "semantic"/"pure-vector": Pure semantic search.
+    *   *limit* (number): Max results (default: 20).
+    *   *enrich* (boolean): Enrich with code relationships (default: false).
+    *   *format* (string): Output format - "json" | "text" | "pretty" (default: "json").
 
-Note: For advanced operations (config, status, clean), use CLI directly: codexlens --help`,
+*   **search_files**: Search and return file paths only.
+    *   **query** (string, **REQUIRED**): Search query text.
+    *   *path* (string): Directory to search (default: current).
+    *   *limit* (number): Max results (default: 20).
+
+*   **status**: Check index status.
+    *   *path* (string): Directory to check (default: current).
+
+*   **symbol**: Extract symbols from code.
+    *   *path* (string): Directory to analyze (default: current).
+
+*   **check**: Check if CodexLens is ready.
+    *   *path* (string): Directory to check (default: current).
+
+*   **update**: Incremental index update.
+    *   *path* (string): Directory to update (default: current).
+
+*   **bootstrap**: Setup Python virtual environment.
+
+**Examples:**
+  codex_lens(action="init", path=".")
+  codex_lens(action="search", query="authentication")
+  codex_lens(action="search", query="func", mode="hybrid", enrich=true)
+  codex_lens(action="search_files", query="MyClass")
+
+**Note:** For advanced operations (config, clean), use CLI: codexlens --help`,
   inputSchema: {
     type: 'object',
     properties: {
