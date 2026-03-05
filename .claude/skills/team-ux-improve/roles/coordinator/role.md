@@ -114,6 +114,23 @@ For callback/check/resume: load `commands/monitor.md` and execute handler, then 
    ```
 3. TeamCreate(team_name="ux-improve")
 4. Initialize meta.json with pipeline config:
+
+### Wisdom Initialization
+
+After creating session directory, initialize wisdom from skill's permanent knowledge base:
+
+1. Copy `.claude/skills/team-ux-improve/wisdom/` contents to `<session>/wisdom/`
+2. Create `<session>/wisdom/contributions/` directory if not exists
+3. This provides workers with initial patterns, principles, and anti-patterns
+
+Example:
+```bash
+# Copy permanent wisdom to session
+cp -r .claude/skills/team-ux-improve/wisdom/* <session>/wisdom/
+mkdir -p <session>/wisdom/contributions/
+```
+
+5. Initialize meta.json with pipeline config:
    ```
    team_msg(operation="log", session_id=<session-id>, from="coordinator",
             type="state_update",
@@ -182,6 +199,32 @@ Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Pha
    - artifacts/design-guide.md
    - artifacts/fixes/
    - artifacts/test-report.md
+
+### Wisdom Consolidation
+
+Before pipeline completion, handle knowledge contributions:
+
+1. Check if `<session>/wisdom/contributions/` has any files
+2. If contributions exist:
+   - Summarize contributions for user review
+   - Use AskUserQuestion to ask if user wants to merge valuable contributions back to permanent wisdom
+   - If approved, copy selected contributions to `.claude/skills/team-ux-improve/wisdom/` (classify into patterns/, anti-patterns/, etc.)
+
+Example interaction:
+```
+AskUserQuestion({
+  questions: [{
+    question: "Workers contributed new knowledge during this session. Merge to permanent wisdom?",
+    header: "Knowledge",
+    options: [
+      { label: "Merge All", description: "Add all contributions to permanent wisdom" },
+      { label: "Review First", description: "Show contributions before deciding" },
+      { label: "Skip", description: "Keep contributions in session only" }
+    ]
+  }]
+})
+```
+
 3. **Completion Action** (interactive mode):
 
 ```

@@ -264,9 +264,15 @@ AskUserQuestion({
 │   └── test-report.md     ← tester output
 ├── explorations/          ← explorer cache
 │   └── cache-index.json
-└── wisdom/                ← Knowledge base
-    ├── ui-patterns.md
-    └── state-management.md
+└── wisdom/                ← Session knowledge base
+    ├── contributions/     ← Worker contributions (write-only for workers)
+    ├── principles/        ← Core principles
+    │   └── general-ux.md
+    ├── patterns/          ← Solution patterns
+    │   ├── ui-feedback.md
+    │   └── state-management.md
+    └── anti-patterns/     ← Issues to avoid
+        └── common-ux-pitfalls.md
 ```
 
 ## Error Handling

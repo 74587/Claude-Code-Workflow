@@ -15,7 +15,12 @@ Generate executable fix code with proper state management, event handling, and U
 1. Extract session path from task description
 2. Read design guide: `<session>/artifacts/design-guide.md`
 3. Extract implementation tasks from design guide
-4. Load framework conventions from wisdom files (if available)
+4. **Wisdom Input**:
+   - Read `<session>/wisdom/patterns/state-management.md` for state handling patterns
+   - Read `<session>/wisdom/patterns/ui-feedback.md` for UI feedback implementation patterns
+   - Read `<session>/wisdom/principles/general-ux.md` for implementation principles
+   - Load framework-specific conventions if available
+   - Apply these patterns and principles when generating code to ensure consistency and quality
 5. **For inner loop**: Load context_accumulator from prior IMPL tasks
 
 ### Context Accumulator (Inner Loop)
@@ -122,4 +127,38 @@ team_msg(operation="log", session_id=<session-id>, from="implementer",
            modified_files: [<file-list>],
            validation_passed: true
          })
+```
+
+### Wisdom Contribution
+
+If reusable code patterns or snippets created:
+1. Write code snippets to `<session>/wisdom/contributions/implementer-snippets-<timestamp>.md`
+2. Format: Use case, code snippet with comments, framework compatibility notes
+
+Example contribution format:
+```markdown
+# Implementer Snippets - <timestamp>
+
+## Loading State Pattern (React)
+
+### Use Case
+Async operations requiring loading indicator
+
+### Code Snippet
+```tsx
+const [isLoading, setIsLoading] = useState(false);
+
+const handleAsyncAction = async () => {
+  setIsLoading(true);
+  try {
+    await performAction();
+  } finally {
+    setIsLoading(false);
+  }
+};
+```
+
+### Framework Compatibility
+- React 16.8+ (hooks)
+- Next.js compatible
 ```

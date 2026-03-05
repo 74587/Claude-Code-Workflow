@@ -22,6 +22,13 @@ Design feedback mechanisms (loading/error/success states) and state management p
 | React | useState, useRef | onClick, onChange |
 | Vue | ref, reactive | @click, @change |
 
+### Wisdom Input
+
+1. Read `<session>/wisdom/patterns/ui-feedback.md` for established feedback design patterns
+2. Read `<session>/wisdom/patterns/state-management.md` for state handling patterns
+3. Read `<session>/wisdom/principles/general-ux.md` for UX design principles
+4. Apply patterns when designing solutions for identified issues
+
 ### Complex Design (use CLI)
 
 For complex multi-component solutions:
@@ -166,6 +173,13 @@ const handleUpload = async (event: React.FormEvent) => {
 ```
 
 2. Write guide to `<session>/artifacts/design-guide.md`
+
+### Wisdom Contribution
+
+If novel design patterns created:
+1. Write new patterns to `<session>/wisdom/contributions/designer-pattern-<timestamp>.md`
+2. Format: Problem context, solution design, implementation hints, trade-offs
+
 3. Share state via team_msg:
    ```
    team_msg(operation="log", session_id=<session-id>, from="designer",

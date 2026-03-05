@@ -222,6 +222,7 @@ export {
   cliInstallationsKeys,
   useHooks,
   useToggleHook,
+  useDeleteHook,
   hooksKeys,
   useRules,
   useToggleRule,
@@ -396,3 +397,27 @@ export type {
   SkillCacheResponse,
   SkillHubStats,
 } from './useSkillHub';
+
+// ========== DeepWiki ==========
+export {
+  useDeepWikiFiles,
+  useDeepWikiDoc,
+  useDeepWikiStats,
+  useDeepWikiSearch,
+  deepWikiKeys,
+} from './useDeepWiki';
+export type {
+  DeepWikiFile,
+  DeepWikiSymbol,
+  DeepWikiDoc,
+  DeepWikiStats,
+  DocumentResponse,
+  UseDeepWikiFilesOptions,
+  UseDeepWikiFilesReturn,
+  UseDeepWikiDocOptions,
+  UseDeepWikiDocReturn,
+  UseDeepWikiStatsOptions,
+  UseDeepWikiStatsReturn,
+  UseDeepWikiSearchOptions,
+  UseDeepWikiSearchReturn,
+} from './useDeepWiki';

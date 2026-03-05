@@ -46,6 +46,7 @@ import { handleTeamRoutes } from './routes/team-routes.js';
 import { handleNotificationRoutes } from './routes/notification-routes.js';
 import { handleAnalysisRoutes } from './routes/analysis-routes.js';
 import { handleSpecRoutes } from './routes/spec-routes.js';
+import { handleDeepWikiRoutes } from './routes/deepwiki-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients, extractSessionIdFromPath } from './websocket.js';

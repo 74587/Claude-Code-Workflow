@@ -29,6 +29,12 @@ Generate and run tests to verify fixes (loading states, error handling, state up
 
 3. Load test strategy from design guide
 
+### Wisdom Input
+
+1. Read `<session>/wisdom/anti-patterns/common-ux-pitfalls.md` for common issues to test
+2. Read `<session>/wisdom/patterns/ui-feedback.md` for expected feedback behaviors to verify
+3. Use wisdom to design comprehensive test cases covering known edge cases
+
 ## Phase 3: Test Generation & Execution
 
 ### Test Generation
@@ -95,6 +101,12 @@ Iterative test-fix cycle (max 5 iterations):
 5. If iterations >= 5 -> send fix_required message
 
 ## Phase 4: Test Report
+
+### Wisdom Contribution
+
+If new edge cases or test patterns discovered:
+1. Write test findings to `<session>/wisdom/contributions/tester-edge-cases-<timestamp>.md`
+2. Format: Edge case description, test scenario, expected behavior, actual behavior
 
 Generate test report:
 

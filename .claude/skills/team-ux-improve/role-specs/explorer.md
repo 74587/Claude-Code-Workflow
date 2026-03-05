@@ -15,6 +15,12 @@ Explore codebase for UI component patterns, state management conventions, and fr
 1. Parse exploration request from task description
 2. Determine file patterns based on framework:
 
+### Wisdom Input
+
+1. Read `<session>/wisdom/patterns/ui-feedback.md` and `<session>/wisdom/patterns/state-management.md` if available
+2. Use known patterns as reference when exploring codebase for component structures
+3. Check `<session>/wisdom/anti-patterns/common-ux-pitfalls.md` to identify problematic patterns during exploration
+
 | Framework | Patterns |
 |-----------|----------|
 | React | `**/*.tsx`, `**/*.jsx`, `**/use*.ts`, `**/store*.ts` |
@@ -80,6 +86,18 @@ For each dimension, collect:
 
 2. Cache results to `<session>/explorations/cache-index.json`
 3. Write summary to `<session>/explorations/exploration-summary.md`
+
+### Wisdom Contribution
+
+If new component patterns or framework conventions discovered:
+1. Write pattern summaries to `<session>/wisdom/contributions/explorer-patterns-<timestamp>.md`
+2. Format:
+   - Pattern Name: Descriptive name
+   - Framework: React/Vue/etc.
+   - Use Case: When to apply this pattern
+   - Code Example: Representative snippet
+   - Adoption: How widely used in codebase
+
 4. Share state via team_msg:
    ```
    team_msg(operation="log", session_id=<session-id>, from="explorer",

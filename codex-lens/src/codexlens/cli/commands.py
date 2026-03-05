@@ -4414,3 +4414,95 @@ def index_migrate_deprecated(
         json_mode=json_mode,
         verbose=verbose,
     )
+
+
+# ==================== DeepWiki Commands ====================
+
+deepwiki_app = typer.Typer(help="DeepWiki documentation generation commands")
+app.add_typer(deepwiki_app, name="deepwiki")
+
+
+@deepwiki_app.command("generate")
+def deepwiki_generate(
+    path: Annotated[Path, typer.Argument(help="File or directory to generate docs for")] = Path("."),
+    force: Annotated[bool, typer.Option("--force", "-f", help="Force regeneration")] = False,
+    json_mode: Annotated[bool, typer.Option("--json", help="Output JSON response")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose logging")] = False,
+) -> None:
+    """Generate DeepWiki documentation for source files.
+
+    Scans source code, extracts symbols, and generates Markdown documentation
+    with incremental updates using SHA256 hashes for change detection.
+
+    Examples:
+        codexlens deepwiki generate ./src
+        codexlens deepwiki generate ./src/auth.py
+    """
+    from codexlens.tools.deepwiki_generator import DeepWikiGenerator
+
+    _configure_logging(verbose, json_mode)
+
+    path = Path(path).resolve()
+    if not path.exists():
+        msg = f"Path not found: {path}"
+        if json_mode:
+            print_json(success=False, error=msg)
+        else:
+            console.print(f"[red]Error:[/red] {msg}")
+        raise typer.Exit(code=1)
+
+    try:
+        generator = DeepWikiGenerator()
+        result = generator.run(path)
+
+        if json_mode:
+            print_json(success=True, result=result)
+        else:
+            console.print(f"[green]DeepWiki generation complete:[/green]")
+            console.print(f"  Files processed: {result['processed_files']}/{result['total_files']}")
+            console.print(f"  Symbols found: {result['total_symbols']}")
+            console.print(f"  Docs generated: {result['docs_generated']}")
+            if result['skipped_files'] > 0:
+                console.print(f"  Files skipped (unchanged): {result['skipped_files']}")
+
+    except Exception as e:
+        msg = f"DeepWiki generation failed: {e}"
+        if json_mode:
+            print_json(success=False, error=msg)
+        else:
+            console.print(f"[red]Error:[/red] {msg}")
+        raise typer.Exit(code=1)
+
+
+@deepwiki_app.command("status")
+def deepwiki_status(
+    json_mode: Annotated[bool, typer.Option("--json", help="Output JSON response")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Enable verbose logging")] = False,
+) -> None:
+    """Show DeepWiki documentation status.
+
+    Displays statistics about indexed files and generated documentation.
+    """
+    from codexlens.storage.deepwiki_store import DeepWikiStore
+
+    _configure_logging(verbose, json_mode)
+
+    try:
+        store = DeepWikiStore()
+        stats = store.get_stats()
+
+        if json_mode:
+            print_json(success=True, result=stats)
+        else:
+            console.print("[cyan]DeepWiki Status:[/cyan]")
+            console.print(f"  Files tracked: {stats.get('files_count', 0)}")
+            console.print(f"  Symbols indexed: {stats.get('symbols_count', 0)}")
+            console.print(f"  Docs generated: {stats.get('docs_count', 0)}")
+
+    except Exception as e:
+        msg = f"Failed to get DeepWiki status: {e}"
+        if json_mode:
+            print_json(success=False, error=msg)
+        else:
+            console.print(f"[red]Error:[/red] {msg}")
+        raise typer.Exit(code=1)

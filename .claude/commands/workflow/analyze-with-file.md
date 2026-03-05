@@ -238,8 +238,24 @@ Session: ${sessionFolder}
 
 ## MANDATORY FIRST STEPS
 1. Run: ccw tool exec get_modules_by_depth '{}'
-2. Execute relevant searches based on topic keywords
-3. Read: .workflow/project-tech.json (if exists)
+2. Read: .workflow/project-tech.json (if exists)
+
+## Layered Exploration (MUST follow all 3 layers)
+
+### Layer 1 — Module Discovery (Breadth)
+- Search codebase by topic keywords, identify ALL relevant files
+- Map module boundaries and entry points
+- Output: relevant_files[] with file role annotations
+
+### Layer 2 — Structure Tracing (Depth)
+- For top 3-5 key files from Layer 1: trace call chains (2-3 levels deep)
+- Identify data flow paths and dependency relationships
+- Output: call_chains[], data_flows[]
+
+### Layer 3 — Code Anchor Extraction (Detail)
+- For each key finding: extract the actual code snippet (20-50 lines) with file:line reference
+- Annotate WHY this code matters to the analysis topic
+- Output: code_anchors[] — these are CRITICAL for subsequent analysis quality
 
 ## Exploration Focus
 ${dimensions.map(d => `- ${d}: Identify relevant code patterns and structures`).join('\n')}
@@ -247,7 +263,7 @@ ${dimensions.map(d => `- ${d}: Identify relevant code patterns and structures`).
 ## Output
 Write findings to: ${sessionFolder}/exploration-codebase.json
 
-Schema: {relevant_files, patterns, key_findings, questions_for_user, _metadata}
+Schema: {relevant_files, patterns, key_findings, code_anchors: [{file, lines, snippet, significance}], call_chains: [{entry, chain, files}], questions_for_user, _metadata}
 `
 })
 ```
@@ -268,8 +284,21 @@ Session: ${sessionFolder}
 
 ## MANDATORY FIRST STEPS
 1. Run: ccw tool exec get_modules_by_depth '{}'
-2. Execute searches focused on ${perspective.focus}
-3. Read: .workflow/project-tech.json (if exists)
+2. Read: .workflow/project-tech.json (if exists)
+
+## Layered Exploration (${perspective.name} angle, MUST follow all 3 layers)
+
+### Layer 1 — Module Discovery
+- Search codebase focused on ${perspective.focus}
+- Identify ALL relevant files for this perspective
+
+### Layer 2 — Structure Tracing
+- For top 3-5 key files: trace call chains (2-3 levels deep)
+- Map data flows relevant to ${perspective.focus}
+
+### Layer 3 — Code Anchor Extraction
+- For each key finding: extract actual code snippet (20-50 lines) with file:line
+- Annotate significance for ${perspective.name} analysis
 
 ## Exploration Focus (${perspective.name} angle)
 ${perspective.exploration_tasks.map(t => `- ${t}`).join('\n')}
@@ -277,7 +306,7 @@ ${perspective.exploration_tasks.map(t => `- ${t}`).join('\n')}
 ## Output
 Write findings to: ${sessionFolder}/explorations/${perspective.name}.json
 
-Schema: {relevant_files, patterns, key_findings, perspective_insights, _metadata}
+Schema: {relevant_files, patterns, key_findings, code_anchors: [{file, lines, snippet, significance}], call_chains: [{entry, chain, files}], perspective_insights, _metadata}
 `
   })
 })
@@ -301,11 +330,14 @@ PRIOR EXPLORATION CONTEXT:
 - Key files: ${explorationResults.relevant_files.slice(0,5).map(f => f.path).join(', ')}
 - Patterns found: ${explorationResults.patterns.slice(0,3).join(', ')}
 - Key findings: ${explorationResults.key_findings.slice(0,3).join(', ')}
+- Code anchors (actual code snippets):
+${(explorationResults.code_anchors || []).slice(0,5).map(a => `  [${a.file}:${a.lines}] ${a.significance}\n  \`\`\`\n  ${a.snippet}\n  \`\`\``).join('\n')}
+- Call chains: ${(explorationResults.call_chains || []).slice(0,3).map(c => `${c.entry} → ${c.chain.join(' → ')}`).join('; ')}
 
 TASK:
-• Build on exploration findings above
-• Analyze common patterns and anti-patterns
-• Highlight potential issues or opportunities
+• Build on exploration findings above — reference specific code anchors in analysis
+• Analyze common patterns and anti-patterns with code evidence
+• Highlight potential issues or opportunities with file:line references
 • Generate discussion points for user clarification
 
 MODE: analysis
@@ -324,7 +356,10 @@ const explorationContext = `
 PRIOR EXPLORATION CONTEXT:
 - Key files: ${explorationResults.relevant_files.slice(0,5).map(f => f.path).join(', ')}
 - Patterns found: ${explorationResults.patterns.slice(0,3).join(', ')}
-- Key findings: ${explorationResults.key_findings.slice(0,3).join(', ')}`
+- Key findings: ${explorationResults.key_findings.slice(0,3).join(', ')}
+- Code anchors:
+${(explorationResults.code_anchors || []).slice(0,5).map(a => `  [${a.file}:${a.lines}] ${a.significance}`).join('\n')}
+- Call chains: ${(explorationResults.call_chains || []).slice(0,3).map(c => `${c.entry} → ${c.chain.join(' → ')}`).join('; ')}`
 
 // Launch parallel CLI calls based on selected perspectives (max 4)
 selectedPerspectives.forEach(perspective => {
@@ -368,6 +403,8 @@ CONSTRAINTS: ${perspective.constraints}
 - `dimensions[]`: Analysis dimensions
 - `sources[]`: {type, file/summary}
 - `key_findings[]`: Main insights
+- `code_anchors[]`: {file, lines, snippet, significance}
+- `call_chains[]`: {entry, chain, files}
 - `discussion_points[]`: Questions for user
 - `open_questions[]`: Unresolved questions
 
@@ -378,7 +415,9 @@ CONSTRAINTS: ${perspective.constraints}
 - `dimensions[]`: Analysis dimensions
 - `perspectives[]`: [{name, tool, findings, insights, questions}]
 - `synthesis`: {convergent_themes, conflicting_views, unique_contributions}
-- `aggregated_findings[]`: Main insights across perspectives
+- `key_findings[]`: Main insights across perspectives
+- `code_anchors[]`: {file, lines, snippet, significance, perspective}
+- `call_chains[]`: {entry, chain, files, perspective}
 - `discussion_points[]`: Questions for user
 - `open_questions[]`: Unresolved questions
 
@@ -423,9 +462,14 @@ CONSTRAINTS: ${perspective.constraints}
    - If direction changed, record a full Decision Record
 
    **Agree, Deepen**:
-   - Continue analysis in current direction
-   - Use CLI for deeper exploration
-   - **📌 Record**: Which assumptions were confirmed, specific angles for deeper exploration
+   - AskUserQuestion for deepen direction (single-select):
+     - **代码细节**: Read specific files, trace call chains deeper → cli-explore-agent with targeted file list
+     - **边界条件**: Analyze error handling, edge cases, failure paths → Gemini CLI focused on error paths
+     - **替代方案**: Compare different implementation approaches → Gemini CLI comparative analysis
+     - **性能/安全**: Analyze hot paths, complexity, or security vectors → cli-explore-agent + domain prompt
+   - Launch new cli-explore-agent or CLI call with **narrower scope + deeper depth requirement**
+   - Merge new code_anchors and call_chains into existing exploration results
+   - **📌 Record**: Which assumptions were confirmed, specific angles for deeper exploration, deepen direction chosen
 
    **Adjust Direction**:
    - AskUserQuestion for adjusted focus (code details / architecture / best practices)
@@ -471,7 +515,10 @@ CONSTRAINTS: ${perspective.constraints}
 
 | User Choice | Action | Tool | Description |
 |-------------|--------|------|-------------|
-| Deepen | Continue current direction | Gemini CLI | Deeper analysis in same focus |
+| Deepen → 代码细节 | Read files, trace call chains | cli-explore-agent | Targeted deep-dive into specific files |
+| Deepen → 边界条件 | Analyze error/edge cases | Gemini CLI | Focus on failure paths and edge cases |
+| Deepen → 替代方案 | Compare approaches | Gemini CLI | Comparative analysis |
+| Deepen → 性能/安全 | Analyze hot paths/vectors | cli-explore-agent | Domain-specific deep analysis |
 | Adjust | Change analysis angle | Selected CLI | New exploration with adjusted scope |
 | Questions | Answer specific questions | CLI or analysis | Address user inquiries |
 | Complete | Exit discussion loop | - | Proceed to synthesis |
@@ -629,7 +676,8 @@ DO NOT reference any analyze-with-file phase instructions beyond this point.
 - `completed`: Completion timestamp
 - `total_rounds`: Number of discussion rounds
 - `summary`: Executive summary
-- `key_conclusions[]`: {point, evidence, confidence}
+- `key_conclusions[]`: {point, evidence, confidence, code_anchor_refs[]}
+- `code_anchors[]`: {file, lines, snippet, significance}
 - `recommendations[]`: {action, rationale, priority}
 - `open_questions[]`: Unresolved questions
 - `follow_up_suggestions[]`: {type, summary}

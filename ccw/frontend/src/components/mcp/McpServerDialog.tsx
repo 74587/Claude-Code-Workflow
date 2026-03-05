@@ -35,7 +35,7 @@ import {
   isStdioMcpServer,
   isHttpMcpServer,
 } from '@/lib/api';
-import { mcpServersKeys, useMcpTemplates } from '@/hooks';
+import { mcpServersKeys, useMcpTemplates, useNotifications } from '@/hooks';
 import { cn } from '@/lib/utils';
 import { ConfigTypeToggle, type McpConfigType } from './ConfigTypeToggle';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
@@ -212,6 +212,7 @@ export function McpServerDialog({
   const { formatMessage } = useIntl();
   const queryClient = useQueryClient();
   const projectPath = useWorkflowStore(selectProjectPath);
+  const { error: showError } = useNotifications();
 
   // Fetch templates from backend
   const { templates, isLoading: templatesLoading } = useMcpTemplates();
@@ -544,7 +545,8 @@ export function McpServerDialog({
             env: Object.keys(formData.env).length > 0 ? formData.env : undefined,
           },
         });
-      } catch {
+      } catch (err) {
+        showError(formatMessage({ id: 'mcp.templates.feedback.saveError' }), err instanceof Error ? err.message : String(err));
         // Template save failure should not block server creation
       }
     }

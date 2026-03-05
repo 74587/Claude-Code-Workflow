@@ -14,6 +14,13 @@ Diagnose root causes of UI issues: state management problems, event binding fail
 
 1. Load scan report from `<session>/artifacts/scan-report.md`
 2. Load scanner state via `team_msg(operation="get_state", session_id=<session-id>, role="scanner")`
+
+### Wisdom Input
+
+1. Read `<session>/wisdom/patterns/ui-feedback.md` and `<session>/wisdom/patterns/state-management.md` if available
+2. Use patterns to identify root causes of UI interaction issues
+3. Reference `<session>/wisdom/anti-patterns/common-ux-pitfalls.md` for common causes
+
 3. Assess issue complexity:
 
 | Complexity | Criteria | Strategy |
@@ -82,6 +89,13 @@ For each issue from scan report:
 ```
 
 2. Write report to `<session>/artifacts/diagnosis.md`
+
+### Wisdom Contribution
+
+If new root cause patterns discovered:
+1. Write diagnosis patterns to `<session>/wisdom/contributions/diagnoser-patterns-<timestamp>.md`
+2. Format: Symptom, root cause, detection method, fix approach
+
 3. Share state via team_msg:
    ```
    team_msg(operation="log", session_id=<session-id>, from="diagnoser",

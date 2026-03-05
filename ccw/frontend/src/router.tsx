@@ -43,6 +43,7 @@ const TeamPage = lazy(() => import('@/pages/TeamPage').then(m => ({ default: m.T
 const TerminalDashboardPage = lazy(() => import('@/pages/TerminalDashboardPage').then(m => ({ default: m.TerminalDashboardPage })));
 const AnalysisPage = lazy(() => import('@/pages/AnalysisPage').then(m => ({ default: m.AnalysisPage })));
 const SpecsSettingsPage = lazy(() => import('@/pages/SpecsSettingsPage').then(m => ({ default: m.SpecsSettingsPage })));
+const DeepWikiPage = lazy(() => import('@/pages/DeepWikiPage').then(m => ({ default: m.DeepWikiPage })));
 
 /**
  * Helper to wrap lazy-loaded components with error boundary and suspense
@@ -198,6 +199,10 @@ const routes: RouteObject[] = [
         element: withErrorHandling(<AnalysisPage />),
       },
       {
+        path: 'deepwiki',
+        element: withErrorHandling(<DeepWikiPage />),
+      },
+      {
         path: 'terminal-dashboard',
         element: withErrorHandling(<TerminalDashboardPage />),
       },
@@ -263,6 +268,7 @@ export const ROUTES = {
   TERMINAL_DASHBOARD: '/terminal-dashboard',
   SKILL_HUB: '/skill-hub',
   ANALYSIS: '/analysis',
+  DEEPWIKI: '/deepwiki',
 } as const;
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];

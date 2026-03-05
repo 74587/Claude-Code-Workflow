@@ -70,8 +70,12 @@ Perform 4-dimension validation:
 
 2. CONSISTENCY (25%):
    - Terminology uniform across documents?
+   - Terminology glossary compliance: all core terms used consistently per glossary.json definitions?
+   - No synonym drift (e.g., "user" vs "client" vs "consumer" for same concept)?
    - User personas consistent?
    - Scope consistent (PRD does not exceed brief)?
+   - Scope containment: PRD requirements do not exceed product brief's defined scope?
+   - Non-Goals respected: no requirement or story contradicts explicit Non-Goals?
    - Tech stack references match between architecture and epics?
    - Score 0-100 with inconsistencies listed
 
@@ -223,6 +227,10 @@ AskUserQuestion({
         {
           label: "Create Issues",
           description: "Generate issues for each Epic via /issue:new"
+        },
+        {
+          label: "Iterate & improve",
+          description: "Re-run failed phases based on readiness report issues (max 2 iterations)"
         }
       ]
     }
@@ -386,6 +394,29 @@ if (selection === "Create Issues") {
 }
 
 // If user selects "Other": Export only or return to specific phase
+
+if (selection === "Iterate & improve") {
+  // Check iteration count
+  if (specConfig.iteration_count >= 2) {
+    // Max iterations reached, force handoff
+    // Present handoff options again without iterate
+    return;
+  }
+
+  // Update iteration tracking
+  specConfig.iteration_count = (specConfig.iteration_count || 0) + 1;
+  specConfig.iteration_history.push({
+    iteration: specConfig.iteration_count,
+    timestamp: new Date().toISOString(),
+    readiness_score: overallScore,
+    errors_found: errorCount,
+    phases_to_fix: affectedPhases
+  });
+  Write(`${workDir}/spec-config.json`, JSON.stringify(specConfig, null, 2));
+
+  // Proceed to Phase 6.5: Auto-Fix
+  // Read phases/06-5-auto-fix.md and execute
+}
 ```
 
 #### Helper Functions Reference (pseudocode)

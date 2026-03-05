@@ -533,6 +533,7 @@ export function McpManagerPage() {
     try {
       await updateCcwConfig({ ...currentConfig, enabledTools: updatedTools });
     } catch (error) {
+      notifications.error(formatMessage({ id: 'mcp.actions.toggle.error' }), error instanceof Error ? error.message : String(error));
       console.error('Failed to toggle CCW tool:', error);
       queryClient.setQueryData(ccwMcpQueryKey, previousConfig);
     }
@@ -561,6 +562,7 @@ export function McpManagerPage() {
         enableSandbox: currentConfig.enableSandbox,
       });
     } catch (error) {
+      notifications.error(formatMessage({ id: 'mcp.actions.update.error' }), error instanceof Error ? error.message : String(error));
       console.error('Failed to update CCW config:', error);
       queryClient.setQueryData(ccwMcpQueryKey, previousConfig);
     }
@@ -584,6 +586,7 @@ export function McpManagerPage() {
       await installCcwMcp(scope, scope === 'project' ? projectPath ?? undefined : undefined);
       ccwMcpQuery.refetch();
     } catch (error) {
+      notifications.error(formatMessage({ id: 'mcp.actions.install.error' }), error instanceof Error ? error.message : String(error));
       console.error('Failed to install CCW MCP to scope:', error);
     }
   };
@@ -594,6 +597,7 @@ export function McpManagerPage() {
       ccwMcpQuery.refetch();
       queryClient.invalidateQueries({ queryKey: ['mcpServers'] });
     } catch (error) {
+      notifications.error(formatMessage({ id: 'mcp.actions.uninstall.error' }), error instanceof Error ? error.message : String(error));
       console.error('Failed to uninstall CCW MCP from scope:', error);
     }
   };
@@ -625,6 +629,7 @@ export function McpManagerPage() {
     try {
       await updateCcwConfigForCodex({ ...currentConfig, enabledTools: updatedTools });
     } catch (error) {
+      notifications.error(formatMessage({ id: 'mcp.actions.toggle.error' }), error instanceof Error ? error.message : String(error));
       console.error('Failed to toggle CCW tool (Codex):', error);
       queryClient.setQueryData(['ccwMcpConfigCodex'], previousConfig);
     }
@@ -643,6 +648,7 @@ export function McpManagerPage() {
     try {
       await updateCcwConfigForCodex({ ...currentConfig, ...config });
     } catch (error) {
+      notifications.error(formatMessage({ id: 'mcp.actions.update.error' }), error instanceof Error ? error.message : String(error));
       console.error('Failed to update CCW config (Codex):', error);
       queryClient.setQueryData(['ccwMcpConfigCodex'], previousConfig);
     }
@@ -749,6 +755,7 @@ export function McpManagerPage() {
       await codexToggleServer(serverName, enabled);
       codexQuery.refetch();
     } catch (error) {
+      notifications.error(formatMessage({ id: 'mcp.actions.toggle.error' }), error instanceof Error ? error.message : String(error));
       console.error('Failed to toggle Codex MCP server:', error);
     }
   };

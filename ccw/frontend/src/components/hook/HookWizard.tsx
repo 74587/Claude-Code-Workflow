@@ -884,6 +884,13 @@ export function HookWizard({
           </DialogTitle>
         </DialogHeader>
 
+        <div className="w-full bg-muted h-1 rounded-full my-4">
+          <div
+            className="bg-primary h-1 rounded-full transition-all duration-300"
+            style={{ width: `${(currentStep / 3) * 100}%` }}
+          />
+        </div>
+
         {renderStepIndicator()}
 
         <div className="min-h-[300px]">

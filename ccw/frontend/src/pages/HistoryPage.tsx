@@ -24,6 +24,7 @@ import {
 import { useAppStore, selectIsImmersiveMode } from '@/stores/appStore';
 import { cn } from '@/lib/utils';
 import { useHistory } from '@/hooks/useHistory';
+import { useNotifications } from '@/hooks/useNotifications';
 import { useNativeSessionsInfinite } from '@/hooks/useNativeSessions';
 import { ConversationCard } from '@/components/shared/ConversationCard';
 import { CliStreamPanel } from '@/components/shared/CliStreamPanel';
@@ -58,6 +59,7 @@ type HistoryTab = 'executions' | 'observability' | 'native-sessions';
  */
 export function HistoryPage() {
   const { formatMessage } = useIntl();
+  const { error: showError } = useNotifications();
   const [currentTab, setCurrentTab] = React.useState<HistoryTab>('executions');
   const [searchQuery, setSearchQuery] = React.useState('');
   const [toolFilter, setToolFilter] = React.useState<string | undefined>(undefined);
@@ -184,6 +186,7 @@ export function HistoryPage() {
       setDeleteType(null);
       setDeleteTarget(null);
     } catch (err) {
+      showError(formatMessage({ id: 'history.deleteFailed' }), err instanceof Error ? err.message : String(err));
       console.error('Failed to delete:', err);
     }
   };

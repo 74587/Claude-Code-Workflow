@@ -32,6 +32,12 @@ Scan UI components to identify interaction issues: unresponsive buttons, missing
    - React: `**/*.tsx`, `**/*.jsx`, `**/use*.ts`
    - Vue: `**/*.vue`, `**/composables/*.ts`
 
+### Wisdom Input
+
+1. Read `<session>/wisdom/anti-patterns/common-ux-pitfalls.md` if available
+2. Use anti-patterns to identify known UX issues during scanning
+3. Check `<session>/wisdom/patterns/ui-feedback.md` for expected feedback patterns
+
 ### Complex Analysis (use CLI)
 
 For large projects with many components:
@@ -103,3 +109,9 @@ For each component file:
               scanned_files: <count>
             })
    ```
+
+### Wisdom Contribution
+
+If novel UX issues discovered that aren't in anti-patterns:
+1. Write findings to `<session>/wisdom/contributions/scanner-issues-<timestamp>.md`
+2. Format: Issue description, detection criteria, affected components

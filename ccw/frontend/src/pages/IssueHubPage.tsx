@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/Select';
-import { useIssues, useIssueMutations, useIssueQueue } from '@/hooks';
+import { useIssues, useIssueMutations, useIssueQueue, useNotifications } from '@/hooks';
 import { pullIssuesFromGitHub, uploadAttachments } from '@/lib/api';
 import type { Issue } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -287,6 +287,7 @@ export function IssueHubPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get('tab') as IssueTab;
   const currentTab = VALID_TABS.includes(rawTab) ? rawTab : 'issues';
+  const { error: showError, success } = useNotifications();
 
   // Redirect invalid tabs to 'issues'
   useEffect(() => {
@@ -297,6 +298,7 @@ export function IssueHubPage() {
 
   const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
   const [isGithubSyncing, setIsGithubSyncing] = useState(false);
+  const [isUploadingAttachments, setIsUploadingAttachments] = useState(false);
 
   // Immersive mode (fullscreen) - hide app chrome
   const isImmersiveMode = useAppStore(selectIsImmersiveMode);
@@ -322,14 +324,15 @@ export function IssueHubPage() {
     setIsGithubSyncing(true);
     try {
       const result = await pullIssuesFromGitHub({ state: 'open', limit: 100 });
-      console.log('GitHub sync result:', result);
+      success(formatMessage({ id: 'issues.notifications.githubSyncSuccess' }, { count: result.length }));
       await refetchIssues();
     } catch (error) {
+      showError(formatMessage({ id: 'issues.notifications.githubSyncFailed' }), error instanceof Error ? error.message : String(error));
       console.error('GitHub sync failed:', error);
     } finally {
       setIsGithubSyncing(false);
     }
-  }, [refetchIssues]);
+  }, [refetchIssues, success, showError, formatMessage]);
 
   const handleCreateIssue = async (data: { title: string; context?: string; priority?: Issue['priority']; type?: IssueType; attachments?: File[] }) => {
     try {
@@ -339,19 +342,26 @@ export function IssueHubPage() {
         context: data.context,
         priority: data.priority,
       });
+      success(formatMessage({ id: 'issues.notifications.createSuccess' }), newIssue.id);
 
       // Upload attachments if any
       if (data.attachments && data.attachments.length > 0 && newIssue.id) {
+        setIsUploadingAttachments(true);
         try {
           await uploadAttachments(newIssue.id, data.attachments);
+          success(formatMessage({ id: 'issues.notifications.attachmentSuccess' }));
         } catch (uploadError) {
+          showError(formatMessage({ id: 'issues.notifications.attachmentFailed' }), uploadError instanceof Error ? uploadError.message : String(uploadError));
           console.error('Failed to upload attachments:', uploadError);
           // Don't fail the whole operation, just log the error
+        } finally {
+          setIsUploadingAttachments(false);
         }
       }
 
       setIsNewIssueOpen(false);
     } catch (error) {
+      showError(formatMessage({ id: 'issues.notifications.createFailed' }), error instanceof Error ? error.message : String(error));
       console.error('Failed to create issue:', error);
     }
   };
@@ -438,7 +448,7 @@ export function IssueHubPage() {
       {currentTab === 'queue' && <QueuePanel />}
       {currentTab === 'discovery' && <DiscoveryPanel />}
 
-      <NewIssueDialog open={isNewIssueOpen} onOpenChange={setIsNewIssueOpen} onSubmit={handleCreateIssue} isCreating={isCreating} />
+      <NewIssueDialog open={isNewIssueOpen} onOpenChange={setIsNewIssueOpen} onSubmit={handleCreateIssue} isCreating={isCreating || isUploadingAttachments} />
     </div>
   );
 }

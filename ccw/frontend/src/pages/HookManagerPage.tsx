@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { HookCard, HookFormDialog, HookQuickTemplates, HookWizard, type HookCardData, type HookFormData, type HookTriggerType, HOOK_TEMPLATES, type WizardType } from '@/components/hook';
-import { useHooks, useToggleHook } from '@/hooks';
+import { useHooks, useToggleHook, useDeleteHook } from '@/hooks';
 import { cn } from '@/lib/utils';
 
 // ========== Types ==========
@@ -154,6 +154,7 @@ export function HookManagerPage() {
 
   const { hooks, enabledCount, totalCount, isLoading, refetch } = useHooks();
   const { toggleHook } = useToggleHook();
+  const { deleteHook } = useDeleteHook();
 
   // Convert hooks to HookCardData and filter by search query and trigger type
   const filteredHooks = useMemo(() => {
@@ -199,8 +200,11 @@ export function HookManagerPage() {
   };
 
   const handleDeleteClick = async (hookName: string) => {
-    // This will be implemented when delete API is added
-    console.log('Delete hook:', hookName);
+    try {
+      await deleteHook(hookName);
+    } catch (error) {
+      console.error('Failed to delete hook:', error);
+    }
   };
 
   const handleSave = async (data: HookFormData) => {

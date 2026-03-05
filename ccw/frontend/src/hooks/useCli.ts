@@ -410,6 +410,7 @@ export function useUpgradeCliTool() {
 import {
   fetchHooks,
   toggleHook,
+  deleteHook,
   type Hook,
   type HooksResponse,
 } from '../lib/api';
@@ -507,6 +508,41 @@ export function useToggleHook() {
   return {
     toggleHook: (hookName: string, enabled: boolean) => mutation.mutateAsync({ hookName, enabled }),
     isToggling: mutation.isPending,
+    error: mutation.error,
+  };
+}
+
+export function useDeleteHook() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (hookName: string) => deleteHook(hookName),
+    onMutate: async (hookName) => {
+      await queryClient.cancelQueries({ queryKey: hooksKeys.all });
+      const previousHooks = queryClient.getQueryData<HooksResponse>(hooksKeys.lists());
+
+      queryClient.setQueryData<HooksResponse>(hooksKeys.lists(), (old) => {
+        if (!old) return old;
+        return {
+          hooks: old.hooks.filter((h) => h.name !== hookName),
+        };
+      });
+
+      return { previousHooks };
+    },
+    onError: (_error, _hookName, context) => {
+      if (context?.previousHooks) {
+        queryClient.setQueryData(hooksKeys.lists(), context.previousHooks);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: hooksKeys.all });
+    },
+  });
+
+  return {
+    deleteHook: mutation.mutateAsync,
+    isDeleting: mutation.isPending,
     error: mutation.error,
   };
 }
