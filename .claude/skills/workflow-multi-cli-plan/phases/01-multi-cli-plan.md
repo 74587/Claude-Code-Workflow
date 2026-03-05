@@ -459,9 +459,12 @@ executionContext = {
 
 **Step 4: Hand off to Execution**:
 ```javascript
-// Direct phase handoff: Read and execute Phase 2 (lite-execute) with in-memory context
-Read("phases/02-lite-execute.md")
-// Execute Phase 2 with executionContext (Mode 1: In-Memory Plan)
+// Skill handoff: Invoke workflow-lite-execute with in-memory context
+Skill({
+  skill: "workflow-lite-execute",
+  args: "--in-memory"
+})
+// executionContext is passed via global variable to workflow-lite-execute (Mode 1: In-Memory Plan)
 ```
 
 ## Output File Structure
@@ -614,4 +617,4 @@ cat .workflow/.multi-cli-plan/{session-id}/context-package.json
 
 ## Next Phase
 
-Return to orchestrator, then auto-continue to [Phase 2: Lite Execute](02-lite-execute.md) via Skill handoff.
+Return to orchestrator, then auto-continue via `Skill({ skill: "workflow-lite-execute", args: "--in-memory" })` with executionContext.
