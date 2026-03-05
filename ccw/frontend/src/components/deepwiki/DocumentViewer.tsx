@@ -3,12 +3,11 @@
 // ========================================
 // Displays DeepWiki documentation content with table of contents
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import { FileText, Hash, Clock, Sparkles, AlertCircle, Link2, Check } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import type { DeepWikiSymbol, DeepWikiDoc } from '@/hooks/useDeepWiki';
 
@@ -276,20 +275,41 @@ export function DocumentViewer({
             </h4>
             <nav className="space-y-1">
               {symbols.map(symbol => (
-                <a
+                <div
                   key={symbol.name}
-                  href={`#${symbol.anchor.replace('#', '')}`}
-                  className={cn(
-                    'block text-xs py-1.5 px-2 rounded transition-colors',
-                    'text-muted-foreground hover:text-foreground hover:bg-muted/50',
-                    'font-mono'
-                  )}
+                  className="group flex items-center gap-1"
                 >
-                  <span className={cn('mr-1', getSymbolTypeColor(symbol.type))}>
-                    {getSymbolTypeIcon(symbol.type)}
-                  </span>
-                  {symbol.name}
-                </a>
+                  <a
+                    href={`#${symbol.anchor.replace('#', '')}`}
+                    className={cn(
+                      'flex-1 text-xs py-1.5 px-2 rounded transition-colors',
+                      'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                      'font-mono'
+                    )}
+                  >
+                    <span className={cn('mr-1', getSymbolTypeColor(symbol.type))}>
+                      {getSymbolTypeIcon(symbol.type)}
+                    </span>
+                    {symbol.name}
+                  </a>
+                  <button
+                    onClick={() => copyDeepLink(symbol.name, symbol.anchor)}
+                    className={cn(
+                      'opacity-0 group-hover:opacity-100 p-1 rounded transition-all',
+                      'hover:bg-muted/50',
+                      copiedSymbol === symbol.name
+                        ? 'text-green-500'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                    title={copiedSymbol === symbol.name ? 'Copied!' : 'Copy deep link'}
+                  >
+                    {copiedSymbol === symbol.name ? (
+                      <Check className="w-3 h-3" />
+                    ) : (
+                      <Link2 className="w-3 h-3" />
+                    )}
+                  </button>
+                </div>
               ))}
             </nav>
           </div>

@@ -514,23 +514,33 @@ export function useToggleHook() {
 
 export function useDeleteHook() {
   const queryClient = useQueryClient();
+  const projectPath = useWorkflowStore(selectProjectPath);
 
   const mutation = useMutation({
-    mutationFn: (hookName: string) => deleteHook(hookName),
-    onMutate: async (hookName) => {
+    mutationFn: (hook: { name: string; scope?: 'global' | 'project'; trigger: string; index?: number }) => {
+      const scope = hook.scope || 'project';
+      const hookIndex = hook.index ?? 0;
+      return deleteHook({
+        projectPath: projectPath || undefined,
+        scope,
+        event: hook.trigger,
+        hookIndex,
+      });
+    },
+    onMutate: async (hook) => {
       await queryClient.cancelQueries({ queryKey: hooksKeys.all });
       const previousHooks = queryClient.getQueryData<HooksResponse>(hooksKeys.lists());
 
       queryClient.setQueryData<HooksResponse>(hooksKeys.lists(), (old) => {
         if (!old) return old;
         return {
-          hooks: old.hooks.filter((h) => h.name !== hookName),
+          hooks: old.hooks.filter((h) => h.name !== hook.name),
         };
       });
 
       return { previousHooks };
     },
-    onError: (_error, _hookName, context) => {
+    onError: (_error, _hook, context) => {
       if (context?.previousHooks) {
         queryClient.setQueryData(hooksKeys.lists(), context.previousHooks);
       }

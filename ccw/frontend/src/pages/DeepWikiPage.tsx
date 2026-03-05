@@ -177,6 +177,7 @@ export function DeepWikiPage() {
             symbols={symbols}
             isLoading={docLoading}
             error={docError}
+            filePath={selectedFile ?? undefined}
           />
         </div>
       )}

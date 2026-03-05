@@ -30,6 +30,8 @@ export interface HookCardData {
   matcher?: string;
   command?: string;
   script?: string;
+  scope?: 'global' | 'project';
+  index?: number;
 }
 
 export interface HookCardProps {

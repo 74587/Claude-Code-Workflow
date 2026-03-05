@@ -28,6 +28,7 @@ import {
   FileSearch,
   ScrollText,
   Clock,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -92,6 +93,7 @@ const navGroupDefinitions: NavGroupDef[] = [
     icon: Brain,
     items: [
       { path: '/memory', labelKey: 'navigation.main.memory', icon: Brain },
+      { path: '/deepwiki', labelKey: 'navigation.main.deepwiki', icon: BookOpen },
       { path: '/skills', labelKey: 'navigation.main.skills', icon: Sparkles },
       { path: '/commands', labelKey: 'navigation.main.commands', icon: Terminal },
       { path: '/settings/rules', labelKey: 'navigation.main.rules', icon: Shield },

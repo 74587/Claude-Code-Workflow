@@ -4407,9 +4407,15 @@ export async function updateHookConfig(
 /**
  * Delete a hook
  */
-export async function deleteHook(hookName: string): Promise<void> {
-  return fetchApi<void>(`/api/hooks/delete/${encodeURIComponent(hookName)}`, {
+export async function deleteHook(params: {
+  projectPath?: string;
+  scope: 'global' | 'project';
+  event: string;
+  hookIndex: number;
+}): Promise<{ success: boolean }> {
+  return fetchApi<{ success: boolean }>('/api/hooks', {
     method: 'DELETE',
+    body: JSON.stringify(params),
   });
 }
 

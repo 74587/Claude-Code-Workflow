@@ -53,7 +53,7 @@ function isHookTriggerType(value: string): value is HookTriggerType {
   return ['SessionStart', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'Stop', 'Notification', 'SubagentStart', 'SubagentStop', 'PreCompact', 'SessionEnd', 'PostToolUseFailure', 'PermissionRequest'].includes(value);
 }
 
-function toHookCardData(hook: { name: string; description?: string; enabled: boolean; trigger: string; matcher?: string; command?: string; script?: string }): HookCardData | null {
+function toHookCardData(hook: { name: string; description?: string; enabled: boolean; trigger: string; matcher?: string; command?: string; script?: string; scope?: 'global' | 'project'; index?: number }): HookCardData | null {
   if (!isHookTriggerType(hook.trigger)) {
     return null;
   }
@@ -64,6 +64,8 @@ function toHookCardData(hook: { name: string; description?: string; enabled: boo
     trigger: hook.trigger,
     matcher: hook.matcher,
     command: hook.command || hook.script,
+    scope: hook.scope,
+    index: hook.index,
   };
 }
 
@@ -200,8 +202,19 @@ export function HookManagerPage() {
   };
 
   const handleDeleteClick = async (hookName: string) => {
+    // Find the hook in filteredHooks to get scope and index
+    const hook = filteredHooks.find(h => h.name === hookName);
+    if (!hook) {
+      console.error('Hook not found:', hookName);
+      return;
+    }
     try {
-      await deleteHook(hookName);
+      await deleteHook({
+        name: hook.name,
+        scope: hook.scope,
+        trigger: hook.trigger,
+        index: hook.index,
+      });
     } catch (error) {
       console.error('Failed to delete hook:', error);
     }
