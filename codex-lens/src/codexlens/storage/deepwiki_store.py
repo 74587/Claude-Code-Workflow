@@ -186,6 +186,37 @@ class DeepWikiStore:
                 "CREATE INDEX IF NOT EXISTS idx_deepwiki_symbols_doc ON deepwiki_symbols(doc_file)"
             )
 
+            # Generation progress table for LLM document generation tracking
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS generation_progress (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol_key TEXT NOT NULL UNIQUE,
+                    file_path TEXT NOT NULL,
+                    symbol_name TEXT NOT NULL,
+                    symbol_type TEXT NOT NULL,
+                    layer INTEGER NOT NULL,
+                    source_hash TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    attempts INTEGER DEFAULT 0,
+                    last_tool TEXT,
+                    last_error TEXT,
+                    generated_at TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_progress_status ON generation_progress(status)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_progress_file ON generation_progress(file_path)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_progress_hash ON generation_progress(source_hash)"
+            )
+
             # Record schema version
             conn.execute(
                 """
@@ -719,6 +750,165 @@ class DeepWikiStore:
                 "files_needing_docs": int(files_needing_docs),
                 "db_path": str(self.db_path),
             }
+
+    # === Generation Progress Operations ===
+
+    def get_progress(self, symbol_key: str) -> Optional[Dict[str, Any]]:
+        """Get generation progress for a symbol.
+
+        Args:
+            symbol_key: Unique symbol identifier (file_path:symbol_name:line_start).
+
+        Returns:
+            Progress record dict if found, None otherwise.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            row = conn.execute(
+                "SELECT * FROM generation_progress WHERE symbol_key=?",
+                (symbol_key,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def update_progress(self, symbol_key: str, data: Dict[str, Any]) -> None:
+        """Update or create generation progress for a symbol.
+
+        Args:
+            symbol_key: Unique symbol identifier (file_path:symbol_name:line_start).
+            data: Dict with fields to update (file_path, symbol_name, symbol_type,
+                  layer, source_hash, status, attempts, last_tool, last_error, generated_at).
+        """
+        with self._lock:
+            conn = self._get_connection()
+            now = time.time()
+
+            # Build update query dynamically
+            fields = list(data.keys())
+            placeholders = ["?"] * len(fields)
+            values = [data[f] for f in fields]
+
+            conn.execute(
+                f"""
+                INSERT INTO generation_progress(symbol_key, {', '.join(fields)}, created_at, updated_at)
+                VALUES(?, {', '.join(placeholders)}, ?, ?)
+                ON CONFLICT(symbol_key) DO UPDATE SET
+                    {', '.join(f'{f}=excluded.{f}' for f in fields)},
+                    updated_at=excluded.updated_at
+                """,
+                [symbol_key] + values + [now, now],
+            )
+            conn.commit()
+
+    def mark_completed(self, symbol_key: str, tool: str) -> None:
+        """Mark a symbol's documentation as completed.
+
+        Args:
+            symbol_key: Unique symbol identifier.
+            tool: The LLM tool that generated the documentation.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            now = time.time()
+
+            conn.execute(
+                """
+                UPDATE generation_progress
+                SET status='completed', last_tool=?, generated_at=?, updated_at=?
+                WHERE symbol_key=?
+                """,
+                (tool, now, now, symbol_key),
+            )
+            conn.commit()
+
+    def mark_failed(self, symbol_key: str, error: str, tool: str | None = None) -> None:
+        """Mark a symbol's documentation generation as failed.
+
+        Args:
+            symbol_key: Unique symbol identifier.
+            error: Error message describing the failure.
+            tool: The LLM tool that was used (optional).
+        """
+        with self._lock:
+            conn = self._get_connection()
+            now = time.time()
+
+            if tool:
+                conn.execute(
+                    """
+                    UPDATE generation_progress
+                    SET status='failed', last_error=?, last_tool=?,
+                        attempts=attempts+1, updated_at=?
+                    WHERE symbol_key=?
+                    """,
+                    (error, tool, now, symbol_key),
+                )
+            else:
+                conn.execute(
+                    """
+                    UPDATE generation_progress
+                    SET status='failed', last_error=?, attempts=attempts+1, updated_at=?
+                    WHERE symbol_key=?
+                    """,
+                    (error, now, symbol_key),
+                )
+            conn.commit()
+
+    def get_pending_symbols(self, limit: int = 1000) -> List[Dict[str, Any]]:
+        """Get all symbols with pending or failed status for retry.
+
+        Args:
+            limit: Maximum number of records to return.
+
+        Returns:
+            List of progress records with pending or failed status.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            rows = conn.execute(
+                """
+                SELECT * FROM generation_progress
+                WHERE status IN ('pending', 'failed')
+                ORDER BY updated_at ASC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_completed_symbol_keys(self) -> set:
+        """Get set of all completed symbol keys for orphan detection.
+
+        Returns:
+            Set of symbol_key strings for completed symbols.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            rows = conn.execute(
+                "SELECT symbol_key FROM generation_progress WHERE status='completed'"
+            ).fetchall()
+            return {row["symbol_key"] for row in rows}
+
+    def delete_progress(self, symbol_keys: List[str]) -> int:
+        """Delete progress records for orphaned symbols.
+
+        Args:
+            symbol_keys: List of symbol keys to delete.
+
+        Returns:
+            Number of records deleted.
+        """
+        if not symbol_keys:
+            return 0
+
+        with self._lock:
+            conn = self._get_connection()
+            placeholders = ",".join("?" * len(symbol_keys))
+            cursor = conn.execute(
+                f"DELETE FROM generation_progress WHERE symbol_key IN ({placeholders})",
+                symbol_keys,
+            )
+            conn.commit()
+            return cursor.rowcount
 
     # === Row Conversion Methods ===
 

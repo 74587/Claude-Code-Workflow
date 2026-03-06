@@ -1,74 +1,208 @@
 ---
-name: init-guidelines
-description: Interactive wizard to fill specs/*.md based on project analysis
-argument-hint: "[--reset]"
+name: setup
+description: Initialize project-level state and configure specs via interactive questionnaire using cli-explore-agent
+argument-hint: "[--regenerate] [--skip-specs] [--reset]"
 examples:
-  - /workflow:init-guidelines
-  - /workflow:init-guidelines --reset
+  - /workflow:spec:setup
+  - /workflow:spec:setup --regenerate
+  - /workflow:spec:setup --skip-specs
+  - /workflow:spec:setup --reset
 ---
 
-# Workflow Init Guidelines Command (/workflow:init-guidelines)
+# Workflow Spec Setup Command (/workflow:spec:setup)
 
 ## Overview
 
-Interactive multi-round wizard that analyzes the current project (via `project-tech.json`) and asks targeted questions to populate `.ccw/specs/*.md` with coding conventions, constraints, and quality rules.
+Initialize `.workflow/project-tech.json` and `.ccw/specs/*.md` with comprehensive project understanding by delegating analysis to **cli-explore-agent**, then interactively configure project guidelines through a multi-round questionnaire.
+
+**Dual File System**:
+- `project-tech.json`: Auto-generated technical analysis (stack, architecture, components)
+- `specs/*.md`: User-maintained rules and constraints (created and populated interactively)
 
 **Design Principle**: Questions are dynamically generated based on the project's tech stack, architecture, and patterns — not generic boilerplate.
 
-**Note**: This command may be called by `/workflow:init` after initialization. Upon completion, return to the calling workflow if applicable.
+**Note**: This command may be called by other workflow commands. Upon completion, return immediately to continue the calling workflow without interrupting the task flow.
 
 ## Usage
 ```bash
-/workflow:init-guidelines          # Fill guidelines interactively (skip if already populated)
-/workflow:init-guidelines --reset  # Reset and re-fill guidelines from scratch
+/workflow:spec:setup                 # Initialize (skip if exists)
+/workflow:spec:setup --regenerate    # Force regeneration of project-tech.json
+/workflow:spec:setup --skip-specs    # Initialize project-tech only, skip spec initialization and questionnaire
+/workflow:spec:setup --reset         # Reset specs content before questionnaire
 ```
 
 ## Execution Process
 
 ```
 Input Parsing:
+   ├─ Parse --regenerate flag → regenerate = true | false
+   ├─ Parse --skip-specs flag → skipSpecs = true | false
    └─ Parse --reset flag → reset = true | false
 
-Step 1: Check Prerequisites
-   ├─ project-tech.json must exist (run /workflow:init first)
-   ├─ specs/*.md: check if populated or scaffold-only
-   └─ If populated + no --reset → Ask: "Guidelines already exist. Overwrite or append?"
+Decision:
+   ├─ BOTH_EXIST + no --regenerate + no --reset → Exit: "Already initialized"
+   ├─ EXISTS + --regenerate → Backup existing → Continue analysis
+   ├─ EXISTS + --reset → Reset specs, keep project-tech → Skip to questionnaire
+   └─ NOT_FOUND → Continue full flow
 
-Step 2: Load Project Context
-   └─ Read project-tech.json → extract tech stack, architecture, patterns
+Full Flow:
+   ├─ Step 1: Parse input and check existing state
+   ├─ Step 2: Get project metadata (name, root)
+   ├─ Step 3: Invoke cli-explore-agent
+   │   ├─ Structural scan (get_modules_by_depth.sh, find, wc)
+   │   ├─ Semantic analysis (Gemini CLI)
+   │   ├─ Synthesis and merge
+   │   └─ Write .workflow/project-tech.json
+   ├─ Step 4: Initialize Spec System (if not --skip-specs)
+   │   ├─ Check if specs/*.md exist
+   │   ├─ If NOT_FOUND → Run ccw spec init
+   │   └─ Run ccw spec rebuild
+   ├─ Step 5: Multi-Round Interactive Questionnaire (if not --skip-specs)
+   │   ├─ Check if guidelines already populated → Ask: "Append / Reset / Cancel"
+   │   ├─ Load project context from project-tech.json
+   │   ├─ Round 1: Coding Conventions (coding_style, naming_patterns)
+   │   ├─ Round 2: File & Documentation Conventions (file_structure, documentation)
+   │   ├─ Round 3: Architecture & Tech Constraints (architecture, tech_stack)
+   │   ├─ Round 4: Performance & Security Constraints (performance, security)
+   │   └─ Round 5: Quality Rules (quality_rules)
+   ├─ Step 6: Write specs/*.md (if not --skip-specs)
+   └─ Step 7: Display Summary
 
-Step 3: Multi-Round Interactive Questionnaire
-   ├─ Round 1: Coding Conventions (coding_style, naming_patterns)
-   ├─ Round 2: File & Documentation Conventions (file_structure, documentation)
-   ├─ Round 3: Architecture & Tech Constraints (architecture, tech_stack)
-   ├─ Round 4: Performance & Security Constraints (performance, security)
-   └─ Round 5: Quality Rules (quality_rules)
-
-Step 4: Write specs/*.md
-
-Step 5: Display Summary
+Output:
+   ├─ .workflow/project-tech.json (+ .backup if regenerate)
+   └─ .ccw/specs/*.md (scaffold or configured, unless --skip-specs)
 ```
 
 ## Implementation
 
-### Step 1: Check Prerequisites
+### Step 1: Parse Input and Check Existing State
+
+**Parse flags**:
+```javascript
+const regenerate = $ARGUMENTS.includes('--regenerate')
+const skipSpecs = $ARGUMENTS.includes('--skip-specs')
+const reset = $ARGUMENTS.includes('--reset')
+```
+
+**Check existing state**:
 
 ```bash
 bash(test -f .workflow/project-tech.json && echo "TECH_EXISTS" || echo "TECH_NOT_FOUND")
 bash(test -f .ccw/specs/coding-conventions.md && echo "SPECS_EXISTS" || echo "SPECS_NOT_FOUND")
 ```
 
-**If TECH_NOT_FOUND**: Exit with message
+**If BOTH_EXIST and no --regenerate and no --reset**: Exit early
 ```
-Project tech analysis not found. Run /workflow:init first.
+Project already initialized:
+- Tech analysis: .workflow/project-tech.json
+- Guidelines: .ccw/specs/*.md
+
+Use /workflow:spec:setup --regenerate to rebuild tech analysis
+Use /workflow:spec:setup --reset to reconfigure guidelines
+Use /workflow:spec:add to add individual rules
+Use /workflow:status --project to view state
 ```
 
-**Parse --reset flag**:
+### Step 2: Get Project Metadata
+
+```bash
+bash(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+bash(git rev-parse --show-toplevel 2>/dev/null || pwd)
+bash(mkdir -p .workflow)
+```
+
+### Step 3: Invoke cli-explore-agent
+
+**For --regenerate**: Backup and preserve existing data
+```bash
+bash(cp .workflow/project-tech.json .workflow/project-tech.json.backup)
+```
+
+**Delegate analysis to agent**:
+
 ```javascript
-const reset = $ARGUMENTS.includes('--reset')
+Task(
+  subagent_type="cli-explore-agent",
+  run_in_background=false,
+  description="Deep project analysis",
+  prompt=`
+Analyze project for workflow initialization and generate .workflow/project-tech.json.
+
+## MANDATORY FIRST STEPS
+1. Execute: cat ~/.ccw/workflows/cli-templates/schemas/project-tech-schema.json (get schema reference)
+2. Execute: ccw tool exec get_modules_by_depth '{}' (get project structure)
+
+## Task
+Generate complete project-tech.json following the schema structure:
+- project_name: "${projectName}"
+- initialized_at: ISO 8601 timestamp
+- overview: {
+    description: "Brief project description",
+    technology_stack: {
+      languages: [{name, file_count, primary}],
+      frameworks: ["string"],
+      build_tools: ["string"],
+      test_frameworks: ["string"]
+    },
+    architecture: {style, layers: [], patterns: []},
+    key_components: [{name, path, description, importance}]
+  }
+- features: []
+- development_index: ${regenerate ? 'preserve from backup' : '{feature: [], enhancement: [], bugfix: [], refactor: [], docs: []}'}
+- statistics: ${regenerate ? 'preserve from backup' : '{total_features: 0, total_sessions: 0, last_updated: ISO timestamp}'}
+- _metadata: {initialized_by: "cli-explore-agent", analysis_timestamp: ISO timestamp, analysis_mode: "deep-scan"}
+
+## Analysis Requirements
+
+**Technology Stack**:
+- Languages: File counts, mark primary
+- Frameworks: From package.json, requirements.txt, go.mod, etc.
+- Build tools: npm, cargo, maven, webpack, vite
+- Test frameworks: jest, pytest, go test, junit
+
+**Architecture**:
+- Style: MVC, microservices, layered (from structure & imports)
+- Layers: presentation, business-logic, data-access
+- Patterns: singleton, factory, repository
+- Key components: 5-10 modules {name, path, description, importance}
+
+## Execution
+1. Structural scan: get_modules_by_depth.sh, find, wc -l
+2. Semantic analysis: Gemini for patterns/architecture
+3. Synthesis: Merge findings
+4. ${regenerate ? 'Merge with preserved development_index and statistics from .workflow/project-tech.json.backup' : ''}
+5. Write JSON: Write('.workflow/project-tech.json', jsonContent)
+6. Report: Return brief completion summary
+
+Project root: ${projectRoot}
+`
+)
 ```
 
-**If GUIDELINES_EXISTS and not --reset**: Check if guidelines are populated (not just scaffold)
+### Step 4: Initialize Spec System (if not --skip-specs)
+
+```javascript
+// Skip spec initialization if --skip-specs flag is provided
+if (!skipSpecs) {
+  // Initialize spec system if not already initialized
+  const specsCheck = Bash('test -f .ccw/specs/coding-conventions.md && echo EXISTS || echo NOT_FOUND')
+  if (specsCheck.includes('NOT_FOUND')) {
+    console.log('Initializing spec system...')
+    Bash('ccw spec init')
+    Bash('ccw spec rebuild')
+  }
+} else {
+  console.log('Skipping spec initialization and questionnaire (--skip-specs)')
+}
+```
+
+If `--skip-specs` is provided, skip directly to Step 7 (Display Summary) with limited output.
+
+### Step 5: Multi-Round Interactive Questionnaire (if not --skip-specs)
+
+#### Step 5.0: Check Existing Guidelines
+
+If guidelines already have content, ask the user how to proceed:
 
 ```javascript
 // Check if specs already have content via ccw spec list
@@ -76,7 +210,7 @@ const specsList = Bash('ccw spec list --json 2>/dev/null || echo "{}"')
 const specsData = JSON.parse(specsList)
 const isPopulated = (specsData.total || 0) > 5  // More than seed docs
 
-if (isPopulated) {
+if (isPopulated && !reset) {
   AskUserQuestion({
     questions: [{
       question: "Project guidelines already contain entries. How would you like to proceed?",
@@ -93,9 +227,15 @@ if (isPopulated) {
   // If Reset → clear all arrays before proceeding
   // If Append → keep existing, wizard adds to them
 }
+
+// If --reset flag was provided, clear existing entries before proceeding
+if (reset) {
+  // Reset specs content
+  console.log('Resetting existing guidelines...')
+}
 ```
 
-### Step 2: Load Project Context
+#### Step 5.1: Load Project Context
 
 ```javascript
 // Load project context via ccw spec load for planning context
@@ -112,15 +252,15 @@ const archPatterns = specData.overview?.architecture?.patterns || []
 const buildTools = specData.overview?.technology_stack?.build_tools || []
 ```
 
-### Step 3: Multi-Round Interactive Questionnaire
+#### Step 5.2: Multi-Round Questionnaire
 
 Each round uses `AskUserQuestion` with project-aware options. The user can always select "Other" to provide custom input.
 
-**⚠️ CRITICAL**: After each round, collect the user's answers and convert them into guideline entries. Do NOT batch all rounds — process each round's answers before proceeding to the next.
+**CRITICAL**: After each round, collect the user's answers and convert them into guideline entries. Do NOT batch all rounds — process each round's answers before proceeding to the next.
 
 ---
 
-#### Round 1: Coding Conventions
+##### Round 1: Coding Conventions
 
 Generate options dynamically based on detected language/framework:
 
@@ -175,11 +315,11 @@ AskUserQuestion({
 })
 ```
 
-**Process Round 1 answers** → add to `conventions.coding_style` and `conventions.naming_patterns` arrays.
+**Process Round 1 answers** -> add to `conventions.coding_style` and `conventions.naming_patterns` arrays.
 
 ---
 
-#### Round 2: File Structure & Documentation
+##### Round 2: File Structure & Documentation
 
 ```javascript
 AskUserQuestion({
@@ -210,11 +350,11 @@ AskUserQuestion({
 })
 ```
 
-**Process Round 2 answers** → add to `conventions.file_structure` and `conventions.documentation`.
+**Process Round 2 answers** -> add to `conventions.file_structure` and `conventions.documentation`.
 
 ---
 
-#### Round 3: Architecture & Tech Stack Constraints
+##### Round 3: Architecture & Tech Stack Constraints
 
 ```javascript
 // Build architecture-specific options
@@ -259,11 +399,11 @@ AskUserQuestion({
 })
 ```
 
-**Process Round 3 answers** → add to `constraints.architecture` and `constraints.tech_stack`.
+**Process Round 3 answers** -> add to `constraints.architecture` and `constraints.tech_stack`.
 
 ---
 
-#### Round 4: Performance & Security Constraints
+##### Round 4: Performance & Security Constraints
 
 ```javascript
 AskUserQuestion({
@@ -294,11 +434,11 @@ AskUserQuestion({
 })
 ```
 
-**Process Round 4 answers** → add to `constraints.performance` and `constraints.security`.
+**Process Round 4 answers** -> add to `constraints.performance` and `constraints.security`.
 
 ---
 
-#### Round 5: Quality Rules
+##### Round 5: Quality Rules
 
 ```javascript
 AskUserQuestion({
@@ -318,9 +458,9 @@ AskUserQuestion({
 })
 ```
 
-**Process Round 5 answers** → add to `quality_rules` array as `{ rule, scope, enforced_by }` objects.
+**Process Round 5 answers** -> add to `quality_rules` array as `{ rule, scope, enforced_by }` objects.
 
-### Step 4: Write specs/*.md
+### Step 6: Write specs/*.md (if not --skip-specs)
 
 For each category of collected answers, append rules to the corresponding spec MD file. Each spec file uses YAML frontmatter with `readMode`, `priority`, `category`, and `keywords`.
 
@@ -404,51 +544,107 @@ keywords: [execution, quality, testing, coverage, lint]
 Bash('ccw spec rebuild')
 ```
 
-### Step 5: Display Summary
+#### Answer Processing Rules
+
+When converting user selections to guideline entries:
+
+1. **Selected option** -> Use the option's `description` as the guideline string (it's more precise than the label)
+2. **"Other" with custom text** -> Use the user's text directly as the guideline string
+3. **Deduplication** -> Skip entries that already exist in the guidelines (exact string match)
+4. **Quality rules** -> Convert to `{ rule: description, scope: "all", enforced_by: "code-review" }` format
+
+### Step 7: Display Summary
 
 ```javascript
-const countConventions = newCodingStyle.length + newNamingPatterns.length
-  + newFileStructure.length + newDocumentation.length
-const countConstraints = newArchitecture.length + newTechStack.length
-  + newPerformance.length + newSecurity.length
-const countQuality = newQualityRules.length
+const projectTech = JSON.parse(Read('.workflow/project-tech.json'));
 
-// Get updated spec list
-const specsList = Bash('ccw spec list --json 2>/dev/null || echo "{}"')
+if (skipSpecs) {
+  // Minimal summary for --skip-specs mode
+  console.log(`
+Project initialized successfully (tech analysis only)
 
-console.log(`
-✓ Project guidelines configured
+## Project Overview
+Name: ${projectTech.project_name}
+Description: ${projectTech.overview.description}
 
-## Summary
+### Technology Stack
+Languages: ${projectTech.overview.technology_stack.languages.map(l => l.name).join(', ')}
+Frameworks: ${projectTech.overview.technology_stack.frameworks.join(', ')}
+
+### Architecture
+Style: ${projectTech.overview.architecture.style}
+Components: ${projectTech.overview.key_components.length} core modules
+
+---
+Files created:
+- Tech analysis: .workflow/project-tech.json
+- Specs: (skipped via --skip-specs)
+${regenerate ? '- Backup: .workflow/project-tech.json.backup' : ''}
+
+Next steps:
+- Use /workflow:spec:setup (without --skip-specs) to configure guidelines
+- Use /workflow:spec:add to create individual specs
+- Use workflow-plan skill to start planning
+`);
+} else {
+  // Full summary with guidelines stats
+  const countConventions = newCodingStyle.length + newNamingPatterns.length
+    + newFileStructure.length + newDocumentation.length
+  const countConstraints = newArchitecture.length + newTechStack.length
+    + newPerformance.length + newSecurity.length
+  const countQuality = newQualityRules.length
+
+  // Get updated spec list
+  const specsList = Bash('ccw spec list --json 2>/dev/null || echo "{}"')
+
+  console.log(`
+Project initialized and guidelines configured
+
+## Project Overview
+Name: ${projectTech.project_name}
+Description: ${projectTech.overview.description}
+
+### Technology Stack
+Languages: ${projectTech.overview.technology_stack.languages.map(l => l.name).join(', ')}
+Frameworks: ${projectTech.overview.technology_stack.frameworks.join(', ')}
+
+### Architecture
+Style: ${projectTech.overview.architecture.style}
+Components: ${projectTech.overview.key_components.length} core modules
+
+### Guidelines Summary
 - Conventions: ${countConventions} rules added to coding-conventions.md
 - Constraints: ${countConstraints} rules added to architecture-constraints.md
 - Quality rules: ${countQuality} rules added to quality-rules.md
 
 Spec index rebuilt. Use \`ccw spec list\` to view all specs.
 
+---
+Files created:
+- Tech analysis: .workflow/project-tech.json
+- Specs: .ccw/specs/ (configured)
+${regenerate ? '- Backup: .workflow/project-tech.json.backup' : ''}
+
 Next steps:
-- Use /workflow:session:solidify to add individual rules later
+- Use /workflow:spec:add to add individual rules later
 - Specs are auto-loaded via hook on each prompt
-`)
+- Use workflow-plan skill to start planning
+`);
+}
 ```
-
-## Answer Processing Rules
-
-When converting user selections to guideline entries:
-
-1. **Selected option** → Use the option's `description` as the guideline string (it's more precise than the label)
-2. **"Other" with custom text** → Use the user's text directly as the guideline string
-3. **Deduplication** → Skip entries that already exist in the guidelines (exact string match)
-4. **Quality rules** → Convert to `{ rule: description, scope: "all", enforced_by: "code-review" }` format
 
 ## Error Handling
 
-- **No project-tech.json**: Exit with instruction to run `/workflow:init` first
-- **User cancels mid-wizard**: Save whatever was collected so far (partial is better than nothing)
-- **File write failure**: Report error, suggest manual edit
+**Agent Failure**: Fall back to basic initialization with placeholder overview
+**Missing Tools**: Agent uses Qwen fallback or bash-only
+**Empty Project**: Create minimal JSON with all gaps identified
+**No project-tech.json** (when --reset without prior init): Run full flow from Step 2
+**User cancels mid-wizard**: Save whatever was collected so far (partial is better than nothing)
+**File write failure**: Report error, suggest manual edit
 
 ## Related Commands
 
-- `/workflow:init` - Creates scaffold; optionally calls this command
-- `/workflow:init-specs` - Interactive wizard to create individual specs with scope selection
-- `/workflow:session:solidify` - Add individual rules one at a time
+- `/workflow:spec:add` - Interactive wizard to create individual specs with scope selection
+- `/workflow:session:sync` - Quick-sync session work to specs and project-tech
+- `workflow-plan` skill - Start planning with initialized project context
+- `/workflow:status --project` - View project state and guidelines

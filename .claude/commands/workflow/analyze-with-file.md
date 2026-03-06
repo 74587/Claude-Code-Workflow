@@ -65,6 +65,14 @@ When `--yes` or `-y`: Auto-confirm exploration decisions, use recommended analys
 
 ## Implementation
 
+### AskUserQuestion Constraints
+
+All `AskUserQuestion` calls MUST comply:
+- **questions**: 1-4 questions per call
+- **options**: 2-4 per question (system auto-adds "Other" for free-text input)
+- **header**: max 12 characters
+- **label**: 1-5 words per option
+
 ### Session Initialization
 
 1. Extract topic/question from `$ARGUMENTS`
@@ -79,10 +87,10 @@ When `--yes` or `-y`: Auto-confirm exploration decisions, use recommended analys
 ### Phase 1: Topic Understanding
 
 1. **Parse Topic & Identify Dimensions** — Match keywords against Analysis Dimensions table
-2. **Initial Scoping** (if new session + not auto mode):
-   - **Focus**: Multi-select from Dimension-Direction Mapping directions
-   - **Perspectives**: Multi-select up to 4 (see Analysis Perspectives), default: single comprehensive
-   - **Depth**: Quick Overview (10-15min) / Standard (30-60min) / Deep Dive (1-2hr)
+2. **Initial Scoping** (if new session + not auto mode) — use **single AskUserQuestion call with up to 3 questions**:
+   - Q1 **Focus** (multiSelect: true, header: "分析方向"): Top 3-4 directions from Dimension-Direction Mapping (options max 4)
+   - Q2 **Perspectives** (multiSelect: true, header: "分析视角"): Up to 4 from Analysis Perspectives table (options max 4), default: single comprehensive
+   - Q3 **Depth** (multiSelect: false, header: "分析深度"): Quick Overview / Standard / Deep Dive (3 options)
 3. **Initialize discussion.md** — Structure includes:
    - **Dynamic TOC** (top of file, updated after each round/phase): `## Table of Contents` with links to major sections
    - **Current Understanding** (replaceable block, overwritten each round — NOT appended): `## Current Understanding` initialized as "To be populated after exploration"
@@ -223,31 +231,26 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 
 2. **Present Findings** from explorations.json
 
-3. **Gather Feedback** (AskUserQuestion, single-select):
-   - **同意，继续深入**: Direction correct, deepen
-   - **同意，并建议下一步**: Agree with direction, but user has specific next step in mind
-   - **需要调整方向**: Different focus
+3. **Gather Feedback** (AskUserQuestion, single-select, header: "分析反馈"):
+   - **继续深入**: Direction correct — deepen automatically or user specifies direction (combines agree+deepen and agree+suggest)
+   - **调整方向**: Different focus or specific questions to address
+   - **补充信息**: User has additional context, constraints, or corrections to provide
    - **分析完成**: Sufficient → exit to Phase 4
-   - **有具体问题**: Specific questions
 
 4. **Process Response** (always record user choice + impact to discussion.md):
 
-   **Agree, Deepen** → Dynamically generate deepen directions from current analysis context:
-   - Extract 2-3 context-driven options from: unresolved questions in explorations.json, low-confidence findings, unexplored dimensions, user-highlighted areas
-   - Generate 1-2 heuristic options that break current frame: e.g., "compare with best practices in [related domain]", "analyze under extreme load scenarios", "review from security audit perspective", "explore simpler architectural alternatives"
-   - Each option specifies: label, description, tool (cli-explore-agent for code-level / Gemini CLI for pattern-level), scope
-   - AskUserQuestion with generated options (single-select)
-   - Execute selected direction via corresponding tool
-   - Merge new code_anchors/call_chains into existing results
-   - Record confirmed assumptions + deepen angle
+   **继续深入** → Sub-question to choose direction (AskUserQuestion, single-select, header: "深入方向"):
+   - Dynamically generate **max 3** context-driven options from: unresolved questions, low-confidence findings, unexplored dimensions, user-highlighted areas
+   - Add **1** heuristic option that breaks current frame (e.g., "compare with best practices", "review from security perspective", "explore simpler alternatives")
+   - Total: **max 4 options**. Each specifies: label, description, tool (cli-explore-agent for code-level / Gemini CLI for pattern-level), scope
+   - **"Other" is auto-provided** by AskUserQuestion — covers user-specified custom direction (no need for separate "suggest next step" option)
+   - Execute selected direction → merge new code_anchors/call_chains → record confirmed assumptions + deepen angle
 
-   **Agree, Suggest Next Step** → AskUserQuestion (free text: "请描述您希望下一步深入的方向") → Execute user's specific direction via cli-explore-agent or CLI → Record user-driven exploration rationale
+   **调整方向** → AskUserQuestion (header: "新方向", user selects or provides custom via "Other") → new CLI exploration → Record Decision (old vs new direction, reason, impact)
 
-   **Adjust Direction** → AskUserQuestion for new focus → new CLI exploration → Record Decision (old vs new direction, reason, impact)
+   **补充信息** → Capture user input, integrate into context, answer questions via CLI/analysis if needed → Record corrections/additions + updated understanding
 
-   **Specific Questions** → Capture, answer via CLI/analysis, document Q&A → Record gaps revealed + new understanding
-
-   **Complete** → Exit loop → Record why concluding
+   **分析完成** → Exit loop → Record why concluding
 
 5. **Update discussion.md**:
    - **Append** Round N: user input, direction adjustment, Q&A, corrections, new insights
@@ -319,11 +322,11 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
    ```
    For each recommendation (ordered by priority high→medium→low):
      1. Present: action, rationale, priority, steps[] (numbered sub-steps)
-     2. AskUserQuestion (single-select, header: "Rec #N"):
-        - **确认**: Accept as-is → review_status = "accepted"
-        - **修改**: User adjusts scope/steps → record modification → review_status = "modified"
-        - **删除**: Not needed → record reason → review_status = "rejected"
-        - **跳过逐条审议**: Accept all remaining as-is → break loop
+     2. AskUserQuestion (single-select, header: "建议#N"):
+        - **确认** (label: "确认", desc: "Accept as-is") → review_status = "accepted"
+        - **修改** (label: "修改", desc: "Adjust scope/steps") → record modification → review_status = "modified"
+        - **删除** (label: "删除", desc: "Not needed") → record reason → review_status = "rejected"
+        - **跳过审议** (label: "跳过审议", desc: "Accept all remaining") → break loop
      3. Record review decision to discussion.md Decision Log
      4. Update conclusions.json recommendation.review_status
    ```
