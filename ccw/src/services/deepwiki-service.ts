@@ -250,6 +250,35 @@ export class DeepWikiService {
       return [];
     }
   }
+
+  /**
+   * Get storage statistics
+   * @returns Statistics object with counts
+   */
+  public getStats(): { files: number; symbols: number; docs: number; filesNeedingDocs: number; dbPath: string } {
+    const db = this.getConnection();
+    if (!db) {
+      return { files: 0, symbols: 0, docs: 0, filesNeedingDocs: 0, dbPath: this.dbPath };
+    }
+
+    try {
+      const files = db.prepare('SELECT COUNT(*) as count FROM deepwiki_files').get() as { count: number };
+      const symbols = db.prepare('SELECT COUNT(*) as count FROM deepwiki_symbols').get() as { count: number };
+      const docs = db.prepare('SELECT COUNT(*) as count FROM deepwiki_docs').get() as { count: number };
+      const filesNeedingDocs = db.prepare('SELECT COUNT(*) as count FROM deepwiki_files WHERE docs_generated = 0').get() as { count: number };
+
+      return {
+        files: files?.count || 0,
+        symbols: symbols?.count || 0,
+        docs: docs?.count || 0,
+        filesNeedingDocs: filesNeedingDocs?.count || 0,
+        dbPath: this.dbPath
+      };
+    } catch (error) {
+      console.error('[DeepWiki] Error getting stats:', error);
+      return { files: 0, symbols: 0, docs: 0, filesNeedingDocs: 0, dbPath: this.dbPath };
+    }
+  }
 }
 
 // Singleton instance

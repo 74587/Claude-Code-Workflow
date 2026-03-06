@@ -19,16 +19,16 @@ When `--yes` or `-y`: Auto-confirm exploration decisions, use recommended analys
 
 | Phase | Artifact | Description |
 |-------|----------|-------------|
-| 1 | `discussion.md` | Evolution of understanding & discussions (initialized) |
+| 1 | `discussion.md` | Initialized with TOC, Current Understanding block, timeline, metadata |
 | 1 | Session variables | Dimensions, focus areas, analysis depth |
 | 2 | `exploration-codebase.json` | Single codebase context from cli-explore-agent |
 | 2 | `explorations/*.json` | Multi-perspective codebase explorations (parallel, up to 4) |
 | 2 | `explorations.json` | Single perspective aggregated findings |
 | 2 | `perspectives.json` | Multi-perspective findings (up to 4) with synthesis |
-| 2 | Updated `discussion.md` | Round 1 with exploration results |
-| 3 | Updated `discussion.md` | Round 2-N with user feedback and insights |
-| 4 | `conclusions.json` | Final synthesis with recommendations |
-| 4 | Final `discussion.md` | Complete analysis with conclusions |
+| 2 | Updated `discussion.md` | Round 1 + Initial Intent Coverage Check + Current Understanding replaced |
+| 3 | Updated `discussion.md` | Round 2-N: feedback, insights, narrative synthesis; TOC + Current Understanding updated each round |
+| 4 | `conclusions.json` | Final synthesis with recommendations (incl. steps[] + review_status) |
+| 4 | Final `discussion.md` | Complete analysis with conclusions, recommendation review summary, intent coverage matrix |
 
 ### Decision Recording Protocol
 
@@ -37,7 +37,7 @@ When `--yes` or `-y`: Auto-confirm exploration decisions, use recommended analys
 | Trigger | What to Record | Target Section |
 |---------|---------------|----------------|
 | **Direction choice** | What chosen, why, alternatives discarded | `#### Decision Log` |
-| **Key finding** | Content, impact scope, confidence level | `#### Key Findings` |
+| **Key finding** | Content, impact scope, confidence level, hypothesis impact | `#### Key Findings` |
 | **Assumption change** | Old → new understanding, reason, impact | `#### Corrected Assumptions` |
 | **User feedback** | Input, rationale for adoption/adjustment | `#### User Input` |
 | **Disagreement & trade-off** | Conflicting views, trade-off basis, final choice | `#### Decision Log` |
@@ -49,10 +49,19 @@ When `--yes` or `-y`: Auto-confirm exploration decisions, use recommended analys
 > - **Context**: [Trigger]
 > - **Options considered**: [Alternatives]
 > - **Chosen**: [Approach] — **Reason**: [Rationale]
+> - **Rejected**: [Why other options were discarded]
 > - **Impact**: [Effect on analysis]
 ```
 
-**Principles**: Immediacy (record as-it-happens), Completeness (context+options+chosen+reason), Traceability (later phases trace back)
+**Key Finding Record Format**:
+```markdown
+> **Finding**: [Content]
+> - **Confidence**: [High/Medium/Low] — **Why**: [Evidence basis]
+> - **Hypothesis Impact**: [Confirms/Refutes/Modifies] hypothesis "[name]"
+> - **Scope**: [What areas this affects]
+```
+
+**Principles**: Immediacy (record as-it-happens), Completeness (context+options+chosen+reason+rejected), Traceability (later phases trace back), Depth (capture reasoning, not just outcomes)
 
 ## Implementation
 
@@ -74,7 +83,10 @@ When `--yes` or `-y`: Auto-confirm exploration decisions, use recommended analys
    - **Focus**: Multi-select from Dimension-Direction Mapping directions
    - **Perspectives**: Multi-select up to 4 (see Analysis Perspectives), default: single comprehensive
    - **Depth**: Quick Overview (10-15min) / Standard (30-60min) / Deep Dive (1-2hr)
-3. **Initialize discussion.md** — Session metadata, user context, initial understanding, empty discussion timeline, initial dimension selection rationale
+3. **Initialize discussion.md** — Structure includes:
+   - **Dynamic TOC** (top of file, updated after each round/phase): `## Table of Contents` with links to major sections
+   - **Current Understanding** (replaceable block, overwritten each round — NOT appended): `## Current Understanding` initialized as "To be populated after exploration"
+   - Session metadata, user context, initial questions, empty discussion timeline, initial dimension selection rationale
 4. **Record Phase 1 Decisions** — Dimension selection reasoning, depth rationale, any user adjustments
 
 **Success**: Session folder + discussion.md created, dimensions identified, preferences captured, decisions recorded
@@ -178,6 +190,13 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 
 **Step 4: Update discussion.md** — Append Round 1 with sources, key findings, discussion points, open questions
 
+**Step 5: Initial Intent Coverage Check** (FIRST check, before entering Phase 3):
+- Re-read original "User Intent" / "Analysis Context" from discussion.md header
+- Check each intent item against Round 1 findings: ✅ addressed / 🔄 in-progress / ❌ not yet touched
+- Append initial Intent Coverage Check to discussion.md
+- Present to user at beginning of Phase 3: "初始探索完成后，以下意图的覆盖情况：[list]。接下来的讨论将重点关注未覆盖的部分。"
+- Purpose: Early course correction — catch drift before spending multiple interactive rounds
+
 **explorations.json Schema** (single):
 - `session_id`, `timestamp`, `topic`, `dimensions[]`
 - `sources[]`: {type, file/summary}
@@ -198,22 +217,31 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 
 **Loop** (max 5 rounds):
 
-1. **Present Findings** from explorations.json
-2. **Gather Feedback** (AskUserQuestion, single-select):
+1. **Current Understanding Summary** (Round >= 2, BEFORE presenting new findings):
+   - Generate 1-2 sentence recap: "到目前为止，我们已确认 [established facts]。上一轮 [key action/direction]。现在，这是新一轮的发现："
+   - Purpose: Reset context, prevent cognitive overload, make incremental progress visible
+
+2. **Present Findings** from explorations.json
+
+3. **Gather Feedback** (AskUserQuestion, single-select):
    - **同意，继续深入**: Direction correct, deepen
+   - **同意，并建议下一步**: Agree with direction, but user has specific next step in mind
    - **需要调整方向**: Different focus
    - **分析完成**: Sufficient → exit to Phase 4
    - **有具体问题**: Specific questions
 
-3. **Process Response** (always record user choice + impact to discussion.md):
+4. **Process Response** (always record user choice + impact to discussion.md):
 
    **Agree, Deepen** → Dynamically generate deepen directions from current analysis context:
-   - Extract 3-4 options from: unresolved questions in explorations.json, low-confidence findings, unexplored dimensions, user-highlighted areas
+   - Extract 2-3 context-driven options from: unresolved questions in explorations.json, low-confidence findings, unexplored dimensions, user-highlighted areas
+   - Generate 1-2 heuristic options that break current frame: e.g., "compare with best practices in [related domain]", "analyze under extreme load scenarios", "review from security audit perspective", "explore simpler architectural alternatives"
    - Each option specifies: label, description, tool (cli-explore-agent for code-level / Gemini CLI for pattern-level), scope
    - AskUserQuestion with generated options (single-select)
    - Execute selected direction via corresponding tool
    - Merge new code_anchors/call_chains into existing results
    - Record confirmed assumptions + deepen angle
+
+   **Agree, Suggest Next Step** → AskUserQuestion (free text: "请描述您希望下一步深入的方向") → Execute user's specific direction via cli-explore-agent or CLI → Record user-driven exploration rationale
 
    **Adjust Direction** → AskUserQuestion for new focus → new CLI exploration → Record Decision (old vs new direction, reason, impact)
 
@@ -221,9 +249,22 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 
    **Complete** → Exit loop → Record why concluding
 
-4. **Update discussion.md** — Append Round N: user input, direction adjustment, Q&A, updated understanding, corrections, new insights
+5. **Update discussion.md**:
+   - **Append** Round N: user input, direction adjustment, Q&A, corrections, new insights
+   - **Replace** `## Current Understanding` block with latest consolidated understanding (follow Consolidation Rules: promote confirmed, track corrections, focus on NOW)
+   - **Update** `## Table of Contents` with links to new Round N sections
 
-5. **Intent Drift Check** (every round >= 2):
+6. **Round Narrative Synthesis** (append to discussion.md after each round update):
+   ```markdown
+   ### Round N: Narrative Synthesis
+   **起点**: 基于上一轮的 [conclusions/questions]，本轮从 [starting point] 切入。
+   **关键进展**: [New findings] [confirmed/refuted/modified] 了之前关于 [hypothesis] 的理解。
+   **决策影响**: 用户选择 [feedback type]，导致分析方向 [adjusted/deepened/maintained]。
+   **当前理解**: 经过本轮，核心认知更新为 [updated understanding]。
+   **遗留问题**: [remaining questions driving next round]
+   ```
+
+7. **Intent Drift Check** (every round >= 2):
    - Re-read original "User Intent" from discussion.md header
    - Check each item: addressed / in-progress / implicitly absorbed / not yet discussed
    ```markdown
@@ -233,9 +274,9 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
    - ⚠️ Intent 3: [implicitly absorbed by X — needs confirmation]
    - ❌ Intent 4: [not yet discussed]
    ```
-   - If ❌ or ⚠️ after 3+ rounds → surface to user in next round
+   - If ❌ or ⚠️ items exist → **proactively surface** to user at start of next round: "以下原始意图尚未充分覆盖：[list]。是否需要调整优先级？"
 
-**Success**: All rounds documented, assumptions corrected, all decisions recorded, direction changes with before/after
+**Success**: All rounds documented with narrative synthesis, assumptions corrected, all decisions recorded with rejection reasoning, direction changes with before/after
 
 ### Phase 4: Synthesis & Conclusion
 
@@ -267,13 +308,33 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
    - Session statistics: rounds, duration, sources, artifacts, decision count
 
 4. **Display Conclusions Summary** — Present to user:
-   - **Analysis Report**: summary, key conclusions (numbered, with confidence), recommendations (numbered, with priority + rationale)
+   - **Analysis Report**: summary, key conclusions (numbered, with confidence), recommendations (numbered, with priority + rationale + steps)
    - Open questions if any
    - Link to full report: `{sessionFolder}/discussion.md`
 
-5. **Post-Completion Options** (TERMINAL — analyze-with-file ends after selection):
+5. **Interactive Recommendation Review** (skip in auto mode):
 
-   > **WORKFLOW BOUNDARY**: After selection, analyze-with-file is **COMPLETE**. If "执行任务" selected, workflow-lite-plan takes over exclusively.
+   Walk through each recommendation one-by-one for user confirmation:
+
+   ```
+   For each recommendation (ordered by priority high→medium→low):
+     1. Present: action, rationale, priority, steps[] (numbered sub-steps)
+     2. AskUserQuestion (single-select, header: "Rec #N"):
+        - **确认**: Accept as-is → review_status = "accepted"
+        - **修改**: User adjusts scope/steps → record modification → review_status = "modified"
+        - **删除**: Not needed → record reason → review_status = "rejected"
+        - **跳过逐条审议**: Accept all remaining as-is → break loop
+     3. Record review decision to discussion.md Decision Log
+     4. Update conclusions.json recommendation.review_status
+   ```
+
+   **After review loop**: Display summary of reviewed recommendations:
+   - Accepted: N items | Modified: N items | Rejected: N items
+   - Only accepted/modified recommendations proceed to next step
+
+6. **Post-Completion Options** (analyze-with-file transitions based on user selection):
+
+   > **WORKFLOW TRANSITION**: "执行任务" MUST invoke `Skill(skill="workflow-lite-plan")` — do NOT end without calling it.
 
    AskUserQuestion (single-select, header: "Next Step"):
    - **执行任务** (Recommended if high/medium priority recs exist): Launch workflow-lite-plan
@@ -286,24 +347,24 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
       - Create via pipe: `echo '<issue-json>' | ccw issue create`
    2. Display created issue IDs with next step hint: `/issue:plan <id>`
 
-   **Handle "执行任务"** (TERMINAL — analyze-with-file ends here, lite-plan takes over):
+   **Handle "执行任务"** — MUST invoke Skill tool (do NOT just display a summary and stop):
    1. Build `taskDescription` from high/medium priority recommendations (fallback: summary)
    2. Assemble context: `## Prior Analysis ({sessionId})` + summary + key files (up to 8) + key findings (up to 5) from exploration-codebase.json
-   3. Output session termination boundary:
+   3. **MANDATORY — Invoke Skill tool immediately** (this is the ONLY correct action, do NOT skip):
+      ```javascript
+      Skill({ skill: "workflow-lite-plan", args: `${taskDescription}\n\n${contextLines}` })
       ```
-      ⛔ ANALYZE-WITH-FILE SESSION COMPLETE
-      All Phase 1-4 are FINISHED. DO NOT reference analyze-with-file phase instructions beyond this point.
-      ```
-   4. Hand off: `Skill(skill="workflow-lite-plan", args="{taskDescription}\n\n{contextLines}")`
-   5. Return — analyze-with-file terminates
+      If Skill invocation is omitted, the workflow is BROKEN — user selected "执行任务" specifically to launch lite-plan.
+   4. After Skill invocation, analyze-with-file is complete — do not output any additional content
 
 **conclusions.json Schema**:
 - `session_id`, `topic`, `completed`, `total_rounds`, `summary`
 - `key_conclusions[]`: {point, evidence, confidence, code_anchor_refs[]}
 - `code_anchors[]`: {file, lines, snippet, significance}
-- `recommendations[]`: {action, rationale, priority}
+- `recommendations[]`: {action, rationale, priority, steps[]: {description, target, verification}, review_status: accepted|modified|rejected|pending}
 - `open_questions[]`, `follow_up_suggestions[]`: {type, summary}
-- `decision_trail[]`: {round, decision, context, options_considered, chosen, reason, impact}
+- `decision_trail[]`: {round, decision, context, options_considered, chosen, rejected_reasons, reason, impact}
+- `narrative_trail[]`: {round, starting_point, key_progress, hypothesis_impact, updated_understanding, remaining_questions}
 - `intent_coverage[]`: {intent, status, where_addressed, notes}
 
 **Success**: conclusions.json created, discussion.md finalized, Intent Coverage Matrix verified, complete decision trail documented
