@@ -52,10 +52,24 @@ Monitor team progress, handle callbacks, manage artifact registry, spawn next wo
      - Pause for user command
      - STOP
    - If task_id == "PLAN-001" (v3 NEW):
-     - Read plan.json for complexity assessment
-     - Display routing decision
-     - Apply conditional routing
-     - Continue
+     - **Dynamic IMPL Task Creation from Planner DAG**:
+       1. Read `<session>/plan/plan.json` → extract `complexity` field
+       2. Glob `<session>/plan/.task/TASK-*.json` → enumerate task files
+       3. For each TASK file, read `depends_on` field to build DAG
+       4. Determine complexity routing:
+          - Low: no pre-IMPL tasks
+          - Medium: create ORCH-001 (blockedBy PLAN-001)
+          - High: create ARCH-001 (blockedBy PLAN-001) + ORCH-001 (blockedBy ARCH-001)
+       5. For each TASK-N.json, create IMPL-00N:
+          - `blockedBy`: map TASK-N `depends_on` → corresponding IMPL IDs + (PLAN-001 or ORCH-001)
+          - `description`: include `Task file: <session>/plan/.task/TASK-N.json`
+          - `Priority`: P0
+       6. Collect all IMPL-* task IDs
+       7. Create TEST-001 (tester, blockedBy all IMPL-*, P1)
+       8. Create REVIEW-001 (reviewer, blockedBy all IMPL-*, P1)
+       9. Apply dynamic role injection if specialist roles were identified
+       10. Display routing decision + created task count
+     - Continue to handleSpawnNext
 
 5. **Spawn Next**
    - Call handleSpawnNext
@@ -114,7 +128,7 @@ Agent({
   run_in_background: true,
   prompt: `## Role Assignment
 role: <role>
-role_spec: .claude/skills/team-lifecycle-v3/role-specs/<role>.md
+skill: team-lifecycle-v3
 session: <session-folder>
 session_id: <session-id>
 team_name: <team-name>
@@ -123,9 +137,7 @@ inner_loop: <true|false>
 priority: <P0|P1|P2>
 context_artifacts: <session-folder>/context-artifacts.json
 
-Read role_spec file to load Phase 2-4 domain instructions.
-Read context_artifacts for upstream artifact paths (automatic discovery).
-Execute built-in Phase 1 (task discovery) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`
+Execute built-in Phase 1 (task discovery) -> skill routes to role Phase 2-4 -> built-in Phase 5 (report).`
 })
 ```
 

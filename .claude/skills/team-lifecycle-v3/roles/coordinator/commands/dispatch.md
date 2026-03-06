@@ -25,40 +25,56 @@ Create task chains based on execution mode with conditional routing, dynamic rol
 | 5 | DRAFT-004 | writer | DRAFT-003 | Generate Epics & Stories | self-validate | P0 |
 | 6 | QUALITY-001 | reviewer | DRAFT-004 | 5-dimension spec quality + sign-off | DISCUSS-003 | P0 |
 
-### Impl Pipeline - Conditional Routing (v3 NEW)
+### Impl Pipeline - Dynamic Task Creation
 
-#### Low Complexity (1-2 modules, shallow deps)
+Initial dispatch creates **only PLAN-001**. IMPL-*, TEST-001, REVIEW-001 are dynamically created after PLAN-001 completes (see monitor.md handleCallback → PLAN-001).
 
-| # | Subject | Owner | BlockedBy | Description | Priority |
-|---|---------|-------|-----------|-------------|----------|
-| 1 | PLAN-001 | planner | (none) | Planning with complexity assessment | P0 |
-| 2 | IMPL-001 | executor | PLAN-001 | Code implementation | P0 |
-| 3 | TEST-001 | tester | IMPL-001 | Test-fix cycles | P1 |
-| 4 | REVIEW-001 | reviewer | IMPL-001 | 4-dimension code review | P1 |
-
-#### Medium Complexity (3-4 modules, moderate deps)
+#### Initial Dispatch (all complexity levels)
 
 | # | Subject | Owner | BlockedBy | Description | Priority |
 |---|---------|-------|-----------|-------------|----------|
-| 1 | PLAN-001 | planner | (none) | Planning with complexity assessment | P0 |
-| 2 | ORCH-001 | orchestrator | PLAN-001 | Task decomposition & coordination | P0 |
-| 3 | IMPL-001 | executor | ORCH-001 | Backend implementation | P0 |
-| 4 | IMPL-002 | executor | ORCH-001 | Module 2 implementation | P0 |
-| 5 | TEST-001 | tester | IMPL-001, IMPL-002 | Test-fix cycles | P1 |
-| 6 | REVIEW-001 | reviewer | IMPL-001, IMPL-002 | 4-dimension code review | P1 |
+| 1 | PLAN-001 | planner | (none) | Planning with complexity assessment + TASK-*.json generation | P0 |
 
-#### High Complexity (5+ modules, deep deps)
+#### Dynamic Creation (after PLAN-001 completes)
 
-| # | Subject | Owner | BlockedBy | Description | Priority |
-|---|---------|-------|-----------|-------------|----------|
-| 1 | PLAN-001 | planner | (none) | Planning with complexity assessment | P0 |
-| 2 | ARCH-001 | architect | PLAN-001 | Architecture design | P0 |
-| 3 | ORCH-001 | orchestrator | ARCH-001 | Task decomposition & coordination | P0 |
-| 4 | IMPL-001 | executor | ORCH-001 | Backend implementation | P0 |
-| 5 | IMPL-002 | executor | ORCH-001 | Module 2 implementation | P0 |
-| 6 | IMPL-003 | executor | ORCH-001 | Module 3 implementation | P0 |
-| 7 | TEST-001 | tester | IMPL-001, IMPL-002, IMPL-003 | Test-fix cycles | P1 |
-| 8 | REVIEW-001 | reviewer | IMPL-001, IMPL-002, IMPL-003 | 4-dimension code review | P1 |
+Coordinator reads planner's output and creates tasks dynamically:
+
+1. Read `<session-folder>/plan/plan.json` → extract `complexity` field
+2. Read `<session-folder>/plan/.task/TASK-*.json` → enumerate sub-tasks
+3. Apply complexity routing:
+
+| Complexity | Pre-IMPL tasks | Then |
+|------------|---------------|------|
+| Low | (none) | Create IMPL-* directly, blockedBy PLAN-001 |
+| Medium | ORCH-001 (orchestrator, blockedBy PLAN-001) | Create IMPL-* blockedBy ORCH-001 |
+| High | ARCH-001 (architect, blockedBy PLAN-001) → ORCH-001 (blockedBy ARCH-001) | Create IMPL-* blockedBy ORCH-001 |
+
+4. For each `TASK-N.json`, create corresponding IMPL task:
+
+```
+TaskCreate({
+  subject: "IMPL-00N",
+  description: "PURPOSE: <TASK-N.title> | Success: <TASK-N.convergence.criteria>
+TASK:
+  - <steps from TASK-N.json>
+CONTEXT:
+  - Session: <session-folder>
+  - Task file: <session-folder>/plan/.task/TASK-N.json
+  - Files: <TASK-N.files[]>
+  - Priority: P0
+EXPECTED: Implementation matching task file specification
+CONSTRAINTS: Only modify files listed in task file
+---
+Validation: self-validate
+InnerLoop: false
+Priority: P0",
+  addBlockedBy: [<PLAN-001 or ORCH-001>]
+})
+```
+
+5. Create TEST-001 (tester, blockedBy all IMPL-*, P1)
+6. Create REVIEW-001 (reviewer, blockedBy all IMPL-*, P1)
+7. Apply dynamic role injection (see below)
 
 ### FE Pipeline (3 tasks)
 
@@ -81,21 +97,21 @@ Create task chains based on execution mode with conditional routing, dynamic rol
 
 ### Dynamic Role Injection (v3 NEW)
 
-When specialist roles are injected, add corresponding tasks:
+When specialist roles are injected, add corresponding tasks (blockedBy references the **last IMPL-*** task dynamically):
 
 | Injected Role | Task ID | Owner | BlockedBy | Description | Priority |
 |---------------|---------|-------|-----------|-------------|----------|
-| security-expert | SECURITY-001 | security-expert | IMPL-001 | Security audit (OWASP Top 10) | P0 |
-| performance-optimizer | PERF-001 | performance-optimizer | IMPL-001 | Performance profiling & optimization | P1 |
+| security-expert | SECURITY-001 | security-expert | all IMPL-* | Security audit (OWASP Top 10) | P0 |
+| performance-optimizer | PERF-001 | performance-optimizer | all IMPL-* | Performance profiling & optimization | P1 |
 | data-engineer | DATA-001 | data-engineer | PLAN-001 | Data pipeline implementation (parallel) | P0 |
-| devops-engineer | DEVOPS-001 | devops-engineer | IMPL-001 | CI/CD & infrastructure setup | P1 |
+| devops-engineer | DEVOPS-001 | devops-engineer | all IMPL-* | CI/CD & infrastructure setup | P1 |
 | ml-engineer | ML-001 | ml-engineer | PLAN-001 | ML pipeline implementation (parallel) | P0 |
 
 **Injection Rules**:
 - Security tasks: P0 priority, block REVIEW-001
 - Performance tasks: P1 priority, parallel with TEST-001
-- Data/ML tasks: P0 priority, parallel with IMPL-001
-- DevOps tasks: P1 priority, after IMPL-001
+- Data/ML tasks: P0 priority, parallel with IMPL-*
+- DevOps tasks: P1 priority, after all IMPL-*
 
 ### Composite Modes
 
@@ -131,17 +147,18 @@ Priority: <P0|P1|P2>",
 
 ### Complexity Assessment Logic (v3 NEW)
 
-PLAN-001 task description includes complexity assessment instructions:
+PLAN-001 task description includes complexity assessment and TASK-*.json generation instructions:
 
 ```
-PURPOSE: Create implementation plan with complexity assessment | Success: Actionable plan with module breakdown and complexity rating
+PURPOSE: Create implementation plan with complexity assessment and task decomposition | Success: plan.json + TASK-*.json files
 
 TASK:
   - Analyze requirements and scope
   - Identify modules and dependencies
   - Assess complexity (Low/Medium/High)
-  - Generate implementation plan
-  - Write complexity assessment to plan.json
+  - Generate plan.json with complexity field
+  - Generate .task/TASK-*.json files (1 per implementation unit, 2-7 tasks)
+  - Each TASK-*.json must include: id, title, files[].change, convergence.criteria, depends_on
 
 CONTEXT:
   - Session: <session-folder>
@@ -151,7 +168,9 @@ CONTEXT:
     * Medium: 3-4 modules, moderate deps, 2 tech stacks
     * High: 5+ modules, deep deps, multiple tech stacks
 
-EXPECTED: plan.json with complexity field + implementation plan document
+EXPECTED:
+  <session-folder>/plan/plan.json (with complexity field)
+  <session-folder>/plan/.task/TASK-001.json ... TASK-00N.json
 
 Priority: P0
 ```
