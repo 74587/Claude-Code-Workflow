@@ -83,7 +83,7 @@ When `--yes` or `-y`: Auto-confirm exploration decisions, use recommended analys
 
 Codebase exploration FIRST, then CLI analysis.
 
-**Step 1: Codebase Exploration** (cli-explore-agent, parallel up to 4)
+**Step 1: Codebase Exploration** (cli-explore-agent, parallel up to 6)
 
 - **Single**: General codebase analysis → `{sessionFolder}/exploration-codebase.json`
 - **Multi-perspective**: Parallel per-perspective → `{sessionFolder}/explorations/{perspective}.json`
