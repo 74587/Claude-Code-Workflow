@@ -4,6 +4,7 @@
 // Manages workflow sessions, tasks, and related data
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type {
   WorkflowStore,
   WorkflowState,
