@@ -79,7 +79,9 @@ For each changed file, determine:
 - **Category**: source | test | config | docs | other
 - **Symbols affected**: parse diff for changed functions/classes (use Gemini if complex)
 
-## Phase 2: Impact Tracing
+## Phase 2: Impact Tracing (Layer-Based, TASK-004)
+
+**Strategy**: Trace impact through layers (files → components → features → indexes) following memory-manage pattern.
 
 ### 2.1 Match to Index
 
@@ -87,9 +89,9 @@ For each changed file path:
 
 ```
 Search doc-index.json.technicalComponents[].codeLocations[].path
-→ Find matching component IDs
-→ From components, find linked featureIds
-→ From features, find linked requirementIds
+→ Find matching component IDs (Layer 3)
+→ From components, find linked featureIds (Layer 2)
+→ From features, find linked requirementIds (Layer 2)
 ```
 
 ### 2.2 Discover New Components
@@ -228,23 +230,102 @@ For each affected feature:
 
 Set `doc-index.json.last_updated` to current time.
 
-## Phase 4: Refresh Documents
+## Phase 4: Refresh Documents (Layer-Based Regeneration, TASK-004)
 
-### 4.1 Update Feature Maps
+**Strategy**: Regenerate affected documents following Layer 3 → Layer 2 → Layer 1 order.
 
-For each affected feature's `feature-maps/{slug}.md`:
-- Update "Change History" table with new action entry
-- Update component list if new components were added
-- Update status if changed
+### 4.1 Identify Affected Layers
 
-### 4.2 Update Tech Registry
+From Phase 2 impact tracing:
+- **Layer 3 affected**: Components with modified codeLocations
+- **Layer 2 affected**: Features linked to affected components
+- **Layer 1 affected**: Index docs if Layer 2 changed
+
+### 4.2 Layer 3: Update Component Docs
 
 For each affected component's `tech-registry/{slug}.md`:
-- Update code locations
-- Update symbol list
-- Add action to change history
 
-### 4.3 Update Action Log
+```bash
+ccw cli -p "PURPOSE: Update component documentation for {component.name} after code changes
+TASK:
+• Update code locations and line ranges
+• Update symbol list (add new exports, remove deleted)
+• Add change entry to history table
+• Refresh usage examples if API changed
+MODE: write
+CONTEXT: @{component.codeLocations[].path}
+EXPECTED: Updated markdown with current API state
+CONSTRAINTS: Preserve existing structure | Only update changed sections
+" --tool gemini --mode write --cd .workflow/.doc-index/tech-registry/
+```
+
+Update layer metadata:
+```markdown
+---
+layer: 3
+component_id: tech-auth-service
+generated_at: ISO8601
+last_updated: ISO8601
+---
+```
+
+### 4.3 Layer 2: Update Feature Docs
+
+For each affected feature's `feature-maps/{slug}.md`:
+
+```bash
+ccw cli -p "PURPOSE: Update feature documentation for {feature.name} after component changes
+TASK:
+• Update component list if new components added
+• Update status if requirements now fully implemented
+• Add change entry to history table
+• Refresh integration guide if component APIs changed
+MODE: write
+CONTEXT: @.workflow/.doc-index/tech-registry/{affected-components}.md
+EXPECTED: Updated markdown reflecting current feature state
+CONSTRAINTS: Reference updated Layer 3 docs | Preserve business language
+" --tool gemini --mode write --cd .workflow/.doc-index/feature-maps/
+```
+
+Update layer metadata:
+```markdown
+---
+layer: 2
+feature_id: feat-auth
+depends_on_layer3: [tech-auth-service, tech-user-model]
+generated_at: ISO8601
+last_updated: ISO8601
+---
+```
+
+### 4.4 Layer 1: Update Index Docs (if needed)
+
+If Layer 2 changed significantly (new features, status changes):
+
+```bash
+ccw cli -p "PURPOSE: Update project overview docs after feature changes
+TASK:
+• Update README.md feature list
+• Update ARCHITECTURE.md if new components added
+• Update _index.md files with new entries
+MODE: write
+CONTEXT: @.workflow/.doc-index/feature-maps/*.md @.workflow/.doc-index/doc-index.json
+EXPECTED: Updated overview docs with current project state
+CONSTRAINTS: High-level only | Link to Layer 2 for details
+" --tool gemini --mode write --cd .workflow/.doc-index/
+```
+
+Update layer metadata:
+```markdown
+---
+layer: 1
+depends_on_layer2: [feat-auth, feat-orders]
+generated_at: ISO8601
+last_updated: ISO8601
+---
+```
+
+### 4.5 Update Action Log
 
 Create `.workflow/.doc-index/action-logs/{task-id}.md`:
 

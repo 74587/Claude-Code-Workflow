@@ -277,6 +277,234 @@ Write the index with code-first markers:
 }
 ```
 
+## Phase 7: Layer-Based Document Generation (TASK-004)
+
+**Generation Strategy**: Layer 3 → Layer 2 → Layer 1 (bottom-up, following memory-manage pattern)
+
+### 7.1 Layer Definition
+
+| Layer | Content | Generation Order | Dependencies |
+|-------|---------|------------------|--------------|
+| **Layer 3** | Component docs (`tech-registry/{slug}.md`) | First | Source code only |
+| **Layer 2** | Feature docs (`feature-maps/{slug}.md`) | Second | Layer 3 component docs |
+| **Layer 1** | Index docs (`README.md`, `ARCHITECTURE.md`, `_index.md`) | Third | Layer 2 feature docs |
+
+### 7.2 Layer 3: Component Documentation
+
+For each component in `technicalComponents[]`:
+
+```bash
+ccw cli -p "PURPOSE: Generate component documentation for {component.name}
+TASK:
+• Document component purpose and responsibility
+• List exported symbols (classes, functions, types)
+• Document dependencies (internal and external)
+• Include code examples for key APIs
+• Document integration points with other components
+MODE: write
+CONTEXT: @{component.codeLocations[].path}
+EXPECTED: Markdown file with: Overview, API Reference, Dependencies, Usage Examples
+CONSTRAINTS: Focus on public API | Include type signatures
+" --tool gemini --mode write --cd .workflow/.doc-index/tech-registry/
+```
+
+Output: `.workflow/.doc-index/tech-registry/{component-slug}.md`
+
+Add layer metadata to generated doc:
+```markdown
+---
+layer: 3
+component_id: tech-auth-service
+generated_at: ISO8601
+---
+```
+
+### 7.3 Layer 2: Feature Documentation
+
+For each feature in `features[]`:
+
+```bash
+ccw cli -p "PURPOSE: Generate feature documentation for {feature.name}
+TASK:
+• Describe feature purpose and business value
+• List requirements (from requirementIds)
+• Document components involved (from techComponentIds)
+• Include architecture decisions (from adrIds)
+• Provide integration guide
+MODE: write
+CONTEXT: @.workflow/.doc-index/tech-registry/{related-components}.md
+EXPECTED: Markdown file with: Overview, Requirements, Components, Architecture, Integration
+CONSTRAINTS: Reference Layer 3 component docs | Business-focused language
+" --tool gemini --mode write --cd .workflow/.doc-index/feature-maps/
+```
+
+Output: `.workflow/.doc-index/feature-maps/{feature-slug}.md`
+
+Add layer metadata:
+```markdown
+---
+layer: 2
+feature_id: feat-auth
+depends_on_layer3: [tech-auth-service, tech-user-model]
+generated_at: ISO8601
+---
+```
+
+### 7.4 Layer 1: Index Documentation
+
+Generate top-level overview documents:
+
+1. **README.md** - Project overview with navigation
+2. **ARCHITECTURE.md** - System architecture overview
+3. **feature-maps/_index.md** - Feature catalog
+4. **tech-registry/_index.md** - Component catalog
+5. **sessions/_index.md** - Planning sessions index
+
+```bash
+ccw cli -p "PURPOSE: Generate project overview documentation
+TASK:
+• Create README.md with project summary and navigation
+• Create ARCHITECTURE.md with system design overview
+• Create _index.md files for feature-maps and tech-registry
+• Include links to all Layer 2 feature docs
+MODE: write
+CONTEXT: @.workflow/.doc-index/feature-maps/*.md @.workflow/.doc-index/tech-registry/*.md @.workflow/.doc-index/doc-index.json
+EXPECTED: Overview documents with navigation links
+CONSTRAINTS: High-level only | Link to Layer 2 docs for details
+" --tool gemini --mode write --cd .workflow/.doc-index/
+```
+
+Add layer metadata:
+```markdown
+---
+layer: 1
+depends_on_layer2: [feat-auth, feat-orders]
+generated_at: ISO8601
+---
+```
+
+## Phase 8: Project Overview Documentation (TASK-005)
+
+Generate standard overview documents as entry points for navigation.
+
+### 8.1 README.md Template
+
+```bash
+ccw cli -p "PURPOSE: Generate project README with overview and navigation
+TASK:
+• Project summary and purpose
+• Quick start guide
+• Navigation to features, components, and architecture
+• Link to doc-index.json
+MODE: write
+CONTEXT: @.workflow/.doc-index/doc-index.json @.workflow/.doc-index/feature-maps/_index.md
+EXPECTED: README.md with: Overview, Quick Start, Navigation, Links
+CONSTRAINTS: High-level only | Entry point for new developers
+" --tool gemini --mode write --cd .workflow/.doc-index/
+```
+
+Output: `.workflow/.doc-index/README.md`
+
+### 8.2 ARCHITECTURE.md Template
+
+```bash
+ccw cli -p "PURPOSE: Generate architecture overview document
+TASK:
+• System design overview
+• Component relationships and dependencies
+• Key architecture decisions (from ADRs)
+• Technology stack
+MODE: write
+CONTEXT: @.workflow/.doc-index/doc-index.json @.workflow/.doc-index/tech-registry/*.md
+EXPECTED: ARCHITECTURE.md with: System Design, Component Diagram, ADRs, Tech Stack
+CONSTRAINTS: Architecture-focused | Reference component docs for details
+" --tool gemini --mode write --cd .workflow/.doc-index/
+```
+
+Output: `.workflow/.doc-index/ARCHITECTURE.md`
+
+### 8.3 sessions/_index.md Template
+
+```bash
+ccw cli -p "PURPOSE: Generate planning sessions index
+TASK:
+• List all planning session folders chronologically
+• Link to each session's plan.json
+• Show session status and task count
+MODE: write
+CONTEXT: @.workflow/.doc-index/planning/*/plan.json
+EXPECTED: sessions/_index.md with: Session List, Links, Status
+CONSTRAINTS: Chronological order | Link to session folders
+" --tool gemini --mode write --cd .workflow/.doc-index/sessions/
+```
+
+Output: `.workflow/.doc-index/sessions/_index.md`
+
+### 8.4 Update ddd:sync for Overview Docs
+
+Add to Phase 4 (Refresh Documents):
+- If Layer 2 changed significantly → regenerate README.md and ARCHITECTURE.md
+- If new planning session created → update sessions/_index.md
+
+## Phase 9: Schema Versioning (TASK-006)
+
+### 9.1 Add schema_version to doc-index.json
+
+Update Phase 6 doc-index.json generation to include:
+
+```json
+{
+  "schema_version": "1.0",
+  "version": "1.0",
+  "project": "{project-name}",
+  ...
+}
+```
+
+### 9.2 Create SCHEMA.md
+
+```bash
+ccw cli -p "PURPOSE: Document doc-index.json schema structure and versioning
+TASK:
+• Document current schema structure (all fields)
+• Define versioning policy (semver: major.minor)
+• Document migration protocol for version upgrades
+• Provide examples for each schema section
+MODE: write
+CONTEXT: @.workflow/.doc-index/doc-index.json
+EXPECTED: SCHEMA.md with: Schema Structure, Versioning Policy, Migration Protocol, Examples
+CONSTRAINTS: Complete field documentation | Clear migration steps
+" --tool gemini --mode write --cd .workflow/.doc-index/
+```
+
+Output: `.workflow/.doc-index/SCHEMA.md`
+
+### 9.3 Version Check Logic
+
+Add to ddd:plan and ddd:sync Phase 1:
+
+```javascript
+const docIndex = JSON.parse(Read('.workflow/.doc-index/doc-index.json'));
+const schemaVersion = docIndex.schema_version || '0.0'; // Default for legacy
+
+if (schemaVersion !== '1.0') {
+  console.warn(`Schema version mismatch: found ${schemaVersion}, expected 1.0`);
+  console.warn('Consider running schema migration or regenerating doc-index');
+}
+```
+
+### 9.4 Versioning Policy
+
+**Semantic Versioning**:
+- **Major** (X.0): Breaking changes (field removal, type changes, incompatible structure)
+- **Minor** (X.Y): Non-breaking additions (new optional fields, new sections)
+
+**Migration Protocol**:
+1. Detect version mismatch in ddd:plan/ddd:sync
+2. Log warning with migration instructions
+3. Provide migration script or regeneration option
+4. Update schema_version after successful migration
+
 ## Phase 6.5: Build DeepWiki Feature-to-Symbol Index
 
 If DeepWiki is available (`.codexlens/deepwiki_index.db` exists):

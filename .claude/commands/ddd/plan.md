@@ -153,6 +153,27 @@ If DeepWiki is available (`deepwiki_feature_to_symbol_index` exists in doc-index
 
 **Graceful degradation**: If DeepWiki unavailable → log warning → skip symbol injection → continue flow.
 
+### Phase 1.8: Persist Doc Context Package
+
+After building doc_context (including symbol_docs from Phase 1.7), persist it as a reusable context package:
+
+1. Bundle doc_context into JSON structure:
+```json
+{
+  "affected_features": ["feat-auth"],
+  "affected_requirements": ["REQ-001", "REQ-002"],
+  "affected_components": ["tech-auth-service"],
+  "architecture_constraints": ["ADR-001"],
+  "index_path": ".workflow/.doc-index/doc-index.json",
+  "symbol_docs": [...]
+}
+```
+
+2. Write to session folder: `{sessionFolder}/.process/doc-context-package.json`
+3. Store relative path for task.json population: `../.process/doc-context-package.json`
+
+**Error handling**: If write fails → log warning → continue without context package (backward compatible).
+
 ---
 
 ## Phase 2: Doc-Index-Guided Exploration (NEW)
@@ -317,6 +338,93 @@ Agent(subagent_type="cli-lite-planning-agent", prompt="
   Include doc_context in both plan.json and each TASK-*.json.
 ")
 ```
+
+### 4.3.1 Populate Task Artifacts (TASK-002)
+
+After task generation, enrich each TASK-*.json with artifacts[] field:
+
+1. Load doc-index.json from `.workflow/.doc-index/doc-index.json`
+2. For each task, extract feature_ids from task.doc_context
+3. Filter doc-index features/requirements matching task scope:
+   - Match by feature_ids in task.doc_context.feature_ids
+   - Include linked requirements via requirementIds
+   - Include linked components via componentIds
+4. Populate task.artifacts[] with filtered references:
+
+```json
+{
+  "artifacts": [
+    {
+      "type": "feature_spec",
+      "source": "doc-index",
+      "path": ".workflow/.doc-index/feature-maps/auth.md",
+      "feature_id": "feat-auth",
+      "usage": "Reference for authentication requirements"
+    },
+    {
+      "type": "requirement",
+      "source": "doc-index",
+      "path": ".workflow/.doc-index/doc-index.json#requirements[0]",
+      "feature_id": "feat-auth",
+      "requirement_id": "REQ-001",
+      "usage": "Acceptance criteria source"
+    },
+    {
+      "type": "component_doc",
+      "source": "doc-index",
+      "path": ".workflow/.doc-index/tech-registry/auth-service.md",
+      "component_id": "tech-auth-service",
+      "usage": "Implementation reference"
+    }
+  ]
+}
+```
+
+**Loading pattern** (following brainstorm pattern from action-planning-agent.md:200-214):
+- Load doc-index.json once for catalog
+- Filter by task-relevant feature IDs (1-3 per task)
+- Only include artifacts directly referenced in task scope
+- Use relative paths from task file location
+
+### 4.3.2 Populate Context Package Path (TASK-001)
+
+Set context_package_path field in each TASK-*.json:
+
+```json
+{
+  "context_package_path": "../.process/doc-context-package.json"
+}
+```
+
+Relative path from `.task/TASK-*.json` to `.process/doc-context-package.json`.
+
+### 4.3.3 Add Navigation Links Block (TASK-003)
+
+Add links{} navigation block to each TASK-*.json for improved discoverability:
+
+```json
+{
+  "links": {
+    "plan": "../plan.json",
+    "doc_index": "../../.doc-index/doc-index.json",
+    "feature_maps": [
+      "../../.doc-index/feature-maps/auth.md"
+    ],
+    "related_tasks": [
+      "TASK-002.json",
+      "TASK-003.json"
+    ]
+  }
+}
+```
+
+**Path computation**:
+- `plan`: Relative path from `.task/TASK-*.json` to `plan.json` (sibling of .task/)
+- `doc_index`: Relative path to `.workflow/.doc-index/doc-index.json`
+- `feature_maps`: Paths to feature-map docs from task.doc_context.feature_docs
+- `related_tasks`: Task IDs from task.depends_on or tasks sharing same feature_ids
+
+**Backward compatibility**: links{} is optional field (task-schema allows additionalProperties).
 
 ### 4.4 Output Schema: plan.json
 

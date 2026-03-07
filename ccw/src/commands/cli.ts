@@ -181,8 +181,8 @@ interface OutputViewOptions {
   outputType?: 'stdout' | 'stderr' | 'both';
   turn?: string;
   raw?: boolean;
-  final?: boolean; // Only output final result with usage hint
-  verbose?: boolean; // Show full metadata (original default behavior)
+  final?: boolean; // Explicit --final (same as default, kept for compatibility)
+  verbose?: boolean; // Show full metadata + raw stdout/stderr
   project?: string; // Optional project path for lookup
 }
 
@@ -429,13 +429,13 @@ async function outputAction(conversationId: string | undefined, options: OutputV
   }
 
   if (options.raw) {
-    // Raw output only (for piping)
+    // Raw output only (for piping) — unprocessed stdout
     if (result.stdout) console.log(result.stdout.content);
     return;
   }
 
   if (options.verbose) {
-    // Verbose: full metadata + output (original default behavior)
+    // Verbose: full metadata + raw stdout/stderr (for debugging)
     console.log(chalk.bold.cyan('Execution Output\n'));
     console.log(`  ${chalk.gray('ID:')}        ${result.conversationId}`);
     console.log(`  ${chalk.gray('Turn:')}      ${result.turnNumber}`);
@@ -470,21 +470,12 @@ async function outputAction(conversationId: string | undefined, options: OutputV
     return;
   }
 
-  // Default: final result only (equivalent to --final)
+  // Default (and --final): output final result only
   // Prefer finalOutput (agent_message only) > parsedOutput (filtered) > raw stdout
   const outputContent = result.finalOutput?.content || result.parsedOutput?.content || result.stdout?.content;
   if (outputContent) {
     console.log(outputContent);
   }
-  console.log();
-  console.log(chalk.gray('\u2500'.repeat(60)));
-  console.log(chalk.dim(`Usage: ccw cli output ${conversationId} [options]`));
-  console.log(chalk.dim('  --verbose       Show full metadata'));
-  console.log(chalk.dim('  --raw           Raw output (no formatting)'));
-  console.log(chalk.dim('  --offset <n>    Start from byte offset'));
-  console.log(chalk.dim('  --limit <n>     Limit output bytes'));
-  console.log(chalk.dim('  --project <p>   Specify project path explicitly'));
-  console.log(chalk.dim(`  --resume        ccw cli -p "..." --resume ${conversationId}`));
 }
 
 /**
@@ -926,6 +917,9 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
   }
 
   // Generate execution ID for streaming (use custom ID or auto-generated readable ID)
+  if (!id) {
+    console.error(chalk.yellow('[WARN] --id not provided. Use --id <id> for reliable tracking. Auto-generating ID.'));
+  }
   const executionId = id || generateExecutionId(tool);
   const startTime = Date.now();
   const modelInfo = model ? ` @${model}` : '';
@@ -1160,7 +1154,7 @@ async function execAction(positionalPrompt: string | undefined, options: CliExec
         }
         console.log(chalk.dim(`  Continue: ccw cli -p "..." --resume ${result.execution.id}`));
         if (!stream) {
-          console.log(chalk.dim(`  Output (optional): ccw cli output ${result.execution.id}`));
+          console.log(chalk.dim(`  Output: ccw cli output ${result.execution.id}`));
         }
         if (toFile) {
           const { resolve } = await import('path');
@@ -1386,7 +1380,7 @@ async function showAction(options: { all?: boolean }): Promise<void> {
     rows.push({
       id: exec.id,
       tool: exec.tool,
-      mode: exec.mode || 'analysis',
+      mode: '-',
       status: exec.status,
       prompt: exec.prompt_preview.replace(/\n/g, ' ').substring(0, 50),
       time: timeAgo,
@@ -1567,7 +1561,7 @@ async function historyAction(options: HistoryOptions): Promise<void> {
   console.log();
   console.log(chalk.gray('  ' + '─'.repeat(70)));
   console.log(chalk.dim('  Filter: ccw cli history --tool <gemini|codex|qwen> --limit <n>'));
-  console.log(chalk.dim('  Output: ccw cli output <id> --final'));
+  console.log(chalk.dim('  Output: ccw cli output <id>'));
   console.log();
 }
 
@@ -1768,7 +1762,7 @@ export async function cliCommand(
         console.log(chalk.gray('    ccw cli --resume --tool gemini'));
         console.log(chalk.gray('    ccw cli -p "..." --cache "@src/**/*.ts" --tool codex'));
         console.log(chalk.gray('    ccw cli -p "..." --cache "@src/**/*" --inject-mode progressive --tool gemini'));
-        console.log(chalk.gray('    ccw cli output <id> --final      # View result with usage hint'));
+        console.log(chalk.gray('    ccw cli output <id>              # View final result (default)'));
         console.log();
         console.log('  Cache format:');
         console.log(chalk.gray('    --cache "@src/**/*.ts,@CLAUDE.md"     # @patterns to pack'));
@@ -1781,8 +1775,9 @@ export async function cliCommand(
         console.log(chalk.gray('    progressive: inject first 64KB with MCP continuation hint'));
         console.log();
         console.log('  Output options (ccw cli output <id>):');
-        console.log(chalk.gray('    --final      Final result only with usage hint'));
-        console.log(chalk.gray('    --raw        Raw output only (no formatting, for piping)'));
+        console.log(chalk.gray('    (default)    Final result only (agent response text)'));
+        console.log(chalk.gray('    --verbose    Full metadata + raw stdout/stderr'));
+        console.log(chalk.gray('    --raw        Raw stdout only (no formatting, for piping)'));
         console.log(chalk.gray('    --offset <n> Start from byte offset'));
         console.log(chalk.gray('    --limit <n>  Limit output bytes'));
         console.log();

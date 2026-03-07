@@ -321,6 +321,12 @@ ccw cli -p "..." --tool gemini --mode analysis --rule analysis-review-architectu
   - Description: Additional directories (comma-separated, quote if paths contain spaces)
   - Default: none
 
+- **`--id <id>`**
+  - Description: Execution ID (recommended, auto-generated if omitted)
+  - Default: Auto-generated in format `{prefix}-{HHmmss}-{rand4}` (e.g., `gem-143022-x7k2`)
+  - Prefix mapping: gemini→gem, qwen→qwn, codex→cdx, claude→cld, opencode→opc
+  - Note: ID is always output to stderr as `[CCW_EXEC_ID=<id>]` for programmatic capture
+
 - **`--resume [id]`**
   - Description: Resume previous session
   - Default: -
@@ -383,6 +389,65 @@ USER PROMPT: [Previous prompt]
 ASSISTANT RESPONSE: [Previous output]
 === CONTINUATION ===
 [Your new prompt]
+```
+
+### Subcommands
+
+#### `show` — List All Executions
+
+```bash
+ccw cli show                     # Active + recent completed executions
+ccw cli show --all               # Include full history
+```
+
+Displays a unified table of running and recent executions with: ID, Tool, Mode, Status, Duration, Prompt Preview.
+
+#### `watch <id>` — Stream Execution Output
+
+```bash
+ccw cli watch <id>               # Stream until completion (output to stderr)
+ccw cli watch <id> --timeout 120 # Auto-exit after 120 seconds
+```
+
+Behavior:
+- Output written to **stderr** (does not pollute stdout)
+- Exit code: 0 = success, 1 = error, 2 = timeout
+- Callers can `ccw cli watch <id> 2>/dev/null` to silently wait
+
+#### `output <id>` — Get Execution Output
+
+```bash
+ccw cli output <id>              # Final result only (default)
+ccw cli output <id> --verbose    # Full metadata + raw output
+ccw cli output <id> --raw        # Raw stdout (for piping)
+```
+
+Default returns `finalOutput > parsedOutput > stdout` — agent's final response text only.
+`--verbose` shows full metadata (ID, turn, status, project) plus raw stdout/stderr.
+
+#### ID Workflow Example
+
+```bash
+# Execute with auto-generated ID
+ccw cli -p "analyze code" --tool gemini --mode analysis
+# stderr outputs: [CCW_EXEC_ID=gem-143022-x7k2]
+
+# Execute with custom ID
+ccw cli -p "implement feature" --tool gemini --mode write --id my-task-1
+# stderr outputs: [CCW_EXEC_ID=my-task-1]
+
+# Check status
+ccw cli show
+
+# Watch running execution
+ccw cli watch gem-143022-x7k2
+
+# Get final result
+ccw cli output gem-143022-x7k2
+
+# Capture ID programmatically
+EXEC_ID=$(ccw cli -p "test" --tool gemini --mode analysis 2>&1 | grep -oP 'CCW_EXEC_ID=\K[^\]]+')
+ccw cli output $EXEC_ID
 ```
 
 ### Command Examples
