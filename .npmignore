@@ -17,6 +17,7 @@
 
 # Workflow runtime data
 .workflow/
+.ccw/
 
 # Test files
 test/
