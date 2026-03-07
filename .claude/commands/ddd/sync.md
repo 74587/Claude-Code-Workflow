@@ -39,6 +39,23 @@ After completing a development task, synchronize the document index with actual 
 
 ## Phase 1: Change Detection
 
+### 0.1 Schema Version Check (TASK-006)
+
+Before processing changes, verify doc-index schema compatibility:
+
+```javascript
+const docIndex = JSON.parse(Read('.workflow/.doc-index/doc-index.json'));
+const schemaVersion = docIndex.schema_version || '0.0'; // Default for legacy
+
+if (schemaVersion !== '1.0') {
+  console.warn(`Schema version mismatch: found ${schemaVersion}, expected 1.0`);
+  console.warn('Consider running schema migration or regenerating doc-index with /ddd:scan');
+  // Continue with degraded functionality - may encounter missing fields
+}
+```
+
+**Graceful degradation**: If version mismatch detected → log warning → continue with caution (some features may not work as expected).
+
 ### 1.0 Data Source Selection
 
 ```
@@ -307,7 +324,8 @@ ccw cli -p "PURPOSE: Update project overview docs after feature changes
 TASK:
 • Update README.md feature list
 • Update ARCHITECTURE.md if new components added
-• Update _index.md files with new entries
+• Update sessions/_index.md with new planning sessions
+• Update other _index.md files with new entries
 MODE: write
 CONTEXT: @.workflow/.doc-index/feature-maps/*.md @.workflow/.doc-index/doc-index.json
 EXPECTED: Updated overview docs with current project state
