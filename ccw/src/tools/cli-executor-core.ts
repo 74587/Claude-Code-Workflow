@@ -35,49 +35,45 @@ import {
   saveConversation
 } from './cli-executor-state.js';
 
-// Track current running child process for cleanup on interruption
-let currentChildProcess: ChildProcess | null = null;
-let killTimeout: NodeJS.Timeout | null = null;
-let killTimeoutProcess: ChildProcess | null = null;
+// Track all running child processes for cleanup on interruption (multi-process support)
+const runningChildProcesses = new Set<ChildProcess>();
 
 /**
- * Kill the current running CLI child process
+ * Kill all running CLI child processes
  * Called when parent process receives SIGINT/SIGTERM
  */
-export function killCurrentCliProcess(): boolean {
-  const child = currentChildProcess;
-  if (!child || child.killed) return false;
+export function killAllCliProcesses(): boolean {
+  if (runningChildProcesses.size === 0) return false;
 
-  debugLog('KILL', 'Killing current child process', { pid: child.pid });
+  const processesToKill = Array.from(runningChildProcesses);
+  debugLog('KILL', `Killing ${processesToKill.length} child process(es)`, { pids: processesToKill.map(p => p.pid) });
 
-  try {
-    child.kill('SIGTERM');
-  } catch {
-    // Ignore kill errors (process may already be gone)
+  // 1. SIGTERM for graceful shutdown
+  for (const child of processesToKill) {
+    if (!child.killed) {
+      try { child.kill('SIGTERM'); } catch { /* Ignore kill errors */ }
+    }
   }
 
-  if (killTimeout) {
-    clearTimeout(killTimeout);
-    killTimeout = null;
-    killTimeoutProcess = null;
-  }
-
-  // Force kill after 2 seconds if still running.
-  killTimeoutProcess = child;
-  killTimeout = setTimeout(() => {
-    const target = killTimeoutProcess;
-    if (!target || target !== currentChildProcess) return;
-    if (target.killed) return;
-
-    try {
-      target.kill('SIGKILL');
-    } catch {
-      // Ignore kill errors (process may already be gone)
+  // 2. SIGKILL after 2s timeout
+  const killTimeout = setTimeout(() => {
+    for (const child of processesToKill) {
+      if (!child.killed) {
+        try { child.kill('SIGKILL'); } catch { /* Ignore kill errors */ }
+      }
     }
   }, 2000);
+  killTimeout.unref();
 
+  runningChildProcesses.clear();
   return true;
 }
+
+/**
+ * Backward compatibility alias
+ * @deprecated Use killAllCliProcesses() instead
+ */
+export const killCurrentCliProcess = killAllCliProcesses;
 
 // LiteLLM integration
 import { executeLiteLLMEndpoint } from './litellm-executor.js';
@@ -242,8 +238,8 @@ async function executeClaudeWithSettings(params: ClaudeWithSettingsParams): Prom
       stdio: ['ignore', 'pipe', 'pipe']
     });
 
-    // Track current child process for cleanup
-    currentChildProcess = child;
+    // Track child process for cleanup (multi-process support)
+    runningChildProcesses.add(child);
 
     let stdout = '';
     let stderr = '';
@@ -282,7 +278,7 @@ async function executeClaudeWithSettings(params: ClaudeWithSettingsParams): Prom
     });
 
     child.on('close', (code) => {
-      currentChildProcess = null;
+      runningChildProcesses.delete(child);
 
       const endTime = Date.now();
       const duration = endTime - startTime;
@@ -338,7 +334,7 @@ async function executeClaudeWithSettings(params: ClaudeWithSettingsParams): Prom
     });
 
     child.on('error', (error) => {
-      currentChildProcess = null;
+      runningChildProcesses.delete(child);
       reject(new Error(`Failed to spawn claude: ${error.message}`));
     });
   });
@@ -999,8 +995,8 @@ async function executeCliTool(
       env: spawnEnv
     });
 
-    // Track current child process for cleanup on interruption
-    currentChildProcess = child;
+    // Track child process for cleanup on interruption (multi-process support)
+    runningChildProcesses.add(child);
 
     debugLog('SPAWN', `Process spawned`, { pid: child.pid });
 
@@ -1050,14 +1046,8 @@ async function executeCliTool(
 
     // Handle completion
     child.on('close', async (code) => {
-      if (killTimeout && killTimeoutProcess === child) {
-        clearTimeout(killTimeout);
-        killTimeout = null;
-        killTimeoutProcess = null;
-      }
-
-      // Clear current child process reference
-      currentChildProcess = null;
+      // Remove from running processes
+      runningChildProcesses.delete(child);
 
       // Flush remaining buffer from parser
       const remainingUnits = parser.flush();
@@ -1319,6 +1309,9 @@ async function executeCliTool(
 
     // Handle errors
     child.on('error', (error) => {
+      // Remove from running processes
+      runningChildProcesses.delete(child);
+
       errorLog('SPAWN', `Failed to spawn process`, error, {
         tool,
         command,

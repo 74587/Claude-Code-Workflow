@@ -142,6 +142,17 @@ Assemble all found references into a structured impact map:
 
 Save as `planning-context.md` (legacy format for backward compatibility).
 
+### Phase 1.7: Symbol Query (DeepWiki Bridge)
+
+If DeepWiki is available (`deepwiki_feature_to_symbol_index` exists in doc-index.json):
+
+1. Collect all `codeLocations[].path` from matched `technicalComponents[]`
+2. Query DeepWiki: `POST /api/deepwiki/symbols-for-paths { paths: unique_paths }`
+3. Build symbol_docs by component, sorted by type priority (class > function > method)
+4. Populate `doc_context.symbol_docs[]` with Top-5 symbols per component
+
+**Graceful degradation**: If DeepWiki unavailable → log warning → skip symbol injection → continue flow.
+
 ---
 
 ## Phase 2: Doc-Index-Guided Exploration (NEW)
@@ -323,7 +334,18 @@ Follows `plan-overview-base-schema` with ddd-specific `doc_context` extension:
     "affected_requirements": ["REQ-001", "REQ-002"],
     "affected_components": ["tech-auth-service"],
     "architecture_constraints": ["ADR-001"],
-    "index_path": ".workflow/.doc-index/doc-index.json"
+    "index_path": ".workflow/.doc-index/doc-index.json",
+    "symbol_docs": [
+      {
+        "symbol_urn": "deepwiki:symbol:<path>#L<start>-L<end>",
+        "name": "SymbolName",
+        "type": "class|function|method",
+        "doc_summary": "Generated documentation summary...",
+        "source_path": "src/path/to/file.ts",
+        "doc_path": ".deepwiki/file.md",
+        "freshness": "fresh|stale|unknown"
+      }
+    ]
   },
   "_metadata": {
     "timestamp": "ISO8601",
@@ -356,7 +378,18 @@ Follows `task-schema` with ddd-specific `doc_context` extension:
     "component_ids": ["tech-auth-service"],
     "adr_ids": ["ADR-001"],
     "feature_docs": ["feature-maps/auth.md"],
-    "component_docs": ["tech-registry/auth-service.md"]
+    "component_docs": ["tech-registry/auth-service.md"],
+    "symbol_docs": [
+      {
+        "symbol_urn": "deepwiki:symbol:<path>#L<start>-L<end>",
+        "name": "SymbolName",
+        "type": "class|function|method",
+        "doc_summary": "Generated documentation summary...",
+        "source_path": "src/path/to/file.ts",
+        "doc_path": ".deepwiki/file.md",
+        "freshness": "fresh|stale|unknown"
+      }
+    ]
   },
   "files": [...],
   "implementation": [...]

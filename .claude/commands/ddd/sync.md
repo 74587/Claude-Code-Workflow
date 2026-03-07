@@ -118,6 +118,47 @@ If changed files don't match any existing component:
 - REQ-002: JWT token generation (implementation updated)
 ```
 
+## Phase 2.4: DeepWiki Freshness Check
+
+If DeepWiki integration is configured (`doc-index.json.freshness` exists):
+
+### 2.4.1 Identify Modified Files
+From `execution-manifest.json` or git diff, collect `files_modified[]` with `action == "modified"`.
+
+### 2.4.2 Check Staleness
+Query DeepWiki: `POST /api/deepwiki/stale-files { files: [{path, hash}] }`
+
+For each stale file's symbols, calculate staleness score:
+```
+S(symbol) = min(1.0, w_t × T + w_c × C + w_s × M)
+```
+Where weights come from `doc-index.json.freshness.weights`.
+
+### 2.4.3 Score Propagation (max aggregation)
+```
+S_file      = max(S_symbol_1, S_symbol_2, ...)
+S_component = max(S_file_1, S_file_2, ...)
+S_feature   = max(S_component_1, S_component_2, ...)
+```
+
+### 2.4.4 Status Assignment
+Using thresholds from `doc-index.json.freshness.thresholds`:
+- `fresh`: score in [0, warning_threshold)
+- `warning`: score in [warning_threshold, stale_threshold)
+- `stale`: score in [stale_threshold, 1.0]
+
+### 2.4.5 Update Records
+- Update `deepwiki_symbols.staleness_score` and `deepwiki_files.staleness_score` in DeepWiki SQLite
+- Update `tech-registry/{slug}.md` YAML frontmatter with freshness block
+- Update `feature-maps/{slug}.md` YAML frontmatter with freshness block
+- Update `deepwiki_feature_to_symbol_index` in doc-index.json
+
+### 2.4.6 Staleness Report
+Add to action-log:
+- Number of stale symbols/files/components
+- Top-5 most stale items with scores
+- Auto-regeneration candidates (if `auto_regenerate: true` and score >= stale threshold)
+
 ## Phase 3: Update Index
 
 ### 3.0 Dry-Run Gate
@@ -228,6 +269,14 @@ timestamp: ISO8601
 ## Impact
 - Features affected: feat-auth
 - Requirements addressed: REQ-001, REQ-002
+
+## Staleness (if DeepWiki freshness enabled)
+| Item | Type | Score | Status |
+|------|------|-------|--------|
+| {symbol/file/component} | {type} | {score} | {fresh/warning/stale} |
+
+- Stale counts: {N} symbols, {N} files, {N} components
+- Auto-regeneration candidates: {list of items with auto_regenerate and score >= stale}
 
 ## Notes
 {any user-provided notes}

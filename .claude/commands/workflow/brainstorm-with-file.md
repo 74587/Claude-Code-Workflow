@@ -107,6 +107,19 @@ When `--yes` or `-y`: Auto-confirm decisions, use recommended roles, balanced ex
 5. Auto-detect mode: If session folder + brainstorm.md exist → continue mode
 6. Create directory structure: `{session-folder}/ideas/`
 
+7. **Create Progress Tracking** (TodoWrite — MANDATORY):
+   ```
+   TodoWrite([
+     { id: "phase-1", title: "Phase 1: Seed Understanding", status: "in_progress" },
+     { id: "phase-2", title: "Phase 2: Divergent Exploration", status: "pending" },
+     { id: "phase-3", title: "Phase 3: Interactive Refinement", status: "pending" },
+     { id: "phase-4", title: "Phase 4: Convergence & Crystallization", status: "pending" },
+     { id: "next-step", title: "GATE: Post-Completion Next Step", status: "pending" }
+   ])
+   ```
+   - Update status to `"in_progress"` when entering each phase, `"completed"` when done
+   - **`next-step` is a terminal gate** — workflow is NOT complete until this todo is `"completed"`
+
 **Session Variables**: `sessionId`, `sessionFolder`, `brainstormMode` (creative|structured|balanced), `autoMode` (boolean), `mode` (new|continue)
 
 ### Phase 1: Seed Understanding
@@ -152,6 +165,8 @@ Output as structured exploration vectors for multi-perspective analysis.
 ```
 
 5. **Initialize brainstorm.md** with session metadata, initial context (user focus, depth, constraints), seed expansion (original idea + exploration vectors), empty thought evolution timeline sections
+
+**TodoWrite**: Update `phase-1` → `"completed"`, `phase-2` → `"in_progress"`
 
 ### Phase 2: Divergent Exploration
 
@@ -353,6 +368,9 @@ CONSTRAINTS: Don't force incompatible ideas together
 4. **Update brainstorm.md** with Round N findings
 5. **Repeat or Converge**: Continue loop (max 6 rounds) or exit to Phase 4
 
+**TodoWrite**: Update `phase-2` → `"completed"` (after first round enters Phase 3), `phase-3` → `"in_progress"`
+**TodoWrite** (on exit loop): Update `phase-3` → `"completed"`, `phase-4` → `"in_progress"`
+
 ### Phase 4: Convergence & Crystallization
 
 1. **Generate Final Synthesis** → Write to synthesis.json
@@ -366,12 +384,46 @@ CONSTRAINTS: Don't force incompatible ideas together
 
 2. **Final brainstorm.md Update**: Executive summary, top ideas ranked, primary recommendation with rationale, alternative approaches, parked ideas, key insights, session statistics (rounds, ideas generated/survived, duration)
 
-3. **Post-Completion Options** (AskUserQuestion)
-   - **创建实施计划**: Launch workflow-plan with top idea
-   - **创建Issue**: Launch issue-discover for top 3 ideas
-   - **深入分析**: Launch workflow:analyze-with-file for top idea
-   - **导出分享**: Generate shareable report
-   - **完成**: No further action
+3. **MANDATORY GATE: Next Step Selection** — workflow MUST NOT end without executing this step.
+
+   **TodoWrite**: Update `phase-4` → `"completed"`, `next-step` → `"in_progress"`
+
+   > **CRITICAL**: This AskUserQuestion is a **terminal gate**. The workflow is INCOMPLETE if this question is not asked. After displaying synthesis (step 2), you MUST immediately proceed here.
+
+   Call AskUserQuestion (single-select, header: "Next Step"):
+   - **创建实施计划** (Recommended if top idea has high feasibility): "基于最佳创意启动 workflow-plan 制定实施计划"
+   - **创建Issue**: "将 Top 3 创意转化为 issue 进行跟踪管理"
+   - **深入分析**: "对最佳创意启动 analyze-with-file 深入技术分析"
+   - **完成**: "头脑风暴已足够，无需进一步操作"
+
+   **Handle user selection**:
+
+   **"创建实施计划"** → MUST invoke Skill tool:
+   1. Build `taskDescription` from top idea in synthesis.json (title + description + next_steps)
+   2. Assemble context: `## Prior Brainstorm ({sessionId})` + summary + top idea details + key insights (up to 5)
+   3. **Invoke Skill tool immediately**:
+      ```javascript
+      Skill({ skill: "workflow-plan", args: `${taskDescription}\n\n${contextLines}` })
+      ```
+      If Skill invocation is omitted, the workflow is BROKEN.
+   4. After Skill invocation, brainstorm-with-file is complete
+
+   **"创建Issue"** → Convert top ideas to issues:
+   1. For each idea in synthesis.top_ideas (top 3):
+      - Build issue JSON: `{title: idea.title, context: idea.description + '\n' + idea.next_steps.join('\n'), priority: idea.score >= 8 ? 2 : 3, source: 'brainstorm', labels: dimensions}`
+      - Create via: `Skill({ skill: "issue:from-brainstorm", args: "${sessionFolder}/synthesis.json" })`
+   2. Display created issue IDs
+
+   **"深入分析"** → Launch analysis on top idea:
+   1. Build analysis topic from top idea title + description
+   2. **Invoke Skill tool immediately**:
+      ```javascript
+      Skill({ skill: "workflow:analyze-with-file", args: `${topIdea.title}: ${topIdea.description}` })
+      ```
+
+   **"完成"** → No further action needed.
+
+   **TodoWrite**: Update `next-step` → `"completed"` after user selection is handled
 
 ## Configuration
 

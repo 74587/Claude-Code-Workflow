@@ -81,6 +81,18 @@ All `AskUserQuestion` calls MUST comply:
 4. Parse options: `-c`/`--continue` for continuation, `-y`/`--yes` for auto-approval
 5. Auto-detect: If session folder + discussion.md exist → continue mode
 6. Create directory structure
+7. **Create Progress Tracking** (TodoWrite — MANDATORY):
+   ```
+   TodoWrite([
+     { id: "phase-1", title: "Phase 1: Topic Understanding", status: "in_progress" },
+     { id: "phase-2", title: "Phase 2: CLI Exploration", status: "pending" },
+     { id: "phase-3", title: "Phase 3: Interactive Discussion", status: "pending" },
+     { id: "phase-4", title: "Phase 4: Synthesis & Conclusion", status: "pending" },
+     { id: "next-step", title: "GATE: Post-Completion Next Step", status: "pending" }
+   ])
+   ```
+   - Update status to `"in_progress"` when entering each phase, `"completed"` when done
+   - **`next-step` is a terminal gate** — workflow is NOT complete until this todo is `"completed"`
 
 **Session Variables**: `sessionId`, `sessionFolder`, `autoMode` (boolean), `mode` (new|continue)
 
@@ -98,6 +110,7 @@ All `AskUserQuestion` calls MUST comply:
 4. **Record Phase 1 Decisions** — Dimension selection reasoning, depth rationale, any user adjustments
 
 **Success**: Session folder + discussion.md created, dimensions identified, preferences captured, decisions recorded
+**TodoWrite**: Update `phase-1` → `"completed"`, `phase-2` → `"in_progress"`
 
 ### Phase 2: CLI Exploration
 
@@ -218,6 +231,7 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 - code_anchors/call_chains include `perspective` field
 
 **Success**: Exploration + CLI artifacts created, discussion.md Round 1, key findings and exploration decisions recorded
+**TodoWrite**: Update `phase-2` → `"completed"`, `phase-3` → `"in_progress"`
 
 ### Phase 3: Interactive Discussion
 
@@ -280,6 +294,7 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
    - If ❌ or ⚠️ items exist → **proactively surface** to user at start of next round: "以下原始意图尚未充分覆盖：[list]。是否需要调整优先级？"
 
 **Success**: All rounds documented with narrative synthesis, assumptions corrected, all decisions recorded with rejection reasoning, direction changes with before/after
+**TodoWrite**: Update `phase-3` → `"completed"`, `phase-4` → `"in_progress"`
 
 ### Phase 4: Synthesis & Conclusion
 
@@ -335,30 +350,38 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
    - Accepted: N items | Modified: N items | Rejected: N items
    - Only accepted/modified recommendations proceed to next step
 
-6. **Post-Completion Options** (analyze-with-file transitions based on user selection):
+6. **MANDATORY GATE: Next Step Selection** — workflow MUST NOT end without executing this step.
 
-   > **WORKFLOW TRANSITION**: "执行任务" MUST invoke `Skill(skill="workflow-lite-plan")` — do NOT end without calling it.
+   **TodoWrite**: Update `phase-4` → `"completed"`, `next-step` → `"in_progress"`
 
-   AskUserQuestion (single-select, header: "Next Step"):
-   - **执行任务** (Recommended if high/medium priority recs exist): Launch workflow-lite-plan
-   - **产出Issue**: Convert recommendations to issues via /issue:new
-   - **完成**: No further action
+   > **CRITICAL**: This AskUserQuestion is a **terminal gate**. The workflow is INCOMPLETE if this question is not asked. After displaying conclusions (step 4) and recommendation review (step 5), you MUST immediately proceed here.
 
-   **Handle "产出Issue"**:
+   Call AskUserQuestion (single-select, header: "Next Step"):
+   - **执行任务** (Recommended if high/medium priority recs exist): "基于分析结论启动 workflow-lite-plan 制定执行计划"
+   - **产出Issue**: "将建议转化为 issue 进行跟踪管理"
+   - **完成**: "分析已足够，无需进一步操作"
+
+   **Handle user selection**:
+
+   **"执行任务"** → MUST invoke Skill tool (do NOT just display a summary and stop):
+   1. Build `taskDescription` from high/medium priority recommendations (fallback: summary)
+   2. Assemble context: `## Prior Analysis ({sessionId})` + summary + key files (up to 8) + key findings (up to 5) from exploration-codebase.json
+   3. **Invoke Skill tool immediately**:
+      ```javascript
+      Skill({ skill: "workflow-lite-plan", args: `${taskDescription}\n\n${contextLines}` })
+      ```
+      If Skill invocation is omitted, the workflow is BROKEN.
+   4. After Skill invocation, analyze-with-file is complete — do not output any additional content
+
+   **"产出Issue"** → Convert recommendations to issues:
    1. For each recommendation in conclusions.recommendations (priority high/medium):
       - Build issue JSON: `{title, context: rec.action + rec.rationale, priority: rec.priority == 'high' ? 2 : 3, source: 'discovery', labels: dimensions}`
       - Create via pipe: `echo '<issue-json>' | ccw issue create`
    2. Display created issue IDs with next step hint: `/issue:plan <id>`
 
-   **Handle "执行任务"** — MUST invoke Skill tool (do NOT just display a summary and stop):
-   1. Build `taskDescription` from high/medium priority recommendations (fallback: summary)
-   2. Assemble context: `## Prior Analysis ({sessionId})` + summary + key files (up to 8) + key findings (up to 5) from exploration-codebase.json
-   3. **MANDATORY — Invoke Skill tool immediately** (this is the ONLY correct action, do NOT skip):
-      ```javascript
-      Skill({ skill: "workflow-lite-plan", args: `${taskDescription}\n\n${contextLines}` })
-      ```
-      If Skill invocation is omitted, the workflow is BROKEN — user selected "执行任务" specifically to launch lite-plan.
-   4. After Skill invocation, analyze-with-file is complete — do not output any additional content
+   **"完成"** → No further action needed.
+
+   **TodoWrite**: Update `next-step` → `"completed"` after user selection is handled
 
 **conclusions.json Schema**:
 - `session_id`, `topic`, `completed`, `total_rounds`, `summary`
@@ -370,7 +393,7 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 - `narrative_trail[]`: {round, starting_point, key_progress, hypothesis_impact, updated_understanding, remaining_questions}
 - `intent_coverage[]`: {intent, status, where_addressed, notes}
 
-**Success**: conclusions.json created, discussion.md finalized, Intent Coverage Matrix verified, complete decision trail documented
+**Success**: conclusions.json created, discussion.md finalized, Intent Coverage Matrix verified, complete decision trail documented, `next-step` gate completed
 
 ## Configuration
 

@@ -605,7 +605,12 @@ Keep it minimal. Format as clean Markdown."""
             symbol=symbol,
         )
 
-    def should_regenerate(self, symbol: DeepWikiSymbol, source_code: str) -> bool:
+    def should_regenerate(
+        self,
+        symbol: DeepWikiSymbol,
+        source_code: str,
+        staleness_threshold: float = 0.7,
+    ) -> bool:
         """Check if symbol needs regeneration.
 
         Conditions for regeneration:
@@ -613,10 +618,12 @@ Keep it minimal. Format as clean Markdown."""
         2. Symbol not in database (new)
         3. Source code hash changed
         4. Previous generation failed
+        5. Staleness score exceeds threshold
 
         Args:
             symbol: Symbol to check.
             source_code: Source code of the symbol.
+            staleness_threshold: Score above which regeneration is triggered.
 
         Returns:
             True if regeneration needed, False otherwise.
@@ -638,6 +645,11 @@ Keep it minimal. Format as clean Markdown."""
 
             if progress.get("status") == "failed":
                 return True  # Retry failed
+
+            # Check staleness score from DeepWiki index
+            db_symbol = self.db.get_symbol(symbol.name, symbol.source_file)
+            if db_symbol and db_symbol.staleness_score >= staleness_threshold:
+                return True  # Stale documentation
 
         return False  # Skip
 

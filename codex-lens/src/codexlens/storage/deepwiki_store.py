@@ -14,13 +14,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import platform
+import math  # noqa: F401 - used in calculate_staleness_score
 import sqlite3
 import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from codexlens.errors import StorageError
 from codexlens.storage.deepwiki_models import DeepWikiDoc, DeepWikiFile, DeepWikiSymbol
@@ -40,7 +40,7 @@ class DeepWikiStore:
     """
 
     DEFAULT_DB_PATH = Path.home() / ".codexlens" / "deepwiki_index.db"
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     def __init__(self, db_path: Path | None = None) -> None:
         """Initialize DeepWiki store.
@@ -130,7 +130,11 @@ class DeepWikiStore:
                     content_hash TEXT NOT NULL,
                     last_indexed REAL NOT NULL,
                     symbols_count INTEGER DEFAULT 0,
-                    docs_generated INTEGER DEFAULT 0
+                    docs_generated INTEGER DEFAULT 0,
+                    staleness_score REAL DEFAULT 0.0,
+                    last_checked_commit TEXT,
+                    last_checked_at REAL,
+                    staleness_factors TEXT
                 )
                 """
             )
@@ -172,6 +176,10 @@ class DeepWikiStore:
                     end_line INTEGER NOT NULL,
                     created_at REAL,
                     updated_at REAL,
+                    staleness_score REAL DEFAULT 0.0,
+                    last_checked_commit TEXT,
+                    last_checked_at REAL,
+                    staleness_factors TEXT,
                     UNIQUE(name, source_file)
                 )
                 """
@@ -225,6 +233,23 @@ class DeepWikiStore:
                 """,
                 (self.SCHEMA_VERSION, time.time()),
             )
+
+            # Schema v2 migration: add staleness columns
+            staleness_columns = [
+                ("deepwiki_files", "staleness_score", "REAL DEFAULT 0.0"),
+                ("deepwiki_files", "last_checked_commit", "TEXT"),
+                ("deepwiki_files", "last_checked_at", "REAL"),
+                ("deepwiki_files", "staleness_factors", "TEXT"),
+                ("deepwiki_symbols", "staleness_score", "REAL DEFAULT 0.0"),
+                ("deepwiki_symbols", "last_checked_commit", "TEXT"),
+                ("deepwiki_symbols", "last_checked_at", "REAL"),
+                ("deepwiki_symbols", "staleness_factors", "TEXT"),
+            ]
+            for table, col, col_type in staleness_columns:
+                try:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
 
             conn.commit()
         except sqlite3.DatabaseError as exc:
@@ -352,6 +377,70 @@ class DeepWikiStore:
                 WHERE path=?
                 """,
                 (content_hash, now, path_str),
+            )
+            conn.commit()
+
+    def update_file_staleness(
+        self,
+        file_path: str | Path,
+        staleness_score: float,
+        commit: str | None = None,
+        factors: Dict[str, Any] | None = None,
+    ) -> None:
+        """Update staleness data for a tracked file.
+
+        Args:
+            file_path: Path to the source file.
+            staleness_score: Staleness score (0.0-1.0).
+            commit: Git commit hash at check time.
+            factors: Dict of factors contributing to the score.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            path_str = self._normalize_path(file_path)
+            now = time.time()
+            factors_json = json.dumps(factors) if factors else None
+
+            conn.execute(
+                """
+                UPDATE deepwiki_files
+                SET staleness_score=?, last_checked_commit=?, last_checked_at=?, staleness_factors=?
+                WHERE path=?
+                """,
+                (staleness_score, commit, now, factors_json, path_str),
+            )
+            conn.commit()
+
+    def update_symbol_staleness(
+        self,
+        name: str,
+        source_file: str | Path,
+        staleness_score: float,
+        commit: str | None = None,
+        factors: Dict[str, Any] | None = None,
+    ) -> None:
+        """Update staleness data for a symbol.
+
+        Args:
+            name: Symbol name.
+            source_file: Path to the source file.
+            staleness_score: Staleness score (0.0-1.0).
+            commit: Git commit hash at check time.
+            factors: Dict of factors contributing to the score.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            path_str = self._normalize_path(source_file)
+            now = time.time()
+            factors_json = json.dumps(factors) if factors else None
+
+            conn.execute(
+                """
+                UPDATE deepwiki_symbols
+                SET staleness_score=?, last_checked_commit=?, last_checked_at=?, staleness_factors=?
+                WHERE name=? AND source_file=?
+                """,
+                (staleness_score, commit, now, factors_json, name, path_str),
             )
             conn.commit()
 
@@ -722,6 +811,121 @@ class DeepWikiStore:
 
         return sha256.hexdigest()
 
+    @staticmethod
+    def calculate_staleness_score(
+        days_since_update: float,
+        commits_since: int = 0,
+        files_changed: int = 0,
+        lines_changed: int = 0,
+        proportion_changed: float = 0.0,
+        is_deleted: bool = False,
+        weights: tuple[float, float, float] = (0.1, 0.4, 0.5),
+        decay_k: float = 0.05,
+    ) -> float:
+        """Calculate staleness score using three-factor formula.
+
+        S = min(1.0, w_t * T + w_c * C + w_s * M)
+
+        Args:
+            days_since_update: Days since last documentation update.
+            commits_since: Number of commits since last check.
+            files_changed: Number of files changed.
+            lines_changed: Total lines changed.
+            proportion_changed: Proportion of symbol body changed (0.0-1.0).
+            is_deleted: Whether the symbol was deleted.
+            weights: (w_t, w_c, w_s) weights for time, churn, symbol factors.
+            decay_k: Time decay constant (default 0.05, ~14 days to 50%).
+
+        Returns:
+            Staleness score between 0.0 and 1.0.
+        """
+        w_t, w_c, w_s = weights
+
+        # T: Time decay factor
+        T = 1 - math.exp(-decay_k * max(0, days_since_update))
+
+        # C: Code churn factor (sigmoid normalization)
+        churn_raw = (
+            math.log1p(commits_since)
+            + math.log1p(files_changed)
+            + math.log1p(lines_changed)
+        )
+        C = 1 / (1 + math.exp(-churn_raw + 3))  # sigmoid centered at 3
+
+        # M: Symbol modification factor
+        if is_deleted:
+            M = 1.0
+        else:
+            M = min(1.0, max(0.0, proportion_changed))
+
+        return min(1.0, w_t * T + w_c * C + w_s * M)
+
+    def get_stale_files(
+        self, files: list[dict[str, str]]
+    ) -> list[dict[str, str]]:
+        """Check which files have stale documentation by comparing hashes.
+
+        Args:
+            files: List of dicts with 'path' and 'hash' keys.
+
+        Returns:
+            List of file dicts where stored hash differs from provided hash.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            stale = []
+            for f in files:
+                path_str = self._normalize_path(f["path"])
+                row = conn.execute(
+                    "SELECT content_hash FROM deepwiki_files WHERE path=?",
+                    (path_str,),
+                ).fetchone()
+                if row and row["content_hash"] != f["hash"]:
+                    stale.append({
+                        "path": f["path"],
+                        "stored_hash": row["content_hash"],
+                        "current_hash": f["hash"],
+                    })
+                elif not row:
+                    stale.append({
+                        "path": f["path"],
+                        "stored_hash": None,
+                        "current_hash": f["hash"],
+                    })
+            return stale
+
+    def get_symbols_for_paths(
+        self, paths: list[str | Path]
+    ) -> dict[str, list[DeepWikiSymbol]]:
+        """Get all symbols for multiple source files.
+
+        Args:
+            paths: List of source file paths.
+
+        Returns:
+            Dict mapping normalized path to list of DeepWikiSymbol records.
+        """
+        with self._lock:
+            conn = self._get_connection()
+            result: dict[str, list[DeepWikiSymbol]] = {}
+
+            for path in paths:
+                path_str = self._normalize_path(path)
+                rows = conn.execute(
+                    """
+                    SELECT * FROM deepwiki_symbols
+                    WHERE source_file=?
+                    ORDER BY start_line
+                    """,
+                    (path_str,),
+                ).fetchall()
+                if rows:
+                    result[path_str] = [
+                        self._row_to_deepwiki_symbol(row) for row in rows
+                    ]
+
+            return result
+
     def stats(self) -> Dict[str, Any]:
         """Get storage statistics.
 
@@ -914,6 +1118,14 @@ class DeepWikiStore:
 
     def _row_to_deepwiki_file(self, row: sqlite3.Row) -> DeepWikiFile:
         """Convert database row to DeepWikiFile."""
+        staleness_factors = None
+        try:
+            factors_str = row["staleness_factors"]
+            if factors_str:
+                staleness_factors = json.loads(factors_str)
+        except (KeyError, IndexError):
+            pass
+
         return DeepWikiFile(
             id=int(row["id"]),
             path=row["path"],
@@ -923,6 +1135,10 @@ class DeepWikiStore:
             else datetime.utcnow(),
             symbols_count=int(row["symbols_count"]) if row["symbols_count"] else 0,
             docs_generated=bool(row["docs_generated"]),
+            staleness_score=float(row["staleness_score"]) if row["staleness_score"] else 0.0,
+            last_checked_commit=row["last_checked_commit"] if "last_checked_commit" in row.keys() else None,
+            last_checked_at=row["last_checked_at"] if "last_checked_at" in row.keys() else None,
+            staleness_factors=staleness_factors,
         )
 
     def _row_to_deepwiki_symbol(self, row: sqlite3.Row) -> DeepWikiSymbol:
@@ -935,6 +1151,14 @@ class DeepWikiStore:
         if row["updated_at"]:
             updated_at = datetime.fromtimestamp(row["updated_at"])
 
+        staleness_factors = None
+        try:
+            factors_str = row["staleness_factors"]
+            if factors_str:
+                staleness_factors = json.loads(factors_str)
+        except (KeyError, IndexError):
+            pass
+
         return DeepWikiSymbol(
             id=int(row["id"]),
             name=row["name"],
@@ -945,6 +1169,10 @@ class DeepWikiStore:
             line_range=(int(row["start_line"]), int(row["end_line"])),
             created_at=created_at,
             updated_at=updated_at,
+            staleness_score=float(row["staleness_score"]) if row["staleness_score"] else 0.0,
+            last_checked_commit=row["last_checked_commit"] if "last_checked_commit" in row.keys() else None,
+            last_checked_at=row["last_checked_at"] if "last_checked_at" in row.keys() else None,
+            staleness_factors=staleness_factors,
         )
 
     def _row_to_deepwiki_doc(self, row: sqlite3.Row) -> DeepWikiDoc:

@@ -266,9 +266,38 @@ Write the index with code-first markers:
     "affectedComponents": ["tech-{slug}"],
     "relatedCommit": "full-hash",
     "timestamp": "ISO8601"
-  }]
+  }],
+  "freshness": {
+    "thresholds": { "warning": 0.3, "stale": 0.7 },
+    "weights": { "time": 0.1, "churn": 0.4, "symbol": 0.5 },
+    "time_decay_k": 0.05,
+    "auto_regenerate": false
+  },
+  "deepwiki_feature_to_symbol_index": {}
 }
 ```
+
+## Phase 6.5: Build DeepWiki Feature-to-Symbol Index
+
+If DeepWiki is available (`.codexlens/deepwiki_index.db` exists):
+
+1. Collect all `codeLocations[].path` from `technicalComponents[]`
+2. Query DeepWiki: `POST /api/deepwiki/symbols-for-paths { paths: [...] }`
+3. Build `deepwiki_feature_to_symbol_index` by traversing:
+   `feature → requirementIds → techComponentIds → codeLocations → symbols`
+
+```json
+"deepwiki_feature_to_symbol_index": {
+  "feat-auth": [
+    "deepwiki:symbol:src/auth/jwt.ts#L30-L55",
+    "deepwiki:symbol:src/models/user.ts#L12-L40"
+  ]
+}
+```
+
+**Symbol URN format**: `deepwiki:symbol:<file_path>#L<start>-L<end>`
+
+**Graceful degradation**: If DeepWiki is unavailable, set `deepwiki_feature_to_symbol_index: {}` and log warning.
 
 ## Phase 7: Generate Documents
 

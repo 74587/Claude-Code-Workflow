@@ -64,6 +64,7 @@ For each task with `doc_context`:
 - Load referenced `component_docs` (tech-registry/{slug}.md)
 - Load ADR excerpts from doc-index `architectureDecisions[]`
 - Extract requirement acceptance criteria from doc-index `requirements[]`
+- Load `doc_context.symbol_docs[]` documentation content (if present)
 
 ### 1.4 Echo Strategy
 
@@ -130,6 +131,16 @@ ${feature-map content excerpt — overview + requirements section}
 ### Components
 ${for each component in task.doc_context.component_ids:
   tech-registry excerpt — responsibility + code locations + key patterns}
+
+### Symbol Documentation
+${if doc_context.symbol_docs is non-empty:
+  for each component in doc_context.component_ids:
+    #### ${component.name} Symbols (Top-5)
+    ${for each symbol in component.symbol_docs.slice(0, 5):
+      - **${symbol.name}** (${symbol.type}): ${symbol.doc_summary}
+        Source: `${symbol.source_path}` | Freshness: ${symbol.freshness}
+    }
+}
 
 ### Architecture Constraints
 ${for each ADR in task.doc_context.adr_ids:
