@@ -38,20 +38,36 @@ import {
 // Track all running child processes for cleanup on interruption (multi-process support)
 const runningChildProcesses = new Set<ChildProcess>();
 
+// Debug logging for parallel execution testing
+const DEBUG_SESSION_ID = 'DBG-parallel-ccw-cli-test-2026-03-07';
+const DEBUG_LOG_PATH = path.join(process.cwd(), '.workflow', '.debug', DEBUG_SESSION_ID, 'debug.log');
+
+function writeDebugLog(event: string, data: Record<string, any>): void {
+  try {
+    const logEntry = JSON.stringify({ event, ...data, timestamp: new Date().toISOString() }) + '\n';
+    fs.appendFileSync(DEBUG_LOG_PATH, logEntry, 'utf8');
+  } catch (err) {
+    // Silently ignore logging errors to avoid disrupting execution
+  }
+}
+
+
 /**
  * Kill all running CLI child processes
  * Called when parent process receives SIGINT/SIGTERM
  */
 export function killAllCliProcesses(): boolean {
   if (runningChildProcesses.size === 0) return false;
+  writeDebugLog('KILL_ALL_START', { initial_set_size: runningChildProcesses.size });
 
   const processesToKill = Array.from(runningChildProcesses);
   debugLog('KILL', `Killing ${processesToKill.length} child process(es)`, { pids: processesToKill.map(p => p.pid) });
+  writeDebugLog('KILL_ALL_COPY', { pids_to_kill: processesToKill.map(p => p.pid) });
 
   // 1. SIGTERM for graceful shutdown
   for (const child of processesToKill) {
     if (!child.killed) {
-      try { child.kill('SIGTERM'); } catch { /* Ignore kill errors */ }
+      try { child.kill('SIGTERM'); } catch (e: any) { writeDebugLog('KILL_SIGTERM_ERROR', { pid: child.pid, error: e.message }); }
     }
   }
 
@@ -59,12 +75,13 @@ export function killAllCliProcesses(): boolean {
   const killTimeout = setTimeout(() => {
     for (const child of processesToKill) {
       if (!child.killed) {
-        try { child.kill('SIGKILL'); } catch { /* Ignore kill errors */ }
+        try { child.kill('SIGKILL'); } catch (e: any) { writeDebugLog('KILL_SIGKILL_ERROR', { pid: child.pid, error: e.message }); }
       }
     }
   }, 2000);
   killTimeout.unref();
 
+  writeDebugLog('KILL_ALL_CLEAR', { set_size_before: runningChildProcesses.size, pids_in_set: Array.from(runningChildProcesses).map(p => p.pid) });
   runningChildProcesses.clear();
   return true;
 }
@@ -240,6 +257,7 @@ async function executeClaudeWithSettings(params: ClaudeWithSettingsParams): Prom
 
     // Track child process for cleanup (multi-process support)
     runningChildProcesses.add(child);
+    writeDebugLog('PROCESS_ADD', { pid: child.pid, set_size_after: runningChildProcesses.size, function: 'executeClaudeWithSettings' });
 
     let stdout = '';
     let stderr = '';
@@ -279,6 +297,7 @@ async function executeClaudeWithSettings(params: ClaudeWithSettingsParams): Prom
 
     child.on('close', (code) => {
       runningChildProcesses.delete(child);
+      writeDebugLog('PROCESS_DELETE', { pid: child.pid, exit_code: code, set_size_after: runningChildProcesses.size, function: 'executeClaudeWithSettings', handler: 'close' });
 
       const endTime = Date.now();
       const duration = endTime - startTime;
@@ -319,8 +338,10 @@ async function executeClaudeWithSettings(params: ClaudeWithSettingsParams): Prom
 
       // Save to history
       try {
+        writeDebugLog('SAVE_CONVERSATION_START', { conversationId: conversation.id, pid: child.pid, function: 'executeClaudeWithSettings' });
         saveConversation(workingDir, conversation);
       } catch (err) {
+        writeDebugLog('SAVE_CONVERSATION_ERROR', { conversationId: conversation.id, pid: child.pid, error: (err as Error).message, stack: (err as Error).stack, function: 'executeClaudeWithSettings' });
         console.error('[CLI Executor] Failed to save CLI封装 history:', (err as Error).message);
       }
 
@@ -335,6 +356,7 @@ async function executeClaudeWithSettings(params: ClaudeWithSettingsParams): Prom
 
     child.on('error', (error) => {
       runningChildProcesses.delete(child);
+      writeDebugLog('PROCESS_DELETE', { pid: child.pid, set_size_after: runningChildProcesses.size, function: 'executeClaudeWithSettings', handler: 'error' });
       reject(new Error(`Failed to spawn claude: ${error.message}`));
     });
   });
@@ -997,6 +1019,7 @@ async function executeCliTool(
 
     // Track child process for cleanup on interruption (multi-process support)
     runningChildProcesses.add(child);
+    writeDebugLog('PROCESS_ADD', { pid: child.pid, set_size_after: runningChildProcesses.size, function: 'executeCliTool', tool });
 
     debugLog('SPAWN', `Process spawned`, { pid: child.pid });
 
@@ -1048,6 +1071,7 @@ async function executeCliTool(
     child.on('close', async (code) => {
       // Remove from running processes
       runningChildProcesses.delete(child);
+      writeDebugLog('PROCESS_DELETE', { pid: child.pid, exit_code: code, set_size_after: runningChildProcesses.size, function: 'executeCliTool', handler: 'close', tool });
 
       // Flush remaining buffer from parser
       const remainingUnits = parser.flush();
@@ -1176,9 +1200,11 @@ async function executeCliTool(
         // Save all source conversations
         try {
           for (const conv of savedConversations) {
+            writeDebugLog('SAVE_CONVERSATION_START', { conversationId: conv.id, pid: child.pid, function: 'executeCliTool', context: 'merge-loop', tool });
             saveConversation(workingDir, conv);
           }
         } catch (err) {
+          writeDebugLog('SAVE_CONVERSATION_ERROR', { pid: child.pid, error: (err as Error).message, stack: (err as Error).stack, function: 'executeCliTool', context: 'merge-loop', tool });
           console.error('[CLI Executor] Failed to save merged histories:', (err as Error).message);
         }
       } else if (isMerge && mergeResult && customId) {
@@ -1218,8 +1244,10 @@ async function executeCliTool(
             };
         // Save merged conversation
         try {
+          writeDebugLog('SAVE_CONVERSATION_START', { conversationId: conversation.id, pid: child.pid, function: 'executeCliTool', context: 'merge-with-id', tool });
           saveConversation(workingDir, conversation);
         } catch (err) {
+          writeDebugLog('SAVE_CONVERSATION_ERROR', { conversationId: conversation.id, pid: child.pid, error: (err as Error).message, stack: (err as Error).stack, function: 'executeCliTool', context: 'merge-with-id', tool });
           console.error('[CLI Executor] Failed to save merged conversation:', (err as Error).message);
         }
       } else {
@@ -1249,8 +1277,10 @@ async function executeCliTool(
             };
         // Try to save conversation to history
         try {
+          writeDebugLog('SAVE_CONVERSATION_START', { conversationId: conversation.id, pid: child.pid, function: 'executeCliTool', context: 'normal', tool });
           saveConversation(workingDir, conversation);
         } catch (err) {
+          writeDebugLog('SAVE_CONVERSATION_ERROR', { conversationId: conversation.id, pid: child.pid, error: (err as Error).message, stack: (err as Error).stack, function: 'executeCliTool', context: 'normal', tool });
           // Non-fatal: continue even if history save fails
           console.error('[CLI Executor] Failed to save history:', (err as Error).message);
         }
@@ -1311,6 +1341,7 @@ async function executeCliTool(
     child.on('error', (error) => {
       // Remove from running processes
       runningChildProcesses.delete(child);
+      writeDebugLog('PROCESS_DELETE', { pid: child.pid, set_size_after: runningChildProcesses.size, function: 'executeCliTool', handler: 'error', tool });
 
       errorLog('SPAWN', `Failed to spawn process`, error, {
         tool,

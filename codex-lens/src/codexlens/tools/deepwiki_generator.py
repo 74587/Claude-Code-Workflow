@@ -509,14 +509,17 @@ Keep it minimal. Format as clean Markdown."""
         Returns:
             True if content passes validation, False otherwise.
         """
+        import re
+
         if not content or len(content.strip()) < 20:
             return False
 
         required = REQUIRED_SECTIONS.get(layer, ["Description"])
-        content_lower = content.lower()
 
         for section in required:
-            if section.lower() not in content_lower:
+            # Match markdown headers (##, ###, **Bold**) or standalone section names
+            pattern = rf"^\s*(?:#{1,6}\s+|\*\*){re.escape(section)}"
+            if not re.search(pattern, content, re.IGNORECASE | re.MULTILINE):
                 return False
 
         return True

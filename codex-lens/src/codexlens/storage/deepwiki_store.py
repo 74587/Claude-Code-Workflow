@@ -209,9 +209,9 @@ class DeepWikiStore:
                     attempts INTEGER DEFAULT 0,
                     last_tool TEXT,
                     last_error TEXT,
-                    generated_at TEXT,
-                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    generated_at REAL,
+                    created_at REAL,
+                    updated_at REAL
                 )
                 """
             )
@@ -873,25 +873,33 @@ class DeepWikiStore:
         """
         with self._lock:
             conn = self._get_connection()
-            stale = []
+            if not files:
+                return []
+
+            # Build lookup: normalized_path -> original file dict
+            lookup: dict[str, dict[str, str]] = {}
+            normalized: list[str] = []
             for f in files:
                 path_str = self._normalize_path(f["path"])
-                row = conn.execute(
-                    "SELECT content_hash FROM deepwiki_files WHERE path=?",
-                    (path_str,),
-                ).fetchone()
-                if row and row["content_hash"] != f["hash"]:
-                    stale.append({
-                        "path": f["path"],
-                        "stored_hash": row["content_hash"],
-                        "current_hash": f["hash"],
-                    })
-                elif not row:
-                    stale.append({
-                        "path": f["path"],
-                        "stored_hash": None,
-                        "current_hash": f["hash"],
-                    })
+                lookup[path_str] = f
+                normalized.append(path_str)
+
+            placeholders = ",".join("?" * len(normalized))
+            rows = conn.execute(
+                f"SELECT path, content_hash FROM deepwiki_files WHERE path IN ({placeholders})",
+                normalized,
+            ).fetchall()
+
+            stored: dict[str, str] = {row["path"]: row["content_hash"] for row in rows}
+
+            stale = []
+            for path_str, f in lookup.items():
+                stored_hash = stored.get(path_str)
+                if stored_hash is None:
+                    stale.append({"path": f["path"], "stored_hash": None, "current_hash": f["hash"]})
+                elif stored_hash != f["hash"]:
+                    stale.append({"path": f["path"], "stored_hash": stored_hash, "current_hash": f["hash"]})
+
             return stale
 
     def get_symbols_for_paths(
@@ -909,20 +917,25 @@ class DeepWikiStore:
             conn = self._get_connection()
             result: dict[str, list[DeepWikiSymbol]] = {}
 
-            for path in paths:
-                path_str = self._normalize_path(path)
-                rows = conn.execute(
-                    """
-                    SELECT * FROM deepwiki_symbols
-                    WHERE source_file=?
-                    ORDER BY start_line
-                    """,
-                    (path_str,),
-                ).fetchall()
-                if rows:
-                    result[path_str] = [
-                        self._row_to_deepwiki_symbol(row) for row in rows
-                    ]
+            if not paths:
+                return result
+
+            normalized = [self._normalize_path(p) for p in paths]
+            placeholders = ",".join("?" * len(normalized))
+            rows = conn.execute(
+                f"""
+                SELECT * FROM deepwiki_symbols
+                WHERE source_file IN ({placeholders})
+                ORDER BY source_file, start_line
+                """,
+                normalized,
+            ).fetchall()
+
+            for row in rows:
+                sf = row["source_file"]
+                result.setdefault(sf, []).append(
+                    self._row_to_deepwiki_symbol(row)
+                )
 
             return result
 

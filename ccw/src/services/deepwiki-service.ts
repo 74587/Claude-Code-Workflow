@@ -27,6 +27,7 @@ export interface DeepWikiSymbol {
   end_line: number;
   created_at: number | null;
   updated_at: number | null;
+  staleness_score: number;
 }
 
 /**
@@ -281,28 +282,40 @@ export class DeepWikiService {
         staleness_score: number;
       }>>();
 
-      const stmt = db.prepare(`
-        SELECT name, type, doc_file, anchor, start_line, end_line, staleness_score
+      if (paths.length === 0) {
+        return result;
+      }
+
+      const normalizedPaths = paths.map(p => p.replace(/\\/g, '/'));
+      const placeholders = normalizedPaths.map(() => '?').join(',');
+      const rows = db.prepare(`
+        SELECT source_file, name, type, doc_file, anchor, start_line, end_line, staleness_score
         FROM deepwiki_symbols
-        WHERE source_file = ?
-        ORDER BY start_line
-      `);
+        WHERE source_file IN (${placeholders})
+        ORDER BY source_file, start_line
+      `).all(...normalizedPaths) as Array<{
+        source_file: string;
+        name: string;
+        type: string;
+        doc_file: string;
+        anchor: string;
+        start_line: number;
+        end_line: number;
+        staleness_score: number;
+      }>;
 
-      for (const filePath of paths) {
-        const normalizedPath = filePath.replace(/\\/g, '/');
-        const rows = stmt.all(normalizedPath) as Array<{
-          name: string;
-          type: string;
-          doc_file: string;
-          anchor: string;
-          start_line: number;
-          end_line: number;
-          staleness_score: number;
-        }>;
-
-        if (rows.length > 0) {
-          result.set(normalizedPath, rows);
-        }
+      for (const row of rows) {
+        const existing = result.get(row.source_file) || [];
+        existing.push({
+          name: row.name,
+          type: row.type,
+          doc_file: row.doc_file,
+          anchor: row.anchor,
+          start_line: row.start_line,
+          end_line: row.end_line,
+          staleness_score: row.staleness_score,
+        });
+        result.set(row.source_file, existing);
       }
 
       return result;
@@ -328,17 +341,36 @@ export class DeepWikiService {
     }
 
     try {
-      const stmt = db.prepare('SELECT content_hash FROM deepwiki_files WHERE path = ?');
       const stale: Array<{ path: string; stored_hash: string | null; current_hash: string }> = [];
+      if (files.length === 0) {
+        return stale;
+      }
 
+      // Build lookup: normalizedPath -> original file
+      const lookup = new Map<string, { path: string; hash: string }>();
+      const normalizedPaths: string[] = [];
       for (const file of files) {
-        const normalizedPath = file.path.replace(/\\/g, '/');
-        const row = stmt.get(normalizedPath) as { content_hash: string } | undefined;
+        const np = file.path.replace(/\\/g, '/');
+        lookup.set(np, file);
+        normalizedPaths.push(np);
+      }
 
-        if (row && row.content_hash !== file.hash) {
-          stale.push({ path: file.path, stored_hash: row.content_hash, current_hash: file.hash });
-        } else if (!row) {
+      const placeholders = normalizedPaths.map(() => '?').join(',');
+      const rows = db.prepare(
+        `SELECT path, content_hash FROM deepwiki_files WHERE path IN (${placeholders})`
+      ).all(...normalizedPaths) as Array<{ path: string; content_hash: string }>;
+
+      const stored = new Map<string, string>();
+      for (const row of rows) {
+        stored.set(row.path, row.content_hash);
+      }
+
+      for (const [np, file] of lookup) {
+        const storedHash = stored.get(np);
+        if (storedHash === undefined) {
           stale.push({ path: file.path, stored_hash: null, current_hash: file.hash });
+        } else if (storedHash !== file.hash) {
+          stale.push({ path: file.path, stored_hash: storedHash, current_hash: file.hash });
         }
       }
 
