@@ -251,6 +251,11 @@ class DeepWikiStore:
                 except sqlite3.OperationalError:
                     pass  # Column already exists
 
+            # Legacy migration: some earlier DeepWiki DBs stored timestamps as TEXT (ISO strings).
+            # better-sqlite3 + JS code expects numeric (REAL) seconds, so ensure timestamp columns
+            # have REAL affinity by rebuilding affected tables when needed.
+            self._migrate_text_timestamps_to_real(conn)
+
             conn.commit()
         except sqlite3.DatabaseError as exc:
             raise StorageError(
@@ -269,6 +274,193 @@ class DeepWikiStore:
             Normalized path string with forward slashes.
         """
         return str(Path(path).resolve()).replace("\\", "/")
+
+    def _migrate_text_timestamps_to_real(self, conn: sqlite3.Connection) -> None:
+        """Migrate legacy TEXT timestamp columns to REAL affinity.
+
+        SQLite's type system is dynamic, but column affinity influences how values are stored and
+        returned. Older DeepWiki databases used TEXT timestamps (often ISO strings). The current
+        schema uses REAL epoch seconds. When we detect TEXT affinity on timestamp columns, we
+        rebuild the table with REAL columns and convert existing values during copy.
+        """
+
+        self._rebuild_table_with_timestamp_conversion(
+            conn,
+            table="deepwiki_files",
+            create_sql="""
+                CREATE TABLE deepwiki_files (
+                    id INTEGER PRIMARY KEY,
+                    path TEXT UNIQUE NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    last_indexed REAL NOT NULL,
+                    symbols_count INTEGER DEFAULT 0,
+                    docs_generated INTEGER DEFAULT 0,
+                    staleness_score REAL DEFAULT 0.0,
+                    last_checked_commit TEXT,
+                    last_checked_at REAL,
+                    staleness_factors TEXT
+                )
+            """,
+            timestamp_columns={"last_indexed", "last_checked_at"},
+            required_timestamp_columns={"last_indexed"},
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_deepwiki_files_path ON deepwiki_files(path)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_deepwiki_files_hash ON deepwiki_files(content_hash)"
+        )
+
+        self._rebuild_table_with_timestamp_conversion(
+            conn,
+            table="deepwiki_docs",
+            create_sql="""
+                CREATE TABLE deepwiki_docs (
+                    id INTEGER PRIMARY KEY,
+                    path TEXT UNIQUE NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    symbols TEXT DEFAULT '[]',
+                    generated_at REAL NOT NULL,
+                    llm_tool TEXT
+                )
+            """,
+            timestamp_columns={"generated_at"},
+            required_timestamp_columns={"generated_at"},
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_deepwiki_docs_path ON deepwiki_docs(path)")
+
+        self._rebuild_table_with_timestamp_conversion(
+            conn,
+            table="deepwiki_symbols",
+            create_sql="""
+                CREATE TABLE deepwiki_symbols (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    source_file TEXT NOT NULL,
+                    doc_file TEXT NOT NULL,
+                    anchor TEXT NOT NULL,
+                    start_line INTEGER NOT NULL,
+                    end_line INTEGER NOT NULL,
+                    created_at REAL,
+                    updated_at REAL,
+                    staleness_score REAL DEFAULT 0.0,
+                    last_checked_commit TEXT,
+                    last_checked_at REAL,
+                    staleness_factors TEXT,
+                    UNIQUE(name, source_file)
+                )
+            """,
+            timestamp_columns={"created_at", "updated_at", "last_checked_at"},
+            required_timestamp_columns=set(),
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_deepwiki_symbols_name ON deepwiki_symbols(name)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_deepwiki_symbols_source ON deepwiki_symbols(source_file)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_deepwiki_symbols_doc ON deepwiki_symbols(doc_file)"
+        )
+
+        self._rebuild_table_with_timestamp_conversion(
+            conn,
+            table="generation_progress",
+            create_sql="""
+                CREATE TABLE generation_progress (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    symbol_key TEXT NOT NULL UNIQUE,
+                    file_path TEXT NOT NULL,
+                    symbol_name TEXT NOT NULL,
+                    symbol_type TEXT NOT NULL,
+                    layer INTEGER NOT NULL,
+                    source_hash TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'pending',
+                    attempts INTEGER DEFAULT 0,
+                    last_tool TEXT,
+                    last_error TEXT,
+                    generated_at REAL,
+                    created_at REAL,
+                    updated_at REAL
+                )
+            """,
+            timestamp_columns={"generated_at", "created_at", "updated_at"},
+            required_timestamp_columns=set(),
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_progress_status ON generation_progress(status)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_progress_file ON generation_progress(file_path)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_progress_hash ON generation_progress(source_hash)"
+        )
+
+    def _rebuild_table_with_timestamp_conversion(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        table: str,
+        create_sql: str,
+        timestamp_columns: set[str],
+        required_timestamp_columns: set[str],
+    ) -> None:
+        info = conn.execute(f"PRAGMA table_info({table})").fetchall()
+        if not info:
+            return
+
+        declared_types = {
+            row["name"]: str(row["type"] or "").strip().upper() for row in info
+        }
+        needs_migration = any(
+            declared_types.get(col) == "TEXT" for col in timestamp_columns if col in declared_types
+        )
+        if not needs_migration:
+            return
+
+        old_table = f"{table}__old_ts"
+        conn.execute(f"ALTER TABLE {table} RENAME TO {old_table}")
+        conn.execute(create_sql)
+
+        old_cols = [
+            r["name"]
+            for r in conn.execute(f"PRAGMA table_info({old_table})").fetchall()
+        ]
+        new_cols = [r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+        common_cols = [c for c in new_cols if c in old_cols]
+
+        select_exprs: list[str] = []
+        for col in common_cols:
+            if col in timestamp_columns:
+                expr = self._sql_timestamp_to_real(col)
+                if col in required_timestamp_columns:
+                    expr = f"COALESCE({expr}, CAST(strftime('%s','now') AS REAL))"
+                select_exprs.append(f"{expr} AS {col}")
+            else:
+                select_exprs.append(col)
+
+        cols_sql = ", ".join(common_cols)
+        select_sql = ", ".join(select_exprs)
+        conn.execute(
+            f"INSERT INTO {table} ({cols_sql}) SELECT {select_sql} FROM {old_table}"
+        )
+        conn.execute(f"DROP TABLE {old_table}")
+
+    def _sql_timestamp_to_real(self, col: str) -> str:
+        # Convert various timestamp representations to epoch seconds (REAL).
+        # - numeric types: keep as REAL
+        # - numeric strings: CAST to REAL
+        # - ISO datetime strings: strftime('%s', ...) to epoch seconds
+        return f"""(
+            CASE
+                WHEN {col} IS NULL THEN NULL
+                WHEN typeof({col}) IN ('integer', 'real') THEN CAST({col} AS REAL)
+                WHEN trim({col}) GLOB '[0-9]*' THEN CAST({col} AS REAL)
+                ELSE CAST(strftime('%s', replace(substr({col}, 1, 19), 'T', ' ')) AS REAL)
+            END
+        )"""
 
     # === File Operations ===
 

@@ -40,12 +40,13 @@ class MockMarkdownGenerator:
 
     def generate(self, symbol: DeepWikiSymbol, source_code: str) -> str:
         """Generate mock Markdown documentation."""
-        return f"""{SYMBOL_START_TEMPLATE.format(name=symbol.name, type=symbol.symbol_type)}
+        start_line, end_line = symbol.line_range
+        return f"""{SYMBOL_START_TEMPLATE.format(name=symbol.name, type=symbol.type)}
 
 ## `{symbol.name}`
 
-**Type**: {symbol.symbol_type}
-**Location**: `{symbol.source_file}:{symbol.line_start}-{symbol.line_end}`
+**Type**: {symbol.type}
+**Location**: `{symbol.source_file}:{start_line}-{end_line}`
 
 ```{symbol.source_file.split('.')[-1] if '.' in symbol.source_file else 'text'}
 {source_code}
@@ -190,12 +191,11 @@ class DeepWikiGenerator:
             # Create symbol record
             symbol = DeepWikiSymbol(
                 name=sym["name"],
-                symbol_type=sym["type"],
+                type=sym["type"],
                 source_file=str(file_path),
                 doc_file=f".deepwiki/{file_path.stem}.md",
                 anchor=f"#{sym['name'].lower()}",
-                line_start=sym["line_start"],
-                line_end=sym["line_end"],
+                line_range=(sym["line_start"], sym["line_end"]),
             )
 
             # Generate markdown
@@ -205,8 +205,13 @@ class DeepWikiGenerator:
             self.store.add_symbol(symbol)
             docs_generated += 1
 
-        # Update file hash
-        self.store.update_file_hash(str(file_path), current_hash)
+        # Track file hash + metadata for incremental updates and staleness checks.
+        self.store.add_file(
+            file_path=str(file_path),
+            content_hash=current_hash,
+            symbols_count=len(raw_symbols),
+            docs_generated=docs_generated > 0,
+        )
 
         logger.info(f"Generated docs for {docs_generated} symbols in {file_path}")
         return {

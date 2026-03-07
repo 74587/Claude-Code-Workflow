@@ -216,7 +216,7 @@ rg "export.*Component" --files-with-matches --type ts
 CONTEXT: @components/Auth.tsx @types/auth.d.ts | Memory: Previous type refactoring
 
 # Step 3: Execute CLI
-ccw cli -p "..." --tool <tool-id> --mode analysis --cd src
+ccw cli -p "..." --tool <tool-id> --mode analysis --cd "src"
 ```
 
 ### --rule Configuration
@@ -313,12 +313,12 @@ ccw cli -p "..." --tool gemini --mode analysis --rule analysis-review-architectu
   - Description: Model override
   - Default: Tool's primaryModel from config
 
-- **`--cd <path>`**
-  - Description: Working directory
+- **`--cd "<path>"`**
+  - Description: Working directory (quote if path contains spaces)
   - Default: current
 
-- **`--includeDirs <dirs>`**
-  - Description: Additional directories (comma-separated)
+- **`--includeDirs "<dirs>"`**
+  - Description: Additional directories (comma-separated, quote if paths contain spaces)
   - Default: none
 
 - **`--resume [id]`**
@@ -347,10 +347,10 @@ When using `--cd`:
 
 ```bash
 # Single directory
-ccw cli -p "CONTEXT: @**/* @../shared/**/*" --tool <tool-id> --mode analysis --cd src/auth --includeDirs ../shared
+ccw cli -p "CONTEXT: @**/* @../shared/**/*" --tool <tool-id> --mode analysis --cd "src/auth" --includeDirs "../shared"
 
 # Multiple directories
-ccw cli -p "..." --tool <tool-id> --mode analysis --cd src/auth --includeDirs ../shared,../types,../utils
+ccw cli -p "..." --tool <tool-id> --mode analysis --cd "src/auth" --includeDirs "../shared,../types,../utils"
 ```
 
 **Rule**: If CONTEXT contains `@../dir/**/*`, MUST include `--includeDirs ../dir`
@@ -397,7 +397,7 @@ MODE: analysis
 CONTEXT: @src/auth/**/* @src/middleware/auth.ts | Memory: Using bcrypt for passwords, JWT for sessions
 EXPECTED: Security report with: severity matrix, file:line references, CVE mappings where applicable, remediation code snippets prioritized by risk
 CONSTRAINTS: Focus on authentication | Ignore test files
-" --tool gemini --mode analysis --rule analysis-assess-security-risks --cd src/auth
+" --tool gemini --mode analysis --rule analysis-assess-security-risks --cd "src/auth"
 ```
 
 **Implementation Task** (New Feature):
@@ -419,7 +419,7 @@ MODE: analysis
 CONTEXT: @src/websocket/**/* @src/services/connection-manager.ts | Memory: Using ws library, ~5000 concurrent connections in production
 EXPECTED: Root cause analysis with: memory profile, leak source (file:line), fix recommendation with code, verification steps
 CONSTRAINTS: Focus on resource cleanup
-" --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause --cd src
+" --tool gemini --mode analysis --rule analysis-diagnose-bug-root-cause --cd "src"
 ```
 
 **Refactoring Task**:
