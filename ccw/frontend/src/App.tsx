@@ -12,7 +12,10 @@ import { router } from './router';
 import queryClient from './lib/query-client';
 import type { Locale } from './lib/i18n';
 import { useWorkflowStore } from '@/stores/workflowStore';
-import { useActiveCliExecutions } from '@/hooks/useActiveCliExecutions';
+import { useCliStreamStore } from '@/stores/cliStreamStore';
+import { useExecutionMonitorStore } from '@/stores/executionMonitorStore';
+import { useTerminalPanelStore } from '@/stores/terminalPanelStore';
+import { useActiveCliExecutions, ACTIVE_CLI_EXECUTIONS_QUERY_KEY } from '@/hooks/useActiveCliExecutions';
 import { DialogStyleProvider } from '@/contexts/DialogStyleContext';
 import { initializeCsrfToken } from './lib/api';
 
@@ -55,6 +58,10 @@ function QueryInvalidator() {
   useEffect(() => {
     // Register callback to invalidate all workspace-related queries on workspace switch
     const callback = () => {
+      useCliStreamStore.getState().resetState();
+      useExecutionMonitorStore.getState().resetState();
+      useTerminalPanelStore.getState().resetState();
+      queryClient.invalidateQueries({ queryKey: ACTIVE_CLI_EXECUTIONS_QUERY_KEY });
       queryClient.invalidateQueries({
         predicate: (query) => {
           const queryKey = query.queryKey;

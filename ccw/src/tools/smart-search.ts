@@ -20,6 +20,8 @@
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
 import { spawn, execSync } from 'child_process';
+import { statSync } from 'fs';
+import { dirname, resolve } from 'path';
 import {
   ensureReady as ensureCodexLensReady,
   executeCodexLens,
@@ -398,17 +400,106 @@ function splitResultsWithExtraFiles<T extends { file: string }>(
   return { results, extra_files };
 }
 
+interface SearchScope {
+  workingDirectory: string;
+  searchPaths: string[];
+  targetFile?: string;
+}
+
+function sanitizeSearchQuery(query: string | undefined): string | undefined {
+  if (!query) {
+    return query;
+  }
+
+  return query.replace(/\r?\n\s*/g, ' ').trim();
+}
+
+function sanitizeSearchPath(pathValue: string | undefined): string | undefined {
+  if (!pathValue) {
+    return pathValue;
+  }
+
+  return pathValue.replace(/\r?\n\s*/g, '').trim();
+}
+
+function resolveSearchScope(pathValue: string = '.', paths: string[] = []): SearchScope {
+  const normalizedPath = sanitizeSearchPath(pathValue) || '.';
+  const normalizedPaths = paths.map((item) => sanitizeSearchPath(item) || item);
+  const fallbackPath = normalizedPath || getProjectRoot();
+
+  try {
+    const resolvedPath = resolve(fallbackPath);
+    const stats = statSync(resolvedPath);
+
+    if (stats.isFile()) {
+      return {
+        workingDirectory: dirname(resolvedPath),
+        searchPaths: normalizedPaths.length > 0 ? normalizedPaths : [resolvedPath],
+        targetFile: resolvedPath,
+      };
+    }
+
+    return {
+      workingDirectory: resolvedPath,
+      searchPaths: normalizedPaths.length > 0 ? normalizedPaths : ['.'],
+    };
+  } catch {
+    return {
+      workingDirectory: fallbackPath,
+      searchPaths: normalizedPaths.length > 0 ? normalizedPaths : [normalizedPath || '.'],
+    };
+  }
+}
+
+function normalizeResultFilePath(filePath: string, workingDirectory: string): string {
+  return resolve(workingDirectory, filePath).replace(/\\/g, '/');
+}
+
+function filterResultsToTargetFile<T extends { file: string }>(results: T[], scope: SearchScope): T[] {
+  if (!scope.targetFile) {
+    return results;
+  }
+
+  const normalizedTarget = scope.targetFile.replace(/\\/g, '/');
+  return results.filter((result) => normalizeResultFilePath(result.file, scope.workingDirectory) === normalizedTarget);
+}
+
+function collectBackendError(
+  errors: string[],
+  backendName: string,
+  backendResult: PromiseSettledResult<SearchResult>,
+): void {
+  if (backendResult.status === 'rejected') {
+    errors.push(`${backendName}: ${String(backendResult.reason)}`);
+    return;
+  }
+
+  if (!backendResult.value.success) {
+    errors.push(`${backendName}: ${backendResult.value.error || 'unknown error'}`);
+  }
+}
+
+function mergeWarnings(...warnings: Array<string | undefined>): string | undefined {
+  const merged = [...new Set(
+    warnings
+      .filter((warning): warning is string => typeof warning === 'string' && warning.trim().length > 0)
+      .map((warning) => warning.trim())
+  )];
+  return merged.length > 0 ? merged.join(' | ') : undefined;
+}
+
 /**
  * Check if CodexLens index exists for current directory
  * @param path - Directory path to check
  * @returns Index status
  */
 async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
+  const scope = resolveSearchScope(path);
   try {
     // Fetch both status and config in parallel
     const [statusResult, configResult] = await Promise.all([
-      executeCodexLens(['status', '--json'], { cwd: path }),
-      executeCodexLens(['config', 'show', '--json'], { cwd: path }),
+      executeCodexLens(['status', '--json'], { cwd: scope.workingDirectory }),
+      executeCodexLens(['config', 'show', '--json'], { cwd: scope.workingDirectory }),
     ]);
 
     // Parse config
@@ -694,6 +785,7 @@ function buildRipgrepCommand(params: {
  */
 async function executeInitAction(params: Params, force: boolean = false): Promise<SearchResult> {
   const { path = '.', languages } = params;
+  const scope = resolveSearchScope(path);
 
   // Check CodexLens availability
   const readyStatus = await ensureCodexLensReady();
@@ -706,12 +798,12 @@ async function executeInitAction(params: Params, force: boolean = false): Promis
 
   // Build args with --no-embeddings for FTS-only index (faster)
   // Use 'index init' subcommand (new CLI structure)
-  const args = ['index', 'init', path, '--no-embeddings'];
+  const args = ['index', 'init', scope.workingDirectory, '--no-embeddings'];
   if (force) {
     args.push('--force');  // Force full rebuild
   }
   if (languages && languages.length > 0) {
-    args.push('--language', languages.join(','));
+    args.push(...languages.flatMap((language) => ['--language', language]));
   }
 
   // Track progress updates
@@ -719,7 +811,7 @@ async function executeInitAction(params: Params, force: boolean = false): Promis
   let lastProgress: ProgressInfo | null = null;
 
   const result = await executeCodexLens(args, {
-    cwd: path,
+    cwd: scope.workingDirectory,
     timeout: 1800000, // 30 minutes for large codebases
     onProgress: (progress: ProgressInfo) => {
       progressUpdates.push(progress);
@@ -730,7 +822,7 @@ async function executeInitAction(params: Params, force: boolean = false): Promis
   // Build metadata with progress info
   const metadata: SearchMetadata = {
     action: force ? 'init_force' : 'init',
-    path,
+    path: scope.workingDirectory,
   };
 
   if (lastProgress !== null) {
@@ -766,8 +858,9 @@ async function executeInitAction(params: Params, force: boolean = false): Promis
  */
 async function executeStatusAction(params: Params): Promise<SearchResult> {
   const { path = '.' } = params;
+  const scope = resolveSearchScope(path);
 
-  const indexStatus = await checkIndexStatus(path);
+  const indexStatus = await checkIndexStatus(scope.workingDirectory);
 
   // Build detailed status message
   const statusParts: string[] = [];
@@ -815,6 +908,7 @@ async function executeStatusAction(params: Params): Promise<SearchResult> {
  */
 async function executeUpdateAction(params: Params): Promise<SearchResult> {
   const { path = '.', languages } = params;
+  const scope = resolveSearchScope(path);
 
   // Check CodexLens availability
   const readyStatus = await ensureCodexLensReady();
@@ -826,7 +920,7 @@ async function executeUpdateAction(params: Params): Promise<SearchResult> {
   }
 
   // Check if index exists first
-  const indexStatus = await checkIndexStatus(path);
+  const indexStatus = await checkIndexStatus(scope.workingDirectory);
   if (!indexStatus.indexed) {
     return {
       success: false,
@@ -836,9 +930,9 @@ async function executeUpdateAction(params: Params): Promise<SearchResult> {
 
   // Build args for incremental init (without --force)
   // Use 'index init' subcommand (new CLI structure)
-  const args = ['index', 'init', path];
+  const args = ['index', 'init', scope.workingDirectory];
   if (languages && languages.length > 0) {
-    args.push('--language', languages.join(','));
+    args.push(...languages.flatMap((language) => ['--language', language]));
   }
 
   // Track progress updates
@@ -846,7 +940,7 @@ async function executeUpdateAction(params: Params): Promise<SearchResult> {
   let lastProgress: ProgressInfo | null = null;
 
   const result = await executeCodexLens(args, {
-    cwd: path,
+    cwd: scope.workingDirectory,
     timeout: 600000, // 10 minutes for incremental updates
     onProgress: (progress: ProgressInfo) => {
       progressUpdates.push(progress);
@@ -891,6 +985,7 @@ async function executeUpdateAction(params: Params): Promise<SearchResult> {
  */
 async function executeWatchAction(params: Params): Promise<SearchResult> {
   const { path = '.', languages, debounce = 1000 } = params;
+  const scope = resolveSearchScope(path);
 
   // Check CodexLens availability
   const readyStatus = await ensureCodexLensReady();
@@ -902,7 +997,7 @@ async function executeWatchAction(params: Params): Promise<SearchResult> {
   }
 
   // Check if index exists first
-  const indexStatus = await checkIndexStatus(path);
+  const indexStatus = await checkIndexStatus(scope.workingDirectory);
   if (!indexStatus.indexed) {
     return {
       success: false,
@@ -911,15 +1006,15 @@ async function executeWatchAction(params: Params): Promise<SearchResult> {
   }
 
   // Build args for watch command
-  const args = ['watch', path, '--debounce', debounce.toString()];
+  const args = ['watch', scope.workingDirectory, '--debounce', debounce.toString()];
   if (languages && languages.length > 0) {
-    args.push('--language', languages.join(','));
+    args.push(...languages.flatMap((language) => ['--language', language]));
   }
 
   // Start watcher in background (non-blocking)
   // Note: The watcher runs until manually stopped
   const result = await executeCodexLens(args, {
-    cwd: path,
+    cwd: scope.workingDirectory,
     timeout: 5000, // Short timeout for initial startup check
   });
 
@@ -975,11 +1070,11 @@ async function executeFuzzyMode(params: Params): Promise<SearchResult> {
   // If both failed, return error
   if (resultsMap.size === 0) {
     const errors: string[] = [];
-    if (ftsResult.status === 'rejected') errors.push(`FTS: ${ftsResult.reason}`);
-    if (ripgrepResult.status === 'rejected') errors.push(`Ripgrep: ${ripgrepResult.reason}`);
+    collectBackendError(errors, 'FTS', ftsResult);
+    collectBackendError(errors, 'Ripgrep', ripgrepResult);
     return {
       success: false,
-      error: `Both search backends failed: ${errors.join('; ')}`,
+      error: `Both search backends failed: ${errors.join('; ') || 'unknown error'}`,
     };
   }
 
@@ -1032,6 +1127,7 @@ async function executeFuzzyMode(params: Params): Promise<SearchResult> {
  */
 async function executeAutoMode(params: Params): Promise<SearchResult> {
   const { query, path = '.' } = params;
+  const scope = resolveSearchScope(path);
 
   if (!query) {
     return {
@@ -1041,7 +1137,7 @@ async function executeAutoMode(params: Params): Promise<SearchResult> {
   }
 
   // Check index status
-  const indexStatus = await checkIndexStatus(path);
+  const indexStatus = await checkIndexStatus(scope.workingDirectory);
 
   // Classify intent with index and embeddings awareness
   const classification = classifyIntent(
@@ -1098,6 +1194,7 @@ async function executeAutoMode(params: Params): Promise<SearchResult> {
  */
 async function executeRipgrepMode(params: Params): Promise<SearchResult> {
   const { query, paths = [], contextLines = 0, maxResults = 5, extraFilesCount = 10, maxContentLength = 200, includeHidden = false, path = '.', regex = true, caseSensitive = true, tokenize = true, codeOnly = true, withDoc = false, excludeExtensions } = params;
+  const scope = resolveSearchScope(path, paths);
   // withDoc overrides codeOnly
   const effectiveCodeOnly = withDoc ? false : codeOnly;
 
@@ -1126,7 +1223,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
 
     // Use CodexLens fts mode as fallback
     const args = ['search', query, '--limit', totalToFetch.toString(), '--method', 'fts', '--json'];
-    const result = await executeCodexLens(args, { cwd: path });
+    const result = await executeCodexLens(args, { cwd: scope.workingDirectory });
 
     if (!result.success) {
       return {
@@ -1156,8 +1253,10 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
       // Keep empty results
     }
 
+    const scopedResults = filterResultsToTargetFile(allResults, scope);
+
     // Split results: first N with full content, rest as file paths only
-    const { results, extra_files } = splitResultsWithExtraFiles(allResults, maxResults, extraFilesCount);
+    const { results, extra_files } = splitResultsWithExtraFiles(scopedResults, maxResults, extraFilesCount);
 
     return {
       success: true,
@@ -1176,7 +1275,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
   // Use ripgrep - request more results to support split
   const { command, args, tokens } = buildRipgrepCommand({
     query,
-    paths: paths.length > 0 ? paths : [path],
+    paths: scope.searchPaths,
     contextLines,
     maxResults: totalToFetch,  // Fetch more to support split
     includeHidden,
@@ -1187,7 +1286,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
 
   return new Promise((resolve) => {
     const child = spawn(command, args, {
-      cwd: path || getProjectRoot(),
+      cwd: scope.workingDirectory || getProjectRoot(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -1312,6 +1411,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
  */
 async function executeCodexLensExactMode(params: Params): Promise<SearchResult> {
   const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = true, withDoc = false, offset = 0 } = params;
+  const scope = resolveSearchScope(path);
   // withDoc overrides codeOnly
   const effectiveCodeOnly = withDoc ? false : codeOnly;
 
@@ -1332,7 +1432,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
   }
 
   // Check index status
-  const indexStatus = await checkIndexStatus(path);
+  const indexStatus = await checkIndexStatus(scope.workingDirectory);
 
   // Request more results to support split (full content + extra files)
   const totalToFetch = maxResults + extraFilesCount;
@@ -1348,7 +1448,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
   if (excludeExtensions && excludeExtensions.length > 0) {
     args.push('--exclude-extensions', excludeExtensions.join(','));
   }
-  const result = await executeCodexLens(args, { cwd: path });
+  const result = await executeCodexLens(args, { cwd: scope.workingDirectory });
 
   if (!result.success) {
     return {
@@ -1359,7 +1459,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
         backend: 'codexlens',
         count: 0,
         query,
-        warning: indexStatus.warning,
+        warning: mergeWarnings(indexStatus.warning, result.warning),
       },
     };
   }
@@ -1379,6 +1479,8 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
     // Keep empty results
   }
 
+  allResults = filterResultsToTargetFile(allResults, scope);
+
   // Fallback to fuzzy mode if exact returns no results
   if (allResults.length === 0) {
     const fuzzyArgs = ['search', query, '--limit', totalToFetch.toString(), '--offset', offset.toString(), '--method', 'fts', '--use-fuzzy', '--json'];
@@ -1393,18 +1495,18 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
     if (excludeExtensions && excludeExtensions.length > 0) {
       fuzzyArgs.push('--exclude-extensions', excludeExtensions.join(','));
     }
-    const fuzzyResult = await executeCodexLens(fuzzyArgs, { cwd: path });
+    const fuzzyResult = await executeCodexLens(fuzzyArgs, { cwd: scope.workingDirectory });
 
     if (fuzzyResult.success) {
       try {
         const parsed = JSON.parse(stripAnsi(fuzzyResult.output || '{}'));
         const data = parsed.result?.results || parsed.results || parsed;
-        allResults = (Array.isArray(data) ? data : []).map((item: any) => ({
+        allResults = filterResultsToTargetFile((Array.isArray(data) ? data : []).map((item: any) => ({
           file: item.path || item.file,
           score: item.score || 0,
           content: truncateContent(item.content || item.excerpt, maxContentLength),
           symbol: item.symbol || null,
-        }));
+        })), scope);
       } catch {
         // Keep empty results
       }
@@ -1421,7 +1523,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
             backend: 'codexlens',
             count: results.length,
             query,
-            warning: indexStatus.warning,
+            warning: mergeWarnings(indexStatus.warning, fuzzyResult.warning),
             note: 'No exact matches found, showing fuzzy results',
             fallback: 'fuzzy',
           },
@@ -1442,7 +1544,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
       backend: 'codexlens',
       count: results.length,
       query,
-      warning: indexStatus.warning,
+      warning: mergeWarnings(indexStatus.warning, result.warning),
     },
   };
 }
@@ -1455,6 +1557,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
 async function executeHybridMode(params: Params): Promise<SearchResult> {
   const timer = createTimer();
   const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = true, withDoc = false, offset = 0 } = params;
+  const scope = resolveSearchScope(path);
   // withDoc overrides codeOnly
   const effectiveCodeOnly = withDoc ? false : codeOnly;
 
@@ -1476,7 +1579,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   }
 
   // Check index status
-  const indexStatus = await checkIndexStatus(path);
+  const indexStatus = await checkIndexStatus(scope.workingDirectory);
   timer.mark('index_status_check');
 
   // Request more results to support split (full content + extra files)
@@ -1493,7 +1596,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   if (excludeExtensions && excludeExtensions.length > 0) {
     args.push('--exclude-extensions', excludeExtensions.join(','));
   }
-  const result = await executeCodexLens(args, { cwd: path });
+  const result = await executeCodexLens(args, { cwd: scope.workingDirectory });
   timer.mark('codexlens_search');
 
   if (!result.success) {
@@ -1506,7 +1609,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
         backend: 'codexlens',
         count: 0,
         query,
-        warning: indexStatus.warning,
+        warning: mergeWarnings(indexStatus.warning, result.warning),
       },
     };
   }
@@ -1519,7 +1622,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   try {
     const parsed = JSON.parse(stripAnsi(result.output || '{}'));
     const data = parsed.result?.results || parsed.results || parsed;
-    allResults = (Array.isArray(data) ? data : []).map((item: any) => {
+    allResults = filterResultsToTargetFile((Array.isArray(data) ? data : []).map((item: any) => {
       const rawScore = item.score || 0;
       // Hybrid mode returns distance scores (lower is better).
       // Convert to similarity scores (higher is better) for consistency.
@@ -1531,7 +1634,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
         content: truncateContent(item.content || item.excerpt, maxContentLength),
         symbol: item.symbol || null,
       };
-    });
+    }), scope);
     timer.mark('parse_results');
 
     initialCount = allResults.length;
@@ -1562,7 +1665,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
         backend: 'codexlens',
         count: 0,
         query,
-        warning: indexStatus.warning || 'Failed to parse JSON output',
+        warning: mergeWarnings(indexStatus.warning, result.warning, 'Failed to parse JSON output'),
       },
     };
   }
@@ -1591,7 +1694,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
       count: results.length,
       query,
       note,
-      warning: indexStatus.warning,
+      warning: mergeWarnings(indexStatus.warning, result.warning),
       suggested_weights: getRRFWeights(query),
       timing: TIMING_ENABLED ? timings : undefined,
     },
@@ -1943,6 +2046,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, modeName: string): Prom
  */
 async function executePriorityFallbackMode(params: Params): Promise<SearchResult> {
   const { query, path = '.' } = params;
+  const scope = resolveSearchScope(path);
   const fallbackHistory: string[] = [];
 
   if (!query) {
@@ -1950,7 +2054,7 @@ async function executePriorityFallbackMode(params: Params): Promise<SearchResult
   }
 
   // Check index status first
-  const indexStatus = await checkIndexStatus(path);
+  const indexStatus = await checkIndexStatus(scope.workingDirectory);
 
   // 1. Try Hybrid search (highest priority) - 90s timeout for large indexes
   if (indexStatus.indexed && indexStatus.has_embeddings) {
@@ -2034,13 +2138,15 @@ export const schema: ToolSchema = {
   name: 'smart_search',
   description: `Unified code search tool. Choose an action and provide its required parameters.
 
+Recommended MCP flow: use **action=\"search\"** for lookups, **action=\"init\"** to create a static FTS index, and **action=\"update\"** when files change. Use **watch** only for explicit long-running auto-update sessions.
+
 **Actions & Required Parameters:**
 
 *   **search** (default): Search file content.
     *   **query** (string, **REQUIRED**): Content to search for.
-    *   *mode* (string): 'fuzzy' (default, FTS+ripgrep) or 'semantic' (dense+reranker).
-    *   *limit* (number): Max results (default: 20).
-    *   *path* (string): Directory to search (default: current).
+    *   *mode* (string): 'fuzzy' (default, FTS+ripgrep for stage-1 lexical search) or 'semantic' (dense+reranker, best when embeddings exist).
+    *   *limit* (number): Max results with full content (default: 5).
+    *   *path* (string): Directory or single file to search (default: current directory; file paths are auto-scoped back to that file).
     *   *contextLines* (number): Context lines around matches (default: 0).
     *   *regex* (boolean): Use regex matching (default: true).
     *   *caseSensitive* (boolean): Case-sensitive search (default: true).
@@ -2051,11 +2157,11 @@ export const schema: ToolSchema = {
     *   *offset* (number): Pagination offset (default: 0).
     *   *includeHidden* (boolean): Include hidden files (default: false).
 
-*   **init**: Create FTS index (incremental, skips existing).
+*   **init**: Create a static FTS index (incremental, skips existing, no embeddings).
     *   *path* (string): Directory to index (default: current).
     *   *languages* (array): Languages to index (e.g., ["javascript", "typescript"]).
 
-*   **init_force**: Force full rebuild (delete and recreate index).
+*   **init_force**: Force full rebuild (delete and recreate static index).
     *   *path* (string): Directory to index (default: current).
 
 *   **status**: Check index status. (No required params)
@@ -2070,7 +2176,7 @@ export const schema: ToolSchema = {
   smart_search(query="authentication logic")                    # Content search (default action)
   smart_search(query="MyClass", mode="semantic")                # Semantic search
   smart_search(action="find_files", pattern="*.ts")             # Find TypeScript files
-  smart_search(action="init", path="/project")                  # Initialize index
+  smart_search(action="init", path="/project")                  # Build static FTS index
   smart_search(query="auth", limit=10, offset=0)                # Paginated search`,
   inputSchema: {
     type: 'object',
@@ -2078,12 +2184,12 @@ export const schema: ToolSchema = {
       action: {
         type: 'string',
         enum: ['init', 'init_force', 'search', 'find_files', 'status', 'update', 'watch', 'search_files'],
-        description: 'Action: search (content search), find_files (path pattern matching), init (create index, incremental), init_force (force full rebuild), status (check index), update (incremental update), watch (auto-update). Note: search_files is deprecated.',
+        description: 'Action: search (content search; default and recommended), find_files (path pattern matching), init (create static FTS index, incremental), init_force (force full rebuild), status (check index), update (incremental refresh), watch (auto-update watcher; opt-in). Note: search_files is deprecated.',
         default: 'search',
       },
       query: {
         type: 'string',
-        description: 'Content search query (for action="search")',
+        description: 'Content search query (for action="search"). Recommended default workflow: action=search with fuzzy mode, plus init/update for static indexing.',
       },
       pattern: {
         type: 'string',
@@ -2092,7 +2198,7 @@ export const schema: ToolSchema = {
       mode: {
         type: 'string',
         enum: SEARCH_MODES,
-        description: 'Search mode: fuzzy (FTS + ripgrep fusion, default), semantic (dense + reranker for natural language queries)',
+        description: 'Search mode: fuzzy (FTS + ripgrep fusion, default) or semantic (dense + reranker for natural language queries when embeddings exist).',
         default: 'fuzzy',
       },
       output_mode: {
@@ -2103,7 +2209,7 @@ export const schema: ToolSchema = {
       },
       path: {
         type: 'string',
-        description: 'Directory path for init/search actions (default: current directory)',
+        description: 'Directory path for init/search actions (default: current directory). For action=search, a single file path is also accepted and results are automatically scoped back to that file.',
       },
       paths: {
         type: 'array',
@@ -2120,13 +2226,13 @@ export const schema: ToolSchema = {
       },
       maxResults: {
         type: 'number',
-        description: 'Maximum number of results (default: 20)',
-        default: 20,
+        description: 'Maximum number of full-content results (default: 5)',
+        default: 5,
       },
       limit: {
         type: 'number',
-        description: 'Alias for maxResults (default: 20)',
-        default: 20,
+        description: 'Alias for maxResults (default: 5)',
+        default: 5,
       },
       extraFilesCount: {
         type: 'number',
@@ -2184,6 +2290,7 @@ export const schema: ToolSchema = {
  */
 async function executeFindFilesAction(params: Params): Promise<SearchResult> {
   const { pattern, path = '.', limit = 20, offset = 0, includeHidden = false, caseSensitive = true } = params;
+  const scope = resolveSearchScope(path);
 
   if (!pattern) {
     return {
@@ -2207,7 +2314,7 @@ async function executeFindFilesAction(params: Params): Promise<SearchResult> {
 
     // Try CodexLens file list command
     const args = ['list-files', '--json'];
-    const result = await executeCodexLens(args, { cwd: path });
+    const result = await executeCodexLens(args, { cwd: scope.workingDirectory });
 
     if (!result.success) {
       return {
@@ -2290,7 +2397,7 @@ async function executeFindFilesAction(params: Params): Promise<SearchResult> {
     }
 
     const child = spawn('rg', args, {
-      cwd: path || getProjectRoot(),
+      cwd: scope.workingDirectory || getProjectRoot(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -2485,11 +2592,20 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
     return { success: false, error: `Invalid params: ${parsed.error.message}` };
   }
 
+  parsed.data.query = sanitizeSearchQuery(parsed.data.query);
+  parsed.data.pattern = sanitizeSearchPath(parsed.data.pattern);
+  parsed.data.path = sanitizeSearchPath(parsed.data.path);
+  parsed.data.paths = parsed.data.paths.map((item) => sanitizeSearchPath(item) || item);
+
   const { action, mode, output_mode, offset = 0 } = parsed.data;
 
-  // Sync limit and maxResults - use the larger of the two if both provided
-  // This ensures user-provided values take precedence over defaults
-  const effectiveLimit = Math.max(parsed.data.limit || 20, parsed.data.maxResults || 20);
+  // Sync limit and maxResults while preserving explicit small values.
+  // If both are provided, use the larger one. If only one is provided, honor it.
+  const rawLimit = typeof params.limit === 'number' ? params.limit : undefined;
+  const rawMaxResults = typeof params.maxResults === 'number' ? params.maxResults : undefined;
+  const effectiveLimit = rawLimit !== undefined && rawMaxResults !== undefined
+    ? Math.max(rawLimit, rawMaxResults)
+    : rawMaxResults ?? rawLimit ?? parsed.data.maxResults ?? parsed.data.limit ?? 5;
   parsed.data.maxResults = effectiveLimit;
   parsed.data.limit = effectiveLimit;
 
@@ -2613,7 +2729,7 @@ export async function executeInitWithProgress(
     args.push('--force');  // Force full rebuild
   }
   if (languages && languages.length > 0) {
-    args.push('--language', languages.join(','));
+    args.push(...languages.flatMap((language) => ['--language', language]));
   }
 
   // Track progress updates

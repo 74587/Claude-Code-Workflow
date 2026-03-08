@@ -181,7 +181,7 @@ interface OutputViewOptions {
   outputType?: 'stdout' | 'stderr' | 'both';
   turn?: string;
   raw?: boolean;
-  final?: boolean; // Explicit --final (same as default, kept for compatibility)
+  final?: boolean; // Explicit --final (strict final result, no parsed/stdout fallback)
   verbose?: boolean; // Show full metadata + raw stdout/stderr
   project?: string; // Optional project path for lookup
 }
@@ -470,10 +470,23 @@ async function outputAction(conversationId: string | undefined, options: OutputV
     return;
   }
 
-  // Default (and --final): output final result only
-  // Prefer finalOutput (agent_message only) > parsedOutput (filtered) > raw stdout
-  const outputContent = result.finalOutput?.content || result.parsedOutput?.content || result.stdout?.content;
-  if (outputContent) {
+  const finalOutputContent = result.finalOutput?.content;
+
+  if (options.final) {
+    if (finalOutputContent !== undefined) {
+      console.log(finalOutputContent);
+      return;
+    }
+
+    console.error(chalk.yellow('No final agent result found in cached output.'));
+    console.error(chalk.gray('  Try without --final for best-effort output, or use --verbose to inspect raw stdout/stderr.'));
+    process.exit(1);
+    return;
+  }
+
+  // Default output: prefer strict final result, then fall back to best-effort parsed/plain output.
+  const outputContent = finalOutputContent ?? result.parsedOutput?.content ?? result.stdout?.content;
+  if (outputContent !== undefined) {
     console.log(outputContent);
   }
 }
@@ -1351,7 +1364,7 @@ async function showAction(options: { all?: boolean }): Promise<void> {
   // 1. Try to fetch active executions from dashboard
   let activeExecs: Array<{
     id: string; tool: string; mode: string; status: string;
-    prompt: string; startTime: number; isComplete?: boolean;
+    prompt: string; startTime: number | string | Date; isComplete?: boolean;
   }> = [];
 
   try {
@@ -1382,6 +1395,7 @@ async function showAction(options: { all?: boolean }): Promise<void> {
   // 2. Get recent history from SQLite
   const historyLimit = options.all ? 100 : 20;
   const history = await getExecutionHistoryAsync(process.cwd(), { limit: historyLimit, recursive: true });
+  const historyById = new Map(history.executions.map(exec => [exec.id, exec]));
 
   // 3. Build unified list: active first, then history (de-duped)
   const seenIds = new Set<string>();
@@ -1393,16 +1407,26 @@ async function showAction(options: { all?: boolean }): Promise<void> {
   // Active executions (running)
   for (const exec of activeExecs) {
     if (exec.status === 'running') {
+      const normalizedStartTime = normalizeTimestampMs(exec.startTime);
+      const matchingHistory = historyById.get(exec.id);
+      const shouldSuppressActiveRow = matchingHistory !== undefined && isSavedExecutionNewerThanActive(
+        normalizedStartTime,
+        matchingHistory.updated_at || matchingHistory.timestamp
+      );
+
+      if (shouldSuppressActiveRow) {
+        continue;
+      }
+
       seenIds.add(exec.id);
-      const elapsed = Math.floor((Date.now() - exec.startTime) / 1000);
       rows.push({
         id: exec.id,
         tool: exec.tool,
         mode: exec.mode,
         status: 'running',
         prompt: (exec.prompt || '').replace(/\n/g, ' ').substring(0, 50),
-        time: `${elapsed}s ago`,
-        duration: `${elapsed}s...`,
+        time: normalizedStartTime !== undefined ? getTimeAgo(new Date(normalizedStartTime)) : 'unknown',
+        duration: normalizedStartTime !== undefined ? formatRunningDuration(Date.now() - normalizedStartTime) : 'running',
       });
     }
   }
@@ -1513,6 +1537,18 @@ async function watchAction(watchId: string | undefined, options: { timeout?: str
         }
 
         if (exec.status === 'running') {
+          const savedConversation = getHistoryStore(process.cwd()).getConversation(watchId);
+          const shouldPreferSavedConversation = !!savedConversation && isSavedExecutionNewerThanActive(
+            normalizeTimestampMs((exec as { startTime?: unknown }).startTime),
+            savedConversation.updated_at || savedConversation.created_at
+          );
+
+          if (shouldPreferSavedConversation) {
+            process.stderr.write(chalk.gray(`\nExecution already completed (status: ${savedConversation.latest_status}).\n`));
+            process.stderr.write(chalk.dim(`Use: ccw cli output ${watchId}\n`));
+            return savedConversation.latest_status === 'success' ? 0 : 1;
+          }
+
           // Still running — wait and poll again
           await new Promise(r => setTimeout(r, 1000));
           return poll();
@@ -1667,13 +1703,78 @@ async function detailAction(conversationId: string | undefined): Promise<void> {
  * @returns {string}
  */
 function getTimeAgo(date: Date): string {
-  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
 
   if (seconds < 60) return 'just now';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
   return date.toLocaleDateString();
+}
+
+function normalizeTimestampMs(value: unknown): number | undefined {
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isFinite(time) ? time : undefined;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value > 0 && value < 1_000_000_000_000 ? value * 1000 : value;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+
+    const numericValue = Number(trimmed);
+    if (Number.isFinite(numericValue)) {
+      return numericValue > 0 && numericValue < 1_000_000_000_000 ? numericValue * 1000 : numericValue;
+    }
+
+    const parsed = Date.parse(trimmed);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+
+  return undefined;
+}
+
+function formatRunningDuration(elapsedMs: number): string {
+  const safeElapsedMs = Math.max(0, elapsedMs);
+  const totalSeconds = Math.floor(safeElapsedMs / 1000);
+
+  if (totalSeconds < 60) return `${totalSeconds}s...`;
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (totalSeconds < 3600) {
+    return seconds === 0 ? `${minutes}m...` : `${minutes}m ${seconds}s...`;
+  }
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const remainingMinutes = Math.floor((totalSeconds % 3600) / 60);
+  if (totalSeconds < 86400) {
+    return remainingMinutes === 0 ? `${hours}h...` : `${hours}h ${remainingMinutes}m...`;
+  }
+
+  const days = Math.floor(totalSeconds / 86400);
+  const remainingHours = Math.floor((totalSeconds % 86400) / 3600);
+  return remainingHours === 0 ? `${days}d...` : `${days}d ${remainingHours}h...`;
+}
+
+function isSavedExecutionNewerThanActive(
+  activeStartTimeMs: number | undefined,
+  savedTimestamp: unknown
+): boolean {
+  if (activeStartTimeMs === undefined) {
+    return false;
+  }
+
+  const savedTimestampMs = normalizeTimestampMs(savedTimestamp);
+  if (savedTimestampMs === undefined) {
+    return false;
+  }
+
+  return savedTimestampMs >= activeStartTimeMs;
 }
 
 /**ccw cli -p

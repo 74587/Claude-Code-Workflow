@@ -81,6 +81,7 @@ interface ExecutionMonitorActions {
   setPanelOpen: (open: boolean) => void;
   clearExecution: (executionId: string) => void;
   clearAllExecutions: () => void;
+  resetState: () => void;
 }
 
 type ExecutionMonitorStore = ExecutionMonitorState & ExecutionMonitorActions;
@@ -317,6 +318,10 @@ export const useExecutionMonitorStore = create<ExecutionMonitorStore>()(
 
       clearAllExecutions: () => {
         set({ activeExecutions: {}, currentExecutionId: null }, false, 'clearAllExecutions');
+      },
+
+      resetState: () => {
+        set({ ...initialState }, false, 'resetState');
       },
     }),
     { name: 'ExecutionMonitorStore' }
