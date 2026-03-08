@@ -137,6 +137,7 @@ describe('OrchestrationPlanBuilder', () => {
     });
 
     it('should detect cycles and throw an error', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const flow: Flow = {
         id: 'flow-cycle',
         name: 'Cyclic Flow',
@@ -156,7 +157,11 @@ describe('OrchestrationPlanBuilder', () => {
         metadata: {},
       };
 
-      expect(() => OrchestrationPlanBuilder.fromFlow(flow)).toThrow('Cycle detected in flow graph. Cannot build orchestration plan from cyclic flow.');
+      try {
+        expect(() => OrchestrationPlanBuilder.fromFlow(flow)).toThrow('Cycle detected in flow graph. Cannot build orchestration plan from cyclic flow.');
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
     });
 
     it('should correctly map sessionStrategy and executionType from node data', () => {

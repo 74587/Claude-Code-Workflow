@@ -85,8 +85,8 @@ const ParamsSchema = z.object({
   maxResults: z.number().default(5),  // Default 5 with full content
   includeHidden: z.boolean().default(false),
   languages: z.array(z.string()).optional(),
-  embeddingBackend: z.string().optional().describe('Embedding backend for action="embed": fastembed/local or litellm/api.'),
-  embeddingModel: z.string().optional().describe('Embedding model/profile for action="embed". Examples: "code", "fast", "qwen3-embedding-sf".'),
+  embeddingBackend: z.string().optional().describe('Embedding backend for action="embed": fastembed/local or litellm/api. Default bulk preset: local-fast.'),
+  embeddingModel: z.string().optional().describe('Embedding model/profile for action="embed". Examples: "code", "fast", "qwen3-embedding-sf". Default bulk preset uses "fast".'),
   apiMaxWorkers: z.number().int().min(1).optional().describe('Max concurrent API embedding workers for action="embed". Recommended: 8-16 for litellm/api when multiple endpoints are configured.'),
   force: z.boolean().default(false).describe('Force regeneration for action="embed".'),
   limit: z.number().default(5),  // Default 5 with full content
@@ -328,6 +328,7 @@ interface SearchMetadata {
   use_gpu?: boolean;
   cascade_strategy?: string;
   staged_stage2_mode?: string;
+  preset?: string;
 }
 
 interface SearchResult {
@@ -951,6 +952,42 @@ function normalizeEmbeddingBackend(backend?: string): string | undefined {
   return normalized;
 }
 
+function resolveEmbeddingSelection(
+  requestedBackend: string | undefined,
+  requestedModel: string | undefined,
+  config: CodexLensConfig | null | undefined,
+): { backend?: string; model?: string; preset: 'explicit' | 'config' | 'bulk-local-fast'; note?: string } {
+  const normalizedRequestedBackend = normalizeEmbeddingBackend(requestedBackend);
+  const normalizedRequestedModel = requestedModel?.trim() || undefined;
+
+  if (normalizedRequestedBackend) {
+    return {
+      backend: normalizedRequestedBackend,
+      model: normalizedRequestedModel || config?.embedding_model,
+      preset: 'explicit',
+    };
+  }
+
+  if (normalizedRequestedModel) {
+    const inferredBackend = config?.embedding_backend
+      || (['fast', 'code'].includes(normalizedRequestedModel) ? 'fastembed' : undefined);
+    return {
+      backend: inferredBackend,
+      model: normalizedRequestedModel,
+      preset: inferredBackend ? 'config' : 'explicit',
+    };
+  }
+
+  return {
+    backend: 'fastembed',
+    model: 'fast',
+    preset: 'bulk-local-fast',
+    note: config?.embedding_backend && config.embedding_backend !== 'fastembed'
+      ? `Using recommended bulk indexing preset: local-fast instead of configured ${config.embedding_backend}. Pass embeddingBackend="api" to force remote API embeddings.`
+      : 'Using recommended bulk indexing preset: local-fast. Pass embeddingBackend="api" to force remote API embeddings.',
+  };
+}
+
 const EMBED_PROGRESS_PREFIX = '__CCW_EMBED_PROGRESS__';
 
 function resolveEmbeddingEndpoints(backend?: string): RotationEndpointConfig[] {
@@ -1214,8 +1251,9 @@ async function executeEmbedAction(params: Params): Promise<SearchResult> {
   }
 
   const currentStatus = await checkIndexStatus(scope.workingDirectory);
-  const normalizedBackend = normalizeEmbeddingBackend(embeddingBackend) || currentStatus.config?.embedding_backend;
-  const trimmedModel = embeddingModel?.trim() || currentStatus.config?.embedding_model;
+  const embeddingSelection = resolveEmbeddingSelection(embeddingBackend, embeddingModel, currentStatus.config);
+  const normalizedBackend = embeddingSelection.backend;
+  const trimmedModel = embeddingSelection.model;
   const endpoints = resolveEmbeddingEndpoints(normalizedBackend);
   const configuredApiMaxWorkers = currentStatus.config?.api_max_workers;
   const effectiveApiMaxWorkers = typeof apiMaxWorkers === 'number'
@@ -1261,12 +1299,13 @@ async function executeEmbedAction(params: Params): Promise<SearchResult> {
       path: scope.workingDirectory,
       backend: normalizedBackend || indexStatus?.config?.embedding_backend,
       embeddings_coverage_percent: coverage,
-      api_max_workers: effectiveApiMaxWorkers,
+      api_max_workers: normalizedBackend === 'litellm' ? effectiveApiMaxWorkers : undefined,
       endpoint_count: endpoints.length,
       use_gpu: true,
       cascade_strategy: currentStatus.config?.cascade_strategy,
       staged_stage2_mode: currentStatus.config?.staged_stage2_mode,
-      note: progressMessage,
+      note: [embeddingSelection.note, progressMessage].filter(Boolean).join(' | ') || undefined,
+      preset: embeddingSelection.preset,
     },
     status: indexStatus,
   };
@@ -2590,8 +2629,8 @@ Recommended MCP flow: use **action=\"search\"** for lookups, **action=\"init\"**
 
 *   **embed**: Generate semantic/vector embeddings for an indexed project.
     *   *path* (string): Directory to embed (default: current).
-    *   *embeddingBackend* (string): 'litellm'/'api' for remote API embeddings, 'fastembed'/'local' for local embeddings.
-    *   *embeddingModel* (string): Embedding model/profile to use.
+    *   *embeddingBackend* (string): 'litellm'/'api' for remote API embeddings, 'fastembed'/'local' for local embeddings. Default bulk preset: local-fast.
+    *   *embeddingModel* (string): Embedding model/profile to use. Default bulk preset uses 'fast'.
     *   *apiMaxWorkers* (number): Max concurrent API embedding workers. Defaults to auto-sizing from the configured endpoint pool.
     *   *force* (boolean): Regenerate embeddings even if they already exist.
 
@@ -2693,11 +2732,11 @@ Recommended MCP flow: use **action=\"search\"** for lookups, **action=\"init\"**
       },
       embeddingBackend: {
         type: 'string',
-        description: 'Embedding backend for action="embed": litellm/api (remote API) or fastembed/local (local GPU/CPU).',
+        description: 'Embedding backend for action="embed": litellm/api (remote API) or fastembed/local (local GPU/CPU). Default bulk preset: local-fast.',
       },
       embeddingModel: {
         type: 'string',
-        description: 'Embedding model/profile for action="embed". Examples: "code", "fast", "qwen3-embedding-sf".',
+        description: 'Embedding model/profile for action="embed". Examples: "code", "fast", "qwen3-embedding-sf". Default bulk preset uses "fast".',
       },
       apiMaxWorkers: {
         type: 'number',
@@ -3163,6 +3202,7 @@ export const __testables = {
   parseCodexLensJsonOutput,
   parsePlainTextFileMatches,
   hasCentralizedVectorArtifacts,
+  resolveEmbeddingSelection,
 };
 
 export async function executeInitWithProgress(

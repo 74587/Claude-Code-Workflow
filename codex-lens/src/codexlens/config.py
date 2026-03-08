@@ -114,6 +114,8 @@ class Config:
     # Indexing/search optimizations
     global_symbol_index_enabled: bool = True  # Enable project-wide symbol index fast path
     enable_merkle_detection: bool = True  # Enable content-hash based incremental indexing
+    ignore_patterns: List[str] = field(default_factory=list)  # Additional directory ignore patterns for indexing
+    extension_filters: List[str] = field(default_factory=list)  # Reserved for file-level filtering config
 
     # Graph expansion (search-time, uses precomputed neighbors)
     enable_graph_expansion: bool = False
@@ -342,6 +344,8 @@ class Config:
                 "batch_size_max": self.api_batch_size_max,
                 "chars_per_token_estimate": self.chars_per_token_estimate,
             },
+            "ignore_patterns": self.ignore_patterns,
+            "extension_filters": self.extension_filters,
         }
         with open(self.settings_path, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=2)
@@ -637,6 +641,34 @@ class Config:
                                 self.settings_path,
                                 raw_types,
                             )
+
+                raw_ignore_patterns = settings.get("ignore_patterns")
+                if raw_ignore_patterns is not None:
+                    if isinstance(raw_ignore_patterns, list):
+                        self.ignore_patterns = [
+                            str(item).strip() for item in raw_ignore_patterns
+                            if str(item).strip()
+                        ]
+                    else:
+                        log.warning(
+                            "Invalid ignore_patterns in %s: %r (expected list)",
+                            self.settings_path,
+                            raw_ignore_patterns,
+                        )
+
+                raw_extension_filters = settings.get("extension_filters")
+                if raw_extension_filters is not None:
+                    if isinstance(raw_extension_filters, list):
+                        self.extension_filters = [
+                            str(item).strip() for item in raw_extension_filters
+                            if str(item).strip()
+                        ]
+                    else:
+                        log.warning(
+                            "Invalid extension_filters in %s: %r (expected list)",
+                            self.settings_path,
+                            raw_extension_filters,
+                        )
 
                 # Load API settings
                 api = settings.get("api", {})

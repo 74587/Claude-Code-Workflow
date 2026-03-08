@@ -4,7 +4,7 @@
 // Tests for issue-related hooks with queue and discovery
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   useIssueQueue,
@@ -203,14 +203,18 @@ describe('useIssueDiscovery', () => {
     });
 
     // Select a session to load findings
-    result.current.selectSession('1');
+    act(() => {
+      result.current.selectSession('1');
+    });
 
     await waitFor(() => {
       expect(result.current.findings).toHaveLength(2);
     });
 
     // Apply severity filter
-    result.current.setFilters({ severity: 'critical' as const });
+    act(() => {
+      result.current.setFilters({ severity: 'critical' as const });
+    });
 
     await waitFor(() => {
       expect(result.current.filteredFindings).toHaveLength(1);
@@ -239,14 +243,18 @@ describe('useIssueDiscovery', () => {
     });
 
     // Select a session to load findings
-    result.current.selectSession('1');
+    act(() => {
+      result.current.selectSession('1');
+    });
 
     await waitFor(() => {
       expect(result.current.findings).toHaveLength(2);
     });
 
     // Apply type filter
-    result.current.setFilters({ type: 'bug' });
+    act(() => {
+      result.current.setFilters({ type: 'bug' });
+    });
 
     await waitFor(() => {
       expect(result.current.filteredFindings).toHaveLength(1);
@@ -275,14 +283,18 @@ describe('useIssueDiscovery', () => {
     });
 
     // Select a session to load findings
-    result.current.selectSession('1');
+    act(() => {
+      result.current.selectSession('1');
+    });
 
     await waitFor(() => {
       expect(result.current.findings).toHaveLength(2);
     });
 
     // Apply search filter
-    result.current.setFilters({ search: 'authentication' });
+    act(() => {
+      result.current.setFilters({ search: 'authentication' });
+    });
 
     await waitFor(() => {
       expect(result.current.filteredFindings).toHaveLength(1);
@@ -310,7 +322,9 @@ describe('useIssueDiscovery', () => {
     });
 
     // Select a session to load findings
-    result.current.selectSession('1');
+    act(() => {
+      result.current.selectSession('1');
+    });
 
     await waitFor(() => {
       expect(result.current.findings).toHaveLength(1);

@@ -77,6 +77,7 @@ describe('useWebSocket workspace scoping', () => {
     useSessionManagerStore.getState().resetState();
     useWorkflowStore.setState({ projectPath: 'D:\\workspace-a' });
 
+    vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.stubGlobal('WebSocket', MockWebSocket as unknown as typeof WebSocket);
   });
 
@@ -84,6 +85,7 @@ describe('useWebSocket workspace scoping', () => {
     useCliSessionStore.getState().resetState();
     useExecutionMonitorStore.getState().resetState();
     useSessionManagerStore.getState().resetState();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 

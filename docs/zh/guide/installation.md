@@ -177,7 +177,7 @@ rm -rf ~/.claude/commands/cli
 rm -rf ~/.claude/commands/memory
 rm -rf ~/.claude/commands/idaw
 rm -rf ~/.claude/skills/workflow-*
-rm -rf ~/.claude/skills/team-*
+rm -rf ~/~  or <project>/.claude/skills/team-*
 rm -rf ~/.claude/skills/review-*
 rm -rf ~/.claude/agents/team-worker.md
 rm -rf ~/.claude/agents/cli-*-agent.md

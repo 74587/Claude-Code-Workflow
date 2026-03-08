@@ -121,6 +121,66 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
     assert.ok(toolResult.result.results.length >= 1);
   });
 
+  it('defaults embed selection to local-fast for bulk indexing', () => {
+    if (!smartSearchModule) return;
+
+    const selection = smartSearchModule.__testables.resolveEmbeddingSelection(undefined, undefined, {
+      embedding_backend: 'litellm',
+      embedding_model: 'qwen3-embedding-sf',
+    });
+
+    assert.equal(selection.backend, 'fastembed');
+    assert.equal(selection.model, 'fast');
+    assert.equal(selection.preset, 'bulk-local-fast');
+    assert.match(selection.note, /local-fast/i);
+  });
+
+  it('keeps explicit api embedding selection when requested', () => {
+    if (!smartSearchModule) return;
+
+    const selection = smartSearchModule.__testables.resolveEmbeddingSelection('api', 'qwen3-embedding-sf', {
+      embedding_backend: 'fastembed',
+      embedding_model: 'fast',
+    });
+
+    assert.equal(selection.backend, 'litellm');
+    assert.equal(selection.model, 'qwen3-embedding-sf');
+    assert.equal(selection.preset, 'explicit');
+  });
+
+  it('parses warning-prefixed JSON and plain-text file lists for semantic fallback', () => {
+    if (!smartSearchModule) return;
+
+    const dir = createWorkspace();
+    const target = join(dir, 'target.ts');
+    writeFileSync(target, 'export const target = 1;\n');
+
+    const parsed = smartSearchModule.__testables.parseCodexLensJsonOutput([
+      'RuntimeWarning: compatibility shim',
+      JSON.stringify({ results: [{ file: 'target.ts', score: 0.25, excerpt: 'target' }] }),
+    ].join('\n'));
+    assert.equal(Array.isArray(parsed.results), true);
+    assert.equal(parsed.results[0].file, 'target.ts');
+
+    const matches = smartSearchModule.__testables.parsePlainTextFileMatches(target, {
+      workingDirectory: dir,
+      searchPaths: ['.'],
+    });
+    assert.equal(matches.length, 1);
+    assert.match(String(matches[0].file).replace(/\\/g, '/'), /target\.ts$/);
+  });
+
+  it('detects centralized vector artifacts as full embedding coverage evidence', () => {
+    if (!smartSearchModule) return;
+
+    const dir = createWorkspace();
+    writeFileSync(join(dir, '_vectors.hnsw'), 'hnsw');
+    writeFileSync(join(dir, '_vectors_meta.db'), 'meta');
+    writeFileSync(join(dir, '_binary_vectors.mmap'), 'mmap');
+
+    assert.equal(smartSearchModule.__testables.hasCentralizedVectorArtifacts(dir), true);
+  });
+
   it('surfaces backend failure details when fuzzy search fully fails', async () => {
     if (!smartSearchModule) return;
 

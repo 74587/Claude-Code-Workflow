@@ -10,6 +10,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
 import type { Locale } from '../types/store';
+import enMessages from '../locales/en/index';
+import zhMessages from '../locales/zh/index';
 
 // Mock translation messages for testing
 const mockMessages: Record<Locale, Record<string, string>> = {
@@ -677,13 +679,36 @@ interface I18nWrapperProps {
   locale?: Locale;
 }
 
+const testMessages: Record<Locale, Record<string, string>> = {
+  en: { ...enMessages, ...mockMessages.en },
+  zh: { ...zhMessages, ...mockMessages.zh },
+};
+
+function handleIntlTestError(error: unknown): void {
+  const intlError = error as { code?: string } | undefined;
+  if (intlError?.code === 'MISSING_TRANSLATION') {
+    return;
+  }
+
+  console.error(error);
+}
+
+const testRouterFutureConfig = {
+  v7_startTransition: true,
+  v7_relativeSplatPath: true,
+} as const;
+
 function I18nWrapper({ children, locale = 'en' }: I18nWrapperProps) {
   const queryClient = createTestQueryClient();
 
   return (
-    <MemoryRouter>
+    <MemoryRouter future={testRouterFutureConfig}>
       <QueryClientProvider client={queryClient}>
-        <IntlProvider locale={locale} messages={mockMessages[locale]}>
+        <IntlProvider
+          locale={locale}
+          messages={testMessages[locale]}
+          onError={handleIntlTestError}
+        >
           {children}
         </IntlProvider>
       </QueryClientProvider>
@@ -726,9 +751,9 @@ export const mockLocaleUtils = {
 export function mockI18nContext(locale: Locale = 'en') {
   return {
     locale,
-    messages: mockMessages[locale],
+    messages: testMessages[locale],
     formatMessage: (id: string, values?: Record<string, unknown>) => {
-      const message = mockMessages[locale][id];
+      const message = testMessages[locale][id];
       if (!message) return id;
       if (!values) return message;
 

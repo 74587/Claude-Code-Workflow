@@ -221,7 +221,7 @@ git push -u origin main
 团队成员安装：
 
 ```bash
-git clone <repo-url> ~/.claude/skills/team-skills
+git clone <repo-url> ~/~  or <project>/.claude/skills/team-skills
 ```
 
 ### 公共技能

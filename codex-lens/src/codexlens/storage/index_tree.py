@@ -6,6 +6,7 @@ Each directory maintains its own _index.db with files and subdirectory links.
 
 from __future__ import annotations
 
+import fnmatch
 import logging
 import os
 import re
@@ -22,6 +23,46 @@ from codexlens.storage.dir_index import DirIndexStore
 from codexlens.storage.global_index import GlobalSymbolIndex
 from codexlens.storage.path_mapper import PathMapper
 from codexlens.storage.registry import ProjectInfo, RegistryStore
+
+
+DEFAULT_IGNORE_DIRS: Set[str] = {
+    ".git",
+    ".svn",
+    ".hg",
+    ".venv",
+    "venv",
+    "env",
+    "node_modules",
+    "bower_components",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".npm",
+    ".yarn",
+    ".codexlens",
+    ".idea",
+    ".vscode",
+    ".vs",
+    ".eclipse",
+    "dist",
+    "build",
+    "out",
+    "target",
+    "bin",
+    "obj",
+    "_build",
+    "coverage",
+    "htmlcov",
+    ".cache",
+    ".parcel-cache",
+    ".turbo",
+    ".next",
+    ".nuxt",
+    "logs",
+    "tmp",
+    "temp",
+}
 
 
 @dataclass
@@ -67,16 +108,7 @@ class IndexTreeBuilder:
     """
 
     # Directories to skip during indexing
-    IGNORE_DIRS: Set[str] = {
-        ".git",
-        ".venv",
-        "venv",
-        "node_modules",
-        "__pycache__",
-        ".codexlens",
-        ".idea",
-        ".vscode",
-    }
+    IGNORE_DIRS: Set[str] = DEFAULT_IGNORE_DIRS
 
     def __init__(
         self, registry: RegistryStore, mapper: PathMapper, config: Config = None, incremental: bool = True
@@ -95,6 +127,37 @@ class IndexTreeBuilder:
         self.parser_factory = ParserFactory(self.config)
         self.logger = logging.getLogger(__name__)
         self.incremental = incremental
+        self.ignore_patterns = self._resolve_ignore_patterns()
+
+    def _resolve_ignore_patterns(self) -> Tuple[str, ...]:
+        configured_patterns = getattr(self.config, "ignore_patterns", None)
+        raw_patterns = configured_patterns if configured_patterns else list(DEFAULT_IGNORE_DIRS)
+        cleaned: List[str] = []
+        for item in raw_patterns:
+            pattern = str(item).strip().replace('\\', '/').rstrip('/')
+            if pattern:
+                cleaned.append(pattern)
+        return tuple(dict.fromkeys(cleaned))
+
+    def _is_ignored_dir(self, dir_path: Path, source_root: Optional[Path] = None) -> bool:
+        name = dir_path.name
+        if name.startswith('.'):
+            return True
+
+        rel_path: Optional[str] = None
+        if source_root is not None:
+            try:
+                rel_path = dir_path.relative_to(source_root).as_posix()
+            except ValueError:
+                rel_path = None
+
+        for pattern in self.ignore_patterns:
+            if pattern == name or fnmatch.fnmatch(name, pattern):
+                return True
+            if rel_path and (pattern == rel_path or fnmatch.fnmatch(rel_path, pattern)):
+                return True
+
+        return False
 
     def build(
         self,
@@ -377,10 +440,11 @@ class IndexTreeBuilder:
 
         for root, dirnames, _ in os.walk(source_root):
             # Filter out ignored directories
+            root_path = Path(root)
             dirnames[:] = [
                 d
                 for d in dirnames
-                if d not in self.IGNORE_DIRS and not d.startswith(".")
+                if not self._is_ignored_dir(root_path / d, source_root)
             ]
 
             root_path = Path(root)
@@ -390,7 +454,7 @@ class IndexTreeBuilder:
                 continue
 
             # Check if this directory should be indexed
-            if not self._should_index_dir(root_path, languages):
+            if not self._should_index_dir(root_path, languages, source_root=source_root):
                 continue
 
             # Calculate depth relative to source_root
@@ -406,7 +470,7 @@ class IndexTreeBuilder:
 
         return dirs_by_depth
 
-    def _should_index_dir(self, dir_path: Path, languages: List[str] = None) -> bool:
+    def _should_index_dir(self, dir_path: Path, languages: List[str] = None, source_root: Optional[Path] = None) -> bool:
         """Check if directory should be indexed.
 
         A directory is indexed if:
@@ -423,7 +487,7 @@ class IndexTreeBuilder:
             True if directory should be indexed
         """
         # Check directory name
-        if dir_path.name in self.IGNORE_DIRS or dir_path.name.startswith("."):
+        if self._is_ignored_dir(dir_path, source_root):
             return False
 
         # Check for supported files in this directory
@@ -436,15 +500,15 @@ class IndexTreeBuilder:
         for item in dir_path.iterdir():
             if not item.is_dir():
                 continue
-            if item.name in self.IGNORE_DIRS or item.name.startswith("."):
+            if self._is_ignored_dir(item, source_root):
                 continue
             # Recursively check subdirectories
-            if self._has_indexable_files_recursive(item, languages):
+            if self._has_indexable_files_recursive(item, languages, source_root=source_root):
                 return True
 
         return False
 
-    def _has_indexable_files_recursive(self, dir_path: Path, languages: List[str] = None) -> bool:
+    def _has_indexable_files_recursive(self, dir_path: Path, languages: List[str] = None, source_root: Optional[Path] = None) -> bool:
         """Check if directory or any subdirectory has indexable files.
 
         Args:
@@ -464,9 +528,9 @@ class IndexTreeBuilder:
             for item in dir_path.iterdir():
                 if not item.is_dir():
                     continue
-                if item.name in self.IGNORE_DIRS or item.name.startswith("."):
+                if self._is_ignored_dir(item, source_root):
                     continue
-                if self._has_indexable_files_recursive(item, languages):
+                if self._has_indexable_files_recursive(item, languages, source_root=source_root):
                     return True
         except PermissionError:
             pass
@@ -520,6 +584,7 @@ class IndexTreeBuilder:
             "static_graph_enabled": self.config.static_graph_enabled,
             "static_graph_relationship_types": self.config.static_graph_relationship_types,
             "use_astgrep": getattr(self.config, "use_astgrep", False),
+            "ignore_patterns": list(getattr(self.config, "ignore_patterns", [])),
         }
 
         worker_args = [
@@ -666,8 +731,7 @@ class IndexTreeBuilder:
                 d.name
                 for d in dir_path.iterdir()
                 if d.is_dir()
-                and d.name not in self.IGNORE_DIRS
-                and not d.name.startswith(".")
+                and not self._is_ignored_dir(d)
             ]
 
             store.update_merkle_root()
@@ -963,6 +1027,19 @@ def _compute_graph_neighbors(
 # === Worker Function for ProcessPoolExecutor ===
 
 
+def _matches_ignore_patterns(path: Path, patterns: List[str]) -> bool:
+    name = path.name
+    if name.startswith('.'):
+        return True
+    for pattern in patterns:
+        normalized = str(pattern).strip().replace('\\', '/').rstrip('/')
+        if not normalized:
+            continue
+        if normalized == name or fnmatch.fnmatch(name, normalized):
+            return True
+    return False
+
+
 def _build_dir_worker(args: tuple) -> DirBuildResult:
     """Worker function for parallel directory building.
 
@@ -986,6 +1063,7 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
         static_graph_enabled=bool(config_dict.get("static_graph_enabled", False)),
         static_graph_relationship_types=list(config_dict.get("static_graph_relationship_types", ["imports", "inherits"])),
         use_astgrep=bool(config_dict.get("use_astgrep", False)),
+        ignore_patterns=list(config_dict.get("ignore_patterns", [])),
     )
 
     parser_factory = ParserFactory(config)
@@ -1064,21 +1142,11 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
             _compute_graph_neighbors(store)
 
         # Get subdirectories
-        ignore_dirs = {
-            ".git",
-            ".venv",
-            "venv",
-            "node_modules",
-            "__pycache__",
-            ".codexlens",
-            ".idea",
-            ".vscode",
-        }
-
+        ignore_patterns = list(config_dict.get("ignore_patterns", [])) or list(DEFAULT_IGNORE_DIRS)
         subdirs = [
             d.name
             for d in dir_path.iterdir()
-            if d.is_dir() and d.name not in ignore_dirs and not d.name.startswith(".")
+            if d.is_dir() and not _matches_ignore_patterns(d, ignore_patterns)
         ]
 
         store.update_merkle_root()

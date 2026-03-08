@@ -105,7 +105,7 @@ describe('DashboardToolbar', () => {
       />
     );
 
-    fireEvent.click(screen.getByTitle('Click to configure and launch a CLI session'));
+    fireEvent.click(screen.getByRole('button', { name: 'New Session' }));
     expect(screen.getByTestId('cli-config-modal')).toBeInTheDocument();
 
     mockState.currentProjectPath = 'D:/workspace-b';

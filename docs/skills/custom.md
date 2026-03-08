@@ -221,7 +221,7 @@ git push -u origin main
 Team members install:
 
 ```bash
-git clone <repo-url> ~/.claude/skills/team-skills
+git clone <repo-url> ~/~  or <project>/.claude/skills/team-skills
 ```
 
 ### Public Skills
