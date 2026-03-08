@@ -17,6 +17,7 @@ import { useCliStreamStore } from '@/stores/cliStreamStore';
 import { useCliSessionStore } from '@/stores/cliSessionStore';
 import { useExecutionMonitorStore } from '@/stores/executionMonitorStore';
 import { useSessionManagerStore } from '@/stores/sessionManagerStore';
+import { syncConfigStoreFromBackend } from '@/stores/configStore';
 import { useIssueQueueIntegrationStore } from '@/stores/issueQueueIntegrationStore';
 import { useQueueExecutionStore } from '@/stores/queueExecutionStore';
 import { useQueueSchedulerStore } from '@/stores/queueSchedulerStore';
@@ -38,6 +39,9 @@ function App({ locale, messages }: AppProps) {
   // Initialize CSRF token on app mount
   useEffect(() => {
     initializeCsrfToken().catch(console.error);
+    syncConfigStoreFromBackend().catch(() => {
+      // syncConfigStoreFromBackend already logs the failure reason
+    });
   }, []);
 
   return (

@@ -3159,6 +3159,12 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
  * @param params - Search parameters (path, languages, force)
  * @param onProgress - Optional callback for progress updates
  */
+export const __testables = {
+  parseCodexLensJsonOutput,
+  parsePlainTextFileMatches,
+  hasCentralizedVectorArtifacts,
+};
+
 export async function executeInitWithProgress(
   params: Record<string, unknown>,
   onProgress?: (progress: ProgressInfo) => void
