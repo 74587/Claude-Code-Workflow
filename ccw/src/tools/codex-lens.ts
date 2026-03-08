@@ -1265,6 +1265,12 @@ function shouldRetryWithStaticGraphPreference(args: string[], error?: string): b
     && Boolean(error && /Options --static-graph and --no-static-graph are mutually exclusive/i.test(error));
 }
 
+function shouldRetryWithCentralizedPreference(args: string[], error?: string): boolean {
+  return !args.includes('--centralized')
+    && !args.includes('--distributed')
+    && Boolean(error && /Options --centralized and --distributed are mutually exclusive/i.test(error));
+}
+
 function stripAnsiCodes(value: string): string {
   return value
     .replace(/\x1b\[[0-9;]*m/g, '')
@@ -1397,6 +1403,11 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
       shouldRetry: shouldRetryWithStaticGraphPreference,
       transform: (currentArgs: string[]) => [...currentArgs, '--static-graph'],
       warning: 'CodexLens CLI hit a Typer static-graph option conflict; retried with explicit --static-graph.',
+    },
+    {
+      shouldRetry: shouldRetryWithCentralizedPreference,
+      transform: (currentArgs: string[]) => [...currentArgs, '--centralized'],
+      warning: 'CodexLens CLI hit a Typer centralized/distributed option conflict; retried with explicit --centralized.',
     },
   ];
 

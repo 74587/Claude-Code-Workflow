@@ -52,7 +52,8 @@ export interface ExecutionWSMessage {
   payload: {
     executionId: string;
     flowId: string;
-    sessionKey: string;
+    sessionKey?: string;
+    projectPath?: string;
     stepId?: string;
     stepName?: string;
     totalSteps?: number;
@@ -117,7 +118,7 @@ export const useExecutionMonitorStore = create<ExecutionMonitorStore>()(
                     executionId,
                     flowId,
                     flowName: stepName || 'Workflow',
-                    sessionKey,
+                    sessionKey: sessionKey ?? '',
                     status: 'running',
                     totalSteps: totalSteps || 0,
                     completedSteps: 0,

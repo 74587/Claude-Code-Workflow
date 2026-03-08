@@ -10,7 +10,8 @@
  * - Multi-backend search routing with RRF ranking
  *
  * Actions:
- * - init: Initialize CodexLens index
+ * - init: Initialize CodexLens static index
+ * - embed: Generate semantic/vector embeddings for the index
  * - search: Intelligent search with fuzzy (default) or semantic mode
  * - status: Check index status
  * - update: Incremental index update for changed files
@@ -20,15 +21,20 @@
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
 import { spawn, execSync } from 'child_process';
-import { statSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { existsSync, readFileSync, statSync } from 'fs';
+import { dirname, join, resolve } from 'path';
 import {
   ensureReady as ensureCodexLensReady,
+  ensureLiteLLMEmbedderReady,
   executeCodexLens,
+  getVenvPythonPath,
 } from './codex-lens.js';
 import type { ProgressInfo } from './codex-lens.js';
 import { getProjectRoot } from '../utils/path-validator.js';
+import { getCodexLensDataDir } from '../utils/codexlens-path.js';
 import { EXEC_TIMEOUTS } from '../utils/exec-constants.js';
+import { generateRotationEndpoints } from '../config/litellm-api-config-manager.js';
+import type { RotationEndpointConfig } from '../config/litellm-api-config-manager.js';
 
 // Timing utilities for performance analysis
 const TIMING_ENABLED = process.env.SMART_SEARCH_TIMING === '1' || process.env.DEBUG?.includes('timing');
@@ -65,10 +71,10 @@ function createTimer(): { mark: (name: string) => void; getTimings: () => Timing
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
-  // Action: search (content), find_files (path/name pattern), init, init_force, status, update (incremental), watch
+  // Action: search (content), find_files (path/name pattern), init, init_force, embed, status, update (incremental), watch
   // Note: search_files is deprecated, use search with output_mode='files_only'
-  // init: incremental index (skip existing), init_force: force full rebuild (delete and recreate)
-  action: z.enum(['init', 'init_force', 'search', 'search_files', 'find_files', 'status', 'update', 'watch']).default('search'),
+  // init: static FTS index by default, embed: generate semantic/vector embeddings, init_force: force full rebuild (delete and recreate)
+  action: z.enum(['init', 'init_force', 'embed', 'search', 'search_files', 'find_files', 'status', 'update', 'watch']).default('search'),
   query: z.string().optional().describe('Content search query (for action="search")'),
   pattern: z.string().optional().describe('Glob pattern for path matching (for action="find_files")'),
   mode: z.enum(['fuzzy', 'semantic']).default('fuzzy'),
@@ -79,6 +85,10 @@ const ParamsSchema = z.object({
   maxResults: z.number().default(5),  // Default 5 with full content
   includeHidden: z.boolean().default(false),
   languages: z.array(z.string()).optional(),
+  embeddingBackend: z.string().optional().describe('Embedding backend for action="embed": fastembed/local or litellm/api.'),
+  embeddingModel: z.string().optional().describe('Embedding model/profile for action="embed". Examples: "code", "fast", "qwen3-embedding-sf".'),
+  apiMaxWorkers: z.number().int().min(1).optional().describe('Max concurrent API embedding workers for action="embed". Recommended: 8-16 for litellm/api when multiple endpoints are configured.'),
+  force: z.boolean().default(false).describe('Force regeneration for action="embed".'),
   limit: z.number().default(5),  // Default 5 with full content
   extraFilesCount: z.number().default(10),  // Additional file-only results
   maxContentLength: z.number().default(200),  // Max content length for truncation (50-2000)
@@ -313,6 +323,11 @@ interface SearchMetadata {
     totalFiles?: number;
   };
   progressHistory?: ProgressInfo[];
+  api_max_workers?: number;
+  endpoint_count?: number;
+  use_gpu?: boolean;
+  cascade_strategy?: string;
+  staged_stage2_mode?: string;
 }
 
 interface SearchResult {
@@ -344,6 +359,11 @@ interface CodexLensConfig {
   reranker_backend?: string;   // 'onnx' (local) or 'api'
   reranker_model?: string;
   reranker_top_k?: number;
+  api_max_workers?: number;
+  api_batch_size?: number;
+  cascade_strategy?: string;
+  staged_stage2_mode?: string;
+  static_graph_enabled?: boolean;
 }
 
 interface IndexStatus {
@@ -355,6 +375,39 @@ interface IndexStatus {
   model_info?: ModelInfo | null;
   config?: CodexLensConfig | null;
   warning?: string;
+}
+
+function readCodexLensSettingsSnapshot(): Partial<CodexLensConfig> {
+  const settingsPath = join(getCodexLensDataDir(), 'settings.json');
+  if (!existsSync(settingsPath)) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(readFileSync(settingsPath, 'utf-8')) as Record<string, any>;
+    const embedding = (parsed.embedding ?? {}) as Record<string, any>;
+    const reranker = (parsed.reranker ?? {}) as Record<string, any>;
+    const api = (parsed.api ?? {}) as Record<string, any>;
+    const cascade = (parsed.cascade ?? {}) as Record<string, any>;
+    const staged = (parsed.staged ?? {}) as Record<string, any>;
+    const indexing = (parsed.indexing ?? {}) as Record<string, any>;
+
+    return {
+      embedding_backend: normalizeEmbeddingBackend(typeof embedding.backend === 'string' ? embedding.backend : undefined),
+      embedding_model: typeof embedding.model === 'string' ? embedding.model : undefined,
+      reranker_enabled: typeof reranker.enabled === 'boolean' ? reranker.enabled : undefined,
+      reranker_backend: typeof reranker.backend === 'string' ? reranker.backend : undefined,
+      reranker_model: typeof reranker.model === 'string' ? reranker.model : undefined,
+      reranker_top_k: typeof reranker.top_k === 'number' ? reranker.top_k : undefined,
+      api_max_workers: typeof api.max_workers === 'number' ? api.max_workers : undefined,
+      api_batch_size: typeof api.batch_size === 'number' ? api.batch_size : undefined,
+      cascade_strategy: typeof cascade.strategy === 'string' ? cascade.strategy : undefined,
+      staged_stage2_mode: typeof staged.stage2_mode === 'string' ? staged.stage2_mode : undefined,
+      static_graph_enabled: typeof indexing.static_graph_enabled === 'boolean' ? indexing.static_graph_enabled : undefined,
+    };
+  } catch {
+    return {};
+  }
 }
 
 /**
@@ -464,6 +517,99 @@ function filterResultsToTargetFile<T extends { file: string }>(results: T[], sco
   return results.filter((result) => normalizeResultFilePath(result.file, scope.workingDirectory) === normalizedTarget);
 }
 
+function parseCodexLensJsonOutput(output: string | undefined): any | null {
+  const cleanOutput = stripAnsi(output || '').trim();
+  if (!cleanOutput) {
+    return null;
+  }
+
+  const candidates = [
+    cleanOutput,
+    ...cleanOutput.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.startsWith('{') || line.startsWith('[')),
+  ];
+
+  const firstBrace = cleanOutput.indexOf('{');
+  const lastBrace = cleanOutput.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    candidates.push(cleanOutput.slice(firstBrace, lastBrace + 1));
+  }
+
+  const firstBracket = cleanOutput.indexOf('[');
+  const lastBracket = cleanOutput.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    candidates.push(cleanOutput.slice(firstBracket, lastBracket + 1));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function mapCodexLensSemanticMatches(data: any[], scope: SearchScope, maxContentLength: number): SemanticMatch[] {
+  return filterResultsToTargetFile(data.map((item: any) => {
+    const rawScore = item.score || 0;
+    const similarityScore = rawScore > 0 ? 1 / (1 + rawScore) : 1;
+    return {
+      file: item.path || item.file,
+      score: similarityScore,
+      content: truncateContent(item.content || item.excerpt, maxContentLength),
+      symbol: item.symbol || null,
+    };
+  }), scope);
+}
+
+function parsePlainTextFileMatches(output: string | undefined, scope: SearchScope): SemanticMatch[] {
+  const lines = stripAnsi(output || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const fileLines = lines.filter((line) => {
+    if (line.includes('RuntimeWarning:') || line.startsWith('warn(') || line.startsWith('Warning:')) {
+      return false;
+    }
+
+    const resolvedPath = /^[a-zA-Z]:[\\/]|^\//.test(line)
+      ? line
+      : resolve(scope.workingDirectory, line);
+
+    try {
+      return statSync(resolvedPath).isFile();
+    } catch {
+      return false;
+    }
+  });
+
+  return filterResultsToTargetFile(
+    [...new Set(fileLines)].map((file, index) => ({
+      file,
+      score: Math.max(0.1, 1 - index * 0.05),
+      content: '',
+      symbol: null,
+    })),
+    scope,
+  );
+}
+
+function hasCentralizedVectorArtifacts(indexRoot: unknown): boolean {
+  if (typeof indexRoot !== 'string' || !indexRoot.trim()) {
+    return false;
+  }
+
+  const resolvedRoot = resolve(indexRoot);
+  return [
+    join(resolvedRoot, '_vectors.hnsw'),
+    join(resolvedRoot, '_vectors_meta.db'),
+    join(resolvedRoot, '_binary_vectors.mmap'),
+  ].every((artifactPath) => existsSync(artifactPath));
+}
+
 function collectBackendError(
   errors: string[],
   backendName: string,
@@ -498,18 +644,20 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
   try {
     // Fetch both status and config in parallel
     const [statusResult, configResult] = await Promise.all([
-      executeCodexLens(['status', '--json'], { cwd: scope.workingDirectory }),
-      executeCodexLens(['config', 'show', '--json'], { cwd: scope.workingDirectory }),
+      executeCodexLens(['index', 'status', scope.workingDirectory], { cwd: scope.workingDirectory }),
+      executeCodexLens(['config', '--json'], { cwd: scope.workingDirectory }),
     ]);
 
     // Parse config
-    let config: CodexLensConfig | null = null;
+    const settingsConfig = readCodexLensSettingsSnapshot();
+    let config: CodexLensConfig | null = Object.keys(settingsConfig).length > 0 ? { ...settingsConfig } : null;
     if (configResult.success && configResult.output) {
       try {
         const cleanConfigOutput = stripAnsi(configResult.output);
         const parsedConfig = JSON.parse(cleanConfigOutput);
         const configData = parsedConfig.result || parsedConfig;
         config = {
+          ...settingsConfig,
           config_file: configData.config_file,
           index_dir: configData.index_dir,
           embedding_backend: configData.embedding_backend,
@@ -540,13 +688,21 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
       const parsed = JSON.parse(cleanOutput);
       // Handle both direct and nested response formats (status returns {success, result: {...}})
       const status = parsed.result || parsed;
-      const indexed = status.projects_count > 0 || status.total_files > 0;
 
       // Get embeddings coverage from comprehensive status
       const embeddingsData = status.embeddings || {};
-      const embeddingsCoverage = embeddingsData.coverage_percent || 0;
-      const has_embeddings = embeddingsCoverage >= 50; // Threshold: 50%
-      const totalChunks = embeddingsData.total_chunks || 0;
+      const totalIndexes = Number(embeddingsData.total_indexes || 0);
+      const indexesWithEmbeddings = Number(embeddingsData.indexes_with_embeddings || 0);
+      const totalChunks = Number(embeddingsData.total_chunks || 0);
+      const hasCentralizedVectors = hasCentralizedVectorArtifacts(status.index_root);
+      let embeddingsCoverage = typeof embeddingsData.coverage_percent === 'number'
+        ? embeddingsData.coverage_percent
+        : (totalIndexes > 0 ? (indexesWithEmbeddings / totalIndexes) * 100 : 0);
+      if (hasCentralizedVectors) {
+        embeddingsCoverage = Math.max(embeddingsCoverage, 100);
+      }
+      const indexed = Boolean(status.projects_count > 0 || status.total_files > 0 || status.index_root || totalIndexes > 0 || totalChunks > 0);
+      const has_embeddings = indexesWithEmbeddings > 0 || embeddingsCoverage > 0 || totalChunks > 0 || hasCentralizedVectors;
 
       // Extract model info if available
       const modelInfoData = embeddingsData.model_info;
@@ -563,9 +719,9 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
       if (!indexed) {
         warning = 'No CodexLens index found. Run smart_search(action="init") to create index for better search results.';
       } else if (embeddingsCoverage === 0) {
-        warning = 'Index exists but no embeddings generated. Run: codexlens embeddings-generate --recursive';
+        warning = 'Index exists but no embeddings generated. Run smart_search(action="embed") to build the vector index.';
       } else if (embeddingsCoverage < 50) {
-        warning = `Embeddings coverage is ${embeddingsCoverage.toFixed(1)}% (below 50%). Hybrid search will use exact mode. Run: codexlens embeddings-generate --recursive`;
+        warning = `Embeddings coverage is ${embeddingsCoverage.toFixed(1)}% (below 50%). Hybrid search will degrade. Run smart_search(action="embed") to improve vector coverage.`;
       }
 
       return {
@@ -777,9 +933,198 @@ function buildRipgrepCommand(params: {
   return { command: 'rg', args, tokens };
 }
 
+function normalizeEmbeddingBackend(backend?: string): string | undefined {
+  if (!backend) {
+    return undefined;
+  }
+
+  const normalized = backend.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+  if (normalized === 'api') {
+    return 'litellm';
+  }
+  if (normalized === 'local') {
+    return 'fastembed';
+  }
+  return normalized;
+}
+
+const EMBED_PROGRESS_PREFIX = '__CCW_EMBED_PROGRESS__';
+
+function resolveEmbeddingEndpoints(backend?: string): RotationEndpointConfig[] {
+  if (backend !== 'litellm') {
+    return [];
+  }
+
+  try {
+    return generateRotationEndpoints(getProjectRoot()).filter((endpoint) => {
+      const apiKey = endpoint.api_key?.trim() ?? '';
+      return Boolean(
+        apiKey &&
+        apiKey.length > 8 &&
+        !/^\*+$/.test(apiKey) &&
+        endpoint.api_base?.trim() &&
+        endpoint.model?.trim()
+      );
+    });
+  } catch {
+    return [];
+  }
+}
+
+function resolveApiWorkerCount(
+  requestedWorkers: number | undefined,
+  backend: string | undefined,
+  endpoints: RotationEndpointConfig[]
+): number | undefined {
+  if (backend !== 'litellm') {
+    return undefined;
+  }
+
+  if (typeof requestedWorkers === 'number' && Number.isFinite(requestedWorkers)) {
+    return Math.max(1, Math.floor(requestedWorkers));
+  }
+
+  if (endpoints.length <= 1) {
+    return 4;
+  }
+
+  return Math.min(16, Math.max(4, endpoints.length * 2));
+}
+
+function extractEmbedJsonLine(stdout: string): string | undefined {
+  const lines = stdout
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.startsWith(EMBED_PROGRESS_PREFIX));
+
+  return [...lines].reverse().find((line) => line.startsWith('{') && line.endsWith('}'));
+}
+
+async function executeEmbeddingsViaPython(params: {
+  projectPath: string;
+  backend?: string;
+  model?: string;
+  force: boolean;
+  maxWorkers?: number;
+  endpoints?: RotationEndpointConfig[];
+}): Promise<{ success: boolean; error?: string; progressMessages?: string[] }> {
+  const { projectPath, backend, model, force, maxWorkers, endpoints = [] } = params;
+  const pythonCode = `
+import json
+import sys
+from pathlib import Path
+from codexlens.storage.registry import RegistryStore
+from codexlens.cli.embedding_manager import generate_dense_embeddings_centralized
+
+target_path = Path(r"__PROJECT_PATH__").expanduser().resolve()
+backend = __BACKEND__
+model = __MODEL__
+force = __FORCE__
+max_workers = __MAX_WORKERS__
+endpoints = json.loads(r'''__ENDPOINTS_JSON__''')
+
+def progress_update(message: str):
+    print("__CCW_EMBED_PROGRESS__" + str(message), flush=True)
+
+registry = RegistryStore()
+registry.initialize()
+try:
+    project = registry.get_project(target_path)
+    if project is None:
+        print(json.dumps({"success": False, "error": f"No index found for: {target_path}"}), flush=True)
+        sys.exit(1)
+
+    index_root = Path(project.index_root)
+    result = generate_dense_embeddings_centralized(
+        index_root,
+        embedding_backend=backend,
+        model_profile=model,
+        force=force,
+        use_gpu=True,
+        max_workers=max_workers,
+        endpoints=endpoints if endpoints else None,
+        progress_callback=progress_update,
+    )
+
+    print(json.dumps(result), flush=True)
+    if not result.get("success"):
+        sys.exit(1)
+finally:
+    registry.close()
+`
+    .replace('__PROJECT_PATH__', projectPath.replace(/\\/g, '\\\\'))
+    .replace('__BACKEND__', backend ? JSON.stringify(backend) : 'None')
+    .replace('__MODEL__', model ? JSON.stringify(model) : 'None')
+    .replace('__FORCE__', force ? 'True' : 'False')
+    .replace('__MAX_WORKERS__', typeof maxWorkers === 'number' ? String(Math.max(1, Math.floor(maxWorkers))) : 'None')
+    .replace('__ENDPOINTS_JSON__', JSON.stringify(endpoints).replace(/\\/g, '\\\\').replace(/'''/g, "\\'\\'\\'"));
+
+  return await new Promise((resolve) => {
+    const child = spawn(getVenvPythonPath(), ['-c', pythonCode], {
+      cwd: projectPath,
+      shell: false,
+      timeout: 1800000,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    });
+
+    let stdout = '';
+    let stderr = '';
+    const progressMessages: string[] = [];
+
+    child.stdout.on('data', (data: Buffer) => {
+      const chunk = data.toString();
+      stdout += chunk;
+      for (const line of chunk.split(/\r?\n/)) {
+        if (line.startsWith(EMBED_PROGRESS_PREFIX)) {
+          progressMessages.push(line.slice(EMBED_PROGRESS_PREFIX.length).trim());
+        }
+      }
+    });
+
+    child.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    child.on('error', (err) => {
+      resolve({ success: false, error: `Failed to start embeddings process: ${err.message}`, progressMessages });
+    });
+
+    child.on('close', (code) => {
+      const jsonLine = extractEmbedJsonLine(stdout);
+      if (jsonLine) {
+        try {
+          const parsed = JSON.parse(jsonLine) as { success?: boolean; error?: string };
+          if (parsed.success) {
+            resolve({ success: true, progressMessages });
+            return;
+          }
+          resolve({
+            success: false,
+            error: parsed.error || stderr.trim() || stdout.trim() || `Embeddings process exited with code ${code}`,
+            progressMessages,
+          });
+          return;
+        } catch {
+          // Fall through to generic error handling below.
+        }
+      }
+
+      resolve({
+        success: code === 0,
+        error: code === 0 ? undefined : (stderr.trim() || stdout.trim() || `Embeddings process exited with code ${code}`),
+        progressMessages,
+      });
+    });
+  });
+}
+
 /**
  * Action: init - Initialize CodexLens index (FTS only, no embeddings)
- * For semantic/vector search, use ccw view dashboard or codexlens CLI directly
+ * For semantic/vector search, follow with action="embed" to generate vectors.
  * @param params - Search parameters
  * @param force - If true, force full rebuild (delete existing index first)
  */
@@ -854,6 +1199,80 @@ async function executeInitAction(params: Params, force: boolean = false): Promis
 }
 
 /**
+ * Action: embed - Generate semantic/vector embeddings for an indexed project
+ */
+async function executeEmbedAction(params: Params): Promise<SearchResult> {
+  const { path = '.', embeddingBackend, embeddingModel, apiMaxWorkers, force = false } = params;
+  const scope = resolveSearchScope(path);
+
+  const readyStatus = await ensureCodexLensReady();
+  if (!readyStatus.ready) {
+    return {
+      success: false,
+      error: `CodexLens not available: ${readyStatus.error}. CodexLens will be auto-installed on first use.`,
+    };
+  }
+
+  const currentStatus = await checkIndexStatus(scope.workingDirectory);
+  const normalizedBackend = normalizeEmbeddingBackend(embeddingBackend) || currentStatus.config?.embedding_backend;
+  const trimmedModel = embeddingModel?.trim() || currentStatus.config?.embedding_model;
+  const endpoints = resolveEmbeddingEndpoints(normalizedBackend);
+  const configuredApiMaxWorkers = currentStatus.config?.api_max_workers;
+  const effectiveApiMaxWorkers = typeof apiMaxWorkers === 'number'
+    ? Math.max(1, Math.floor(apiMaxWorkers))
+    : (typeof configuredApiMaxWorkers === 'number'
+      ? Math.max(1, Math.floor(configuredApiMaxWorkers))
+      : resolveApiWorkerCount(undefined, normalizedBackend, endpoints));
+
+  if (normalizedBackend === 'litellm') {
+    const embedderReady = await ensureLiteLLMEmbedderReady();
+    if (!embedderReady.success) {
+      return {
+        success: false,
+        error: embedderReady.error || 'LiteLLM embedder is not ready.',
+      };
+    }
+  }
+
+  const result = await executeEmbeddingsViaPython({
+    projectPath: scope.workingDirectory,
+    backend: normalizedBackend,
+    model: trimmedModel,
+    force,
+    maxWorkers: effectiveApiMaxWorkers,
+    endpoints,
+  });
+
+  const indexStatus = result.success ? await checkIndexStatus(scope.workingDirectory) : currentStatus;
+  const coverage = indexStatus?.embeddings_coverage_percent;
+  const coverageText = coverage !== undefined ? ` (${coverage.toFixed(1)}% coverage)` : '';
+  const progressMessage = result.progressMessages && result.progressMessages.length > 0
+    ? result.progressMessages[result.progressMessages.length - 1]
+    : undefined;
+
+  return {
+    success: result.success,
+    error: result.error,
+    message: result.success
+      ? `Embeddings generated for ${path}${coverageText}`
+      : undefined,
+    metadata: {
+      action: 'embed',
+      path: scope.workingDirectory,
+      backend: normalizedBackend || indexStatus?.config?.embedding_backend,
+      embeddings_coverage_percent: coverage,
+      api_max_workers: effectiveApiMaxWorkers,
+      endpoint_count: endpoints.length,
+      use_gpu: true,
+      cascade_strategy: currentStatus.config?.cascade_strategy,
+      staged_stage2_mode: currentStatus.config?.staged_stage2_mode,
+      note: progressMessage,
+    },
+    status: indexStatus,
+  };
+}
+
+/**
  * Action: status - Check CodexLens index status
  */
 async function executeStatusAction(params: Params): Promise<SearchResult> {
@@ -885,6 +1304,15 @@ async function executeStatusAction(params: Params): Promise<SearchResult> {
     // Embedding backend info
     const embeddingType = cfg.embedding_backend === 'litellm' ? 'API' : 'Local';
     statusParts.push(`Embedding: ${embeddingType} (${cfg.embedding_model || 'default'})`);
+    if (typeof cfg.api_max_workers === 'number') {
+      statusParts.push(`API Workers: ${cfg.api_max_workers}`);
+    }
+    if (cfg.cascade_strategy) {
+      statusParts.push(`Cascade: ${cfg.cascade_strategy}`);
+    }
+    if (cfg.staged_stage2_mode) {
+      statusParts.push(`Stage2: ${cfg.staged_stage2_mode}`);
+    }
 
     // Reranker info
     if (cfg.reranker_enabled) {
@@ -1583,8 +2011,11 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   timer.mark('index_status_check');
 
   // Request more results to support split (full content + extra files)
+  // NOTE: Current CodexLens search CLI in this environment rejects value-taking options
+  // like --limit/--offset/--method for search. Keep the invocation minimal and apply
+  // pagination/selection in CCW after parsing results.
   const totalToFetch = maxResults + extraFilesCount;
-  const args = ['search', query, '--limit', totalToFetch.toString(), '--offset', offset.toString(), '--method', 'dense_rerank', '--json'];
+  const args = ['search', query, '--json'];
   if (enrich) {
     args.push('--enrich');
   }
@@ -1619,22 +2050,10 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
   let baselineInfo: { score: number; count: number } | null = null;
   let initialCount = 0;
 
-  try {
-    const parsed = JSON.parse(stripAnsi(result.output || '{}'));
-    const data = parsed.result?.results || parsed.results || parsed;
-    allResults = filterResultsToTargetFile((Array.isArray(data) ? data : []).map((item: any) => {
-      const rawScore = item.score || 0;
-      // Hybrid mode returns distance scores (lower is better).
-      // Convert to similarity scores (higher is better) for consistency.
-      // Formula: similarity = 1 / (1 + distance)
-      const similarityScore = rawScore > 0 ? 1 / (1 + rawScore) : 1;
-      return {
-        file: item.path || item.file,
-        score: similarityScore,
-        content: truncateContent(item.content || item.excerpt, maxContentLength),
-        symbol: item.symbol || null,
-      };
-    }), scope);
+  const parsedOutput = parseCodexLensJsonOutput(result.output);
+  const parsedData = parsedOutput?.result?.results || parsedOutput?.results || parsedOutput;
+  if (Array.isArray(parsedData)) {
+    allResults = mapCodexLensSemanticMatches(parsedData, scope, maxContentLength);
     timer.mark('parse_results');
 
     initialCount = allResults.length;
@@ -1655,19 +2074,24 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
     // 4. Re-sort by adjusted scores
     allResults.sort((a, b) => b.score - a.score);
     timer.mark('post_processing');
-  } catch {
-    return {
-      success: true,
-      results: [],
-      output: result.output,
-      metadata: {
-        mode: 'hybrid',
-        backend: 'codexlens',
-        count: 0,
-        query,
-        warning: mergeWarnings(indexStatus.warning, result.warning, 'Failed to parse JSON output'),
-      },
-    };
+  } else {
+    allResults = parsePlainTextFileMatches(result.output, scope);
+    if (allResults.length === 0) {
+      return {
+        success: true,
+        results: [],
+        output: result.output,
+        metadata: {
+          mode: 'hybrid',
+          backend: 'codexlens',
+          count: 0,
+          query,
+          warning: mergeWarnings(indexStatus.warning, result.warning, 'Failed to parse JSON output'),
+        },
+      };
+    }
+    timer.mark('parse_results');
+    initialCount = allResults.length;
   }
 
   // Split results: first N with full content, rest as file paths only
@@ -2164,6 +2588,13 @@ Recommended MCP flow: use **action=\"search\"** for lookups, **action=\"init\"**
 *   **init_force**: Force full rebuild (delete and recreate static index).
     *   *path* (string): Directory to index (default: current).
 
+*   **embed**: Generate semantic/vector embeddings for an indexed project.
+    *   *path* (string): Directory to embed (default: current).
+    *   *embeddingBackend* (string): 'litellm'/'api' for remote API embeddings, 'fastembed'/'local' for local embeddings.
+    *   *embeddingModel* (string): Embedding model/profile to use.
+    *   *apiMaxWorkers* (number): Max concurrent API embedding workers. Defaults to auto-sizing from the configured endpoint pool.
+    *   *force* (boolean): Regenerate embeddings even if they already exist.
+
 *   **status**: Check index status. (No required params)
 
 *   **update**: Incremental index update.
@@ -2175,16 +2606,17 @@ Recommended MCP flow: use **action=\"search\"** for lookups, **action=\"init\"**
 **Examples:**
   smart_search(query="authentication logic")                    # Content search (default action)
   smart_search(query="MyClass", mode="semantic")                # Semantic search
-  smart_search(action="find_files", pattern="*.ts")             # Find TypeScript files
+  smart_search(action=\"embed\", path=\"/project\", embeddingBackend=\"api\", apiMaxWorkers=8)  # Build API vector index
   smart_search(action="init", path="/project")                  # Build static FTS index
+  smart_search(action="embed", path="/project", embeddingBackend="api")  # Build API vector index
   smart_search(query="auth", limit=10, offset=0)                # Paginated search`,
   inputSchema: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
-        enum: ['init', 'init_force', 'search', 'find_files', 'status', 'update', 'watch', 'search_files'],
-        description: 'Action: search (content search; default and recommended), find_files (path pattern matching), init (create static FTS index, incremental), init_force (force full rebuild), status (check index), update (incremental refresh), watch (auto-update watcher; opt-in). Note: search_files is deprecated.',
+        enum: ['init', 'init_force', 'embed', 'search', 'find_files', 'status', 'update', 'watch', 'search_files'],
+        description: 'Action: search (content search; default and recommended), find_files (path pattern matching), init (create static FTS index, incremental), init_force (force full rebuild), embed (generate semantic/vector embeddings), status (check index), update (incremental refresh), watch (auto-update watcher; opt-in). Note: search_files is deprecated.',
         default: 'search',
       },
       query: {
@@ -2258,6 +2690,23 @@ Recommended MCP flow: use **action=\"search\"** for lookups, **action=\"init\"**
         type: 'array',
         items: { type: 'string' },
         description: 'Languages to index (for init action). Example: ["javascript", "typescript"]',
+      },
+      embeddingBackend: {
+        type: 'string',
+        description: 'Embedding backend for action="embed": litellm/api (remote API) or fastembed/local (local GPU/CPU).',
+      },
+      embeddingModel: {
+        type: 'string',
+        description: 'Embedding model/profile for action="embed". Examples: "code", "fast", "qwen3-embedding-sf".',
+      },
+      apiMaxWorkers: {
+        type: 'number',
+        description: 'Max concurrent API embedding workers for action="embed". Defaults to auto-sizing from the configured endpoint pool.',
+      },
+      force: {
+        type: 'boolean',
+        description: 'Force regeneration for action="embed".',
+        default: false,
       },
       enrich: {
         type: 'boolean',
@@ -2623,6 +3072,10 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
 
       case 'init_force':
         result = await executeInitAction(parsed.data, true);
+        break;
+
+      case 'embed':
+        result = await executeEmbedAction(parsed.data);
         break;
 
       case 'status':

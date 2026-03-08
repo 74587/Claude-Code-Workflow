@@ -39,6 +39,11 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
     assert.equal(props.maxResults.default, 5);
     assert.equal(props.limit.default, 5);
     assert.match(schema.description, /static FTS index/i);
+    assert.match(schema.description, /semantic\/vector embeddings/i);
+    assert.ok(props.action.enum.includes('embed'));
+    assert.match(props.embeddingBackend.description, /litellm\/api/i);
+    assert.match(props.apiMaxWorkers.description, /endpoint pool/i);
+    assert.match(schema.description, /apiMaxWorkers=8/i);
     assert.match(props.path.description, /single file path/i);
   });
 
