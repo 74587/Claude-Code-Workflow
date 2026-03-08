@@ -114,6 +114,10 @@ function extractCliToolsFromBackend(data: unknown): Record<string, CliToolConfig
     return null;
   }
 
+  const validTypes = ['builtin', 'cli-wrapper', 'api-endpoint'] as const;
+  const isValidType = (t: unknown): t is 'builtin' | 'cli-wrapper' | 'api-endpoint' =>
+    typeof t === 'string' && (validTypes as readonly string[]).includes(t);
+
   const cliTools: Record<string, CliToolConfig> = {};
   for (const [key, tool] of Object.entries(backendTools)) {
     const typedTool = tool as Record<string, unknown>;
@@ -122,7 +126,7 @@ function extractCliToolsFromBackend(data: unknown): Record<string, CliToolConfig
       primaryModel: typeof typedTool.primaryModel === 'string' ? typedTool.primaryModel : '',
       secondaryModel: typeof typedTool.secondaryModel === 'string' ? typedTool.secondaryModel : '',
       tags: Array.isArray(typedTool.tags) ? typedTool.tags.filter((tag): tag is string => typeof tag === 'string') : [],
-      type: typeof typedTool.type === 'string' ? typedTool.type : 'builtin',
+      type: isValidType(typedTool.type) ? typedTool.type : 'builtin',
       envFile: typeof typedTool.envFile === 'string' ? typedTool.envFile : undefined,
       settingsFile: typeof typedTool.settingsFile === 'string' ? typedTool.settingsFile : undefined,
       availableModels: Array.isArray(typedTool.availableModels)
