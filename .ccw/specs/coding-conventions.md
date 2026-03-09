@@ -1,3 +1,13 @@
+---
+title: Coding Conventions
+readMode: optional
+priority: medium
+category: general
+scope: project
+dimension: specs
+keywords: [coding, convention, style, naming, pattern, navigation, schema, error-handling, implementation, validation, clarity, doc]
+---
+
 # Coding Conventions
 
 ## Navigation & Path Handling
@@ -9,6 +19,7 @@
 ## Document Generation
 
 - [architecture] For document generation systems, adopt Layer 3→2→1 pattern (components → features → indexes) for efficient incremental updates. (learned: 2026-03-07)
+- [tools] When commands need to generate files with deterministic paths and frontmatter, use dedicated ccw tool endpoints (`ccw tool exec`) instead of raw `ccw cli -p` calls. Endpoints control output path, file naming, and structural metadata; CLI tools only generate prose content. (learned: 2026-03-09)
 
 ## Implementation Quality
 

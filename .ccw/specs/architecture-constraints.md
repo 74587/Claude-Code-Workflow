@@ -1,3 +1,13 @@
+---
+title: Architecture Constraints
+readMode: optional
+priority: medium
+category: general
+scope: project
+dimension: specs
+keywords: [architecture, constraint, schema, compatibility, portability, design, arch]
+---
+
 # Architecture Constraints
 
 ## Schema Evolution
