@@ -85,7 +85,7 @@ function setupDefaultMocks() {
   vi.mocked(useNotifications).mockReturnValue({
     success: mockToastSuccess,
     error: mockToastError,
-  } as ReturnType<typeof useNotifications>);
+  } as unknown as ReturnType<typeof useNotifications>);
 }
 
 describe('AdvancedTab', () => {
