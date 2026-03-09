@@ -19,6 +19,7 @@ def test_load_settings_reads_ignore_patterns_and_extension_filters(tmp_path: Pat
     )
 
     config = Config(data_dir=tmp_path)
+    config.load_settings()
 
     assert config.ignore_patterns == ["frontend/dist", "coverage"]
     assert config.extension_filters == ["*.min.js", "*.map"]

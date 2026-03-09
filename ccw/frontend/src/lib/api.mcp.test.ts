@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   fetchMcpServers,
   toggleMcpServer,
@@ -26,7 +26,29 @@ function getLastFetchCall(fetchMock: any) {
   return calls[calls.length - 1] as [RequestInfo | URL, RequestInit | undefined];
 }
 
+const TEST_CSRF_TOKEN = 'test-csrf-token';
+
+function mockFetchWithCsrf(
+  handler: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>
+) {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    if (input === '/api/csrf-token') {
+      return jsonResponse({ csrfToken: TEST_CSRF_TOKEN });
+    }
+
+    return handler(input, init);
+  });
+}
+
 describe('MCP API (frontend ↔ backend contract)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   it('fetchMcpServers derives lists from /api/mcp-config and computes enabled from disabledMcpServers', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       jsonResponse({
@@ -58,7 +80,8 @@ describe('MCP API (frontend ↔ backend contract)', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/mcp-config');
 
     expect(result.global.map((s) => s.name).sort()).toEqual(['global1', 'globalDup']);
-    expect(result.project.map((s) => s.name)).toEqual(['projOnly']);
+    expect(result.project.map((s) => s.name)).toEqual(['projOnly', 'globalDup', 'entDup']);
+    expect(result.conflicts.map((c) => c.name)).toEqual(['globalDup']);
 
     const global1 = result.global.find((s) => s.name === 'global1');
     expect(global1?.enabled).toBe(false);
@@ -76,9 +99,7 @@ describe('MCP API (frontend ↔ backend contract)', () => {
   });
 
   it('toggleMcpServer uses /api/mcp-toggle with { projectPath, serverName, enable }', async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockImplementation(async (input, _init) => {
+    const fetchMock = mockFetchWithCsrf(async (input, _init) => {
         if (input === '/api/mcp-toggle') {
           return jsonResponse({ success: true, serverName: 'global1', enabled: false });
         }
@@ -111,7 +132,7 @@ describe('MCP API (frontend ↔ backend contract)', () => {
   });
 
   it('deleteMcpServer calls the correct backend endpoint for project/global scopes', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const fetchMock = mockFetchWithCsrf(async (input) => {
       if (input === '/api/mcp-remove-global-server') {
         return jsonResponse({ success: true });
       }
@@ -129,9 +150,7 @@ describe('MCP API (frontend ↔ backend contract)', () => {
   });
 
   it('createMcpServer (project) uses /api/mcp-copy-server and includes serverName + serverConfig', async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockImplementation(async (input) => {
+    const fetchMock = mockFetchWithCsrf(async (input) => {
         if (input === '/api/mcp-copy-server') {
           return jsonResponse({ success: true });
         }
@@ -181,7 +200,7 @@ describe('MCP API (frontend ↔ backend contract)', () => {
   });
 
   it('updateMcpServer (global) upserts via /api/mcp-add-global-server', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const fetchMock = mockFetchWithCsrf(async (input) => {
       if (input === '/api/mcp-add-global-server') {
         return jsonResponse({ success: true });
       }
@@ -232,7 +251,7 @@ describe('MCP API (frontend ↔ backend contract)', () => {
   });
 
   it('crossCliCopy codex->claude copies via /api/mcp-copy-server per server', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const fetchMock = mockFetchWithCsrf(async (input) => {
       if (input === '/api/codex-mcp-config') {
         return jsonResponse({ servers: { s1: { command: 'node' } }, configPath: 'x', exists: true });
       }

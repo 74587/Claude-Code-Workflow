@@ -115,6 +115,20 @@
         "addHeader": "Add Header"
       }
     },
+    "mode": {
+      "form": "Form Mode",
+      "json": "JSON Mode"
+    },
+    "json": {
+      "label": "JSON Configuration",
+      "placeholder": "Paste MCP server JSON configuration...",
+      "hint": "Paste complete MCP server configuration JSON, then click Parse button",
+      "example": "Example Format",
+      "parse": "Parse JSON",
+      "parseSuccess": "JSON Parsed Successfully",
+      "parseSuccessDesc": "Configuration has been populated to the form, please review and save",
+      "parseError": "JSON Parse Error: {error}"
+    },
     "templates": {
       "npx-stdio": "NPX STDIO",
       "python-stdio": "Python STDIO",

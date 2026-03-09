@@ -1,0 +1,10 @@
+{
+  "ignore_patterns": [
+    "dist",
+    "frontend/dist"
+  ],
+  "extension_filters": [
+    "*.min.js",
+    "frontend/skip.ts"
+  ]
+}

@@ -104,6 +104,20 @@
         "addHeader": "添加请求头"
       }
     },
+    "mode": {
+      "form": "表单模式",
+      "json": "JSON 模式"
+    },
+    "json": {
+      "label": "JSON 配置",
+      "placeholder": "粘贴 MCP 服务器 JSON 配置...",
+      "hint": "粘贴完整的 MCP 服务器配置 JSON，然后点击解析按钮",
+      "example": "示例格式",
+      "parse": "解析 JSON",
+      "parseSuccess": "JSON 解析成功",
+      "parseSuccessDesc": "配置已填充到表单中，请检查并保存",
+      "parseError": "JSON 解析失败：{error}"
+    },
     "templates": {
       "npx-stdio": "NPX STDIO",
       "python-stdio": "Python STDIO",

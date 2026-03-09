@@ -212,7 +212,7 @@ export function McpServerDialog({
   const { formatMessage } = useIntl();
   const queryClient = useQueryClient();
   const projectPath = useWorkflowStore(selectProjectPath);
-  const { error: showError } = useNotifications();
+  const { error: showError, success: showSuccess } = useNotifications();
 
   // Fetch templates from backend
   const { templates, isLoading: templatesLoading } = useMcpTemplates();
@@ -241,6 +241,10 @@ export function McpServerDialog({
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const projectConfigType: McpProjectConfigType = configType === 'claude-json' ? 'claude' : 'mcp';
 
+  // JSON import mode state
+  const [inputMode, setInputMode] = useState<'form' | 'json'>('form');
+  const [jsonInput, setJsonInput] = useState('');
+
   // Helper to detect transport type from server data
   const detectTransportType = useCallback((serverData: McpServer | undefined): McpTransportType => {
     if (!serverData) return 'stdio';
@@ -248,6 +252,73 @@ export function McpServerDialog({
     if (isHttpMcpServer(serverData)) return 'http';
     return 'stdio';
   }, []);
+
+  // Parse JSON config and populate form
+  const parseJsonConfig = useCallback(() => {
+    try {
+      const config = JSON.parse(jsonInput);
+      
+      // Detect transport type based on config structure
+      if (config.url) {
+        // HTTP transport
+        setTransportType('http');
+        
+        // Parse headers
+        const headers: HttpHeader[] = [];
+        if (config.headers && typeof config.headers === 'object') {
+          Object.entries(config.headers).forEach(([name, value], idx) => {
+            headers.push({
+              id: `header-${Date.now()}-${idx}`,
+              name,
+              value: String(value),
+              isEnvVar: false,
+            });
+          });
+        }
+        
+        setFormData(prev => ({
+          ...prev,
+          url: config.url || '',
+          headers,
+          bearerTokenEnvVar: config.bearer_token_env_var || config.bearerTokenEnvVar || '',
+        }));
+      } else {
+        // STDIO transport
+        setTransportType('stdio');
+        
+        const args = Array.isArray(config.args) ? config.args : [];
+        const env = config.env && typeof config.env === 'object' ? config.env : {};
+        
+        setFormData(prev => ({
+          ...prev,
+          command: config.command || '',
+          args,
+          env,
+        }));
+        
+        setArgsInput(args.join(', '));
+        setEnvInput(
+          Object.entries(env)
+            .map(([k, v]) => `${k}=${v}`)
+            .join('\n')
+        );
+      }
+      
+      // Switch to form mode to show parsed data
+      setInputMode('form');
+      setErrors({});
+      showSuccess(
+        formatMessage({ id: 'mcp.dialog.json.parseSuccess' }),
+        formatMessage({ id: 'mcp.dialog.json.parseSuccessDesc' })
+      );
+    } catch (error) {
+      setErrors({ 
+        name: formatMessage({ id: 'mcp.dialog.json.parseError' }, { 
+          error: error instanceof Error ? error.message : 'Invalid JSON' 
+        })
+      });
+    }
+  }, [jsonInput, formatMessage, showSuccess]);
 
   // Initialize form from server prop (edit mode)
   useEffect(() => {
@@ -578,9 +649,96 @@ export function McpServerDialog({
           </DialogTitle>
         </DialogHeader>
 
+        {/* Input Mode Switcher - Only in add mode */}
+        {mode === 'add' && (
+          <div className="flex gap-2 border-b pb-3">
+            <Button
+              type="button"
+              variant={inputMode === 'form' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setInputMode('form')}
+              className="flex-1"
+            >
+              {formatMessage({ id: 'mcp.dialog.mode.form' })}
+            </Button>
+            <Button
+              type="button"
+              variant={inputMode === 'json' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setInputMode('json')}
+              className="flex-1"
+            >
+              {formatMessage({ id: 'mcp.dialog.mode.json' })}
+            </Button>
+          </div>
+        )}
+
         <div className="space-y-4">
-          {/* Template Selector - Only for STDIO */}
-          {transportType === 'stdio' && (
+          {/* JSON Input Mode */}
+          {inputMode === 'json' ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  {formatMessage({ id: 'mcp.dialog.json.label' })}
+                </label>
+                <textarea
+                  value={jsonInput}
+                  onChange={(e) => setJsonInput(e.target.value)}
+                  placeholder={formatMessage({ id: 'mcp.dialog.json.placeholder' })}
+                  className={cn(
+                    'flex min-h-[300px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono',
+                    errors.name && 'border-destructive focus-visible:ring-destructive'
+                  )}
+                />
+                {errors.name && (
+                  <p className="text-sm text-destructive">{errors.name}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  {formatMessage({ id: 'mcp.dialog.json.hint' })}
+                </p>
+              </div>
+
+              {/* Example JSON */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  {formatMessage({ id: 'mcp.dialog.json.example' })}
+                </label>
+                <div className="bg-muted p-3 rounded-md">
+                  <p className="text-xs font-medium mb-2">STDIO:</p>
+                  <pre className="text-xs overflow-x-auto">
+{`{
+  "command": "npx",
+  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"],
+  "env": {
+    "API_KEY": "your-key"
+  }
+}`}
+                  </pre>
+                  <p className="text-xs font-medium mt-3 mb-2">HTTP:</p>
+                  <pre className="text-xs overflow-x-auto">
+{`{
+  "url": "http://localhost:3000",
+  "headers": {
+    "Authorization": "Bearer token"
+  }
+}`}
+                  </pre>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                onClick={parseJsonConfig}
+                disabled={!jsonInput.trim()}
+                className="w-full"
+              >
+                {formatMessage({ id: 'mcp.dialog.json.parse' })}
+              </Button>
+            </div>
+          ) : (
+            <>
+              {/* Template Selector - Only for STDIO */}
+              {transportType === 'stdio' && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
                 {formatMessage({ id: 'mcp.dialog.form.template' })}
@@ -901,6 +1059,8 @@ export function McpServerDialog({
               </label>
             </div>
           )}
+          </>
+        )}
         </div>
 
         <DialogFooter>

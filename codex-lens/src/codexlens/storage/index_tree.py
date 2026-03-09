@@ -123,17 +123,30 @@ class IndexTreeBuilder:
         """
         self.registry = registry
         self.mapper = mapper
-        self.config = config or Config()
+        self.config = config or Config.load()
         self.parser_factory = ParserFactory(self.config)
         self.logger = logging.getLogger(__name__)
         self.incremental = incremental
         self.ignore_patterns = self._resolve_ignore_patterns()
+        self.extension_filters = self._resolve_extension_filters()
 
     def _resolve_ignore_patterns(self) -> Tuple[str, ...]:
         configured_patterns = getattr(self.config, "ignore_patterns", None)
         raw_patterns = configured_patterns if configured_patterns else list(DEFAULT_IGNORE_DIRS)
         cleaned: List[str] = []
         for item in raw_patterns:
+            pattern = str(item).strip().replace('\\', '/').rstrip('/')
+            if pattern:
+                cleaned.append(pattern)
+        return tuple(dict.fromkeys(cleaned))
+
+    def _resolve_extension_filters(self) -> Tuple[str, ...]:
+        configured_filters = getattr(self.config, "extension_filters", None)
+        if not configured_filters:
+            return tuple()
+
+        cleaned: List[str] = []
+        for item in configured_filters:
             pattern = str(item).strip().replace('\\', '/').rstrip('/')
             if pattern:
                 cleaned.append(pattern)
@@ -153,6 +166,25 @@ class IndexTreeBuilder:
 
         for pattern in self.ignore_patterns:
             if pattern == name or fnmatch.fnmatch(name, pattern):
+                return True
+            if rel_path and (pattern == rel_path or fnmatch.fnmatch(rel_path, pattern)):
+                return True
+
+        return False
+
+    def _is_filtered_file(self, file_path: Path, source_root: Optional[Path] = None) -> bool:
+        if not self.extension_filters:
+            return False
+
+        rel_path: Optional[str] = None
+        if source_root is not None:
+            try:
+                rel_path = file_path.relative_to(source_root).as_posix()
+            except ValueError:
+                rel_path = None
+
+        for pattern in self.extension_filters:
+            if pattern == file_path.name or fnmatch.fnmatch(file_path.name, pattern):
                 return True
             if rel_path and (pattern == rel_path or fnmatch.fnmatch(rel_path, pattern)):
                 return True
@@ -259,6 +291,7 @@ class IndexTreeBuilder:
                 dirs,
                 languages,
                 workers,
+                source_root=source_root,
                 project_id=project_info.id,
                 global_index_db_path=global_index_db_path,
             )
@@ -410,6 +443,7 @@ class IndexTreeBuilder:
         return self._build_single_dir(
             source_path,
             languages=None,
+            source_root=project_root,
             project_id=project_info.id,
             global_index_db_path=global_index_db_path,
         )
@@ -491,7 +525,7 @@ class IndexTreeBuilder:
             return False
 
         # Check for supported files in this directory
-        source_files = self._iter_source_files(dir_path, languages)
+        source_files = self._iter_source_files(dir_path, languages, source_root=source_root)
         if len(source_files) > 0:
             return True
 
@@ -519,7 +553,7 @@ class IndexTreeBuilder:
             True if directory tree contains indexable files
         """
         # Check for supported files in this directory
-        source_files = self._iter_source_files(dir_path, languages)
+        source_files = self._iter_source_files(dir_path, languages, source_root=source_root)
         if len(source_files) > 0:
             return True
 
@@ -543,6 +577,7 @@ class IndexTreeBuilder:
         languages: List[str],
         workers: int,
         *,
+        source_root: Path,
         project_id: int,
         global_index_db_path: Path,
     ) -> List[DirBuildResult]:
@@ -570,6 +605,7 @@ class IndexTreeBuilder:
             result = self._build_single_dir(
                 dirs[0],
                 languages,
+                source_root=source_root,
                 project_id=project_id,
                 global_index_db_path=global_index_db_path,
             )
@@ -585,6 +621,7 @@ class IndexTreeBuilder:
             "static_graph_relationship_types": self.config.static_graph_relationship_types,
             "use_astgrep": getattr(self.config, "use_astgrep", False),
             "ignore_patterns": list(getattr(self.config, "ignore_patterns", [])),
+            "extension_filters": list(getattr(self.config, "extension_filters", [])),
         }
 
         worker_args = [
@@ -595,6 +632,7 @@ class IndexTreeBuilder:
                 config_dict,
                 int(project_id),
                 str(global_index_db_path),
+                str(source_root),
             )
             for dir_path in dirs
         ]
@@ -631,6 +669,7 @@ class IndexTreeBuilder:
         dir_path: Path,
         languages: List[str] = None,
         *,
+        source_root: Path,
         project_id: int,
         global_index_db_path: Path,
     ) -> DirBuildResult:
@@ -663,7 +702,7 @@ class IndexTreeBuilder:
             store.initialize()
 
             # Get source files in this directory only
-            source_files = self._iter_source_files(dir_path, languages)
+            source_files = self._iter_source_files(dir_path, languages, source_root=source_root)
 
             files_count = 0
             symbols_count = 0
@@ -731,7 +770,7 @@ class IndexTreeBuilder:
                 d.name
                 for d in dir_path.iterdir()
                 if d.is_dir()
-                and not self._is_ignored_dir(d)
+                and not self._is_ignored_dir(d, source_root=source_root)
             ]
 
             store.update_merkle_root()
@@ -826,7 +865,7 @@ class IndexTreeBuilder:
             )
 
     def _iter_source_files(
-        self, dir_path: Path, languages: List[str] = None
+        self, dir_path: Path, languages: List[str] = None, source_root: Optional[Path] = None
     ) -> List[Path]:
         """Iterate source files in directory (non-recursive).
 
@@ -850,6 +889,9 @@ class IndexTreeBuilder:
                 continue
 
             if item.name.startswith("."):
+                continue
+
+            if self._is_filtered_file(item, source_root=source_root):
                 continue
 
             # Check language support
@@ -1027,17 +1069,35 @@ def _compute_graph_neighbors(
 # === Worker Function for ProcessPoolExecutor ===
 
 
-def _matches_ignore_patterns(path: Path, patterns: List[str]) -> bool:
-    name = path.name
-    if name.startswith('.'):
-        return True
+def _matches_path_patterns(path: Path, patterns: List[str], source_root: Optional[Path] = None) -> bool:
+    rel_path: Optional[str] = None
+    if source_root is not None:
+        try:
+            rel_path = path.relative_to(source_root).as_posix()
+        except ValueError:
+            rel_path = None
+
     for pattern in patterns:
         normalized = str(pattern).strip().replace('\\', '/').rstrip('/')
         if not normalized:
             continue
-        if normalized == name or fnmatch.fnmatch(name, normalized):
+        if normalized == path.name or fnmatch.fnmatch(path.name, normalized):
+            return True
+        if rel_path and (normalized == rel_path or fnmatch.fnmatch(rel_path, normalized)):
             return True
     return False
+
+
+def _matches_ignore_patterns(path: Path, patterns: List[str], source_root: Optional[Path] = None) -> bool:
+    if path.name.startswith('.'):
+        return True
+    return _matches_path_patterns(path, patterns, source_root)
+
+
+def _matches_extension_filters(path: Path, patterns: List[str], source_root: Optional[Path] = None) -> bool:
+    if not patterns:
+        return False
+    return _matches_path_patterns(path, patterns, source_root)
 
 
 def _build_dir_worker(args: tuple) -> DirBuildResult:
@@ -1047,12 +1107,12 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
     Reconstructs necessary objects from serializable arguments.
 
     Args:
-        args: Tuple of (dir_path, index_db_path, languages, config_dict, project_id, global_index_db_path)
+        args: Tuple of (dir_path, index_db_path, languages, config_dict, project_id, global_index_db_path, source_root)
 
     Returns:
         DirBuildResult for the directory
     """
-    dir_path, index_db_path, languages, config_dict, project_id, global_index_db_path = args
+    dir_path, index_db_path, languages, config_dict, project_id, global_index_db_path, source_root = args
 
     # Reconstruct config
     config = Config(
@@ -1064,9 +1124,11 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
         static_graph_relationship_types=list(config_dict.get("static_graph_relationship_types", ["imports", "inherits"])),
         use_astgrep=bool(config_dict.get("use_astgrep", False)),
         ignore_patterns=list(config_dict.get("ignore_patterns", [])),
+        extension_filters=list(config_dict.get("extension_filters", [])),
     )
 
     parser_factory = ParserFactory(config)
+    source_root_path = Path(source_root) if source_root else None
 
     global_index: GlobalSymbolIndex | None = None
     try:
@@ -1090,6 +1152,9 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
                 continue
 
             if item.name.startswith("."):
+                continue
+
+            if _matches_extension_filters(item, config.extension_filters, source_root_path):
                 continue
 
             language_id = config.language_for_path(item)
@@ -1146,7 +1211,7 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
         subdirs = [
             d.name
             for d in dir_path.iterdir()
-            if d.is_dir() and not _matches_ignore_patterns(d, ignore_patterns)
+            if d.is_dir() and not _matches_ignore_patterns(d, ignore_patterns, source_root_path)
         ]
 
         store.update_merkle_root()
