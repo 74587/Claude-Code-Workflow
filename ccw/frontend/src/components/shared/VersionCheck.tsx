@@ -6,13 +6,10 @@ import { VersionCheckModal } from './VersionCheckModal';
 interface VersionData {
   currentVersion: string;
   latestVersion: string;
-  updateAvailable: boolean;
-}
-
-interface VersionCheckResponse {
-  success: boolean;
-  data?: VersionData;
-  error?: string;
+  hasUpdate: boolean;
+  packageName?: string;
+  updateCommand?: string;
+  checkedAt?: string;
 }
 
 /**
@@ -42,30 +39,26 @@ export function VersionCheck() {
   const checkVersion = async (silent = false) => {
     if (!silent) setChecking(true);
     try {
-      const response = await fetch('/api/config/version');
+      const response = await fetch('/api/version-check');
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data: VersionCheckResponse = await response.json();
+      const data: VersionData = await response.json();
 
       // Validate response structure
       if (!data || typeof data !== 'object') {
         throw new Error('Invalid response format');
       }
 
-      if (!data.success) {
-        throw new Error(data.error || 'Version check failed');
-      }
-
-      if (!data.data || typeof data.data !== 'object') {
+      if (!data.currentVersion) {
         throw new Error('Invalid version data in response');
       }
 
-      setVersionData(data.data);
+      setVersionData(data);
 
-      if (data.data.updateAvailable && !silent) {
-        toast.info('新版本可用: ' + data.data.latestVersion);
+      if (data.hasUpdate && !silent) {
+        toast.info('新版本可用: ' + data.latestVersion);
       }
     } catch (error) {
       console.error('Version check failed:', error);
@@ -98,7 +91,7 @@ export function VersionCheck() {
     localStorage.setItem('ccw.autoUpdate', JSON.stringify(enabled));
   };
 
-  if (!versionData?.updateAvailable) {
+  if (!versionData?.hasUpdate) {
     return null; // Don't show anything if no update
   }
 
