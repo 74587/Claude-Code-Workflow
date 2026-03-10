@@ -59,7 +59,7 @@
 | 命令 | 功能 | 语法 |
 | --- | --- | --- |
 | [`clean`](#clean) | 智能代码清理 | `/workflow:clean [-y] [--dry-run] ["焦点区域"]` |
-| [`init`](#init) | 初始化项目状态 | `/workflow:init [--regenerate]` |
+| [`init`](#init) | 初始化项目状态 | `/workflow:spec:setup  [--regenerate]` |
 | [`plan-verify`](#plan-verify) | 验证规划一致性 | `/workflow-plan-verify [--session session-id]` |
 
 ## 命令详解

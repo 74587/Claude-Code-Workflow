@@ -81,7 +81,7 @@ This creates a new workflow session. All subsequent operations will be performed
 ### 2.2.2 Initialize Project Specs
 
 ```
-/workflow:init
+/workflow:spec:setup 
 ```
 
 This creates the `project-tech.json` file, recording your project's technology stack information.
@@ -89,7 +89,7 @@ This creates the `project-tech.json` file, recording your project's technology s
 ### 2.2.3 Populate Project Specs
 
 ```
-/workflow:init-guidelines
+/workflow:spec:setup -guidelines
 ```
 
 Interactively populate project specifications, including coding style, architectural decisions, and other information.
@@ -282,7 +282,7 @@ npm install
 /workflow:session:start
 
 # 5. Initialize project
-/workflow:init
+/workflow:spec:setup 
 ```
 
 ### Common Commands

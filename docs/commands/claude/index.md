@@ -37,7 +37,7 @@
 | [`/workflow-multi-cli-plan`](./workflow.md#multi-cli-plan) | Multi-CLI collaborative planning | Intermediate |
 | [`/workflow:review`](./workflow.md#review) | Post-implementation review | Intermediate |
 | [`/workflow:clean`](./workflow.md#clean) | Smart code cleanup | Intermediate |
-| [`/workflow:init`](./workflow.md#init) | Initialize project state | Intermediate |
+| [`/workflow:spec:setup `](./workflow.md#init) | Initialize project state | Intermediate |
 | [`/workflow:brainstorm-with-file`](./workflow.md#brainstorm-with-file) | Interactive brainstorming | Intermediate |
 | [`/workflow:analyze-with-file`](./workflow.md#analyze-with-file) | Interactive collaborative analysis | Beginner |
 | [`/workflow:debug-with-file`](./workflow.md#debug-with-file) | Interactive hypothesis-driven debugging | Intermediate |

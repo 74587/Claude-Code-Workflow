@@ -37,7 +37,7 @@
 | [`/workflow-multi-cli-plan`](./workflow.md#multi-cli-plan) | 多 CLI 协作规划 | Intermediate |
 | [`/workflow:review`](./workflow.md#review) | 实现后审查 | Intermediate |
 | [`/workflow:clean`](./workflow.md#clean) | 智能代码清理 | Intermediate |
-| [`/workflow:init`](./workflow.md#init) | 初始化项目状态 | Intermediate |
+| [`/workflow:spec:setup `](./workflow.md#init) | 初始化项目状态 | Intermediate |
 | [`/workflow:brainstorm-with-file`](./workflow.md#brainstorm-with-file) | 交互式头脑风暴 | Intermediate |
 | [`/workflow:analyze-with-file`](./workflow.md#analyze-with-file) | 交互式协作分析 | Beginner |
 | [`/workflow:debug-with-file`](./workflow.md#debug-with-file) | 交互式假设驱动调试 | Intermediate |

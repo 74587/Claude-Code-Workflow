@@ -102,6 +102,6 @@
   },
   "empty": {
     "title": "暂无项目概览",
-    "message": "运行 /workflow:init 初始化项目分析"
+    "message": "运行 /workflow:spec:setup  初始化项目分析"
   }
 }

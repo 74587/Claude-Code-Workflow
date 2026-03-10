@@ -102,6 +102,6 @@
   },
   "empty": {
     "title": "No Project Overview",
-    "message": "Run /workflow:init to initialize project analysis"
+    "message": "Run /workflow:spec:setup  to initialize project analysis"
   }
 }

@@ -74,7 +74,7 @@ To check available CCW commands, you can list them:
 Available CCW Commands:
 - /ccw - Main workflow orchestrator
 - /ccw-coordinator - External CLI orchestration
-- /workflow:init - Initialize project configuration
+- /workflow:spec:setup  - Initialize project configuration
 - /workflow:status - Generate project views
 - /issue:discover - Discover and plan issues
 - /brainstorm - Multi-perspective brainstorming
@@ -145,7 +145,7 @@ Create `CLAUDE.md` in your project root to define project-specific instructions:
 Initialize CCW in your project:
 
 ```
-/workflow:init
+/workflow:spec:setup 
 ```
 
 This creates `.workflow/project-tech.json` with your project's technology stack.
@@ -343,7 +343,7 @@ After installation, try these commands to verify everything works:
 
 ```
 # 1. Initialize in your project
-/workflow:init
+/workflow:spec:setup 
 
 # 2. Try a simple analysis using the CLI tool
 Bash: ccw cli -p "Analyze the project structure" --tool gemini --mode analysis
@@ -369,7 +369,7 @@ What would you like to accomplish? Please describe your task.
 
 **Using workflow init:**
 ```
-You: /workflow:init
+You: /workflow:spec:setup 
 ✔ Created .workflow/project-tech.json
 ✔ Project configuration complete
 ```

@@ -59,7 +59,7 @@
 | Command | Function | Syntax |
 |---------|----------|--------|
 | [`clean`](#clean) | Smart code cleanup | `/workflow:clean [-y] [--dry-run] ["focus area"]` |
-| [`init`](#init) | Initialize project state | `/workflow:init [--regenerate]` |
+| [`init`](#init) | Initialize project state | `/workflow:spec:setup  [--regenerate]` |
 | [`plan-verify`](#plan-verify) | Verify planning consistency | `/workflow-plan-verify [--session session-id]` |
 
 ## Command Details
