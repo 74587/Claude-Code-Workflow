@@ -306,15 +306,17 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     info(`  Files in manifest: ${existingManifest.files?.length || 0}`);
     info(`  Installed: ${new Date(existingManifest.installation_date).toLocaleDateString()}`);
 
-    const { backup } = await inquirer.prompt([{
-      type: 'confirm',
-      name: 'backup',
-      message: 'Create backup before reinstalling?',
-      default: true
-    }]);
+    if (!options.force) {
+      const { backup } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'backup',
+        message: 'Create backup before reinstalling?',
+        default: true
+      }]);
 
-    if (backup) {
-      await createBackup(existingManifest);
+      if (backup) {
+        await createBackup(existingManifest);
+      }
     }
 
     // Clean based on manifest records
@@ -495,7 +497,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   });
 
   // Install Git Bash fix on Windows
-  if (platform() === 'win32') {
+  if (platform() === 'win32' && !options.force) {
     console.log('');
     const { installFix } = await inquirer.prompt([{
       type: 'confirm',

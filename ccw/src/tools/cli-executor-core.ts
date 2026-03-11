@@ -35,29 +35,6 @@ import {
   saveConversation
 } from './cli-executor-state.js';
 
-// Debug logging for history save investigation (Iteration 4)
-const DEBUG_SESSION_ID = 'DBG-parallel-ccw-cli-test-2026-03-07';
-const DEBUG_LOG_PATH = path.join(process.cwd(), '.workflow', '.debug', DEBUG_SESSION_ID, 'debug-save.log');
-
-// Ensure debug log directory exists
-try {
-  const debugDir = path.dirname(DEBUG_LOG_PATH);
-  if (!fs.existsSync(debugDir)) {
-    fs.mkdirSync(debugDir, { recursive: true });
-  }
-} catch (err) {
-  // Ignore directory creation errors
-}
-
-function writeDebugLog(event: string, data: Record<string, any>): void {
-  try {
-    const logEntry = JSON.stringify({ event, ...data, timestamp: new Date().toISOString() }) + '\n';
-    fs.appendFileSync(DEBUG_LOG_PATH, logEntry, 'utf8');
-  } catch (err) {
-    // Silently ignore logging errors
-  }
-}
-
 // Track all running child processes for cleanup on interruption (multi-process support)
 const runningChildProcesses = new Set<ChildProcess>();
 
@@ -1296,11 +1273,8 @@ async function executeCliTool(
             };
         // Try to save conversation to history
         try {
-          writeDebugLog('BEFORE_SAVE_CONV', { conversationId: conversation.id, workingDir, tool });
           saveConversation(workingDir, conversation);
-          writeDebugLog('AFTER_SAVE_CONV', { conversationId: conversation.id, workingDir, tool });
         } catch (err) {
-          writeDebugLog('SAVE_CONV_OUTER_ERROR', { conversationId: conversation.id, workingDir, tool, error: (err as Error).message, stack: (err as Error).stack });
           // Non-fatal: continue even if history save fails
           console.error('[CLI Executor] Failed to save history:', (err as Error).message);
         }
