@@ -298,6 +298,7 @@
   "envField": {
     "backend": "Backend",
     "model": "Model",
+    "autoEmbedMissing": "Auto Build Missing Vectors",
     "useGpu": "Use GPU",
     "highAvailability": "High Availability",
     "loadBalanceStrategy": "Load Balance Strategy",

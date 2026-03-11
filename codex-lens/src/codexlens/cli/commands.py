@@ -1566,6 +1566,8 @@ def config(
                         result["embedding_backend"] = embedding["backend"]
                     if embedding.get("model"):
                         result["embedding_model"] = embedding["model"]
+                    if embedding.get("auto_embed_missing") is not None:
+                        result["embedding_auto_embed_missing"] = embedding["auto_embed_missing"]
                 except (json.JSONDecodeError, OSError):
                     pass  # Settings file not readable, continue with defaults
 
@@ -1584,6 +1586,10 @@ def config(
             if env_overrides.get("EMBEDDING_BACKEND"):
                 result["embedding_backend"] = env_overrides["EMBEDDING_BACKEND"]
                 result["embedding_backend_source"] = ".env"
+            auto_embed_missing_override = env_overrides.get("CODEXLENS_AUTO_EMBED_MISSING") or env_overrides.get("AUTO_EMBED_MISSING")
+            if auto_embed_missing_override:
+                result["embedding_auto_embed_missing"] = auto_embed_missing_override.lower() in ("true", "1", "yes", "on")
+                result["embedding_auto_embed_missing_source"] = ".env"
             if env_overrides.get("RERANKER_MODEL"):
                 result["reranker_model"] = env_overrides["RERANKER_MODEL"]
                 result["reranker_model_source"] = ".env"
@@ -1613,6 +1619,9 @@ def config(
                 model = result.get('embedding_model', 'code')
                 model_source = result.get('embedding_model_source', 'settings.json')
                 console.print(f"  Model: {model} [dim]({model_source})[/dim]")
+                auto_embed_missing = result.get("embedding_auto_embed_missing", True)
+                auto_embed_missing_source = result.get("embedding_auto_embed_missing_source", "settings.json")
+                console.print(f"  Auto Embed Missing: {auto_embed_missing} [dim]({auto_embed_missing_source})[/dim]")
 
                 # Show reranker settings
                 console.print(f"\n[bold]Reranker[/bold]")
@@ -1647,7 +1656,7 @@ def config(
 
             # Handle reranker and embedding settings (stored in settings.json)
             elif key in ("reranker_backend", "reranker_model", "reranker_enabled", "reranker_top_k",
-                         "embedding_backend", "embedding_model", "reranker_api_provider"):
+                         "embedding_backend", "embedding_model", "embedding_auto_embed_missing", "reranker_api_provider"):
                 settings_file = Path.home() / ".codexlens" / "settings.json"
                 settings_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1680,6 +1689,8 @@ def config(
                     settings["embedding"]["backend"] = value
                 elif key == "embedding_model":
                     settings["embedding"]["model"] = value
+                elif key == "embedding_auto_embed_missing":
+                    settings["embedding"]["auto_embed_missing"] = value.lower() in ("true", "1", "yes", "on")
 
                 # Save settings
                 settings_file.write_text(json.dumps(settings, indent=2), encoding="utf-8")

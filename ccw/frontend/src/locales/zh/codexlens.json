@@ -298,6 +298,7 @@
   "envField": {
     "backend": "后端",
     "model": "模型",
+    "autoEmbedMissing": "缺失向量时自动构建",
     "useGpu": "使用 GPU",
     "highAvailability": "高可用",
     "loadBalanceStrategy": "负载均衡策略",

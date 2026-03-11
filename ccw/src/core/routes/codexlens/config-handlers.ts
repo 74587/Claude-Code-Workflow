@@ -955,6 +955,9 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
       if (settings.embedding?.use_gpu !== undefined) {
         settingsDefaults['CODEXLENS_USE_GPU'] = String(settings.embedding.use_gpu);
       }
+      if (settings.embedding?.auto_embed_missing !== undefined) {
+        settingsDefaults['CODEXLENS_AUTO_EMBED_MISSING'] = String(settings.embedding.auto_embed_missing);
+      }
       if (settings.embedding?.strategy) {
         settingsDefaults['CODEXLENS_EMBEDDING_STRATEGY'] = settings.embedding.strategy;
       }
@@ -1219,6 +1222,7 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
           'CODEXLENS_EMBEDDING_BACKEND': { path: ['embedding', 'backend'] },
           'CODEXLENS_EMBEDDING_MODEL': { path: ['embedding', 'model'] },
           'CODEXLENS_USE_GPU': { path: ['embedding', 'use_gpu'], transform: v => v === 'true' },
+          'CODEXLENS_AUTO_EMBED_MISSING': { path: ['embedding', 'auto_embed_missing'], transform: v => v === 'true' },
           'CODEXLENS_EMBEDDING_STRATEGY': { path: ['embedding', 'strategy'] },
           'CODEXLENS_EMBEDDING_COOLDOWN': { path: ['embedding', 'cooldown'], transform: v => parseFloat(v) },
           'CODEXLENS_RERANKER_BACKEND': { path: ['reranker', 'backend'] },

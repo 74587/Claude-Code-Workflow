@@ -56,6 +56,13 @@ export const envVarGroupsSchema: EnvVarGroupsSchema = {
           },
         ],
       },
+      CODEXLENS_AUTO_EMBED_MISSING: {
+        key: 'CODEXLENS_AUTO_EMBED_MISSING',
+        labelKey: 'codexlens.envField.autoEmbedMissing',
+        type: 'checkbox',
+        default: 'true',
+        settingsPath: 'embedding.auto_embed_missing',
+      },
       CODEXLENS_USE_GPU: {
         key: 'CODEXLENS_USE_GPU',
         labelKey: 'codexlens.envField.useGpu',

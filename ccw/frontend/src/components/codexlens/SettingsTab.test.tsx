@@ -61,6 +61,7 @@ const mockConfig: CodexLensConfig = {
 const mockEnv: Record<string, string> = {
   CODEXLENS_EMBEDDING_BACKEND: 'local',
   CODEXLENS_EMBEDDING_MODEL: 'fast',
+  CODEXLENS_AUTO_EMBED_MISSING: 'true',
   CODEXLENS_USE_GPU: 'true',
   CODEXLENS_RERANKER_ENABLED: 'true',
   CODEXLENS_RERANKER_BACKEND: 'onnx',
@@ -141,6 +142,7 @@ describe('SettingsTab', () => {
       expect(screen.getByText(/Concurrency/i)).toBeInTheDocument();
       expect(screen.getByText(/Cascade/i)).toBeInTheDocument();
       expect(screen.getByText(/Chunking/i)).toBeInTheDocument();
+      expect(screen.getByText(/Auto Build Missing Vectors/i)).toBeInTheDocument();
     });
 
     it('should initialize index dir from config', () => {

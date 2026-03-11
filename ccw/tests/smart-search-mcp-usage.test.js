@@ -45,6 +45,19 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
     assert.match(props.apiMaxWorkers.description, /endpoint pool/i);
     assert.match(schema.description, /apiMaxWorkers=8/i);
     assert.match(props.path.description, /single file path/i);
+    assert.ok(props.output_mode.enum.includes('ace'));
+    assert.match(props.output_mode.description, /ACE-style/i);
+    assert.equal(props.output_mode.default, 'ace');
+  });
+
+  it('defaults auto embedding warmup to enabled unless explicitly disabled', () => {
+    if (!smartSearchModule) return;
+
+    const { __testables } = smartSearchModule;
+    assert.equal(__testables.isAutoEmbedMissingEnabled(undefined), true);
+    assert.equal(__testables.isAutoEmbedMissingEnabled({}), true);
+    assert.equal(__testables.isAutoEmbedMissingEnabled({ embedding_auto_embed_missing: true }), true);
+    assert.equal(__testables.isAutoEmbedMissingEnabled({ embedding_auto_embed_missing: false }), false);
   });
 
   it('honors explicit small limit values', async () => {
@@ -58,6 +71,7 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
       action: 'search',
       query: 'hit',
       path: dir,
+      output_mode: 'full',
       limit: 1,
       regex: false,
       tokenize: false,
@@ -82,6 +96,7 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
       action: 'search',
       query: 'TARGET_TOKEN',
       path: target,
+      output_mode: 'full',
       regex: false,
       tokenize: false,
     });
@@ -112,6 +127,7 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
       action: 'search',
       query: wrappedQuery,
       path: wrappedPath,
+      output_mode: 'full',
       regex: false,
       caseSensitive: false,
     });
@@ -119,6 +135,66 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
     assert.equal(toolResult.success, true, toolResult.error);
     assert.equal(toolResult.result.success, true);
     assert.ok(toolResult.result.results.length >= 1);
+  });
+
+  it('falls back to literal ripgrep matching for invalid regex-like code queries', async () => {
+    if (!smartSearchModule) return;
+
+    const dir = createWorkspace();
+    const target = join(dir, 'component.ts');
+    writeFileSync(target, 'defineExpose({ handleResize });\n');
+
+    const toolResult = await smartSearchModule.handler({
+      action: 'search',
+      query: 'defineExpose({ handleResize',
+      path: dir,
+      output_mode: 'full',
+      limit: 5,
+    });
+
+    assert.equal(toolResult.success, true, toolResult.error);
+    assert.equal(toolResult.result.success, true);
+    assert.ok(toolResult.result.results.length >= 1);
+    assert.match(toolResult.result.metadata.warning, /literal ripgrep matching/i);
+  });
+
+  it('renders grouped ace-style output by default with multi-line chunks', async () => {
+    if (!smartSearchModule) return;
+
+    const dir = createWorkspace();
+    const target = join(dir, 'ace-target.ts');
+    writeFileSync(target, [
+      'const before = 1;',
+      'const TARGET_TOKEN = 1;',
+      'const after = 2;',
+      '',
+      'function useToken() {',
+      '  return TARGET_TOKEN;',
+      '}',
+    ].join('\n'));
+
+    const toolResult = await smartSearchModule.handler({
+      action: 'search',
+      query: 'TARGET_TOKEN',
+      path: dir,
+      contextLines: 1,
+      regex: false,
+      tokenize: false,
+    });
+
+    assert.equal(toolResult.success, true, toolResult.error);
+    assert.equal(toolResult.result.success, true);
+    assert.equal(toolResult.result.results.format, 'ace');
+    assert.equal(Array.isArray(toolResult.result.results.groups), true);
+    assert.equal(Array.isArray(toolResult.result.results.sections), true);
+    assert.equal(toolResult.result.results.groups.length, 1);
+    assert.equal(toolResult.result.results.groups[0].sections.length, 2);
+    assert.match(toolResult.result.results.text, /The following code sections were retrieved:/);
+    assert.match(toolResult.result.results.text, /Path: .*ace-target\.ts/);
+    assert.match(toolResult.result.results.text, /Chunk 1: lines 1-3/);
+    assert.match(toolResult.result.results.text, />\s+2 \| const TARGET_TOKEN = 1;/);
+    assert.match(toolResult.result.results.text, /Chunk 2: lines 5-7/);
+    assert.equal(toolResult.result.metadata.pagination.total >= 1, true);
   });
 
   it('defaults embed selection to local-fast for bulk indexing', () => {
@@ -181,6 +257,50 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
     assert.equal(smartSearchModule.__testables.hasCentralizedVectorArtifacts(dir), true);
   });
 
+  it('recognizes CodexLens CLI compatibility failures and invalid regex fallback', () => {
+    if (!smartSearchModule) return;
+
+    const compatibilityError = [
+      'UsageError: Got unexpected extra arguments (20 0 fts)',
+      'TypeError: TyperArgument.make_metavar() takes 1 positional argument but 2 were given',
+    ].join('\n');
+
+    assert.equal(
+      smartSearchModule.__testables.isCodexLensCliCompatibilityError(compatibilityError),
+      true,
+    );
+
+    const resolution = smartSearchModule.__testables.resolveRipgrepQueryMode(
+      'defineExpose({ handleResize',
+      true,
+      true,
+    );
+
+    assert.equal(resolution.regex, false);
+    assert.equal(resolution.literalFallback, true);
+    assert.match(resolution.warning, /literal ripgrep matching/i);
+  });
+
+  it('builds actionable index suggestions for unhealthy index states', () => {
+    if (!smartSearchModule) return;
+
+    const suggestions = smartSearchModule.__testables.buildIndexSuggestions(
+      {
+        indexed: true,
+        has_embeddings: false,
+        embeddings_coverage_percent: 0,
+        warning: 'Index exists but no embeddings generated. Run smart_search(action="embed") to build the vector index.',
+      },
+      {
+        workingDirectory: 'D:/tmp/demo',
+        searchPaths: ['.'],
+      },
+    );
+
+    assert.equal(Array.isArray(suggestions), true);
+    assert.match(suggestions[0].command, /smart_search\(action="embed"/);
+  });
+
   it('surfaces backend failure details when fuzzy search fully fails', async () => {
     if (!smartSearchModule) return;
 
@@ -189,6 +309,7 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
       action: 'search',
       query: 'TARGET_TOKEN',
       path: missingPath,
+      output_mode: 'full',
       regex: false,
       tokenize: false,
     });

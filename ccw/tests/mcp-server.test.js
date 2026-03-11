@@ -11,26 +11,46 @@ import { dirname, join } from 'node:path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const serverPath = join(__dirname, '../bin/ccw-mcp.js');
+
+async function waitForServerStart(child) {
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Server start timeout'));
+    }, 5000);
+
+    const onData = (data) => {
+      const message = data.toString();
+      if (message.includes('started')) {
+        clearTimeout(timeout);
+        child.stderr.off('data', onData);
+        child.off('exit', onExit);
+        resolve();
+      }
+    };
+
+    const onExit = (code, signal) => {
+      clearTimeout(timeout);
+      child.stderr.off('data', onData);
+      reject(new Error(`Server exited before start (code=${code}, signal=${signal})`));
+    };
+
+    child.stderr.on('data', onData);
+    child.once('exit', onExit);
+  });
+}
 
 describe('MCP Server', () => {
   let serverProcess;
 
   before(async () => {
     // Start the MCP server
-    const serverPath = join(__dirname, '../bin/ccw-mcp.js');
     serverProcess = spawn('node', [serverPath], {
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
     // Wait for server to start
-    await new Promise((resolve) => {
-      serverProcess.stderr.once('data', (data) => {
-        const message = data.toString();
-        if (message.includes('started')) {
-          resolve();
-        }
-      });
-    });
+    await waitForServerStart(serverProcess);
   });
 
   after(() => {
@@ -156,5 +176,44 @@ describe('MCP Server', () => {
     assert.equal(response.result.isError, true);
     // Error could be "not enabled" (filtered by default tools) or "not found" (all tools enabled)
     assert(response.result.content[0].text.includes('not enabled') || response.result.content[0].text.includes('not found'));
+  });
+  it('should exit when stdout disconnects during a request', async () => {
+    const disconnectedProcess = spawn('node', [serverPath], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    try {
+      await waitForServerStart(disconnectedProcess);
+
+      const exitPromise = new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          disconnectedProcess.kill('SIGKILL');
+          reject(new Error('Server did not exit after stdout disconnect'));
+        }, 1500);
+
+        disconnectedProcess.once('exit', (code, signal) => {
+          clearTimeout(timeout);
+          resolve({ code, signal });
+        });
+      });
+
+      // Simulate the MCP client disappearing before the server sends its response.
+      disconnectedProcess.stdout.destroy();
+      disconnectedProcess.stdin.write(JSON.stringify({
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/list',
+        params: {}
+      }) + '\n');
+
+      const exitResult = await exitPromise;
+
+      assert.equal(exitResult.code, 0);
+      assert.equal(exitResult.signal, null);
+    } finally {
+      if (disconnectedProcess.exitCode === null) {
+        disconnectedProcess.kill('SIGKILL');
+      }
+    }
   });
 });

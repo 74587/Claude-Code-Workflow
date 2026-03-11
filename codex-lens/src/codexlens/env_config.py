@@ -33,6 +33,7 @@ ENV_VARS = {
     # Embedding configuration (overrides settings.json)
     "EMBEDDING_MODEL": "Embedding model/profile name (overrides settings.json)",
     "EMBEDDING_BACKEND": "Embedding backend: fastembed, litellm",
+    "AUTO_EMBED_MISSING": "Auto-build embeddings in background when indexed projects are searched without vectors: true/false",
     "EMBEDDING_API_KEY": "API key for embedding service",
     "EMBEDDING_API_BASE": "Base URL for embedding API",
     "EMBEDDING_POOL_ENABLED": "Enable embedding high availability pool: true/false",

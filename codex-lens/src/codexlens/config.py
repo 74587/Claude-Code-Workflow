@@ -110,6 +110,7 @@ class Config:
     embedding_model: str = "code"  # For fastembed: profile (fast/code/multilingual/balanced)
                                    # For litellm: model name from config (e.g., "qwen3-embedding")
     embedding_use_gpu: bool = True  # For fastembed: whether to use GPU acceleration
+    embedding_auto_embed_missing: bool = True  # Auto-build embeddings in background when indexed projects are searched without vectors
 
     # Indexing/search optimizations
     global_symbol_index_enabled: bool = True  # Enable project-wide symbol index fast path
@@ -281,6 +282,7 @@ class Config:
             "backend": self.embedding_backend,
             "model": self.embedding_model,
             "use_gpu": self.embedding_use_gpu,
+            "auto_embed_missing": self.embedding_auto_embed_missing,
             "pool_enabled": self.embedding_pool_enabled,
             "strategy": self.embedding_strategy,
             "cooldown": self.embedding_cooldown,
@@ -376,6 +378,8 @@ class Config:
                     self.embedding_model = embedding["model"]
                 if "use_gpu" in embedding:
                     self.embedding_use_gpu = embedding["use_gpu"]
+                if "auto_embed_missing" in embedding:
+                    self.embedding_auto_embed_missing = embedding["auto_embed_missing"]
 
                 # Load multi-endpoint configuration
                 if "endpoints" in embedding:
@@ -781,6 +785,14 @@ class Config:
                 log.debug("Overriding embedding_backend from .env: %s", backend)
             else:
                 log.warning("Invalid EMBEDDING_BACKEND in .env: %r", embedding_backend)
+
+        auto_embed_missing = get_env("AUTO_EMBED_MISSING")
+        if auto_embed_missing:
+            self.embedding_auto_embed_missing = _parse_bool(auto_embed_missing)
+            log.debug(
+                "Overriding embedding_auto_embed_missing from .env: %s",
+                self.embedding_auto_embed_missing,
+            )
 
         embedding_pool = get_env("EMBEDDING_POOL_ENABLED")
         if embedding_pool:

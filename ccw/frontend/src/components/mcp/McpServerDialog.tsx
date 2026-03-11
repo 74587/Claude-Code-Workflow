@@ -256,8 +256,22 @@ export function McpServerDialog({
   // Parse JSON config and populate form
   const parseJsonConfig = useCallback(() => {
     try {
-      const config = JSON.parse(jsonInput);
-      
+      let config = JSON.parse(jsonInput);
+      let extractedServerName = '';
+
+      // Auto-detect mcpServers wrapper format (Claude Code config format)
+      // Supports both: { "mcpServers": { "name": {...} } } and direct { "command": ... }
+      if (config.mcpServers && typeof config.mcpServers === 'object' && !Array.isArray(config.mcpServers)) {
+        const serverNames = Object.keys(config.mcpServers);
+        if (serverNames.length > 0) {
+          extractedServerName = serverNames[0];
+          const serverConfig = config.mcpServers[extractedServerName];
+          if (serverConfig && typeof serverConfig === 'object') {
+            config = serverConfig;
+          }
+        }
+      }
+
       // Detect transport type based on config structure
       if (config.url) {
         // HTTP transport
@@ -278,6 +292,7 @@ export function McpServerDialog({
         
         setFormData(prev => ({
           ...prev,
+          name: extractedServerName || prev.name,
           url: config.url || '',
           headers,
           bearerTokenEnvVar: config.bearer_token_env_var || config.bearerTokenEnvVar || '',
@@ -291,6 +306,7 @@ export function McpServerDialog({
         
         setFormData(prev => ({
           ...prev,
+          name: extractedServerName || prev.name,
           command: config.command || '',
           args,
           env,

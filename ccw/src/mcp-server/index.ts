@@ -20,6 +20,7 @@ const SERVER_VERSION = '6.2.0';
 // Environment variable names for documentation
 const ENV_PROJECT_ROOT = 'CCW_PROJECT_ROOT';
 const ENV_ALLOWED_DIRS = 'CCW_ALLOWED_DIRS';
+const STDIO_DISCONNECT_ERROR_CODES = new Set(['EPIPE', 'ERR_STREAM_DESTROYED']);
 
 // Default enabled tools (core set - file operations, core memory, and smart search)
 const DEFAULT_TOOLS: string[] = ['write_file', 'edit_file', 'read_file', 'read_many_files', 'read_outline', 'core_memory', 'smart_search'];
@@ -65,6 +66,47 @@ function formatToolResult(result: unknown): string {
   }
 
   return String(result);
+}
+
+/**
+ * Detect broken stdio pipes so orphaned MCP processes can terminate cleanly.
+ */
+function isStdioDisconnectError(error: unknown): error is NodeJS.ErrnoException {
+  if (error && typeof error === 'object') {
+    const maybeErrnoError = error as NodeJS.ErrnoException;
+    if (typeof maybeErrnoError.code === 'string' && STDIO_DISCONNECT_ERROR_CODES.has(maybeErrnoError.code)) {
+      return true;
+    }
+  }
+
+  return error instanceof Error && /broken pipe/i.test(error.message);
+}
+
+/**
+ * Best-effort logging for teardown paths where stderr may already be gone.
+ */
+function safeStderrWrite(message: string): void {
+  try {
+    if (process.stderr.destroyed || !process.stderr.writable) {
+      return;
+    }
+
+    process.stderr.write(`${message}\n`);
+  } catch {
+    // Ignore logging failures while stdio is tearing down.
+  }
+}
+
+function safeLogError(prefix: string, error: unknown): void {
+  if (error instanceof Error) {
+    safeStderrWrite(`${prefix}: ${error.message}`);
+    if (error.stack) {
+      safeStderrWrite(error.stack);
+    }
+    return;
+  }
+
+  safeStderrWrite(`${prefix}: ${String(error)}`);
 }
 
 /**
@@ -151,28 +193,77 @@ function createServer(): Server {
 async function main(): Promise<void> {
   const server = createServer();
   const transport = new StdioServerTransport();
+  let shutdownPromise: Promise<void> | null = null;
+
+  const shutdown = (reason: string, exitCode = 0, error?: unknown): Promise<void> => {
+    if (shutdownPromise) {
+      return shutdownPromise;
+    }
+
+    if (error && !isStdioDisconnectError(error)) {
+      safeLogError(`[${SERVER_NAME}] ${reason}`, error);
+    }
+
+    shutdownPromise = (async () => {
+      try {
+        await server.close();
+      } catch (closeError) {
+        if (!isStdioDisconnectError(closeError)) {
+          safeLogError(`[${SERVER_NAME}] Failed to close server`, closeError);
+        }
+      }
+
+      process.exit(exitCode);
+    })();
+
+    return shutdownPromise;
+  };
+
+  const handleStreamClose = (streamName: string) => () => {
+    void shutdown(`${streamName} disconnected`);
+  };
+
+  const handleStreamError = (streamName: string) => (error: unknown) => {
+    const exitCode = isStdioDisconnectError(error) ? 0 : 1;
+    void shutdown(`${streamName} stream error`, exitCode, error);
+  };
 
   // Connect server to transport
   await server.connect(transport);
 
-  // Error handling - prevent process crashes from closing transport
+  process.stdin.once('end', handleStreamClose('stdin'));
+  process.stdin.once('close', handleStreamClose('stdin'));
+  process.stdin.once('error', handleStreamError('stdin'));
+  process.stdout.once('close', handleStreamClose('stdout'));
+  process.stdout.once('error', handleStreamError('stdout'));
+  process.stderr.once('close', handleStreamClose('stderr'));
+  process.stderr.once('error', handleStreamError('stderr'));
+
+  // Error handling - stdio disconnects should terminate, other errors stay logged.
   process.on('uncaughtException', (error) => {
-    console.error(`[${SERVER_NAME}] Uncaught exception:`, error.message);
-    console.error(error.stack);
+    if (isStdioDisconnectError(error)) {
+      void shutdown('Uncaught stdio disconnect', 0, error);
+      return;
+    }
+
+    safeLogError(`[${SERVER_NAME}] Uncaught exception`, error);
   });
 
   process.on('unhandledRejection', (reason) => {
-    console.error(`[${SERVER_NAME}] Unhandled rejection:`, reason);
+    if (isStdioDisconnectError(reason)) {
+      void shutdown('Unhandled stdio disconnect', 0, reason);
+      return;
+    }
+
+    safeLogError(`[${SERVER_NAME}] Unhandled rejection`, reason);
   });
 
   process.on('SIGINT', async () => {
-    await server.close();
-    process.exit(0);
+    await shutdown('Received SIGINT');
   });
 
   process.on('SIGTERM', async () => {
-    await server.close();
-    process.exit(0);
+    await shutdown('Received SIGTERM');
   });
 
   // Log server start (to stderr to not interfere with stdio protocol)

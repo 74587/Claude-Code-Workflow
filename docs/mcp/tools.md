@@ -98,15 +98,17 @@ Unified search with content search, file discovery, and semantic search.
 {
   "name": "smart_search",
   "parameters": {
-    "action": "search | find_files | init | status",
+    "action": "search | find_files | init | init_force | embed | status | update | watch",
     "query": "string (for search)",
     "pattern": "glob pattern (for find_files)",
     "mode": "fuzzy | semantic (default: fuzzy)",
-    "output_mode": "full | files_only | count",
-    "maxResults": "number (default: 20)"
+    "output_mode": "ace | full | files_only | count (default: ace)",
+    "maxResults": "number (default: 5)"
   }
 }
 ```
+
+`search` now defaults to `output_mode: "ace"`, which groups results by file and renders multi-line code chunks. When the index is missing, embeddings are incomplete, or status parsing looks unhealthy, the response metadata includes actionable `smart_search(...)` suggestions such as `init`, `status`, or `embed`. If an index exists but vectors are missing, `smart_search` can also start a background embedding build automatically when `CODEXLENS_AUTO_EMBED_MISSING` is enabled (default: `true`).
 
 **Usage:**
 ```javascript

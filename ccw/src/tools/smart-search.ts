@@ -25,6 +25,7 @@ import { existsSync, readFileSync, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import {
   ensureReady as ensureCodexLensReady,
+  checkSemanticStatus,
   ensureLiteLLMEmbedderReady,
   executeCodexLens,
   getVenvPythonPath,
@@ -38,6 +39,8 @@ import type { RotationEndpointConfig } from '../config/litellm-api-config-manage
 
 // Timing utilities for performance analysis
 const TIMING_ENABLED = process.env.SMART_SEARCH_TIMING === '1' || process.env.DEBUG?.includes('timing');
+const SEARCH_OUTPUT_MODES = ['full', 'files_only', 'count', 'ace'] as const;
+type SearchOutputMode = typeof SEARCH_OUTPUT_MODES[number];
 
 interface TimingData {
   [key: string]: number;
@@ -78,7 +81,7 @@ const ParamsSchema = z.object({
   query: z.string().optional().describe('Content search query (for action="search")'),
   pattern: z.string().optional().describe('Glob pattern for path matching (for action="find_files")'),
   mode: z.enum(['fuzzy', 'semantic']).default('fuzzy'),
-  output_mode: z.enum(['full', 'files_only', 'count']).default('full'),
+  output_mode: z.enum(SEARCH_OUTPUT_MODES).default('ace'),
   path: z.string().optional(),
   paths: z.array(z.string()).default([]),
   contextLines: z.number().default(0),
@@ -242,11 +245,19 @@ interface Classification {
   reasoning: string;
 }
 
+interface ChunkLine {
+  line: number;
+  text: string;
+  isMatch: boolean;
+}
+
 interface ExactMatch {
   file: string;
   line: number;
   column: number;
   content: string;
+  endLine?: number;
+  chunkLines?: ChunkLine[];
   matchScore?: number;  // Token match ratio (0-1) for multi-word queries
   matchCount?: number;  // Number of tokens matched
 }
@@ -262,6 +273,8 @@ interface RelationshipInfo {
 
 interface SemanticMatch {
   file: string;
+  line?: number;
+  column?: number;
   score: number;
   content: string;
   symbol: string | null;
@@ -289,6 +302,12 @@ interface PaginationInfo {
   has_more: boolean;  // True if more results are available
 }
 
+interface SearchSuggestion {
+  title: string;
+  command: string;
+  reason: string;
+}
+
 interface SearchMetadata {
   mode?: string;
   backend?: string;
@@ -308,6 +327,7 @@ interface SearchMetadata {
   // Tokenization metadata (ripgrep mode)
   tokens?: string[];   // Query tokens used for multi-word search
   tokenized?: boolean; // Whether tokenization was applied
+  suggestions?: SearchSuggestion[];
   // Pagination metadata
   pagination?: PaginationInfo;
   // Performance timing data (when SMART_SEARCH_TIMING=1 or DEBUG includes 'timing')
@@ -333,13 +353,38 @@ interface SearchMetadata {
 
 interface SearchResult {
   success: boolean;
-  results?: ExactMatch[] | SemanticMatch[] | GraphMatch[] | FileMatch[] | unknown;
+  results?: ExactMatch[] | SemanticMatch[] | GraphMatch[] | FileMatch[] | AceLikeOutput | unknown;
   extra_files?: string[];  // Additional file paths without content
   output?: string;
   metadata?: SearchMetadata;
   error?: string;
   status?: unknown;
   message?: string;
+}
+
+interface AceLikeSection {
+  path: string;
+  line?: number;
+  endLine?: number;
+  column?: number;
+  score?: number;
+  symbol?: string | null;
+  snippet: string;
+  lines?: ChunkLine[];
+}
+
+interface AceLikeGroup {
+  path: string;
+  sections: AceLikeSection[];
+  total_matches: number;
+}
+
+interface AceLikeOutput {
+  format: 'ace';
+  text: string;
+  groups: AceLikeGroup[];
+  sections: AceLikeSection[];
+  total: number;
 }
 
 interface ModelInfo {
@@ -356,6 +401,7 @@ interface CodexLensConfig {
   index_dir?: string;
   embedding_backend?: string;  // 'fastembed' (local) or 'litellm' (api)
   embedding_model?: string;
+  embedding_auto_embed_missing?: boolean;
   reranker_enabled?: boolean;
   reranker_backend?: string;   // 'onnx' (local) or 'api'
   reranker_model?: string;
@@ -396,6 +442,7 @@ function readCodexLensSettingsSnapshot(): Partial<CodexLensConfig> {
     return {
       embedding_backend: normalizeEmbeddingBackend(typeof embedding.backend === 'string' ? embedding.backend : undefined),
       embedding_model: typeof embedding.model === 'string' ? embedding.model : undefined,
+      embedding_auto_embed_missing: typeof embedding.auto_embed_missing === 'boolean' ? embedding.auto_embed_missing : undefined,
       reranker_enabled: typeof reranker.enabled === 'boolean' ? reranker.enabled : undefined,
       reranker_backend: typeof reranker.backend === 'string' ? reranker.backend : undefined,
       reranker_model: typeof reranker.model === 'string' ? reranker.model : undefined,
@@ -420,6 +467,14 @@ function stripAnsi(str: string): string {
 
 /** Default maximum content length to return (avoid excessive output) */
 const DEFAULT_MAX_CONTENT_LENGTH = 200;
+const CODEX_LENS_FTS_COMPATIBILITY_PATTERNS = [
+  /UsageError:\s*Got unexpected extra arguments?/i,
+  /Option ['"]--method['"] does not take a value/i,
+  /TyperArgument\.make_metavar\(\) takes 1 positional argument but 2 were given/i,
+];
+
+let codexLensFtsBackendBroken = false;
+const autoEmbedJobs = new Map<string, { startedAt: number; backend?: string; model?: string }>();
 
 /**
  * Truncate content to specified length with ellipsis
@@ -458,6 +513,14 @@ interface SearchScope {
   workingDirectory: string;
   searchPaths: string[];
   targetFile?: string;
+}
+
+interface RipgrepQueryModeResolution {
+  regex: boolean;
+  tokenize: boolean;
+  tokens: string[];
+  literalFallback: boolean;
+  warning?: string;
 }
 
 function sanitizeSearchQuery(query: string | undefined): string | undefined {
@@ -552,12 +615,103 @@ function parseCodexLensJsonOutput(output: string | undefined): any | null {
   return null;
 }
 
+function isValidRegexPattern(pattern: string): boolean {
+  try {
+    new RegExp(pattern);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function resolveRipgrepQueryMode(query: string, regex: boolean = true, tokenize: boolean = true): RipgrepQueryModeResolution {
+  const tokens = tokenize ? tokenizeQuery(query) : [query];
+
+  if (!regex) {
+    return {
+      regex: false,
+      tokenize,
+      tokens,
+      literalFallback: false,
+    };
+  }
+
+  const invalidTokens = tokens.filter((token) => token.length > 0 && !isValidRegexPattern(token));
+  if (invalidTokens.length === 0) {
+    return {
+      regex: true,
+      tokenize,
+      tokens,
+      literalFallback: false,
+    };
+  }
+
+  const preview = truncateContent(invalidTokens[0], 40);
+  return {
+    regex: false,
+    tokenize,
+    tokens,
+    literalFallback: true,
+    warning: invalidTokens.length === 1
+      ? `Query token "${preview}" is not a valid regular expression. Falling back to literal ripgrep matching.`
+      : 'Query contains invalid regular expression tokens. Falling back to literal ripgrep matching.',
+  };
+}
+
+function isCodexLensCliCompatibilityError(error: string | undefined): boolean {
+  if (!error) {
+    return false;
+  }
+
+  const cleanError = stripAnsi(error);
+  return CODEX_LENS_FTS_COMPATIBILITY_PATTERNS.some((pattern) => pattern.test(cleanError));
+}
+
+function noteCodexLensFtsCompatibility(error: string | undefined): boolean {
+  if (!isCodexLensCliCompatibilityError(error)) {
+    return false;
+  }
+
+  codexLensFtsBackendBroken = true;
+  return true;
+}
+
+function summarizeBackendError(error: string | undefined): string {
+  const cleanError = stripAnsi(error || '').trim();
+  if (!cleanError) {
+    return 'unknown error';
+  }
+
+  if (isCodexLensCliCompatibilityError(cleanError)) {
+    return 'CodexLens exact search CLI is incompatible with the current Typer/Click runtime';
+  }
+
+  const regexSummary = cleanError.match(/error:\s*([^\r\n]+)/i);
+  if (/regex parse error/i.test(cleanError) && regexSummary?.[1]) {
+    return `invalid regular expression (${regexSummary[1].trim()})`;
+  }
+
+  const usageSummary = cleanError.match(/UsageError:\s*([^\r\n]+)/i);
+  if (usageSummary?.[1]) {
+    return usageSummary[1].trim();
+  }
+
+  const firstMeaningfulLine = cleanError
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find((line) => line && !line.startsWith('│') && !line.startsWith('┌') && !line.startsWith('└'));
+
+  return truncateContent(firstMeaningfulLine || cleanError, 180);
+}
+
 function mapCodexLensSemanticMatches(data: any[], scope: SearchScope, maxContentLength: number): SemanticMatch[] {
   return filterResultsToTargetFile(data.map((item: any) => {
     const rawScore = item.score || 0;
     const similarityScore = rawScore > 0 ? 1 / (1 + rawScore) : 1;
     return {
       file: item.path || item.file,
+      line: typeof item.line === 'number' ? item.line : undefined,
+      column: typeof item.column === 'number' ? item.column : undefined,
       score: similarityScore,
       content: truncateContent(item.content || item.excerpt, maxContentLength),
       symbol: item.symbol || null,
@@ -617,12 +771,12 @@ function collectBackendError(
   backendResult: PromiseSettledResult<SearchResult>,
 ): void {
   if (backendResult.status === 'rejected') {
-    errors.push(`${backendName}: ${String(backendResult.reason)}`);
+    errors.push(`${backendName}: ${summarizeBackendError(String(backendResult.reason))}`);
     return;
   }
 
   if (!backendResult.value.success) {
-    errors.push(`${backendName}: ${backendResult.value.error || 'unknown error'}`);
+    errors.push(`${backendName}: ${summarizeBackendError(backendResult.value.error)}`);
   }
 }
 
@@ -633,6 +787,88 @@ function mergeWarnings(...warnings: Array<string | undefined>): string | undefin
       .map((warning) => warning.trim())
   )];
   return merged.length > 0 ? merged.join(' | ') : undefined;
+}
+
+function mergeNotes(...notes: Array<string | undefined>): string | undefined {
+  const merged = [...new Set(
+    notes
+      .filter((note): note is string => typeof note === 'string' && note.trim().length > 0)
+      .map((note) => note.trim())
+  )];
+  return merged.length > 0 ? merged.join(' | ') : undefined;
+}
+
+function mergeSuggestions(...groups: Array<SearchSuggestion[] | undefined>): SearchSuggestion[] | undefined {
+  const merged = new Map<string, SearchSuggestion>();
+  for (const group of groups) {
+    for (const suggestion of group ?? []) {
+      if (!merged.has(suggestion.command)) {
+        merged.set(suggestion.command, suggestion);
+      }
+    }
+  }
+
+  return merged.size > 0 ? [...merged.values()] : undefined;
+}
+
+function formatSmartSearchCommand(action: string, pathValue: string, extraParams: Record<string, unknown> = {}): string {
+  const normalizedPath = pathValue.replace(/\\/g, '/');
+  const args = [`action=${JSON.stringify(action)}`, `path=${JSON.stringify(normalizedPath)}`];
+
+  for (const [key, value] of Object.entries(extraParams)) {
+    if (value === undefined) {
+      continue;
+    }
+    args.push(`${key}=${JSON.stringify(value)}`);
+  }
+
+  return `smart_search(${args.join(', ')})`;
+}
+
+function isAutoEmbedMissingEnabled(config: CodexLensConfig | null | undefined): boolean {
+  return config?.embedding_auto_embed_missing !== false;
+}
+
+function buildIndexSuggestions(indexStatus: IndexStatus, scope: SearchScope): SearchSuggestion[] | undefined {
+  const suggestions: SearchSuggestion[] = [];
+
+  if (!indexStatus.indexed) {
+    suggestions.push({
+      title: 'Initialize index',
+      command: formatSmartSearchCommand('init', scope.workingDirectory),
+      reason: 'No CodexLens index exists for this path yet.',
+    });
+    suggestions.push({
+      title: 'Check index status',
+      command: formatSmartSearchCommand('status', scope.workingDirectory),
+      reason: 'Verify whether the target path is mapped to the expected CodexLens project root.',
+    });
+    return suggestions;
+  }
+
+  if (!indexStatus.has_embeddings) {
+    suggestions.push({
+      title: 'Generate embeddings',
+      command: formatSmartSearchCommand('embed', scope.workingDirectory),
+      reason: 'The index exists, but semantic/vector retrieval is unavailable until embeddings are generated.',
+    });
+  } else if ((indexStatus.embeddings_coverage_percent ?? 0) < 50) {
+    suggestions.push({
+      title: 'Rebuild embeddings',
+      command: formatSmartSearchCommand('embed', scope.workingDirectory, { force: true }),
+      reason: `Embedding coverage is only ${(indexStatus.embeddings_coverage_percent ?? 0).toFixed(1)}%, so semantic search quality is degraded.`,
+    });
+  }
+
+  if (indexStatus.warning?.includes('Failed to parse index status')) {
+    suggestions.push({
+      title: 'Re-check status',
+      command: formatSmartSearchCommand('status', scope.workingDirectory),
+      reason: 'The index health payload could not be parsed cleanly.',
+    });
+  }
+
+  return suggestions.length > 0 ? suggestions : undefined;
 }
 
 /**
@@ -661,12 +897,15 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
           ...settingsConfig,
           config_file: configData.config_file,
           index_dir: configData.index_dir,
-          embedding_backend: configData.embedding_backend,
-          embedding_model: configData.embedding_model,
-          reranker_enabled: configData.reranker_enabled,
-          reranker_backend: configData.reranker_backend,
-          reranker_model: configData.reranker_model,
-          reranker_top_k: configData.reranker_top_k,
+          embedding_backend: normalizeEmbeddingBackend(configData.embedding_backend) ?? settingsConfig.embedding_backend,
+          embedding_model: typeof configData.embedding_model === 'string' ? configData.embedding_model : settingsConfig.embedding_model,
+          embedding_auto_embed_missing: typeof configData.embedding_auto_embed_missing === 'boolean'
+            ? configData.embedding_auto_embed_missing
+            : settingsConfig.embedding_auto_embed_missing,
+          reranker_enabled: typeof configData.reranker_enabled === 'boolean' ? configData.reranker_enabled : settingsConfig.reranker_enabled,
+          reranker_backend: typeof configData.reranker_backend === 'string' ? configData.reranker_backend : settingsConfig.reranker_backend,
+          reranker_model: typeof configData.reranker_model === 'string' ? configData.reranker_model : settingsConfig.reranker_model,
+          reranker_top_k: typeof configData.reranker_top_k === 'number' ? configData.reranker_top_k : settingsConfig.reranker_top_k,
         };
       } catch {
         // Config parse failed, continue without it
@@ -874,8 +1113,9 @@ function buildRipgrepCommand(params: {
   regex?: boolean;
   caseSensitive?: boolean;
   tokenize?: boolean;
-}): { command: string; args: string[]; tokens: string[] } {
+}): { command: string; args: string[]; tokens: string[]; warning?: string; literalFallback: boolean; regex: boolean } {
   const { query, paths = ['.'], contextLines = 0, maxResults = 10, includeHidden = false, regex = false, caseSensitive = true, tokenize = true } = params;
+  const queryMode = resolveRipgrepQueryMode(query, regex, tokenize);
 
   const args = [
     '-n',
@@ -905,14 +1145,13 @@ function buildRipgrepCommand(params: {
     args.push('--hidden');
   }
 
-  // Tokenize query for multi-word OR matching
-  const tokens = tokenize ? tokenizeQuery(query) : [query];
+  const { tokens } = queryMode;
 
   if (tokens.length > 1) {
     // Multi-token: use multiple -e patterns (OR matching)
     // Each token is escaped for regex safety unless regex mode is enabled
     for (const token of tokens) {
-      if (regex) {
+      if (queryMode.regex) {
         args.push('-e', token);
       } else {
         // Escape regex special chars for literal matching
@@ -922,7 +1161,7 @@ function buildRipgrepCommand(params: {
     }
   } else {
     // Single token or no tokenization: use original behavior
-    if (regex) {
+    if (queryMode.regex) {
       args.push('-e', query);
     } else {
       args.push('-F', query);
@@ -931,7 +1170,146 @@ function buildRipgrepCommand(params: {
 
   args.push(...paths);
 
-  return { command: 'rg', args, tokens };
+  return {
+    command: 'rg',
+    args,
+    tokens,
+    warning: queryMode.warning,
+    literalFallback: queryMode.literalFallback,
+    regex: queryMode.regex,
+  };
+}
+
+interface RipgrepChunkAccumulator {
+  file: string;
+  chunkLines: ChunkLine[];
+  firstMatchLine?: number;
+  firstMatchColumn?: number;
+  lastLine?: number;
+  matchCount: number;
+}
+
+function finalizeRipgrepChunk(accumulator: RipgrepChunkAccumulator | undefined): ExactMatch | null {
+  if (!accumulator || accumulator.matchCount === 0 || accumulator.chunkLines.length === 0) {
+    return null;
+  }
+
+  const firstLine = accumulator.chunkLines[0]?.line ?? accumulator.firstMatchLine ?? 1;
+  const lastLine = accumulator.chunkLines[accumulator.chunkLines.length - 1]?.line ?? accumulator.firstMatchLine ?? firstLine;
+
+  return {
+    file: accumulator.file,
+    line: accumulator.firstMatchLine ?? firstLine,
+    endLine: lastLine,
+    column: accumulator.firstMatchColumn ?? 1,
+    content: accumulator.chunkLines.map((line) => line.text).join('\n').trim(),
+    chunkLines: [...accumulator.chunkLines],
+  };
+}
+
+function parseRipgrepJsonResults(stdout: string, effectiveLimit: number): { results: ExactMatch[]; resultLimitReached: boolean } {
+  const allResults: ExactMatch[] = [];
+  const activeChunks = new Map<string, RipgrepChunkAccumulator>();
+  const lines = stdout.split('\n').filter((line) => line.trim());
+  let resultLimitReached = false;
+
+  const flushChunk = (file: string) => {
+    const finalized = finalizeRipgrepChunk(activeChunks.get(file));
+    activeChunks.delete(file);
+    if (!finalized) {
+      return;
+    }
+    allResults.push(finalized);
+    if (allResults.length >= effectiveLimit) {
+      resultLimitReached = true;
+    }
+  };
+
+  for (const line of lines) {
+    if (resultLimitReached) {
+      break;
+    }
+
+    try {
+      const item = JSON.parse(line);
+      if (item.type !== 'match' && item.type !== 'context' && item.type !== 'end') {
+        continue;
+      }
+
+      const file = item.data?.path?.text as string | undefined;
+      if (!file) {
+        continue;
+      }
+
+      if (item.type === 'end') {
+        flushChunk(file);
+        continue;
+      }
+
+      const lineNumber = typeof item.data?.line_number === 'number' ? item.data.line_number : undefined;
+      const rawText = typeof item.data?.lines?.text === 'string'
+        ? item.data.lines.text.replace(/\r?\n$/, '')
+        : '';
+
+      if (lineNumber === undefined) {
+        continue;
+      }
+
+      let current = activeChunks.get(file);
+      const isContiguous = current && current.lastLine !== undefined && lineNumber <= current.lastLine + 1;
+      if (!current || !isContiguous) {
+        if (current) {
+          flushChunk(file);
+          if (resultLimitReached) {
+            break;
+          }
+        }
+        current = {
+          file,
+          chunkLines: [],
+          matchCount: 0,
+        };
+        activeChunks.set(file, current);
+      }
+
+      const previousLine = current.chunkLines[current.chunkLines.length - 1];
+      const duplicateLine = previousLine && previousLine.line === lineNumber && previousLine.text === rawText;
+      if (!duplicateLine) {
+        current.chunkLines.push({
+          line: lineNumber,
+          text: rawText,
+          isMatch: item.type === 'match',
+        });
+      } else if (item.type === 'match') {
+        previousLine.isMatch = true;
+      }
+
+      if (item.type === 'match') {
+        current.matchCount += 1;
+        if (current.firstMatchLine === undefined) {
+          current.firstMatchLine = lineNumber;
+          current.firstMatchColumn =
+            item.data.submatches && item.data.submatches[0]
+              ? item.data.submatches[0].start + 1
+              : 1;
+        }
+      }
+      current.lastLine = lineNumber;
+    } catch {
+      continue;
+    }
+  }
+
+  if (!resultLimitReached) {
+    for (const file of [...activeChunks.keys()]) {
+      flushChunk(file);
+      if (resultLimitReached) {
+        break;
+      }
+    }
+  }
+
+  return { results: allResults.slice(0, effectiveLimit), resultLimitReached };
 }
 
 function normalizeEmbeddingBackend(backend?: string): string | undefined {
@@ -1041,19 +1419,20 @@ function extractEmbedJsonLine(stdout: string): string | undefined {
   return [...lines].reverse().find((line) => line.startsWith('{') && line.endsWith('}'));
 }
 
-async function executeEmbeddingsViaPython(params: {
+function buildEmbeddingPythonCode(params: {
   projectPath: string;
   backend?: string;
   model?: string;
   force: boolean;
   maxWorkers?: number;
   endpoints?: RotationEndpointConfig[];
-}): Promise<{ success: boolean; error?: string; progressMessages?: string[] }> {
+}): string {
   const { projectPath, backend, model, force, maxWorkers, endpoints = [] } = params;
-  const pythonCode = `
+  return `
 import json
 import sys
 from pathlib import Path
+from codexlens.storage.path_mapper import PathMapper
 from codexlens.storage.registry import RegistryStore
 from codexlens.cli.embedding_manager import generate_dense_embeddings_centralized
 
@@ -1071,11 +1450,23 @@ registry = RegistryStore()
 registry.initialize()
 try:
     project = registry.get_project(target_path)
-    if project is None:
+    index_root = None
+    if project is not None:
+        index_root = Path(project.index_root)
+    else:
+        mapper = PathMapper()
+        index_db = mapper.source_to_index_db(target_path)
+        if index_db.exists():
+            index_root = index_db.parent
+        else:
+            nearest = registry.find_nearest_index(target_path)
+            if nearest is not None:
+                index_root = Path(nearest.index_path).parent
+
+    if index_root is None:
         print(json.dumps({"success": False, "error": f"No index found for: {target_path}"}), flush=True)
         sys.exit(1)
 
-    index_root = Path(project.index_root)
     result = generate_dense_embeddings_centralized(
         index_root,
         embedding_backend=backend,
@@ -1099,6 +1490,118 @@ finally:
     .replace('__FORCE__', force ? 'True' : 'False')
     .replace('__MAX_WORKERS__', typeof maxWorkers === 'number' ? String(Math.max(1, Math.floor(maxWorkers))) : 'None')
     .replace('__ENDPOINTS_JSON__', JSON.stringify(endpoints).replace(/\\/g, '\\\\').replace(/'''/g, "\\'\\'\\'"));
+}
+
+function spawnBackgroundEmbeddingsViaPython(params: {
+  projectPath: string;
+  backend?: string;
+  model?: string;
+  force: boolean;
+  maxWorkers?: number;
+  endpoints?: RotationEndpointConfig[];
+}): { success: boolean; error?: string } {
+  const { projectPath, backend, model } = params;
+  try {
+    const child = spawn(getVenvPythonPath(), ['-c', buildEmbeddingPythonCode(params)], {
+      cwd: projectPath,
+      shell: false,
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    });
+
+    autoEmbedJobs.set(projectPath, {
+      startedAt: Date.now(),
+      backend,
+      model,
+    });
+
+    const cleanup = () => {
+      autoEmbedJobs.delete(projectPath);
+    };
+    child.on('error', cleanup);
+    child.on('close', cleanup);
+    child.unref();
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+async function maybeStartBackgroundAutoEmbed(
+  scope: SearchScope,
+  indexStatus: IndexStatus,
+): Promise<{ note?: string; warning?: string }> {
+  if (!indexStatus.indexed || indexStatus.has_embeddings) {
+    return {};
+  }
+
+  if (!isAutoEmbedMissingEnabled(indexStatus.config)) {
+    return {
+      note: 'Automatic embedding warmup is disabled by CODEXLENS_AUTO_EMBED_MISSING=false.',
+    };
+  }
+
+  if (autoEmbedJobs.has(scope.workingDirectory)) {
+    return {
+      note: 'Background embedding build is already running for this path.',
+    };
+  }
+
+  const backend = normalizeEmbeddingBackend(indexStatus.config?.embedding_backend) ?? 'fastembed';
+  const model = indexStatus.config?.embedding_model?.trim() || undefined;
+  const semanticStatus = await checkSemanticStatus();
+  if (!semanticStatus.available) {
+    return {
+      warning: 'Automatic embedding warmup skipped because semantic dependencies are not ready.',
+    };
+  }
+
+  if (backend === 'litellm' && !semanticStatus.litellmAvailable) {
+    return {
+      warning: 'Automatic embedding warmup skipped because the LiteLLM embedder is not ready.',
+    };
+  }
+
+  const endpoints = resolveEmbeddingEndpoints(backend);
+  const configuredApiMaxWorkers = indexStatus.config?.api_max_workers;
+  const effectiveApiMaxWorkers = typeof configuredApiMaxWorkers === 'number'
+    ? Math.max(1, Math.floor(configuredApiMaxWorkers))
+    : resolveApiWorkerCount(undefined, backend, endpoints);
+  const spawned = spawnBackgroundEmbeddingsViaPython({
+    projectPath: scope.workingDirectory,
+    backend,
+    model,
+    force: false,
+    maxWorkers: effectiveApiMaxWorkers,
+    endpoints,
+  });
+
+  if (!spawned.success) {
+    return {
+      warning: `Automatic embedding warmup could not start: ${spawned.error}`,
+    };
+  }
+
+  return {
+    note: 'Background embedding build started for this path. Re-run semantic search shortly for vector results.',
+  };
+}
+
+async function executeEmbeddingsViaPython(params: {
+  projectPath: string;
+  backend?: string;
+  model?: string;
+  force: boolean;
+  maxWorkers?: number;
+  endpoints?: RotationEndpointConfig[];
+}): Promise<{ success: boolean; error?: string; progressMessages?: string[] }> {
+  const { projectPath } = params;
+  const pythonCode = buildEmbeddingPythonCode(params);
 
   return await new Promise((resolve) => {
     const child = spawn(getVenvPythonPath(), ['-c', pythonCode], {
@@ -1343,6 +1846,7 @@ async function executeStatusAction(params: Params): Promise<SearchResult> {
     // Embedding backend info
     const embeddingType = cfg.embedding_backend === 'litellm' ? 'API' : 'Local';
     statusParts.push(`Embedding: ${embeddingType} (${cfg.embedding_model || 'default'})`);
+    statusParts.push(`Auto Embed Missing: ${isAutoEmbedMissingEnabled(cfg) ? 'on' : 'off'}`);
     if (typeof cfg.api_max_workers === 'number') {
       statusParts.push(`API Workers: ${cfg.api_max_workers}`);
     }
@@ -1366,6 +1870,12 @@ async function executeStatusAction(params: Params): Promise<SearchResult> {
     success: true,
     status: indexStatus,
     message: indexStatus.warning || statusParts.join(' | '),
+    metadata: {
+      action: 'status',
+      path: scope.workingDirectory,
+      warning: indexStatus.warning,
+      suggestions: buildIndexSuggestions(indexStatus, scope),
+    },
   };
 }
 
@@ -1501,7 +2011,7 @@ async function executeWatchAction(params: Params): Promise<SearchResult> {
  * Runs both exact (FTS) and ripgrep searches in parallel, merges and ranks results
  */
 async function executeFuzzyMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', maxResults = 5, extraFilesCount = 10, codeOnly = true, withDoc = false, excludeExtensions } = params;
+  const { query, path = '.', maxResults = 5, extraFilesCount = 10, codeOnly = true, withDoc = false, excludeExtensions, regex = true, tokenize = true } = params;
   // withDoc overrides codeOnly
   const effectiveCodeOnly = withDoc ? false : codeOnly;
 
@@ -1513,13 +2023,39 @@ async function executeFuzzyMode(params: Params): Promise<SearchResult> {
   }
 
   const timer = createTimer();
+  const ftsWasBroken = codexLensFtsBackendBroken;
+  const ripgrepQueryMode = resolveRipgrepQueryMode(query, regex, tokenize);
+  const fuzzyWarnings: string[] = [];
+
+  let skipExactReason: string | undefined;
+  if (ripgrepQueryMode.literalFallback) {
+    skipExactReason = 'Skipped CodexLens FTS backend for a literal code-pattern query; using ripgrep literal matching.';
+  } else if (codexLensFtsBackendBroken) {
+    skipExactReason = 'CodexLens FTS backend disabled for this process due to CLI compatibility errors.';
+  }
 
   // Run both searches in parallel
   const [ftsResult, ripgrepResult] = await Promise.allSettled([
-    executeCodexLensExactMode(params),
+    skipExactReason
+      ? Promise.resolve<SearchResult>({ success: false, error: skipExactReason })
+      : executeCodexLensExactMode(params),
     executeRipgrepMode(params),
   ]);
   timer.mark('parallel_search');
+
+  if (!skipExactReason && !ftsWasBroken && codexLensFtsBackendBroken) {
+    fuzzyWarnings.push('CodexLens FTS backend is incompatible with the current CLI runtime. Falling back to ripgrep results.');
+  }
+  if (skipExactReason) {
+    fuzzyWarnings.push(skipExactReason);
+  }
+  if (ripgrepResult.status === 'fulfilled' && ripgrepResult.value.metadata?.warning) {
+    fuzzyWarnings.push(String(ripgrepResult.value.metadata.warning));
+  }
+  const mergedSuggestions = mergeSuggestions(
+    ftsResult.status === 'fulfilled' ? ftsResult.value.metadata?.suggestions : undefined,
+    ripgrepResult.status === 'fulfilled' ? ripgrepResult.value.metadata?.suggestions : undefined,
+  );
 
   // Collect results from both sources
   const resultsMap = new Map<string, any[]>();
@@ -1559,8 +2095,10 @@ async function executeFuzzyMode(params: Params): Promise<SearchResult> {
   const normalizedResults = filteredFusedResults.map((item: any) => ({
     file: item.file || item.path,
     line: item.line || 0,
+    endLine: item.endLine || item.line || 0,
     column: item.column || 0,
     content: item.content || '',
+    chunkLines: Array.isArray(item.chunkLines) ? item.chunkLines : undefined,
     score: item.fusion_score || 0,
     matchCount: item.matchCount,
     matchScore: item.matchScore,
@@ -1572,6 +2110,7 @@ async function executeFuzzyMode(params: Params): Promise<SearchResult> {
   // Log timing
   timer.log();
   const timings = timer.getTimings();
+  const usingExactResults = resultsMap.has('exact');
 
   return {
     success: true,
@@ -1579,10 +2118,14 @@ async function executeFuzzyMode(params: Params): Promise<SearchResult> {
     extra_files: extra_files.length > 0 ? extra_files : undefined,
     metadata: {
       mode: 'fuzzy',
-      backend: 'fts+ripgrep',
+      backend: usingExactResults ? 'fts+ripgrep' : 'ripgrep',
       count: results.length,
       query,
-      note: `Fuzzy search using RRF fusion of FTS and ripgrep (weights: exact=${fusionWeights.exact}, ripgrep=${fusionWeights.ripgrep})`,
+      note: usingExactResults
+        ? `Fuzzy search using RRF fusion of FTS and ripgrep (weights: exact=${fusionWeights.exact}, ripgrep=${fusionWeights.ripgrep})`
+        : 'Fuzzy search resolved using ripgrep only.',
+      warning: mergeWarnings(...fuzzyWarnings),
+      suggestions: mergedSuggestions,
       timing: TIMING_ENABLED ? timings : undefined,
     },
   };
@@ -1636,20 +2179,10 @@ async function executeAutoMode(params: Params): Promise<SearchResult> {
   }
 
   // Add classification metadata
-  if (result.metadata) {
-    result.metadata.classified_as = classification.mode;
-    result.metadata.confidence = classification.confidence;
-    result.metadata.reasoning = classification.reasoning;
-    result.metadata.embeddings_coverage_percent = indexStatus.embeddings_coverage_percent;
-    result.metadata.index_status = indexStatus.indexed
-      ? (indexStatus.has_embeddings ? 'indexed' : 'partial')
-      : 'not_indexed';
-
-    // Add warning if needed
-    if (indexStatus.warning) {
-      result.metadata.warning = indexStatus.warning;
-    }
-  }
+  result.metadata = enrichMetadataWithIndexStatus(result.metadata, indexStatus, scope);
+  result.metadata.classified_as = classification.mode;
+  result.metadata.confidence = classification.confidence;
+  result.metadata.reasoning = classification.reasoning;
 
   return result;
 }
@@ -1693,9 +2226,10 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
     const result = await executeCodexLens(args, { cwd: scope.workingDirectory });
 
     if (!result.success) {
+      noteCodexLensFtsCompatibility(result.error);
       return {
         success: false,
-        error: result.error,
+        error: summarizeBackendError(result.error),
         metadata: {
           mode: 'ripgrep',
           backend: 'codexlens-fallback',
@@ -1740,7 +2274,7 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
   }
 
   // Use ripgrep - request more results to support split
-  const { command, args, tokens } = buildRipgrepCommand({
+  const { command, args, tokens, warning: queryModeWarning } = buildRipgrepCommand({
     query,
     paths: scope.searchPaths,
     contextLines,
@@ -1770,37 +2304,11 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
     });
 
     child.on('close', (code) => {
-      const allResults: ExactMatch[] = [];
-      const lines = stdout.split('\n').filter((line) => line.trim());
       // Limit total results to prevent memory overflow (--max-count only limits per-file)
       const effectiveLimit = totalToFetch > 0 ? totalToFetch : 500;
-
-      for (const line of lines) {
-        // Stop collecting if we've reached the limit
-        if (allResults.length >= effectiveLimit) {
-          resultLimitReached = true;
-          break;
-        }
-
-        try {
-          const item = JSON.parse(line);
-
-          if (item.type === 'match') {
-            const match: ExactMatch = {
-              file: item.data.path.text,
-              line: item.data.line_number,
-              column:
-                item.data.submatches && item.data.submatches[0]
-                  ? item.data.submatches[0].start + 1
-                  : 1,
-              content: item.data.lines.text.trim(),
-            };
-            allResults.push(match);
-          }
-        } catch {
-          continue;
-        }
-      }
+      const parsedResults = parseRipgrepJsonResults(stdout, effectiveLimit);
+      const allResults = parsedResults.results;
+      resultLimitReached = parsedResults.resultLimitReached;
 
       // Handle Windows device file errors gracefully (os error 1)
       // If we have results despite the error, return them as partial success
@@ -1819,6 +2327,9 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
 
         // Build warning message for various conditions
         const warnings: string[] = [];
+        if (queryModeWarning) {
+          warnings.push(queryModeWarning);
+        }
         if (resultLimitReached) {
           warnings.push(`Result limit reached (${effectiveLimit}). Use a more specific query or increase limit.`);
         }
@@ -1918,15 +2429,17 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
   const result = await executeCodexLens(args, { cwd: scope.workingDirectory });
 
   if (!result.success) {
+    noteCodexLensFtsCompatibility(result.error);
     return {
       success: false,
-      error: result.error,
+      error: summarizeBackendError(result.error),
       metadata: {
         mode: 'exact',
         backend: 'codexlens',
         count: 0,
         query,
         warning: mergeWarnings(indexStatus.warning, result.warning),
+        suggestions: buildIndexSuggestions(indexStatus, scope),
       },
     };
   }
@@ -1993,6 +2506,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
             warning: mergeWarnings(indexStatus.warning, fuzzyResult.warning),
             note: 'No exact matches found, showing fuzzy results',
             fallback: 'fuzzy',
+            suggestions: buildIndexSuggestions(indexStatus, scope),
           },
         };
       }
@@ -2012,6 +2526,7 @@ async function executeCodexLensExactMode(params: Params): Promise<SearchResult> 
       count: results.length,
       query,
       warning: mergeWarnings(indexStatus.warning, result.warning),
+      suggestions: buildIndexSuggestions(indexStatus, scope),
     },
   };
 }
@@ -2080,6 +2595,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
         count: 0,
         query,
         warning: mergeWarnings(indexStatus.warning, result.warning),
+        suggestions: buildIndexSuggestions(indexStatus, scope),
       },
     };
   }
@@ -2126,6 +2642,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
           count: 0,
           query,
           warning: mergeWarnings(indexStatus.warning, result.warning, 'Failed to parse JSON output'),
+          suggestions: buildIndexSuggestions(indexStatus, scope),
         },
       };
     }
@@ -2158,6 +2675,7 @@ async function executeHybridMode(params: Params): Promise<SearchResult> {
       query,
       note,
       warning: mergeWarnings(indexStatus.warning, result.warning),
+      suggestions: buildIndexSuggestions(indexStatus, scope),
       suggested_weights: getRRFWeights(query),
       timing: TIMING_ENABLED ? timings : undefined,
     },
@@ -2441,6 +2959,83 @@ function filterDominantBaselineScores(
  * Reference: codex-lens/src/codexlens/search/ranking.py
  * Formula: score(d) = Σ weight_source / (k + rank_source(d))
  */
+function normalizeFusionSnippet(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized ? normalized.slice(0, 240) : undefined;
+}
+
+function buildFusionIdentity(result: any): string | null {
+  const path = typeof result?.file === 'string'
+    ? result.file
+    : typeof result?.path === 'string'
+      ? result.path
+      : undefined;
+
+  if (!path) {
+    return null;
+  }
+
+  const line = typeof result?.line === 'number' && Number.isFinite(result.line)
+    ? result.line
+    : undefined;
+  const endLine = typeof result?.endLine === 'number' && Number.isFinite(result.endLine)
+    ? result.endLine
+    : line;
+  const column = typeof result?.column === 'number' && Number.isFinite(result.column)
+    ? result.column
+    : undefined;
+
+  if (line !== undefined) {
+    return `${path}#L${line}-${endLine ?? line}:C${column ?? 0}`;
+  }
+
+  const symbol = typeof result?.symbol === 'string' && result.symbol.trim()
+    ? result.symbol.trim()
+    : undefined;
+  const snippet = normalizeFusionSnippet(result?.content);
+
+  if (symbol && snippet) {
+    return `${path}::${symbol}::${snippet}`;
+  }
+  if (snippet) {
+    return `${path}::${snippet}`;
+  }
+  if (symbol) {
+    return `${path}::${symbol}`;
+  }
+
+  return path;
+}
+
+function scoreFusionRepresentative(result: any): number {
+  let score = 0;
+
+  if (typeof result?.line === 'number' && Number.isFinite(result.line)) {
+    score += 1000;
+  }
+  if (typeof result?.endLine === 'number' && Number.isFinite(result.endLine)) {
+    score += 250;
+  }
+  if (typeof result?.column === 'number' && Number.isFinite(result.column)) {
+    score += 50;
+  }
+  if (Array.isArray(result?.chunkLines) && result.chunkLines.length > 0) {
+    score += 500 + result.chunkLines.length;
+  }
+  if (typeof result?.symbol === 'string' && result.symbol.trim()) {
+    score += 50;
+  }
+  if (typeof result?.content === 'string') {
+    score += Math.min(result.content.length, 200);
+  }
+
+  return score;
+}
+
 function applyRRFFusion(
   resultsMap: Map<string, any[]>,
   weightsOrQuery: Record<string, number> | string,
@@ -2448,23 +3043,28 @@ function applyRRFFusion(
   k: number = 60,
 ): any[] {
   const weights = typeof weightsOrQuery === 'string' ? getRRFWeights(weightsOrQuery) : weightsOrQuery;
-  const pathScores = new Map<string, { score: number; result: any; sources: string[] }>();
+  const fusedScores = new Map<string, { score: number; result: any; sources: string[]; representativeScore: number }>();
 
   resultsMap.forEach((results, source) => {
     const weight = weights[source] || 0;
     if (weight === 0 || !results) return;
 
     results.forEach((result, rank) => {
-      const path = result.file || result.path;
-      if (!path) return;
+      const identity = buildFusionIdentity(result);
+      if (!identity) return;
 
       const rrfContribution = weight / (k + rank + 1);
+      const representativeScore = scoreFusionRepresentative(result);
 
-      if (!pathScores.has(path)) {
-        pathScores.set(path, { score: 0, result, sources: [] });
+      if (!fusedScores.has(identity)) {
+        fusedScores.set(identity, { score: 0, result, sources: [], representativeScore });
       }
-      const entry = pathScores.get(path)!;
+      const entry = fusedScores.get(identity)!;
       entry.score += rrfContribution;
+      if (representativeScore > entry.representativeScore) {
+        entry.result = result;
+        entry.representativeScore = representativeScore;
+      }
       if (!entry.sources.includes(source)) {
         entry.sources.push(source);
       }
@@ -2472,7 +3072,7 @@ function applyRRFFusion(
   });
 
   // Sort by fusion score descending
-  return Array.from(pathScores.values())
+  return Array.from(fusedScores.values())
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
     .map(item => ({
@@ -2674,9 +3274,9 @@ Recommended MCP flow: use **action=\"search\"** for lookups, **action=\"init\"**
       },
       output_mode: {
         type: 'string',
-        enum: ['full', 'files_only', 'count'],
-        description: 'Output format: full (default), files_only (paths only), count (per-file counts)',
-        default: 'full',
+        enum: [...SEARCH_OUTPUT_MODES],
+        description: 'Output format: ace (default, ACE-style grouped code sections + rendered text), full (raw matches), files_only (paths only), count (per-file counts)',
+        default: 'ace',
       },
       path: {
         type: 'string',
@@ -3036,12 +3636,127 @@ function applyPagination<T>(
   };
 }
 
+function formatChunkRange(section: AceLikeSection): string {
+  if (section.lines && section.lines.length > 0) {
+    const start = section.lines[0]?.line;
+    const end = section.lines[section.lines.length - 1]?.line;
+    if (typeof start === 'number' && typeof end === 'number' && end > start) {
+      return `${start}-${end}`;
+    }
+    if (typeof start === 'number') {
+      return String(start);
+    }
+  }
+  if (section.line && section.endLine && section.endLine > section.line) {
+    return `${section.line}-${section.endLine}`;
+  }
+  if (section.line) {
+    return String(section.line);
+  }
+  return '?';
+}
+
+function renderAceSnippet(section: AceLikeSection): string[] {
+  if (section.lines && section.lines.length > 0) {
+    return section.lines.map((line) => {
+      const marker = line.isMatch ? '>' : ' ';
+      return `${marker} ${String(line.line).padStart(4, ' ')} | ${line.text}`;
+    });
+  }
+
+  return section.snippet.split(/\r?\n/).map((line) => `  ${line}`);
+}
+
+function formatAceLikeOutput(
+  results: ExactMatch[] | SemanticMatch[] | GraphMatch[] | FileMatch[] | unknown[],
+): AceLikeOutput {
+  const sections: AceLikeSection[] = [];
+
+  for (const result of results) {
+    const candidate = result as Record<string, unknown>;
+    const path = typeof candidate.file === 'string'
+      ? candidate.file
+      : typeof candidate.path === 'string'
+        ? candidate.path
+        : undefined;
+
+    if (!path) {
+      continue;
+    }
+
+    const line = typeof candidate.line === 'number' && candidate.line > 0 ? candidate.line : undefined;
+    const column = typeof candidate.column === 'number' && candidate.column > 0 ? candidate.column : undefined;
+    const score = typeof candidate.score === 'number' ? candidate.score : undefined;
+    const symbol = typeof candidate.symbol === 'string' ? candidate.symbol : null;
+    const rawSnippet = typeof candidate.content === 'string'
+      ? candidate.content
+      : typeof candidate.name === 'string'
+        ? candidate.name
+        : typeof candidate.type === 'string'
+          ? `[${candidate.type}]`
+          : '';
+
+    sections.push({
+      path,
+      line,
+      endLine: typeof candidate.endLine === 'number' && candidate.endLine >= (line ?? 0) ? candidate.endLine : line,
+      column,
+      score,
+      symbol,
+      snippet: rawSnippet || '[no snippet available]',
+      lines: Array.isArray(candidate.chunkLines) ? candidate.chunkLines as ChunkLine[] : undefined,
+    });
+  }
+
+  const groupsMap = new Map<string, AceLikeGroup>();
+  for (const section of sections) {
+    if (!groupsMap.has(section.path)) {
+      groupsMap.set(section.path, {
+        path: section.path,
+        sections: [],
+        total_matches: 0,
+      });
+    }
+    const group = groupsMap.get(section.path)!;
+    group.sections.push(section);
+    group.total_matches += 1;
+  }
+  const groups = [...groupsMap.values()];
+
+  const textParts = ['The following code sections were retrieved:'];
+  for (const group of groups) {
+    textParts.push('');
+    textParts.push(`Path: ${group.path}`);
+    group.sections.forEach((section, index) => {
+      const chunkLabel = group.sections.length > 1 ? `Chunk ${index + 1}` : 'Chunk';
+      textParts.push(`${chunkLabel}: lines ${formatChunkRange(section)}${section.score !== undefined ? ` | score=${section.score.toFixed(4)}` : ''}`);
+      if (section.symbol) {
+        textParts.push(`Symbol: ${section.symbol}`);
+      }
+      for (const snippetLine of renderAceSnippet(section)) {
+        textParts.push(snippetLine);
+      }
+      if (index < group.sections.length - 1) {
+        textParts.push('');
+      }
+    });
+  }
+
+  return {
+    format: 'ace',
+    text: textParts.join('\n'),
+    groups,
+    sections,
+    total: sections.length,
+  };
+}
+
 /**
  * Transform results based on output_mode
  */
 function transformOutput(
   results: ExactMatch[] | SemanticMatch[] | GraphMatch[] | unknown[],
-  outputMode: 'full' | 'files_only' | 'count'
+  outputMode: SearchOutputMode
 ): unknown {
   if (!Array.isArray(results)) {
     return results;
@@ -3067,10 +3782,27 @@ function transformOutput(
         total: results.length,
       };
     }
+    case 'ace':
+      return formatAceLikeOutput(results);
     case 'full':
     default:
       return results;
   }
+}
+
+function enrichMetadataWithIndexStatus(
+  metadata: SearchMetadata | undefined,
+  indexStatus: IndexStatus,
+  scope: SearchScope,
+): SearchMetadata {
+  const nextMetadata: SearchMetadata = { ...(metadata ?? {}) };
+  nextMetadata.embeddings_coverage_percent = indexStatus.embeddings_coverage_percent;
+  nextMetadata.index_status = indexStatus.indexed
+    ? (indexStatus.has_embeddings ? 'indexed' : 'partial')
+    : 'not_indexed';
+  nextMetadata.warning = mergeWarnings(nextMetadata.warning, indexStatus.warning);
+  nextMetadata.suggestions = mergeSuggestions(nextMetadata.suggestions, buildIndexSuggestions(indexStatus, scope));
+  return nextMetadata;
 }
 
 // Handler function
@@ -3158,11 +3890,21 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
         break;
     }
 
+    let autoEmbedNote: string | undefined;
+
     // Transform output based on output_mode (for search actions only)
     if (action === 'search' || action === 'search_files') {
-      if (result.success && result.results && output_mode !== 'full') {
-        result.results = transformOutput(result.results as any[], output_mode);
-      }
+      const scope = resolveSearchScope(parsed.data.path ?? '.');
+      const indexStatus = await checkIndexStatus(scope.workingDirectory);
+      result.metadata = enrichMetadataWithIndexStatus(result.metadata, indexStatus, scope);
+
+      const autoEmbedStatus = await maybeStartBackgroundAutoEmbed(scope, indexStatus);
+      autoEmbedNote = autoEmbedStatus.note;
+      result.metadata = {
+        ...(result.metadata ?? {}),
+        note: mergeNotes(result.metadata?.note, autoEmbedStatus.note),
+        warning: mergeWarnings(result.metadata?.warning, autoEmbedStatus.warning),
+      };
 
       // Add pagination metadata for search results if not already present
       if (result.success && result.results && Array.isArray(result.results)) {
@@ -3177,6 +3919,36 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
             total: totalResults,
             has_more: false,  // Already limited by backend
           };
+        }
+      }
+
+      if (result.success && result.results && output_mode !== 'full') {
+        result.results = transformOutput(result.results as any[], output_mode);
+        if (
+          output_mode === 'ace'
+          && result.results
+          && typeof result.results === 'object'
+          && 'format' in result.results
+          && result.results.format === 'ace'
+        ) {
+          const advisoryLines: string[] = [];
+          if (result.metadata?.warning) {
+            advisoryLines.push('', 'Warnings:', `- ${result.metadata.warning}`);
+          }
+          if (autoEmbedNote) {
+            advisoryLines.push('', 'Notes:', `- ${autoEmbedNote}`);
+          }
+          if (result.metadata?.suggestions && result.metadata.suggestions.length > 0) {
+            advisoryLines.push('', 'Suggestions:');
+            for (const suggestion of result.metadata.suggestions) {
+              advisoryLines.push(`- ${suggestion.title}: ${suggestion.command}`);
+              advisoryLines.push(`  ${suggestion.reason}`);
+            }
+          }
+          const aceResults = result.results as AceLikeOutput;
+          if (advisoryLines.length > 0) {
+            aceResults.text += `\n${advisoryLines.join('\n')}`;
+          }
         }
       }
     }
@@ -3199,10 +3971,14 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
  * @param onProgress - Optional callback for progress updates
  */
 export const __testables = {
+  isCodexLensCliCompatibilityError,
   parseCodexLensJsonOutput,
   parsePlainTextFileMatches,
   hasCentralizedVectorArtifacts,
+  resolveRipgrepQueryMode,
   resolveEmbeddingSelection,
+  isAutoEmbedMissingEnabled,
+  buildIndexSuggestions,
 };
 
 export async function executeInitWithProgress(
