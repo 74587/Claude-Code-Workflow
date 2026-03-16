@@ -833,6 +833,36 @@ class TestHybridSearchAdaptiveWeights:
 
         assert captured["weights"]["vector"] > 0.6
 
+    def test_default_engine_weights_keep_lsp_graph_backend_available(self):
+        """Legacy public defaults should not discard LSP graph fusion weights internally."""
+        from unittest.mock import patch
+
+        engine = HybridSearchEngine()
+
+        results_map = {
+            "exact": [SearchResult(path="a.py", score=10.0, excerpt="a")],
+            "fuzzy": [SearchResult(path="b.py", score=9.0, excerpt="b")],
+            "vector": [SearchResult(path="c.py", score=0.9, excerpt="c")],
+            "lsp_graph": [SearchResult(path="d.py", score=0.8, excerpt="d")],
+        }
+
+        captured = {}
+        from codexlens.search import ranking as ranking_module
+
+        def capture_rrf(map_in, weights_in, k=60):
+            captured["weights"] = dict(weights_in)
+            return ranking_module.reciprocal_rank_fusion(map_in, weights_in, k=k)
+
+        with patch.object(HybridSearchEngine, "_search_parallel", return_value=results_map), patch(
+            "codexlens.search.hybrid_search.reciprocal_rank_fusion",
+            side_effect=capture_rrf,
+        ):
+            engine.search(Path("dummy.db"), "auth flow", enable_vector=True, enable_lsp_graph=True)
+
+        assert engine.weights == HybridSearchEngine.DEFAULT_WEIGHTS
+        assert "lsp_graph" in captured["weights"]
+        assert captured["weights"]["lsp_graph"] > 0.0
+
     def test_reranking_enabled(self, tmp_path):
         """Reranking runs only when explicitly enabled via config."""
         from unittest.mock import patch

@@ -58,6 +58,38 @@ def _iter_batches(items: Sequence[Any], batch_size: int) -> Iterable[Sequence[An
         yield items[i : i + batch_size]
 
 
+def _normalize_provider_specs(
+    providers: Sequence[Any] | None,
+) -> tuple[list[str], list[dict[str, Any]]]:
+    """Split execution-provider specs into Optimum-compatible names and options."""
+    normalized_providers: list[str] = []
+    normalized_options: list[dict[str, Any]] = []
+
+    for provider in providers or ():
+        provider_name: str | None = None
+        provider_options: dict[str, Any] = {}
+
+        if isinstance(provider, tuple):
+            if provider:
+                provider_name = str(provider[0]).strip()
+            if len(provider) > 1 and isinstance(provider[1], dict):
+                provider_options = dict(provider[1])
+        elif provider is not None:
+            provider_name = str(provider).strip()
+
+        if not provider_name:
+            continue
+
+        normalized_providers.append(provider_name)
+        normalized_options.append(provider_options)
+
+    if not normalized_providers:
+        normalized_providers.append("CPUExecutionProvider")
+        normalized_options.append({})
+
+    return normalized_providers, normalized_options
+
+
 class ONNXReranker(BaseReranker):
     """Cross-encoder reranker using Optimum + ONNX Runtime with lazy loading."""
 
@@ -110,19 +142,21 @@ class ONNXReranker(BaseReranker):
                     use_gpu=self.use_gpu, with_device_options=True
                 )
 
+            provider_names, provider_options = _normalize_provider_specs(self.providers)
+
             # Some Optimum versions accept `providers`, others accept a single `provider`.
             # Prefer passing the full providers list, with a conservative fallback.
             model_kwargs: dict[str, Any] = {}
             try:
                 params = signature(ORTModelForSequenceClassification.from_pretrained).parameters
                 if "providers" in params:
-                    model_kwargs["providers"] = self.providers
+                    model_kwargs["providers"] = provider_names
+                    if "provider_options" in params:
+                        model_kwargs["provider_options"] = provider_options
                 elif "provider" in params:
-                    provider_name = "CPUExecutionProvider"
-                    if self.providers:
-                        first = self.providers[0]
-                        provider_name = first[0] if isinstance(first, tuple) else str(first)
-                    model_kwargs["provider"] = provider_name
+                    model_kwargs["provider"] = provider_names[0]
+                    if "provider_options" in params and provider_options[0]:
+                        model_kwargs["provider_options"] = provider_options[0]
             except Exception:
                 model_kwargs = {}
 

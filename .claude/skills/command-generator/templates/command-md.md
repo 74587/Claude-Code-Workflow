@@ -1,75 +1,112 @@
+# Command Template — Structural Reference
+
+This template defines the **structural pattern** for generated commands. The `draft_content` step uses this as a guide to generate concrete, domain-specific content — NOT as a literal copy target.
+
+## Required Structure
+
+```markdown
 ---
-name: {{name}}
-description: {{description}}
-{{#if argumentHint}}argument-hint: {{argumentHint}}
-{{/if}}---
+name: {$SKILL_NAME}
+description: {$DESCRIPTION}
+argument-hint: {$ARGUMENT_HINT}  # omit line if empty
+---
 
-# {{name}} Command
+<purpose>
+{2-3 concrete sentences: what it does + when invoked + what it produces}
+</purpose>
 
-## Overview
+<required_reading>
+{@ references to files this command needs before execution}
+</required_reading>
 
-[Describe the command purpose and what it does]
+<prerequisites>   <!-- include when command uses external CLI tools -->
+- {tool} ({version}+) — {what it's used for}
+</prerequisites>
 
-## Usage
+<process>
+
+<step name="parse_input" priority="first">
+**Parse arguments and validate input.**
+
+Parse `$ARGUMENTS` for:
+- {specific flags from $ARGUMENT_HINT}
+- {positional args}
+
+{Decision routing table if multiple modes:}
+| Condition | Action |
+|-----------|--------|
+| flag present | set variable |
+| missing required | Error: "message" `# (see code: E001)` + `exit 1` |
+
+</step>
+
+<step name="{domain_action_1}">
+**{Concrete action description.}**
+
+$STATE_VAR="default"  <!-- Initialize BEFORE conditional -->
 
 ```bash
-/{{#if group}}{{group}}:{{/if}}{{name}} [arguments]
+# Use heredoc for multi-line output
+cat <<EOF > output-file
+{structured content with $VARIABLES}
+EOF
+
+# Every error path: message + code ref + exit
+if [ ! -f "$REQUIRED_FILE" ]; then
+  echo "Error: Required file missing" # (see code: E003)
+  exit 1
+fi
 ```
 
-**Examples**:
-```bash
-# Example 1: Basic usage
-/{{#if group}}{{group}}:{{/if}}{{name}}
+| Condition | Action |
+|-----------|--------|
+| success | Continue to next step |
+| failure | Error `# (see code: E0XX)`, exit 1 |
+</step>
 
-# Example 2: With arguments
-/{{#if group}}{{group}}:{{/if}}{{name}} --option value
+<step name="report">
+**Format and display results.**
+
+{Banner with status, file paths, next steps}
+</step>
+
+</process>
+
+<error_codes>
+
+| Code | Severity | Description | Stage |
+|------|----------|-------------|-------|
+| E001 | error | {specific to parse_input validation} | parse_input |
+| E002 | error | {specific to domain action failure} | {step_name} |
+| W001 | warning | {specific recoverable condition} | {step_name} |
+
+<!-- Every code MUST be referenced by `# (see code: EXXX)` in <process> -->
+</error_codes>
+
+<success_criteria>
+- [ ] {Input validated}
+- [ ] {Domain action 1 completed}
+- [ ] {Domain action 2 completed}
+- [ ] {Output produced / effect applied}
+</success_criteria>
 ```
 
-## Execution Flow
+## Content Quality Rules
 
-```
-Phase 1: Input Parsing
-   - Parse arguments and flags
-   - Validate input parameters
+| Rule | Bad Example | Good Example |
+|------|-------------|--------------|
+| No bracket placeholders | `[Describe purpose]` | `Deploy to target environment with rollback on failure.` |
+| Concrete step names | `execute` | `run_deployment`, `validate_config` |
+| Specific error codes | `E001: Invalid input` | `E001: --env must be "prod" or "staging"` |
+| Verifiable criteria | `Command works` | `Deployment log written to .deploy/latest.log` |
+| Real shell commands | `# TODO: implement` | `kubectl apply -f $MANIFEST_PATH` |
 
-Phase 2: Core Processing
-   - Execute main logic
-   - Handle edge cases
+## Step Naming Conventions
 
-Phase 3: Output Generation
-   - Format results
-   - Display to user
-```
-
-## Implementation
-
-### Phase 1: Input Parsing
-
-```javascript
-// Parse command arguments
-const args = parseArguments($ARGUMENTS);
-```
-
-### Phase 2: Core Processing
-
-```javascript
-// TODO: Implement core logic
-```
-
-### Phase 3: Output Generation
-
-```javascript
-// TODO: Format and display output
-```
-
-## Error Handling
-
-| Error | Action |
-|-------|--------|
-| Invalid input | Show usage and error message |
-| Processing failure | Log error and suggest recovery |
-
-## Related Commands
-
-- [Related command 1]
-- [Related command 2]
+| Domain | Typical Steps |
+|--------|--------------|
+| Deploy/Release | `validate_config`, `run_deployment`, `verify_health`, `report` |
+| CRUD operations | `parse_input`, `validate_entity`, `persist_changes`, `report` |
+| Analysis/Review | `parse_input`, `gather_context`, `run_analysis`, `present_findings` |
+| Sync/Migration | `parse_input`, `detect_changes`, `apply_sync`, `verify_state` |
+| Build/Generate | `parse_input`, `resolve_dependencies`, `run_build`, `write_output` |

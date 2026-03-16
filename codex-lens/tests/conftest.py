@@ -11,12 +11,25 @@ Common Fixtures:
 - sample_code_files: Factory for creating sample code files
 """
 
-import pytest
-import tempfile
-import shutil
-from pathlib import Path
-from typing import Dict, Any
 import sqlite3
+import shutil
+import tempfile
+import warnings
+from pathlib import Path
+from typing import Any, Dict
+
+import pytest
+
+warnings.filterwarnings(
+    "ignore",
+    message=r"'BaseCommand' is deprecated and will be removed in Click 9\.0\..*",
+    category=DeprecationWarning,
+)
+warnings.filterwarnings(
+    "ignore",
+    message=r"The '__version__' attribute is deprecated and will be removed in Click 9\.1\..*",
+    category=DeprecationWarning,
+)
 
 
 @pytest.fixture

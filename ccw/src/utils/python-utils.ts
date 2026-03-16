@@ -3,8 +3,18 @@
  * Shared module for consistent Python discovery across the application
  */
 
-import { execSync } from 'child_process';
+import { spawnSync, type SpawnSyncOptionsWithStringEncoding } from 'child_process';
 import { EXEC_TIMEOUTS } from './exec-constants.js';
+
+export interface PythonCommandSpec {
+  command: string;
+  args: string[];
+  display: string;
+}
+
+type HiddenPythonProbeOptions = Omit<SpawnSyncOptionsWithStringEncoding, 'encoding'> & {
+  encoding?: BufferEncoding;
+};
 
 function isExecTimeoutError(error: unknown): boolean {
   const err = error as { code?: unknown; errno?: unknown; message?: unknown } | null;
@@ -12,6 +22,98 @@ function isExecTimeoutError(error: unknown): boolean {
   if (code === 'ETIMEDOUT') return true;
   const message = typeof err?.message === 'string' ? err.message : '';
   return message.includes('ETIMEDOUT');
+}
+
+function quoteCommandPart(value: string): string {
+  if (!/[\s"]/.test(value)) {
+    return value;
+  }
+  return `"${value.replaceAll('"', '\\"')}"`;
+}
+
+function formatPythonCommandDisplay(command: string, args: string[]): string {
+  return [quoteCommandPart(command), ...args.map(quoteCommandPart)].join(' ');
+}
+
+function buildPythonCommandSpec(command: string, args: string[] = []): PythonCommandSpec {
+  return {
+    command,
+    args: [...args],
+    display: formatPythonCommandDisplay(command, args),
+  };
+}
+
+function tokenizeCommandSpec(raw: string): string[] {
+  const tokens: string[] = [];
+  const tokenPattern = /"((?:\\"|[^"])*)"|(\S+)/g;
+
+  for (const match of raw.matchAll(tokenPattern)) {
+    const quoted = match[1];
+    const plain = match[2];
+    if (quoted !== undefined) {
+      tokens.push(quoted.replaceAll('\\"', '"'));
+    } else if (plain !== undefined) {
+      tokens.push(plain);
+    }
+  }
+
+  return tokens;
+}
+
+export function parsePythonCommandSpec(raw: string): PythonCommandSpec {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    throw new Error('Python command cannot be empty');
+  }
+
+  // Unquoted executable paths on Windows commonly contain spaces.
+  if (!trimmed.includes('"') && /[\\/]/.test(trimmed)) {
+    return buildPythonCommandSpec(trimmed);
+  }
+
+  const tokens = tokenizeCommandSpec(trimmed);
+  if (tokens.length === 0) {
+    return buildPythonCommandSpec(trimmed);
+  }
+
+  return buildPythonCommandSpec(tokens[0], tokens.slice(1));
+}
+
+function buildPythonProbeOptions(
+  overrides: HiddenPythonProbeOptions = {},
+): SpawnSyncOptionsWithStringEncoding {
+  const { env, encoding, ...rest } = overrides;
+  return {
+    shell: false,
+    windowsHide: true,
+    timeout: EXEC_TIMEOUTS.PYTHON_VERSION,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...env },
+    ...rest,
+    encoding: encoding ?? 'utf8',
+  };
+}
+
+export function probePythonCommandVersion(
+  pythonCommand: PythonCommandSpec,
+  runner: typeof spawnSync = spawnSync,
+): string {
+  const result = runner(
+    pythonCommand.command,
+    [...pythonCommand.args, '--version'],
+    buildPythonProbeOptions(),
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const versionOutput = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
+  if (result.status !== 0) {
+    throw new Error(versionOutput || `Python version probe exited with code ${String(result.status)}`);
+  }
+
+  return versionOutput;
 }
 
 /**
@@ -42,66 +144,72 @@ export function isPythonVersionCompatible(major: number, minor: number): boolean
  * Detect available Python 3 executable
  * Supports CCW_PYTHON environment variable for custom Python path
  * On Windows, uses py launcher to find compatible versions
- * @returns Python executable command
+ * @returns Python executable command spec
  */
-export function getSystemPython(): string {
-  // Check for user-specified Python via environment variable
-  const customPython = process.env.CCW_PYTHON;
+export function getSystemPythonCommand(runner: typeof spawnSync = spawnSync): PythonCommandSpec {
+  const customPython = process.env.CCW_PYTHON?.trim();
   if (customPython) {
+    const customSpec = parsePythonCommandSpec(customPython);
     try {
-      const version = execSync(`"${customPython}" --version 2>&1`, { encoding: 'utf8', timeout: EXEC_TIMEOUTS.PYTHON_VERSION });
+      const version = probePythonCommandVersion(customSpec, runner);
       if (version.includes('Python 3')) {
         const parsed = parsePythonVersion(version);
         if (parsed && !isPythonVersionCompatible(parsed.major, parsed.minor)) {
-          console.warn(`[Python] Warning: CCW_PYTHON points to Python ${parsed.major}.${parsed.minor}, which may not be compatible with onnxruntime (requires 3.9-3.12)`);
+          console.warn(
+            `[Python] Warning: CCW_PYTHON points to Python ${parsed.major}.${parsed.minor}, which may not be compatible with onnxruntime (requires 3.9-3.12)`,
+          );
         }
-        return `"${customPython}"`;
+        return customSpec;
       }
     } catch (err: unknown) {
       if (isExecTimeoutError(err)) {
-        console.warn(`[Python] Warning: CCW_PYTHON version check timed out after ${EXEC_TIMEOUTS.PYTHON_VERSION}ms, falling back to system Python`);
+        console.warn(
+          `[Python] Warning: CCW_PYTHON version check timed out after ${EXEC_TIMEOUTS.PYTHON_VERSION}ms, falling back to system Python`,
+        );
       } else {
-        console.warn(`[Python] Warning: CCW_PYTHON="${customPython}" is not a valid Python executable, falling back to system Python`);
+        console.warn(
+          `[Python] Warning: CCW_PYTHON="${customPython}" is not a valid Python executable, falling back to system Python`,
+        );
       }
     }
   }
 
-  // On Windows, try py launcher with specific versions first (3.12, 3.11, 3.10, 3.9)
   if (process.platform === 'win32') {
     const compatibleVersions = ['3.12', '3.11', '3.10', '3.9'];
     for (const ver of compatibleVersions) {
+      const launcherSpec = buildPythonCommandSpec('py', [`-${ver}`]);
       try {
-        const version = execSync(`py -${ver} --version 2>&1`, { encoding: 'utf8', timeout: EXEC_TIMEOUTS.PYTHON_VERSION });
+        const version = probePythonCommandVersion(launcherSpec, runner);
         if (version.includes(`Python ${ver}`)) {
           console.log(`[Python] Found compatible Python ${ver} via py launcher`);
-          return `py -${ver}`;
+          return launcherSpec;
         }
       } catch (err: unknown) {
         if (isExecTimeoutError(err)) {
-          console.warn(`[Python] Warning: py -${ver} version check timed out after ${EXEC_TIMEOUTS.PYTHON_VERSION}ms`);
+          console.warn(
+            `[Python] Warning: py -${ver} version check timed out after ${EXEC_TIMEOUTS.PYTHON_VERSION}ms`,
+          );
         }
-        // Version not installed, try next
       }
     }
   }
 
   const commands = process.platform === 'win32' ? ['python', 'py', 'python3'] : ['python3', 'python'];
-  let fallbackCmd: string | null = null;
+  let fallbackCmd: PythonCommandSpec | null = null;
   let fallbackVersion: { major: number; minor: number } | null = null;
 
   for (const cmd of commands) {
+    const pythonSpec = buildPythonCommandSpec(cmd);
     try {
-      const version = execSync(`${cmd} --version 2>&1`, { encoding: 'utf8', timeout: EXEC_TIMEOUTS.PYTHON_VERSION });
+      const version = probePythonCommandVersion(pythonSpec, runner);
       if (version.includes('Python 3')) {
         const parsed = parsePythonVersion(version);
         if (parsed) {
-          // Prefer compatible version (3.9-3.12)
           if (isPythonVersionCompatible(parsed.major, parsed.minor)) {
-            return cmd;
+            return pythonSpec;
           }
-          // Keep track of first Python 3 found as fallback
           if (!fallbackCmd) {
-            fallbackCmd = cmd;
+            fallbackCmd = pythonSpec;
             fallbackVersion = parsed;
           }
         }
@@ -110,13 +218,14 @@ export function getSystemPython(): string {
       if (isExecTimeoutError(err)) {
         console.warn(`[Python] Warning: ${cmd} --version timed out after ${EXEC_TIMEOUTS.PYTHON_VERSION}ms`);
       }
-      // Try next command
     }
   }
 
-  // If no compatible version found, use fallback with warning
   if (fallbackCmd && fallbackVersion) {
-    console.warn(`[Python] Warning: Only Python ${fallbackVersion.major}.${fallbackVersion.minor} found, which may not be compatible with onnxruntime (requires 3.9-3.12).`);
+    console.warn(
+      `[Python] Warning: Only Python ${fallbackVersion.major}.${fallbackVersion.minor} found, which may not be compatible with onnxruntime (requires 3.9-3.12).`,
+    );
+    console.warn('[Python] Semantic search may fail with ImportError for onnxruntime.');
     console.warn('[Python] To use a specific Python version, set CCW_PYTHON environment variable:');
     console.warn('  Windows: set CCW_PYTHON=C:\\path\\to\\python.exe');
     console.warn('  Unix: export CCW_PYTHON=/path/to/python3.11');
@@ -124,7 +233,19 @@ export function getSystemPython(): string {
     return fallbackCmd;
   }
 
-  throw new Error('Python 3 not found. Please install Python 3.9-3.12 and ensure it is in PATH, or set CCW_PYTHON environment variable.');
+  throw new Error(
+    'Python 3 not found. Please install Python 3.9-3.12 and ensure it is in PATH, or set CCW_PYTHON environment variable.',
+  );
+}
+
+/**
+ * Detect available Python 3 executable
+ * Supports CCW_PYTHON environment variable for custom Python path
+ * On Windows, uses py launcher to find compatible versions
+ * @returns Python executable command
+ */
+export function getSystemPython(): string {
+  return getSystemPythonCommand().display;
 }
 
 /**
@@ -135,6 +256,14 @@ export function getPipCommand(): { pythonCmd: string; pipArgs: string[] } {
   const pythonCmd = getSystemPython();
   return {
     pythonCmd,
-    pipArgs: ['-m', 'pip']
+    pipArgs: ['-m', 'pip'],
   };
 }
+
+export const __testables = {
+  buildPythonCommandSpec,
+  buildPythonProbeOptions,
+  formatPythonCommandDisplay,
+  parsePythonCommandSpec,
+  probePythonCommandVersion,
+};

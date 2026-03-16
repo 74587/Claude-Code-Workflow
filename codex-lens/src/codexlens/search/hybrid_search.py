@@ -7,6 +7,7 @@ results via Reciprocal Rank Fusion (RRF) algorithm.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 from contextlib import contextmanager
@@ -34,19 +35,21 @@ from codexlens.config import Config
 from codexlens.config import VECTORS_HNSW_NAME
 from codexlens.entities import SearchResult
 from codexlens.search.ranking import (
-    DEFAULT_WEIGHTS,
+    DEFAULT_WEIGHTS as RANKING_DEFAULT_WEIGHTS,
     QueryIntent,
     apply_symbol_boost,
     cross_encoder_rerank,
     detect_query_intent,
     filter_results_by_category,
     get_rrf_weights,
+    query_prefers_lexical_search,
     reciprocal_rank_fusion,
     rerank_results,
     simple_weighted_fusion,
     tag_search_source,
 )
 from codexlens.storage.dir_index import DirIndexStore
+from codexlens.storage.index_filters import filter_index_paths
 
 # Optional LSP imports (for real-time graph expansion)
 try:
@@ -67,8 +70,13 @@ class HybridSearchEngine:
         default_weights: Default RRF weights for each source
     """
 
-    # NOTE: DEFAULT_WEIGHTS imported from ranking.py - single source of truth
-    # FTS + vector hybrid mode (exact: 0.3, fuzzy: 0.1, vector: 0.6)
+    # Public compatibility contract for callers/tests that expect the legacy
+    # three-backend defaults on the engine instance.
+    DEFAULT_WEIGHTS = {
+        "exact": 0.3,
+        "fuzzy": 0.1,
+        "vector": 0.6,
+    }
 
     def __init__(
         self,
@@ -95,11 +103,172 @@ class HybridSearchEngine:
                 f"Did you mean to pass index_path to search() instead of __init__()?"
             )
 
-        self.weights = weights or DEFAULT_WEIGHTS.copy()
+        self.weights = weights
         self._config = config
         self.embedder = embedder
         self.reranker: Any = None
         self._use_gpu = config.embedding_use_gpu if config else True
+        self._centralized_cache_lock = threading.RLock()
+        self._centralized_model_config_cache: Dict[str, Any] = {}
+        self._centralized_embedder_cache: Dict[tuple[Any, ...], Any] = {}
+        self._centralized_ann_cache: Dict[tuple[str, int], Any] = {}
+        self._centralized_query_embedding_cache: Dict[tuple[Any, ...], Any] = {}
+
+    @property
+    def weights(self) -> Dict[str, float]:
+        """Public/default weights exposed for backwards compatibility."""
+        return dict(self._weights)
+
+    @weights.setter
+    def weights(self, value: Optional[Dict[str, float]]) -> None:
+        """Update public and internal fusion weights together."""
+        if value is None:
+            public_weights = self.DEFAULT_WEIGHTS.copy()
+            fusion_weights = dict(RANKING_DEFAULT_WEIGHTS)
+            fusion_weights.update(public_weights)
+        else:
+            if not isinstance(value, dict):
+                raise TypeError(f"weights must be a dict, got {type(value).__name__}")
+            public_weights = dict(value)
+            fusion_weights = dict(value)
+
+        self._weights = public_weights
+        self._fusion_weights = fusion_weights
+
+    @staticmethod
+    def _clamp_search_score(score: float) -> float:
+        """Keep ANN-derived similarity scores within SearchResult's valid domain."""
+
+        return max(0.0, float(score))
+
+    def _get_centralized_model_config(self, index_root: Path) -> Optional[Dict[str, Any]]:
+        """Load and cache the centralized embedding model config for an index root."""
+        root_key = str(Path(index_root).resolve())
+
+        with self._centralized_cache_lock:
+            if root_key in self._centralized_model_config_cache:
+                cached = self._centralized_model_config_cache[root_key]
+                return dict(cached) if isinstance(cached, dict) else None
+
+        model_config: Optional[Dict[str, Any]] = None
+        try:
+            from codexlens.semantic.vector_store import VectorStore
+
+            central_index_path = Path(root_key) / "_index.db"
+            if central_index_path.exists():
+                with VectorStore(central_index_path) as vs:
+                    loaded = vs.get_model_config()
+                if isinstance(loaded, dict):
+                    model_config = dict(loaded)
+                self.logger.debug(
+                    "Loaded model config from centralized index: %s",
+                    model_config,
+                )
+        except Exception as exc:
+            self.logger.debug(
+                "Failed to load model config from centralized index: %s",
+                exc,
+            )
+
+        with self._centralized_cache_lock:
+            self._centralized_model_config_cache[root_key] = (
+                dict(model_config) if isinstance(model_config, dict) else None
+            )
+
+        return dict(model_config) if isinstance(model_config, dict) else None
+
+    def _get_centralized_embedder(
+        self,
+        model_config: Optional[Dict[str, Any]],
+    ) -> tuple[Any, int, tuple[Any, ...]]:
+        """Resolve and cache the embedder used for centralized vector search."""
+        from codexlens.semantic.factory import get_embedder
+
+        backend = "fastembed"
+        model_name: Optional[str] = None
+        model_profile = "code"
+        use_gpu = bool(self._use_gpu)
+        embedding_dim: Optional[int] = None
+
+        if model_config:
+            backend = str(model_config.get("backend", "fastembed") or "fastembed")
+            model_name = model_config.get("model_name")
+            model_profile = str(model_config.get("model_profile", "code") or "code")
+            raw_dim = model_config.get("embedding_dim")
+            embedding_dim = int(raw_dim) if raw_dim else None
+
+        if backend == "litellm":
+            embedder_key: tuple[Any, ...] = ("litellm", model_name or "", None)
+        else:
+            embedder_key = ("fastembed", model_profile, use_gpu)
+
+        with self._centralized_cache_lock:
+            cached = self._centralized_embedder_cache.get(embedder_key)
+        if cached is None:
+            if backend == "litellm":
+                cached = get_embedder(backend="litellm", model=model_name)
+            else:
+                cached = get_embedder(
+                    backend="fastembed",
+                    profile=model_profile,
+                    use_gpu=use_gpu,
+                )
+            with self._centralized_cache_lock:
+                existing = self._centralized_embedder_cache.get(embedder_key)
+                if existing is None:
+                    self._centralized_embedder_cache[embedder_key] = cached
+                else:
+                    cached = existing
+
+        if embedding_dim is None:
+            embedding_dim = int(getattr(cached, "embedding_dim", 0) or 0)
+
+        return cached, embedding_dim, embedder_key
+
+    def _get_centralized_ann_index(self, index_root: Path, dim: int) -> Any:
+        """Load and cache a centralized ANN index for repeated searches."""
+        from codexlens.semantic.ann_index import ANNIndex
+
+        resolved_root = Path(index_root).resolve()
+        cache_key = (str(resolved_root), int(dim))
+
+        with self._centralized_cache_lock:
+            cached = self._centralized_ann_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        ann_index = ANNIndex.create_central(index_root=resolved_root, dim=int(dim))
+        if not ann_index.load():
+            return None
+
+        with self._centralized_cache_lock:
+            existing = self._centralized_ann_cache.get(cache_key)
+            if existing is None:
+                self._centralized_ann_cache[cache_key] = ann_index
+                return ann_index
+            return existing
+
+    def _get_cached_query_embedding(
+        self,
+        query: str,
+        embedder: Any,
+        embedder_key: tuple[Any, ...],
+    ) -> Any:
+        """Cache repeated query embeddings for the same embedder settings."""
+        cache_key = embedder_key + (query,)
+
+        with self._centralized_cache_lock:
+            cached = self._centralized_query_embedding_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        query_embedding = embedder.embed_single(query)
+        with self._centralized_cache_lock:
+            existing = self._centralized_query_embedding_cache.get(cache_key)
+            if existing is None:
+                self._centralized_query_embedding_cache[cache_key] = query_embedding
+                return query_embedding
+            return existing
 
     def search(
         self,
@@ -154,6 +323,7 @@ class HybridSearchEngine:
 
         # Detect query intent early for category filtering at index level
         query_intent = detect_query_intent(query)
+        lexical_priority_query = query_prefers_lexical_search(query)
         # Map intent to category for vector search:
         # - KEYWORD (code intent) -> filter to 'code' only
         # - SEMANTIC (doc intent) -> no filter (allow docs to surface)
@@ -182,11 +352,11 @@ class HybridSearchEngine:
             backends["exact"] = True
             if enable_fuzzy:
                 backends["fuzzy"] = True
-            if enable_vector:
+            if enable_vector and not lexical_priority_query:
                 backends["vector"] = True
 
         # Add LSP graph expansion if requested and available
-        if enable_lsp_graph and HAS_LSP:
+        if enable_lsp_graph and HAS_LSP and not lexical_priority_query:
             backends["lsp_graph"] = True
         elif enable_lsp_graph and not HAS_LSP:
             self.logger.warning(
@@ -214,7 +384,7 @@ class HybridSearchEngine:
         # Filter weights to only active backends
         active_weights = {
             source: weight
-            for source, weight in self.weights.items()
+            for source, weight in self._fusion_weights.items()
             if source in results_map
         }
 
@@ -247,10 +417,16 @@ class HybridSearchEngine:
             )
 
         # Optional: embedding-based reranking on top results
-        if self._config is not None and self._config.enable_reranking:
+        if (
+            self._config is not None
+            and self._config.enable_reranking
+            and not lexical_priority_query
+        ):
             with timer("reranking", self.logger):
                 if self.embedder is None:
-                    self.embedder = self._get_reranking_embedder()
+                    with self._centralized_cache_lock:
+                        if self.embedder is None:
+                            self.embedder = self._get_reranking_embedder()
                 fused_results = rerank_results(
                     query,
                     fused_results[:100],
@@ -267,10 +443,13 @@ class HybridSearchEngine:
             self._config is not None
             and self._config.enable_reranking
             and self._config.enable_cross_encoder_rerank
+            and not lexical_priority_query
         ):
             with timer("cross_encoder_rerank", self.logger):
                 if self.reranker is None:
-                    self.reranker = self._get_cross_encoder_reranker()
+                    with self._centralized_cache_lock:
+                        if self.reranker is None:
+                            self.reranker = self._get_cross_encoder_reranker()
                 if self.reranker is not None:
                     fused_results = cross_encoder_rerank(
                         query,
@@ -363,11 +542,18 @@ class HybridSearchEngine:
 
             device: str | None = None
             kwargs: dict[str, Any] = {}
+            reranker_use_gpu = bool(
+                getattr(
+                    self._config,
+                    "reranker_use_gpu",
+                    getattr(self._config, "embedding_use_gpu", True),
+                )
+            )
 
             if backend == "onnx":
-                kwargs["use_gpu"] = bool(getattr(self._config, "embedding_use_gpu", True))
+                kwargs["use_gpu"] = reranker_use_gpu
             elif backend == "legacy":
-                if not bool(getattr(self._config, "embedding_use_gpu", True)):
+                if not reranker_use_gpu:
                     device = "cpu"
             elif backend == "api":
                 # Pass max_input_tokens for adaptive batching
@@ -573,60 +759,16 @@ class HybridSearchEngine:
             List of SearchResult objects ordered by semantic similarity
         """
         try:
-            import sqlite3
-            import json
-            from codexlens.semantic.factory import get_embedder
-            from codexlens.semantic.ann_index import ANNIndex
-
-            # Get model config from the first index database we can find
-            # (all indexes should use the same embedding model)
             index_root = hnsw_path.parent
-            model_config = None
-
-            # Try to get model config from the centralized index root first
-            # (not the sub-directory index_path, which may have outdated config)
-            try:
-                from codexlens.semantic.vector_store import VectorStore
-                central_index_path = index_root / "_index.db"
-                if central_index_path.exists():
-                    with VectorStore(central_index_path) as vs:
-                        model_config = vs.get_model_config()
-                    self.logger.debug(
-                        "Loaded model config from centralized index: %s",
-                        model_config
-                    )
-            except Exception as e:
-                self.logger.debug("Failed to load model config from centralized index: %s", e)
-
-            # Detect dimension from HNSW file if model config not found
+            model_config = self._get_centralized_model_config(index_root)
             if model_config is None:
-                self.logger.debug("Model config not found, will detect from HNSW index")
-                # Create a temporary ANNIndex to load and detect dimension
-                # We need to know the dimension to properly load the index
-
-            # Get embedder based on model config or default
-            if model_config:
-                backend = model_config.get("backend", "fastembed")
-                model_name = model_config["model_name"]
-                model_profile = model_config["model_profile"]
-                embedding_dim = model_config["embedding_dim"]
-
-                if backend == "litellm":
-                    embedder = get_embedder(backend="litellm", model=model_name)
-                else:
-                    embedder = get_embedder(backend="fastembed", profile=model_profile)
-            else:
-                # Default to code profile
-                embedder = get_embedder(backend="fastembed", profile="code")
-                embedding_dim = embedder.embedding_dim
+                self.logger.debug("Model config not found, will detect from cached embedder")
+            embedder, embedding_dim, embedder_key = self._get_centralized_embedder(model_config)
 
             # Load centralized ANN index
             start_load = time.perf_counter()
-            ann_index = ANNIndex.create_central(
-                index_root=index_root,
-                dim=embedding_dim,
-            )
-            if not ann_index.load():
+            ann_index = self._get_centralized_ann_index(index_root=index_root, dim=embedding_dim)
+            if ann_index is None:
                 self.logger.warning("Failed to load centralized vector index from %s", hnsw_path)
                 return []
             self.logger.debug(
@@ -637,7 +779,7 @@ class HybridSearchEngine:
 
             # Generate query embedding
             start_embed = time.perf_counter()
-            query_embedding = embedder.embed_single(query)
+            query_embedding = self._get_cached_query_embedding(query, embedder, embedder_key)
             self.logger.debug(
                 "[TIMING] query_embedding: %.2fms",
                 (time.perf_counter() - start_embed) * 1000
@@ -658,7 +800,7 @@ class HybridSearchEngine:
                 return []
 
             # Convert distances to similarity scores (for cosine: score = 1 - distance)
-            scores = [1.0 - d for d in distances]
+            scores = [self._clamp_search_score(1.0 - d) for d in distances]
 
             # Fetch chunk metadata from semantic_chunks tables
             # We need to search across all _index.db files in the project
@@ -755,7 +897,7 @@ class HybridSearchEngine:
                 start_line = row.get("start_line")
                 end_line = row.get("end_line")
 
-                score = score_map.get(chunk_id, 0.0)
+                score = self._clamp_search_score(score_map.get(chunk_id, 0.0))
 
                 # Build excerpt
                 excerpt = content[:200] + "..." if len(content) > 200 else content
@@ -818,7 +960,7 @@ class HybridSearchEngine:
         import json
 
         # Find all _index.db files
-        index_files = list(index_root.rglob("_index.db"))
+        index_files = filter_index_paths(index_root.rglob("_index.db"), index_root)
 
         results = []
         found_ids = set()
@@ -870,7 +1012,7 @@ class HybridSearchEngine:
                         metadata_json = row["metadata"]
                         metadata = json.loads(metadata_json) if metadata_json else {}
 
-                        score = score_map.get(chunk_id, 0.0)
+                        score = self._clamp_search_score(score_map.get(chunk_id, 0.0))
 
                         # Build excerpt
                         excerpt = content[:200] + "..." if len(content) > 200 else content

@@ -383,8 +383,37 @@ class ANNIndex:
                 if self._index is None or self._current_count == 0:
                     return [], []  # Empty index
 
-                # Perform kNN search
-                labels, distances = self._index.knn_query(query, k=top_k)
+                effective_k = min(max(int(top_k), 0), self._current_count)
+                if effective_k == 0:
+                    return [], []
+
+                try:
+                    self._index.set_ef(max(self.ef, effective_k))
+                except Exception:
+                    pass
+
+                while True:
+                    try:
+                        labels, distances = self._index.knn_query(query, k=effective_k)
+                        break
+                    except Exception as exc:
+                        if "contiguous 2D array" in str(exc) and effective_k > 1:
+                            next_k = max(1, effective_k // 2)
+                            logger.debug(
+                                "ANN search knn_query failed for k=%d; retrying with k=%d: %s",
+                                effective_k,
+                                next_k,
+                                exc,
+                            )
+                            if next_k == effective_k:
+                                raise
+                            effective_k = next_k
+                            try:
+                                self._index.set_ef(max(self.ef, effective_k))
+                            except Exception:
+                                pass
+                            continue
+                        raise
 
                 # Convert to lists and flatten (knn_query returns 2D arrays)
                 ids = labels[0].tolist()

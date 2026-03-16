@@ -12,7 +12,7 @@
 import { spawn } from 'child_process';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { getCodexLensPython, getCodexLensVenvDir } from '../utils/codexlens-path.js';
+import { getCodexLensPython, getCodexLensHiddenPython, getCodexLensVenvDir } from '../utils/codexlens-path.js';
 
 export interface LiteLLMConfig {
   pythonPath?: string;  // Default: CodexLens venv Python
@@ -24,7 +24,7 @@ export interface LiteLLMConfig {
 const IS_WINDOWS = process.platform === 'win32';
 const CODEXLENS_VENV = getCodexLensVenvDir();
 const VENV_BIN_DIR = IS_WINDOWS ? 'Scripts' : 'bin';
-const PYTHON_EXECUTABLE = IS_WINDOWS ? 'python.exe' : 'python';
+const PYTHON_EXECUTABLE = IS_WINDOWS ? 'pythonw.exe' : 'python';
 
 /**
  * Get the Python path from CodexLens venv
@@ -36,6 +36,10 @@ export function getCodexLensVenvPython(): string {
   if (existsSync(venvPython)) {
     return venvPython;
   }
+  const hiddenPython = getCodexLensHiddenPython();
+  if (existsSync(hiddenPython)) {
+    return hiddenPython;
+  }
   // Fallback to system Python if venv not available
   return 'python';
 }
@@ -46,9 +50,13 @@ export function getCodexLensVenvPython(): string {
  * @returns Path to Python executable
  */
 export function getCodexLensPythonPath(): string {
-  const codexLensPython = getCodexLensPython();
+  const codexLensPython = getCodexLensHiddenPython();
   if (existsSync(codexLensPython)) {
     return codexLensPython;
+  }
+  const fallbackPython = getCodexLensPython();
+  if (existsSync(fallbackPython)) {
+    return fallbackPython;
   }
   // Fallback to system Python if venv not available
   return 'python';
@@ -100,8 +108,10 @@ export class LiteLLMClient {
 
     return new Promise((resolve, reject) => {
       const proc = spawn(this.pythonPath, ['-m', 'ccw_litellm.cli', ...args], {
+        shell: false,
+        windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env }
+        env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
       });
 
       let stdout = '';

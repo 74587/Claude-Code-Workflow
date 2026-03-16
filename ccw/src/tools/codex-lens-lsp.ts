@@ -13,10 +13,10 @@ import type { ToolSchema, ToolResult } from '../types/tool.js';
 import { spawn } from 'child_process';
 import { join } from 'path';
 import { getProjectRoot } from '../utils/path-validator.js';
-import { getCodexLensPython } from '../utils/codexlens-path.js';
+import { getCodexLensHiddenPython } from '../utils/codexlens-path.js';
 
 // CodexLens venv configuration
-const CODEXLENS_VENV = getCodexLensPython();
+const CODEXLENS_VENV = getCodexLensHiddenPython();
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
@@ -122,8 +122,11 @@ except Exception as e:
 `;
 
     const child = spawn(CODEXLENS_VENV, ['-c', pythonScript], {
+      shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout,
+      windowsHide: true,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
 
     let stdout = '';

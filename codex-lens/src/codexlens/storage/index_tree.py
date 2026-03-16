@@ -252,6 +252,18 @@ class IndexTreeBuilder:
         # Collect directories by depth
         dirs_by_depth = self._collect_dirs_by_depth(source_root, languages)
 
+        if force_full:
+            pruned_dirs = self._prune_stale_project_dirs(
+                project_id=project_info.id,
+                source_root=source_root,
+                dirs_by_depth=dirs_by_depth,
+            )
+            if pruned_dirs:
+                self.logger.info(
+                    "Pruned %d stale directory mappings before full rebuild",
+                    len(pruned_dirs),
+                )
+
         if not dirs_by_depth:
             self.logger.warning("No indexable directories found in %s", source_root)
             if global_index is not None:
@@ -450,6 +462,52 @@ class IndexTreeBuilder:
 
     # === Internal Methods ===
 
+    def _prune_stale_project_dirs(
+        self,
+        *,
+        project_id: int,
+        source_root: Path,
+        dirs_by_depth: Dict[int, List[Path]],
+    ) -> List[Path]:
+        """Remove registry mappings for directories no longer included in the index tree."""
+        source_root = source_root.resolve()
+        valid_dirs: Set[Path] = {
+            path.resolve()
+            for paths in dirs_by_depth.values()
+            for path in paths
+        }
+        valid_dirs.add(source_root)
+
+        stale_mappings = []
+        for mapping in self.registry.get_project_dirs(project_id):
+            mapping_path = mapping.source_path.resolve()
+            if mapping_path in valid_dirs:
+                continue
+            try:
+                mapping_path.relative_to(source_root)
+            except ValueError:
+                continue
+            stale_mappings.append(mapping)
+
+        stale_mappings.sort(
+            key=lambda mapping: len(mapping.source_path.resolve().relative_to(source_root).parts),
+            reverse=True,
+        )
+
+        pruned_paths: List[Path] = []
+        for mapping in stale_mappings:
+            try:
+                if self.registry.unregister_dir(mapping.source_path):
+                    pruned_paths.append(mapping.source_path.resolve())
+            except Exception as exc:
+                self.logger.warning(
+                    "Failed to prune stale mapping for %s: %s",
+                    mapping.source_path,
+                    exc,
+                )
+
+        return pruned_paths
+
     def _collect_dirs_by_depth(
         self, source_root: Path, languages: List[str] = None
     ) -> Dict[int, List[Path]]:
@@ -620,8 +678,9 @@ class IndexTreeBuilder:
             "static_graph_enabled": self.config.static_graph_enabled,
             "static_graph_relationship_types": self.config.static_graph_relationship_types,
             "use_astgrep": getattr(self.config, "use_astgrep", False),
-            "ignore_patterns": list(getattr(self.config, "ignore_patterns", [])),
-            "extension_filters": list(getattr(self.config, "extension_filters", [])),
+            "ignore_patterns": list(self.ignore_patterns),
+            "extension_filters": list(self.extension_filters),
+            "incremental": bool(self.incremental),
         }
 
         worker_args = [
@@ -692,6 +751,9 @@ class IndexTreeBuilder:
         try:
             # Ensure index directory exists
             index_db_path.parent.mkdir(parents=True, exist_ok=True)
+
+            if not self.incremental:
+                _reset_index_db_files(index_db_path)
 
             # Create directory index
             if self.config.global_symbol_index_enabled:
@@ -1100,6 +1162,18 @@ def _matches_extension_filters(path: Path, patterns: List[str], source_root: Opt
     return _matches_path_patterns(path, patterns, source_root)
 
 
+def _reset_index_db_files(index_db_path: Path) -> None:
+    """Best-effort removal of a directory index DB and common SQLite sidecars."""
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        target = Path(f"{index_db_path}{suffix}") if suffix else index_db_path
+        try:
+            target.unlink()
+        except FileNotFoundError:
+            continue
+        except OSError:
+            continue
+
+
 def _build_dir_worker(args: tuple) -> DirBuildResult:
     """Worker function for parallel directory building.
 
@@ -1139,6 +1213,9 @@ def _build_dir_worker(args: tuple) -> DirBuildResult:
         if config.global_symbol_index_enabled and global_index_db_path:
             global_index = GlobalSymbolIndex(Path(global_index_db_path), project_id=int(project_id))
             global_index.initialize()
+
+        if not bool(config_dict.get("incremental", True)):
+            _reset_index_db_files(index_db_path)
 
         store = DirIndexStore(index_db_path, config=config, global_index=global_index)
         store.initialize()

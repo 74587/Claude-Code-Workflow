@@ -1532,6 +1532,197 @@ export function closeAllStores(): void {
   storeCache.clear();
 }
 
+function collectHistoryDatabasePaths(): string[] {
+  const projectsDir = join(getCCWHome(), 'projects');
+  if (!existsSync(projectsDir)) {
+    return [];
+  }
+
+  const historyDbPaths: string[] = [];
+  const visitedDirs = new Set<string>();
+  const skipDirs = new Set(['cache', 'cli-history', 'config', 'memory']);
+
+  function scanDirectory(dir: string): void {
+    const resolvedDir = resolve(dir);
+    if (visitedDirs.has(resolvedDir)) {
+      return;
+    }
+    visitedDirs.add(resolvedDir);
+
+    const historyDb = join(resolvedDir, 'cli-history', 'history.db');
+    if (existsSync(historyDb)) {
+      historyDbPaths.push(historyDb);
+    }
+
+    try {
+      const entries = readdirSync(resolvedDir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory() || skipDirs.has(entry.name)) {
+          continue;
+        }
+        scanDirectory(join(resolvedDir, entry.name));
+      }
+    } catch {
+      // Ignore unreadable directories during best-effort global scans.
+    }
+  }
+
+  scanDirectory(projectsDir);
+  return historyDbPaths;
+}
+
+function getConversationLocationColumns(db: Database.Database): {
+  projectRootSelect: string;
+  relativePathSelect: string;
+} {
+  const tableInfo = db.prepare(`PRAGMA table_info(conversations)`).all() as Array<{ name: string }>;
+  const hasProjectRoot = tableInfo.some(col => col.name === 'project_root');
+  const hasRelativePath = tableInfo.some(col => col.name === 'relative_path');
+
+  return {
+    projectRootSelect: hasProjectRoot ? 'c.project_root AS project_root' : `'' AS project_root`,
+    relativePathSelect: hasRelativePath ? 'c.relative_path AS relative_path' : `'' AS relative_path`
+  };
+}
+
+function normalizeHistoryTimestamp(updatedAt: unknown, createdAt: unknown): number {
+  const parsedUpdatedAt = typeof updatedAt === 'string' ? Date.parse(updatedAt) : NaN;
+  if (!Number.isNaN(parsedUpdatedAt)) {
+    return parsedUpdatedAt;
+  }
+
+  const parsedCreatedAt = typeof createdAt === 'string' ? Date.parse(createdAt) : NaN;
+  return Number.isNaN(parsedCreatedAt) ? 0 : parsedCreatedAt;
+}
+
+export function getRegisteredExecutionHistory(options: {
+  limit?: number;
+  offset?: number;
+  tool?: string | null;
+  status?: string | null;
+  category?: ExecutionCategory | null;
+} = {}): {
+  total: number;
+  count: number;
+  executions: (HistoryIndexEntry & { sourceDir?: string })[];
+} {
+  const {
+    limit = 50,
+    offset = 0,
+    tool = null,
+    status = null,
+    category = null
+  } = options;
+
+  const perStoreLimit = Math.max(limit + offset, limit, 1);
+  const allExecutions: (HistoryIndexEntry & { sourceDir?: string })[] = [];
+  let totalCount = 0;
+
+  for (const historyDb of collectHistoryDatabasePaths()) {
+    let db: Database.Database | null = null;
+    try {
+      db = new Database(historyDb, { readonly: true });
+      const { projectRootSelect, relativePathSelect } = getConversationLocationColumns(db);
+
+      let whereClause = '1=1';
+      const params: Record<string, string | number> = { limit: perStoreLimit };
+
+      if (tool) {
+        whereClause += ' AND c.tool = @tool';
+        params.tool = tool;
+      }
+
+      if (status) {
+        whereClause += ' AND c.latest_status = @status';
+        params.status = status;
+      }
+
+      if (category) {
+        whereClause += ' AND c.category = @category';
+        params.category = category;
+      }
+
+      const countRow = db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM conversations c
+        WHERE ${whereClause}
+      `).get(params) as { count?: number } | undefined;
+      totalCount += countRow?.count || 0;
+
+      const rows = db.prepare(`
+        SELECT
+          c.id,
+          c.created_at AS timestamp,
+          c.updated_at,
+          c.tool,
+          c.latest_status AS status,
+          c.category,
+          c.total_duration_ms AS duration_ms,
+          c.turn_count,
+          c.prompt_preview,
+          ${projectRootSelect},
+          ${relativePathSelect}
+        FROM conversations c
+        WHERE ${whereClause}
+        ORDER BY c.updated_at DESC
+        LIMIT @limit
+      `).all(params) as Array<{
+        id: string;
+        timestamp: string;
+        updated_at?: string;
+        tool: string;
+        status: string;
+        category?: ExecutionCategory;
+        duration_ms: number;
+        turn_count?: number;
+        prompt_preview: unknown;
+        project_root?: string;
+        relative_path?: string;
+      }>;
+
+      for (const row of rows) {
+        allExecutions.push({
+          id: row.id,
+          timestamp: row.timestamp,
+          updated_at: row.updated_at,
+          tool: row.tool,
+          status: row.status,
+          category: row.category || 'user',
+          duration_ms: row.duration_ms,
+          turn_count: row.turn_count,
+          prompt_preview: typeof row.prompt_preview === 'string'
+            ? row.prompt_preview
+            : (row.prompt_preview ? JSON.stringify(row.prompt_preview) : ''),
+          sourceDir: row.project_root || row.relative_path || undefined
+        });
+      }
+    } catch {
+      // Skip databases that are unavailable or incompatible.
+    } finally {
+      db?.close();
+    }
+  }
+
+  allExecutions.sort((a, b) => normalizeHistoryTimestamp(b.updated_at, b.timestamp) - normalizeHistoryTimestamp(a.updated_at, a.timestamp));
+
+  const dedupedExecutions: (HistoryIndexEntry & { sourceDir?: string })[] = [];
+  const seenIds = new Set<string>();
+  for (const execution of allExecutions) {
+    if (seenIds.has(execution.id)) {
+      continue;
+    }
+    seenIds.add(execution.id);
+    dedupedExecutions.push(execution);
+  }
+
+  const pagedExecutions = dedupedExecutions.slice(offset, offset + limit);
+  return {
+    total: dedupedExecutions.length || totalCount,
+    count: pagedExecutions.length,
+    executions: pagedExecutions
+  };
+}
+
 /**
  * Find project path that contains the given execution
  * Searches upward through parent directories and all registered projects
@@ -1579,43 +1770,28 @@ export function findProjectWithExecution(
 
   // Strategy 2: Search in all registered projects (global search)
   // This covers cases where execution might be in a completely different project tree
-  const projectsDir = join(getCCWHome(), 'projects');
-  if (existsSync(projectsDir)) {
+  for (const historyDb of collectHistoryDatabasePaths()) {
+    let db: Database.Database | null = null;
     try {
-      const entries = readdirSync(projectsDir, { withFileTypes: true });
+      db = new Database(historyDb, { readonly: true });
+      const { projectRootSelect } = getConversationLocationColumns(db);
+      const row = db.prepare(`
+        SELECT ${projectRootSelect}
+        FROM conversations c
+        WHERE c.id = ?
+        LIMIT 1
+      `).get(conversationId) as { project_root?: string } | undefined;
 
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-
-        const projectId = entry.name;
-        const historyDb = join(projectsDir, projectId, 'cli-history', 'history.db');
-
-        if (!existsSync(historyDb)) continue;
-
-        try {
-          // Open and query this database directly
-          const db = new Database(historyDb, { readonly: true });
-          const turn = db.prepare(`
-            SELECT * FROM turns
-            WHERE conversation_id = ?
-            ORDER BY turn_number DESC
-            LIMIT 1
-          `).get(conversationId);
-
-          db.close();
-
-          if (turn) {
-            // Found in this project - return the projectId
-            // Note: projectPath is set to projectId since we don't have the original path stored
-            return { projectPath: projectId, projectId };
-          }
-        } catch {
-          // Skip this database (might be corrupted or locked)
-          continue;
-        }
+      if (row?.project_root) {
+        return {
+          projectPath: row.project_root,
+          projectId: getProjectId(row.project_root)
+        };
       }
     } catch {
-      // Failed to read projects directory
+      // Skip this database (might be corrupted or locked)
+    } finally {
+      db?.close();
     }
   }
 

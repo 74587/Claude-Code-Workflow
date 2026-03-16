@@ -123,6 +123,39 @@ describe('ccw cli output --final', async () => {
     }
   });
 
+  it('loads cached output from another registered project without --project', async () => {
+    const projectRoot = createTestProjectRoot();
+    const unrelatedCwd = createTestProjectRoot();
+    const previousCwd = process.cwd();
+    const store = new historyStoreModule.CliHistoryStore(projectRoot);
+
+    try {
+      store.saveConversation(createConversation({
+        id: 'EXEC-CROSS-PROJECT-OUTPUT',
+        stdoutFull: 'cross project raw output',
+        parsedOutput: 'cross project parsed output',
+        finalOutput: 'cross project final output',
+      }));
+
+      process.chdir(unrelatedCwd);
+
+      const logs = [];
+      mock.method(console, 'log', (...args) => {
+        logs.push(args.map(String).join(' '));
+      });
+      mock.method(console, 'error', () => {});
+
+      await cliModule.cliCommand('output', ['EXEC-CROSS-PROJECT-OUTPUT'], {});
+
+      assert.equal(logs.at(-1), 'cross project final output');
+    } finally {
+      process.chdir(previousCwd);
+      store.close();
+      rmSync(projectRoot, { recursive: true, force: true });
+      rmSync(unrelatedCwd, { recursive: true, force: true });
+    }
+  });
+
   it('fails fast for explicit --final when no final agent result can be recovered', async () => {
     const projectRoot = createTestProjectRoot();
     const store = new historyStoreModule.CliHistoryStore(projectRoot);
@@ -156,6 +189,36 @@ describe('ccw cli output --final', async () => {
       assert.ok(errors.some((line) => line.includes('No final agent result found in cached output.')));
     } finally {
       store.close();
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('prints CCW execution ID guidance when output cannot find the requested execution', async () => {
+    const projectRoot = createTestProjectRoot();
+    const previousCwd = process.cwd();
+
+    try {
+      process.chdir(projectRoot);
+
+      const errors = [];
+      const exitCodes = [];
+
+      mock.method(console, 'log', () => {});
+      mock.method(console, 'error', (...args) => {
+        errors.push(args.map(String).join(' '));
+      });
+      mock.method(process, 'exit', (code) => {
+        exitCodes.push(code);
+      });
+
+      await cliModule.cliCommand('output', ['rebuttal-structure-analysis'], {});
+
+      assert.deepEqual(exitCodes, [1]);
+      assert.ok(errors.some((line) => line.includes('real CCW execution ID')));
+      assert.ok(errors.some((line) => line.includes('CCW_EXEC_ID')));
+      assert.ok(errors.some((line) => line.includes('ccw cli show or ccw cli history')));
+    } finally {
+      process.chdir(previousCwd);
       rmSync(projectRoot, { recursive: true, force: true });
     }
   });

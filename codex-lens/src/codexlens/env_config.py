@@ -23,6 +23,7 @@ ENV_VARS = {
     # Reranker configuration (overrides settings.json)
     "RERANKER_MODEL": "Reranker model name (overrides settings.json)",
     "RERANKER_BACKEND": "Reranker backend: fastembed, onnx, api, litellm, legacy",
+    "RERANKER_USE_GPU": "Use GPU for local reranker backends: true/false",
     "RERANKER_ENABLED": "Enable reranker: true/false",
     "RERANKER_API_KEY": "API key for reranker service (SiliconFlow/Cohere/Jina)",
     "RERANKER_API_BASE": "Base URL for reranker API (overrides provider default)",
@@ -65,6 +66,9 @@ ENV_VARS = {
     # Chunking configuration
     "CHUNK_STRIP_COMMENTS": "Strip comments from code chunks for embedding: true/false (default: true)",
     "CHUNK_STRIP_DOCSTRINGS": "Strip docstrings from code chunks for embedding: true/false (default: true)",
+    # Search ranking tuning
+    "TEST_FILE_PENALTY": "Penalty for test/fixture paths in final search ranking: 0.0-1.0 (default: 0.15)",
+    "GENERATED_FILE_PENALTY": "Penalty for generated/build artifact paths in final search ranking: 0.0-1.0 (default: 0.35)",
     # Reranker tuning
     "RERANKER_TEST_FILE_PENALTY": "Penalty for test files in reranking: 0.0-1.0 (default: 0.0)",
     "RERANKER_DOCSTRING_WEIGHT": "Weight for docstring chunks in reranking: 0.0-1.0 (default: 1.0)",

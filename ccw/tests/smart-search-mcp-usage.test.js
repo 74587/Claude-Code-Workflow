@@ -1,16 +1,19 @@
-import { afterEach, before, describe, it } from 'node:test';
+import { after, afterEach, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const smartSearchPath = new URL('../dist/tools/smart-search.js', import.meta.url).href;
+const originalAutoInitMissing = process.env.CODEXLENS_AUTO_INIT_MISSING;
+const originalAutoEmbedMissing = process.env.CODEXLENS_AUTO_EMBED_MISSING;
 
 describe('Smart Search MCP usage defaults and path handling', async () => {
   let smartSearchModule;
   const tempDirs = [];
 
   before(async () => {
+    process.env.CODEXLENS_AUTO_INIT_MISSING = 'false';
     try {
       smartSearchModule = await import(smartSearchPath);
     } catch (err) {
@@ -18,16 +21,45 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
     }
   });
 
+  after(() => {
+    if (originalAutoInitMissing === undefined) {
+      delete process.env.CODEXLENS_AUTO_INIT_MISSING;
+    } else {
+      process.env.CODEXLENS_AUTO_INIT_MISSING = originalAutoInitMissing;
+    }
+
+    if (originalAutoEmbedMissing === undefined) {
+      delete process.env.CODEXLENS_AUTO_EMBED_MISSING;
+      return;
+    }
+    process.env.CODEXLENS_AUTO_EMBED_MISSING = originalAutoEmbedMissing;
+  });
+
   afterEach(() => {
     while (tempDirs.length > 0) {
       rmSync(tempDirs.pop(), { recursive: true, force: true });
     }
+    if (smartSearchModule?.__testables) {
+      smartSearchModule.__testables.__resetRuntimeOverrides();
+      smartSearchModule.__testables.__resetBackgroundJobs();
+    }
+    process.env.CODEXLENS_AUTO_INIT_MISSING = 'false';
+    delete process.env.CODEXLENS_AUTO_EMBED_MISSING;
   });
 
   function createWorkspace() {
     const dir = mkdtempSync(join(tmpdir(), 'ccw-smart-search-'));
     tempDirs.push(dir);
     return dir;
+  }
+
+  function createDetachedChild() {
+    return {
+      on() {
+        return this;
+      },
+      unref() {},
+    };
   }
 
   it('keeps schema defaults aligned with runtime docs', () => {
@@ -50,14 +82,202 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
     assert.equal(props.output_mode.default, 'ace');
   });
 
-  it('defaults auto embedding warmup to enabled unless explicitly disabled', () => {
+  it('defaults auto embedding warmup off on Windows unless explicitly enabled', () => {
     if (!smartSearchModule) return;
 
     const { __testables } = smartSearchModule;
-    assert.equal(__testables.isAutoEmbedMissingEnabled(undefined), true);
-    assert.equal(__testables.isAutoEmbedMissingEnabled({}), true);
-    assert.equal(__testables.isAutoEmbedMissingEnabled({ embedding_auto_embed_missing: true }), true);
+    delete process.env.CODEXLENS_AUTO_EMBED_MISSING;
+    assert.equal(__testables.isAutoEmbedMissingEnabled(undefined), process.platform !== 'win32');
+    assert.equal(__testables.isAutoEmbedMissingEnabled({}), process.platform !== 'win32');
+    assert.equal(
+      __testables.isAutoEmbedMissingEnabled({ embedding_auto_embed_missing: true }),
+      process.platform === 'win32' ? false : true,
+    );
     assert.equal(__testables.isAutoEmbedMissingEnabled({ embedding_auto_embed_missing: false }), false);
+    process.env.CODEXLENS_AUTO_EMBED_MISSING = 'true';
+    assert.equal(__testables.isAutoEmbedMissingEnabled({ embedding_auto_embed_missing: false }), true);
+    process.env.CODEXLENS_AUTO_EMBED_MISSING = 'off';
+    assert.equal(__testables.isAutoEmbedMissingEnabled({ embedding_auto_embed_missing: true }), false);
+  });
+
+  it('defaults auto index warmup off on Windows unless explicitly enabled', () => {
+    if (!smartSearchModule) return;
+
+    const { __testables } = smartSearchModule;
+    delete process.env.CODEXLENS_AUTO_INIT_MISSING;
+    assert.equal(__testables.isAutoInitMissingEnabled(), process.platform !== 'win32');
+    process.env.CODEXLENS_AUTO_INIT_MISSING = 'off';
+    assert.equal(__testables.isAutoInitMissingEnabled(), false);
+    process.env.CODEXLENS_AUTO_INIT_MISSING = '1';
+    assert.equal(__testables.isAutoInitMissingEnabled(), true);
+  });
+
+  it('explains when Windows disables background warmup by default', () => {
+    if (!smartSearchModule) return;
+
+    const { __testables } = smartSearchModule;
+    delete process.env.CODEXLENS_AUTO_INIT_MISSING;
+    delete process.env.CODEXLENS_AUTO_EMBED_MISSING;
+
+    const initReason = __testables.getAutoInitMissingDisabledReason();
+    const embedReason = __testables.getAutoEmbedMissingDisabledReason({});
+
+    if (process.platform === 'win32') {
+      assert.match(initReason, /disabled by default on Windows/i);
+      assert.match(embedReason, /disabled by default on Windows/i);
+      assert.match(embedReason, /auto_embed_missing=true/i);
+    } else {
+      assert.match(initReason, /disabled/i);
+      assert.match(embedReason, /disabled/i);
+    }
+  });
+
+  it('builds hidden subprocess options for Smart Search child processes', () => {
+    if (!smartSearchModule) return;
+
+    const options = smartSearchModule.__testables.buildSmartSearchSpawnOptions(tmpdir(), {
+      detached: true,
+      stdio: 'ignore',
+      timeout: 12345,
+    });
+
+    assert.equal(options.cwd, tmpdir());
+    assert.equal(options.shell, false);
+    assert.equal(options.windowsHide, true);
+    assert.equal(options.detached, true);
+    assert.equal(options.timeout, 12345);
+    assert.equal(options.env.PYTHONIOENCODING, 'utf-8');
+  });
+
+  it('avoids detached background warmup children on Windows consoles', () => {
+    if (!smartSearchModule) return;
+
+    assert.equal(
+      smartSearchModule.__testables.shouldDetachBackgroundSmartSearchProcess(),
+      process.platform !== 'win32',
+    );
+  });
+
+  it('checks tool availability without shell-based lookup popups', () => {
+    if (!smartSearchModule) return;
+
+    const lookupCalls = [];
+    const available = smartSearchModule.__testables.checkToolAvailability(
+      'rg',
+      (command, args, options) => {
+        lookupCalls.push({ command, args, options });
+        return { status: 0, stdout: '', stderr: '' };
+      },
+    );
+
+    assert.equal(available, true);
+    assert.equal(lookupCalls.length, 1);
+    assert.equal(lookupCalls[0].command, process.platform === 'win32' ? 'where' : 'which');
+    assert.deepEqual(lookupCalls[0].args, ['rg']);
+    assert.equal(lookupCalls[0].options.shell, false);
+    assert.equal(lookupCalls[0].options.windowsHide, true);
+    assert.equal(lookupCalls[0].options.stdio, 'ignore');
+    assert.equal(lookupCalls[0].options.env.PYTHONIOENCODING, 'utf-8');
+  });
+
+  it('starts background static index build once for unindexed paths', async () => {
+    if (!smartSearchModule) return;
+
+    const { __testables } = smartSearchModule;
+    const dir = createWorkspace();
+    const fakePython = join(dir, 'python.exe');
+    writeFileSync(fakePython, '');
+    process.env.CODEXLENS_AUTO_INIT_MISSING = 'true';
+
+    const spawnCalls = [];
+    __testables.__setRuntimeOverrides({
+      getVenvPythonPath: () => fakePython,
+      now: () => 1234567890,
+      spawnProcess: (command, args, options) => {
+        spawnCalls.push({ command, args, options });
+        return createDetachedChild();
+      },
+    });
+
+    const scope = { workingDirectory: dir, searchPaths: ['.'] };
+    const indexStatus = { indexed: false, has_embeddings: false };
+
+    const first = await __testables.maybeStartBackgroundAutoInit(scope, indexStatus);
+    const second = await __testables.maybeStartBackgroundAutoInit(scope, indexStatus);
+
+    assert.match(first.note, /started/i);
+    assert.match(second.note, /already running/i);
+    assert.equal(spawnCalls.length, 1);
+    assert.equal(spawnCalls[0].command, fakePython);
+    assert.deepEqual(spawnCalls[0].args, ['-m', 'codexlens', 'index', 'init', dir, '--no-embeddings']);
+    assert.equal(spawnCalls[0].options.cwd, dir);
+    assert.equal(
+      spawnCalls[0].options.detached,
+      smartSearchModule.__testables.shouldDetachBackgroundSmartSearchProcess(),
+    );
+    assert.equal(spawnCalls[0].options.windowsHide, true);
+  });
+
+  it('starts background embedding build without detached Windows consoles', async () => {
+    if (!smartSearchModule) return;
+
+    const { __testables } = smartSearchModule;
+    const dir = createWorkspace();
+    const fakePython = join(dir, 'python.exe');
+    writeFileSync(fakePython, '');
+    process.env.CODEXLENS_AUTO_EMBED_MISSING = 'true';
+
+    const spawnCalls = [];
+    __testables.__setRuntimeOverrides({
+      getVenvPythonPath: () => fakePython,
+      checkSemanticStatus: async () => ({ available: true, litellmAvailable: true }),
+      now: () => 1234567890,
+      spawnProcess: (command, args, options) => {
+        spawnCalls.push({ command, args, options });
+        return createDetachedChild();
+      },
+    });
+
+    const status = await __testables.maybeStartBackgroundAutoEmbed(
+      { workingDirectory: dir, searchPaths: ['.'] },
+      {
+        indexed: true,
+        has_embeddings: false,
+        config: { embedding_backend: 'fastembed' },
+      },
+    );
+
+    assert.match(status.note, /started/i);
+    assert.equal(spawnCalls.length, 1);
+    assert.equal(spawnCalls[0].command, fakePython);
+    assert.deepEqual(spawnCalls[0].args.slice(0, 1), ['-c']);
+    assert.equal(spawnCalls[0].options.cwd, dir);
+    assert.equal(
+      spawnCalls[0].options.detached,
+      smartSearchModule.__testables.shouldDetachBackgroundSmartSearchProcess(),
+    );
+    assert.equal(spawnCalls[0].options.windowsHide, true);
+    assert.equal(spawnCalls[0].options.stdio, 'ignore');
+  });
+
+  it('surfaces warnings when background static index warmup cannot start', async () => {
+    if (!smartSearchModule) return;
+
+    const { __testables } = smartSearchModule;
+    const dir = createWorkspace();
+    process.env.CODEXLENS_AUTO_INIT_MISSING = 'true';
+
+    __testables.__setRuntimeOverrides({
+      getVenvPythonPath: () => join(dir, 'missing-python.exe'),
+    });
+
+    const status = await __testables.maybeStartBackgroundAutoInit(
+      { workingDirectory: dir, searchPaths: ['.'] },
+      { indexed: false, has_embeddings: false },
+    );
+
+    assert.match(status.warning, /Automatic static index warmup could not start/i);
+    assert.match(status.warning, /not ready yet/i);
   });
 
   it('honors explicit small limit values', async () => {
@@ -246,15 +466,98 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
     assert.match(String(matches[0].file).replace(/\\/g, '/'), /target\.ts$/);
   });
 
-  it('detects centralized vector artifacts as full embedding coverage evidence', () => {
+  it('uses root-scoped embedding status instead of subtree artifacts', () => {
     if (!smartSearchModule) return;
 
-    const dir = createWorkspace();
-    writeFileSync(join(dir, '_vectors.hnsw'), 'hnsw');
-    writeFileSync(join(dir, '_vectors_meta.db'), 'meta');
-    writeFileSync(join(dir, '_binary_vectors.mmap'), 'mmap');
+    const summary = smartSearchModule.__testables.extractEmbeddingsStatusSummary({
+      total_indexes: 3,
+      indexes_with_embeddings: 2,
+      total_chunks: 24,
+      coverage_percent: 66.7,
+      root: {
+        total_files: 4,
+        files_with_embeddings: 0,
+        total_chunks: 0,
+        coverage_percent: 0,
+        has_embeddings: false,
+      },
+      subtree: {
+        total_indexes: 3,
+        indexes_with_embeddings: 2,
+        total_files: 12,
+        files_with_embeddings: 8,
+        total_chunks: 24,
+        coverage_percent: 66.7,
+      },
+      centralized: {
+        dense_index_exists: true,
+        binary_index_exists: true,
+        meta_db_exists: true,
+        usable: false,
+      },
+    });
 
-    assert.equal(smartSearchModule.__testables.hasCentralizedVectorArtifacts(dir), true);
+    assert.equal(summary.coveragePercent, 0);
+    assert.equal(summary.totalChunks, 0);
+    assert.equal(summary.hasEmbeddings, false);
+  });
+
+  it('accepts validated root centralized readiness from CLI status payloads', () => {
+    if (!smartSearchModule) return;
+
+    const summary = smartSearchModule.__testables.extractEmbeddingsStatusSummary({
+      total_indexes: 2,
+      indexes_with_embeddings: 1,
+      total_chunks: 10,
+      coverage_percent: 25,
+      root: {
+        total_files: 2,
+        files_with_embeddings: 1,
+        total_chunks: 3,
+        coverage_percent: 50,
+        has_embeddings: true,
+      },
+      centralized: {
+        usable: true,
+        dense_ready: true,
+        chunk_metadata_rows: 3,
+      },
+    });
+
+    assert.equal(summary.coveragePercent, 50);
+    assert.equal(summary.totalChunks, 3);
+    assert.equal(summary.hasEmbeddings, true);
+  });
+
+  it('prefers embeddings_status over legacy embeddings summary payloads', () => {
+    if (!smartSearchModule) return;
+
+    const payload = smartSearchModule.__testables.selectEmbeddingsStatusPayload({
+      embeddings: {
+        total_indexes: 7,
+        indexes_with_embeddings: 4,
+        total_chunks: 99,
+      },
+      embeddings_status: {
+        total_indexes: 7,
+        total_chunks: 3,
+        root: {
+          total_files: 2,
+          files_with_embeddings: 1,
+          total_chunks: 3,
+          coverage_percent: 50,
+          has_embeddings: true,
+        },
+        centralized: {
+          usable: true,
+          dense_ready: true,
+          chunk_metadata_rows: 3,
+        },
+      },
+    });
+
+    assert.equal(payload.root.total_chunks, 3);
+    assert.equal(payload.centralized.usable, true);
   });
 
   it('recognizes CodexLens CLI compatibility failures and invalid regex fallback', () => {
@@ -279,6 +582,37 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
     assert.equal(resolution.regex, false);
     assert.equal(resolution.literalFallback, true);
     assert.match(resolution.warning, /literal ripgrep matching/i);
+  });
+
+  it('suppresses compatibility-only fuzzy warnings when ripgrep already produced hits', () => {
+    if (!smartSearchModule) return;
+
+    assert.equal(
+      smartSearchModule.__testables.shouldSurfaceCodexLensFtsCompatibilityWarning({
+        compatibilityTriggeredThisQuery: true,
+        skipExactDueToCompatibility: false,
+        ripgrepResultCount: 2,
+      }),
+      false,
+    );
+
+    assert.equal(
+      smartSearchModule.__testables.shouldSurfaceCodexLensFtsCompatibilityWarning({
+        compatibilityTriggeredThisQuery: true,
+        skipExactDueToCompatibility: false,
+        ripgrepResultCount: 0,
+      }),
+      true,
+    );
+
+    assert.equal(
+      smartSearchModule.__testables.shouldSurfaceCodexLensFtsCompatibilityWarning({
+        compatibilityTriggeredThisQuery: false,
+        skipExactDueToCompatibility: true,
+        ripgrepResultCount: 0,
+      }),
+      true,
+    );
   });
 
   it('builds actionable index suggestions for unhealthy index states', () => {
@@ -317,5 +651,53 @@ describe('Smart Search MCP usage defaults and path handling', async () => {
     assert.equal(toolResult.success, false);
     assert.match(toolResult.error, /Both search backends failed:/);
     assert.match(toolResult.error, /(FTS|Ripgrep)/);
+  });
+
+  it('returns structured semantic results after local init and embed without JSON parse warnings', async () => {
+    if (!smartSearchModule) return;
+
+    const codexLensModule = await import(new URL(`../dist/tools/codex-lens.js?smart-semantic=${Date.now()}`, import.meta.url).href);
+    const ready = await codexLensModule.checkVenvStatus(true);
+    if (!ready.ready) {
+      console.log('Skipping: CodexLens not ready');
+      return;
+    }
+
+    const semantic = await codexLensModule.checkSemanticStatus();
+    if (!semantic.available) {
+      console.log('Skipping: semantic dependencies not ready');
+      return;
+    }
+
+    const dir = createWorkspace();
+    writeFileSync(
+      join(dir, 'sample.ts'),
+      'export function parseCodexLensOutput() { return stripAnsiOutput(); }\nexport const sum = (a, b) => a + b;\n',
+    );
+
+    const init = await smartSearchModule.handler({ action: 'init', path: dir });
+    assert.equal(init.success, true, init.error ?? 'Expected init to succeed');
+
+    const embed = await smartSearchModule.handler({
+      action: 'embed',
+      path: dir,
+      embeddingBackend: 'local',
+      force: true,
+    });
+    assert.equal(embed.success, true, embed.error ?? 'Expected local embed to succeed');
+
+    const search = await smartSearchModule.handler({
+      action: 'search',
+      mode: 'semantic',
+      path: dir,
+      query: 'parse CodexLens output strip ANSI',
+      limit: 5,
+    });
+
+    assert.equal(search.success, true, search.error ?? 'Expected semantic search to succeed');
+    assert.equal(search.result.success, true);
+    assert.equal(search.result.results.format, 'ace');
+    assert.ok(search.result.results.total >= 1, 'Expected at least one structured semantic match');
+    assert.doesNotMatch(search.result.metadata?.warning ?? '', /Failed to parse JSON output/i);
   });
 });

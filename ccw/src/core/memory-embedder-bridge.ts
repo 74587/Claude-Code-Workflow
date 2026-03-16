@@ -16,7 +16,7 @@ import { spawn } from 'child_process';
 import { join, dirname } from 'path';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { getCodexLensPython } from '../utils/codexlens-path.js';
+import { getCodexLensHiddenPython } from '../utils/codexlens-path.js';
 import { getCoreMemoryStore } from './core-memory-store.js';
 import type { Stage1Output } from './core-memory-store.js';
 import { StoragePaths } from '../config/storage-paths.js';
@@ -26,7 +26,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Venv paths (reuse CodexLens venv)
-const VENV_PYTHON = getCodexLensPython();
+const VENV_PYTHON = getCodexLensHiddenPython();
 
 // Script path
 const EMBEDDER_SCRIPT = join(__dirname, '..', '..', 'scripts', 'memory_embedder.py');
@@ -116,8 +116,11 @@ function runPython(args: string[], timeout: number = 300000): Promise<string> {
 
     // Spawn Python process
     const child = spawn(VENV_PYTHON, [EMBEDDER_SCRIPT, ...args], {
+      shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout,
+      windowsHide: true,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
 
     let stdout = '';

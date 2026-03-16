@@ -9,6 +9,7 @@
  * 2. Default: ~/.codexlens
  */
 
+import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -45,6 +46,26 @@ export function getCodexLensPython(): string {
   return process.platform === 'win32'
     ? join(venvDir, 'Scripts', 'python.exe')
     : join(venvDir, 'bin', 'python');
+}
+
+/**
+ * Get the preferred Python executable for hidden/windowless CodexLens subprocesses.
+ * On Windows this prefers pythonw.exe when available to avoid transient console windows.
+ *
+ * @returns Path to the preferred hidden-subprocess Python executable
+ */
+export function getCodexLensHiddenPython(): string {
+  if (process.platform !== 'win32') {
+    return getCodexLensPython();
+  }
+
+  const venvDir = getCodexLensVenvDir();
+  const pythonwPath = join(venvDir, 'Scripts', 'pythonw.exe');
+  if (existsSync(pythonwPath)) {
+    return pythonwPath;
+  }
+
+  return getCodexLensPython();
 }
 
 /**

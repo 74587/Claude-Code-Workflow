@@ -76,6 +76,26 @@ describe('Smart Search - Query Intent + RRF Weights', async () => {
     });
   });
 
+  describe('classifyIntent lexical routing', () => {
+    it('routes config/backend queries to exact when index and embeddings are available', () => {
+      if (!smartSearchModule) return;
+      const classification = smartSearchModule.__testables.classifyIntent(
+        'embedding backend fastembed local litellm api config',
+        true,
+        true,
+      );
+      assert.strictEqual(classification.mode, 'exact');
+      assert.match(classification.reasoning, /lexical priority/i);
+    });
+
+    it('routes generated artifact queries to exact when index and embeddings are available', () => {
+      if (!smartSearchModule) return;
+      const classification = smartSearchModule.__testables.classifyIntent('dist bundle output', true, true);
+      assert.strictEqual(classification.mode, 'exact');
+      assert.match(classification.reasoning, /generated artifact/i);
+    });
+  });
+
   describe('adjustWeightsByIntent', () => {
     it('maps keyword intent to exact-heavy weights', () => {
       if (!smartSearchModule) return;
@@ -119,4 +139,3 @@ describe('Smart Search - Query Intent + RRF Weights', async () => {
     });
   });
 });
-

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
+import re
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Annotated, Any, Dict, Iterable, List, Optional
 
@@ -22,6 +25,13 @@ from codexlens.storage.registry import RegistryStore, ProjectInfo
 from codexlens.storage.index_tree import IndexTreeBuilder
 from codexlens.storage.dir_index import DirIndexStore
 from codexlens.search.chain_search import ChainSearchEngine, SearchOptions
+from codexlens.search.ranking import (
+    QueryIntent,
+    apply_path_penalties,
+    detect_query_intent,
+    query_prefers_lexical_search,
+    query_targets_generated_files,
+)
 from codexlens.watcher import WatcherManager, WatcherConfig
 
 from .output import (
@@ -34,6 +44,56 @@ from .output import (
 )
 
 app = typer.Typer(help="CodexLens CLI — local code indexing and search.")
+# Index subcommand group for reorganized commands
+def _patch_typer_click_help_compat() -> None:
+    """Patch Typer help rendering for Click versions that pass ctx to make_metavar()."""
+    import click.core
+    from typer.core import TyperArgument
+
+    try:
+        params = inspect.signature(TyperArgument.make_metavar).parameters
+    except (TypeError, ValueError):
+        return
+
+    if len(params) != 1:
+        return
+
+    def _compat_make_metavar(self, ctx=None):  # type: ignore[override]
+        if self.metavar is not None:
+            return self.metavar
+
+        var = (self.name or "").upper()
+        if not self.required:
+            var = f"[{var}]"
+
+        try:
+            type_var = self.type.get_metavar(param=self, ctx=ctx)
+        except TypeError:
+            try:
+                type_var = self.type.get_metavar(self, ctx)
+            except TypeError:
+                type_var = self.type.get_metavar(self)
+
+        if type_var:
+            var += f":{type_var}"
+        if self.nargs != 1:
+            var += "..."
+        return var
+
+    TyperArgument.make_metavar = _compat_make_metavar
+
+    param_params = inspect.signature(click.core.Parameter.make_metavar).parameters
+    if len(param_params) == 2:
+        original_param_make_metavar = click.core.Parameter.make_metavar
+
+        def _compat_param_make_metavar(self, ctx=None):  # type: ignore[override]
+            return original_param_make_metavar(self, ctx)
+
+        click.core.Parameter.make_metavar = _compat_param_make_metavar
+
+
+_patch_typer_click_help_compat()
+
 
 # Index subcommand group for reorganized commands
 index_app = typer.Typer(help="Index management commands (init, embeddings, binary, status, migrate, all)")
@@ -117,6 +177,281 @@ def _extract_embedding_error(embed_result: Dict[str, Any]) -> str:
                 return "; ".join(unique[:3])
 
     return "Embedding generation failed (no error details provided)"
+
+
+def _auto_select_search_method(query: str) -> str:
+    """Choose a default search method from query intent."""
+    if query_targets_generated_files(query) or query_prefers_lexical_search(query):
+        return "fts"
+
+    intent = detect_query_intent(query)
+    if intent == QueryIntent.KEYWORD:
+        return "fts"
+    if intent == QueryIntent.SEMANTIC:
+        return "dense_rerank"
+    return "hybrid"
+
+
+_CLI_NON_CODE_EXTENSIONS = {
+    "md", "txt", "json", "yaml", "yml", "xml", "csv", "log",
+    "ini", "cfg", "conf", "toml", "env", "properties",
+    "html", "htm", "svg", "png", "jpg", "jpeg", "gif", "ico", "webp",
+    "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+    "lock", "sum", "mod",
+}
+_FALLBACK_ARTIFACT_DIRS = {
+    "dist",
+    "build",
+    "out",
+    "coverage",
+    "htmlcov",
+    ".cache",
+    ".workflow",
+    ".next",
+    ".nuxt",
+    ".parcel-cache",
+    ".turbo",
+    "tmp",
+    "temp",
+    "generated",
+}
+_FALLBACK_SOURCE_DIRS = {
+    "src",
+    "lib",
+    "core",
+    "app",
+    "server",
+    "client",
+    "services",
+}
+
+
+def _normalize_extension_filters(exclude_extensions: Optional[Iterable[str]]) -> set[str]:
+    """Normalize extension filters to lowercase values without leading dots."""
+    normalized: set[str] = set()
+    for ext in exclude_extensions or []:
+        cleaned = (ext or "").strip().lower().lstrip(".")
+        if cleaned:
+            normalized.add(cleaned)
+    return normalized
+
+
+def _score_filesystem_fallback_match(
+    query: str,
+    path_text: str,
+    line_text: str,
+    *,
+    base_score: float,
+) -> float:
+    """Score filesystem fallback hits with light source-aware heuristics."""
+    score = max(0.0, float(base_score))
+    if score <= 0:
+        return 0.0
+
+    query_intent = detect_query_intent(query)
+    if query_intent != QueryIntent.KEYWORD:
+        return score
+
+    path_parts = {
+        part.casefold()
+        for part in str(path_text).replace("\\", "/").split("/")
+        if part and part != "."
+    }
+    if _FALLBACK_SOURCE_DIRS.intersection(path_parts):
+        score *= 1.15
+
+    symbol = (query or "").strip()
+    if " " in symbol or not symbol:
+        return score
+
+    escaped_symbol = re.escape(symbol)
+    definition_patterns = (
+        rf"^\s*(?:export\s+)?(?:async\s+)?def\s+{escaped_symbol}\b",
+        rf"^\s*(?:export\s+)?(?:async\s+)?function\s+{escaped_symbol}\b",
+        rf"^\s*(?:export\s+)?class\s+{escaped_symbol}\b",
+        rf"^\s*(?:export\s+)?interface\s+{escaped_symbol}\b",
+        rf"^\s*(?:export\s+)?type\s+{escaped_symbol}\b",
+        rf"^\s*(?:export\s+)?(?:const|let|var)\s+{escaped_symbol}\b",
+    )
+    if any(re.search(pattern, line_text) for pattern in definition_patterns):
+        score *= 1.8
+
+    return score
+
+
+def _filesystem_fallback_search(
+    query: str,
+    search_path: Path,
+    *,
+    limit: int,
+    config: Config,
+    code_only: bool = False,
+    exclude_extensions: Optional[Iterable[str]] = None,
+) -> Optional[dict[str, Any]]:
+    """Fallback to ripgrep when indexed keyword search returns no results."""
+    rg_path = shutil.which("rg")
+    if not rg_path or not query.strip():
+        return None
+
+    import time
+
+    allow_generated = query_targets_generated_files(query)
+    ignored_dirs = {name for name in IndexTreeBuilder.IGNORE_DIRS if name}
+    ignored_dirs.add(".workflow")
+    if allow_generated:
+        ignored_dirs.difference_update(_FALLBACK_ARTIFACT_DIRS)
+
+    excluded_exts = _normalize_extension_filters(exclude_extensions)
+    if code_only:
+        excluded_exts.update(_CLI_NON_CODE_EXTENSIONS)
+
+    args = [
+        rg_path,
+        "--json",
+        "--line-number",
+        "--fixed-strings",
+        "--smart-case",
+        "--max-count",
+        "1",
+    ]
+    if allow_generated:
+        args.append("--hidden")
+
+    for dirname in sorted(ignored_dirs):
+        args.extend(["--glob", f"!**/{dirname}/**"])
+
+    args.extend([query, str(search_path)])
+
+    start_time = time.perf_counter()
+    proc = subprocess.run(
+        args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+
+    if proc.returncode not in (0, 1):
+        return None
+
+    matches: List[SearchResult] = []
+    seen_paths: set[str] = set()
+    for raw_line in proc.stdout.splitlines():
+        if len(matches) >= limit:
+            break
+        try:
+            event = json.loads(raw_line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") != "match":
+            continue
+
+        data = event.get("data") or {}
+        path_text = ((data.get("path") or {}).get("text") or "").strip()
+        if not path_text or path_text in seen_paths:
+            continue
+
+        path_obj = Path(path_text)
+        extension = path_obj.suffix.lower().lstrip(".")
+        if extension and extension in excluded_exts:
+            continue
+        if code_only and config.language_for_path(path_obj) is None:
+            continue
+
+        line_text = ((data.get("lines") or {}).get("text") or "").rstrip("\r\n")
+        line_number = data.get("line_number")
+        seen_paths.add(path_text)
+        base_score = float(limit - len(matches))
+        matches.append(
+            SearchResult(
+                path=path_text,
+                score=_score_filesystem_fallback_match(
+                    query,
+                    path_text,
+                    line_text,
+                    base_score=base_score,
+                ),
+                excerpt=line_text.strip() or line_text or path_text,
+                content=None,
+                metadata={
+                    "filesystem_fallback": True,
+                    "backend": "ripgrep-fallback",
+                    "stale_index_suspected": True,
+                },
+                start_line=line_number,
+                end_line=line_number,
+            )
+        )
+
+    if not matches:
+        return None
+
+    matches = apply_path_penalties(
+        matches,
+        query,
+        test_file_penalty=config.test_file_penalty,
+        generated_file_penalty=config.generated_file_penalty,
+    )
+    return {
+        "results": matches,
+        "time_ms": (time.perf_counter() - start_time) * 1000.0,
+        "fallback": {
+            "backend": "ripgrep-fallback",
+            "stale_index_suspected": True,
+            "reason": "Indexed FTS search returned no results; filesystem fallback used.",
+        },
+    }
+
+
+def _remove_tree_best_effort(target: Path) -> dict[str, Any]:
+    """Remove a directory tree without aborting on locked files."""
+    target = target.resolve()
+    if not target.exists():
+        return {
+            "removed": True,
+            "partial": False,
+            "locked_paths": [],
+            "errors": [],
+            "remaining_path": None,
+        }
+
+    locked_paths: List[str] = []
+    errors: List[str] = []
+    entries = sorted(target.rglob("*"), key=lambda path: len(path.parts), reverse=True)
+
+    for entry in entries:
+        try:
+            if entry.is_dir() and not entry.is_symlink():
+                entry.rmdir()
+            else:
+                entry.unlink()
+        except FileNotFoundError:
+            continue
+        except PermissionError:
+            locked_paths.append(str(entry))
+        except OSError as exc:
+            if entry.is_dir():
+                continue
+            errors.append(f"{entry}: {exc}")
+
+    try:
+        target.rmdir()
+    except FileNotFoundError:
+        pass
+    except PermissionError:
+        locked_paths.append(str(target))
+    except OSError:
+        pass
+
+    return {
+        "removed": not target.exists(),
+        "partial": target.exists(),
+        "locked_paths": sorted(set(locked_paths)),
+        "errors": errors,
+        "remaining_path": str(target) if target.exists() else None,
+    }
 
 
 def _get_index_root() -> Path:
@@ -542,7 +877,7 @@ def search(
     offset: int = typer.Option(0, "--offset", min=0, help="Pagination offset - skip first N results."),
     depth: int = typer.Option(-1, "--depth", "-d", help="Search depth (-1 = unlimited, 0 = current only)."),
     files_only: bool = typer.Option(False, "--files-only", "-f", help="Return only file paths without content snippets."),
-    method: str = typer.Option("dense_rerank", "--method", "-m", help="Search method: 'dense_rerank' (semantic, default), 'fts' (exact keyword)."),
+    method: str = typer.Option("auto", "--method", "-m", help="Search method: 'auto' (intent-aware, default), 'dense_rerank' (semantic), 'fts' (exact keyword)."),
     use_fuzzy: bool = typer.Option(False, "--use-fuzzy", help="Enable fuzzy matching in FTS method."),
     code_only: bool = typer.Option(False, "--code-only", help="Only return code files (excludes md, txt, json, yaml, xml, etc.)."),
     exclude_extensions: Optional[str] = typer.Option(None, "--exclude-extensions", help="Comma-separated list of file extensions to exclude (e.g., 'md,txt,json')."),
@@ -576,14 +911,16 @@ def search(
     Use --depth to limit search recursion (0 = current dir only).
 
     Search Methods:
-      - dense_rerank (default): Semantic search using Dense embedding coarse retrieval +
+      - auto (default): Intent-aware routing. KEYWORD -> fts, MIXED -> hybrid,
+        SEMANTIC -> dense_rerank.
+      - dense_rerank: Semantic search using Dense embedding coarse retrieval +
         Cross-encoder reranking. Best for natural language queries and code understanding.
       - fts: Full-text search using FTS5 (unicode61 tokenizer). Best for exact code
         identifiers like function/class names. Use --use-fuzzy for typo tolerance.
 
     Method Selection Guide:
-      - Code identifiers (function/class names): fts
-      - Natural language queries: dense_rerank (default)
+      - Code identifiers (function/class names): auto or fts
+      - Natural language queries: auto or dense_rerank
       - Typo-tolerant search: fts --use-fuzzy
 
     Requirements:
@@ -591,7 +928,7 @@ def search(
       Use 'codexlens embeddings-generate' to create embeddings first.
 
     Examples:
-      # Default semantic search (dense_rerank)
+      # Default intent-aware search
       codexlens search "authentication logic"
 
       # Exact code identifier search
@@ -612,7 +949,7 @@ def search(
 
         # Map old mode values to new method values
         mode_to_method = {
-            "auto": "hybrid",
+            "auto": "auto",
             "exact": "fts",
             "fuzzy": "fts",  # with use_fuzzy=True
             "hybrid": "hybrid",
@@ -638,19 +975,27 @@ def search(
 
     # Validate method - simplified interface exposes only dense_rerank and fts
     # Other methods (vector, hybrid, cascade) are hidden but still work for backward compatibility
-    valid_methods = ["fts", "dense_rerank", "vector", "hybrid", "cascade"]
+    valid_methods = ["auto", "fts", "dense_rerank", "vector", "hybrid", "cascade"]
     if actual_method not in valid_methods:
         if json_mode:
-            print_json(success=False, error=f"Invalid method: {actual_method}. Use 'dense_rerank' (semantic) or 'fts' (exact keyword).")
+            print_json(success=False, error=f"Invalid method: {actual_method}. Use 'auto', 'dense_rerank', or 'fts'.")
         else:
             console.print(f"[red]Invalid method:[/red] {actual_method}")
-            console.print("[dim]Use 'dense_rerank' (semantic, default) or 'fts' (exact keyword)[/dim]")
+            console.print("[dim]Use 'auto' (default), 'dense_rerank' (semantic), or 'fts' (exact keyword)[/dim]")
         raise typer.Exit(code=1)
+
+    resolved_method = (
+        _auto_select_search_method(query)
+        if actual_method == "auto"
+        else actual_method
+    )
+    display_method = resolved_method
+    execution_method = resolved_method
 
     # Map dense_rerank to cascade method internally
     internal_cascade_strategy = cascade_strategy
-    if actual_method == "dense_rerank":
-        actual_method = "cascade"
+    if execution_method == "dense_rerank":
+        execution_method = "cascade"
         internal_cascade_strategy = "dense_rerank"
 
     # Validate cascade_strategy if provided (for advanced users)
@@ -733,32 +1078,32 @@ def search(
         # vector: Pure vector semantic search
         # hybrid: RRF fusion of sparse + dense
         # cascade: Two-stage binary + dense retrieval
-        if actual_method == "fts":
+        if execution_method == "fts":
             hybrid_mode = False
             enable_fuzzy = use_fuzzy
             enable_vector = False
             pure_vector = False
             enable_cascade = False
-        elif actual_method == "vector":
+        elif execution_method == "vector":
             hybrid_mode = True
             enable_fuzzy = False
             enable_vector = True
             pure_vector = True
             enable_cascade = False
-        elif actual_method == "hybrid":
+        elif execution_method == "hybrid":
             hybrid_mode = True
             enable_fuzzy = use_fuzzy
             enable_vector = True
             pure_vector = False
             enable_cascade = False
-        elif actual_method == "cascade":
+        elif execution_method == "cascade":
             hybrid_mode = True
             enable_fuzzy = False
             enable_vector = True
             pure_vector = False
             enable_cascade = True
         else:
-            raise ValueError(f"Invalid method: {actual_method}")
+            raise ValueError(f"Invalid method: {execution_method}")
 
         # Parse exclude_extensions from comma-separated string
         exclude_exts_list = None
@@ -790,10 +1135,28 @@ def search(
                     console.print(fp)
         else:
             # Dispatch to cascade_search for cascade method
-            if actual_method == "cascade":
+            if execution_method == "cascade":
                 result = engine.cascade_search(query, search_path, k=limit, options=options, strategy=internal_cascade_strategy)
             else:
                 result = engine.search(query, search_path, options)
+            effective_results = result.results
+            effective_files_matched = result.stats.files_matched
+            effective_time_ms = result.stats.time_ms
+            fallback_payload = None
+            if display_method == "fts" and not use_fuzzy and not effective_results:
+                fallback_payload = _filesystem_fallback_search(
+                    query,
+                    search_path,
+                    limit=limit,
+                    config=config,
+                    code_only=code_only,
+                    exclude_extensions=exclude_exts_list,
+                )
+                if fallback_payload is not None:
+                    effective_results = fallback_payload["results"]
+                    effective_files_matched = len(effective_results)
+                    effective_time_ms = result.stats.time_ms + float(fallback_payload["time_ms"])
+
             results_list = [
                 {
                     "path": r.path,
@@ -803,25 +1166,29 @@ def search(
                     "source": getattr(r, "search_source", None),
                     "symbol": getattr(r, "symbol", None),
                 }
-                for r in result.results
+                for r in effective_results
             ]
 
             payload = {
                 "query": query,
-                "method": actual_method,
+                "method": display_method,
                 "count": len(results_list),
                 "results": results_list,
                 "stats": {
                     "dirs_searched": result.stats.dirs_searched,
-                    "files_matched": result.stats.files_matched,
-                    "time_ms": result.stats.time_ms,
+                    "files_matched": effective_files_matched,
+                    "time_ms": effective_time_ms,
                 },
             }
+            if fallback_payload is not None:
+                payload["fallback"] = fallback_payload["fallback"]
             if json_mode:
                 print_json(success=True, result=payload)
             else:
-                render_search_results(result.results, verbose=verbose)
-                console.print(f"[dim]Method: {actual_method} | Searched {result.stats.dirs_searched} directories in {result.stats.time_ms:.1f}ms[/dim]")
+                render_search_results(effective_results, verbose=verbose)
+                if fallback_payload is not None:
+                    console.print("[yellow]No indexed matches found; showing filesystem fallback results (stale index suspected).[/yellow]")
+                console.print(f"[dim]Method: {display_method} | Searched {result.stats.dirs_searched} directories in {effective_time_ms:.1f}ms[/dim]")
 
     except SearchError as exc:
         if json_mode:
@@ -1454,7 +1821,7 @@ def projects(
                 mapper = PathMapper()
                 index_root = mapper.source_to_index_dir(project_path)
                 if index_root.exists():
-                    shutil.rmtree(index_root)
+                    _remove_tree_best_effort(index_root)
 
                 if json_mode:
                     print_json(success=True, result={"removed": str(project_path)})
@@ -1966,17 +2333,30 @@ def clean(
                 registry_path.unlink()
 
             # Remove all indexes
-            shutil.rmtree(index_root)
+            removal = _remove_tree_best_effort(index_root)
 
             result = {
                 "cleaned": str(index_root),
                 "size_freed_mb": round(total_size / (1024 * 1024), 2),
+                "partial": bool(removal["partial"]),
+                "locked_paths": removal["locked_paths"],
+                "remaining_path": removal["remaining_path"],
+                "errors": removal["errors"],
             }
 
             if json_mode:
                 print_json(success=True, result=result)
             else:
-                console.print(f"[green]Removed all indexes:[/green] {result['size_freed_mb']} MB freed")
+                if result["partial"]:
+                    console.print(
+                        f"[yellow]Partially removed all indexes:[/yellow] {result['size_freed_mb']} MB freed"
+                    )
+                    if result["locked_paths"]:
+                        console.print(
+                            f"[dim]Locked paths left behind: {len(result['locked_paths'])}[/dim]"
+                        )
+                else:
+                    console.print(f"[green]Removed all indexes:[/green] {result['size_freed_mb']} MB freed")
 
         elif path:
             # Remove specific project
@@ -2003,18 +2383,29 @@ def clean(
             registry.close()
 
             # Remove indexes
-            shutil.rmtree(project_index)
+            removal = _remove_tree_best_effort(project_index)
 
             result = {
                 "cleaned": str(project_path),
                 "index_path": str(project_index),
                 "size_freed_mb": round(total_size / (1024 * 1024), 2),
+                "partial": bool(removal["partial"]),
+                "locked_paths": removal["locked_paths"],
+                "remaining_path": removal["remaining_path"],
+                "errors": removal["errors"],
             }
 
             if json_mode:
                 print_json(success=True, result=result)
             else:
-                console.print(f"[green]Removed indexes for:[/green] {project_path}")
+                if result["partial"]:
+                    console.print(f"[yellow]Partially removed indexes for:[/yellow] {project_path}")
+                    if result["locked_paths"]:
+                        console.print(
+                            f"[dim]Locked paths left behind: {len(result['locked_paths'])}[/dim]"
+                        )
+                else:
+                    console.print(f"[green]Removed indexes for:[/green] {project_path}")
                 console.print(f"  Freed: {result['size_freed_mb']} MB")
 
         else:
@@ -2617,7 +3008,7 @@ def embeddings_status(
         codexlens embeddings-status ~/projects/my-app                  # Check project (auto-finds index)
     """
     _deprecated_command_warning("embeddings-status", "index status")
-    from codexlens.cli.embedding_manager import check_index_embeddings, get_embedding_stats_summary
+    from codexlens.cli.embedding_manager import get_embedding_stats_summary, get_embeddings_status
 
     # Determine what to check
     if path is None:
@@ -3715,7 +4106,7 @@ def index_status(
     """
     _configure_logging(verbose, json_mode)
 
-    from codexlens.cli.embedding_manager import check_index_embeddings, get_embedding_stats_summary
+    from codexlens.cli.embedding_manager import get_embedding_stats_summary, get_embeddings_status
 
     # Determine target path and index root
     if path is None:
@@ -3751,13 +4142,19 @@ def index_status(
             raise typer.Exit(code=1)
 
     # Get embeddings status
-    embeddings_result = get_embedding_stats_summary(index_root)
+    embeddings_result = get_embeddings_status(index_root)
+    embeddings_summary_result = get_embedding_stats_summary(index_root)
 
     # Build combined result
     result = {
         "index_root": str(index_root),
-        "embeddings": embeddings_result.get("result") if embeddings_result.get("success") else None,
-        "embeddings_error": embeddings_result.get("error") if not embeddings_result.get("success") else None,
+        # Keep "embeddings" backward-compatible as the subtree summary payload.
+        "embeddings": embeddings_summary_result.get("result") if embeddings_summary_result.get("success") else None,
+        "embeddings_error": embeddings_summary_result.get("error") if not embeddings_summary_result.get("success") else None,
+        "embeddings_status": embeddings_result.get("result") if embeddings_result.get("success") else None,
+        "embeddings_status_error": embeddings_result.get("error") if not embeddings_result.get("success") else None,
+        "embeddings_summary": embeddings_summary_result.get("result") if embeddings_summary_result.get("success") else None,
+        "embeddings_summary_error": embeddings_summary_result.get("error") if not embeddings_summary_result.get("success") else None,
     }
 
     if json_mode:
@@ -3770,13 +4167,39 @@ def index_status(
         console.print("[bold]Dense Embeddings (HNSW):[/bold]")
         if embeddings_result.get("success"):
             data = embeddings_result["result"]
-            total = data.get("total_indexes", 0)
-            with_emb = data.get("indexes_with_embeddings", 0)
-            total_chunks = data.get("total_chunks", 0)
+            root = data.get("root") or data
+            subtree = data.get("subtree") or {}
+            centralized = data.get("centralized") or {}
 
-            console.print(f"  Total indexes: {total}")
-            console.print(f"  Indexes with embeddings: [{'green' if with_emb > 0 else 'yellow'}]{with_emb}[/]/{total}")
-            console.print(f"  Total chunks: {total_chunks:,}")
+            console.print(f"  Root files: {root.get('total_files', 0)}")
+            console.print(
+                f"  Root files with embeddings: "
+                f"[{'green' if root.get('has_embeddings') else 'yellow'}]{root.get('files_with_embeddings', 0)}[/]"
+                f"/{root.get('total_files', 0)}"
+            )
+            console.print(f"  Root coverage: {root.get('coverage_percent', 0):.1f}%")
+            console.print(f"  Root chunks: {root.get('total_chunks', 0):,}")
+            console.print(f"  Root storage mode: {root.get('storage_mode', 'none')}")
+            console.print(
+                f"  Centralized dense: "
+                f"{'ready' if centralized.get('dense_ready') else ('present' if centralized.get('dense_index_exists') else 'missing')}"
+            )
+            console.print(
+                f"  Centralized binary: "
+                f"{'ready' if centralized.get('binary_ready') else ('present' if centralized.get('binary_index_exists') else 'missing')}"
+            )
+
+            subtree_total = subtree.get("total_indexes", 0)
+            subtree_with_embeddings = subtree.get("indexes_with_embeddings", 0)
+            subtree_chunks = subtree.get("total_chunks", 0)
+            if subtree_total:
+                console.print("\n[bold]Subtree Summary:[/bold]")
+                console.print(f"  Total indexes: {subtree_total}")
+                console.print(
+                    f"  Indexes with embeddings: "
+                    f"[{'green' if subtree_with_embeddings > 0 else 'yellow'}]{subtree_with_embeddings}[/]/{subtree_total}"
+                )
+                console.print(f"  Total chunks: {subtree_chunks:,}")
         else:
             console.print(f"  [yellow]--[/yellow] {embeddings_result.get('error', 'Not available')}")
 

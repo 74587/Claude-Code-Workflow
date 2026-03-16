@@ -428,6 +428,51 @@ class TestIndexPathCollection:
         assert len(paths) == 1
         engine.close()
 
+    def test_collect_skips_ignored_artifact_indexes(self, mock_registry, mock_mapper, temp_dir):
+        """Test collection skips dist/build-style artifact subtrees."""
+        root_dir = temp_dir / "project"
+        root_dir.mkdir()
+
+        root_db = root_dir / "_index.db"
+        root_store = DirIndexStore(root_db)
+        root_store.initialize()
+
+        src_dir = root_dir / "src"
+        src_dir.mkdir()
+        src_db = src_dir / "_index.db"
+        src_store = DirIndexStore(src_db)
+        src_store.initialize()
+
+        dist_dir = root_dir / "dist"
+        dist_dir.mkdir()
+        dist_db = dist_dir / "_index.db"
+        dist_store = DirIndexStore(dist_db)
+        dist_store.initialize()
+
+        workflow_dir = root_dir / ".workflow"
+        workflow_dir.mkdir()
+        workflow_db = workflow_dir / "_index.db"
+        workflow_store = DirIndexStore(workflow_db)
+        workflow_store.initialize()
+
+        root_store.register_subdir(name="src", index_path=src_db)
+        root_store.register_subdir(name="dist", index_path=dist_db)
+        root_store.register_subdir(name=".workflow", index_path=workflow_db)
+
+        root_store.close()
+        src_store.close()
+        dist_store.close()
+        workflow_store.close()
+
+        engine = ChainSearchEngine(mock_registry, mock_mapper)
+        paths = engine._collect_index_paths(root_db, depth=-1)
+
+        assert {path.relative_to(root_dir).as_posix() for path in paths} == {
+            "_index.db",
+            "src/_index.db",
+        }
+        engine.close()
+
 
 class TestResultMergeAndRank:
     """Tests for _merge_and_rank method."""
@@ -488,6 +533,36 @@ class TestResultMergeAndRank:
         engine = ChainSearchEngine(mock_registry, mock_mapper)
         merged = engine._merge_and_rank([], limit=10)
         assert merged == []
+        engine.close()
+
+    def test_merge_applies_test_file_penalty_for_non_test_query(self, mock_registry, mock_mapper):
+        """Non-test queries should lightly demote test files during merge."""
+        engine = ChainSearchEngine(mock_registry, mock_mapper)
+
+        results = [
+            SearchResult(path="/repo/tests/test_auth.py", score=10.0, excerpt="match 1"),
+            SearchResult(path="/repo/src/auth.py", score=9.0, excerpt="match 2"),
+        ]
+
+        merged = engine._merge_and_rank(results, limit=10, query="authenticate users")
+
+        assert merged[0].path == "/repo/src/auth.py"
+        assert merged[1].metadata["path_penalty_reasons"] == ["test_file"]
+        engine.close()
+
+    def test_merge_applies_generated_file_penalty_for_non_artifact_query(self, mock_registry, mock_mapper):
+        """Non-artifact queries should lightly demote generated/build results during merge."""
+        engine = ChainSearchEngine(mock_registry, mock_mapper)
+
+        results = [
+            SearchResult(path="/repo/dist/auth.js", score=10.0, excerpt="match 1"),
+            SearchResult(path="/repo/src/auth.ts", score=9.0, excerpt="match 2"),
+        ]
+
+        merged = engine._merge_and_rank(results, limit=10, query="authenticate users")
+
+        assert merged[0].path == "/repo/src/auth.ts"
+        assert merged[1].metadata["path_penalty_reasons"] == ["generated_artifact"]
         engine.close()
 
 

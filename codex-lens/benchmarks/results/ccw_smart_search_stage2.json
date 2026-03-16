@@ -1,0 +1,1704 @@
+{
+  "timestamp": "2026-03-12 15:52:13",
+  "source": "D:\\Claude_dms3",
+  "queries_file": "D:\\Claude_dms3\\codex-lens\\benchmarks\\accuracy_queries_ccw_smart_search.jsonl",
+  "query_count": 16,
+  "k": 10,
+  "coarse_k": 100,
+  "local_only": true,
+  "strategies": {
+    "dense_rerank": {
+      "query_count": 16,
+      "hit_at_k": 0.0,
+      "mrr_at_k": 0.0,
+      "avg_recall_at_k": 0.0,
+      "avg_latency_ms": 2493.8517937501892,
+      "p50_latency_ms": 2304.0422499999404,
+      "p95_latency_ms": 4031.03429999575,
+      "errors": 0,
+      "strategy": "dense_rerank",
+      "stage2_mode": null
+    },
+    "staged:precomputed": {
+      "query_count": 16,
+      "hit_at_k": 0.0,
+      "mrr_at_k": 0.0,
+      "avg_recall_at_k": 0.0,
+      "avg_latency_ms": 2238.0576249985024,
+      "p50_latency_ms": 1962.1620500013232,
+      "p95_latency_ms": 3110.8512249961495,
+      "errors": 0,
+      "strategy": "staged",
+      "stage2_mode": "precomputed"
+    },
+    "staged:realtime": {
+      "query_count": 16,
+      "hit_at_k": 0.0,
+      "mrr_at_k": 0.0,
+      "avg_recall_at_k": 0.0,
+      "avg_latency_ms": 10686.986462499015,
+      "p50_latency_ms": 7027.59129999578,
+      "p95_latency_ms": 28732.387600000948,
+      "errors": 0,
+      "strategy": "staged",
+      "stage2_mode": "realtime"
+    },
+    "staged:static_global_graph": {
+      "query_count": 16,
+      "hit_at_k": 0.0,
+      "mrr_at_k": 0.0,
+      "avg_recall_at_k": 0.0,
+      "avg_latency_ms": 2284.2186249988154,
+      "p50_latency_ms": 2174.274800002575,
+      "p95_latency_ms": 3254.683274999261,
+      "errors": 0,
+      "strategy": "staged",
+      "stage2_mode": "static_global_graph"
+    }
+  },
+  "stage2_mode_matrix": {
+    "precomputed": {
+      "query_count": 16,
+      "hit_at_k": 0.0,
+      "mrr_at_k": 0.0,
+      "avg_recall_at_k": 0.0,
+      "avg_latency_ms": 2238.0576249985024,
+      "p50_latency_ms": 1962.1620500013232,
+      "p95_latency_ms": 3110.8512249961495,
+      "errors": 0,
+      "strategy": "staged",
+      "stage2_mode": "precomputed"
+    },
+    "realtime": {
+      "query_count": 16,
+      "hit_at_k": 0.0,
+      "mrr_at_k": 0.0,
+      "avg_recall_at_k": 0.0,
+      "avg_latency_ms": 10686.986462499015,
+      "p50_latency_ms": 7027.59129999578,
+      "p95_latency_ms": 28732.387600000948,
+      "errors": 0,
+      "strategy": "staged",
+      "stage2_mode": "realtime"
+    },
+    "static_global_graph": {
+      "query_count": 16,
+      "hit_at_k": 0.0,
+      "mrr_at_k": 0.0,
+      "avg_recall_at_k": 0.0,
+      "avg_latency_ms": 2284.2186249988154,
+      "p50_latency_ms": 2174.274800002575,
+      "p95_latency_ms": 3254.683274999261,
+      "errors": 0,
+      "strategy": "staged",
+      "stage2_mode": "static_global_graph"
+    }
+  },
+  "pairwise_stage2_deltas": [
+    {
+      "mode_a": "precomputed",
+      "mode_b": "realtime",
+      "hit_at_k_delta": 0.0,
+      "mrr_at_k_delta": 0.0,
+      "avg_recall_at_k_delta": 0.0,
+      "avg_latency_ms_delta": -8448.928837500513
+    },
+    {
+      "mode_a": "precomputed",
+      "mode_b": "static_global_graph",
+      "hit_at_k_delta": 0.0,
+      "mrr_at_k_delta": 0.0,
+      "avg_recall_at_k_delta": 0.0,
+      "avg_latency_ms_delta": -46.161000000312924
+    },
+    {
+      "mode_a": "realtime",
+      "mode_b": "static_global_graph",
+      "hit_at_k_delta": 0.0,
+      "mrr_at_k_delta": 0.0,
+      "avg_recall_at_k_delta": 0.0,
+      "avg_latency_ms_delta": 8402.7678375002
+    }
+  ],
+  "config": {
+    "embedding_backend": "fastembed",
+    "embedding_model": "code",
+    "embedding_use_gpu": false,
+    "reranker_backend": "onnx",
+    "reranker_model": "D:/Claude_dms3/codex-lens/.cache/huggingface/models/Xenova--ms-marco-MiniLM-L-6-v2",
+    "enable_staged_rerank": true,
+    "enable_cross_encoder_rerank": true
+  },
+  "evaluations": [
+    {
+      "query": "executeHybridMode dense_rerank semantic smart_search",
+      "intent": "ccw-semantic-routing",
+      "notes": "CCW semantic mode delegates to CodexLens dense_rerank.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\ccw\\src\\tools\\smart-search.ts"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 5607.933899998665,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-validator.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\list.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\health-check-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\view.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 1853.0870999991894,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\shell-escape.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\rate-limiter.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\core-memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\core-memory-store.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 10468.899399995804,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\shell-escape.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\rate-limiter.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\core-memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\core-memory-store.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 1445.837599992752,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\shell-escape.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\rate-limiter.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\core-memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\core-memory-store.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "parse CodexLens JSON output strip ANSI smart_search",
+      "intent": "ccw-json-fallback",
+      "notes": "Covers JSON/plain-text fallback handling for CodexLens output.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\ccw\\src\\tools\\smart-search.ts"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 1518.7583000063896,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\rules-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-context-builder.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\cli-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-queries.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\mcp-templates-db.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 1467.957000002265,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-queries.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\loop.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\rules-routes.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 35793.74619999528,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-queries.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\loop.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\rules-routes.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 2019.9724999964237,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-queries.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\loop.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\rules-routes.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "smart_search init embed search action schema",
+      "intent": "ccw-action-schema",
+      "notes": "Find the Zod schema that defines init/embed/search actions.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\ccw\\src\\tools\\smart-search.ts"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 2091.47919999063,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-parser.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\shell-escape.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\rate-limiter.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\file-reader.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\rules-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 2017.3953999876976,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.d.ts",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\team-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\serve.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-parser.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 2941.078400015831,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.d.ts",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\team-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\serve.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-parser.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 1921.6328999996185,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.d.ts",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\team-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\serve.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-parser.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "auto init missing job dedupe smart_search",
+      "intent": "ccw-auto-init",
+      "notes": "Targets background init/embed warmup and dedupe state.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\ccw\\src\\tools\\smart-search.ts"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 1662.2750000059605,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\cache-manager.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\dashboard-launcher.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\rules-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\react-frontend.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 1746.6091000139713,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\rules-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\react-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\team-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\server.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\cli-session-mux.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\loop.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 6291.47570002079,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\rules-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\react-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\team-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\server.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\cli-session-mux.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\loop.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 1718.0125000029802,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\rules-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\react-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\team-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\server.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\cli-session-mux.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\loop.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "smart_search exact mode fallback to CodexLens fts",
+      "intent": "ccw-exact-fallback",
+      "notes": "Tracks the exact-mode fallback path into CodexLens FTS.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\ccw\\src\\tools\\smart-search.ts"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 1511.011400014162,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\codexlens-path.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\provider-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-validator.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-queries.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\secret-redactor.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 1897.7800999879837,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-validator.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-context-builder.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\server.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\codexlens-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 6647.179499998689,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-validator.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-context-builder.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\server.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\codexlens-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 2328.577100008726,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-validator.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-context-builder.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\server.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\codexlens-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "smart_search settings snapshot embedding backend reranker backend staged stage2 mode",
+      "intent": "ccw-config-snapshot",
+      "notes": "Reads local config snapshot for embedding/reranker/staged pipeline settings.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\ccw\\src\\tools\\smart-search.ts"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 2516.6053000092506,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\rate-limiter.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\file-reader.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\help-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\core-memory.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 2778.8519999980927,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\core-memory.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\file-reader.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\websocket.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\serve.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 4940.330799981952,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\core-memory.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\file-reader.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\websocket.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\serve.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 3191.194299995899,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\core-memory.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\file-reader.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\websocket.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\serve.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "embedding backend fastembed local litellm api config",
+      "intent": "codexlens-embedding-config",
+      "notes": "Local-only benchmark should resolve to fastembed defaults.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\config.py"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 2773.382699996233,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\utils\\file-reader.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-context-builder.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-parser.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 2465.842600002885,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\file-reader.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-context-builder.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-parser.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 17898.587700009346,
+          "topk_paths": [
+            "d:\\claude_dms3\\codex-lens\\.venv\\lib\\site-packages\\sympy\\plotting\\backends\\base_backend.py",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\file-reader.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\pattern-detector.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-context-builder.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 3331.694400012493,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\file-reader.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-context-builder.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-parser.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "reranker backend onnx api legacy configuration",
+      "intent": "codexlens-reranker-config",
+      "notes": "Covers both config dataclass fields and env overrides.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\config.py",
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\env_config.py"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 3433.85640001297,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\react-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-context-builder.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\issue.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 2722.7298999875784,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\react-frontend.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 6998.953399986029,
+          "topk_paths": [
+            "d:\\claude_dms3\\codex-lens\\.venv\\lib\\site-packages\\sympy\\plotting\\backends\\base_backend.py",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\data-aggregator.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 2707.838899999857,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\cli.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\react-frontend.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "staged stage2 mode precomputed realtime static_global_graph",
+      "intent": "codexlens-stage2-config",
+      "notes": "Benchmark matrix should exercise the three supported stage2 modes.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\config.py",
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\env_config.py"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 2557.460299998522,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\health-check-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\python-utils.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-queries.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\codexlens-path.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 2611.47199998796,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\utils\\codexlens-path.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\dashboard-generator.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\team.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\pending-question-service.d.ts",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 9986.3125,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\utils\\codexlens-path.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\dashboard-generator.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\team.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\pending-question-service.d.ts",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 2705.1958999931812,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\utils\\codexlens-path.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\dashboard-generator.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\team.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\pending-question-service.d.ts",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "enable staged rerank stage 4 config",
+      "intent": "codexlens-stage4-rerank",
+      "notes": "Stage 4 rerank flag needs to stay enabled for local benchmarks.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\config.py"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 2839.552300006151,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\python-utils.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\health-check-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\package-discovery.d.ts",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\session-path-resolver.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\orchestrator-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\data-aggregator.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 3044.0294999927282,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\utils\\package-discovery.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\ccw-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\session-path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\websocket.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 12196.75379998982,
+          "topk_paths": [
+            "d:\\claude_dms3\\codex-lens\\build\\lib\\codexlens\\semantic\\reranker\\fastembed_reranker.py",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\package-discovery.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\ccw-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\session-path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\websocket.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 2919.969099998474,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\utils\\package-discovery.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\ccw-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\session-path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\websocket.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "cascade_search dense_rerank staged pipeline ChainSearchEngine",
+      "intent": "chain-search-cascade",
+      "notes": "Baseline query for the central retrieval engine.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\search\\chain_search.py"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 3082.173699989915,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\package-discovery.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\health-check-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\dashboard-generator.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\rate-limiter.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 3012.5525999963284,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\rate-limiter.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\core-memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-validator.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\memory.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 10854.694199994206,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\rate-limiter.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\core-memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-validator.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\memory.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 3229.01289999485,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\rate-limiter.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\core-memory-store.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-validator.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\memory.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "realtime LSP expand stage2 search pipeline",
+      "intent": "chain-search-stage2-realtime",
+      "notes": "Targets realtime stage2 expansion logic.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\search\\chain_search.py"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 3505.4010999947786,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\rules-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-queries.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-extraction-pipeline.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 3311.3164000064135,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-parser.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\dashboard-generator.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\core-memory.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 26378.601400002837,
+          "topk_paths": [
+            "d:\\claude_dms3\\codex-lens\\.venv\\lib\\site-packages\\optimum\\onnxruntime\\pipelines.py",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\health-check-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-parser.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\dashboard-generator.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\core-memory.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 2472.5419999957085,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\outline-parser.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\api-key-tester.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\dashboard-generator.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\core-memory.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "static global graph stage2 expansion implementation",
+      "intent": "chain-search-stage2-static",
+      "notes": "Targets static_global_graph stage2 expansion logic.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\search\\chain_search.py"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 1676.1588000059128,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\health-check-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\loop.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\system-routes.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\serve.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\team.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 1614.9786999970675,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\serve.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\health-check-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\codexlens-path.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-extraction-pipeline.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\pattern-detector.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 2153.07349999249,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\serve.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\health-check-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\codexlens-path.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-extraction-pipeline.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\pattern-detector.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 1658.4901999980211,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\serve.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\health-check-service.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\codexlens-path.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-extraction-pipeline.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\pattern-detector.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "cross encoder rerank stage 4 implementation",
+      "intent": "chain-search-rerank",
+      "notes": "Relevant for dense_rerank and staged rerank latency comparisons.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\search\\chain_search.py"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 1556.9279999881983,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\claude-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\package-discovery.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\commands-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 1772.8751000016928,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\package-discovery.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\server.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\cache-manager.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 7056.229200005531,
+          "topk_paths": [
+            "d:\\claude_dms3\\codex-lens\\.venv\\lib\\site-packages\\fastembed\\rerank\\cross_encoder\\onnx_text_cross_encoder.py",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\package-discovery.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\server.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\cache-manager.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 1721.4015000015497,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\commands\\install.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\package-discovery.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\config-backup.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\server.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\cache-manager.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "get_reranker factory onnx backend selection",
+      "intent": "reranker-factory",
+      "notes": "Keeps the benchmark aligned with local ONNX reranker selection.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\semantic\\reranker\\factory.py"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 2038.9054999947548,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\uninstall.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\data-aggregator.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 1906.9287000149488,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\websocket.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\loop.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\websocket.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 4809.299199998379,
+          "topk_paths": [
+            "d:\\claude_dms3\\.workflow\\.bench\\ccw-smart-search-mini-20260312\\codex-lens\\src\\codexlens\\semantic\\reranker\\factory.py",
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\websocket.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\loop.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 1549.4464999884367,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\discovery-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\uv-manager.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\websocket.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\loop.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\websocket.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    },
+    {
+      "query": "EMBEDDING_BACKEND and RERANKER_BACKEND environment variables",
+      "intent": "env-overrides",
+      "notes": "Covers CCW/CodexLens local-only environment overrides.",
+      "relevant_paths": [
+        "D:\\Claude_dms3\\codex-lens\\src\\codexlens\\env_config.py"
+      ],
+      "runs": {
+        "dense_rerank": {
+          "strategy_key": "dense_rerank",
+          "strategy": "dense_rerank",
+          "stage2_mode": null,
+          "latency_ms": 1529.7467999905348,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\shell-escape.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\upgrade.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\react-frontend.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\docs-frontend.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\codexlens-path.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\python-utils.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:precomputed": {
+          "strategy_key": "staged:precomputed",
+          "strategy": "staged",
+          "stage2_mode": "precomputed",
+          "latency_ms": 1584.515799999237,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-job-scheduler.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\shell-escape.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:realtime": {
+          "strategy_key": "staged:realtime",
+          "strategy": "staged",
+          "stage2_mode": "realtime",
+          "latency_ms": 5576.568499997258,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-job-scheduler.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\shell-escape.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        },
+        "staged:static_global_graph": {
+          "strategy_key": "staged:static_global_graph",
+          "strategy": "staged",
+          "stage2_mode": "static_global_graph",
+          "latency_ms": 1626.6797000020742,
+          "topk_paths": [
+            "d:\\claude_dms3\\ccw\\frontend\\dist\\assets\\index-b4psv8bd.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\path-resolver.d.ts",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\files-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\routes\\graph-routes.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\remote-notification-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\services\\flow-executor.js",
+            "d:\\claude_dms3\\ccw\\dist\\commands\\workflow.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\unified-memory-service.js",
+            "d:\\claude_dms3\\ccw\\dist\\core\\memory-job-scheduler.js",
+            "d:\\claude_dms3\\ccw\\dist\\utils\\shell-escape.d.ts"
+          ],
+          "first_hit_rank": null,
+          "hit_at_k": false,
+          "recall_at_k": 0.0,
+          "error": null
+        }
+      }
+    }
+  ]
+}

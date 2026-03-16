@@ -105,7 +105,10 @@ describe('memory-embedder-bridge', () => {
     assert.equal(spawnCalls.length, 1);
     assert.equal(spawnCalls[0].args.at(-2), 'status');
     assert.equal(spawnCalls[0].args.at(-1), 'C:\\tmp\\db.sqlite');
+    assert.equal(spawnCalls[0].options.shell, false);
     assert.equal(spawnCalls[0].options.timeout, 30000);
+    assert.equal(spawnCalls[0].options.windowsHide, true);
+    assert.equal(spawnCalls[0].options.env.PYTHONIOENCODING, 'utf-8');
   });
 
   it('generateEmbeddings builds args for sourceId, batchSize, and force', async () => {
@@ -138,7 +141,10 @@ describe('memory-embedder-bridge', () => {
     assert.equal(args[batchSizeIndex + 1], '4');
 
     assert.ok(args.includes('--force'));
+    assert.equal(spawnCalls[0].options.shell, false);
     assert.equal(spawnCalls[0].options.timeout, 300000);
+    assert.equal(spawnCalls[0].options.windowsHide, true);
+    assert.equal(spawnCalls[0].options.env.PYTHONIOENCODING, 'utf-8');
 
     spawnCalls.length = 0;
     spawnPlan.push({

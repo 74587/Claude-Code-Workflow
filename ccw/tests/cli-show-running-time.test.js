@@ -163,6 +163,42 @@ describe('ccw cli show running time formatting', async () => {
     assert.match(rendered, /1h\.\.\./);
   });
 
+  it('lists executions from other registered projects in show output', async () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'ccw-cli-show-cross-project-'));
+    const unrelatedCwd = mkdtempSync(join(tmpdir(), 'ccw-cli-show-cross-cwd-'));
+    const previousCwd = process.cwd();
+
+    try {
+      process.chdir(unrelatedCwd);
+      const store = new historyStoreModule.CliHistoryStore(projectRoot);
+      store.saveConversation(createConversationRecord({
+        id: 'EXEC-CROSS-PROJECT-SHOW',
+        prompt: 'cross project show prompt',
+        updatedAt: new Date('2025-02-02T00:00:00.000Z').toISOString(),
+        durationMs: 1800,
+      }));
+      store.close();
+
+      stubActiveExecutionsResponse([]);
+
+      const logs = [];
+      mock.method(console, 'log', (...args) => {
+        logs.push(args.map(String).join(' '));
+      });
+      mock.method(console, 'error', () => {});
+
+      await cliModule.cliCommand('show', [], {});
+
+      const rendered = logs.join('\n');
+      assert.match(rendered, /EXEC-CROSS-PROJECT-SHOW/);
+      assert.match(rendered, /cross project show prompt/);
+    } finally {
+      process.chdir(previousCwd);
+      rmSync(projectRoot, { recursive: true, force: true });
+      rmSync(unrelatedCwd, { recursive: true, force: true });
+    }
+  });
+
   it('suppresses stale running rows when saved history is newer than the active start time', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'ccw-cli-show-stale-project-'));
     const previousCwd = process.cwd();

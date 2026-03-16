@@ -150,6 +150,30 @@ class TestHybridSearchBackends:
             assert "exact" in backends
             assert "vector" in backends
 
+    def test_search_lexical_priority_query_skips_vector_backend(self, temp_paths, mock_config):
+        """Config/env/factory queries should stay lexical-first in hybrid mode."""
+        engine = HybridSearchEngine(config=mock_config)
+        index_path = temp_paths / "_index.db"
+
+        with patch.object(engine, "_search_parallel") as mock_parallel:
+            mock_parallel.return_value = {
+                "exact": [SearchResult(path="config.py", score=10.0, excerpt="exact")],
+                "fuzzy": [SearchResult(path="env_config.py", score=8.0, excerpt="fuzzy")],
+            }
+
+            results = engine.search(
+                index_path,
+                "embedding backend fastembed local litellm api config",
+                enable_fuzzy=True,
+                enable_vector=True,
+            )
+
+            assert len(results) >= 1
+            backends = mock_parallel.call_args[0][2]
+            assert "exact" in backends
+            assert "fuzzy" in backends
+            assert "vector" not in backends
+
     def test_search_pure_vector(self, temp_paths, mock_config):
         """Pure vector mode should only use vector backend."""
         engine = HybridSearchEngine(config=mock_config)
@@ -257,6 +281,39 @@ class TestHybridSearchFusion:
 
                 mock_rerank.assert_called_once()
 
+    def test_search_lexical_priority_query_skips_expensive_reranking(self, temp_paths, mock_config):
+        """Lexical-priority queries should bypass embedder and cross-encoder reranking."""
+        mock_config.enable_reranking = True
+        mock_config.enable_cross_encoder_rerank = True
+        mock_config.reranking_top_k = 50
+        mock_config.reranker_top_k = 20
+        engine = HybridSearchEngine(config=mock_config)
+        index_path = temp_paths / "_index.db"
+
+        with patch.object(engine, "_search_parallel") as mock_parallel:
+            mock_parallel.return_value = {
+                "exact": [SearchResult(path="config.py", score=10.0, excerpt="code")],
+                "fuzzy": [SearchResult(path="env_config.py", score=9.0, excerpt="env vars")],
+            }
+
+            with patch("codexlens.search.hybrid_search.rerank_results") as mock_rerank, patch(
+                "codexlens.search.hybrid_search.cross_encoder_rerank"
+            ) as mock_cross_encoder, patch.object(
+                engine,
+                "_get_cross_encoder_reranker",
+            ) as mock_get_reranker:
+                results = engine.search(
+                    index_path,
+                    "get_reranker factory onnx backend selection",
+                    enable_fuzzy=True,
+                    enable_vector=True,
+                )
+
+                assert len(results) >= 1
+                mock_rerank.assert_not_called()
+                mock_cross_encoder.assert_not_called()
+                mock_get_reranker.assert_not_called()
+
     def test_search_category_filtering(self, temp_paths, mock_config):
         """Category filtering should separate code/doc results by intent."""
         mock_config.enable_category_filter = True
@@ -314,6 +371,217 @@ class TestSearchParallel:
             assert "fuzzy" in results_map
             mock_exact.assert_called_once()
             mock_fuzzy.assert_called_once()
+
+
+class TestCentralizedMetadataFetch:
+    """Tests for centralized metadata retrieval helpers."""
+
+    def test_fetch_from_vector_meta_store_clamps_negative_scores(self, temp_paths, mock_config, monkeypatch):
+        engine = HybridSearchEngine(config=mock_config)
+
+        class FakeMetaStore:
+            def __init__(self, _path):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def get_chunks_by_ids(self, _chunk_ids, category=None):
+                assert category is None
+                return [
+                    {
+                        "chunk_id": 7,
+                        "file_path": "src/app.py",
+                        "content": "def app(): pass",
+                        "metadata": {},
+                        "start_line": 1,
+                        "end_line": 1,
+                    }
+                ]
+
+        import codexlens.storage.vector_meta_store as vector_meta_store
+
+        monkeypatch.setattr(vector_meta_store, "VectorMetadataStore", FakeMetaStore)
+
+        results = engine._fetch_from_vector_meta_store(
+            temp_paths / "_vectors_meta.db",
+            [7],
+            {7: -0.01},
+        )
+
+        assert len(results) == 1
+        assert results[0].path == "src/app.py"
+        assert results[0].score == 0.0
+
+
+class TestCentralizedVectorCaching:
+    """Tests for centralized vector search runtime caches."""
+
+    def test_search_vector_centralized_reuses_cached_resources(
+        self,
+        temp_paths,
+        mock_config,
+    ):
+        engine = HybridSearchEngine(config=mock_config)
+        hnsw_path = temp_paths / "_vectors.hnsw"
+        hnsw_path.write_bytes(b"hnsw")
+
+        vector_store_opened: List[Path] = []
+
+        class FakeVectorStore:
+            def __init__(self, path):
+                vector_store_opened.append(Path(path))
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def get_model_config(self):
+                return {
+                    "backend": "fastembed",
+                    "model_name": "BAAI/bge-small-en-v1.5",
+                    "model_profile": "fast",
+                    "embedding_dim": 384,
+                }
+
+        class FakeEmbedder:
+            embedding_dim = 384
+
+            def __init__(self):
+                self.embed_calls: List[str] = []
+
+            def embed_single(self, query):
+                self.embed_calls.append(query)
+                return [0.1, 0.2, 0.3]
+
+        class FakeAnnIndex:
+            def __init__(self):
+                self.load_calls = 0
+                self.search_calls = 0
+
+            def load(self):
+                self.load_calls += 1
+                return True
+
+            def count(self):
+                return 3
+
+            def search(self, _query_vec, top_k):
+                self.search_calls += 1
+                assert top_k == 10
+                return [7], [0.2]
+
+        fake_embedder = FakeEmbedder()
+        fake_ann_index = FakeAnnIndex()
+
+        with patch("codexlens.semantic.vector_store.VectorStore", FakeVectorStore), patch(
+            "codexlens.semantic.factory.get_embedder",
+            return_value=fake_embedder,
+        ) as mock_get_embedder, patch(
+            "codexlens.semantic.ann_index.ANNIndex.create_central",
+            return_value=fake_ann_index,
+        ) as mock_create_central, patch.object(
+            engine,
+            "_fetch_chunks_by_ids_centralized",
+            return_value=[SearchResult(path="src/app.py", score=0.8, excerpt="hit")],
+        ) as mock_fetch:
+            first = engine._search_vector_centralized(
+                temp_paths / "child-a" / "_index.db",
+                hnsw_path,
+                "smart search routing",
+                limit=5,
+            )
+            second = engine._search_vector_centralized(
+                temp_paths / "child-b" / "_index.db",
+                hnsw_path,
+                "smart search routing",
+                limit=5,
+            )
+
+        assert [result.path for result in first] == ["src/app.py"]
+        assert [result.path for result in second] == ["src/app.py"]
+        assert vector_store_opened == [temp_paths / "_index.db"]
+        assert mock_get_embedder.call_count == 1
+        assert mock_create_central.call_count == 1
+        assert fake_ann_index.load_calls == 1
+        assert fake_embedder.embed_calls == ["smart search routing"]
+        assert fake_ann_index.search_calls == 2
+        assert mock_fetch.call_count == 2
+
+    def test_search_vector_centralized_respects_embedding_use_gpu(
+        self,
+        temp_paths,
+        mock_config,
+    ):
+        engine = HybridSearchEngine(config=mock_config)
+        hnsw_path = temp_paths / "_vectors.hnsw"
+        hnsw_path.write_bytes(b"hnsw")
+
+        class FakeVectorStore:
+            def __init__(self, _path):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def get_model_config(self):
+                return {
+                    "backend": "fastembed",
+                    "model_name": "BAAI/bge-small-en-v1.5",
+                    "model_profile": "code",
+                    "embedding_dim": 384,
+                }
+
+        class FakeEmbedder:
+            embedding_dim = 384
+
+            def embed_single(self, _query):
+                return [0.1, 0.2]
+
+        class FakeAnnIndex:
+            def load(self):
+                return True
+
+            def count(self):
+                return 1
+
+            def search(self, _query_vec, top_k):
+                assert top_k == 6
+                return [9], [0.1]
+
+        with patch("codexlens.semantic.vector_store.VectorStore", FakeVectorStore), patch(
+            "codexlens.semantic.factory.get_embedder",
+            return_value=FakeEmbedder(),
+        ) as mock_get_embedder, patch(
+            "codexlens.semantic.ann_index.ANNIndex.create_central",
+            return_value=FakeAnnIndex(),
+        ), patch.object(
+            engine,
+            "_fetch_chunks_by_ids_centralized",
+            return_value=[SearchResult(path="src/app.py", score=0.9, excerpt="hit")],
+        ):
+            results = engine._search_vector_centralized(
+                temp_paths / "_index.db",
+                hnsw_path,
+                "semantic query",
+                limit=3,
+            )
+
+        assert len(results) == 1
+        assert mock_get_embedder.call_count == 1
+        assert mock_get_embedder.call_args.kwargs == {
+            "backend": "fastembed",
+            "profile": "code",
+            "use_gpu": False,
+        }
 
 
 # =============================================================================

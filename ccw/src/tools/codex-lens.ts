@@ -11,10 +11,15 @@
 
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
-import { spawn, execSync, exec } from 'child_process';
-import { existsSync, mkdirSync, rmSync } from 'fs';
-import { join } from 'path';
-import { getSystemPython, parsePythonVersion, isPythonVersionCompatible } from '../utils/python-utils.js';
+import { spawn, spawnSync, execSync, exec, type SpawnOptions, type SpawnSyncOptionsWithStringEncoding } from 'child_process';
+import { existsSync, mkdirSync, rmSync, statSync } from 'fs';
+import { join, resolve } from 'path';
+import {
+  getSystemPythonCommand,
+  parsePythonVersion,
+  isPythonVersionCompatible,
+  type PythonCommandSpec,
+} from '../utils/python-utils.js';
 import { EXEC_TIMEOUTS } from '../utils/exec-constants.js';
 import {
   UvManager,
@@ -26,6 +31,7 @@ import {
   getCodexLensDataDir,
   getCodexLensVenvDir,
   getCodexLensPython,
+  getCodexLensHiddenPython,
   getCodexLensPip,
 } from '../utils/codexlens-path.js';
 import {
@@ -58,6 +64,10 @@ interface SemanticStatusCache {
 let semanticStatusCache: SemanticStatusCache | null = null;
 const SEMANTIC_STATUS_TTL = 5 * 60 * 1000; // 5 minutes TTL
 
+type HiddenCodexLensSpawnSyncOptions = Omit<SpawnSyncOptionsWithStringEncoding, 'encoding'> & {
+  encoding?: BufferEncoding;
+};
+
 // Track running indexing process for cancellation
 let currentIndexingProcess: ReturnType<typeof spawn> | null = null;
 let currentIndexingAborted = false;
@@ -69,13 +79,34 @@ const VENV_CHECK_TIMEOUT = process.platform === 'win32' ? 15000 : 10000;
  * Pre-flight check: verify Python 3.9+ is available before attempting bootstrap.
  * Returns an error message if Python is not suitable, or null if OK.
  */
+function probePythonVersion(
+  pythonCommand: PythonCommandSpec,
+  runner: typeof spawnSync = spawnSync,
+): string {
+  const result = runner(
+    pythonCommand.command,
+    [...pythonCommand.args, '--version'],
+    buildCodexLensSpawnSyncOptions({
+      timeout: EXEC_TIMEOUTS.PYTHON_VERSION,
+    }),
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  const versionOutput = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
+  if (result.status !== 0) {
+    throw new Error(versionOutput || `Python version probe exited with code ${String(result.status)}`);
+  }
+
+  return versionOutput;
+}
+
 function preFlightCheck(): string | null {
   try {
-    const pythonCmd = getSystemPython();
-    const version = execSync(`${pythonCmd} --version 2>&1`, {
-      encoding: 'utf8',
-      timeout: EXEC_TIMEOUTS.PYTHON_VERSION,
-    }).trim();
+    const pythonCommand = getSystemPythonCommand();
+    const version = probePythonVersion(pythonCommand);
     const parsed = parsePythonVersion(version);
     if (!parsed) {
       return `Cannot parse Python version from: "${version}". Ensure Python 3.9+ is installed.`;
@@ -244,7 +275,7 @@ async function checkVenvStatus(force = false): Promise<ReadyStatus> {
     return result;
   }
 
-  const pythonPath = getCodexLensPython();
+  const pythonPath = getCodexLensHiddenPython();
 
   // Check python executable exists
   if (!existsSync(pythonPath)) {
@@ -259,18 +290,21 @@ async function checkVenvStatus(force = false): Promise<ReadyStatus> {
   console.log('[PERF][CodexLens] checkVenvStatus spawning Python...');
 
   return new Promise((resolve) => {
-    const child = spawn(pythonPath, ['-c', 'import sys; import codexlens; import watchdog; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"); print(codexlens.__version__)'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: VENV_CHECK_TIMEOUT,
-    });
+    const child = spawn(
+      pythonPath,
+      ['-c', 'import sys; import codexlens; import watchdog; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"); print(codexlens.__version__)'],
+      buildCodexLensSpawnOptions(venvPath, VENV_CHECK_TIMEOUT, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+    );
 
     let stdout = '';
     let stderr = '';
 
-    child.stdout.on('data', (data) => {
+    child.stdout?.on('data', (data) => {
       stdout += data.toString();
     });
-    child.stderr.on('data', (data) => {
+    child.stderr?.on('data', (data) => {
       stderr += data.toString();
     });
 
@@ -380,18 +414,21 @@ try:
 except Exception as e:
     print(json.dumps({"available": False, "error": str(e)}))
 `;
-    const child = spawn(getCodexLensPython(), ['-c', checkCode], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 15000,
-    });
+    const child = spawn(
+      getCodexLensHiddenPython(),
+      ['-c', checkCode],
+      buildCodexLensSpawnOptions(getCodexLensVenvDir(), 15000, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+    );
 
     let stdout = '';
     let stderr = '';
 
-    child.stdout.on('data', (data) => {
+    child.stdout?.on('data', (data) => {
       stdout += data.toString();
     });
-    child.stderr.on('data', (data) => {
+    child.stderr?.on('data', (data) => {
       stderr += data.toString();
     });
 
@@ -441,13 +478,16 @@ async function ensureLiteLLMEmbedderReady(): Promise<BootstrapResult> {
 
   // Check if ccw_litellm can be imported
   const importStatus = await new Promise<{ ok: boolean; error?: string }>((resolve) => {
-    const child = spawn(getCodexLensPython(), ['-c', 'import ccw_litellm; print("OK")'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 15000,
-    });
+    const child = spawn(
+      getCodexLensHiddenPython(),
+      ['-c', 'import ccw_litellm; print("OK")'],
+      buildCodexLensSpawnOptions(getCodexLensVenvDir(), 15000, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+    );
 
     let stderr = '';
-    child.stderr.on('data', (data) => {
+    child.stderr?.on('data', (data) => {
       stderr += data.toString();
     });
 
@@ -522,10 +562,19 @@ async function ensureLiteLLMEmbedderReady(): Promise<BootstrapResult> {
     const venvPython = getCodexLensPython();
     console.warn(`[CodexLens] pip not found at: ${pipPath}. Attempting to bootstrap pip with ensurepip...`);
     try {
-      execSync(`\"${venvPython}\" -m ensurepip --upgrade`, {
-        stdio: 'inherit',
-        timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
-      });
+      const ensurePipResult = spawnSync(
+        venvPython,
+        ['-m', 'ensurepip', '--upgrade'],
+        buildCodexLensSpawnSyncOptions({
+          timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
+        }),
+      );
+      if (ensurePipResult.error) {
+        throw ensurePipResult.error;
+      }
+      if (ensurePipResult.status !== 0) {
+        throw new Error(`ensurepip exited with code ${String(ensurePipResult.status)}`);
+      }
     } catch (err) {
       console.warn(`[CodexLens] ensurepip failed: ${(err as Error).message}`);
     }
@@ -549,13 +598,36 @@ async function ensureLiteLLMEmbedderReady(): Promise<BootstrapResult> {
 
   try {
     if (localPath) {
-      const pipFlag = editable ? '-e' : '';
-      const pipInstallSpec = editable ? `"${localPath}"` : `"${localPath}"`;
+      const pipArgs = editable ? ['install', '-e', localPath] : ['install', localPath];
       console.log(`[CodexLens] Installing ccw-litellm from local path with pip: ${localPath} (editable: ${editable})`);
-      execSync(`"${pipPath}" install ${pipFlag} ${pipInstallSpec}`.replace(/  +/g, ' '), { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
+      const installResult = spawnSync(
+        pipPath,
+        pipArgs,
+        buildCodexLensSpawnSyncOptions({
+          timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
+        }),
+      );
+      if (installResult.error) {
+        throw installResult.error;
+      }
+      if (installResult.status !== 0) {
+        throw new Error(`pip install exited with code ${String(installResult.status)}`);
+      }
     } else {
       console.log('[CodexLens] Installing ccw-litellm from PyPI with pip...');
-      execSync(`"${pipPath}" install ccw-litellm`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
+      const installResult = spawnSync(
+        pipPath,
+        ['install', 'ccw-litellm'],
+        buildCodexLensSpawnSyncOptions({
+          timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
+        }),
+      );
+      if (installResult.error) {
+        throw installResult.error;
+      }
+      if (installResult.status !== 0) {
+        throw new Error(`pip install exited with code ${String(installResult.status)}`);
+      }
     }
 
     return {
@@ -609,7 +681,7 @@ interface PythonEnvInfo {
  * DirectML requires: 64-bit Python, version 3.8-3.12
  */
 async function checkPythonEnvForDirectML(): Promise<PythonEnvInfo> {
-  const pythonPath = getCodexLensPython();
+  const pythonPath = getCodexLensHiddenPython();
 
   if (!existsSync(pythonPath)) {
     return { version: '', majorMinor: '', architecture: 0, compatible: false, error: 'Python not found in venv' };
@@ -619,8 +691,19 @@ async function checkPythonEnvForDirectML(): Promise<PythonEnvInfo> {
     // Get Python version and architecture in one call
     // Use % formatting instead of f-string to avoid Windows shell escaping issues with curly braces
     const checkScript = `import sys, struct; print('%d.%d.%d|%d' % (sys.version_info.major, sys.version_info.minor, sys.version_info.micro, struct.calcsize('P') * 8))`;
-    const result = execSync(`"${pythonPath}" -c "${checkScript}"`, { encoding: 'utf-8', timeout: 10000 }).trim();
-    const [version, archStr] = result.split('|');
+    const result = spawnSync(
+      pythonPath,
+      ['-c', checkScript],
+      buildCodexLensSpawnSyncOptions({ timeout: 10000 }),
+    );
+    if (result.error) {
+      throw result.error;
+    }
+    const output = `${result.stdout ?? ''}${result.stderr ?? ''}`.trim();
+    if (result.status !== 0) {
+      throw new Error(output || `Python probe exited with code ${String(result.status)}`);
+    }
+    const [version, archStr] = output.split('|');
     const architecture = parseInt(archStr, 10);
     const [major, minor] = version.split('.').map(Number);
     const majorMinor = `${major}.${minor}`;
@@ -898,15 +981,18 @@ async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
     console.log(`[CodexLens] Packages: ${packages.join(', ')}`);
 
     // Install ONNX Runtime first with force-reinstall to ensure clean state
-    const installOnnx = spawn(pipPath, ['install', '--force-reinstall', onnxPackage], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 600000, // 10 minutes for GPU packages
-    });
+    const installOnnx = spawn(
+      pipPath,
+      ['install', '--force-reinstall', onnxPackage],
+      buildCodexLensSpawnOptions(getCodexLensVenvDir(), 600000, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+    );
 
     let onnxStdout = '';
     let onnxStderr = '';
 
-    installOnnx.stdout.on('data', (data) => {
+    installOnnx.stdout?.on('data', (data) => {
       onnxStdout += data.toString();
       const line = data.toString().trim();
       if (line.includes('Downloading') || line.includes('Installing')) {
@@ -914,7 +1000,7 @@ async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
       }
     });
 
-    installOnnx.stderr.on('data', (data) => {
+    installOnnx.stderr?.on('data', (data) => {
       onnxStderr += data.toString();
     });
 
@@ -927,15 +1013,18 @@ async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
       console.log(`[CodexLens] ${onnxPackage} installed successfully`);
 
       // Now install remaining packages
-      const child = spawn(pipPath, ['install', ...packages], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: 600000,
-      });
+      const child = spawn(
+        pipPath,
+        ['install', ...packages],
+        buildCodexLensSpawnOptions(getCodexLensVenvDir(), 600000, {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        }),
+      );
 
       let stdout = '';
       let stderr = '';
 
-      child.stdout.on('data', (data) => {
+      child.stdout?.on('data', (data) => {
         stdout += data.toString();
         const line = data.toString().trim();
         if (line.includes('Downloading') || line.includes('Installing') || line.includes('Collecting')) {
@@ -943,7 +1032,7 @@ async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
         }
       });
 
-      child.stderr.on('data', (data) => {
+      child.stderr?.on('data', (data) => {
         stderr += data.toString();
       });
 
@@ -1028,8 +1117,20 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
     if (!existsSync(venvDir)) {
       try {
         console.log('[CodexLens] Creating virtual environment...');
-        const pythonCmd = getSystemPython();
-        execSync(`${pythonCmd} -m venv "${venvDir}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PROCESS_SPAWN });
+        const pythonCmd = getSystemPythonCommand();
+        const createResult = spawnSync(
+          pythonCmd.command,
+          [...pythonCmd.args, '-m', 'venv', venvDir],
+          buildCodexLensSpawnSyncOptions({
+            timeout: EXEC_TIMEOUTS.PROCESS_SPAWN,
+          }),
+        );
+        if (createResult.error) {
+          throw createResult.error;
+        }
+        if (createResult.status !== 0) {
+          throw new Error(`venv creation exited with code ${String(createResult.status)}`);
+        }
       } catch (err) {
         return {
           success: false,
@@ -1049,10 +1150,19 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
         const venvPython = getCodexLensPython();
         console.warn(`[CodexLens] pip not found at: ${pipPath}. Attempting to bootstrap pip with ensurepip...`);
         try {
-          execSync(`\"${venvPython}\" -m ensurepip --upgrade`, {
-            stdio: 'inherit',
-            timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
-          });
+          const ensurePipResult = spawnSync(
+            venvPython,
+            ['-m', 'ensurepip', '--upgrade'],
+            buildCodexLensSpawnSyncOptions({
+              timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
+            }),
+          );
+          if (ensurePipResult.error) {
+            throw ensurePipResult.error;
+          }
+          if (ensurePipResult.status !== 0) {
+            throw new Error(`ensurepip exited with code ${String(ensurePipResult.status)}`);
+          }
         } catch (err) {
           console.warn(`[CodexLens] ensurepip failed: ${(err as Error).message}`);
         }
@@ -1063,8 +1173,20 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
         console.warn('[CodexLens] pip still missing after ensurepip; recreating venv with system Python...');
         try {
           rmSync(venvDir, { recursive: true, force: true });
-          const pythonCmd = getSystemPython();
-          execSync(`${pythonCmd} -m venv \"${venvDir}\"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PROCESS_SPAWN });
+          const pythonCmd = getSystemPythonCommand();
+          const recreateResult = spawnSync(
+            pythonCmd.command,
+            [...pythonCmd.args, '-m', 'venv', venvDir],
+            buildCodexLensSpawnSyncOptions({
+              timeout: EXEC_TIMEOUTS.PROCESS_SPAWN,
+            }),
+          );
+          if (recreateResult.error) {
+            throw recreateResult.error;
+          }
+          if (recreateResult.status !== 0) {
+            throw new Error(`venv recreation exited with code ${String(recreateResult.status)}`);
+          }
         } catch (err) {
           return {
             success: false,
@@ -1090,9 +1212,21 @@ async function bootstrapVenv(): Promise<BootstrapResult> {
     }
 
     const editable = isDevEnvironment() && !discovery.insideNodeModules;
-    const pipFlag = editable ? ' -e' : '';
+    const pipArgs = editable ? ['install', '-e', discovery.path] : ['install', discovery.path];
     console.log(`[CodexLens] Installing from local path: ${discovery.path} (editable: ${editable})`);
-    execSync(`"${pipPath}" install${pipFlag} "${discovery.path}"`, { stdio: 'inherit', timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL });
+    const installResult = spawnSync(
+      pipPath,
+      pipArgs,
+      buildCodexLensSpawnSyncOptions({
+        timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
+      }),
+    );
+    if (installResult.error) {
+      throw installResult.error;
+    }
+    if (installResult.status !== 0) {
+      throw new Error(`pip install exited with code ${String(installResult.status)}`);
+    }
 
     // Clear cache after successful installation
     clearVenvStatusCache();
@@ -1237,6 +1371,12 @@ function shouldRetryWithoutLanguageFilters(args: string[], error?: string): bool
   return args.includes('--language') && Boolean(error && /Got unexpected extra arguments?\b/i.test(error));
 }
 
+function shouldRetryWithLegacySearchArgs(args: string[], error?: string): boolean {
+  return args[0] === 'search'
+    && (args.includes('--limit') || args.includes('--mode') || args.includes('--offset'))
+    && Boolean(error && /Got unexpected extra arguments?\b/i.test(error));
+}
+
 function stripFlag(args: string[], flag: string): string[] {
   return args.filter((arg) => arg !== flag);
 }
@@ -1251,6 +1391,29 @@ function stripOptionWithValues(args: string[], option: string): string[] {
     nextArgs.push(args[index]);
   }
   return nextArgs;
+}
+
+function stripSearchCompatibilityOptions(args: string[]): string[] {
+  return stripOptionWithValues(
+    stripOptionWithValues(
+      stripOptionWithValues(args, '--offset'),
+      '--mode',
+    ),
+    '--limit',
+  );
+}
+
+function appendWarning(existing: string | undefined, next: string | undefined): string | undefined {
+  if (!next) {
+    return existing;
+  }
+  if (!existing) {
+    return next;
+  }
+  if (existing.includes(next)) {
+    return existing;
+  }
+  return `${existing} ${next}`;
 }
 
 function shouldRetryWithAstGrepPreference(args: string[], error?: string): boolean {
@@ -1334,6 +1497,142 @@ function tryExtractJsonPayload(raw: string): unknown | null {
   }
 }
 
+function parseLegacySearchPaths(output: string | undefined, cwd: string): string[] {
+  const lines = stripAnsiCodes(output || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const filePaths: string[] = [];
+  for (const line of lines) {
+    if (line.includes('RuntimeWarning:') || line.startsWith('warn(') || line.startsWith('Warning:')) {
+      continue;
+    }
+
+    const candidate = /^[a-zA-Z]:[\\/]|^\//.test(line)
+      ? line
+      : resolve(cwd, line);
+
+    try {
+      if (statSync(candidate).isFile()) {
+        filePaths.push(candidate);
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return [...new Set(filePaths)];
+}
+
+function buildLegacySearchPayload(query: string, filePaths: string[], limit: number): Record<string, unknown> {
+  const results = filePaths.slice(0, limit).map((path, index) => ({
+    path,
+    score: Math.max(0.1, 1 - index * 0.05),
+    excerpt: '',
+    content: '',
+    source: 'legacy_text_output',
+    symbol: null,
+  }));
+
+  return {
+    success: true,
+    result: {
+      query,
+      count: filePaths.length,
+      results,
+    },
+  };
+}
+
+function buildLegacySearchFilesPayload(query: string, filePaths: string[], limit: number): Record<string, unknown> {
+  return {
+    success: true,
+    result: {
+      query,
+      count: filePaths.length,
+      files: filePaths.slice(0, limit),
+    },
+  };
+}
+
+function buildEmptySearchPayload(query: string, filesOnly: boolean): Record<string, unknown> {
+  return filesOnly
+    ? {
+        success: true,
+        result: {
+          query,
+          count: 0,
+          files: [],
+        },
+      }
+    : {
+        success: true,
+        result: {
+          query,
+          count: 0,
+          results: [],
+        },
+      };
+}
+
+function normalizeSearchCommandResult(
+  result: ExecuteResult,
+  options: { query: string; cwd: string; limit: number; filesOnly: boolean },
+): ExecuteResult {
+  if (!result.success) {
+    return result;
+  }
+
+  const { query, cwd, limit, filesOnly } = options;
+  const rawOutput = typeof result.output === 'string' ? result.output : '';
+  const parsedPayload = rawOutput ? tryExtractJsonPayload(rawOutput) : null;
+  if (parsedPayload !== null) {
+    if (filesOnly) {
+      result.files = parsedPayload;
+    } else {
+      result.results = parsedPayload;
+    }
+    delete result.output;
+    return result;
+  }
+
+  const legacyPaths = parseLegacySearchPaths(rawOutput, cwd);
+  if (legacyPaths.length > 0) {
+    const warning = filesOnly
+      ? 'CodexLens CLI returned legacy plain-text file output; synthesized JSON-compatible search_files results.'
+      : 'CodexLens CLI returned legacy plain-text search output; synthesized JSON-compatible search results.';
+
+    if (filesOnly) {
+      result.files = buildLegacySearchFilesPayload(query, legacyPaths, limit);
+    } else {
+      result.results = buildLegacySearchPayload(query, legacyPaths, limit);
+    }
+    delete result.output;
+    result.warning = appendWarning(result.warning, warning);
+    result.message = appendWarning(result.message, warning);
+    return result;
+  }
+
+  const warning = rawOutput.trim()
+    ? (filesOnly
+        ? 'CodexLens CLI returned non-JSON search_files output; synthesized an empty JSON-compatible fallback payload.'
+        : 'CodexLens CLI returned non-JSON search output; synthesized an empty JSON-compatible fallback payload.')
+    : (filesOnly
+        ? 'CodexLens CLI returned empty stdout in JSON mode for search_files; synthesized an empty JSON-compatible fallback payload.'
+        : 'CodexLens CLI returned empty stdout in JSON mode for search; synthesized an empty JSON-compatible fallback payload.');
+
+  if (filesOnly) {
+    result.files = buildEmptySearchPayload(query, true);
+  } else {
+    result.results = buildEmptySearchPayload(query, false);
+  }
+  delete result.output;
+  result.warning = appendWarning(result.warning, warning);
+  result.message = appendWarning(result.message, warning);
+  return result;
+}
+
 function extractStructuredError(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return null;
@@ -1395,6 +1694,11 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
       warning: 'CodexLens CLI rejected --language filters; retried without language scoping.',
     },
     {
+      shouldRetry: shouldRetryWithLegacySearchArgs,
+      transform: stripSearchCompatibilityOptions,
+      warning: 'CodexLens CLI rejected search --limit/--mode compatibility flags; retried with minimal legacy search args.',
+    },
+    {
       shouldRetry: shouldRetryWithAstGrepPreference,
       transform: (currentArgs: string[]) => [...currentArgs, '--use-astgrep'],
       warning: 'CodexLens CLI hit a Typer ast-grep option conflict; retried with explicit --use-astgrep.',
@@ -1441,6 +1745,32 @@ async function executeCodexLens(args: string[], options: ExecuteOptions = {}): P
   };
 }
 
+function buildCodexLensSpawnOptions(cwd: string, timeout: number, overrides: SpawnOptions = {}): SpawnOptions {
+  const { env, ...rest } = overrides;
+  return {
+    cwd,
+    shell: false,
+    timeout,
+    windowsHide: true,
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...env },
+    ...rest,
+  };
+}
+
+function buildCodexLensSpawnSyncOptions(
+  overrides: HiddenCodexLensSpawnSyncOptions = {},
+): SpawnSyncOptionsWithStringEncoding {
+  const { env, encoding, ...rest } = overrides;
+  return {
+    shell: false,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...env },
+    ...rest,
+    encoding: encoding ?? 'utf8',
+  };
+}
+
 async function executeCodexLensOnce(args: string[], options: ExecuteOptions = {}): Promise<ExecuteResult> {
   const { timeout = 300000, cwd = process.cwd(), onProgress } = options; // Default 5 min
 
@@ -1456,13 +1786,7 @@ async function executeCodexLensOnce(args: string[], options: ExecuteOptions = {}
     // spawn's cwd option handles drive changes correctly on Windows
     const spawnArgs = ['-m', 'codexlens', ...args];
 
-    const child = spawn(getCodexLensPython(), spawnArgs, {
-      cwd,
-      shell: false, // CRITICAL: Prevent command injection
-      timeout,
-      // Ensure proper encoding on Windows
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-    });
+    const child = spawn(getCodexLensHiddenPython(), spawnArgs, buildCodexLensSpawnOptions(cwd, timeout));
 
     // Track indexing process for cancellation (only for init commands)
     const isIndexingCommand = args.includes('init');
@@ -1566,13 +1890,22 @@ async function executeCodexLensOnce(args: string[], options: ExecuteOptions = {}
         }
       }
 
+      const trimmedStdout = stdout.trim();
       if (code === 0) {
-        safeResolve({ success: true, output: stdout.trim() });
+        const warning = args.includes('--json') && trimmedStdout.length === 0
+          ? `CodexLens CLI exited successfully but produced empty stdout in JSON mode for ${args[0] ?? 'command'}.`
+          : undefined;
+        safeResolve({
+          success: true,
+          output: trimmedStdout || undefined,
+          warning,
+          message: warning,
+        });
       } else {
         safeResolve({
           success: false,
           error: extractCodexLensFailure(stdout, stderr, code),
-          output: stdout.trim() || undefined,
+          output: trimmedStdout || undefined,
         });
       }
     });
@@ -1627,18 +1960,12 @@ async function searchCode(params: Params): Promise<ExecuteResult> {
     args.push('--enrich');
   }
 
-  const result = await executeCodexLens(args, { cwd: path });
-
-  if (result.success && result.output) {
-    try {
-      result.results = JSON.parse(result.output);
-      delete result.output;
-    } catch {
-      // Keep raw output if JSON parse fails
-    }
-  }
-
-  return result;
+  return normalizeSearchCommandResult(await executeCodexLens(args, { cwd: path }), {
+    query,
+    cwd: path,
+    limit,
+    filesOnly: false,
+  });
 }
 
 /**
@@ -1672,18 +1999,12 @@ async function searchFiles(params: Params): Promise<ExecuteResult> {
     args.push('--enrich');
   }
 
-  const result = await executeCodexLens(args, { cwd: path });
-
-  if (result.success && result.output) {
-    try {
-      result.files = JSON.parse(result.output);
-      delete result.output;
-    } catch {
-      // Keep raw output if JSON parse fails
-    }
-  }
-
-  return result;
+  return normalizeSearchCommandResult(await executeCodexLens(args, { cwd: path }), {
+    query,
+    cwd: path,
+    limit,
+    filesOnly: true,
+  });
 }
 
 /**
@@ -2185,10 +2506,17 @@ export {
 
 // Export Python path for direct spawn usage (e.g., watcher)
 export function getVenvPythonPath(): string {
-  return getCodexLensPython();
+  return getCodexLensHiddenPython();
 }
 
 export type { GpuMode, PythonEnvInfo };
+
+export const __testables = {
+  normalizeSearchCommandResult,
+  parseLegacySearchPaths,
+  buildCodexLensSpawnOptions,
+  probePythonVersion,
+};
 
 // Backward-compatible export for tests
 export const codexLensTool = {

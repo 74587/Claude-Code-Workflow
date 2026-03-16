@@ -7,7 +7,7 @@ Supports depth-limited traversal, result aggregation, and symbol search.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Literal, Tuple, TYPE_CHECKING
 import json
@@ -30,11 +30,36 @@ from codexlens.config import Config
 from codexlens.storage.registry import RegistryStore, DirMapping
 from codexlens.storage.dir_index import DirIndexStore, SubdirLink
 from codexlens.storage.global_index import GlobalSymbolIndex
+from codexlens.storage.index_filters import is_ignored_index_path
 from codexlens.storage.path_mapper import PathMapper
 from codexlens.storage.sqlite_store import SQLiteStore
 from codexlens.storage.vector_meta_store import VectorMetadataStore
-from codexlens.config import BINARY_VECTORS_MMAP_NAME, VECTORS_META_DB_NAME
+from codexlens.config import (
+    BINARY_VECTORS_MMAP_NAME,
+    VECTORS_HNSW_NAME,
+    VECTORS_META_DB_NAME,
+)
 from codexlens.search.hybrid_search import HybridSearchEngine
+from codexlens.search.ranking import query_prefers_lexical_search
+
+SEARCH_ARTIFACT_DIRS = frozenset({
+    "dist",
+    "build",
+    "out",
+    "target",
+    "bin",
+    "obj",
+    "_build",
+    "coverage",
+    "htmlcov",
+    ".cache",
+    ".parcel-cache",
+    ".turbo",
+    ".next",
+    ".nuxt",
+    "node_modules",
+    "bower_components",
+})
 
 
 @dataclass
@@ -60,6 +85,7 @@ class SearchOptions:
         hybrid_weights: Custom RRF weights for hybrid search (optional)
         group_results: Enable grouping of similar results (default False)
         grouping_threshold: Score threshold for grouping similar results (default 0.01)
+        inject_feature_anchors: Whether to inject lexical feature anchors (default True)
     """
     depth: int = -1
     max_workers: int = 8
@@ -79,6 +105,7 @@ class SearchOptions:
     hybrid_weights: Optional[Dict[str, float]] = None
     group_results: bool = False
     grouping_threshold: float = 0.01
+    inject_feature_anchors: bool = True
 
 
 @dataclass
@@ -169,6 +196,11 @@ class ChainSearchEngine:
         self._realtime_lsp_keepalive_lock = threading.RLock()
         self._realtime_lsp_keepalive = None
         self._realtime_lsp_keepalive_key = None
+        self._runtime_cache_lock = threading.RLock()
+        self._dense_ann_cache: Dict[Tuple[str, int], Any] = {}
+        self._legacy_dense_ann_cache: Dict[Tuple[str, int], Any] = {}
+        self._reranker_cache_key: Optional[Tuple[str, Optional[str], bool, Optional[int]]] = None
+        self._reranker_instance: Any = None
         # Track which (workspace_root, config_file) pairs have already been warmed up.
         # This avoids paying the warmup sleep on every query when using keep-alive LSP servers.
         self._realtime_lsp_warmed_ids: set[tuple[str, str | None]] = set()
@@ -194,6 +226,7 @@ class ChainSearchEngine:
         if self._executor is not None:
             self._executor.shutdown(wait=True)
             self._executor = None
+        self._clear_runtime_caches()
         with self._realtime_lsp_keepalive_lock:
             keepalive = self._realtime_lsp_keepalive
             self._realtime_lsp_keepalive = None
@@ -211,6 +244,166 @@ class ChainSearchEngine:
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
         """Context manager exit."""
         self.close()
+
+    @staticmethod
+    def _release_cached_resource(resource: Any) -> None:
+        """Best-effort cleanup for cached runtime helpers."""
+        if resource is None:
+            return
+        for attr_name in ("clear", "close"):
+            cleanup = getattr(resource, attr_name, None)
+            if callable(cleanup):
+                try:
+                    cleanup()
+                except Exception:
+                    pass
+                break
+
+    def _clear_runtime_caches(self) -> None:
+        """Drop per-engine runtime caches for dense indexes and rerankers."""
+        with self._runtime_cache_lock:
+            dense_indexes = list(self._dense_ann_cache.values())
+            legacy_dense_indexes = list(self._legacy_dense_ann_cache.values())
+            reranker = self._reranker_instance
+            self._dense_ann_cache = {}
+            self._legacy_dense_ann_cache = {}
+            self._reranker_cache_key = None
+            self._reranker_instance = None
+
+        for resource in [*dense_indexes, *legacy_dense_indexes, reranker]:
+            self._release_cached_resource(resource)
+
+    def _get_cached_centralized_dense_index(self, index_root: Path, dim: int) -> Optional[Any]:
+        """Load and cache a centralized dense ANN index for repeated queries."""
+        from codexlens.semantic.ann_index import ANNIndex
+
+        resolved_root = Path(index_root).resolve()
+        cache_key = (str(resolved_root), int(dim))
+        with self._runtime_cache_lock:
+            cached = self._dense_ann_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        ann_index = ANNIndex.create_central(index_root=resolved_root, dim=int(dim))
+        if not ann_index.load() or ann_index.count() == 0:
+            return None
+
+        with self._runtime_cache_lock:
+            cached = self._dense_ann_cache.get(cache_key)
+            if cached is None:
+                self._dense_ann_cache[cache_key] = ann_index
+                cached = ann_index
+        return cached
+
+    def _get_cached_legacy_dense_index(self, index_path: Path, dim: int) -> Optional[Any]:
+        """Load and cache a legacy per-index dense ANN index for repeated queries."""
+        from codexlens.semantic.ann_index import ANNIndex
+
+        resolved_path = Path(index_path).resolve()
+        cache_key = (str(resolved_path), int(dim))
+        with self._runtime_cache_lock:
+            cached = self._legacy_dense_ann_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        ann_index = ANNIndex(resolved_path, dim=int(dim))
+        if not ann_index.load() or ann_index.count() == 0:
+            return None
+
+        with self._runtime_cache_lock:
+            cached = self._legacy_dense_ann_cache.get(cache_key)
+            if cached is None:
+                self._legacy_dense_ann_cache[cache_key] = ann_index
+                cached = ann_index
+        return cached
+
+    def _get_cached_reranker(self) -> Any:
+        """Return a cached reranker instance for repeated cascade queries."""
+        try:
+            from codexlens.semantic.reranker import (
+                check_reranker_available,
+                get_reranker,
+            )
+        except ImportError as exc:
+            self.logger.debug("Reranker not available: %s", exc)
+            return None
+        except Exception as exc:
+            self.logger.debug("Failed to import reranker factory: %s", exc)
+            return None
+
+        backend = "onnx"
+        model_name = None
+        use_gpu = True
+        max_tokens = None
+
+        if self._config is not None:
+            backend = getattr(self._config, "reranker_backend", "onnx") or "onnx"
+            model_name = getattr(self._config, "reranker_model", None)
+            use_gpu = getattr(
+                self._config,
+                "reranker_use_gpu",
+                getattr(self._config, "embedding_use_gpu", True),
+            )
+            max_tokens = getattr(self._config, "reranker_max_input_tokens", None)
+
+        cache_key = (
+            str(backend).strip().lower(),
+            str(model_name).strip() if isinstance(model_name, str) and model_name.strip() else None,
+            bool(use_gpu),
+            int(max_tokens) if isinstance(max_tokens, (int, float)) else None,
+        )
+        with self._runtime_cache_lock:
+            cached = (
+                self._reranker_instance
+                if self._reranker_instance is not None and self._reranker_cache_key == cache_key
+                else None
+            )
+        if cached is not None:
+            return cached
+
+        ok, err = check_reranker_available(cache_key[0])
+        if not ok:
+            self.logger.debug("Reranker backend unavailable (%s): %s", cache_key[0], err)
+            return None
+
+        kwargs: Dict[str, Any] = {}
+        device = None
+        if cache_key[0] == "onnx":
+            kwargs["use_gpu"] = cache_key[2]
+        elif cache_key[0] == "api":
+            if cache_key[3] is not None:
+                kwargs["max_input_tokens"] = cache_key[3]
+        elif not cache_key[2]:
+            device = "cpu"
+
+        try:
+            reranker = get_reranker(
+                backend=cache_key[0],
+                model_name=cache_key[1],
+                device=device,
+                **kwargs,
+            )
+        except Exception as exc:
+            self.logger.debug("Failed to initialize reranker: %s", exc)
+            return None
+
+        previous = None
+        with self._runtime_cache_lock:
+            cached = (
+                self._reranker_instance
+                if self._reranker_instance is not None and self._reranker_cache_key == cache_key
+                else None
+            )
+            if cached is not None:
+                reranker = cached
+            else:
+                previous = self._reranker_instance
+                self._reranker_cache_key = cache_key
+                self._reranker_instance = reranker
+
+        if previous is not None and previous is not reranker:
+            self._release_cached_resource(previous)
+        return reranker
 
     def search(self, query: str,
                source_path: Path,
@@ -238,6 +431,21 @@ class ChainSearchEngine:
             ...     print(f"{r.path}: {r.score:.2f}")
         """
         options = options or SearchOptions()
+        effective_options = options
+        if options.hybrid_mode and query_prefers_lexical_search(query):
+            self.logger.debug(
+                "Hybrid shortcut: using lexical search path for lexical-priority query %r",
+                query,
+            )
+            effective_options = replace(
+                options,
+                hybrid_mode=False,
+                enable_vector=False,
+                pure_vector=False,
+                enable_cascade=False,
+                hybrid_weights=None,
+                enable_fuzzy=True,
+            )
         start_time = time.time()
         stats = SearchStats()
 
@@ -254,7 +462,7 @@ class ChainSearchEngine:
             )
 
         # Step 2: Collect all index paths to search
-        index_paths = self._collect_index_paths(start_index, options.depth)
+        index_paths = self._collect_index_paths(start_index, effective_options.depth)
         stats.dirs_searched = len(index_paths)
 
         if not index_paths:
@@ -269,33 +477,47 @@ class ChainSearchEngine:
 
         # Step 3: Parallel search
         results, search_stats = self._search_parallel(
-            index_paths, query, options
+            index_paths, query, effective_options
         )
         stats.errors = search_stats.errors
 
         # Step 3.5: Filter by extension if requested
-        if options.code_only or options.exclude_extensions:
+        if effective_options.code_only or effective_options.exclude_extensions:
             results = self._filter_by_extension(
-                results, options.code_only, options.exclude_extensions
+                results, effective_options.code_only, effective_options.exclude_extensions
+            )
+
+        if effective_options.inject_feature_anchors:
+            results = self._inject_query_feature_anchors(
+                query,
+                source_path,
+                effective_options,
+                results,
+                limit=min(6, max(2, effective_options.total_limit)),
             )
 
         # Step 4: Merge and rank
-        final_results = self._merge_and_rank(results, options.total_limit, options.offset)
+        final_results = self._merge_and_rank(
+            results,
+            effective_options.total_limit,
+            effective_options.offset,
+            query=query,
+        )
 
         # Step 5: Optional grouping of similar results
-        if options.group_results:
+        if effective_options.group_results:
             from codexlens.search.ranking import group_similar_results
             final_results = group_similar_results(
-                final_results, score_threshold_abs=options.grouping_threshold
+                final_results, score_threshold_abs=effective_options.grouping_threshold
             )
 
         stats.files_matched = len(final_results)
 
         # Optional: Symbol search
         symbols = []
-        if options.include_symbols:
+        if effective_options.include_symbols:
             symbols = self._search_symbols_parallel(
-                index_paths, query, None, options.total_limit
+                index_paths, query, None, effective_options.total_limit
             )
 
         # Optional: graph expansion using precomputed neighbors
@@ -408,99 +630,23 @@ class ChainSearchEngine:
                 stats=stats
             )
 
-        # Initialize embedding backends
-        try:
-            from codexlens.indexing.embedding import (
-                BinaryEmbeddingBackend,
-                DenseEmbeddingBackend,
-            )
-            from codexlens.semantic.ann_index import BinaryANNIndex
-        except ImportError as exc:
-            self.logger.warning(
-                "Binary cascade dependencies not available: %s. "
-                "Falling back to standard search.",
-                exc
-            )
-            return self.search(query, source_path, options=options)
-
         # Stage 1: Binary vector coarse retrieval
         self.logger.debug(
             "Binary Cascade Stage 1: Binary coarse retrieval for %d candidates",
             coarse_k,
         )
 
-        use_gpu = True
-        if self._config is not None:
-            use_gpu = getattr(self._config, "embedding_use_gpu", True)
+        coarse_candidates, used_centralized, _, stage2_index_root = self._collect_binary_coarse_candidates(
+            query,
+            index_paths,
+            coarse_k,
+            stats,
+            index_root=index_paths[0].parent if index_paths else None,
+        )
 
-        try:
-            binary_backend = BinaryEmbeddingBackend(use_gpu=use_gpu)
-            query_binary_packed = binary_backend.embed_packed([query])[0]
-        except Exception as exc:
-            self.logger.warning(
-                "Failed to generate binary query embedding: %s. "
-                "Falling back to standard search.",
-                exc
-            )
-            return self.search(query, source_path, options=options)
-
-        # Try centralized BinarySearcher first (preferred for mmap indexes)
-        # The index root is the parent of the first index path
-        index_root = index_paths[0].parent if index_paths else None
-        all_candidates: List[Tuple[int, int, Path]] = []  # (chunk_id, distance, index_path)
-        used_centralized = False
-
-        if index_root:
-            centralized_searcher = self._get_centralized_binary_searcher(index_root)
-            if centralized_searcher is not None:
-                try:
-                    # BinarySearcher expects dense vector, not packed binary
-                    from codexlens.semantic.embedder import Embedder
-                    embedder = Embedder()
-                    query_dense = embedder.embed_to_numpy([query])[0]
-
-                    # Centralized search - returns (chunk_id, hamming_distance) tuples
-                    results = centralized_searcher.search(query_dense, top_k=coarse_k)
-                    for chunk_id, dist in results:
-                        all_candidates.append((chunk_id, dist, index_root))
-                    used_centralized = True
-                    self.logger.debug(
-                        "Centralized binary search found %d candidates", len(results)
-                    )
-                except Exception as exc:
-                    self.logger.debug(
-                        "Centralized binary search failed: %s, falling back to per-directory",
-                        exc
-                    )
-                    centralized_searcher.clear()
-
-        # Fallback: Search per-directory indexes with legacy BinaryANNIndex
-        if not used_centralized:
-            for index_path in index_paths:
-                try:
-                    # Get or create binary index for this path (uses deprecated BinaryANNIndex)
-                    binary_index = self._get_or_create_binary_index(index_path)
-                    if binary_index is None or binary_index.count() == 0:
-                        continue
-
-                    # Search binary index
-                    ids, distances = binary_index.search(query_binary_packed, coarse_k)
-                    for chunk_id, dist in zip(ids, distances):
-                        all_candidates.append((chunk_id, dist, index_path))
-
-                except Exception as exc:
-                    self.logger.debug(
-                        "Binary search failed for %s: %s", index_path, exc
-                    )
-                    stats.errors.append(f"Binary search failed for {index_path}: {exc}")
-
-        if not all_candidates:
+        if not coarse_candidates:
             self.logger.debug("No binary candidates found, falling back to standard search")
             return self.search(query, source_path, options=options)
-
-        # Sort by Hamming distance and take top coarse_k
-        all_candidates.sort(key=lambda x: x[1])
-        coarse_candidates = all_candidates[:coarse_k]
 
         self.logger.debug(
             "Binary Cascade Stage 1 complete: %d candidates retrieved",
@@ -514,21 +660,6 @@ class ChainSearchEngine:
             k,
         )
 
-        try:
-            dense_backend = DenseEmbeddingBackend(use_gpu=use_gpu)
-            query_dense = dense_backend.embed_to_numpy([query])[0]
-        except Exception as exc:
-            self.logger.warning(
-                "Failed to generate dense query embedding: %s. "
-                "Using Hamming distance scores only.",
-                exc
-            )
-            # Fall back to using Hamming distance as score
-            return self._build_results_from_candidates(
-                coarse_candidates[:k], index_paths, stats, query, start_time,
-                use_centralized=used_centralized
-            )
-
         # Group candidates by index path for batch retrieval
         candidates_by_index: Dict[Path, List[int]] = {}
         for chunk_id, _, index_path in coarse_candidates:
@@ -539,9 +670,18 @@ class ChainSearchEngine:
         # Retrieve dense embeddings and compute cosine similarity
         scored_results: List[Tuple[float, SearchResult]] = []
         import sqlite3
+        dense_query_cache: Dict[Tuple[str, str, bool], "np.ndarray"] = {}
+        dense_query_errors: list[str] = []
 
         for index_path, chunk_ids in candidates_by_index.items():
             try:
+                query_index_root = index_path if used_centralized else index_path.parent
+                query_dense = self._embed_dense_query(
+                    query,
+                    index_root=query_index_root,
+                    query_cache=dense_query_cache,
+                )
+
                 # Collect valid rows and dense vectors for batch processing
                 valid_rows: List[Dict[str, Any]] = []
                 dense_vectors: List["np.ndarray"] = []
@@ -653,6 +793,28 @@ class ChainSearchEngine:
                     "Dense reranking failed for %s: %s", index_path, exc
                 )
                 stats.errors.append(f"Dense reranking failed for {index_path}: {exc}")
+                dense_query_errors.append(str(exc))
+
+        if not scored_results:
+            if dense_query_errors:
+                self.logger.warning(
+                    "Failed to generate dense query embeddings for binary cascade: %s. "
+                    "Using Hamming distance scores only.",
+                    dense_query_errors[0],
+                )
+            final_results = self._materialize_binary_candidates(
+                coarse_candidates[:k],
+                stats,
+                stage2_index_root=stage2_index_root,
+            )
+            stats.files_matched = len(final_results)
+            stats.time_ms = (time.time() - start_time) * 1000
+            return ChainSearchResult(
+                query=query,
+                results=final_results,
+                symbols=[],
+                stats=stats,
+            )
 
         # Sort by score descending and deduplicate by path
         scored_results.sort(key=lambda x: x[0], reverse=True)
@@ -662,7 +824,10 @@ class ChainSearchEngine:
             if result.path not in path_to_result:
                 path_to_result[result.path] = result
 
-        final_results = list(path_to_result.values())[:k]
+        final_results = self._apply_default_path_penalties(
+            query,
+            list(path_to_result.values()),
+        )[:k]
 
         # Optional: grouping of similar results
         if options.group_results:
@@ -865,8 +1030,20 @@ class ChainSearchEngine:
             stats,
             index_root=start_index.parent,
         )
+        coarse_results = self._inject_query_feature_anchors(
+            query,
+            source_path,
+            options,
+            coarse_results,
+            limit=min(6, max(2, k)),
+        )
         stage_times["stage1_binary_ms"] = (time.time() - stage1_start) * 1000
         stage_counts["stage1_candidates"] = len(coarse_results)
+        stage_counts["stage1_feature_anchors"] = sum(
+            1
+            for result in coarse_results
+            if (result.metadata or {}).get("feature_query_anchor")
+        )
 
         self.logger.debug(
             "Staged Stage 1: Binary search found %d candidates in %.2fms",
@@ -923,9 +1100,18 @@ class ChainSearchEngine:
 
         # ========== Stage 3: Clustering and Representative Selection ==========
         stage3_start = time.time()
-        clustered_results = self._stage3_cluster_prune(expanded_results, k * 2)
+        stage3_target_count = self._resolve_stage3_target_count(
+            k,
+            len(expanded_results),
+        )
+        clustered_results = self._stage3_cluster_prune(
+            expanded_results,
+            stage3_target_count,
+            query=query,
+        )
         stage_times["stage3_cluster_ms"] = (time.time() - stage3_start) * 1000
         stage_counts["stage3_clustered"] = len(clustered_results)
+        stage_counts["stage3_target_count"] = stage3_target_count
         if self._config is not None:
             try:
                 stage_counts["stage3_strategy"] = str(getattr(self._config, "staged_clustering_strategy", "auto") or "auto")
@@ -965,7 +1151,10 @@ class ChainSearchEngine:
             if result.path not in path_to_result or result.score > path_to_result[result.path].score:
                 path_to_result[result.path] = result
 
-        final_results = list(path_to_result.values())[:k]
+        final_results = self._apply_default_path_penalties(
+            query,
+            list(path_to_result.values()),
+        )[:k]
 
         # Optional: grouping of similar results
         if options.group_results:
@@ -1010,259 +1199,24 @@ class ChainSearchEngine:
         *,
         index_root: Optional[Path] = None,
     ) -> Tuple[List[SearchResult], Optional[Path]]:
-        """Stage 1: Binary vector coarse search using Hamming distance.
+        """Stage 1: Binary vector coarse search using Hamming distance."""
 
-        Reuses the binary coarse search logic from binary_cascade_search.
-
-        Args:
-            query: Search query string
-            index_paths: List of index database paths to search
-            coarse_k: Number of coarse candidates to retrieve
-            stats: SearchStats to update with errors
-
-        Returns:
-            Tuple of (list of SearchResult objects, index_root path or None)
-        """
-        # Initialize binary embedding backend
-        try:
-            from codexlens.indexing.embedding import BinaryEmbeddingBackend
-        except ImportError as exc:
-            self.logger.warning(
-                "BinaryEmbeddingBackend not available: %s", exc
-            )
-            return [], None
-
-        # Try centralized BinarySearcher first (preferred for mmap indexes).
-        # Centralized binary vectors live at a project index root (where `index binary-mmap`
-        # was run), which may be an ancestor of the nearest `_index.db` directory.
-        index_root = Path(index_root).resolve() if index_root is not None else (index_paths[0].parent if index_paths else None)
-        if index_root is not None:
-            index_root = self._find_nearest_binary_mmap_root(index_root)
-        coarse_candidates: List[Tuple[int, float, Path]] = []  # (chunk_id, distance, index_path)
-        used_centralized = False
-        using_dense_fallback = False
-
-        if index_root:
-            binary_searcher = self._get_centralized_binary_searcher(index_root)
-            if binary_searcher is not None:
-                try:
-                    use_gpu = True
-                    if self._config is not None:
-                        use_gpu = getattr(self._config, "embedding_use_gpu", True)
-
-                    query_dense = None
-                    backend = getattr(binary_searcher, "backend", None)
-                    model = getattr(binary_searcher, "model", None)
-                    profile = getattr(binary_searcher, "model_profile", None) or "code"
-
-                    if backend == "litellm":
-                        try:
-                            from codexlens.semantic.factory import get_embedder as get_factory_embedder
-                            embedder = get_factory_embedder(backend="litellm", model=model or "code")
-                            query_dense = embedder.embed_to_numpy([query])[0]
-                        except Exception:
-                            query_dense = None
-                    if query_dense is None:
-                        from codexlens.semantic.embedder import get_embedder
-                        embedder = get_embedder(profile=str(profile), use_gpu=use_gpu)
-                        query_dense = embedder.embed_to_numpy([query])[0]
-
-                    results = binary_searcher.search(query_dense, top_k=coarse_k)
-                    for chunk_id, distance in results:
-                        coarse_candidates.append((chunk_id, distance, index_root))
-                    if coarse_candidates:
-                        used_centralized = True
-                        self.logger.debug(
-                            "Stage 1 centralized binary search: %d candidates", len(results)
-                        )
-                except Exception as exc:
-                    self.logger.debug(f"Centralized binary search failed: {exc}")
-
-        if not used_centralized:
-            # Fallback to per-directory binary indexes (legacy BinaryANNIndex).
-            #
-            # Generating the query binary embedding can be expensive (depending on embedding backend).
-            # If no legacy binary vector files exist, skip this path and fall back to dense ANN search.
-            has_legacy_binary_vectors = any(
-                (p.parent / f"{p.stem}_binary_vectors.bin").exists() for p in index_paths
-            )
-            if not has_legacy_binary_vectors:
-                self.logger.debug(
-                    "No legacy binary vector files found; skipping legacy binary search fallback"
-                )
-            else:
-                use_gpu = True
-                if self._config is not None:
-                    use_gpu = getattr(self._config, "embedding_use_gpu", True)
-
-                query_binary = None
-                try:
-                    binary_backend = BinaryEmbeddingBackend(use_gpu=use_gpu)
-                    query_binary = binary_backend.embed_packed([query])[0]
-                except Exception as exc:
-                    self.logger.warning(f"Failed to generate binary query embedding: {exc}")
-                    query_binary = None
-
-                if query_binary is not None:
-                    for index_path in index_paths:
-                        try:
-                            binary_index = self._get_or_create_binary_index(index_path)
-                            if binary_index is None or binary_index.count() == 0:
-                                continue
-                            ids, distances = binary_index.search(query_binary, coarse_k)
-                            for chunk_id, dist in zip(ids, distances):
-                                coarse_candidates.append((chunk_id, float(dist), index_path))
-                        except Exception as exc:
-                            self.logger.debug(
-                                "Binary search failed for %s: %s", index_path, exc
-                            )
-
+        coarse_candidates, _, using_dense_fallback, stage2_index_root = self._collect_binary_coarse_candidates(
+            query,
+            index_paths,
+            coarse_k,
+            stats,
+            index_root=index_root,
+            allow_dense_fallback=True,
+        )
         if not coarse_candidates:
-            # Final fallback: dense ANN coarse search (HNSW) over existing dense vector indexes.
-            #
-            # This allows the staged pipeline (LSP expansion + clustering) to run even when
-            # binary vectors are not generated for the current project.
-            dense_candidates: List[Tuple[int, float, Path]] = []
-            try:
-                from codexlens.semantic.ann_index import ANNIndex
-                from codexlens.semantic.embedder import Embedder
-
-                embedder = Embedder()
-                query_dense = embedder.embed_to_numpy([query])[0]
-                dim = int(getattr(query_dense, "shape", (len(query_dense),))[0])
-
-                for index_path in index_paths:
-                    try:
-                        ann_index = ANNIndex(index_path, dim=dim)
-                        if not ann_index.load() or ann_index.count() == 0:
-                            continue
-                        ids, distances = ann_index.search(query_dense, top_k=coarse_k)
-                        for chunk_id, dist in zip(ids, distances):
-                            dense_candidates.append((chunk_id, float(dist), index_path))
-                    except Exception as exc:
-                        self.logger.debug(
-                            "Dense coarse search failed for %s: %s", index_path, exc
-                        )
-            except Exception as exc:
-                self.logger.debug("Dense coarse search fallback unavailable: %s", exc)
-                dense_candidates = []
-
-            if dense_candidates:
-                dense_candidates.sort(key=lambda x: x[1])
-                coarse_candidates = dense_candidates[:coarse_k]
-                using_dense_fallback = True
-
-        if not coarse_candidates:
-            return [], index_root
-
-        # Sort by Hamming distance and take top coarse_k
-        coarse_candidates.sort(key=lambda x: x[1])
-        coarse_candidates = coarse_candidates[:coarse_k]
-
-        # Build SearchResult objects from candidates
-        coarse_results: List[SearchResult] = []
-
-        # Group candidates by index path for efficient retrieval
-        candidates_by_index: Dict[Path, List[int]] = {}
-        for chunk_id, _, idx_path in coarse_candidates:
-            if idx_path not in candidates_by_index:
-                candidates_by_index[idx_path] = []
-            candidates_by_index[idx_path].append(chunk_id)
-
-        # Retrieve chunk content
-        import sqlite3
-        central_meta_path = index_root / VECTORS_META_DB_NAME if index_root else None
-        central_meta_store = None
-        if central_meta_path and central_meta_path.exists():
-            central_meta_store = VectorMetadataStore(central_meta_path)
-
-        for idx_path, chunk_ids in candidates_by_index.items():
-            try:
-                chunks_data = []
-                if central_meta_store:
-                    chunks_data = central_meta_store.get_chunks_by_ids(chunk_ids)
-
-                if not chunks_data and used_centralized:
-                    meta_db_path = idx_path / VECTORS_META_DB_NAME
-                    if meta_db_path.exists():
-                        meta_store = VectorMetadataStore(meta_db_path)
-                        chunks_data = meta_store.get_chunks_by_ids(chunk_ids)
-
-                if not chunks_data:
-                    try:
-                        conn = sqlite3.connect(str(idx_path))
-                        conn.row_factory = sqlite3.Row
-                        placeholders = ",".join("?" * len(chunk_ids))
-                        cursor = conn.execute(
-                            f"""
-                            SELECT id, file_path, content, metadata, category
-                            FROM semantic_chunks
-                            WHERE id IN ({placeholders})
-                            """,
-                            chunk_ids
-                        )
-                        chunks_data = [
-                            {
-                                "id": row["id"],
-                                "file_path": row["file_path"],
-                                "content": row["content"],
-                                "metadata": row["metadata"],
-                                "category": row["category"],
-                            }
-                            for row in cursor.fetchall()
-                        ]
-                        conn.close()
-                    except Exception:
-                        pass
-
-                for chunk in chunks_data:
-                    chunk_id = chunk.get("id") or chunk.get("chunk_id")
-                    distance = next(
-                        (d for cid, d, _ in coarse_candidates if cid == chunk_id),
-                        256
-                    )
-                    if using_dense_fallback:
-                        # Cosine distance in [0, 2] -> clamp to [0, 1] score
-                        score = max(0.0, 1.0 - float(distance))
-                    else:
-                        score = 1.0 - (int(distance) / 256.0)
-
-                    content = chunk.get("content", "")
-
-                    # Extract symbol info from metadata if available
-                    metadata = chunk.get("metadata")
-                    symbol_name = None
-                    symbol_kind = None
-                    start_line = chunk.get("start_line")
-                    end_line = chunk.get("end_line")
-                    if metadata:
-                        try:
-                            meta_dict = json.loads(metadata) if isinstance(metadata, str) else metadata
-                            symbol_name = meta_dict.get("symbol_name")
-                            symbol_kind = meta_dict.get("symbol_kind")
-                            start_line = meta_dict.get("start_line", start_line)
-                            end_line = meta_dict.get("end_line", end_line)
-                        except Exception:
-                            pass
-
-                    result = SearchResult(
-                        path=chunk.get("file_path", ""),
-                        score=float(score),
-                        excerpt=content[:500] if content else "",
-                        content=content,
-                        symbol_name=symbol_name,
-                        symbol_kind=symbol_kind,
-                        start_line=start_line,
-                        end_line=end_line,
-                    )
-                    coarse_results.append(result)
-            except Exception as exc:
-                self.logger.debug(
-                    "Failed to retrieve chunks from %s: %s", idx_path, exc
-                )
-                stats.errors.append(f"Stage 1 chunk retrieval failed for {idx_path}: {exc}")
-
-        return coarse_results, index_root
+            return [], stage2_index_root
+        return self._materialize_binary_candidates(
+            coarse_candidates,
+            stats,
+            stage2_index_root=stage2_index_root,
+            using_dense_fallback=using_dense_fallback,
+        ), stage2_index_root
 
     def _stage2_lsp_expand(
         self,
@@ -1803,6 +1757,261 @@ class ChainSearchEngine:
 
         return combined
 
+    def _collect_query_feature_anchor_results(
+        self,
+        query: str,
+        source_path: Path,
+        options: SearchOptions,
+        *,
+        limit: int,
+    ) -> List[SearchResult]:
+        """Collect small lexical anchor sets for explicit file/feature hints."""
+        if limit <= 0:
+            return []
+
+        from codexlens.search.ranking import (
+            QueryIntent,
+            _path_topic_tokens,
+            detect_query_intent,
+            extract_explicit_path_hints,
+            is_auxiliary_reference_path,
+            is_generated_artifact_path,
+            is_test_file,
+            query_targets_auxiliary_files,
+            query_targets_generated_files,
+            query_targets_test_files,
+        )
+
+        explicit_hints = extract_explicit_path_hints(query)
+        if not explicit_hints:
+            return []
+        skip_test_files = query_targets_test_files(query)
+        skip_generated_files = query_targets_generated_files(query)
+        skip_auxiliary_files = query_targets_auxiliary_files(query)
+
+        anchor_limit = max(1, int(limit))
+        per_hint_limit = max(2, min(6, anchor_limit))
+        seed_opts = SearchOptions(
+            depth=options.depth,
+            max_workers=options.max_workers,
+            limit_per_dir=max(10, per_hint_limit),
+            total_limit=max(anchor_limit, per_hint_limit * 2),
+            include_symbols=False,
+            include_semantic=False,
+            files_only=False,
+            code_only=options.code_only,
+            exclude_extensions=list(options.exclude_extensions or []),
+            enable_vector=False,
+            hybrid_mode=False,
+            pure_vector=False,
+            enable_cascade=False,
+            inject_feature_anchors=False,
+        )
+
+        anchors_by_path: Dict[str, SearchResult] = {}
+        for hint_tokens in explicit_hints:
+            hint_query = " ".join(hint_tokens)
+            try:
+                seed_result = self.search(hint_query, source_path, options=seed_opts)
+            except Exception as exc:
+                self.logger.debug(
+                    "Feature anchor search failed for %r: %s",
+                    hint_query,
+                    exc,
+                )
+                continue
+
+            for candidate in seed_result.results:
+                _, basename_tokens = _path_topic_tokens(candidate.path)
+                if not basename_tokens or not all(token in basename_tokens for token in hint_tokens):
+                    continue
+                if not skip_test_files and is_test_file(candidate.path):
+                    continue
+                if not skip_generated_files and is_generated_artifact_path(candidate.path):
+                    continue
+                if not skip_auxiliary_files and is_auxiliary_reference_path(candidate.path):
+                    continue
+                metadata = {
+                    **(candidate.metadata or {}),
+                    "feature_query_anchor": True,
+                    "feature_query_hint": hint_query,
+                    "feature_query_hint_tokens": list(hint_tokens),
+                }
+                anchor = candidate.model_copy(
+                    deep=True,
+                    update={"metadata": metadata},
+                )
+                existing = anchors_by_path.get(anchor.path)
+                if existing is None or float(anchor.score) > float(existing.score):
+                    anchors_by_path[anchor.path] = anchor
+                if len(anchors_by_path) >= anchor_limit:
+                    break
+            if len(anchors_by_path) >= anchor_limit:
+                break
+
+        query_intent = detect_query_intent(query)
+        if not anchors_by_path and query_intent in {QueryIntent.KEYWORD, QueryIntent.MIXED}:
+            lexical_query = (query or "").strip()
+            if lexical_query:
+                try:
+                    seed_result = self.search(lexical_query, source_path, options=seed_opts)
+                except Exception as exc:
+                    self.logger.debug(
+                        "Lexical feature anchor search failed for %r: %s",
+                        lexical_query,
+                        exc,
+                    )
+                else:
+                    for candidate in seed_result.results:
+                        if not skip_test_files and is_test_file(candidate.path):
+                            continue
+                        if not skip_generated_files and is_generated_artifact_path(candidate.path):
+                            continue
+                        if not skip_auxiliary_files and is_auxiliary_reference_path(candidate.path):
+                            continue
+                        metadata = {
+                            **(candidate.metadata or {}),
+                            "feature_query_anchor": True,
+                            "feature_query_hint": lexical_query,
+                            "feature_query_hint_tokens": [],
+                            "feature_query_seed_kind": "lexical_query",
+                        }
+                        anchor = candidate.model_copy(
+                            deep=True,
+                            update={"metadata": metadata},
+                        )
+                        existing = anchors_by_path.get(anchor.path)
+                        if existing is None or float(anchor.score) > float(existing.score):
+                            anchors_by_path[anchor.path] = anchor
+                        if len(anchors_by_path) >= anchor_limit:
+                            break
+
+        return sorted(
+            anchors_by_path.values(),
+            key=lambda result: result.score,
+            reverse=True,
+        )[:anchor_limit]
+
+    def _merge_query_feature_anchor_results(
+        self,
+        base_results: List[SearchResult],
+        anchor_results: List[SearchResult],
+    ) -> List[SearchResult]:
+        """Merge explicit feature anchors into coarse candidates with comparable scores."""
+        if not anchor_results:
+            return sorted(base_results, key=lambda result: result.score, reverse=True)
+
+        merged: Dict[str, SearchResult] = {result.path: result for result in base_results}
+        base_sorted = sorted(base_results, key=lambda result: result.score, reverse=True)
+        base_max = float(base_sorted[0].score) if base_sorted else 1.0
+        if base_sorted:
+            cutoff_index = min(len(base_sorted) - 1, max(0, min(4, len(base_sorted) - 1)))
+            anchor_floor = float(base_sorted[cutoff_index].score)
+        else:
+            anchor_floor = base_max
+        if anchor_floor <= 0:
+            anchor_floor = max(base_max * 0.85, 0.01)
+
+        for index, anchor in enumerate(anchor_results):
+            target_score = max(
+                anchor_floor,
+                base_max * max(0.75, 0.92 - (0.03 * index)),
+                0.01,
+            )
+            existing = merged.get(anchor.path)
+            existing_metadata = existing.metadata or {} if existing is not None else {}
+            metadata = {
+                **existing_metadata,
+                **(anchor.metadata or {}),
+                "feature_query_anchor": True,
+            }
+            if existing is not None:
+                target_score = max(float(existing.score), target_score)
+                merged[anchor.path] = existing.model_copy(
+                    deep=True,
+                    update={
+                        "score": target_score,
+                        "metadata": metadata,
+                    },
+                )
+            else:
+                merged[anchor.path] = anchor.model_copy(
+                    deep=True,
+                    update={
+                        "score": target_score,
+                        "metadata": metadata,
+                    },
+                )
+
+        return sorted(merged.values(), key=lambda result: result.score, reverse=True)
+
+    def _inject_query_feature_anchors(
+        self,
+        query: str,
+        source_path: Path,
+        options: SearchOptions,
+        base_results: List[SearchResult],
+        *,
+        limit: int,
+    ) -> List[SearchResult]:
+        """Inject explicit file/feature anchors into coarse candidate sets."""
+        anchor_results = self._collect_query_feature_anchor_results(
+            query,
+            source_path,
+            options,
+            limit=limit,
+        )
+        return self._merge_query_feature_anchor_results(base_results, anchor_results)
+
+    @staticmethod
+    def _combine_stage3_anchor_results(
+        anchor_results: List[SearchResult],
+        clustered_results: List[SearchResult],
+        *,
+        target_count: int,
+    ) -> List[SearchResult]:
+        """Combine preserved query anchors with Stage 3 representatives."""
+        if target_count <= 0:
+            return []
+        merged: List[SearchResult] = []
+        seen: set[tuple[str, Optional[str], Optional[int]]] = set()
+        for result in [*anchor_results, *clustered_results]:
+            key = (result.path, result.symbol_name, result.start_line)
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(result)
+            if len(merged) >= target_count:
+                break
+        return merged
+
+    def _select_stage3_query_anchor_results(
+        self,
+        query: str,
+        expanded_results: List[SearchResult],
+        *,
+        limit: int,
+    ) -> List[SearchResult]:
+        """Select a small number of explicit feature anchors to preserve through clustering."""
+        if limit <= 0 or not expanded_results:
+            return []
+
+        ranked_results = self._apply_default_path_penalties(query, expanded_results)
+        anchors: List[SearchResult] = []
+        seen: set[tuple[str, Optional[str], Optional[int]]] = set()
+        for result in ranked_results:
+            metadata = result.metadata or {}
+            if not metadata.get("feature_query_anchor"):
+                continue
+            key = (result.path, result.symbol_name, result.start_line)
+            if key in seen:
+                continue
+            seen.add(key)
+            anchors.append(result)
+            if len(anchors) >= limit:
+                break
+        return anchors
+
     def _find_lsp_workspace_root(self, start_path: Path) -> Path:
         """Best-effort workspace root selection for LSP initialization.
 
@@ -1851,6 +2060,7 @@ class ChainSearchEngine:
         self,
         expanded_results: List[SearchResult],
         target_count: int,
+        query: Optional[str] = None,
     ) -> List[SearchResult]:
         """Stage 3: Cluster expanded results and select representatives.
 
@@ -1867,9 +2077,42 @@ class ChainSearchEngine:
         if not expanded_results:
             return []
 
+        original_target_count = target_count
+        anchor_results: List[SearchResult] = []
+        if query:
+            anchor_results = self._select_stage3_query_anchor_results(
+                query,
+                expanded_results,
+                limit=min(4, max(1, original_target_count // 4)),
+            )
+        if anchor_results:
+            anchor_keys = {
+                (result.path, result.symbol_name, result.start_line)
+                for result in anchor_results
+            }
+            expanded_results = [
+                result
+                for result in expanded_results
+                if (result.path, result.symbol_name, result.start_line) not in anchor_keys
+            ]
+            target_count = max(0, original_target_count - len(anchor_results))
+            if target_count <= 0:
+                return anchor_results[:original_target_count]
+
+        if not expanded_results:
+            return self._combine_stage3_anchor_results(
+                anchor_results,
+                [],
+                target_count=original_target_count,
+            )
+
         # If few results, skip clustering
         if len(expanded_results) <= target_count:
-            return expanded_results
+            return self._combine_stage3_anchor_results(
+                anchor_results,
+                expanded_results,
+                target_count=original_target_count,
+            )
 
         strategy_name = "auto"
         if self._config is not None:
@@ -1877,10 +2120,18 @@ class ChainSearchEngine:
         strategy_name = str(strategy_name).strip().lower()
 
         if strategy_name in {"noop", "none", "off"}:
-            return sorted(expanded_results, key=lambda r: r.score, reverse=True)[:target_count]
+            return self._combine_stage3_anchor_results(
+                anchor_results,
+                sorted(expanded_results, key=lambda r: r.score, reverse=True)[:target_count],
+                target_count=original_target_count,
+            )
 
         if strategy_name in {"score", "top", "rank"}:
-            return sorted(expanded_results, key=lambda r: r.score, reverse=True)[:target_count]
+            return self._combine_stage3_anchor_results(
+                anchor_results,
+                sorted(expanded_results, key=lambda r: r.score, reverse=True)[:target_count],
+                target_count=original_target_count,
+            )
 
         if strategy_name in {"path", "file"}:
             best_by_path: Dict[str, SearchResult] = {}
@@ -1892,7 +2143,11 @@ class ChainSearchEngine:
                     best_by_path[key] = r
             candidates = list(best_by_path.values()) or expanded_results
             candidates.sort(key=lambda r: r.score, reverse=True)
-            return candidates[:target_count]
+            return self._combine_stage3_anchor_results(
+                anchor_results,
+                candidates[:target_count],
+                target_count=original_target_count,
+            )
 
         if strategy_name in {"dir_rr", "rr_dir", "round_robin_dir"}:
             results_sorted = sorted(expanded_results, key=lambda r: r.score, reverse=True)
@@ -1920,7 +2175,11 @@ class ChainSearchEngine:
                         break
                 if not progressed:
                     break
-            return out
+            return self._combine_stage3_anchor_results(
+                anchor_results,
+                out,
+                target_count=original_target_count,
+            )
 
         try:
             from codexlens.search.clustering import (
@@ -1943,9 +2202,11 @@ class ChainSearchEngine:
             if embeddings is None or len(embeddings) == 0:
                 # No embeddings available, fall back to score-based selection
                 self.logger.debug("No embeddings for clustering, using score-based selection")
-                return sorted(
-                    expanded_results, key=lambda r: r.score, reverse=True
-                )[:target_count]
+                return self._combine_stage3_anchor_results(
+                    anchor_results,
+                    sorted(expanded_results, key=lambda r: r.score, reverse=True)[:target_count],
+                    target_count=original_target_count,
+                )
 
             # Create clustering config
             config = ClusteringConfig(
@@ -1972,18 +2233,26 @@ class ChainSearchEngine:
                 remaining_sorted = sorted(remaining, key=lambda r: r.score, reverse=True)
                 representatives.extend(remaining_sorted[:target_count - len(representatives)])
 
-            return representatives[:target_count]
+            return self._combine_stage3_anchor_results(
+                anchor_results,
+                representatives[:target_count],
+                target_count=original_target_count,
+            )
 
         except ImportError as exc:
             self.logger.debug("Clustering not available: %s", exc)
-            return sorted(
-                expanded_results, key=lambda r: r.score, reverse=True
-            )[:target_count]
+            return self._combine_stage3_anchor_results(
+                anchor_results,
+                sorted(expanded_results, key=lambda r: r.score, reverse=True)[:target_count],
+                target_count=original_target_count,
+            )
         except Exception as exc:
             self.logger.debug("Stage 3 clustering failed: %s", exc)
-            return sorted(
-                expanded_results, key=lambda r: r.score, reverse=True
-            )[:target_count]
+            return self._combine_stage3_anchor_results(
+                anchor_results,
+                sorted(expanded_results, key=lambda r: r.score, reverse=True)[:target_count],
+                target_count=original_target_count,
+            )
 
     def _stage4_optional_rerank(
         self,
@@ -1998,16 +2267,21 @@ class ChainSearchEngine:
         Args:
             query: Search query string
             clustered_results: Results from Stage 3 clustering
-            k: Number of final results to return
+            k: Requested final result count before downstream path penalties
 
         Returns:
-            Reranked results sorted by cross-encoder score
+            Reranked results sorted by cross-encoder score. This can exceed the
+            requested final ``k`` so the caller can still demote noisy test or
+            generated hits before applying the final trim.
         """
         if not clustered_results:
             return []
 
-        # Use existing _cross_encoder_rerank method
-        return self._cross_encoder_rerank(query, clustered_results, k)
+        rerank_limit = self._resolve_rerank_candidate_limit(
+            k,
+            len(clustered_results),
+        )
+        return self._cross_encoder_rerank(query, clustered_results, rerank_limit)
 
     def _get_embeddings_for_clustering(
         self,
@@ -2159,74 +2433,15 @@ class ChainSearchEngine:
                 stats=stats
             )
 
-        # Initialize binary embedding backend
-        try:
-            from codexlens.indexing.embedding import BinaryEmbeddingBackend
-        except ImportError as exc:
-            self.logger.warning(
-                "BinaryEmbeddingBackend not available: %s, falling back to standard search",
-                exc
-            )
-            return self.search(query, source_path, options=options)
-
         # Step 4: Binary coarse search (same as binary_cascade_search)
         binary_coarse_time = time.time()
-        coarse_candidates: List[Tuple[int, int, Path]] = []
-
-        # Try centralized BinarySearcher first (preferred for mmap indexes)
-        # The index root is the parent of the first index path
-        index_root = index_paths[0].parent if index_paths else None
-        used_centralized = False
-
-        if index_root:
-            binary_searcher = self._get_centralized_binary_searcher(index_root)
-            if binary_searcher is not None:
-                try:
-                    # BinarySearcher expects dense vector, not packed binary
-                    from codexlens.semantic.embedder import Embedder
-                    embedder = Embedder()
-                    query_dense = embedder.embed_to_numpy([query])[0]
-
-                    results = binary_searcher.search(query_dense, top_k=coarse_k)
-                    for chunk_id, distance in results:
-                        coarse_candidates.append((chunk_id, distance, index_root))
-                    # Only mark as used if we got actual results
-                    if coarse_candidates:
-                        used_centralized = True
-                        self.logger.debug(
-                            "Binary coarse search (centralized): %d candidates in %.2fms",
-                            len(results), (time.time() - binary_coarse_time) * 1000
-                        )
-                except Exception as exc:
-                    self.logger.debug(f"Centralized binary search failed: {exc}")
-
-        if not used_centralized:
-            # Get GPU preference from config
-            use_gpu = True
-            if self._config is not None:
-                use_gpu = getattr(self._config, "embedding_use_gpu", True)
-
-            try:
-                binary_backend = BinaryEmbeddingBackend(use_gpu=use_gpu)
-                query_binary = binary_backend.embed_packed([query])[0]
-            except Exception as exc:
-                self.logger.warning(f"Failed to generate binary query embedding: {exc}")
-                return self.search(query, source_path, options=options)
-
-            # Fallback to per-directory binary indexes
-            for index_path in index_paths:
-                try:
-                    binary_index = self._get_or_create_binary_index(index_path)
-                    if binary_index is None or binary_index.count() == 0:
-                        continue
-                    # BinaryANNIndex returns (ids, distances) arrays
-                    ids, distances = binary_index.search(query_binary, coarse_k)
-                    for chunk_id, dist in zip(ids, distances):
-                        coarse_candidates.append((chunk_id, dist, index_path))
-                except Exception as exc:
-                    self.logger.debug(
-                        "Binary search failed for %s: %s", index_path, exc
-                    )
+        coarse_candidates, _, _, stage2_index_root = self._collect_binary_coarse_candidates(
+            query,
+            index_paths,
+            coarse_k,
+            stats,
+            index_root=index_paths[0].parent if index_paths else None,
+        )
 
         if not coarse_candidates:
             self.logger.info("No binary candidates found, falling back to standard search for reranking")
@@ -2242,91 +2457,11 @@ class ChainSearchEngine:
             len(coarse_candidates), (time.time() - binary_coarse_time) * 1000
         )
 
-        # Step 5: Build SearchResult objects for cross-encoder reranking
-        # Group candidates by index path for efficient retrieval
-        candidates_by_index: Dict[Path, List[int]] = {}
-        for chunk_id, distance, index_path in coarse_candidates:
-            if index_path not in candidates_by_index:
-                candidates_by_index[index_path] = []
-            candidates_by_index[index_path].append(chunk_id)
-
-        # Retrieve chunk content for reranking
-        # Always use centralized VectorMetadataStore since chunks are stored there
-        import sqlite3
-        coarse_results: List[SearchResult] = []
-
-        # Find the centralized metadata store path (project root)
-        # index_root was computed earlier, use it for chunk retrieval
-        central_meta_path = index_root / VECTORS_META_DB_NAME if index_root else None
-        central_meta_store = None
-        if central_meta_path and central_meta_path.exists():
-            central_meta_store = VectorMetadataStore(central_meta_path)
-
-        for index_path, chunk_ids in candidates_by_index.items():
-            try:
-                chunks_data = []
-                if central_meta_store:
-                    # Try centralized VectorMetadataStore first (preferred)
-                    chunks_data = central_meta_store.get_chunks_by_ids(chunk_ids)
-
-                if not chunks_data and used_centralized:
-                    # Fallback to per-index-path meta store
-                    meta_db_path = index_path / VECTORS_META_DB_NAME
-                    if meta_db_path.exists():
-                        meta_store = VectorMetadataStore(meta_db_path)
-                        chunks_data = meta_store.get_chunks_by_ids(chunk_ids)
-
-                if not chunks_data:
-                    # Final fallback: query semantic_chunks table directly
-                    # This handles per-directory indexes with semantic_chunks table
-                    try:
-                        conn = sqlite3.connect(str(index_path))
-                        conn.row_factory = sqlite3.Row
-                        placeholders = ",".join("?" * len(chunk_ids))
-                        cursor = conn.execute(
-                            f"""
-                            SELECT id, file_path, content, metadata, category
-                            FROM semantic_chunks
-                            WHERE id IN ({placeholders})
-                            """,
-                            chunk_ids
-                        )
-                        chunks_data = [
-                            {
-                                "id": row["id"],
-                                "file_path": row["file_path"],
-                                "content": row["content"],
-                                "metadata": row["metadata"],
-                                "category": row["category"],
-                            }
-                            for row in cursor.fetchall()
-                        ]
-                        conn.close()
-                    except Exception:
-                        pass  # Skip if table doesn't exist
-
-                for chunk in chunks_data:
-                    # Find the Hamming distance for this chunk
-                    chunk_id = chunk.get("id") or chunk.get("chunk_id")
-                    distance = next(
-                        (d for cid, d, _ in coarse_candidates if cid == chunk_id),
-                        256
-                    )
-                    # Initial score from Hamming distance (will be replaced by reranker)
-                    score = 1.0 - (distance / 256.0)
-
-                    content = chunk.get("content", "")
-                    result = SearchResult(
-                        path=chunk.get("file_path", ""),
-                        score=float(score),
-                        excerpt=content[:500] if content else "",
-                        content=content,
-                    )
-                    coarse_results.append(result)
-            except Exception as exc:
-                self.logger.debug(
-                    "Failed to retrieve chunks from %s: %s", index_path, exc
-                )
+        coarse_results = self._materialize_binary_candidates(
+            coarse_candidates,
+            stats,
+            stage2_index_root=stage2_index_root,
+        )
 
         if not coarse_results:
             stats.time_ms = (time.time() - start_time) * 1000
@@ -2334,13 +2469,26 @@ class ChainSearchEngine:
                 query=query, results=[], symbols=[], stats=stats
             )
 
+        coarse_results = self._inject_query_feature_anchors(
+            query,
+            source_path,
+            options,
+            coarse_results,
+            limit=min(6, max(2, k)),
+        )
+
         self.logger.debug(
             "Retrieved %d chunks for cross-encoder reranking", len(coarse_results)
         )
 
         # Step 6: Cross-encoder reranking
         rerank_time = time.time()
-        reranked_results = self._cross_encoder_rerank(query, coarse_results, top_k=k)
+        rerank_limit = self._resolve_rerank_candidate_limit(k, len(coarse_results))
+        reranked_results = self._cross_encoder_rerank(
+            query,
+            coarse_results,
+            top_k=rerank_limit,
+        )
 
         self.logger.debug(
             "Cross-encoder reranking: %d results in %.2fms",
@@ -2353,7 +2501,10 @@ class ChainSearchEngine:
             if result.path not in path_to_result or result.score > path_to_result[result.path].score:
                 path_to_result[result.path] = result
 
-        final_results = list(path_to_result.values())[:k]
+        final_results = self._apply_default_path_penalties(
+            query,
+            list(path_to_result.values()),
+        )[:k]
 
         stats.files_matched = len(final_results)
         stats.time_ms = (time.time() - start_time) * 1000
@@ -2399,13 +2550,48 @@ class ChainSearchEngine:
         Returns:
             ChainSearchResult with cross-encoder reranked results and statistics
         """
+        options = options or SearchOptions()
+
+        if query_prefers_lexical_search(query):
+            self.logger.debug(
+                "Dense rerank shortcut: using lexical search for lexical-priority query %r",
+                query,
+            )
+            lexical_options = SearchOptions(
+                depth=options.depth,
+                max_workers=options.max_workers,
+                limit_per_dir=max(options.limit_per_dir, max(10, k)),
+                total_limit=max(options.total_limit, max(20, k * 4)),
+                offset=options.offset,
+                include_symbols=False,
+                files_only=options.files_only,
+                include_semantic=False,
+                code_only=options.code_only,
+                exclude_extensions=list(options.exclude_extensions or []),
+                hybrid_mode=False,
+                enable_fuzzy=True,
+                enable_vector=False,
+                pure_vector=False,
+                enable_cascade=False,
+                hybrid_weights=None,
+                group_results=options.group_results,
+                grouping_threshold=options.grouping_threshold,
+                inject_feature_anchors=options.inject_feature_anchors,
+            )
+            lexical_result = self.search(query, source_path, options=lexical_options)
+            return ChainSearchResult(
+                query=query,
+                results=lexical_result.results,
+                related_results=lexical_result.related_results,
+                symbols=[],
+                stats=lexical_result.stats,
+            )
+
         if not NUMPY_AVAILABLE:
             self.logger.warning(
                 "NumPy not available, falling back to standard search"
             )
             return self.search(query, source_path, options=options)
-
-        options = options or SearchOptions()
         start_time = time.time()
         stats = SearchStats()
 
@@ -2442,129 +2628,114 @@ class ChainSearchEngine:
                 stats=stats
             )
 
-        # Step 3: Find centralized HNSW index and read model config
-        from codexlens.config import VECTORS_HNSW_NAME
-        central_hnsw_path = None
-        index_root = start_index.parent
-        current_dir = index_root
-        for _ in range(10):  # Limit search depth
-            candidate = current_dir / VECTORS_HNSW_NAME
-            if candidate.exists():
-                central_hnsw_path = candidate
-                index_root = current_dir  # Update to where HNSW was found
-                break
-            parent = current_dir.parent
-            if parent == current_dir:  # Reached root
-                break
-            current_dir = parent
-
-        # Step 4: Generate query dense embedding using same model as centralized index
-        # Read embedding config to match the model used during indexing
+        # Step 3-5: Group child indexes by centralized dense vector root and search each root.
         dense_coarse_time = time.time()
-        try:
-            from codexlens.semantic.factory import get_embedder
-
-            # Get embedding settings from centralized index config (preferred) or fallback to self._config
-            embedding_backend = "litellm"  # Default to API for dense
-            embedding_model = "qwen3-embedding-sf"  # Default model
-            use_gpu = True
-
-            # Try to read model config from centralized index's embeddings_config table
-            central_index_db = index_root / "_index.db"
-            if central_index_db.exists():
-                try:
-                    from codexlens.semantic.vector_store import VectorStore
-                    with VectorStore(central_index_db) as vs:
-                        model_config = vs.get_model_config()
-                        if model_config:
-                            embedding_backend = model_config.get("backend", embedding_backend)
-                            embedding_model = model_config.get("model_name", embedding_model)
-                            self.logger.debug(
-                                "Read model config from centralized index: %s/%s",
-                                embedding_backend, embedding_model
-                            )
-                except Exception as e:
-                    self.logger.debug("Failed to read centralized model config: %s", e)
-
-            # Fallback to self._config if not read from index
-            if self._config is not None:
-                if embedding_backend == "litellm" and embedding_model == "qwen3-embedding-sf":
-                    # Only use config values if we didn't read from centralized index
-                    config_backend = getattr(self._config, "embedding_backend", None)
-                    config_model = getattr(self._config, "embedding_model", None)
-                    if config_backend:
-                        embedding_backend = config_backend
-                    if config_model:
-                        embedding_model = config_model
-                use_gpu = getattr(self._config, "embedding_use_gpu", True)
-
-            # Create embedder matching index configuration
-            if embedding_backend == "litellm":
-                embedder = get_embedder(backend="litellm", model=embedding_model)
-            else:
-                embedder = get_embedder(backend="fastembed", profile=embedding_model, use_gpu=use_gpu)
-
-            query_dense = embedder.embed_to_numpy([query])[0]
-            self.logger.debug(f"Dense query embedding: {query_dense.shape[0]}-dim via {embedding_backend}/{embedding_model}")
-        except Exception as exc:
-            self.logger.warning(f"Failed to generate dense query embedding: {exc}")
-            return self.search(query, source_path, options=options)
-
-        # Step 5: Dense coarse search using centralized HNSW index
         coarse_candidates: List[Tuple[int, float, Path]] = []  # (chunk_id, distance, index_path)
+        central_index_roots: Dict[Path, Path] = {}
+        dense_root_groups, dense_fallback_index_paths = self._group_index_paths_by_dense_root(index_paths)
+        dense_query_cache: Dict[Tuple[str, str, bool], "np.ndarray"] = {}
+        try:
+            from codexlens.semantic.ann_index import ANNIndex
 
-        if central_hnsw_path is not None:
-            # Use centralized index
-            try:
-                from codexlens.semantic.ann_index import ANNIndex
-                ann_index = ANNIndex.create_central(
-                    index_root=index_root,
-                    dim=query_dense.shape[0],
-                )
-                if ann_index.load() and ann_index.count() > 0:
-                    # Search centralized HNSW index
-                    ids, distances = ann_index.search(query_dense, top_k=coarse_k)
-                    for chunk_id, dist in zip(ids, distances):
-                        coarse_candidates.append((chunk_id, dist, index_root / "_index.db"))
-                    self.logger.debug(
-                        "Centralized dense search: %d candidates from %s",
-                        len(ids), central_hnsw_path
-                    )
-            except Exception as exc:
+            dense_candidate_groups: List[List[Tuple[int, float, Path]]] = []
+            dense_roots_by_settings = self._group_dense_roots_by_embedding_settings(
+                dense_root_groups
+            )
+            if len(dense_roots_by_settings) > 1:
                 self.logger.debug(
-                    "Centralized dense search failed for %s: %s", central_hnsw_path, exc
+                    "Dense coarse search detected %d embedding setting groups; interleaving candidates across groups",
+                    len(dense_roots_by_settings),
                 )
 
-        # Fallback: try per-directory HNSW indexes if centralized not found
-        if not coarse_candidates:
-            for index_path in index_paths:
-                try:
-                    # Load HNSW index
-                    from codexlens.semantic.ann_index import ANNIndex
-                    ann_index = ANNIndex(index_path, dim=query_dense.shape[0])
-                    if not ann_index.load():
-                        continue
+            for dense_roots in dense_roots_by_settings.values():
+                group_candidates: List[Tuple[int, float, Path]] = []
+                for dense_root in dense_roots:
+                    try:
+                        query_dense = self._embed_dense_query(
+                            query,
+                            index_root=dense_root,
+                            query_cache=dense_query_cache,
+                        )
+                        ann_index = self._get_cached_centralized_dense_index(
+                            dense_root,
+                            int(query_dense.shape[0]),
+                        )
+                        if ann_index is None:
+                            continue
 
-                    if ann_index.count() == 0:
-                        continue
+                        ids, distances = ann_index.search(query_dense, top_k=coarse_k)
+                        central_index_db = dense_root / "_index.db"
+                        central_index_roots[central_index_db] = dense_root
+                        for chunk_id, dist in zip(ids, distances):
+                            group_candidates.append((chunk_id, dist, central_index_db))
+                        if ids:
+                            self.logger.debug(
+                                "Centralized dense search: %d candidates from %s",
+                                len(ids),
+                                dense_root / VECTORS_HNSW_NAME,
+                            )
+                    except Exception as exc:
+                        self.logger.debug(
+                            "Centralized dense search failed for %s: %s",
+                            dense_root,
+                            exc,
+                        )
+                if group_candidates:
+                    dense_candidate_groups.append(group_candidates)
 
-                    # Search HNSW index
-                    ids, distances = ann_index.search(query_dense, top_k=coarse_k)
-                    for chunk_id, dist in zip(ids, distances):
-                        coarse_candidates.append((chunk_id, dist, index_path))
+            coarse_candidates = self._interleave_dense_candidate_groups(
+                dense_candidate_groups,
+                coarse_k,
+            )
 
-                except Exception as exc:
+            if not coarse_candidates:
+                fallback_index_paths = dense_fallback_index_paths if dense_root_groups else index_paths
+                fallback_candidate_groups: List[List[Tuple[int, float, Path]]] = []
+                fallback_index_groups = self._group_dense_index_paths_by_embedding_settings(
+                    fallback_index_paths
+                )
+                if len(fallback_index_groups) > 1:
                     self.logger.debug(
-                        "Dense search failed for %s: %s", index_path, exc
+                        "Legacy dense fallback detected %d embedding setting groups; interleaving candidates across groups",
+                        len(fallback_index_groups),
                     )
+                for grouped_index_paths in fallback_index_groups.values():
+                    group_candidates: List[Tuple[int, float, Path]] = []
+                    for index_path in grouped_index_paths:
+                        try:
+                            query_dense = self._embed_dense_query(
+                                query,
+                                index_root=index_path.parent,
+                                query_cache=dense_query_cache,
+                            )
+                            ann_index = self._get_cached_legacy_dense_index(
+                                index_path,
+                                int(query_dense.shape[0]),
+                            )
+                            if ann_index is None:
+                                continue
+
+                            ids, distances = ann_index.search(query_dense, top_k=coarse_k)
+                            for chunk_id, dist in zip(ids, distances):
+                                group_candidates.append((chunk_id, dist, index_path))
+                        except Exception as exc:
+                            self.logger.debug(
+                                "Dense search failed for %s: %s", index_path, exc
+                            )
+                    if group_candidates:
+                        fallback_candidate_groups.append(group_candidates)
+
+                coarse_candidates = self._interleave_dense_candidate_groups(
+                    fallback_candidate_groups,
+                    coarse_k,
+                )
+        except Exception as exc:
+            self.logger.warning(f"Failed to prepare dense coarse search: {exc}")
+            return self.search(query, source_path, options=options)
 
         if not coarse_candidates:
             self.logger.info("No dense candidates found, falling back to standard search")
             return self.search(query, source_path, options=options)
-
-        # Sort by distance (ascending for cosine distance) and take top coarse_k
-        coarse_candidates.sort(key=lambda x: x[1])
-        coarse_candidates = coarse_candidates[:coarse_k]
 
         self.logger.debug(
             "Dense coarse search: %d candidates in %.2fms",
@@ -2584,11 +2755,10 @@ class ChainSearchEngine:
 
         for index_path, chunk_ids in candidates_by_index.items():
             try:
-                # For centralized index, use _vectors_meta.db for chunk metadata
-                # which contains file_path, content, start_line, end_line
-                if central_hnsw_path is not None and index_path == index_root / "_index.db":
+                central_root = central_index_roots.get(index_path)
+                if central_root is not None:
                     # Use centralized metadata from _vectors_meta.db
-                    meta_db_path = index_root / "_vectors_meta.db"
+                    meta_db_path = central_root / "_vectors_meta.db"
                     if meta_db_path.exists():
                         conn = sqlite3.connect(str(meta_db_path))
                         conn.row_factory = sqlite3.Row
@@ -2645,7 +2815,11 @@ class ChainSearchEngine:
                 for chunk in chunks_data:
                     chunk_id = chunk.get("id")
                     distance = next(
-                        (d for cid, d, _ in coarse_candidates if cid == chunk_id),
+                        (
+                            d
+                            for cid, d, candidate_index_path in coarse_candidates
+                            if cid == chunk_id and candidate_index_path == index_path
+                        ),
                         1.0
                     )
                     # Convert cosine distance to score (clamp to [0, 1] for Pydantic validation)
@@ -2671,13 +2845,26 @@ class ChainSearchEngine:
                 query=query, results=[], symbols=[], stats=stats
             )
 
+        coarse_results = self._inject_query_feature_anchors(
+            query,
+            source_path,
+            options,
+            coarse_results,
+            limit=min(6, max(2, k)),
+        )
+
         self.logger.debug(
             "Retrieved %d chunks for cross-encoder reranking", len(coarse_results)
         )
 
         # Step 6: Cross-encoder reranking
         rerank_time = time.time()
-        reranked_results = self._cross_encoder_rerank(query, coarse_results, top_k=k)
+        rerank_limit = self._resolve_rerank_candidate_limit(k, len(coarse_results))
+        reranked_results = self._cross_encoder_rerank(
+            query,
+            coarse_results,
+            top_k=rerank_limit,
+        )
 
         self.logger.debug(
             "Cross-encoder reranking: %d results in %.2fms",
@@ -2690,7 +2877,10 @@ class ChainSearchEngine:
             if result.path not in path_to_result or result.score > path_to_result[result.path].score:
                 path_to_result[result.path] = result
 
-        final_results = list(path_to_result.values())[:k]
+        final_results = self._apply_default_path_penalties(
+            query,
+            list(path_to_result.values()),
+        )[:k]
 
         stats.files_matched = len(final_results)
         stats.time_ms = (time.time() - start_time) * 1000
@@ -2791,6 +2981,630 @@ class ChainSearchEngine:
             current_dir = parent
 
         return Path(index_root).resolve()
+
+    def _find_nearest_dense_hnsw_root(
+        self,
+        index_root: Path,
+        *,
+        max_levels: int = 10,
+    ) -> Optional[Path]:
+        """Walk up index_root parents to find the nearest centralized dense HNSW root."""
+
+        current_dir = Path(index_root).resolve()
+        for _ in range(max(0, int(max_levels)) + 1):
+            try:
+                if (current_dir / VECTORS_HNSW_NAME).exists():
+                    return current_dir
+            except Exception:
+                return None
+
+            parent = current_dir.parent
+            if parent == current_dir:
+                break
+            current_dir = parent
+
+        return None
+
+    def _group_index_paths_by_binary_root(
+        self,
+        index_paths: List[Path],
+        *,
+        preferred_root: Optional[Path] = None,
+    ) -> Tuple[List[Path], List[Path]]:
+        """Group collected indexes by centralized binary mmap root."""
+
+        grouped: Dict[Path, List[Path]] = {}
+        ungrouped: List[Path] = []
+        preferred_root = (
+            Path(preferred_root).resolve()
+            if preferred_root is not None
+            else None
+        )
+
+        for index_path in index_paths:
+            candidate_roots: List[Path] = [index_path.parent]
+            if preferred_root is not None and preferred_root != index_path.parent:
+                candidate_roots.append(preferred_root)
+
+            resolved_root: Optional[Path] = None
+            for candidate_root in candidate_roots:
+                found_root = self._find_nearest_binary_mmap_root(candidate_root)
+                if (found_root / BINARY_VECTORS_MMAP_NAME).exists():
+                    resolved_root = found_root
+                    break
+
+            if resolved_root is None:
+                ungrouped.append(index_path)
+                continue
+
+            grouped.setdefault(resolved_root, []).append(index_path)
+
+        return [root for root in grouped if grouped[root]], ungrouped
+
+    def _group_index_paths_by_dense_root(
+        self,
+        index_paths: List[Path],
+    ) -> Tuple[List[Path], List[Path]]:
+        """Group collected indexes by centralized dense HNSW root."""
+
+        grouped: Dict[Path, List[Path]] = {}
+        ungrouped: List[Path] = []
+
+        for index_path in index_paths:
+            dense_root = self._find_nearest_dense_hnsw_root(index_path.parent)
+            if dense_root is None:
+                ungrouped.append(index_path)
+                continue
+            grouped.setdefault(dense_root, []).append(index_path)
+
+        return [root for root in grouped if grouped[root]], ungrouped
+
+    def _group_dense_roots_by_embedding_settings(
+        self,
+        dense_roots: List[Path],
+    ) -> Dict[Tuple[str, str, bool], List[Path]]:
+        """Group dense roots by the embedding settings used to build them."""
+        grouped: Dict[Tuple[str, str, bool], List[Path]] = {}
+        for dense_root in dense_roots:
+            settings = self._resolve_dense_embedding_settings(index_root=dense_root)
+            grouped.setdefault(settings, []).append(dense_root)
+        return grouped
+
+    def _group_dense_index_paths_by_embedding_settings(
+        self,
+        index_paths: List[Path],
+    ) -> Dict[Tuple[str, str, bool], List[Path]]:
+        """Group legacy dense ANN indexes by the embedding settings used to query them."""
+        grouped: Dict[Tuple[str, str, bool], List[Path]] = {}
+        for index_path in index_paths:
+            settings = self._resolve_dense_embedding_settings(
+                index_root=index_path.parent,
+            )
+            grouped.setdefault(settings, []).append(index_path)
+        return grouped
+
+    @staticmethod
+    def _interleave_dense_candidate_groups(
+        candidate_groups: List[List[Tuple[int, float, Path]]],
+        limit: int,
+    ) -> List[Tuple[int, float, Path]]:
+        """Interleave locally ranked dense candidates from mixed embedding groups."""
+        if limit <= 0:
+            return []
+
+        ordered_groups = [
+            sorted(group, key=lambda item: item[1])
+            for group in candidate_groups
+            if group
+        ]
+        if not ordered_groups:
+            return []
+        if len(ordered_groups) == 1:
+            return ordered_groups[0][:limit]
+
+        merged: List[Tuple[int, float, Path]] = []
+        offsets = [0 for _ in ordered_groups]
+        while len(merged) < limit:
+            made_progress = False
+            for group_index, group in enumerate(ordered_groups):
+                offset = offsets[group_index]
+                if offset >= len(group):
+                    continue
+                merged.append(group[offset])
+                offsets[group_index] += 1
+                made_progress = True
+                if len(merged) >= limit:
+                    break
+            if not made_progress:
+                break
+        return merged
+
+    def _resolve_dense_embedding_settings(
+        self,
+        *,
+        index_root: Optional[Path],
+    ) -> Tuple[str, str, bool]:
+        """Resolve embedding backend/profile for a dense vector root."""
+
+        embedding_backend = "litellm"
+        embedding_model = "qwen3-embedding-sf"
+        use_gpu = True
+        loaded_from_root = False
+
+        if index_root is not None:
+            central_index_db = index_root / "_index.db"
+            if central_index_db.exists():
+                try:
+                    from codexlens.semantic.vector_store import VectorStore
+
+                    with VectorStore(central_index_db) as vs:
+                        model_config = vs.get_model_config()
+                        if model_config:
+                            embedding_backend = str(
+                                model_config.get("backend", embedding_backend)
+                            )
+                            if embedding_backend == "litellm":
+                                embedding_model = str(
+                                    model_config.get("model_name", embedding_model)
+                                )
+                            else:
+                                embedding_model = str(
+                                    model_config.get(
+                                        "model_profile",
+                                        model_config.get("model_name", embedding_model),
+                                    )
+                                )
+                            loaded_from_root = True
+                except Exception as exc:
+                    self.logger.debug(
+                        "Failed to read dense embedding config from %s: %s",
+                        central_index_db,
+                        exc,
+                    )
+
+        if self._config is not None:
+            if not loaded_from_root:
+                config_backend = getattr(self._config, "embedding_backend", None)
+                config_model = getattr(self._config, "embedding_model", None)
+                if config_backend:
+                    embedding_backend = str(config_backend)
+                if config_model:
+                    embedding_model = str(config_model)
+            use_gpu = bool(getattr(self._config, "embedding_use_gpu", True))
+
+        return embedding_backend, embedding_model, use_gpu
+
+    def _embed_dense_query(
+        self,
+        query: str,
+        *,
+        index_root: Optional[Path],
+        query_cache: Optional[Dict[Tuple[str, str, bool], "np.ndarray"]] = None,
+    ) -> "np.ndarray":
+        """Embed a query using the model configuration associated with a dense root."""
+
+        from codexlens.semantic.factory import get_embedder
+
+        embedding_backend, embedding_model, use_gpu = self._resolve_dense_embedding_settings(
+            index_root=index_root,
+        )
+        cache_key = (embedding_backend, embedding_model, use_gpu)
+        if query_cache is not None and cache_key in query_cache:
+            return query_cache[cache_key]
+
+        if embedding_backend == "litellm":
+            embedder = get_embedder(backend="litellm", model=embedding_model)
+        else:
+            embedder = get_embedder(
+                backend="fastembed",
+                profile=embedding_model,
+                use_gpu=use_gpu,
+            )
+
+        query_dense = embedder.embed_to_numpy([query])[0]
+        if query_cache is not None:
+            query_cache[cache_key] = query_dense
+
+        self.logger.debug(
+            "Dense query embedding: %d-dim via %s/%s",
+            int(query_dense.shape[0]),
+            embedding_backend,
+            embedding_model,
+        )
+        return query_dense
+
+    def _embed_query_for_binary_searcher(
+        self,
+        query: str,
+        *,
+        binary_searcher: Any,
+        query_cache: Optional[Dict[Tuple[str, str, bool], "np.ndarray"]] = None,
+    ) -> "np.ndarray":
+        """Embed a query using the model configuration exposed by BinarySearcher."""
+
+        use_gpu = True
+        if self._config is not None:
+            use_gpu = getattr(self._config, "embedding_use_gpu", True)
+
+        query_dense = None
+        backend = getattr(binary_searcher, "backend", None)
+        model = getattr(binary_searcher, "model", None)
+        profile = getattr(binary_searcher, "model_profile", None) or "code"
+        cache_key = (
+            str(backend or "fastembed"),
+            str(model or profile),
+            bool(use_gpu),
+        )
+
+        if query_cache is not None and cache_key in query_cache:
+            return query_cache[cache_key]
+
+        if backend == "litellm":
+            try:
+                from codexlens.semantic.factory import get_embedder as get_factory_embedder
+
+                embedder = get_factory_embedder(
+                    backend="litellm",
+                    model=model or "code",
+                )
+                query_dense = embedder.embed_to_numpy([query])[0]
+            except Exception:
+                query_dense = None
+
+        if query_dense is None:
+            from codexlens.semantic.embedder import get_embedder
+
+            embedder = get_embedder(profile=str(profile), use_gpu=use_gpu)
+            query_dense = embedder.embed_to_numpy([query])[0]
+
+        if query_cache is not None:
+            query_cache[cache_key] = query_dense
+
+        return query_dense
+
+    def _collect_binary_coarse_candidates(
+        self,
+        query: str,
+        index_paths: List[Path],
+        coarse_k: int,
+        stats: SearchStats,
+        *,
+        index_root: Optional[Path] = None,
+        allow_dense_fallback: bool = False,
+    ) -> Tuple[List[Tuple[int, float, Path]], bool, bool, Optional[Path]]:
+        """Collect coarse candidates from centralized/legacy binary indexes."""
+
+        try:
+            from codexlens.indexing.embedding import BinaryEmbeddingBackend
+        except ImportError as exc:
+            self.logger.warning(
+                "BinaryEmbeddingBackend not available: %s", exc
+            )
+            return [], False, False, None
+
+        requested_index_root = (
+            Path(index_root).resolve()
+            if index_root is not None
+            else (index_paths[0].parent if index_paths else None)
+        )
+        coarse_candidates: List[Tuple[int, float, Path]] = []
+        used_centralized = False
+        using_dense_fallback = False
+        dense_query_cache: Dict[Tuple[str, str, bool], "np.ndarray"] = {}
+        binary_roots_with_hits: set[Path] = set()
+        stage2_index_root: Optional[Path] = None
+
+        binary_root_groups, _ = self._group_index_paths_by_binary_root(
+            index_paths,
+            preferred_root=requested_index_root,
+        )
+        for binary_root in binary_root_groups:
+            binary_searcher = self._get_centralized_binary_searcher(binary_root)
+            if binary_searcher is None:
+                continue
+            try:
+                query_dense = self._embed_query_for_binary_searcher(
+                    query,
+                    binary_searcher=binary_searcher,
+                    query_cache=dense_query_cache,
+                )
+                results = binary_searcher.search(query_dense, top_k=coarse_k)
+                for chunk_id, distance in results:
+                    coarse_candidates.append((chunk_id, float(distance), binary_root))
+                if results:
+                    used_centralized = True
+                    binary_roots_with_hits.add(binary_root)
+                    self.logger.debug(
+                        "Centralized binary search found %d candidates from %s",
+                        len(results),
+                        binary_root,
+                    )
+            except Exception as exc:
+                self.logger.debug(
+                    "Centralized binary search failed for %s: %s",
+                    binary_root,
+                    exc,
+                )
+
+        if len(binary_roots_with_hits) == 1:
+            stage2_index_root = next(iter(binary_roots_with_hits))
+
+        if not used_centralized:
+            has_legacy_binary_vectors = any(
+                (p.parent / f"{p.stem}_binary_vectors.bin").exists() for p in index_paths
+            )
+            if has_legacy_binary_vectors:
+                use_gpu = True
+                if self._config is not None:
+                    use_gpu = getattr(self._config, "embedding_use_gpu", True)
+
+                query_binary = None
+                try:
+                    binary_backend = BinaryEmbeddingBackend(use_gpu=use_gpu)
+                    query_binary = binary_backend.embed_packed([query])[0]
+                except Exception as exc:
+                    self.logger.warning(f"Failed to generate binary query embedding: {exc}")
+                    query_binary = None
+
+                if query_binary is not None:
+                    for index_path in index_paths:
+                        try:
+                            binary_index = self._get_or_create_binary_index(index_path)
+                            if binary_index is None or binary_index.count() == 0:
+                                continue
+                            ids, distances = binary_index.search(query_binary, coarse_k)
+                            for chunk_id, dist in zip(ids, distances):
+                                coarse_candidates.append((chunk_id, float(dist), index_path))
+                        except Exception as exc:
+                            self.logger.debug(
+                                "Binary search failed for %s: %s", index_path, exc
+                            )
+                            stats.errors.append(
+                                f"Binary search failed for {index_path}: {exc}"
+                            )
+            else:
+                self.logger.debug(
+                    "No legacy binary vector files found; skipping legacy binary search fallback"
+                )
+
+        if not coarse_candidates and allow_dense_fallback:
+            dense_candidates: List[Tuple[int, float, Path]] = []
+            dense_roots_with_hits: set[Path] = set()
+            try:
+                from codexlens.semantic.ann_index import ANNIndex
+
+                dense_root_groups, dense_fallback_index_paths = self._group_index_paths_by_dense_root(index_paths)
+                dense_candidate_groups: List[List[Tuple[int, float, Path]]] = []
+                dense_roots_by_settings = self._group_dense_roots_by_embedding_settings(
+                    dense_root_groups
+                )
+                if len(dense_roots_by_settings) > 1:
+                    self.logger.debug(
+                        "Stage 1 dense fallback detected %d embedding setting groups; interleaving candidates across groups",
+                        len(dense_roots_by_settings),
+                    )
+                for dense_roots in dense_roots_by_settings.values():
+                    group_candidates: List[Tuple[int, float, Path]] = []
+                    for dense_root in dense_roots:
+                        try:
+                            query_dense = self._embed_dense_query(
+                                query,
+                                index_root=dense_root,
+                                query_cache=dense_query_cache,
+                            )
+                            ann_index = self._get_cached_centralized_dense_index(
+                                dense_root,
+                                int(query_dense.shape[0]),
+                            )
+                            if ann_index is None:
+                                continue
+                            ids, distances = ann_index.search(query_dense, top_k=coarse_k)
+                            for chunk_id, dist in zip(ids, distances):
+                                group_candidates.append((chunk_id, float(dist), dense_root))
+                            if ids:
+                                dense_roots_with_hits.add(dense_root)
+                                self.logger.debug(
+                                    "Stage 1 centralized dense fallback: %d candidates from %s",
+                                    len(ids),
+                                    dense_root,
+                                )
+                        except Exception as exc:
+                            self.logger.debug(
+                                "Dense coarse search failed for %s: %s",
+                                dense_root,
+                                exc,
+                            )
+                    if group_candidates:
+                        dense_candidate_groups.append(group_candidates)
+
+                dense_candidates = self._interleave_dense_candidate_groups(
+                    dense_candidate_groups,
+                    coarse_k,
+                )
+
+                fallback_index_paths = dense_fallback_index_paths if dense_root_groups else index_paths
+                if not dense_candidates:
+                    fallback_candidate_groups: List[List[Tuple[int, float, Path]]] = []
+                    fallback_index_groups = self._group_dense_index_paths_by_embedding_settings(
+                        fallback_index_paths
+                    )
+                    if len(fallback_index_groups) > 1:
+                        self.logger.debug(
+                            "Stage 1 legacy dense fallback detected %d embedding setting groups; interleaving candidates across groups",
+                            len(fallback_index_groups),
+                        )
+                    for grouped_index_paths in fallback_index_groups.values():
+                        group_candidates = []
+                        for index_path in grouped_index_paths:
+                            try:
+                                query_dense = self._embed_dense_query(
+                                    query,
+                                    index_root=index_path.parent,
+                                    query_cache=dense_query_cache,
+                                )
+                                ann_index = self._get_cached_legacy_dense_index(
+                                    index_path,
+                                    int(query_dense.shape[0]),
+                                )
+                                if ann_index is None:
+                                    continue
+                                ids, distances = ann_index.search(query_dense, top_k=coarse_k)
+                                for chunk_id, dist in zip(ids, distances):
+                                    group_candidates.append((chunk_id, float(dist), index_path))
+                            except Exception as exc:
+                                self.logger.debug(
+                                    "Dense coarse search failed for %s: %s", index_path, exc
+                                )
+                        if group_candidates:
+                            fallback_candidate_groups.append(group_candidates)
+
+                    dense_candidates = self._interleave_dense_candidate_groups(
+                        fallback_candidate_groups,
+                        coarse_k,
+                    )
+            except Exception as exc:
+                self.logger.debug("Dense coarse search fallback unavailable: %s", exc)
+                dense_candidates = []
+
+            if dense_candidates:
+                if stage2_index_root is None and len(dense_roots_with_hits) == 1:
+                    stage2_index_root = next(iter(dense_roots_with_hits))
+                coarse_candidates = dense_candidates
+                using_dense_fallback = True
+
+        if coarse_candidates:
+            if using_dense_fallback:
+                coarse_candidates = coarse_candidates[:coarse_k]
+            else:
+                coarse_candidates.sort(key=lambda x: x[1])
+                coarse_candidates = coarse_candidates[:coarse_k]
+
+        return coarse_candidates, used_centralized, using_dense_fallback, stage2_index_root
+
+    def _materialize_binary_candidates(
+        self,
+        coarse_candidates: List[Tuple[int, float, Path]],
+        stats: SearchStats,
+        *,
+        stage2_index_root: Optional[Path] = None,
+        using_dense_fallback: bool = False,
+    ) -> List[SearchResult]:
+        """Fetch chunk payloads for coarse binary/dense-fallback candidates."""
+
+        if not coarse_candidates:
+            return []
+
+        coarse_results: List[Tuple[int, SearchResult]] = []
+        candidates_by_index: Dict[Path, List[int]] = {}
+        candidate_order: Dict[Tuple[Path, int], int] = {}
+        for chunk_id, _, idx_path in coarse_candidates:
+            if idx_path not in candidates_by_index:
+                candidates_by_index[idx_path] = []
+            candidates_by_index[idx_path].append(chunk_id)
+            candidate_order.setdefault((idx_path, int(chunk_id)), len(candidate_order))
+
+        import sqlite3
+
+        central_meta_store = None
+        central_meta_path = stage2_index_root / VECTORS_META_DB_NAME if stage2_index_root else None
+        if central_meta_path and central_meta_path.exists():
+            central_meta_store = VectorMetadataStore(central_meta_path)
+
+        for idx_path, chunk_ids in candidates_by_index.items():
+            try:
+                chunks_data = []
+                if central_meta_store is not None and stage2_index_root is not None and idx_path == stage2_index_root:
+                    chunks_data = central_meta_store.get_chunks_by_ids(chunk_ids)
+
+                if not chunks_data and idx_path.name != "_index.db":
+                    meta_db_path = idx_path / VECTORS_META_DB_NAME
+                    if meta_db_path.exists():
+                        meta_store = VectorMetadataStore(meta_db_path)
+                        chunks_data = meta_store.get_chunks_by_ids(chunk_ids)
+
+                if not chunks_data:
+                    try:
+                        conn = sqlite3.connect(str(idx_path))
+                        conn.row_factory = sqlite3.Row
+                        placeholders = ",".join("?" * len(chunk_ids))
+                        cursor = conn.execute(
+                            f"""
+                            SELECT id, file_path, content, metadata, category
+                            FROM semantic_chunks
+                            WHERE id IN ({placeholders})
+                            """,
+                            chunk_ids,
+                        )
+                        chunks_data = [
+                            {
+                                "id": row["id"],
+                                "file_path": row["file_path"],
+                                "content": row["content"],
+                                "metadata": row["metadata"],
+                                "category": row["category"],
+                            }
+                            for row in cursor.fetchall()
+                        ]
+                        conn.close()
+                    except Exception:
+                        chunks_data = []
+
+                for chunk in chunks_data:
+                    chunk_id = chunk.get("id") or chunk.get("chunk_id")
+                    distance = next(
+                        (
+                            d
+                            for cid, d, candidate_idx_path in coarse_candidates
+                            if cid == chunk_id and candidate_idx_path == idx_path
+                        ),
+                        256,
+                    )
+                    if using_dense_fallback:
+                        score = max(0.0, 1.0 - float(distance))
+                    else:
+                        score = 1.0 - (float(distance) / 256.0)
+
+                    content = chunk.get("content", "")
+                    metadata = chunk.get("metadata")
+                    symbol_name = None
+                    symbol_kind = None
+                    start_line = chunk.get("start_line")
+                    end_line = chunk.get("end_line")
+                    if metadata:
+                        try:
+                            meta_dict = json.loads(metadata) if isinstance(metadata, str) else metadata
+                            symbol_name = meta_dict.get("symbol_name")
+                            symbol_kind = meta_dict.get("symbol_kind")
+                            start_line = meta_dict.get("start_line", start_line)
+                            end_line = meta_dict.get("end_line", end_line)
+                        except Exception:
+                            pass
+
+                    coarse_results.append(
+                        (
+                            candidate_order.get((idx_path, int(chunk_id)), len(candidate_order)),
+                            SearchResult(
+                                path=chunk.get("file_path", ""),
+                                score=float(score),
+                                excerpt=content[:500] if content else "",
+                                content=content,
+                                symbol_name=symbol_name,
+                                symbol_kind=symbol_kind,
+                                start_line=start_line,
+                                end_line=end_line,
+                            ),
+                        )
+                    )
+            except Exception as exc:
+                self.logger.debug(
+                    "Failed to retrieve chunks from %s: %s", idx_path, exc
+                )
+                stats.errors.append(
+                    f"Stage 1 chunk retrieval failed for {idx_path}: {exc}"
+                )
+
+        coarse_results.sort(key=lambda item: item[0])
+        return [result for _, result in coarse_results]
 
     def _compute_cosine_similarity(
         self,
@@ -2996,46 +3810,28 @@ class ChainSearchEngine:
         if not results:
             return []
 
-        # Try to get reranker from config or create new one
-        reranker = None
-        try:
-            from codexlens.semantic.reranker import (
-                check_reranker_available,
-                get_reranker,
+        # Collapse duplicate chunks from the same file before reranking.
+        # Otherwise, untouched tail chunks can overwrite reranked chunks for the
+        # same path during the later path-level deduplication step.
+        path_to_result: Dict[str, SearchResult] = {}
+        for result in results:
+            path = result.path
+            if path not in path_to_result or result.score > path_to_result[path].score:
+                path_to_result[path] = result
+        if len(path_to_result) != len(results):
+            self.logger.debug(
+                "Deduplicated rerank candidates by path: %d -> %d",
+                len(results),
+                len(path_to_result),
             )
+        results = sorted(
+            path_to_result.values(),
+            key=lambda item: float(item.score),
+            reverse=True,
+        )
 
-            # Determine backend and model from config
-            backend = "onnx"
-            model_name = None
-            use_gpu = True
-
-            if self._config is not None:
-                backend = getattr(self._config, "reranker_backend", "onnx") or "onnx"
-                model_name = getattr(self._config, "reranker_model", None)
-                use_gpu = getattr(self._config, "embedding_use_gpu", True)
-
-            ok, err = check_reranker_available(backend)
-            if not ok:
-                self.logger.debug("Reranker backend unavailable (%s): %s", backend, err)
-                return results[:top_k]
-
-            # Create reranker
-            kwargs = {}
-            if backend == "onnx":
-                kwargs["use_gpu"] = use_gpu
-            elif backend == "api":
-                # Pass max_input_tokens for adaptive batching
-                max_tokens = getattr(self._config, "reranker_max_input_tokens", None)
-                if max_tokens:
-                    kwargs["max_input_tokens"] = max_tokens
-
-            reranker = get_reranker(backend=backend, model_name=model_name, **kwargs)
-
-        except ImportError as exc:
-            self.logger.debug("Reranker not available: %s", exc)
-            return results[:top_k]
-        except Exception as exc:
-            self.logger.debug("Failed to initialize reranker: %s", exc)
+        reranker = self._get_cached_reranker()
+        if reranker is None:
             return results[:top_k]
 
         # Use cross_encoder_rerank from ranking module
@@ -3475,6 +4271,11 @@ class ChainSearchEngine:
         """
         collected = []
         visited = set()
+        scan_root = start_index.parent.resolve()
+        try:
+            scan_source_root = self.mapper.index_to_source(start_index)
+        except Exception:
+            scan_source_root = None
 
         def _collect_recursive(index_path: Path, current_depth: int):
             # Normalize path to avoid duplicates
@@ -3482,6 +4283,10 @@ class ChainSearchEngine:
             if normalized in visited:
                 return
             visited.add(normalized)
+
+            if is_ignored_index_path(normalized, scan_root):
+                self.logger.debug("Skipping ignored artifact index subtree: %s", normalized)
+                return
 
             # Add current index
             if normalized.exists():
@@ -3504,6 +4309,33 @@ class ChainSearchEngine:
                 self.logger.warning(f"Failed to read subdirs from {normalized}: {exc}")
 
         _collect_recursive(start_index, 0)
+
+        if scan_source_root is not None:
+            try:
+                descendant_roots = self.registry.find_descendant_project_roots(
+                    scan_source_root
+                )
+            except Exception as exc:
+                descendant_roots = []
+                self.logger.debug(
+                    "Failed to query descendant project roots for %s: %s",
+                    scan_source_root,
+                    exc,
+                )
+
+            for mapping in descendant_roots:
+                try:
+                    relative_depth = len(
+                        mapping.source_path.resolve().relative_to(
+                            scan_source_root.resolve()
+                        ).parts
+                    )
+                except ValueError:
+                    continue
+                if depth >= 0 and relative_depth > depth:
+                    continue
+                _collect_recursive(mapping.index_path, relative_depth)
+
         self.logger.info(f"Collected {len(collected)} indexes (depth={depth})")
         return collected
 
@@ -3548,6 +4380,13 @@ class ChainSearchEngine:
             except Exception:
                 pass  # Ignore pre-load failures
 
+        shared_hybrid_engine = None
+        if options.hybrid_mode:
+            shared_hybrid_engine = HybridSearchEngine(
+                weights=options.hybrid_weights,
+                config=self._config,
+            )
+
         executor = self._get_executor(effective_workers)
         # Submit all search tasks
         future_to_path = {
@@ -3562,7 +4401,8 @@ class ChainSearchEngine:
                 options.enable_fuzzy,
                 options.enable_vector,
                 options.pure_vector,
-                options.hybrid_weights
+                options.hybrid_weights,
+                shared_hybrid_engine,
             ): idx_path
             for idx_path in index_paths
         }
@@ -3590,7 +4430,8 @@ class ChainSearchEngine:
                               enable_fuzzy: bool = True,
                               enable_vector: bool = False,
                               pure_vector: bool = False,
-                              hybrid_weights: Optional[Dict[str, float]] = None) -> List[SearchResult]:
+                              hybrid_weights: Optional[Dict[str, float]] = None,
+                              hybrid_engine: Optional[HybridSearchEngine] = None) -> List[SearchResult]:
         """Search a single index database.
 
         Handles exceptions gracefully, returning empty list on failure.
@@ -3613,8 +4454,11 @@ class ChainSearchEngine:
         try:
             # Use hybrid search if enabled
             if hybrid_mode:
-                hybrid_engine = HybridSearchEngine(weights=hybrid_weights)
-                fts_results = hybrid_engine.search(
+                engine = hybrid_engine or HybridSearchEngine(
+                    weights=hybrid_weights,
+                    config=self._config,
+                )
+                fts_results = engine.search(
                     index_path,
                     query,
                     limit=limit,
@@ -3715,7 +4559,7 @@ class ChainSearchEngine:
         return filtered
 
     def _merge_and_rank(self, results: List[SearchResult],
-                         limit: int, offset: int = 0) -> List[SearchResult]:
+                         limit: int, offset: int = 0, query: Optional[str] = None) -> List[SearchResult]:
         """Aggregate, deduplicate, and rank results.
 
         Process:
@@ -3738,12 +4582,93 @@ class ChainSearchEngine:
             if path not in path_to_result or result.score > path_to_result[path].score:
                 path_to_result[path] = result
 
-        # Sort by score descending
         unique_results = list(path_to_result.values())
-        unique_results.sort(key=lambda r: r.score, reverse=True)
+        if query:
+            unique_results = self._apply_default_path_penalties(query, unique_results)
+        else:
+            unique_results.sort(key=lambda r: r.score, reverse=True)
 
         # Apply offset and limit for pagination
         return unique_results[offset:offset + limit]
+
+    def _apply_default_path_penalties(
+        self,
+        query: str,
+        results: List[SearchResult],
+    ) -> List[SearchResult]:
+        """Apply default path penalties for noisy test and generated artifact results."""
+        if not results:
+            return results
+
+        test_penalty = 0.15
+        generated_penalty = 0.35
+        if self._config is not None:
+            test_penalty = float(
+                getattr(self._config, "test_file_penalty", test_penalty) or 0.0
+            )
+            generated_penalty = float(
+                getattr(
+                    self._config,
+                    "generated_file_penalty",
+                    generated_penalty,
+                )
+                or 0.0
+            )
+        if test_penalty <= 0 and generated_penalty <= 0:
+            return sorted(results, key=lambda r: r.score, reverse=True)
+
+        from codexlens.search.ranking import (
+            apply_path_penalties,
+            rebalance_noisy_results,
+        )
+
+        penalized = apply_path_penalties(
+            results,
+            query,
+            test_file_penalty=test_penalty,
+            generated_file_penalty=generated_penalty,
+        )
+        return rebalance_noisy_results(penalized, query)
+
+    def _resolve_rerank_candidate_limit(
+        self,
+        requested_k: int,
+        candidate_count: int,
+    ) -> int:
+        """Return the cross-encoder rerank budget before final trimming."""
+        if candidate_count <= 0:
+            return max(1, int(requested_k or 1))
+
+        rerank_limit = max(1, int(requested_k or 1))
+        if self._config is not None:
+            for attr_name in ("reranker_top_k", "reranking_top_k"):
+                configured_value = getattr(self._config, attr_name, None)
+                if isinstance(configured_value, bool):
+                    continue
+                if isinstance(configured_value, (int, float)):
+                    rerank_limit = max(rerank_limit, int(configured_value))
+
+        return max(1, min(candidate_count, rerank_limit))
+
+    def _resolve_stage3_target_count(
+        self,
+        requested_k: int,
+        candidate_count: int,
+    ) -> int:
+        """Return the number of Stage 3 representatives to preserve."""
+        base_target = max(1, int(requested_k or 1)) * 2
+        target_count = base_target
+        if self._config is not None and getattr(
+            self._config,
+            "enable_staged_rerank",
+            False,
+        ):
+            target_count = max(
+                target_count,
+                self._resolve_rerank_candidate_limit(requested_k, candidate_count),
+            )
+
+        return max(1, min(candidate_count, target_count))
 
     def _search_symbols_parallel(self, index_paths: List[Path],
                                   name: str,

@@ -102,6 +102,23 @@ class TestANNIndex:
         not _hnswlib_available(),
         reason="hnswlib not installed"
     )
+    def test_search_clamps_top_k_to_available_vectors(self, temp_db, sample_vectors, sample_ids):
+        """Search should clamp top_k to the loaded vector count."""
+        from codexlens.semantic.ann_index import ANNIndex
+
+        index = ANNIndex(temp_db, dim=384)
+        index.add_vectors(sample_ids[:3], sample_vectors[:3])
+
+        ids, distances = index.search(sample_vectors[0], top_k=10)
+
+        assert len(ids) == 3
+        assert len(distances) == 3
+        assert ids[0] == 1
+
+    @pytest.mark.skipif(
+        not _hnswlib_available(),
+        reason="hnswlib not installed"
+    )
     def test_save_and_load(self, temp_db, sample_vectors, sample_ids):
         """Test saving and loading index from disk."""
         from codexlens.semantic.ann_index import ANNIndex

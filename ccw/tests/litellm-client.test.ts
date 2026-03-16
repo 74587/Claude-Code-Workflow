@@ -103,7 +103,7 @@ describe('LiteLLM client bridge', () => {
 
     assert.equal(available, true);
     assert.equal(spawnCalls.length, 1);
-    assert.equal(spawnCalls[0].command, 'python');
+    assert.equal(spawnCalls[0].command, mod.getCodexLensVenvPython());
     assert.deepEqual(spawnCalls[0].args, ['-m', 'ccw_litellm.cli', 'version']);
   });
 
@@ -115,6 +115,19 @@ describe('LiteLLM client bridge', () => {
 
     assert.equal(spawnCalls.length, 1);
     assert.equal(spawnCalls[0].command, 'python3');
+  });
+
+  it('spawns LiteLLM Python with hidden window options', async () => {
+    spawnPlan.push({ type: 'close', code: 0, stdout: '1.2.3\n' });
+
+    const client = new mod.LiteLLMClient({ timeout: 10 });
+    const available = await client.isAvailable();
+
+    assert.equal(available, true);
+    assert.equal(spawnCalls.length, 1);
+    assert.equal(spawnCalls[0].options.shell, false);
+    assert.equal(spawnCalls[0].options.windowsHide, true);
+    assert.equal(spawnCalls[0].options.env.PYTHONIOENCODING, 'utf-8');
   });
 
   it('isAvailable returns false on spawn error', async () => {
@@ -154,7 +167,7 @@ describe('LiteLLM client bridge', () => {
 
     assert.deepEqual(cfg, { ok: true });
     assert.equal(spawnCalls.length, 1);
-    assert.deepEqual(spawnCalls[0].args, ['-m', 'ccw_litellm.cli', 'config', '--json']);
+    assert.deepEqual(spawnCalls[0].args, ['-m', 'ccw_litellm.cli', 'config']);
   });
 
   it('getConfig throws on malformed JSON', async () => {

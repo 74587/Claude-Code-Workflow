@@ -15,7 +15,7 @@ def check_reranker_available(backend: str) -> tuple[bool, str | None]:
 
     Notes:
     - "fastembed" uses fastembed TextCrossEncoder (pip install fastembed>=0.4.0). [Recommended]
-    - "onnx" redirects to "fastembed" for backward compatibility.
+    - "onnx" uses Optimum + ONNX Runtime (pip install onnxruntime optimum[onnxruntime] transformers).
     - "legacy" uses sentence-transformers CrossEncoder (pip install codexlens[reranker-legacy]).
     - "api" uses a remote reranking HTTP API (requires httpx).
     - "litellm" uses `ccw-litellm` for unified access to LLM providers.
@@ -33,10 +33,9 @@ def check_reranker_available(backend: str) -> tuple[bool, str | None]:
         return check_fastembed_reranker_available()
 
     if backend == "onnx":
-        # Redirect to fastembed for backward compatibility
-        from .fastembed_reranker import check_fastembed_reranker_available
+        from .onnx_reranker import check_onnx_reranker_available
 
-        return check_fastembed_reranker_available()
+        return check_onnx_reranker_available()
 
     if backend == "litellm":
         try:
@@ -66,7 +65,7 @@ def check_reranker_available(backend: str) -> tuple[bool, str | None]:
 
 
 def get_reranker(
-    backend: str = "fastembed",
+    backend: str = "onnx",
     model_name: str | None = None,
     *,
     device: str | None = None,
@@ -76,18 +75,18 @@ def get_reranker(
 
     Args:
         backend: Reranker backend to use. Options:
-            - "fastembed": FastEmbed TextCrossEncoder backend (default, recommended)
-            - "onnx": Redirects to fastembed for backward compatibility
+            - "onnx": Optimum + ONNX Runtime backend (default)
+            - "fastembed": FastEmbed TextCrossEncoder backend
             - "api": HTTP API backend (remote providers)
             - "litellm": LiteLLM backend (LLM-based, for API mode)
             - "legacy": sentence-transformers CrossEncoder backend (optional)
         model_name: Model identifier for model-based backends. Defaults depend on backend:
+            - onnx: Xenova/ms-marco-MiniLM-L-6-v2
             - fastembed: Xenova/ms-marco-MiniLM-L-6-v2
-            - onnx: (redirects to fastembed)
             - api: BAAI/bge-reranker-v2-m3 (SiliconFlow)
             - legacy: cross-encoder/ms-marco-MiniLM-L-6-v2
             - litellm: default
-        device: Optional device string for backends that support it (legacy only).
+        device: Optional device string for backends that support it (legacy and onnx).
         **kwargs: Additional backend-specific arguments.
 
     Returns:
@@ -111,16 +110,17 @@ def get_reranker(
         return FastEmbedReranker(model_name=resolved_model_name, **kwargs)
 
     if backend == "onnx":
-        # Redirect to fastembed for backward compatibility
-        ok, err = check_reranker_available("fastembed")
+        ok, err = check_reranker_available("onnx")
         if not ok:
             raise ImportError(err)
 
-        from .fastembed_reranker import FastEmbedReranker
+        from .onnx_reranker import ONNXReranker
 
-        resolved_model_name = (model_name or "").strip() or FastEmbedReranker.DEFAULT_MODEL
-        _ = device  # Device selection is managed via fastembed providers.
-        return FastEmbedReranker(model_name=resolved_model_name, **kwargs)
+        resolved_model_name = (model_name or "").strip() or ONNXReranker.DEFAULT_MODEL
+        effective_kwargs = dict(kwargs)
+        if "use_gpu" not in effective_kwargs and device is not None:
+            effective_kwargs["use_gpu"] = str(device).strip().lower() not in {"cpu", "none"}
+        return ONNXReranker(model_name=resolved_model_name, **effective_kwargs)
 
     if backend == "legacy":
         ok, err = check_reranker_available("legacy")

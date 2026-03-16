@@ -93,7 +93,8 @@ def test_get_cross_encoder_reranker_uses_factory_backend_onnx_gpu_flag(
         enable_reranking=True,
         enable_cross_encoder_rerank=True,
         reranker_backend="onnx",
-        embedding_use_gpu=False,
+        embedding_use_gpu=True,
+        reranker_use_gpu=False,
     )
     engine = HybridSearchEngine(config=config)
 
@@ -107,6 +108,58 @@ def test_get_cross_encoder_reranker_uses_factory_backend_onnx_gpu_flag(
     assert get_args["model_name"] is None
     assert get_args["device"] is None
     assert get_args["kwargs"]["use_gpu"] is False
+
+
+def test_get_cross_encoder_reranker_uses_cpu_device_for_legacy_when_reranker_gpu_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    calls: dict[str, object] = {}
+
+    def fake_check_reranker_available(backend: str):
+        calls["check_backend"] = backend
+        return True, None
+
+    sentinel = object()
+
+    def fake_get_reranker(*, backend: str, model_name=None, device=None, **kwargs):
+        calls["get_args"] = {
+            "backend": backend,
+            "model_name": model_name,
+            "device": device,
+            "kwargs": kwargs,
+        }
+        return sentinel
+
+    monkeypatch.setattr(
+        "codexlens.semantic.reranker.check_reranker_available",
+        fake_check_reranker_available,
+    )
+    monkeypatch.setattr(
+        "codexlens.semantic.reranker.get_reranker",
+        fake_get_reranker,
+    )
+
+    config = Config(
+        data_dir=tmp_path / "legacy-cpu",
+        enable_reranking=True,
+        enable_cross_encoder_rerank=True,
+        reranker_backend="legacy",
+        reranker_model="dummy-model",
+        embedding_use_gpu=True,
+        reranker_use_gpu=False,
+    )
+    engine = HybridSearchEngine(config=config)
+
+    reranker = engine._get_cross_encoder_reranker()
+    assert reranker is sentinel
+    assert calls["check_backend"] == "legacy"
+
+    get_args = calls["get_args"]
+    assert isinstance(get_args, dict)
+    assert get_args["backend"] == "legacy"
+    assert get_args["model_name"] == "dummy-model"
+    assert get_args["device"] == "cpu"
 
 
 def test_get_cross_encoder_reranker_returns_none_when_backend_unavailable(

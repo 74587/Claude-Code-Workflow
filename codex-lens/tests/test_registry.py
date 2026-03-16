@@ -67,3 +67,60 @@ def test_find_nearest_index(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
         assert found is not None
         assert found.id == mapping.id
 
+
+def test_find_descendant_project_roots_returns_nested_project_roots(tmp_path: Path) -> None:
+    db_path = tmp_path / "registry.db"
+    workspace_root = tmp_path / "workspace"
+    child_a = workspace_root / "packages" / "app-a"
+    child_b = workspace_root / "tools" / "app-b"
+    outside_root = tmp_path / "external"
+
+    with RegistryStore(db_path=db_path) as store:
+        workspace_project = store.register_project(
+            workspace_root,
+            tmp_path / "indexes" / "workspace",
+        )
+        child_a_project = store.register_project(
+            child_a,
+            tmp_path / "indexes" / "workspace" / "packages" / "app-a",
+        )
+        child_b_project = store.register_project(
+            child_b,
+            tmp_path / "indexes" / "workspace" / "tools" / "app-b",
+        )
+        outside_project = store.register_project(
+            outside_root,
+            tmp_path / "indexes" / "external",
+        )
+
+        store.register_dir(
+            workspace_project.id,
+            workspace_root,
+            tmp_path / "indexes" / "workspace" / "_index.db",
+            depth=0,
+        )
+        child_a_mapping = store.register_dir(
+            child_a_project.id,
+            child_a,
+            tmp_path / "indexes" / "workspace" / "packages" / "app-a" / "_index.db",
+            depth=0,
+        )
+        child_b_mapping = store.register_dir(
+            child_b_project.id,
+            child_b,
+            tmp_path / "indexes" / "workspace" / "tools" / "app-b" / "_index.db",
+            depth=0,
+        )
+        store.register_dir(
+            outside_project.id,
+            outside_root,
+            tmp_path / "indexes" / "external" / "_index.db",
+            depth=0,
+        )
+
+        descendants = store.find_descendant_project_roots(workspace_root)
+
+        assert [mapping.index_path for mapping in descendants] == [
+            child_a_mapping.index_path,
+            child_b_mapping.index_path,
+        ]

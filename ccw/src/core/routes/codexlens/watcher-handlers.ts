@@ -126,8 +126,10 @@ export async function handleCodexLensWatcherRoutes(ctx: RouteContext): Promise<b
         const args = ['-m', 'codexlens', 'watch', targetPath, '--debounce', String(debounceMs)];
         watcherProcess = spawn(pythonPath, args, {
           cwd: targetPath,
+          shell: false,
           stdio: ['ignore', 'pipe', 'pipe'],
-          env: { ...process.env }
+          windowsHide: true,
+          env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
         });
 
         watcherStats = {

@@ -280,8 +280,9 @@ def main() -> None:
     if args.staged_cluster_strategy:
         config.staged_clustering_strategy = str(args.staged_cluster_strategy)
     # Stability: on some Windows setups, fastembed + DirectML can crash under load.
-    # Dense_rerank uses the embedding backend that matches the index; force CPU here.
+    # Force local embeddings and reranking onto CPU for reproducible benchmark runs.
     config.embedding_use_gpu = False
+    config.reranker_use_gpu = False
     registry = RegistryStore()
     registry.initialize()
     mapper = PathMapper()

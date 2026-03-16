@@ -313,3 +313,89 @@ def test_onnx_reranker_scores_pairs_with_sigmoid_normalization(
 
     expected = [1.0 / (1.0 + math.exp(-float(i))) for i in range(len(pairs))]
     assert scores == pytest.approx(expected, rel=1e-6, abs=1e-6)
+
+
+def test_onnx_reranker_splits_tuple_providers_into_provider_options(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import numpy as np
+
+    captured: dict[str, object] = {}
+
+    dummy_onnxruntime = types.ModuleType("onnxruntime")
+
+    dummy_optimum = types.ModuleType("optimum")
+    dummy_optimum.__path__ = []
+    dummy_optimum_ort = types.ModuleType("optimum.onnxruntime")
+
+    class DummyModelOutput:
+        def __init__(self, logits: np.ndarray) -> None:
+            self.logits = logits
+
+    class DummyModel:
+        input_names = ["input_ids", "attention_mask"]
+
+        def __call__(self, **inputs):
+            batch = int(inputs["input_ids"].shape[0])
+            return DummyModelOutput(logits=np.zeros((batch, 1), dtype=np.float32))
+
+    class DummyORTModelForSequenceClassification:
+        @classmethod
+        def from_pretrained(
+            cls,
+            model_name: str,
+            providers=None,
+            provider_options=None,
+            **kwargs,
+        ):
+            captured["model_name"] = model_name
+            captured["providers"] = providers
+            captured["provider_options"] = provider_options
+            captured["kwargs"] = kwargs
+            return DummyModel()
+
+    dummy_optimum_ort.ORTModelForSequenceClassification = DummyORTModelForSequenceClassification
+
+    dummy_transformers = types.ModuleType("transformers")
+
+    class DummyAutoTokenizer:
+        model_max_length = 512
+
+        @classmethod
+        def from_pretrained(cls, model_name: str, **kwargs):
+            _ = model_name, kwargs
+            return cls()
+
+        def __call__(self, *, text, text_pair, return_tensors, **kwargs):
+            _ = text_pair, kwargs
+            assert return_tensors == "np"
+            batch = len(text)
+            return {
+                "input_ids": np.zeros((batch, 4), dtype=np.int64),
+                "attention_mask": np.ones((batch, 4), dtype=np.int64),
+            }
+
+    dummy_transformers.AutoTokenizer = DummyAutoTokenizer
+
+    monkeypatch.setitem(sys.modules, "onnxruntime", dummy_onnxruntime)
+    monkeypatch.setitem(sys.modules, "optimum", dummy_optimum)
+    monkeypatch.setitem(sys.modules, "optimum.onnxruntime", dummy_optimum_ort)
+    monkeypatch.setitem(sys.modules, "transformers", dummy_transformers)
+
+    reranker = get_reranker(
+        backend="onnx",
+        model_name="dummy-model",
+        use_gpu=True,
+        providers=[
+            ("DmlExecutionProvider", {"device_id": 1}),
+            "CPUExecutionProvider",
+        ],
+    )
+    assert isinstance(reranker, ONNXReranker)
+
+    scores = reranker.score_pairs([("q", "d")], batch_size=1)
+
+    assert scores == pytest.approx([0.5])
+    assert captured["model_name"] == "dummy-model"
+    assert captured["providers"] == ["DmlExecutionProvider", "CPUExecutionProvider"]
+    assert captured["provider_options"] == [{"device_id": 1}, {}]

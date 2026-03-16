@@ -400,15 +400,20 @@ class TestStage4OptionalRerank:
     """Tests for Stage 4: Optional cross-encoder reranking."""
 
     def test_stage4_reranks_with_reranker(
-        self, mock_registry, mock_mapper, mock_config
+        self, mock_registry, mock_mapper, temp_paths
     ):
-        """Test _stage4_optional_rerank uses _cross_encoder_rerank."""
-        engine = ChainSearchEngine(mock_registry, mock_mapper, config=mock_config)
+        """Test _stage4_optional_rerank overfetches before final trim."""
+        config = Config(data_dir=temp_paths / "data")
+        config.reranker_top_k = 4
+        config.reranking_top_k = 4
+        engine = ChainSearchEngine(mock_registry, mock_mapper, config=config)
 
         results = [
             SearchResult(path="a.py", score=0.9, excerpt="a"),
             SearchResult(path="b.py", score=0.8, excerpt="b"),
             SearchResult(path="c.py", score=0.7, excerpt="c"),
+            SearchResult(path="d.py", score=0.6, excerpt="d"),
+            SearchResult(path="e.py", score=0.5, excerpt="e"),
         ]
 
         # Mock the _cross_encoder_rerank method that _stage4 calls
@@ -416,12 +421,14 @@ class TestStage4OptionalRerank:
             mock_rerank.return_value = [
                 SearchResult(path="c.py", score=0.95, excerpt="c"),
                 SearchResult(path="a.py", score=0.85, excerpt="a"),
+                SearchResult(path="d.py", score=0.83, excerpt="d"),
+                SearchResult(path="e.py", score=0.81, excerpt="e"),
             ]
 
             reranked = engine._stage4_optional_rerank("query", results, k=2)
 
-            mock_rerank.assert_called_once_with("query", results, 2)
-            assert len(reranked) <= 2
+            mock_rerank.assert_called_once_with("query", results, 4)
+            assert len(reranked) == 4
             # First result should be reranked winner
             assert reranked[0].path == "c.py"
 
@@ -632,6 +639,113 @@ class TestStagedCascadeIntegration:
                             # a.py should have score 0.9
                             a_result = next(r for r in result.results if r.path == "a.py")
                             assert a_result.score == 0.9
+
+    def test_staged_cascade_expands_stage3_target_for_rerank_budget(
+        self, mock_registry, mock_mapper, temp_paths
+    ):
+        """Test staged cascade preserves enough Stage 3 reps for rerank budget."""
+        config = Config(data_dir=temp_paths / "data")
+        config.enable_staged_rerank = True
+        config.reranker_top_k = 6
+        config.reranking_top_k = 6
+
+        engine = ChainSearchEngine(mock_registry, mock_mapper, config=config)
+        expanded_results = [
+            SearchResult(path=f"src/file-{index}.ts", score=1.0 - (index * 0.01), excerpt="x")
+            for index in range(8)
+        ]
+
+        with patch.object(engine, "_find_start_index") as mock_find:
+            mock_find.return_value = temp_paths / "index" / "_index.db"
+
+            with patch.object(engine, "_collect_index_paths") as mock_collect:
+                mock_collect.return_value = [temp_paths / "index" / "_index.db"]
+
+                with patch.object(engine, "_stage1_binary_search") as mock_stage1:
+                    mock_stage1.return_value = (
+                        [SearchResult(path="seed.ts", score=0.9, excerpt="seed")],
+                        temp_paths / "index",
+                    )
+
+                    with patch.object(engine, "_stage2_lsp_expand") as mock_stage2:
+                        mock_stage2.return_value = expanded_results
+
+                        with patch.object(engine, "_stage3_cluster_prune") as mock_stage3:
+                            mock_stage3.return_value = expanded_results[:6]
+
+                            with patch.object(engine, "_stage4_optional_rerank") as mock_stage4:
+                                mock_stage4.return_value = expanded_results[:2]
+
+                                engine.staged_cascade_search(
+                                    "query",
+                                    temp_paths / "src",
+                                    k=2,
+                                    coarse_k=20,
+                                )
+
+        mock_stage3.assert_called_once_with(
+            expanded_results,
+            6,
+            query="query",
+        )
+
+    def test_staged_cascade_overfetches_rerank_before_final_trim(
+        self, mock_registry, mock_mapper, temp_paths
+    ):
+        """Test staged rerank keeps enough candidates for path penalties to work."""
+        config = Config(data_dir=temp_paths / "data")
+        config.enable_staged_rerank = True
+        config.reranker_top_k = 4
+        config.reranking_top_k = 4
+        config.test_file_penalty = 0.15
+        config.generated_file_penalty = 0.35
+
+        engine = ChainSearchEngine(mock_registry, mock_mapper, config=config)
+
+        src_primary = str(temp_paths / "src" / "tools" / "smart-search.ts")
+        src_secondary = str(temp_paths / "src" / "tools" / "codex-lens.ts")
+        test_primary = str(temp_paths / "tests" / "integration" / "cli-routes.test.ts")
+        test_secondary = str(
+            temp_paths / "frontend" / "tests" / "e2e" / "prompt-memory.spec.ts"
+        )
+        query = "parse CodexLens JSON output strip ANSI smart_search"
+        clustered_results = [
+            SearchResult(path=test_primary, score=0.98, excerpt="test"),
+            SearchResult(path=test_secondary, score=0.97, excerpt="test"),
+            SearchResult(path=src_primary, score=0.96, excerpt="source"),
+            SearchResult(path=src_secondary, score=0.95, excerpt="source"),
+        ]
+
+        with patch.object(engine, "_find_start_index") as mock_find:
+            mock_find.return_value = temp_paths / "index" / "_index.db"
+
+            with patch.object(engine, "_collect_index_paths") as mock_collect:
+                mock_collect.return_value = [temp_paths / "index" / "_index.db"]
+
+                with patch.object(engine, "_stage1_binary_search") as mock_stage1:
+                    mock_stage1.return_value = (
+                        [SearchResult(path=src_primary, score=0.9, excerpt="seed")],
+                        temp_paths / "index",
+                    )
+
+                    with patch.object(engine, "_stage2_lsp_expand") as mock_stage2:
+                        mock_stage2.return_value = clustered_results
+
+                        with patch.object(engine, "_stage3_cluster_prune") as mock_stage3:
+                            mock_stage3.return_value = clustered_results
+
+                            with patch.object(engine, "_cross_encoder_rerank") as mock_rerank:
+                                mock_rerank.return_value = clustered_results
+
+                                result = engine.staged_cascade_search(
+                                    query,
+                                    temp_paths / "src",
+                                    k=2,
+                                    coarse_k=20,
+                                )
+
+        mock_rerank.assert_called_once_with(query, clustered_results, 4)
+        assert [item.path for item in result.results] == [src_primary, src_secondary]
 
 
 # =============================================================================

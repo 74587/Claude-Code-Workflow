@@ -57,9 +57,9 @@ semantic-directml = [
 # Cross-encoder reranking (second-stage, optional)
 # Install with: pip install codexlens[reranker] (default: ONNX backend)
 reranker-onnx = [
-    "optimum~=1.16.0",
-    "onnxruntime~=1.15.0",
-    "transformers~=4.36.0",
+    "optimum[onnxruntime]~=2.1.0",
+    "onnxruntime~=1.23.0",
+    "transformers~=4.53.0",
 ]
 
 # Remote reranking via HTTP API
@@ -79,9 +79,9 @@ reranker-legacy = [
 
 # Backward-compatible alias for default reranker backend
 reranker = [
-    "optimum~=1.16.0",
-    "onnxruntime~=1.15.0",
-    "transformers~=4.36.0",
+    "optimum[onnxruntime]~=2.1.0",
+    "onnxruntime~=1.23.0",
+    "transformers~=4.53.0",
 ]
 
 # Encoding detection for non-UTF8 files
@@ -116,3 +116,12 @@ package-dir = { "" = "src" }
 
 [tool.setuptools.package-data]
 "codexlens.lsp" = ["lsp-servers.json"]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests that exercise broader end-to-end or dependency-heavy flows",
+]
+filterwarnings = [
+    "ignore:'BaseCommand' is deprecated and will be removed in Click 9.0.*:DeprecationWarning",
+    "ignore:The '__version__' attribute is deprecated and will be removed in Click 9.1.*:DeprecationWarning",
+]

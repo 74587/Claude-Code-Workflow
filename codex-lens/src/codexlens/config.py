@@ -126,11 +126,14 @@ class Config:
     enable_reranking: bool = False
     reranking_top_k: int = 50
     symbol_boost_factor: float = 1.5
+    test_file_penalty: float = 0.15  # Penalty for test/fixture paths during final ranking
+    generated_file_penalty: float = 0.35  # Penalty for generated/build artifact paths during final ranking
 
     # Optional cross-encoder reranking (second stage; requires optional reranker deps)
     enable_cross_encoder_rerank: bool = False
     reranker_backend: str = "onnx"
     reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    reranker_use_gpu: bool = True  # Whether reranker backends should use GPU acceleration
     reranker_top_k: int = 50
     reranker_max_input_tokens: int = 8192  # Maximum tokens for reranker API batching
     reranker_chunk_type_weights: Optional[Dict[str, float]] = None  # Weights for chunk types: {"code": 1.0, "docstring": 0.7}
@@ -312,6 +315,7 @@ class Config:
                 "enabled": self.enable_cross_encoder_rerank,
                 "backend": self.reranker_backend,
                 "model": self.reranker_model,
+                "use_gpu": self.reranker_use_gpu,
                 "top_k": self.reranker_top_k,
                 "max_input_tokens": self.reranker_max_input_tokens,
                 "pool_enabled": self.reranker_pool_enabled,
@@ -418,6 +422,8 @@ class Config:
                         )
                 if "model" in reranker:
                     self.reranker_model = reranker["model"]
+                if "use_gpu" in reranker:
+                    self.reranker_use_gpu = reranker["use_gpu"]
                 if "top_k" in reranker:
                     self.reranker_top_k = reranker["top_k"]
                 if "max_input_tokens" in reranker:
@@ -712,6 +718,7 @@ class Config:
             EMBEDDING_COOLDOWN: Rate limit cooldown for embedding
             RERANKER_MODEL: Override reranker model
             RERANKER_BACKEND: Override reranker backend
+            RERANKER_USE_GPU: Override reranker GPU usage (true/false)
             RERANKER_ENABLED: Override reranker enabled state (true/false)
             RERANKER_POOL_ENABLED: Enable reranker high availability pool
             RERANKER_STRATEGY: Load balance strategy for reranker
@@ -832,6 +839,11 @@ class Config:
             else:
                 log.warning("Invalid RERANKER_BACKEND in .env: %r", reranker_backend)
 
+        reranker_use_gpu = get_env("RERANKER_USE_GPU")
+        if reranker_use_gpu:
+            self.reranker_use_gpu = _parse_bool(reranker_use_gpu)
+            log.debug("Overriding reranker_use_gpu from .env: %s", self.reranker_use_gpu)
+
         reranker_enabled = get_env("RERANKER_ENABLED")
         if reranker_enabled:
             value = reranker_enabled.lower()
@@ -877,6 +889,25 @@ class Config:
                 log.debug("Overriding reranker_test_file_penalty from .env: %s", self.reranker_test_file_penalty)
             except ValueError:
                 log.warning("Invalid RERANKER_TEST_FILE_PENALTY in .env: %r", test_penalty)
+
+        ranking_test_penalty = get_env("TEST_FILE_PENALTY")
+        if ranking_test_penalty:
+            try:
+                self.test_file_penalty = float(ranking_test_penalty)
+                log.debug("Overriding test_file_penalty from .env: %s", self.test_file_penalty)
+            except ValueError:
+                log.warning("Invalid TEST_FILE_PENALTY in .env: %r", ranking_test_penalty)
+
+        generated_penalty = get_env("GENERATED_FILE_PENALTY")
+        if generated_penalty:
+            try:
+                self.generated_file_penalty = float(generated_penalty)
+                log.debug(
+                    "Overriding generated_file_penalty from .env: %s",
+                    self.generated_file_penalty,
+                )
+            except ValueError:
+                log.warning("Invalid GENERATED_FILE_PENALTY in .env: %r", generated_penalty)
 
         docstring_weight = get_env("RERANKER_DOCSTRING_WEIGHT")
         if docstring_weight:

@@ -239,6 +239,7 @@ def main() -> None:
     config.staged_clustering_strategy = str(args.staged_cluster_strategy or "path").strip().lower()
     # Stability: on some Windows setups, DirectML/ONNX can crash under load.
     config.embedding_use_gpu = False
+    config.reranker_use_gpu = False
 
     registry = RegistryStore()
     registry.initialize()
@@ -362,4 +363,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

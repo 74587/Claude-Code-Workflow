@@ -591,6 +591,56 @@ class RegistryStore:
 
             return [self._row_to_dir_mapping(row) for row in rows]
 
+    def find_descendant_project_roots(self, source_root: Path) -> List[DirMapping]:
+        """Return root directory mappings for nested projects under ``source_root``."""
+        with self._lock:
+            conn = self._get_connection()
+            source_root_resolved = source_root.resolve()
+            source_root_str = self._normalize_path_for_comparison(source_root_resolved)
+
+            rows = conn.execute(
+                """
+                SELECT dm.*
+                FROM dir_mapping dm
+                INNER JOIN projects p ON p.id = dm.project_id
+                WHERE dm.source_path = p.source_root
+                  AND p.source_root LIKE ?
+                ORDER BY p.source_root ASC
+                """,
+                (f"{source_root_str}%",),
+            ).fetchall()
+
+            descendant_roots: List[DirMapping] = []
+            normalized_root_path = Path(source_root_str)
+
+            for row in rows:
+                mapping = self._row_to_dir_mapping(row)
+                normalized_mapping_path = Path(
+                    self._normalize_path_for_comparison(mapping.source_path.resolve())
+                )
+
+                if normalized_mapping_path == normalized_root_path:
+                    continue
+
+                try:
+                    normalized_mapping_path.relative_to(normalized_root_path)
+                except ValueError:
+                    continue
+
+                descendant_roots.append(mapping)
+
+            descendant_roots.sort(
+                key=lambda mapping: (
+                    len(
+                        mapping.source_path.resolve().relative_to(
+                            source_root_resolved
+                        ).parts
+                    ),
+                    self._normalize_path_for_comparison(mapping.source_path.resolve()),
+                )
+            )
+            return descendant_roots
+
     def update_dir_stats(self, source_path: Path, files_count: int) -> None:
         """Update directory statistics.
 

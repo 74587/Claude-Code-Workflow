@@ -9,7 +9,7 @@
  * - Support for local project installs with extras
  */
 
-import { execSync, spawn } from 'child_process';
+import { spawn, spawnSync, type SpawnOptions, type SpawnSyncOptionsWithStringEncoding } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir, platform, arch } from 'os';
@@ -51,6 +51,74 @@ const IS_WINDOWS = platform() === 'win32';
 const UV_BINARY_NAME = IS_WINDOWS ? 'uv.exe' : 'uv';
 const VENV_BIN_DIR = IS_WINDOWS ? 'Scripts' : 'bin';
 const PYTHON_EXECUTABLE = IS_WINDOWS ? 'python.exe' : 'python';
+
+type HiddenUvSpawnSyncOptions = Omit<SpawnSyncOptionsWithStringEncoding, 'encoding'> & {
+  encoding?: BufferEncoding;
+};
+
+function buildUvSpawnOptions(overrides: SpawnOptions = {}): SpawnOptions {
+  const { env, ...rest } = overrides;
+  return {
+    shell: false,
+    windowsHide: true,
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...env },
+    ...rest,
+  };
+}
+
+function buildUvSpawnSyncOptions(
+  overrides: HiddenUvSpawnSyncOptions = {},
+): SpawnSyncOptionsWithStringEncoding {
+  const { env, encoding, ...rest } = overrides;
+  return {
+    shell: false,
+    windowsHide: true,
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...env },
+    ...rest,
+    encoding: encoding ?? 'utf-8',
+  };
+}
+
+function findExecutableOnPath(executable: string, runner: typeof spawnSync = spawnSync): string | null {
+  const lookupCommand = IS_WINDOWS ? 'where' : 'which';
+  const result = runner(
+    lookupCommand,
+    [executable],
+    buildUvSpawnSyncOptions({
+      timeout: EXEC_TIMEOUTS.SYSTEM_INFO,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }),
+  );
+
+  if (result.error || result.status !== 0) {
+    return null;
+  }
+
+  const output = `${result.stdout ?? ''}`.trim();
+  if (!output) {
+    return null;
+  }
+
+  return output.split(/\r?\n/)[0] || null;
+}
+
+function hasWindowsPythonLauncherVersion(version: string, runner: typeof spawnSync = spawnSync): boolean {
+  const result = runner(
+    'py',
+    [`-${version}`, '--version'],
+    buildUvSpawnSyncOptions({
+      timeout: EXEC_TIMEOUTS.PYTHON_VERSION,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }),
+  );
+
+  if (result.error || result.status !== 0) {
+    return false;
+  }
+
+  const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
+  return output.includes(`Python ${version}`);
+}
 
 /**
  * Get the path to the UV binary
@@ -105,15 +173,9 @@ export function getUvBinaryPath(): string {
   }
 
   // 4. Try system PATH using 'which' or 'where'
-  try {
-    const cmd = IS_WINDOWS ? 'where uv' : 'which uv';
-    const result = execSync(cmd, { encoding: 'utf-8', timeout: EXEC_TIMEOUTS.SYSTEM_INFO, stdio: ['pipe', 'pipe', 'pipe'] });
-    const foundPath = result.trim().split('\n')[0];
-    if (foundPath && existsSync(foundPath)) {
-      return foundPath;
-    }
-  } catch {
-    // UV not found in PATH
+  const foundPath = findExecutableOnPath('uv');
+  if (foundPath && existsSync(foundPath)) {
+    return foundPath;
   }
 
   // Return default path (may not exist)
@@ -135,10 +197,10 @@ export async function isUvAvailable(): Promise<boolean> {
   }
 
   return new Promise((resolve) => {
-    const child = spawn(uvPath, ['--version'], {
+    const child = spawn(uvPath, ['--version'], buildUvSpawnOptions({
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: EXEC_TIMEOUTS.PYTHON_VERSION,
-    });
+    }));
 
     child.on('close', (code) => {
       resolve(code === 0);
@@ -162,14 +224,14 @@ export async function getUvVersion(): Promise<string | null> {
   }
 
   return new Promise((resolve) => {
-    const child = spawn(uvPath, ['--version'], {
+    const child = spawn(uvPath, ['--version'], buildUvSpawnOptions({
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: EXEC_TIMEOUTS.PYTHON_VERSION,
-    });
+    }));
 
     let stdout = '';
 
-    child.stdout.on('data', (data) => {
+    child.stdout?.on('data', (data) => {
       stdout += data.toString();
     });
 
@@ -207,18 +269,28 @@ export async function ensureUvInstalled(): Promise<boolean> {
     if (IS_WINDOWS) {
       // Windows: Use PowerShell to run the install script
       const installCmd = 'irm https://astral.sh/uv/install.ps1 | iex';
-      child = spawn('powershell', ['-ExecutionPolicy', 'ByPass', '-Command', installCmd], {
-        stdio: 'inherit',
+      child = spawn('powershell', ['-ExecutionPolicy', 'ByPass', '-Command', installCmd], buildUvSpawnOptions({
+        stdio: ['pipe', 'pipe', 'pipe'],
         timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
-      });
+      }));
     } else {
       // Unix: Use curl and sh
       const installCmd = 'curl -LsSf https://astral.sh/uv/install.sh | sh';
-      child = spawn('sh', ['-c', installCmd], {
-        stdio: 'inherit',
+      child = spawn('sh', ['-c', installCmd], buildUvSpawnOptions({
+        stdio: ['pipe', 'pipe', 'pipe'],
         timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
-      });
+      }));
     }
+
+    child.stdout?.on('data', (data) => {
+      const line = data.toString().trim();
+      if (line) console.log(`[UV] ${line}`);
+    });
+
+    child.stderr?.on('data', (data) => {
+      const line = data.toString().trim();
+      if (line) console.log(`[UV] ${line}`);
+    });
 
     child.on('close', (code) => {
       if (code === 0) {
@@ -315,21 +387,21 @@ export class UvManager {
         console.log(`[UV] Python version: ${this.pythonVersion}`);
       }
 
-      const child = spawn(uvPath, args, {
+      const child = spawn(uvPath, args, buildUvSpawnOptions({
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: EXEC_TIMEOUTS.PROCESS_SPAWN,
-      });
+      }));
 
       let stderr = '';
 
-      child.stdout.on('data', (data) => {
+      child.stdout?.on('data', (data) => {
         const line = data.toString().trim();
         if (line) {
           console.log(`[UV] ${line}`);
         }
       });
 
-      child.stderr.on('data', (data) => {
+      child.stderr?.on('data', (data) => {
         stderr += data.toString();
         const line = data.toString().trim();
         if (line) {
@@ -390,22 +462,22 @@ export class UvManager {
 
       console.log(`[UV] Installing from project: ${installSpec} (editable: ${editable})`);
 
-      const child = spawn(uvPath, args, {
+      const child = spawn(uvPath, args, buildUvSpawnOptions({
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
         cwd: projectPath,
-      });
+      }));
 
       let stderr = '';
 
-      child.stdout.on('data', (data) => {
+      child.stdout?.on('data', (data) => {
         const line = data.toString().trim();
         if (line) {
           console.log(`[UV] ${line}`);
         }
       });
 
-      child.stderr.on('data', (data) => {
+      child.stderr?.on('data', (data) => {
         stderr += data.toString();
         const line = data.toString().trim();
         if (line && !line.startsWith('Resolved') && !line.startsWith('Prepared') && !line.startsWith('Installed')) {
@@ -460,21 +532,21 @@ export class UvManager {
 
       console.log(`[UV] Installing packages: ${packages.join(', ')}`);
 
-      const child = spawn(uvPath, args, {
+      const child = spawn(uvPath, args, buildUvSpawnOptions({
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
-      });
+      }));
 
       let stderr = '';
 
-      child.stdout.on('data', (data) => {
+      child.stdout?.on('data', (data) => {
         const line = data.toString().trim();
         if (line) {
           console.log(`[UV] ${line}`);
         }
       });
 
-      child.stderr.on('data', (data) => {
+      child.stderr?.on('data', (data) => {
         stderr += data.toString();
       });
 
@@ -524,21 +596,21 @@ export class UvManager {
 
       console.log(`[UV] Uninstalling packages: ${packages.join(', ')}`);
 
-      const child = spawn(uvPath, args, {
+      const child = spawn(uvPath, args, buildUvSpawnOptions({
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
-      });
+      }));
 
       let stderr = '';
 
-      child.stdout.on('data', (data) => {
+      child.stdout?.on('data', (data) => {
         const line = data.toString().trim();
         if (line) {
           console.log(`[UV] ${line}`);
         }
       });
 
-      child.stderr.on('data', (data) => {
+      child.stderr?.on('data', (data) => {
         stderr += data.toString();
       });
 
@@ -585,21 +657,21 @@ export class UvManager {
 
       console.log(`[UV] Syncing dependencies from: ${requirementsPath}`);
 
-      const child = spawn(uvPath, args, {
+      const child = spawn(uvPath, args, buildUvSpawnOptions({
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: EXEC_TIMEOUTS.PACKAGE_INSTALL,
-      });
+      }));
 
       let stderr = '';
 
-      child.stdout.on('data', (data) => {
+      child.stdout?.on('data', (data) => {
         const line = data.toString().trim();
         if (line) {
           console.log(`[UV] ${line}`);
         }
       });
 
-      child.stderr.on('data', (data) => {
+      child.stderr?.on('data', (data) => {
         stderr += data.toString();
       });
 
@@ -640,14 +712,14 @@ export class UvManager {
     return new Promise((resolve) => {
       const args = ['pip', 'list', '--format', 'json', '--python', this.getVenvPython()];
 
-      const child = spawn(uvPath, args, {
+      const child = spawn(uvPath, args, buildUvSpawnOptions({
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: EXEC_TIMEOUTS.PROCESS_SPAWN,
-      });
+      }));
 
       let stdout = '';
 
-      child.stdout.on('data', (data) => {
+      child.stdout?.on('data', (data) => {
         stdout += data.toString();
       });
 
@@ -704,20 +776,20 @@ export class UvManager {
     }
 
     return new Promise((resolve) => {
-      const child = spawn(pythonPath, args, {
+      const child = spawn(pythonPath, args, buildUvSpawnOptions({
         stdio: ['ignore', 'pipe', 'pipe'],
         timeout: options.timeout ?? EXEC_TIMEOUTS.PROCESS_SPAWN,
         cwd: options.cwd,
-      });
+      }));
 
       let stdout = '';
       let stderr = '';
 
-      child.stdout.on('data', (data) => {
+      child.stdout?.on('data', (data) => {
         stdout += data.toString();
       });
 
-      child.stderr.on('data', (data) => {
+      child.stderr?.on('data', (data) => {
         stderr += data.toString();
       });
 
@@ -779,17 +851,8 @@ export function getPreferredCodexLensPythonSpec(): string {
   // depend on onnxruntime 1.15.x wheels, which are not consistently available for cp312.
   const preferredVersions = ['3.11', '3.10', '3.12'];
   for (const version of preferredVersions) {
-    try {
-      const output = execSync(`py -${version} --version`, {
-        encoding: 'utf-8',
-        timeout: EXEC_TIMEOUTS.PYTHON_VERSION,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-      if (output.includes(`Python ${version}`)) {
-        return version;
-      }
-    } catch {
-      // Try next installed version
+    if (hasWindowsPythonLauncherVersion(version)) {
+      return version;
     }
   }
 
@@ -830,3 +893,10 @@ export async function bootstrapUvVenv(
   const manager = new UvManager({ venvPath, pythonVersion });
   return manager.createVenv();
 }
+
+export const __testables = {
+  buildUvSpawnOptions,
+  buildUvSpawnSyncOptions,
+  findExecutableOnPath,
+  hasWindowsPythonLauncherVersion,
+};

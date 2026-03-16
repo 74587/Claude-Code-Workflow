@@ -20,7 +20,7 @@
 
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
-import { spawn, execSync } from 'child_process';
+import { spawn, spawnSync, type SpawnOptions } from 'child_process';
 import { existsSync, readFileSync, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import {
@@ -346,8 +346,12 @@ interface SearchMetadata {
   api_max_workers?: number;
   endpoint_count?: number;
   use_gpu?: boolean;
+  reranker_enabled?: boolean;
+  reranker_backend?: string;
+  reranker_model?: string;
   cascade_strategy?: string;
   staged_stage2_mode?: string;
+  static_graph_enabled?: boolean;
   preset?: string;
 }
 
@@ -474,7 +478,51 @@ const CODEX_LENS_FTS_COMPATIBILITY_PATTERNS = [
 ];
 
 let codexLensFtsBackendBroken = false;
+const autoInitJobs = new Map<string, { startedAt: number; languages?: string[] }>();
 const autoEmbedJobs = new Map<string, { startedAt: number; backend?: string; model?: string }>();
+
+type SmartSearchRuntimeOverrides = {
+  checkSemanticStatus?: typeof checkSemanticStatus;
+  getVenvPythonPath?: typeof getVenvPythonPath;
+  spawnProcess?: typeof spawn;
+  now?: () => number;
+};
+
+const runtimeOverrides: SmartSearchRuntimeOverrides = {};
+
+function getSemanticStatusRuntime(): typeof checkSemanticStatus {
+  return runtimeOverrides.checkSemanticStatus ?? checkSemanticStatus;
+}
+
+function getVenvPythonPathRuntime(): typeof getVenvPythonPath {
+  return runtimeOverrides.getVenvPythonPath ?? getVenvPythonPath;
+}
+
+function getSpawnRuntime(): typeof spawn {
+  return runtimeOverrides.spawnProcess ?? spawn;
+}
+
+function getNowRuntime(): number {
+  return (runtimeOverrides.now ?? Date.now)();
+}
+
+function buildSmartSearchSpawnOptions(cwd: string, overrides: SpawnOptions = {}): SpawnOptions {
+  const { env, ...rest } = overrides;
+  return {
+    cwd,
+    shell: false,
+    windowsHide: true,
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8', ...env },
+    ...rest,
+  };
+}
+
+function shouldDetachBackgroundSmartSearchProcess(): boolean {
+  // On Windows, detached Python children can still create a transient console
+  // window even when windowsHide is set. Background warmup only needs to outlive
+  // the current request, not the MCP server process.
+  return process.platform !== 'win32';
+}
 
 /**
  * Truncate content to specified length with ellipsis
@@ -522,6 +570,58 @@ interface RipgrepQueryModeResolution {
   literalFallback: boolean;
   warning?: string;
 }
+
+const GENERATED_QUERY_RE = /(?<!\w)(dist|build|out|coverage|htmlcov|generated|bundle|compiled|artifact|artifacts|\.workflow)(?!\w)/i;
+const ENV_STYLE_QUERY_RE = /\b[A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+\b/;
+const TOPIC_TOKEN_RE = /[A-Za-z][A-Za-z0-9]*/g;
+const LEXICAL_PRIORITY_SURFACE_TOKENS = new Set([
+  'config',
+  'configs',
+  'configuration',
+  'configurations',
+  'setting',
+  'settings',
+  'backend',
+  'backends',
+  'environment',
+  'env',
+  'variable',
+  'variables',
+  'factory',
+  'factories',
+  'override',
+  'overrides',
+  'option',
+  'options',
+  'flag',
+  'flags',
+  'mode',
+  'modes',
+]);
+const LEXICAL_PRIORITY_FOCUS_TOKENS = new Set([
+  'embedding',
+  'embeddings',
+  'reranker',
+  'rerankers',
+  'onnx',
+  'api',
+  'litellm',
+  'fastembed',
+  'local',
+  'legacy',
+  'stage',
+  'stage2',
+  'stage3',
+  'stage4',
+  'precomputed',
+  'realtime',
+  'static',
+  'global',
+  'graph',
+  'selection',
+  'model',
+  'models',
+]);
 
 function sanitizeSearchQuery(query: string | undefined): string | undefined {
   if (!query) {
@@ -676,6 +776,18 @@ function noteCodexLensFtsCompatibility(error: string | undefined): boolean {
   return true;
 }
 
+function shouldSurfaceCodexLensFtsCompatibilityWarning(options: {
+  compatibilityTriggeredThisQuery: boolean;
+  skipExactDueToCompatibility: boolean;
+  ripgrepResultCount: number;
+}): boolean {
+  if (options.ripgrepResultCount > 0) {
+    return false;
+  }
+
+  return options.compatibilityTriggeredThisQuery || options.skipExactDueToCompatibility;
+}
+
 function summarizeBackendError(error: string | undefined): string {
   const cleanError = stripAnsi(error || '').trim();
   if (!cleanError) {
@@ -765,6 +877,61 @@ function hasCentralizedVectorArtifacts(indexRoot: unknown): boolean {
   ].every((artifactPath) => existsSync(artifactPath));
 }
 
+function asObjectRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as Record<string, unknown>;
+}
+
+function asFiniteNumber(value: unknown): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined;
+  }
+  return value;
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined;
+}
+
+function extractEmbeddingsStatusSummary(embeddingsData: unknown): {
+  coveragePercent: number;
+  totalChunks: number;
+  hasEmbeddings: boolean;
+} {
+  const embeddings = asObjectRecord(embeddingsData) ?? {};
+  const root = asObjectRecord(embeddings.root) ?? embeddings;
+  const centralized = asObjectRecord(embeddings.centralized);
+
+  const totalIndexes = asFiniteNumber(root.total_indexes)
+    ?? asFiniteNumber(embeddings.total_indexes)
+    ?? 0;
+  const indexesWithEmbeddings = asFiniteNumber(root.indexes_with_embeddings)
+    ?? asFiniteNumber(embeddings.indexes_with_embeddings)
+    ?? 0;
+  const totalChunks = asFiniteNumber(root.total_chunks)
+    ?? asFiniteNumber(embeddings.total_chunks)
+    ?? 0;
+  const coveragePercent = asFiniteNumber(root.coverage_percent)
+    ?? asFiniteNumber(embeddings.coverage_percent)
+    ?? (totalIndexes > 0 ? (indexesWithEmbeddings / totalIndexes) * 100 : 0);
+  const hasEmbeddings = asBoolean(root.has_embeddings)
+    ?? asBoolean(centralized?.usable)
+    ?? (totalChunks > 0 || indexesWithEmbeddings > 0 || coveragePercent > 0);
+
+  return {
+    coveragePercent,
+    totalChunks,
+    hasEmbeddings,
+  };
+}
+
+function selectEmbeddingsStatusPayload(statusData: unknown): Record<string, unknown> {
+  const status = asObjectRecord(statusData) ?? {};
+  return asObjectRecord(status.embeddings_status) ?? asObjectRecord(status.embeddings) ?? {};
+}
+
 function collectBackendError(
   errors: string[],
   backendName: string,
@@ -825,8 +992,77 @@ function formatSmartSearchCommand(action: string, pathValue: string, extraParams
   return `smart_search(${args.join(', ')})`;
 }
 
+function parseOptionalBooleanEnv(raw: string | undefined): boolean | undefined {
+  const normalized = raw?.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (['1', 'true', 'on', 'yes'].includes(normalized)) {
+    return true;
+  }
+
+  if (['0', 'false', 'off', 'no'].includes(normalized)) {
+    return false;
+  }
+
+  return undefined;
+}
+
 function isAutoEmbedMissingEnabled(config: CodexLensConfig | null | undefined): boolean {
-  return config?.embedding_auto_embed_missing !== false;
+  const envOverride = parseOptionalBooleanEnv(process.env.CODEXLENS_AUTO_EMBED_MISSING);
+  if (envOverride !== undefined) {
+    return envOverride;
+  }
+
+  if (process.platform === 'win32') {
+    return false;
+  }
+
+  if (typeof config?.embedding_auto_embed_missing === 'boolean') {
+    return config.embedding_auto_embed_missing;
+  }
+
+  return true;
+}
+
+function isAutoInitMissingEnabled(): boolean {
+  const envOverride = parseOptionalBooleanEnv(process.env.CODEXLENS_AUTO_INIT_MISSING);
+  if (envOverride !== undefined) {
+    return envOverride;
+  }
+
+  return process.platform !== 'win32';
+}
+
+function getAutoEmbedMissingDisabledReason(config: CodexLensConfig | null | undefined): string {
+  const envOverride = parseOptionalBooleanEnv(process.env.CODEXLENS_AUTO_EMBED_MISSING);
+  if (envOverride === false) {
+    return 'Automatic embedding warmup is disabled by CODEXLENS_AUTO_EMBED_MISSING=false.';
+  }
+
+  if (config?.embedding_auto_embed_missing === false) {
+    return 'Automatic embedding warmup is disabled by embedding.auto_embed_missing=false.';
+  }
+
+  if (process.platform === 'win32') {
+    return 'Automatic embedding warmup is disabled by default on Windows even if CodexLens config resolves auto_embed_missing=true. Set CODEXLENS_AUTO_EMBED_MISSING=true to opt in.';
+  }
+
+  return 'Automatic embedding warmup is disabled.';
+}
+
+function getAutoInitMissingDisabledReason(): string {
+  const envOverride = parseOptionalBooleanEnv(process.env.CODEXLENS_AUTO_INIT_MISSING);
+  if (envOverride === false) {
+    return 'Automatic static index warmup is disabled by CODEXLENS_AUTO_INIT_MISSING=false.';
+  }
+
+  if (process.platform === 'win32') {
+    return 'Automatic static index warmup is disabled by default on Windows. Set CODEXLENS_AUTO_INIT_MISSING=true to opt in.';
+  }
+
+  return 'Automatic static index warmup is disabled.';
 }
 
 function buildIndexSuggestions(indexStatus: IndexStatus, scope: SearchScope): SearchSuggestion[] | undefined {
@@ -930,29 +1166,24 @@ async function checkIndexStatus(path: string = '.'): Promise<IndexStatus> {
       const status = parsed.result || parsed;
 
       // Get embeddings coverage from comprehensive status
-      const embeddingsData = status.embeddings || {};
-      const totalIndexes = Number(embeddingsData.total_indexes || 0);
-      const indexesWithEmbeddings = Number(embeddingsData.indexes_with_embeddings || 0);
-      const totalChunks = Number(embeddingsData.total_chunks || 0);
-      const hasCentralizedVectors = hasCentralizedVectorArtifacts(status.index_root);
-      let embeddingsCoverage = typeof embeddingsData.coverage_percent === 'number'
-        ? embeddingsData.coverage_percent
-        : (totalIndexes > 0 ? (indexesWithEmbeddings / totalIndexes) * 100 : 0);
-      if (hasCentralizedVectors) {
-        embeddingsCoverage = Math.max(embeddingsCoverage, 100);
-      }
+      const embeddingsData = selectEmbeddingsStatusPayload(status);
+      const legacyEmbeddingsData = asObjectRecord(status.embeddings) ?? {};
+      const embeddingsSummary = extractEmbeddingsStatusSummary(embeddingsData);
+      const totalIndexes = Number(legacyEmbeddingsData.total_indexes || asObjectRecord(embeddingsData)?.total_indexes || 0);
+      const embeddingsCoverage = embeddingsSummary.coveragePercent;
+      const totalChunks = embeddingsSummary.totalChunks;
       const indexed = Boolean(status.projects_count > 0 || status.total_files > 0 || status.index_root || totalIndexes > 0 || totalChunks > 0);
-      const has_embeddings = indexesWithEmbeddings > 0 || embeddingsCoverage > 0 || totalChunks > 0 || hasCentralizedVectors;
+      const has_embeddings = embeddingsSummary.hasEmbeddings;
 
       // Extract model info if available
-      const modelInfoData = embeddingsData.model_info;
+      const modelInfoData = asObjectRecord(embeddingsData.model_info);
       const modelInfo: ModelInfo | undefined = modelInfoData ? {
-        model_profile: modelInfoData.model_profile,
-        model_name: modelInfoData.model_name,
-        embedding_dim: modelInfoData.embedding_dim,
-        backend: modelInfoData.backend,
-        created_at: modelInfoData.created_at,
-        updated_at: modelInfoData.updated_at,
+        model_profile: typeof modelInfoData.model_profile === 'string' ? modelInfoData.model_profile : undefined,
+        model_name: typeof modelInfoData.model_name === 'string' ? modelInfoData.model_name : undefined,
+        embedding_dim: typeof modelInfoData.embedding_dim === 'number' ? modelInfoData.embedding_dim : undefined,
+        backend: typeof modelInfoData.backend === 'string' ? modelInfoData.backend : undefined,
+        created_at: typeof modelInfoData.created_at === 'string' ? modelInfoData.created_at : undefined,
+        updated_at: typeof modelInfoData.updated_at === 'string' ? modelInfoData.updated_at : undefined,
       } : undefined;
 
       let warning: string | undefined;
@@ -1039,6 +1270,39 @@ function looksLikeCodeQuery(query: string): boolean {
   return false;
 }
 
+function queryTargetsGeneratedFiles(query: string): boolean {
+  return GENERATED_QUERY_RE.test(query.trim());
+}
+
+function prefersLexicalPriorityQuery(query: string): boolean {
+  const trimmed = query.trim();
+  if (!trimmed) return false;
+  if (ENV_STYLE_QUERY_RE.test(trimmed)) return true;
+
+  const tokens = new Set((trimmed.match(TOPIC_TOKEN_RE) ?? []).map((token) => token.toLowerCase()));
+  if (tokens.size === 0) return false;
+  if (tokens.has('factory') || tokens.has('factories')) return true;
+  if ((tokens.has('environment') || tokens.has('env')) && (tokens.has('variable') || tokens.has('variables'))) {
+    return true;
+  }
+  if (
+    tokens.has('backend') &&
+    ['embedding', 'embeddings', 'reranker', 'rerankers', 'onnx', 'api', 'litellm', 'fastembed', 'local', 'legacy']
+      .some((token) => tokens.has(token))
+  ) {
+    return true;
+  }
+
+  let surfaceHit = false;
+  let focusHit = false;
+  for (const token of tokens) {
+    if (LEXICAL_PRIORITY_SURFACE_TOKENS.has(token)) surfaceHit = true;
+    if (LEXICAL_PRIORITY_FOCUS_TOKENS.has(token)) focusHit = true;
+    if (surfaceHit && focusHit) return true;
+  }
+  return false;
+}
+
 /**
  * Classify query intent and recommend search mode
  * Simple mapping: hybrid (NL + index + embeddings) | exact (index or insufficient embeddings) | ripgrep (no index)
@@ -1051,6 +1315,8 @@ function classifyIntent(query: string, hasIndex: boolean = false, hasSufficientE
   const isNaturalLanguage = detectNaturalLanguage(query);
   const isCodeQuery = looksLikeCodeQuery(query);
   const isRegexPattern = detectRegex(query);
+  const targetsGeneratedFiles = queryTargetsGeneratedFiles(query);
+  const prefersLexicalPriority = prefersLexicalPriorityQuery(query);
 
   let mode: string;
   let confidence: number;
@@ -1058,9 +1324,9 @@ function classifyIntent(query: string, hasIndex: boolean = false, hasSufficientE
   if (!hasIndex) {
     mode = 'ripgrep';
     confidence = 1.0;
-  } else if (isCodeQuery || isRegexPattern) {
+  } else if (targetsGeneratedFiles || prefersLexicalPriority || isCodeQuery || isRegexPattern) {
     mode = 'exact';
-    confidence = 0.95;
+    confidence = targetsGeneratedFiles ? 0.97 : prefersLexicalPriority ? 0.93 : 0.95;
   } else if (isNaturalLanguage && hasSufficientEmbeddings) {
     mode = 'hybrid';
     confidence = 0.9;
@@ -1075,6 +1341,8 @@ function classifyIntent(query: string, hasIndex: boolean = false, hasSufficientE
   if (detectNaturalLanguage(query)) detectedPatterns.push('natural language');
   if (detectFilePath(query)) detectedPatterns.push('file path');
   if (detectRelationship(query)) detectedPatterns.push('relationship');
+  if (targetsGeneratedFiles) detectedPatterns.push('generated artifact');
+  if (prefersLexicalPriority) detectedPatterns.push('lexical priority');
   if (isCodeQuery) detectedPatterns.push('code identifier');
 
   const reasoning = `Query classified as ${mode} (confidence: ${confidence.toFixed(2)}, detected: ${detectedPatterns.join(', ')}, index: ${hasIndex ? 'available' : 'not available'}, embeddings: ${hasSufficientEmbeddings ? 'sufficient' : 'insufficient'})`;
@@ -1087,12 +1355,21 @@ function classifyIntent(query: string, hasIndex: boolean = false, hasSufficientE
  * @param toolName - Tool executable name
  * @returns True if available
  */
-function checkToolAvailability(toolName: string): boolean {
+function checkToolAvailability(
+  toolName: string,
+  lookupRuntime: typeof spawnSync = spawnSync,
+): boolean {
   try {
     const isWindows = process.platform === 'win32';
     const command = isWindows ? 'where' : 'which';
-    execSync(`${command} ${toolName}`, { stdio: 'ignore', timeout: EXEC_TIMEOUTS.SYSTEM_INFO });
-    return true;
+    const result = lookupRuntime(command, [toolName], {
+      shell: false,
+      windowsHide: true,
+      stdio: 'ignore',
+      timeout: EXEC_TIMEOUTS.SYSTEM_INFO,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    });
+    return !result.error && result.status === 0;
   } catch {
     return false;
   }
@@ -1330,6 +1607,23 @@ function normalizeEmbeddingBackend(backend?: string): string | undefined {
   return normalized;
 }
 
+function buildIndexInitArgs(projectPath: string, options: { force?: boolean; languages?: string[]; noEmbeddings?: boolean } = {}): string[] {
+  const { force = false, languages, noEmbeddings = true } = options;
+  const args = ['index', 'init', projectPath];
+
+  if (noEmbeddings) {
+    args.push('--no-embeddings');
+  }
+  if (force) {
+    args.push('--force');
+  }
+  if (languages && languages.length > 0) {
+    args.push(...languages.flatMap((language) => ['--language', language]));
+  }
+
+  return args;
+}
+
 function resolveEmbeddingSelection(
   requestedBackend: string | undefined,
   requestedModel: string | undefined,
@@ -1502,17 +1796,17 @@ function spawnBackgroundEmbeddingsViaPython(params: {
 }): { success: boolean; error?: string } {
   const { projectPath, backend, model } = params;
   try {
-    const child = spawn(getVenvPythonPath(), ['-c', buildEmbeddingPythonCode(params)], {
-      cwd: projectPath,
-      shell: false,
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-    });
+    const child = getSpawnRuntime()(
+      getVenvPythonPathRuntime()(),
+      ['-c', buildEmbeddingPythonCode(params)],
+      buildSmartSearchSpawnOptions(projectPath, {
+        detached: shouldDetachBackgroundSmartSearchProcess(),
+        stdio: 'ignore',
+      }),
+    );
 
     autoEmbedJobs.set(projectPath, {
-      startedAt: Date.now(),
+      startedAt: getNowRuntime(),
       backend,
       model,
     });
@@ -1532,6 +1826,84 @@ function spawnBackgroundEmbeddingsViaPython(params: {
   }
 }
 
+function spawnBackgroundIndexInit(params: {
+  projectPath: string;
+  languages?: string[];
+}): { success: boolean; error?: string } {
+  const { projectPath, languages } = params;
+  try {
+    const pythonPath = getVenvPythonPathRuntime()();
+    if (!existsSync(pythonPath)) {
+      return {
+        success: false,
+        error: 'CodexLens Python environment is not ready yet.',
+      };
+    }
+
+    const child = getSpawnRuntime()(
+      pythonPath,
+      ['-m', 'codexlens', ...buildIndexInitArgs(projectPath, { languages })],
+      buildSmartSearchSpawnOptions(projectPath, {
+        detached: shouldDetachBackgroundSmartSearchProcess(),
+        stdio: 'ignore',
+      }),
+    );
+
+    autoInitJobs.set(projectPath, {
+      startedAt: getNowRuntime(),
+      languages,
+    });
+
+    const cleanup = () => {
+      autoInitJobs.delete(projectPath);
+    };
+    child.on('error', cleanup);
+    child.on('close', cleanup);
+    child.unref();
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+async function maybeStartBackgroundAutoInit(
+  scope: SearchScope,
+  indexStatus: IndexStatus,
+): Promise<{ note?: string; warning?: string }> {
+  if (indexStatus.indexed) {
+    return {};
+  }
+
+  if (!isAutoInitMissingEnabled()) {
+    return {
+      note: getAutoInitMissingDisabledReason(),
+    };
+  }
+
+  if (autoInitJobs.has(scope.workingDirectory)) {
+    return {
+      note: 'Background static index build is already running for this path.',
+    };
+  }
+
+  const spawned = spawnBackgroundIndexInit({
+    projectPath: scope.workingDirectory,
+  });
+
+  if (!spawned.success) {
+    return {
+      warning: `Automatic static index warmup could not start: ${spawned.error}`,
+    };
+  }
+
+  return {
+    note: 'Background static index build started for this path. Re-run search shortly for indexed FTS results.',
+  };
+}
+
 async function maybeStartBackgroundAutoEmbed(
   scope: SearchScope,
   indexStatus: IndexStatus,
@@ -1542,7 +1914,7 @@ async function maybeStartBackgroundAutoEmbed(
 
   if (!isAutoEmbedMissingEnabled(indexStatus.config)) {
     return {
-      note: 'Automatic embedding warmup is disabled by CODEXLENS_AUTO_EMBED_MISSING=false.',
+      note: getAutoEmbedMissingDisabledReason(indexStatus.config),
     };
   }
 
@@ -1554,7 +1926,7 @@ async function maybeStartBackgroundAutoEmbed(
 
   const backend = normalizeEmbeddingBackend(indexStatus.config?.embedding_backend) ?? 'fastembed';
   const model = indexStatus.config?.embedding_model?.trim() || undefined;
-  const semanticStatus = await checkSemanticStatus();
+  const semanticStatus = await getSemanticStatusRuntime()();
   if (!semanticStatus.available) {
     return {
       warning: 'Automatic embedding warmup skipped because semantic dependencies are not ready.',
@@ -1604,18 +1976,19 @@ async function executeEmbeddingsViaPython(params: {
   const pythonCode = buildEmbeddingPythonCode(params);
 
   return await new Promise((resolve) => {
-    const child = spawn(getVenvPythonPath(), ['-c', pythonCode], {
-      cwd: projectPath,
-      shell: false,
-      timeout: 1800000,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-    });
+    const child = getSpawnRuntime()(
+      getVenvPythonPathRuntime()(),
+      ['-c', pythonCode],
+      buildSmartSearchSpawnOptions(projectPath, {
+        timeout: 1800000,
+      }),
+    );
 
     let stdout = '';
     let stderr = '';
     const progressMessages: string[] = [];
 
-    child.stdout.on('data', (data: Buffer) => {
+    child.stdout?.on('data', (data: Buffer) => {
       const chunk = data.toString();
       stdout += chunk;
       for (const line of chunk.split(/\r?\n/)) {
@@ -1625,7 +1998,7 @@ async function executeEmbeddingsViaPython(params: {
       }
     });
 
-    child.stderr.on('data', (data: Buffer) => {
+    child.stderr?.on('data', (data: Buffer) => {
       stderr += data.toString();
     });
 
@@ -1683,13 +2056,7 @@ async function executeInitAction(params: Params, force: boolean = false): Promis
 
   // Build args with --no-embeddings for FTS-only index (faster)
   // Use 'index init' subcommand (new CLI structure)
-  const args = ['index', 'init', scope.workingDirectory, '--no-embeddings'];
-  if (force) {
-    args.push('--force');  // Force full rebuild
-  }
-  if (languages && languages.length > 0) {
-    args.push(...languages.flatMap((language) => ['--language', language]));
-  }
+  const args = buildIndexInitArgs(scope.workingDirectory, { force, languages });
 
   // Track progress updates
   const progressUpdates: ProgressInfo[] = [];
@@ -1805,8 +2172,12 @@ async function executeEmbedAction(params: Params): Promise<SearchResult> {
       api_max_workers: normalizedBackend === 'litellm' ? effectiveApiMaxWorkers : undefined,
       endpoint_count: endpoints.length,
       use_gpu: true,
+      reranker_enabled: currentStatus.config?.reranker_enabled,
+      reranker_backend: currentStatus.config?.reranker_backend,
+      reranker_model: currentStatus.config?.reranker_model,
       cascade_strategy: currentStatus.config?.cascade_strategy,
       staged_stage2_mode: currentStatus.config?.staged_stage2_mode,
+      static_graph_enabled: currentStatus.config?.static_graph_enabled,
       note: [embeddingSelection.note, progressMessage].filter(Boolean).join(' | ') || undefined,
       preset: embeddingSelection.preset,
     },
@@ -1856,6 +2227,9 @@ async function executeStatusAction(params: Params): Promise<SearchResult> {
     if (cfg.staged_stage2_mode) {
       statusParts.push(`Stage2: ${cfg.staged_stage2_mode}`);
     }
+    if (typeof cfg.static_graph_enabled === 'boolean') {
+      statusParts.push(`Static Graph: ${cfg.static_graph_enabled ? 'on' : 'off'}`);
+    }
 
     // Reranker info
     if (cfg.reranker_enabled) {
@@ -1874,6 +2248,12 @@ async function executeStatusAction(params: Params): Promise<SearchResult> {
       action: 'status',
       path: scope.workingDirectory,
       warning: indexStatus.warning,
+      reranker_enabled: indexStatus.config?.reranker_enabled,
+      reranker_backend: indexStatus.config?.reranker_backend,
+      reranker_model: indexStatus.config?.reranker_model,
+      cascade_strategy: indexStatus.config?.cascade_strategy,
+      staged_stage2_mode: indexStatus.config?.staged_stage2_mode,
+      static_graph_enabled: indexStatus.config?.static_graph_enabled,
       suggestions: buildIndexSuggestions(indexStatus, scope),
     },
   };
@@ -2026,6 +2406,7 @@ async function executeFuzzyMode(params: Params): Promise<SearchResult> {
   const ftsWasBroken = codexLensFtsBackendBroken;
   const ripgrepQueryMode = resolveRipgrepQueryMode(query, regex, tokenize);
   const fuzzyWarnings: string[] = [];
+  const skipExactDueToCompatibility = ftsWasBroken && !ripgrepQueryMode.literalFallback;
 
   let skipExactReason: string | undefined;
   if (ripgrepQueryMode.literalFallback) {
@@ -2043,10 +2424,7 @@ async function executeFuzzyMode(params: Params): Promise<SearchResult> {
   ]);
   timer.mark('parallel_search');
 
-  if (!skipExactReason && !ftsWasBroken && codexLensFtsBackendBroken) {
-    fuzzyWarnings.push('CodexLens FTS backend is incompatible with the current CLI runtime. Falling back to ripgrep results.');
-  }
-  if (skipExactReason) {
+  if (skipExactReason && !skipExactDueToCompatibility) {
     fuzzyWarnings.push(skipExactReason);
   }
   if (ripgrepResult.status === 'fulfilled' && ripgrepResult.value.metadata?.warning) {
@@ -2068,6 +2446,16 @@ async function executeFuzzyMode(params: Params): Promise<SearchResult> {
   // Add ripgrep results if successful
   if (ripgrepResult.status === 'fulfilled' && ripgrepResult.value.success && ripgrepResult.value.results) {
     resultsMap.set('ripgrep', ripgrepResult.value.results as any[]);
+  }
+
+  const ripgrepResultCount = (resultsMap.get('ripgrep') ?? []).length;
+  const compatibilityTriggeredThisQuery = !skipExactReason && !ftsWasBroken && codexLensFtsBackendBroken;
+  if (shouldSurfaceCodexLensFtsCompatibilityWarning({
+    compatibilityTriggeredThisQuery,
+    skipExactDueToCompatibility,
+    ripgrepResultCount,
+  })) {
+    fuzzyWarnings.push('CodexLens FTS backend is incompatible with the current CLI runtime. Falling back to ripgrep results.');
   }
 
   // If both failed, return error
@@ -2286,20 +2674,23 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
   });
 
   return new Promise((resolve) => {
-    const child = spawn(command, args, {
-      cwd: scope.workingDirectory || getProjectRoot(),
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const child = getSpawnRuntime()(
+      command,
+      args,
+      buildSmartSearchSpawnOptions(scope.workingDirectory || getProjectRoot(), {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+    );
 
     let stdout = '';
     let stderr = '';
     let resultLimitReached = false;
 
-    child.stdout.on('data', (data) => {
+    child.stdout?.on('data', (data) => {
       stdout += data.toString();
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr?.on('data', (data) => {
       stderr += data.toString();
     });
 
@@ -3484,19 +3875,22 @@ async function executeFindFilesAction(params: Params): Promise<SearchResult> {
       }
     }
 
-    const child = spawn('rg', args, {
-      cwd: scope.workingDirectory || getProjectRoot(),
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    const child = getSpawnRuntime()(
+      'rg',
+      args,
+      buildSmartSearchSpawnOptions(scope.workingDirectory || getProjectRoot(), {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      }),
+    );
 
     let stdout = '';
     let stderr = '';
 
-    child.stdout.on('data', (data) => {
+    child.stdout?.on('data', (data) => {
       stdout += data.toString();
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr?.on('data', (data) => {
       stderr += data.toString();
     });
 
@@ -3800,6 +4194,12 @@ function enrichMetadataWithIndexStatus(
   nextMetadata.index_status = indexStatus.indexed
     ? (indexStatus.has_embeddings ? 'indexed' : 'partial')
     : 'not_indexed';
+  nextMetadata.reranker_enabled = indexStatus.config?.reranker_enabled;
+  nextMetadata.reranker_backend = indexStatus.config?.reranker_backend;
+  nextMetadata.reranker_model = indexStatus.config?.reranker_model;
+  nextMetadata.cascade_strategy = indexStatus.config?.cascade_strategy;
+  nextMetadata.staged_stage2_mode = indexStatus.config?.staged_stage2_mode;
+  nextMetadata.static_graph_enabled = indexStatus.config?.static_graph_enabled;
   nextMetadata.warning = mergeWarnings(nextMetadata.warning, indexStatus.warning);
   nextMetadata.suggestions = mergeSuggestions(nextMetadata.suggestions, buildIndexSuggestions(indexStatus, scope));
   return nextMetadata;
@@ -3890,7 +4290,7 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
         break;
     }
 
-    let autoEmbedNote: string | undefined;
+    let backgroundNote: string | undefined;
 
     // Transform output based on output_mode (for search actions only)
     if (action === 'search' || action === 'search_files') {
@@ -3898,12 +4298,13 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
       const indexStatus = await checkIndexStatus(scope.workingDirectory);
       result.metadata = enrichMetadataWithIndexStatus(result.metadata, indexStatus, scope);
 
+      const autoInitStatus = await maybeStartBackgroundAutoInit(scope, indexStatus);
       const autoEmbedStatus = await maybeStartBackgroundAutoEmbed(scope, indexStatus);
-      autoEmbedNote = autoEmbedStatus.note;
+      backgroundNote = mergeNotes(autoInitStatus.note, autoEmbedStatus.note);
       result.metadata = {
         ...(result.metadata ?? {}),
-        note: mergeNotes(result.metadata?.note, autoEmbedStatus.note),
-        warning: mergeWarnings(result.metadata?.warning, autoEmbedStatus.warning),
+        note: mergeNotes(result.metadata?.note, autoInitStatus.note, autoEmbedStatus.note),
+        warning: mergeWarnings(result.metadata?.warning, autoInitStatus.warning, autoEmbedStatus.warning),
       };
 
       // Add pagination metadata for search results if not already present
@@ -3935,8 +4336,8 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
           if (result.metadata?.warning) {
             advisoryLines.push('', 'Warnings:', `- ${result.metadata.warning}`);
           }
-          if (autoEmbedNote) {
-            advisoryLines.push('', 'Notes:', `- ${autoEmbedNote}`);
+          if (backgroundNote) {
+            advisoryLines.push('', 'Notes:', `- ${backgroundNote}`);
           }
           if (result.metadata?.suggestions && result.metadata.suggestions.length > 0) {
             advisoryLines.push('', 'Suggestions:');
@@ -3972,13 +4373,40 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
  */
 export const __testables = {
   isCodexLensCliCompatibilityError,
+  shouldSurfaceCodexLensFtsCompatibilityWarning,
+  buildSmartSearchSpawnOptions,
+  shouldDetachBackgroundSmartSearchProcess,
+  checkToolAvailability,
   parseCodexLensJsonOutput,
   parsePlainTextFileMatches,
   hasCentralizedVectorArtifacts,
+  extractEmbeddingsStatusSummary,
+  selectEmbeddingsStatusPayload,
   resolveRipgrepQueryMode,
+  queryTargetsGeneratedFiles,
+  prefersLexicalPriorityQuery,
+  classifyIntent,
   resolveEmbeddingSelection,
+  parseOptionalBooleanEnv,
+  isAutoInitMissingEnabled,
   isAutoEmbedMissingEnabled,
+  getAutoInitMissingDisabledReason,
+  getAutoEmbedMissingDisabledReason,
   buildIndexSuggestions,
+  maybeStartBackgroundAutoInit,
+  maybeStartBackgroundAutoEmbed,
+  __setRuntimeOverrides(overrides: Partial<SmartSearchRuntimeOverrides>) {
+    Object.assign(runtimeOverrides, overrides);
+  },
+  __resetRuntimeOverrides() {
+    for (const key of Object.keys(runtimeOverrides) as Array<keyof SmartSearchRuntimeOverrides>) {
+      delete runtimeOverrides[key];
+    }
+  },
+  __resetBackgroundJobs() {
+    autoInitJobs.clear();
+    autoEmbedJobs.clear();
+  },
 };
 
 export async function executeInitWithProgress(

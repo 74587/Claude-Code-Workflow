@@ -4,7 +4,11 @@
  */
 import { z } from 'zod';
 import { spawn } from 'child_process';
-import { getSystemPython } from '../../utils/python-utils.js';
+import {
+  getSystemPythonCommand,
+  parsePythonCommandSpec,
+  type PythonCommandSpec,
+} from '../../utils/python-utils.js';
 import {
   isUvAvailable,
   createCodexLensUvManager
@@ -102,10 +106,11 @@ interface CcwLitellmStatusResponse {
 }
 
 function checkCcwLitellmImport(
-  pythonCmd: string,
-  options: { timeout: number; shell?: boolean }
+  pythonCmd: string | PythonCommandSpec,
+  options: { timeout: number }
 ): Promise<CcwLitellmEnvCheck> {
-  const { timeout, shell = false } = options;
+  const { timeout } = options;
+  const pythonSpec = typeof pythonCmd === 'string' ? parsePythonCommandSpec(pythonCmd) : pythonCmd;
 
   const sanitizePythonError = (stderrText: string): string | undefined => {
     const trimmed = stderrText.trim();
@@ -119,11 +124,12 @@ function checkCcwLitellmImport(
   };
 
   return new Promise((resolve) => {
-    const child = spawn(pythonCmd, ['-c', 'import ccw_litellm; print(ccw_litellm.__version__)'], {
+    const child = spawn(pythonSpec.command, [...pythonSpec.args, '-c', 'import ccw_litellm; print(ccw_litellm.__version__)'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout,
       windowsHide: true,
-      shell,
+      shell: false,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
 
     let stdout = '';
@@ -142,20 +148,20 @@ function checkCcwLitellmImport(
       const error = sanitizePythonError(stderr);
 
       if (code === 0 && version) {
-        resolve({ python: pythonCmd, installed: true, version });
+        resolve({ python: pythonSpec.display, installed: true, version });
         return;
       }
 
       if (code === null) {
-        resolve({ python: pythonCmd, installed: false, error: `Timed out after ${timeout}ms` });
+        resolve({ python: pythonSpec.display, installed: false, error: `Timed out after ${timeout}ms` });
         return;
       }
 
-      resolve({ python: pythonCmd, installed: false, error: error || undefined });
+      resolve({ python: pythonSpec.display, installed: false, error: error || undefined });
     });
 
     child.on('error', (err) => {
-      resolve({ python: pythonCmd, installed: false, error: err.message });
+      resolve({ python: pythonSpec.display, installed: false, error: err.message });
     });
   });
 }
@@ -940,7 +946,7 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
       // Diagnostics only: if not installed in venv, also check system python so users understand mismatches.
       // NOTE: `installed` flag remains the CodexLens venv status (we want isolated venv dependencies).
       const systemPython = !codexLensVenv.installed
-        ? await checkCcwLitellmImport(getSystemPython(), { timeout: statusTimeout, shell: true })
+        ? await checkCcwLitellmImport(getSystemPythonCommand(), { timeout: statusTimeout })
         : undefined;
 
       const result: CcwLitellmStatusResponse = {
@@ -1410,10 +1416,19 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
 
         // Priority 2: Fallback to system pip uninstall
         console.log('[ccw-litellm uninstall] Using pip fallback...');
-        const pythonCmd = getSystemPython();
+        const pythonCmd = getSystemPythonCommand();
 
         return new Promise((resolve) => {
-          const proc = spawn(pythonCmd, ['-m', 'pip', 'uninstall', '-y', 'ccw-litellm'], { shell: true, timeout: 120000 });
+          const proc = spawn(
+            pythonCmd.command,
+            [...pythonCmd.args, '-m', 'pip', 'uninstall', '-y', 'ccw-litellm'],
+            {
+              shell: false,
+              timeout: 120000,
+              windowsHide: true,
+              env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+            },
+          );
           let output = '';
           let error = '';
           proc.stdout?.on('data', (data) => { output += data.toString(); });

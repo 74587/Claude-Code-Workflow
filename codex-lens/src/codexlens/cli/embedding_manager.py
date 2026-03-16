@@ -48,6 +48,8 @@ from itertools import islice
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional, Tuple
 
+from codexlens.storage.index_filters import filter_index_paths
+
 try:
     from codexlens.semantic import SEMANTIC_AVAILABLE, is_embedding_backend_available
 except ImportError:
@@ -61,9 +63,15 @@ except ImportError:  # pragma: no cover
     VectorStore = None  # type: ignore[assignment]
 
 try:
-    from codexlens.config import VECTORS_META_DB_NAME
+    from codexlens.config import (
+        BINARY_VECTORS_MMAP_NAME,
+        VECTORS_HNSW_NAME,
+        VECTORS_META_DB_NAME,
+    )
 except ImportError:
+    VECTORS_HNSW_NAME = "_vectors.hnsw"
     VECTORS_META_DB_NAME = "_vectors_meta.db"
+    BINARY_VECTORS_MMAP_NAME = "_binary_vectors.mmap"
 
 try:
     from codexlens.search.ranking import get_file_category
@@ -408,6 +416,98 @@ def check_index_embeddings(index_path: Path) -> Dict[str, any]:
             "success": False,
             "error": f"Failed to check embeddings: {str(e)}",
         }
+
+
+def _sqlite_table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
+    """Return whether a SQLite table exists."""
+    cursor = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,),
+    )
+    return cursor.fetchone() is not None
+
+
+def _sqlite_count_rows(conn: sqlite3.Connection, table_name: str) -> int:
+    """Return row count for a table, or 0 when the table is absent."""
+    if not _sqlite_table_exists(conn, table_name):
+        return 0
+    cursor = conn.execute(f"SELECT COUNT(*) FROM {table_name}")
+    return int(cursor.fetchone()[0] or 0)
+
+
+def _sqlite_count_distinct_rows(conn: sqlite3.Connection, table_name: str, column_name: str) -> int:
+    """Return distinct row count for a table column, or 0 when the table is absent."""
+    if not _sqlite_table_exists(conn, table_name):
+        return 0
+    cursor = conn.execute(f"SELECT COUNT(DISTINCT {column_name}) FROM {table_name}")
+    return int(cursor.fetchone()[0] or 0)
+
+
+def _get_model_info_from_index(index_path: Path) -> Optional[Dict[str, Any]]:
+    """Read embedding model metadata from an index if available."""
+    try:
+        with sqlite3.connect(index_path) as conn:
+            if not _sqlite_table_exists(conn, "embeddings_config"):
+                return None
+        from codexlens.semantic.vector_store import VectorStore
+        with VectorStore(index_path) as vs:
+            config = vs.get_model_config()
+            if not config:
+                return None
+            return {
+                "model_profile": config.get("model_profile"),
+                "model_name": config.get("model_name"),
+                "embedding_dim": config.get("embedding_dim"),
+                "backend": config.get("backend"),
+                "created_at": config.get("created_at"),
+                "updated_at": config.get("updated_at"),
+            }
+    except Exception:
+        return None
+
+
+def _inspect_centralized_embeddings(index_root: Path) -> Dict[str, Any]:
+    """Inspect centralized vector artifacts stored directly at the current root."""
+    dense_index_path = index_root / VECTORS_HNSW_NAME
+    meta_db_path = index_root / VECTORS_META_DB_NAME
+    binary_index_path = index_root / BINARY_VECTORS_MMAP_NAME
+
+    result: Dict[str, Any] = {
+        "index_root": str(index_root),
+        "dense_index_path": str(dense_index_path) if dense_index_path.exists() else None,
+        "binary_index_path": str(binary_index_path) if binary_index_path.exists() else None,
+        "meta_db_path": str(meta_db_path) if meta_db_path.exists() else None,
+        "dense_index_exists": dense_index_path.exists(),
+        "binary_index_exists": binary_index_path.exists(),
+        "meta_db_exists": meta_db_path.exists(),
+        "chunk_metadata_rows": 0,
+        "binary_vector_rows": 0,
+        "files_with_embeddings": 0,
+        "dense_ready": False,
+        "binary_ready": False,
+        "usable": False,
+    }
+
+    if not meta_db_path.exists():
+        return result
+
+    try:
+        with sqlite3.connect(meta_db_path) as conn:
+            result["chunk_metadata_rows"] = _sqlite_count_rows(conn, "chunk_metadata")
+            result["binary_vector_rows"] = _sqlite_count_rows(conn, "binary_vectors")
+            result["files_with_embeddings"] = _sqlite_count_distinct_rows(conn, "chunk_metadata", "file_path")
+    except Exception as exc:
+        result["error"] = f"Failed to inspect centralized metadata: {exc}"
+        return result
+
+    result["dense_ready"] = result["dense_index_exists"] and result["chunk_metadata_rows"] > 0
+    result["binary_ready"] = (
+        result["binary_index_exists"]
+        and result["chunk_metadata_rows"] > 0
+        and result["binary_vector_rows"] > 0
+    )
+    result["usable"] = result["dense_ready"] or result["binary_ready"]
+    return result
 
 
 def _get_embedding_defaults() -> tuple[str, str, bool, List, str, float]:
@@ -1024,7 +1124,7 @@ def _discover_index_dbs_internal(index_root: Path) -> List[Path]:
     if not index_root.exists():
         return []
 
-    return sorted(index_root.rglob("_index.db"))
+    return sorted(filter_index_paths(index_root.rglob("_index.db"), index_root))
 
 
 def build_centralized_binary_vectors_from_existing(
@@ -1353,7 +1453,7 @@ def find_all_indexes(scan_dir: Path) -> List[Path]:
     if not scan_dir.exists():
         return []
 
-    return list(scan_dir.rglob("_index.db"))
+    return _discover_index_dbs_internal(scan_dir)
 
 
 
@@ -1866,8 +1966,32 @@ def get_embeddings_status(index_root: Path) -> Dict[str, any]:
         Aggregated status with coverage statistics, model info, and timestamps
     """
     index_files = _discover_index_dbs_internal(index_root)
+    centralized = _inspect_centralized_embeddings(index_root)
+    root_index_path = index_root / "_index.db"
+    root_index_exists = root_index_path.exists()
 
     if not index_files:
+        root_result = {
+            "index_path": str(root_index_path),
+            "exists": root_index_exists,
+            "total_files": 0,
+            "files_with_embeddings": 0,
+            "files_without_embeddings": 0,
+            "total_chunks": 0,
+            "coverage_percent": 0.0,
+            "has_embeddings": False,
+            "storage_mode": "none",
+        }
+        subtree_result = {
+            "total_indexes": 0,
+            "total_files": 0,
+            "files_with_embeddings": 0,
+            "files_without_embeddings": 0,
+            "total_chunks": 0,
+            "coverage_percent": 0.0,
+            "indexes_with_embeddings": 0,
+            "indexes_without_embeddings": 0,
+        }
         return {
             "success": True,
             "result": {
@@ -1880,72 +2004,123 @@ def get_embeddings_status(index_root: Path) -> Dict[str, any]:
                 "indexes_with_embeddings": 0,
                 "indexes_without_embeddings": 0,
                 "model_info": None,
+                "root": root_result,
+                "subtree": subtree_result,
+                "centralized": centralized,
             },
         }
 
-    total_files = 0
-    files_with_embeddings = 0
-    total_chunks = 0
-    indexes_with_embeddings = 0
-    model_info = None
+    subtree_total_files = 0
+    subtree_files_with_embeddings = 0
+    subtree_total_chunks = 0
+    subtree_indexes_with_embeddings = 0
+    subtree_model_info = None
     latest_updated_at = None
 
     for index_path in index_files:
         status = check_index_embeddings(index_path)
-        if status["success"]:
-            result = status["result"]
-            total_files += result["total_files"]
-            files_with_embeddings += result["files_with_chunks"]
-            total_chunks += result["total_chunks"]
-            if result["has_embeddings"]:
-                indexes_with_embeddings += 1
+        if not status["success"]:
+            continue
 
-                # Get model config from first index with embeddings (they should all match)
-                if model_info is None:
-                    try:
-                        from codexlens.semantic.vector_store import VectorStore
-                        with VectorStore(index_path) as vs:
-                            config = vs.get_model_config()
-                            if config:
-                                model_info = {
-                                    "model_profile": config.get("model_profile"),
-                                    "model_name": config.get("model_name"),
-                                    "embedding_dim": config.get("embedding_dim"),
-                                    "backend": config.get("backend"),
-                                    "created_at": config.get("created_at"),
-                                    "updated_at": config.get("updated_at"),
-                                }
-                                latest_updated_at = config.get("updated_at")
-                    except Exception:
-                        pass
-                else:
-                    # Track the latest updated_at across all indexes
-                    try:
-                        from codexlens.semantic.vector_store import VectorStore
-                        with VectorStore(index_path) as vs:
-                            config = vs.get_model_config()
-                            if config and config.get("updated_at"):
-                                if latest_updated_at is None or config["updated_at"] > latest_updated_at:
-                                    latest_updated_at = config["updated_at"]
-                    except Exception:
-                        pass
+        result = status["result"]
+        subtree_total_files += result["total_files"]
+        subtree_files_with_embeddings += result["files_with_chunks"]
+        subtree_total_chunks += result["total_chunks"]
 
-    # Update model_info with latest timestamp
-    if model_info and latest_updated_at:
-        model_info["updated_at"] = latest_updated_at
+        if not result["has_embeddings"]:
+            continue
+
+        subtree_indexes_with_embeddings += 1
+        candidate_model_info = _get_model_info_from_index(index_path)
+        if not candidate_model_info:
+            continue
+        if subtree_model_info is None:
+            subtree_model_info = candidate_model_info
+            latest_updated_at = candidate_model_info.get("updated_at")
+            continue
+        candidate_updated_at = candidate_model_info.get("updated_at")
+        if candidate_updated_at and (latest_updated_at is None or candidate_updated_at > latest_updated_at):
+            latest_updated_at = candidate_updated_at
+
+    if subtree_model_info and latest_updated_at:
+        subtree_model_info["updated_at"] = latest_updated_at
+
+    root_total_files = 0
+    root_files_with_embeddings = 0
+    root_total_chunks = 0
+    root_has_embeddings = False
+    root_storage_mode = "none"
+
+    if root_index_exists:
+        root_status = check_index_embeddings(root_index_path)
+        if root_status["success"]:
+            root_data = root_status["result"]
+            root_total_files = int(root_data["total_files"])
+            if root_data["has_embeddings"]:
+                root_files_with_embeddings = int(root_data["files_with_chunks"])
+                root_total_chunks = int(root_data["total_chunks"])
+                root_has_embeddings = True
+                root_storage_mode = "distributed"
+
+    if centralized["usable"]:
+        root_files_with_embeddings = int(centralized["files_with_embeddings"])
+        root_total_chunks = int(centralized["chunk_metadata_rows"])
+        root_has_embeddings = True
+        root_storage_mode = "centralized" if root_storage_mode == "none" else "mixed"
+
+    model_info = None
+    if root_has_embeddings:
+        if root_storage_mode in {"distributed", "mixed"} and root_index_exists:
+            model_info = _get_model_info_from_index(root_index_path)
+        if model_info is None and root_storage_mode in {"centralized", "mixed"}:
+            model_info = subtree_model_info
+
+    root_coverage_percent = round(
+        (root_files_with_embeddings / root_total_files * 100) if root_total_files > 0 else 0,
+        1,
+    )
+    root_files_without_embeddings = max(root_total_files - root_files_with_embeddings, 0)
+
+    root_result = {
+        "index_path": str(root_index_path),
+        "exists": root_index_exists,
+        "total_files": root_total_files,
+        "files_with_embeddings": root_files_with_embeddings,
+        "files_without_embeddings": root_files_without_embeddings,
+        "total_chunks": root_total_chunks,
+        "coverage_percent": root_coverage_percent,
+        "has_embeddings": root_has_embeddings,
+        "storage_mode": root_storage_mode,
+    }
+    subtree_result = {
+        "total_indexes": len(index_files),
+        "total_files": subtree_total_files,
+        "files_with_embeddings": subtree_files_with_embeddings,
+        "files_without_embeddings": subtree_total_files - subtree_files_with_embeddings,
+        "total_chunks": subtree_total_chunks,
+        "coverage_percent": round(
+            (subtree_files_with_embeddings / subtree_total_files * 100) if subtree_total_files > 0 else 0,
+            1,
+        ),
+        "indexes_with_embeddings": subtree_indexes_with_embeddings,
+        "indexes_without_embeddings": len(index_files) - subtree_indexes_with_embeddings,
+    }
 
     return {
         "success": True,
         "result": {
-            "total_indexes": len(index_files),
-            "total_files": total_files,
-            "files_with_embeddings": files_with_embeddings,
-            "files_without_embeddings": total_files - files_with_embeddings,
-            "total_chunks": total_chunks,
-            "coverage_percent": round((files_with_embeddings / total_files * 100) if total_files > 0 else 0, 1),
-            "indexes_with_embeddings": indexes_with_embeddings,
-            "indexes_without_embeddings": len(index_files) - indexes_with_embeddings,
+            "total_indexes": 1 if root_index_exists else 0,
+            "total_files": root_total_files,
+            "files_with_embeddings": root_files_with_embeddings,
+            "files_without_embeddings": root_files_without_embeddings,
+            "total_chunks": root_total_chunks,
+            "coverage_percent": root_coverage_percent,
+            "indexes_with_embeddings": 1 if root_has_embeddings else 0,
+            "indexes_without_embeddings": 1 if root_index_exists and not root_has_embeddings else 0,
             "model_info": model_info,
+            "root": root_result,
+            "subtree": subtree_result,
+            "centralized": centralized,
         },
     }
 

@@ -29,7 +29,7 @@ import {
   projectExists,
   getStorageLocationInstructions
 } from '../tools/storage-manager.js';
-import { getHistoryStore, findProjectWithExecution } from '../tools/cli-history-store.js';
+import { getHistoryStore, findProjectWithExecution, getRegisteredExecutionHistory } from '../tools/cli-history-store.js';
 import { createSpinner } from '../utils/ui.js';
 import { loadClaudeCliSettings } from '../tools/claude-cli-tools.js';
 
@@ -421,11 +421,15 @@ async function outputAction(conversationId: string | undefined, options: OutputV
   if (!result) {
     const hint = options.project
       ? `in project: ${options.project}`
-      : 'in current directory or parent directories';
+      : 'in registered CCW project history';
     console.error(chalk.red(`Error: Execution not found: ${conversationId}`));
     console.error(chalk.gray(`  Searched ${hint}`));
+    console.error(chalk.gray('  Tip: use the real CCW execution ID, not an outer task label.'));
+    console.error(chalk.gray('  Capture [CCW_EXEC_ID=...] from stderr, or start with --id <your-id>.'));
+    console.error(chalk.gray('  Discover IDs via: ccw cli show or ccw cli history'));
     console.error(chalk.gray('Usage: ccw cli output <conversation-id> [--project <path>]'));
     process.exit(1);
+    return;
   }
 
   if (options.raw) {
@@ -1394,7 +1398,7 @@ async function showAction(options: { all?: boolean }): Promise<void> {
 
   // 2. Get recent history from SQLite
   const historyLimit = options.all ? 100 : 20;
-  const history = await getExecutionHistoryAsync(process.cwd(), { limit: historyLimit, recursive: true });
+  const history = getRegisteredExecutionHistory({ limit: historyLimit });
   const historyById = new Map(history.executions.map(exec => [exec.id, exec]));
 
   // 3. Build unified list: active first, then history (de-duped)
@@ -1595,7 +1599,7 @@ async function historyAction(options: HistoryOptions): Promise<void> {
   console.log(chalk.bold.cyan('\n  CLI Execution History\n'));
 
   // Use recursive: true to aggregate history from parent and child projects (matches Dashboard behavior)
-  const history = await getExecutionHistoryAsync(process.cwd(), { limit: parseInt(limit, 10), tool, status, recursive: true });
+  const history = getRegisteredExecutionHistory({ limit: parseInt(limit, 10), tool, status });
 
   if (history.executions.length === 0) {
     console.log(chalk.gray('  No executions found.\n'));
@@ -1650,7 +1654,14 @@ async function detailAction(conversationId: string | undefined): Promise<void> {
     process.exit(1);
   }
 
-  const conversation = getConversationDetail(process.cwd(), conversationId);
+  let conversation = getConversationDetail(process.cwd(), conversationId);
+
+  if (!conversation) {
+    const found = findProjectWithExecution(conversationId, process.cwd());
+    if (found) {
+      conversation = getConversationDetail(found.projectPath, conversationId);
+    }
+  }
 
   if (!conversation) {
     console.error(chalk.red(`Error: Conversation not found: ${conversationId}`));

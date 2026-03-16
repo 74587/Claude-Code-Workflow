@@ -8,7 +8,7 @@ import {
   executeCodexLens,
   installSemantic,
 } from '../../../tools/codex-lens.js';
-import { getCodexLensPython } from '../../../utils/codexlens-path.js';
+import { getCodexLensHiddenPython } from '../../../utils/codexlens-path.js';
 import { spawn } from 'child_process';
 import type { GpuMode } from '../../../tools/codex-lens.js';
 import { loadLiteLLMApiConfig, getAvailableModelsForType, getProvider, getAllProviders } from '../../../config/litellm-api-config-manager.js';
@@ -59,10 +59,13 @@ except Exception as e:
     sys.exit(1)
 `;
 
-    const pythonPath = getCodexLensPython();
+    const pythonPath = getCodexLensHiddenPython();
     const child = spawn(pythonPath, ['-c', pythonScript], {
+      shell: false,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout,
+      windowsHide: true,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     });
 
     let stdout = '';
