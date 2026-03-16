@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "codex-lens-v2"
+version = "0.1.0"
+description = "Minimal code semantic search library with 2-stage pipeline"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+semantic = [
+    "hnswlib>=0.8.0",
+    "numpy>=1.26",
+    "fastembed>=0.4.0,<2.0",
+]
+gpu = [
+    "onnxruntime-gpu>=1.16",
+]
+faiss-cpu = [
+    "faiss-cpu>=1.7.4",
+]
+faiss-gpu = [
+    "faiss-gpu>=1.7.4",
+]
+reranker-api = [
+    "httpx>=0.25",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/codexlens"]
