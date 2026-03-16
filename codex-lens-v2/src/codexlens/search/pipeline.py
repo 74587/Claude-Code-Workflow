@@ -100,7 +100,7 @@ class SearchPipeline:
         weights = get_adaptive_weights(intent, cfg.fusion_weights)
 
         # 2. Embed query
-        query_vec = self._embedder.embed([query])[0]
+        query_vec = self._embedder.embed_single(query)
 
         # 3. Parallel vector + FTS search
         vector_results: list[tuple[int, float]] = []
