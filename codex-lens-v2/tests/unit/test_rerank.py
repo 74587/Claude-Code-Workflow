@@ -5,10 +5,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codexlens.config import Config
-from codexlens.rerank.base import BaseReranker
-from codexlens.rerank.local import FastEmbedReranker
-from codexlens.rerank.api import APIReranker
+from codexlens_search.config import Config
+from codexlens_search.rerank.base import BaseReranker
+from codexlens_search.rerank.local import FastEmbedReranker
+from codexlens_search.rerank.api import APIReranker
 
 
 # ---------------------------------------------------------------------------

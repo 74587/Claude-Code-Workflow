@@ -14,11 +14,11 @@ from pathlib import Path
 
 import numpy as np
 
-from codexlens.config import Config
-from codexlens.core.binary import BinaryStore
-from codexlens.core.index import ANNIndex
-from codexlens.embed.base import BaseEmbedder
-from codexlens.search.fts import FTSEngine
+from codexlens_search.config import Config
+from codexlens_search.core.binary import BinaryStore
+from codexlens_search.core.index import ANNIndex
+from codexlens_search.embed.base import BaseEmbedder
+from codexlens_search.search.fts import FTSEngine
 
 logger = logging.getLogger(__name__)
 

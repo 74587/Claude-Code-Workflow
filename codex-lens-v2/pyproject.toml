@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "codex-lens-v2"
-version = "0.1.0"
-description = "Minimal code semantic search library with 2-stage pipeline"
+name = "codexlens-search"
+version = "0.2.0"
+description = "Lightweight semantic code search engine — 2-stage vector + FTS + RRF fusion"
 requires-python = ">=3.10"
 dependencies = []
 
@@ -33,4 +33,4 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/codexlens"]
+packages = ["src/codexlens_search"]

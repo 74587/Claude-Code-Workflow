@@ -1,4 +1,4 @@
-from codexlens.config import Config
+from codexlens_search.config import Config
 
 
 def test_config_instantiates_no_args():

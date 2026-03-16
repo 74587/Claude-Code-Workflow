@@ -6,8 +6,8 @@ from pathlib import Path
 
 import numpy as np
 
-from codexlens.config import Config
-from codexlens.core.base import BaseBinaryIndex
+from codexlens_search.config import Config
+from codexlens_search.core.base import BaseBinaryIndex
 
 logger = logging.getLogger(__name__)
 

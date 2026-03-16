@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from codexlens.config import Config
+from codexlens_search.config import Config
 from .base import BaseReranker
 
 

@@ -8,8 +8,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from codexlens.config import Config
-from codexlens.core import ANNIndex, BinaryStore
+from codexlens_search.config import Config
+from codexlens_search.core import ANNIndex, BinaryStore
 
 
 DIM = 32

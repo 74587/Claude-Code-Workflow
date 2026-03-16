@@ -5,7 +5,7 @@ import time
 
 import httpx
 
-from codexlens.config import Config
+from codexlens_search.config import Config
 from .base import BaseReranker
 
 logger = logging.getLogger(__name__)

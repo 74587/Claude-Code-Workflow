@@ -18,9 +18,9 @@ def _make_fastembed_mock():
 
 _make_fastembed_mock()
 
-from codexlens.config import Config  # noqa: E402
-from codexlens.embed.base import BaseEmbedder  # noqa: E402
-from codexlens.embed.local import EMBED_PROFILES, FastEmbedEmbedder  # noqa: E402
+from codexlens_search.config import Config  # noqa: E402
+from codexlens_search.embed.base import BaseEmbedder  # noqa: E402
+from codexlens_search.embed.local import EMBED_PROFILES, FastEmbedEmbedder  # noqa: E402
 
 
 class TestEmbedSingle(unittest.TestCase):

@@ -9,13 +9,13 @@ from pathlib import Path
 # 确保 src 可被导入
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from codexlens.config import Config
-from codexlens.core.factory import create_ann_index, create_binary_index
-from codexlens.embed.local import FastEmbedEmbedder
-from codexlens.indexing import IndexingPipeline
-from codexlens.rerank.local import FastEmbedReranker
-from codexlens.search.fts import FTSEngine
-from codexlens.search.pipeline import SearchPipeline
+from codexlens_search.config import Config
+from codexlens_search.core.factory import create_ann_index, create_binary_index
+from codexlens_search.embed.local import FastEmbedEmbedder
+from codexlens_search.indexing import IndexingPipeline
+from codexlens_search.rerank.local import FastEmbedReranker
+from codexlens_search.search.fts import FTSEngine
+from codexlens_search.search.pipeline import SearchPipeline
 
 # ─── 配置 ──────────────────────────────────────────────────────────────────
 REPO_ROOT = Path("D:/Claude_dms3")

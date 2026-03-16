@@ -3,12 +3,12 @@ import numpy as np
 import tempfile
 from pathlib import Path
 
-from codexlens.config import Config
-from codexlens.core import ANNIndex, BinaryStore
-from codexlens.embed.base import BaseEmbedder
-from codexlens.rerank.base import BaseReranker
-from codexlens.search.fts import FTSEngine
-from codexlens.search.pipeline import SearchPipeline
+from codexlens_search.config import Config
+from codexlens_search.core import ANNIndex, BinaryStore
+from codexlens_search.embed.base import BaseEmbedder
+from codexlens_search.rerank.base import BaseReranker
+from codexlens_search.search.fts import FTSEngine
+from codexlens_search.search.pipeline import SearchPipeline
 
 # Test documents: 20 code snippets with id, path, content
 TEST_DOCS = [

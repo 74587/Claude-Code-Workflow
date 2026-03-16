@@ -5,16 +5,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from codexlens.search.fts import FTSEngine
-from codexlens.search.fusion import (
+from codexlens_search.search.fts import FTSEngine
+from codexlens_search.search.fusion import (
     DEFAULT_WEIGHTS,
     QueryIntent,
     detect_query_intent,
     get_adaptive_weights,
     reciprocal_rank_fusion,
 )
-from codexlens.search.pipeline import SearchPipeline, SearchResult
-from codexlens.config import Config
+from codexlens_search.search.pipeline import SearchPipeline, SearchResult
+from codexlens_search.config import Config
 
 
 # ---------------------------------------------------------------------------
