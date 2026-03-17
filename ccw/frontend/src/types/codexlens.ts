@@ -20,7 +20,7 @@ export interface EnvVarFieldSchema {
   /** i18n label key */
   labelKey: string;
   /** Field type determines which control to render */
-  type: 'select' | 'model-select' | 'number' | 'checkbox' | 'text';
+  type: 'select' | 'model-select' | 'number' | 'checkbox' | 'text' | 'password';
   /** Options for select type */
   options?: string[];
   /** Default value */

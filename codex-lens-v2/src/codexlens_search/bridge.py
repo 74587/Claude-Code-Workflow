@@ -57,6 +57,73 @@ def _create_config(args: argparse.Namespace) -> "Config":
     kwargs: dict = {}
     if hasattr(args, "embed_model") and args.embed_model:
         kwargs["embed_model"] = args.embed_model
+    # API embedding overrides
+    if hasattr(args, "embed_api_url") and args.embed_api_url:
+        kwargs["embed_api_url"] = args.embed_api_url
+    if hasattr(args, "embed_api_key") and args.embed_api_key:
+        kwargs["embed_api_key"] = args.embed_api_key
+    if hasattr(args, "embed_api_model") and args.embed_api_model:
+        kwargs["embed_api_model"] = args.embed_api_model
+    # Also check env vars as fallback
+    if "embed_api_url" not in kwargs and os.environ.get("CODEXLENS_EMBED_API_URL"):
+        kwargs["embed_api_url"] = os.environ["CODEXLENS_EMBED_API_URL"]
+    if "embed_api_key" not in kwargs and os.environ.get("CODEXLENS_EMBED_API_KEY"):
+        kwargs["embed_api_key"] = os.environ["CODEXLENS_EMBED_API_KEY"]
+    if "embed_api_model" not in kwargs and os.environ.get("CODEXLENS_EMBED_API_MODEL"):
+        kwargs["embed_api_model"] = os.environ["CODEXLENS_EMBED_API_MODEL"]
+    # Multi-endpoint: CODEXLENS_EMBED_API_ENDPOINTS=url1|key1|model1,url2|key2|model2
+    endpoints_env = os.environ.get("CODEXLENS_EMBED_API_ENDPOINTS", "")
+    if endpoints_env:
+        endpoints = []
+        for entry in endpoints_env.split(","):
+            parts = entry.strip().split("|")
+            if len(parts) >= 2:
+                ep = {"url": parts[0], "key": parts[1]}
+                if len(parts) >= 3:
+                    ep["model"] = parts[2]
+                endpoints.append(ep)
+        if endpoints:
+            kwargs["embed_api_endpoints"] = endpoints
+    # Embed dimension and concurrency from env
+    if os.environ.get("CODEXLENS_EMBED_DIM"):
+        kwargs["embed_dim"] = int(os.environ["CODEXLENS_EMBED_DIM"])
+    if os.environ.get("CODEXLENS_EMBED_BATCH_SIZE"):
+        kwargs["embed_batch_size"] = int(os.environ["CODEXLENS_EMBED_BATCH_SIZE"])
+    if os.environ.get("CODEXLENS_EMBED_API_CONCURRENCY"):
+        kwargs["embed_api_concurrency"] = int(os.environ["CODEXLENS_EMBED_API_CONCURRENCY"])
+    if os.environ.get("CODEXLENS_EMBED_API_MAX_TOKENS"):
+        kwargs["embed_api_max_tokens_per_batch"] = int(os.environ["CODEXLENS_EMBED_API_MAX_TOKENS"])
+    # Reranker API env vars
+    if os.environ.get("CODEXLENS_RERANKER_API_URL"):
+        kwargs["reranker_api_url"] = os.environ["CODEXLENS_RERANKER_API_URL"]
+    if os.environ.get("CODEXLENS_RERANKER_API_KEY"):
+        kwargs["reranker_api_key"] = os.environ["CODEXLENS_RERANKER_API_KEY"]
+    if os.environ.get("CODEXLENS_RERANKER_API_MODEL"):
+        kwargs["reranker_api_model"] = os.environ["CODEXLENS_RERANKER_API_MODEL"]
+    # Search pipeline params from env
+    if os.environ.get("CODEXLENS_RERANKER_TOP_K"):
+        kwargs["reranker_top_k"] = int(os.environ["CODEXLENS_RERANKER_TOP_K"])
+    if os.environ.get("CODEXLENS_RERANKER_BATCH_SIZE"):
+        kwargs["reranker_batch_size"] = int(os.environ["CODEXLENS_RERANKER_BATCH_SIZE"])
+    if os.environ.get("CODEXLENS_BINARY_TOP_K"):
+        kwargs["binary_top_k"] = int(os.environ["CODEXLENS_BINARY_TOP_K"])
+    if os.environ.get("CODEXLENS_ANN_TOP_K"):
+        kwargs["ann_top_k"] = int(os.environ["CODEXLENS_ANN_TOP_K"])
+    if os.environ.get("CODEXLENS_FTS_TOP_K"):
+        kwargs["fts_top_k"] = int(os.environ["CODEXLENS_FTS_TOP_K"])
+    if os.environ.get("CODEXLENS_FUSION_K"):
+        kwargs["fusion_k"] = int(os.environ["CODEXLENS_FUSION_K"])
+    # Indexing params from env
+    if os.environ.get("CODEXLENS_CODE_AWARE_CHUNKING"):
+        kwargs["code_aware_chunking"] = os.environ["CODEXLENS_CODE_AWARE_CHUNKING"].lower() == "true"
+    if os.environ.get("CODEXLENS_INDEX_WORKERS"):
+        kwargs["index_workers"] = int(os.environ["CODEXLENS_INDEX_WORKERS"])
+    if os.environ.get("CODEXLENS_MAX_FILE_SIZE"):
+        kwargs["max_file_size_bytes"] = int(os.environ["CODEXLENS_MAX_FILE_SIZE"])
+    if os.environ.get("CODEXLENS_HNSW_EF"):
+        kwargs["hnsw_ef"] = int(os.environ["CODEXLENS_HNSW_EF"])
+    if os.environ.get("CODEXLENS_HNSW_M"):
+        kwargs["hnsw_M"] = int(os.environ["CODEXLENS_HNSW_M"])
     db_path = Path(args.db_path).resolve()
     kwargs["metadata_db_path"] = str(db_path / "metadata.db")
     return Config(**kwargs)
@@ -72,22 +139,43 @@ def _create_pipeline(
     """
     from codexlens_search.config import Config
     from codexlens_search.core.factory import create_ann_index, create_binary_index
-    from codexlens_search.embed.local import FastEmbedEmbedder
     from codexlens_search.indexing.metadata import MetadataStore
     from codexlens_search.indexing.pipeline import IndexingPipeline
-    from codexlens_search.rerank.local import FastEmbedReranker
     from codexlens_search.search.fts import FTSEngine
     from codexlens_search.search.pipeline import SearchPipeline
 
     config = _create_config(args)
     db_path = _resolve_db_path(args)
 
-    embedder = FastEmbedEmbedder(config)
+    # Select embedder: API if configured, otherwise local fastembed
+    if config.embed_api_url:
+        from codexlens_search.embed.api import APIEmbedder
+        embedder = APIEmbedder(config)
+        log.info("Using API embedder: %s", config.embed_api_url)
+        # Auto-detect embed_dim from API if still at default
+        if config.embed_dim == 384:
+            probe_vec = embedder.embed_single("dimension probe")
+            detected_dim = probe_vec.shape[0]
+            if detected_dim != config.embed_dim:
+                log.info("Auto-detected embed_dim=%d from API (was %d)", detected_dim, config.embed_dim)
+                config.embed_dim = detected_dim
+    else:
+        from codexlens_search.embed.local import FastEmbedEmbedder
+        embedder = FastEmbedEmbedder(config)
+
     binary_store = create_binary_index(db_path, config.embed_dim, config)
     ann_index = create_ann_index(db_path, config.embed_dim, config)
     fts = FTSEngine(db_path / "fts.db")
     metadata = MetadataStore(db_path / "metadata.db")
-    reranker = FastEmbedReranker(config)
+
+    # Select reranker: API if configured, otherwise local fastembed
+    if config.reranker_api_url:
+        from codexlens_search.rerank.api import APIReranker
+        reranker = APIReranker(config)
+        log.info("Using API reranker: %s", config.reranker_api_url)
+    else:
+        from codexlens_search.rerank.local import FastEmbedReranker
+        reranker = FastEmbedReranker(config)
 
     indexing = IndexingPipeline(
         embedder=embedder,
@@ -181,6 +269,19 @@ def cmd_remove_file(args: argparse.Namespace) -> None:
     })
 
 
+_DEFAULT_EXCLUDES = frozenset({
+    "node_modules", ".git", "__pycache__", "dist", "build",
+    ".venv", "venv", ".tox", ".mypy_cache", ".pytest_cache",
+    ".next", ".nuxt", "coverage", ".eggs", "*.egg-info",
+})
+
+
+def _should_exclude(path: Path, exclude_dirs: frozenset[str]) -> bool:
+    """Check if any path component matches an exclude pattern."""
+    parts = path.parts
+    return any(part in exclude_dirs for part in parts)
+
+
 def cmd_sync(args: argparse.Namespace) -> None:
     """Sync index with files under --root matching --glob pattern."""
     indexing, _, _ = _create_pipeline(args)
@@ -189,11 +290,14 @@ def cmd_sync(args: argparse.Namespace) -> None:
     if not root.is_dir():
         _error_exit(f"Root directory not found: {root}")
 
+    exclude_dirs = frozenset(args.exclude) if args.exclude else _DEFAULT_EXCLUDES
     pattern = args.glob or "**/*"
     file_paths = [
         p for p in root.glob(pattern)
-        if p.is_file()
+        if p.is_file() and not _should_exclude(p.relative_to(root), exclude_dirs)
     ]
+
+    log.debug("Sync: %d files after exclusion (root=%s, pattern=%s)", len(file_paths), root, pattern)
 
     stats = indexing.sync(file_paths, root=root)
     _json_output({
@@ -331,6 +435,23 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Enable debug logging to stderr",
     )
 
+    # API embedding overrides (also read from CODEXLENS_EMBED_API_* env vars)
+    parser.add_argument(
+        "--embed-api-url",
+        default="",
+        help="Remote embedding API URL (OpenAI-compatible, e.g. https://api.openai.com/v1)",
+    )
+    parser.add_argument(
+        "--embed-api-key",
+        default="",
+        help="API key for remote embedding",
+    )
+    parser.add_argument(
+        "--embed-api-model",
+        default="",
+        help="Model name for remote embedding (e.g. text-embedding-3-small)",
+    )
+
     sub = parser.add_subparsers(dest="command")
 
     # init
@@ -354,6 +475,11 @@ def _build_parser() -> argparse.ArgumentParser:
     p_sync = sub.add_parser("sync", help="Sync index with directory")
     p_sync.add_argument("--root", "-r", required=True, help="Root directory to sync")
     p_sync.add_argument("--glob", "-g", default="**/*", help="Glob pattern (default: **/*)")
+    p_sync.add_argument(
+        "--exclude", "-e", action="append", default=None,
+        help="Directory names to exclude (repeatable). "
+             "Defaults: node_modules, .git, __pycache__, dist, build, .venv, venv, .tox, .mypy_cache",
+    )
 
     # watch
     p_watch = sub.add_parser("watch", help="Watch directory for changes (JSONL output)")

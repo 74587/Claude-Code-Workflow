@@ -11,7 +11,6 @@ import {
   ArrowUpDown,
   Cpu,
   GitBranch,
-  Scissors,
   type LucideIcon,
 } from 'lucide-react';
 import { Label } from '@/components/ui/Label';
@@ -41,7 +40,6 @@ const iconMap: Record<string, LucideIcon> = {
   'arrow-up-down': ArrowUpDown,
   cpu: Cpu,
   'git-branch': GitBranch,
-  scissors: Scissors,
 };
 
 interface SchemaFormRendererProps {
@@ -214,12 +212,12 @@ function FieldRenderer({
 
     case 'model-select': {
       // Determine backend type from related backend env var
-      const isEmbedding = field.key.includes('EMBEDDING');
+      const isEmbedding = field.key.includes('EMBED');
       const backendKey = isEmbedding
         ? 'CODEXLENS_EMBEDDING_BACKEND'
         : 'CODEXLENS_RERANKER_BACKEND';
       const backendValue = allValues[backendKey];
-      const backendType = (backendValue === 'api' || backendValue === 'litellm') ? 'api' : 'local';
+      const backendType = backendValue === 'api' ? 'api' : 'local';
 
       return (
         <div className="flex items-center gap-2">
@@ -240,6 +238,27 @@ function FieldRenderer({
         </div>
       );
     }
+
+    case 'password':
+      return (
+        <div className="flex items-center gap-2">
+          <Label
+            className="text-xs text-muted-foreground w-28 flex-shrink-0"
+            title={field.key}
+          >
+            {label}
+          </Label>
+          <Input
+            type="password"
+            className="flex-1 h-8 text-xs"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={field.placeholder}
+            disabled={disabled}
+            autoComplete="off"
+          />
+        </div>
+      );
 
     case 'text':
     default:

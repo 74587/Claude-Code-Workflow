@@ -2287,6 +2287,34 @@ async function executeCodexLensV2Bridge(
 }
 
 /**
+ * Load env vars from ~/.codexlens/.env file so they're passed to bridge subprocess.
+ */
+function loadCodexLensEnvFile(): Record<string, string> {
+  const envVars: Record<string, string> = {};
+  try {
+    const envPath = join(getCodexLensDataDir(), '.env');
+    const content = readFileSync(envPath, 'utf-8');
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx <= 0) continue;
+      const key = trimmed.substring(0, eqIdx).trim();
+      let value = trimmed.substring(eqIdx + 1).trim();
+      // Strip surrounding quotes
+      if ((value.startsWith('"') && value.endsWith('"')) ||
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      envVars[key] = value;
+    }
+  } catch {
+    // File doesn't exist — no env overrides
+  }
+  return envVars;
+}
+
+/**
  * Execute a generic codexlens-search v2 bridge subcommand (init, status, sync, watch, etc.).
  * Returns parsed JSON output from the bridge CLI.
  */
@@ -2299,11 +2327,13 @@ async function executeV2BridgeCommand(
     // --db-path is a global arg and must come BEFORE the subcommand
     const globalArgs = options?.dbPath ? ['--db-path', options.dbPath] : [];
     const fullArgs = [...globalArgs, subcommand, ...args];
+    // Merge process.env with .env file settings (file values override process.env)
+    const codexlensEnv = loadCodexLensEnvFile();
     execFile('codexlens-search', fullArgs, {
       encoding: 'utf-8',
       timeout: options?.timeout ?? EXEC_TIMEOUTS.PROCESS_SPAWN,
       windowsHide: true,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+      env: { ...process.env, ...codexlensEnv, PYTHONIOENCODING: 'utf-8' },
     }, (error, stdout, stderr) => {
       if (error) {
         resolve({

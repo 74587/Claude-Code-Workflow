@@ -941,7 +941,7 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
         // Settings file doesn't exist or is invalid, use empty
       }
 
-      // Map settings to env var format for defaults
+      // Map settings to env var format for defaults (v2 schema)
       const settingsDefaults: Record<string, string> = {};
 
       // Embedding settings
@@ -950,19 +950,34 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
       }
       if (settings.embedding?.model) {
         settingsDefaults['CODEXLENS_EMBEDDING_MODEL'] = settings.embedding.model;
-        settingsDefaults['LITELLM_EMBEDDING_MODEL'] = settings.embedding.model;
       }
-      if (settings.embedding?.use_gpu !== undefined) {
-        settingsDefaults['CODEXLENS_USE_GPU'] = String(settings.embedding.use_gpu);
+      if (settings.embedding?.device) {
+        settingsDefaults['CODEXLENS_USE_GPU'] = settings.embedding.device;
       }
-      if (settings.embedding?.auto_embed_missing !== undefined) {
-        settingsDefaults['CODEXLENS_AUTO_EMBED_MISSING'] = String(settings.embedding.auto_embed_missing);
+      if (settings.embedding?.batch_size !== undefined) {
+        settingsDefaults['CODEXLENS_EMBED_BATCH_SIZE'] = String(settings.embedding.batch_size);
       }
-      if (settings.embedding?.strategy) {
-        settingsDefaults['CODEXLENS_EMBEDDING_STRATEGY'] = settings.embedding.strategy;
+      // Embedding API settings
+      if (settings.embedding?.api_url) {
+        settingsDefaults['CODEXLENS_EMBED_API_URL'] = settings.embedding.api_url;
       }
-      if (settings.embedding?.cooldown !== undefined) {
-        settingsDefaults['CODEXLENS_EMBEDDING_COOLDOWN'] = String(settings.embedding.cooldown);
+      if (settings.embedding?.api_key) {
+        settingsDefaults['CODEXLENS_EMBED_API_KEY'] = settings.embedding.api_key;
+      }
+      if (settings.embedding?.api_model) {
+        settingsDefaults['CODEXLENS_EMBED_API_MODEL'] = settings.embedding.api_model;
+      }
+      if (settings.embedding?.api_endpoints) {
+        settingsDefaults['CODEXLENS_EMBED_API_ENDPOINTS'] = settings.embedding.api_endpoints;
+      }
+      if (settings.embedding?.dim !== undefined) {
+        settingsDefaults['CODEXLENS_EMBED_DIM'] = String(settings.embedding.dim);
+      }
+      if (settings.embedding?.api_concurrency !== undefined) {
+        settingsDefaults['CODEXLENS_EMBED_API_CONCURRENCY'] = String(settings.embedding.api_concurrency);
+      }
+      if (settings.embedding?.api_max_tokens_per_batch !== undefined) {
+        settingsDefaults['CODEXLENS_EMBED_API_MAX_TOKENS'] = String(settings.embedding.api_max_tokens_per_batch);
       }
 
       // Reranker settings
@@ -971,82 +986,53 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
       }
       if (settings.reranker?.model) {
         settingsDefaults['CODEXLENS_RERANKER_MODEL'] = settings.reranker.model;
-        settingsDefaults['LITELLM_RERANKER_MODEL'] = settings.reranker.model;
-      }
-      if (settings.reranker?.enabled !== undefined) {
-        settingsDefaults['CODEXLENS_RERANKER_ENABLED'] = String(settings.reranker.enabled);
       }
       if (settings.reranker?.top_k !== undefined) {
         settingsDefaults['CODEXLENS_RERANKER_TOP_K'] = String(settings.reranker.top_k);
       }
-
-      // API/Concurrency settings
-      if (settings.api?.max_workers !== undefined) {
-        settingsDefaults['CODEXLENS_API_MAX_WORKERS'] = String(settings.api.max_workers);
+      if (settings.reranker?.batch_size !== undefined) {
+        settingsDefaults['CODEXLENS_RERANKER_BATCH_SIZE'] = String(settings.reranker.batch_size);
       }
-      if (settings.api?.batch_size !== undefined) {
-        settingsDefaults['CODEXLENS_API_BATCH_SIZE'] = String(settings.api.batch_size);
+      // Reranker API settings
+      if (settings.reranker?.api_url) {
+        settingsDefaults['CODEXLENS_RERANKER_API_URL'] = settings.reranker.api_url;
       }
-      // Dynamic batch size settings
-      if (settings.api?.batch_size_dynamic !== undefined) {
-        settingsDefaults['CODEXLENS_API_BATCH_SIZE_DYNAMIC'] = String(settings.api.batch_size_dynamic);
+      if (settings.reranker?.api_key) {
+        settingsDefaults['CODEXLENS_RERANKER_API_KEY'] = settings.reranker.api_key;
       }
-      if (settings.api?.batch_size_utilization_factor !== undefined) {
-        settingsDefaults['CODEXLENS_API_BATCH_SIZE_UTILIZATION'] = String(settings.api.batch_size_utilization_factor);
-      }
-      if (settings.api?.batch_size_max !== undefined) {
-        settingsDefaults['CODEXLENS_API_BATCH_SIZE_MAX'] = String(settings.api.batch_size_max);
-      }
-      if (settings.api?.chars_per_token_estimate !== undefined) {
-        settingsDefaults['CODEXLENS_CHARS_PER_TOKEN'] = String(settings.api.chars_per_token_estimate);
+      if (settings.reranker?.api_model) {
+        settingsDefaults['CODEXLENS_RERANKER_API_MODEL'] = settings.reranker.api_model;
       }
 
-      // Cascade search settings
-      if (settings.cascade?.strategy) {
-        settingsDefaults['CODEXLENS_CASCADE_STRATEGY'] = settings.cascade.strategy;
+      // Search pipeline settings
+      if (settings.search?.binary_top_k !== undefined) {
+        settingsDefaults['CODEXLENS_BINARY_TOP_K'] = String(settings.search.binary_top_k);
       }
-      if (settings.cascade?.coarse_k !== undefined) {
-        settingsDefaults['CODEXLENS_CASCADE_COARSE_K'] = String(settings.cascade.coarse_k);
+      if (settings.search?.ann_top_k !== undefined) {
+        settingsDefaults['CODEXLENS_ANN_TOP_K'] = String(settings.search.ann_top_k);
       }
-      if (settings.cascade?.fine_k !== undefined) {
-        settingsDefaults['CODEXLENS_CASCADE_FINE_K'] = String(settings.cascade.fine_k);
+      if (settings.search?.fts_top_k !== undefined) {
+        settingsDefaults['CODEXLENS_FTS_TOP_K'] = String(settings.search.fts_top_k);
       }
-
-      // Staged cascade settings (advanced)
-      if (settings.staged?.stage2_mode) {
-        settingsDefaults['CODEXLENS_STAGED_STAGE2_MODE'] = settings.staged.stage2_mode;
-      }
-      if (settings.staged?.clustering_strategy) {
-        settingsDefaults['CODEXLENS_STAGED_CLUSTERING_STRATEGY'] = settings.staged.clustering_strategy;
-      }
-      if (settings.staged?.clustering_min_size !== undefined) {
-        settingsDefaults['CODEXLENS_STAGED_CLUSTERING_MIN_SIZE'] = String(settings.staged.clustering_min_size);
-      }
-      if (settings.staged?.enable_rerank !== undefined) {
-        settingsDefaults['CODEXLENS_ENABLE_STAGED_RERANK'] = String(settings.staged.enable_rerank);
+      if (settings.search?.fusion_k !== undefined) {
+        settingsDefaults['CODEXLENS_FUSION_K'] = String(settings.search.fusion_k);
       }
 
-      // LLM settings
-      if (settings.llm?.enabled !== undefined) {
-        settingsDefaults['CODEXLENS_LLM_ENABLED'] = String(settings.llm.enabled);
+      // Indexing settings
+      if (settings.indexing?.code_aware_chunking !== undefined) {
+        settingsDefaults['CODEXLENS_CODE_AWARE_CHUNKING'] = String(settings.indexing.code_aware_chunking);
       }
-      if (settings.llm?.batch_size !== undefined) {
-        settingsDefaults['CODEXLENS_LLM_BATCH_SIZE'] = String(settings.llm.batch_size);
+      if (settings.indexing?.workers !== undefined) {
+        settingsDefaults['CODEXLENS_INDEX_WORKERS'] = String(settings.indexing.workers);
       }
-
-      // Parsing / indexing settings
-      if (settings.parsing?.use_astgrep !== undefined) {
-        settingsDefaults['CODEXLENS_USE_ASTGREP'] = String(settings.parsing.use_astgrep);
+      if (settings.indexing?.max_file_size_bytes !== undefined) {
+        settingsDefaults['CODEXLENS_MAX_FILE_SIZE'] = String(settings.indexing.max_file_size_bytes);
       }
-      if (settings.indexing?.static_graph_enabled !== undefined) {
-        settingsDefaults['CODEXLENS_STATIC_GRAPH_ENABLED'] = String(settings.indexing.static_graph_enabled);
+      if (settings.indexing?.hnsw_ef !== undefined) {
+        settingsDefaults['CODEXLENS_HNSW_EF'] = String(settings.indexing.hnsw_ef);
       }
-      if (settings.indexing?.static_graph_relationship_types !== undefined) {
-        if (Array.isArray(settings.indexing.static_graph_relationship_types)) {
-          settingsDefaults['CODEXLENS_STATIC_GRAPH_RELATIONSHIP_TYPES'] = settings.indexing.static_graph_relationship_types.join(',');
-        } else if (typeof settings.indexing.static_graph_relationship_types === 'string') {
-          settingsDefaults['CODEXLENS_STATIC_GRAPH_RELATIONSHIP_TYPES'] = settings.indexing.static_graph_relationship_types;
-        }
+      if (settings.indexing?.hnsw_M !== undefined) {
+        settingsDefaults['CODEXLENS_HNSW_M'] = String(settings.indexing.hnsw_M);
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });

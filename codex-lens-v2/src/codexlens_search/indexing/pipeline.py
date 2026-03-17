@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import queue
+import re
 import threading
 import time
 from dataclasses import dataclass
@@ -30,6 +31,52 @@ _SENTINEL = None
 # Defaults for chunking (can be overridden via index_files kwargs)
 _DEFAULT_MAX_CHUNK_CHARS = 800
 _DEFAULT_CHUNK_OVERLAP = 100
+
+
+def is_file_excluded(file_path: Path, config: Config) -> str | None:
+    """Check if a file should be excluded from indexing.
+
+    Returns exclusion reason string, or None if file should be indexed.
+    """
+    # Extension check
+    suffix = file_path.suffix.lower()
+    # Handle compound extensions like .min.js
+    name_lower = file_path.name.lower()
+    for ext in config.exclude_extensions:
+        if name_lower.endswith(ext):
+            return f"excluded extension: {ext}"
+
+    # File size check
+    try:
+        size = file_path.stat().st_size
+    except OSError:
+        return "cannot stat file"
+    if size > config.max_file_size_bytes:
+        return f"exceeds max size ({size} > {config.max_file_size_bytes})"
+    if size == 0:
+        return "empty file"
+
+    # Binary detection: sample first N bytes
+    try:
+        with open(file_path, "rb") as f:
+            sample = f.read(config.binary_detect_sample_bytes)
+    except OSError:
+        return "cannot read file"
+    if sample:
+        null_ratio = sample.count(b"\x00") / len(sample)
+        if null_ratio > config.binary_null_threshold:
+            return f"binary file (null ratio: {null_ratio:.2%})"
+
+    # Generated code markers (check first 1KB of text)
+    try:
+        head = file_path.read_text(encoding="utf-8", errors="replace")[:1024]
+    except OSError:
+        return None  # can't check, let it through
+    for marker in config.generated_code_markers:
+        if marker in head:
+            return f"generated code marker: {marker}"
+
+    return None
 
 
 @dataclass
@@ -126,16 +173,19 @@ class IndexingPipeline:
         chunks_created = 0
 
         for fpath in files:
+            # Noise file filter
+            exclude_reason = is_file_excluded(fpath, self._config)
+            if exclude_reason:
+                logger.debug("Skipping %s: %s", fpath, exclude_reason)
+                continue
             try:
-                if fpath.stat().st_size > max_file_size:
-                    continue
                 text = fpath.read_text(encoding="utf-8", errors="replace")
             except Exception as exc:
                 logger.debug("Skipping %s: %s", fpath, exc)
                 continue
 
             rel_path = str(fpath.relative_to(root)) if root else str(fpath)
-            file_chunks = self._chunk_text(text, rel_path, max_chunk_chars, chunk_overlap)
+            file_chunks = self._smart_chunk(text, rel_path, max_chunk_chars, chunk_overlap)
 
             if not file_chunks:
                 continue
@@ -290,6 +340,106 @@ class IndexingPipeline:
 
         return chunks
 
+    # Pattern matching top-level definitions across languages
+    _CODE_BOUNDARY_RE = re.compile(
+        r"^(?:"
+        r"(?:export\s+)?(?:async\s+)?(?:def|class|function)\s+"       # Python/JS/TS
+        r"|(?:pub\s+)?(?:fn|struct|impl|enum|trait|mod)\s+"           # Rust
+        r"|(?:func|type)\s+"                                          # Go
+        r"|(?:public|private|protected|internal)?\s*(?:static\s+)?(?:class|interface|enum|record)\s+"  # Java/C#
+        r"|(?:namespace|template)\s+"                                 # C++
+        r")",
+        re.MULTILINE,
+    )
+
+    def _chunk_code(
+        self,
+        text: str,
+        path: str,
+        max_chars: int,
+        overlap: int,
+    ) -> list[tuple[str, str, int, int]]:
+        """Split code at function/class boundaries with fallback to _chunk_text.
+
+        Strategy:
+        1. Find all top-level definition boundaries via regex.
+        2. Split text into segments at those boundaries.
+        3. Merge small adjacent segments up to max_chars.
+        4. If a segment exceeds max_chars, fall back to _chunk_text for that segment.
+        """
+        lines = text.splitlines(keepends=True)
+        if not lines:
+            return []
+
+        # Find boundary line numbers (0-based)
+        boundaries: list[int] = [0]  # always start at line 0
+        for i, line in enumerate(lines):
+            if i == 0:
+                continue
+            # Only match lines with no or minimal indentation (top-level)
+            stripped = line.lstrip()
+            indent = len(line) - len(stripped)
+            if indent <= 4 and self._CODE_BOUNDARY_RE.match(stripped):
+                boundaries.append(i)
+
+        if len(boundaries) <= 1:
+            # No boundaries found, fall back to text chunking
+            return self._chunk_text(text, path, max_chars, overlap)
+
+        # Build raw segments between boundaries
+        raw_segments: list[tuple[int, int]] = []  # (start_line, end_line) 0-based
+        for idx in range(len(boundaries)):
+            start = boundaries[idx]
+            end = boundaries[idx + 1] if idx + 1 < len(boundaries) else len(lines)
+            raw_segments.append((start, end))
+
+        # Merge small adjacent segments up to max_chars
+        merged: list[tuple[int, int]] = []
+        cur_start, cur_end = raw_segments[0]
+        cur_len = sum(len(lines[i]) for i in range(cur_start, cur_end))
+
+        for seg_start, seg_end in raw_segments[1:]:
+            seg_len = sum(len(lines[i]) for i in range(seg_start, seg_end))
+            if cur_len + seg_len <= max_chars:
+                cur_end = seg_end
+                cur_len += seg_len
+            else:
+                merged.append((cur_start, cur_end))
+                cur_start, cur_end = seg_start, seg_end
+                cur_len = seg_len
+        merged.append((cur_start, cur_end))
+
+        # Build chunks, falling back to _chunk_text for oversized segments
+        chunks: list[tuple[str, str, int, int]] = []
+        for seg_start, seg_end in merged:
+            seg_text = "".join(lines[seg_start:seg_end])
+            if len(seg_text) > max_chars:
+                # Oversized: sub-chunk with text splitter
+                sub_chunks = self._chunk_text(seg_text, path, max_chars, overlap)
+                # Adjust line numbers relative to segment start
+                for chunk_text, p, sl, el in sub_chunks:
+                    chunks.append((chunk_text, p, sl + seg_start, el + seg_start))
+            else:
+                chunks.append((seg_text, path, seg_start + 1, seg_end))
+
+        return chunks
+
+    def _smart_chunk(
+        self,
+        text: str,
+        path: str,
+        max_chars: int,
+        overlap: int,
+    ) -> list[tuple[str, str, int, int]]:
+        """Choose chunking strategy based on file type and config."""
+        if self._config.code_aware_chunking:
+            suffix = Path(path).suffix.lower()
+            if suffix in self._config.code_extensions:
+                result = self._chunk_code(text, path, max_chars, overlap)
+                if result:
+                    return result
+        return self._chunk_text(text, path, max_chars, overlap)
+
     # ------------------------------------------------------------------
     # Incremental API
     # ------------------------------------------------------------------
@@ -342,11 +492,14 @@ class IndexingPipeline:
         meta = self._require_metadata()
         t0 = time.monotonic()
 
+        # Noise file filter
+        exclude_reason = is_file_excluded(file_path, self._config)
+        if exclude_reason:
+            logger.debug("Skipping %s: %s", file_path, exclude_reason)
+            return IndexStats(duration_seconds=round(time.monotonic() - t0, 2))
+
         # Read file
         try:
-            if file_path.stat().st_size > max_file_size:
-                logger.debug("Skipping %s: exceeds max_file_size", file_path)
-                return IndexStats(duration_seconds=round(time.monotonic() - t0, 2))
             text = file_path.read_text(encoding="utf-8", errors="replace")
         except Exception as exc:
             logger.debug("Skipping %s: %s", file_path, exc)
@@ -366,7 +519,7 @@ class IndexingPipeline:
             self._fts.delete_by_path(rel_path)
 
         # Chunk
-        file_chunks = self._chunk_text(text, rel_path, max_chunk_chars, chunk_overlap)
+        file_chunks = self._smart_chunk(text, rel_path, max_chunk_chars, chunk_overlap)
         if not file_chunks:
             # Register file with no chunks
             meta.register_file(rel_path, content_hash, file_path.stat().st_mtime)

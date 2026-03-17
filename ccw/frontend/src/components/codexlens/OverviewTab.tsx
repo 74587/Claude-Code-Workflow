@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils';
 import type { CodexLensVenvStatus, CodexLensConfig } from '@/lib/api';
 import { IndexOperations } from './IndexOperations';
 import { FileWatcherCard } from './FileWatcherCard';
-import { LspServerCard } from './LspServerCard';
 
 interface OverviewTabProps {
   installed: boolean;
@@ -145,9 +144,8 @@ export function OverviewTab({ installed, status, config, isLoading, onRefresh }:
       </div>
 
       {/* Service Management */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <FileWatcherCard disabled={!isReady} />
-        <LspServerCard disabled={!isReady} />
       </div>
 
       {/* Index Operations */}

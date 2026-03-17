@@ -412,17 +412,44 @@ if (hasUnresolvedIssues(reviewResult)) {
 
 **Artifact Substitution**: Replace `@{plan.json}` → `@${executionContext.session.artifacts.plan}`, `[@{exploration.json}]` → exploration files from artifacts (if exists).
 
-### Step 5: Auto-Sync Project State
+### Step 5: Chain to Test Review & Post-Completion
 
-**Trigger**: After all executions complete (regardless of code review)
+> **Note**: Spec sync (session:sync) is handled by lite-test-review's TR-Phase 5, not here. This avoids duplicate sync and ensures test fix changes are also captured.
 
-**Operation**: `/workflow:session:sync -y "{summary}"`
+**Map review tool**: Convert lite-execute's `codeReviewTool` to test-review tool name.
 
-Summary priority: `originalUserInput` → `planObject.summary` → git log auto-infer.
+```javascript
+function mapReviewTool(codeReviewTool) {
+  if (!codeReviewTool || codeReviewTool === 'Skip') return 'agent'
+  if (/gemini/i.test(codeReviewTool)) return 'gemini'
+  if (/codex/i.test(codeReviewTool)) return 'codex'
+  return 'agent'
+}
+```
 
-### Step 6: Post-Completion Expansion
+**Build testReviewContext and handoff**:
 
-Ask user whether to expand into issues (test/enhance/refactor/doc). Selected items call `/issue:new "{summary} - {dimension}"`.
+```javascript
+testReviewContext = {
+  planObject: planObject,
+  taskFiles: executionContext?.taskFiles
+    || getTasks(planObject).map(t => ({ id: t.id, path: `${executionContext?.session?.folder}/.task/${t.id}.json` })),
+  reviewTool: mapReviewTool(executionContext?.codeReviewTool),
+  executionResults: previousExecutionResults,
+  originalUserInput: originalUserInput,
+  session: executionContext?.session || {
+    id: 'standalone',
+    folder: executionContext?.session?.folder || '.',
+    artifacts: { plan: null, task_dir: null }
+  }
+}
+
+// Chain to lite-test-review (Mode 1: In-Memory)
+Skill("lite-test-review")
+// testReviewContext passed as global variable
+```
+
+**After test-review returns**: Ask user whether to expand into issues (enhance/refactor/doc). Selected items call `/issue:new "{summary} - {dimension}"`.
 
 ## Error Handling
 

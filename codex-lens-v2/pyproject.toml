@@ -44,6 +44,9 @@ faiss-cpu = [
 faiss-gpu = [
     "faiss-gpu>=1.7.4",
 ]
+embed-api = [
+    "httpx>=0.25",
+]
 reranker-api = [
     "httpx>=0.25",
 ]
