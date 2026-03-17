@@ -91,7 +91,8 @@ class TestJsonHelpers:
     def test_json_output_unicode(self, capsys):
         _json_output({"msg": "中文测试"})
         out = capsys.readouterr().out.strip()
-        assert "中文测试" in out
+        parsed = json.loads(out)
+        assert parsed["msg"] == "中文测试"
 
     def test_error_exit(self):
         with pytest.raises(SystemExit) as exc_info:

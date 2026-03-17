@@ -2189,10 +2189,10 @@ async function executeCodexLensV2Bridge(
 ): Promise<SearchResult> {
   return new Promise((resolve) => {
     const args = [
+      '--db-path', dbPath,
       'search',
       '--query', query,
       '--top-k', String(topK),
-      '--db-path', dbPath,
     ];
 
     execFile('codexlens-search', args, {
@@ -2293,10 +2293,12 @@ async function executeCodexLensV2Bridge(
 async function executeV2BridgeCommand(
   subcommand: string,
   args: string[],
-  options?: { timeout?: number },
+  options?: { timeout?: number; dbPath?: string },
 ): Promise<SearchResult> {
   return new Promise((resolve) => {
-    const fullArgs = [subcommand, ...args];
+    // --db-path is a global arg and must come BEFORE the subcommand
+    const globalArgs = options?.dbPath ? ['--db-path', options.dbPath] : [];
+    const fullArgs = [...globalArgs, subcommand, ...args];
     execFile('codexlens-search', fullArgs, {
       encoding: 'utf-8',
       timeout: options?.timeout ?? EXEC_TIMEOUTS.PROCESS_SPAWN,
@@ -2333,14 +2335,13 @@ async function executeInitActionV2(params: Params): Promise<SearchResult> {
   const dbPath = join(scope.workingDirectory, '.codexlens');
 
   // Step 1: init empty index
-  const initResult = await executeV2BridgeCommand('init', ['--db-path', dbPath]);
+  const initResult = await executeV2BridgeCommand('init', [], { dbPath });
   if (!initResult.success) return initResult;
 
   // Step 2: sync all files
   const syncResult = await executeV2BridgeCommand('sync', [
     '--root', scope.workingDirectory,
-    '--db-path', dbPath,
-  ], { timeout: 1800000 }); // 30 min for large codebases
+  ], { timeout: 1800000, dbPath }); // 30 min for large codebases
 
   return {
     success: syncResult.success,
@@ -2361,7 +2362,7 @@ async function executeStatusActionV2(params: Params): Promise<SearchResult> {
   const scope = resolveSearchScope(path);
   const dbPath = join(scope.workingDirectory, '.codexlens');
 
-  return executeV2BridgeCommand('status', ['--db-path', dbPath]);
+  return executeV2BridgeCommand('status', [], { dbPath });
 }
 
 /**
@@ -2374,8 +2375,7 @@ async function executeUpdateActionV2(params: Params): Promise<SearchResult> {
 
   return executeV2BridgeCommand('sync', [
     '--root', scope.workingDirectory,
-    '--db-path', dbPath,
-  ], { timeout: 600000 }); // 10 min
+  ], { timeout: 600000, dbPath }); // 10 min
 }
 
 /**
@@ -2389,9 +2389,8 @@ async function executeWatchActionV2(params: Params): Promise<SearchResult> {
   // Watch runs indefinitely — start it with a short initial timeout to confirm startup
   const result = await executeV2BridgeCommand('watch', [
     '--root', scope.workingDirectory,
-    '--db-path', dbPath,
     '--debounce-ms', debounce.toString(),
-  ], { timeout: 5000 });
+  ], { timeout: 5000, dbPath });
 
   return {
     success: true,
@@ -3607,7 +3606,7 @@ export async function executeInitWithProgress(
   }
 
   // Step 1: init empty index
-  const initResult = await executeV2BridgeCommand('init', ['--db-path', dbPath]);
+  const initResult = await executeV2BridgeCommand('init', [], { dbPath });
   if (!initResult.success) return initResult;
 
   if (onProgress) {
@@ -3617,8 +3616,7 @@ export async function executeInitWithProgress(
   // Step 2: sync all files
   const syncResult = await executeV2BridgeCommand('sync', [
     '--root', scope.workingDirectory,
-    '--db-path', dbPath,
-  ], { timeout: 1800000 });
+  ], { timeout: 1800000, dbPath });
 
   if (onProgress) {
     onProgress({ stage: 'complete', message: 'Index build complete', percent: 100 } as ProgressInfo);

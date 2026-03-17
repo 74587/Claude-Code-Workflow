@@ -23,9 +23,18 @@ log = logging.getLogger("codexlens_search.bridge")
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _ensure_utf8_stdio() -> None:
+    """Force UTF-8 encoding on stdout/stderr (Windows defaults to GBK/cp936)."""
+    if sys.platform == "win32":
+        for stream_name in ("stdout", "stderr"):
+            stream = getattr(sys, stream_name)
+            if hasattr(stream, "reconfigure"):
+                stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def _json_output(data: dict | list) -> None:
     """Print JSON to stdout with flush."""
-    print(json.dumps(data, ensure_ascii=False), flush=True)
+    print(json.dumps(data, ensure_ascii=True), flush=True)
 
 
 def _error_exit(message: str, code: int = 1) -> None:
@@ -363,6 +372,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     """CLI entry point."""
+    _ensure_utf8_stdio()
     parser = _build_parser()
     args = parser.parse_args()
 
