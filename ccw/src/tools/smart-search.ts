@@ -1,21 +1,20 @@
 /**
- * Smart Search Tool - Unified intelligent search with CodexLens integration
+ * Smart Search Tool - Unified intelligent search powered by codexlens-search v2
  *
  * Features:
- * - Fuzzy mode: FTS + ripgrep fusion with RRF ranking (default)
- * - Semantic mode: Dense coarse retrieval + cross-encoder reranking
- * - CodexLens integration (init, dense_rerank, fts)
- * - Ripgrep fallback for exact mode
- * - Index status checking and warnings
- * - Multi-backend search routing with RRF ranking
+ * - Semantic search: 2-stage vector (binary coarse + ANN fine) + FTS5 + RRF fusion + reranking
+ * - Ripgrep fallback for fast exact/regex matching
+ * - File discovery via glob patterns
+ * - Incremental indexing with Mark-and-Filter strategy
+ * - File watcher for automatic index updates
  *
  * Actions:
- * - init: Initialize CodexLens static index
- * - embed: Generate semantic/vector embeddings for the index
- * - search: Intelligent search with fuzzy (default) or semantic mode
- * - status: Check index status
- * - update: Incremental index update for changed files
+ * - search: Semantic search via v2 bridge with ripgrep fallback
+ * - init: Initialize v2 index and sync files
+ * - status: Check v2 index statistics
+ * - update: Incremental sync for changed files
  * - watch: Start file watcher for automatic updates
+ * - find_files: Glob-based file path matching
  */
 
 import { z } from 'zod';
@@ -29,7 +28,6 @@ import {
   ensureLiteLLMEmbedderReady,
   executeCodexLens,
   getVenvPythonPath,
-  useCodexLensV2,
 } from './codex-lens.js';
 import { execFile } from 'child_process';
 import type { ProgressInfo } from './codex-lens.js';
@@ -76,10 +74,9 @@ function createTimer(): { mark: (name: string) => void; getTimings: () => Timing
 
 // Define Zod schema for validation
 const ParamsSchema = z.object({
-  // Action: search (content), find_files (path/name pattern), init, init_force, embed, status, update (incremental), watch
+  // Action: search (content), find_files (path/name pattern), init, status, update (incremental sync), watch
   // Note: search_files is deprecated, use search with output_mode='files_only'
-  // init: static FTS index by default, embed: generate semantic/vector embeddings, init_force: force full rebuild (delete and recreate)
-  action: z.enum(['init', 'init_force', 'embed', 'search', 'search_files', 'find_files', 'status', 'update', 'watch']).default('search'),
+  action: z.enum(['init', 'search', 'search_files', 'find_files', 'status', 'update', 'watch']).default('search'),
   query: z.string().optional().describe('Content search query (for action="search")'),
   pattern: z.string().optional().describe('Glob pattern for path matching (for action="find_files")'),
   mode: z.enum(['fuzzy', 'semantic']).default('fuzzy'),
@@ -89,16 +86,11 @@ const ParamsSchema = z.object({
   contextLines: z.number().default(0),
   maxResults: z.number().default(5),  // Default 5 with full content
   includeHidden: z.boolean().default(false),
-  languages: z.array(z.string()).optional(),
-  embeddingBackend: z.string().optional().describe('Embedding backend for action="embed": fastembed/local or litellm/api. Default bulk preset: local-fast.'),
-  embeddingModel: z.string().optional().describe('Embedding model/profile for action="embed". Examples: "code", "fast", "qwen3-embedding-sf". Default bulk preset uses "fast".'),
-  apiMaxWorkers: z.number().int().min(1).optional().describe('Max concurrent API embedding workers for action="embed". Recommended: 8-16 for litellm/api when multiple endpoints are configured.'),
-  force: z.boolean().default(false).describe('Force regeneration for action="embed".'),
+  force: z.boolean().default(false).describe('Force full rebuild for action="init".'),
   limit: z.number().default(5),  // Default 5 with full content
   extraFilesCount: z.number().default(10),  // Additional file-only results
   maxContentLength: z.number().default(200),  // Max content length for truncation (50-2000)
   offset: z.number().default(0),  // NEW: Pagination offset (start_index)
-  enrich: z.boolean().default(false),
   // Search modifiers for ripgrep mode
   regex: z.boolean().default(true),            // Use regex pattern matching (default: enabled)
   caseSensitive: z.boolean().default(true),    // Case sensitivity (default: case-sensitive)
@@ -1966,616 +1958,17 @@ async function maybeStartBackgroundAutoEmbed(
   };
 }
 
-async function executeEmbeddingsViaPython(params: {
-  projectPath: string;
-  backend?: string;
-  model?: string;
-  force: boolean;
-  maxWorkers?: number;
-  endpoints?: RotationEndpointConfig[];
-}): Promise<{ success: boolean; error?: string; progressMessages?: string[] }> {
-  const { projectPath } = params;
-  const pythonCode = buildEmbeddingPythonCode(params);
+// v1 executeEmbeddingsViaPython removed — v2 uses built-in fastembed models
 
-  return await new Promise((resolve) => {
-    const child = getSpawnRuntime()(
-      getVenvPythonPathRuntime()(),
-      ['-c', pythonCode],
-      buildSmartSearchSpawnOptions(projectPath, {
-        timeout: 1800000,
-      }),
-    );
+// v1 executeInitAction removed — replaced by executeInitActionV2
 
-    let stdout = '';
-    let stderr = '';
-    const progressMessages: string[] = [];
+// v1 executeEmbedAction removed — v2 auto-embeds during sync
 
-    child.stdout?.on('data', (data: Buffer) => {
-      const chunk = data.toString();
-      stdout += chunk;
-      for (const line of chunk.split(/\r?\n/)) {
-        if (line.startsWith(EMBED_PROGRESS_PREFIX)) {
-          progressMessages.push(line.slice(EMBED_PROGRESS_PREFIX.length).trim());
-        }
-      }
-    });
+// v1 executeStatusAction removed — replaced by executeStatusActionV2
 
-    child.stderr?.on('data', (data: Buffer) => {
-      stderr += data.toString();
-    });
+// v1 executeUpdateAction and executeWatchAction removed — replaced by V2 versions
 
-    child.on('error', (err) => {
-      resolve({ success: false, error: `Failed to start embeddings process: ${err.message}`, progressMessages });
-    });
-
-    child.on('close', (code) => {
-      const jsonLine = extractEmbedJsonLine(stdout);
-      if (jsonLine) {
-        try {
-          const parsed = JSON.parse(jsonLine) as { success?: boolean; error?: string };
-          if (parsed.success) {
-            resolve({ success: true, progressMessages });
-            return;
-          }
-          resolve({
-            success: false,
-            error: parsed.error || stderr.trim() || stdout.trim() || `Embeddings process exited with code ${code}`,
-            progressMessages,
-          });
-          return;
-        } catch {
-          // Fall through to generic error handling below.
-        }
-      }
-
-      resolve({
-        success: code === 0,
-        error: code === 0 ? undefined : (stderr.trim() || stdout.trim() || `Embeddings process exited with code ${code}`),
-        progressMessages,
-      });
-    });
-  });
-}
-
-/**
- * Action: init - Initialize CodexLens index (FTS only, no embeddings)
- * For semantic/vector search, follow with action="embed" to generate vectors.
- * @param params - Search parameters
- * @param force - If true, force full rebuild (delete existing index first)
- */
-async function executeInitAction(params: Params, force: boolean = false): Promise<SearchResult> {
-  const { path = '.', languages } = params;
-  const scope = resolveSearchScope(path);
-
-  // Check CodexLens availability
-  const readyStatus = await ensureCodexLensReady();
-  if (!readyStatus.ready) {
-    return {
-      success: false,
-      error: `CodexLens not available: ${readyStatus.error}. CodexLens will be auto-installed on first use.`,
-    };
-  }
-
-  // Build args with --no-embeddings for FTS-only index (faster)
-  // Use 'index init' subcommand (new CLI structure)
-  const args = buildIndexInitArgs(scope.workingDirectory, { force, languages });
-
-  // Track progress updates
-  const progressUpdates: ProgressInfo[] = [];
-  let lastProgress: ProgressInfo | null = null;
-
-  const result = await executeCodexLens(args, {
-    cwd: scope.workingDirectory,
-    timeout: 1800000, // 30 minutes for large codebases
-    onProgress: (progress: ProgressInfo) => {
-      progressUpdates.push(progress);
-      lastProgress = progress;
-    },
-  });
-
-  // Build metadata with progress info
-  const metadata: SearchMetadata = {
-    action: force ? 'init_force' : 'init',
-    path: scope.workingDirectory,
-  };
-
-  if (lastProgress !== null) {
-    const p = lastProgress as ProgressInfo;
-    metadata.progress = {
-      stage: p.stage,
-      message: p.message,
-      percent: p.percent,
-      filesProcessed: p.filesProcessed,
-      totalFiles: p.totalFiles,
-    };
-  }
-
-  if (progressUpdates.length > 0) {
-    metadata.progressHistory = progressUpdates.slice(-5); // Keep last 5 progress updates
-  }
-
-  const actionLabel = force ? 'rebuilt (force)' : 'created';
-  const successMessage = result.success
-    ? `FTS index ${actionLabel} for ${path}. Note: For semantic/vector search, create vector index via "ccw view" dashboard or run "codexlens init ${path}" (without --no-embeddings).`
-    : undefined;
-
-  return {
-    success: result.success,
-    error: result.error,
-    message: successMessage,
-    metadata,
-  };
-}
-
-/**
- * Action: embed - Generate semantic/vector embeddings for an indexed project
- */
-async function executeEmbedAction(params: Params): Promise<SearchResult> {
-  const { path = '.', embeddingBackend, embeddingModel, apiMaxWorkers, force = false } = params;
-  const scope = resolveSearchScope(path);
-
-  const readyStatus = await ensureCodexLensReady();
-  if (!readyStatus.ready) {
-    return {
-      success: false,
-      error: `CodexLens not available: ${readyStatus.error}. CodexLens will be auto-installed on first use.`,
-    };
-  }
-
-  const currentStatus = await checkIndexStatus(scope.workingDirectory);
-  const embeddingSelection = resolveEmbeddingSelection(embeddingBackend, embeddingModel, currentStatus.config);
-  const normalizedBackend = embeddingSelection.backend;
-  const trimmedModel = embeddingSelection.model;
-  const endpoints = resolveEmbeddingEndpoints(normalizedBackend);
-  const configuredApiMaxWorkers = currentStatus.config?.api_max_workers;
-  const effectiveApiMaxWorkers = typeof apiMaxWorkers === 'number'
-    ? Math.max(1, Math.floor(apiMaxWorkers))
-    : (typeof configuredApiMaxWorkers === 'number'
-      ? Math.max(1, Math.floor(configuredApiMaxWorkers))
-      : resolveApiWorkerCount(undefined, normalizedBackend, endpoints));
-
-  if (normalizedBackend === 'litellm') {
-    const embedderReady = await ensureLiteLLMEmbedderReady();
-    if (!embedderReady.success) {
-      return {
-        success: false,
-        error: embedderReady.error || 'LiteLLM embedder is not ready.',
-      };
-    }
-  }
-
-  const result = await executeEmbeddingsViaPython({
-    projectPath: scope.workingDirectory,
-    backend: normalizedBackend,
-    model: trimmedModel,
-    force,
-    maxWorkers: effectiveApiMaxWorkers,
-    endpoints,
-  });
-
-  const indexStatus = result.success ? await checkIndexStatus(scope.workingDirectory) : currentStatus;
-  const coverage = indexStatus?.embeddings_coverage_percent;
-  const coverageText = coverage !== undefined ? ` (${coverage.toFixed(1)}% coverage)` : '';
-  const progressMessage = result.progressMessages && result.progressMessages.length > 0
-    ? result.progressMessages[result.progressMessages.length - 1]
-    : undefined;
-
-  return {
-    success: result.success,
-    error: result.error,
-    message: result.success
-      ? `Embeddings generated for ${path}${coverageText}`
-      : undefined,
-    metadata: {
-      action: 'embed',
-      path: scope.workingDirectory,
-      backend: normalizedBackend || indexStatus?.config?.embedding_backend,
-      embeddings_coverage_percent: coverage,
-      api_max_workers: normalizedBackend === 'litellm' ? effectiveApiMaxWorkers : undefined,
-      endpoint_count: endpoints.length,
-      use_gpu: true,
-      reranker_enabled: currentStatus.config?.reranker_enabled,
-      reranker_backend: currentStatus.config?.reranker_backend,
-      reranker_model: currentStatus.config?.reranker_model,
-      cascade_strategy: currentStatus.config?.cascade_strategy,
-      staged_stage2_mode: currentStatus.config?.staged_stage2_mode,
-      static_graph_enabled: currentStatus.config?.static_graph_enabled,
-      note: [embeddingSelection.note, progressMessage].filter(Boolean).join(' | ') || undefined,
-      preset: embeddingSelection.preset,
-    },
-    status: indexStatus,
-  };
-}
-
-/**
- * Action: status - Check CodexLens index status
- */
-async function executeStatusAction(params: Params): Promise<SearchResult> {
-  const { path = '.' } = params;
-  const scope = resolveSearchScope(path);
-
-  const indexStatus = await checkIndexStatus(scope.workingDirectory);
-
-  // Build detailed status message
-  const statusParts: string[] = [];
-
-  // Index status
-  statusParts.push(`Index: ${indexStatus.indexed ? 'indexed' : 'not indexed'}`);
-  if (indexStatus.file_count) {
-    statusParts.push(`Files: ${indexStatus.file_count}`);
-  }
-
-  // Embeddings status
-  if (indexStatus.embeddings_coverage_percent !== undefined) {
-    statusParts.push(`Embeddings: ${indexStatus.embeddings_coverage_percent.toFixed(1)}%`);
-  }
-  if (indexStatus.total_chunks) {
-    statusParts.push(`Chunks: ${indexStatus.total_chunks}`);
-  }
-
-  // Config summary
-  if (indexStatus.config) {
-    const cfg = indexStatus.config;
-    // Embedding backend info
-    const embeddingType = cfg.embedding_backend === 'litellm' ? 'API' : 'Local';
-    statusParts.push(`Embedding: ${embeddingType} (${cfg.embedding_model || 'default'})`);
-    statusParts.push(`Auto Embed Missing: ${isAutoEmbedMissingEnabled(cfg) ? 'on' : 'off'}`);
-    if (typeof cfg.api_max_workers === 'number') {
-      statusParts.push(`API Workers: ${cfg.api_max_workers}`);
-    }
-    if (cfg.cascade_strategy) {
-      statusParts.push(`Cascade: ${cfg.cascade_strategy}`);
-    }
-    if (cfg.staged_stage2_mode) {
-      statusParts.push(`Stage2: ${cfg.staged_stage2_mode}`);
-    }
-    if (typeof cfg.static_graph_enabled === 'boolean') {
-      statusParts.push(`Static Graph: ${cfg.static_graph_enabled ? 'on' : 'off'}`);
-    }
-
-    // Reranker info
-    if (cfg.reranker_enabled) {
-      const rerankerType = cfg.reranker_backend === 'onnx' ? 'Local' : 'API';
-      statusParts.push(`Reranker: ${rerankerType} (${cfg.reranker_model || 'default'})`);
-    } else {
-      statusParts.push('Reranker: disabled');
-    }
-  }
-
-  return {
-    success: true,
-    status: indexStatus,
-    message: indexStatus.warning || statusParts.join(' | '),
-    metadata: {
-      action: 'status',
-      path: scope.workingDirectory,
-      warning: indexStatus.warning,
-      reranker_enabled: indexStatus.config?.reranker_enabled,
-      reranker_backend: indexStatus.config?.reranker_backend,
-      reranker_model: indexStatus.config?.reranker_model,
-      cascade_strategy: indexStatus.config?.cascade_strategy,
-      staged_stage2_mode: indexStatus.config?.staged_stage2_mode,
-      static_graph_enabled: indexStatus.config?.static_graph_enabled,
-      suggestions: buildIndexSuggestions(indexStatus, scope),
-    },
-  };
-}
-
-/**
- * Action: update - Incremental index update
- * Updates index for changed files without full rebuild
- */
-async function executeUpdateAction(params: Params): Promise<SearchResult> {
-  const { path = '.', languages } = params;
-  const scope = resolveSearchScope(path);
-
-  // Check CodexLens availability
-  const readyStatus = await ensureCodexLensReady();
-  if (!readyStatus.ready) {
-    return {
-      success: false,
-      error: `CodexLens not available: ${readyStatus.error}`,
-    };
-  }
-
-  // Check if index exists first
-  const indexStatus = await checkIndexStatus(scope.workingDirectory);
-  if (!indexStatus.indexed) {
-    return {
-      success: false,
-      error: `Directory not indexed. Run smart_search(action="init") first.`,
-    };
-  }
-
-  // Build args for incremental init (without --force)
-  // Use 'index init' subcommand (new CLI structure)
-  const args = ['index', 'init', scope.workingDirectory];
-  if (languages && languages.length > 0) {
-    args.push(...languages.flatMap((language) => ['--language', language]));
-  }
-
-  // Track progress updates
-  const progressUpdates: ProgressInfo[] = [];
-  let lastProgress: ProgressInfo | null = null;
-
-  const result = await executeCodexLens(args, {
-    cwd: scope.workingDirectory,
-    timeout: 600000, // 10 minutes for incremental updates
-    onProgress: (progress: ProgressInfo) => {
-      progressUpdates.push(progress);
-      lastProgress = progress;
-    },
-  });
-
-  // Build metadata with progress info
-  const metadata: SearchMetadata = {
-    action: 'update',
-    path,
-  };
-
-  if (lastProgress !== null) {
-    const p = lastProgress as ProgressInfo;
-    metadata.progress = {
-      stage: p.stage,
-      message: p.message,
-      percent: p.percent,
-      filesProcessed: p.filesProcessed,
-      totalFiles: p.totalFiles,
-    };
-  }
-
-  if (progressUpdates.length > 0) {
-    metadata.progressHistory = progressUpdates.slice(-5);
-  }
-
-  return {
-    success: result.success,
-    error: result.error,
-    message: result.success
-      ? `Incremental update completed for ${path}`
-      : undefined,
-    metadata,
-  };
-}
-
-/**
- * Action: watch - Start file watcher for automatic incremental updates
- * Note: This starts a background process, returns immediately with status
- */
-async function executeWatchAction(params: Params): Promise<SearchResult> {
-  const { path = '.', languages, debounce = 1000 } = params;
-  const scope = resolveSearchScope(path);
-
-  // Check CodexLens availability
-  const readyStatus = await ensureCodexLensReady();
-  if (!readyStatus.ready) {
-    return {
-      success: false,
-      error: `CodexLens not available: ${readyStatus.error}`,
-    };
-  }
-
-  // Check if index exists first
-  const indexStatus = await checkIndexStatus(scope.workingDirectory);
-  if (!indexStatus.indexed) {
-    return {
-      success: false,
-      error: `Directory not indexed. Run smart_search(action="init") first.`,
-    };
-  }
-
-  // Build args for watch command
-  const args = ['watch', scope.workingDirectory, '--debounce', debounce.toString()];
-  if (languages && languages.length > 0) {
-    args.push(...languages.flatMap((language) => ['--language', language]));
-  }
-
-  // Start watcher in background (non-blocking)
-  // Note: The watcher runs until manually stopped
-  const result = await executeCodexLens(args, {
-    cwd: scope.workingDirectory,
-    timeout: 5000, // Short timeout for initial startup check
-  });
-
-  return {
-    success: true,
-    message: `File watcher started for ${path}. Use Ctrl+C or kill the process to stop.`,
-    metadata: {
-      action: 'watch',
-      path,
-      note: 'Watcher runs in background. Changes are indexed automatically with debounce.',
-    },
-  };
-}
-
-/**
- * Mode: fuzzy - FTS + ripgrep fusion with RRF ranking
- * Runs both exact (FTS) and ripgrep searches in parallel, merges and ranks results
- */
-async function executeFuzzyMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', maxResults = 5, extraFilesCount = 10, codeOnly = true, withDoc = false, excludeExtensions, regex = true, tokenize = true } = params;
-  // withDoc overrides codeOnly
-  const effectiveCodeOnly = withDoc ? false : codeOnly;
-
-  if (!query) {
-    return {
-      success: false,
-      error: 'Query is required for search',
-    };
-  }
-
-  const timer = createTimer();
-  const ftsWasBroken = codexLensFtsBackendBroken;
-  const ripgrepQueryMode = resolveRipgrepQueryMode(query, regex, tokenize);
-  const fuzzyWarnings: string[] = [];
-  const skipExactDueToCompatibility = ftsWasBroken && !ripgrepQueryMode.literalFallback;
-
-  let skipExactReason: string | undefined;
-  if (ripgrepQueryMode.literalFallback) {
-    skipExactReason = 'Skipped CodexLens FTS backend for a literal code-pattern query; using ripgrep literal matching.';
-  } else if (codexLensFtsBackendBroken) {
-    skipExactReason = 'CodexLens FTS backend disabled for this process due to CLI compatibility errors.';
-  }
-
-  // Run both searches in parallel
-  const [ftsResult, ripgrepResult] = await Promise.allSettled([
-    skipExactReason
-      ? Promise.resolve<SearchResult>({ success: false, error: skipExactReason })
-      : executeCodexLensExactMode(params),
-    executeRipgrepMode(params),
-  ]);
-  timer.mark('parallel_search');
-
-  if (skipExactReason && !skipExactDueToCompatibility) {
-    fuzzyWarnings.push(skipExactReason);
-  }
-  if (ripgrepResult.status === 'fulfilled' && ripgrepResult.value.metadata?.warning) {
-    fuzzyWarnings.push(String(ripgrepResult.value.metadata.warning));
-  }
-  const mergedSuggestions = mergeSuggestions(
-    ftsResult.status === 'fulfilled' ? ftsResult.value.metadata?.suggestions : undefined,
-    ripgrepResult.status === 'fulfilled' ? ripgrepResult.value.metadata?.suggestions : undefined,
-  );
-
-  // Collect results from both sources
-  const resultsMap = new Map<string, any[]>();
-  
-  // Add FTS results if successful
-  if (ftsResult.status === 'fulfilled' && ftsResult.value.success && ftsResult.value.results) {
-    resultsMap.set('exact', ftsResult.value.results as any[]);
-  }
-
-  // Add ripgrep results if successful
-  if (ripgrepResult.status === 'fulfilled' && ripgrepResult.value.success && ripgrepResult.value.results) {
-    resultsMap.set('ripgrep', ripgrepResult.value.results as any[]);
-  }
-
-  const ripgrepResultCount = (resultsMap.get('ripgrep') ?? []).length;
-  const compatibilityTriggeredThisQuery = !skipExactReason && !ftsWasBroken && codexLensFtsBackendBroken;
-  if (shouldSurfaceCodexLensFtsCompatibilityWarning({
-    compatibilityTriggeredThisQuery,
-    skipExactDueToCompatibility,
-    ripgrepResultCount,
-  })) {
-    fuzzyWarnings.push('CodexLens FTS backend is incompatible with the current CLI runtime. Falling back to ripgrep results.');
-  }
-
-  // If both failed, return error
-  if (resultsMap.size === 0) {
-    const errors: string[] = [];
-    collectBackendError(errors, 'FTS', ftsResult);
-    collectBackendError(errors, 'Ripgrep', ripgrepResult);
-    return {
-      success: false,
-      error: `Both search backends failed: ${errors.join('; ') || 'unknown error'}`,
-    };
-  }
-
-  // Apply RRF fusion with fuzzy-optimized weights
-  // Fuzzy mode: balanced between exact and ripgrep
-  const fusionWeights = { exact: 0.5, ripgrep: 0.5 };
-  const totalToFetch = maxResults + extraFilesCount;
-  const fusedResults = applyRRFFusion(resultsMap, fusionWeights, totalToFetch);
-  timer.mark('rrf_fusion');
-
-  // Apply code-only and extension filtering after fusion
-  const filteredFusedResults = filterNoisyFiles(fusedResults as any[], { codeOnly: effectiveCodeOnly, excludeExtensions });
-
-  // Normalize results format
-  const normalizedResults = filteredFusedResults.map((item: any) => ({
-    file: item.file || item.path,
-    line: item.line || 0,
-    endLine: item.endLine || item.line || 0,
-    column: item.column || 0,
-    content: item.content || '',
-    chunkLines: Array.isArray(item.chunkLines) ? item.chunkLines : undefined,
-    score: item.fusion_score || 0,
-    matchCount: item.matchCount,
-    matchScore: item.matchScore,
-  }));
-
-  // Split results: first N with full content, rest as file paths only
-  const { results, extra_files } = splitResultsWithExtraFiles(normalizedResults, maxResults, extraFilesCount);
-
-  // Log timing
-  timer.log();
-  const timings = timer.getTimings();
-  const usingExactResults = resultsMap.has('exact');
-
-  return {
-    success: true,
-    results,
-    extra_files: extra_files.length > 0 ? extra_files : undefined,
-    metadata: {
-      mode: 'fuzzy',
-      backend: usingExactResults ? 'fts+ripgrep' : 'ripgrep',
-      count: results.length,
-      query,
-      note: usingExactResults
-        ? `Fuzzy search using RRF fusion of FTS and ripgrep (weights: exact=${fusionWeights.exact}, ripgrep=${fusionWeights.ripgrep})`
-        : 'Fuzzy search resolved using ripgrep only.',
-      warning: mergeWarnings(...fuzzyWarnings),
-      suggestions: mergedSuggestions,
-      timing: TIMING_ENABLED ? timings : undefined,
-    },
-  };
-}
-
-/**
- * Mode: auto - Intent classification and mode selection
- * Routes to: hybrid (NL + index) | exact (index) | ripgrep (no index)
- */
-async function executeAutoMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.' } = params;
-  const scope = resolveSearchScope(path);
-
-  if (!query) {
-    return {
-      success: false,
-      error: 'Query is required for search action',
-    };
-  }
-
-  // Check index status
-  const indexStatus = await checkIndexStatus(scope.workingDirectory);
-
-  // Classify intent with index and embeddings awareness
-  const classification = classifyIntent(
-    query, 
-    indexStatus.indexed, 
-    indexStatus.has_embeddings  // This now considers 50% threshold
-  );
-
-  // Route to appropriate mode based on classification
-  let result: SearchResult;
-
-  switch (classification.mode) {
-    case 'hybrid':
-      result = await executeHybridMode(params);
-      break;
-
-    case 'exact':
-      result = await executeCodexLensExactMode(params);
-      break;
-
-    case 'ripgrep':
-      result = await executeRipgrepMode(params);
-      break;
-
-    default:
-      // Fallback to ripgrep
-      result = await executeRipgrepMode(params);
-      break;
-  }
-
-  // Add classification metadata
-  result.metadata = enrichMetadataWithIndexStatus(result.metadata, indexStatus, scope);
-  result.metadata.classified_as = classification.mode;
-  result.metadata.confidence = classification.confidence;
-  result.metadata.reasoning = classification.reasoning;
-
-  return result;
-}
+// v1 executeFuzzyMode and executeAutoMode removed — v2 bridge handles all search
 
 /**
  * Mode: ripgrep - Fast literal string matching using ripgrep
@@ -2829,21 +2222,54 @@ async function executeCodexLensV2Bridge(
           return;
         }
 
-        // Bridge outputs array of {path, score, snippet}
-        const results: SemanticMatch[] = (Array.isArray(parsed) ? parsed : []).map((r: { path?: string; score?: number; snippet?: string }) => ({
-          file: r.path || '',
+        // Bridge outputs array of {path, score, line, end_line, snippet, content}
+        const raw: Array<{
+          path?: string; score?: number; line?: number;
+          end_line?: number; snippet?: string; content?: string;
+        }> = Array.isArray(parsed) ? parsed : [];
+
+        // Build AceLike sections and group by file
+        const sections: AceLikeSection[] = raw.map(r => ({
+          path: r.path || '',
+          line: r.line || undefined,
+          endLine: r.end_line || undefined,
           score: r.score || 0,
-          content: r.snippet || '',
           symbol: null,
+          snippet: r.content || r.snippet || '',
         }));
+
+        const groupMap = new Map<string, AceLikeSection[]>();
+        for (const s of sections) {
+          const arr = groupMap.get(s.path) || [];
+          arr.push(s);
+          groupMap.set(s.path, arr);
+        }
+        const groups: AceLikeGroup[] = Array.from(groupMap.entries()).map(
+          ([path, secs]) => ({ path, sections: secs, total_matches: secs.length })
+        );
+
+        // Render text view with line numbers
+        const textParts: string[] = [];
+        for (const s of sections) {
+          const lineInfo = s.line ? `:${s.line}${s.endLine ? `-${s.endLine}` : ''}` : '';
+          textParts.push(`Path: ${s.path}${lineInfo}\n${s.snippet}\n`);
+        }
+
+        const aceLikeOutput: AceLikeOutput = {
+          format: 'ace',
+          text: textParts.join('\n'),
+          groups,
+          sections,
+          total: sections.length,
+        };
 
         resolve({
           success: true,
-          results,
+          results: aceLikeOutput,
           metadata: {
             mode: 'semantic' as any,
             backend: 'codexlens-v2',
-            count: results.length,
+            count: sections.length,
             query,
             note: 'Using codexlens-search v2 bridge (2-stage vector + reranking)',
           },
@@ -2861,303 +2287,124 @@ async function executeCodexLensV2Bridge(
 }
 
 /**
- * Mode: exact - CodexLens exact/FTS search
- * Requires index
+ * Execute a generic codexlens-search v2 bridge subcommand (init, status, sync, watch, etc.).
+ * Returns parsed JSON output from the bridge CLI.
  */
-async function executeCodexLensExactMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = true, withDoc = false, offset = 0 } = params;
-  const scope = resolveSearchScope(path);
-  // withDoc overrides codeOnly
-  const effectiveCodeOnly = withDoc ? false : codeOnly;
-
-  if (!query) {
-    return {
-      success: false,
-      error: 'Query is required for search',
-    };
-  }
-
-  // Check CodexLens availability
-  const readyStatus = await ensureCodexLensReady();
-  if (!readyStatus.ready) {
-    return {
-      success: false,
-      error: `CodexLens not available: ${readyStatus.error}`,
-    };
-  }
-
-  // Check index status
-  const indexStatus = await checkIndexStatus(scope.workingDirectory);
-
-  // Request more results to support split (full content + extra files)
-  const totalToFetch = maxResults + extraFilesCount;
-  const args = ['search', query, '--limit', totalToFetch.toString(), '--offset', offset.toString(), '--method', 'fts', '--json'];
-  if (enrich) {
-    args.push('--enrich');
-  }
-  // Add code_only filter if requested (default: true)
-  if (effectiveCodeOnly) {
-    args.push('--code-only');
-  }
-  // Add exclude_extensions filter if provided
-  if (excludeExtensions && excludeExtensions.length > 0) {
-    args.push('--exclude-extensions', excludeExtensions.join(','));
-  }
-  const result = await executeCodexLens(args, { cwd: scope.workingDirectory });
-
-  if (!result.success) {
-    noteCodexLensFtsCompatibility(result.error);
-    return {
-      success: false,
-      error: summarizeBackendError(result.error),
-      metadata: {
-        mode: 'exact',
-        backend: 'codexlens',
-        count: 0,
-        query,
-        warning: mergeWarnings(indexStatus.warning, result.warning),
-        suggestions: buildIndexSuggestions(indexStatus, scope),
-      },
-    };
-  }
-
-  // Parse results
-  let allResults: SemanticMatch[] = [];
-  try {
-    const parsed = JSON.parse(stripAnsi(result.output || '{}'));
-    const data = parsed.result?.results || parsed.results || parsed;
-    allResults = (Array.isArray(data) ? data : []).map((item: any) => ({
-      file: item.path || item.file,
-      score: item.score || 0,
-      content: truncateContent(item.content || item.excerpt, maxContentLength),
-      symbol: item.symbol || null,
-    }));
-  } catch {
-    // Keep empty results
-  }
-
-  allResults = filterResultsToTargetFile(allResults, scope);
-
-  // Fallback to fuzzy mode if exact returns no results
-  if (allResults.length === 0) {
-    const fuzzyArgs = ['search', query, '--limit', totalToFetch.toString(), '--offset', offset.toString(), '--method', 'fts', '--use-fuzzy', '--json'];
-    if (enrich) {
-      fuzzyArgs.push('--enrich');
-    }
-    // Add code_only filter if requested (default: true)
-    if (effectiveCodeOnly) {
-      fuzzyArgs.push('--code-only');
-    }
-    // Add exclude_extensions filter if provided
-    if (excludeExtensions && excludeExtensions.length > 0) {
-      fuzzyArgs.push('--exclude-extensions', excludeExtensions.join(','));
-    }
-    const fuzzyResult = await executeCodexLens(fuzzyArgs, { cwd: scope.workingDirectory });
-
-    if (fuzzyResult.success) {
+async function executeV2BridgeCommand(
+  subcommand: string,
+  args: string[],
+  options?: { timeout?: number },
+): Promise<SearchResult> {
+  return new Promise((resolve) => {
+    const fullArgs = [subcommand, ...args];
+    execFile('codexlens-search', fullArgs, {
+      encoding: 'utf-8',
+      timeout: options?.timeout ?? EXEC_TIMEOUTS.PROCESS_SPAWN,
+      windowsHide: true,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    }, (error, stdout, stderr) => {
+      if (error) {
+        resolve({
+          success: false,
+          error: `codexlens-search ${subcommand} failed: ${error.message}`,
+        });
+        return;
+      }
       try {
-        const parsed = JSON.parse(stripAnsi(fuzzyResult.output || '{}'));
-        const data = parsed.result?.results || parsed.results || parsed;
-        allResults = filterResultsToTargetFile((Array.isArray(data) ? data : []).map((item: any) => ({
-          file: item.path || item.file,
-          score: item.score || 0,
-          content: truncateContent(item.content || item.excerpt, maxContentLength),
-          symbol: item.symbol || null,
-        })), scope);
+        const parsed = JSON.parse(stdout.trim());
+        if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+          resolve({ success: false, error: `codexlens-search: ${parsed.error}` });
+          return;
+        }
+        resolve({ success: true, status: parsed, message: parsed.status || `${subcommand} completed`, metadata: { action: subcommand } });
       } catch {
-        // Keep empty results
+        resolve({ success: false, error: `Failed to parse codexlens-search ${subcommand} output`, output: stdout });
       }
+    });
+  });
+}
 
-      if (allResults.length > 0) {
-        // Split results: first N with full content, rest as file paths only
-        const { results, extra_files } = splitResultsWithExtraFiles(allResults, maxResults, extraFilesCount);
-        return {
-          success: true,
-          results,
-          extra_files: extra_files.length > 0 ? extra_files : undefined,
-          metadata: {
-            mode: 'exact',
-            backend: 'codexlens',
-            count: results.length,
-            query,
-            warning: mergeWarnings(indexStatus.warning, fuzzyResult.warning),
-            note: 'No exact matches found, showing fuzzy results',
-            fallback: 'fuzzy',
-            suggestions: buildIndexSuggestions(indexStatus, scope),
-          },
-        };
-      }
-    }
-  }
+/**
+ * Action: init (v2) - Initialize index and sync files.
+ */
+async function executeInitActionV2(params: Params): Promise<SearchResult> {
+  const { path = '.' } = params;
+  const scope = resolveSearchScope(path);
+  const dbPath = join(scope.workingDirectory, '.codexlens');
 
-  // Split results: first N with full content, rest as file paths only
-  const { results, extra_files } = splitResultsWithExtraFiles(allResults, maxResults, extraFilesCount);
+  // Step 1: init empty index
+  const initResult = await executeV2BridgeCommand('init', ['--db-path', dbPath]);
+  if (!initResult.success) return initResult;
+
+  // Step 2: sync all files
+  const syncResult = await executeV2BridgeCommand('sync', [
+    '--root', scope.workingDirectory,
+    '--db-path', dbPath,
+  ], { timeout: 1800000 }); // 30 min for large codebases
 
   return {
-    success: true,
-    results,
-    extra_files: extra_files.length > 0 ? extra_files : undefined,
-    metadata: {
-      mode: 'exact',
-      backend: 'codexlens',
-      count: results.length,
-      query,
-      warning: mergeWarnings(indexStatus.warning, result.warning),
-      suggestions: buildIndexSuggestions(indexStatus, scope),
-    },
+    success: syncResult.success,
+    error: syncResult.error,
+    message: syncResult.success
+      ? `Index initialized and synced for ${scope.workingDirectory}`
+      : undefined,
+    metadata: { action: 'init', path: scope.workingDirectory },
+    status: syncResult.status,
   };
 }
 
 /**
- * Mode: hybrid - Best quality semantic search
- * Uses CodexLens dense_rerank method (dense coarse + cross-encoder rerank)
- * Requires index with embeddings
+ * Action: status (v2) - Report index statistics.
  */
-async function executeHybridMode(params: Params): Promise<SearchResult> {
-  const timer = createTimer();
-  const { query, path = '.', maxResults = 5, extraFilesCount = 10, maxContentLength = 200, enrich = false, excludeExtensions, codeOnly = true, withDoc = false, offset = 0 } = params;
+async function executeStatusActionV2(params: Params): Promise<SearchResult> {
+  const { path = '.' } = params;
   const scope = resolveSearchScope(path);
-  // withDoc overrides codeOnly
-  const effectiveCodeOnly = withDoc ? false : codeOnly;
+  const dbPath = join(scope.workingDirectory, '.codexlens');
 
-  if (!query) {
-    return {
-      success: false,
-      error: 'Query is required for search',
-    };
-  }
+  return executeV2BridgeCommand('status', ['--db-path', dbPath]);
+}
 
-  // Check CodexLens availability
-  const readyStatus = await ensureCodexLensReady();
-  timer.mark('codexlens_ready_check');
-  if (!readyStatus.ready) {
-    return {
-      success: false,
-      error: `CodexLens not available: ${readyStatus.error}`,
-    };
-  }
+/**
+ * Action: update (v2) - Incremental sync (re-sync changed files).
+ */
+async function executeUpdateActionV2(params: Params): Promise<SearchResult> {
+  const { path = '.' } = params;
+  const scope = resolveSearchScope(path);
+  const dbPath = join(scope.workingDirectory, '.codexlens');
 
-  // Check index status
-  const indexStatus = await checkIndexStatus(scope.workingDirectory);
-  timer.mark('index_status_check');
+  return executeV2BridgeCommand('sync', [
+    '--root', scope.workingDirectory,
+    '--db-path', dbPath,
+  ], { timeout: 600000 }); // 10 min
+}
 
-  // Request more results to support split (full content + extra files)
-  // NOTE: Current CodexLens search CLI in this environment rejects value-taking options
-  // like --limit/--offset/--method for search. Keep the invocation minimal and apply
-  // pagination/selection in CCW after parsing results.
-  const totalToFetch = maxResults + extraFilesCount;
-  const args = ['search', query, '--json'];
-  if (enrich) {
-    args.push('--enrich');
-  }
-  // Add code_only filter if requested (default: true)
-  if (effectiveCodeOnly) {
-    args.push('--code-only');
-  }
-  // Add exclude_extensions filter if provided
-  if (excludeExtensions && excludeExtensions.length > 0) {
-    args.push('--exclude-extensions', excludeExtensions.join(','));
-  }
-  const result = await executeCodexLens(args, { cwd: scope.workingDirectory });
-  timer.mark('codexlens_search');
+/**
+ * Action: watch (v2) - Start file watcher for auto-updates.
+ */
+async function executeWatchActionV2(params: Params): Promise<SearchResult> {
+  const { path = '.', debounce = 1000 } = params;
+  const scope = resolveSearchScope(path);
+  const dbPath = join(scope.workingDirectory, '.codexlens');
 
-  if (!result.success) {
-    timer.log();
-    return {
-      success: false,
-      error: result.error,
-      metadata: {
-        mode: 'hybrid',
-        backend: 'codexlens',
-        count: 0,
-        query,
-        warning: mergeWarnings(indexStatus.warning, result.warning),
-        suggestions: buildIndexSuggestions(indexStatus, scope),
-      },
-    };
-  }
-
-  // Parse results
-  let allResults: SemanticMatch[] = [];
-  let baselineInfo: { score: number; count: number } | null = null;
-  let initialCount = 0;
-
-  const parsedOutput = parseCodexLensJsonOutput(result.output);
-  const parsedData = parsedOutput?.result?.results || parsedOutput?.results || parsedOutput;
-  if (Array.isArray(parsedData)) {
-    allResults = mapCodexLensSemanticMatches(parsedData, scope, maxContentLength);
-    timer.mark('parse_results');
-
-    initialCount = allResults.length;
-
-    // Post-processing pipeline to improve semantic search quality
-    // 0. Filter dominant baseline scores (hot spot detection)
-    const baselineResult = filterDominantBaselineScores(allResults);
-    allResults = baselineResult.filteredResults;
-    baselineInfo = baselineResult.baselineInfo;
-
-    // 1. Filter noisy directories (node_modules, etc.)
-    // NOTE: Extension filtering is now done engine-side via --code-only and --exclude-extensions
-    allResults = filterNoisyFiles(allResults, {});
-    // 2. Boost results containing query keywords
-    allResults = applyKeywordBoosting(allResults, query);
-    // 3. Enforce score diversity (penalize identical scores)
-    allResults = enforceScoreDiversity(allResults);
-    // 4. Re-sort by adjusted scores
-    allResults.sort((a, b) => b.score - a.score);
-    timer.mark('post_processing');
-  } else {
-    allResults = parsePlainTextFileMatches(result.output, scope);
-    if (allResults.length === 0) {
-      return {
-        success: true,
-        results: [],
-        output: result.output,
-        metadata: {
-          mode: 'hybrid',
-          backend: 'codexlens',
-          count: 0,
-          query,
-          warning: mergeWarnings(indexStatus.warning, result.warning, 'Failed to parse JSON output'),
-          suggestions: buildIndexSuggestions(indexStatus, scope),
-        },
-      };
-    }
-    timer.mark('parse_results');
-    initialCount = allResults.length;
-  }
-
-  // Split results: first N with full content, rest as file paths only
-  const { results, extra_files } = splitResultsWithExtraFiles(allResults, maxResults, extraFilesCount);
-  timer.mark('split_results');
-
-  // Build metadata with baseline info if detected
-  let note = 'Using dense_rerank (dense coarse + cross-encoder rerank) for semantic search';
-  if (baselineInfo) {
-    note += ` | Filtered ${initialCount - allResults.length} hot-spot results with baseline score ~${baselineInfo.score.toFixed(4)}`;
-  }
-
-  // Log timing data
-  timer.log();
-  const timings = timer.getTimings();
+  // Watch runs indefinitely — start it with a short initial timeout to confirm startup
+  const result = await executeV2BridgeCommand('watch', [
+    '--root', scope.workingDirectory,
+    '--db-path', dbPath,
+    '--debounce-ms', debounce.toString(),
+  ], { timeout: 5000 });
 
   return {
     success: true,
-    results,
-    extra_files: extra_files.length > 0 ? extra_files : undefined,
-    metadata: {
-      mode: 'hybrid',
-      backend: 'codexlens',
-      count: results.length,
-      query,
-      note,
-      warning: mergeWarnings(indexStatus.warning, result.warning),
-      suggestions: buildIndexSuggestions(indexStatus, scope),
-      suggested_weights: getRRFWeights(query),
-      timing: TIMING_ENABLED ? timings : undefined,
-    },
+    message: `File watcher started for ${scope.workingDirectory}. Changes are indexed automatically.`,
+    metadata: { action: 'watch', path: scope.workingDirectory },
+    status: result.status,
   };
 }
+
+// v1 executeCodexLensExactMode removed — v2 bridge handles search
+
+// v1 executeHybridMode removed — v2 bridge handles semantic search
+// v1 executeHybridMode removed — v2 bridge handles semantic search
 
 /**
  * Query intent used to adapt RRF weights (Python parity).
@@ -3579,116 +2826,23 @@ function withTimeout<T>(promise: Promise<T>, ms: number, modeName: string): Prom
   });
 }
 
-/**
- * Mode: priority - Fallback search strategy: hybrid -> exact -> ripgrep
- * Returns results from the first backend that succeeds and provides results.
- * More efficient than parallel mode - stops as soon as valid results are found.
- */
-async function executePriorityFallbackMode(params: Params): Promise<SearchResult> {
-  const { query, path = '.' } = params;
-  const scope = resolveSearchScope(path);
-  const fallbackHistory: string[] = [];
-
-  if (!query) {
-    return { success: false, error: 'Query is required for search' };
-  }
-
-  // Check index status first
-  const indexStatus = await checkIndexStatus(scope.workingDirectory);
-
-  // 1. Try Hybrid search (highest priority) - 90s timeout for large indexes
-  if (indexStatus.indexed && indexStatus.has_embeddings) {
-    try {
-      const hybridResult = await withTimeout(executeHybridMode(params), 90000, 'hybrid');
-      if (hybridResult.success && hybridResult.results && (hybridResult.results as any[]).length > 0) {
-        fallbackHistory.push('hybrid: success');
-        return {
-          ...hybridResult,
-          metadata: {
-            ...hybridResult.metadata,
-            mode: 'priority',
-            note: 'Result from hybrid search (semantic + vector).',
-            fallback_history: fallbackHistory,
-          },
-        };
-      }
-      fallbackHistory.push('hybrid: no results');
-    } catch (error) {
-      fallbackHistory.push(`hybrid: ${(error as Error).message}`);
-    }
-  } else {
-    fallbackHistory.push(`hybrid: skipped (${!indexStatus.indexed ? 'no index' : 'no embeddings'})`);
-  }
-
-  // 2. Fallback to Exact search - 10s timeout
-  if (indexStatus.indexed) {
-    try {
-      const exactResult = await withTimeout(executeCodexLensExactMode(params), 10000, 'exact');
-      if (exactResult.success && exactResult.results && (exactResult.results as any[]).length > 0) {
-        fallbackHistory.push('exact: success');
-        return {
-          ...exactResult,
-          metadata: {
-            ...exactResult.metadata,
-            mode: 'priority',
-            note: 'Result from exact/FTS search (fallback from hybrid).',
-            fallback_history: fallbackHistory,
-          },
-        };
-      }
-      fallbackHistory.push('exact: no results');
-    } catch (error) {
-      fallbackHistory.push(`exact: ${(error as Error).message}`);
-    }
-  } else {
-    fallbackHistory.push('exact: skipped (no index)');
-  }
-
-  // 3. Final fallback to Ripgrep - 5s timeout
-  try {
-    const ripgrepResult = await withTimeout(executeRipgrepMode(params), 5000, 'ripgrep');
-    fallbackHistory.push(ripgrepResult.success ? 'ripgrep: success' : 'ripgrep: failed');
-    return {
-      ...ripgrepResult,
-      metadata: {
-        ...ripgrepResult.metadata,
-        mode: 'priority',
-        note: 'Result from ripgrep search (final fallback).',
-        fallback_history: fallbackHistory,
-      },
-    };
-  } catch (error) {
-    fallbackHistory.push(`ripgrep: ${(error as Error).message}`);
-  }
-
-  // All modes failed
-  return {
-    success: false,
-    error: 'All search backends in priority mode failed or returned no results.',
-    metadata: {
-      mode: 'priority',
-      query,
-      fallback_history: fallbackHistory,
-    } as any,
-  };
-}
+// v1 executePriorityFallbackMode removed — v2 bridge + ripgrep fallback handles all search
 
 // Tool schema for MCP
 export const schema: ToolSchema = {
   name: 'smart_search',
-  description: `Unified code search tool. Choose an action and provide its required parameters.
+  description: `Unified code search tool powered by codexlens-search v2 (2-stage vector + FTS5 + reranking).
 
-Recommended MCP flow: use **action=\"search\"** for lookups, **action=\"init\"** to create a static FTS index, and **action=\"update\"** when files change. Use **watch** only for explicit long-running auto-update sessions.
+Recommended flow: use **action=\"search\"** for lookups, **action=\"init\"** to build the semantic index, and **action=\"update\"** when files change.
 
 **Actions & Required Parameters:**
 
-*   **search** (default): Search file content.
+*   **search** (default): Semantic code search with ripgrep fallback.
     *   **query** (string, **REQUIRED**): Content to search for.
-    *   *mode* (string): 'fuzzy' (default, FTS+ripgrep for stage-1 lexical search) or 'semantic' (dense+reranker, best when embeddings exist).
-    *   *limit* (number): Max results with full content (default: 5).
-    *   *path* (string): Directory or single file to search (default: current directory; file paths are auto-scoped back to that file).
+    *   *limit* (number): Max results (default: 5).
+    *   *path* (string): Directory or single file to search (default: current directory).
     *   *contextLines* (number): Context lines around matches (default: 0).
-    *   *regex* (boolean): Use regex matching (default: true).
+    *   *regex* (boolean): Use regex matching in ripgrep fallback (default: true).
     *   *caseSensitive* (boolean): Case-sensitive search (default: true).
 
 *   **find_files**: Find files by path/name pattern.
@@ -3697,47 +2851,34 @@ Recommended MCP flow: use **action=\"search\"** for lookups, **action=\"init\"**
     *   *offset* (number): Pagination offset (default: 0).
     *   *includeHidden* (boolean): Include hidden files (default: false).
 
-*   **init**: Create a static FTS index (incremental, skips existing, no embeddings).
-    *   *path* (string): Directory to index (default: current).
-    *   *languages* (array): Languages to index (e.g., ["javascript", "typescript"]).
-
-*   **init_force**: Force full rebuild (delete and recreate static index).
+*   **init**: Initialize v2 semantic index and sync all files.
     *   *path* (string): Directory to index (default: current).
 
-*   **embed**: Generate semantic/vector embeddings for an indexed project.
-    *   *path* (string): Directory to embed (default: current).
-    *   *embeddingBackend* (string): 'litellm'/'api' for remote API embeddings, 'fastembed'/'local' for local embeddings. Default bulk preset: local-fast.
-    *   *embeddingModel* (string): Embedding model/profile to use. Default bulk preset uses 'fast'.
-    *   *apiMaxWorkers* (number): Max concurrent API embedding workers. Defaults to auto-sizing from the configured endpoint pool.
-    *   *force* (boolean): Regenerate embeddings even if they already exist.
+*   **status**: Check v2 index statistics. (No required params)
 
-*   **status**: Check index status. (No required params)
-
-*   **update**: Incremental index update.
+*   **update**: Incremental sync for changed files.
     *   *path* (string): Directory to update (default: current).
 
 *   **watch**: Start file watcher for auto-updates.
     *   *path* (string): Directory to watch (default: current).
 
 **Examples:**
-  smart_search(query="authentication logic")                    # Content search (default action)
-  smart_search(query="MyClass", mode="semantic")                # Semantic search
-  smart_search(action=\"embed\", path=\"/project\", embeddingBackend=\"api\", apiMaxWorkers=8)  # Build API vector index
-  smart_search(action="init", path="/project")                  # Build static FTS index
-  smart_search(action="embed", path="/project", embeddingBackend="api")  # Build API vector index
+  smart_search(query="authentication logic")                    # Semantic search (default)
+  smart_search(action="init", path="/project")                  # Build v2 index
+  smart_search(action="update", path="/project")                # Sync changed files
   smart_search(query="auth", limit=10, offset=0)                # Paginated search`,
   inputSchema: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
-        enum: ['init', 'init_force', 'embed', 'search', 'find_files', 'status', 'update', 'watch', 'search_files'],
-        description: 'Action: search (content search; default and recommended), find_files (path pattern matching), init (create static FTS index, incremental), init_force (force full rebuild), embed (generate semantic/vector embeddings), status (check index), update (incremental refresh), watch (auto-update watcher; opt-in). Note: search_files is deprecated.',
+        enum: ['init', 'search', 'find_files', 'status', 'update', 'watch', 'search_files'],
+        description: 'Action: search (semantic search, default), find_files (path pattern matching), init (build v2 index), status (check index), update (incremental sync), watch (auto-update watcher). Note: search_files is deprecated.',
         default: 'search',
       },
       query: {
         type: 'string',
-        description: 'Content search query (for action="search"). Recommended default workflow: action=search with fuzzy mode, plus init/update for static indexing.',
+        description: 'Content search query (for action="search").',
       },
       pattern: {
         type: 'string',
@@ -3746,7 +2887,7 @@ Recommended MCP flow: use **action=\"search\"** for lookups, **action=\"init\"**
       mode: {
         type: 'string',
         enum: SEARCH_MODES,
-        description: 'Search mode: fuzzy (FTS + ripgrep fusion, default) or semantic (dense + reranker for natural language queries when embeddings exist).',
+        description: 'Search mode: fuzzy (v2 semantic + ripgrep fallback, default) or semantic (v2 semantic search only).',
         default: 'fuzzy',
       },
       output_mode: {
@@ -3802,31 +2943,9 @@ Recommended MCP flow: use **action=\"search\"** for lookups, **action=\"init\"**
         description: 'Include hidden files/directories',
         default: false,
       },
-      languages: {
-        type: 'array',
-        items: { type: 'string' },
-        description: 'Languages to index (for init action). Example: ["javascript", "typescript"]',
-      },
-      embeddingBackend: {
-        type: 'string',
-        description: 'Embedding backend for action="embed": litellm/api (remote API) or fastembed/local (local GPU/CPU). Default bulk preset: local-fast.',
-      },
-      embeddingModel: {
-        type: 'string',
-        description: 'Embedding model/profile for action="embed". Examples: "code", "fast", "qwen3-embedding-sf". Default bulk preset uses "fast".',
-      },
-      apiMaxWorkers: {
-        type: 'number',
-        description: 'Max concurrent API embedding workers for action="embed". Defaults to auto-sizing from the configured endpoint pool.',
-      },
       force: {
         type: 'boolean',
-        description: 'Force regeneration for action="embed".',
-        default: false,
-      },
-      enrich: {
-        type: 'boolean',
-        description: 'Enrich search results with code graph relationships (calls, imports, called_by, imported_by).',
+        description: 'Force full rebuild for action="init".',
         default: false,
       },
       regex: {
@@ -4321,37 +3440,26 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
   try {
     let result: SearchResult;
 
-    // Handle actions
+    // Handle actions — all routed through codexlens-search v2 bridge
     switch (action) {
       case 'init':
-        result = await executeInitAction(parsed.data, false);
-        break;
-
-      case 'init_force':
-        result = await executeInitAction(parsed.data, true);
-        break;
-
-      case 'embed':
-        result = await executeEmbedAction(parsed.data);
+        result = await executeInitActionV2(parsed.data);
         break;
 
       case 'status':
-        result = await executeStatusAction(parsed.data);
+        result = await executeStatusActionV2(parsed.data);
         break;
 
       case 'find_files':
-        // NEW: File path/name pattern matching (glob-based)
         result = await executeFindFilesAction(parsed.data);
         break;
 
       case 'update':
-        // Incremental index update
-        result = await executeUpdateAction(parsed.data);
+        result = await executeUpdateActionV2(parsed.data);
         break;
 
       case 'watch':
-        // Start file watcher (returns status, watcher runs in background)
-        result = await executeWatchAction(parsed.data);
+        result = await executeWatchActionV2(parsed.data);
         break;
 
       case 'search_files':
@@ -4361,51 +3469,27 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
         // Fall through to search
 
       case 'search':
-      default:
-        // v2 bridge: if CCW_USE_CODEXLENS_V2 is set, try v2 bridge first for semantic mode
-        if (useCodexLensV2() && (mode === 'semantic' || mode === 'fuzzy')) {
-          const scope = resolveSearchScope(parsed.data.path ?? '.');
-          const dbPath = join(scope.workingDirectory, '.codexlens');
-          const topK = (parsed.data.maxResults || 5) + (parsed.data.extraFilesCount || 10);
-          const v2Result = await executeCodexLensV2Bridge(parsed.data.query || '', topK, dbPath);
-          if (v2Result.success) {
-            result = v2Result;
-            break;
-          }
-          // v2 failed, fall through to v1
-          console.warn(`[CodexLens-v2] Falling back to v1: ${v2Result.error}`);
+      default: {
+        // v2 bridge for semantic search
+        const scope = resolveSearchScope(parsed.data.path ?? '.');
+        const dbPath = join(scope.workingDirectory, '.codexlens');
+        const topK = (parsed.data.maxResults || 5) + (parsed.data.extraFilesCount || 10);
+        const v2Result = await executeCodexLensV2Bridge(parsed.data.query || '', topK, dbPath);
+        if (v2Result.success) {
+          result = v2Result;
+          break;
         }
-
-        // Handle search modes: fuzzy | semantic (v1 path)
-        switch (mode) {
-          case 'fuzzy':
-            result = await executeFuzzyMode(parsed.data);
-            break;
-          case 'semantic':
-            result = await executeHybridMode(parsed.data);
-            break;
-          default:
-            throw new Error(`Unsupported mode: ${mode}. Use: fuzzy or semantic`);
-        }
+        // v2 failed — fall back to ripgrep-only search
+        console.warn(`[CodexLens-v2] Bridge failed, falling back to ripgrep: ${v2Result.error}`);
+        result = await executeRipgrepMode(parsed.data);
         break;
+      }
     }
 
     let backgroundNote: string | undefined;
 
     // Transform output based on output_mode (for search actions only)
     if (action === 'search' || action === 'search_files') {
-      const scope = resolveSearchScope(parsed.data.path ?? '.');
-      const indexStatus = await checkIndexStatus(scope.workingDirectory);
-      result.metadata = enrichMetadataWithIndexStatus(result.metadata, indexStatus, scope);
-
-      const autoInitStatus = await maybeStartBackgroundAutoInit(scope, indexStatus);
-      const autoEmbedStatus = await maybeStartBackgroundAutoEmbed(scope, indexStatus);
-      backgroundNote = mergeNotes(autoInitStatus.note, autoEmbedStatus.note);
-      result.metadata = {
-        ...(result.metadata ?? {}),
-        note: mergeNotes(result.metadata?.note, autoInitStatus.note, autoEmbedStatus.note),
-        warning: mergeWarnings(result.metadata?.warning, autoInitStatus.warning, autoEmbedStatus.warning),
-      };
 
       // Add pagination metadata for search results if not already present
       if (result.success && result.results && Array.isArray(result.results)) {
@@ -4514,72 +3598,39 @@ export async function executeInitWithProgress(
   onProgress?: (progress: ProgressInfo) => void
 ): Promise<SearchResult> {
   const path = (params.path as string) || '.';
-  const languages = params.languages as string[] | undefined;
-  const force = params.force as boolean || false;
+  const scope = resolveSearchScope(path);
+  const dbPath = join(scope.workingDirectory, '.codexlens');
 
-  // Check CodexLens availability
-  const readyStatus = await ensureCodexLensReady();
-  if (!readyStatus.ready) {
-    return {
-      success: false,
-      error: `CodexLens not available: ${readyStatus.error}. CodexLens will be auto-installed on first use.`,
-    };
+  // Notify progress start
+  if (onProgress) {
+    onProgress({ stage: 'init', message: 'Initializing v2 index...', percent: 0 } as ProgressInfo);
   }
 
-  // Use 'index init' subcommand (new CLI structure)
-  const args = ['index', 'init', path];
-  if (force) {
-    args.push('--force');  // Force full rebuild
-  }
-  if (languages && languages.length > 0) {
-    args.push(...languages.flatMap((language) => ['--language', language]));
-  }
+  // Step 1: init empty index
+  const initResult = await executeV2BridgeCommand('init', ['--db-path', dbPath]);
+  if (!initResult.success) return initResult;
 
-  // Track progress updates
-  const progressUpdates: ProgressInfo[] = [];
-  let lastProgress: ProgressInfo | null = null;
-
-  const result = await executeCodexLens(args, {
-    cwd: path,
-    timeout: 1800000, // 30 minutes for large codebases
-    onProgress: (progress: ProgressInfo) => {
-      progressUpdates.push(progress);
-      lastProgress = progress;
-      // Call external progress callback if provided
-      if (onProgress) {
-        onProgress(progress);
-      }
-    },
-  });
-
-  // Build metadata with progress info
-  const metadata: SearchMetadata = {
-    action: force ? 'init_force' : 'init',
-    path,
-  };
-
-  if (lastProgress !== null) {
-    const p = lastProgress as ProgressInfo;
-    metadata.progress = {
-      stage: p.stage,
-      message: p.message,
-      percent: p.percent,
-      filesProcessed: p.filesProcessed,
-      totalFiles: p.totalFiles,
-    };
+  if (onProgress) {
+    onProgress({ stage: 'sync', message: 'Syncing files...', percent: 10 } as ProgressInfo);
   }
 
-  if (progressUpdates.length > 0) {
-    metadata.progressHistory = progressUpdates.slice(-5);
+  // Step 2: sync all files
+  const syncResult = await executeV2BridgeCommand('sync', [
+    '--root', scope.workingDirectory,
+    '--db-path', dbPath,
+  ], { timeout: 1800000 });
+
+  if (onProgress) {
+    onProgress({ stage: 'complete', message: 'Index build complete', percent: 100 } as ProgressInfo);
   }
 
-  const actionLabel = force ? 'rebuilt (force)' : 'created';
   return {
-    success: result.success,
-    error: result.error,
-    message: result.success
-      ? `CodexLens index ${actionLabel} successfully for ${path}`
+    success: syncResult.success,
+    error: syncResult.error,
+    message: syncResult.success
+      ? `v2 index created and synced for ${scope.workingDirectory}`
       : undefined,
-    metadata,
+    metadata: { action: 'init', path: scope.workingDirectory },
+    status: syncResult.status,
   };
 }

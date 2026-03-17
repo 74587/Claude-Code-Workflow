@@ -4,17 +4,18 @@ description: Lightweight planning skill - task analysis, multi-angle exploration
 allowed-tools: Skill, Agent, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep
 ---
 
-# Workflow-Lite-Plan
-
+<purpose>
 Planning pipeline: explore → clarify → plan → confirm → handoff to lite-execute.
+Produces exploration results, a structured plan (plan.json), independent task files (.task/TASK-*.json), and hands off to lite-execute for implementation.
+</purpose>
 
----
+<process>
 
-## Context Isolation
+## 1. Context Isolation
 
 > **CRITICAL**: If invoked from analyze-with-file (via "执行任务"), the analyze-with-file session is **COMPLETE** and all its phase instructions are FINISHED and MUST NOT be referenced. Only follow LP-Phase 1-5 defined in THIS document. Phase numbers are INDEPENDENT of any prior workflow.
 
-## Input
+## 2. Input
 
 ```
 <task-description>         Task description or path to .md file (required)
@@ -27,7 +28,7 @@ Planning pipeline: explore → clarify → plan → confirm → handoff to lite-
 
 **Note**: Workflow preferences (`autoYes`, `forceExplore`) must be initialized at skill start. If not provided by caller, skill will prompt user for workflow mode selection.
 
-## Output Artifacts
+## 3. Output Artifacts
 
 | Artifact | Description |
 |----------|-------------|
@@ -43,14 +44,7 @@ Planning pipeline: explore → clarify → plan → confirm → handoff to lite-
 
 **Schema Reference**: `~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.json`
 
-## Auto Mode Defaults
-
-When `workflowPreferences.autoYes === true` (entire plan+execute workflow):
-- **Clarification**: Skipped | **Plan Confirmation**: Allow & Execute | **Execution**: Auto | **Review**: Skip
-
-Auto mode authorizes the complete plan-and-execute workflow with a single confirmation. No further prompts.
-
-## Phase Summary
+## 4. Phase Summary
 
 | Phase | Core Action | Output |
 |-------|-------------|--------|
@@ -61,9 +55,7 @@ Auto mode authorizes the complete plan-and-execute workflow with a single confir
 | LP-4 | Display plan → AskUserQuestion (Confirm + Execution + Review) | userSelection |
 | LP-5 | Build executionContext → Skill("lite-execute") | handoff (Mode 1) |
 
-## Implementation
-
-### LP-Phase 0: Workflow Preferences Initialization
+## 5. LP-Phase 0: Workflow Preferences Initialization
 
 ```javascript
 if (typeof workflowPreferences === 'undefined' || workflowPreferences === null) {
@@ -74,7 +66,7 @@ if (typeof workflowPreferences === 'undefined' || workflowPreferences === null) 
 }
 ```
 
-### LP-Phase 1: Intelligent Multi-Angle Exploration
+## 6. LP-Phase 1: Intelligent Multi-Angle Exploration
 
 **Session Setup** (MANDATORY):
 ```javascript
@@ -248,9 +240,7 @@ console.log(`Exploration complete: ${explorationManifest.explorations.map(e => e
 
 **Output**: `exploration-{angle}.json` (1-4 files) + `explorations-manifest.json`
 
----
-
-### LP-Phase 2: Clarification (Optional, Multi-Round)
+## 7. LP-Phase 2: Clarification (Optional, Multi-Round)
 
 **Skip if**: No exploration or `clarification_needs` is empty across all explorations
 
@@ -307,9 +297,7 @@ if (workflowPreferences.autoYes) {
 
 **Output**: `clarificationContext` (in-memory)
 
----
-
-### LP-Phase 3: Planning
+## 8. LP-Phase 3: Planning
 
 **IMPORTANT**: LP-Phase 3 is **planning only** — NO code execution. All execution happens in LP-Phase 5 via lite-execute.
 
@@ -431,9 +419,7 @@ ${complexity}
 
 // TodoWrite: Phase 3 → completed, Phase 4 → in_progress
 
----
-
-### LP-Phase 4: Task Confirmation & Execution Selection
+## 9. LP-Phase 4: Task Confirmation & Execution Selection
 
 **Display Plan**:
 ```javascript
@@ -499,9 +485,7 @@ if (workflowPreferences.autoYes) {
 
 // TodoWrite: Phase 4 → completed `[${userSelection.execution_method} + ${userSelection.code_review_tool}]`, Phase 5 → in_progress
 
----
-
-### LP-Phase 5: Handoff to Execution
+## 10. LP-Phase 5: Handoff to Execution
 
 **CRITICAL**: lite-plan NEVER executes code directly. ALL execution goes through lite-execute.
 
@@ -562,7 +546,7 @@ Skill("lite-execute")
 // executionContext passed as global variable (Mode 1: In-Memory Plan)
 ```
 
-## Session Folder Structure
+## 11. Session Folder Structure
 
 ```
 .workflow/.lite-plan/{task-slug}-{YYYY-MM-DD}/
@@ -576,7 +560,7 @@ Skill("lite-execute")
     └── ...
 ```
 
-## Error Handling
+## 12. Error Handling
 
 | Error | Resolution |
 |-------|------------|
@@ -585,3 +569,26 @@ Skill("lite-execute")
 | Clarification timeout | Use exploration findings as-is |
 | Confirmation timeout | Save context, display resume instructions |
 | Modify loop > 3 times | Suggest breaking task or using /workflow-plan |
+
+</process>
+
+<auto_mode>
+When `workflowPreferences.autoYes === true` (entire plan+execute workflow):
+- **Clarification**: Skipped | **Plan Confirmation**: Allow & Execute | **Execution**: Auto | **Review**: Skip
+
+Auto mode authorizes the complete plan-and-execute workflow with a single confirmation. No further prompts.
+</auto_mode>
+
+<success_criteria>
+- [ ] Workflow preferences (autoYes, forceExplore) initialized at LP-Phase 0
+- [ ] Complexity assessed and exploration angles selected appropriately
+- [ ] Parallel exploration agents launched with run_in_background=false
+- [ ] Explorations manifest built from auto-discovered files
+- [ ] Clarification needs aggregated, deduped, and presented in batches of 4
+- [ ] Plan generated via direct Claude (Low) or cli-lite-planning-agent (Medium/High)
+- [ ] Plan output as two-layer: plan.json (task_ids[]) + .task/TASK-*.json
+- [ ] User confirmation collected (or auto-approved in auto mode)
+- [ ] executionContext fully built with all artifacts and session references
+- [ ] Handoff to lite-execute via Skill("lite-execute") with executionContext
+- [ ] No code execution in planning phases -- all execution deferred to lite-execute
+</success_criteria>

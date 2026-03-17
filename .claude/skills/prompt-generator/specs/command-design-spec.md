@@ -36,6 +36,7 @@ allowed-tools: Tool1, Tool2  # Optional: restricted tool set
 .claude/commands/deploy.md           # Top-level command
 .claude/commands/issue/create.md     # Grouped command
 ~/.claude/commands/global-status.md  # User-level command
+.claude/skills/my-skill/SKILL.md     # Skill file (see Skill Variant below)
 ```
 
 ## Content Structure
@@ -45,11 +46,59 @@ Commands use XML semantic tags with process steps inside `<process>`:
 | Tag | Required | Purpose |
 |-----|----------|---------|
 | `<purpose>` | Yes | What + when + what it produces (2-3 sentences) |
-| `<required_reading>` | Yes | @ file references loaded before execution |
+| `<required_reading>` | Commands only | @ file references loaded before execution |
 | `<process>` | Yes | Steps — numbered or named (see Step Styles below) |
 | `<auto_mode>` | Optional | Behavior when `--auto` flag present |
 | `<offer_next>` | Recommended | Formatted completion status + next actions |
 | `<success_criteria>` | Yes | Checkbox list of verifiable conditions |
+
+## Skill Variant
+
+Skills (`.claude/skills/*/SKILL.md`) follow command structure with critical differences due to **progressive loading** — skills are loaded inline into the conversation context, NOT via file resolution.
+
+### Key Differences: Skill vs Command
+
+| Aspect | Command | Skill |
+|--------|---------|-------|
+| Location | `.claude/commands/` | `.claude/skills/*/SKILL.md` |
+| Loading | Slash-command invocation, `@` refs resolved | Progressive inline loading into conversation |
+| `<required_reading>` | Yes — `@path` refs auto-resolved | **NO** — `@` refs do NOT work in skills |
+| External file access | `@` references | `Read()` tool calls within `<process>` steps |
+| Phase files | N/A | `Read("phases/01-xxx.md")` within process steps |
+| Frontmatter | `name`, `description`, `argument-hint` | `name`, `description`, `allowed-tools` |
+
+### Skill-Specific Rules
+
+1. **NO `<required_reading>` tag** — Skills cannot use `@` file references. All external context must be loaded via `Read()` tool calls within `<process>` steps.
+
+2. **Progressive phase loading** — For multi-phase skills with phase files in `phases/` subdirectory, use inline `Read()`:
+   ```javascript
+   // Within process step: Load phase doc on-demand
+   Read("phases/01-session-discovery.md")
+   // Execute phase logic...
+   ```
+
+3. **Self-contained content** — All instructions, rules, and logic must be directly in the SKILL.md or loaded via `Read()` at runtime. No implicit file dependencies.
+
+4. **Frontmatter uses `allowed-tools:`** instead of `argument-hint:`:
+   ```yaml
+   ---
+   name: my-skill
+   description: What this skill does
+   allowed-tools: Agent, Read, Write, Bash, Glob, Grep
+   ---
+   ```
+
+### Skill Content Structure
+
+| Tag | Required | Purpose |
+|-----|----------|---------|
+| `<purpose>` | Yes | What + when + what it produces (2-3 sentences) |
+| `<process>` | Yes | Steps with inline `Read()` for external files |
+| `<auto_mode>` | Optional | Behavior when `-y`/`--yes` flag present |
+| `<success_criteria>` | Yes | Checkbox list of verifiable conditions |
+
+**Note**: `<offer_next>` is less common in skills since skills often chain to other skills via `Skill()` calls.
 
 ## Step Styles
 

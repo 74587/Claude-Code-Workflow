@@ -146,14 +146,16 @@ class IndexingPipeline:
             batch_ids = []
             batch_texts = []
             batch_paths = []
-            for chunk_text, path in file_chunks:
+            batch_lines: list[tuple[int, int]] = []
+            for chunk_text, path, sl, el in file_chunks:
                 batch_ids.append(chunk_id)
                 batch_texts.append(chunk_text)
                 batch_paths.append(path)
+                batch_lines.append((sl, el))
                 chunk_id += 1
 
             chunks_created += len(batch_ids)
-            embed_queue.put((batch_ids, batch_texts, batch_paths))
+            embed_queue.put((batch_ids, batch_texts, batch_paths, batch_lines))
 
         # Signal embed worker: no more data
         embed_queue.put(_SENTINEL)
@@ -203,12 +205,12 @@ class IndexingPipeline:
                 if item is _SENTINEL:
                     break
 
-                batch_ids, batch_texts, batch_paths = item
+                batch_ids, batch_texts, batch_paths, batch_lines = item
                 try:
                     vecs = self._embedder.embed_batch(batch_texts)
                     vec_array = np.array(vecs, dtype=np.float32)
                     id_array = np.array(batch_ids, dtype=np.int64)
-                    out_q.put((id_array, vec_array, batch_texts, batch_paths))
+                    out_q.put((id_array, vec_array, batch_texts, batch_paths, batch_lines))
                 except Exception as exc:
                     logger.error("Embed worker error: %s", exc)
                     on_error(exc)
@@ -221,19 +223,20 @@ class IndexingPipeline:
         in_q: queue.Queue,
         on_error: callable,
     ) -> None:
-        """Stage 3: Pull (ids, vecs, texts, paths), write to stores."""
+        """Stage 3: Pull (ids, vecs, texts, paths, lines), write to stores."""
         while True:
             item = in_q.get()
             if item is _SENTINEL:
                 break
 
-            id_array, vec_array, texts, paths = item
+            id_array, vec_array, texts, paths, line_ranges = item
             try:
                 self._binary_store.add(id_array, vec_array)
                 self._ann_index.add(id_array, vec_array)
 
                 fts_docs = [
-                    (int(id_array[i]), paths[i], texts[i])
+                    (int(id_array[i]), paths[i], texts[i],
+                     line_ranges[i][0], line_ranges[i][1])
                     for i in range(len(id_array))
                 ]
                 self._fts.add_documents(fts_docs)
@@ -251,32 +254,39 @@ class IndexingPipeline:
         path: str,
         max_chars: int,
         overlap: int,
-    ) -> list[tuple[str, str]]:
+    ) -> list[tuple[str, str, int, int]]:
         """Split file text into overlapping chunks.
 
-        Returns list of (chunk_text, path) tuples.
+        Returns list of (chunk_text, path, start_line, end_line) tuples.
+        Line numbers are 1-based.
         """
         if not text.strip():
             return []
 
-        chunks: list[tuple[str, str]] = []
+        chunks: list[tuple[str, str, int, int]] = []
         lines = text.splitlines(keepends=True)
         current: list[str] = []
         current_len = 0
+        chunk_start_line = 1  # 1-based
+        lines_consumed = 0
 
         for line in lines:
+            lines_consumed += 1
             if current_len + len(line) > max_chars and current:
                 chunk = "".join(current)
-                chunks.append((chunk, path))
+                end_line = lines_consumed - 1
+                chunks.append((chunk, path, chunk_start_line, end_line))
                 # overlap: keep last N characters
-                tail = "".join(current)[-overlap:]
+                tail = chunk[-overlap:] if overlap else ""
+                tail_newlines = tail.count("\n")
+                chunk_start_line = max(1, end_line - tail_newlines + 1)
                 current = [tail] if tail else []
                 current_len = len(tail)
             current.append(line)
             current_len += len(line)
 
         if current:
-            chunks.append(("".join(current), path))
+            chunks.append(("".join(current), path, chunk_start_line, lines_consumed))
 
         return chunks
 
@@ -370,10 +380,12 @@ class IndexingPipeline:
         batch_ids = []
         batch_texts = []
         batch_paths = []
-        for i, (chunk_text, path) in enumerate(file_chunks):
+        batch_lines: list[tuple[int, int]] = []
+        for i, (chunk_text, path, sl, el) in enumerate(file_chunks):
             batch_ids.append(start_id + i)
             batch_texts.append(chunk_text)
             batch_paths.append(path)
+            batch_lines.append((sl, el))
 
         # Embed synchronously
         vecs = self._embedder.embed_batch(batch_texts)
@@ -384,7 +396,8 @@ class IndexingPipeline:
         self._binary_store.add(id_array, vec_array)
         self._ann_index.add(id_array, vec_array)
         fts_docs = [
-            (batch_ids[i], batch_paths[i], batch_texts[i])
+            (batch_ids[i], batch_paths[i], batch_texts[i],
+             batch_lines[i][0], batch_lines[i][1])
             for i in range(len(batch_ids))
         ]
         self._fts.add_documents(fts_docs)

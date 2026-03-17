@@ -1,19 +1,20 @@
 ---
 name: prompt-generator
-description: Generate or convert Claude Code prompt files — command orchestrators, agent role definitions, or style conversion of existing files. Follows GSD-style content separation with built-in quality gates. Triggers on "create command", "new command", "create agent", "new agent", "convert command", "convert agent", "prompt generator".
+description: Generate or convert Claude Code prompt files — command orchestrators, skill files, agent role definitions, or style conversion of existing files. Follows GSD-style content separation with built-in quality gates. Triggers on "create command", "new command", "create skill", "new skill", "create agent", "new agent", "convert command", "convert skill", "convert agent", "prompt generator", "优化".
 allowed-tools: Read, Write, Edit, Bash, Glob, AskUserQuestion
 ---
 
 <purpose>
-Generate or convert Claude Code prompt files with concrete, domain-specific content. Three modes:
+Generate or convert Claude Code prompt files with concrete, domain-specific content. Four modes:
 
 - **Create command** — new orchestration workflow at `.claude/commands/` or `~/.claude/commands/`
+- **Create skill** — new skill file at `.claude/skills/*/SKILL.md` (progressive loading, no @ refs)
 - **Create agent** — new role + expertise file at `.claude/agents/`
-- **Convert** — restyle existing command/agent to GSD conventions with zero content loss
+- **Convert** — restyle existing command/skill/agent to GSD conventions with zero content loss
 
-Content separation principle (from GSD): commands own orchestration flow; agents own domain knowledge.
+Content separation principle (from GSD): commands/skills own orchestration flow; agents own domain knowledge. Skills are a variant of commands but loaded progressively inline — they CANNOT use `@` file references.
 
-Invoked when user requests "create command", "new command", "create agent", "new agent", "convert command", "convert agent", or "prompt generator".
+Invoked when user requests "create command", "new command", "create skill", "new skill", "create agent", "new agent", "convert command", "convert skill", "convert agent", "prompt generator", or "优化".
 </purpose>
 
 <required_reading>
@@ -33,11 +34,17 @@ Parse `$ARGUMENTS` to determine what to generate.
 | Signal | Type |
 |--------|------|
 | "command", "workflow", "orchestrator" in args | `command` |
+| "skill", "SKILL.md" in args, or path contains `.claude/skills/` | `skill` |
 | "agent", "role", "worker" in args | `agent` |
-| "convert", "restyle", "refactor" + file path in args | `convert` |
+| "convert", "restyle", "refactor", "optimize", "优化" + file path in args | `convert` |
 | Ambiguous or missing | Ask user |
 
-**Convert mode detection:** If args contain a file path (`.md` extension) + conversion keywords, enter convert mode. Extract `$SOURCE_PATH` from args.
+**Convert mode detection:** If args contain a file path (`.md` extension) + conversion keywords, enter convert mode. Extract `$SOURCE_PATH` from args. Auto-detect source type from path:
+- `.claude/commands/` → command
+- `.claude/skills/*/SKILL.md` → skill
+- `.claude/agents/` → agent
+
+**Skill vs Command distinction:** Skills (`.claude/skills/*/SKILL.md`) are loaded **progressively inline** into the conversation context. They CANNOT use `@` file references — only `Read()` tool calls within process steps. See `@specs/command-design-spec.md` → "Skill Variant" section.
 
 If ambiguous:
 
@@ -47,13 +54,14 @@ AskUserQuestion(
   question: "What type of prompt file do you want to generate?",
   options: [
     { label: "Command", description: "New orchestration workflow — process steps, user interaction, agent spawning" },
+    { label: "Skill", description: "New skill file — progressive loading, no @ refs, inline Read() for external files" },
     { label: "Agent", description: "New role definition — identity, domain expertise, behavioral rules" },
-    { label: "Convert", description: "Restyle existing command/agent to GSD conventions (zero content loss)" }
+    { label: "Convert", description: "Restyle existing command/agent/skill to GSD conventions (zero content loss)" }
   ]
 )
 ```
 
-Store as `$ARTIFACT_TYPE` (`command` | `agent` | `convert`).
+Store as `$ARTIFACT_TYPE` (`command` | `skill` | `agent` | `convert`).
 
 ## 2. Validate Parameters
 
@@ -99,6 +107,12 @@ If $GROUP:
   $TARGET_PATH = {base}/{$GROUP}/{$NAME}.md
 Else:
   $TARGET_PATH = {base}/{$NAME}.md
+```
+
+**Skill:**
+
+```
+$TARGET_PATH = .claude/skills/{$NAME}/SKILL.md
 ```
 
 **Agent:**
@@ -179,6 +193,31 @@ Generate a complete command file with:
 - Shell blocks use heredoc for multi-line, quote all variables
 - Include `<auto_mode>` section if command supports `--auto` flag
 
+### 5a-skill. Skill Generation (variant of command)
+
+Follow `@specs/command-design-spec.md` → "Skill Variant" section.
+
+Skills are command-like orchestrators but loaded **progressively inline** — they CANNOT use `@` file references.
+
+Generate a complete skill file with:
+
+1. **`<purpose>`** — 2-3 sentences: what + when + what it produces
+2. **NO `<required_reading>`** — skills cannot use `@` refs. External files loaded via `Read()` within process steps.
+3. **`<process>`** — numbered steps (GSD workflow style):
+   - Step 1: Initialize / parse arguments / set workflow preferences
+   - Steps 2-N: Domain-specific orchestration logic with inline `Read("phases/...")` for phase files
+   - Each step: validation, agent spawning via `Agent()`, error handling
+   - Final step: completion status or handoff to next skill via `Skill()`
+4. **`<success_criteria>`** — checkbox list of verifiable conditions
+
+**Skill-specific writing rules:**
+- **NO `<required_reading>` tag** — `@` syntax not supported in skills
+- **NO `@path` references** anywhere in the file — use `Read("path")` within `<process>` steps
+- Phase files loaded on-demand: `Read("phases/01-xxx.md")` within the step that needs it
+- Frontmatter uses `allowed-tools:` (not `argument-hint:`)
+- `<offer_next>` is optional — skills often chain via `Skill()` calls
+- `<auto_mode>` can be inline within `<process>` step 1 or as standalone section
+
 ### 5b. Agent Generation
 
 Follow `@specs/agent-design-spec.md` and `@templates/agent-md.md`.
@@ -225,10 +264,19 @@ $INVENTORY = {
 
 | Signal | Type |
 |--------|------|
+| Path in `.claude/skills/*/SKILL.md` | skill |
+| `allowed-tools:` in frontmatter + path in `.claude/skills/` | skill |
 | Contains `<process>`, `<step>`, numbered `## N.` steps | command |
 | Contains `<role>`, `tools:` in frontmatter, domain sections | agent |
-| Flat markdown with `## Implementation`, `## Phase N` | command (unstructured) |
+| Flat markdown with `## Implementation`, `## Phase N` + in skills dir | skill (unstructured) |
+| Flat markdown with `## Implementation`, `## Phase N` + in commands dir | command (unstructured) |
 | Flat prose with role description, no process steps | agent (unstructured) |
+
+**Skill-specific conversion rules:**
+- **NO `<required_reading>`** — skills cannot use `@` file references (progressive loading)
+- **NO `@path` references** anywhere — replace with `Read("path")` within `<process>` steps
+- If source has `@specs/...` or `@phases/...` refs, convert to `Read("specs/...")` / `Read("phases/...")`
+- Follow `@specs/conversion-spec.md` → "Skill Conversion Rules" section
 
 **Step 5c.3: Build conversion map.**
 
@@ -291,6 +339,20 @@ Set `$TARGET_PATH = $SOURCE_PATH` (in-place conversion) unless user specifies ou
 | Return handling | Routes on `## TASK COMPLETE` / `## TASK BLOCKED` markers |
 | `<offer_next>` | Banner + summary + next command suggestion |
 | `<success_criteria>` | 4+ checkbox items, all verifiable |
+| Content separation | No domain expertise embedded — only orchestration |
+
+### 6b-skill. Skill-Specific Checks
+
+| Check | Pass Condition |
+|-------|---------------|
+| `<purpose>` | 2-3 sentences, no placeholders |
+| **NO `<required_reading>`** | Must NOT contain `<required_reading>` tag |
+| **NO `@` file references** | Zero `@specs/`, `@phases/`, `@./` patterns in prose |
+| `<process>` with numbered steps | At least 3 `## N.` headers |
+| Step 1 is initialization | Parses args, sets workflow preferences |
+| Phase file loading | Uses `Read("phases/...")` within process steps (if has phases) |
+| `<success_criteria>` | 4+ checkbox items, all verifiable |
+| Frontmatter `allowed-tools` | Present and lists required tools |
 | Content separation | No domain expertise embedded — only orchestration |
 
 ### 6c. Agent-Specific Checks

@@ -36,6 +36,62 @@ Conversion Summary:
   New sections added: {list of TODO sections}
 ```
 
+## Artifact Type Detection
+
+Before applying conversion rules, determine the source type:
+
+| Source Location | Type |
+|----------------|------|
+| `.claude/commands/**/*.md` | command |
+| `.claude/skills/*/SKILL.md` | skill |
+| `.claude/agents/*.md` | agent |
+
+**Skill detection signals**: `allowed-tools:` in frontmatter, located in `.claude/skills/` directory, progressive phase loading pattern (`Read("phases/...")`)
+
+## Skill Conversion Rules
+
+### Critical: No @ References
+
+Skills are loaded **progressively inline** into the conversation context. They CANNOT use `@` file references — these only work in commands.
+
+### Source Pattern → Target Pattern (Skill)
+
+| Source Style | Target Style |
+|-------------|-------------|
+| `# Title` + flat markdown overview | `<purpose>` (2-3 sentences) |
+| `## Implementation` / `## Execution Flow` / `## Phase Summary` | `<process>` with numbered `## N.` steps |
+| Phase file references as prose | `Read("phases/...")` calls within process steps |
+| `## Success Criteria` / `## Coordinator Checklist` | `<success_criteria>` with checkbox list |
+| `## Auto Mode` / `## Auto Mode Defaults` | `<auto_mode>` section |
+| `## Error Handling` | Preserve as-is within `<process>` or as standalone section |
+| Code blocks, tables, ASCII diagrams | **Preserve exactly** |
+
+### What NOT to Add (Skill-Specific)
+
+| Element | Why NOT |
+|---------|---------|
+| `<required_reading>` | Skills cannot use `@` refs — progressive loading |
+| `@specs/...` or `@phases/...` | `@` syntax not supported in skills |
+| `<offer_next>` | Skills chain via `Skill()` calls, not offer menus |
+
+### What to ADD (Skill-Specific)
+
+| Missing Element | Add |
+|----------------|-----|
+| `<purpose>` | Extract from overview/description |
+| `<process>` wrapper | Wrap implementation steps |
+| `<success_criteria>` | Generate from coordinator checklist or existing content |
+| `<auto_mode>` | If auto mode behavior exists, wrap in tag |
+
+### Frontmatter Conversion (Skill)
+
+| Source Field | Target Field | Transformation |
+|-------------|-------------|----------------|
+| `name` | `name` | Keep as-is |
+| `description` | `description` | Keep as-is |
+| `allowed-tools` | `allowed-tools` | Keep as-is |
+| Missing `allowed-tools` | `allowed-tools` | Infer from content |
+
 ## Command Conversion Rules
 
 ### Source Pattern → Target Pattern

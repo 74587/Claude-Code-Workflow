@@ -13,21 +13,50 @@ class FTSEngine:
         )
         self._conn.execute(
             "CREATE TABLE IF NOT EXISTS docs_meta "
-            "(id INTEGER PRIMARY KEY, path TEXT)"
+            "(id INTEGER PRIMARY KEY, path TEXT, "
+            "start_line INTEGER DEFAULT 0, end_line INTEGER DEFAULT 0)"
         )
         self._conn.commit()
+        self._migrate_line_columns()
 
-    def add_documents(self, docs: list[tuple[int, str, str]]) -> None:
-        """Add documents in batch. docs: list of (id, path, content)."""
+    def _migrate_line_columns(self) -> None:
+        """Add start_line/end_line columns if missing (for pre-existing DBs)."""
+        cols = {
+            row[1]
+            for row in self._conn.execute("PRAGMA table_info(docs_meta)").fetchall()
+        }
+        for col in ("start_line", "end_line"):
+            if col not in cols:
+                self._conn.execute(
+                    f"ALTER TABLE docs_meta ADD COLUMN {col} INTEGER DEFAULT 0"
+                )
+        self._conn.commit()
+
+    def add_documents(self, docs: list[tuple]) -> None:
+        """Add documents in batch.
+
+        docs: list of (id, path, content) or (id, path, content, start_line, end_line).
+        """
         if not docs:
             return
+        meta_rows = []
+        fts_rows = []
+        for doc in docs:
+            if len(doc) >= 5:
+                doc_id, path, content, sl, el = doc[0], doc[1], doc[2], doc[3], doc[4]
+            else:
+                doc_id, path, content = doc[0], doc[1], doc[2]
+                sl, el = 0, 0
+            meta_rows.append((doc_id, path, sl, el))
+            fts_rows.append((doc_id, content))
         self._conn.executemany(
-            "INSERT OR REPLACE INTO docs_meta (id, path) VALUES (?, ?)",
-            [(doc_id, path) for doc_id, path, content in docs],
+            "INSERT OR REPLACE INTO docs_meta (id, path, start_line, end_line) "
+            "VALUES (?, ?, ?, ?)",
+            meta_rows,
         )
         self._conn.executemany(
             "INSERT OR REPLACE INTO docs (rowid, content) VALUES (?, ?)",
-            [(doc_id, content) for doc_id, path, content in docs],
+            fts_rows,
         )
         self._conn.commit()
 
@@ -92,3 +121,13 @@ class FTSEngine:
         )
         self._conn.commit()
         return len(ids)
+
+    def get_doc_meta(self, doc_id: int) -> tuple[str, int, int]:
+        """Return (path, start_line, end_line) for a doc_id."""
+        row = self._conn.execute(
+            "SELECT path, start_line, end_line FROM docs_meta WHERE id = ?",
+            (doc_id,),
+        ).fetchone()
+        if row:
+            return row[0], row[1] or 0, row[2] or 0
+        return "", 0, 0

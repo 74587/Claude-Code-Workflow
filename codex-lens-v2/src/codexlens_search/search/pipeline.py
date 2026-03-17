@@ -28,6 +28,9 @@ class SearchResult:
     path: str
     score: float
     snippet: str = ""
+    line: int = 0
+    end_line: int = 0
+    content: str = ""
 
 
 class SearchPipeline:
@@ -162,15 +165,17 @@ class SearchPipeline:
 
         results: list[SearchResult] = []
         for doc_id, score in ranked[:final_top_k]:
-            path = self._fts._conn.execute(
-                "SELECT path FROM docs_meta WHERE id = ?", (doc_id,)
-            ).fetchone()
+            path, start_line, end_line = self._fts.get_doc_meta(doc_id)
+            full_content = self._fts.get_content(doc_id)
             results.append(
                 SearchResult(
                     id=doc_id,
-                    path=path[0] if path else "",
+                    path=path,
                     score=float(score),
-                    snippet=self._fts.get_content(doc_id)[:200],
+                    snippet=full_content[:200],
+                    line=start_line,
+                    end_line=end_line,
+                    content=full_content,
                 )
             )
         return results

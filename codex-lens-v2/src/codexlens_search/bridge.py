@@ -129,7 +129,14 @@ def cmd_search(args: argparse.Namespace) -> None:
 
     results = search.search(args.query, top_k=args.top_k)
     _json_output([
-        {"path": r.path, "score": r.score, "snippet": r.snippet}
+        {
+            "path": r.path,
+            "score": r.score,
+            "line": r.line,
+            "end_line": r.end_line,
+            "snippet": r.snippet,
+            "content": r.content,
+        }
         for r in results
     ])
 
