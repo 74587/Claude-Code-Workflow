@@ -20,8 +20,6 @@ const mockStatus: CodexLensVenvStatus = {
 const mockConfig: CodexLensConfig = {
   index_dir: '~/.codexlens/indexes',
   index_count: 100,
-  api_max_workers: 4,
-  api_batch_size: 8,
 };
 
 // Mock window.alert
@@ -243,8 +241,6 @@ describe('OverviewTab', () => {
       const emptyConfig: CodexLensConfig = {
         index_dir: '',
         index_count: 0,
-        api_max_workers: 4,
-        api_batch_size: 8,
       };
 
       render(

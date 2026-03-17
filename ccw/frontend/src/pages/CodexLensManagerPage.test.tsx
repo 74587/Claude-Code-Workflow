@@ -63,8 +63,6 @@ const mockDashboardData = {
   config: {
     index_dir: '~/.codexlens/indexes',
     index_count: 100,
-    api_max_workers: 4,
-    api_batch_size: 8,
   },
   semantic: { available: true },
 };

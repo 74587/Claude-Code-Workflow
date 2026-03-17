@@ -386,6 +386,47 @@ def cmd_download_models(args: argparse.Namespace) -> None:
     })
 
 
+def cmd_list_models(args: argparse.Namespace) -> None:
+    """List known embed/reranker models with cache status."""
+    from codexlens_search import model_manager
+
+    config = _create_config(args)
+    models = model_manager.list_known_models(config)
+    _json_output(models)
+
+
+def cmd_download_model(args: argparse.Namespace) -> None:
+    """Download a single model by name."""
+    from codexlens_search import model_manager
+
+    config = _create_config(args)
+    model_name = args.model_name
+
+    model_manager.ensure_model(model_name, config)
+
+    cached = model_manager._model_is_cached(
+        model_name, model_manager._resolve_cache_dir(config)
+    )
+    _json_output({
+        "status": "downloaded" if cached else "failed",
+        "model": model_name,
+    })
+
+
+def cmd_delete_model(args: argparse.Namespace) -> None:
+    """Delete a model from cache."""
+    from codexlens_search import model_manager
+
+    config = _create_config(args)
+    model_name = args.model_name
+
+    deleted = model_manager.delete_model(model_name, config)
+    _json_output({
+        "status": "deleted" if deleted else "not_found",
+        "model": model_name,
+    })
+
+
 def cmd_status(args: argparse.Namespace) -> None:
     """Report index statistics."""
     from codexlens_search.indexing.metadata import MetadataStore
@@ -490,6 +531,17 @@ def _build_parser() -> argparse.ArgumentParser:
     p_dl = sub.add_parser("download-models", help="Download embed + reranker models")
     p_dl.add_argument("--embed-model", help="Override embed model name")
 
+    # list-models
+    sub.add_parser("list-models", help="List known models with cache status")
+
+    # download-model (single model by name)
+    p_dl_single = sub.add_parser("download-model", help="Download a single model by name")
+    p_dl_single.add_argument("model_name", help="HuggingFace model name (e.g. BAAI/bge-small-en-v1.5)")
+
+    # delete-model
+    p_del = sub.add_parser("delete-model", help="Delete a model from cache")
+    p_del.add_argument("model_name", help="HuggingFace model name to delete")
+
     # status
     sub.add_parser("status", help="Report index statistics")
 
@@ -528,6 +580,9 @@ def main() -> None:
         "sync": cmd_sync,
         "watch": cmd_watch,
         "download-models": cmd_download_models,
+        "list-models": cmd_list_models,
+        "download-model": cmd_download_model,
+        "delete-model": cmd_delete_model,
         "status": cmd_status,
     }
 

@@ -54,8 +54,6 @@ import {
 const mockConfig: CodexLensConfig = {
   index_dir: '~/.codexlens/indexes',
   index_count: 100,
-  api_max_workers: 4,
-  api_batch_size: 8,
 };
 
 const mockEnv: Record<string, string> = {
@@ -75,8 +73,6 @@ function setupDefaultMocks() {
     config: mockConfig,
     indexDir: mockConfig.index_dir,
     indexCount: 100,
-    apiMaxWorkers: 4,
-    apiBatchSize: 8,
     isLoading: false,
     error: null,
     refetch: vi.fn(),
@@ -298,8 +294,6 @@ describe('SettingsTab', () => {
         config: mockConfig,
         indexDir: mockConfig.index_dir,
         indexCount: 100,
-        apiMaxWorkers: 4,
-        apiBatchSize: 8,
         isLoading: true,
         error: null,
         refetch: vi.fn(),

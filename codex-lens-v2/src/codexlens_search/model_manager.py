@@ -137,6 +137,103 @@ def _ensure_model_onnx(model_dir: Path) -> None:
             return
 
 
+def list_known_models(config: Config) -> list[dict]:
+    """Return info for known embed/reranker models with cache status.
+
+    Checks config defaults plus common alternative models.
+    Returns list of dicts with keys: name, type, installed, cache_path.
+    """
+    cache_dir = _resolve_cache_dir(config)
+    base = cache_dir or _default_fastembed_cache()
+
+    # Known embedding models
+    embed_models = [
+        config.embed_model,
+        "BAAI/bge-small-en-v1.5",
+        "BAAI/bge-base-en-v1.5",
+        "BAAI/bge-large-en-v1.5",
+        "sentence-transformers/all-MiniLM-L6-v2",
+    ]
+
+    # Known reranker models
+    reranker_models = [
+        config.reranker_model,
+        "Xenova/ms-marco-MiniLM-L-6-v2",
+        "BAAI/bge-reranker-base",
+        "BAAI/bge-reranker-v2-m3",
+    ]
+
+    seen: set[str] = set()
+    results: list[dict] = []
+
+    for name in embed_models:
+        if name in seen:
+            continue
+        seen.add(name)
+        cache_path = _find_model_cache_path(name, base)
+        results.append({
+            "name": name,
+            "type": "embedding",
+            "installed": cache_path is not None,
+            "cache_path": cache_path,
+        })
+
+    for name in reranker_models:
+        if name in seen:
+            continue
+        seen.add(name)
+        cache_path = _find_model_cache_path(name, base)
+        results.append({
+            "name": name,
+            "type": "reranker",
+            "installed": cache_path is not None,
+            "cache_path": cache_path,
+        })
+
+    return results
+
+
+def delete_model(model_name: str, config: Config) -> bool:
+    """Remove a model from the HF/fastembed cache.
+
+    Returns True if deleted, False if not found.
+    """
+    import shutil
+
+    cache_dir = _resolve_cache_dir(config)
+    base = cache_dir or _default_fastembed_cache()
+    cache_path = _find_model_cache_path(model_name, base)
+
+    if cache_path is None:
+        log.warning("Model %s not found in cache", model_name)
+        return False
+
+    shutil.rmtree(cache_path)
+    log.info("Deleted model %s from %s", model_name, cache_path)
+    return True
+
+
+def _find_model_cache_path(model_name: str, base: str) -> str | None:
+    """Find the cache directory path for a model, or None if not cached."""
+    base_path = Path(base)
+    if not base_path.exists():
+        return None
+
+    # Exact match first
+    safe_name = model_name.replace("/", "--")
+    model_dir = base_path / f"models--{safe_name}"
+    if _dir_has_onnx(model_dir):
+        return str(model_dir)
+
+    # Partial match: fastembed remaps some model names
+    short_name = model_name.split("/")[-1].lower()
+    for d in base_path.iterdir():
+        if short_name in d.name.lower() and _dir_has_onnx(d):
+            return str(d)
+
+    return None
+
+
 def get_cache_kwargs(config: Config) -> dict:
     """Return kwargs to pass to fastembed constructors for cache_dir."""
     cache_dir = _resolve_cache_dir(config)

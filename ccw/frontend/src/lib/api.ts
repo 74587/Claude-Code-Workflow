@@ -5273,8 +5273,6 @@ export interface CodexLensStatusData {
 export interface CodexLensConfig {
   index_dir: string;
   index_count: number;
-  api_max_workers: number;
-  api_batch_size: number;
 }
 
 /**
@@ -5530,8 +5528,6 @@ export async function fetchCodexLensConfig(): Promise<CodexLensConfig> {
  */
 export async function updateCodexLensConfig(config: {
   index_dir: string;
-  api_max_workers?: number;
-  api_batch_size?: number;
 }): Promise<{ success: boolean; message?: string; error?: string }> {
   return fetchApi('/api/codexlens/config', {
     method: 'POST',

@@ -65,8 +65,6 @@ const mockDashboardData = {
   config: {
     index_dir: '~/.codexlens/indexes',
     index_count: 100,
-    api_max_workers: 4,
-    api_batch_size: 8,
   },
   semantic: { available: true },
 };
@@ -165,8 +163,6 @@ describe('useCodexLens Hook', () => {
       const mockConfig = {
         index_dir: '~/.codexlens/indexes',
         index_count: 100,
-        api_max_workers: 4,
-        api_batch_size: 8,
       };
       vi.mocked(api.fetchCodexLensConfig).mockResolvedValue(mockConfig);
 
@@ -177,8 +173,6 @@ describe('useCodexLens Hook', () => {
       expect(api.fetchCodexLensConfig).toHaveBeenCalledOnce();
       expect(result.current.indexDir).toBe('~/.codexlens/indexes');
       expect(result.current.indexCount).toBe(100);
-      expect(result.current.apiMaxWorkers).toBe(4);
-      expect(result.current.apiBatchSize).toBe(8);
     });
   });
 
@@ -253,14 +247,10 @@ describe('useCodexLens Hook', () => {
 
       const updateResult = await result.current.updateConfig({
         index_dir: '~/.codexlens/indexes',
-        api_max_workers: 8,
-        api_batch_size: 16,
       });
 
       expect(api.updateCodexLensConfig).toHaveBeenCalledWith({
         index_dir: '~/.codexlens/indexes',
-        api_max_workers: 8,
-        api_batch_size: 16,
       });
       expect(updateResult.success).toBe(true);
       expect(updateResult.message).toBe('Config updated');

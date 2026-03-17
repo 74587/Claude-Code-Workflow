@@ -1,8 +1,8 @@
 // ========================================
 // CodexLens Settings Tab
 // ========================================
-// Structured form for CodexLens env configuration
-// Renders 5 groups: embedding, reranker, concurrency, cascade, chunking
+// Structured form for CodexLens v2 env configuration
+// Renders 4 groups: embedding, reranker, search, indexing
 // Plus a general config section (index_dir)
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -33,12 +33,10 @@ export function SettingsTab({ enabled = true }: SettingsTabProps) {
   const { formatMessage } = useIntl();
   const { success, error: showError } = useNotifications();
 
-  // Fetch current config (index_dir, workers, batch_size)
+  // Fetch current config (index_dir, index_count)
   const {
     config,
     indexCount,
-    apiMaxWorkers,
-    apiBatchSize,
     isLoading: isLoadingConfig,
     refetch: refetchConfig,
   } = useCodexLensConfig({ enabled });
@@ -199,24 +197,12 @@ export function SettingsTab({ enabled = true }: SettingsTabProps) {
     <div className="space-y-6">
       {/* Current Info Card */}
       <Card className="p-4 bg-muted/30">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div className="text-sm">
           <div>
             <span className="text-muted-foreground">
               {formatMessage({ id: 'codexlens.settings.currentCount' })}
             </span>
             <p className="text-foreground font-medium">{indexCount}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">
-              {formatMessage({ id: 'codexlens.settings.currentWorkers' })}
-            </span>
-            <p className="text-foreground font-medium">{apiMaxWorkers}</p>
-          </div>
-          <div>
-            <span className="text-muted-foreground">
-              {formatMessage({ id: 'codexlens.settings.currentBatchSize' })}
-            </span>
-            <p className="text-foreground font-medium">{apiBatchSize}</p>
           </div>
         </div>
       </Card>

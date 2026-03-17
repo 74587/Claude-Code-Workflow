@@ -2357,6 +2357,28 @@ async function executeV2BridgeCommand(
 }
 
 /**
+ * List known models via v2 bridge (list-models subcommand).
+ * Returns JSON array of {name, type, installed, cache_path}.
+ */
+export async function executeV2ListModels(): Promise<SearchResult> {
+  return executeV2BridgeCommand('list-models', []);
+}
+
+/**
+ * Download a single model by name via v2 bridge (download-model subcommand).
+ */
+export async function executeV2DownloadModel(modelName: string): Promise<SearchResult> {
+  return executeV2BridgeCommand('download-model', [modelName], { timeout: 600000 });
+}
+
+/**
+ * Delete a model from cache via v2 bridge (delete-model subcommand).
+ */
+export async function executeV2DeleteModel(modelName: string): Promise<SearchResult> {
+  return executeV2BridgeCommand('delete-model', [modelName]);
+}
+
+/**
  * Action: init (v2) - Initialize index and sync files.
  */
 async function executeInitActionV2(params: Params): Promise<SearchResult> {

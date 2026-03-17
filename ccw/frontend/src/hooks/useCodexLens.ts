@@ -259,8 +259,6 @@ export interface UseCodexLensConfigReturn {
   config: CodexLensConfig | undefined;
   indexDir: string;
   indexCount: number;
-  apiMaxWorkers: number;
-  apiBatchSize: number;
   isLoading: boolean;
   error: Error | null;
   refetch: () => Promise<void>;
@@ -288,8 +286,6 @@ export function useCodexLensConfig(options: UseCodexLensConfigOptions = {}): Use
     config: query.data,
     indexDir: query.data?.index_dir ?? '~/.codexlens/indexes',
     indexCount: query.data?.index_count ?? 0,
-    apiMaxWorkers: query.data?.api_max_workers ?? 4,
-    apiBatchSize: query.data?.api_batch_size ?? 8,
     isLoading: query.isLoading,
     error: query.error,
     refetch,
@@ -530,7 +526,7 @@ export function useCodexLensIgnorePatterns(options: UseCodexLensIgnorePatternsOp
 // ========== Mutation Hooks ==========
 
 export interface UseUpdateCodexLensConfigReturn {
-  updateConfig: (config: { index_dir: string; api_max_workers?: number; api_batch_size?: number }) => Promise<{ success: boolean; message?: string }>;
+  updateConfig: (config: { index_dir: string }) => Promise<{ success: boolean; message?: string }>;
   isUpdating: boolean;
   error: Error | null;
 }

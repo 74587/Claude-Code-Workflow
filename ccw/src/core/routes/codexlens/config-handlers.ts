@@ -11,7 +11,13 @@ import {
   executeCodexLens,
   isIndexingInProgress,
   uninstallCodexLens,
+  useCodexLensV2,
 } from '../../../tools/codex-lens.js';
+import {
+  executeV2ListModels,
+  executeV2DownloadModel,
+  executeV2DeleteModel,
+} from '../../../tools/smart-search.js';
 import type { RouteContext } from '../types.js';
 import { EXEC_TIMEOUTS } from '../../../utils/exec-constants.js';
 import { extractJSON } from './utils.js';
@@ -268,7 +274,7 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
   if (pathname === '/api/codexlens/config' && req.method === 'GET') {
     try {
       const venvStatus = await checkVenvStatus();
-      let responseData = { index_dir: '~/.codexlens/indexes', index_count: 0, api_max_workers: 4, api_batch_size: 8 };
+      let responseData = { index_dir: '~/.codexlens/indexes', index_count: 0 };
 
       // If not installed, return default config without executing CodexLens
       if (!venvStatus.ready) {
@@ -290,13 +296,6 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
           if (config.success && config.result) {
             // CLI returns index_dir (not index_root)
             responseData.index_dir = config.result.index_dir || config.result.index_root || responseData.index_dir;
-            // Extract API settings
-            if (config.result.api_max_workers !== undefined) {
-              responseData.api_max_workers = config.result.api_max_workers;
-            }
-            if (config.result.api_batch_size !== undefined) {
-              responseData.api_batch_size = config.result.api_batch_size;
-            }
           }
         } catch (e: unknown) {
           console.error('[CodexLens] Failed to parse config:', e instanceof Error ? e.message : String(e));
@@ -340,10 +339,8 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
   // API: CodexLens Config - POST (Set configuration)
   if (pathname === '/api/codexlens/config' && req.method === 'POST') {
     handlePostRequest(req, res, async (body: unknown) => {
-      const { index_dir, api_max_workers, api_batch_size } = body as {
+      const { index_dir } = body as {
         index_dir?: unknown;
-        api_max_workers?: unknown;
-        api_batch_size?: unknown;
       };
 
       if (!index_dir) {
@@ -377,33 +374,11 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
         return { success: false, error: 'Invalid path: path traversal not allowed', status: 400 };
       }
 
-      // Validate api settings
-      if (api_max_workers !== undefined) {
-        const workers = Number(api_max_workers);
-        if (isNaN(workers) || workers < 1 || workers > 32) {
-          return { success: false, error: 'api_max_workers must be between 1 and 32', status: 400 };
-        }
-      }
-      if (api_batch_size !== undefined) {
-        const batch = Number(api_batch_size);
-        if (isNaN(batch) || batch < 1 || batch > 64) {
-          return { success: false, error: 'api_batch_size must be between 1 and 64', status: 400 };
-        }
-      }
-
       try {
         // Set index_dir
         const result = await executeCodexLens(['config', 'set', 'index_dir', indexDirStr, '--json']);
         if (!result.success) {
           return { success: false, error: result.error || 'Failed to update index_dir', status: 500 };
-        }
-
-        // Set API settings if provided
-        if (api_max_workers !== undefined) {
-          await executeCodexLens(['config', 'set', 'api_max_workers', String(api_max_workers), '--json']);
-        }
-        if (api_batch_size !== undefined) {
-          await executeCodexLens(['config', 'set', 'api_batch_size', String(api_batch_size), '--json']);
         }
 
         return { success: true, message: 'Configuration updated successfully' };
@@ -568,6 +543,22 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
   // API: CodexLens Model List (list available embedding AND reranker models)
   if (pathname === '/api/codexlens/models' && req.method === 'GET') {
     try {
+      // v2 bridge: single list-models command returns all models with type
+      if (useCodexLensV2()) {
+        const result = await executeV2ListModels();
+        if (result.success && result.status) {
+          // v2 bridge returns array directly as status
+          const models = Array.isArray(result.status) ? result.status : [];
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, result: { models } }));
+        } else {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: result.error || 'Failed to list models' }));
+        }
+        return true;
+      }
+
+      // v1 fallback: fetch embedding and reranker models separately
       // Check if CodexLens is installed first (without auto-installing)
       const venvStatus = await checkVenvStatus();
       if (!venvStatus.ready) {
@@ -625,10 +616,27 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
   // API: CodexLens Model Download (download embedding or reranker model by profile)
   if (pathname === '/api/codexlens/models/download' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { profile, model_type } = body as { profile?: unknown; model_type?: unknown };
+      const { profile, model_type, model_name } = body as { profile?: unknown; model_type?: unknown; model_name?: unknown };
+      // v2 bridge: accepts model_name (HF name) directly; v1 uses profile names
       const resolvedProfile = typeof profile === 'string' && profile.trim().length > 0 ? profile.trim() : undefined;
+      const resolvedModelName = typeof model_name === 'string' && model_name.trim().length > 0 ? model_name.trim() : undefined;
       const resolvedModelType = typeof model_type === 'string' ? model_type.trim() : undefined;
 
+      // v2 bridge: download by model name
+      if (useCodexLensV2()) {
+        const nameToDownload = resolvedModelName || resolvedProfile;
+        if (!nameToDownload) {
+          return { success: false, error: 'model_name or profile is required', status: 400 };
+        }
+        const result = await executeV2DownloadModel(nameToDownload);
+        if (result.success) {
+          const data = (result.status && typeof result.status === 'object') ? result.status as Record<string, unknown> : {};
+          return { success: true, ...data };
+        }
+        return { success: false, error: result.error, status: 500 };
+      }
+
+      // v1 fallback
       if (!resolvedProfile) {
         return { success: false, error: 'profile is required', status: 400 };
       }
@@ -705,6 +713,17 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
         return { success: false, error: 'Invalid model_name format. Expected: org/model-name', status: 400 };
       }
 
+      // v2 bridge: download-model handles any HF model name directly
+      if (useCodexLensV2()) {
+        const result = await executeV2DownloadModel(resolvedModelName);
+        if (result.success) {
+          const data = (result.status && typeof result.status === 'object') ? result.status as Record<string, unknown> : {};
+          return { success: true, ...data };
+        }
+        return { success: false, error: result.error, status: 500 };
+      }
+
+      // v1 fallback
       try {
         const result = await executeCodexLens([
           'model-download-custom', resolvedModelName,
@@ -732,10 +751,26 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
   // API: CodexLens Model Delete (delete embedding or reranker model by profile)
   if (pathname === '/api/codexlens/models/delete' && req.method === 'POST') {
     handlePostRequest(req, res, async (body) => {
-      const { profile, model_type } = body as { profile?: unknown; model_type?: unknown };
+      const { profile, model_type, model_name } = body as { profile?: unknown; model_type?: unknown; model_name?: unknown };
       const resolvedProfile = typeof profile === 'string' && profile.trim().length > 0 ? profile.trim() : undefined;
+      const resolvedModelName = typeof model_name === 'string' && model_name.trim().length > 0 ? model_name.trim() : undefined;
       const resolvedModelType = typeof model_type === 'string' ? model_type.trim() : undefined;
 
+      // v2 bridge: delete by model name
+      if (useCodexLensV2()) {
+        const nameToDelete = resolvedModelName || resolvedProfile;
+        if (!nameToDelete) {
+          return { success: false, error: 'model_name or profile is required', status: 400 };
+        }
+        const result = await executeV2DeleteModel(nameToDelete);
+        if (result.success) {
+          const data = (result.status && typeof result.status === 'object') ? result.status as Record<string, unknown> : {};
+          return { success: true, ...data };
+        }
+        return { success: false, error: result.error, status: 500 };
+      }
+
+      // v1 fallback
       if (!resolvedProfile) {
         return { success: false, error: 'profile is required', status: 400 };
       }
@@ -1077,8 +1112,8 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
             const trimmed = line.trim();
             // Preserve comment lines that aren't our headers
             if (trimmed.startsWith('#') && !trimmed.includes('Managed by CCW')) {
-              if (!trimmed.includes('Reranker API') && !trimmed.includes('Embedding API') &&
-                  !trimmed.includes('LiteLLM Config') && !trimmed.includes('CodexLens Settings') &&
+              if (!trimmed.includes('Reranker Configuration') && !trimmed.includes('Embedding Configuration') &&
+                  !trimmed.includes('Search Pipeline') && !trimmed.includes('Indexing Settings') &&
                   !trimmed.includes('Other Settings') && !trimmed.includes('CodexLens Environment')) {
                 existingComments.push(line);
               }
@@ -1116,9 +1151,20 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
 
         // Merge: update known keys from payload, preserve unknown keys
         const knownKeys = new Set([
-          'RERANKER_API_KEY', 'RERANKER_API_BASE', 'RERANKER_MODEL',
-          'EMBEDDING_API_KEY', 'EMBEDDING_API_BASE', 'EMBEDDING_MODEL',
-          'LITELLM_API_KEY', 'LITELLM_API_BASE', 'LITELLM_MODEL'
+          // v2 embedding
+          'CODEXLENS_EMBEDDING_BACKEND', 'CODEXLENS_EMBEDDING_MODEL', 'CODEXLENS_USE_GPU',
+          'CODEXLENS_EMBED_BATCH_SIZE', 'CODEXLENS_EMBED_API_URL', 'CODEXLENS_EMBED_API_KEY',
+          'CODEXLENS_EMBED_API_MODEL', 'CODEXLENS_EMBED_API_ENDPOINTS', 'CODEXLENS_EMBED_DIM',
+          'CODEXLENS_EMBED_API_CONCURRENCY', 'CODEXLENS_EMBED_API_MAX_TOKENS',
+          // v2 reranker
+          'CODEXLENS_RERANKER_BACKEND', 'CODEXLENS_RERANKER_MODEL', 'CODEXLENS_RERANKER_TOP_K',
+          'CODEXLENS_RERANKER_BATCH_SIZE', 'CODEXLENS_RERANKER_API_URL',
+          'CODEXLENS_RERANKER_API_KEY', 'CODEXLENS_RERANKER_API_MODEL',
+          // v2 search pipeline
+          'CODEXLENS_BINARY_TOP_K', 'CODEXLENS_ANN_TOP_K', 'CODEXLENS_FTS_TOP_K', 'CODEXLENS_FUSION_K',
+          // v2 indexing
+          'CODEXLENS_CODE_AWARE_CHUNKING', 'CODEXLENS_INDEX_WORKERS', 'CODEXLENS_MAX_FILE_SIZE',
+          'CODEXLENS_HNSW_EF', 'CODEXLENS_HNSW_M',
         ]);
 
         // Apply updates from payload
@@ -1143,12 +1189,12 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
           lines.push(...existingComments, '');
         }
 
-        // Group by prefix
+        // Group by semantic category (v2 env var naming)
         const groups: Record<string, string[]> = {
+          'EMBED': [],
           'RERANKER': [],
-          'EMBEDDING': [],
-          'LITELLM': [],
-          'CODEXLENS': [],
+          'SEARCH': [],
+          'INDEX': [],
           'OTHER': []
         };
 
@@ -1161,29 +1207,29 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
             .replace(/\n/g, '\\n')   // Escape newlines
             .replace(/\r/g, '\\r');  // Escape carriage returns
           const line = `${key}="${escapedValue}"`;
-          if (key.startsWith('RERANKER_')) groups['RERANKER'].push(line);
-          else if (key.startsWith('EMBEDDING_')) groups['EMBEDDING'].push(line);
-          else if (key.startsWith('LITELLM_')) groups['LITELLM'].push(line);
-          else if (key.startsWith('CODEXLENS_')) groups['CODEXLENS'].push(line);
+          if (key.includes('EMBED') || key === 'CODEXLENS_USE_GPU') groups['EMBED'].push(line);
+          else if (key.includes('RERANKER')) groups['RERANKER'].push(line);
+          else if (key.includes('BINARY_TOP_K') || key.includes('ANN_TOP_K') || key.includes('FTS_TOP_K') || key.includes('FUSION_K')) groups['SEARCH'].push(line);
+          else if (key.includes('INDEX') || key.includes('HNSW') || key.includes('MAX_FILE_SIZE') || key.includes('CODE_AWARE')) groups['INDEX'].push(line);
           else groups['OTHER'].push(line);
         }
 
         // Add grouped content
+        if (groups['EMBED'].length) {
+          lines.push('# Embedding Configuration');
+          lines.push(...groups['EMBED'], '');
+        }
         if (groups['RERANKER'].length) {
-          lines.push('# Reranker API Configuration');
+          lines.push('# Reranker Configuration');
           lines.push(...groups['RERANKER'], '');
         }
-        if (groups['EMBEDDING'].length) {
-          lines.push('# Embedding API Configuration');
-          lines.push(...groups['EMBEDDING'], '');
+        if (groups['SEARCH'].length) {
+          lines.push('# Search Pipeline');
+          lines.push(...groups['SEARCH'], '');
         }
-        if (groups['LITELLM'].length) {
-          lines.push('# LiteLLM Configuration');
-          lines.push(...groups['LITELLM'], '');
-        }
-        if (groups['CODEXLENS'].length) {
-          lines.push('# CodexLens Settings');
-          lines.push(...groups['CODEXLENS'], '');
+        if (groups['INDEX'].length) {
+          lines.push('# Indexing Settings');
+          lines.push(...groups['INDEX'], '');
         }
         if (groups['OTHER'].length) {
           lines.push('# Other Settings');
@@ -1199,48 +1245,43 @@ export async function handleCodexLensConfigRoutes(ctx: RouteContext): Promise<bo
           const settingsContent = await readFile(settingsPath, 'utf-8');
           settings = JSON.parse(settingsContent);
         } catch {
-          // File doesn't exist, create default structure
-          settings = { embedding: {}, reranker: {}, api: {}, cascade: {}, staged: {}, llm: {}, parsing: {}, indexing: {} };
+          // File doesn't exist, create default structure (v2 sections)
+          settings = { embedding: {}, reranker: {}, search: {}, indexing: {} };
         }
 
-        // Map env vars to settings.json structure
+        // Map env vars to settings.json structure (v2 schema)
         const envToSettings: Record<string, { path: string[], transform?: (v: string) => any }> = {
+          // Embedding
           'CODEXLENS_EMBEDDING_BACKEND': { path: ['embedding', 'backend'] },
           'CODEXLENS_EMBEDDING_MODEL': { path: ['embedding', 'model'] },
-          'CODEXLENS_USE_GPU': { path: ['embedding', 'use_gpu'], transform: v => v === 'true' },
-          'CODEXLENS_AUTO_EMBED_MISSING': { path: ['embedding', 'auto_embed_missing'], transform: v => v === 'true' },
-          'CODEXLENS_EMBEDDING_STRATEGY': { path: ['embedding', 'strategy'] },
-          'CODEXLENS_EMBEDDING_COOLDOWN': { path: ['embedding', 'cooldown'], transform: v => parseFloat(v) },
+          'CODEXLENS_USE_GPU': { path: ['embedding', 'device'] },
+          'CODEXLENS_EMBED_BATCH_SIZE': { path: ['embedding', 'batch_size'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_EMBED_API_URL': { path: ['embedding', 'api_url'] },
+          'CODEXLENS_EMBED_API_KEY': { path: ['embedding', 'api_key'] },
+          'CODEXLENS_EMBED_API_MODEL': { path: ['embedding', 'api_model'] },
+          'CODEXLENS_EMBED_API_ENDPOINTS': { path: ['embedding', 'api_endpoints'] },
+          'CODEXLENS_EMBED_DIM': { path: ['embedding', 'dim'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_EMBED_API_CONCURRENCY': { path: ['embedding', 'api_concurrency'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_EMBED_API_MAX_TOKENS': { path: ['embedding', 'api_max_tokens_per_batch'], transform: v => parseInt(v, 10) },
+          // Reranker
           'CODEXLENS_RERANKER_BACKEND': { path: ['reranker', 'backend'] },
           'CODEXLENS_RERANKER_MODEL': { path: ['reranker', 'model'] },
-          'CODEXLENS_RERANKER_ENABLED': { path: ['reranker', 'enabled'], transform: v => v === 'true' },
           'CODEXLENS_RERANKER_TOP_K': { path: ['reranker', 'top_k'], transform: v => parseInt(v, 10) },
-          'CODEXLENS_API_MAX_WORKERS': { path: ['api', 'max_workers'], transform: v => parseInt(v, 10) },
-          'CODEXLENS_API_BATCH_SIZE': { path: ['api', 'batch_size'], transform: v => parseInt(v, 10) },
-          'CODEXLENS_API_BATCH_SIZE_DYNAMIC': { path: ['api', 'batch_size_dynamic'], transform: v => v === 'true' },
-          'CODEXLENS_API_BATCH_SIZE_UTILIZATION': { path: ['api', 'batch_size_utilization_factor'], transform: v => parseFloat(v) },
-          'CODEXLENS_API_BATCH_SIZE_MAX': { path: ['api', 'batch_size_max'], transform: v => parseInt(v, 10) },
-          'CODEXLENS_CHARS_PER_TOKEN': { path: ['api', 'chars_per_token_estimate'], transform: v => parseInt(v, 10) },
-          'CODEXLENS_CASCADE_STRATEGY': { path: ['cascade', 'strategy'] },
-          'CODEXLENS_CASCADE_COARSE_K': { path: ['cascade', 'coarse_k'], transform: v => parseInt(v, 10) },
-          'CODEXLENS_CASCADE_FINE_K': { path: ['cascade', 'fine_k'], transform: v => parseInt(v, 10) },
-          'CODEXLENS_STAGED_STAGE2_MODE': { path: ['staged', 'stage2_mode'] },
-          'CODEXLENS_STAGED_CLUSTERING_STRATEGY': { path: ['staged', 'clustering_strategy'] },
-          'CODEXLENS_STAGED_CLUSTERING_MIN_SIZE': { path: ['staged', 'clustering_min_size'], transform: v => parseInt(v, 10) },
-          'CODEXLENS_ENABLE_STAGED_RERANK': { path: ['staged', 'enable_rerank'], transform: v => v === 'true' },
-          'CODEXLENS_LLM_ENABLED': { path: ['llm', 'enabled'], transform: v => v === 'true' },
-          'CODEXLENS_LLM_BATCH_SIZE': { path: ['llm', 'batch_size'], transform: v => parseInt(v, 10) },
-          'CODEXLENS_USE_ASTGREP': { path: ['parsing', 'use_astgrep'], transform: v => v === 'true' },
-          'CODEXLENS_STATIC_GRAPH_ENABLED': { path: ['indexing', 'static_graph_enabled'], transform: v => v === 'true' },
-          'CODEXLENS_STATIC_GRAPH_RELATIONSHIP_TYPES': {
-            path: ['indexing', 'static_graph_relationship_types'],
-            transform: v => v
-              .split(',')
-              .map((t) => t.trim())
-              .filter((t) => t.length > 0),
-          },
-          'LITELLM_EMBEDDING_MODEL': { path: ['embedding', 'model'] },
-          'LITELLM_RERANKER_MODEL': { path: ['reranker', 'model'] }
+          'CODEXLENS_RERANKER_BATCH_SIZE': { path: ['reranker', 'batch_size'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_RERANKER_API_URL': { path: ['reranker', 'api_url'] },
+          'CODEXLENS_RERANKER_API_KEY': { path: ['reranker', 'api_key'] },
+          'CODEXLENS_RERANKER_API_MODEL': { path: ['reranker', 'api_model'] },
+          // Search pipeline
+          'CODEXLENS_BINARY_TOP_K': { path: ['search', 'binary_top_k'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_ANN_TOP_K': { path: ['search', 'ann_top_k'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_FTS_TOP_K': { path: ['search', 'fts_top_k'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_FUSION_K': { path: ['search', 'fusion_k'], transform: v => parseInt(v, 10) },
+          // Indexing
+          'CODEXLENS_CODE_AWARE_CHUNKING': { path: ['indexing', 'code_aware_chunking'], transform: v => v === 'true' },
+          'CODEXLENS_INDEX_WORKERS': { path: ['indexing', 'workers'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_MAX_FILE_SIZE': { path: ['indexing', 'max_file_size_bytes'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_HNSW_EF': { path: ['indexing', 'hnsw_ef'], transform: v => parseInt(v, 10) },
+          'CODEXLENS_HNSW_M': { path: ['indexing', 'hnsw_M'], transform: v => parseInt(v, 10) },
         };
 
         // Apply env vars to settings
