@@ -8,9 +8,13 @@ log = logging.getLogger(__name__)
 @dataclass
 class Config:
     # Embedding
-    embed_model: str = "jinaai/jina-embeddings-v2-base-code"
-    embed_dim: int = 768
+    embed_model: str = "BAAI/bge-small-en-v1.5"
+    embed_dim: int = 384
     embed_batch_size: int = 64
+
+    # Model download / cache
+    model_cache_dir: str = ""  # empty = fastembed default cache
+    hf_mirror: str = ""  # HuggingFace mirror URL, e.g. "https://hf-mirror.com"
 
     # GPU / execution providers
     device: str = "auto"  # 'auto', 'cuda', 'cpu'
@@ -35,7 +39,7 @@ class Config:
     ann_top_k: int = 50
 
     # Reranker
-    reranker_model: str = "BAAI/bge-reranker-v2-m3"
+    reranker_model: str = "Xenova/ms-marco-MiniLM-L-6-v2"
     reranker_top_k: int = 20
     reranker_batch_size: int = 32
 

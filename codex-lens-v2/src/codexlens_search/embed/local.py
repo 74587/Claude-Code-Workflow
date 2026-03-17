@@ -24,16 +24,23 @@ class FastEmbedEmbedder(BaseEmbedder):
         """Lazy-load the fastembed TextEmbedding model on first use."""
         if self._model is not None:
             return
+        from .. import model_manager
+        model_manager.ensure_model(self._config.embed_model, self._config)
+
         from fastembed import TextEmbedding
         providers = self._config.resolve_embed_providers()
+        cache_kwargs = model_manager.get_cache_kwargs(self._config)
         try:
             self._model = TextEmbedding(
                 model_name=self._config.embed_model,
                 providers=providers,
+                **cache_kwargs,
             )
         except TypeError:
-            # Older fastembed versions may not accept providers kwarg
-            self._model = TextEmbedding(model_name=self._config.embed_model)
+            self._model = TextEmbedding(
+                model_name=self._config.embed_model,
+                **cache_kwargs,
+            )
 
     def embed_single(self, text: str) -> np.ndarray:
         """Embed a single text, returns float32 ndarray of shape (dim,)."""

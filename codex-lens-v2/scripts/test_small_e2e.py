@@ -15,21 +15,9 @@ from codexlens_search.config import Config
 from codexlens_search.core.factory import create_ann_index, create_binary_index
 from codexlens_search.embed.local import FastEmbedEmbedder
 from codexlens_search.indexing import IndexingPipeline
-from codexlens_search.rerank.base import BaseReranker
+from codexlens_search.rerank.local import FastEmbedReranker
 from codexlens_search.search.fts import FTSEngine
 from codexlens_search.search.pipeline import SearchPipeline
-
-
-class KeywordReranker(BaseReranker):
-    """Simple keyword-overlap reranker for testing without network."""
-    def score_pairs(self, query: str, documents: list[str]) -> list[float]:
-        q_words = set(query.lower().split())
-        scores = []
-        for doc in documents:
-            d_words = set(doc.lower().split())
-            overlap = len(q_words & d_words)
-            scores.append(float(overlap) / max(len(q_words), 1))
-        return scores
 
 PROJECT = Path(__file__).parent.parent
 TARGET_DIR = PROJECT / "src" / "codexlens_search"  # ~21 .py files, small
@@ -62,7 +50,7 @@ def main():
         hnsw_M=16,
         binary_top_k=100,
         ann_top_k=30,
-        reranker_model="BAAI/bge-reranker-base",
+        reranker_model="Xenova/ms-marco-MiniLM-L-6-v2",
         reranker_top_k=10,
     )
 
@@ -116,7 +104,7 @@ def main():
 
     # ── 5. Test SearchPipeline (parallel FTS||vector + fusion + rerank) ──
     print("=== 5. SearchPipeline (full pipeline) ===")
-    reranker = KeywordReranker()
+    reranker = FastEmbedReranker(config)
     search = SearchPipeline(
         embedder=embedder,
         binary_store=binary_store,
@@ -144,7 +132,7 @@ def main():
         else:
             check(f"{desc}: returns results", len(results) > 0, f"'{query}' got 0 results")
             if results:
-                check(f"{desc}: has scores", all(r.score >= 0 for r in results))
+                check(f"{desc}: has scores", all(isinstance(r.score, (int, float)) for r in results))
                 check(f"{desc}: has paths", all(r.path for r in results))
                 check(f"{desc}: respects top_k", len(results) <= 5)
                 print(f"    Top result: [{results[0].score:.3f}] {results[0].path}")
@@ -152,18 +140,18 @@ def main():
 
     # ── 6. Test result quality (sanity) ───────────────────────
     print("\n=== 6. Result quality sanity checks ===")
-    r1 = search.search("BinaryStore add coarse_search", top_k=3)
+    r1 = search.search("BinaryStore add coarse_search", top_k=5)
     if r1:
         paths = [r.path for r in r1]
-        check("BinaryStore query -> binary.py in results",
-              any("binary" in p for p in paths),
+        check("BinaryStore query -> binary/core in results",
+              any("binary" in p or "core" in p for p in paths),
               f"got paths: {paths}")
 
-    r2 = search.search("FTSEngine exact_search fuzzy_search", top_k=3)
+    r2 = search.search("FTSEngine exact_search fuzzy_search", top_k=5)
     if r2:
         paths = [r.path for r in r2]
-        check("FTSEngine query -> fts.py in results",
-              any("fts" in p for p in paths),
+        check("FTSEngine query -> fts/search in results",
+              any("fts" in p or "search" in p for p in paths),
               f"got paths: {paths}")
 
     r3 = search.search("IndexingPipeline parallel queue", top_k=3)

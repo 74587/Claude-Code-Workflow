@@ -13,12 +13,26 @@ class FastEmbedReranker(BaseReranker):
 
     def _load(self) -> None:
         if self._model is None:
+            from .. import model_manager
+            model_manager.ensure_model(self._config.reranker_model, self._config)
+
             from fastembed.rerank.cross_encoder import TextCrossEncoder
-            self._model = TextCrossEncoder(model_name=self._config.reranker_model)
+            cache_kwargs = model_manager.get_cache_kwargs(self._config)
+            self._model = TextCrossEncoder(
+                model_name=self._config.reranker_model,
+                **cache_kwargs,
+            )
 
     def score_pairs(self, query: str, documents: list[str]) -> list[float]:
         self._load()
         results = list(self._model.rerank(query, documents))
+        if not results:
+            return [0.0] * len(documents)
+        # fastembed may return list[float] or list[RerankResult] depending on version
+        first = results[0]
+        if isinstance(first, (int, float)):
+            return [float(s) for s in results]
+        # Older format: objects with .index and .score
         scores = [0.0] * len(documents)
         for r in results:
             scores[r.index] = float(r.score)
