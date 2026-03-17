@@ -6,7 +6,6 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { getCliToolsStatus } from '../../tools/cli-executor.js';
-import { checkVenvStatus, checkSemanticStatus } from '../../tools/codex-lens.js';
 import type { RouteContext } from './types.js';
 
 // Performance logging helper
@@ -80,36 +79,14 @@ export async function handleStatusRoutes(ctx: RouteContext): Promise<boolean> {
       const ccwInstallStatus = checkCcwInstallStatus();
       perfLog('checkCcwInstallStatus', ccwStart);
 
-      // Execute all status checks in parallel with individual timing
+      // Execute async status checks
       const cliStart = Date.now();
-      const codexStart = Date.now();
-      const semanticStart = Date.now();
 
-      const [cliStatus, codexLensStatus, semanticStatus] = await Promise.all([
-        getCliToolsStatus().then(result => {
-          perfLog('getCliToolsStatus', cliStart, { toolCount: Object.keys(result).length });
-          return result;
-        }),
-        checkVenvStatus().then(result => {
-          perfLog('checkVenvStatus', codexStart, { ready: result.ready });
-          return result;
-        }),
-        // Always check semantic status (will return available: false if CodexLens not ready)
-        checkSemanticStatus()
-          .then(result => {
-            perfLog('checkSemanticStatus', semanticStart, { available: result.available });
-            return result;
-          })
-          .catch(() => {
-            perfLog('checkSemanticStatus (error)', semanticStart);
-            return { available: false, backend: null };
-          })
-      ]);
+      const cliStatus = await getCliToolsStatus();
+      perfLog('getCliToolsStatus', cliStart, { toolCount: Object.keys(cliStatus).length });
 
       const response = {
         cli: cliStatus,
-        codexLens: codexLensStatus,
-        semantic: semanticStatus,
         ccwInstall: ccwInstallStatus,
         timestamp: new Date().toISOString()
       };

@@ -3,17 +3,6 @@
  * Handles LiteLLM provider management, endpoint configuration, and cache management
  */
 import { z } from 'zod';
-import { spawn } from 'child_process';
-import {
-  getSystemPythonCommand,
-  parsePythonCommandSpec,
-  type PythonCommandSpec,
-} from '../../utils/python-utils.js';
-import {
-  isUvAvailable,
-  createCodexLensUvManager
-} from '../../utils/uv-manager.js';
-import { ensureLiteLLMEmbedderReady } from '../../tools/codex-lens.js';
 import type { RouteContext } from './types.js';
 
 // ========== Input Validation Schemas ==========
@@ -81,106 +70,13 @@ import {
   type EmbeddingPoolConfig,
 } from '../../config/litellm-api-config-manager.js';
 import { getContextCacheStore } from '../../tools/context-cache-store.js';
-import { getLiteLLMClient } from '../../tools/litellm-client.js';
 import { testApiKeyConnection, getDefaultApiBase } from '../services/api-key-tester.js';
 
-interface CcwLitellmEnvCheck {
-  python: string;
-  installed: boolean;
-  version?: string;
-  error?: string;
-}
+const V1_REMOVED = 'Python bridge has been removed (v1 cleanup).';
 
-interface CcwLitellmStatusResponse {
-  /**
-   * Whether ccw-litellm is installed in the CodexLens venv.
-   * This is the environment used for the LiteLLM embedding backend.
-   */
-  installed: boolean;
-  version?: string;
-  error?: string;
-  checks?: {
-    codexLensVenv: CcwLitellmEnvCheck;
-    systemPython?: CcwLitellmEnvCheck;
-  };
-}
-
-function checkCcwLitellmImport(
-  pythonCmd: string | PythonCommandSpec,
-  options: { timeout: number }
-): Promise<CcwLitellmEnvCheck> {
-  const { timeout } = options;
-  const pythonSpec = typeof pythonCmd === 'string' ? parsePythonCommandSpec(pythonCmd) : pythonCmd;
-
-  const sanitizePythonError = (stderrText: string): string | undefined => {
-    const trimmed = stderrText.trim();
-    if (!trimmed) return undefined;
-    const lines = trimmed
-      .split(/\r?\n/g)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    // Prefer the final exception line (avoids leaking full traceback + file paths)
-    return lines[lines.length - 1] || undefined;
-  };
-
-  return new Promise((resolve) => {
-    const child = spawn(pythonSpec.command, [...pythonSpec.args, '-c', 'import ccw_litellm; print(ccw_litellm.__version__)'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout,
-      windowsHide: true,
-      shell: false,
-      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout?.on('data', (data: Buffer) => {
-      stdout += data.toString();
-    });
-
-    child.stderr?.on('data', (data: Buffer) => {
-      stderr += data.toString();
-    });
-
-    child.on('close', (code: number | null) => {
-      const version = stdout.trim();
-      const error = sanitizePythonError(stderr);
-
-      if (code === 0 && version) {
-        resolve({ python: pythonSpec.display, installed: true, version });
-        return;
-      }
-
-      if (code === null) {
-        resolve({ python: pythonSpec.display, installed: false, error: `Timed out after ${timeout}ms` });
-        return;
-      }
-
-      resolve({ python: pythonSpec.display, installed: false, error: error || undefined });
-    });
-
-    child.on('error', (err) => {
-      resolve({ python: pythonSpec.display, installed: false, error: err.message });
-    });
-  });
-}
-
-// Cache for ccw-litellm status check
-let ccwLitellmStatusCache: {
-  data: CcwLitellmStatusResponse | null;
-  timestamp: number;
-  ttl: number;
-} = {
-  data: null,
-  timestamp: 0,
-  ttl: 5 * 60 * 1000, // 5 minutes
-};
-
-// Clear cache (call after install)
+// Clear cache (no-op stub, kept for backward compatibility)
 export function clearCcwLitellmStatusCache() {
-  ccwLitellmStatusCache.data = null;
-  ccwLitellmStatusCache.timestamp = 0;
+  // no-op: Python bridge removed
 }
 
 function sanitizeProviderForResponse(provider: any): any {
@@ -922,57 +818,10 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
   // CCW-LiteLLM Package Management
   // ===========================
 
-  // GET /api/litellm-api/ccw-litellm/status - Check ccw-litellm installation status
-  // Supports ?refresh=true to bypass cache
+  // GET /api/litellm-api/ccw-litellm/status - Stub (v1 Python bridge removed)
   if (pathname === '/api/litellm-api/ccw-litellm/status' && req.method === 'GET') {
-    const forceRefresh = url.searchParams.get('refresh') === 'true';
-
-    // Check cache first (unless force refresh)
-    if (!forceRefresh && ccwLitellmStatusCache.data &&
-        Date.now() - ccwLitellmStatusCache.timestamp < ccwLitellmStatusCache.ttl) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(ccwLitellmStatusCache.data));
-      return true;
-    }
-
-    try {
-      const uv = createCodexLensUvManager();
-      const venvPython = uv.getVenvPython();
-      const statusTimeout = process.platform === 'win32' ? 15000 : 10000;
-      const codexLensVenv = uv.isVenvValid()
-        ? await checkCcwLitellmImport(venvPython, { timeout: statusTimeout })
-        : { python: venvPython, installed: false, error: 'CodexLens venv not valid' };
-
-      // Diagnostics only: if not installed in venv, also check system python so users understand mismatches.
-      // NOTE: `installed` flag remains the CodexLens venv status (we want isolated venv dependencies).
-      const systemPython = !codexLensVenv.installed
-        ? await checkCcwLitellmImport(getSystemPythonCommand(), { timeout: statusTimeout })
-        : undefined;
-
-      const result: CcwLitellmStatusResponse = {
-        installed: codexLensVenv.installed,
-        version: codexLensVenv.version,
-        error: codexLensVenv.error,
-        checks: {
-          codexLensVenv,
-          ...(systemPython ? { systemPython } : {}),
-        },
-      };
-
-      // Update cache
-      ccwLitellmStatusCache = {
-        data: result,
-        timestamp: Date.now(),
-        ttl: 5 * 60 * 1000,
-      };
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
-    } catch (err) {
-      const errorResult = { installed: false, error: (err as Error).message };
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(errorResult));
-    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ installed: false, error: V1_REMOVED }));
     return true;
   }
 
@@ -1367,96 +1216,18 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
     return true;
   }
 
-  // POST /api/litellm-api/ccw-litellm/install - Install ccw-litellm package
+  // POST /api/litellm-api/ccw-litellm/install - Stub (v1 Python bridge removed)
   if (pathname === '/api/litellm-api/ccw-litellm/install' && req.method === 'POST') {
     handlePostRequest(req, res, async () => {
-      try {
-        // Delegate entirely to ensureLiteLLMEmbedderReady for consistent installation
-        // This uses unified package discovery and handles UV → pip fallback
-        const result = await ensureLiteLLMEmbedderReady();
-
-        if (result.success) {
-          clearCcwLitellmStatusCache();
-          broadcastToClients({
-            type: 'CCW_LITELLM_INSTALLED',
-            payload: { timestamp: new Date().toISOString(), method: 'unified' }
-          });
-        }
-
-        return result;
-      } catch (err) {
-        return { success: false, error: (err as Error).message };
-      }
+      return { success: false, error: V1_REMOVED };
     });
     return true;
   }
 
-  // POST /api/litellm-api/ccw-litellm/uninstall - Uninstall ccw-litellm package
+  // POST /api/litellm-api/ccw-litellm/uninstall - Stub (v1 Python bridge removed)
   if (pathname === '/api/litellm-api/ccw-litellm/uninstall' && req.method === 'POST') {
     handlePostRequest(req, res, async () => {
-      try {
-        // Priority 1: Use UV to uninstall from CodexLens venv
-        if (await isUvAvailable()) {
-          const uv = createCodexLensUvManager();
-          if (uv.isVenvValid()) {
-            console.log('[ccw-litellm uninstall] Using UV to uninstall from CodexLens venv...');
-            const uvResult = await uv.uninstall(['ccw-litellm']);
-            clearCcwLitellmStatusCache();
-
-            if (uvResult.success) {
-              broadcastToClients({
-                type: 'CCW_LITELLM_UNINSTALLED',
-                payload: { timestamp: new Date().toISOString() }
-              });
-              return { success: true, message: 'ccw-litellm uninstalled successfully via UV' };
-            }
-            console.log('[ccw-litellm uninstall] UV uninstall failed, falling back to pip:', uvResult.error);
-          }
-        }
-
-        // Priority 2: Fallback to system pip uninstall
-        console.log('[ccw-litellm uninstall] Using pip fallback...');
-        const pythonCmd = getSystemPythonCommand();
-
-        return new Promise((resolve) => {
-          const proc = spawn(
-            pythonCmd.command,
-            [...pythonCmd.args, '-m', 'pip', 'uninstall', '-y', 'ccw-litellm'],
-            {
-              shell: false,
-              timeout: 120000,
-              windowsHide: true,
-              env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
-            },
-          );
-          let output = '';
-          let error = '';
-          proc.stdout?.on('data', (data) => { output += data.toString(); });
-          proc.stderr?.on('data', (data) => { error += data.toString(); });
-          proc.on('close', (code) => {
-            // Clear status cache after uninstallation attempt
-            clearCcwLitellmStatusCache();
-
-            if (code === 0) {
-              broadcastToClients({
-                type: 'CCW_LITELLM_UNINSTALLED',
-                payload: { timestamp: new Date().toISOString() }
-              });
-              resolve({ success: true, message: 'ccw-litellm uninstalled successfully' });
-            } else {
-              // Check if package was not installed
-              if (error.includes('not installed') || output.includes('not installed')) {
-                resolve({ success: true, message: 'ccw-litellm was not installed' });
-              } else {
-                resolve({ success: false, error: error || output || 'Uninstallation failed' });
-              }
-            }
-          });
-          proc.on('error', (err) => resolve({ success: false, error: err.message }));
-        });
-      } catch (err) {
-        return { success: false, error: (err as Error).message };
-      }
+      return { success: false, error: V1_REMOVED };
     });
     return true;
   }

@@ -1,361 +1,196 @@
 // ========================================
-// CodexLens Manager Page Tests
+// CodexLens Manager Page Tests (v2)
 // ========================================
-// Integration tests for CodexLens manager page with tabs
+// Tests for v2 search management page
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@/test/i18n';
+import { render, screen } from '@/test/i18n';
 import userEvent from '@testing-library/user-event';
 import { CodexLensManagerPage } from './CodexLensManagerPage';
 
-// Mock api module
-vi.mock('@/lib/api', () => ({
-  fetchCodexLensDashboardInit: vi.fn(),
-  bootstrapCodexLens: vi.fn(),
-  uninstallCodexLens: vi.fn(),
+// Mock the v2 search manager hook
+vi.mock('@/hooks/useV2SearchManager', () => ({
+  useV2SearchManager: vi.fn(),
 }));
 
-// Mock hooks
-vi.mock('@/hooks/useCodexLens', () => ({
-  useCodexLensDashboard: vi.fn(),
-}));
+import { useV2SearchManager } from '@/hooks/useV2SearchManager';
 
-vi.mock('@/hooks/useCodexLens', () => ({
-  useCodexLensDashboard: vi.fn(),
-}));
-
-vi.mock('@/hooks/useNotifications', () => ({
-  useNotifications: vi.fn(() => ({
-    success: vi.fn(),
-    error: vi.fn(),
-    toasts: [],
-    wsStatus: 'disconnected' as const,
-    wsLastMessage: null,
-    isWsConnected: false,
-    addToast: vi.fn(),
-    removeToast: vi.fn(),
-    clearAllToasts: vi.fn(),
-    connectWebSocket: vi.fn(),
-    disconnectWebSocket: vi.fn(),
-  })),
-}));
-
-// Mock the mutations hook separately
-vi.mock('@/hooks/useCodexLens', async () => {
-  return {
-    useCodexLensDashboard: (await import('@/hooks/useCodexLens')).useCodexLensDashboard,
-    useCodexLensMutations: vi.fn(),
-  };
-});
-
-// Mock window.confirm
-global.confirm = vi.fn(() => true);
-
-const mockDashboardData = {
-  installed: true,
-  status: {
-    ready: true,
-    installed: true,
-    version: '1.0.0',
-    pythonVersion: '3.11.0',
-    venvPath: '/path/to/venv',
-  },
-  config: {
-    index_dir: '~/.codexlens/indexes',
-    index_count: 100,
-  },
-  semantic: { available: true },
+const mockStatus = {
+  indexed: true,
+  totalFiles: 150,
+  totalChunks: 1200,
+  lastIndexedAt: '2026-03-17T10:00:00Z',
+  dbSizeBytes: 5242880,
+  vectorDimension: 384,
+  ftsEnabled: true,
 };
 
-const mockMutations = {
-  bootstrap: vi.fn().mockResolvedValue({ success: true }),
-  uninstall: vi.fn().mockResolvedValue({ success: true }),
-  isBootstrapping: false,
-  isUninstalling: false,
+const defaultHookReturn = {
+  status: mockStatus,
+  isLoadingStatus: false,
+  statusError: null,
+  refetchStatus: vi.fn(),
+  search: vi.fn().mockResolvedValue({
+    query: 'test',
+    results: [],
+    timingMs: 12.5,
+    totalResults: 0,
+  }),
+  isSearching: false,
+  searchResult: null,
+  reindex: vi.fn().mockResolvedValue(undefined),
+  isReindexing: false,
 };
 
-import { useCodexLensDashboard, useCodexLensMutations } from '@/hooks';
-
-describe('CodexLensManagerPage', () => {
+describe('CodexLensManagerPage (v2)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global.confirm as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    (vi.mocked(useV2SearchManager) as any).mockReturnValue(defaultHookReturn);
   });
 
-  describe('when installed', () => {
-    beforeEach(() => {
-      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
-        installed: true,
-        status: mockDashboardData.status,
-        config: mockDashboardData.config,
-        semantic: mockDashboardData.semantic,
-        isLoading: false,
-        isFetching: false,
-        error: null,
-        refetch: vi.fn(),
-      });
-      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
-    });
-
-    it('should render page title and description', () => {
-      render(<CodexLensManagerPage />);
-
-      expect(screen.getByText(/CodexLens/i)).toBeInTheDocument();
-      expect(screen.getByText(/Semantic code search engine/i)).toBeInTheDocument();
-    });
-
-    it('should render all tabs', () => {
-      render(<CodexLensManagerPage />);
-
-      expect(screen.getByText(/Overview/i)).toBeInTheDocument();
-      expect(screen.getByText(/Settings/i)).toBeInTheDocument();
-      expect(screen.getByText(/Models/i)).toBeInTheDocument();
-      expect(screen.getByText(/Advanced/i)).toBeInTheDocument();
-    });
-
-    it('should show uninstall button when installed', () => {
-      render(<CodexLensManagerPage />);
-
-      expect(screen.getByText(/Uninstall/i)).toBeInTheDocument();
-    });
-
-    it('should switch between tabs', async () => {
-      const user = userEvent.setup();
-      render(<CodexLensManagerPage />);
-
-      const settingsTab = screen.getByText(/Settings/i);
-      await user.click(settingsTab);
-
-      expect(settingsTab).toHaveAttribute('data-state', 'active');
-    });
-
-    it('should call refresh on button click', async () => {
-      const refetch = vi.fn();
-      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
-        installed: true,
-        status: mockDashboardData.status,
-        config: mockDashboardData.config,
-        semantic: mockDashboardData.semantic,
-        isLoading: false,
-        isFetching: false,
-        error: null,
-        refetch,
-      });
-
-      const user = userEvent.setup();
-      render(<CodexLensManagerPage />);
-
-      const refreshButton = screen.getByText(/Refresh/i);
-      await user.click(refreshButton);
-
-      expect(refetch).toHaveBeenCalledOnce();
-    });
+  it('should render page title', () => {
+    render(<CodexLensManagerPage />);
+    // The title comes from i18n codexlens.title
+    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
   });
 
-  describe('when not installed', () => {
-    beforeEach(() => {
-      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
-        installed: false,
-        status: undefined,
-        config: undefined,
-        semantic: undefined,
-        isLoading: false,
-        isFetching: false,
-        error: null,
-        refetch: vi.fn(),
-      });
-      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
-    });
-
-    it('should show bootstrap button', () => {
-      render(<CodexLensManagerPage />);
-
-      expect(screen.getByText(/Bootstrap/i)).toBeInTheDocument();
-    });
-
-    it('should show not installed alert', () => {
-      render(<CodexLensManagerPage />);
-
-      expect(screen.getByText(/CodexLens is not installed/i)).toBeInTheDocument();
-    });
-
-    it('should call bootstrap on button click', async () => {
-      const bootstrap = vi.fn().mockResolvedValue({ success: true });
-      (vi.mocked(useCodexLensMutations) as any).mockReturnValue({
-        ...mockMutations,
-        bootstrap,
-      });
-
-      const user = userEvent.setup();
-      render(<CodexLensManagerPage />);
-
-      const bootstrapButton = screen.getByText(/Bootstrap/i);
-      await user.click(bootstrapButton);
-
-      await waitFor(() => {
-        expect(bootstrap).toHaveBeenCalledOnce();
-      });
-    });
+  it('should render index status section', () => {
+    render(<CodexLensManagerPage />);
+    // Check for file count display
+    expect(screen.getByText('150')).toBeInTheDocument();
   });
 
-  describe('uninstall flow', () => {
-    beforeEach(() => {
-      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
-        installed: true,
-        status: mockDashboardData.status,
-        config: mockDashboardData.config,
-        semantic: mockDashboardData.semantic,
-        isLoading: false,
-        isFetching: false,
-        error: null,
-        refetch: vi.fn(),
-      });
-    });
-
-    it('should show confirmation dialog on uninstall', async () => {
-      const uninstall = vi.fn().mockResolvedValue({ success: true });
-      (vi.mocked(useCodexLensMutations) as any).mockReturnValue({
-        ...mockMutations,
-        uninstall,
-      });
-
-      const user = userEvent.setup();
-      render(<CodexLensManagerPage />);
-
-      const uninstallButton = screen.getByText(/Uninstall/i);
-      await user.click(uninstallButton);
-
-      expect(global.confirm).toHaveBeenCalledWith(expect.stringContaining('uninstall'));
-    });
-
-    it('should call uninstall when confirmed', async () => {
-      const uninstall = vi.fn().mockResolvedValue({ success: true });
-      (vi.mocked(useCodexLensMutations) as any).mockReturnValue({
-        ...mockMutations,
-        uninstall,
-      });
-
-      const user = userEvent.setup();
-      render(<CodexLensManagerPage />);
-
-      const uninstallButton = screen.getByText(/Uninstall/i);
-      await user.click(uninstallButton);
-
-      await waitFor(() => {
-        expect(uninstall).toHaveBeenCalledOnce();
-      });
-    });
-
-    it('should not call uninstall when cancelled', async () => {
-      (global.confirm as ReturnType<typeof vi.fn>).mockReturnValue(false);
-      const uninstall = vi.fn().mockResolvedValue({ success: true });
-      (vi.mocked(useCodexLensMutations) as any).mockReturnValue({
-        ...mockMutations,
-        uninstall,
-      });
-
-      const user = userEvent.setup();
-      render(<CodexLensManagerPage />);
-
-      const uninstallButton = screen.getByText(/Uninstall/i);
-      await user.click(uninstallButton);
-
-      expect(uninstall).not.toHaveBeenCalled();
-    });
+  it('should render search input', () => {
+    render(<CodexLensManagerPage />);
+    const input = screen.getByPlaceholderText(/search query/i);
+    expect(input).toBeInTheDocument();
   });
 
-  describe('loading states', () => {
-    it('should show loading skeleton when loading', () => {
-      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
-        installed: false,
-        status: undefined,
-        config: undefined,
-        semantic: undefined,
-        isLoading: true,
-        isFetching: true,
-        error: null,
-        refetch: vi.fn(),
-      });
-      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
-
-      render(<CodexLensManagerPage />);
-
-      // Check for skeleton or loading indicator
-      const refreshButton = screen.getByText(/Refresh/i);
-      expect(refreshButton).toBeDisabled();
+  it('should call refetchStatus on refresh click', async () => {
+    const refetchStatus = vi.fn();
+    (vi.mocked(useV2SearchManager) as any).mockReturnValue({
+      ...defaultHookReturn,
+      refetchStatus,
     });
 
-    it('should disable refresh button when fetching', () => {
-      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
-        installed: true,
-        status: mockDashboardData.status,
-        config: mockDashboardData.config,
-        semantic: mockDashboardData.semantic,
-        isLoading: false,
-        isFetching: true,
-        error: null,
-        refetch: vi.fn(),
-      });
-      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
+    const user = userEvent.setup();
+    render(<CodexLensManagerPage />);
 
-      render(<CodexLensManagerPage />);
+    const refreshButton = screen.getByText(/Refresh/i);
+    await user.click(refreshButton);
 
-      const refreshButton = screen.getByText(/Refresh/i);
-      expect(refreshButton).toBeDisabled();
+    expect(refetchStatus).toHaveBeenCalledOnce();
+  });
+
+  it('should call search when clicking search button', async () => {
+    const searchFn = vi.fn().mockResolvedValue({
+      query: 'test query',
+      results: [],
+      timingMs: 5,
+      totalResults: 0,
     });
+    (vi.mocked(useV2SearchManager) as any).mockReturnValue({
+      ...defaultHookReturn,
+      search: searchFn,
+    });
+
+    const user = userEvent.setup();
+    render(<CodexLensManagerPage />);
+
+    const input = screen.getByPlaceholderText(/search query/i);
+    await user.type(input, 'test query');
+
+    const searchButton = screen.getByText(/Search/i);
+    await user.click(searchButton);
+
+    expect(searchFn).toHaveBeenCalledWith('test query');
+  });
+
+  it('should display search results', () => {
+    (vi.mocked(useV2SearchManager) as any).mockReturnValue({
+      ...defaultHookReturn,
+      searchResult: {
+        query: 'auth',
+        results: [
+          { file: 'src/auth.ts', score: 0.95, snippet: 'export function authenticate()' },
+        ],
+        timingMs: 8.2,
+        totalResults: 1,
+      },
+    });
+
+    render(<CodexLensManagerPage />);
+
+    expect(screen.getByText('src/auth.ts')).toBeInTheDocument();
+    expect(screen.getByText('95.0%')).toBeInTheDocument();
+    expect(screen.getByText('export function authenticate()')).toBeInTheDocument();
+  });
+
+  it('should call reindex on button click', async () => {
+    const reindexFn = vi.fn().mockResolvedValue(undefined);
+    (vi.mocked(useV2SearchManager) as any).mockReturnValue({
+      ...defaultHookReturn,
+      reindex: reindexFn,
+    });
+
+    const user = userEvent.setup();
+    render(<CodexLensManagerPage />);
+
+    const reindexButton = screen.getByText(/Reindex/i);
+    await user.click(reindexButton);
+
+    expect(reindexFn).toHaveBeenCalledOnce();
+  });
+
+  it('should show loading skeleton when status is loading', () => {
+    (vi.mocked(useV2SearchManager) as any).mockReturnValue({
+      ...defaultHookReturn,
+      status: null,
+      isLoadingStatus: true,
+    });
+
+    render(<CodexLensManagerPage />);
+
+    // Should have pulse animation elements
+    const pulseElements = document.querySelectorAll('.animate-pulse');
+    expect(pulseElements.length).toBeGreaterThan(0);
+  });
+
+  it('should show error alert when status fetch fails', () => {
+    (vi.mocked(useV2SearchManager) as any).mockReturnValue({
+      ...defaultHookReturn,
+      status: null,
+      statusError: new Error('Network error'),
+    });
+
+    render(<CodexLensManagerPage />);
+
+    // Error message should be visible
+    expect(screen.getByText(/Failed to load/i)).toBeInTheDocument();
+  });
+
+  it('should show not indexed state', () => {
+    (vi.mocked(useV2SearchManager) as any).mockReturnValue({
+      ...defaultHookReturn,
+      status: {
+        ...mockStatus,
+        indexed: false,
+        totalFiles: 0,
+        totalChunks: 0,
+      },
+    });
+
+    render(<CodexLensManagerPage />);
+
+    expect(screen.getByText(/Not Indexed/i)).toBeInTheDocument();
   });
 
   describe('i18n - Chinese locale', () => {
-    beforeEach(() => {
-      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
-        installed: true,
-        status: mockDashboardData.status,
-        config: mockDashboardData.config,
-        semantic: mockDashboardData.semantic,
-        isLoading: false,
-        isFetching: false,
-        error: null,
-        refetch: vi.fn(),
-      });
-      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
-    });
-
     it('should display translated text in Chinese', () => {
       render(<CodexLensManagerPage />, { locale: 'zh' });
 
-      expect(screen.getByText(/CodexLens/i)).toBeInTheDocument();
-      expect(screen.getByText(/语义代码搜索引擎/i)).toBeInTheDocument();
-      expect(screen.getByText(/概览/i)).toBeInTheDocument();
-      expect(screen.getByText(/设置/i)).toBeInTheDocument();
-      expect(screen.getByText(/模型/i)).toBeInTheDocument();
-      expect(screen.getByText(/高级/i)).toBeInTheDocument();
-    });
-
-    it('should display translated uninstall button', () => {
-      render(<CodexLensManagerPage />, { locale: 'zh' });
-
-      expect(screen.getByText(/卸载/i)).toBeInTheDocument();
-    });
-  });
-
-  describe('error states', () => {
-    it('should handle API errors gracefully', () => {
-      (vi.mocked(useCodexLensDashboard) as any).mockReturnValue({
-        installed: false,
-        status: undefined,
-        config: undefined,
-        semantic: undefined,
-        isLoading: false,
-        isFetching: false,
-        error: new Error('API Error'),
-        refetch: vi.fn(),
-      });
-      (vi.mocked(useCodexLensMutations) as any).mockReturnValue(mockMutations);
-
-      render(<CodexLensManagerPage />);
-
-      // Page should still render even with error
-      expect(screen.getByText(/CodexLens/i)).toBeInTheDocument();
+      // Page title from zh codexlens.json
+      expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
     });
   });
 });

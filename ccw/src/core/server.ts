@@ -16,7 +16,6 @@ import { handleUnifiedMemoryRoutes } from './routes/unified-memory-routes.js';
 import { handleMcpRoutes } from './routes/mcp-routes.js';
 import { handleHooksRoutes } from './routes/hooks-routes.js';
 import { handleUnsplashRoutes, handleBackgroundRoutes } from './routes/unsplash-routes.js';
-import { handleCodexLensRoutes } from './routes/codexlens-routes.js';
 import { handleGraphRoutes } from './routes/graph-routes.js';
 import { handleSystemRoutes } from './routes/system-routes.js';
 import { handleFilesRoutes } from './routes/files-routes.js';
@@ -66,7 +65,6 @@ import { getCliSessionManager } from './services/cli-session-manager.js';
 import { QueueSchedulerService } from './services/queue-scheduler-service.js';
 
 // Import status check functions for warmup
-import { checkSemanticStatus, checkVenvStatus } from '../tools/codex-lens.js';
 import { getCliToolsStatus } from '../tools/cli-executor.js';
 
 import type { ServerConfig } from '../types/config.js';
@@ -302,28 +300,6 @@ async function warmupCaches(initialPath: string): Promise<void> {
 
   // Run all warmup tasks in parallel for faster startup
   const warmupTasks = [
-    // Warmup semantic status cache (Python process startup - can be slow first time)
-    (async () => {
-      const taskStart = Date.now();
-      try {
-        const semanticStatus = await checkSemanticStatus();
-        console.log(`[WARMUP] Semantic status: ${semanticStatus.available ? 'available' : 'not available'} (${Date.now() - taskStart}ms)`);
-      } catch (err) {
-        console.warn(`[WARMUP] Semantic status check failed: ${(err as Error).message}`);
-      }
-    })(),
-
-    // Warmup venv status cache
-    (async () => {
-      const taskStart = Date.now();
-      try {
-        const venvStatus = await checkVenvStatus();
-        console.log(`[WARMUP] Venv status: ${venvStatus.ready ? 'ready' : 'not ready'} (${Date.now() - taskStart}ms)`);
-      } catch (err) {
-        console.warn(`[WARMUP] Venv status check failed: ${(err as Error).message}`);
-      }
-    })(),
-
     // Warmup CLI tools status cache
     (async () => {
       const taskStart = Date.now();
@@ -596,11 +572,6 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Unsplash proxy routes (/api/unsplash/*)
       if (pathname.startsWith('/api/unsplash/')) {
         if (await handleUnsplashRoutes(routeContext)) return;
-      }
-
-      // CodexLens routes (/api/codexlens/*)
-      if (pathname.startsWith('/api/codexlens/')) {
-        if (await handleCodexLensRoutes(routeContext)) return;
       }
 
       // LiteLLM routes (/api/litellm/*)

@@ -1,64 +1,23 @@
 /**
- * LiteLLM Client - Bridge between CCW and ccw-litellm Python package
- * Provides LLM chat and embedding capabilities via spawned Python process
+ * LiteLLM Client - STUB (v1 Python bridge removed)
  *
- * Features:
- * - Chat completions with multiple models
- * - Text embeddings generation
- * - Configuration management
- * - JSON protocol communication
+ * The Python ccw-litellm bridge has been removed. This module provides
+ * no-op stubs so that existing consumers compile without errors.
  */
 
-import { spawn } from 'child_process';
-import { existsSync } from 'fs';
-import { join } from 'path';
-import { getCodexLensPython, getCodexLensHiddenPython, getCodexLensVenvDir } from '../utils/codexlens-path.js';
+const V1_REMOVED = 'LiteLLM Python bridge has been removed (v1 cleanup).';
 
 export interface LiteLLMConfig {
-  pythonPath?: string;  // Default: CodexLens venv Python
-  configPath?: string;  // Configuration file path
-  timeout?: number;     // Default 60000ms
+  pythonPath?: string;
+  configPath?: string;
+  timeout?: number;
 }
 
-// Platform-specific constants for CodexLens venv
-const IS_WINDOWS = process.platform === 'win32';
-const CODEXLENS_VENV = getCodexLensVenvDir();
-const VENV_BIN_DIR = IS_WINDOWS ? 'Scripts' : 'bin';
-const PYTHON_EXECUTABLE = IS_WINDOWS ? 'pythonw.exe' : 'python';
-
-/**
- * Get the Python path from CodexLens venv
- * Falls back to system 'python' if venv doesn't exist
- * @returns Path to Python executable
- */
 export function getCodexLensVenvPython(): string {
-  const venvPython = join(CODEXLENS_VENV, VENV_BIN_DIR, PYTHON_EXECUTABLE);
-  if (existsSync(venvPython)) {
-    return venvPython;
-  }
-  const hiddenPython = getCodexLensHiddenPython();
-  if (existsSync(hiddenPython)) {
-    return hiddenPython;
-  }
-  // Fallback to system Python if venv not available
   return 'python';
 }
 
-/**
- * Get the Python path from CodexLens venv using centralized path utility
- * Falls back to system 'python' if venv doesn't exist
- * @returns Path to Python executable
- */
 export function getCodexLensPythonPath(): string {
-  const codexLensPython = getCodexLensHiddenPython();
-  if (existsSync(codexLensPython)) {
-    return codexLensPython;
-  }
-  const fallbackPython = getCodexLensPython();
-  if (existsSync(fallbackPython)) {
-    return fallbackPython;
-  }
-  // Fallback to system Python if venv not available
   return 'python';
 }
 
@@ -90,179 +49,35 @@ export interface LiteLLMStatus {
 }
 
 export class LiteLLMClient {
-  private pythonPath: string;
-  private configPath?: string;
-  private timeout: number;
+  constructor(_config: LiteLLMConfig = {}) {}
 
-  constructor(config: LiteLLMConfig = {}) {
-    this.pythonPath = config.pythonPath || getCodexLensVenvPython();
-    this.configPath = config.configPath;
-    this.timeout = config.timeout || 60000;
-  }
-
-  /**
-   * Execute Python ccw-litellm command
-   */
-  private async executePython(args: string[], options: { timeout?: number } = {}): Promise<string> {
-    const timeout = options.timeout || this.timeout;
-
-    return new Promise((resolve, reject) => {
-      const proc = spawn(this.pythonPath, ['-m', 'ccw_litellm.cli', ...args], {
-        shell: false,
-        windowsHide: true,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
-      });
-
-      let stdout = '';
-      let stderr = '';
-      let timedOut = false;
-
-      // Set up timeout
-      const timeoutId = setTimeout(() => {
-        timedOut = true;
-        proc.kill('SIGTERM');
-        reject(new Error(`Command timed out after ${timeout}ms`));
-      }, timeout);
-
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      proc.on('error', (error) => {
-        clearTimeout(timeoutId);
-        reject(new Error(`Failed to spawn Python process: ${error.message}`));
-      });
-
-      proc.on('close', (code) => {
-        clearTimeout(timeoutId);
-
-        if (timedOut) {
-          return; // Already rejected
-        }
-
-        if (code === 0) {
-          resolve(stdout.trim());
-        } else {
-          const errorMsg = stderr.trim() || `Process exited with code ${code}`;
-          reject(new Error(errorMsg));
-        }
-      });
-    });
-  }
-
-  /**
-   * Check if ccw-litellm is available
-   */
   async isAvailable(): Promise<boolean> {
-    try {
-      // Increased timeout to 15s for Python cold start
-      await this.executePython(['version'], { timeout: 15000 });
-      return true;
-    } catch {
-      return false;
-    }
+    return false;
   }
 
-  /**
-   * Get status information
-   */
   async getStatus(): Promise<LiteLLMStatus> {
-    try {
-      // Increased timeout to 15s for Python cold start
-      const output = await this.executePython(['version'], { timeout: 15000 });
-      // Parse "ccw-litellm 0.1.0" format
-      const versionMatch = output.trim().match(/ccw-litellm\s+([\d.]+)/);
-      const version = versionMatch ? versionMatch[1] : output.trim();
-      return {
-        available: true,
-        version
-      };
-    } catch (error: any) {
-      return {
-        available: false,
-        error: error.message
-      };
-    }
+    return { available: false, error: V1_REMOVED };
   }
 
-  /**
-   * Get current configuration
-   */
-  async getConfig(): Promise<any> {
-    // config command outputs JSON by default, no --json flag needed
-    const output = await this.executePython(['config']);
-    return JSON.parse(output);
+  async getConfig(): Promise<unknown> {
+    return { error: V1_REMOVED };
   }
 
-  /**
-   * Generate embeddings for texts
-   */
-  async embed(texts: string[], model: string = 'default'): Promise<EmbedResponse> {
-    if (!texts || texts.length === 0) {
-      throw new Error('texts array cannot be empty');
-    }
-
-    const args = ['embed', '--model', model, '--output', 'json'];
-
-    // Add texts as arguments
-    for (const text of texts) {
-      args.push(text);
-    }
-
-    const output = await this.executePython(args, { timeout: this.timeout * 2 });
-    const vectors = JSON.parse(output);
-
-    return {
-      vectors,
-      dimensions: vectors[0]?.length || 0,
-      model
-    };
+  async embed(_texts: string[], _model?: string): Promise<EmbedResponse> {
+    throw new Error(V1_REMOVED);
   }
 
-  /**
-   * Chat with LLM
-   */
-  async chat(message: string, model: string = 'default'): Promise<string> {
-    if (!message) {
-      throw new Error('message cannot be empty');
-    }
-
-    const args = ['chat', '--model', model, message];
-    return this.executePython(args, { timeout: this.timeout * 2 });
+  async chat(_message: string, _model?: string): Promise<string> {
+    throw new Error(V1_REMOVED);
   }
 
-  /**
-   * Multi-turn chat with messages array
-   */
-  async chatMessages(messages: ChatMessage[], model: string = 'default'): Promise<ChatResponse> {
-    if (!messages || messages.length === 0) {
-      throw new Error('messages array cannot be empty');
-    }
-
-    // For now, just use the last user message
-    // TODO: Implement full message history support in ccw-litellm
-    const lastMessage = messages[messages.length - 1];
-    const content = await this.chat(lastMessage.content, model);
-
-    return {
-      content,
-      model,
-      usage: undefined // TODO: Add usage tracking
-    };
+  async chatMessages(_messages: ChatMessage[], _model?: string): Promise<ChatResponse> {
+    throw new Error(V1_REMOVED);
   }
 }
 
-// Singleton instance
 let _client: LiteLLMClient | null = null;
 
-/**
- * Get or create singleton LiteLLM client
- */
 export function getLiteLLMClient(config?: LiteLLMConfig): LiteLLMClient {
   if (!_client) {
     _client = new LiteLLMClient(config);
@@ -270,29 +85,10 @@ export function getLiteLLMClient(config?: LiteLLMConfig): LiteLLMClient {
   return _client;
 }
 
-/**
- * Check if LiteLLM is available
- */
 export async function checkLiteLLMAvailable(): Promise<boolean> {
-  try {
-    const client = getLiteLLMClient();
-    return await client.isAvailable();
-  } catch {
-    return false;
-  }
+  return false;
 }
 
-/**
- * Get LiteLLM status
- */
 export async function getLiteLLMStatus(): Promise<LiteLLMStatus> {
-  try {
-    const client = getLiteLLMClient();
-    return await client.getStatus();
-  } catch (error: any) {
-    return {
-      available: false,
-      error: error.message
-    };
-  }
+  return { available: false, error: V1_REMOVED };
 }

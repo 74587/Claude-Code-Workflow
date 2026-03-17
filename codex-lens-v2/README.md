@@ -1,143 +1,221 @@
 # codexlens-search
 
-Lightweight semantic code search engine with 2-stage vector search, full-text search, and Reciprocal Rank Fusion.
+Semantic code search engine with MCP server for Claude Code.
 
-## Overview
+2-stage vector search + FTS + RRF fusion + reranking — install once, configure API keys, ready to use.
 
-codexlens-search provides fast, accurate code search through a multi-stage retrieval pipeline:
+## Quick Start (Claude Code MCP)
 
-1. **Binary coarse search** - Hamming-distance filtering narrows candidates quickly
-2. **ANN fine search** - HNSW or FAISS refines the candidate set with float vectors
-3. **Full-text search** - SQLite FTS5 handles exact and fuzzy keyword matching
-4. **RRF fusion** - Reciprocal Rank Fusion merges vector and text results
-5. **Reranking** - Optional cross-encoder or API-based reranker for final ordering
+Add to your project `.mcp.json`:
 
-The core library has **zero required dependencies**. Install optional extras to enable semantic search, GPU acceleration, or FAISS backends.
+```json
+{
+  "mcpServers": {
+    "codexlens": {
+      "command": "uvx",
+      "args": ["--from", "codexlens-search[mcp]", "codexlens-mcp"],
+      "env": {
+        "CODEXLENS_EMBED_API_URL": "https://api.openai.com/v1",
+        "CODEXLENS_EMBED_API_KEY": "${OPENAI_API_KEY}",
+        "CODEXLENS_EMBED_API_MODEL": "text-embedding-3-small",
+        "CODEXLENS_EMBED_DIM": "1536"
+      }
+    }
+  }
+}
+```
 
-## Installation
+That's it. Claude Code will auto-discover the tools: `index_project` → `search_code`.
+
+## Install
 
 ```bash
-# Core only (FTS search, no vector search)
+# Standard install (includes vector search + API clients)
 pip install codexlens-search
 
-# With semantic search (recommended)
-pip install codexlens-search[semantic]
-
-# Semantic search + GPU acceleration
-pip install codexlens-search[semantic-gpu]
-
-# With FAISS backend (CPU)
-pip install codexlens-search[faiss-cpu]
-
-# With API-based reranker
-pip install codexlens-search[reranker-api]
-
-# Everything (semantic + GPU + FAISS + reranker)
-pip install codexlens-search[semantic-gpu,faiss-gpu,reranker-api]
+# With MCP server for Claude Code
+pip install codexlens-search[mcp]
 ```
 
-## Quick Start
+Optional extras for advanced use:
 
-```python
-from codexlens_search import Config, IndexingPipeline, SearchPipeline
-from codexlens_search.core import create_ann_index, create_binary_index
-from codexlens_search.embed.local import FastEmbedEmbedder
-from codexlens_search.rerank.local import LocalReranker
-from codexlens_search.search.fts import FTSEngine
+| Extra | Description |
+|-------|-------------|
+| `mcp` | MCP server (`codexlens-mcp` command) |
+| `gpu` | GPU-accelerated embedding (onnxruntime-gpu) |
+| `faiss-cpu` | FAISS ANN backend |
+| `watcher` | File watcher for auto-indexing |
 
-# 1. Configure
-config = Config(embed_model="BAAI/bge-small-en-v1.5", embed_dim=384)
+## MCP Tools
 
-# 2. Create components
-embedder = FastEmbedEmbedder(config)
-binary_store = create_binary_index(config, db_path="index/binary.db")
-ann_index = create_ann_index(config, index_path="index/ann.bin")
-fts = FTSEngine("index/fts.db")
-reranker = LocalReranker()
+| Tool | Description |
+|------|-------------|
+| `search_code` | Semantic search with hybrid fusion + reranking |
+| `index_project` | Build or rebuild the search index |
+| `index_status` | Show index statistics |
+| `index_update` | Incremental sync (only changed files) |
+| `find_files` | Glob file discovery |
+| `list_models` | List models with cache status |
+| `download_models` | Download local fastembed models |
 
-# 3. Index files
-indexer = IndexingPipeline(embedder, binary_store, ann_index, fts, config)
-stats = indexer.index_directory("./src")
-print(f"Indexed {stats.files_processed} files, {stats.chunks_created} chunks")
+## MCP Configuration Examples
 
-# 4. Search
-pipeline = SearchPipeline(embedder, binary_store, ann_index, reranker, fts, config)
-results = pipeline.search("authentication handler", top_k=10)
-for r in results:
-    print(f"  {r.path} (score={r.score:.3f})")
+### API Embedding Only (simplest)
+
+```json
+{
+  "mcpServers": {
+    "codexlens": {
+      "command": "uvx",
+      "args": ["--from", "codexlens-search[mcp]", "codexlens-mcp"],
+      "env": {
+        "CODEXLENS_EMBED_API_URL": "https://api.openai.com/v1",
+        "CODEXLENS_EMBED_API_KEY": "${OPENAI_API_KEY}",
+        "CODEXLENS_EMBED_API_MODEL": "text-embedding-3-small",
+        "CODEXLENS_EMBED_DIM": "1536"
+      }
+    }
+  }
+}
 ```
 
-## Extras
+### API Embedding + API Reranker (best quality)
 
-| Extra | Dependencies | Description |
-|-------|-------------|-------------|
-| `semantic` | hnswlib, numpy, fastembed | Vector search with local embeddings |
-| `gpu` | onnxruntime-gpu | GPU-accelerated embedding inference |
-| `semantic-gpu` | semantic + gpu combined | Vector search with GPU acceleration |
-| `faiss-cpu` | faiss-cpu | FAISS ANN backend (CPU) |
-| `faiss-gpu` | faiss-gpu | FAISS ANN backend (GPU) |
-| `reranker-api` | httpx | Remote reranker API client |
-| `dev` | pytest, pytest-cov | Development and testing |
+```json
+{
+  "mcpServers": {
+    "codexlens": {
+      "command": "uvx",
+      "args": ["--from", "codexlens-search[mcp]", "codexlens-mcp"],
+      "env": {
+        "CODEXLENS_EMBED_API_URL": "https://api.openai.com/v1",
+        "CODEXLENS_EMBED_API_KEY": "${OPENAI_API_KEY}",
+        "CODEXLENS_EMBED_API_MODEL": "text-embedding-3-small",
+        "CODEXLENS_EMBED_DIM": "1536",
+        "CODEXLENS_RERANKER_API_URL": "https://api.jina.ai/v1",
+        "CODEXLENS_RERANKER_API_KEY": "${JINA_API_KEY}",
+        "CODEXLENS_RERANKER_API_MODEL": "jina-reranker-v2-base-multilingual"
+      }
+    }
+  }
+}
+```
+
+### Multi-Endpoint Load Balancing
+
+```json
+{
+  "mcpServers": {
+    "codexlens": {
+      "command": "uvx",
+      "args": ["--from", "codexlens-search[mcp]", "codexlens-mcp"],
+      "env": {
+        "CODEXLENS_EMBED_API_ENDPOINTS": "https://api1.example.com/v1|sk-key1|model,https://api2.example.com/v1|sk-key2|model",
+        "CODEXLENS_EMBED_DIM": "1536"
+      }
+    }
+  }
+}
+```
+
+Format: `url|key|model,url|key|model,...`
+
+### Local Models (Offline, No API)
+
+```bash
+pip install codexlens-search[mcp]
+codexlens-search download-models
+```
+
+```json
+{
+  "mcpServers": {
+    "codexlens": {
+      "command": "codexlens-mcp",
+      "env": {}
+    }
+  }
+}
+```
+
+### Pre-installed (no uvx)
+
+```json
+{
+  "mcpServers": {
+    "codexlens": {
+      "command": "codexlens-mcp",
+      "env": {
+        "CODEXLENS_EMBED_API_URL": "https://api.openai.com/v1",
+        "CODEXLENS_EMBED_API_KEY": "${OPENAI_API_KEY}",
+        "CODEXLENS_EMBED_API_MODEL": "text-embedding-3-small",
+        "CODEXLENS_EMBED_DIM": "1536"
+      }
+    }
+  }
+}
+```
+
+## CLI
+
+```bash
+codexlens-search --db-path .codexlens sync --root ./src
+codexlens-search --db-path .codexlens search -q "auth handler" -k 10
+codexlens-search --db-path .codexlens status
+codexlens-search list-models
+codexlens-search download-models
+```
+
+## Environment Variables
+
+### Embedding
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `CODEXLENS_EMBED_API_URL` | Embedding API base URL | `https://api.openai.com/v1` |
+| `CODEXLENS_EMBED_API_KEY` | API key | `sk-xxx` |
+| `CODEXLENS_EMBED_API_MODEL` | Model name | `text-embedding-3-small` |
+| `CODEXLENS_EMBED_API_ENDPOINTS` | Multi-endpoint: `url\|key\|model,...` | See above |
+| `CODEXLENS_EMBED_DIM` | Vector dimension | `1536` |
+
+### Reranker
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `CODEXLENS_RERANKER_API_URL` | Reranker API base URL | `https://api.jina.ai/v1` |
+| `CODEXLENS_RERANKER_API_KEY` | API key | `jina-xxx` |
+| `CODEXLENS_RERANKER_API_MODEL` | Model name | `jina-reranker-v2-base-multilingual` |
+
+### Tuning
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CODEXLENS_BINARY_TOP_K` | `200` | Binary coarse search candidates |
+| `CODEXLENS_ANN_TOP_K` | `50` | ANN fine search candidates |
+| `CODEXLENS_FTS_TOP_K` | `50` | FTS results per method |
+| `CODEXLENS_FUSION_K` | `60` | RRF fusion k parameter |
+| `CODEXLENS_RERANKER_TOP_K` | `20` | Results to rerank |
+| `CODEXLENS_INDEX_WORKERS` | `2` | Parallel indexing workers |
+| `CODEXLENS_MAX_FILE_SIZE` | `1000000` | Max file size in bytes |
 
 ## Architecture
 
 ```
-Query
-  |
-  v
-[Embedder] --> query vector
-  |
-  +---> [BinaryStore.coarse_search] --> candidate IDs (Hamming distance)
-  |         |
-  |         v
-  +---> [ANNIndex.fine_search] ------> ranked IDs (cosine/L2)
-  |         |
-  |         v  (intersect)
-  |     vector_results
-  |
-  +---> [FTSEngine.exact_search] ----> exact text matches
-  +---> [FTSEngine.fuzzy_search] ----> fuzzy text matches
-  |
-  v
-[RRF Fusion] --> merged ranking (adaptive weights by query intent)
-  |
-  v
-[Reranker] --> final top-k results
-```
-
-### Key Design Decisions
-
-- **2-stage vector search**: Binary coarse search (fast Hamming distance on binarized vectors) filters candidates before the more expensive ANN search. This keeps memory usage low and search fast even on large corpora.
-- **Parallel retrieval**: Vector search and FTS run concurrently via ThreadPoolExecutor.
-- **Adaptive fusion weights**: Query intent detection adjusts RRF weights between vector and text signals.
-- **Backend abstraction**: ANN index supports both hnswlib and FAISS backends via a factory function.
-- **Zero core dependencies**: The base package requires only Python 3.10+. All heavy dependencies are optional.
-
-## Configuration
-
-The `Config` dataclass controls all pipeline parameters:
-
-```python
-from codexlens_search import Config
-
-config = Config(
-    embed_model="BAAI/bge-small-en-v1.5",  # embedding model name
-    embed_dim=384,                           # embedding dimension
-    embed_batch_size=64,                     # batch size for embedding
-    ann_backend="auto",                      # 'auto', 'faiss', 'hnswlib'
-    binary_top_k=200,                        # binary coarse search candidates
-    ann_top_k=50,                            # ANN fine search candidates
-    fts_top_k=50,                            # FTS results per method
-    device="auto",                           # 'auto', 'cuda', 'cpu'
-)
+Query → [Embedder] → query vector
+         ├→ [BinaryStore] → candidates (Hamming)
+         │     └→ [ANNIndex] → ranked IDs (cosine)
+         ├→ [FTS exact] → exact matches
+         └→ [FTS fuzzy] → fuzzy matches
+              └→ [RRF Fusion] → merged ranking
+                    └→ [Reranker] → final top-k
 ```
 
 ## Development
 
 ```bash
-git clone https://github.com/nicepkg/codexlens-search.git
+git clone https://github.com/catlog22/codexlens-search.git
 cd codexlens-search
-pip install -e ".[dev,semantic]"
+pip install -e ".[dev]"
 pytest
 ```
 

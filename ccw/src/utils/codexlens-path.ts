@@ -9,7 +9,6 @@
  * 2. Default: ~/.codexlens
  */
 
-import { existsSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -25,57 +24,4 @@ export function getCodexLensDataDir(): string {
     return envOverride;
   }
   return join(homedir(), '.codexlens');
-}
-
-/**
- * Get the CodexLens virtual environment path.
- *
- * @returns Path to CodexLens venv directory
- */
-export function getCodexLensVenvDir(): string {
-  return join(getCodexLensDataDir(), 'venv');
-}
-
-/**
- * Get the Python executable path in the CodexLens venv.
- *
- * @returns Path to python executable
- */
-export function getCodexLensPython(): string {
-  const venvDir = getCodexLensVenvDir();
-  return process.platform === 'win32'
-    ? join(venvDir, 'Scripts', 'python.exe')
-    : join(venvDir, 'bin', 'python');
-}
-
-/**
- * Get the preferred Python executable for hidden/windowless CodexLens subprocesses.
- * On Windows this prefers pythonw.exe when available to avoid transient console windows.
- *
- * @returns Path to the preferred hidden-subprocess Python executable
- */
-export function getCodexLensHiddenPython(): string {
-  if (process.platform !== 'win32') {
-    return getCodexLensPython();
-  }
-
-  const venvDir = getCodexLensVenvDir();
-  const pythonwPath = join(venvDir, 'Scripts', 'pythonw.exe');
-  if (existsSync(pythonwPath)) {
-    return pythonwPath;
-  }
-
-  return getCodexLensPython();
-}
-
-/**
- * Get the pip executable path in the CodexLens venv.
- *
- * @returns Path to pip executable
- */
-export function getCodexLensPip(): string {
-  const venvDir = getCodexLensVenvDir();
-  return process.platform === 'win32'
-    ? join(venvDir, 'Scripts', 'pip.exe')
-    : join(venvDir, 'bin', 'pip');
 }

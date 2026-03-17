@@ -50,21 +50,19 @@ def _resolve_db_path(args: argparse.Namespace) -> Path:
     return db_path
 
 
-def _create_config(args: argparse.Namespace) -> "Config":
-    """Build Config from CLI args."""
+def create_config_from_env(db_path: str | Path, **overrides: object) -> "Config":
+    """Build Config from environment variables and optional overrides.
+
+    Used by both CLI bridge and MCP server.
+    """
     from codexlens_search.config import Config
 
     kwargs: dict = {}
-    if hasattr(args, "embed_model") and args.embed_model:
-        kwargs["embed_model"] = args.embed_model
-    # API embedding overrides
-    if hasattr(args, "embed_api_url") and args.embed_api_url:
-        kwargs["embed_api_url"] = args.embed_api_url
-    if hasattr(args, "embed_api_key") and args.embed_api_key:
-        kwargs["embed_api_key"] = args.embed_api_key
-    if hasattr(args, "embed_api_model") and args.embed_api_model:
-        kwargs["embed_api_model"] = args.embed_api_model
-    # Also check env vars as fallback
+    # Apply explicit overrides first
+    for key in ("embed_model", "embed_api_url", "embed_api_key", "embed_api_model"):
+        if overrides.get(key):
+            kwargs[key] = overrides[key]
+    # Env vars as fallback
     if "embed_api_url" not in kwargs and os.environ.get("CODEXLENS_EMBED_API_URL"):
         kwargs["embed_api_url"] = os.environ["CODEXLENS_EMBED_API_URL"]
     if "embed_api_key" not in kwargs and os.environ.get("CODEXLENS_EMBED_API_KEY"):
@@ -124,18 +122,33 @@ def _create_config(args: argparse.Namespace) -> "Config":
         kwargs["hnsw_ef"] = int(os.environ["CODEXLENS_HNSW_EF"])
     if os.environ.get("CODEXLENS_HNSW_M"):
         kwargs["hnsw_M"] = int(os.environ["CODEXLENS_HNSW_M"])
-    db_path = Path(args.db_path).resolve()
-    kwargs["metadata_db_path"] = str(db_path / "metadata.db")
+    resolved = Path(db_path).resolve()
+    kwargs["metadata_db_path"] = str(resolved / "metadata.db")
     return Config(**kwargs)
 
 
-def _create_pipeline(
-    args: argparse.Namespace,
+def _create_config(args: argparse.Namespace) -> "Config":
+    """Build Config from CLI args (delegates to create_config_from_env)."""
+    overrides: dict = {}
+    if hasattr(args, "embed_model") and args.embed_model:
+        overrides["embed_model"] = args.embed_model
+    if hasattr(args, "embed_api_url") and args.embed_api_url:
+        overrides["embed_api_url"] = args.embed_api_url
+    if hasattr(args, "embed_api_key") and args.embed_api_key:
+        overrides["embed_api_key"] = args.embed_api_key
+    if hasattr(args, "embed_api_model") and args.embed_api_model:
+        overrides["embed_api_model"] = args.embed_api_model
+    return create_config_from_env(args.db_path, **overrides)
+
+
+def create_pipeline(
+    db_path: str | Path,
+    config: "Config | None" = None,
 ) -> tuple:
-    """Lazily construct pipeline components from CLI args.
+    """Construct pipeline components from db_path and config.
 
     Returns (indexing_pipeline, search_pipeline, config).
-    Only loads embedder/reranker models when needed.
+    Used by both CLI bridge and MCP server.
     """
     from codexlens_search.config import Config
     from codexlens_search.core.factory import create_ann_index, create_binary_index
@@ -144,8 +157,10 @@ def _create_pipeline(
     from codexlens_search.search.fts import FTSEngine
     from codexlens_search.search.pipeline import SearchPipeline
 
-    config = _create_config(args)
-    db_path = _resolve_db_path(args)
+    if config is None:
+        config = create_config_from_env(db_path)
+    resolved = Path(db_path).resolve()
+    resolved.mkdir(parents=True, exist_ok=True)
 
     # Select embedder: API if configured, otherwise local fastembed
     if config.embed_api_url:
@@ -163,10 +178,10 @@ def _create_pipeline(
         from codexlens_search.embed.local import FastEmbedEmbedder
         embedder = FastEmbedEmbedder(config)
 
-    binary_store = create_binary_index(db_path, config.embed_dim, config)
-    ann_index = create_ann_index(db_path, config.embed_dim, config)
-    fts = FTSEngine(db_path / "fts.db")
-    metadata = MetadataStore(db_path / "metadata.db")
+    binary_store = create_binary_index(resolved, config.embed_dim, config)
+    ann_index = create_ann_index(resolved, config.embed_dim, config)
+    fts = FTSEngine(resolved / "fts.db")
+    metadata = MetadataStore(resolved / "metadata.db")
 
     # Select reranker: API if configured, otherwise local fastembed
     if config.reranker_api_url:
@@ -197,6 +212,15 @@ def _create_pipeline(
     )
 
     return indexing, search, config
+
+
+def _create_pipeline(
+    args: argparse.Namespace,
+) -> tuple:
+    """CLI wrapper: construct pipeline from argparse args."""
+    config = _create_config(args)
+    db_path = _resolve_db_path(args)
+    return create_pipeline(db_path, config)
 
 
 # ---------------------------------------------------------------------------
@@ -269,14 +293,14 @@ def cmd_remove_file(args: argparse.Namespace) -> None:
     })
 
 
-_DEFAULT_EXCLUDES = frozenset({
+DEFAULT_EXCLUDES = frozenset({
     "node_modules", ".git", "__pycache__", "dist", "build",
     ".venv", "venv", ".tox", ".mypy_cache", ".pytest_cache",
     ".next", ".nuxt", "coverage", ".eggs", "*.egg-info",
 })
 
 
-def _should_exclude(path: Path, exclude_dirs: frozenset[str]) -> bool:
+def should_exclude(path: Path, exclude_dirs: frozenset[str]) -> bool:
     """Check if any path component matches an exclude pattern."""
     parts = path.parts
     return any(part in exclude_dirs for part in parts)
@@ -290,11 +314,11 @@ def cmd_sync(args: argparse.Namespace) -> None:
     if not root.is_dir():
         _error_exit(f"Root directory not found: {root}")
 
-    exclude_dirs = frozenset(args.exclude) if args.exclude else _DEFAULT_EXCLUDES
+    exclude_dirs = frozenset(args.exclude) if args.exclude else DEFAULT_EXCLUDES
     pattern = args.glob or "**/*"
     file_paths = [
         p for p in root.glob(pattern)
-        if p.is_file() and not _should_exclude(p.relative_to(root), exclude_dirs)
+        if p.is_file() and not should_exclude(p.relative_to(root), exclude_dirs)
     ]
 
     log.debug("Sync: %d files after exclusion (root=%s, pattern=%s)", len(file_paths), root, pattern)
