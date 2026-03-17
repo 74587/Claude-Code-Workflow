@@ -29,7 +29,9 @@ import {
   ensureLiteLLMEmbedderReady,
   executeCodexLens,
   getVenvPythonPath,
+  useCodexLensV2,
 } from './codex-lens.js';
+import { execFile } from 'child_process';
 import type { ProgressInfo } from './codex-lens.js';
 import { getProjectRoot } from '../utils/path-validator.js';
 import { getCodexLensDataDir } from '../utils/codexlens-path.js';
@@ -2774,6 +2776,90 @@ async function executeRipgrepMode(params: Params): Promise<SearchResult> {
   });
 }
 
+// ========================================
+// codexlens-search v2 bridge integration
+// ========================================
+
+/**
+ * Execute search via codexlens-search (v2) bridge CLI.
+ * Spawns 'codexlens-search search --query X --top-k Y --db-path Z' and parses JSON output.
+ *
+ * @param query - Search query string
+ * @param topK - Number of results to return
+ * @param dbPath - Path to the v2 index database directory
+ * @returns Parsed search results as SemanticMatch array
+ */
+async function executeCodexLensV2Bridge(
+  query: string,
+  topK: number,
+  dbPath: string,
+): Promise<SearchResult> {
+  return new Promise((resolve) => {
+    const args = [
+      'search',
+      '--query', query,
+      '--top-k', String(topK),
+      '--db-path', dbPath,
+    ];
+
+    execFile('codexlens-search', args, {
+      encoding: 'utf-8',
+      timeout: EXEC_TIMEOUTS.PROCESS_SPAWN,
+      windowsHide: true,
+      env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+    }, (error, stdout, stderr) => {
+      if (error) {
+        console.warn(`[CodexLens-v2] Bridge search failed: ${error.message}`);
+        resolve({
+          success: false,
+          error: `codexlens-search v2 bridge failed: ${error.message}`,
+        });
+        return;
+      }
+
+      try {
+        const parsed = JSON.parse(stdout.trim());
+
+        // Bridge outputs {"error": string} on failure
+        if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+          resolve({
+            success: false,
+            error: `codexlens-search v2: ${parsed.error}`,
+          });
+          return;
+        }
+
+        // Bridge outputs array of {path, score, snippet}
+        const results: SemanticMatch[] = (Array.isArray(parsed) ? parsed : []).map((r: { path?: string; score?: number; snippet?: string }) => ({
+          file: r.path || '',
+          score: r.score || 0,
+          content: r.snippet || '',
+          symbol: null,
+        }));
+
+        resolve({
+          success: true,
+          results,
+          metadata: {
+            mode: 'semantic' as any,
+            backend: 'codexlens-v2',
+            count: results.length,
+            query,
+            note: 'Using codexlens-search v2 bridge (2-stage vector + reranking)',
+          },
+        });
+      } catch (parseErr) {
+        console.warn(`[CodexLens-v2] Failed to parse bridge output: ${(parseErr as Error).message}`);
+        resolve({
+          success: false,
+          error: `Failed to parse codexlens-search v2 output: ${(parseErr as Error).message}`,
+          output: stdout,
+        });
+      }
+    });
+  });
+}
+
 /**
  * Mode: exact - CodexLens exact/FTS search
  * Requires index
@@ -4276,7 +4362,21 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
 
       case 'search':
       default:
-        // Handle search modes: fuzzy | semantic
+        // v2 bridge: if CCW_USE_CODEXLENS_V2 is set, try v2 bridge first for semantic mode
+        if (useCodexLensV2() && (mode === 'semantic' || mode === 'fuzzy')) {
+          const scope = resolveSearchScope(parsed.data.path ?? '.');
+          const dbPath = join(scope.workingDirectory, '.codexlens');
+          const topK = (parsed.data.maxResults || 5) + (parsed.data.extraFilesCount || 10);
+          const v2Result = await executeCodexLensV2Bridge(parsed.data.query || '', topK, dbPath);
+          if (v2Result.success) {
+            result = v2Result;
+            break;
+          }
+          // v2 failed, fall through to v1
+          console.warn(`[CodexLens-v2] Falling back to v1: ${v2Result.error}`);
+        }
+
+        // Handle search modes: fuzzy | semantic (v1 path)
         switch (mode) {
           case 'fuzzy':
             result = await executeFuzzyMode(parsed.data);

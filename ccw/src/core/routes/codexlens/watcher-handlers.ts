@@ -8,9 +8,11 @@ import {
   checkVenvStatus,
   executeCodexLens,
   getVenvPythonPath,
+  useCodexLensV2,
 } from '../../../tools/codex-lens.js';
 import type { RouteContext } from '../types.js';
 import { extractJSON, stripAnsiCodes } from './utils.js';
+import type { ChildProcess } from 'child_process';
 
 // File watcher state (persisted across requests)
 let watcherProcess: any = null;
@@ -41,6 +43,29 @@ export async function stopWatcherForUninstall(): Promise<void> {
     start_time: null
   };
   watcherProcess = null;
+}
+
+/**
+ * Spawn v2 bridge watcher subprocess.
+ * Runs 'codexlens-search watch --root X --debounce-ms Y' and reads JSONL stdout.
+ * @param root - Root directory to watch
+ * @param debounceMs - Debounce interval in milliseconds
+ * @returns Spawned child process
+ */
+function spawnV2Watcher(root: string, debounceMs: number): ChildProcess {
+  const { spawn } = require('child_process') as typeof import('child_process');
+  return spawn('codexlens-search', [
+    'watch',
+    '--root', root,
+    '--debounce-ms', String(debounceMs),
+    '--db-path', require('path').join(root, '.codexlens'),
+  ], {
+    cwd: root,
+    shell: false,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+  });
 }
 
 /**
@@ -91,46 +116,52 @@ export async function handleCodexLensWatcherRoutes(ctx: RouteContext): Promise<b
           return { success: false, error: `Path is not a directory: ${targetPath}`, status: 400 };
         }
 
-        // Get the codexlens CLI path
-        const venvStatus = await checkVenvStatus();
-        if (!venvStatus.ready) {
-          return { success: false, error: 'CodexLens not installed', status: 400 };
-        }
-
-        // Verify directory is indexed before starting watcher
-        try {
-          const statusResult = await executeCodexLens(['projects', 'list', '--json']);
-          if (statusResult.success && statusResult.output) {
-            const parsed = extractJSON(statusResult.output);
-            const projects = parsed.result || parsed || [];
-            const normalizedTarget = targetPath.toLowerCase().replace(/\\/g, '/');
-            const isIndexed = Array.isArray(projects) && projects.some((p: { source_root?: string }) =>
-              p.source_root && p.source_root.toLowerCase().replace(/\\/g, '/') === normalizedTarget
-            );
-            if (!isIndexed) {
-              return {
-                success: false,
-                error: `Directory is not indexed: ${targetPath}. Run 'codexlens init' first.`,
-                status: 400
-              };
-            }
+        // Route to v2 or v1 watcher based on feature flag
+        if (useCodexLensV2()) {
+          // v2 bridge watcher: codexlens-search watch
+          console.log('[CodexLens] Using v2 bridge watcher');
+          watcherProcess = spawnV2Watcher(targetPath, debounceMs);
+        } else {
+          // v1 watcher: python -m codexlens watch
+          const venvStatus = await checkVenvStatus();
+          if (!venvStatus.ready) {
+            return { success: false, error: 'CodexLens not installed', status: 400 };
           }
-        } catch (err) {
-          console.warn('[CodexLens] Could not verify index status:', err);
-          // Continue anyway - watcher will fail with proper error if not indexed
-        }
 
-        // Spawn watch process using Python (no shell: true for security)
-        // CodexLens is a Python package, must run via python -m codexlens
-        const pythonPath = getVenvPythonPath();
-        const args = ['-m', 'codexlens', 'watch', targetPath, '--debounce', String(debounceMs)];
-        watcherProcess = spawn(pythonPath, args, {
-          cwd: targetPath,
-          shell: false,
-          stdio: ['ignore', 'pipe', 'pipe'],
-          windowsHide: true,
-          env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
-        });
+          // Verify directory is indexed before starting watcher
+          try {
+            const statusResult = await executeCodexLens(['projects', 'list', '--json']);
+            if (statusResult.success && statusResult.output) {
+              const parsed = extractJSON(statusResult.output);
+              const projects = parsed.result || parsed || [];
+              const normalizedTarget = targetPath.toLowerCase().replace(/\\/g, '/');
+              const isIndexed = Array.isArray(projects) && projects.some((p: { source_root?: string }) =>
+                p.source_root && p.source_root.toLowerCase().replace(/\\/g, '/') === normalizedTarget
+              );
+              if (!isIndexed) {
+                return {
+                  success: false,
+                  error: `Directory is not indexed: ${targetPath}. Run 'codexlens init' first.`,
+                  status: 400
+                };
+              }
+            }
+          } catch (err) {
+            console.warn('[CodexLens] Could not verify index status:', err);
+            // Continue anyway - watcher will fail with proper error if not indexed
+          }
+
+          // Spawn watch process using Python (no shell: true for security)
+          const pythonPath = getVenvPythonPath();
+          const args = ['-m', 'codexlens', 'watch', targetPath, '--debounce', String(debounceMs)];
+          watcherProcess = spawn(pythonPath, args, {
+            cwd: targetPath,
+            shell: false,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            windowsHide: true,
+            env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
+          });
+        }
 
         watcherStats = {
           running: true,
@@ -153,13 +184,37 @@ export async function handleCodexLensWatcherRoutes(ctx: RouteContext): Promise<b
         }
 
         // Handle process output for event counting
+        const isV2Watcher = useCodexLensV2();
+        let stdoutLineBuffer = '';
         if (watcherProcess.stdout) {
           watcherProcess.stdout.on('data', (data: Buffer) => {
             const output = data.toString();
-            // Count processed events from output
-            const matches = output.match(/Processed \d+ events?/g);
-            if (matches) {
-              watcherStats.events_processed += matches.length;
+
+            if (isV2Watcher) {
+              // v2 bridge outputs JSONL - parse line by line
+              stdoutLineBuffer += output;
+              const lines = stdoutLineBuffer.split('\n');
+              // Keep incomplete last line in buffer
+              stdoutLineBuffer = lines.pop() || '';
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                try {
+                  const event = JSON.parse(trimmed);
+                  // Count file change events (created, modified, deleted, moved)
+                  if (event.event && event.event !== 'watching') {
+                    watcherStats.events_processed += 1;
+                  }
+                } catch {
+                  // Not valid JSON, skip
+                }
+              }
+            } else {
+              // v1 watcher: count text-based event messages
+              const matches = output.match(/Processed \d+ events?/g);
+              if (matches) {
+                watcherStats.events_processed += matches.length;
+              }
             }
           });
         }

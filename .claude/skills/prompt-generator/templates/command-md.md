@@ -49,12 +49,13 @@ allowed-tools: {tools}           # omit if unrestricted
 
 {Construct prompt with <files_to_read>, <objective>, <output> blocks.}
 
-```
-Task(
-  prompt=filled_prompt,
-  subagent_type="{agent-name}",
-  description="{Verb} {target}"
-)
+```javascript
+Agent({
+  subagent_type: "{agent-name}",
+  prompt: filled_prompt,
+  description: "{Verb} {target}",
+  run_in_background: false
+})
 ```
 
 ## 4. Handle Result

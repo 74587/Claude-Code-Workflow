@@ -55,18 +55,20 @@ export interface PackageDiscoveryResult {
 }
 
 /** Known local package names */
-export type LocalPackageName = 'codex-lens' | 'ccw-litellm';
+export type LocalPackageName = 'codex-lens' | 'ccw-litellm' | 'codexlens-search';
 
 /** Environment variable mapping for each package */
 const PACKAGE_ENV_VARS: Record<LocalPackageName, string> = {
   'codex-lens': 'CODEXLENS_PACKAGE_PATH',
   'ccw-litellm': 'CCW_LITELLM_PATH',
+  'codexlens-search': 'CODEXLENS_SEARCH_PATH',
 };
 
 /** Config key mapping for each package */
 const PACKAGE_CONFIG_KEYS: Record<LocalPackageName, string> = {
   'codex-lens': 'codexLensPath',
   'ccw-litellm': 'ccwLitellmPath',
+  'codexlens-search': 'codexlensSearchPath',
 };
 
 // ========================================
@@ -294,6 +296,13 @@ export function findCodexLensPath(): PackageDiscoveryResult {
  */
 export function findCcwLitellmPath(): PackageDiscoveryResult {
   return findPackagePath('ccw-litellm');
+}
+
+/**
+ * Find codexlens-search (v2) package path (convenience wrapper)
+ */
+export function findCodexLensSearchPath(): PackageDiscoveryResult {
+  return findPackagePath('codexlens-search');
 }
 
 /**

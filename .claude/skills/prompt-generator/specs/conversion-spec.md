@@ -49,7 +49,7 @@ Conversion Summary:
 | `## Auto Mode` / `## Auto Mode Defaults` | `<auto_mode>` section |
 | `## Quick Reference` | Preserve as-is within appropriate section |
 | Inline `AskUserQuestion` calls | Preserve verbatim — these belong in commands |
-| `Task()` / agent spawning calls | Preserve verbatim within process steps |
+| `Agent()` / agent spawning calls | Preserve verbatim within process steps |
 | Banner displays (`━━━`) | Preserve verbatim |
 | Code blocks (```bash, ```javascript, etc.) | **Preserve exactly** — never modify code content |
 | Tables | **Preserve exactly** — never reformat table content |

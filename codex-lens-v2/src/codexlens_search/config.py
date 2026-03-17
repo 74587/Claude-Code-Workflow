@@ -49,6 +49,9 @@ class Config:
     reranker_api_model: str = ""
     reranker_api_max_tokens_per_batch: int = 2048
 
+    # Metadata store
+    metadata_db_path: str = ""  # empty = no metadata tracking
+
     # FTS
     fts_top_k: int = 50
 

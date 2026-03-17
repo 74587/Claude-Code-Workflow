@@ -153,15 +153,15 @@ Display banners before major phase transitions (agent spawning, user decisions, 
 
 ## Agent Spawning Pattern
 
-Commands spawn agents via `Task()` with structured prompts:
+Commands spawn agents via `Agent()` with structured prompts:
 
-```markdown
-Task(
-  prompt=filled_prompt,
-  subagent_type="agent-name",
-  model="{model}",
-  description="Verb Phase {X}"
-)
+```javascript
+Agent({
+  subagent_type: "agent-name",
+  prompt: filled_prompt,
+  description: "Verb Phase {X}",
+  run_in_background: false
+})
 ```
 
 ### Prompt Structure for Agents

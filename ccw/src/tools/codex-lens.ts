@@ -1068,11 +1068,125 @@ async function installSemantic(gpuMode: GpuMode = 'cpu'): Promise<BootstrapResul
 }
 
 /**
+ * Check if codexlens-search (v2) bridge CLI is installed and functional.
+ * Runs 'codexlens-search status' and checks exit code.
+ * @returns true if the v2 bridge CLI is available
+ */
+function isCodexLensV2Installed(): boolean {
+  try {
+    const result = spawnSync('codexlens-search', ['status', '--db-path', '.codexlens'], {
+      encoding: 'utf-8',
+      timeout: EXEC_TIMEOUTS.PYTHON_VERSION,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    // Exit code 0 or valid JSON output means it's installed
+    return result.status === 0 || (result.stdout != null && result.stdout.includes('"status"'));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Bootstrap codexlens-search (v2) package using UV.
+ * Installs 'codexlens-search[semantic]' into the shared CodexLens venv.
+ * @returns Bootstrap result
+ */
+async function bootstrapV2WithUv(): Promise<BootstrapResult> {
+  console.log('[CodexLens] Bootstrapping codexlens-search (v2) with UV...');
+
+  const preFlightError = preFlightCheck();
+  if (preFlightError) {
+    return { success: false, error: `Pre-flight failed: ${preFlightError}` };
+  }
+
+  repairVenvIfCorrupted();
+
+  const uvInstalled = await ensureUvInstalled();
+  if (!uvInstalled) {
+    return { success: false, error: 'Failed to install UV package manager' };
+  }
+
+  const uv = createCodexLensUvManager();
+
+  if (!uv.isVenvValid()) {
+    console.log('[CodexLens] Creating virtual environment with UV for v2...');
+    const createResult = await uv.createVenv();
+    if (!createResult.success) {
+      return { success: false, error: `Failed to create venv: ${createResult.error}` };
+    }
+  }
+
+  // Find local codexlens-search package using unified discovery
+  const { findCodexLensSearchPath } = await import('../utils/package-discovery.js');
+  const discovery = findCodexLensSearchPath();
+
+  const extras = ['semantic'];
+  const editable = isDevEnvironment() && !discovery.insideNodeModules;
+
+  if (!discovery.path) {
+    // Fallback: try installing from PyPI
+    console.log('[CodexLens] Local codexlens-search not found, trying PyPI install...');
+    const pipResult = await uv.install(['codexlens-search[semantic]']);
+    if (!pipResult.success) {
+      return {
+        success: false,
+        error: `Failed to install codexlens-search from PyPI: ${pipResult.error}`,
+        diagnostics: { venvPath: getCodexLensVenvDir(), installer: 'uv' },
+      };
+    }
+  } else {
+    console.log(`[CodexLens] Installing codexlens-search from local path with UV: ${discovery.path} (editable: ${editable})`);
+    const installResult = await uv.installFromProject(discovery.path, extras, editable);
+    if (!installResult.success) {
+      return {
+        success: false,
+        error: `Failed to install codexlens-search: ${installResult.error}`,
+        diagnostics: { packagePath: discovery.path, venvPath: getCodexLensVenvDir(), installer: 'uv', editable },
+      };
+    }
+  }
+
+  clearVenvStatusCache();
+  console.log('[CodexLens] codexlens-search (v2) bootstrap complete');
+  return {
+    success: true,
+    message: 'Installed codexlens-search (v2) with UV',
+    diagnostics: { packagePath: discovery.path ?? undefined, venvPath: getCodexLensVenvDir(), installer: 'uv', editable },
+  };
+}
+
+/**
+ * Check if v2 bridge should be used based on CCW_USE_CODEXLENS_V2 env var.
+ */
+function useCodexLensV2(): boolean {
+  const flag = process.env.CCW_USE_CODEXLENS_V2;
+  return flag === '1' || flag === 'true';
+}
+
+/**
  * Bootstrap CodexLens venv with required packages
  * @returns Bootstrap result
  */
 async function bootstrapVenv(): Promise<BootstrapResult> {
   const warnings: string[] = [];
+
+  // If v2 flag is set, also bootstrap codexlens-search alongside v1
+  if (useCodexLensV2() && await isUvAvailable()) {
+    try {
+      const v2Result = await bootstrapV2WithUv();
+      if (v2Result.success) {
+        console.log('[CodexLens] codexlens-search (v2) installed successfully');
+      } else {
+        console.warn(`[CodexLens] codexlens-search (v2) bootstrap failed: ${v2Result.error}`);
+        warnings.push(`v2 bootstrap failed: ${v2Result.error || 'Unknown error'}`);
+      }
+    } catch (v2Err) {
+      const msg = v2Err instanceof Error ? v2Err.message : String(v2Err);
+      console.warn(`[CodexLens] codexlens-search (v2) bootstrap error: ${msg}`);
+      warnings.push(`v2 bootstrap error: ${msg}`);
+    }
+  }
 
   // Prefer UV if available (faster package resolution and installation)
   if (await isUvAvailable()) {
@@ -2502,6 +2616,10 @@ export {
   // UV-based installation functions
   bootstrapWithUv,
   installSemanticWithUv,
+  // v2 bridge support
+  useCodexLensV2,
+  isCodexLensV2Installed,
+  bootstrapV2WithUv,
 };
 
 // Export Python path for direct spawn usage (e.g., watcher)

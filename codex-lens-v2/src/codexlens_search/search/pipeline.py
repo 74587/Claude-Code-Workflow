@@ -9,6 +9,7 @@ import numpy as np
 from ..config import Config
 from ..core import ANNIndex, BinaryStore
 from ..embed import BaseEmbedder
+from ..indexing.metadata import MetadataStore
 from ..rerank import BaseReranker
 from .fts import FTSEngine
 from .fusion import (
@@ -38,6 +39,7 @@ class SearchPipeline:
         reranker: BaseReranker,
         fts: FTSEngine,
         config: Config,
+        metadata_store: MetadataStore | None = None,
     ) -> None:
         self._embedder = embedder
         self._binary_store = binary_store
@@ -45,6 +47,7 @@ class SearchPipeline:
         self._reranker = reranker
         self._fts = fts
         self._config = config
+        self._metadata_store = metadata_store
 
     # -- Helper: vector search (binary coarse + ANN fine) -----------------
 
@@ -136,6 +139,16 @@ class SearchPipeline:
             return []
 
         fused = reciprocal_rank_fusion(fusion_input, weights=weights, k=cfg.fusion_k)
+
+        # 4b. Filter out deleted IDs (tombstone filtering)
+        if self._metadata_store is not None:
+            deleted_ids = self._metadata_store.get_deleted_ids()
+            if deleted_ids:
+                fused = [
+                    (doc_id, score)
+                    for doc_id, score in fused
+                    if doc_id not in deleted_ids
+                ]
 
         # 5. Rerank top candidates
         rerank_ids = [doc_id for doc_id, _ in fused[:50]]

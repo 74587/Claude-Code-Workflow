@@ -67,3 +67,28 @@ class FTSEngine:
             "SELECT content FROM docs WHERE rowid = ?", (doc_id,)
         ).fetchone()
         return row[0] if row else ""
+
+    def get_chunk_ids_by_path(self, path: str) -> list[int]:
+        """Return all doc IDs associated with a given file path."""
+        rows = self._conn.execute(
+            "SELECT id FROM docs_meta WHERE path = ?", (path,)
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def delete_by_path(self, path: str) -> int:
+        """Delete all docs and docs_meta rows for a given file path.
+
+        Returns the number of deleted documents.
+        """
+        ids = self.get_chunk_ids_by_path(path)
+        if not ids:
+            return 0
+        placeholders = ",".join("?" for _ in ids)
+        self._conn.execute(
+            f"DELETE FROM docs WHERE rowid IN ({placeholders})", ids
+        )
+        self._conn.execute(
+            f"DELETE FROM docs_meta WHERE id IN ({placeholders})", ids
+        )
+        self._conn.commit()
+        return len(ids)

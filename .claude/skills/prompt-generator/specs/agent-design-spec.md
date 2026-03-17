@@ -4,7 +4,7 @@ Guidelines for Claude Code **agent definition files** (role + domain expertise).
 
 ## Content Separation Principle
 
-Agents are spawned by commands via `Task()`. The agent file defines WHO the agent is and WHAT it knows. It does NOT define WHEN or HOW it gets invoked.
+Agents are spawned by commands via `Agent()`. The agent file defines WHO the agent is and WHAT it knows. It does NOT define WHEN or HOW it gets invoked.
 
 | Concern | Belongs in Agent | Belongs in Command |
 |---------|-----------------|-------------------|
