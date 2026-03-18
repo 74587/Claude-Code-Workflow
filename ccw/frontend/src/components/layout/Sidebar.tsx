@@ -29,6 +29,7 @@ import {
   ScrollText,
   Clock,
   BookOpen,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -107,6 +108,7 @@ const navGroupDefinitions: NavGroupDef[] = [
       { path: '/hooks', labelKey: 'navigation.main.hooks', icon: GitFork },
       { path: '/settings/mcp', labelKey: 'navigation.main.mcp', icon: Server },
       { path: '/settings/specs', labelKey: 'navigation.main.specs', icon: ScrollText },
+      { path: '/codexlens', labelKey: 'navigation.main.codexlens', icon: Search },
     ],
   },
   {

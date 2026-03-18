@@ -1,6 +1,70 @@
 {
   "title": "Search Manager",
   "description": "V2 semantic search index management",
+  "page": {
+    "title": "CodexLens v2",
+    "description": "Semantic code search engine — manage MCP config, embedding models, index state, and environment settings."
+  },
+  "tabs": {
+    "mcp": "MCP Config",
+    "models": "Model Manager",
+    "index": "Index Manager",
+    "env": "Env Settings"
+  },
+  "mcp": {
+    "embedMode": "Embed mode",
+    "configTitle": "MCP Config JSON",
+    "copy": "Copy",
+    "copied": "Copied",
+    "regenerate": "Regenerate Config",
+    "loading": "Loading config...",
+    "error": "Failed to load MCP config.",
+    "noConfig": "No config available.",
+    "installTitle": "Installation Instructions",
+    "installSteps": {
+      "step1": "Copy the MCP config JSON above using the Copy button.",
+      "step2": "Open your Claude Desktop or MCP-compatible client configuration file.",
+      "step3": "Add the copied JSON under the mcpServers key.",
+      "step4": "Save the configuration file and restart your client.",
+      "step5": "Verify the CodexLens server appears as an available MCP tool."
+    }
+  },
+  "models": {
+    "embedMode": "Current embed mode",
+    "loading": "Loading models...",
+    "error": "Failed to load models.",
+    "noModels": "No models found.",
+    "installed": "Installed",
+    "notInstalled": "Not installed",
+    "download": "Download",
+    "delete": "Delete"
+  },
+  "index": {
+    "pathPlaceholder": "Enter project path (e.g. /home/user/myproject)",
+    "add": "Add",
+    "loading": "Loading status...",
+    "error": "Failed to load index status.",
+    "filesTracked": "Files tracked",
+    "totalChunks": "Total chunks",
+    "deletedChunks": "Deleted chunks",
+    "sync": "Sync",
+    "rebuild": "Rebuild",
+    "refresh": "Refresh Status",
+    "empty": "Enter a project path above to view index status and manage indexing.",
+    "removeProject": "Remove project"
+  },
+  "env": {
+    "loading": "Loading environment settings...",
+    "save": "Save",
+    "saving": "Saving...",
+    "clearForm": "Clear Form",
+    "sections": {
+      "embed": "Embed Config",
+      "reranker": "Reranker Config",
+      "performance": "Performance Tuning",
+      "index": "Index Params"
+    }
+  },
   "reindex": "Reindex",
   "reindexing": "Reindexing...",
   "statusError": "Failed to load search index status",

@@ -46,6 +46,7 @@ import { handleNotificationRoutes } from './routes/notification-routes.js';
 import { handleAnalysisRoutes } from './routes/analysis-routes.js';
 import { handleSpecRoutes } from './routes/spec-routes.js';
 import { handleDeepWikiRoutes } from './routes/deepwiki-routes.js';
+import { handleCodexLensRoutes } from './routes/codexlens-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients, extractSessionIdFromPath } from './websocket.js';
@@ -557,6 +558,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // DeepWiki routes (/api/deepwiki/*)
       if (pathname.startsWith('/api/deepwiki')) {
         if (await handleDeepWikiRoutes(routeContext)) return;
+      }
+
+      // CodexLens routes (/api/codexlens/*)
+      if (pathname.startsWith('/api/codexlens')) {
+        if (await handleCodexLensRoutes(routeContext)) return;
       }
 
       // Hooks routes (/api/hooks, /api/hook)

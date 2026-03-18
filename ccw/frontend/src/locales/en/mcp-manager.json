@@ -426,10 +426,10 @@
   },
   "exa": {
     "name": "Exa Search",
-    "desc": "AI-powered web search with real-time crawling capabilities",
+    "desc": "AI-powered web search via remote MCP server (mcp.exa.ai)",
     "field": {
       "apiKey": "API Key",
-      "apiKey.desc": "Your Exa API key (optional, some features may require it)"
+      "apiKey.desc": "Your Exa API key (optional, adds to URL to overcome free plan rate limits)"
     }
   },
   "enterprise": {

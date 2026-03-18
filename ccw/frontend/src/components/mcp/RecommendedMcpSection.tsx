@@ -127,8 +127,9 @@ const RECOMMENDED_MCP_DEFINITIONS: RecommendedMcpDefinition[] = [
       },
     ],
     buildConfig: (values) => {
-      const env = values.apiKey ? { EXA_API_KEY: values.apiKey } : undefined;
-      return buildCrossPlatformMcpConfig('npx', ['-y', 'exa-mcp-server'], { env });
+      const baseUrl = 'https://mcp.exa.ai/mcp';
+      const url = values.apiKey ? `${baseUrl}?exaApiKey=${values.apiKey}` : baseUrl;
+      return buildCrossPlatformMcpConfig('npx', ['-y', 'mcp-remote', url]);
     },
   },
 ];
