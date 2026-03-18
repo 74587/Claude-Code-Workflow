@@ -1,1 +1,0 @@
-# LSP unit tests package
