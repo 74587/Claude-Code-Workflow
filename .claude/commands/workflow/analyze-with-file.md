@@ -39,6 +39,7 @@ All `AskUserQuestion` calls MUST comply:
 | **User feedback** | Input, rationale for adoption/adjustment | `#### User Input` |
 | **Disagreement & trade-off** | Conflicting views, trade-off basis, final choice | `#### Decision Log` |
 | **Scope adjustment** | Before/after scope, trigger reason | `#### Decision Log` |
+| **Technical solution proposed/validated/rejected** | Solution description, rationale, alternatives considered, status | `#### Technical Solutions` |
 
 **Decision Record Format**:
 ```markdown
@@ -56,6 +57,17 @@ All `AskUserQuestion` calls MUST comply:
 > - **Confidence**: [High/Medium/Low] — **Why**: [Evidence basis]
 > - **Hypothesis Impact**: [Confirms/Refutes/Modifies] hypothesis "[name]"
 > - **Scope**: [What areas this affects]
+```
+
+**Technical Solution Record Format**:
+```markdown
+> **Solution**: [Description — what approach, pattern, or implementation]
+> - **Status**: [Proposed / Validated / Rejected]
+> - **Problem**: [What problem this solves]
+> - **Rationale**: [Why this approach]
+> - **Alternatives**: [Other options considered and why not chosen]
+> - **Evidence**: [file:line or code anchor references]
+> - **Next Action**: [Follow-up required or none]
 ```
 
 **Principles**: Immediacy (record as-it-happens), Completeness (context+options+chosen+reason+rejected), Traceability (later phases trace back), Depth (capture reasoning, not just outcomes)
@@ -237,6 +249,7 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 - `key_findings[]`, `code_anchors[]`: {file, lines, snippet, significance}
 - `call_chains[]`: {entry, chain, files}
 - `discussion_points[]`, `open_questions[]`
+- `technical_solutions[]`: {round, solution, problem, rationale, alternatives, status: proposed|validated|rejected, evidence_refs[], next_action}
 
 **perspectives.json Schema** (multi — extends explorations.json):
 - `perspectives[]`: [{name, tool, findings, insights, questions}]
@@ -288,6 +301,7 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 
 5. **Update discussion.md**:
    - **Append** Round N: user input, direction adjustment, Q&A, corrections, new insights
+   - **Append Technical Solutions** — for every solution proposed, validated, or rejected this round, record immediately using Technical Solution Record Format in `#### Technical Solutions`
    - **Replace** `## Current Understanding` block with latest consolidated understanding (follow Consolidation Rules)
    - **Update** `## Table of Contents` with links to new Round N sections
 
@@ -341,7 +355,7 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 2. **Consolidate Insights**:
    - Compile Decision Trail from all phases
    - Key conclusions with evidence + confidence (high/medium/low)
-   - Recommendations with rationale + priority (high/medium/low)
+   - Recommendations with rationale + priority (high/medium/low) — **merge validated `technical_solutions[]` from explorations.json as high-priority recommendations**
    - Open questions, follow-up suggestions
    - Decision summary linking conclusions back to decisions
    - Write to conclusions.json
