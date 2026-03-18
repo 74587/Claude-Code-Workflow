@@ -5,17 +5,44 @@
 
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
-import { Copy, RefreshCw, Check } from 'lucide-react';
+import { Copy, RefreshCw, Check, Download, Loader2 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useCodexLensMcpConfig, useCodexLensEnv } from '@/hooks/useCodexLens';
+import { installMcpTemplate } from '@/lib/api';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 export function McpConfigTab() {
   const { formatMessage } = useIntl();
   const { data: mcpConfig, isLoading, isError, refetch } = useCodexLensMcpConfig();
   const { data: envData } = useCodexLensEnv();
   const [copied, setCopied] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [installResult, setInstallResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const projectPath = useWorkflowStore(selectProjectPath);
+
+  const handleInstall = async (scope: 'global' | 'project') => {
+    setInstalling(true);
+    setInstallResult(null);
+    try {
+      const res = await installMcpTemplate({
+        templateName: 'codexlens',
+        scope,
+        projectPath: scope === 'project' ? projectPath : undefined,
+      });
+      setInstallResult({
+        ok: !!res.success,
+        msg: res.success
+          ? formatMessage({ id: 'codexlens.mcp.installSuccess' })
+          : (res.error ?? formatMessage({ id: 'codexlens.mcp.installError' })),
+      });
+    } catch (err) {
+      setInstallResult({ ok: false, msg: (err as Error).message });
+    } finally {
+      setInstalling(false);
+    }
+  };
 
   const hasApiUrl = !!(envData?.CODEXLENS_EMBED_API_URL);
   const embedMode = hasApiUrl ? 'API' : 'Local fastembed';
@@ -81,6 +108,41 @@ export function McpConfigTab() {
             <pre className="bg-muted rounded-md p-4 text-xs overflow-auto max-h-96 font-mono">
               {configJson || formatMessage({ id: 'codexlens.mcp.noConfig' })}
             </pre>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Install */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{formatMessage({ id: 'codexlens.mcp.quickInstallTitle' })}</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1">{formatMessage({ id: 'codexlens.mcp.quickInstallDesc' })}</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleInstall('project')}
+              disabled={installing || !projectPath}
+            >
+              {installing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
+              {installing ? formatMessage({ id: 'codexlens.mcp.installing' }) : formatMessage({ id: 'codexlens.mcp.installProject' })}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleInstall('global')}
+              disabled={installing}
+            >
+              {installing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Download className="w-4 h-4 mr-1" />}
+              {installing ? formatMessage({ id: 'codexlens.mcp.installing' }) : formatMessage({ id: 'codexlens.mcp.installGlobal' })}
+            </Button>
+          </div>
+          {installResult && (
+            <p className={`text-sm ${installResult.ok ? 'text-success' : 'text-destructive'}`}>
+              {installResult.msg}
+            </p>
           )}
         </CardContent>
       </Card>

@@ -3,7 +3,7 @@
 // ========================================
 // Project path input, index status display, and sync/rebuild actions
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIntl } from 'react-intl';
 import { Plus, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -11,6 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useIndexStatus, useSyncIndex, useRebuildIndex, codexLensKeys, type IndexStatusData } from '@/hooks/useCodexLens';
+import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 interface ProjectStatusCardProps {
   projectPath: string;
@@ -98,8 +99,19 @@ function ProjectStatusCard({ projectPath }: ProjectStatusCardProps) {
 
 export function IndexManagerTab() {
   const { formatMessage } = useIntl();
+  const currentWorkspacePath = useWorkflowStore(selectProjectPath);
   const [paths, setPaths] = useState<string[]>([]);
   const [inputValue, setInputValue] = useState('');
+
+  // Auto-add current workspace path on mount and when workspace changes
+  useEffect(() => {
+    if (currentWorkspacePath) {
+      setPaths((prev) => {
+        if (prev.includes(currentWorkspacePath)) return prev;
+        return [currentWorkspacePath, ...prev];
+      });
+    }
+  }, [currentWorkspacePath]);
 
   const handleAdd = () => {
     const trimmed = inputValue.trim();

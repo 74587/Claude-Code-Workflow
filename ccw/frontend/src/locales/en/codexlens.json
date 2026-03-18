@@ -27,7 +27,14 @@
       "step3": "Add the copied JSON under the mcpServers key.",
       "step4": "Save the configuration file and restart your client.",
       "step5": "Verify the CodexLens server appears as an available MCP tool."
-    }
+    },
+    "quickInstallTitle": "Quick Install",
+    "quickInstallDesc": "Install CodexLens MCP server directly to your project or global config",
+    "installProject": "Install to Project",
+    "installGlobal": "Install to Global",
+    "installing": "Installing...",
+    "installSuccess": "CodexLens MCP installed successfully",
+    "installError": "Install failed"
   },
   "models": {
     "embedMode": "Current embed mode",
@@ -58,6 +65,11 @@
     "save": "Save",
     "saving": "Saving...",
     "clearForm": "Clear Form",
+    "mode": "Embed Mode",
+    "localMode": "Local fastembed",
+    "apiMode": "Remote API",
+    "localModeDesc": "Use local fastembed models, no external API required",
+    "apiModeDesc": "Use remote Embedding API (OpenAI-compatible)",
     "sections": {
       "embed": "Embed Config",
       "reranker": "Reranker Config",

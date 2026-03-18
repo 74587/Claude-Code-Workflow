@@ -30,7 +30,14 @@
       "step3": "将复制的 JSON 添加到 mcpServers 键下。",
       "step4": "保存配置文件并重启客户端。",
       "step5": "验证 CodexLens 服务器是否作为可用 MCP 工具出现。"
-    }
+    },
+    "quickInstallTitle": "快速安装",
+    "quickInstallDesc": "直接安装 CodexLens MCP 服务器到当前项目或全局配置",
+    "installProject": "安装到当前项目",
+    "installGlobal": "安装到全局",
+    "installing": "安装中...",
+    "installSuccess": "CodexLens MCP 安装成功",
+    "installError": "安装失败"
   },
   "models": {
     "embedMode": "当前嵌入模式",
@@ -61,6 +68,11 @@
     "save": "保存",
     "saving": "保存中...",
     "clearForm": "清空表单",
+    "mode": "嵌入模式",
+    "localMode": "本地 fastembed",
+    "apiMode": "远程 API",
+    "localModeDesc": "使用本地 fastembed 模型，无需外部 API",
+    "apiModeDesc": "使用远程 Embedding API（OpenAI 兼容）",
     "sections": {
       "embed": "嵌入配置",
       "reranker": "重排序配置",

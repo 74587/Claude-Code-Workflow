@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { useCodexLensEnv, useSaveCodexLensEnv } from '@/hooks/useCodexLens';
 
+type EmbedMode = 'local' | 'api';
+
 // ========================================
 // ENV group definitions
 // ========================================
@@ -71,6 +73,29 @@ const ENV_GROUPS: EnvGroup[] = [
   },
 ];
 
+// Fields that are only relevant in API mode
+const API_ONLY_KEYS = new Set([
+  'CODEXLENS_EMBED_API_URL',
+  'CODEXLENS_EMBED_API_KEY',
+  'CODEXLENS_EMBED_API_ENDPOINTS',
+  'CODEXLENS_EMBED_API_CONCURRENCY',
+]);
+
+// Default placeholder values
+const FIELD_DEFAULTS: Record<string, string> = {
+  CODEXLENS_EMBED_API_MODEL: 'text-embedding-3-small',
+  CODEXLENS_EMBED_DIM: '1536',
+  CODEXLENS_EMBED_BATCH_SIZE: '512',
+  CODEXLENS_EMBED_API_CONCURRENCY: '4',
+  CODEXLENS_BINARY_TOP_K: '200',
+  CODEXLENS_ANN_TOP_K: '50',
+  CODEXLENS_FTS_TOP_K: '50',
+  CODEXLENS_FUSION_K: '60',
+  CODEXLENS_RERANKER_TOP_K: '20',
+  CODEXLENS_RERANKER_BATCH_SIZE: '32',
+  CODEXLENS_INDEX_WORKERS: '4',
+};
+
 // Collect all keys
 const ALL_KEYS = ENV_GROUPS.flatMap((g) => g.fields.map((f) => f.key));
 
@@ -120,9 +145,10 @@ export function EnvSettingsTab() {
   const { data: serverEnv, isLoading } = useCodexLensEnv();
   const { saveEnv, isSaving } = useSaveCodexLensEnv();
 
+  const [embedMode, setEmbedMode] = useState<EmbedMode>('local');
   const [localEnv, setLocalEnv] = useState<Record<string, string>>(buildEmptyEnv);
 
-  // Sync server state into local when loaded
+  // Sync server state into local when loaded and detect embed mode
   useEffect(() => {
     if (serverEnv) {
       setLocalEnv((prev) => {
@@ -132,6 +158,10 @@ export function EnvSettingsTab() {
         });
         return next;
       });
+      // Auto-detect mode from saved env
+      if (serverEnv.CODEXLENS_EMBED_API_URL) {
+        setEmbedMode('api');
+      }
     }
   }, [serverEnv]);
 
@@ -157,13 +187,53 @@ export function EnvSettingsTab() {
 
   return (
     <div className="space-y-6">
-      {ENV_GROUPS.map((group) => (
+      {/* Mode toggle */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm font-medium">{formatMessage({ id: 'codexlens.env.mode' })}:</span>
+        <div className="flex rounded-md border border-border overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setEmbedMode('local')}
+            className={`px-3 py-1.5 text-sm transition-colors ${
+              embedMode === 'local'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            {formatMessage({ id: 'codexlens.env.localMode' })}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEmbedMode('api')}
+            className={`px-3 py-1.5 text-sm transition-colors ${
+              embedMode === 'api'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-background text-muted-foreground hover:bg-muted'
+            }`}
+          >
+            {formatMessage({ id: 'codexlens.env.apiMode' })}
+          </button>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          {embedMode === 'local'
+            ? formatMessage({ id: 'codexlens.env.localModeDesc' })
+            : formatMessage({ id: 'codexlens.env.apiModeDesc' })}
+        </span>
+      </div>
+
+      {ENV_GROUPS.map((group) => {
+        // In local mode, filter out API-only fields from embed group
+        const visibleFields = embedMode === 'local'
+          ? group.fields.filter((f) => !API_ONLY_KEYS.has(f.key))
+          : group.fields;
+        if (visibleFields.length === 0) return null;
+        return (
         <Card key={group.title}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">{formatMessage({ id: `codexlens.env.sections.${group.title}` })}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {group.fields.map((field) => (
+            {visibleFields.map((field) => (
               <div key={field.key} className="grid grid-cols-3 gap-3 items-center">
                 <label
                   htmlFor={field.key}
@@ -182,6 +252,7 @@ export function EnvSettingsTab() {
                     <Input
                       id={field.key}
                       value={localEnv[field.key] ?? ''}
+                      placeholder={FIELD_DEFAULTS[field.key] ?? ''}
                       onChange={(e) => handleChange(field.key, e.target.value)}
                     />
                   )}
@@ -190,7 +261,8 @@ export function EnvSettingsTab() {
             ))}
           </CardContent>
         </Card>
-      ))}
+        );
+      })}
 
       {/* Action buttons */}
       <div className="flex justify-between pt-2">
