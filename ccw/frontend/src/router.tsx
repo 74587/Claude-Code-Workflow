@@ -35,7 +35,6 @@ const RulesManagerPage = lazy(() => import('@/pages/RulesManagerPage').then(m =>
 const PromptHistoryPage = lazy(() => import('@/pages/PromptHistoryPage').then(m => ({ default: m.PromptHistoryPage })));
 const ExplorerPage = lazy(() => import('@/pages/ExplorerPage').then(m => ({ default: m.ExplorerPage })));
 const GraphExplorerPage = lazy(() => import('@/pages/GraphExplorerPage').then(m => ({ default: m.GraphExplorerPage })));
-const CodexLensManagerPage = lazy(() => import('@/pages/CodexLensManagerPage').then(m => ({ default: m.CodexLensManagerPage })));
 const ApiSettingsPage = lazy(() => import('@/pages/ApiSettingsPage').then(m => ({ default: m.ApiSettingsPage })));
 const CliViewerPage = lazy(() => import('@/pages/CliViewerPage').then(m => ({ default: m.CliViewerPage })));
 const CliSessionSharePage = lazy(() => import('@/pages/CliSessionSharePage').then(m => ({ default: m.CliSessionSharePage })));
@@ -171,10 +170,6 @@ const routes: RouteObject[] = [
         element: withErrorHandling(<SpecsSettingsPage />),
       },
       {
-        path: 'settings/codexlens',
-        element: withErrorHandling(<CodexLensManagerPage />),
-      },
-      {
         path: 'api-settings',
         element: withErrorHandling(<ApiSettingsPage />),
       },
@@ -260,7 +255,6 @@ export const ROUTES = {
   ENDPOINTS: '/settings/endpoints',
   INSTALLATIONS: '/settings/installations',
   SETTINGS_RULES: '/settings/rules',
-  CODEXLENS_MANAGER: '/settings/codexlens',
   API_SETTINGS: '/api-settings',
   EXPLORER: '/explorer',
   GRAPH: '/graph',

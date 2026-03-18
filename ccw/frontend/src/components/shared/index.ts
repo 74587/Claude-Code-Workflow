@@ -146,9 +146,6 @@ export type { RuleDialogProps } from './RuleDialog';
 // Tools and utility components
 export { ThemeSelector } from './ThemeSelector';
 
-export { IndexManager } from './IndexManager';
-export type { IndexManagerProps } from './IndexManager';
-
 export { ExplorerToolbar } from './ExplorerToolbar';
 export type { ExplorerToolbarProps } from './ExplorerToolbar';
 

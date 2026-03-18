@@ -10,8 +10,8 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { getAllToolSchemas, executeTool, executeToolWithProgress } from '../tools/index.js';
-import type { ToolSchema, ToolResult } from '../types/tool.js';
+import { getAllToolSchemas, executeTool } from '../tools/index.js';
+import type { ToolSchema } from '../types/tool.js';
 import { getProjectRoot, getAllowedDirectories, isSandboxEnabled } from '../utils/path-validator.js';
 
 const SERVER_NAME = 'ccw-tools';
@@ -23,7 +23,7 @@ const ENV_ALLOWED_DIRS = 'CCW_ALLOWED_DIRS';
 const STDIO_DISCONNECT_ERROR_CODES = new Set(['EPIPE', 'ERR_STREAM_DESTROYED']);
 
 // Default enabled tools (core set - file operations, core memory, and smart search)
-const DEFAULT_TOOLS: string[] = ['write_file', 'edit_file', 'read_file', 'read_many_files', 'read_outline', 'core_memory', 'smart_search'];
+const DEFAULT_TOOLS: string[] = ['write_file', 'edit_file', 'read_file', 'read_many_files', 'read_outline', 'core_memory'];
 
 /**
  * Get list of enabled tools from environment or defaults
@@ -151,19 +151,7 @@ function createServer(): Server {
     }
 
     try {
-      // For smart_search init action, use progress-aware execution
-      const isInitAction = name === 'smart_search' && args?.action === 'init';
-
-      let result: ToolResult;
-      if (isInitAction) {
-        // Execute with progress callback that writes to stderr
-        result = await executeToolWithProgress(name, args || {}, (progress) => {
-          // Output progress to stderr (visible in terminal, doesn't interfere with JSON-RPC)
-          console.error(`[Progress] ${progress.percent}% - ${progress.message}`);
-        });
-      } else {
-        result = await executeTool(name, args || {});
-      }
+      const result = await executeTool(name, args || {});
 
       if (!result.success) {
         return {

@@ -1084,7 +1084,35 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * Handle MCP routes
  * @returns true if route was handled, false otherwise
  */
+// Seed built-in MCP templates once
+let _templateSeeded = false;
+function seedBuiltinTemplates(): void {
+  if (_templateSeeded) return;
+  _templateSeeded = true;
+  try {
+    McpTemplatesDb.saveTemplate({
+      name: 'codexlens',
+      description: 'CodexLens semantic code search (vector + FTS + reranking)',
+      serverConfig: {
+        command: 'uvx',
+        args: ['--from', 'codexlens-search[mcp]', 'codexlens-mcp'],
+        env: {
+          CODEXLENS_EMBED_API_URL: '',
+          CODEXLENS_EMBED_API_KEY: '',
+          CODEXLENS_EMBED_API_MODEL: 'text-embedding-3-small',
+          CODEXLENS_EMBED_DIM: '1536',
+        },
+      },
+      category: 'code-search',
+      tags: ['search', 'semantic', 'code-intelligence'],
+    });
+  } catch {
+    // Template may already exist — ignore upsert errors
+  }
+}
+
 export async function handleMcpRoutes(ctx: RouteContext): Promise<boolean> {
+  seedBuiltinTemplates();
   const { pathname, url, req, res, initialPath, handlePostRequest, broadcastToClients } = ctx;
 
   // API: Get MCP configuration (includes both Claude and Codex)
@@ -1230,13 +1258,13 @@ export async function handleMcpRoutes(ctx: RouteContext): Promise<boolean> {
       const enabledToolsRaw = envInput.enabledTools;
       let enabledToolsEnv: string;
       if (enabledToolsRaw === undefined || enabledToolsRaw === null) {
-        enabledToolsEnv = 'write_file,edit_file,read_file,core_memory,ask_question,smart_search';
+        enabledToolsEnv = 'write_file,edit_file,read_file,core_memory,ask_question';
       } else if (Array.isArray(enabledToolsRaw)) {
         enabledToolsEnv = enabledToolsRaw.filter((t): t is string => typeof t === 'string').join(',');
       } else if (typeof enabledToolsRaw === 'string') {
         enabledToolsEnv = enabledToolsRaw;
       } else {
-        enabledToolsEnv = 'write_file,edit_file,read_file,core_memory,ask_question,smart_search';
+        enabledToolsEnv = 'write_file,edit_file,read_file,core_memory,ask_question';
       }
 
       const projectRoot = typeof envInput.projectRoot === 'string' ? envInput.projectRoot : undefined;

@@ -290,16 +290,6 @@ export type {
   WorkspaceQueryKeys,
 } from './useWorkspaceQueryKeys';
 
-// ========== CodexLens (v2) ==========
-export {
-  useV2SearchManager,
-} from './useV2SearchManager';
-export type {
-  V2IndexStatus,
-  V2SearchTestResult,
-  UseV2SearchManagerReturn,
-} from './useV2SearchManager';
-
 // ========== Skill Hub ==========
 export {
   useRemoteSkills,

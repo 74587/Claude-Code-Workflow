@@ -3,7 +3,6 @@ import { URL } from 'url';
 import { getCoreMemoryStore } from '../core-memory-store.js';
 import type { CoreMemory, SessionCluster, ClusterMember, ClusterRelation } from '../core-memory-store.js';
 import { getEmbeddingStatus, generateEmbeddings } from '../memory-embedder-bridge.js';
-import { checkSemanticStatus } from '../../tools/codex-lens.js';
 import { MemoryJobScheduler } from '../memory-job-scheduler.js';
 import type { JobStatus } from '../memory-job-scheduler.js';
 import { StoragePaths } from '../../config/storage-paths.js';
@@ -781,8 +780,8 @@ export async function handleCoreMemoryRoutes(ctx: RouteContext): Promise<boolean
     const projectPath = url.searchParams.get('path') || initialPath;
 
     try {
-      // Check semantic status using CodexLens's check (same as status page)
-      const semanticStatus = await checkSemanticStatus();
+      // Semantic status: codexlens v1 removed, always unavailable via this path
+      const semanticStatus = { available: false, error: 'Use codexlens MCP server instead' };
 
       if (!semanticStatus.available) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -825,8 +824,7 @@ export async function handleCoreMemoryRoutes(ctx: RouteContext): Promise<boolean
       const basePath = projectPath || initialPath;
 
       try {
-        // Check semantic status using CodexLens's check
-        const semanticStatus = await checkSemanticStatus();
+        const semanticStatus = { available: false, error: 'Use codexlens MCP server instead' };
         if (!semanticStatus.available) {
           return { error: semanticStatus.error || 'Semantic search not available. Install it from CLI > CodexLens > Semantic page.', status: 503 };
         }

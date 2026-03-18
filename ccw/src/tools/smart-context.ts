@@ -4,7 +4,9 @@
  * Auto-generates contextual file references for CLI execution
  */
 
-import { executeCodexLens, ensureReady as ensureCodexLensReady } from './codex-lens.js';
+// codex-lens v1 removed — no-op stubs for backward compatibility
+async function ensureCodexLensReady(): Promise<{ ready: boolean }> { return { ready: false }; }
+async function executeCodexLens(_args: string[], _opts?: { cwd?: string }): Promise<{ success: boolean; output?: string }> { return { success: false }; }
 
 // Options for smart context generation
 export interface SmartContextOptions {

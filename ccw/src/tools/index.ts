@@ -18,10 +18,7 @@ import * as generateDddDocsMod from './generate-ddd-docs.js';
 import * as convertTokensToCssMod from './convert-tokens-to-css.js';
 import * as sessionManagerMod from './session-manager.js';
 import * as cliExecutorMod from './cli-executor.js';
-import * as smartSearchMod from './smart-search.js';
-import { executeInitWithProgress } from './smart-search.js';
-// codex_lens removed - functionality integrated into smart_search
-// codex_lens_lsp removed - v1 LSP bridge removed
+// codex_lens / smart_search removed - use codexlens MCP server instead
 import * as readFileMod from './read-file.js';
 import * as readManyFilesMod from './read-many-files.js';
 import * as readOutlineMod from './read-outline.js';
@@ -30,7 +27,7 @@ import * as contextCacheMod from './context-cache.js';
 import * as skillContextLoaderMod from './skill-context-loader.js';
 import * as askQuestionMod from './ask-question.js';
 import * as teamMsgMod from './team-msg.js';
-import type { ProgressInfo } from './codex-lens.js';
+
 
 // Import legacy JS tools
 import { uiGeneratePreviewTool } from './ui-generate-preview.js';
@@ -273,60 +270,6 @@ function sanitizeResult(result: unknown): unknown {
 }
 
 /**
- * Execute a tool with progress callback (for init actions)
- */
-export async function executeToolWithProgress(
-  name: string,
-  params: Record<string, unknown> = {},
-  onProgress?: (progress: ProgressInfo) => void
-): Promise<{
-  success: boolean;
-  result?: unknown;
-  error?: string;
-}> {
-  // For smart_search init, use special progress-aware execution
-  if (name === 'smart_search' && params.action === 'init') {
-    try {
-      // Notify dashboard - execution started
-      notifyDashboard({
-        toolName: name,
-        status: 'started',
-        params: sanitizeParams(params)
-      });
-
-      const result = await executeInitWithProgress(params, onProgress);
-
-      // Notify dashboard - execution completed
-      notifyDashboard({
-        toolName: name,
-        status: 'completed',
-        result: sanitizeResult(result)
-      });
-
-      return {
-        success: result.success,
-        result,
-        error: result.error
-      };
-    } catch (error) {
-      notifyDashboard({
-        toolName: name,
-        status: 'failed',
-        error: (error as Error).message || 'Tool execution failed'
-      });
-
-      return {
-        success: false,
-        error: (error as Error).message || 'Tool execution failed'
-      };
-    }
-  }
-
-  // Fall back to regular execution for other tools
-  return executeTool(name, params);
-}
-
-/**
  * Get tool schema in MCP-compatible format
  */
 export function getToolSchema(name: string): ToolSchema | null {
@@ -363,9 +306,7 @@ registerTool(toLegacyTool(generateDddDocsMod));
 registerTool(toLegacyTool(convertTokensToCssMod));
 registerTool(toLegacyTool(sessionManagerMod));
 registerTool(toLegacyTool(cliExecutorMod));
-registerTool(toLegacyTool(smartSearchMod));
-// codex_lens removed - functionality integrated into smart_search
-// codex_lens_lsp removed - v1 LSP bridge removed
+// codex_lens / smart_search removed - use codexlens MCP server instead
 registerTool(toLegacyTool(readFileMod));
 registerTool(toLegacyTool(readManyFilesMod));
 registerTool(toLegacyTool(readOutlineMod));

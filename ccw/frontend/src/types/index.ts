@@ -40,9 +40,6 @@ export type {
   NotificationState,
   NotificationActions,
   NotificationStore,
-  // Index Manager
-  IndexStatus,
-  IndexRebuildRequest,
   // Rules
   Rule,
   RuleCreateInput,

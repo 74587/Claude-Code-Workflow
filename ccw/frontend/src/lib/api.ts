@@ -3,11 +3,11 @@
 // ========================================
 // Typed fetch functions for API communication with CSRF token handling
 
-import type { SessionMetadata, TaskData, IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion, McpTemplate, McpTemplateInstallRequest, AllProjectsResponse, OtherProjectsServersResponse, CrossCliCopyRequest, CrossCliCopyResponse } from '../types/store';
+import type { SessionMetadata, TaskData, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion, McpTemplate, McpTemplateInstallRequest, AllProjectsResponse, OtherProjectsServersResponse, CrossCliCopyRequest, CrossCliCopyResponse } from '../types/store';
 import type { TeamArtifactsResponse } from '../types/team';
 
 // Re-export types for backward compatibility
-export type { IndexStatus, IndexRebuildRequest, Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion, McpTemplate, McpTemplateInstallRequest, AllProjectsResponse, OtherProjectsServersResponse, CrossCliCopyRequest, CrossCliCopyResponse };
+export type { Rule, RuleCreateInput, RulesResponse, Prompt, PromptInsight, Pattern, Suggestion, McpTemplate, McpTemplateInstallRequest, AllProjectsResponse, OtherProjectsServersResponse, CrossCliCopyRequest, CrossCliCopyResponse };
 
 
 /**
@@ -4648,10 +4648,10 @@ export async function fetchCcwMcpConfig(currentProjectPath?: string): Promise<Cc
     let enabledTools: string[];
     if (enabledToolsStr === undefined || enabledToolsStr === null) {
       // No setting = use default tools
-      enabledTools = ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'];
+      enabledTools = ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question'];
     } else if (enabledToolsStr === '' || enabledToolsStr === 'all') {
       // Empty string = all tools disabled, 'all' = default set (for backward compatibility)
-      enabledTools = enabledToolsStr === '' ? [] : ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'];
+      enabledTools = enabledToolsStr === '' ? [] : ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question'];
     } else {
       // Comma-separated list
       enabledTools = enabledToolsStr.split(',').map((t: string) => t.trim()).filter(Boolean);
@@ -4710,7 +4710,7 @@ export async function installCcwMcp(
       scope,
       projectPath: path,
       env: {
-        enabledTools: ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'],
+        enabledTools: ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question'],
       },
     }),
   });
@@ -4793,10 +4793,10 @@ export async function fetchCcwMcpConfigForCodex(): Promise<CcwMcpConfig> {
     let enabledTools: string[];
     if (enabledToolsStr === undefined || enabledToolsStr === null) {
       // No setting = use default tools
-      enabledTools = ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'];
+      enabledTools = ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question'];
     } else if (enabledToolsStr === '' || enabledToolsStr === 'all') {
       // Empty string = all tools disabled, 'all' = default set (for backward compatibility)
-      enabledTools = enabledToolsStr === '' ? [] : ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'];
+      enabledTools = enabledToolsStr === '' ? [] : ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question'];
     } else {
       // Comma-separated list
       enabledTools = enabledToolsStr.split(',').map((t: string) => t.trim()).filter(Boolean);
@@ -4831,7 +4831,7 @@ function buildCcwMcpServerConfigForCodex(config: {
   if (config.enabledTools !== undefined) {
     env.CCW_ENABLED_TOOLS = config.enabledTools.join(',');
   } else {
-    env.CCW_ENABLED_TOOLS = 'write_file,edit_file,read_file,core_memory,ask_question,smart_search';
+    env.CCW_ENABLED_TOOLS = 'write_file,edit_file,read_file,core_memory,ask_question';
   }
 
   if (config.projectRoot) {
@@ -4852,7 +4852,7 @@ function buildCcwMcpServerConfigForCodex(config: {
  */
 export async function installCcwMcpToCodex(): Promise<CcwMcpConfig> {
   const serverConfig = buildCcwMcpServerConfigForCodex({
-    enabledTools: ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question', 'smart_search'],
+    enabledTools: ['write_file', 'edit_file', 'read_file', 'core_memory', 'ask_question'],
   });
 
   const result = await addCodexMcpServer('ccw-tools', serverConfig);
@@ -4890,42 +4890,6 @@ export async function updateCcwConfigForCodex(config: {
   }
 
   return fetchCcwMcpConfigForCodex();
-}
-
-// ========== Index Management API ==========
-
-/**
- * Fetch current index status for a specific workspace
- * @param projectPath - Optional project path to filter data by workspace
- */
-export async function fetchIndexStatus(_projectPath?: string): Promise<IndexStatus> {
-  const resp = await fetchApi<{ result?: { indexed?: boolean; totalFiles?: number } }>('/api/tools', {
-    method: 'POST',
-    body: JSON.stringify({ tool_name: 'smart_search', action: 'status' }),
-  });
-  const result = resp.result ?? {};
-  return {
-    totalFiles: result.totalFiles ?? 0,
-    lastUpdated: new Date().toISOString(),
-    buildTime: 0,
-    status: result.indexed ? 'completed' : 'idle',
-  };
-}
-
-/**
- * Rebuild index
- */
-export async function rebuildIndex(_request: IndexRebuildRequest = {}): Promise<IndexStatus> {
-  await fetchApi<{ error?: string }>('/api/tools', {
-    method: 'POST',
-    body: JSON.stringify({ tool_name: 'smart_search', action: 'reindex' }),
-  });
-  return {
-    totalFiles: 0,
-    lastUpdated: new Date().toISOString(),
-    buildTime: 0,
-    status: 'building',
-  };
 }
 
 // ========== Prompt History API ==========

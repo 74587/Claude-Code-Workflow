@@ -18,7 +18,6 @@ import {
   HardDrive,
   MessageCircleQuestion,
   MessagesSquare,
-  SearchCode,
   ChevronDown,
   ChevronRight,
   Globe,
@@ -110,7 +109,6 @@ export const CCW_MCP_TOOLS: CcwTool[] = [
   { name: 'read_many_files', desc: 'Read multiple files/dirs', core: true },
   { name: 'core_memory', desc: 'Core memory management', core: true },
   { name: 'ask_question', desc: 'Interactive questions (A2UI)', core: false },
-  { name: 'smart_search', desc: 'Intelligent code search', core: true },
   { name: 'team_msg', desc: 'Agent team message bus', core: false },
 ];
 
@@ -572,8 +570,6 @@ function getToolIcon(toolName: string): React.ReactElement {
       return <Settings {...iconProps} />;
     case 'ask_question':
       return <MessageCircleQuestion {...iconProps} />;
-    case 'smart_search':
-      return <SearchCode {...iconProps} />;
     case 'team_msg':
       return <MessagesSquare {...iconProps} />;
     default:

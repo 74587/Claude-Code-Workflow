@@ -161,54 +161,16 @@ describe('E2E: MCP Tool Execution', async () => {
 
     // Verify essential tools are present
     const toolNames = response.result.tools.map((t: any) => t.name);
-    assert.ok(toolNames.includes('smart_search'));
     assert.ok(toolNames.includes('edit_file'));
     assert.ok(toolNames.includes('write_file'));
     assert.ok(toolNames.includes('session_manager'));
 
     // Verify tool schema structure
-    const smartSearch = response.result.tools.find((t: any) => t.name === 'smart_search');
-    assert.ok(smartSearch.description);
-    assert.ok(smartSearch.inputSchema);
-    assert.equal(smartSearch.inputSchema.type, 'object');
-    assert.ok(smartSearch.inputSchema.properties);
-  });
-
-  it('executes smart_search tool with valid parameters', async () => {
-    const response = await mcpClient.call('tools/call', {
-      name: 'smart_search',
-      arguments: {
-        action: 'status',
-        path: process.cwd()
-      }
-    });
-
-    assert.equal(response.jsonrpc, '2.0');
-    assert.ok(response.result);
-    assert.ok(Array.isArray(response.result.content));
-    assert.equal(response.result.content[0].type, 'text');
-    assert.ok(response.result.content[0].text.length > 0);
-  });
-
-  it('validates required parameters and returns error for missing params', async () => {
-    const response = await mcpClient.call('tools/call', {
-      name: 'smart_search',
-      arguments: {
-        action: 'search'
-        // Missing required 'query' parameter
-      }
-    });
-
-    assert.equal(response.jsonrpc, '2.0');
-    assert.ok(response.result);
-    assert.equal(response.result.isError, true);
-    // Error message should mention query is required
-    assert.ok(
-      response.result.content[0].text.includes('Query is required') ||
-      response.result.content[0].text.includes('query') ||
-      response.result.content[0].text.includes('required'),
-      `Expected error about missing query, got: ${response.result.content[0].text}`
-    );
+    const editFile = response.result.tools.find((t: any) => t.name === 'edit_file');
+    assert.ok(editFile.description);
+    assert.ok(editFile.inputSchema);
+    assert.equal(editFile.inputSchema.type, 'object');
+    assert.ok(editFile.inputSchema.properties);
   });
 
   it('returns error for non-existent tool', async () => {
@@ -375,10 +337,6 @@ describe('E2E: MCP Tool Execution', async () => {
     const calls = await Promise.all([
       mcpClient.call('tools/list', {}),
       mcpClient.call('tools/call', {
-        name: 'smart_search',
-        arguments: { action: 'status', path: process.cwd() }
-      }),
-      mcpClient.call('tools/call', {
         name: 'session_manager',
         arguments: { operation: 'list', location: 'active' }
       })
@@ -392,8 +350,7 @@ describe('E2E: MCP Tool Execution', async () => {
 
     // Verify different results
     assert.ok(Array.isArray(calls[0].result.tools)); // tools/list
-    assert.ok(calls[1].result.content); // smart_search
-    assert.ok(calls[2].result.content); // session_manager
+    assert.ok(calls[1].result.content); // session_manager
   });
 
   it('validates path parameters for security (path traversal prevention)', async () => {
@@ -413,24 +370,6 @@ describe('E2E: MCP Tool Execution', async () => {
                      response.result.content[0].text.includes('Error') ||
                      response.result.content[0].text.includes('denied');
     assert.ok(hasError);
-  });
-
-  it('supports progress reporting for long-running operations', async () => {
-    // smart_search init action supports progress reporting
-    const response = await mcpClient.call('tools/call', {
-      name: 'smart_search',
-      arguments: {
-        action: 'status',
-        path: process.cwd()
-      }
-    });
-
-    assert.equal(response.jsonrpc, '2.0');
-    assert.ok(response.result);
-    assert.ok(response.result.content);
-
-    // For status action, should return immediately
-    // Progress is logged to stderr but doesn't affect result structure
   });
 
   it('handles tool execution timeout gracefully', async () => {
@@ -495,14 +434,10 @@ describe('E2E: MCP Tool Execution', async () => {
 
   it('preserves parameter types in tool execution', async () => {
     const response = await mcpClient.call('tools/call', {
-      name: 'smart_search',
+      name: 'session_manager',
       arguments: {
-        action: 'find_files',
-        pattern: '*.json',
-        path: process.cwd(),
-        limit: 10, // Number
-        offset: 0, // Number
-        caseSensitive: true // Boolean
+        operation: 'list',
+        location: 'active'
       }
     });
 

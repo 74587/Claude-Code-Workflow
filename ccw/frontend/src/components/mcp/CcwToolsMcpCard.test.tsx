@@ -139,7 +139,7 @@ describe('CcwToolsMcpCard', () => {
     render(
       <CcwToolsMcpCard
         isInstalled={true}
-        enabledTools={['write_file', 'smart_search']}
+        enabledTools={['write_file', 'edit_file']}
         onToggleTool={vi.fn()}
         onUpdateConfig={vi.fn()}
         onInstall={vi.fn()}
@@ -170,7 +170,7 @@ describe('CcwToolsMcpCard', () => {
     const [payload] = updateClaudeMock.mock.calls[0] ?? [];
     expect(payload).toEqual(
       expect.objectContaining({
-        enabledTools: ['write_file', 'smart_search'],
+        enabledTools: ['write_file', 'edit_file'],
       })
     );
   });
