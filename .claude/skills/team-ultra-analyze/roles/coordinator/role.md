@@ -51,7 +51,7 @@ When coordinator is invoked, detect invocation type:
 | Interrupted session | Active/paused session exists | -> Phase 0 |
 | New session | None of above | -> Phase 1 |
 
-For callback/check/resume/complete: load `commands/monitor.md` and execute matched handler, then STOP.
+For callback/check/resume/complete: load `@commands/monitor.md` and execute matched handler, then STOP.
 
 ### Router Implementation
 
@@ -95,15 +95,18 @@ TEXT-LEVEL ONLY. No source code reading.
 
 1. Parse user task description from $ARGUMENTS
 2. Extract explicit settings: `--mode`, scope, focus areas
-3. Delegate to `commands/analyze.md` for signal detection and pipeline mode selection
+3. Delegate to `@commands/analyze.md` for signal detection and pipeline mode selection
 4. **Interactive clarification** (non-auto mode): AskUserQuestion for focus, perspectives, depth.
 
 ---
 
 ## Phase 2: Create Team + Initialize Session
 
-1. Generate session ID: `UAN-{slug}-{YYYY-MM-DD}`
-2. Create session folder structure:
+1. Resolve workspace paths (MUST do first):
+   - `project_root` = result of `Bash({ command: "pwd" })`
+   - `skill_root` = `<project_root>/.claude/skills/team-ultra-analyze`
+3. Generate session ID: `UAN-{slug}-{YYYY-MM-DD}`
+4. Create session folder structure:
 
 ```
 .workflow/.team/UAN-{slug}-{date}/
@@ -117,8 +120,8 @@ TEXT-LEVEL ONLY. No source code reading.
     +-- learnings.md, decisions.md, conventions.md, issues.md
 ```
 
-3. Write session.json with mode, requirement, timestamp
-4. Initialize .msg/meta.json with pipeline metadata via team_msg:
+5. Write session.json with mode, requirement, timestamp
+6. Initialize .msg/meta.json with pipeline metadata via team_msg:
 ```typescript
 mcp__ccw-tools__team_msg({
   operation: "log",
@@ -134,13 +137,13 @@ mcp__ccw-tools__team_msg({
   }
 })
 ```
-5. Call `TeamCreate({ team_name: "ultra-analyze" })`
+7. Call `TeamCreate({ team_name: "ultra-analyze" })`
 
 ---
 
 ## Phase 3: Create Task Chain
 
-Execute `commands/dispatch.md` inline (Command Execution Protocol):
+Execute `@commands/dispatch.md` inline (Command Execution Protocol):
 1. Read `roles/coordinator/commands/dispatch.md`
 2. Follow dispatch Phase 2 -> Phase 3 -> Phase 4
 3. Result: all pipeline tasks created with correct blockedBy dependencies
@@ -152,7 +155,7 @@ Execute `commands/dispatch.md` inline (Command Execution Protocol):
 ### Initial Spawn
 
 Find first unblocked tasks and spawn their workers. Use SKILL.md Worker Spawn Template with:
-- `role_spec: ~  or <project>/.claude/skills/team-ultra-analyze/roles/<role>/role.md`
+- `role_spec: <skill_root>/roles/<role>/role.md`
 - `team_name: ultra-analyze`
 - `inner_loop: false`
 
