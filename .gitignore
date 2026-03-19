@@ -161,3 +161,4 @@ codex-lens/.cache/huggingface/models/Xenova--ms-marco-MiniLM-L-6-v2/onnx/model_q
 codex-lens/.cache/huggingface/models/Xenova--ms-marco-MiniLM-L-6-v2/onnx/model_uint8.onnx
 codex-lens/.cache/huggingface/models/Xenova--ms-marco-MiniLM-L-6-v2/onnx/model.onnx
 codex-lens/data/registry.db
+codex-lens-v2/
