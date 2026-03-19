@@ -10,14 +10,14 @@ argument-hint: "TOPIC=\"<question or topic>\" [--depth=quick|standard|deep] [--c
 
 Interactive collaborative analysis workflow with **documented discussion process**. Records understanding evolution, facilitates multi-round Q&A, and uses inline search tools for deep exploration.
 
-**Core workflow**: Topic → Explore → Discuss → Document → Refine → Conclude → (Optional) Quick Execute
+**Core workflow**: Topic → Explore → Discuss → Document → Refine → Conclude → Plan Checklist
 
 **Key features**:
 - **Documented discussion timeline**: Captures understanding evolution across all phases
 - **Decision recording at every critical point**: Mandatory recording of key findings, direction changes, and trade-offs
 - **Multi-perspective analysis**: Supports up to 4 analysis perspectives (serial, inline)
 - **Interactive discussion**: Multi-round Q&A with user feedback and direction adjustments
-- **Quick execute**: Convert conclusions directly to executable tasks
+- **Plan output**: Generate structured plan checklist for downstream execution (e.g., `$csv-wave-pipeline`)
 
 ### Decision Recording Protocol
 
@@ -128,17 +128,11 @@ Step 4: Synthesis & Conclusion
    ├─ Consolidate all insights → conclusions.json (with steps[] per recommendation)
    ├─ Update discussion.md with final synthesis
    ├─ Interactive Recommendation Review (per-recommendation confirm/modify/reject)
-   └─ Offer options: quick execute / create issue / generate task / export / done
+   └─ Offer options: generate plan / create issue / export / done
 
-Step 5: Execute (Optional - user selects, routes by complexity)
-   ├─ Simple (≤2 recs): Direct inline execution → summary in discussion.md
-   └─ Complex (≥3 recs): EXECUTE.md pipeline
-      ├─ Enrich recommendations → generate .task/TASK-*.json
-      ├─ Pre-execution analysis (dependencies, file conflicts, execution order)
-      ├─ User confirmation
-      ├─ Direct inline execution (Read/Edit/Write/Grep/Glob/Bash)
-      ├─ Record events → execution-events.md, update execution.md
-      └─ Report completion summary
+Step 5: Plan Generation (Optional - produces plan only, NO code modifications)
+   ├─ Generate inline plan checklist → appended to discussion.md
+   └─ Remind user to execute via $csv-wave-pipeline
 ```
 
 ## Configuration
@@ -817,7 +811,7 @@ for (const [index, rec] of sortedRecs.entries()) {
 
 ##### Step 4.4: Post-Completion Options
 
-**Complexity Assessment** — determine whether .task/*.json generation is warranted:
+**Complexity Assessment** — determine available options:
 
 ```javascript
 // Assess recommendation complexity to decide available options
@@ -833,9 +827,9 @@ function assessComplexity(recs) {
 
 // Complexity → available options mapping:
 //   none:    Done | Create Issue | Export Report
-//   simple:  Done | Create Issue | Export Report (no task generation — overkill)
-//   moderate: Done | Generate Task | Create Issue | Export Report
-//   complex:  Quick Execute | Generate Task | Create Issue | Export Report | Done
+//   simple:  Done | Create Issue | Export Report
+//   moderate: Generate Plan | Create Issue | Export Report | Done
+//   complex:  Generate Plan | Create Issue | Export Report | Done
 ```
 
 ```javascript
@@ -850,9 +844,9 @@ if (!autoYes) {
     }]
   })
 } else {
-  // Auto mode: generate .task/*.json only for moderate/complex, skip for simple/none
+  // Auto mode: generate plan only for moderate/complex, skip for simple/none
   if (complexity === 'complex' || complexity === 'moderate') {
-    // → Phase 5 Step 5.1-5.2 (task generation only, no execution)
+    // → Phase 5 (plan generation only, NO code modifications)
   } else {
     // → Done (conclusions.json is sufficient output)
   }
@@ -865,14 +859,13 @@ if (!autoYes) {
 |------------|-------------------|-----------|
 | `none` | Done, Create Issue, Export Report | No actionable recommendations |
 | `simple` | Done, Create Issue, Export Report | 1-2 low-priority items don't warrant formal task JSON |
-| `moderate` | Generate Task, Create Issue, Export Report, Done | Task structure helpful but execution not urgent |
-| `complex` | Quick Execute, Generate Task, Create Issue, Export Report, Done | Full pipeline justified |
+| `moderate` | Generate Plan, Create Issue, Export Report, Done | Task structure helpful for downstream execution |
+| `complex` | Generate Plan, Create Issue, Export Report, Done | Full plan generation justified |
 
 | Selection | Action |
 |-----------|--------|
-| Quick Execute | Jump to Phase 5 (only reviewed recs with status accepted/modified) |
+| Generate Plan | Jump to Phase 5 (plan generation only, NO code modifications) |
 | Create Issue | `Skill(skill="issue:new", args="...")` (only reviewed recs) |
-| Generate Task | Jump to Phase 5 Step 5.1-5.2 only (generate .task/*.json, no execution) |
 | Export Report | Copy discussion.md + conclusions.json to user-specified location |
 | Done | Display artifact paths, end |
 
@@ -883,96 +876,64 @@ if (!autoYes) {
 - User offered meaningful next step options
 - **Complete decision trail** documented and traceable from initial scoping to final conclusions
 
-### Phase 5: Execute (Optional)
+### Phase 5: Plan Generation (Optional — NO code modifications)
 
-**Objective**: Execute analysis recommendations — route by complexity.
+**Objective**: Generate structured plan checklist from analysis recommendations. **This phase produces plans only — it does NOT modify any source code.**
 
-**Trigger**: User selects "Quick Execute" in Phase 4. In auto mode, triggered only for `moderate`/`complex` recommendations.
-
-**Routing Logic**:
-
-```
-complexity assessment (from Phase 4.3)
-  ├─ simple/moderate (≤2 recommendations, clear changes)
-  │   └─ Direct inline execution — no .task/*.json overhead
-  └─ complex (≥3 recommendations, or high-priority with dependencies)
-      └─ Route to EXECUTE.md — full pipeline (task generation → execution)
-```
-
-##### Step 5.1: Route by Complexity
+**Trigger**: User selects "Generate Plan" in Phase 4. In auto mode, triggered only for `moderate`/`complex` recommendations.
 
 ```javascript
 const recs = conclusions.recommendations || []
 
-if (recs.length >= 3 || recs.some(r => r.priority === 'high')) {
-  // COMPLEX PATH → EXECUTE.md pipeline
-  // Full specification: EXECUTE.md
-  // Flow: load all context → generate .task/*.json → pre-execution analysis → serial execution → finalize
-} else {
-  // SIMPLE PATH → direct inline execution (below)
-}
-```
+// Build plan checklist from all accepted/modified recommendations
+const planChecklist = recs
+  .filter(r => r.review_status !== 'rejected')
+  .map((rec, index) => {
+    const files = rec.evidence_refs
+      ?.filter(ref => ref.includes(':'))
+      .map(ref => ref.split(':')[0]) || []
 
-##### Step 5.2: Simple Path — Direct Inline Execution
-
-For simple/moderate recommendations, execute directly without .task/*.json ceremony:
-
-```javascript
-// For each recommendation:
-recs.forEach((rec, index) => {
-  // 1. Locate relevant files from evidence_refs or codebase search
-  const files = rec.evidence_refs
-    ?.filter(ref => ref.includes(':'))
-    .map(ref => ref.split(':')[0]) || []
-
-  // 2. Read each target file
-  files.forEach(filePath => Read(filePath))
-
-  // 3. Apply changes based on rec.action + rec.rationale
-  //    Use Edit (preferred) for modifications, Write for new files
-
-  // 4. Log to discussion.md — append execution summary
-})
-
-// Append execution summary to discussion.md
-appendToDiscussion(`
-## Quick Execution Summary
-
-- **Recommendations executed**: ${recs.length}
-- **Completed**: ${getUtc8ISOString()}
-
-${recs.map((rec, i) => `### ${i+1}. ${rec.action}
-- **Status**: completed/failed
+    return `### ${index + 1}. ${rec.action}
+- **Priority**: ${rec.priority}
 - **Rationale**: ${rec.rationale}
+- **Target files**: ${files.join(', ') || 'TBD'}
 - **Evidence**: ${rec.evidence_refs?.join(', ') || 'N/A'}
-`).join('\n')}
+- [ ] Ready for execution`
+  }).join('\n\n')
+
+// Append plan checklist to discussion.md
+appendToDiscussion(`
+## Plan Checklist
+
+> **This is a plan only — no code was modified.**
+> To execute, use: \`$csv-wave-pipeline "<requirement summary>"\`
+
+- **Recommendations**: ${recs.length}
+- **Generated**: ${getUtc8ISOString()}
+
+${planChecklist}
+
+---
+
+### Next Step: Execute
+
+Run \`$csv-wave-pipeline\` to execute these recommendations as wave-based batch tasks:
+
+\`\`\`bash
+$csv-wave-pipeline "${topic}"
+\`\`\`
 `)
 ```
 
-**Simple path characteristics**:
-- No `.task/*.json` generation
-- No `execution.md` / `execution-events.md`
-- Execution summary appended directly to `discussion.md`
-- Suitable for 1-2 clear, low-risk recommendations
-
-##### Step 5.3: Complex Path — EXECUTE.md Pipeline
-
-For complex recommendations, follow the full specification in `EXECUTE.md`:
-
-1. **Load context sources**: Reuse in-memory artifacts or read from disk
-2. **Enrich recommendations**: Resolve target files, generate implementation steps, build convergence criteria
-3. **Generate `.task/*.json`**: Individual task files with full execution context
-4. **Pre-execution analysis**: Dependency validation, file conflicts, topological sort
-5. **User confirmation**: Present task list, allow adjustment
-6. **Serial execution**: Execute each task following generated implementation steps
-7. **Finalize**: Update task states, write execution artifacts
-
-**Full specification**: `EXECUTE.md`
+**Characteristics**:
+- Plan checklist appended directly to `discussion.md`
+- **No code modifications** — plan output only
+- Reminds user to use `$csv-wave-pipeline` for execution
 
 **Success Criteria**:
-- Simple path: recommendations executed, summary in discussion.md
-- Complex path: `.task/*.json` generated with quality validation, execution tracked via execution.md + execution-events.md
-- Execution route chosen correctly based on complexity assessment
+- Plan checklist in discussion.md with all accepted recommendations
+- User reminded about `$csv-wave-pipeline` for execution
+- **No source code modified** — strictly plan output
 
 ## Output Structure
 
@@ -989,11 +950,11 @@ For complex recommendations, follow the full specification in `EXECUTE.md`:
 └── conclusions.json           # Phase 4: Final synthesis with recommendations
 ```
 
-> **Phase 5 complex path** adds `.task/`, `execution.md`, `execution-events.md` — see `EXECUTE.md` for structure.
+> **Phase 5** appends a plan checklist to `discussion.md`. No additional files are generated.
 
 | File | Phase | Description |
 |------|-------|-------------|
-| `discussion.md` | 1-4 | Session metadata → discussion timeline → conclusions. Simple execution summary appended here. |
+| `discussion.md` | 1-5 | Session metadata → discussion timeline → conclusions. Plan checklist appended here (simple path). |
 | `exploration-codebase.json` | 2 | Codebase context: relevant files, patterns, constraints |
 | `explorations/*.json` | 2 | Per-perspective exploration results (multi only) |
 | `explorations.json` | 2 | Single perspective aggregated findings |
@@ -1158,16 +1119,13 @@ Remaining questions or areas for investigation
 | User timeout in discussion | Save state, show resume command | Use `--continue` to resume |
 | Max rounds reached (5) | Force synthesis phase | Highlight remaining questions in conclusions |
 | Session folder conflict | Append timestamp suffix | Create unique folder and continue |
-| Quick execute: task fails | Record failure, ask user | Retry, skip, or abort (see EXECUTE.md) |
-| Quick execute: verification fails | Mark as unverified | Note in events, manual check |
-| Quick execute: no recommendations | Cannot generate .task/*.json | Inform user, suggest lite-plan |
-| Quick execute: simple recommendations | Complexity too low for .task/*.json | Direct inline execution (no task generation) |
+| Plan generation: no recommendations | No plan to generate | Inform user, suggest lite-plan |
 
 ## Best Practices
 
 ### Core Principles
 
-1. **Explicit user confirmation required before code modifications**: The analysis phase is strictly read-only. Any code changes (Phase 5 quick execute) require user approval.
+1. **No code modifications**: This skill is strictly read-only and plan-only. Phase 5 generates plan checklists in `discussion.md` but does NOT modify source code. Use `$csv-wave-pipeline` for execution.
 
 ### Before Starting Analysis
 
@@ -1204,10 +1162,11 @@ Remaining questions or areas for investigation
 - Building shared understanding before implementation
 - Want to document how understanding evolved
 
-**Use Quick Execute (Phase 5) when:**
+**Use Plan Generation (Phase 5) when:**
 - Analysis conclusions contain clear, actionable recommendations
-- Simple: 1-2 clear changes → direct inline execution (no .task/ overhead)
-- Complex: 3+ recommendations with dependencies → EXECUTE.md pipeline (.task/*.json → serial execution)
+- Simple: 1-2 items → inline plan checklist in discussion.md
+- Complex: 3+ recommendations → detailed plan checklist
+- **Then execute via**: `$csv-wave-pipeline` for wave-based batch execution
 
 **Consider alternatives when:**
 - Specific bug diagnosis needed → use `debug-with-file`

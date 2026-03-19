@@ -1,6 +1,6 @@
 ---
 name: roadmap-with-file
-description: Strategic requirement roadmap with iterative decomposition and issue creation. Outputs roadmap.md (human-readable, single source) + issues.jsonl (machine-executable). Handoff to team-planex.
+description: Strategic requirement roadmap with iterative decomposition and issue creation. Outputs roadmap.md (human-readable, single source) + issues.jsonl (machine-executable). Handoff to csv-wave-pipeline.
 argument-hint: "[-y|--yes] [-c|--continue] [-m progressive|direct|auto] \"requirement description\""
 ---
 
@@ -101,8 +101,8 @@ close_agent({ id: agentId })
 
 | Artifact | Purpose | Consumer |
 |----------|---------|----------|
-| `roadmap.md` | ⭐ Human-readable strategic roadmap with all context | Human review, team-planex handoff |
-| `.workflow/issues/issues.jsonl` | Global issue store (appended) | team-planex, issue commands |
+| `roadmap.md` | ⭐ Human-readable strategic roadmap with all context | Human review, csv-wave-pipeline handoff |
+| `.workflow/issues/issues.jsonl` | Global issue store (appended) | csv-wave-pipeline, issue commands |
 
 ### Why No Separate JSON Files?
 
@@ -145,7 +145,7 @@ Strategic requirement roadmap with **iterative decomposition**. Creates a single
 │                                                                          │
 │  Phase 4: Handoff                                                        │
 │     ├─ Final roadmap.md with Issue ID references                         │
-│     ├─ Options: team-planex | first wave | view issues | done            │
+│     ├─ Options: csv-wave-pipeline | view issues | done                   │
 │     └─ Issues ready in .workflow/issues/issues.jsonl                     │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
@@ -180,7 +180,7 @@ Strategic requirement roadmap with **iterative decomposition**. Creates a single
 
 .workflow/issues/issues.jsonl   # Global issue store (appended)
                                 #   - One JSON object per line
-                                #   - Consumed by team-planex, issue commands
+                                #   - Consumed by csv-wave-pipeline, issue commands
 ```
 
 ---
@@ -799,8 +799,7 @@ ${selectedMode === 'progressive' ? `**Progressive Mode**:
          type: "choice",
          prompt: `${issueIds.length} issues ready. Next step:`,
          options: [
-           { value: "planex", label: "Execute with team-planex (Recommended)", description: `Run all ${issueIds.length} issues via team-planex` },
-           { value: "wave1", label: "Execute first wave", description: "Run wave-1 issues only" },
+           { value: "csv-wave", label: "Execute with csv-wave-pipeline (Recommended)", description: `Run all ${issueIds.length} issues via wave-based batch execution` },
            { value: "view", label: "View issues", description: "Display issue details" },
            { value: "done", label: "Done", description: "Save and exit" }
          ]
@@ -814,14 +813,9 @@ ${selectedMode === 'progressive' ? `**Progressive Mode**:
 3. **Execute Selection**
    ```javascript
    switch (nextStep) {
-     case 'planex':
-       // Launch team-planex with all issue IDs
-       Bash(`ccw skill team-planex ${issueIds.join(' ')}`)
-       break
-
-     case 'wave1':
-       // Filter issues by wave-1 tag
-       Bash(`ccw skill team-planex --tag wave-1 --session ${sessionId}`)
+     case 'csv-wave':
+       // Launch csv-wave-pipeline for wave-based batch execution
+       console.log(`\nTo execute, run:\n\n  $csv-wave-pipeline "${requirement}"\n`)
        break
 
      case 'view':
@@ -836,7 +830,7 @@ ${selectedMode === 'progressive' ? `**Progressive Mode**:
          `Issues created: ${issueIds.length}`,
          '',
          'To execute later:',
-         `  $team-planex ${issueIds.slice(0, 3).join(' ')}...`,
+         `  $csv-wave-pipeline "${requirement}"`,
          `  ccw issue list --session ${sessionId}`
        ].join('\n'))
        break
@@ -872,7 +866,7 @@ ${selectedMode === 'progressive' ? `**Progressive Mode**:
 4. **Testable Convergence**: criteria = assertions, DoD = business language
 5. **Explicit Lifecycle**: Always close_agent after wait completes to free resources
 6. **DO NOT STOP**: Continuous workflow until handoff complete
-7. **Plan-Only Modifications**: Interactive feedback (Phase 3) MUST only update `roadmap.md` and `issues.jsonl`. NEVER modify source code, configuration files, or any project files during interactive rounds. Code changes happen only after handoff (Phase 4) via team-planex or other execution skills
+7. **Plan-Only Modifications**: Interactive feedback (Phase 3) MUST only update `roadmap.md` and `issues.jsonl`. NEVER modify source code, configuration files, or any project files during interactive rounds. Code changes happen only after handoff (Phase 4) via `$csv-wave-pipeline` or other execution skills
 
 ---
 
