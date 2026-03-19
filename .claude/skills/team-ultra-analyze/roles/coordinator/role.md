@@ -44,12 +44,20 @@ When coordinator is invoked, detect invocation type:
 
 | Detection | Condition | Handler |
 |-----------|-----------|---------|
-| Worker callback | Message contains role tag [explorer], [analyst], [discussant], [synthesizer] | -> handleCallback (monitor.md) |
+| Worker callback | Message content starts with `[explorer]`, `[analyst]`, `[discussant]`, or `[synthesizer]` (role tag at beginning of message body) | -> handleCallback (monitor.md) |
+| Supervisor callback | Message content starts with `[supervisor]` | -> handleSupervisorReport (log checkpoint result, proceed to handleSpawnNext if tasks unblocked) |
+| Idle notification | System notification that a teammate went idle (does NOT start with a role tag — typically says "Agent X is now idle") | -> **IGNORE** (do not handleCallback; idle is normal after every turn) |
+| Shutdown response | Message content is a JSON object containing `shutdown_response` (parse as structured data, not string) | -> handleShutdownResponse (see Phase 5) |
 | Status check | Arguments contain "check" or "status" | -> handleCheck (monitor.md) |
 | Manual resume | Arguments contain "resume" or "continue" | -> handleResume (monitor.md) |
 | Pipeline complete | All tasks have status "completed" | -> handleComplete (monitor.md) |
 | Interrupted session | Active/paused session exists | -> Phase 0 |
 | New session | None of above | -> Phase 1 |
+
+**Message format discrimination**:
+- **String messages starting with `[<role>]`**: Worker/supervisor completion reports → route to handleCallback or handleSupervisorReport
+- **JSON object messages** (contain `type:` field): Structured protocol messages (shutdown_response) → route by `type` field
+- **Other strings without role tags**: System idle notifications → IGNORE
 
 For callback/check/resume/complete: load `@commands/monitor.md` and execute matched handler, then STOP.
 
@@ -167,7 +175,31 @@ All subsequent coordination is handled by `commands/monitor.md` handlers trigger
 
 ---
 
-## Phase 5: Report + Completion Action
+## Phase 5: Shutdown Workers + Report + Completion Action
+
+### Shutdown All Workers
+
+Before reporting, gracefully shut down all active teammates. This is a **multi-turn** process:
+
+1. Read team config: `~/.claude/teams/ultra-analyze/config.json`
+2. Build shutdown tracking list: `pending_shutdown = [<all member names except coordinator>]`
+3. For each member in pending_shutdown, send shutdown request:
+   ```javascript
+   SendMessage({
+     to: "<member-name>",
+     message: { type: "shutdown_request", reason: "Pipeline complete" }
+   })
+   ```
+4. **STOP** — wait for responses. Each `shutdown_response` triggers a new coordinator turn.
+5. On each subsequent turn (shutdown_response received):
+   - Remove responder from `pending_shutdown`
+   - If `pending_shutdown` is empty → proceed to **Report** section below
+   - If not empty → **STOP** again, wait for remaining responses
+6. If a member is unresponsive after 2 follow-ups, remove from tracking and proceed
+
+**Note**: Workers that completed Phase 5-F and reached STOP may have already terminated. SendMessage to a terminated agent is silently ignored — this is safe. Only resident agents (e.g., supervisor) require explicit shutdown.
+
+### Report
 
 1. Load session state -> count completed tasks, calculate duration
 2. List deliverables:

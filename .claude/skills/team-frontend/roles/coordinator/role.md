@@ -115,7 +115,7 @@ mcp__ccw-tools__team_msg({
 
 Delegate to @commands/dispatch.md:
 1. Read specs/pipelines.md for selected pipeline task registry
-2. Create tasks via TaskCreate with blockedBy
+2. Create tasks via TaskCreate, then set blockedBy via TaskUpdate
 3. Update session.json
 
 ## Phase 4: Spawn-and-Stop

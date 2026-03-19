@@ -111,13 +111,13 @@ Delegate to @commands/dispatch.md:
 1. Read dependency graph from task-analysis.json
 2. Read specs/pipelines.md for selected pipeline's task registry
 3. Topological sort tasks
-4. Create tasks via TaskCreate with blockedBy
+4. Create tasks via TaskCreate, then TaskUpdate with addBlockedBy
 5. Update session.json
 
 ## Phase 4: Spawn-and-Stop
 
 Delegate to @commands/monitor.md#handleSpawnNext:
-1. Find ready tasks (pending + blockedBy resolved)
+1. Find ready tasks (pending + all addBlockedBy dependencies resolved)
 2. Spawn team-worker agents (see SKILL.md Spawn Template)
 3. Output status summary
 4. STOP

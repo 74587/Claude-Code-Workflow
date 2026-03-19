@@ -47,7 +47,7 @@ class Config:
 
     # Backend selection: 'auto', 'faiss', 'hnswlib'
     ann_backend: str = "auto"
-    binary_backend: str = "auto"
+    binary_backend: str = "faiss"
 
     # Indexing pipeline
     index_workers: int = 2  # number of parallel indexing workers
@@ -76,6 +76,17 @@ class Config:
 
     # Metadata store
     metadata_db_path: str = ""  # empty = no metadata tracking
+
+    # Data tiering (hot/warm/cold)
+    tier_hot_hours: int = 24  # files accessed within this window are 'hot'
+    tier_cold_hours: int = 168  # files not accessed for this long are 'cold'
+
+    # Search quality tier: 'fast', 'balanced', 'thorough', 'auto'
+    default_search_quality: str = "auto"
+
+    # Shard partitioning
+    num_shards: int = 1  # 1 = single partition (no sharding), >1 = hash-based sharding
+    max_loaded_shards: int = 4  # LRU limit for loaded shards in ShardManager
 
     # FTS
     fts_top_k: int = 50

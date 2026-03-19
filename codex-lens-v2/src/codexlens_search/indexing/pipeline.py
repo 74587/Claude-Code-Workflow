@@ -17,8 +17,7 @@ from pathlib import Path
 import numpy as np
 
 from codexlens_search.config import Config
-from codexlens_search.core.binary import BinaryStore
-from codexlens_search.core.index import ANNIndex
+from codexlens_search.core.base import BaseANNIndex, BaseBinaryIndex
 from codexlens_search.embed.base import BaseEmbedder
 from codexlens_search.indexing.metadata import MetadataStore
 from codexlens_search.search.fts import FTSEngine
@@ -100,8 +99,8 @@ class IndexingPipeline:
     def __init__(
         self,
         embedder: BaseEmbedder,
-        binary_store: BinaryStore,
-        ann_index: ANNIndex,
+        binary_store: BaseBinaryIndex,
+        ann_index: BaseANNIndex,
         fts: FTSEngine,
         config: Config,
         metadata: MetadataStore | None = None,
@@ -463,6 +462,94 @@ class IndexingPipeline:
         meta = self._require_metadata()
         return meta.max_chunk_id() + 1
 
+    def index_files_fts_only(
+        self,
+        files: list[Path],
+        *,
+        root: Path | None = None,
+        max_chunk_chars: int = _DEFAULT_MAX_CHUNK_CHARS,
+        chunk_overlap: int = _DEFAULT_CHUNK_OVERLAP,
+    ) -> IndexStats:
+        """Index files into FTS5 only, without embedding or vector indexing.
+
+        Chunks files using the same logic as the full pipeline, then inserts
+        directly into FTS. No embedding computation, no binary/ANN store writes.
+
+        Args:
+            files: List of file paths to index.
+            root: Optional root for computing relative paths.
+            max_chunk_chars: Maximum characters per chunk.
+            chunk_overlap: Character overlap between consecutive chunks.
+
+        Returns:
+            IndexStats with counts and timing.
+        """
+        if not files:
+            return IndexStats()
+
+        meta = self._require_metadata()
+        t0 = time.monotonic()
+        chunk_id = self._next_chunk_id()
+        files_processed = 0
+        chunks_created = 0
+
+        for fpath in files:
+            exclude_reason = is_file_excluded(fpath, self._config)
+            if exclude_reason:
+                logger.debug("Skipping %s: %s", fpath, exclude_reason)
+                continue
+            try:
+                text = fpath.read_text(encoding="utf-8", errors="replace")
+            except Exception as exc:
+                logger.debug("Skipping %s: %s", fpath, exc)
+                continue
+
+            rel_path = str(fpath.relative_to(root)) if root else str(fpath)
+            content_hash = self._content_hash(text)
+
+            # Skip unchanged files
+            if not meta.file_needs_update(rel_path, content_hash):
+                continue
+
+            # Remove old FTS data if file was previously indexed
+            if meta.get_file_hash(rel_path) is not None:
+                meta.mark_file_deleted(rel_path)
+                self._fts.delete_by_path(rel_path)
+
+            file_chunks = self._smart_chunk(text, rel_path, max_chunk_chars, chunk_overlap)
+            if not file_chunks:
+                st = fpath.stat()
+                meta.register_file(rel_path, content_hash, st.st_mtime, st.st_size)
+                continue
+
+            files_processed += 1
+            fts_docs = []
+            chunk_id_hashes = []
+            for chunk_text, path, sl, el in file_chunks:
+                fts_docs.append((chunk_id, path, chunk_text, sl, el))
+                chunk_id_hashes.append((chunk_id, self._content_hash(chunk_text)))
+                chunk_id += 1
+
+            self._fts.add_documents(fts_docs)
+            chunks_created += len(fts_docs)
+
+            # Register metadata
+            st = fpath.stat()
+            meta.register_file(rel_path, content_hash, st.st_mtime, st.st_size)
+            meta.register_chunks(rel_path, chunk_id_hashes)
+
+        duration = time.monotonic() - t0
+        stats = IndexStats(
+            files_processed=files_processed,
+            chunks_created=chunks_created,
+            duration_seconds=round(duration, 2),
+        )
+        logger.info(
+            "FTS-only indexing complete: %d files, %d chunks in %.1fs",
+            stats.files_processed, stats.chunks_created, stats.duration_seconds,
+        )
+        return stats
+
     def index_file(
         self,
         file_path: Path,
@@ -522,7 +609,8 @@ class IndexingPipeline:
         file_chunks = self._smart_chunk(text, rel_path, max_chunk_chars, chunk_overlap)
         if not file_chunks:
             # Register file with no chunks
-            meta.register_file(rel_path, content_hash, file_path.stat().st_mtime)
+            st = file_path.stat()
+            meta.register_file(rel_path, content_hash, st.st_mtime, st.st_size)
             return IndexStats(
                 files_processed=1,
                 duration_seconds=round(time.monotonic() - t0, 2),
@@ -556,7 +644,8 @@ class IndexingPipeline:
         self._fts.add_documents(fts_docs)
 
         # Register in metadata
-        meta.register_file(rel_path, content_hash, file_path.stat().st_mtime)
+        st = file_path.stat()
+        meta.register_file(rel_path, content_hash, st.st_mtime, st.st_size)
         chunk_id_hashes = [
             (batch_ids[i], self._content_hash(batch_texts[i]))
             for i in range(len(batch_ids))
@@ -605,6 +694,7 @@ class IndexingPipeline:
         chunk_overlap: int = _DEFAULT_CHUNK_OVERLAP,
         max_file_size: int = 50_000,
         progress_callback: callable | None = None,
+        tier: str = "full",
     ) -> IndexStats:
         """Reconcile index state against a current file list.
 
@@ -617,6 +707,9 @@ class IndexingPipeline:
             max_chunk_chars: Maximum characters per chunk.
             chunk_overlap: Character overlap between consecutive chunks.
             max_file_size: Skip files larger than this (bytes).
+            tier: Indexing tier - 'full' (default) runs the full pipeline
+                  with embedding, 'fts_only' runs FTS-only indexing without
+                  embedding or vector stores.
 
         Returns:
             Aggregated IndexStats for all operations.
@@ -638,33 +731,72 @@ class IndexingPipeline:
         for rel in removed:
             self.remove_file(rel)
 
-        # Collect files needing update
+        # Collect files needing update using 4-level detection:
+        # Level 1: set diff (removed files) - handled above
+        # Level 2: mtime + size fast pre-check via stat()
+        # Level 3: content hash only when mtime/size mismatch
         files_to_index: list[Path] = []
         for rel, fpath in current_rel_paths.items():
+            # Level 2: stat-based fast check
+            try:
+                st = fpath.stat()
+            except OSError:
+                continue
+            if not meta.file_needs_update_fast(rel, st.st_mtime, st.st_size):
+                # mtime + size match stored values -> skip (no read needed)
+                continue
+
+            # Level 3: mtime/size changed -> verify with content hash
             try:
                 text = fpath.read_text(encoding="utf-8", errors="replace")
             except Exception:
                 continue
             content_hash = self._content_hash(text)
-            if meta.file_needs_update(rel, content_hash):
-                # Remove old data if previously indexed
-                if meta.get_file_hash(rel) is not None:
-                    meta.mark_file_deleted(rel)
-                    self._fts.delete_by_path(rel)
-                files_to_index.append(fpath)
+            if not meta.file_needs_update(rel, content_hash):
+                # Content unchanged despite mtime/size change -> update metadata only
+                meta.register_file(rel, content_hash, st.st_mtime, st.st_size)
+                continue
 
-        # Batch index via parallel pipeline
+            # File genuinely changed -> remove old data and queue for re-index
+            if meta.get_file_hash(rel) is not None:
+                meta.mark_file_deleted(rel)
+                self._fts.delete_by_path(rel)
+            files_to_index.append(fpath)
+
+        # Sort files by data tier priority: hot first, then warm, then cold
         if files_to_index:
-            # Set starting chunk ID from metadata
-            start_id = self._next_chunk_id()
-            batch_stats = self._index_files_with_metadata(
-                files_to_index,
-                root=root,
-                max_chunk_chars=max_chunk_chars,
-                chunk_overlap=chunk_overlap,
-                start_chunk_id=start_id,
-                progress_callback=progress_callback,
-            )
+            _tier_priority = {"hot": 0, "warm": 1, "cold": 2}
+            def _tier_sort_key(fp: Path) -> int:
+                rel = str(fp.relative_to(root)) if root else str(fp)
+                t = meta.get_file_tier(rel)
+                return _tier_priority.get(t or "warm", 1)
+            files_to_index.sort(key=_tier_sort_key)
+
+        # Reclassify data tiers after sync detection
+        meta.classify_tiers(
+            self._config.tier_hot_hours, self._config.tier_cold_hours
+        )
+
+        # Batch index via parallel pipeline or FTS-only
+        if files_to_index:
+            if tier == "fts_only":
+                batch_stats = self.index_files_fts_only(
+                    files_to_index,
+                    root=root,
+                    max_chunk_chars=max_chunk_chars,
+                    chunk_overlap=chunk_overlap,
+                )
+            else:
+                # Full pipeline with embedding
+                start_id = self._next_chunk_id()
+                batch_stats = self._index_files_with_metadata(
+                    files_to_index,
+                    root=root,
+                    max_chunk_chars=max_chunk_chars,
+                    chunk_overlap=chunk_overlap,
+                    start_chunk_id=start_id,
+                    progress_callback=progress_callback,
+                )
             total_files = batch_stats.files_processed
             total_chunks = batch_stats.chunks_created
         else:
@@ -781,7 +913,8 @@ class IndexingPipeline:
             file_chunks = self._smart_chunk(text, rel_path, max_chunk_chars, chunk_overlap)
 
             if not file_chunks:
-                meta.register_file(rel_path, content_hash, fpath.stat().st_mtime)
+                st = fpath.stat()
+                meta.register_file(rel_path, content_hash, st.st_mtime, st.st_size)
                 continue
 
             files_processed += 1
@@ -806,7 +939,8 @@ class IndexingPipeline:
             chunks_created += len(file_chunk_ids)
 
             # Register metadata per file
-            meta.register_file(rel_path, content_hash, fpath.stat().st_mtime)
+            st = fpath.stat()
+            meta.register_file(rel_path, content_hash, st.st_mtime, st.st_size)
             chunk_id_hashes = [
                 (cid, self._content_hash(ct)) for cid, ct in file_chunk_ids
             ]

@@ -111,13 +111,13 @@ mcp__ccw-tools__team_msg({
 
 Delegate to @commands/dispatch.md:
 1. Read specs/pipelines.md for selected pipeline task registry
-2. Create tasks via TaskCreate with blockedBy
+2. Create tasks via TaskCreate, then TaskUpdate with addBlockedBy
 3. Update task-ledger.json
 
 ## Phase 4: Spawn-and-Stop
 
 Delegate to @commands/monitor.md#handleSpawnNext:
-1. Find ready tasks (pending + blockedBy resolved)
+1. Find ready tasks (pending + all addBlockedBy dependencies resolved)
 2. Spawn team-worker agents (see SKILL.md Spawn Template)
 3. Output status summary
 4. STOP

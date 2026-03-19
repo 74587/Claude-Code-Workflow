@@ -46,7 +46,7 @@ For callback/check/resume: load `@commands/monitor.md` and execute the appropria
 
 1. Parse new input (Issue IDs / `--text` / `--plan`)
 2. Get current max PLAN-* sequence from `TaskList`
-3. `TaskCreate` new PLAN-00N task (owner: planner)
+3. `TaskCreate` new PLAN-00N task, then `TaskUpdate` to set owner: planner
 4. If planner already sent `all_planned` (check team_msg) -> `SendMessage` to planner to re-enter loop
 5. STOP
 

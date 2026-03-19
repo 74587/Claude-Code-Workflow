@@ -103,7 +103,7 @@ TEXT-LEVEL ONLY. No source code reading.
 Delegate to @commands/dispatch.md:
 1. Read dependency graph and parallel mode from session.json
 2. Topological sort tasks
-3. Create tasks via TaskCreate with blockedBy
+3. Create tasks via TaskCreate, then set dependencies via TaskUpdate({ addBlockedBy })
 4. Update session.json with task count
 
 ## Phase 4: Spawn-and-Stop

@@ -172,7 +172,6 @@ CONSTRAINTS: Targeted fixes only | Do not touch other branches
 ---
 InnerLoop: false
 BranchId: B{NN}",
-  blockedBy: [],
   status: "pending"
 })
 ```
@@ -186,7 +185,6 @@ Create new BENCH and REVIEW with retry suffix:
 TaskCreate({
   subject: "FIX-{P}01-{cycle}",
   ...same pattern with pipeline prefix...
-  blockedBy: [],
   status: "pending"
 })
 ```
@@ -310,7 +308,7 @@ Triggered by user "revise <TASK-ID> [feedback]" command.
 1. Parse target task ID and optional feedback
 2. Detect branch/pipeline from task ID pattern
 3. Create revision task with same role but updated requirements, scoped to branch
-4. Set blockedBy to empty (immediate execution)
+4. Skip addBlockedBy (no dependencies, immediate execution)
 5. Cascade: create new downstream tasks within same branch only
 6. Proceed to handleSpawnNext
 

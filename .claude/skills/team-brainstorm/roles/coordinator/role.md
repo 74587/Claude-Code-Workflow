@@ -99,7 +99,7 @@ TEXT-LEVEL ONLY. No source code reading.
 
 Delegate to @commands/dispatch.md:
 1. Read pipeline mode and angles from session.json
-2. Create tasks for selected pipeline with correct blockedBy
+2. Create tasks for selected pipeline, then set dependencies via TaskUpdate({ addBlockedBy })
 3. Update session.json with task count
 
 ## Phase 4: Spawn-and-Stop

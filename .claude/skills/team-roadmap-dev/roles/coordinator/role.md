@@ -139,7 +139,7 @@ mcp__ccw-tools__team_msg({
   from: "coordinator",
   to: <target-role>,
   type: <message-type>,
-  ref: <artifact-path>
+  data: { ref: <artifact-path> }
 })
 ```
 

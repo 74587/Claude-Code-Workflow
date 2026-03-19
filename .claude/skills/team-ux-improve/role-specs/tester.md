@@ -157,8 +157,7 @@ team_msg(operation="log", session_id=<session-id>, from="tester",
 If pass rate < 95%, send fix_required message:
 ```
 SendMessage({
-  recipient: "coordinator",
-  type: "message",
-  content: "[tester] Test validation incomplete. Pass rate: <percentage>%. Manual review needed."
+  to: "coordinator",
+  message: "[tester] Test validation incomplete. Pass rate: <percentage>%. Manual review needed."
 })
 ```
