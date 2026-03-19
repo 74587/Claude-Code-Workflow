@@ -5636,54 +5636,6 @@ export async function previewYamlConfig(): Promise<{ success: boolean; config: s
   return fetchApi('/api/litellm-api/config/yaml-preview');
 }
 
-// ========== CCW-LiteLLM Package Management ==========
-
-export interface CcwLitellmEnvCheck {
-  python: string;
-  installed: boolean;
-  version?: string;
-  error?: string;
-}
-
-export interface CcwLitellmStatus {
-  /**
-   * Whether ccw-litellm is installed in the CodexLens venv.
-   * This is the environment used for the LiteLLM embedding backend.
-   */
-  installed: boolean;
-  version?: string;
-  error?: string;
-  checks?: {
-    codexLensVenv: CcwLitellmEnvCheck;
-    systemPython?: CcwLitellmEnvCheck;
-  };
-}
-
-/**
- * Check ccw-litellm status
- */
-export async function checkCcwLitellmStatus(refresh = false): Promise<CcwLitellmStatus> {
-  return fetchApi(`/api/litellm-api/ccw-litellm/status${refresh ? '?refresh=true' : ''}`);
-}
-
-/**
- * Install ccw-litellm
- */
-export async function installCcwLitellm(): Promise<{ success: boolean; message?: string; error?: string; path?: string }> {
-  return fetchApi('/api/litellm-api/ccw-litellm/install', {
-    method: 'POST',
-  });
-}
-
-/**
- * Uninstall ccw-litellm
- */
-export async function uninstallCcwLitellm(): Promise<{ success: boolean; message?: string; error?: string }> {
-  return fetchApi('/api/litellm-api/ccw-litellm/uninstall', {
-    method: 'POST',
-  });
-}
-
 // ========== CLI Settings Management ==========
 
 /**

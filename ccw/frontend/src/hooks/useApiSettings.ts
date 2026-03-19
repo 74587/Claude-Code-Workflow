@@ -33,9 +33,6 @@ import {
   fetchApiConfig,
   syncApiConfig,
   previewYamlConfig,
-  checkCcwLitellmStatus,
-  installCcwLitellm,
-  uninstallCcwLitellm,
   fetchCliSettings,
   createCliSettings,
   updateCliSettings,
@@ -60,7 +57,6 @@ export const apiSettingsKeys = {
   cache: () => [...apiSettingsKeys.all, 'cache'] as const,
   modelPools: () => [...apiSettingsKeys.all, 'modelPools'] as const,
   modelPool: (id: string) => [...apiSettingsKeys.modelPools(), id] as const,
-  ccwLitellm: () => [...apiSettingsKeys.all, 'ccwLitellm'] as const,
   cliSettings: () => [...apiSettingsKeys.all, 'cliSettings'] as const,
   cliSetting: (id: string) => [...apiSettingsKeys.cliSettings(), id] as const,
 };
@@ -629,61 +625,6 @@ export function usePreviewYamlConfig() {
   return useMutation({
     mutationFn: () => previewYamlConfig(),
   });
-}
-
-// ========================================
-// CCW-LiteLLM Package Hooks
-// ========================================
-
-export interface UseCcwLitellmStatusOptions {
-  staleTime?: number;
-  enabled?: boolean;
-  refresh?: boolean;
-}
-
-export function useCcwLitellmStatus(options: UseCcwLitellmStatusOptions = {}) {
-  const { staleTime = 5 * 60 * 1000, enabled = true, refresh = false } = options;
-
-  return useQuery({
-    queryKey: [...apiSettingsKeys.ccwLitellm(), 'status', refresh],
-    queryFn: () => checkCcwLitellmStatus(refresh),
-    staleTime,
-    enabled,
-  });
-}
-
-export function useInstallCcwLitellm() {
-  const queryClient = useQueryClient();
-
-  const mutation = useMutation({
-    mutationFn: () => installCcwLitellm(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: apiSettingsKeys.ccwLitellm() });
-    },
-  });
-
-  return {
-    install: mutation.mutateAsync,
-    isInstalling: mutation.isPending,
-    error: mutation.error,
-  };
-}
-
-export function useUninstallCcwLitellm() {
-  const queryClient = useQueryClient();
-
-  const mutation = useMutation({
-    mutationFn: () => uninstallCcwLitellm(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: apiSettingsKeys.ccwLitellm() });
-    },
-  });
-
-  return {
-    uninstall: mutation.mutateAsync,
-    isUninstalling: mutation.isPending,
-    error: mutation.error,
-  };
 }
 
 // ========================================

@@ -23,7 +23,6 @@ import {
   CliSettingsModal,
   MultiKeySettingsModal,
   ManageModelsModal,
-  CcwLitellmStatus,
 } from '@/components/api-settings';
 import { useProviders, useEndpoints, useModelPools, useCliSettings, useSyncApiConfig } from '@/hooks/useApiSettings';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -207,9 +206,6 @@ export function ApiSettingsPage() {
           {formatMessage({ id: 'common.actions.refresh' })}
         </Button>
       </div>
-
-      {/* CCW-LiteLLM Status */}
-      <CcwLitellmStatus />
 
       {/* Tabbed Interface */}
       <TabsNavigation
