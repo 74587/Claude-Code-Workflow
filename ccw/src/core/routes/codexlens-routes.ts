@@ -99,6 +99,7 @@ const CODEXLENS_ENV_DEFAULTS: Record<string, string> = {
   CODEXLENS_RERANKER_BATCH_SIZE: '32',
   CODEXLENS_INDEX_WORKERS: '2',
   CODEXLENS_CODE_AWARE_CHUNKING: 'true',
+  CODEXLENS_AST_CHUNKING: 'true',
   CODEXLENS_MAX_FILE_SIZE: '1000000',
   CODEXLENS_HNSW_EF: '150',
   CODEXLENS_HNSW_M: '32',
@@ -141,9 +142,12 @@ function buildMcpServerConfig(savedEnv: Record<string, string>): Record<string, 
     filteredEnv.CODEXLENS_EMBED_DIM ??= CODEXLENS_ENV_DEFAULTS.CODEXLENS_EMBED_DIM;
   }
 
+  // Always enable AST chunking since [ast] extra is included
+  filteredEnv.CODEXLENS_AST_CHUNKING ??= 'true';
+
   return {
     command: 'uvx',
-    args: ['--from', 'codexlens-search[mcp]', 'codexlens-mcp'],
+    args: ['--from', 'codexlens-search[mcp,ast]', 'codexlens-mcp'],
     ...(Object.keys(filteredEnv).length > 0 ? { env: filteredEnv } : {}),
   };
 }
