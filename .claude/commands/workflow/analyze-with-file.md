@@ -405,14 +405,89 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 
    **Handle user selection**:
 
-   **"执行任务"** -> MUST invoke Skill tool (do NOT just display a summary and stop):
-   1. Build `taskDescription` from high/medium priority recommendations (fallback: summary)
-   2. Assemble context: `## Prior Analysis ({sessionId})` + summary + key files (up to 8) + key findings (up to 5) from exploration-codebase.json
-   3. **Invoke Skill tool immediately**:
-      ```javascript
-      Skill({ skill: "workflow-lite-plan", args: `${taskDescription}\n\n${contextLines}` })
-      ```
-      If Skill invocation is omitted, the workflow is BROKEN.
+   **"执行任务"** -> Implementation Scoping + Skill invocation (MUST NOT just display summary and stop):
+
+   **Step A: Build Implementation Scope** — Transform recommendations into actionable specs:
+   ```javascript
+   // Filter to accepted/modified recommendations only
+   const actionableRecs = conclusions.recommendations
+     .filter(r => r.review_status === 'accepted' || r.review_status === 'modified')
+     .sort((a, b) => (a.priority === 'high' ? 0 : 1) - (b.priority === 'high' ? 0 : 1))
+
+   // Map each recommendation to implementation scope using code_anchors
+   const implScope = actionableRecs.map(rec => ({
+     objective: rec.action,                    // WHAT to do
+     rationale: rec.rationale,                 // WHY
+     priority: rec.priority,
+     target_files: rec.steps.flatMap(s => s.target ? [s.target] : [])
+       .concat((conclusions.code_anchors || [])
+         .filter(a => rec.action.includes(a.significance) || rec.steps.some(s => s.description.includes(a.file)))
+         .map(a => ({ path: a.file, lines: a.lines, context: a.significance }))),
+     acceptance_criteria: rec.steps.map(s => s.verification || s.description),
+     change_summary: rec.steps.map(s => `${s.target || 'TBD'}: ${s.description}`).join('; ')
+   }))
+   ```
+
+   **Step B: User Scope Confirmation** (skip in auto mode):
+   ```javascript
+   // Present implementation scope for confirmation
+   console.log(`## Implementation Scope (${implScope.length} items)`)
+   implScope.forEach((item, i) => {
+     console.log(`${i+1}. **${item.objective}** [${item.priority}]`)
+     console.log(`   Files: ${item.target_files.map(f => typeof f === 'string' ? f : f.path).join(', ') || 'TBD by lite-plan'}`)
+     console.log(`   Done when: ${item.acceptance_criteria.join(' + ')}`)
+   })
+
+   if (!autoMode) {
+     AskUserQuestion({
+       questions: [{
+         question: "Implementation scope correct? lite-plan will break these into concrete tasks.",
+         header: "Scope确认",
+         multiSelect: false,
+         options: [
+           { label: "确认执行", description: "Scope is clear, proceed to planning" },
+           { label: "调整范围", description: "Narrow or expand scope before planning" },
+           { label: "补充标准", description: "Add/refine acceptance criteria" }
+         ]
+       }]
+     })
+     // Handle "调整范围" / "补充标准" -> update implScope, re-confirm
+   }
+   ```
+
+   **Step C: Build Structured Handoff & Invoke Skill**:
+   ```javascript
+   // Structured handoff — lite-plan parses this as JSON block, not free text
+   const handoff = {
+     source: 'analyze-with-file',
+     session_id: sessionId,
+     session_folder: sessionFolder,
+     summary: conclusions.summary,
+     implementation_scope: implScope,     // WHAT + acceptance criteria
+     code_anchors: (conclusions.code_anchors || []).slice(0, 10),  // WHERE
+     key_files: explorationResults.relevant_files?.slice(0, 8) || [],
+     key_findings: conclusions.key_conclusions?.slice(0, 5) || [],
+     decision_context: conclusions.decision_trail?.slice(-3) || []  // recent decisions for context
+   }
+
+   const handoffBlock = `## Prior Analysis (${sessionId})
+
+\`\`\`json:handoff-spec
+${JSON.stringify(handoff, null, 2)}
+\`\`\`
+
+### Summary
+${conclusions.summary}
+
+### Implementation Scope
+${implScope.map((item, i) => `${i+1}. **${item.objective}** [${item.priority}]
+   - Files: ${item.target_files.map(f => typeof f === 'string' ? f : f.path).join(', ') || 'TBD'}
+   - Done when: ${item.acceptance_criteria.join('; ')}
+   - Changes: ${item.change_summary}`).join('\n')}`
+
+   Skill({ skill: "workflow-lite-plan", args: handoffBlock })
+   ```
+   If Skill invocation is omitted, the workflow is BROKEN.
    4. After Skill invocation, analyze-with-file is complete — do not output any additional content
 
    **"产出Issue"** -> Convert recommendations to issues:
@@ -430,6 +505,7 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 - `key_conclusions[]`: {point, evidence, confidence, code_anchor_refs[]}
 - `code_anchors[]`: {file, lines, snippet, significance}
 - `recommendations[]`: {action, rationale, priority, steps[]: {description, target, verification}, review_status: accepted|modified|rejected|pending}
+- `implementation_scope[]`: {objective, rationale, priority, target_files[], acceptance_criteria[], change_summary} — built in Phase 4 "执行任务" Step A, only for accepted/modified recommendations
 - `open_questions[]`, `follow_up_suggestions[]`: {type, summary}
 - `decision_trail[]`: {round, decision, context, options_considered, chosen, rejected_reasons, reason, impact}
 - `narrative_trail[]`: {round, starting_point, key_progress, hypothesis_impact, updated_understanding, remaining_questions}
@@ -521,7 +597,7 @@ Present 2-3 top directions per dimension, allow multi-select + custom.
 
 </configuration>
 
-> **Lite-plan handoff**: Phase 4「执行任务」assembles analysis context as inline `## Prior Analysis` block, allowing lite-plan to skip redundant exploration.
+> **Lite-plan handoff**: Phase 4「执行任务」builds structured `handoff-spec` JSON (implementation_scope with acceptance_criteria, code_anchors, key_findings) embedded in `## Prior Analysis` block. lite-plan parses `json:handoff-spec` to directly map scope items → tasks, skipping exploration and using acceptance_criteria as convergence.criteria.
 
 ---
 

@@ -94,9 +94,24 @@ TodoWrite({ todos: [
 **Exploration Decision Logic**:
 ```javascript
 const hasPriorAnalysis = /##\s*Prior Analysis/i.test(task_description)
+const hasHandoffSpec = /```json:handoff-spec/i.test(task_description)
+
+// Parse structured handoff from analyze-with-file (if present)
+let handoffSpec = null
+if (hasHandoffSpec) {
+  const specMatch = task_description.match(/```json:handoff-spec\s*\n([\s\S]*?)\n```/)
+  if (specMatch) {
+    handoffSpec = JSON.parse(specMatch[1])
+    // handoffSpec contains: { source, session_id, session_folder, summary,
+    //   implementation_scope[], code_anchors[], key_files[], key_findings[], decision_context[] }
+    // implementation_scope[]: { objective, rationale, priority, target_files[], acceptance_criteria[], change_summary }
+    console.log(`[Handoff] From ${handoffSpec.source} session ${handoffSpec.session_id}`)
+    console.log(`[Handoff] ${handoffSpec.implementation_scope.length} scoped items with acceptance criteria`)
+  }
+}
 
 needsExploration = workflowPreferences.forceExplore ? true
-  : hasPriorAnalysis ? false
+  : (hasPriorAnalysis || hasHandoffSpec) ? false
   : (task.mentions_specific_files ||
      task.requires_codebase_context ||
      task.needs_architecture_understanding ||
@@ -104,6 +119,7 @@ needsExploration = workflowPreferences.forceExplore ? true
 
 if (!needsExploration) {
   // manifest absent; LP-Phase 3 loads with safe fallback
+  // If handoffSpec exists, it provides pre-scoped implementation context
   proceed_to_next_phase()
 }
 ```
@@ -323,13 +339,26 @@ manifest.explorations.forEach(exp => {
   console.log(`\n### Exploration: ${exp.angle}\n${Read(exp.path)}`)
 })
 
-// Generate tasks — MUST incorporate exploration insights
+// When handoffSpec exists, use it as primary planning input
+// implementation_scope[].acceptance_criteria -> convergence.criteria
+// implementation_scope[].target_files -> files[]
+// implementation_scope[].objective -> task title/description
+if (handoffSpec) {
+  console.log(`\n### Handoff Spec from ${handoffSpec.source}`)
+  console.log(`Scope items: ${handoffSpec.implementation_scope.length}`)
+  handoffSpec.implementation_scope.forEach((item, i) => {
+    console.log(`  ${i+1}. ${item.objective} [${item.priority}] — Done when: ${item.acceptance_criteria.join('; ')}`)
+  })
+}
+
+// Generate tasks — MUST incorporate exploration insights OR handoff spec
+// When handoffSpec: map implementation_scope[] → tasks[] (1:1 or group by context)
 // Field names: convergence.criteria (not acceptance), files[].change (not modification_points), test (not verification)
 const tasks = [
   {
     id: "TASK-001", title: "...", description: "...", depends_on: [],
-    convergence: { criteria: ["..."] },
-    files: [{ path: "...", change: "..." }],
+    convergence: { criteria: ["..."] },  // From handoffSpec: item.acceptance_criteria
+    files: [{ path: "...", change: "..." }],  // From handoffSpec: item.target_files + item.change_summary
     implementation: ["..."], test: "..."
   }
 ]
@@ -385,6 +414,28 @@ Read this file for detailed ${exp.angle} analysis.`).join('\n\n') + `
 Total: ${manifest.exploration_count} | Angles: ${manifest.explorations.map(e => e.angle).join(', ')}
 Manifest: ${sessionFolder}/explorations-manifest.json`
   : `No exploration files. Task Description contains "## Prior Analysis" — use as primary planning context.`}
+
+## Structured Handoff Spec (from analyze-with-file)
+${handoffSpec ? `
+**Source**: ${handoffSpec.source} session ${handoffSpec.session_id}
+**CRITICAL**: Use implementation_scope as PRIMARY input for task generation.
+Each scope item maps to one or more tasks. Acceptance criteria become convergence.criteria.
+
+${JSON.stringify(handoffSpec.implementation_scope, null, 2)}
+
+**Code Anchors** (implementation targets):
+${JSON.stringify(handoffSpec.code_anchors?.slice(0, 8), null, 2)}
+
+**Key Findings** (context):
+${JSON.stringify(handoffSpec.key_findings?.slice(0, 5), null, 2)}
+
+**Task Generation Rules when handoffSpec present**:
+1. Each implementation_scope item → 1 task (group only if tightly coupled)
+2. scope.acceptance_criteria[] → task.convergence.criteria[]
+3. scope.target_files[] → task.files[] with change from scope.change_summary
+4. scope.objective → task.title, scope.rationale → task.description context
+5. scope.priority → task ordering (high first)
+` : 'No structured handoff spec — use task description and explorations as input.'}
 
 ## User Clarifications
 ${JSON.stringify(clarificationContext) || "None"}

@@ -1,6 +1,6 @@
 ---
 name: workflow-lite-execute
-description: Lightweight execution engine - multi-mode input, task grouping, batch execution, code review, and project state sync
+description: Lightweight execution engine - multi-mode input, task grouping, batch execution, chain to test-review
 allowed-tools: Skill, Agent, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep
 ---
 
@@ -90,14 +90,14 @@ function selectExecutionOptions() {
         ]
       },
       {
-        question: "Enable code review after execution?",
-        header: "Code Review",
+        question: "Review tool for test-review phase?",
+        header: "Review Tool (passed to lite-test-review)",
         multiSelect: false,
         options: [
-          { label: "Skip", description: "No review" },
-          { label: "Gemini Review", description: "Gemini CLI tool" },
-          { label: "Codex Review", description: "Git-aware review (prompt OR --uncommitted)" },
-          { label: "Agent Review", description: "Current agent review" }
+          { label: "Agent Review", description: "Agent review in test-review (default)" },
+          { label: "Gemini Review", description: "Gemini CLI in test-review" },
+          { label: "Codex Review", description: "Codex CLI in test-review" },
+          { label: "Skip", description: "Skip review in test-review" }
         ]
       }
     ]
@@ -367,52 +367,7 @@ ${(t.test?.success_metrics || []).length > 0 ? `**Success metrics**: ${t.test.su
 }
 ```
 
-### Step 4: Code Review (Optional)
-
-> **CHECKPOINT**: Verify Phase 2 review protocol is in active memory. If only a summary remains, re-read `phases/02-lite-execute.md` now.
-
-**Skip Condition**: Only run if `codeReviewTool !== "Skip"`
-
-**Review Criteria** (all tools use same standard):
-- **Convergence Criteria**: Verify each criterion from task convergence.criteria
-- **Test Checklist** (Medium/High): Check unit, integration, success_metrics from task test
-- **Code Quality**: Analyze quality, identify issues, suggest improvements
-- **Plan Alignment**: Validate implementation matches planned approach and risk mitigations
-
-**Shared Prompt Template**:
-```
-PURPOSE: Code review for implemented changes against plan convergence criteria and test requirements
-TASK: • Verify plan convergence criteria fulfillment • Check test requirements (unit, integration, success_metrics) • Analyze code quality • Identify issues • Suggest improvements • Validate plan adherence and risk mitigations
-MODE: analysis
-CONTEXT: @**/* @{plan.json} @{.task/*.json} [@{exploration.json}] | Memory: Review lite-execute changes against plan requirements including test checklist
-EXPECTED: Quality assessment with: convergence criteria verification, test checklist validation, issue identification, recommendations. Explicitly check each convergence criterion and test item from .task/*.json.
-CONSTRAINTS: Focus on plan convergence criteria, test requirements, and plan adherence | analysis=READ-ONLY
-```
-
-**Tool-Specific Execution** (apply shared prompt template above):
-
-| Tool | Command | Notes |
-|------|---------|-------|
-| Agent Review | Current agent reads plan.json + applies review criteria directly | No CLI call |
-| Gemini Review | `ccw cli -p "[template]" --tool gemini --mode analysis` | Recommended |
-| Qwen Review | `ccw cli -p "[template]" --tool qwen --mode analysis` | Alternative |
-| Codex Review (A) | `ccw cli -p "[template]" --tool codex --mode review` | With prompt, for complex reviews |
-| Codex Review (B) | `ccw cli --tool codex --mode review --uncommitted` | No prompt, quick review |
-
-> Codex: `-p` prompt and target flags (`--uncommitted`/`--base`/`--commit`) are **mutually exclusive**.
-
-**Multi-Round Review**:
-```javascript
-const reviewId = `${sessionId}-review`
-const reviewResult = Bash(`ccw cli -p "[template]" --tool gemini --mode analysis --id ${reviewId}`)
-if (hasUnresolvedIssues(reviewResult)) {
-  Bash(`ccw cli -p "Clarify concerns" --resume ${reviewId} --tool gemini --mode analysis --id ${reviewId}-followup`)
-}
-```
-
-**Artifact Substitution**: Replace `@{plan.json}` → `@${executionContext.session.artifacts.plan}`, `[@{exploration.json}]` → exploration files from artifacts (if exists).
-
-### Step 5: Chain to Test Review & Post-Completion
+### Step 4: Chain to Test Review & Post-Completion
 
 > **Note**: Spec sync (session:sync) is handled by lite-test-review's TR-Phase 5, not here. This avoids duplicate sync and ensures test fix changes are also captured.
 
@@ -420,7 +375,7 @@ if (hasUnresolvedIssues(reviewResult)) {
 
 ```javascript
 function mapReviewTool(codeReviewTool) {
-  if (!codeReviewTool || codeReviewTool === 'Skip') return 'agent'
+  if (!codeReviewTool || codeReviewTool === 'Skip') return 'skip'
   if (/gemini/i.test(codeReviewTool)) return 'gemini'
   if (/codex/i.test(codeReviewTool)) return 'codex'
   return 'agent'
