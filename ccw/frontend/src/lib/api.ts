@@ -237,7 +237,7 @@ export async function initializeCsrfToken(): Promise<void> {
 /**
  * Base fetch wrapper with CSRF token and error handling
  */
-async function fetchApi<T>(
+export async function fetchApi<T>(
   url: string,
   options: RequestInit = {}
 ): Promise<T> {

@@ -23,7 +23,7 @@ export function ModelManagerTab() {
   const { downloadModel, isDownloading } = useDownloadModel();
   const { deleteModel, isDeleting } = useDeleteModel();
 
-  const hasApiUrl = !!(envData?.CODEXLENS_EMBED_API_URL);
+  const hasApiUrl = !!(envData?.values.CODEXLENS_EMBED_API_URL);
   const embedMode = hasApiUrl ? 'API' : 'Local fastembed';
 
   const models: ModelEntry[] = modelsData ?? [];

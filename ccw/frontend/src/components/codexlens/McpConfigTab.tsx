@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useCodexLensMcpConfig, useCodexLensEnv } from '@/hooks/useCodexLens';
-import { installMcpTemplate } from '@/lib/api';
+import { addGlobalMcpServer, copyMcpServerToProject } from '@/lib/api';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 export function McpConfigTab() {
@@ -26,16 +26,34 @@ export function McpConfigTab() {
     setInstalling(true);
     setInstallResult(null);
     try {
-      const res = await installMcpTemplate({
-        templateName: 'codexlens',
-        scope,
-        projectPath: scope === 'project' ? projectPath : undefined,
-      });
+      const mcpServers = mcpConfig?.['mcpServers'];
+      const serverConfig = mcpServers && typeof mcpServers === 'object'
+        ? (mcpServers as Record<string, unknown>).codexlens
+        : undefined;
+
+      if (!serverConfig || typeof serverConfig !== 'object') {
+        throw new Error(formatMessage({ id: 'codexlens.mcp.noConfig' }));
+      }
+
+      const typedConfig = serverConfig as {
+        command: string;
+        args?: string[];
+        env?: Record<string, string>;
+        type?: string;
+      };
+
+      if (scope === 'project') {
+        if (!projectPath) {
+          throw new Error(formatMessage({ id: 'codexlens.mcp.installError' }));
+        }
+        await copyMcpServerToProject('codexlens', typedConfig, projectPath);
+      } else {
+        await addGlobalMcpServer('codexlens', typedConfig);
+      }
+
       setInstallResult({
-        ok: !!res.success,
-        msg: res.success
-          ? formatMessage({ id: 'codexlens.mcp.installSuccess' })
-          : (res.error ?? formatMessage({ id: 'codexlens.mcp.installError' })),
+        ok: true,
+        msg: formatMessage({ id: 'codexlens.mcp.installSuccess' }),
       });
     } catch (err) {
       setInstallResult({ ok: false, msg: (err as Error).message });
@@ -44,7 +62,7 @@ export function McpConfigTab() {
     }
   };
 
-  const hasApiUrl = !!(envData?.CODEXLENS_EMBED_API_URL);
+  const hasApiUrl = !!(envData?.values.CODEXLENS_EMBED_API_URL);
   const embedMode = hasApiUrl ? 'API' : 'Local fastembed';
 
   const configJson = mcpConfig ? JSON.stringify(mcpConfig, null, 2) : '';

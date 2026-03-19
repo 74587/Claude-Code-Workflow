@@ -85,7 +85,7 @@ const API_ONLY_KEYS = new Set([
 const FIELD_DEFAULTS: Record<string, string> = {
   CODEXLENS_EMBED_API_MODEL: 'text-embedding-3-small',
   CODEXLENS_EMBED_DIM: '1536',
-  CODEXLENS_EMBED_BATCH_SIZE: '512',
+  CODEXLENS_EMBED_BATCH_SIZE: '64',
   CODEXLENS_EMBED_API_CONCURRENCY: '4',
   CODEXLENS_BINARY_TOP_K: '200',
   CODEXLENS_ANN_TOP_K: '50',
@@ -93,7 +93,11 @@ const FIELD_DEFAULTS: Record<string, string> = {
   CODEXLENS_FUSION_K: '60',
   CODEXLENS_RERANKER_TOP_K: '20',
   CODEXLENS_RERANKER_BATCH_SIZE: '32',
-  CODEXLENS_INDEX_WORKERS: '4',
+  CODEXLENS_INDEX_WORKERS: '2',
+  CODEXLENS_CODE_AWARE_CHUNKING: 'true',
+  CODEXLENS_MAX_FILE_SIZE: '1000000',
+  CODEXLENS_HNSW_EF: '150',
+  CODEXLENS_HNSW_M: '32',
 };
 
 // Collect all keys
@@ -101,6 +105,15 @@ const ALL_KEYS = ENV_GROUPS.flatMap((g) => g.fields.map((f) => f.key));
 
 function buildEmptyEnv(): Record<string, string> {
   return Object.fromEntries(ALL_KEYS.map((k) => [k, '']));
+}
+
+function buildEffectiveEnv(
+  values: Record<string, string>,
+  defaults: Record<string, string>,
+): Record<string, string> {
+  return Object.fromEntries(
+    ALL_KEYS.map((key) => [key, values[key] ?? defaults[key] ?? '']),
+  );
 }
 
 // ========================================
@@ -142,30 +155,28 @@ function SensitiveInput({ value, onChange, id }: SensitiveInputProps) {
 
 export function EnvSettingsTab() {
   const { formatMessage } = useIntl();
-  const { data: serverEnv, isLoading } = useCodexLensEnv();
+  const { data: envData, isLoading } = useCodexLensEnv();
   const { saveEnv, isSaving } = useSaveCodexLensEnv();
 
   const [embedMode, setEmbedMode] = useState<EmbedMode>('local');
   const [localEnv, setLocalEnv] = useState<Record<string, string>>(buildEmptyEnv);
 
+  const serverValues = envData?.values ?? {};
+  const serverDefaults = { ...FIELD_DEFAULTS, ...(envData?.defaults ?? {}) };
+  const serverRecord = buildEffectiveEnv(serverValues, serverDefaults);
+
   // Sync server state into local when loaded and detect embed mode
   useEffect(() => {
-    if (serverEnv) {
-      setLocalEnv((prev) => {
-        const next = { ...prev };
-        ALL_KEYS.forEach((k) => {
-          next[k] = serverEnv[k] ?? '';
-        });
-        return next;
-      });
+    if (envData) {
+      const nextDefaults = { ...FIELD_DEFAULTS, ...(envData.defaults ?? {}) };
+      const nextValues = envData.values ?? {};
+      setLocalEnv(buildEffectiveEnv(nextValues, nextDefaults));
       // Auto-detect mode from saved env
-      if (serverEnv.CODEXLENS_EMBED_API_URL) {
+      if (nextValues.CODEXLENS_EMBED_API_URL) {
         setEmbedMode('api');
       }
     }
-  }, [serverEnv]);
-
-  const serverRecord = serverEnv ?? {};
+  }, [envData]);
 
   const isDirty = ALL_KEYS.some((k) => localEnv[k] !== (serverRecord[k] ?? ''));
 
@@ -174,7 +185,17 @@ export function EnvSettingsTab() {
   };
 
   const handleSave = async () => {
-    await saveEnv(localEnv);
+    const payload = Object.fromEntries(
+      Object.entries(localEnv).flatMap(([key, value]) => {
+        const trimmed = value.trim();
+        const defaultValue = serverDefaults[key] ?? '';
+        if (!trimmed || trimmed === defaultValue) {
+          return [];
+        }
+        return [[key, trimmed]];
+      }),
+    );
+    await saveEnv(payload);
   };
 
   const handleReset = () => {
@@ -252,7 +273,7 @@ export function EnvSettingsTab() {
                     <Input
                       id={field.key}
                       value={localEnv[field.key] ?? ''}
-                      placeholder={FIELD_DEFAULTS[field.key] ?? ''}
+                      placeholder={serverDefaults[field.key] ?? ''}
                       onChange={(e) => handleChange(field.key, e.target.value)}
                     />
                   )}

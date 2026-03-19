@@ -4,6 +4,7 @@
 // TanStack Query hooks for CodexLens v2 API management
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchApi } from '@/lib/api';
 
 // ========================================
 // Domain types (exported for component use)
@@ -25,11 +26,19 @@ export interface IndexStatusData {
 }
 
 export type McpConfigData = Record<string, unknown>;
+export interface CodexLensEnvData {
+  values: Record<string, string>;
+  defaults: Record<string, string>;
+}
 
 // Internal API response wrappers
 interface ModelsResponse { success: boolean; models: ModelEntry[] }
 interface IndexStatusResponse { success: boolean; status: IndexStatusData }
-interface EnvResponse { success: boolean; env: Record<string, string> }
+interface EnvResponse {
+  success: boolean;
+  env: Record<string, string>;
+  defaults?: Record<string, string>;
+}
 interface McpConfigResponse { success: boolean; config: McpConfigData }
 
 // ========================================
@@ -43,27 +52,6 @@ export const codexLensKeys = {
   env: () => [...codexLensKeys.all, 'env'] as const,
   mcpConfig: () => [...codexLensKeys.all, 'mcpConfig'] as const,
 };
-
-// ========================================
-// Internal fetch helper (mirrors fetchApi pattern from api.ts)
-// ========================================
-
-async function fetchApi<T>(url: string, options: RequestInit = {}): Promise<T> {
-  const headers = new Headers(options.headers);
-  if (options.body && typeof options.body === 'string') {
-    headers.set('Content-Type', 'application/json');
-  }
-  const response = await fetch(url, {
-    ...options,
-    headers,
-    credentials: 'same-origin',
-  });
-  if (!response.ok) {
-    const text = await response.text().catch(() => response.statusText);
-    throw new Error(text || `Request failed: ${response.status}`);
-  }
-  return response.json() as Promise<T>;
-}
 
 // ========================================
 // Models Hooks
@@ -174,7 +162,11 @@ export function useRebuildIndex() {
 export function useCodexLensEnv() {
   return useQuery({
     queryKey: codexLensKeys.env(),
-    queryFn: () => fetchApi<EnvResponse>('/api/codexlens/env').then(r => r.env),
+    queryFn: () =>
+      fetchApi<EnvResponse>('/api/codexlens/env').then((r): CodexLensEnvData => ({
+        values: r.env ?? {},
+        defaults: r.defaults ?? {},
+      })),
     staleTime: 60_000,
   });
 }

@@ -4,7 +4,7 @@
  */
 
 import { homedir } from 'os';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { spawn } from 'child_process';
 
@@ -15,12 +15,23 @@ import type { RouteContext } from './types.js';
 /**
  * Spawn a CLI command and collect stdout/stderr
  */
-function spawnCli(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+function spawnCli(
+  cmd: string,
+  args: string[],
+  options: { cwd?: string; env?: Record<string, string> } = {},
+): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolve, reject) => {
     let stdout = '';
     let stderr = '';
 
-    const child = spawn(cmd, args);
+    const child = spawn(cmd, args, {
+      cwd: options.cwd,
+      env: {
+        ...process.env,
+        ...readEnvFile(),
+        ...options.env,
+      },
+    });
 
     child.stdout.on('data', (chunk: Buffer) => {
       stdout += chunk.toString();
@@ -73,6 +84,98 @@ function writeEnvFile(env: Record<string, string>): void {
     mkdirSync(dir, { recursive: true });
   }
   writeFileSync(filePath, JSON.stringify(env, null, 2), 'utf-8');
+}
+
+const CODEXLENS_ENV_DEFAULTS: Record<string, string> = {
+  CODEXLENS_EMBED_API_MODEL: 'text-embedding-3-small',
+  CODEXLENS_EMBED_DIM: '1536',
+  CODEXLENS_EMBED_BATCH_SIZE: '64',
+  CODEXLENS_EMBED_API_CONCURRENCY: '4',
+  CODEXLENS_BINARY_TOP_K: '200',
+  CODEXLENS_ANN_TOP_K: '50',
+  CODEXLENS_FTS_TOP_K: '50',
+  CODEXLENS_FUSION_K: '60',
+  CODEXLENS_RERANKER_TOP_K: '20',
+  CODEXLENS_RERANKER_BATCH_SIZE: '32',
+  CODEXLENS_INDEX_WORKERS: '2',
+  CODEXLENS_CODE_AWARE_CHUNKING: 'true',
+  CODEXLENS_MAX_FILE_SIZE: '1000000',
+  CODEXLENS_HNSW_EF: '150',
+  CODEXLENS_HNSW_M: '32',
+};
+
+function getEnvDefaults(): Record<string, string> {
+  return { ...CODEXLENS_ENV_DEFAULTS };
+}
+
+function normalizeEnvInput(env: Record<string, string>): Record<string, string> {
+  const normalized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value !== 'string') {
+      continue;
+    }
+    const trimmed = value.trim();
+    if (trimmed) {
+      normalized[key] = trimmed;
+    }
+  }
+  return normalized;
+}
+
+function filterNonEmptyEnv(env: Record<string, string>): Record<string, string> {
+  const filtered: Record<string, string> = {};
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value === 'string' && value.trim() !== '') {
+      filtered[key] = value;
+    }
+  }
+  return filtered;
+}
+
+function buildMcpServerConfig(savedEnv: Record<string, string>): Record<string, unknown> {
+  const filteredEnv = filterNonEmptyEnv(savedEnv);
+  const hasApiEmbedding = Boolean(filteredEnv.CODEXLENS_EMBED_API_URL || filteredEnv.CODEXLENS_EMBED_API_ENDPOINTS);
+
+  if (hasApiEmbedding) {
+    filteredEnv.CODEXLENS_EMBED_API_MODEL ??= CODEXLENS_ENV_DEFAULTS.CODEXLENS_EMBED_API_MODEL;
+    filteredEnv.CODEXLENS_EMBED_DIM ??= CODEXLENS_ENV_DEFAULTS.CODEXLENS_EMBED_DIM;
+  }
+
+  return {
+    command: 'uvx',
+    args: ['--from', 'codexlens-search[mcp]', 'codexlens-mcp'],
+    ...(Object.keys(filteredEnv).length > 0 ? { env: filteredEnv } : {}),
+  };
+}
+
+function getProjectDbPath(projectPath: string): string {
+  return join(projectPath, '.codexlens');
+}
+
+function normalizeIndexStatus(status: unknown): Record<string, unknown> {
+  if (!status || typeof status !== 'object') {
+    return {
+      status: 'unknown',
+      files_tracked: 0,
+      total_chunks: 0,
+      deleted_chunks: 0,
+      raw: status,
+    };
+  }
+
+  const record = status as Record<string, unknown>;
+  const totalChunks = typeof record.total_chunks === 'number'
+    ? record.total_chunks
+    : typeof record.total_chunks_approx === 'number'
+      ? record.total_chunks_approx
+      : 0;
+
+  return {
+    ...record,
+    files_tracked: typeof record.files_tracked === 'number' ? record.files_tracked : 0,
+    total_chunks: totalChunks,
+    deleted_chunks: typeof record.deleted_chunks === 'number' ? record.deleted_chunks : 0,
+  };
 }
 
 // ========== ROUTE HANDLER ==========
@@ -161,8 +264,8 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
       return true;
     }
     try {
-      const dbPath = join(projectPath, '.codexlens');
-      const result = await spawnCli('codexlens-search', ['status', '--db-path', dbPath]);
+      const dbPath = getProjectDbPath(projectPath);
+      const result = await spawnCli('codexlens-search', ['--db-path', dbPath, 'status']);
       if (result.exitCode !== 0) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: result.stderr || 'Failed to get index status' }));
@@ -175,7 +278,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         status = { raw: result.stdout };
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, status }));
+      res.end(JSON.stringify({ success: true, status: normalizeIndexStatus(status) }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: (err as Error).message }));
@@ -192,7 +295,8 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         return { error: 'projectPath is required', status: 400 };
       }
       try {
-        const result = await spawnCli('codexlens-search', ['sync', '--root', projectPath]);
+        const dbPath = getProjectDbPath(projectPath);
+        const result = await spawnCli('codexlens-search', ['--db-path', dbPath, 'sync', '--root', projectPath]);
         if (result.exitCode !== 0) {
           return { error: result.stderr || 'Failed to sync index', status: 500 };
         }
@@ -213,11 +317,14 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         return { error: 'projectPath is required', status: 400 };
       }
       try {
-        const initResult = await spawnCli('codexlens-search', ['init', '--root', projectPath]);
+        const dbPath = getProjectDbPath(projectPath);
+        // Rebuild must discard stale index artifacts before reinitializing.
+        rmSync(dbPath, { recursive: true, force: true });
+        const initResult = await spawnCli('codexlens-search', ['--db-path', dbPath, 'init']);
         if (initResult.exitCode !== 0) {
           return { error: initResult.stderr || 'Failed to init index', status: 500 };
         }
-        const syncResult = await spawnCli('codexlens-search', ['sync', '--root', projectPath]);
+        const syncResult = await spawnCli('codexlens-search', ['--db-path', dbPath, 'sync', '--root', projectPath]);
         if (syncResult.exitCode !== 0) {
           return { error: syncResult.stderr || 'Failed to sync after init', status: 500 };
         }
@@ -235,7 +342,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
     try {
       const env = readEnvFile();
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: true, env }));
+      res.end(JSON.stringify({ success: true, env, defaults: getEnvDefaults() }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: (err as Error).message }));
@@ -252,7 +359,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         return { error: 'env object is required', status: 400 };
       }
       try {
-        writeEnvFile(env);
+        writeEnvFile(normalizeEnvInput(env));
         return { success: true };
       } catch (err) {
         return { error: (err as Error).message, status: 500 };
@@ -265,21 +372,10 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // GET /api/codexlens/mcp-config
   if (pathname === '/api/codexlens/mcp-config' && req.method === 'GET') {
     try {
-      const env = readEnvFile();
-      // Filter to non-empty string values only
-      const filteredEnv: Record<string, string> = {};
-      for (const [key, value] of Object.entries(env)) {
-        if (typeof value === 'string' && value.trim() !== '') {
-          filteredEnv[key] = value;
-        }
-      }
       const mcpConfig = {
         mcpServers: {
-          codexlens: {
-            command: 'codexlens-mcp',
-            env: filteredEnv
-          }
-        }
+          codexlens: buildMcpServerConfig(readEnvFile()),
+        },
       };
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, config: mcpConfig }));
