@@ -94,7 +94,7 @@ SCOUT-002 (scout): Regression scan after fixes
 
 - No orphan tasks (all tasks have valid owner)
 - No circular dependencies
-- All blockedBy references exist
+- All addBlockedBy references exist
 - Session reference in every task description
 - RoleSpec reference in every task description
 
