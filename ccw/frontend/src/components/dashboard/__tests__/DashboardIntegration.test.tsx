@@ -4,7 +4,7 @@
 // Integration tests for HomePage data flows: stats + sessions loading concurrently
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderWithI18n, screen, waitFor } from '@/test/i18n';
+import { renderWithI18n, waitFor } from '@/test/i18n';
 import HomePage from '@/pages/HomePage';
 
 // Mock hooks used by WorkflowTaskWidget

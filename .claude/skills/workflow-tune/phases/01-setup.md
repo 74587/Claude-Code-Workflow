@@ -67,6 +67,26 @@ else if (/^[\w-]+(,[\w-]+)+/.test(args.split(/\s/)[0])) {
 else {
   inputFormat = 'natural-language';
   naturalLanguageInput = args.replace(/--\w+\s+"[^"]*"/g, '').replace(/--\w+\s+\S+/g, '').replace(/-y|--yes/g, '').trim();
+
+  // ★ 4a: Detect file paths in input (Windows absolute, Unix absolute, or relative paths)
+  const filePathPattern = /(?:[A-Za-z]:[\\\/][^\s,;，；、]+|\/[^\s,;，；、]+\.(?:md|txt|json|yaml|yml|toml)|\.\/?[^\s,;，；、]+\.(?:md|txt|json|yaml|yml|toml))/g;
+  const detectedPaths = naturalLanguageInput.match(filePathPattern) || [];
+  referenceDocContent = null;
+  referenceDocPath = null;
+
+  if (detectedPaths.length > 0) {
+    // Read first detected file as reference document
+    referenceDocPath = detectedPaths[0];
+    try {
+      referenceDocContent = Read(referenceDocPath);
+      // Remove file path from natural language input to get pure user intent
+      naturalLanguageInput = naturalLanguageInput.replace(referenceDocPath, '').trim();
+    } catch (e) {
+      // File not readable — fall through to 4b (pure intent mode)
+      referenceDocContent = null;
+    }
+  }
+
   // Steps will be populated in Step 1.1b
   steps = [];
 }
@@ -102,10 +122,108 @@ if (!workflowContext) {
 
 > Skip this step if `inputFormat !== 'natural-language'`.
 
-Decompose natural language input into a structured step chain by identifying intent verbs and mapping them to available tools/skills.
+Two sub-modes based on whether a reference document was detected in Step 1.1:
+
+#### Mode 4a: Reference Document → LLM Extraction
+
+When `referenceDocContent` is available, use Gemini to extract executable workflow steps from the document, guided by the user's intent text.
 
 ```javascript
-if (inputFormat === 'natural-language') {
+if (inputFormat === 'natural-language' && referenceDocContent) {
+  // ★ 4a: Extract workflow steps from reference document via LLM
+  const extractPrompt = `PURPOSE: Extract an executable workflow step chain from the reference document below, guided by the user's intent.
+
+USER INTENT: ${naturalLanguageInput}
+REFERENCE DOCUMENT PATH: ${referenceDocPath}
+
+REFERENCE DOCUMENT CONTENT:
+${referenceDocContent}
+
+TASK:
+1. Read the document and identify the workflow/process it describes (commands, steps, phases, procedures)
+2. Filter by user intent — only extract the steps the user wants to test/tune
+3. For each step, determine:
+   - The actual command to execute (shell command, CLI invocation, or skill name)
+   - The execution order and dependencies
+   - What tool to use (gemini/claude/codex/qwen) and mode (default: write)
+4. Generate a step chain that can be directly executed
+
+IMPORTANT:
+- Extract REAL executable commands from the document, not analysis tasks about the document
+- The user wants to RUN these workflow steps, not analyze the document itself
+- If the document describes CLI commands like "maestro init", "maestro plan", etc., those are the steps to extract
+- Preserve the original command syntax from the document
+- Map each command to appropriate tool/mode for ccw cli execution, OR mark as 'command' type for direct shell execution
+- Default mode to "write" — almost all steps produce output artifacts (files, reports, configs), even analysis steps need write permission to save results
+
+EXPECTED OUTPUT (strict JSON, no markdown):
+{
+  "workflow_name": "<descriptive name>",
+  "workflow_context": "<what this workflow achieves>",
+  "steps": [
+    {
+      "name": "<step name>",
+      "type": "command|ccw-cli|skill",
+      "command": "<the actual command to execute>",
+      "tool": "<gemini|claude|codex|qwen or null for shell commands>",
+      "mode": "<write (default) | analysis (read-only, rare) | null for shell commands>",
+      "rule": "<rule template or null>",
+      "original_text": "<source text from document>",
+      "expected_artifacts": ["<expected output files>"],
+      "success_criteria": "<what success looks like>"
+    }
+  ]
+}
+
+CONSTRAINTS: Output ONLY valid JSON. Extract executable steps, NOT document analysis tasks.`;
+
+  Bash({
+    command: `ccw cli -p "${escapeForShell(extractPrompt)}" --tool gemini --mode analysis --rule universal-rigorous-style`,
+    run_in_background: true,
+    timeout: 300000
+  });
+
+  // STOP — wait for hook callback
+  // After callback: parse JSON response into steps[]
+
+  const extractOutput = /* CLI output from callback */;
+  const extractJsonMatch = extractOutput.match(/\{[\s\S]*\}/);
+
+  if (extractJsonMatch) {
+    try {
+      const extracted = JSON.parse(extractJsonMatch[0]);
+      workflowName = extracted.workflow_name || 'doc-workflow';
+      workflowContext = extracted.workflow_context || naturalLanguageInput;
+      steps = (extracted.steps || []).map((s, i) => ({
+        name: s.name || `step-${i + 1}`,
+        type: s.type || 'command',
+        command: s.command,
+        tool: s.tool || null,
+        mode: s.mode || null,
+        rule: s.rule || null,
+        original_text: s.original_text || '',
+        expected_artifacts: s.expected_artifacts || [],
+        success_criteria: s.success_criteria || ''
+      }));
+    } catch (e) {
+      // JSON parse failed — fall through to 4b intent matching
+      referenceDocContent = null;
+    }
+  }
+
+  if (steps.length === 0) {
+    // Extraction produced no steps — fall through to 4b
+    referenceDocContent = null;
+  }
+}
+```
+
+#### Mode 4b: Pure Intent → Regex Matching
+
+When no reference document, or when 4a extraction failed, decompose by intent-verb matching.
+
+```javascript
+if (inputFormat === 'natural-language' && !referenceDocContent) {
   // Intent-to-tool mapping (regex patterns → tool config)
   const intentMap = [
     { pattern: /分析|analyze|审查|inspect|scan/i, name: 'analyze', tool: 'gemini', mode: 'analysis', rule: 'analysis-analyze-code-patterns' },
@@ -190,12 +308,16 @@ if (inputFormat === 'natural-language') {
       s.name = `${s.name}-${nameCount[s.name]}`;
     }
   });
+}
 
-  // Set workflow context from the full natural language input
+// Common: set workflow context and name for Format 4
+if (inputFormat === 'natural-language') {
   if (!workflowContext) {
     workflowContext = naturalLanguageInput;
   }
-  workflowName = 'nl-workflow';  // natural language derived
+  if (!workflowName || workflowName === 'unnamed-workflow') {
+    workflowName = referenceDocPath ? 'doc-workflow' : 'nl-workflow';
+  }
 }
 ```
 

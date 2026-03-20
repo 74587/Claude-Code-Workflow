@@ -117,11 +117,25 @@ $ARGUMENTS → Parse:
 2. Contains pipe "|"           → Format 1 (inline commands)
 3. Matches skill-name pattern  → Format 2 (comma-separated skills)
 4. Everything else             → Format 4 (natural language → semantic decomposition)
+   4a. Contains file path?     → Read file as reference doc, extract workflow steps via LLM
+   4b. Pure intent text        → Direct intent-verb matching (intentMap)
 ```
 
 ### Format 4: Semantic Decomposition (Natural Language)
 
 When input is free-text (e.g., "分析 src 目录代码质量，做代码评审，然后修复高优先级问题"), the orchestrator:
+
+#### 4a. Reference Document Mode (input contains file path)
+
+When the input contains a file path (e.g., `d:\maestro2\guide\command-usage-guide.md 提取核心工作流`), the orchestrator:
+
+1. **Detect File Path**: Extract file path from input via path pattern matching
+2. **Read Reference Doc**: Read the file content as workflow reference material
+3. **Extract Workflow via LLM**: Use Gemini to analyze the document + user intent, extract executable workflow steps
+4. **Step Chain Generation**: LLM returns structured step chain with commands, tools, and execution order
+5. **Command Doc + Confirmation**: Same as 4b below
+
+#### 4b. Pure Intent Mode (no file path)
 
 1. **Semantic Parse**: Identify intent verbs and targets → map to available skills/commands
 2. **Step Chain Generation**: Produce ordered step chain with tool/mode selection
@@ -129,23 +143,16 @@ When input is free-text (e.g., "分析 src 目录代码质量，做代码评审�
 4. **User Confirmation**: Display plan, ask user to confirm/edit before execution
 
 ```javascript
-// Semantic decomposition uses intent-to-tool mapping
+// ★ 4a: If input contains file path → read file, extract workflow via LLM
+//   Detect paths: Windows (D:\path\file.md), Unix (/path/file.md), relative (./file.md)
+//   Read file content → send to Gemini with user intent → get executable step chain
+//   See phases/01-setup.md Step 1.1b Mode 4a
+
+// ★ 4b: Pure intent text → regex-based intent-to-tool mapping
 const intentMap = {
-  // Analysis intents
   '分析|analyze|审查|inspect|scan': { tool: 'gemini', mode: 'analysis', rule: 'analysis-analyze-code-patterns' },
   '评审|review|code review': { tool: 'gemini', mode: 'analysis', rule: 'analysis-review-code-quality' },
-  '诊断|debug|排查|diagnose': { tool: 'gemini', mode: 'analysis', rule: 'analysis-diagnose-bug-root-cause' },
-  '安全|security|漏洞': { tool: 'gemini', mode: 'analysis', rule: 'analysis-assess-security-risks' },
-  '性能|performance|perf': { tool: 'gemini', mode: 'analysis', rule: 'analysis-analyze-performance' },
-  '架构|architecture': { tool: 'gemini', mode: 'analysis', rule: 'analysis-review-architecture' },
-  // Write intents
-  '修复|fix|repair|解决': { tool: 'claude', mode: 'write', rule: 'development-debug-runtime-issues' },
-  '实现|implement|开发|create': { tool: 'claude', mode: 'write', rule: 'development-implement-feature' },
-  '重构|refactor': { tool: 'claude', mode: 'write', rule: 'development-refactor-codebase' },
-  '测试|test|generate test': { tool: 'claude', mode: 'write', rule: 'development-generate-tests' },
-  // Planning intents
-  '规划|plan|设计|design': { tool: 'gemini', mode: 'analysis', rule: 'planning-plan-architecture-design' },
-  '拆解|breakdown|分解': { tool: 'gemini', mode: 'analysis', rule: 'planning-breakdown-task-steps' },
+  // ... (full map in phases/01-setup.md Step 1.1b Mode 4b)
 };
 
 // Match input segments to intents, produce step chain
@@ -377,7 +384,8 @@ User Input (workflow steps / natural language + context)
     ↓
 Phase 1: Setup
     ├─ [Format 1-3] Direct parse → steps[]
-    ├─ [Format 4]   Semantic decompose → steps[]
+    ├─ [Format 4a]  File path detected → Read doc → LLM extract → steps[]
+    ├─ [Format 4b]  Pure intent text → Regex intent matching → steps[]
     ↓
     Command Document (formatted plan)
     ↓
