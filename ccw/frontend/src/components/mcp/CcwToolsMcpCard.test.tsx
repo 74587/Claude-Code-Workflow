@@ -14,6 +14,7 @@ const apiMock = vi.hoisted(() => ({
   installCcwMcpToCodex: vi.fn(),
   uninstallCcwMcpFromCodex: vi.fn(),
   updateCcwConfigForCodex: vi.fn(),
+  fetchRootDirectories: vi.fn(() => Promise.resolve([])),
 }));
 
 vi.mock('@/lib/api', () => apiMock);

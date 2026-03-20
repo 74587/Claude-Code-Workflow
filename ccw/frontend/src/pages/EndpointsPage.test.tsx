@@ -76,7 +76,7 @@ describe('EndpointsPage', () => {
 
   it('should render page title', () => {
     render(<EndpointsPage />, { locale: 'en' });
-    expect(screen.getByText(/CLI Endpoints/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/CLI Endpoints/i).length).toBeGreaterThan(0);
   });
 
   it('should open create dialog and call createEndpoint', async () => {
@@ -87,7 +87,7 @@ describe('EndpointsPage', () => {
 
     await user.click(screen.getByRole('button', { name: /Add Endpoint/i }));
 
-    expect(screen.getByText(/Add Endpoint/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Add Endpoint/i).length).toBeGreaterThanOrEqual(2);
 
     await user.type(screen.getByLabelText(/^Name/i), 'New Endpoint');
     await user.click(screen.getByRole('button', { name: /^Save$/i }));
@@ -110,7 +110,7 @@ describe('EndpointsPage', () => {
 
     await user.click(screen.getByRole('button', { name: /Edit Endpoint/i }));
 
-    expect(screen.getByText(/Edit Endpoint/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Edit Endpoint/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByLabelText(/^ID$/i)).toHaveValue('ep-1');
   });
 

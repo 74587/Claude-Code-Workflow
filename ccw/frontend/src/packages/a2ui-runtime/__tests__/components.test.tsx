@@ -116,8 +116,8 @@ describe('A2UI Component Renderers', () => {
       };
       const props = createMockProps(component);
 
-      const result = A2UIButton(props);
-      expect(result).toBeTruthy();
+      render(<RendererWrapper><A2UIButton {...props} /></RendererWrapper>);
+      expect(screen.getByText('Test')).toBeInTheDocument();
     });
 
     it('should render different variants', () => {
@@ -139,8 +139,9 @@ describe('A2UI Component Renderers', () => {
         };
         const props = createMockProps(component);
 
-        const result = A2UIButton(props);
-        expect(result).toBeTruthy();
+        render(<RendererWrapper><A2UIButton {...props} /></RendererWrapper>);
+        expect(screen.getByText(variant)).toBeInTheDocument();
+        cleanup();
       });
     });
 
@@ -154,8 +155,8 @@ describe('A2UI Component Renderers', () => {
       };
       const props = createMockProps(component);
 
-      const result = A2UIButton(props);
-      expect(result).toBeTruthy();
+      render(<RendererWrapper><A2UIButton {...props} /></RendererWrapper>);
+      expect(screen.getByText('Disabled')).toBeInTheDocument();
     });
   });
 
@@ -671,7 +672,7 @@ describe('A2UI Component Integration', () => {
       resolveBinding: vi.fn(),
     };
 
-    const result = A2UIButton(props);
-    expect(result).toBeTruthy();
+    render(<RendererWrapper><A2UIButton {...props} /></RendererWrapper>);
+    expect(screen.getByText('Async')).toBeInTheDocument();
   });
 });

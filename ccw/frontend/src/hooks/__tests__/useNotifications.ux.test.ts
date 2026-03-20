@@ -199,14 +199,14 @@ describe('UX Pattern: Toast Notifications (useNotifications)', () => {
         result.current.warning('Partial Success', 'Issue created but attachments failed to upload');
       });
 
-      expect(result.current.toasts[0].type).toBe('warning');
+      expect(result.current.toasts[1].type).toBe('warning');
 
       // Simulate: Error case
       act(() => {
         result.current.error('Failed', 'Failed to create issue');
       });
 
-      expect(result.current.toasts[0].type).toBe('error');
+      expect(result.current.toasts[2].type).toBe('error');
     });
   });
 

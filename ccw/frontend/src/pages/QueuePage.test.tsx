@@ -11,11 +11,16 @@ import type { IssueQueue } from '@/lib/api';
 
 // Mock queue data
 const mockQueueData = {
-  tasks: [] as any[],
-  solutions: [] as any[],
+  tasks: [
+    { id: 'task-1', title: 'Task 1', status: 'pending', priority: 1 },
+    { id: 'task-2', title: 'Task 2', status: 'pending', priority: 2 },
+  ] as any[],
+  solutions: [
+    { id: 'sol-1', title: 'Solution 1', status: 'pending' },
+  ] as any[],
   conflicts: [],
   execution_groups: ['group-1'],
-  grouped_items: { 'parallel-group': [] as any[] },
+  grouped_items: { 'parallel-group': [{ id: 'task-1' }] as any[] },
 } satisfies IssueQueue;
 
 // Mock hooks at top level

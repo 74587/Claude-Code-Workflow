@@ -45,6 +45,12 @@ vi.mock('@/hooks/useIssues', () => ({
     refetchSessions: vi.fn(),
     exportFindings: vi.fn(),
   }),
+  useIssues: () => ({
+    issues: [],
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
 }));
 
 describe('DiscoveryPage', () => {

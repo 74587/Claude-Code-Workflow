@@ -87,7 +87,7 @@ export default {
   ...flattenMessages(reviewSession, 'reviewSession'),
   ...flattenMessages(sessionDetail, 'sessionDetail'),
   ...flattenMessages(skills, 'skills'),
-  ...flattenMessages(cliManager, 'cli-manager'),
+  ...flattenMessages(cliManager),
   ...flattenMessages(cliMonitor, 'cliMonitor'),
   ...flattenMessages(mcpManager, 'mcp'),
   ...flattenMessages(codexlens, 'codexlens'),

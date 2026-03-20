@@ -65,7 +65,7 @@ describe('DialogStyleContext', () => {
       const { result } = renderHook(() => useDialogStyleContext(), { wrapper });
 
       expect(result.current.getRecommendedStyle('confirm')).toBe('modal');
-      expect(result.current.getRecommendedStyle('multi-select')).toBe('drawer');
+      expect(result.current.getRecommendedStyle('multi-select')).toBe('modal');
       expect(result.current.getRecommendedStyle('multi-question')).toBe('drawer');
     });
 

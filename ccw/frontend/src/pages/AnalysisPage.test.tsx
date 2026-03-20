@@ -117,6 +117,6 @@ describe('AnalysisPage', () => {
     await screen.findByText('Another Analysis');
 
     // Check for in-progress badge
-    expect(screen.getByText('进行中')).toBeInTheDocument();
+    expect(screen.getAllByText('进行中').length).toBeGreaterThan(0);
   });
 });

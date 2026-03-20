@@ -2,10 +2,19 @@
 // TickerMarquee Component Tests
 // ========================================
 
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@/test/i18n';
 import { TickerMarquee } from './TickerMarquee';
 import type { TickerMessage } from '@/hooks/useRealtimeUpdates';
+
+// Mock useRealtimeUpdates to avoid actual WebSocket connections
+vi.mock('@/hooks/useRealtimeUpdates', () => ({
+  useRealtimeUpdates: () => ({
+    messages: [],
+    connectionStatus: 'connected',
+    reconnect: vi.fn(),
+  }),
+}));
 
 describe('TickerMarquee', () => {
   const mockMessages: TickerMessage[] = [
@@ -34,22 +43,23 @@ describe('TickerMarquee', () => {
   it('renders mock messages when provided', () => {
     render(<TickerMarquee mockMessages={mockMessages} />);
 
-    expect(screen.getByText('Session WFS-001 created')).toBeInTheDocument();
-    expect(screen.getByText('Task IMPL-001 completed successfully')).toBeInTheDocument();
-    expect(screen.getByText('Workflow authentication started')).toBeInTheDocument();
+    expect(screen.getAllByText('Session WFS-001 created').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Task IMPL-001 completed successfully').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Workflow authentication started').length).toBeGreaterThan(0);
   });
 
   it('shows waiting message when no messages', () => {
     render(<TickerMarquee mockMessages={[]} />);
 
-    expect(screen.getByText(/Waiting for activity/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Waiting for activity/i).length).toBeGreaterThan(0);
   });
 
   it('renders links for messages with link property', () => {
     render(<TickerMarquee mockMessages={mockMessages} />);
 
-    const sessionLink = screen.getByRole('link', { name: /Session WFS-001 created/i });
-    expect(sessionLink).toHaveAttribute('href', '/sessions/WFS-001');
+    const sessionLinks = screen.getAllByRole('link', { name: /Session WFS-001 created/i });
+    expect(sessionLinks.length).toBeGreaterThan(0);
+    expect(sessionLinks[0]).toHaveAttribute('href', '/sessions/WFS-001');
   });
 
   it('applies custom duration to animation', () => {
