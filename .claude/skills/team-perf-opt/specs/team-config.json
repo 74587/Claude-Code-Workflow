@@ -24,7 +24,7 @@
       "name": "profiler",
       "type": "orchestration",
       "description": "Profiles application performance, identifies CPU/memory/IO/network/rendering bottlenecks",
-      "role_spec": "role-specs/profiler.md",
+      "role_spec": "roles/profiler/role.md",
       "inner_loop": false,
       "frontmatter": {
         "prefix": "PROFILE",
@@ -44,7 +44,7 @@
       "name": "strategist",
       "type": "orchestration",
       "description": "Analyzes bottleneck reports, designs prioritized optimization plans with concrete strategies",
-      "role_spec": "role-specs/strategist.md",
+      "role_spec": "roles/strategist/role.md",
       "inner_loop": false,
       "frontmatter": {
         "prefix": "STRATEGY",
@@ -64,7 +64,7 @@
       "name": "optimizer",
       "type": "code_generation",
       "description": "Implements optimization changes following the strategy plan",
-      "role_spec": "role-specs/optimizer.md",
+      "role_spec": "roles/optimizer/role.md",
       "inner_loop": true,
       "frontmatter": {
         "prefix": "IMPL",
@@ -85,7 +85,7 @@
       "name": "benchmarker",
       "type": "validation",
       "description": "Runs benchmarks, compares before/after metrics, validates performance improvements",
-      "role_spec": "role-specs/benchmarker.md",
+      "role_spec": "roles/benchmarker/role.md",
       "inner_loop": false,
       "frontmatter": {
         "prefix": "BENCH",
@@ -106,7 +106,7 @@
       "name": "reviewer",
       "type": "read_only_analysis",
       "description": "Reviews optimization code for correctness, side effects, and regression risks",
-      "role_spec": "role-specs/reviewer.md",
+      "role_spec": "roles/reviewer/role.md",
       "inner_loop": false,
       "frontmatter": {
         "prefix": "REVIEW",

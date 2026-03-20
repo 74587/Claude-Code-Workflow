@@ -99,8 +99,8 @@ Execute on every loop iteration:
    - Subject starts with this role's `prefix` + `-` (e.g., `DRAFT-`, `IMPL-`)
    - Status is `pending`
    - `blockedBy` list is empty (all dependencies resolved)
-   - **Owner matches** `agent_name` from prompt (e.g., task owner "explorer-1" matches agent_name "explorer-1"). This prevents parallel workers from claiming each other's tasks.
    - If role has `additional_prefixes` (e.g., reviewer handles REVIEW-* + QUALITY-* + IMPROVE-*), check all prefixes
+   - **NOTE**: Do NOT filter by owner name. The system appends numeric suffixes to agent names (e.g., `profiler` → `profiler-4`), making exact owner matching unreliable. Prefix-based filtering is sufficient to prevent cross-role task claiming.
 3. **No matching tasks?**
    - If first iteration → report idle, SendMessage "No tasks found for [role]", STOP
    - If inner loop continuation → proceed to Phase 5-F (all done)

@@ -23,7 +23,7 @@
       "name": "analyzer",
       "type": "orchestration",
       "description": "Analyzes architecture: dependency graphs, coupling/cohesion, layering violations, God Classes, dead code",
-      "role_spec": "role-specs/analyzer.md",
+      "role_spec": "roles/analyzer/role.md",
       "inner_loop": false,
       "frontmatter": {
         "prefix": "ANALYZE",
@@ -43,7 +43,7 @@
       "name": "designer",
       "type": "orchestration",
       "description": "Designs refactoring strategies from architecture analysis, produces prioritized refactoring plan with discrete REFACTOR-IDs",
-      "role_spec": "role-specs/designer.md",
+      "role_spec": "roles/designer/role.md",
       "inner_loop": false,
       "frontmatter": {
         "prefix": "DESIGN",
@@ -63,7 +63,7 @@
       "name": "refactorer",
       "type": "code_generation",
       "description": "Implements architecture refactoring changes following the design plan",
-      "role_spec": "role-specs/refactorer.md",
+      "role_spec": "roles/refactorer/role.md",
       "inner_loop": true,
       "frontmatter": {
         "prefix": "REFACTOR",
@@ -84,7 +84,7 @@
       "name": "validator",
       "type": "validation",
       "description": "Validates refactoring: build checks, test suites, dependency metrics, API compatibility",
-      "role_spec": "role-specs/validator.md",
+      "role_spec": "roles/validator/role.md",
       "inner_loop": false,
       "frontmatter": {
         "prefix": "VALIDATE",
@@ -105,7 +105,7 @@
       "name": "reviewer",
       "type": "read_only_analysis",
       "description": "Reviews refactoring code for correctness, pattern consistency, completeness, migration safety, and best practices",
-      "role_spec": "role-specs/reviewer.md",
+      "role_spec": "roles/reviewer/role.md",
       "inner_loop": false,
       "frontmatter": {
         "prefix": "REVIEW",
