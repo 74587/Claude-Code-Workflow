@@ -35,12 +35,13 @@ Phase 1 Detail:
 
 ## Key Design Principles
 
-1. **Step-by-Step Execution**: Each workflow step executes independently, artifacts inspected before proceeding
-2. **Resume-Based Analysis**: Uses ccw cli `--resume` to maintain analysis context across steps
-3. **Process Documentation**: Running `process-log.md` accumulates observations per step
-4. **Two-Tool Pipeline**: Claude/target tool (execute) + Gemini (analyze) = complementary perspectives
-5. **Pure Orchestrator**: SKILL.md coordinates only — execution detail in phase files
-6. **Progressive Phase Loading**: Phase docs read only when that phase executes
+1. **Test-First Evaluation**: Auto-generate per-step acceptance criteria before execution — judge results against concrete requirements, not vague quality
+2. **Step-by-Step Execution**: Each workflow step executes independently, artifacts inspected before proceeding
+3. **Resume-Based Analysis**: Uses ccw cli `--resume` to maintain analysis context across steps
+4. **Process Documentation**: Running `process-log.md` accumulates observations per step
+5. **Two-Tool Pipeline**: Claude/target tool (execute) + Gemini (analyze) = complementary perspectives
+6. **Pure Orchestrator**: SKILL.md coordinates only — execution detail in phase files
+7. **Progressive Phase Loading**: Phase docs read only when that phase executes
 
 ## Interactive Preference Collection
 
@@ -280,11 +281,12 @@ Read and execute: `Ref: phases/01-setup.md`
 - Parse workflow steps from input (Format 1-3: direct parse, Format 4: semantic decomposition)
 - Generate Command Document (formatted execution plan)
 - **User Confirmation**: Display plan, wait for confirm/edit/cancel
+- **Generate Test Requirements**: Auto-create per-step acceptance criteria via Gemini (expected outputs, content signals, quality thresholds, pass/fail criteria, handoff contracts)
 - Create workspace at `.workflow/.scratchpad/workflow-tune-{ts}/`
-- Initialize workflow-state.json
+- Initialize workflow-state.json (with test_requirements per step)
 - Create process-log.md template
 
-Output: `workDir`, `steps[]`, `workflowContext`, `commandDoc`, initialized state
+Output: `workDir`, `steps[]` (with test_requirements), `workflowContext`, `commandDoc`, initialized state
 
 ### Step Loop (Phase 2 + Phase 3, per step)
 
@@ -331,9 +333,10 @@ Read and execute: `Ref: phases/02-step-execute.md`
 Read and execute: `Ref: phases/03-step-analyze.md`
 
 - Inspect step artifacts (file list, content summary, quality signals)
-- Build analysis prompt with step context + previous steps' process log
+- **Compare actual output against test requirements** (pass_criteria, content_signals, fail_signals, handoff_contract)
+- Build analysis prompt with step context + test requirements + previous process log
 - Execute: `ccw cli --tool gemini --mode analysis [--resume sessionId]`
-- Parse analysis → write step-{N}-analysis.md
+- Parse analysis → write step-{N}-analysis.md (with requirement match: PASS/FAIL)
 - Append findings to process-log.md
 - Return analysis session ID for resume chain
 
@@ -380,7 +383,9 @@ Phase 1: Setup
     ↓
     User Confirmation (Execute / Edit / Cancel)
     ↓ (Execute confirmed)
-    ↓ workDir, steps[], workflow-state.json, process-log.md
+    ↓
+    Generate Test Requirements (Gemini) → per-step acceptance criteria
+    ↓ workDir, steps[] (with test_requirements), workflow-state.json, process-log.md
     ↓
 ┌─→ Phase 2: Execute Step N (ccw cli / Skill)
 │   ↓ step-N/ artifacts

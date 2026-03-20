@@ -40,10 +40,12 @@ const minStep = state.steps.reduce((min, s) =>
 const totalIssues = state.steps.reduce((sum, s) => sum + (s.analysis?.issue_count || 0), 0);
 const totalHighIssues = state.steps.reduce((sum, s) => sum + (s.analysis?.high_issues || 0), 0);
 
-// Step quality table
-const stepTable = state.steps.map((s, i) =>
-  `| ${i + 1} | ${s.name} | ${s.type} | ${s.execution?.success ? 'OK' : 'FAIL'} | ${s.analysis?.quality_score || '-'} | ${s.analysis?.issue_count || 0} | ${s.analysis?.high_issues || 0} |`
-).join('\n');
+// Step quality table (with requirement match)
+const stepTable = state.steps.map((s, i) => {
+  const reqPass = s.analysis?.requirement_pass;
+  const reqStr = reqPass === true ? 'PASS' : reqPass === false ? 'FAIL' : '-';
+  return `| ${i + 1} | ${s.name} | ${s.type} | ${s.execution?.success ? 'OK' : 'FAIL'} | ${reqStr} | ${s.analysis?.quality_score || '-'} | ${s.analysis?.issue_count || 0} | ${s.analysis?.high_issues || 0} |`;
+}).join('\n');
 
 // Collect all improvements (workflow-level + per-step)
 const allImprovements = [];
@@ -97,8 +99,8 @@ const report = `# Workflow Tune — Final Report
 
 ## Step Quality Matrix
 
-| # | Step | Type | Exec | Quality | Issues | High |
-|---|------|------|------|---------|--------|------|
+| # | Step | Type | Exec | Req Match | Quality | Issues | High |
+|---|------|------|------|-----------|---------|--------|------|
 ${stepTable}
 
 ## Workflow Flow Assessment
