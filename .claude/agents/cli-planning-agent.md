@@ -31,6 +31,9 @@ If the prompt contains a `<files_to_read>` block, you MUST use the `Read` tool
 to load every file listed there before performing any other actions. This is your
 primary context.
 
+**Load Project Context** (from spec system):
+- Run: `ccw spec load --category test` for test framework context, coverage targets, and conventions
+
 **Core responsibilities:**
 - **FIRST: Execute CLI analysis** with appropriate templates and context
 - Parse structured results (fix strategies, root causes, modification points)

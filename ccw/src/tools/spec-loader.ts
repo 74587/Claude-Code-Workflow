@@ -255,7 +255,8 @@ export function filterSpecs(
 
   for (const entry of index.entries) {
     // Category filter: skip if category specified and doesn't match
-    if (category && entry.category !== category) {
+    // 'general' category always passes through (applies to all stages)
+    if (category && entry.category !== category && entry.category !== 'general') {
       continue;
     }
 

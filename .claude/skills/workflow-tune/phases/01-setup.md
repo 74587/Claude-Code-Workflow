@@ -377,6 +377,99 @@ if (invalidSteps.length > 0) {
 }
 ```
 
+### Step 1.2b: Generate Test Requirements (Acceptance Criteria)
+
+> 调优的前提：为每一步生成跟任务匹配的验收标准。没有预期基准，就无法判断命令执行是否达标。
+
+用 Gemini 根据 step command + workflow context + 上下游关系，自动推断每步的验收标准。
+
+```javascript
+// Build step chain description for context
+const stepChainDesc = steps.map((s, i) =>
+  `Step ${i + 1}: ${s.name} (${s.type}) — ${s.command}`
+).join('\n');
+
+const reqGenPrompt = `PURPOSE: Generate concrete acceptance criteria (test requirements) for each step in a workflow pipeline. These criteria will be used to objectively judge whether each step's execution succeeded or failed.
+
+WORKFLOW:
+Name: ${workflowName}
+Goal: ${workflowContext}
+
+STEP CHAIN:
+${stepChainDesc}
+
+TASK:
+For each step, generate:
+1. **expected_outputs** — what files/artifacts should be produced (specific filenames or patterns)
+2. **content_signals** — what content patterns indicate success (keywords, structures, data shapes)
+3. **quality_thresholds** — minimum quality bar (e.g., "no empty files", "JSON must be parseable", "must contain at least N items")
+4. **pass_criteria** — 1-2 sentence description of what "pass" looks like for this step
+5. **fail_signals** — what patterns indicate failure (error messages, empty output, wrong format)
+6. **handoff_contract** — what this step must provide for the next step to work (data format, required fields)
+
+CONTEXT RULES:
+- Infer from the command what the step is supposed to do
+- Consider workflow goal when judging what "good enough" means
+- Each step's handoff_contract should match what the next step needs as input
+- Be specific: "report.md with ## Summary section" not "a report file"
+
+EXPECTED OUTPUT (strict JSON, no markdown):
+{
+  "step_requirements": [
+    {
+      "step_index": 0,
+      "step_name": "<name>",
+      "expected_outputs": ["<file or pattern>"],
+      "content_signals": ["<keyword or pattern that indicates success>"],
+      "quality_thresholds": ["<minimum bar>"],
+      "pass_criteria": "<what pass looks like>",
+      "fail_signals": ["<pattern that indicates failure>"],
+      "handoff_contract": "<what next step needs from this step>"
+    }
+  ]
+}
+
+CONSTRAINTS: Be specific to each command, output ONLY JSON`;
+
+Bash({
+  command: `ccw cli -p "${escapeForShell(reqGenPrompt)}" --tool gemini --mode analysis --rule universal-rigorous-style`,
+  run_in_background: true,
+  timeout: 300000
+});
+
+// STOP — wait for hook callback
+// After callback: parse JSON, attach requirements to each step
+
+const reqOutput = /* CLI output from callback */;
+const reqJsonMatch = reqOutput.match(/\{[\s\S]*\}/);
+
+if (reqJsonMatch) {
+  try {
+    const reqData = JSON.parse(reqJsonMatch[0]);
+    (reqData.step_requirements || []).forEach(req => {
+      const idx = req.step_index;
+      if (idx >= 0 && idx < steps.length) {
+        steps[idx].test_requirements = {
+          expected_outputs: req.expected_outputs || [],
+          content_signals: req.content_signals || [],
+          quality_thresholds: req.quality_thresholds || [],
+          pass_criteria: req.pass_criteria || '',
+          fail_signals: req.fail_signals || [],
+          handoff_contract: req.handoff_contract || ''
+        };
+      }
+    });
+  } catch (e) {
+    // Fallback: proceed without generated requirements
+    // Steps will use any manually provided success_criteria
+  }
+}
+
+// Capture session ID for resume chain start
+const reqSessionMatch = reqOutput.match(/\[CCW_EXEC_ID=([^\]]+)\]/);
+const reqSessionId = reqSessionMatch ? reqSessionMatch[1] : null;
+```
+
 ### Step 1.3: Create Workspace
 
 ```javascript
@@ -414,9 +507,10 @@ const initialState = {
     index: i,
     status: 'pending',
     execution: null,
-    analysis: null
+    analysis: null,
+    test_requirements: s.test_requirements || null  // from Step 1.2b
   })),
-  analysis_session_id: null,  // ccw cli resume chain
+  analysis_session_id: reqSessionId || null,  // resume chain starts from requirements generation
   process_log_entries: [],
   synthesis: null,
   errors: [],

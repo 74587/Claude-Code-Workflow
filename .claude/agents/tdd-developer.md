@@ -383,6 +383,7 @@ Bash(
 ### Context Loading (Inherited from code-developer)
 
 **Standard Context Sources**:
+- Test specs: Run `ccw spec load --category test` for test framework context, conventions, and coverage targets
 - Task JSON: `description`, `convergence.criteria`, `focus_paths`
 - Context Package: `context_package_path` → brainstorm artifacts, exploration results
 - Tech Stack: `meta.shared_context.tech_stack` (skip auto-detection if present)

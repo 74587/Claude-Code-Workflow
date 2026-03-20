@@ -76,6 +76,7 @@ const contextAgentId = spawn_agent({
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/test-context-search-agent.md (MUST read first)
 2. Run: `ccw spec load --category planning`
+3. Run: `ccw spec load --category test` (test framework, coverage targets, conventions)
 
 ---
 
@@ -102,6 +103,7 @@ const contextAgentId = spawn_agent({
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/context-search-agent.md (MUST read first)
 2. Run: `ccw spec load --category planning`
+3. Run: `ccw spec load --category test` (test framework, coverage targets, conventions)
 
 ---
 
@@ -175,6 +177,7 @@ const analysisAgentId = spawn_agent({
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-execution-agent.md (MUST read first)
 2. Run: `ccw spec load --category planning`
+3. Run: `ccw spec load --category test` (test framework, coverage targets, conventions)
 
 ---
 
@@ -243,6 +246,7 @@ const taskGenAgentId = spawn_agent({
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/action-planning-agent.md (MUST read first)
 2. Run: `ccw spec load --category planning`
+3. Run: `ccw spec load --category test` (test framework, coverage targets, conventions)
 
 ---
 

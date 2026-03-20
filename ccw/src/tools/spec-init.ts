@@ -18,7 +18,7 @@ import { join } from 'path';
 export interface SpecFrontmatter {
   title: string;
   dimension: string;
-  category?: 'general' | 'exploration' | 'planning' | 'execution';
+  category?: 'general' | 'exploration' | 'planning' | 'execution' | 'debug' | 'test' | 'review' | 'validation';
   keywords: string[];
   readMode: 'required' | 'optional';
   priority: 'high' | 'medium' | 'low';
@@ -117,6 +117,133 @@ export const SEED_DOCS: Map<string, SeedDoc[]> = new Map([
 - External dependencies require justification
 - Prefer standard library when available
 - Pin dependency versions for reproducibility
+`,
+      },
+      {
+        filename: 'debug-notes.md',
+        frontmatter: {
+          title: 'Debug Notes',
+          dimension: 'specs',
+          category: 'debug',
+          keywords: ['debug', 'issue', 'workaround', 'root-cause', 'gotcha'],
+          readMode: 'optional',
+          priority: 'medium',
+        },
+        body: `# Debug Notes
+
+## Known Issues
+
+- Document known bugs and their workarounds here
+- Include root-cause analysis for resolved issues
+
+## Common Gotchas
+
+- List environment-specific pitfalls
+- Note platform differences that cause unexpected behavior
+
+## Debugging Tips
+
+- Preferred debugging workflows for this project
+- Key log locations and diagnostic commands
+`,
+      },
+      {
+        filename: 'test-conventions.md',
+        frontmatter: {
+          title: 'Test Conventions',
+          dimension: 'specs',
+          category: 'test',
+          keywords: ['test', 'coverage', 'mock', 'fixture', 'assertion', 'framework'],
+          readMode: 'required',
+          priority: 'high',
+        },
+        body: `# Test Conventions
+
+## Framework
+
+- Test runner and assertion library used in this project
+- Configuration file locations
+
+## Structure
+
+- Test file naming conventions (e.g., *.test.ts, *.spec.ts)
+- Test directory organization
+- Fixture and mock patterns
+
+## Coverage
+
+- Minimum coverage thresholds
+- Coverage report configuration
+- Files excluded from coverage
+
+## Best Practices
+
+- Prefer unit tests for business logic
+- Use integration tests for API boundaries
+- Mock external dependencies, not internal modules
+`,
+      },
+      {
+        filename: 'review-standards.md',
+        frontmatter: {
+          title: 'Review Standards',
+          dimension: 'specs',
+          category: 'review',
+          keywords: ['review', 'checklist', 'gate', 'approval', 'standard'],
+          readMode: 'required',
+          priority: 'medium',
+        },
+        body: `# Review Standards
+
+## Code Review Checklist
+
+- Correctness: Does it do what it claims?
+- Clarity: Is the intent obvious without comments?
+- Tests: Are changes covered by tests?
+- Security: No new vulnerabilities introduced?
+- Performance: No unnecessary allocations or O(n²) loops?
+
+## Approval Gates
+
+- All CI checks must pass
+- At least one approving review required
+- No unresolved conversations
+
+## Style
+
+- Follow existing project conventions
+- Keep PRs focused and reviewable (< 400 lines preferred)
+`,
+      },
+      {
+        filename: 'validation-rules.md',
+        frontmatter: {
+          title: 'Validation Rules',
+          dimension: 'specs',
+          category: 'validation',
+          keywords: ['validation', 'verification', 'acceptance', 'criteria', 'check'],
+          readMode: 'required',
+          priority: 'high',
+        },
+        body: `# Validation Rules
+
+## Acceptance Criteria
+
+- Define clear pass/fail conditions for each feature
+- Include edge cases in acceptance criteria
+- Specify performance thresholds where applicable
+
+## Verification Steps
+
+- Build must succeed without warnings
+- All existing tests must continue to pass
+- New features must include corresponding tests
+
+## Quality Checks
+
+- No TypeScript strict mode errors
+- No linter warnings in changed files
+- Bundle size regression checks (if applicable)
 `,
       },
     ],

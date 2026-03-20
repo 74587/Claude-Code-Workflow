@@ -66,9 +66,17 @@ const ENV_GROUPS: EnvGroup[] = [
       { key: 'CODEXLENS_DB_PATH', label: 'DB Path' },
       { key: 'CODEXLENS_INDEX_WORKERS', label: 'Index Workers' },
       { key: 'CODEXLENS_CODE_AWARE_CHUNKING', label: 'Code Aware Chunking' },
+      { key: 'CODEXLENS_AST_CHUNKING', label: 'AST Chunking' },
       { key: 'CODEXLENS_MAX_FILE_SIZE', label: 'Max File Size' },
       { key: 'CODEXLENS_HNSW_EF', label: 'HNSW EF' },
       { key: 'CODEXLENS_HNSW_M', label: 'HNSW M' },
+    ],
+  },
+  {
+    title: 'watcher',
+    fields: [
+      { key: 'CODEXLENS_AUTO_WATCH', label: 'Auto Watch' },
+      { key: 'CODEXLENS_WATCHER_DEBOUNCE_MS', label: 'Watch Debounce (ms)' },
     ],
   },
 ];
@@ -95,6 +103,9 @@ const FIELD_DEFAULTS: Record<string, string> = {
   CODEXLENS_RERANKER_BATCH_SIZE: '32',
   CODEXLENS_INDEX_WORKERS: '2',
   CODEXLENS_CODE_AWARE_CHUNKING: 'true',
+  CODEXLENS_AST_CHUNKING: 'true',
+  CODEXLENS_AUTO_WATCH: 'false',
+  CODEXLENS_WATCHER_DEBOUNCE_MS: '1000',
   CODEXLENS_MAX_FILE_SIZE: '1000000',
   CODEXLENS_HNSW_EF: '150',
   CODEXLENS_HNSW_M: '32',

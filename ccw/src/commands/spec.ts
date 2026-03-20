@@ -97,7 +97,7 @@ async function loadAction(options: SpecOptions): Promise<void> {
     const result = await loadSpecs({
       projectPath,
       dimension: dimension as 'specs' | 'personal' | undefined,
-      category: category as 'general' | 'exploration' | 'planning' | 'execution' | undefined,
+      category: category as 'general' | 'exploration' | 'planning' | 'execution' | 'debug' | 'test' | 'review' | 'validation' | undefined,
       keywords,
       outputFormat: stdin ? 'hook' : 'cli',
       stdinData,
@@ -367,11 +367,16 @@ ${chalk.bold('OPTIONS')}
   --stdin             Read input from stdin (Hook mode)
   --json              Output as JSON
 
-${chalk.bold('KEYWORD CATEGORIES')}
-  Use these predefined keywords to load specs for specific workflow stages:
-  ${chalk.cyan('exploration')}  - Code exploration, analysis, debugging context
+${chalk.bold('CATEGORIES')}
+  Use --category to load specs for specific workflow stages:
+  ${chalk.cyan('general')}      - Applies to all stages (always included)
+  ${chalk.cyan('exploration')}  - Code exploration, analysis, codebase understanding
   ${chalk.cyan('planning')}     - Task planning, requirements context
-  ${chalk.cyan('execution')}    - Implementation, testing, deployment context
+  ${chalk.cyan('execution')}    - Implementation, coding, deployment context
+  ${chalk.cyan('debug')}        - Debugging, known issues, workarounds
+  ${chalk.cyan('test')}         - Test conventions, frameworks, coverage
+  ${chalk.cyan('review')}       - Code review standards, checklists, gates
+  ${chalk.cyan('validation')}   - Verification rules, acceptance criteria
 
 ${chalk.bold('EXAMPLES')}
   ${chalk.gray('# Initialize spec system:')}

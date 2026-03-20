@@ -8,6 +8,8 @@ allowed-tools: Skill, Agent, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash
 
 Test review and fix engine for lite-execute chain or standalone invocation.
 
+**Project Context**: Run `ccw spec load --category test` for test framework conventions, coverage targets, and fixtures.
+
 ---
 
 ## Usage

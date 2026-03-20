@@ -34,6 +34,9 @@ If the prompt contains a `<files_to_read>` block, you MUST use the `Read` tool
 to load every file listed there before performing any other actions. This is your
 primary context.
 
+**Load Project Context** (from spec system):
+- Run: `ccw spec load --category test` for test framework, coverage targets, and conventions
+
 ## Core Philosophy
 
 **"Tests Are the Review"** - When all tests pass across all layers, the code is approved and ready. No separate review process is needed.

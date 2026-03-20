@@ -95,6 +95,7 @@ dimensions.forEach(dimension => {
 4. Validate file access: bash(ls -la ${targetFiles.join(' ')})
 5. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
 6. Execute: ccw spec load --category "exploration execution" (technology stack and constraints)
+7. Execute: ccw spec load --category review (review standards and checklists)
 
 ---
 
@@ -217,6 +218,7 @@ dimensions.forEach(dimension => {
 5. Read review state: ${reviewStateJsonPath}
 6. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-dimension-results-schema.json (get output schema reference)
 7. Execute: ccw spec load --category "exploration execution" (technology stack and constraints)
+8. Execute: ccw spec load --category review (review standards and checklists)
 
 ---
 
@@ -335,6 +337,7 @@ const deepDiveAgentId = spawn_agent({
 5. Read test files: bash(find ${projectDir}/tests -name "*${basename(file, '.ts')}*" -type f)
 6. Execute: cat ~/.ccw/workflows/cli-templates/schemas/review-deep-dive-results-schema.json (get output schema reference)
 7. Execute: ccw spec load --category "exploration execution" (technology stack and constraints for remediation)
+8. Execute: ccw spec load --category review (review standards and checklists)
 
 ---
 

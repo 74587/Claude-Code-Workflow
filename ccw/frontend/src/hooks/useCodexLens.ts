@@ -204,3 +204,18 @@ export function useCodexLensMcpConfig() {
     staleTime: 30_000,
   });
 }
+
+// ========================================
+// Watcher Status Hook
+// ========================================
+
+export function useWatcherStatus() {
+  const { data: envData } = useCodexLensEnv();
+  const autoWatch = envData?.values?.CODEXLENS_AUTO_WATCH === 'true';
+  const debounceMs = envData?.values?.CODEXLENS_WATCHER_DEBOUNCE_MS || '1000';
+
+  return {
+    autoWatch,
+    debounceMs,
+  };
+}

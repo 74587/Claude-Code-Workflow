@@ -28,17 +28,21 @@ import { homedir } from 'os';
 
 /**
  * Spec categories for workflow stage-based loading.
- * - general: Applies to all stages (e.g. coding conventions)
- * - exploration: Code exploration, analysis, debugging context
+ * - general: Applies to all stages (e.g. coding conventions) — always included
+ * - exploration: Code exploration, analysis, codebase understanding
  * - planning: Task planning, roadmap, requirements context
- * - execution: Implementation, testing, deployment context
+ * - execution: Implementation, coding, deployment context
+ * - debug: Debugging, known issues, workarounds, root-cause notes
+ * - test: Test conventions, frameworks, coverage, fixtures
+ * - review: Code review standards, checklists, approval gates
+ * - validation: Verification rules, acceptance criteria, quality checks
  *
  * Usage: Set category field in spec frontmatter:
  *   category: exploration
  *
  * System-level loading by stage: ccw spec load --category exploration
  */
-export const SPEC_CATEGORIES = ['general', 'exploration', 'planning', 'execution'] as const;
+export const SPEC_CATEGORIES = ['general', 'exploration', 'planning', 'execution', 'debug', 'test', 'review', 'validation'] as const;
 
 export type SpecCategory = typeof SPEC_CATEGORIES[number];
 

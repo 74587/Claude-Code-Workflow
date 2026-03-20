@@ -10,7 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { useIndexStatus, useSyncIndex, useRebuildIndex, codexLensKeys, type IndexStatusData } from '@/hooks/useCodexLens';
+import { useIndexStatus, useSyncIndex, useRebuildIndex, useWatcherStatus, codexLensKeys, type IndexStatusData } from '@/hooks/useCodexLens';
 import { useWorkflowStore, selectProjectPath } from '@/stores/workflowStore';
 
 interface ProjectStatusCardProps {
@@ -131,8 +131,17 @@ export function IndexManagerTab() {
     }
   };
 
+  const { autoWatch } = useWatcherStatus();
+
   return (
     <div className="space-y-4">
+      {/* Global watcher status */}
+      <div className="flex items-center gap-2">
+        <span className={`text-xs px-2 py-0.5 rounded-full ${autoWatch ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+          {autoWatch ? 'Auto-watch ON' : 'Auto-watch OFF'}
+        </span>
+      </div>
+
       {/* Add project path */}
       <div className="flex gap-2">
         <Input

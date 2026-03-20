@@ -96,6 +96,7 @@ Step 1: Topic Understanding
 Step 2: Exploration (Inline, No Agents)
    ├─ Detect codebase → search relevant modules, patterns
    │   ├─ Run `ccw spec load --category exploration` (if spec system available)
+   │   ├─ Run `ccw spec load --category debug` (known issues and root-cause notes)
    │   └─ Use Grep, Glob, Read, mcp__ace-tool__search_context
    ├─ Multi-perspective analysis (if selected, serial)
    │   ├─ Single: Comprehensive analysis
@@ -320,6 +321,7 @@ const hasCodebase = Bash(`
 if (hasCodebase !== 'none') {
   // 1. Read project metadata (if exists)
   //    - Run `ccw spec load --category exploration` (load project specs)
+  //    - Run `ccw spec load --category debug` (known issues and root-cause notes)
   //    - .workflow/specs/*.md (project conventions)
 
   // 2. Search codebase for relevant content

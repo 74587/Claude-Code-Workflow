@@ -52,6 +52,9 @@ Read("d:\Claude_dms3\.claude\agents\action-planning-agent.md")
 ```
 <!-- TODO: verify mandatory read path -->
 
+**Load Project Context** (from spec system):
+- Run: `ccw spec load --category test` for test framework, coverage targets, and conventions
+
 </role>
 
 <test_specification_reference>

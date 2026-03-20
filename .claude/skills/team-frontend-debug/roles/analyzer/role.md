@@ -31,8 +31,9 @@ Root cause analysis from debug evidence.
 
 ## Phase 2: Load Evidence
 
-1. Read upstream artifacts via team_msg(operation="get_state", role="reproducer")
-2. Extract evidence paths from reproducer's state_update ref
+1. Load debug specs: Run `ccw spec load --category debug` for known issues, workarounds, and root-cause notes
+2. Read upstream artifacts via team_msg(operation="get_state", role="reproducer")
+3. Extract evidence paths from reproducer's state_update ref
 3. Load evidence-summary.json from session evidence/
 4. Load all evidence files:
    - Read screenshot files (visual inspection)

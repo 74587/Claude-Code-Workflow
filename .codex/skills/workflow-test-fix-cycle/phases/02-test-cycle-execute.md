@@ -91,6 +91,7 @@ const analysisAgentId = spawn_agent({
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/cli-planning-agent.md (MUST read first)
 2. Run: `ccw spec load --category planning`
+3. Run: `ccw spec load --category test` (test framework, coverage targets, conventions)
 
 ---
 
@@ -157,6 +158,7 @@ const fixAgentId = spawn_agent({
 ### MANDATORY FIRST STEPS (Agent Execute)
 1. **Read role definition**: ~/.codex/agents/test-fix-agent.md (MUST read first)
 2. Run: `ccw spec load --category execution`
+3. Run: `ccw spec load --category test` (test framework, coverage targets, conventions)
 
 ---
 
