@@ -31,31 +31,31 @@ Test review and fix engine for lite-execute chain or standalone invocation.
 
 **Input Source**: `testReviewContext` global variable set by lite-execute Step 4
 
-**Behavior**: Skip session discovery, inherit reviewTool from execution chain, proceed directly to TR-Phase 1.
+**Behavior**: Skip session discovery, inherit convergenceReviewTool from execution chain, proceed directly to TR-Phase 1.
 
-> **Note**: lite-execute Step 4 is the chain gate. Mode 1 invocation means execution is complete — proceed with test review.
+> **Note**: lite-execute Step 5 is the chain gate. Mode 1 invocation means execution + code review are complete — proceed with convergence verification + tests.
 
 ### Mode 2: Standalone
 
 **Trigger**: User calls with session path or `--last`
 
-**Behavior**: Discover session → load plan + tasks → `reviewTool = 'agent'` → proceed to TR-Phase 1.
+**Behavior**: Discover session → load plan + tasks → `convergenceReviewTool = 'agent'` → proceed to TR-Phase 1.
 
 ```javascript
-let sessionPath, plan, taskFiles, reviewTool
+let sessionPath, plan, taskFiles, convergenceReviewTool
 
 if (testReviewContext) {
   // Mode 1: from lite-execute chain
   sessionPath = testReviewContext.session.folder
   plan = testReviewContext.planObject
   taskFiles = testReviewContext.taskFiles.map(tf => JSON.parse(Read(tf.path)))
-  reviewTool = testReviewContext.reviewTool || 'agent'
+  convergenceReviewTool = testReviewContext.convergenceReviewTool || 'agent'
 } else {
   // Mode 2: standalone — find last session or use provided path
   sessionPath = resolveSessionPath($ARGUMENTS)  // Glob('.workflow/.lite-plan/*/plan.json'), take last
   plan = JSON.parse(Read(`${sessionPath}/plan.json`))
   taskFiles = plan.task_ids.map(id => JSON.parse(Read(`${sessionPath}/.task/${id}.json`)))
-  reviewTool = 'agent'
+  convergenceReviewTool = 'agent'
 }
 
 const skipFix = $ARGUMENTS?.includes('--skip-fix') || false
@@ -66,7 +66,7 @@ const skipFix = $ARGUMENTS?.includes('--skip-fix') || false
 | Phase | Core Action | Output |
 |-------|-------------|--------|
 | TR-Phase 1 | Detect test framework + gather changes | testConfig, changedFiles |
-| TR-Phase 2 | Review implementation against convergence criteria | reviewResults[] |
+| TR-Phase 2 | Convergence verification against plan criteria | reviewResults[] |
 | TR-Phase 3 | Run tests + generate checklist | test-checklist.json |
 | TR-Phase 4 | Auto-fix failures (iterative, max 3 rounds) | Fixed code + updated checklist |
 | TR-Phase 5 | Output report + chain to session:sync | test-review.md |
@@ -93,32 +93,45 @@ Output: `testConfig = { command, framework, type }` + `changedFiles[]`
 
 // TodoWrite: Phase 1 → completed, Phase 2 → in_progress
 
-## TR-Phase 2: Review Implementation Against Plan
+## TR-Phase 2: Convergence Verification
 
-**Skip if**: `reviewTool === 'skip'`  — set all tasks to PASS, proceed to Phase 3.
+**Skip if**: `convergenceReviewTool === 'skip'`  — set all tasks to PASS, proceed to Phase 3.
 
-For each task, verify convergence criteria and identify test gaps.
+Verify each task's convergence criteria are met in the implementation and identify test gaps.
 
-**Agent Review** (reviewTool === 'agent', default):
+**Agent Convergence Review** (convergenceReviewTool === 'agent', default):
 
 For each task in taskFiles:
-1. Extract `convergence.criteria[]` and `test` requirements
-2. Find changed files matching `task.files[].path` against `changedFiles`
-3. Read matched files, evaluate each criterion against implementation
-4. Check test coverage: if `task.test.unit` exists but no test files in changedFiles → mark as test gap
-5. Same for `task.test.integration`
-6. Build `reviewResult = { taskId, title, criteria_met[], criteria_unmet[], test_gaps[], files_reviewed[] }`
+1. Extract `convergence.criteria[]` from the task
+2. Match `task.files[].path` against `changedFiles` to find actually-changed files
+3. Read each matched file, verify each convergence criterion with file:line evidence
+4. Check test coverage gaps:
+   - If `task.test.unit` defined but no matching test files in changedFiles → mark as test gap
+   - If `task.test.integration` defined but no integration test in changedFiles → mark as test gap
+5. Build `reviewResult = { taskId, title, criteria_met[], criteria_unmet[], test_gaps[], files_reviewed[] }`
 
-**CLI Review** (reviewTool === 'gemini' or 'codex'):
+**Verdict logic**:
+- PASS = all `convergence.criteria` met + no test gaps
+- PARTIAL = some criteria met OR has test gaps
+- FAIL = no criteria met
+
+**CLI Convergence Review** (convergenceReviewTool === 'gemini' or 'codex'):
 
 ```javascript
-const reviewId = `${sessionId}-tr-review`
-Bash(`ccw cli -p "PURPOSE: Post-execution test review — verify convergence criteria met and identify test gaps
-TASK: • Read plan.json and .task/*.json convergence criteria • For each criterion, check implementation in changed files • Identify missing unit/integration tests • List unmet criteria with file:line evidence
+const reviewId = `${sessionId}-convergence`
+const taskCriteria = taskFiles.map(t => `${t.id}: [${(t.convergence?.criteria || []).join(' | ')}]`).join('\n')
+Bash(`ccw cli -p "PURPOSE: Convergence verification — check each task's completion criteria against actual implementation
+TASK: • For each task below, verify every convergence criterion is satisfied in the changed files • Mark each criterion as MET (with file:line evidence) or UNMET (with what's missing) • Identify test coverage gaps (planned tests not found in changes)
+
+TASK CRITERIA:
+${taskCriteria}
+
+CHANGED FILES: ${changedFiles.join(', ')}
+
 MODE: analysis
-CONTEXT: @${sessionPath}/plan.json @${sessionPath}/.task/*.json @**/* | Memory: lite-execute completed, reviewing convergence
-EXPECTED: Per-task verdict table (PASS/PARTIAL/FAIL) + unmet criteria list + test gap list
-CONSTRAINTS: Read-only | Focus on convergence verification" --tool ${reviewTool} --mode analysis --id ${reviewId}`, { run_in_background: true })
+CONTEXT: @${sessionPath}/plan.json @${sessionPath}/.task/*.json @**/* | Memory: lite-execute completed
+EXPECTED: Per-task verdict (PASS/PARTIAL/FAIL) with per-criterion evidence + test gap list
+CONSTRAINTS: Read-only | Focus strictly on convergence criteria verification, NOT code quality (code review already done in lite-execute)" --tool ${convergenceReviewTool} --mode analysis --id ${reviewId}`, { run_in_background: true })
 // STOP - wait for hook callback, then parse CLI output into reviewResults format
 ```
 
@@ -207,13 +220,13 @@ Skill({ skill: "workflow:session:sync", args: `-y "Test review: ${testChecklist.
 
 ## Data Structures
 
-### testReviewContext (Input - Mode 1, set by lite-execute)
+### testReviewContext (Input - Mode 1, set by lite-execute Step 5)
 
 ```javascript
 {
   planObject: { /* same as executionContext.planObject */ },
   taskFiles: [{ id: string, path: string }],
-  reviewTool: "skip" | "agent" | "gemini" | "codex",
+  convergenceReviewTool: "skip" | "agent" | "gemini" | "codex",
   executionResults: [...],
   originalUserInput: string,
   session: {
