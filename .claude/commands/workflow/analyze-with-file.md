@@ -78,10 +78,10 @@ All `AskUserQuestion` calls MUST comply:
 |-------|----------|-------------|
 | 1 | `discussion.md` | Initialized with TOC, Current Understanding block, timeline, metadata |
 | 1 | Session variables | Dimensions, focus areas, analysis depth |
-| 2 | `exploration-codebase.json` | Single codebase context from cli-explore-agent |
-| 2 | `explorations/*.json` | Multi-perspective codebase explorations (parallel, up to 4) |
-| 2 | `explorations.json` | Single perspective aggregated findings |
-| 2 | `perspectives.json` | Multi-perspective findings (up to 4) with synthesis |
+| 2 | `exploration-codebase.json` | Shared Layer 1 discovery (files, modules, patterns) — always created |
+| 2 | `explorations/*.json` | Per-perspective Layer 2-3 deep-dives (multi-perspective only, max 4) |
+| 2 | `explorations.json` | Single perspective aggregated findings (Layer 1 + CLI analysis) |
+| 2 | `perspectives.json` | Multi-perspective findings (Layer 1 shared + per-perspective deep-dives) with synthesis |
 | 2 | Updated `discussion.md` | Round 1 + Initial Intent Coverage Check + Current Understanding replaced |
 | 3 | Updated `discussion.md` | Round 2-N: feedback, insights, narrative synthesis; TOC + Current Understanding updated each round |
 | 4 | `conclusions.json` | Final synthesis with recommendations (incl. steps[] + review_status) |
@@ -141,92 +141,124 @@ All `AskUserQuestion` calls MUST comply:
 <step name="cli_exploration">
 **Phase 2: Codebase exploration FIRST, then CLI analysis.**
 
-**Step 1: Codebase Exploration** (cli-explore-agent, parallel up to 6)
+**Step 1: Codebase Exploration** (cli-explore-agent, 1 shared + N perspective-specific)
 
-- **Single**: General codebase analysis -> `{sessionFolder}/exploration-codebase.json`
-- **Multi-perspective**: Parallel per-perspective -> `{sessionFolder}/explorations/{perspective}.json`
-- **Common tasks**: `ccw tool exec get_modules_by_depth '{}'`, keyword searches, read `.workflow/project-tech.json`
+Two-phase approach to avoid redundant file discovery:
+
+**Phase A — Shared Discovery** (1 agent, always runs):
+One cli-explore-agent performs Layer 1 (breadth) for ALL perspectives -> `{sessionFolder}/exploration-codebase.json`
 
 ```javascript
-// Template for cli-explore-agent (single or per-perspective)
+// Shared Layer 1 discovery — runs ONCE regardless of perspective count
 Agent({
   subagent_type: "cli-explore-agent",
   run_in_background: false,
-  description: `Explore codebase: ${topicSlug}`,
+  description: `Discover codebase: ${topicSlug}`,
   prompt: `
 ## Analysis Context
 Topic: ${topic_or_question}
 Dimensions: ${dimensions.join(', ')}
-// For multi-perspective, add: Perspective: ${perspective.name} - ${perspective.focus}
 Session: ${sessionFolder}
 
 ## MANDATORY FIRST STEPS
 1. Run: ccw tool exec get_modules_by_depth '{}'
 2. Read: .workflow/project-tech.json (if exists)
 
-## Layered Exploration (MUST follow all 3 layers)
-
-### Layer 1 — Module Discovery (Breadth)
-- Search by topic keywords, identify ALL relevant files
-- Map module boundaries and entry points -> relevant_files[] with annotations
-
-### Layer 2 — Structure Tracing (Depth)
-- Top 3-5 key files: trace call chains 2-3 levels deep
-- Identify data flow paths and dependencies -> call_chains[], data_flows[]
-
-### Layer 3 — Code Anchor Extraction (Detail)
-- Each key finding: extract code snippet (20-50 lines) with file:line
-- Annotate WHY this matters -> code_anchors[]
+## Layer 1 — Module Discovery (Breadth ONLY)
+- Search by topic keywords across ALL dimensions: ${dimensions.join(', ')}
+- Identify ALL relevant files, map module boundaries and entry points
+- Categorize files by dimension/perspective relevance
+- Output: relevant_files[] with annotations + dimension tags, initial patterns[]
 
 ## Output
 Write to: ${sessionFolder}/exploration-codebase.json
-// Multi-perspective: ${sessionFolder}/explorations/${perspective.name}.json
-
-Schema: {relevant_files, patterns, key_findings, code_anchors: [{file, lines, snippet, significance}], call_chains: [{entry, chain, files}], questions_for_user, _metadata}
+Schema: {relevant_files: [{path, annotation, dimensions[]}], patterns[], module_map: {}, questions_for_user, _metadata}
 `
 })
 ```
 
-**Step 2: CLI Analysis** (AFTER exploration)
+**Phase B — Perspective Deep-Dive** (parallel, only for multi-perspective, max 4):
+Each perspective agent receives shared Layer 1 results, performs only Layer 2-3 on its relevant subset.
+Skip if single-perspective (single mode proceeds directly to Step 2 CLI analysis with Layer 1 results).
 
-- **Single**: Comprehensive CLI analysis with exploration context
-- **Multi (up to 4)**: Parallel CLI calls per perspective
+```javascript
+// Per-perspective Layer 2-3 — receives shared discovery, avoids re-scanning
+// Only runs in multi-perspective mode
+const sharedDiscovery = readJSON(`${sessionFolder}/exploration-codebase.json`)
+const perspectiveFiles = sharedDiscovery.relevant_files
+  .filter(f => f.dimensions.includes(perspective.dimension))
+
+selectedPerspectives.forEach(perspective => {
+  Agent({
+    subagent_type: "cli-explore-agent",
+    run_in_background: false,
+    description: `Deep-dive: ${perspective.name}`,
+    prompt: `
+## Analysis Context
+Topic: ${topic_or_question}
+Perspective: ${perspective.name} - ${perspective.focus}
+Session: ${sessionFolder}
+
+## SHARED DISCOVERY (Layer 1 already completed — DO NOT re-scan)
+Relevant files for this perspective:
+${perspectiveFiles.map(f => `- ${f.path}: ${f.annotation}`).join('\n')}
+Patterns found: ${sharedDiscovery.patterns.join(', ')}
+
+## Layer 2 — Structure Tracing (Depth)
+- From the relevant files above, pick top 3-5 key files for this perspective
+- Trace call chains 2-3 levels deep
+- Identify data flow paths and dependencies -> call_chains[], data_flows[]
+
+## Layer 3 — Code Anchor Extraction (Detail)
+- Each key finding: extract code snippet (20-50 lines) with file:line
+- Annotate WHY this matters for ${perspective.name} -> code_anchors[]
+
+## Output
+Write to: ${sessionFolder}/explorations/${perspective.name}.json
+Schema: {perspective, relevant_files, key_findings, code_anchors: [{file, lines, snippet, significance}], call_chains: [{entry, chain, files}], questions_for_user, _metadata}
+`
+  })
+})
+```
+
+**Step 2: CLI Deep Analysis** (AFTER exploration, single-perspective ONLY)
+
+- **Single-perspective**: CLI does Layer 2-3 depth analysis (explore agent only did Layer 1)
+- **Multi-perspective**: SKIP this step — perspective agents in Step 1 Phase B already did Layer 2-3
 - Execution: `Bash` with `run_in_background: true`
 
 ```javascript
-// Build shared exploration context for CLI prompts
-const explorationContext = `
-PRIOR EXPLORATION CONTEXT:
-- Key files: ${explorationResults.relevant_files.slice(0,5).map(f => f.path).join(', ')}
-- Patterns: ${explorationResults.patterns.slice(0,3).join(', ')}
-- Findings: ${explorationResults.key_findings.slice(0,3).join(', ')}
-- Code anchors:
-${(explorationResults.code_anchors || []).slice(0,5).map(a => `  [${a.file}:${a.lines}] ${a.significance}\n  \`\`\`\n  ${a.snippet}\n  \`\`\``).join('\n')}
-- Call chains: ${(explorationResults.call_chains || []).slice(0,3).map(c => `${c.entry} -> ${c.chain.join(' -> ')}`).join('; ')}`
+// ONLY for single-perspective mode — multi-perspective already has deep-dive agents
+if (selectedPerspectives.length <= 1) {
+  const sharedDiscovery = readJSON(`${sessionFolder}/exploration-codebase.json`)
+  const explorationContext = `
+PRIOR EXPLORATION (Layer 1 discovery):
+- Key files: ${sharedDiscovery.relevant_files.slice(0,8).map(f => `${f.path} (${f.annotation})`).join(', ')}
+- Patterns: ${sharedDiscovery.patterns.slice(0,5).join(', ')}
+- Module map: ${JSON.stringify(sharedDiscovery.module_map || {})}`
 
-// Single perspective (for multi: loop selectedPerspectives with perspective.purpose/tasks/constraints)
-Bash({
-  command: `ccw cli -p "
-PURPOSE: Analyze '${topic_or_question}' from ${dimensions.join(', ')} perspectives
-Success: Actionable insights with clear reasoning
+  Bash({
+    command: `ccw cli -p "
+PURPOSE: Deep analysis of '${topic_or_question}' — build on prior file discovery
+Success: Actionable insights with code evidence (anchors + call chains)
 
 ${explorationContext}
 
 TASK:
-- Build on exploration findings — reference specific code anchors
-- Analyze common patterns and anti-patterns with code evidence
-- Highlight potential issues/opportunities with file:line references
+- From discovered files, trace call chains 2-3 levels deep for top 3-5 key files
+- Extract code snippets (20-50 lines) for each key finding with file:line
+- Identify patterns, anti-patterns, and potential issues with evidence
 - Generate discussion points for user clarification
 
 MODE: analysis
 CONTEXT: @**/* | Topic: ${topic_or_question}
-EXPECTED: Structured analysis with sections, insights tied to evidence, questions, recommendations
-CONSTRAINTS: Focus on ${dimensions.join(', ')}
+EXPECTED: Structured analysis with: key_findings[], code_anchors[{file,lines,snippet,significance}], call_chains[{entry,chain,files}], discussion_points[]
+CONSTRAINTS: Focus on ${dimensions.join(', ')} | Do NOT re-discover files — use provided file list
 " --tool gemini --mode analysis`,
-  run_in_background: true
-})
-// STOP: Wait for hook callback before continuing
-// Multi-perspective: Same pattern per perspective with perspective.purpose/tasks/constraints/tool
+    run_in_background: true
+  })
+  // STOP: Wait for hook callback before continuing
+}
 ```
 
 **Step 3: Aggregate Findings**
@@ -243,7 +275,13 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 - Present to user at beginning of Phase 3: "初始探索完成后，以下意图的覆盖情况：[list]。接下来的讨论将重点关注未覆盖的部分。"
 - Purpose: Early course correction — catch drift before spending multiple interactive rounds
 
-**explorations.json Schema** (single):
+**exploration-codebase.json Schema** (shared Layer 1):
+- `session_id`, `timestamp`, `topic`, `dimensions[]`
+- `relevant_files[]`: {path, annotation, dimensions[]}
+- `patterns[]`, `module_map`: {}
+- `questions_for_user[]`, `_metadata`
+
+**explorations.json Schema** (single — Layer 1 + CLI analysis merged):
 - `session_id`, `timestamp`, `topic`, `dimensions[]`
 - `sources[]`: {type, file/summary}
 - `key_findings[]`, `code_anchors[]`: {file, lines, snippet, significance}
@@ -251,10 +289,10 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 - `discussion_points[]`, `open_questions[]`
 - `technical_solutions[]`: {round, solution, problem, rationale, alternatives, status: proposed|validated|rejected, evidence_refs[], next_action}
 
-**perspectives.json Schema** (multi — extends explorations.json):
-- `perspectives[]`: [{name, tool, findings, insights, questions}]
+**perspectives.json Schema** (multi — Layer 1 shared + per-perspective Layer 2-3):
+- `shared_discovery`: {relevant_files[], patterns[], module_map}
+- `perspectives[]`: [{name, tool, findings, insights, questions, code_anchors[], call_chains[]}]
 - `synthesis`: {convergent_themes, conflicting_views, unique_contributions}
-- code_anchors/call_chains include `perspective` field
 
 | Condition | Action |
 |-----------|--------|
@@ -269,6 +307,22 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')}
 **Phase 3: Interactive discussion loop with evolving understanding.**
 
 **Guideline**: Delegate complex tasks to agents (cli-explore-agent) or CLI calls. Avoid direct analysis in main process.
+
+**Cumulative Context Rule**: Every agent/CLI call in Phase 3 MUST include a summary of ALL prior exploration results to avoid re-discovering known information. Build `priorContext` before each call:
+```javascript
+// Build cumulative context from all prior explorations (Phase 2 + previous rounds)
+const allFindings = readJSON(`${sessionFolder}/explorations.json`) // or perspectives.json
+const priorContext = `
+## KNOWN FINDINGS (DO NOT re-discover)
+- Established files: ${allFindings.sources.map(s => s.file).join(', ')}
+- Key findings: ${allFindings.key_findings.join('; ')}
+- Code anchors: ${allFindings.code_anchors.slice(0,5).map(a => `${a.file}:${a.lines}`).join(', ')}
+- Call chains: ${allFindings.call_chains.slice(0,3).map(c => c.entry).join(', ')}
+- Open questions: ${allFindings.open_questions.join('; ')}
+
+## NEW TASK: Focus ONLY on unexplored areas below.
+`
+```
 
 **Loop** (max 5 rounds):
 
