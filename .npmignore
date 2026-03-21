@@ -85,3 +85,4 @@ codex-lens/.workflow/
 
 # Claude skills (development only)
 .claude/skills/team-designer/
+.claude/commands/workflow-tune.md
