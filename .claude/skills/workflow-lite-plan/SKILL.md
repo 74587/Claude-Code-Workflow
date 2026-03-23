@@ -40,7 +40,7 @@ Produces exploration results, a structured plan (plan.json), independent task fi
 
 **Output Directory**: `.workflow/.lite-plan/{task-slug}-{YYYY-MM-DD}/`
 
-**Agent Usage**: Low → Direct Claude planning (no agent) | Medium/High → `cli-lite-planning-agent`
+**Agent Usage**: All complexities → `cli-lite-planning-agent`
 
 **Schema Reference**: `~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.json`
 
@@ -51,7 +51,7 @@ Produces exploration results, a structured plan (plan.json), independent task fi
 | LP-0 | Initialize workflowPreferences | autoYes, forceExplore |
 | LP-1 | Complexity assessment → parallel cli-explore-agents (1-4) | exploration-*.json + manifest |
 | LP-2 | Aggregate + dedup clarification_needs → multi-round AskUserQuestion | clarificationContext (in-memory) |
-| LP-3 | Low: Direct Claude planning / Medium+High: cli-lite-planning-agent | plan.json + .task/TASK-*.json |
+| LP-3 | cli-lite-planning-agent | plan.json + .task/TASK-*.json |
 | LP-4 | Display plan → AskUserQuestion (Confirm + Execution + Review) | userSelection |
 | LP-5 | Build executionContext → Skill("lite-execute") | handoff (Mode 1) |
 
@@ -85,7 +85,7 @@ bash(`mkdir -p ${sessionFolder} && test -d ${sessionFolder} && echo "SUCCESS: ${
 TodoWrite({ todos: [
   { content: `LP-Phase 1: Exploration [${complexity}] ${selectedAngles.length} angles`, status: "in_progress", activeForm: `Exploring: ${selectedAngles.join(', ')}` },
   { content: "LP-Phase 2: Clarification", status: "pending" },
-  { content: `LP-Phase 3: Planning [${planningStrategy}]`, status: "pending" },
+  { content: "LP-Phase 3: Planning [cli-lite-planning-agent]", status: "pending" },
   { content: "LP-Phase 4: Confirmation", status: "pending" },
   { content: "LP-Phase 5: Execution", status: "pending" }
 ]})
@@ -154,12 +154,7 @@ function selectAngles(taskDescription, count) {
 
 const selectedAngles = selectAngles(task_description, complexity === 'High' ? 4 : (complexity === 'Medium' ? 3 : 1))
 
-// Direct Claude planning ONLY for: Low + no prior analysis + single angle
-const planningStrategy = (
-  complexity === 'Low' && !hasPriorAnalysis && selectedAngles.length <= 1
-) ? 'Direct Claude Planning' : 'cli-lite-planning-agent'
-
-console.log(`Exploration Plan: ${complexity} | ${selectedAngles.join(', ')} | ${planningStrategy}`)
+console.log(`Exploration Plan: ${complexity} | ${selectedAngles.join(', ')} | cli-lite-planning-agent`)
 ```
 
 **Launch Parallel Explorations**:
@@ -328,56 +323,7 @@ taskFiles.forEach(taskPath => {
 })
 ```
 
-**Low Complexity** — Direct planning by Claude:
-```javascript
-const schema = Bash(`cat ~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.json`)
-
-const manifest = file_exists(`${sessionFolder}/explorations-manifest.json`)
-  ? JSON.parse(Read(`${sessionFolder}/explorations-manifest.json`))
-  : { explorations: [] }
-manifest.explorations.forEach(exp => {
-  console.log(`\n### Exploration: ${exp.angle}\n${Read(exp.path)}`)
-})
-
-// When handoffSpec exists, use it as primary planning input
-// implementation_scope[].acceptance_criteria -> convergence.criteria
-// implementation_scope[].target_files -> files[]
-// implementation_scope[].objective -> task title/description
-if (handoffSpec) {
-  console.log(`\n### Handoff Spec from ${handoffSpec.source}`)
-  console.log(`Scope items: ${handoffSpec.implementation_scope.length}`)
-  handoffSpec.implementation_scope.forEach((item, i) => {
-    console.log(`  ${i+1}. ${item.objective} [${item.priority}] — Done when: ${item.acceptance_criteria.join('; ')}`)
-  })
-}
-
-// Generate tasks — MUST incorporate exploration insights OR handoff spec
-// When handoffSpec: map implementation_scope[] → tasks[] (1:1 or group by context)
-// Field names: convergence.criteria (not acceptance), files[].change (not modification_points), test (not verification)
-const tasks = [
-  {
-    id: "TASK-001", title: "...", description: "...", depends_on: [],
-    convergence: { criteria: ["..."] },  // From handoffSpec: item.acceptance_criteria
-    files: [{ path: "...", change: "..." }],  // From handoffSpec: item.target_files + item.change_summary
-    implementation: ["..."], test: "..."
-  }
-]
-
-const taskDir = `${sessionFolder}/.task`
-Bash(`mkdir -p "${taskDir}"`)
-tasks.forEach(task => Write(`${taskDir}/${task.id}.json`, JSON.stringify(task, null, 2)))
-
-const plan = {
-  summary: "...", approach: "...",
-  task_ids: tasks.map(t => t.id), task_count: tasks.length,
-  complexity: "Low", estimated_time: "...", recommended_execution: "Agent",
-  _metadata: { timestamp: getUtc8ISOString(), source: "direct-planning", planning_mode: "direct", plan_type: "feature" }
-}
-Write(`${sessionFolder}/plan.json`, JSON.stringify(plan, null, 2))
-// MUST continue to LP-Phase 4 — DO NOT execute code here
-```
-
-**Medium/High Complexity** — Invoke cli-lite-planning-agent:
+**Invoke cli-lite-planning-agent**:
 
 ```javascript
 Task(
@@ -645,7 +591,7 @@ lite-plan (LP-Phase 1-5)
 | Error | Resolution |
 |-------|------------|
 | Exploration agent failure | Skip exploration, continue with task description only |
-| Planning agent failure | Fallback to direct planning by Claude |
+| Planning agent failure | Retry with reduced complexity or suggest breaking task |
 | Clarification timeout | Use exploration findings as-is |
 | Confirmation timeout | Save context, display resume instructions |
 | Modify loop > 3 times | Suggest breaking task or using /workflow-plan |
@@ -665,7 +611,7 @@ Auto mode authorizes the complete plan-and-execute workflow with a single confir
 - [ ] Parallel exploration agents launched with run_in_background=false
 - [ ] Explorations manifest built from auto-discovered files
 - [ ] Clarification needs aggregated, deduped, and presented in batches of 4
-- [ ] Plan generated via direct Claude (Low) or cli-lite-planning-agent (Medium/High)
+- [ ] Plan generated via cli-lite-planning-agent
 - [ ] Plan output as two-layer: plan.json (task_ids[]) + .task/TASK-*.json
 - [ ] User confirmation collected (or auto-approved in auto mode)
 - [ ] executionContext fully built with all artifacts and session references
