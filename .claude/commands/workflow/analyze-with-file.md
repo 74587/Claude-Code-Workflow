@@ -10,11 +10,11 @@ allowed-tools: TodoWrite(*), Agent(*), AskUserQuestion(*), Read(*), Grep(*), Glo
 When `--yes` or `-y`: Auto-confirm exploration decisions, use recommended analysis angles.
 
 <purpose>
-Interactive collaborative analysis workflow combining codebase exploration (cli-explore-agent) with CLI-assisted analysis (Gemini/Codex). Produces a documented discussion timeline with evolving understanding, decision trails, and actionable conclusions.
+Interactive collaborative analysis workflow combining codebase exploration (cli-explore-agent), external research (workflow-research-agent), and CLI-assisted analysis (Gemini/Codex). Produces a documented discussion timeline with evolving understanding, decision trails, and actionable conclusions.
 
 Invoked when user needs deep, multi-perspective analysis of a topic or codebase question — e.g., architecture review, implementation analysis, concept exploration, or decision evaluation.
 
-Produces: `discussion.md` (evolving analysis document with TOC, rounds, narrative synthesis), `explorations.json`/`perspectives.json` (structured findings), `conclusions.json` (final synthesis with recommendations). All artifacts stored in `.workflow/.analysis/{session-id}/`.
+Produces: `discussion.md` (evolving analysis document with TOC, rounds, narrative synthesis), `explorations.json`/`perspectives.json` (structured findings), `research.json` (external research findings), `conclusions.json` (final synthesis with recommendations). All artifacts stored in `.workflow/.analysis/{session-id}/`.
 </purpose>
 
 <conventions>
@@ -80,8 +80,9 @@ All `AskUserQuestion` calls MUST comply:
 | 1 | Session variables | Dimensions, focus areas, analysis depth |
 | 2 | `exploration-codebase.json` | Shared Layer 1 discovery (files, modules, patterns) — always created |
 | 2 | `explorations/*.json` | Per-perspective Layer 2-3 deep-dives (multi-perspective only, max 4) |
-| 2 | `explorations.json` | Single perspective aggregated findings (Layer 1 + CLI analysis) |
-| 2 | `perspectives.json` | Multi-perspective findings (Layer 1 shared + per-perspective deep-dives) with synthesis |
+| 2 | `research.json` | External research findings (best practices, API details, known issues) — from workflow-research-agent |
+| 2 | `explorations.json` | Single perspective aggregated findings (Layer 1 + CLI analysis + research) |
+| 2 | `perspectives.json` | Multi-perspective findings (Layer 1 shared + per-perspective deep-dives + research) with synthesis |
 | 2 | Updated `discussion.md` | Round 1 + Initial Intent Coverage Check + Current Understanding replaced |
 | 3 | Updated `discussion.md` | Round 2-N: feedback, insights, narrative synthesis; TOC + Current Understanding updated each round |
 | 4 | `conclusions.json` | Final synthesis with recommendations (incl. steps[] + review_status) |
@@ -177,6 +178,52 @@ Schema: {relevant_files: [{path, annotation, dimensions[]}], patterns[], module_
 })
 ```
 
+**Phase A2 — External Research** (parallel with Phase A, runs when topic involves technologies/patterns/APIs):
+
+Determine if external research would add value — skip for purely internal codebase questions (e.g., "how does module X work"), run for topics involving technology choices, best practices, architecture patterns, API usage, or comparison with industry standards.
+
+```javascript
+// External research — runs in PARALLEL with Phase A codebase exploration
+// Skip if topic is purely internal codebase navigation
+const needsResearch = dimensions.some(d =>
+  ['architecture', 'comparison', 'decision', 'performance', 'security'].includes(d)
+) || topic_or_question.match(/best practice|pattern|vs|compare|approach|standard|library|framework/i)
+
+if (needsResearch) {
+  Agent({
+    subagent_type: "workflow-research-agent",
+    run_in_background: false,
+    description: `Research: ${topicSlug}`,
+    prompt: `
+## Research Objective
+Topic: ${topic_or_question}
+Mode: detail-verification
+Dimensions: ${dimensions.join(', ')}
+
+## Focus
+${dimensions.includes('architecture') ? '- Architecture patterns and best practices for this domain' : ''}
+${dimensions.includes('performance') ? '- Performance benchmarks and optimization patterns' : ''}
+${dimensions.includes('security') ? '- Security best practices and known vulnerabilities' : ''}
+${dimensions.includes('comparison') ? '- Technology comparison and trade-off analysis' : ''}
+${dimensions.includes('decision') ? '- Decision frameworks and industry recommendations' : ''}
+- Verify assumptions about technologies/patterns involved
+- Known issues and pitfalls in this area
+- Recommended approaches with evidence
+
+## Codebase Context (from Phase A if available)
+Tech stack: ${techStack || 'detect from project files'}
+Key patterns observed: ${sharedDiscovery?.patterns?.join(', ') || 'pending Phase A results'}
+
+## Output
+Return structured markdown per your output format.
+Do NOT write files.
+`
+  })
+  // Parse research agent output → save to ${sessionFolder}/research.json
+  // Schema: {topic, mode, findings[], best_practices[], alternatives[], pitfalls[], sources[], _metadata}
+}
+```
+
 **Phase B — Perspective Deep-Dive** (parallel, only for multi-perspective, max 4):
 Each perspective agent receives shared Layer 1 results, performs only Layer 2-3 on its relevant subset.
 Skip if single-perspective (single mode proceeds directly to Step 2 CLI analysis with Layer 1 results).
@@ -262,9 +309,12 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')} | Do NOT re-discover files — us
 ```
 
 **Step 3: Aggregate Findings**
-- Consolidate explorations + CLI results
+- Consolidate explorations + CLI results + research findings (if research.json exists)
+- Merge research best_practices[] and pitfalls[] into discussion points
+- Cross-reference: flag gaps where codebase patterns diverge from research best practices
 - Multi: Extract synthesis (convergent themes, conflicting views, unique contributions)
 - Write to `explorations.json` (single) or `perspectives.json` (multi)
+- If research.json exists, add `external_research` section to explorations/perspectives with: key findings, best practices, codebase gaps
 
 **Step 4: Update discussion.md** — Append Round 1 with sources, key findings, discussion points, open questions
 
@@ -281,17 +331,29 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')} | Do NOT re-discover files — us
 - `patterns[]`, `module_map`: {}
 - `questions_for_user[]`, `_metadata`
 
-**explorations.json Schema** (single — Layer 1 + CLI analysis merged):
+**research.json Schema** (external research findings):
+- `topic`, `mode` (detail-verification|api-research|design-research), `timestamp`
+- `findings[]`: {finding, detail, confidence, source_url}
+- `best_practices[]`: {practice, rationale, source}
+- `alternatives[]`: {option, pros, cons, verdict}
+- `pitfalls[]`: {issue, mitigation, source}
+- `codebase_gaps[]`: {gap, current_approach, recommended_approach}
+- `sources[]`: {title, url, key_takeaway}
+- `_metadata`: {queries_executed, results_found}
+
+**explorations.json Schema** (single — Layer 1 + CLI analysis + research merged):
 - `session_id`, `timestamp`, `topic`, `dimensions[]`
 - `sources[]`: {type, file/summary}
 - `key_findings[]`, `code_anchors[]`: {file, lines, snippet, significance}
 - `call_chains[]`: {entry, chain, files}
 - `discussion_points[]`, `open_questions[]`
 - `technical_solutions[]`: {round, solution, problem, rationale, alternatives, status: proposed|validated|rejected, evidence_refs[], next_action}
+- `external_research`: {findings[], best_practices[], codebase_gaps[], sources[]} — merged from research.json if available
 
-**perspectives.json Schema** (multi — Layer 1 shared + per-perspective Layer 2-3):
+**perspectives.json Schema** (multi — Layer 1 shared + per-perspective Layer 2-3 + research):
 - `shared_discovery`: {relevant_files[], patterns[], module_map}
 - `perspectives[]`: [{name, tool, findings, insights, questions, code_anchors[], call_chains[]}]
+- `external_research`: {findings[], best_practices[], codebase_gaps[], sources[]} — merged from research.json if available
 - `synthesis`: {convergent_themes, conflicting_views, unique_contributions}
 
 | Condition | Action |
@@ -334,8 +396,8 @@ const priorContext = `
 
 3. **Gather Feedback** (AskUserQuestion, single-select, header: "分析反馈"):
    - **继续深入**: Direction correct — deepen automatically or user specifies direction (combines agree+deepen and agree+suggest)
+   - **外部研究**: Need external research on specific technology/pattern/best practice (spawns workflow-research-agent)
    - **调整方向**: Different focus or specific questions to address
-   - **补充信息**: User has additional context, constraints, or corrections to provide
    - **分析完成**: Sufficient -> exit to Phase 4
 
 4. **Process Response** (always record user choice + impact to discussion.md):
@@ -347,9 +409,14 @@ const priorContext = `
    - **"Other" is auto-provided** by AskUserQuestion — covers user-specified custom direction (no need for separate "suggest next step" option)
    - Execute selected direction -> merge new code_anchors/call_chains -> record confirmed assumptions + deepen angle
 
-   **调整方向** -> AskUserQuestion (header: "新方向", user selects or provides custom via "Other") -> new CLI exploration -> Record Decision (old vs new direction, reason, impact)
+   **外部研究** -> Spawn workflow-research-agent for targeted research:
+   - AskUserQuestion (header: "研究主题", freetext via "Other"): What specific technology/pattern/approach needs external research?
+   - Spawn research agent with topic + current codebase context (from explorations.json)
+   - Merge research findings into explorations.json `external_research` section
+   - Update research.json with new findings (append, don't overwrite)
+   - Record research findings as Key Findings in discussion.md
 
-   **补充信息** -> Capture user input, integrate into context, answer questions via CLI/analysis if needed -> Record corrections/additions + updated understanding
+   **调整方向** -> AskUserQuestion (header: "新方向", user selects or provides custom via "Other") -> new CLI exploration -> Record Decision (old vs new direction, reason, impact)
 
    **分析完成** -> Exit loop -> Record why concluding
 
@@ -579,6 +646,8 @@ ${implScope.map((item, i) => `${i+1}. **${item.objective}** [${item.priority}]
 | E005 | error | No relevant findings from exploration — broaden search, ask user for clarification | cli_exploration |
 | E006 | warning | Session folder conflict — append timestamp suffix | session_init |
 | E007 | error | Gemini unavailable — fallback to Codex or manual analysis | cli_exploration |
+| E008 | warning | Research agent WebSearch failed — continue with codebase-only analysis, note limitation | cli_exploration |
+| E009 | warning | Research findings conflict with codebase patterns — flag as codebase_gaps for user review | cli_exploration |
 
 </error_codes>
 
@@ -588,6 +657,8 @@ ${implScope.map((item, i) => `${i+1}. **${item.objective}** [${item.priority}]
 - [ ] Dimensions identified and user preferences captured (Phase 1)
 - [ ] discussion.md initialized with TOC, Current Understanding, metadata
 - [ ] Codebase exploration completed with code_anchors and call_chains (Phase 2)
+- [ ] External research executed if topic warrants it (architecture/comparison/decision/performance/security dimensions)
+- [ ] Research findings merged into explorations/perspectives with codebase_gaps flagged
 - [ ] CLI analysis executed and findings aggregated
 - [ ] Initial Intent Coverage Check appended to discussion.md
 - [ ] Interactive discussion rounds documented with narrative synthesis (Phase 3)
