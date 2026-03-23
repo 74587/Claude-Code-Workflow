@@ -72,6 +72,12 @@ All `AskUserQuestion` calls MUST comply:
 
 **Principles**: Immediacy (record as-it-happens), Completeness (context+options+chosen+reason+rejected), Traceability (later phases trace back), Depth (capture reasoning, not just outcomes)
 
+**Technical Solution Triggers** — record using Technical Solution Record Format when ANY of:
+- An implementation approach is described with specific files/patterns/code changes
+- Two or more alternatives are compared with trade-offs
+- User confirms, modifies, or rejects a proposed approach
+- A concrete code change strategy emerges (what to modify, how, why)
+
 ### Output Artifacts
 
 | Phase | Artifact | Description |
@@ -325,36 +331,7 @@ CONSTRAINTS: Focus on ${dimensions.join(', ')} | Do NOT re-discover files — us
 - Present to user at beginning of Phase 3: "初始探索完成后，以下意图的覆盖情况：[list]。接下来的讨论将重点关注未覆盖的部分。"
 - Purpose: Early course correction — catch drift before spending multiple interactive rounds
 
-**exploration-codebase.json Schema** (shared Layer 1):
-- `session_id`, `timestamp`, `topic`, `dimensions[]`
-- `relevant_files[]`: {path, annotation, dimensions[]}
-- `patterns[]`, `module_map`: {}
-- `questions_for_user[]`, `_metadata`
-
-**research.json Schema** (external research findings):
-- `topic`, `mode` (detail-verification|api-research|design-research), `timestamp`
-- `findings[]`: {finding, detail, confidence, source_url}
-- `best_practices[]`: {practice, rationale, source}
-- `alternatives[]`: {option, pros, cons, verdict}
-- `pitfalls[]`: {issue, mitigation, source}
-- `codebase_gaps[]`: {gap, current_approach, recommended_approach}
-- `sources[]`: {title, url, key_takeaway}
-- `_metadata`: {queries_executed, results_found}
-
-**explorations.json Schema** (single — Layer 1 + CLI analysis + research merged):
-- `session_id`, `timestamp`, `topic`, `dimensions[]`
-- `sources[]`: {type, file/summary}
-- `key_findings[]`, `code_anchors[]`: {file, lines, snippet, significance}
-- `call_chains[]`: {entry, chain, files}
-- `discussion_points[]`, `open_questions[]`
-- `technical_solutions[]`: {round, solution, problem, rationale, alternatives, status: proposed|validated|rejected, evidence_refs[], next_action}
-- `external_research`: {findings[], best_practices[], codebase_gaps[], sources[]} — merged from research.json if available
-
-**perspectives.json Schema** (multi — Layer 1 shared + per-perspective Layer 2-3 + research):
-- `shared_discovery`: {relevant_files[], patterns[], module_map}
-- `perspectives[]`: [{name, tool, findings, insights, questions, code_anchors[], call_chains[]}]
-- `external_research`: {findings[], best_practices[], codebase_gaps[], sources[]} — merged from research.json if available
-- `synthesis`: {convergent_themes, conflicting_views, unique_contributions}
+> All JSON schemas consolidated in `<schemas>` section below.
 
 | Condition | Action |
 |-----------|--------|
@@ -402,12 +379,17 @@ const priorContext = `
 
 4. **Process Response** (always record user choice + impact to discussion.md):
 
+   **Record-Before-Continue Rule**: Each path below MUST write findings and discussion synthesis to `discussion.md` BEFORE proceeding to Step 5. Specifically, after agent/CLI returns results:
+   - Append the exploration results, reasoning, and any technical approaches discussed to the current round section
+   - Apply **Technical Solution Triggers** (see Decision Recording Protocol) — if triggered, record using Technical Solution Record Format
+   - Only THEN proceed to Step 5 for Current Understanding replacement and TOC update
+
    **继续深入** -> Sub-question to choose direction (AskUserQuestion, single-select, header: "深入方向"):
    - Dynamically generate **max 3** context-driven options from: unresolved questions, low-confidence findings, unexplored dimensions, user-highlighted areas
    - Add **1** heuristic option that breaks current frame (e.g., "compare with best practices", "review from security perspective", "explore simpler alternatives")
    - Total: **max 4 options**. Each specifies: label, description, tool (cli-explore-agent for code-level / Gemini CLI for pattern-level), scope
    - **"Other" is auto-provided** by AskUserQuestion — covers user-specified custom direction (no need for separate "suggest next step" option)
-   - Execute selected direction -> merge new code_anchors/call_chains -> record confirmed assumptions + deepen angle
+   - Execute selected direction -> merge new code_anchors/call_chains into explorations.json -> **write exploration results, analysis reasoning, and any proposed approaches to discussion.md** -> record confirmed assumptions + deepen angle
 
    **外部研究** -> Spawn workflow-research-agent for targeted research:
    - AskUserQuestion (header: "研究主题", freetext via "Other"): What specific technology/pattern/approach needs external research?
@@ -420,9 +402,7 @@ const priorContext = `
 
    **分析完成** -> Exit loop -> Record why concluding
 
-5. **Update discussion.md**:
-   - **Append** Round N: user input, direction adjustment, Q&A, corrections, new insights
-   - **Append Technical Solutions** — for every solution proposed, validated, or rejected this round, record immediately using Technical Solution Record Format in `#### Technical Solutions`
+5. **Update discussion.md** (after Record-Before-Continue writes are done):
    - **Replace** `## Current Understanding` block with latest consolidated understanding (follow Consolidation Rules)
    - **Update** `## Table of Contents` with links to new Round N sections
 
@@ -621,7 +601,45 @@ ${implScope.map((item, i) => `${i+1}. **${item.objective}** [${item.priority}]
 
    **TodoWrite**: Update `next-step` -> `"completed"` after user selection is handled
 
-**conclusions.json Schema**:
+> conclusions.json schema: see `<schemas>` section below.
+</step>
+
+</process>
+
+<schemas>
+
+**exploration-codebase.json** (shared Layer 1):
+- `session_id`, `timestamp`, `topic`, `dimensions[]`
+- `relevant_files[]`: {path, annotation, dimensions[]}
+- `patterns[]`, `module_map`: {}
+- `questions_for_user[]`, `_metadata`
+
+**research.json** (external research findings):
+- `topic`, `mode` (detail-verification|api-research|design-research), `timestamp`
+- `findings[]`: {finding, detail, confidence, source_url}
+- `best_practices[]`: {practice, rationale, source}
+- `alternatives[]`: {option, pros, cons, verdict}
+- `pitfalls[]`: {issue, mitigation, source}
+- `codebase_gaps[]`: {gap, current_approach, recommended_approach}
+- `sources[]`: {title, url, key_takeaway}
+- `_metadata`: {queries_executed, results_found}
+
+**explorations.json** (single — Layer 1 + CLI analysis + research merged):
+- `session_id`, `timestamp`, `topic`, `dimensions[]`
+- `sources[]`: {type, file/summary}
+- `key_findings[]`, `code_anchors[]`: {file, lines, snippet, significance}
+- `call_chains[]`: {entry, chain, files}
+- `discussion_points[]`, `open_questions[]`
+- `technical_solutions[]`: {round, solution, problem, rationale, alternatives, status: proposed|validated|rejected, evidence_refs[], next_action}
+- `external_research`: {findings[], best_practices[], codebase_gaps[], sources[]} — merged from research.json if available
+
+**perspectives.json** (multi — Layer 1 shared + per-perspective Layer 2-3 + research):
+- `shared_discovery`: {relevant_files[], patterns[], module_map}
+- `perspectives[]`: [{name, tool, findings, insights, questions, code_anchors[], call_chains[]}]
+- `external_research`: {findings[], best_practices[], codebase_gaps[], sources[]} — merged from research.json if available
+- `synthesis`: {convergent_themes, conflicting_views, unique_contributions}
+
+**conclusions.json**:
 - `session_id`, `topic`, `completed`, `total_rounds`, `summary`
 - `key_conclusions[]`: {point, evidence, confidence, code_anchor_refs[]}
 - `code_anchors[]`: {file, lines, snippet, significance}
@@ -631,9 +649,8 @@ ${implScope.map((item, i) => `${i+1}. **${item.objective}** [${item.priority}]
 - `decision_trail[]`: {round, decision, context, options_considered, chosen, rejected_reasons, reason, impact}
 - `narrative_trail[]`: {round, starting_point, key_progress, hypothesis_impact, updated_understanding, remaining_questions}
 - `intent_coverage[]`: {intent, status, where_addressed, notes}
-</step>
 
-</process>
+</schemas>
 
 <error_codes>
 
@@ -721,9 +738,6 @@ Present 2-3 top directions per dimension, allow multi-select + custom.
 | Preserve key learnings | Keep insights valuable for future reference |
 
 </configuration>
-
-> **Lite-plan handoff**: Phase 4「执行任务」builds structured `handoff-spec` JSON (implementation_scope with acceptance_criteria, code_anchors, key_findings) embedded in `## Prior Analysis` block. lite-plan parses `json:handoff-spec` to directly map scope items → tasks, skipping exploration and using acceptance_criteria as convergence.criteria.
-
 ---
 
 **Now execute analyze-with-file for**: $ARGUMENTS

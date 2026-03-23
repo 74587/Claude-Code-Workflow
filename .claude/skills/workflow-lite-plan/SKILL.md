@@ -340,9 +340,6 @@ Generate implementation plan and write plan.json.
 - ${sessionFolder}/plan.json (plan overview — NO embedded tasks[])
 - ${sessionFolder}/.task/TASK-*.json (independent task files, one per task)
 
-## Schema Reference
-Execute: cat ~/.ccw/workflows/cli-templates/schemas/plan-overview-base-schema.json
-
 ## Project Context (MANDATORY)
 Execute: ccw spec load --category planning
 **CRITICAL**: All generated tasks MUST comply with constraints in specs/*.md
@@ -392,7 +389,6 @@ ${complexity}
 ## Requirements
 - _metadata.exploration_angles: ${JSON.stringify(manifest.explorations.map(e => e.angle))}
 - Two-layer output: plan.json (task_ids[], NO tasks[]) + .task/TASK-*.json
-- Follow plan-overview-base-schema.json for plan.json, task-schema.json for .task/*.json
 - Field names: files[].change (not modification_points), convergence.criteria (not acceptance)
 
 ## Task Grouping Rules
@@ -405,9 +401,9 @@ ${complexity}
 7. **Prefer parallel**: Most tasks should be independent
 
 ## Execution
-1. Read schema → 2. ccw spec load → 3. Read ALL exploration files → 4. Synthesize + generate
-5. Write: planning-context.md, .task/TASK-*.json, plan.json (task_ids[], NO tasks[])
-6. Return brief completion summary
+1. ccw spec load → 2. Read ALL exploration files → 3. Synthesize + generate
+4. Write: planning-context.md, .task/TASK-*.json, plan.json (task_ids[], NO tasks[])
+5. Return brief completion summary
 `
 )
 ```
