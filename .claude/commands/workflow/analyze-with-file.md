@@ -382,6 +382,12 @@ const priorContext = `
    **Record-Before-Continue Rule**: Each path below MUST write findings and discussion synthesis to `discussion.md` BEFORE proceeding to Step 5. Specifically, after agent/CLI returns results:
    - Append the exploration results, reasoning, and any technical approaches discussed to the current round section
    - Apply **Technical Solution Triggers** (see Decision Recording Protocol) — if triggered, record using Technical Solution Record Format
+   - **Ambiguity Check**: For each Technical Solution with Status `Proposed`, verify no unresolved alternatives remain. If a solution lists 2+ options without a chosen one (e.g., "A or B"), record as:
+     ```markdown
+     > **⚠️ Ambiguity**: [Solution] has [N] unresolved alternatives: [list]
+     > - **Needs**: [Decision criteria or exploration to resolve]
+     ```
+     Surface unresolved ambiguities to user in the next feedback round.
    - Only THEN proceed to Step 5 for Current Understanding replacement and TOC update
 
    **继续深入** -> Sub-question to choose direction (AskUserQuestion, single-select, header: "深入方向"):
@@ -457,6 +463,7 @@ const priorContext = `
    - Compile Decision Trail from all phases
    - Key conclusions with evidence + confidence (high/medium/low)
    - Recommendations with rationale + priority (high/medium/low) — **merge validated `technical_solutions[]` from explorations.json as high-priority recommendations**
+   - **Solution Readiness Gate**: For each recommendation, check if all key choices are resolved. Flag `ambiguity_resolved: false` on any recommendation that still contains unresolved alternatives. Present unresolved items to user before proceeding to Step 3.
    - Open questions, follow-up suggestions
    - Decision summary linking conclusions back to decisions
    - Write to conclusions.json
