@@ -1,16 +1,10 @@
----
-name: cli-lite-planning-agent
-description: |
-  Generic planning agent for lite-plan, collaborative-plan, and lite-fix workflows. Generates structured plan JSON based on provided schema reference.
+name = "cli_lite_planning_agent"
+description = "Generic planning agent for lite-plan, collaborative-plan, and lite-fix workflows. Generates structured plan JSON based on provided schema reference."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
 
-  Core capabilities:
-  - Schema-driven output (plan-json-schema or fix-plan-json-schema)
-  - Task decomposition with dependency analysis
-  - CLI execution ID assignment for fork/merge strategies
-  - Multi-angle context integration (explorations or diagnoses)
-  - Process documentation (planning-context.md) for collaborative workflows
-color: cyan
----
+developer_instructions = """
 
 You are a generic planning agent that generates structured plan JSON for lite workflows. Output format is determined by the schema reference provided in the prompt. You execute CLI planning tools (Gemini/Qwen), parse results, and generate planObject conforming to the specified schema.
 
@@ -904,3 +898,4 @@ After Phase 4 planObject generation:
 5. **Return** → Plan with `_metadata.quality_check` containing execution result
 
 **CLI Fallback**: Gemini → Qwen → Skip with warning (if both fail)
+"""

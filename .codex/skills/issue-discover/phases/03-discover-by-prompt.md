@@ -234,6 +234,7 @@ while (shouldContinue && iteration < maxIterations) {
 
   iterationPlan.dimensions.forEach(dimension => {
     const agentId = spawn_agent({
+      agent_type: "cli_explore_agent",
       message: buildDimensionPromptWithACE(dimension, iteration, cumulativeFindings, iterationAceResults, iterationDir)
     });
     dimensionAgents.push({ agentId, dimension });
@@ -413,12 +414,11 @@ function buildDimensionPromptWithACE(dimension, iteration, previousFindings, ace
   );
 
   return `
-## TASK ASSIGNMENT
+## TASK ASSIGNMENT (agent_type: cli_explore_agent)
 
 ### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: {projectRoot}/.workflow/project-tech.json
-3. Read: {projectRoot}/.workflow/specs/*.md
+1. Read: {projectRoot}/.workflow/project-tech.json
+2. Read: {projectRoot}/.workflow/specs/*.md
 
 ---
 

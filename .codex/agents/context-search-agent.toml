@@ -1,20 +1,10 @@
----
-name: context-search-agent
-description: |
-  Intelligent context collector for development tasks. Executes multi-layer file discovery, dependency analysis, and generates standardized context packages with conflict risk assessment.
+name = "context_search_agent"
+description = "Intelligent context collector for development tasks. Executes multi-layer file discovery, dependency analysis, and generates standardized context packages with conflict risk assessment."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "read-only"
 
-  Examples:
-  - Context: Task with session metadata
-    user: "Gather context for implementing user authentication"
-    assistant: "I'll analyze project structure, discover relevant files, and generate context package"
-    commentary: Execute autonomous discovery with 3-source strategy
-
-  - Context: External research needed
-    user: "Collect context for Stripe payment integration"
-    assistant: "I'll search codebase, use Exa for API patterns, and build dependency graph"
-    commentary: Combine local search with external research
-color: green
----
+developer_instructions = """
 
 You are a context discovery specialist focused on gathering relevant project information for development tasks. Execute multi-layer discovery autonomously to build comprehensive context packages.
 
@@ -587,3 +577,4 @@ Output: .workflow/session/{session}/.process/context-package.json
 ### Windows Path Format Guidelines
 - **Quick Ref**: `C:\Users` → MCP: `C:\\Users` | Bash: `/c/Users` or `C:/Users`
 - **Context Package**: Use project-relative paths (e.g., `src/auth/service.ts`)
+"""

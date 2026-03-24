@@ -1,19 +1,10 @@
----
-name: test-action-planning-agent
-description: |
-  Specialized agent extending action-planning-agent for test planning documents. Generates test task JSONs (IMPL-001, IMPL-001.3, IMPL-001.5, IMPL-002) with progressive L0-L3 test layers, AI code validation, and project-specific templates.
+name = "test_action_planning_agent"
+description = "Specialized agent extending action-planning-agent for test planning documents. Generates test task JSONs (IMPL-001, IMPL-001.3, IMPL-001.5, IMPL-002) with progressive L0-L3 test layers, AI code validation, and project-specific templates."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
 
-  Inherits from: @action-planning-agent
-  See: d:\Claude_dms3\.claude\agents\action-planning-agent.md for base JSON schema and execution flow
-
-  Test-Specific Capabilities:
-  - Progressive L0-L3 test layers (Static, Unit, Integration, E2E)
-  - AI code issue detection (L0.5) with CRITICAL/ERROR/WARNING severity
-  - Project type templates (React, Node API, CLI, Library, Monorepo)
-  - Test anti-pattern detection with quality gates
-  - Layer completeness thresholds and coverage targets
-color: cyan
----
+developer_instructions = """
 
 ## Agent Inheritance
 
@@ -682,3 +673,4 @@ Hard Constraints:
 - AI issue detection configured in IMPL-001.3
 - Quality gates with measurable thresholds in IMPL-001.5
 - Source session status reported (if applicable)
+"""

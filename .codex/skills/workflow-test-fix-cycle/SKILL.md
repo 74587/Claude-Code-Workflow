@@ -83,12 +83,12 @@ Create a new subagent with task assignment.
 
 ```javascript
 const agentId = spawn_agent({
+  agent_type: "{agent_type}",
   message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
-2. Run: `ccw spec load --category "planning execution"`
+1. Run: `ccw spec load --category "planning execution"`
 
 ## TASK CONTEXT
 ${taskContext}
@@ -241,10 +241,10 @@ Phase 2: Test-Cycle Execution (phases/02-test-cycle-execute.md)
 5. Phase 1 Summary → **⛔ MANDATORY: Present plan and wait for user confirmation before Phase 2**
 
 **Agents Used** (via spawn_agent):
-- `test-context-search-agent` (~/.codex/agents/test-context-search-agent.md) - Context gathering (Session Mode)
-- `context-search-agent` (~/.codex/agents/context-search-agent.md) - Context gathering (Prompt Mode)
-- `cli-execution-agent` (~/.codex/agents/cli-execution-agent.md) - Test analysis with Gemini
-- `action-planning-agent` (~/.codex/agents/action-planning-agent.md) - Task JSON generation
+- `test_context_search_agent` (agent_type: test_context_search_agent) - Context gathering (Session Mode)
+- `context_search_agent` (agent_type: context_search_agent) - Context gathering (Prompt Mode)
+- `cli_execution_agent` (agent_type: cli_execution_agent) - Test analysis with Gemini
+- `action_planning_agent` (agent_type: action_planning_agent) - Task JSON generation
 
 ### Phase 2: Test-Cycle Execution
 
@@ -256,8 +256,8 @@ Phase 2: Test-Cycle Execution (phases/02-test-cycle-execute.md)
 3. Completion - Final validation → Summary → Auto-complete session
 
 **Agents Used** (via spawn_agent):
-- `cli-planning-agent` (~/.codex/agents/cli-planning-agent.md) - Failure analysis, root cause extraction, fix task generation
-- `test-fix-agent` (~/.codex/agents/test-fix-agent.md) - Test execution, code fixes, criticality assignment
+- `cli_planning_agent` (agent_type: cli_planning_agent) - Failure analysis, root cause extraction, fix task generation
+- `test_fix_agent` (agent_type: test_fix_agent) - Test execution, code fixes, criticality assignment
 
 **Strategy Engine**: conservative (iteration 1-2) → aggressive (pass >80%) → surgical (regression)
 
@@ -387,14 +387,14 @@ try {
 - None for Prompt Mode
 
 **Phase 1 Agents** (used by phases/01-test-fix-gen.md via spawn_agent):
-- `test-context-search-agent` (~/.codex/agents/test-context-search-agent.md) - Test coverage analysis (Session Mode)
-- `context-search-agent` (~/.codex/agents/context-search-agent.md) - Codebase analysis (Prompt Mode)
-- `cli-execution-agent` (~/.codex/agents/cli-execution-agent.md) - Test requirements with Gemini
-- `action-planning-agent` (~/.codex/agents/action-planning-agent.md) - Task JSON generation
+- `test_context_search_agent` (agent_type: test_context_search_agent) - Test coverage analysis (Session Mode)
+- `context_search_agent` (agent_type: context_search_agent) - Codebase analysis (Prompt Mode)
+- `cli_execution_agent` (agent_type: cli_execution_agent) - Test requirements with Gemini
+- `action_planning_agent` (agent_type: action_planning_agent) - Task JSON generation
 
 **Phase 2 Agents** (used by phases/02-test-cycle-execute.md via spawn_agent):
-- `cli-planning-agent` (~/.codex/agents/cli-planning-agent.md) - CLI analysis, root cause extraction, task generation
-- `test-fix-agent` (~/.codex/agents/test-fix-agent.md) - Test execution, code fixes, criticality assignment
+- `cli_planning_agent` (agent_type: cli_planning_agent) - CLI analysis, root cause extraction, task generation
+- `test_fix_agent` (agent_type: test_fix_agent) - Test execution, code fixes, criticality assignment
 
 **Follow-up**:
 - Session sync: `$session-sync -y "Test-fix cycle complete: {pass_rate}% pass rate"`

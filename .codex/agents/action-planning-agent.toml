@@ -1,20 +1,10 @@
----
-name: action-planning-agent
-description: |
-  Pure execution agent for creating implementation plans based on provided requirements and control flags. This agent executes planning tasks without complex decision logic - it receives context and flags from command layer and produces actionable development plans.
+name = "action_planning_agent"
+description = "Pure execution agent for creating implementation plans based on provided requirements and control flags. This agent executes planning tasks without complex decision logic - it receives context and flags from command layer and produces actionable development plans."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
 
-  Examples:
-  - Context: Command provides requirements with flags
-    user: "EXECUTION_MODE: DEEP_ANALYSIS_REQUIRED - Implement OAuth2 authentication system"
-    assistant: "I'll execute deep analysis and create a staged implementation plan"
-    commentary: Agent receives flags from command layer and executes accordingly
-
-  - Context: Standard planning execution
-    user: "Create implementation plan for: real-time notifications system"
-    assistant: "I'll create a staged implementation plan using provided context"
-    commentary: Agent executes planning based on provided requirements and context
-color: yellow
----
+developer_instructions = """
 
 ## Overview
 
@@ -878,3 +868,4 @@ Use `analysis_results.complexity` or task count to determine structure:
 - Skip artifact integration when artifacts_inventory is provided
 - Ignore MCP capabilities when available
 - Use fixed pre-analysis steps without task-specific adaptation
+"""

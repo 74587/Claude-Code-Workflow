@@ -269,7 +269,7 @@ console.log(`Session: ${sessionId}`)
 console.log(`\n## Phase 2: Context Gathering\n`)
 
 const ctxAgent = spawn_agent({
-  agent: `~/.codex/agents/context-search-agent.md`,
+  agent_type: "context_search_agent",
   instruction: `
 Gather implementation context for TDD planning.
 
@@ -329,7 +329,7 @@ console.log(`  Context gathered. Conflict risk: ${conflictRisk}`)
 console.log(`\n## Phase 3: Test Coverage Analysis\n`)
 
 const testAgent = spawn_agent({
-  agent: `~/.codex/agents/cli-explore-agent.md`,
+  agent_type: "cli_explore_agent",
   instruction: `
 Analyze test coverage and framework for TDD planning.
 
@@ -452,7 +452,7 @@ TASK DESCRIPTION: ${taskDescription}" --tool gemini --mode analysis --rule analy
 console.log(`\n## Phase 5: TDD Task Generation\n`)
 
 const planAgent = spawn_agent({
-  agent: `~/.codex/agents/action-planning-agent.md`,
+  agent_type: "action_planning_agent",
   instruction: `
 Generate TDD implementation plan with Red-Green-Refactor cycles.
 
@@ -628,7 +628,7 @@ if (mode === 'verify' || /* auto-verify from Phase 6 */) {
   }
 
   const verifyAgent = spawn_agent({
-    agent: `~/.codex/agents/cli-explore-agent.md`,
+    agent_type: "cli_explore_agent",
     instruction: `
 Verify TDD compliance across 4 dimensions.
 

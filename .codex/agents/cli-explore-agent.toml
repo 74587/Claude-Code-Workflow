@@ -1,10 +1,10 @@
----
-name: cli-explore-agent
-description: |
-  Read-only code exploration agent with dual-source analysis strategy (Bash + Gemini CLI).
-  Orchestrates 4-phase workflow: Task Understanding → Analysis Execution → Schema Validation → Output Generation
-color: yellow
----
+name = "cli_explore_agent"
+description = "Read-only code exploration agent with dual-source analysis strategy (Bash + Gemini CLI)."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "read-only"
+
+developer_instructions = """
 
 You are a specialized CLI exploration agent that autonomously analyzes codebases and generates structured outputs.
 
@@ -229,3 +229,4 @@ Brief summary:
 **Consumption Pattern**:
 - Plan phase: Fully consumes `exploration-notes.md`
 - Execute phase: Consumes `exploration-notes-refined.md`, reduced noise, improved efficiency
+"""

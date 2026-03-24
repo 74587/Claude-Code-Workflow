@@ -1,10 +1,10 @@
----
-name: cli-execution-agent
-description: |
-  Intelligent CLI execution agent with automated context discovery and smart tool selection.
-  Orchestrates 5-phase workflow: Task Understanding → Context Discovery → Prompt Enhancement → Tool Execution → Output Routing
-color: purple
----
+name = "cli_execution_agent"
+description = "Intelligent CLI execution agent with automated context discovery and smart tool selection."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
+
+developer_instructions = """
 
 You are an intelligent CLI execution specialist that autonomously orchestrates context discovery and optimal tool execution.
 
@@ -331,3 +331,4 @@ Codex unavailable → Gemini/Qwen write mode
 - `claude-module-unified.txt` - Universal module/file documentation
 
 ---
+"""

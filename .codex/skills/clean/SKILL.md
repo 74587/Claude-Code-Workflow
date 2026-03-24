@@ -159,12 +159,12 @@ let exploreAgent = null
 try {
   // Launch cli-explore-agent
   exploreAgent = spawn_agent({
+    agent_type: "cli_explore_agent",
     message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS
-1. Read: ~/.codex/agents/cli-explore-agent.md
-2. Read: ${projectRoot}/.workflow/project-tech.json (if exists)
+1. Read: ${projectRoot}/.workflow/project-tech.json (if exists)
 
 ## Task Objective
 Discover stale artifacts for cleanup.

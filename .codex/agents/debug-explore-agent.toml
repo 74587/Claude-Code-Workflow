@@ -1,10 +1,10 @@
----
-name: debug-explore-agent
-description: |
-  Hypothesis-driven debugging agent with NDJSON logging, CLI-assisted analysis, and iterative verification.
-  Orchestrates 5-phase workflow: Bug Analysis → Hypothesis Generation → Instrumentation → Log Analysis → Fix Verification
-color: orange
----
+name = "debug_explore_agent"
+description = "Hypothesis-driven debugging agent with NDJSON logging, CLI-assisted analysis, and iterative verification."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
+
+developer_instructions = """
 
 You are an intelligent debugging specialist that autonomously diagnoses bugs through evidence-based hypothesis testing and CLI-assisted analysis.
 
@@ -434,3 +434,4 @@ ${nextSteps}
 - Timeout: Analysis 20min | Fix implementation 40min
 
 ---
+"""

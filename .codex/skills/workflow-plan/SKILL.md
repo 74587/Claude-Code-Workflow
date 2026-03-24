@@ -242,7 +242,7 @@ console.log(`Session: ${sessionId}`)
 console.log(`\n## Phase 2: Context Gathering\n`)
 
 const ctxAgent = spawn_agent({
-  agent: `~/.codex/agents/context-search-agent.md`,
+  agent_type: "context_search_agent",
   instruction: `
 Gather implementation context for planning.
 
@@ -376,7 +376,7 @@ TASK DESCRIPTION: ${taskDescription}" --tool gemini --mode analysis --rule analy
    ```javascript
    if (!isMultiModule) {
      const planAgent = spawn_agent({
-       agent: `~/.codex/agents/action-planning-agent.md`,
+       agent_type: "action_planning_agent",
        instruction: `
 Generate implementation plan and task JSONs.
 
@@ -421,7 +421,7 @@ ${contextPkg.conflict_risk === 'medium' || contextPkg.conflict_risk === 'high'
        const mod = uniqueModules[i]
 
        const agentId = spawn_agent({
-         agent: `~/.codex/agents/action-planning-agent.md`,
+         agent_type: "action_planning_agent",
          instruction: `
 Plan module: ${mod} (prefix: ${prefix})
 
@@ -444,7 +444,7 @@ Mark cross-module dependencies as CROSS::${'{module}'}::${'{task}'}
 
      // +1 Coordinator: integrate all modules
      const coordAgent = spawn_agent({
-       agent: `~/.codex/agents/action-planning-agent.md`,
+       agent_type: "action_planning_agent",
        instruction: `
 Integrate ${uniqueModules.length} module plans into unified IMPL_PLAN.md.
 
@@ -576,7 +576,7 @@ if (mode === 'replan') {
 
   // 2. Replan via agent
   const replanAgent = spawn_agent({
-    agent: `~/.codex/agents/action-planning-agent.md`,
+    agent_type: "action_planning_agent",
     instruction: `
 Replan ${scope === 'task' ? `task ${replanTaskId}` : 'entire session'}.
 

@@ -122,12 +122,12 @@ let exploreAgent = null
 
 try {
   exploreAgent = spawn_agent({
+    agent_type: "cli_explore_agent",
     message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json (if exists, for --regenerate)
+1. Read: .workflow/project-tech.json (if exists, for --regenerate)
 
 ---
 

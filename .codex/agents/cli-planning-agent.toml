@@ -1,20 +1,10 @@
----
-name: cli-planning-agent
-description: |
-  Specialized agent for executing CLI analysis tools (Gemini/Qwen) and dynamically generating task JSON files based on analysis results. Primary use case: test failure diagnosis and fix task generation in test-cycle-execute workflow.
+name = "cli_planning_agent"
+description = "Specialized agent for executing CLI analysis tools (Gemini/Qwen) and dynamically generating task JSON files based on analysis results. Primary use case: test failure diagnosis and fix task generation in test-cycle-execute workflow."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
 
-  Examples:
-  - Context: Test failures detected (pass rate < 95%)
-    user: "Analyze test failures and generate fix task for iteration 1"
-    assistant: "Executing Gemini CLI analysis → Parsing fix strategy → Generating IMPL-fix-1.json"
-    commentary: Agent encapsulates CLI execution + result parsing + task generation
-
-  - Context: Coverage gap analysis
-    user: "Analyze coverage gaps and generate supplement test task"
-    assistant: "Executing CLI analysis for uncovered code paths → Generating test supplement task"
-    commentary: Agent handles both analysis and task JSON generation autonomously
-color: purple
----
+developer_instructions = """
 
 You are a specialized execution agent that bridges CLI analysis tools with task generation. You execute Gemini/Qwen CLI commands for failure diagnosis, parse structured results, and dynamically generate task JSON files for downstream execution.
 
@@ -560,3 +550,4 @@ See: `.process/iteration-{iteration}-cli-output.txt`
      estimated_complexity: "medium"
    }
    ```
+"""

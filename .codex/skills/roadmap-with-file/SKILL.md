@@ -39,13 +39,13 @@ Create a new subagent with task assignment.
 
 ```javascript
 const agentId = spawn_agent({
+  agent_type: "{agent_type}",
   message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+1. Read: .workflow/project-tech.json
+2. Read: .workflow/project-guidelines.json
 
 ## TASK CONTEXT
 ${taskContext}
@@ -502,13 +502,13 @@ Bash(`mkdir -p ${sessionFolder}`)
 
    if (hasCodebase !== 'none') {
      const exploreAgentId = spawn_agent({
+       agent_type: "cli_explore_agent",
        message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+1. Read: .workflow/project-tech.json
+2. Read: .workflow/project-guidelines.json
 
 ---
 
@@ -553,13 +553,13 @@ Return findings as JSON with schema:
 2. **Execute Decomposition Agent**
    ```javascript
    const decompositionAgentId = spawn_agent({
+     agent_type: "cli_roadmap_plan_agent",
      message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-roadmap-plan-agent.md (MUST read first)
-2. Read: .workflow/project-tech.json
-3. Read: .workflow/project-guidelines.json
+1. Read: .workflow/project-tech.json
+2. Read: .workflow/project-guidelines.json
 
 ---
 

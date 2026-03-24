@@ -229,13 +229,13 @@ Create a new subagent with task assignment.
 
 ```javascript
 const agentId = spawn_agent({
+  agent_type: "{agent_type}",
   message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/{agent-type}.md (MUST read first)
-2. Execute: ccw spec load --category exploration
-3. Execute: ccw spec load --category debug (known issues cross-reference)
+1. Execute: ccw spec load --category exploration
+2. Execute: ccw spec load --category debug (known issues cross-reference)
 
 ## TASK CONTEXT
 ${taskContext}

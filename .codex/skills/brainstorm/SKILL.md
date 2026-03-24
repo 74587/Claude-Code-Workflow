@@ -69,7 +69,7 @@ Dual-mode brainstorming with CSV-driven parallel role analysis. Auto mode runs a
 │  ═══ Single Role Mode ═══                                         │
 │                                                                    │
 │  Phase 3S: Single Role Analysis (spawn_agent)                    │
-│     ├─ spawn_agent(conceptual-planning-agent)                    │
+│     ├─ spawn_agent(conceptual_planning_agent)                    │
 │     └─ Output: {role}/analysis*.md                               │
 │                                                                    │
 └──────────────────────────────────────────────────────────────────┘
@@ -536,7 +536,7 @@ if (executionMode === 'single-role') {
   Bash(`mkdir -p "${roleDir}"`)
 
   const agentId = spawn_agent({
-    agent: `~/.codex/agents/conceptual-planning-agent.md`,
+    agent_type: "conceptual_planning_agent",
     instruction: `
 Perform a ${roleName} analysis for the brainstorming session.
 
@@ -594,7 +594,7 @@ Follow the same analysis protocol as wave role analysis but with interactive ref
 
    ```javascript
    const synthesisAgent = spawn_agent({
-     agent: `~/.codex/agents/conceptual-planning-agent.md`,
+     agent_type: "conceptual_planning_agent",
      instruction: `
 ## SYNTHESIS ASSIGNMENT
 

@@ -114,13 +114,13 @@ const perspectiveAgents = [];
 
 selectedPerspectives.forEach(perspective => {
   const agentId = spawn_agent({
+    agent_type: "cli_explore_agent",
     message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: {projectRoot}/.workflow/project-tech.json
-3. Read: {projectRoot}/.workflow/specs/*.md
+1. Read: {projectRoot}/.workflow/project-tech.json
+2. Read: {projectRoot}/.workflow/specs/*.md
 
 ---
 
@@ -192,13 +192,13 @@ agentIds.forEach(id => close_agent({ id }));
 // Only spawn if perspective requires external research
 if (selectedPerspectives.includes('security') || selectedPerspectives.includes('best-practices') || args.external) {
   const exaAgentId = spawn_agent({
+    agent_type: "cli_explore_agent",
     message: `
 ## TASK ASSIGNMENT
 
 ### MANDATORY FIRST STEPS (Agent Execute)
-1. **Read role definition**: ~/.codex/agents/cli-explore-agent.md (MUST read first)
-2. Read: {projectRoot}/.workflow/project-tech.json
-3. Read: {projectRoot}/.workflow/specs/*.md
+1. Read: {projectRoot}/.workflow/project-tech.json
+2. Read: {projectRoot}/.workflow/specs/*.md
 
 ---
 

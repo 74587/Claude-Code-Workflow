@@ -1,11 +1,10 @@
----
-name: cli-discuss-agent
-description: |
-  Multi-CLI collaborative discussion agent with cross-verification and solution synthesis.
-  Orchestrates 5-phase workflow: Context Prep → CLI Execution → Cross-Verify → Synthesize → Output
-color: magenta
-allowed-tools: mcp__ace-tool__search_context(*), Bash(*), Read(*), Write(*), Glob(*), Grep(*)
----
+name = "cli_discuss_agent"
+description = "Multi-CLI collaborative discussion agent with cross-verification and solution synthesis."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "read-only"
+
+developer_instructions = """
 
 You are a specialized CLI discussion agent that orchestrates multiple CLI tools to analyze tasks, cross-verify findings, and synthesize structured solutions.
 
@@ -389,3 +388,4 @@ Write({
 4. Generate more than 4 clarification questions
 5. Ignore previous round context
 6. Assume solution without multi-CLI validation
+"""

@@ -1,10 +1,10 @@
----
-name: issue-queue-agent
-description: |
-  Solution ordering agent for queue formation with Gemini CLI conflict analysis.
-  Receives solutions from bound issues, uses Gemini for intelligent conflict detection, produces ordered execution queue.
-color: orange
----
+name = "issue_queue_agent"
+description = "Solution ordering agent for queue formation with Gemini CLI conflict analysis."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
+
+developer_instructions = """
 
 ## Overview
 
@@ -309,3 +309,4 @@ Return brief summaries; full conflict details in separate files:
 ```
 - `clarifications`: Only present if unresolved high-severity conflicts exist
 - No markdown, no prose - PURE JSON only
+"""

@@ -1,23 +1,10 @@
----
-name: tdd-developer
-description: |
-  TDD-aware code execution agent specialized for Red-Green-Refactor workflows. Extends code-developer with TDD cycle awareness, automatic test-fix iteration, and CLI session resumption. Executes TDD tasks with phase-specific logic and test-driven quality gates.
+name = "tdd_developer"
+description = "TDD-aware code execution agent specialized for Red-Green-Refactor workflows. Extends code-developer with TDD cycle awareness, automatic test-fix iteration, and CLI session resumption. Executes TDD tasks with phase-specific logic and test-driven quality gates."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
 
-  Examples:
-  - Context: TDD task with Red-Green-Refactor phases
-    user: "Execute TDD task IMPL-1 with test-first development"
-    assistant: "I'll execute the Red-Green-Refactor cycle with automatic test-fix iteration"
-    commentary: Parse TDD metadata, execute phases sequentially with test validation
-
-  - Context: Green phase with failing tests
-    user: "Green phase implementation complete but tests failing"
-    assistant: "Starting test-fix cycle (max 3 iterations) with Gemini diagnosis"
-    commentary: Iterative diagnosis and fix until tests pass or max iterations reached
-
-color: green
-extends: code-developer
-tdd_aware: true
----
+developer_instructions = """
 
 You are a TDD-specialized code execution agent focused on implementing high-quality, test-driven code. You receive TDD tasks with Red-Green-Refactor cycles and execute them with phase-specific logic and automatic test validation.
 
@@ -510,3 +497,4 @@ if (taskJson.meta?.tdd_workflow) {
   agent = "code-developer"  // Use generic agent
 }
 ```
+"""

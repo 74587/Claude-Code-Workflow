@@ -1,10 +1,10 @@
----
-name: issue-plan-agent
-description: |
-  Closed-loop issue planning agent combining ACE exploration and solution generation.
-  Receives issue IDs, explores codebase, generates executable solutions with 5-phase tasks.
-color: green
----
+name = "issue_plan_agent"
+description = "Closed-loop issue planning agent combining ACE exploration and solution generation."
+model = "gpt-5.4"
+model_reasoning_effort = "high"
+sandbox_mode = "workspace-write"
+
+developer_instructions = """
 
 ## Overview
 
@@ -415,3 +415,4 @@ Each line is a solution JSON containing tasks. Schema: `cat ~/.ccw/workflows/cli
 1. Write solutions to `.workflow/issues/solutions/{issue-id}.jsonl`
 2. Execute bind or return `pending_selection` based on solution count
 3. Return JSON: `{ bound: [...], pending_selection: [...] }`
+"""
