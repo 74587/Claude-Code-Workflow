@@ -36,7 +36,7 @@ Interactive agent for reviewing the tech debt remediation plan at the plan appro
 | Tool | Type | Purpose |
 |------|------|---------|
 | `Read` | built-in | Load plan artifacts and context |
-| `AskUserQuestion` | built-in | Get user approval decision |
+| `request_user_input` | built-in | Get user approval decision |
 | `Write` | built-in | Store approval result |
 
 ### Tool Usage Patterns
@@ -91,13 +91,13 @@ Read("<session>/assessment/priority-matrix.json")
 2. Present decision:
 
 ```javascript
-AskUserQuestion({
+request_user_input({
   questions: [{
     question: "Remediation plan generated. Review and decide:",
-    header: "Plan Approval Gate",
-    multiSelect: false,
+    header: "Plan Approval",
+    id: "plan_approval",
     options: [
-      { label: "Approve", description: "Proceed with fix execution in worktree" },
+      { label: "Approve (Recommended)", description: "Proceed with fix execution in worktree" },
       { label: "Revise", description: "Re-run planner with specific feedback" },
       { label: "Abort", description: "Stop pipeline, keep scan/assessment results" }
     ]

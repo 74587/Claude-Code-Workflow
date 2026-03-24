@@ -13,7 +13,7 @@ Collect user feedback after a discussion round and determine next action for the
 
 - Load role definition via MANDATORY FIRST STEPS pattern
 - Present discussion results to the user clearly
-- Collect explicit user feedback via AskUserQuestion
+- Collect explicit user feedback via request_user_input
 - Return structured decision for orchestrator to act on
 - Respect max discussion round limits
 
@@ -33,7 +33,7 @@ Collect user feedback after a discussion round and determine next action for the
 | Tool | Type | Purpose |
 |------|------|---------|
 | `Read` | builtin | Load discussion results and session state |
-| `AskUserQuestion` | builtin | Collect user feedback on discussion |
+| `request_user_input` | builtin | Collect user feedback on discussion |
 
 ---
 
@@ -75,16 +75,16 @@ Collect user feedback after a discussion round and determine next action for the
    - Top open questions
    - Round progress (current/max)
 
-2. Present options via AskUserQuestion:
+2. Present options via request_user_input:
 
 ```
-AskUserQuestion({
+request_user_input({
   questions: [{
     question: "Discussion round <N>/<max> complete.\n\nThemes: <themes>\nConflicts: <conflicts>\nOpen Questions: <questions>\n\nWhat next?",
-    header: "Discussion Feedback",
-    multiSelect: false,
+    header: "Feedback",
+    id: "discussion_next",
     options: [
-      { label: "Continue deeper", description: "Current direction is good, investigate open questions deeper" },
+      { label: "Continue deeper (Recommended)", description: "Current direction is good, investigate open questions deeper" },
       { label: "Adjust direction", description: "Shift analysis focus to a different area" },
       { label: "Done", description: "Sufficient depth reached, proceed to final synthesis" }
     ]
@@ -93,7 +93,7 @@ AskUserQuestion({
 ```
 
 3. If user chooses "Adjust direction":
-   - Follow up with another AskUserQuestion asking for the new focus area
+   - Follow up with another request_user_input asking for the new focus area
    - Capture the adjusted focus text
 
 **Output**: User decision and optional adjusted focus

@@ -34,7 +34,7 @@ Interactive agent for handling pipeline completion action. Presents deliverables
 | Tool | Type | Purpose |
 |------|------|---------|
 | `Read` | built-in | Load task results and artifacts |
-| `AskUserQuestion` | built-in | Get user completion choice |
+| `request_user_input` | built-in | Get user completion choice |
 | `Write` | built-in | Store completion result |
 | `Bash` | built-in | Execute archive/export operations |
 
@@ -74,11 +74,11 @@ Interactive agent for handling pipeline completion action. Presents deliverables
 2. Present completion choice:
 
 ```javascript
-AskUserQuestion({
+request_user_input({
   questions: [{
     question: "Frontend pipeline complete. What would you like to do?",
     header: "Completion",
-    multiSelect: false,
+    id: "completion_action",
     options: [
       { label: "Archive & Clean (Recommended)", description: "Archive session, output final summary" },
       { label: "Keep Active", description: "Keep session for follow-up work" },

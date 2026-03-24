@@ -2,7 +2,7 @@
 name: team-brainstorm
 description: Multi-agent brainstorming pipeline with Generator-Critic loop. Generates ideas, challenges assumptions, synthesizes themes, and evaluates proposals. Supports Quick, Deep, and Full pipeline modes.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"topic description\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -278,16 +278,15 @@ If not AUTO_YES, present user with pipeline mode selection for confirmation:
 
 ```javascript
 if (!AUTO_YES) {
-  const answer = AskUserQuestion({
+  const answer = request_user_input({
     questions: [{
-      question: `Topic: "${topic}"\nRecommended pipeline: ${pipeline_mode} (complexity: ${complexity_score})\nAngles: ${angles.join(', ')}\n\nApprove?`,
-      header: "Pipeline Selection",
-      multiSelect: false,
+      question: `Topic: "${topic}" — Recommended: ${pipeline_mode}. Approve or override?`,
+      header: "Pipeline",
+      id: "pipeline_select",
       options: [
-        { label: "Approve", description: `Use ${pipeline_mode} pipeline` },
-        { label: "Quick", description: "3 tasks: generate → challenge → synthesize" },
-        { label: "Deep", description: "6 tasks: generate → challenge → revise → re-challenge → synthesize → evaluate" },
-        { label: "Full", description: "7 tasks: 3x parallel generation → challenge → revise → synthesize → evaluate" }
+        { label: "Approve (Recommended)", description: `Use ${pipeline_mode} pipeline (complexity: ${complexity_score})` },
+        { label: "Quick", description: "3 tasks: generate -> challenge -> synthesize" },
+        { label: "Deep/Full", description: "6-7 tasks: parallel generation, GC loop, evaluation" }
       ]
     }]
   })

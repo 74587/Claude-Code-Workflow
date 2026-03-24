@@ -796,15 +796,18 @@ Append conclusions section and finalize the thinking document.
 
 Offer user follow-up actions based on brainstorming results.
 
-**Available Options**:
+**Available Options** (this skill is brainstorming-only — NEVER auto-launch other skills):
 
 | Option | Purpose | Action |
 |--------|---------|--------|
-| **创建实施计划** | Plan implementation of top idea | Launch `workflow-lite-plan` |
-| **创建Issue** | Track top ideas for later | Launch `issue:new` with ideas |
-| **深入分析** | Analyze top idea in detail | Launch `workflow:analyze-with-file` |
+| **显示后续命令** | Show available next-step commands | Display command list for user to manually run |
 | **导出分享** | Generate shareable report | Create formatted report document |
 | **完成** | No further action | End workflow |
+
+**Next-step commands to display** (user runs manually, NOT auto-launched):
+- `/workflow-lite-plan "..."` → Generate implementation plan
+- `/issue:new "..."` → Track top ideas as issues
+- `/workflow:analyze-with-file "..."` → Analyze top idea in detail
 
 **Success Criteria**:
 - `synthesis.json` created with complete synthesis
@@ -1030,4 +1033,6 @@ Final synthesis:
 
 ---
 
-**Now execute the brainstorm-with-file workflow for topic**: $TOPIC
+**Now start brainstorming for topic**: $TOPIC
+
+**IMPORTANT**: This skill is brainstorming-only. It produces analysis, perspectives, and synthesis documents but NEVER executes code, modifies source files, or auto-launches other skills. All follow-up actions require user to manually run the suggested commands.

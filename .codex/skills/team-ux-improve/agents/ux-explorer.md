@@ -153,6 +153,6 @@ Interactive agent for exploring codebase to identify UI component patterns and f
 
 | Scenario | Resolution |
 |----------|------------|
-| Framework detection fails | Ask user via AskUserQuestion |
+| Framework detection fails | Ask user via request_user_input |
 | No components found | Return empty inventory, note in findings |
 | Invalid project path | Report error, request valid path |

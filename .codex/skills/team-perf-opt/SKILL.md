@@ -2,7 +2,7 @@
 name: team-perf-opt
 description: Performance optimization team skill. Profiles application performance, identifies bottlenecks, designs optimization strategies, implements changes, benchmarks improvements, and reviews code quality via CSV wave pipeline with interactive review-fix cycles.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"performance optimization task description\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -44,7 +44,7 @@ Orchestrate multi-agent performance optimization: profile application, identify 
 |  Phase 0: Pre-Wave Interactive (Requirement Clarification)          |
 |     +- Parse user task description                                  |
 |     +- Detect scope: specific endpoint vs full app profiling        |
-|     +- Clarify ambiguous requirements (AskUserQuestion)             |
+|     +- Clarify ambiguous requirements (request_user_input)                 |
 |     +- Output: refined requirements for decomposition               |
 |                                                                     |
 |  Phase 1: Requirement -> CSV + Classification                       |
@@ -276,13 +276,13 @@ Write(`${sessionFolder}/wisdom/patterns.md`, '# Patterns & Conventions\n')
 
 4. **Clarify if ambiguous** (skip if AUTO_YES):
    ```javascript
-   AskUserQuestion({
+   request_user_input({
      questions: [{
-       question: "Please confirm the performance optimization scope:",
-       header: "Performance Scope",
-       multiSelect: false,
+       question: "Please confirm the performance optimization scope.",
+       header: "Scope",
+       id: "perf_scope",
        options: [
-         { label: "Proceed as described", description: "Scope is clear" },
+         { label: "Proceed (Recommended)", description: "Scope is clear, start profiling" },
          { label: "Narrow scope", description: "Specify endpoints/modules to focus on" },
          { label: "Add constraints", description: "Target metrics, acceptable trade-offs" }
        ]
@@ -521,13 +521,13 @@ Session: ${sessionFolder}
 
 // 3. Completion action
 if (!AUTO_YES) {
-  AskUserQuestion({
+  request_user_input({
     questions: [{
-      question: "Performance optimization complete. What would you like to do?",
-      header: "Completion",
-      multiSelect: false,
+      question: "Performance optimization complete. Choose next action.",
+      header: "Done",
+      id: "completion",
       options: [
-        { label: "Archive & Clean (Recommended)", description: "Archive session, output final summary" },
+        { label: "Archive (Recommended)", description: "Archive session, output final summary" },
         { label: "Keep Active", description: "Keep session for follow-up work" },
         { label: "Retry Failed", description: "Re-run failed tasks" }
       ]

@@ -2,7 +2,7 @@
 name: team-quality-assurance
 description: Full closed-loop QA combining issue discovery and software testing. Scout -> Strategist -> Generator -> Executor -> Analyst with multi-perspective scanning, progressive test layers, GC loops, and quality scoring. Supports discovery, testing, and full QA modes.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] [--mode=discovery|testing|full] \"task description\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -286,16 +286,15 @@ Write(`${sessionFolder}/gc-state.json`, JSON.stringify({
 
 4. **Clarify if ambiguous** (skip if AUTO_YES):
    ```javascript
-   AskUserQuestion({
+   request_user_input({
      questions: [{
-       question: "Detected QA mode: '" + qaMode + "'. Confirm?",
-       header: "QA Mode Selection",
-       multiSelect: false,
+       question: `Detected QA mode: '${qaMode}'. Approve or override?`,
+       header: "QA Mode",
+       id: "qa_mode",
        options: [
-         { label: "Proceed with " + qaMode, description: "Detected mode is appropriate" },
-         { label: "Use discovery", description: "Scout-first: scan for issues, then test" },
-         { label: "Use testing", description: "Direct testing pipeline (skip scout)" },
-         { label: "Use full", description: "Complete QA closed loop with regression" }
+         { label: "Approve (Recommended)", description: `Use ${qaMode} mode as detected` },
+         { label: "Discovery", description: "Scout-first: scan for issues, then test" },
+         { label: "Testing/Full", description: "Direct testing or complete QA closed loop" }
        ]
      }]
    })
@@ -536,13 +535,13 @@ Session: ${sessionFolder}
 `)
 
 if (!AUTO_YES) {
-  AskUserQuestion({
+  request_user_input({
     questions: [{
-      question: "Quality Assurance pipeline complete. What would you like to do?",
-      header: "Completion",
-      multiSelect: false,
+      question: "Quality Assurance pipeline complete. Choose next action.",
+      header: "Done",
+      id: "completion",
       options: [
-        { label: "Archive & Clean (Recommended)", description: "Archive session, output final summary" },
+        { label: "Archive (Recommended)", description: "Archive session, output final summary" },
         { label: "Keep Active", description: "Keep session for follow-up work" },
         { label: "Export Results", description: "Export deliverables to target directory" }
       ]

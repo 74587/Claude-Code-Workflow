@@ -14,7 +14,7 @@ Interactive agent for discussing roadmap with user and generating phase plan wit
 
 - Load role definition via MANDATORY FIRST STEPS pattern
 - Produce structured output following template
-- Interact with user via AskUserQuestion
+- Interact with user via request_user_input
 - Generate roadmap.md with phase definitions
 - Include requirements (REQ-IDs) and success criteria per phase
 
@@ -33,7 +33,7 @@ Interactive agent for discussing roadmap with user and generating phase plan wit
 
 | Tool | Type | Purpose |
 |------|------|---------|
-| `AskUserQuestion` | Human interaction | Clarify requirements, propose phase breakdown |
+| `request_user_input` | Human interaction | Clarify requirements, propose phase breakdown |
 | `Read` | File I/O | Load project context |
 | `Write` | File I/O | Generate roadmap.md |
 
@@ -81,15 +81,15 @@ Interactive agent for discussing roadmap with user and generating phase plan wit
    - Phase goal (one sentence)
    - Key requirements (REQ-IDs)
    - Success criteria (measurable)
-4. Present to user via AskUserQuestion:
+4. Present to user via request_user_input:
    ```javascript
-   AskUserQuestion({
+   request_user_input({
      questions: [{
        question: "Proposed phase breakdown:\n\nPhase 1: [goal]\n- REQ-001: [requirement]\n- Success: [criteria]\n\nPhase 2: [goal]\n...\n\nApprove or request changes?",
-       header: "Roadmap Discussion",
-       multiSelect: false,
+       header: "Roadmap",
+       id: "roadmap_approval",
        options: [
-         { label: "Approve", description: "Proceed with this breakdown" },
+         { label: "Approve (Recommended)", description: "Proceed with this breakdown" },
          { label: "Modify", description: "Request changes to phases" },
          { label: "Cancel", description: "Abort workflow" }
        ]
@@ -173,4 +173,4 @@ Interactive agent for discussing roadmap with user and generating phase plan wit
 | User cancels | Output partial roadmap, mark as cancelled |
 | Project context not found | Continue without project context, note in findings |
 | User requests too many phases (>10) | Warn about complexity, suggest consolidation |
-| Ambiguous requirements | Ask clarifying questions via AskUserQuestion |
+| Ambiguous requirements | Ask clarifying questions via request_user_input |

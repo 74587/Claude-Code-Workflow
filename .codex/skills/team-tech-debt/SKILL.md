@@ -2,7 +2,7 @@
 name: team-tech-debt
 description: Systematic tech debt governance with CSV wave pipeline. Scans codebase for tech debt across 5 dimensions, assesses severity with priority matrix, plans phased remediation, executes fixes in worktree, validates with 4-layer checks. Supports scan/remediate/targeted pipeline modes with fix-verify GC loop.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] [--mode=scan|remediate|targeted] \"scope or description\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -259,13 +259,13 @@ Write(`${sessionFolder}/wisdom/decisions.md`, '# Decisions\n')
 
 2. **Clarify scope** (skip if AUTO_YES):
    ```javascript
-   AskUserQuestion({
+   request_user_input({
      questions: [{
-       question: "Tech debt governance scope:",
-       header: "Scope Selection",
-       multiSelect: false,
+       question: "Select tech debt governance scope.",
+       header: "Scope",
+       id: "debt_scope",
        options: [
-         { label: "Full project scan", description: "Scan entire codebase" },
+         { label: "Full scan (Recommended)", description: "Scan entire codebase" },
          { label: "Specific module", description: "Target specific directory" },
          { label: "Custom scope", description: "Specify file patterns" }
        ]
@@ -517,15 +517,15 @@ Session: ${sessionFolder}
 
 // Completion action
 if (!AUTO_YES) {
-  AskUserQuestion({
+  request_user_input({
     questions: [{
-      question: "What next?",
-      header: "Completion",
-      multiSelect: false,
+      question: "Tech debt governance complete. Choose next action.",
+      header: "Done",
+      id: "completion",
       options: [
+        { label: "Close (Recommended)", description: "Archive session" },
         { label: "New target", description: "Run another scan/fix cycle" },
-        { label: "Deep fix", description: "Continue fixing remaining items" },
-        { label: "Close", description: "Archive session" }
+        { label: "Deep fix", description: "Continue fixing remaining items" }
       ]
     }]
   })

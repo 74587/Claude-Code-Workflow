@@ -2,7 +2,7 @@
 name: team-iterdev
 description: Iterative development team with Generator-Critic loop, dynamic pipeline selection (patch/sprint/multi-sprint), task ledger for progress tracking, and shared wisdom for cross-sprint learning.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"task description\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -339,16 +339,15 @@ If not AUTO_YES, present pipeline mode selection for confirmation:
 
 ```javascript
 if (!AUTO_YES) {
-  const answer = AskUserQuestion({
+  const answer = request_user_input({
     questions: [{
-      question: `Task: "${requirement}"\nRecommended pipeline: ${pipeline_mode} (complexity: ${complexity_score})\nRoles: ${roles_needed.join(', ')}\n\nApprove?`,
-      header: "Pipeline Selection",
-      multiSelect: false,
+      question: `Task: "${requirement}" — Recommended: ${pipeline_mode}. Approve or override?`,
+      header: "Pipeline",
+      id: "pipeline_select",
       options: [
-        { label: "Approve", description: `Use ${pipeline_mode} pipeline` },
+        { label: "Approve (Recommended)", description: `Use ${pipeline_mode} pipeline (complexity: ${complexity_score})` },
         { label: "Patch", description: "Simple fix: DEV -> VERIFY (2 tasks)" },
-        { label: "Sprint", description: "Standard: DESIGN -> DEV -> VERIFY + REVIEW (4 tasks)" },
-        { label: "Multi-Sprint", description: "Complex: Multiple sprint cycles with incremental delivery" }
+        { label: "Sprint/Multi", description: "Standard or complex: DESIGN -> DEV -> VERIFY + REVIEW" }
       ]
     }]
   })
@@ -687,13 +686,13 @@ If not AUTO_YES, offer completion actions:
 
 ```javascript
 if (!AUTO_YES) {
-  AskUserQuestion({
+  request_user_input({
     questions: [{
-      question: "IterDev pipeline complete. What would you like to do?",
-      header: "Completion",
-      multiSelect: false,
+      question: "IterDev pipeline complete. Choose next action.",
+      header: "Done",
+      id: "completion",
       options: [
-        { label: "Archive & Clean (Recommended)", description: "Archive session, generate final report" },
+        { label: "Archive (Recommended)", description: "Archive session, generate final report" },
         { label: "Keep Active", description: "Keep session for follow-up or inspection" },
         { label: "Retry Failed", description: "Re-run failed tasks" }
       ]

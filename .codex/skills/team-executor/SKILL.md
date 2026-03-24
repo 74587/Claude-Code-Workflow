@@ -2,7 +2,7 @@
 name: team-executor
 description: Lightweight session execution skill. Resumes existing team-coordinate sessions for pure execution via worker agents. No analysis, no role generation -- only loads and executes. Session path required.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"--session=<path>\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -383,13 +383,13 @@ const summary = {
 console.log(`Pipeline complete: ${summary.completed}/${summary.total} tasks completed`)
 
 // Completion action
-const action = await AskUserQuestion({
+const action = request_user_input({
   questions: [{
-    question: "Team pipeline complete. What would you like to do?",
-    header: "Completion",
-    multiSelect: false,
+    question: "Team pipeline complete. Choose next action.",
+    header: "Done",
+    id: "completion",
     options: [
-      { label: "Archive & Clean (Recommended)", description: "Archive session, clean up team" },
+      { label: "Archive (Recommended)", description: "Archive session, clean up team" },
       { label: "Keep Active", description: "Keep session for follow-up work" },
       { label: "Export Results", description: "Export deliverables to target directory, then clean" }
     ]
@@ -397,7 +397,7 @@ const action = await AskUserQuestion({
 })
 
 // Handle completion action
-if (action === "Archive & Clean") {
+if (action.answers.completion.answers[0] === "Archive (Recommended)") {
   // Update session status, cleanup team
 } else if (action === "Keep Active") {
   // Update session status to paused

@@ -87,6 +87,19 @@ npm install -g claude-code-workflow
 ccw install -m Global
 ```
 
+### Codex Configuration (Required for `.codex/skills/`)
+
+If you use **Codex CLI** with the `.codex/skills/` workflow skills, add these required features to your `~/.codex/config.toml`:
+
+```toml
+[features]
+default_mode_request_user_input = true   # Enable request_user_input tool for interactive confirmations
+multi_agent = true                       # Enable multi-agent coordination (spawn_agent, wait, etc.)
+enable_fanout = true                     # Enable spawn_agents_on_csv for parallel wave execution
+```
+
+> These features are required for workflow skills to function properly. Without them, interactive confirmation gates (`request_user_input`), subagent orchestration, and CSV-driven parallel execution will not work.
+
 ### Workflow Skills vs Commands
 
 CCW uses two types of invocations:

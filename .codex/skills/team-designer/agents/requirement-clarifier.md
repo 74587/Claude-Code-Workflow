@@ -36,7 +36,7 @@ Interactive agent for gathering and refining team skill requirements from user i
 | Tool | Type | Purpose |
 |------|------|---------|
 | `Read` | built-in | Load reference skills, existing patterns |
-| `AskUserQuestion` | built-in | Gather missing details from user |
+| `request_user_input` | built-in | Gather missing details from user |
 | `Write` | built-in | Store teamConfig.json |
 | `Glob` | built-in | Find reference skill files |
 
@@ -94,23 +94,23 @@ Write("<session>/teamConfig.json", <config>)
 1. **Core Identity** -- gather if not clear from input:
 
 ```javascript
-AskUserQuestion({
+request_user_input({
   questions: [
     {
       question: "Team skill name? (kebab-case, e.g., team-code-review)",
       header: "Skill Name",
-      multiSelect: false,
+      id: "skill_name",
       options: [
-        { label: "<auto-suggested-name>", description: "Auto-suggested from description" },
+        { label: "<auto-suggested-name> (Recommended)", description: "Auto-suggested from description" },
         { label: "Custom", description: "Enter custom name" }
       ]
     },
     {
       question: "Session prefix? (3-4 chars for task IDs, e.g., TCR)",
       header: "Prefix",
-      multiSelect: false,
+      id: "session_prefix",
       options: [
-        { label: "<auto-suggested-prefix>", description: "Auto-suggested" },
+        { label: "<auto-suggested-prefix> (Recommended)", description: "Auto-suggested" },
         { label: "Custom", description: "Enter custom prefix" }
       ]
     }
@@ -186,16 +186,15 @@ Templates: <list or none>
 2. Present confirmation:
 
 ```javascript
-AskUserQuestion({
+request_user_input({
   questions: [{
     question: "Confirm this team skill configuration?",
-    header: "Configuration Review",
-    multiSelect: false,
+    header: "Config Review",
+    id: "config_review",
     options: [
-      { label: "Confirm", description: "Proceed with generation" },
+      { label: "Confirm (Recommended)", description: "Proceed with generation" },
       { label: "Modify Roles", description: "Add, remove, or change roles" },
-      { label: "Modify Pipelines", description: "Change pipeline structure" },
-      { label: "Cancel", description: "Abort skill generation" }
+      { label: "Modify Pipelines", description: "Change pipeline structure" }
     ]
   }]
 })

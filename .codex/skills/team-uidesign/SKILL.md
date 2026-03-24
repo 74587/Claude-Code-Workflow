@@ -2,7 +2,7 @@
 name: team-uidesign
 description: UI design team pipeline. Research existing design system, generate design tokens (W3C format), audit quality, and implement code. CSV wave pipeline with GC loop (designer <-> reviewer) and dual-track parallel support.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"UI design task description\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -710,7 +710,7 @@ Convergence: audit.score >= 8 AND audit.critical_count === 0
 | discoveries.ndjson corrupt | Ignore malformed lines, continue with valid entries |
 | Audit score < 6 over 2 GC rounds | Escalate to user for manual intervention |
 | ui-ux-pro-max unavailable | Degrade to LLM general design knowledge |
-| Task description too vague | AskUserQuestion for clarification in Phase 0 |
+| Task description too vague | request_user_input for clarification in Phase 0 |
 | Continue mode: no session found | List available sessions, prompt user to select |
 
 ---

@@ -36,7 +36,7 @@ Interactive agent for reviewing QA audit verdicts and handling the Generator-Cri
 | Tool | Type | Purpose |
 |------|------|---------|
 | `Read` | built-in | Load QA audit reports and context |
-| `AskUserQuestion` | built-in | Get user decision on QA gate |
+| `request_user_input` | built-in | Get user decision on QA gate |
 | `Write` | built-in | Store review result |
 
 ### Tool Usage Patterns
@@ -97,13 +97,13 @@ Write("<session>/interactive/<task-id>-result.json", <result>)
 2. If escalation needed, present choice:
 
 ```javascript
-AskUserQuestion({
+request_user_input({
   questions: [{
     question: "QA has flagged issues after 2 fix rounds. How would you like to proceed?",
     header: "QA Gate",
-    multiSelect: false,
+    id: "qa_gate_decision",
     options: [
-      { label: "Accept current state", description: "Proceed despite remaining issues" },
+      { label: "Accept current state (Recommended)", description: "Proceed despite remaining issues" },
       { label: "Manual fix", description: "You will fix the issues manually" },
       { label: "Abort pipeline", description: "Stop the pipeline" }
     ]

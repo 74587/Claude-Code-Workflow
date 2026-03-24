@@ -2,7 +2,7 @@
 name: team-review
 description: Multi-agent code review pipeline with scanner, reviewer, and fixer roles. Executes toolchain + LLM scan, deep analysis with root cause enrichment, and automated fixes with rollback-on-failure.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] [--full|--fix|-q] [--dimensions=sec,cor,prf,mnt] \"target path or pattern\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -476,7 +476,7 @@ send_input({
 | discoveries.ndjson corrupt | Ignore malformed lines, continue with valid entries |
 | Lifecycle leak | Cleanup all active agents via registry.json at end |
 | Continue mode: no session found | List available sessions, prompt user to select |
-| Target path invalid | AskUserQuestion for corrected path |
+| Target path invalid | request_user_input for corrected path |
 | Scanner finds 0 findings | Report clean, skip review + fix stages |
 
 ---

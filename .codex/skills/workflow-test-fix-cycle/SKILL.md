@@ -1,7 +1,7 @@
 ---
 name: workflow-test-fix-cycle
 description: End-to-end test-fix workflow generate test sessions with progressive layers (L0-L3), then execute iterative fix cycles until pass rate >= 95%. Combines test-fix-gen and test-cycle-execute into a unified pipeline. Triggers on "workflow:test-fix-cycle".
-allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
+allowed-tools: spawn_agent, wait, send_input, close_agent, request_user_input, Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Workflow Test-Fix Cycle
@@ -63,7 +63,7 @@ Task Pipeline:
 
 1. **Two-Phase Pipeline**: Generation (Phase 1) creates session + tasks, Execution (Phase 2) runs iterative fix cycles
 2. **Pure Orchestrator**: Dispatch to phase docs, parse outputs, pass context between phases
-3. **Auto-Continue**: Full pipeline runs autonomously once triggered
+3. **Phase 1 Auto-Continue**: Sub-phases within Phase 1 run autonomously
 4. **Subagent Lifecycle**: Explicit lifecycle management with spawn_agent → wait → close_agent
 5. **Progressive Test Layers**: L0 (Static) → L1 (Unit) → L2 (Integration) → L3 (E2E)
 6. **AI Code Issue Detection**: Validates against common AI-generated code problems
@@ -74,7 +74,7 @@ Task Pipeline:
 
 ## Auto Mode
 
-This workflow is fully autonomous - Phase 1 generates test session and tasks, Phase 2 executes iterative fix cycles, all without user intervention until pass rate >= 95% or max iterations reached.
+Phase 1 generates test session and tasks. Phase 2 executes iterative fix cycles until pass rate >= 95% or max iterations reached. **Between Phase 1 and Phase 2, you MUST stop and wait for user confirmation before proceeding to execution.** Phase 2 runs autonomously once approved.
 
 ## Subagent API Reference
 
@@ -197,6 +197,10 @@ Phase 1: Test-Fix Generation (phases/01-test-fix-gen.md)
   ├─ Sub-phase 1.4: Generate Test Tasks (spawn_agent) → IMPL-*.json, IMPL_PLAN.md, TODO_LIST.md
   └─ Sub-phase 1.5: Phase 1 Summary
        │
+  ⛔ MANDATORY CONFIRMATION GATE
+  │   Present plan summary → request_user_input → User approves/cancels
+  │   NEVER auto-proceed to Phase 2
+       │
 Phase 2: Test-Cycle Execution (phases/02-test-cycle-execute.md)
   ├─ Discovery: Load session, tasks, iteration state
   ├─ Main Loop (for each task):
@@ -215,12 +219,12 @@ Phase 2: Test-Cycle Execution (phases/02-test-cycle-execute.md)
 
 1. **Start Immediately**: First action is progress tracking initialization
 2. **No Preliminary Analysis**: Do not read files before Phase 1
-3. **Parse Every Output**: Extract data from each phase for the next
-4. **Auto-Continue**: After each phase finishes, automatically execute next pending phase
+3. **Parse Every Output**: Extract data from each phase/sub-phase for the next
+4. **Within-Phase Auto-Continue**: Sub-phases within a phase run automatically; Phase 2 iterations run automatically once started
 5. **Phase Loading**: Read phase doc on-demand (`phases/01-*.md`, `phases/02-*.md`)
 6. **Task Attachment Model**: Sub-tasks ATTACH → execute → COLLAPSE
-7. **CRITICAL: DO NOT STOP**: Continuous pipeline until Phase 2 completion
-8. **Phase Transition**: After Phase 1 summary, immediately begin Phase 2
+7. **MANDATORY CONFIRMATION GATE**: After Phase 1 completes, you MUST stop and present the generated plan to the user. Wait for explicit user approval via request_user_input before starting Phase 2. NEVER auto-proceed from Phase 1 to Phase 2
+8. **Phase 2 Continuous**: Once user approves, Phase 2 runs continuously until pass rate >= 95% or max iterations reached
 9. **Explicit Lifecycle**: Always close_agent after wait completes to free resources
 
 ## Phase Execution
@@ -234,7 +238,7 @@ Phase 2: Test-Cycle Execution (phases/02-test-cycle-execute.md)
 2. Gather Test Context (spawn_agent → wait → close_agent) → `contextPath`
 3. Test Generation Analysis (spawn_agent → wait → close_agent) → `TEST_ANALYSIS_RESULTS.md`
 4. Generate Test Tasks (spawn_agent → wait → close_agent) → `IMPL-001.json`, `IMPL-001.3.json`, `IMPL-001.5.json`, `IMPL-002.json`, `IMPL_PLAN.md`, `TODO_LIST.md`
-5. Phase 1 Summary (internal - transitions to Phase 2)
+5. Phase 1 Summary → **⛔ MANDATORY: Present plan and wait for user confirmation before Phase 2**
 
 **Agents Used** (via spawn_agent):
 - `test-context-search-agent` (~/.codex/agents/test-context-search-agent.md) - Context gathering (Session Mode)
@@ -357,6 +361,12 @@ try {
 - Execute 5 sub-phases with spawn_agent → wait → close_agent lifecycle
 - Verify all Phase 1 outputs (4+ task JSONs, IMPL_PLAN.md, TODO_LIST.md)
 - **Ensure all agents are closed** after each sub-phase completes
+- **⛔ MANDATORY: Present plan summary and request_user_input for confirmation**
+  - Show: session ID, task count, test layers, quality gates
+  - Options: "Proceed to Execution" / "Review Plan" / "Cancel"
+  - If "Cancel" → return, do NOT start Phase 2
+  - If "Review Plan" → display IMPL_PLAN.md, then return
+  - Only proceed to Phase 2 if user selects "Proceed to Execution"
 
 **Phase 2 (Execution)**:
 - Read `phases/02-test-cycle-execute.md` for detailed execution logic

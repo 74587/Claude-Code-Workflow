@@ -2,7 +2,7 @@
 name: team-ux-improve
 description: Systematic UX improvement pipeline. Discovers and fixes UI/UX interaction issues including unresponsive buttons, missing feedback, and state refresh problems using scan->diagnose->design->implement->test workflow.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"<project-path> [--framework react|vue]\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -452,19 +452,19 @@ writeMasterCSV(`${sessionDir}/tasks.csv`, tasksWithWaves)
 
 // User validation (skip if autoYes)
 if (!autoYes) {
-  const approval = AskUserQuestion({
+  const approval = request_user_input({
     questions: [{
+      id: "task_approval",
       question: `Generated ${tasksWithWaves.length} tasks for ${components.length} components. Proceed?`,
-      header: "Task Breakdown Validation",
-      multiSelect: false,
+      header: "Validate",
       options: [
-        { label: "Proceed", description: "Start UX improvement pipeline" },
+        { label: "Proceed (Recommended)", description: "Start UX improvement pipeline" },
         { label: "Cancel", description: "Abort workflow" }
       ]
     }]
   })
 
-  if (approval.answers[0] !== "Proceed") {
+  if (approval.answers.task_approval.answers[0] !== "Proceed (Recommended)") {
     throw new Error("User cancelled workflow")
   }
 }
@@ -530,20 +530,19 @@ console.log(`\nResults: ${sessionDir}/results.csv`)
 console.log(`Report: ${sessionDir}/context.md`)
 
 // Offer next steps
-const nextStep = AskUserQuestion({
+const nextStep = request_user_input({
   questions: [{
+    id: "completion",
     question: "UX Improvement pipeline complete. What would you like to do?",
-    header: "Completion",
-    multiSelect: false,
+    header: "Done",
     options: [
-      { label: "Archive & Clean", description: "Archive session and clean up team resources" },
-      { label: "Keep Active", description: "Keep session for follow-up work" },
-      { label: "Export Results", description: "Export deliverables to specified location" }
+      { label: "Archive (Recommended)", description: "Archive session and clean up team resources" },
+      { label: "Keep Active", description: "Keep session for follow-up work" }
     ]
   }]
 })
 
-if (nextStep.answers[0] === "Archive & Clean") {
+if (nextStep.answers.completion.answers[0] === "Archive (Recommended)") {
   Bash(`tar -czf "${sessionDir}.tar.gz" "${sessionDir}" && rm -rf "${sessionDir}"`)
   console.log(`Session archived to ${sessionDir}.tar.gz`)
 }
@@ -576,7 +575,7 @@ All agents share `discoveries.ndjson` for UX findings.
 
 | Error | Resolution |
 |-------|------------|
-| Framework detection fails | AskUserQuestion for framework selection |
+| Framework detection fails | request_user_input for framework selection |
 | No components found | Complete with empty report, note in findings |
 | Circular dependency | Detect in wave computation, abort with error |
 | CSV agent timeout | Mark as failed, continue with wave |

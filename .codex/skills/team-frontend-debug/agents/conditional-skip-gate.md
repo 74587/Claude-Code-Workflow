@@ -35,7 +35,7 @@ Interactive agent for evaluating TEST-001 results and determining whether to ski
 | Tool | Type | Purpose |
 |------|------|---------|
 | `Read` | built-in | Load test results and issues |
-| `AskUserQuestion` | built-in | Get user decision on warnings |
+| `request_user_input` | built-in | Get user decision on warnings |
 | `Write` | built-in | Store gate decision result |
 
 ---
@@ -81,13 +81,13 @@ Interactive agent for evaluating TEST-001 results and determining whether to ski
 2. If only warnings, present choice:
 
 ```javascript
-AskUserQuestion({
+request_user_input({
   questions: [{
     question: "Testing found only low-severity warnings. How would you like to proceed?",
     header: "Test Results",
-    multiSelect: false,
+    id: "warning_decision",
     options: [
-      { label: "Fix warnings", description: "Proceed with analysis and fixes for warnings" },
+      { label: "Fix warnings (Recommended)", description: "Proceed with analysis and fixes for warnings" },
       { label: "Complete", description: "Accept current state, skip remaining tasks" }
     ]
   }]

@@ -2,7 +2,7 @@
 name: team-coordinate
 description: Universal team coordination skill with dynamic role generation. Analyzes task, generates worker roles at runtime, decomposes into CSV tasks with dependency waves, dispatches parallel CSV agents per wave. Coordinator is orchestrator; all workers are CSV or interactive agents with dynamically generated instructions.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"task description\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -43,7 +43,7 @@ Universal team coordination: analyze task -> detect capabilities -> generate dyn
 |                                                                     |
 |  Phase 0: Pre-Wave Interactive (Requirement Clarification)          |
 |     +- Parse user task description                                  |
-|     +- Clarify ambiguous requirements (AskUserQuestion)             |
+|     +- Clarify ambiguous requirements (request_user_input)                 |
 |     +- Output: refined requirements for decomposition               |
 |                                                                     |
 |  Phase 1: Requirement -> CSV + Classification                       |
@@ -245,13 +245,13 @@ Write(`${sessionFolder}/wisdom/decisions.md`, '# Decisions\n')
 
 3. **Clarify if ambiguous** (skip if AUTO_YES):
    ```javascript
-   AskUserQuestion({
+   request_user_input({
      questions: [{
-       question: "Please confirm the task scope and deliverables:",
-       header: "Task Clarification",
-       multiSelect: false,
+       question: "Please confirm the task scope and deliverables.",
+       header: "Scope",
+       id: "task_scope",
        options: [
-         { label: "Proceed as described", description: "Task is clear enough" },
+         { label: "Proceed (Recommended)", description: "Task is clear enough" },
          { label: "Narrow scope", description: "Specify files/modules/areas" },
          { label: "Add constraints", description: "Timeline, tech stack, style" }
        ]
@@ -482,13 +482,13 @@ Session: ${sessionFolder}
 
 // 2. Completion action
 if (!AUTO_YES) {
-  const choice = AskUserQuestion({
+  const choice = request_user_input({
     questions: [{
-      question: "Team pipeline complete. What would you like to do?",
-      header: "Completion",
-      multiSelect: false,
+      question: "Team pipeline complete. Choose next action.",
+      header: "Done",
+      id: "completion",
       options: [
-        { label: "Archive & Clean (Recommended)", description: "Archive session, output final summary" },
+        { label: "Archive (Recommended)", description: "Archive session, output final summary" },
         { label: "Keep Active", description: "Keep session for follow-up work" },
         { label: "Retry Failed", description: "Re-run failed tasks" }
       ]
@@ -609,7 +609,7 @@ See `instructions/agent-instruction.md` for the base instruction template that i
 | discoveries.ndjson corrupt | Ignore malformed lines, continue with valid entries |
 | No capabilities detected | Default to single `general` role with TASK prefix |
 | All capabilities merge to one | Valid: single-role execution, reduced overhead |
-| Task description too vague | AskUserQuestion for clarification in Phase 0 |
+| Task description too vague | request_user_input for clarification in Phase 0 |
 | Continue mode: no session found | List available sessions, prompt user to select |
 | Role instruction generation fails | Fall back to generic instruction template |
 

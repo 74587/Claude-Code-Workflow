@@ -6,12 +6,12 @@ description: |
   (spawn_agent or N+1 parallel agents) → plan verification → interactive replan.
   Produces IMPL_PLAN.md, task JSONs, TODO_LIST.md.
 argument-hint: "[-y|--yes] [--session ID] \"task description\" | verify [--session ID] | replan [--session ID] [IMPL-N] \"changes\""
-allowed-tools: spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
+allowed-tools: spawn_agent, wait, send_input, close_agent, request_user_input, Read, Write, Edit, Bash, Glob, Grep
 ---
 
 ## Auto Mode
 
-When `--yes` or `-y`: Skip all confirmations, use defaults, auto-verify, auto-continue to execute if PROCEED.
+When `--yes` or `-y`: Skip all confirmations, use defaults, auto-verify. **This skill is planning-only — it NEVER executes implementation. Output is the plan for user review.**
 
 # Workflow Plan
 
@@ -68,9 +68,9 @@ Multi-mode planning pipeline using subagent coordination. Plan mode runs 4 seque
 │     ├─ Multi-module → N+1 parallel agents                        │
 │     └─ Output: IMPL_PLAN.md + task JSONs + TODO_LIST.md          │
 │                                                                    │
-│  Plan Confirmation Gate                                           │
+│  Plan Confirmation Gate (PLANNING ENDS HERE)                     │
 │     ├─ "Verify Plan" → Phase 5                                   │
-│     ├─ "Start Execution" → workflow-execute                      │
+│     ├─ "Done" → Display next-step command for user               │
 │     └─ "Review Status" → Display inline                          │
 │                                                                    │
 │  ═══ Verify Mode ═══                                              │
@@ -209,11 +209,10 @@ if (existingSessionId) {
       sessionFolder = sessions[0]
       sessionId = sessions[0].split('/').pop()
     } else {
-      const answer = AskUserQuestion({
+      const answer = request_user_input({
         questions: [{
           question: "Multiple sessions found. Select one:",
           header: "Session",
-          multiSelect: false,
           options: sessions.slice(0, 4).map(s => ({
             label: s.split('/').pop(),
             description: s
@@ -329,11 +328,10 @@ TASK DESCRIPTION: ${taskDescription}" --tool gemini --mode analysis --rule analy
       console.log(`   Strategy: ${c.strategy} | Impact: ${c.impact}`)
     })
 
-    const answer = AskUserQuestion({
+    const answer = request_user_input({
       questions: [{
         question: "Accept conflict resolution strategies?",
         header: "Conflicts",
-        multiSelect: false,
         options: [
           { label: "Accept All", description: "Apply all recommended strategies" },
           { label: "Review Each", description: "Approve strategies individually" },
@@ -479,31 +477,30 @@ Integrate ${uniqueModules.length} module plans into unified IMPL_PLAN.md.
    console.log(`  Plan: ${sessionFolder}/IMPL_PLAN.md`)
 
    if (AUTO_YES) {
-     // Auto-verify then auto-execute if PROCEED
+     // Auto-verify plan quality
      console.log(`  [--yes] Auto-verifying plan...`)
-     // → Fall through to Phase 5, then Phase 5 result determines next step
+     // → Fall through to Phase 5
    } else {
-     const nextStep = AskUserQuestion({
+     const nextStep = request_user_input({
        questions: [{
          question: "Plan generated. What's next?",
          header: "Next Step",
-         multiSelect: false,
          options: [
-           { label: "Verify Plan (Recommended)", description: "Run quality verification before execution" },
-           { label: "Start Execution", description: "Proceed to workflow-execute" },
+           { label: "Verify Plan (Recommended)", description: "Run quality verification" },
+           { label: "Done", description: "Planning complete — show next-step command" },
            { label: "Review Status", description: "Display plan summary inline" }
          ]
        }]
      })
 
-     if (nextStep['Next Step'] === 'Start Execution') {
-       console.log(`\nReady to execute. Run: $workflow-execute --session ${sessionId}`)
-       return
+     if (nextStep['Next Step'] === 'Done') {
+       console.log(`\nPlanning complete. To execute, run: $workflow-execute --session ${sessionId}`)
+       return  // STOP — this skill is planning-only
      }
      if (nextStep['Next Step'] === 'Review Status') {
        const plan = Read(`${sessionFolder}/IMPL_PLAN.md`)
        console.log(plan)
-       return
+       return  // STOP — this skill is planning-only
      }
      // Verify → continue to Phase 5
    }
@@ -550,10 +547,8 @@ CONSTRAINTS: Read-only | No file modifications | Be specific about issues" --too
   console.log(`  Quality gate: ${qualityGate}`)
   console.log(`  Report: ${sessionFolder}/.process/PLAN_VERIFICATION.md`)
 
-  if (AUTO_YES && qualityGate === 'PROCEED') {
-    console.log(`  [--yes] Plan verified. Ready for execution.`)
-    console.log(`  Run: $workflow-execute --session ${sessionId}`)
-  }
+  console.log(`\nPlanning complete. To execute, run: $workflow-execute --session ${sessionId}`)
+  // STOP — this skill is planning-only, NEVER proceed to execution
 }
 ```
 

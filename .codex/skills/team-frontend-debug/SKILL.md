@@ -2,7 +2,7 @@
 name: team-frontend-debug
 description: Frontend debugging team using Chrome DevTools MCP. Dual-mode -- feature-list testing or bug-report debugging. Covers reproduction, root cause analysis, code fixes, and verification. CSV wave pipeline with conditional skip and iteration loops.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"feature list or bug description\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -98,7 +98,7 @@ Dual-mode frontend debugging: feature-list testing or bug-report debugging, powe
 | feature, test, list, check, verify functions, validate | `test-pipeline` |
 | bug, error, crash, broken, white screen, not working | `debug-pipeline` |
 | performance, slow, latency, memory leak | `debug-pipeline` (perf dimension) |
-| Ambiguous / unclear | AskUserQuestion to clarify |
+| Ambiguous / unclear | request_user_input to clarify |
 
 ---
 
@@ -305,19 +305,19 @@ Write(`${sessionFolder}/wisdom/learnings.md`, '# Debug Learnings\n')
    |---------------|------|
    | Contains: feature, test, list, check, verify | `test-pipeline` |
    | Contains: bug, error, crash, broken, not working | `debug-pipeline` |
-   | Ambiguous | AskUserQuestion to clarify |
+   | Ambiguous | request_user_input to clarify |
 
 4. **Extract parameters by mode**:
 
    **Test Mode**:
-   - `base_url`: URL in text or AskUserQuestion
+   - `base_url`: URL in text or request_user_input
    - `features`: Parse feature list (bullet points, numbered list, free text)
    - Generate structured feature items with id, name, url
 
    **Debug Mode**:
    - `bug_description`: Bug description text
-   - `target_url`: URL in text or AskUserQuestion
-   - `reproduction_steps`: Steps in text or AskUserQuestion
+   - `target_url`: URL in text or request_user_input
+   - `reproduction_steps`: Steps in text or request_user_input
    - `evidence_plan`: Detect dimensions from keywords (UI, network, console, performance)
 
 5. **Dimension Detection** (debug mode):
@@ -616,13 +616,13 @@ ${completed.map(t => `  [DONE] ${t.id} (${t.role}): ${t.findings?.substring(0, 8
 `)
 
 if (!AUTO_YES) {
-  AskUserQuestion({
+  request_user_input({
     questions: [{
-      question: "Debug pipeline complete. What would you like to do?",
-      header: "Completion",
-      multiSelect: false,
+      question: "Debug pipeline complete. Choose next action.",
+      header: "Done",
+      id: "completion",
       options: [
-        { label: "Archive & Clean (Recommended)", description: "Archive session, output final summary" },
+        { label: "Archive (Recommended)", description: "Archive session, output final summary" },
         { label: "Keep Active", description: "Keep session for follow-up debugging" },
         { label: "Export Results", description: "Export debug report and patches" }
       ]
@@ -732,7 +732,7 @@ After TEST-001 completes, evaluate issues:
 | Condition | Action |
 |-----------|--------|
 | `issues_count === 0` | Skip ANALYZE/FIX/VERIFY. Pipeline complete with all-pass. |
-| Only low-severity warnings | AskUserQuestion: fix warnings or complete |
+| Only low-severity warnings | request_user_input: fix warnings or complete |
 | High/medium severity issues | Proceed with ANALYZE -> FIX -> VERIFY |
 
 ---

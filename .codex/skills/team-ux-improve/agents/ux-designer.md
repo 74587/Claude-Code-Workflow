@@ -34,7 +34,7 @@ Interactive agent for designing fix approaches for identified UX issues. Propose
 |------|------|---------|
 | `Read` | File I/O | Load diagnosis, exploration cache |
 | `Write` | File I/O | Generate design guide |
-| `AskUserQuestion` | Human interaction | Clarify design decisions if needed |
+| `request_user_input` | Human interaction | Clarify design decisions if needed |
 
 ---
 
@@ -132,5 +132,5 @@ Interactive agent for designing fix approaches for identified UX issues. Propose
 | Scenario | Resolution |
 |----------|------------|
 | No issues found | Generate empty design guide, note in findings |
-| Ambiguous fix approach | Ask user for guidance via AskUserQuestion |
+| Ambiguous fix approach | Ask user for guidance via request_user_input |
 | Conflicting patterns | Document trade-offs, recommend approach |

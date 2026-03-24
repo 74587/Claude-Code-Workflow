@@ -2,7 +2,7 @@
 name: team-roadmap-dev
 description: Roadmap-driven development with phased execution pipeline. Coordinator discusses roadmap with user, then executes plan->execute->verify cycles per phase using CSV wave execution.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"<task-description>\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -244,7 +244,7 @@ const discusser = spawn_agent({
 
 **Instructions**:
 1. Analyze task description to understand scope
-2. Propose phase breakdown to user via AskUserQuestion
+2. Propose phase breakdown to user via request_user_input
 3. For each phase, clarify requirements and success criteria
 4. Generate roadmap.md with structured phase definitions
 5. Output result as JSON with roadmap_path and phase_count`
@@ -343,19 +343,19 @@ writeMasterCSV(`${sessionDir}/tasks.csv`, tasksWithWaves)
 
 // User validation (skip if autoYes)
 if (!autoYes) {
-  const approval = AskUserQuestion({
+  const approval = request_user_input({
     questions: [{
       question: `Generated ${tasksWithWaves.length} tasks across ${phases.length} phases. Proceed?`,
-      header: "Task Breakdown Validation",
-      multiSelect: false,
+      header: "Validate",
+      id: "task_approval",
       options: [
-        { label: "Proceed", description: "Start execution" },
+        { label: "Proceed (Recommended)", description: "Start execution" },
         { label: "Cancel", description: "Abort workflow" }
       ]
     }]
   })
 
-  if (approval.answers[0] !== "Proceed") {
+  if (approval.answers.task_approval.answers[0] !== "Proceed (Recommended)") {
     throw new Error("User cancelled workflow")
   }
 }
@@ -554,20 +554,20 @@ console.log(`\nResults: ${sessionDir}/results.csv`)
 console.log(`Report: ${sessionDir}/context.md`)
 
 // Offer next steps
-const nextStep = AskUserQuestion({
+const nextStep = request_user_input({
   questions: [{
-    question: "Roadmap Dev pipeline complete. What would you like to do?",
-    header: "Completion",
-    multiSelect: false,
+    question: "Roadmap Dev pipeline complete. Choose next action.",
+    header: "Done",
+    id: "completion",
     options: [
-      { label: "Archive & Clean (Recommended)", description: "Archive session, clean up tasks and team resources" },
+      { label: "Archive (Recommended)", description: "Archive session, clean up tasks and team resources" },
       { label: "Keep Active", description: "Keep session active for follow-up work or inspection" },
       { label: "Export Results", description: "Export deliverables to a specified location, then clean" }
     ]
   }]
 })
 
-if (nextStep.answers[0] === "Archive & Clean (Recommended)") {
+if (nextStep.answers.completion.answers[0] === "Archive (Recommended)") {
   Bash(`tar -czf "${sessionDir}.tar.gz" "${sessionDir}" && rm -rf "${sessionDir}"`)
   console.log(`Session archived to ${sessionDir}.tar.gz`)
 }

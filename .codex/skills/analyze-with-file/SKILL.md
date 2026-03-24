@@ -213,26 +213,25 @@ For new sessions, gather user preferences (skipped in auto mode or continue mode
 if (!autoYes && !continueMode) {
   // 1. Focus areas (multi-select)
   // Generate directions dynamically from detected dimensions (see Dimension-Direction Mapping)
-  const focusAreas = AskUserQuestion({
+  const focusAreas = request_user_input({
     questions: [{
+      header: "聚焦领域",
+      id: "focus",
       question: "Select analysis focus areas:",
-      header: "Focus",
-      multiSelect: true,
       options: generateFocusOptions(dimensions) // Dynamic based on dimensions
     }]
   })
 
   // 2. Analysis perspectives (multi-select, max 4)
-  const perspectives = AskUserQuestion({
+  const perspectives = request_user_input({
     questions: [{
+      header: "分析视角",
+      id: "perspectives",
       question: "Select analysis perspectives (single = focused, multi = broader coverage):",
-      header: "Perspectives",
-      multiSelect: true,
       options: [
         { label: "Technical", description: "Implementation patterns, code structure, technical feasibility" },
         { label: "Architectural", description: "System design, scalability, component interactions" },
-        { label: "Security", description: "Vulnerabilities, authentication, access control" },
-        { label: "Performance", description: "Bottlenecks, optimization, resource utilization" }
+        { label: "Security", description: "Vulnerabilities, authentication, access control" }
       ]
     }]
   })
@@ -507,16 +506,14 @@ if (round >= 2) {
 // Show key points, discussion points, open questions
 
 if (!autoYes) {
-  const feedback = AskUserQuestion({
+  const feedback = request_user_input({
     questions: [{
+      header: "分析方向",
+      id: "direction",
       question: `Analysis round ${round}: Feedback on current findings?`,
-      header: "Direction",
-      multiSelect: false,
       options: [
-        { label: "Deepen", description: "Analysis direction is correct, investigate deeper" },
-        { label: "Agree & Suggest", description: "Agree with direction, but have specific next step in mind" },
+        { label: "Deepen(Recommended)", description: "Analysis direction is correct, investigate deeper" },
         { label: "Adjust Direction", description: "Different understanding or focus needed" },
-        { label: "Specific Questions", description: "Have specific questions to ask" },
         { label: "Analysis Complete", description: "Sufficient information obtained, proceed to synthesis" }
       ]
     }]
@@ -540,7 +537,7 @@ if (!autoYes) {
 //   "analyze under extreme load scenarios",
 //   "review from security audit perspective",
 //   "explore simpler architectural alternatives"
-// AskUserQuestion with generated options (single-select)
+// request_user_input with generated options (single-select)
 // Execute selected direction via inline search tools
 // Merge new findings into explorations.json
 // Record: Which assumptions were confirmed, specific angles for deeper exploration
@@ -549,12 +546,15 @@ if (!autoYes) {
 **Agree & Suggest** — user provides specific next step:
 ```javascript
 // Ask user for their specific direction (free text input)
-const userSuggestion = AskUserQuestion({
+const userSuggestion = request_user_input({
   questions: [{
+    header: "你的方向",
+    id: "your_direction",
     question: "请描述您希望下一步深入的方向:",
-    header: "Your Direction",
-    multiSelect: false,
-    options: [/* user will select "Other" to type free text */]
+    options: [
+      { label: "Code Details", description: "Deeper into implementation specifics" },
+      { label: "Architecture", description: "Broader structural analysis" }
+    ]
   }]
 })
 // Execute user's specific direction via inline search tools
@@ -564,11 +564,11 @@ const userSuggestion = AskUserQuestion({
 **Adjust Direction** — new focus area:
 ```javascript
 // Ask user for adjusted focus
-const adjustedFocus = AskUserQuestion({
+const adjustedFocus = request_user_input({
   questions: [{
+    header: "新焦点",
+    id: "new_focus",
     question: "What should the new analysis focus be?",
-    header: "New Focus",
-    multiSelect: false,
     options: [
       { label: "Code Details", description: "Deeper into implementation specifics" },
       { label: "Architecture", description: "Broader structural analysis" },
@@ -586,7 +586,7 @@ const adjustedFocus = AskUserQuestion({
 
 **Specific Questions** — answer directly:
 ```javascript
-// Capture user questions via AskUserQuestion (text input)
+// Capture user questions via request_user_input
 // Answer each question based on codebase search and analysis
 // Provide evidence and file references
 // Rate confidence for each answer (high/medium/low)
@@ -772,16 +772,15 @@ for (const [index, rec] of sortedRecs.entries()) {
   // Display: action, rationale, priority, steps[] (numbered sub-steps with target + verification)
 
   // 2. Gather user review
-  const review = AskUserQuestion({
+  const review = request_user_input({
     questions: [{
+      header: `建议#${index + 1}`,
+      id: `rec_${index + 1}`,
       question: `Recommendation #${index + 1}: "${rec.action}" (${rec.priority} priority, ${rec.steps.length} steps). Your decision:`,
-      header: `Rec #${index + 1}`,
-      multiSelect: false,
       options: [
-        { label: "Accept", description: "Accept this recommendation as-is" },
+        { label: "Accept(Recommended)", description: "Accept this recommendation as-is" },
         { label: "Modify", description: "Adjust scope, steps, or priority" },
-        { label: "Reject", description: "Remove this recommendation" },
-        { label: "Accept All Remaining", description: "Skip review for remaining recommendations" }
+        { label: "Reject", description: "Remove this recommendation" }
       ]
     }]
   })
@@ -837,11 +836,11 @@ function assessComplexity(recs) {
 ```javascript
 if (!autoYes) {
   const options = buildOptionsForComplexity(complexity)
-  AskUserQuestion({
+  request_user_input({
     questions: [{
+      header: "下一步",
+      id: "next_step",
       question: `Analysis complete (${recs.length} recommendations, complexity: ${complexity}). Next step:`,
-      header: "Next Step",
-      multiSelect: false,
       options: options
     }]
   })

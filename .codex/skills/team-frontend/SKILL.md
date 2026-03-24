@@ -2,7 +2,7 @@
 name: team-frontend
 description: Frontend development team with built-in ui-ux-pro-max design intelligence. Covers requirement analysis, design system generation, frontend implementation, and quality assurance. CSV wave pipeline with interactive QA gates.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"frontend task description\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -535,13 +535,13 @@ ${deliverables.map(d => `  - ${d.name}: ${d.path}`).join('\n')}
 `)
 
 if (!AUTO_YES) {
-  AskUserQuestion({
+  request_user_input({
     questions: [{
-      question: "Frontend pipeline complete. What would you like to do?",
-      header: "Completion",
-      multiSelect: false,
+      question: "Frontend pipeline complete. Choose next action.",
+      header: "Done",
+      id: "completion",
       options: [
-        { label: "Archive & Clean (Recommended)", description: "Archive session, output final summary" },
+        { label: "Archive (Recommended)", description: "Archive session, output final summary" },
         { label: "Keep Active", description: "Keep session for follow-up work" },
         { label: "Export Results", description: "Export design tokens and component specs" }
       ]
@@ -693,7 +693,7 @@ Convergence: qa.score >= 8 && qa.critical_count === 0
 | discoveries.ndjson corrupt | Ignore malformed lines, continue with valid entries |
 | QA score < 6 over 2 GC rounds | Escalate to user for manual intervention |
 | ui-ux-pro-max unavailable | Degrade to LLM general design knowledge |
-| Task description too vague | AskUserQuestion for clarification in Phase 0 |
+| Task description too vague | request_user_input for clarification in Phase 0 |
 | Continue mode: no session found | List available sessions, prompt user to select |
 
 ---

@@ -34,7 +34,7 @@ Interactive agent for handling pipeline completion actions. Presents results sum
 | Tool | Type | Purpose |
 |------|------|---------|
 | `Read` | built-in | Load tasks.csv, artifacts |
-| `AskUserQuestion` | built-in | Get completion choice |
+| `request_user_input` | built-in | Get completion choice |
 | `Write` | built-in | Store completion result |
 | `Bash` | built-in | Archive or export operations |
 
@@ -74,11 +74,11 @@ Interactive agent for handling pipeline completion actions. Presents results sum
 1. Present completion choice:
 
 ```javascript
-AskUserQuestion({
+request_user_input({
   questions: [{
     question: "Team pipeline complete. What would you like to do?",
     header: "Completion",
-    multiSelect: false,
+    id: "completion_action",
     options: [
       { label: "Archive & Clean (Recommended)", description: "Mark session complete, output final summary" },
       { label: "Keep Active", description: "Keep session for follow-up work" },

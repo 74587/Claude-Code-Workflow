@@ -34,7 +34,7 @@ Handle pipeline completion action for performance optimization: present results 
 | `Read` | builtin | Load result artifacts |
 | `Write` | builtin | Write export files |
 | `Bash` | builtin | Archive/cleanup operations |
-| `AskUserQuestion` | builtin | Present completion choices |
+| `request_user_input` | builtin | Present completion choices |
 
 ---
 
@@ -74,11 +74,11 @@ Handle pipeline completion action for performance optimization: present results 
 2. Present completion action:
 
 ```javascript
-AskUserQuestion({
+request_user_input({
   questions: [{
     question: "Performance optimization complete. What would you like to do?",
     header: "Completion",
-    multiSelect: false,
+    id: "completion_action",
     options: [
       { label: "Archive & Clean (Recommended)", description: "Archive session, output final summary" },
       { label: "Keep Active", description: "Keep session for follow-up work or inspection" },

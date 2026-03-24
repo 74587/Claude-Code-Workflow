@@ -2,7 +2,7 @@
 name: team-ultra-analyze
 description: Deep collaborative analysis pipeline. Multi-perspective exploration, deep analysis, user-driven discussion loops, and cross-perspective synthesis. Supports Quick, Standard, and Deep pipeline modes.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] [--mode quick|standard|deep] \"analysis topic\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -282,16 +282,15 @@ If not AUTO_YES, present user with configuration for confirmation:
 
 ```javascript
 if (!AUTO_YES) {
-  const answer = AskUserQuestion({
+  const answer = request_user_input({
     questions: [{
-      question: `Topic: "${topic}"\nPipeline: ${pipeline_mode}\nPerspectives: ${perspectives.join(', ')}\nDimensions: ${dimensions.join(', ')}\n\nApprove?`,
-      header: "Analysis Configuration",
-      multiSelect: false,
+      question: `Topic: "${topic}" — Pipeline: ${pipeline_mode}. Approve or override?`,
+      header: "Config",
+      id: "analysis_config",
       options: [
-        { label: "Approve", description: `Use ${pipeline_mode} mode with ${perspectives.length} perspectives` },
-        { label: "Quick", description: "1 explorer → 1 analyst → synthesizer (fast)" },
-        { label: "Standard", description: "N explorers → N analysts → discussion → synthesizer" },
-        { label: "Deep", description: "N explorers → N analysts → discussion loop (up to 5 rounds) → synthesizer" }
+        { label: "Approve (Recommended)", description: `Use ${pipeline_mode} mode with ${perspectives.length} perspectives` },
+        { label: "Quick", description: "1 explorer -> 1 analyst -> synthesizer (fast)" },
+        { label: "Standard/Deep", description: "N explorers -> N analysts -> discussion -> synthesizer" }
       ]
     }]
   })
@@ -661,13 +660,13 @@ If not AUTO_YES, offer completion options:
 
 ```javascript
 if (!AUTO_YES) {
-  const answer = AskUserQuestion({
+  const answer = request_user_input({
     questions: [{
-      question: "Ultra-Analyze pipeline complete. What would you like to do?",
-      header: "Completion",
-      multiSelect: false,
+      question: "Ultra-Analyze pipeline complete. Choose next action.",
+      header: "Done",
+      id: "completion",
       options: [
-        { label: "Archive & Clean (Recommended)", description: "Archive session" },
+        { label: "Archive (Recommended)", description: "Archive session" },
         { label: "Keep Active", description: "Keep session for follow-up" },
         { label: "Export Results", description: "Export deliverables to specified location" }
       ]

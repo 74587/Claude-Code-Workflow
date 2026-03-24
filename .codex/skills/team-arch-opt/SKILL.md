@@ -2,7 +2,7 @@
 name: team-arch-opt
 description: Architecture optimization team skill. Analyzes codebase architecture, designs refactoring plans, implements changes, validates improvements, and reviews code quality via CSV wave pipeline with interactive review-fix cycles.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"architecture optimization task description\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -44,7 +44,7 @@ Orchestrate multi-agent architecture optimization: analyze codebase structure, d
 |  Phase 0: Pre-Wave Interactive (Requirement Clarification)          |
 |     +- Parse user task description                                  |
 |     +- Detect scope: targeted module vs full architecture           |
-|     +- Clarify ambiguous requirements (AskUserQuestion)             |
+|     +- Clarify ambiguous requirements (request_user_input)                 |
 |     +- Output: refined requirements for decomposition               |
 |                                                                     |
 |  Phase 1: Requirement -> CSV + Classification                       |
@@ -275,13 +275,13 @@ Write(`${sessionFolder}/wisdom/patterns.md`, '# Patterns & Conventions\n')
 
 4. **Clarify if ambiguous** (skip if AUTO_YES):
    ```javascript
-   AskUserQuestion({
+   request_user_input({
      questions: [{
-       question: "Please confirm the architecture optimization scope:",
-       header: "Architecture Scope",
-       multiSelect: false,
+       question: "Please confirm the architecture optimization scope.",
+       header: "Scope",
+       id: "arch_scope",
        options: [
-         { label: "Proceed as described", description: "Scope is clear" },
+         { label: "Proceed (Recommended)", description: "Scope is clear, start analysis" },
          { label: "Narrow scope", description: "Specify modules/files to focus on" },
          { label: "Add constraints", description: "Exclude areas, set priorities" }
        ]
@@ -522,13 +522,13 @@ Session: ${sessionFolder}
 
 // 3. Completion action
 if (!AUTO_YES) {
-  AskUserQuestion({
+  request_user_input({
     questions: [{
-      question: "Architecture optimization complete. What would you like to do?",
-      header: "Completion",
-      multiSelect: false,
+      question: "Architecture optimization complete. Choose next action.",
+      header: "Done",
+      id: "completion",
       options: [
-        { label: "Archive & Clean (Recommended)", description: "Archive session, output final summary" },
+        { label: "Archive (Recommended)", description: "Archive session, output final summary" },
         { label: "Keep Active", description: "Keep session for follow-up work" },
         { label: "Retry Failed", description: "Re-run failed tasks" }
       ]

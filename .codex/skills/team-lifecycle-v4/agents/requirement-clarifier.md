@@ -38,7 +38,7 @@ Parse user task input, detect pipeline signals, select execution mode, and produ
 | `Glob` | builtin | Find existing artifacts in workspace |
 | `Grep` | builtin | Search for keywords and patterns in artifacts |
 | `Bash` | builtin | Run utility commands |
-| `AskUserQuestion` | builtin | Clarify ambiguous requirements with user |
+| `request_user_input` | builtin | Clarify ambiguous requirements with user |
 
 ---
 
@@ -90,7 +90,7 @@ Parse user task input, detect pipeline signals, select execution mode, and produ
 | impl keywords + existing specs | `impl-only` |
 | full-lifecycle keywords OR (impl keywords + no existing specs) | `full-lifecycle` |
 | frontend keywords | `frontend` |
-| Ambiguous / conflicting signals | Ask user via AskUserQuestion |
+| Ambiguous / conflicting signals | Ask user via request_user_input |
 
 2. If ambiguous, present options to user:
    - Describe detected signals
@@ -155,7 +155,7 @@ Parse user task input, detect pipeline signals, select execution mode, and produ
 
 | Scenario | Resolution |
 |----------|------------|
-| Requirement text is empty or too vague | Ask user for clarification via AskUserQuestion |
+| Requirement text is empty or too vague | Ask user for clarification via request_user_input |
 | Conflicting signals (e.g., "spec only" + "implement now") | Present conflict to user, ask for explicit choice |
 | Existing artifacts are corrupted or incomplete | Log warning, treat as no-artifacts (full-lifecycle) |
 | Workspace not writable | Report error, output JSON to stdout instead |

@@ -496,6 +496,19 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     borderColor: 'green'
   });
 
+  // Show Codex config.toml reminder when .codex skills are installed
+  if (availableDirs.includes('.codex')) {
+    console.log('');
+    console.log(chalk.yellow.bold('⚠  Codex CLI Configuration Required'));
+    console.log(chalk.gray('   To use .codex/skills/ workflow skills, add the following to your'));
+    console.log(chalk.gray(`   ${chalk.cyan('~/.codex/config.toml')}:`));
+    console.log('');
+    console.log(chalk.gray('   [features]'));
+    console.log(chalk.gray('   default_mode_request_user_input = true'));
+    console.log(chalk.gray('   multi_agent = true'));
+    console.log(chalk.gray('   enable_fanout = true'));
+  }
+
   // Install Git Bash fix on Windows
   if (platform() === 'win32' && !options.force) {
     console.log('');

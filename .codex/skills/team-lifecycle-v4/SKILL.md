@@ -2,7 +2,7 @@
 name: team-lifecycle-v4
 description: Full lifecycle team skill — specification, planning, implementation, testing, and review. Supports spec-only, impl-only, full-lifecycle, and frontend pipelines with optional supervisor checkpoints.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"task description\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -294,16 +294,15 @@ If not AUTO_YES, confirm pipeline selection:
 
 ```javascript
 if (!AUTO_YES) {
-  const answer = AskUserQuestion({
+  const answer = request_user_input({
     questions: [{
-      question: `Requirement: "${requirement}"\nDetected pipeline: ${pipeline_type} (complexity: ${complexity.level})\nRoles: ${capabilities.map(c => c.name).join(', ')}\n\nApprove?`,
-      header: "Pipeline Selection",
-      multiSelect: false,
+      question: `Requirement: "${requirement}" — Detected: ${pipeline_type}. Approve or override?`,
+      header: "Pipeline",
+      id: "pipeline_select",
       options: [
-        { label: "Approve", description: `Use ${pipeline_type} pipeline` },
+        { label: "Approve (Recommended)", description: `Use ${pipeline_type} pipeline (complexity: ${complexity.level})` },
         { label: "Spec Only", description: "Research -> draft specs -> quality gate" },
-        { label: "Impl Only", description: "Plan -> implement -> test + review" },
-        { label: "Full Lifecycle", description: "Spec pipeline + implementation pipeline" }
+        { label: "Impl/Full", description: "Implementation pipeline or full lifecycle" }
       ]
     }]
   })
@@ -522,10 +521,11 @@ Write report to ${sessionFolder}/artifacts/${task.id}-report.md.
     // Handle verdict
     if (parsedVerdict === 'block') {
       if (!AUTO_YES) {
-        const answer = AskUserQuestion({
+        const answer = request_user_input({
           questions: [{
-            question: `Checkpoint ${task.id} BLOCKED (score: ${parsedScore}). What to do?`,
-            header: "Checkpoint Blocked",
+            question: `Checkpoint ${task.id} BLOCKED (score: ${parsedScore}). Choose action.`,
+            header: "Blocked",
+            id: "blocked_action",
             options: [
               { label: "Override", description: "Proceed despite block" },
               { label: "Revise upstream", description: "Go back and fix issues" },
@@ -647,13 +647,13 @@ If not AUTO_YES, offer completion action:
 
 ```javascript
 if (!AUTO_YES) {
-  AskUserQuestion({
+  request_user_input({
     questions: [{
-      question: "Pipeline complete. What would you like to do?",
-      header: "Completion",
-      multiSelect: false,
+      question: "Pipeline complete. Choose next action.",
+      header: "Done",
+      id: "completion",
       options: [
-        { label: "Archive & Clean (Recommended)", description: "Archive session" },
+        { label: "Archive (Recommended)", description: "Archive session" },
         { label: "Keep Active", description: "Keep session for follow-up work" },
         { label: "Export Results", description: "Export deliverables to target directory" }
       ]
@@ -713,7 +713,7 @@ All agents across all waves share `discoveries.ndjson`. This enables cross-role 
 | CSV agent failed | Mark as failed, skip dependent tasks in later waves |
 | Interactive agent timeout | Urge convergence via send_input, then close if still timed out |
 | Interactive agent failed | Mark as failed, skip dependents |
-| Supervisor checkpoint blocked | AskUserQuestion: Override / Revise / Abort |
+| Supervisor checkpoint blocked | request_user_input: Override / Revise / Abort |
 | Quality gate failed (< 60%) | Return to writer for rework |
 | All agents in wave failed | Log error, offer retry or abort |
 | CSV parse error | Validate CSV format before execution, show line number |

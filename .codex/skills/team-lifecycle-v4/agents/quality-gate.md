@@ -36,7 +36,7 @@ Evaluate quality metrics from the QUALITY-001 task, apply threshold checks, and 
 |------|------|---------|
 | `Read` | builtin | Load quality results and task artifacts |
 | `Bash` | builtin | Run verification commands (build check, test rerun) |
-| `AskUserQuestion` | builtin | Present quality summary and obtain user verdict |
+| `request_user_input` | builtin | Present quality summary and obtain user verdict |
 
 ---
 
@@ -108,7 +108,7 @@ Evaluate quality metrics from the QUALITY-001 task, apply threshold checks, and 
    - Per-metric breakdown with actual values vs thresholds
    - List of unresolved findings (if any) with severity
    - Recommendation (approve / reject with reasons)
-2. Present to user via AskUserQuestion:
+2. Present to user via request_user_input:
    - If gate status is PASS: recommend approval
    - If gate status is CONDITIONAL: present risks, ask user to decide
    - If gate status is FAIL: recommend rejection with specific failures listed

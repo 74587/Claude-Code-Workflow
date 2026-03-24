@@ -5,12 +5,12 @@ description: |
   (spawn_agents_on_csv) → cross-role synthesis. Single role mode: individual role analysis.
   CSV-driven parallel coordination with NDJSON discovery board.
 argument-hint: "[-y|--yes] [--count N] [--session ID] [--skip-questions] [--style-skill PKG] \"topic\" | <role-name> [--session ID]"
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, AskUserQuestion, Read, Write, Edit, Bash, Glob, Grep
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, request_user_input, Read, Write, Edit, Bash, Glob, Grep
 ---
 
 ## Auto Mode
 
-When `--yes` or `-y`: Auto-select auto mode, auto-select recommended roles, skip all clarification questions, use defaults.
+When `--yes` or `-y`: Auto-select auto mode, auto-select recommended roles, skip all clarification questions, use defaults. **This skill is brainstorming-only — it produces analysis and feature specs but NEVER executes code or modifies source files.**
 
 # Brainstorm
 
@@ -228,11 +228,10 @@ const topic = isRole
 
    ```javascript
    if (executionMode === null) {
-     const modeAnswer = AskUserQuestion({
+     const modeAnswer = request_user_input({
        questions: [{
          question: "Choose brainstorming mode:",
          header: "Mode",
-         multiSelect: false,
          options: [
            { label: "Auto Mode (Recommended)", description: "Full pipeline: framework → parallel roles → synthesis" },
            { label: "Single Role", description: "Run one role analysis independently" }
@@ -325,11 +324,10 @@ TOPIC: ${topic}" --tool gemini --mode analysis --rule planning-breakdown-task-st
        features.forEach(f => console.log(`  - [${f.id}] ${f.title}`))
      }
 
-     const answer = AskUserQuestion({
+     const answer = request_user_input({
        questions: [{
          question: "Approve brainstorm framework?",
          header: "Validate",
-         multiSelect: false,
          options: [
            { label: "Approve", description: "Proceed with role analysis" },
            { label: "Modify Roles", description: "Change role selection" },
@@ -340,12 +338,11 @@ TOPIC: ${topic}" --tool gemini --mode analysis --rule planning-breakdown-task-st
 
      if (answer.Validate === "Cancel") return
      if (answer.Validate === "Modify Roles") {
-       // Allow user to adjust via AskUserQuestion
-       const roleAnswer = AskUserQuestion({
+       // Allow user to adjust via request_user_input
+       const roleAnswer = request_user_input({
          questions: [{
            question: "Select roles for analysis:",
            header: "Roles",
-           multiSelect: true,
            options: VALID_ROLES.map(r => ({
              label: r,
              description: roles.find(sel => sel.role === r)?.focus || ''
@@ -654,6 +651,7 @@ Features synthesized: ${featureIndex.length}
 ${featureIndex.map(f => `  - [${f.id}] ${f.title} (${f.roles_contributing?.length || 0} roles, ${f.conflict_count || 0} conflicts)`).join('\n')}
 
 ### Next Steps
+Brainstorming complete. To continue, run one of:
 - /workflow-plan --session ${sessionId}  → Generate implementation plan
 - Review: ${sessionFolder}/.brainstorming/feature-specs/
    `)

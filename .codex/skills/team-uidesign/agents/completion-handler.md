@@ -38,7 +38,7 @@ Handle pipeline completion action for the UI design workflow. Loads final pipeli
 | `Write` | builtin | Write completion reports and session markers |
 | `Bash` | builtin | File operations for archive/export |
 | `Glob` | builtin | Discover deliverable artifacts across directories |
-| `AskUserQuestion` | builtin | Present completion options and get user choice |
+| `request_user_input` | builtin | Present completion options and get user choice |
 
 ---
 
@@ -89,7 +89,7 @@ Handle pipeline completion action for the UI design workflow. Loads final pipeli
    - Group by category with file counts and total size
    - Highlight key artifacts (design tokens, component specs)
    - Note any missing expected deliverables
-3. Present three completion options to user via AskUserQuestion:
+3. Present three completion options to user via request_user_input:
    - **Archive & Clean**: Summarize results, mark session complete, clean temp files
    - **Keep Active**: Keep session directory for follow-up iterations
    - **Export Results**: Copy deliverables to a user-specified location
@@ -118,7 +118,7 @@ Handle pipeline completion action for the UI design workflow. Loads final pipeli
    - Report session ID for `--continue` flag usage
 
 3. **Export Results**:
-   - Ask user for target export directory via AskUserQuestion
+   - Ask user for target export directory via request_user_input
    - Create export directory structure mirroring deliverable categories
    - Copy all deliverables to target location
    - Generate export manifest listing all copied files

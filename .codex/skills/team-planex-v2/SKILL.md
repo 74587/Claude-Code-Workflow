@@ -2,7 +2,7 @@
 name: team-planex-v2
 description: Hybrid team skill for plan-and-execute pipeline. CSV wave primary for planning and execution. Planner decomposes requirements into issues and solutions, then executor implements each via CLI tools. Supports issue IDs, text input, and plan file input.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] [--exec=codex|gemini] \"issue IDs or --text 'description' or --plan path\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -215,8 +215,19 @@ if (textMatch) {
 
 // If no input detected, ask user
 if (issueIds.length === 0 && inputType === 'issues') {
-  const answer = AskUserQuestion("No input detected. Provide issue IDs, or use --text 'description' or --plan <path>:")
-  issueIds = answer.match(issueIdPattern) || []
+  const answer = request_user_input({
+    questions: [{
+      question: "No input detected. Choose input method.",
+      header: "Input",
+      id: "input_method",
+      options: [
+        { label: "Enter IDs", description: "Provide issue IDs (e.g., ISS-20260308-120000)" },
+        { label: "Cancel", description: "Abort the pipeline" }
+      ]
+    }]
+  })
+  if (answer.answers.input_method.answers[0] === "Cancel") return
+  issueIds = answer.answers.input_method.answers[0].match(issueIdPattern) || []
   if (issueIds.length === 0 && !answer.includes('--text') && !answer.includes('--plan')) {
     inputType = 'text'
     rawInput = answer
@@ -225,17 +236,21 @@ if (issueIds.length === 0 && inputType === 'issues') {
 
 // Execution method selection (interactive if no flag)
 if (!execMatch && !AUTO_YES) {
-  const methodChoice = AskUserQuestion({
-    questions: [{ question: "Select execution method for implementation:",
+  const methodChoice = request_user_input({
+    questions: [{
+      question: "Select execution method for implementation.",
+      header: "Exec Method",
+      id: "exec_method",
       options: [
-        { label: "Gemini", description: "gemini-2.5-pro (recommended for <= 3 tasks)" },
-        { label: "Codex", description: "gpt-5.2 (recommended for > 3 tasks)" },
+        { label: "Gemini (Recommended)", description: "gemini-2.5-pro (best for <= 3 tasks)" },
+        { label: "Codex", description: "gpt-5.2 (best for > 3 tasks)" },
         { label: "Auto", description: "Auto-select based on task count" }
       ]
     }]
   })
-  if (methodChoice === 'Codex') executionMethod = 'codex'
-  else if (methodChoice === 'Auto') executionMethod = 'auto'
+  const chosen = methodChoice.answers.exec_method.answers[0]
+  if (chosen === 'Codex') executionMethod = 'codex'
+  else if (chosen === 'Auto') executionMethod = 'auto'
 }
 
 const slug = (issueIds[0] || rawInput).toLowerCase()
@@ -579,7 +594,7 @@ Both planner and executor agents share the same discoveries.ndjson file:
 | All agents in wave failed | Log error, offer retry or abort |
 | CSV parse error | Validate CSV format before execution, show line number |
 | discoveries.ndjson corrupt | Ignore malformed lines, continue with valid entries |
-| No input provided | Ask user for input via AskUserQuestion |
+| No input provided | Ask user for input via request_user_input |
 | Issue creation fails (text/plan input) | Report error, suggest manual issue creation |
 | Continue mode: no session found | List available sessions, prompt user to select |
 

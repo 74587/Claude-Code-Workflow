@@ -2,7 +2,7 @@
 name: team-testing
 description: Multi-agent test pipeline with progressive layer coverage (L1/L2/L3), Generator-Critic loops for coverage convergence, and shared defect memory. Strategist -> Generator -> Executor -> Analyst with dynamic pipeline selection.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"task description or scope\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -274,16 +274,15 @@ Write(`${sessionFolder}/gc-state.json`, JSON.stringify({
 
 5. **Clarify if ambiguous** (skip if AUTO_YES):
    ```javascript
-   AskUserQuestion({
+   request_user_input({
      questions: [{
-       question: "Detected scope suggests the '" + pipeline + "' pipeline. Confirm?",
-       header: "Pipeline Selection",
-       multiSelect: false,
+       question: `Detected scope suggests '${pipeline}' pipeline. Approve or override?`,
+       header: "Pipeline",
+       id: "pipeline_select",
        options: [
-         { label: "Proceed with " + pipeline, description: "Detected pipeline is appropriate" },
-         { label: "Use targeted", description: "Minimal: L1 only" },
-         { label: "Use standard", description: "Progressive: L1 + L2 + analysis" },
-         { label: "Use comprehensive", description: "Full: L1 + L2 + L3 + analysis" }
+         { label: "Approve (Recommended)", description: `Use ${pipeline} pipeline as detected` },
+         { label: "Targeted", description: "Minimal: L1 only" },
+         { label: "Standard/Full", description: "Progressive L1+L2 or comprehensive L1+L2+L3" }
        ]
      }]
    })
@@ -525,13 +524,13 @@ Session: ${sessionFolder}
 `)
 
 if (!AUTO_YES) {
-  AskUserQuestion({
+  request_user_input({
     questions: [{
-      question: "Testing pipeline complete. What would you like to do?",
-      header: "Completion",
-      multiSelect: false,
+      question: "Testing pipeline complete. Choose next action.",
+      header: "Done",
+      id: "completion",
       options: [
-        { label: "Archive & Clean (Recommended)", description: "Archive session, output final summary" },
+        { label: "Archive (Recommended)", description: "Archive session, output final summary" },
         { label: "Keep Active", description: "Keep session for follow-up work" },
         { label: "Deepen Coverage", description: "Add more test layers or increase coverage targets" }
       ]

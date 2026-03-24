@@ -2,7 +2,7 @@
 name: team-designer
 description: Meta-skill for generating team skills. Analyzes requirements, scaffolds directory structure, generates role definitions and specs, validates completeness. Produces complete Codex team skill packages with SKILL.md orchestrator, CSV schemas, agent instructions, and interactive agents.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] \"skill description with roles and domain\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode

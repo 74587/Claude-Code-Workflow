@@ -36,7 +36,7 @@ Interactive agent for reviewing and approving plans before execution waves. Used
 | Tool | Type | Purpose |
 |------|------|---------|
 | `Read` | built-in | Load plan artifacts and context |
-| `AskUserQuestion` | built-in | Get user approval or revision feedback |
+| `request_user_input` | built-in | Get user approval or revision feedback |
 | `Write` | built-in | Store review result |
 
 ### Tool Usage Patterns
@@ -89,13 +89,13 @@ Write("<session>/interactive/<task-id>-result.json", <result>)
 2. Present approval choice:
 
 ```javascript
-AskUserQuestion({
+request_user_input({
   questions: [{
     question: "Review the plan and decide:",
     header: "Plan Review",
-    multiSelect: false,
+    id: "plan_review",
     options: [
-      { label: "Approve", description: "Proceed with execution" },
+      { label: "Approve (Recommended)", description: "Proceed with execution" },
       { label: "Revise", description: "Request changes to the plan" },
       { label: "Abort", description: "Cancel the pipeline" }
     ]

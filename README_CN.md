@@ -87,6 +87,19 @@ npm install -g claude-code-workflow
 ccw install -m Global
 ```
 
+### Codex 配置（`.codex/skills/` 所需）
+
+如果你使用 **Codex CLI** 配合 `.codex/skills/` 工作流技能，需要在 `~/.codex/config.toml` 中添加以下必要配置：
+
+```toml
+[features]
+default_mode_request_user_input = true   # 启用 request_user_input 工具，用于交互式确认
+multi_agent = true                       # 启用多智能体协调（spawn_agent、wait 等）
+enable_fanout = true                     # 启用 spawn_agents_on_csv 并行波次执行
+```
+
+> 这些功能是工作流技能正常运行的必要条件。缺少它们，交互式确认门控（`request_user_input`）、子智能体编排和 CSV 驱动的并行执行将无法工作。
+
 ### 工作流 Skill 与命令
 
 CCW 使用两种调用方式：

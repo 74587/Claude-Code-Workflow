@@ -2,7 +2,7 @@
 name: team-issue
 description: Hybrid team skill for issue resolution. CSV wave primary for exploration, planning, integration, and implementation. Interactive agents for review gates with fix cycles. Supports Quick, Full, and Batch pipelines.
 argument-hint: "[-y|--yes] [-c|--concurrency N] [--continue] [--mode=quick|full|batch] \"issue-ids or --all-pending\""
-allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, AskUserQuestion
+allowed-tools: spawn_agents_on_csv, spawn_agent, wait, send_input, close_agent, Read, Write, Edit, Bash, Glob, Grep, request_user_input
 ---
 
 ## Auto Mode
@@ -226,8 +226,19 @@ if (requirement.includes('--all-pending')) {
 
 // If no issue IDs, ask user
 if (issueIds.length === 0) {
-  const answer = AskUserQuestion("No issue IDs found. Please provide issue IDs (e.g., ISS-20260308-120000):")
-  issueIds = answer.match(issueIdPattern) || []
+  const answer = request_user_input({
+    questions: [{
+      question: "No issue IDs found. Please provide issue IDs.",
+      header: "Issue IDs",
+      id: "issue_input",
+      options: [
+        { label: "Enter IDs", description: "Provide issue IDs (e.g., ISS-20260308-120000)" },
+        { label: "Cancel", description: "Abort the pipeline" }
+      ]
+    }]
+  })
+  if (answer.answers.issue_input.answers[0] === "Cancel") return
+  issueIds = answer.answers.issue_input.answers[0].match(issueIdPattern) || []
   if (issueIds.length === 0) return // abort
 }
 
