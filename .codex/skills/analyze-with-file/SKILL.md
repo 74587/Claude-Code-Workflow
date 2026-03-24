@@ -690,7 +690,49 @@ Write "Intent Coverage Matrix" to discussion.md:
 - (a) Add a dedicated discussion round to address it before continuing, OR
 - (b) Explicitly confirm with user that it is intentionally deferred
 
-##### Step 4.1: Consolidate Insights
+##### Step 4.1: Findings-to-Recommendations Traceability (MANDATORY before consolidation)
+
+Collect ALL actionable findings from every round and map each to a disposition:
+
+```javascript
+// 1. Collect all actionable findings from discussion rounds
+//    Sources: key findings with actionable implications, technical solutions (proposed/validated),
+//    identified gaps (API-frontend gaps, missing features, design issues),
+//    corrected assumptions that imply fixes
+const allFindings = collectActionableFindings(explorations, discussionRounds)
+
+// 2. Map each finding → disposition
+// | Disposition     | Meaning                                              |
+// |-----------------|------------------------------------------------------|
+// | recommendation  | Converted to a numbered recommendation               |
+// | absorbed        | Covered by another recommendation (specify which)    |
+// | deferred        | Explicitly out-of-scope with reason                  |
+// | informational   | Pure insight, no action needed                       |
+
+const findingsCoverage = allFindings.map(f => ({
+  finding: f.summary,
+  round: f.round,
+  disposition: null,  // MUST be assigned before proceeding
+  target: null,       // e.g., "Rec #1" or "→ Rec #3" or "Reason: ..."
+  reason: null
+}))
+
+// 3. Gate: ALL findings MUST have a disposition assigned.
+//    Do NOT proceed to Step 4.2 with any disposition = null.
+//    Unmapped findings must be either added as new recommendations or assigned a disposition.
+
+// 4. Append Findings Coverage Matrix to discussion.md
+appendToDiscussion(`
+### Findings Coverage Matrix
+| # | Finding (Round) | Disposition | Target |
+|---|----------------|-------------|--------|
+${findingsCoverage.map((f, i) =>
+  `| ${i+1} | ${f.finding} (R${f.round}) | ${f.disposition} | ${f.target || '—'} |`
+).join('\n')}
+`)
+```
+
+##### Step 4.2: Consolidate Insights
 
 ```javascript
 const conclusions = {
@@ -703,6 +745,7 @@ const conclusions = {
     { point: '...', evidence: '...', confidence: 'high|medium|low' }
   ],
   recommendations: [                 // Actionable recommendations
+    // MUST include all findings with disposition = 'recommendation' from Step 4.1
     {
       action: '...',                    // What to do (imperative verb + target)
       rationale: '...',                 // Why this matters
@@ -726,12 +769,13 @@ const conclusions = {
   ],
   intent_coverage: [                 // From Step 4.0
     { intent: '...', status: 'addressed|transformed|absorbed|missed', where_addressed: '...', notes: '...' }
-  ]
+  ],
+  findings_coverage: findingsCoverage // From Step 4.1
 }
 Write(`${sessionFolder}/conclusions.json`, JSON.stringify(conclusions, null, 2))
 ```
 
-##### Step 4.2: Final discussion.md Update
+##### Step 4.3: Final discussion.md Update
 
 Append conclusions section and finalize:
 
@@ -749,6 +793,8 @@ Append conclusions section and finalize:
 | What Was Clarified | Important corrections (~~wrong→right~~) |
 | Key Insights | Valuable learnings for future reference |
 
+**Findings Coverage Matrix**: From Step 4.1 (already appended).
+
 **Decision Trail Section**:
 
 | Subsection | Content |
@@ -759,7 +805,7 @@ Append conclusions section and finalize:
 
 **Session Statistics**: Total discussion rounds, key findings count, dimensions covered, artifacts generated, **decision count**.
 
-##### Step 4.3: Interactive Recommendation Review (skip in auto mode)
+##### Step 4.4: Interactive Recommendation Review (skip in auto mode)
 
 Walk through each recommendation one-by-one for user confirmation before proceeding:
 
@@ -810,7 +856,7 @@ for (const [index, rec] of sortedRecs.entries()) {
 | 3 | [action] | low | 1 | ❌ Rejected | [reason] |
 ```
 
-##### Step 4.4: Post-Completion Options
+##### Step 4.5: Post-Completion Options
 
 **Complexity Assessment** — determine available options:
 
@@ -871,8 +917,9 @@ if (!autoYes) {
 | Done | Display artifact paths, end |
 
 **Success Criteria**:
-- conclusions.json created with complete synthesis
-- discussion.md finalized with conclusions and decision trail
+- conclusions.json created with complete synthesis including findings_coverage[]
+- **Findings Coverage Matrix** completed — all actionable findings mapped to disposition (recommendation/absorbed/deferred/informational)
+- discussion.md finalized with conclusions, decision trail, and findings coverage matrix
 - **Intent Coverage Matrix** verified — all original intents accounted for (no ❌ Missed without explicit user deferral)
 - User offered meaningful next step options
 - **Complete decision trail** documented and traceable from initial scoping to final conclusions
@@ -960,7 +1007,7 @@ $csv-wave-pipeline "${topic}"
 | `explorations/*.json` | 2 | Per-perspective exploration results (multi only) |
 | `explorations.json` | 2 | Single perspective aggregated findings |
 | `perspectives.json` | 2 | Multi-perspective findings with cross-perspective synthesis |
-| `conclusions.json` | 4 | Final synthesis: conclusions, recommendations, open questions |
+| `conclusions.json` | 4 | Final synthesis: conclusions, recommendations, findings_coverage, open questions |
 
 ## Analysis Dimensions Reference
 
