@@ -420,7 +420,7 @@ MIT License - see [LICENSE](LICENSE)
 ## 🔗 Links
 
 <div align="center">
-  <a href="https://linux.do/"><img src="https://img.shields.io/badge/LINUX_DO-Community-6366F1?style=flat-square" alt="LINUX DO"/></a>
+  <a href="https://linux.do/"><img src="https://img.shields.io/badge/LINUX_DO-Learn_AI,_Go_L!-6366F1?style=flat-square" alt="LINUX DO"/></a>
 </div>
 
 <div align="center">

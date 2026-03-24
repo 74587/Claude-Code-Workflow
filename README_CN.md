@@ -434,7 +434,7 @@ MIT License - 详见 [LICENSE](LICENSE)
 ## 🔗 友情链接
 
 <div align="center">
-  <a href="https://linux.do/"><img src="https://img.shields.io/badge/LINUX_DO-社区-6366F1?style=flat-square" alt="LINUX DO"/></a>
+  <a href="https://linux.do/"><img src="https://img.shields.io/badge/LINUX_DO-学AI，上L站！-6366F1?style=flat-square" alt="LINUX DO"/></a>
 </div>
 
 ---
