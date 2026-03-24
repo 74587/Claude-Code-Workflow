@@ -622,6 +622,9 @@ export function AgentDefinitionsSection() {
   const [loading, setLoading] = useState(true);
   const [batchModel, setBatchModel] = useState('');
   const [batchEffort, setBatchEffort] = useState('');
+  const [batchType, setBatchType] = useState<'all' | 'codex' | 'claude'>('all');
+  const [batchColor, setBatchColor] = useState('');
+  const [batchPermission, setBatchPermission] = useState('');
   const [batchSaving, setBatchSaving] = useState(false);
 
   const loadAgents = useCallback(async () => {
@@ -646,28 +649,61 @@ export function AgentDefinitionsSection() {
     return acc;
   }, {});
 
+  const batchTargets = agents.filter(a => batchType === 'all' || a.type === batchType);
+  const batchHasClaudeTargets = batchTargets.some(a => a.type === 'claude');
+  const batchEffortOptions = batchType === 'codex'
+    ? CODEX_EFFORTS
+    : batchType === 'claude'
+      ? CLAUDE_EFFORTS
+      : ['', 'low', 'medium', 'high', 'max (claude only)'];
+
   const handleBatchApply = useCallback(async () => {
-    if (!batchModel && !batchEffort) {
-      toast.error('Set a model or effort value first');
+    const hasAnyValue = batchModel || batchEffort || batchColor || batchPermission;
+    if (!hasAnyValue) {
+      toast.error('Set at least one value first');
+      return;
+    }
+    if (batchTargets.length === 0) {
+      toast.error('No agents match the selected type');
       return;
     }
 
     setBatchSaving(true);
     try {
-      const targets = agents.map(a => ({ filePath: a.filePath, type: a.type }));
-      const result = await batchUpdateAgentDefinitions({
-        targets,
-        model: batchModel || undefined,
-        effort: batchEffort || undefined,
-      });
-      toast.success(`Updated ${result.updated}/${result.total} agents`);
+      // For model/effort, use the batch endpoint
+      if (batchModel || batchEffort) {
+        const targets = batchTargets.map(a => ({ filePath: a.filePath, type: a.type }));
+        const result = await batchUpdateAgentDefinitions({
+          targets,
+          model: batchModel || undefined,
+          effort: batchEffort || undefined,
+        });
+        toast.success(`Updated model/effort: ${result.updated}/${result.total} agents`);
+      }
+
+      // For claude-only fields (color, permissionMode), update each claude agent individually
+      if ((batchColor || batchPermission) && batchHasClaudeTargets) {
+        const claudeTargets = batchTargets.filter(a => a.type === 'claude');
+        let updated = 0;
+        for (const agent of claudeTargets) {
+          try {
+            const body: { filePath: string; [key: string]: string | undefined } = { filePath: agent.filePath };
+            if (batchColor) body.color = batchColor;
+            if (batchPermission) body.permissionMode = batchPermission;
+            await updateAgentDefinition(agent.type, agent.name, body);
+            updated++;
+          } catch { /* skip failed */ }
+        }
+        toast.success(`Updated claude fields: ${updated}/${claudeTargets.length} agents`);
+      }
+
       loadAgents();
     } catch (err) {
       toast.error(`Batch update failed: ${(err as Error).message}`);
     } finally {
       setBatchSaving(false);
     }
-  }, [agents, batchModel, batchEffort, loadAgents]);
+  }, [batchTargets, batchHasClaudeTargets, batchModel, batchEffort, batchColor, batchPermission, loadAgents]);
 
   return (
     <Card className="p-6">
@@ -683,40 +719,70 @@ export function AgentDefinitionsSection() {
       </div>
 
       {/* Batch Controls */}
-      <div className="flex items-center gap-3 p-3 mb-4 rounded-md border border-border bg-muted/30">
-        <span className="text-xs font-medium text-muted-foreground shrink-0">Batch:</span>
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">Model:</span>
-          <Input
-            className="h-7 text-xs w-[160px]"
-            value={batchModel}
-            onChange={(e) => setBatchModel(e.target.value)}
-            placeholder="model for all"
-          />
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">Effort:</span>
-          <select
-            className="h-7 text-xs rounded border border-input bg-background px-2"
-            value={batchEffort}
-            onChange={(e) => setBatchEffort(e.target.value)}
+      <div className="p-3 mb-4 rounded-md border border-border bg-muted/30 space-y-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-medium text-muted-foreground shrink-0">Batch:</span>
+          <div className="flex items-center gap-1">
+            <span className={labelClass}>Target:</span>
+            <select
+              className={selectClass}
+              value={batchType}
+              onChange={(e) => setBatchType(e.target.value as 'all' | 'codex' | 'claude')}
+            >
+              <option value="all">All ({agents.length})</option>
+              <option value="codex">Codex ({agents.filter(a => a.type === 'codex').length})</option>
+              <option value="claude">Claude ({agents.filter(a => a.type === 'claude').length})</option>
+            </select>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className={labelClass}>Model:</span>
+            <Input
+              className="h-7 text-xs w-[140px]"
+              value={batchModel}
+              onChange={(e) => setBatchModel(e.target.value)}
+              placeholder="model"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <span className={labelClass}>Effort:</span>
+            <select
+              className={selectClass}
+              value={batchEffort}
+              onChange={(e) => setBatchEffort(e.target.value)}
+            >
+              {batchEffortOptions.map(e => {
+                const val = e.startsWith('max') ? 'max' : e;
+                return <option key={e} value={val}>{e || '—'}</option>;
+              })}
+            </select>
+          </div>
+          {/* Claude-only batch fields */}
+          {batchType !== 'codex' && (
+            <>
+              <div className="flex items-center gap-1">
+                <span className={labelClass}>Color:</span>
+                <select className={selectClass} value={batchColor} onChange={e => setBatchColor(e.target.value)}>
+                  {COLOR_OPTIONS.map(c => <option key={c} value={c}>{c || '—'}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className={labelClass}>Permission:</span>
+                <select className={selectClass} value={batchPermission} onChange={e => setBatchPermission(e.target.value)}>
+                  {PERMISSION_MODES.map(p => <option key={p} value={p}>{p || '—'}</option>)}
+                </select>
+              </div>
+            </>
+          )}
+          <Button
+            variant="default"
+            size="sm"
+            className="h-7"
+            disabled={batchSaving || (!batchModel && !batchEffort && !batchColor && !batchPermission)}
+            onClick={handleBatchApply}
           >
-            <option value="">—</option>
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
-            <option value="max">max (claude only)</option>
-          </select>
+            {batchSaving ? 'Applying...' : `Apply to ${batchType === 'all' ? 'All' : batchType} (${batchTargets.length})`}
+          </Button>
         </div>
-        <Button
-          variant="default"
-          size="sm"
-          className="h-7"
-          disabled={batchSaving || (!batchModel && !batchEffort)}
-          onClick={handleBatchApply}
-        >
-          {batchSaving ? 'Applying...' : 'Apply to All'}
-        </Button>
       </div>
 
       {/* Agent list */}
