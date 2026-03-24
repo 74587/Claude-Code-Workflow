@@ -459,27 +459,50 @@ const priorContext = `
    - **Gate**: ❌ Missed items must be either (a) addressed in additional round or (b) confirmed deferred by user
    - Add `intent_coverage[]` to conclusions.json
 
-2. **Consolidate Insights**:
+2. **Findings-to-Recommendations Traceability** (MANDATORY before consolidation):
+   - **Collect ALL actionable findings** from every round: key findings with actionable implications, technical solutions (proposed/validated), identified gaps (API-frontend gaps, missing features, design issues), corrected assumptions that imply fixes
+   - **Map each finding → disposition**:
+     | Disposition | Meaning |
+     |-------------|---------|
+     | `recommendation` | Converted to a numbered recommendation |
+     | `absorbed` | Covered by another recommendation (specify which) |
+     | `deferred` | Explicitly out-of-scope with reason |
+     | `informational` | Pure insight, no action needed |
+   - **Findings Coverage Matrix** (append to discussion.md):
+     ```markdown
+     ### Findings Coverage Matrix
+     | # | Finding (Round) | Disposition | Target |
+     |---|----------------|-------------|--------|
+     | 1 | [finding summary] (R1) | recommendation | Rec #1 |
+     | 2 | [finding summary] (R2) | absorbed | → Rec #1 |
+     | 3 | [finding summary] (R2) | deferred | Reason: [why] |
+     | 4 | [finding summary] (R1) | informational | — |
+     ```
+   - **Gate**: Findings with `disposition = null` (unmapped) MUST be either assigned a disposition or added as new recommendations. Do NOT proceed to step 3 with unmapped findings.
+   - Add `findings_coverage[]` to conclusions.json
+
+3. **Consolidate Insights**:
    - Compile Decision Trail from all phases
    - Key conclusions with evidence + confidence (high/medium/low)
-   - Recommendations with rationale + priority (high/medium/low) — **merge validated `technical_solutions[]` from explorations.json as high-priority recommendations**
-   - **Solution Readiness Gate**: For each recommendation, check if all key choices are resolved. Flag `ambiguity_resolved: false` on any recommendation that still contains unresolved alternatives. Present unresolved items to user before proceeding to Step 3.
+   - Recommendations with rationale + priority (high/medium/low) — **merge validated `technical_solutions[]` from explorations.json as high-priority recommendations** — **ensure all `disposition = recommendation` findings from step 2 are represented**
+   - **Solution Readiness Gate**: For each recommendation, check if all key choices are resolved. Flag `ambiguity_resolved: false` on any recommendation that still contains unresolved alternatives. Present unresolved items to user before proceeding to Step 4.
    - Open questions, follow-up suggestions
    - Decision summary linking conclusions back to decisions
    - Write to conclusions.json
 
-3. **Final discussion.md Update**:
+4. **Final discussion.md Update**:
    - **Conclusions**: Summary, ranked key conclusions, prioritized recommendations, remaining questions
    - **Current Understanding (Final)**: What established, what clarified/corrected, key insights
    - **Decision Trail**: Critical decisions, direction changes timeline, trade-offs
+   - **Findings Coverage Matrix**: From step 2 (already appended)
    - Session statistics: rounds, duration, sources, artifacts, decision count
 
-4. **Display Conclusions Summary** — Present to user:
+5. **Display Conclusions Summary** — Present to user:
    - **Analysis Report**: summary, key conclusions (numbered, with confidence), recommendations (numbered, with priority + rationale + steps)
    - Open questions if any
    - Link to full report: `{sessionFolder}/discussion.md`
 
-5. **Interactive Recommendation Review** (skip in auto mode):
+6. **Interactive Recommendation Review** (skip in auto mode):
 
    Present all recommendations, then batch-confirm via **single AskUserQuestion call** (up to 4 questions):
 
@@ -500,7 +523,7 @@ const priorContext = `
    - Accepted: N items | Modified: N items | Rejected: N items
    - Only accepted/modified recommendations proceed to next step
 
-6. **MANDATORY GATE: Next Step Selection** — workflow MUST NOT end without executing this step.
+7. **MANDATORY GATE: Next Step Selection** — workflow MUST NOT end without executing this step.
 
    **TodoWrite**: Update `phase-4` -> `"completed"`, `next-step` -> `"in_progress"`
 
@@ -656,6 +679,7 @@ ${implScope.map((item, i) => `${i+1}. **${item.objective}** [${item.priority}]
 - `decision_trail[]`: {round, decision, context, options_considered, chosen, rejected_reasons, reason, impact}
 - `narrative_trail[]`: {round, starting_point, key_progress, hypothesis_impact, updated_understanding, remaining_questions}
 - `intent_coverage[]`: {intent, status, where_addressed, notes}
+- `findings_coverage[]`: {finding, round, disposition: recommendation|absorbed|deferred|informational, target, reason}
 
 </schemas>
 
@@ -689,7 +713,8 @@ ${implScope.map((item, i) => `${i+1}. **${item.objective}** [${item.priority}]
 - [ ] Intent Drift Check performed each round >= 2
 - [ ] All decisions recorded per Decision Recording Protocol
 - [ ] Intent Coverage Matrix verified in Phase 4
-- [ ] conclusions.json created with key_conclusions, recommendations, decision_trail
+- [ ] Findings Coverage Matrix completed — all actionable findings mapped to disposition (recommendation/absorbed/deferred/informational)
+- [ ] conclusions.json created with key_conclusions, recommendations, decision_trail, findings_coverage
 - [ ] discussion.md finalized with conclusions, Decision Trail, session statistics
 - [ ] Recommendation review completed (non-auto mode)
 - [ ] Next Step terminal gate executed — `next-step` todo is `"completed"`
