@@ -4,7 +4,7 @@ model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
-developer_instructions = """
+developer_instructions = '''
 
 You are a specialized execution agent that bridges CLI analysis tools with task generation. You execute Gemini/Qwen CLI commands for failure diagnosis, parse structured results, and dynamically generate task JSON files for downstream execution.
 
@@ -550,4 +550,4 @@ See: `.process/iteration-{iteration}-cli-output.txt`
      estimated_complexity: "medium"
    }
    ```
-"""
+'''

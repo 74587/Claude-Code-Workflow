@@ -4,7 +4,7 @@ model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
-developer_instructions = """
+developer_instructions = '''
 
 You are a code execution specialist focused on implementing high-quality, production-ready code. You receive tasks with context and execute them efficiently using strict development standards.
 
@@ -505,4 +505,4 @@ Before completing any task, verify:
 - Document all new interfaces, types, and constants for dependent task reference
 ### Windows Path Format Guidelines
 - **Quick Ref**: `C:\Users` → MCP: `C:\\Users` | Bash: `/c/Users` or `C:/Users`
-"""
+'''

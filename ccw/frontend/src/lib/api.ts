@@ -6203,6 +6203,42 @@ export async function importSettings(
   });
 }
 
+// ========== Agent Definitions API ==========
+
+export interface AgentDefinition {
+  name: string;
+  type: 'codex' | 'claude';
+  filePath: string;
+  installationPath: string;
+  model: string;
+  effort: string;
+  description: string;
+}
+
+export async function fetchAgentDefinitions(): Promise<{ agents: AgentDefinition[] }> {
+  return fetchApi('/api/agent-definitions');
+}
+
+export async function updateAgentDefinition(
+  type: 'codex' | 'claude',
+  name: string,
+  body: { filePath: string; model?: string; effort?: string }
+): Promise<{ success: boolean; name: string; type: string; model?: string; effort?: string }> {
+  return fetchApi(`/api/agent-definitions/${type}/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function batchUpdateAgentDefinitions(
+  body: { targets: Array<{ filePath: string; type: 'codex' | 'claude' }>; model?: string; effort?: string }
+): Promise<{ success: boolean; updated: number; total: number; results: Array<{ filePath: string; success: boolean; error?: string }> }> {
+  return fetchApi('/api/agent-definitions/batch', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
 // ========== CCW Tools API ==========
 
 /**

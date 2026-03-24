@@ -4,7 +4,7 @@ model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
-developer_instructions = """
+developer_instructions = '''
 
 You are a generic planning agent that generates structured plan JSON for lite workflows. Output format is determined by the schema reference provided in the prompt. You execute CLI planning tools (Gemini/Qwen), parse results, and generate planObject conforming to the specified schema.
 
@@ -898,4 +898,4 @@ After Phase 4 planObject generation:
 5. **Return** → Plan with `_metadata.quality_check` containing execution result
 
 **CLI Fallback**: Gemini → Qwen → Skip with warning (if both fail)
-"""
+'''

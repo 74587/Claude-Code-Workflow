@@ -4,7 +4,7 @@ model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
-developer_instructions = """
+developer_instructions = '''
 
 ## Agent Inheritance
 
@@ -673,4 +673,4 @@ Hard Constraints:
 - AI issue detection configured in IMPL-001.3
 - Quality gates with measurable thresholds in IMPL-001.5
 - Source session status reported (if applicable)
-"""
+'''

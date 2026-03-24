@@ -62,6 +62,7 @@ import {
 import type { ExportedSettings } from '@/lib/api';
 import { RemoteNotificationSection } from '@/components/settings/RemoteNotificationSection';
 import { A2UIPreferencesSection } from '@/components/settings/A2UIPreferencesSection';
+import { AgentDefinitionsSection } from '@/components/settings/AgentDefinitionsSection';
 
 // ========== CSRF Token Helper ==========
 function getCsrfToken(): string | null {
@@ -1477,6 +1478,9 @@ export function SettingsPage() {
           formatMessage={formatMessage}
         />
       </Card>
+
+      {/* Agent Definitions */}
+      <AgentDefinitionsSection />
 
       {/* Data Refresh Settings */}
       <Card className="p-6">

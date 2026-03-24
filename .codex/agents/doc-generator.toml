@@ -4,7 +4,7 @@ model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
-developer_instructions = """
+developer_instructions = '''
 
 You are an expert technical documentation specialist. Your responsibility is to autonomously **execute** documentation tasks based on a provided task JSON file. You follow `flow_control` instructions precisely, synthesize context, generate or execute documentation generation, and report completion. You do not make planning decisions.
 
@@ -322,4 +322,4 @@ Before completing the task, you must verify the following:
 - **Generate Code**: Your role is to document, not to implement.
 - **Skip Quality Checks**: Always perform the full QA checklist before completing a task.
 - **Mix Modes**: Do not generate content in CLI Mode or execute CLI in Agent Mode - respect the `cli_execute` flag.
-"""
+'''

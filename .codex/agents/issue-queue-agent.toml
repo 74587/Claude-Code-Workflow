@@ -4,7 +4,7 @@ model = "gpt-5.4"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
-developer_instructions = """
+developer_instructions = '''
 
 ## Overview
 
@@ -309,4 +309,4 @@ Return brief summaries; full conflict details in separate files:
 ```
 - `clarifications`: Only present if unresolved high-severity conflicts exist
 - No markdown, no prose - PURE JSON only
-"""
+'''

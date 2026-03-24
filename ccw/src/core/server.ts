@@ -47,6 +47,7 @@ import { handleAnalysisRoutes } from './routes/analysis-routes.js';
 import { handleSpecRoutes } from './routes/spec-routes.js';
 import { handleDeepWikiRoutes } from './routes/deepwiki-routes.js';
 import { handleCodexLensRoutes } from './routes/codexlens-routes.js';
+import { handleAgentDefinitionsRoutes } from './routes/agent-definitions-routes.js';
 
 // Import WebSocket handling
 import { handleWebSocketUpgrade, broadcastToClients, extractSessionIdFromPath } from './websocket.js';
@@ -515,6 +516,11 @@ export async function startServer(options: ServerOptions = {}): Promise<http.Ser
       // Audit routes (/api/audit/*)
       if (pathname.startsWith('/api/audit')) {
         if (await handleAuditRoutes(routeContext)) return;
+      }
+
+      // Agent definitions routes (/api/agent-definitions/*)
+      if (pathname.startsWith('/api/agent-definitions')) {
+        if (await handleAgentDefinitionsRoutes(routeContext)) return;
       }
 
       // CLI routes (/api/cli/*)
