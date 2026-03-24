@@ -6159,28 +6159,17 @@ export async function upgradeCcwInstallation(
  */
 export interface ExportedSettings {
   version: string;
-  exportedAt: string;
-  settings: {
-    cliTools?: Record<string, unknown>;
-    chineseResponse?: {
-      claudeEnabled: boolean;
-      codexEnabled: boolean;
-    };
-    windowsPlatform?: {
-      enabled: boolean;
-    };
-    codexCliEnhancement?: {
-      enabled: boolean;
-    };
-  };
+  timestamp: string;
+  endpoints: Array<Record<string, unknown>>;
 }
 
 /**
  * Import options for settings import
  */
 export interface ImportOptions {
-  overwrite?: boolean;
-  dryRun?: boolean;
+  conflictStrategy?: 'skip' | 'overwrite' | 'merge';
+  skipInvalid?: boolean;
+  disableImported?: boolean;
 }
 
 /**

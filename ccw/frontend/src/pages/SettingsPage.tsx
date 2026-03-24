@@ -619,7 +619,7 @@ function ResponseLanguageSection() {
       const data = JSON.parse(text) as ExportedSettings;
 
       // Validate basic structure
-      if (!data.version || !data.settings) {
+      if (!data.version || !data.endpoints) {
         toast.error(formatMessage({ id: 'settings.responseLanguage.importInvalidStructure' }));
         return;
       }
