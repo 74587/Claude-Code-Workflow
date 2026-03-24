@@ -413,6 +413,18 @@ Visual workflow template editor with drag-drop.
 
 MIT License - see [LICENSE](LICENSE)
 
+</div>
+
+---
+
+## 🔗 Links
+
+<div align="center">
+  <a href="https://linux.do/"><img src="https://img.shields.io/badge/LINUX_DO-Community-6366F1?style=flat-square" alt="LINUX DO"/></a>
+</div>
+
+<div align="center">
+
 <br/>
 
 <!-- Footer -->
