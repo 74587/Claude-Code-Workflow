@@ -19,6 +19,18 @@ interface AgentDefinition {
   model: string;
   effort: string;
   description: string;
+  // Claude-only advanced fields (empty string for codex)
+  tools: string;
+  disallowedTools: string;
+  permissionMode: string;
+  maxTurns: string;
+  skills: string;
+  mcpServers: string;
+  hooks: string;
+  memory: string;
+  background: string;
+  color: string;
+  isolation: string;
 }
 
 // ========== Parsing helpers ==========
@@ -39,7 +51,52 @@ function parseCodexToml(content: string, filePath: string, installationPath: str
     model: modelMatch?.[1] ?? '',
     effort: effortMatch?.[1] ?? '',
     description: descMatch?.[1] ?? '',
+    tools: '',
+    disallowedTools: '',
+    permissionMode: '',
+    maxTurns: '',
+    skills: '',
+    mcpServers: '',
+    hooks: '',
+    memory: '',
+    background: '',
+    color: '',
+    isolation: '',
   };
+}
+
+function extractSimpleField(fm: string, field: string): string {
+  const match = fm.match(new RegExp(`^${field}:\\s*(.+)$`, 'm'));
+  return match?.[1].trim() ?? '';
+}
+
+function extractYamlBlock(fm: string, field: string): string {
+  const regex = new RegExp(`^${field}:(.*)$`, 'm');
+  const match = fm.match(regex);
+  if (!match) return '';
+
+  const startIdx = fm.indexOf(match[0]);
+  const afterField = fm.slice(startIdx + match[0].length);
+  const lines = afterField.split(/\r?\n/);
+  const blockLines: string[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    // Stop at next top-level field (non-indented, non-empty line with "key:")
+    if (line.length > 0 && !line.startsWith(' ') && !line.startsWith('\t') && /^\S+:/.test(line)) break;
+    // Also stop at empty line followed by non-indented content (but include blank lines within the block)
+    blockLines.push(line);
+  }
+
+  // Trim trailing empty lines
+  while (blockLines.length > 0 && blockLines[blockLines.length - 1].trim() === '') blockLines.pop();
+
+  if (blockLines.length === 0) {
+    // Inline value only (e.g. "mcpServers: foo")
+    return match[1].trim();
+  }
+
+  return `${field}:${match[1]}\n${blockLines.join('\n')}`;
 }
 
 function parseClaudeMd(content: string, filePath: string, installationPath: string): AgentDefinition | null {
@@ -49,8 +106,6 @@ function parseClaudeMd(content: string, filePath: string, installationPath: stri
 
   const fm = fmMatch[1];
   const nameMatch = fm.match(/^name:\s*(.+)$/m);
-  const modelMatch = fm.match(/^model:\s*(.+)$/m);
-  const effortMatch = fm.match(/^effort:\s*(.+)$/m);
   // description can be multi-line with |, just grab first line
   const descMatch = fm.match(/^description:\s*\|?\s*\n?\s*(.+)$/m);
 
@@ -61,9 +116,20 @@ function parseClaudeMd(content: string, filePath: string, installationPath: stri
     type: 'claude',
     filePath,
     installationPath,
-    model: modelMatch?.[1].trim() ?? '',
-    effort: effortMatch?.[1].trim() ?? '',
+    model: extractSimpleField(fm, 'model'),
+    effort: extractSimpleField(fm, 'effort'),
     description: descMatch?.[1].trim() ?? '',
+    tools: extractSimpleField(fm, 'tools'),
+    disallowedTools: extractSimpleField(fm, 'disallowedTools'),
+    permissionMode: extractSimpleField(fm, 'permissionMode'),
+    maxTurns: extractSimpleField(fm, 'maxTurns'),
+    skills: extractSimpleField(fm, 'skills'),
+    memory: extractSimpleField(fm, 'memory'),
+    background: extractSimpleField(fm, 'background'),
+    color: extractSimpleField(fm, 'color'),
+    isolation: extractSimpleField(fm, 'isolation'),
+    mcpServers: extractYamlBlock(fm, 'mcpServers'),
+    hooks: extractYamlBlock(fm, 'hooks'),
   };
 }
 
@@ -167,11 +233,74 @@ function updateClaudeMdField(content: string, field: string, value: string): str
   return fmMatch[1] + fm + fmMatch[3] + content.slice(fmMatch[0].length);
 }
 
+function removeClaudeMdField(content: string, field: string): string {
+  const fmMatch = content.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
+  if (!fmMatch) return content;
+
+  let fm = fmMatch[2];
+  // Remove simple field line
+  const fieldRegex = new RegExp(`^${field}:\\s*.*$\\n?`, 'm');
+  fm = fm.replace(fieldRegex, '');
+
+  return fmMatch[1] + fm + fmMatch[3] + content.slice(fmMatch[0].length);
+}
+
+function updateClaudeMdComplexField(content: string, field: string, value: string): string {
+  const fmMatch = content.match(/^(---\r?\n)([\s\S]*?)(\r?\n---)/);
+  if (!fmMatch) return content;
+
+  let fm = fmMatch[2];
+
+  // Find existing block: field line + all indented lines after it
+  const blockStartRegex = new RegExp(`^${field}:(.*)$`, 'm');
+  const blockMatch = fm.match(blockStartRegex);
+
+  if (blockMatch) {
+    // Find the full block extent
+    const startIdx = fm.indexOf(blockMatch[0]);
+    const before = fm.slice(0, startIdx);
+    const afterStart = fm.slice(startIdx + blockMatch[0].length);
+    const lines = afterStart.split(/\r?\n/);
+    let endOffset = 0;
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (line.length > 0 && !line.startsWith(' ') && !line.startsWith('\t') && /^\S+:/.test(line)) break;
+      endOffset = i;
+    }
+
+    // Reconstruct: keep lines after the block
+    const remainingLines = lines.slice(endOffset + 1);
+    const after = remainingLines.length > 0 ? '\n' + remainingLines.join('\n') : '';
+
+    if (!value) {
+      // Remove the block entirely
+      fm = before.replace(/\n$/, '') + after;
+    } else {
+      fm = before + value + after;
+    }
+  } else if (value) {
+    // Insert before end of frontmatter
+    fm = fm.trimEnd() + '\n' + value;
+  }
+
+  return fmMatch[1] + fm + fmMatch[3] + content.slice(fmMatch[0].length);
+}
+
 // ========== Validation ==========
 
 const CODEX_EFFORTS = ['low', 'medium', 'high'];
 const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'max'];
 const CLAUDE_MODEL_SHORTCUTS = ['sonnet', 'opus', 'haiku', 'inherit'];
+const CLAUDE_PERMISSION_MODES = ['default', 'acceptEdits', 'dontAsk', 'bypassPermissions', 'plan'];
+const CLAUDE_MEMORY_OPTIONS = ['user', 'project', 'local'];
+const CLAUDE_ISOLATION_OPTIONS = ['worktree'];
+const CLAUDE_COLOR_OPTIONS = ['purple', 'blue', 'yellow', 'green', 'red'];
+
+// Simple fields that can be updated with updateClaudeMdField
+const CLAUDE_SIMPLE_FIELDS = ['tools', 'disallowedTools', 'permissionMode', 'maxTurns', 'skills', 'memory', 'background', 'color', 'isolation'] as const;
+// Complex fields that need updateClaudeMdComplexField
+const CLAUDE_COMPLEX_FIELDS = ['mcpServers', 'hooks'] as const;
 
 function validateEffort(type: 'codex' | 'claude', effort: string): boolean {
   if (!effort) return true; // empty = no change
@@ -272,11 +401,10 @@ export async function handleAgentDefinitionsRoutes(ctx: RouteContext): Promise<b
 
     handlePostRequest(req, res, async (body: unknown) => {
       try {
-        const { filePath, model, effort } = body as {
-          filePath: string;
-          model?: string;
-          effort?: string;
-        };
+        const b = body as Record<string, string | undefined>;
+        const filePath = b.filePath;
+        const model = b.model;
+        const effort = b.effort;
 
         if (!filePath) {
           return { error: 'filePath is required', status: 400 };
@@ -291,6 +419,25 @@ export async function handleAgentDefinitionsRoutes(ctx: RouteContext): Promise<b
           return { error: 'Invalid model value', status: 400 };
         }
 
+        // Validate enum fields for claude agents
+        if (agentType === 'claude') {
+          if (b.permissionMode && !CLAUDE_PERMISSION_MODES.includes(b.permissionMode)) {
+            return { error: `Invalid permissionMode: ${b.permissionMode}. Valid: ${CLAUDE_PERMISSION_MODES.join(', ')}`, status: 400 };
+          }
+          if (b.memory && !CLAUDE_MEMORY_OPTIONS.includes(b.memory)) {
+            return { error: `Invalid memory: ${b.memory}. Valid: ${CLAUDE_MEMORY_OPTIONS.join(', ')}`, status: 400 };
+          }
+          if (b.isolation && !CLAUDE_ISOLATION_OPTIONS.includes(b.isolation)) {
+            return { error: `Invalid isolation: ${b.isolation}. Valid: ${CLAUDE_ISOLATION_OPTIONS.join(', ')}`, status: 400 };
+          }
+          if (b.maxTurns && isNaN(Number(b.maxTurns))) {
+            return { error: `Invalid maxTurns: must be a number`, status: 400 };
+          }
+          if (b.background && b.background !== 'true' && b.background !== 'false') {
+            return { error: `Invalid background: must be true or false`, status: 400 };
+          }
+        }
+
         let content = readFileSync(filePath, 'utf-8');
 
         if (agentType === 'codex') {
@@ -299,11 +446,31 @@ export async function handleAgentDefinitionsRoutes(ctx: RouteContext): Promise<b
         } else {
           if (model) content = updateClaudeMdField(content, 'model', model);
           if (effort) content = updateClaudeMdField(content, 'effort', effort);
+
+          // Handle simple fields: set or remove
+          for (const field of CLAUDE_SIMPLE_FIELDS) {
+            if (field in b) {
+              const val = b[field];
+              if (val) {
+                content = updateClaudeMdField(content, field, val);
+              } else {
+                content = removeClaudeMdField(content, field);
+              }
+            }
+          }
+
+          // Handle complex fields (mcpServers, hooks): set or remove
+          for (const field of CLAUDE_COMPLEX_FIELDS) {
+            if (field in b) {
+              const val = b[field];
+              content = updateClaudeMdComplexField(content, field, val ?? '');
+            }
+          }
         }
 
         writeFileSync(filePath, content, 'utf-8');
 
-        return { success: true, name: agentName, type: agentType, model, effort };
+        return { success: true, name: agentName, type: agentType };
       } catch (err) {
         return { error: (err as Error).message, status: 500 };
       }

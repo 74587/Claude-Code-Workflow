@@ -6213,6 +6213,18 @@ export interface AgentDefinition {
   model: string;
   effort: string;
   description: string;
+  // Claude-only advanced fields (empty string for codex)
+  tools: string;
+  disallowedTools: string;
+  permissionMode: string;
+  maxTurns: string;
+  skills: string;
+  mcpServers: string;
+  hooks: string;
+  memory: string;
+  background: string;
+  color: string;
+  isolation: string;
 }
 
 export async function fetchAgentDefinitions(): Promise<{ agents: AgentDefinition[] }> {
@@ -6222,8 +6234,8 @@ export async function fetchAgentDefinitions(): Promise<{ agents: AgentDefinition
 export async function updateAgentDefinition(
   type: 'codex' | 'claude',
   name: string,
-  body: { filePath: string; model?: string; effort?: string }
-): Promise<{ success: boolean; name: string; type: string; model?: string; effort?: string }> {
+  body: { filePath: string; [key: string]: string | undefined }
+): Promise<{ success: boolean; name: string; type: string }> {
   return fetchApi(`/api/agent-definitions/${type}/${encodeURIComponent(name)}`, {
     method: 'PUT',
     body: JSON.stringify(body),
