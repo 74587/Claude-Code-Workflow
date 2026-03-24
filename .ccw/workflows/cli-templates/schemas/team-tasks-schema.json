@@ -1,0 +1,255 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "team-tasks-schema",
+  "title": "Team Tasks State",
+  "description": "Universal tasks.json schema for all Codex team skills. Single source of truth for task state management, replacing Claude Code TaskCreate/TaskUpdate API.",
+
+  "type": "object",
+  "required": ["session_id", "skill", "pipeline", "requirement", "created_at", "tasks"],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "Unique session identifier. Format: <skill-prefix>-<slug>-<YYYYMMDD>",
+      "pattern": "^[a-zA-Z0-9]+-[a-z0-9-]+-\\d{8}$",
+      "examples": ["tlv4-auth-system-20260324", "brs-product-strategy-20260324", "ao-api-perf-20260324"]
+    },
+    "skill": {
+      "type": "string",
+      "description": "Source team skill name (e.g., team-lifecycle-v4, team-brainstorm, team-arch-opt)"
+    },
+    "pipeline": {
+      "type": "string",
+      "description": "Selected pipeline name from the skill's specs/pipelines.md or specs/team-config.json"
+    },
+    "requirement": {
+      "type": "string",
+      "description": "Original user requirement text, verbatim"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 creation timestamp with timezone"
+    },
+    "supervision": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether CHECKPOINT tasks are active"
+    },
+    "completed_waves": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1 },
+      "default": [],
+      "description": "List of completed wave numbers"
+    },
+    "active_agents": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "default": {},
+      "description": "Runtime tracking: { task_id: agent_id } for currently running agents"
+    },
+    "gc_rounds": {
+      "type": "integer",
+      "minimum": 0,
+      "default": 0,
+      "description": "Generator-Critic / Fix-Verify loop iteration count (skills with GC loops)"
+    },
+    "tasks": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/TaskEntry" },
+      "description": "Task registry: { TASK-ID: TaskEntry }"
+    }
+  },
+
+  "$defs": {
+    "TaskEntry": {
+      "type": "object",
+      "required": ["title", "description", "role", "deps", "wave", "status"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Human-readable task name"
+        },
+        "description": {
+          "type": "string",
+          "description": "What the task should accomplish"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role name matching roles/<role>/role.md in the skill directory"
+        },
+        "pipeline_phase": {
+          "type": "string",
+          "description": "Phase from the skill's pipelines.md Task Metadata Registry (skill-specific)"
+        },
+        "deps": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Task IDs that must complete before this task starts. All must be 'completed'"
+        },
+        "context_from": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Task IDs whose discoveries to load as upstream context"
+        },
+        "wave": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Execution wave number (1-based). Tasks in the same wave run in parallel"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "in_progress", "completed", "failed", "skipped"],
+          "default": "pending",
+          "description": "Current task state"
+        },
+        "findings": {
+          "type": ["string", "null"],
+          "maxLength": 500,
+          "default": null,
+          "description": "Summary of task output (max 500 chars). Required when status=completed"
+        },
+        "quality_score": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 100,
+          "default": null,
+          "description": "0-100, set by reviewer/evaluator roles only"
+        },
+        "supervision_verdict": {
+          "type": ["string", "null"],
+          "enum": ["pass", "warn", "block", null],
+          "default": null,
+          "description": "Set by CHECKPOINT/supervisor tasks only"
+        },
+        "error": {
+          "type": ["string", "null"],
+          "default": null,
+          "description": "Error description. Required when status=failed or status=skipped"
+        }
+      }
+    },
+
+    "DiscoveryEntry": {
+      "type": "object",
+      "required": ["task_id", "timestamp", "status", "findings", "data"],
+      "description": "Schema for discoveries/{task_id}.json — each task writes one on completion",
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "description": "Matches the task key in tasks.json"
+        },
+        "worker": {
+          "type": "string",
+          "description": "Same as task_id (identifies the producing agent)"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 completion timestamp"
+        },
+        "type": {
+          "type": "string",
+          "description": "Same as pipeline_phase"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["completed", "failed"]
+        },
+        "findings": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "quality_score": {
+          "type": ["number", "null"]
+        },
+        "supervision_verdict": {
+          "type": ["string", "null"],
+          "enum": ["pass", "warn", "block", null]
+        },
+        "error": {
+          "type": ["string", "null"]
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "key_findings": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 100 },
+              "maxItems": 5
+            },
+            "decisions": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Include rationale, not just choice"
+            },
+            "files_modified": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Only for implementation tasks"
+            },
+            "verification": {
+              "type": "string",
+              "enum": ["self-validated", "peer-reviewed", "tested"]
+            },
+            "risks_logged": {
+              "type": "integer",
+              "description": "CHECKPOINT only: count of risks"
+            },
+            "blocks_detected": {
+              "type": "integer",
+              "description": "CHECKPOINT only: count of blocking issues"
+            }
+          }
+        },
+        "artifacts_produced": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Paths to generated artifact files"
+        }
+      }
+    }
+  },
+
+  "$comment_validation_rules": {
+    "structural": [
+      "Unique IDs: every key in tasks must be unique",
+      "Valid deps: every entry in deps must reference an existing task ID",
+      "Valid context_from: every entry in context_from must reference an existing task ID",
+      "No cycles: dependency graph must be a DAG",
+      "Wave ordering: if task A depends on task B, then A.wave > B.wave",
+      "Role exists: role must match a directory in the skill's roles/"
+    ],
+    "runtime": [
+      "Status transitions: pending->in_progress, in_progress->completed|failed, pending->skipped",
+      "Dependency check: task can only move to in_progress if all deps are completed",
+      "Skip propagation: if any dep is failed|skipped, task is automatically skipped",
+      "Discovery required: completed task MUST have discoveries/{task_id}.json",
+      "Findings required: completed task MUST have non-null findings",
+      "Error required: failed|skipped task MUST have non-null error",
+      "Supervision fields: CHECKPOINT tasks MUST set supervision_verdict on completion"
+    ]
+  },
+
+  "$comment_claude_code_mapping": {
+    "TaskCreate": {
+      "title": "tasks[id].title",
+      "description": "tasks[id].description",
+      "assignee": "tasks[id].role",
+      "status_open": "tasks[id].status = pending",
+      "metadata.deps": "tasks[id].deps",
+      "metadata.wave": "tasks[id].wave"
+    },
+    "TaskUpdate": {
+      "status_in_progress": "Write tasks[id].status = in_progress",
+      "status_completed": "Write tasks[id].status = completed + Write discoveries/{id}.json",
+      "status_failed": "Write tasks[id].status = failed + tasks[id].error"
+    },
+    "team_msg": {
+      "get_state": "Read tasks.json + Read discoveries/{upstream_id}.json",
+      "state_update": "Write discoveries/{task_id}.json",
+      "broadcast": "Write to wisdom/*.md"
+    }
+  }
+}
