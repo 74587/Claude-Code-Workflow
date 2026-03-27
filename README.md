@@ -95,6 +95,7 @@ If you use **Codex CLI** with the `.codex/skills/` workflow skills, add these re
 [features]
 default_mode_request_user_input = true   # Enable request_user_input tool for interactive confirmations
 multi_agent = true                       # Enable multi-agent coordination (spawn_agent, wait, etc.)
+multi_agent_v2 = true                    # Enable v4 agent API (fork_context, task_name, send_message, assign_task, list_agents)
 enable_fanout = true                     # Enable spawn_agents_on_csv for parallel wave execution
 ```
 
