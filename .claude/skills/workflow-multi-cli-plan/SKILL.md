@@ -1,6 +1,6 @@
 ---
 name: workflow-multi-cli-plan
-description: Multi-CLI collaborative planning with ACE context gathering, iterative cross-verification, and execution handoff
+description: Multi-CLI collaborative planning with codebase context gathering, iterative cross-verification, and execution handoff.
 allowed-tools: Skill, Agent, AskUserQuestion, TodoWrite, Read, Write, Edit, Bash, Glob, Grep
 ---
 
