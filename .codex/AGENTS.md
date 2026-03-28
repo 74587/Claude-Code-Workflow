@@ -120,11 +120,6 @@ Before starting work, scan recent sessions (7 days) to avoid conflicts and reuse
 - Overlapping file scope → warn, suggest referencing prior session
 - Complementary findings → feed into current task context
 
-### Session Memory (`core_memory`)
-
-- `core_memory` (MCP) stores session snapshots as `CMEM-*` records — use `/compact` to save, `core_memory export` to restore
-- Query prior memories before complex tasks: `core_memory({ operation: "search", query: "..." })`
-- `.workflow/` artifacts are session-specific; `core_memory` is cross-session — reference session IDs, don't duplicate
 
 ## Execution Checklist
 
