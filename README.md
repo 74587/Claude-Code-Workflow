@@ -416,6 +416,8 @@ Visual workflow template editor with drag-drop.
 
 - **[Impeccable](https://github.com/pbakaus/impeccable)** — Design audit methodology, OKLCH color system, anti-AI-slop detection patterns, editorial typography standards, motion/animation token architecture, and vanilla JS interaction patterns. The UI team skills (`team-ui-polish`, `team-interactive-craft`, `team-motion-design`, `team-visual-a11y`, `team-uidesign`, `team-ux-improve`) draw heavily from Impeccable's design knowledge.
 
+- **[gstack](https://github.com/garrytan/gstack)** — Systematic debugging methodology, security audit frameworks, and release pipeline patterns. The skills `investigate` (Iron Law debugging), `security-audit` (OWASP Top 10 + STRIDE), and `ship` (gated release pipeline) are inspired by gstack's workflow designs.
+
 ---
 
 ## 🤝 Contributing
