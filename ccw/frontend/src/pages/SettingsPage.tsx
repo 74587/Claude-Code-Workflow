@@ -1304,9 +1304,41 @@ export function SettingsPage() {
     updateCliTool(toolId, { envFile });
   };
 
-  const handleUpdateSettingsFile = (toolId: string, settingsFile: string | undefined) => {
+  const handleUpdateSettingsFile = useCallback(async (toolId: string, settingsFile: string | undefined) => {
     updateCliTool(toolId, { settingsFile });
-  };
+
+    // Auto-parse models from settings file
+    if (settingsFile && SETTINGS_FILE_TOOLS.has(toolId)) {
+      try {
+        const csrfToken = getCsrfToken();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
+        const res = await fetch('/api/cli/parse-settings', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ path: settingsFile }),
+          credentials: 'same-origin',
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.primaryModel || data.secondaryModel || data.availableModels?.length) {
+            const updates: Partial<{ primaryModel: string; secondaryModel: string; availableModels: string[] }> = {};
+            if (data.primaryModel) updates.primaryModel = data.primaryModel;
+            if (data.secondaryModel) updates.secondaryModel = data.secondaryModel;
+            if (data.availableModels?.length) updates.availableModels = data.availableModels;
+            updateCliTool(toolId, updates);
+            toast.success(`Models loaded from settings: ${data.primaryModel || 'default'}`, {
+              duration: 3000,
+            });
+          }
+        }
+      } catch {
+        // Silently fail — file parsing is best-effort
+      }
+    }
+  }, [updateCliTool]);
 
   const handleUpdateEffort = (toolId: string, effort: string | undefined) => {
     updateCliTool(toolId, { effort });
