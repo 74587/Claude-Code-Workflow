@@ -412,6 +412,12 @@ v2 团队架构引入了**事件驱动的节拍模型**，实现高效编排：
 
 ---
 
+## 🙏 致谢
+
+- **[Impeccable](https://github.com/pbakaus/impeccable)** — 设计审计方法论、OKLCH 色彩系统、anti-AI-slop 检测模式、编辑级排版标准、动效/动画 token 体系、以及原生 JS 交互模式。UI 团队技能（`team-ui-polish`、`team-interactive-craft`、`team-motion-design`、`team-visual-a11y`、`team-uidesign`、`team-ux-improve`）大量借鉴了 Impeccable 的设计知识。
+
+---
+
 ## 🤝 贡献
 
 <div align="center">

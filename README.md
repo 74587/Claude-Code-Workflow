@@ -412,6 +412,12 @@ Visual workflow template editor with drag-drop.
 
 ---
 
+## 🙏 Acknowledgments
+
+- **[Impeccable](https://github.com/pbakaus/impeccable)** — Design audit methodology, OKLCH color system, anti-AI-slop detection patterns, editorial typography standards, motion/animation token architecture, and vanilla JS interaction patterns. The UI team skills (`team-ui-polish`, `team-interactive-craft`, `team-motion-design`, `team-visual-a11y`, `team-uidesign`, `team-ux-improve`) draw heavily from Impeccable's design knowledge.
+
+---
+
 ## 🤝 Contributing
 
 <div align="center">
