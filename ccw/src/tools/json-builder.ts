@@ -421,6 +421,27 @@ function validateValue(
 ): void {
   if (value === null || value === undefined) return;
 
+  // oneOf support: try each branch, pass if any branch has zero errors
+  if (propSchema.oneOf && Array.isArray(propSchema.oneOf)) {
+    let matched = false;
+    for (const branch of propSchema.oneOf) {
+      const branchErrors: string[] = [];
+      const branchWarnings: string[] = [];
+      validateValue(value, branch, path, branchErrors, branchWarnings);
+      if (branchErrors.length === 0) {
+        matched = true;
+        warnings.push(...branchWarnings);
+        break;
+      }
+    }
+    if (!matched) {
+      const actualType = Array.isArray(value) ? 'array' : typeof value;
+      const branches = propSchema.oneOf.map(b => b.type || 'complex').join('|');
+      errors.push(`${path}: value (${actualType}) does not match any oneOf branch [${branches}]`);
+    }
+    return;
+  }
+
   const expectedType = Array.isArray(propSchema.type) ? propSchema.type : [propSchema.type];
 
   // Type check

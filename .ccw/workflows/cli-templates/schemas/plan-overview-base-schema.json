@@ -38,8 +38,8 @@
     },
     "recommended_execution": {
       "type": "string",
-      "enum": ["Agent", "Codex"],
-      "description": "推荐执行方式"
+      "enum": ["Agent", "Codex", "Sequential", "Parallel", "Phased"],
+      "description": "推荐执行方式 (工具: Agent/Codex, 策略: Sequential/Parallel/Phased)"
     },
 
     "data_flow": {
