@@ -439,6 +439,20 @@ MIT License - see [LICENSE](LICENSE)
 
 ---
 
+## 💬 Community
+
+<div align="center">
+
+Join the CCW WeChat group to discuss tips and share experiences with other developers!
+
+<img src="assets/wechat-group-qr.png" width="300" alt="CCW WeChat Group"/>
+
+<sub>Scan to join the WeChat group (if the QR code has expired, please open an Issue for the latest one)</sub>
+
+</div>
+
+---
+
 ## 🔗 Links
 
 <div align="center">
