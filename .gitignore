@@ -165,3 +165,10 @@ codex-lens/.cache/huggingface/models/Xenova--ms-marco-MiniLM-L-6-v2/onnx/model_u
 codex-lens/.cache/huggingface/models/Xenova--ms-marco-MiniLM-L-6-v2/onnx/model.onnx
 codex-lens/data/registry.db
 codex-lens-v2/
+.claude/skills/chain-loader/SKILL.md
+.claude/skills/chain-loader/phases/01-analyze-skill.md
+.claude/skills/chain-loader/phases/02-design-graph.md
+.claude/skills/chain-loader/phases/03-generate-validate.md
+.claude/skills/chain-loader/specs/chain-schema.md
+.claude/skills/chain-loader/specs/design-patterns.md
+.claude/skills/chain-loader/templates/chain-json.md

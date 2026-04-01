@@ -11,7 +11,6 @@ const patterns = [
   'ccw/dist/.ace-tool/**',
   'ccw/src/.ace-tool/**',
   'codex-lens/src/**/__pycache__/**',
-  'ccw-litellm/src/**/__pycache__/**',
   'codex-lens/src/**/.workflow/**',
   '**/.workflow/.cli-history/*.db*',
 ];

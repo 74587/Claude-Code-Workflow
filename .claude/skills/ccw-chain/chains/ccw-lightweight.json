@@ -1,0 +1,57 @@
+{
+  "chain_id": "ccw-lightweight",
+  "name": "CCW Lightweight Workflows (Level 2)",
+  "description": "Level 2 workflow routing: rapid, bugfix, hotfix, docs — simple single/dual-skill pipelines",
+  "version": "2.0",
+  "entry": "D1",
+  "nodes": {
+    "D1": {
+      "type": "decision",
+      "name": "Select Lightweight Flow",
+      "prompt": "Based on the detected task_type, select the specific lightweight workflow:\n1. Rapid — feature (low complexity), quick-task\n2. Bugfix (standard) — fix, bug, error, crash, fail, debug\n3. Hotfix (urgent) — urgent/production/critical + fix/bug\n4. Docs — documentation, readme\n\nChoose the flow that best matches the intent analysis.",
+      "choices": [
+        { "label": "Rapid", "description": "workflow-lite-plan → workflow-test-fix", "next": "S_R1" },
+        { "label": "Bugfix", "description": "workflow-lite-plan(--bugfix) → workflow-test-fix", "next": "S_B1" },
+        { "label": "Hotfix", "description": "workflow-lite-plan(--hotfix) only", "next": "S_H1" },
+        { "label": "Docs", "description": "workflow-lite-plan only", "next": "S_D1" }
+      ],
+      "default": "S_R1"
+    },
+    "S_R1": {
+      "type": "step",
+      "name": "Rapid: workflow-lite-plan",
+      "content_ref": "@phases/workflow-lite-plan.md",
+      "next": "S_R2"
+    },
+    "S_R2": {
+      "type": "step",
+      "name": "Rapid: workflow-test-fix",
+      "content_ref": "@phases/workflow-test-fix/SKILL.md",
+      "next": null
+    },
+    "S_B1": {
+      "type": "step",
+      "name": "Bugfix: workflow-lite-plan --bugfix",
+      "content_ref": "@phases/workflow-lite-plan.md",
+      "next": "S_B2"
+    },
+    "S_B2": {
+      "type": "step",
+      "name": "Bugfix: workflow-test-fix",
+      "content_ref": "@phases/workflow-test-fix/SKILL.md",
+      "next": null
+    },
+    "S_H1": {
+      "type": "step",
+      "name": "Hotfix: workflow-lite-plan --hotfix",
+      "content_ref": "@phases/workflow-lite-plan.md",
+      "next": null
+    },
+    "S_D1": {
+      "type": "step",
+      "name": "Docs: workflow-lite-plan",
+      "content_ref": "@phases/workflow-lite-plan.md",
+      "next": null
+    }
+  }
+}

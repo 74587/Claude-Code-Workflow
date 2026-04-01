@@ -1,0 +1,31 @@
+{
+  "chain_id": "ccw-with-file",
+  "name": "CCW With-File Workflows",
+  "description": "With-File workflow routing: documented exploration with auto-chain to downstream skills",
+  "version": "2.0",
+  "entry": "D1",
+  "nodes": {
+    "D1": {
+      "type": "decision",
+      "name": "Select With-File Flow",
+      "prompt": "Based on the detected task_type, select the specific With-File workflow:\n1. Analyze → Plan — collaborative analysis auto-chaining to lite-plan\n2. Debug (standalone) — hypothesis-driven debugging, self-contained\n3. Collaborative Plan → Execute — multi-agent planning with unified execution\n4. Roadmap → Team — strategic requirement roadmap with team-planex execution\n\nDetection keywords:\n- analyze-file: collaborative analysis, explore concept\n- debug-file: hypothesis debug, systematic debug\n- collaborative-plan: multi-agent plan, Plan Note\n- roadmap: roadmap (explicit only)",
+      "choices": [
+        { "label": "Analyze → Plan", "description": "analyze-with-file → lite-plan", "next": "S_AP1" },
+        { "label": "Debug", "description": "debug-with-file (standalone)", "next": "S_DB1" },
+        { "label": "Collaborative Plan", "description": "collaborative-plan → unified-execute", "next": "S_CP1" },
+        { "label": "Roadmap → Team", "description": "roadmap-with-file → team-planex", "next": "S_RM1" }
+      ],
+      "default": "S_AP1"
+    },
+    "S_AP1": { "type": "step", "name": "Analyze: analyze-with-file", "content_ref": "@phases/analyze-with-file.md", "next": "S_AP2" },
+    "S_AP2": { "type": "step", "name": "Analyze: workflow-lite-plan", "content_ref": "@phases/workflow-lite-plan.md", "next": null },
+
+    "S_DB1": { "type": "step", "name": "Debug: debug-with-file", "content_ref": "@phases/debug-with-file.md", "next": null },
+
+    "S_CP1": { "type": "step", "name": "Collab: collaborative-plan-with-file", "content_ref": "@phases/collaborative-plan-with-file.md", "next": "S_CP2" },
+    "S_CP2": { "type": "step", "name": "Collab: unified-execute-with-file", "content_ref": "@phases/unified-execute-with-file.md", "next": null },
+
+    "S_RM1": { "type": "step", "name": "Roadmap: roadmap-with-file", "content_ref": "@phases/roadmap-with-file.md", "next": "S_RM2" },
+    "S_RM2": { "type": "step", "name": "Roadmap: team-planex", "content_ref": "@phases/team-planex.md", "next": null }
+  }
+}

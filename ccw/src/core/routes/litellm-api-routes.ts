@@ -72,8 +72,6 @@ import {
 import { getContextCacheStore } from '../../tools/context-cache-store.js';
 import { testApiKeyConnection, getDefaultApiBase } from '../services/api-key-tester.js';
 
-const V1_REMOVED = 'Python bridge has been removed (v1 cleanup).';
-
 // Clear cache (no-op stub, kept for backward compatibility)
 export function clearCcwLitellmStatusCache() {
   // no-op: Python bridge removed
@@ -815,16 +813,6 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
   }
 
   // ===========================
-  // CCW-LiteLLM Package Management
-  // ===========================
-
-  // GET /api/litellm-api/ccw-litellm/status - Stub (v1 Python bridge removed)
-  if (pathname === '/api/litellm-api/ccw-litellm/status' && req.method === 'GET') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ installed: false, error: V1_REMOVED }));
-    return true;
-  }
-
   // ===========================
   // CodexLens Embedding Rotation Routes
   // ===========================
@@ -1213,22 +1201,6 @@ export async function handleLiteLLMApiRoutes(ctx: RouteContext): Promise<boolean
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: (err as Error).message }));
     }
-    return true;
-  }
-
-  // POST /api/litellm-api/ccw-litellm/install - Stub (v1 Python bridge removed)
-  if (pathname === '/api/litellm-api/ccw-litellm/install' && req.method === 'POST') {
-    handlePostRequest(req, res, async () => {
-      return { success: false, error: V1_REMOVED };
-    });
-    return true;
-  }
-
-  // POST /api/litellm-api/ccw-litellm/uninstall - Stub (v1 Python bridge removed)
-  if (pathname === '/api/litellm-api/ccw-litellm/uninstall' && req.method === 'POST') {
-    handlePostRequest(req, res, async () => {
-      return { success: false, error: V1_REMOVED };
-    });
     return true;
   }
 

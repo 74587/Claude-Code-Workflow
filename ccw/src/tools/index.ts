@@ -28,6 +28,7 @@ import * as skillContextLoaderMod from './skill-context-loader.js';
 import * as askQuestionMod from './ask-question.js';
 import * as teamMsgMod from './team-msg.js';
 import * as jsonBuilderMod from './json-builder.js';
+import * as chainLoaderMod from './chain-loader.js';
 
 
 // Import legacy JS tools
@@ -317,6 +318,7 @@ registerTool(toLegacyTool(skillContextLoaderMod));
 registerTool(toLegacyTool(askQuestionMod));
 registerTool(toLegacyTool(teamMsgMod));
 registerTool(toLegacyTool(jsonBuilderMod));
+registerTool(toLegacyTool(chainLoaderMod));
 
 // Register legacy JS tools
 registerTool(uiGeneratePreviewTool);

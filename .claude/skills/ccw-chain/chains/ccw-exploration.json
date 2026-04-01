@@ -1,0 +1,47 @@
+{
+  "chain_id": "ccw-exploration",
+  "name": "CCW Exploration Workflows (Level 4)",
+  "description": "Level 4 workflow routing: brainstorm, spec-driven, full exploration, greenfield",
+  "version": "2.0",
+  "entry": "D1",
+  "nodes": {
+    "D1": {
+      "type": "decision",
+      "name": "Select Exploration Flow",
+      "prompt": "Based on the detected task_type and complexity, select the specific exploration workflow:\n1. Brainstorm → Plan → Execute — multi-perspective ideation followed by formal planning\n2. Spec-Driven — specification/PRD generation followed by plan and execute\n3. Full Exploration — uncertain tasks: brainstorm → formal plan → execute → test\n4. Greenfield (medium) — 0→1 development: brainstorm → plan → execute → test\n5. Greenfield (large/phased) — 0→1 large scale: brainstorm → plan → execute → review → test",
+      "choices": [
+        { "label": "Brainstorm → Plan", "description": "brainstorm-with-file → plan → execute → test-fix", "next": "S_BP1" },
+        { "label": "Spec-Driven", "description": "spec-generator → plan → execute → test-fix", "next": "S_SD1" },
+        { "label": "Full Exploration", "description": "brainstorm → plan → execute → test-fix", "next": "S_FE1" },
+        { "label": "Greenfield (medium)", "description": "brainstorm-with-file → plan → execute → test-fix", "next": "S_GM1" },
+        { "label": "Greenfield (large)", "description": "brainstorm-with-file → plan → execute → review → test-fix", "next": "S_GL1" }
+      ],
+      "default": "S_BP1"
+    },
+    "S_BP1": { "type": "step", "name": "Brainstorm: brainstorm-with-file", "content_ref": "@phases/brainstorm-with-file.md", "next": "S_BP2" },
+    "S_BP2": { "type": "step", "name": "Brainstorm: workflow-plan", "content_ref": "@phases/workflow-plan/SKILL.md", "next": "S_BP3" },
+    "S_BP3": { "type": "step", "name": "Brainstorm: workflow-execute", "content_ref": "@phases/workflow-execute/SKILL.md", "next": "S_BP4" },
+    "S_BP4": { "type": "step", "name": "Brainstorm: workflow-test-fix", "content_ref": "@phases/workflow-test-fix/SKILL.md", "next": null },
+
+    "S_SD1": { "type": "step", "name": "Spec: spec-generator", "content_ref": "@phases/spec-generator/SKILL.md", "next": "S_SD2" },
+    "S_SD2": { "type": "step", "name": "Spec: workflow-plan", "content_ref": "@phases/workflow-plan/SKILL.md", "next": "S_SD3" },
+    "S_SD3": { "type": "step", "name": "Spec: workflow-execute", "content_ref": "@phases/workflow-execute/SKILL.md", "next": "S_SD4" },
+    "S_SD4": { "type": "step", "name": "Spec: workflow-test-fix", "content_ref": "@phases/workflow-test-fix/SKILL.md", "next": null },
+
+    "S_FE1": { "type": "step", "name": "Full: brainstorm", "content_ref": "@phases/brainstorm/SKILL.md", "next": "S_FE2" },
+    "S_FE2": { "type": "step", "name": "Full: workflow-plan", "content_ref": "@phases/workflow-plan/SKILL.md", "next": "S_FE3" },
+    "S_FE3": { "type": "step", "name": "Full: workflow-execute", "content_ref": "@phases/workflow-execute/SKILL.md", "next": "S_FE4" },
+    "S_FE4": { "type": "step", "name": "Full: workflow-test-fix", "content_ref": "@phases/workflow-test-fix/SKILL.md", "next": null },
+
+    "S_GM1": { "type": "step", "name": "Greenfield-M: brainstorm-with-file", "content_ref": "@phases/brainstorm-with-file.md", "next": "S_GM2" },
+    "S_GM2": { "type": "step", "name": "Greenfield-M: workflow-plan", "content_ref": "@phases/workflow-plan/SKILL.md", "next": "S_GM3" },
+    "S_GM3": { "type": "step", "name": "Greenfield-M: workflow-execute", "content_ref": "@phases/workflow-execute/SKILL.md", "next": "S_GM4" },
+    "S_GM4": { "type": "step", "name": "Greenfield-M: workflow-test-fix", "content_ref": "@phases/workflow-test-fix/SKILL.md", "next": null },
+
+    "S_GL1": { "type": "step", "name": "Greenfield-L: brainstorm-with-file", "content_ref": "@phases/brainstorm-with-file.md", "next": "S_GL2" },
+    "S_GL2": { "type": "step", "name": "Greenfield-L: workflow-plan", "content_ref": "@phases/workflow-plan/SKILL.md", "next": "S_GL3" },
+    "S_GL3": { "type": "step", "name": "Greenfield-L: workflow-execute", "content_ref": "@phases/workflow-execute/SKILL.md", "next": "S_GL4" },
+    "S_GL4": { "type": "step", "name": "Greenfield-L: review-cycle", "content_ref": "@phases/review-cycle/SKILL.md", "next": "S_GL5" },
+    "S_GL5": { "type": "step", "name": "Greenfield-L: workflow-test-fix", "content_ref": "@phases/workflow-test-fix/SKILL.md", "next": null }
+  }
+}
