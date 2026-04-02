@@ -8,6 +8,7 @@ import chalk from 'chalk';
 import { showHeader, createSpinner, info, warning, error, summaryBox, divider } from '../utils/ui.js';
 import { createManifest, addFileEntry, addDirectoryEntry, saveManifest, findManifest, getAllManifests, type Manifest, type ManifestWithMetadata } from '../core/manifest.js';
 import { validatePath } from '../utils/path-resolver.js';
+import { loadClaudeCliTools, saveClaudeCliTools, loadClaudeCliSettings, saveClaudeCliSettings } from '../tools/claude-cli-tools.js';
 import type { Ora } from 'ora';
 
 // Git Bash fix markers
@@ -29,7 +30,7 @@ const __dirname = dirname(__filename);
 const SOURCE_DIRS = ['.claude', '.codex', '.gemini', '.qwen', '.ccw'];
 
 // Subdirectories that should always be installed to global (~/.claude/)
-const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates'];
+const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates', 'workflow-skills'];
 
 // Files that should be excluded from cleanup (user-specific settings)
 const EXCLUDED_FILES = ['settings.json', 'settings.local.json'];
@@ -363,6 +364,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   let totalFiles = 0;
   let totalDirs = 0;
   let restoreStats = { skillsRestored: 0, commandsRestored: 0 };
+  let cliToolsInitResult: { created: string[]; existing: string[] } = { created: [], existing: [] };
 
   try {
     // For Path mode, install workflows to global first
@@ -408,6 +410,13 @@ export async function installCommand(options: InstallOptions): Promise<void> {
       writeFileSync(versionPath, JSON.stringify(versionData, null, 2), 'utf8');
       addFileEntry(manifest, versionPath);
       totalFiles++;
+    }
+
+    // Initialize cli-tools.json and cli-settings.json if they don't exist
+    spinner.text = 'Initializing CLI tools configuration...';
+    cliToolsInitResult = initCliToolsConfig();
+    if (cliToolsInitResult.created.length > 0) {
+      totalFiles += cliToolsInitResult.created.length;
     }
 
     spinner.succeed('Installation complete!');
@@ -456,6 +465,13 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   if (restoreStats.skillsRestored > 0 || restoreStats.commandsRestored > 0) {
     const totalRestored = restoreStats.skillsRestored + restoreStats.commandsRestored;
     summaryLines.push(chalk.gray(`Disabled state restored: ${totalRestored} items`));
+  }
+
+  // Add CLI tools config info
+  if (cliToolsInitResult.created.length > 0) {
+    summaryLines.push(chalk.gray(`CLI config initialized: ${cliToolsInitResult.created.join(', ')}`));
+  } else if (cliToolsInitResult.existing.length > 0) {
+    summaryLines.push(chalk.gray(`CLI config preserved: ${cliToolsInitResult.existing.join(', ')}`));
   }
 
   summaryLines.push('');
@@ -956,6 +972,45 @@ export function removeGitBashFix(): { removed: boolean; message: string } {
     return { removed: true, message: `Removed from ${targetFile}` };
   }
   return { removed: false, message: 'No fix found to remove' };
+}
+
+/**
+ * Initialize CLI tools configuration files if they don't exist
+ * Creates cli-tools.json and cli-settings.json in ~/.claude/
+ * Preserves existing files - only creates missing ones
+ */
+function initCliToolsConfig(): { created: string[]; existing: string[] } {
+  const created: string[] = [];
+  const existing: string[] = [];
+  const home = homedir();
+  const claudeDir = join(home, '.claude');
+
+  // Ensure ~/.claude/ exists
+  if (!existsSync(claudeDir)) {
+    mkdirSync(claudeDir, { recursive: true });
+  }
+
+  // Initialize cli-tools.json
+  const toolsPath = join(claudeDir, 'cli-tools.json');
+  if (!existsSync(toolsPath)) {
+    const defaultConfig = loadClaudeCliTools(home);
+    saveClaudeCliTools(home, defaultConfig);
+    created.push('cli-tools.json');
+  } else {
+    existing.push('cli-tools.json');
+  }
+
+  // Initialize cli-settings.json
+  const settingsPath = join(claudeDir, 'cli-settings.json');
+  if (!existsSync(settingsPath)) {
+    const defaultSettings = loadClaudeCliSettings(home);
+    saveClaudeCliSettings(home, defaultSettings);
+    created.push('cli-settings.json');
+  } else {
+    existing.push('cli-settings.json');
+  }
+
+  return { created, existing };
 }
 
 /**
