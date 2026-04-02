@@ -17,6 +17,8 @@ import { issueCommand } from './commands/issue.js';
 import { workflowCommand } from './commands/workflow.js';
 import { loopCommand } from './commands/loop.js';
 import { teamCommand } from './commands/team.js';
+import { launcherCommand } from './commands/launcher.js';
+import { chainLoaderCommand } from './commands/chain-loader.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -380,6 +382,22 @@ export function run(argv: string[]): void {
     .option('-f, --force', 'Force installation without prompts')
     .option('--source <source>', 'Install specific source only')
     .action((subcommand, args, options) => workflowCommand(subcommand, args, options));
+
+  // Launcher command - unified Claude Code launcher with workflow switching
+  program
+    .command('launcher [subcommand] [args...]')
+    .description('Unified Claude Code launcher with workflow + settings switching')
+    .option('-w, --workflow <name>', 'Workflow profile to activate')
+    .option('-s, --settings <name>', 'Settings profile to use')
+    .option('--claude-md <path>', 'Path to CLAUDE.md (for add-workflow)')
+    .option('--cli-tools <path>', 'Path to cli-tools.json (for add-workflow)')
+    .action((subcommand, args, options) => launcherCommand(subcommand, args, options));
+
+  // Chain-loader command - progressive skill chain loader
+  program
+    .command('chain-loader [json]')
+    .description('Progressive skill chain loader (JSON params: cmd, skill, chain, session_id, choice, node, entry_name)')
+    .action((json) => chainLoaderCommand(json));
 
   program.parse(argv);
 }

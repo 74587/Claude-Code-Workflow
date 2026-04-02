@@ -1,0 +1,51 @@
+{
+  "chain_id": "workflow-test-fix",
+  "name": "Workflow Test-Fix Skill Chain",
+  "description": "5-phase linear test generation and fix pipeline",
+  "version": "1.0",
+  "entry": "S_P1",
+  "entries": [
+    { "name": "default", "node": "S_P1", "description": "Full test-fix flow from session start" },
+    { "name": "execute-only", "node": "S_P5", "description": "Direct: Skip to test cycle execution" }
+  ],
+  "preload": {
+    "skill-context": "@skills/workflow-test-fix/SKILL.md"
+  },
+  "variables": {
+    "session_id": { "type": "string", "description": "Workflow session ID" },
+    "auto_yes": { "type": "boolean", "default": false, "description": "Auto-confirm mode" },
+    "goal": { "type": "string", "description": "User goal from intent analysis" }
+  },
+  "nodes": {
+    "S_P1": {
+      "type": "step",
+      "name": "Phase 1: Session Start",
+      "content_ref": "@skills/workflow-test-fix/phases/01-session-start.md",
+      "next": "S_P2"
+    },
+    "S_P2": {
+      "type": "step",
+      "name": "Phase 2: Test Context Gather",
+      "content_ref": "@skills/workflow-test-fix/phases/02-test-context-gather.md",
+      "next": "S_P3"
+    },
+    "S_P3": {
+      "type": "step",
+      "name": "Phase 3: Test Concept Enhanced",
+      "content_ref": "@skills/workflow-test-fix/phases/03-test-concept-enhanced.md",
+      "next": "S_P4"
+    },
+    "S_P4": {
+      "type": "step",
+      "name": "Phase 4: Test Task Generate",
+      "content_ref": "@skills/workflow-test-fix/phases/04-test-task-generate.md",
+      "next": "S_P5"
+    },
+    "S_P5": {
+      "type": "step",
+      "name": "Phase 5: Test Cycle Execute",
+      "content_ref": "@skills/workflow-test-fix/phases/05-test-cycle-execute.md",
+      "next": null
+    }
+  }
+}

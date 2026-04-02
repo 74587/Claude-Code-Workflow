@@ -1,0 +1,68 @@
+{
+  "chain_id": "ccw-investigate",
+  "name": "CCW Investigate Chain",
+  "description": "Systematic investigation with Iron Law gate: 5-phase linear workflow requiring root cause confirmation before implementation",
+  "version": "1.0",
+  "entry": "S1",
+  "entries": [
+    { "name": "default", "node": "S1", "description": "Full investigation flow" },
+    { "name": "from-hypothesis", "node": "S3", "description": "Skip to hypothesis testing (root cause already suspected)" }
+  ],
+  "triggers": {
+    "task_types": ["investigate", "debug-deep"],
+    "keywords": ["investigate|root cause|deep debug|iron law"],
+    "scope": "Investigation: systematic root cause analysis with Iron Law gate"
+  },
+  "variables": {
+    "root_cause": { "type": "string", "description": "Confirmed root cause description" },
+    "confidence": { "type": "string", "default": "low", "description": "Root cause confidence: low|medium|high" }
+  },
+  "nodes": {
+    "S1": {
+      "type": "step",
+      "name": "Root Cause Investigation",
+      "content_inline": "## Phase 1: Root Cause Investigation\n\nSystematic investigation:\n1. Reproduce the issue reliably\n2. Gather evidence: logs, stack traces, git blame\n3. Identify the component and code path involved\n4. Narrow down to specific function/module\n5. Document findings with file:line references",
+      "next": "S2"
+    },
+    "S2": {
+      "type": "step",
+      "name": "Pattern Analysis",
+      "content_inline": "## Phase 2: Pattern Analysis\n\nAnalyze patterns around the issue:\n1. Search for similar bugs in codebase history\n2. Check if the pattern repeats elsewhere\n3. Identify contributing factors (race conditions, state management, etc.)\n4. Map dependency chain that leads to the bug\n5. Form initial hypothesis about root cause",
+      "next": "S3"
+    },
+    "S3": {
+      "type": "step",
+      "name": "Hypothesis Testing",
+      "content_inline": "## Phase 3: Hypothesis Testing\n\nTest the root cause hypothesis:\n1. Write a minimal reproduction test\n2. Add targeted logging/instrumentation\n3. Verify hypothesis with evidence\n4. If hypothesis fails, return to Phase 2 with new data\n5. Set `confidence` variable to 'high' if confirmed",
+      "next": "D1"
+    },
+    "D1": {
+      "type": "decision",
+      "name": "Iron Law Gate: Root Cause Confirmed?",
+      "prompt": "## Iron Law Gate\n\nThe Iron Law: Never implement a fix without confirmed root cause.\n\nEvaluate:\n- Is the root cause clearly identified with evidence?\n- Can you explain WHY the bug occurs, not just WHERE?\n- Does the minimal reproduction test confirm the hypothesis?\n- Confidence level: high = proceed, anything else = blocked\n\n1. Yes — Root cause confirmed with high confidence, proceed to implementation\n2. No — Root cause not confirmed, session ends with BLOCKED status",
+      "choices": [
+        { "label": "Confirmed", "description": "Root cause confirmed with high confidence", "next": "S4" },
+        { "label": "Blocked", "description": "Root cause not confirmed, end investigation", "next": "S_BLOCKED" }
+      ],
+      "default": "S_BLOCKED"
+    },
+    "S_BLOCKED": {
+      "type": "step",
+      "name": "Investigation Blocked",
+      "content_inline": "## Investigation BLOCKED\n\nRoot cause could not be confirmed. Document:\n1. What was investigated\n2. Hypotheses tested and results\n3. Remaining unknowns\n4. Suggested next steps for future investigation\n\nSet `review_status` = 'blocked'. Session complete.",
+      "next": null
+    },
+    "S4": {
+      "type": "step",
+      "name": "Implementation",
+      "content_inline": "## Phase 4: Implementation\n\nWith confirmed root cause, implement the fix:\n1. Design minimal fix that addresses root cause directly\n2. Implement the fix\n3. Add regression test covering the root cause\n4. Verify fix resolves the original reproduction\n5. Check for side effects in related code paths",
+      "next": "S5"
+    },
+    "S5": {
+      "type": "step",
+      "name": "Verification Report",
+      "content_inline": "## Phase 5: Verification Report\n\nFinal verification and documentation:\n1. Run full test suite — confirm no regressions\n2. Document: root cause, fix applied, tests added\n3. Update any related documentation\n4. Set `confidence` = 'verified'\n5. Generate investigation report summary",
+      "next": null
+    }
+  }
+}

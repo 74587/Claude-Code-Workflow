@@ -1,0 +1,92 @@
+{
+  "chain_id": "workflow-plan",
+  "name": "Workflow Plan Skill Chain",
+  "description": "6-phase planning workflow with mode routing, conflict detection, and confirmation gate",
+  "version": "1.0",
+  "entry": "D_MODE",
+  "entries": [
+    { "name": "default", "node": "D_MODE", "description": "Mode routing: plan, verify, or replan" },
+    { "name": "plan", "node": "S_P1", "description": "Direct: Start planning from session discovery" },
+    { "name": "verify", "node": "S_P5", "description": "Direct: Plan verification only" },
+    { "name": "replan", "node": "S_P6", "description": "Direct: Replan existing session" }
+  ],
+  "preload": {
+    "skill-context": "@skills/workflow-plan/SKILL.md"
+  },
+  "variables": {
+    "session_id": { "type": "string", "description": "Workflow session ID (WFS-*)" },
+    "conflict_risk": { "type": "string", "default": "unknown", "description": "Conflict risk level: none|low|high" },
+    "auto_yes": { "type": "boolean", "default": false, "description": "Auto-confirm mode" },
+    "goal": { "type": "string", "description": "User goal from intent analysis" }
+  },
+  "nodes": {
+    "D_MODE": {
+      "type": "decision",
+      "name": "Plan Mode Selection",
+      "prompt": "Select planning mode based on user intent and context:\n1. Plan — full planning flow (session discovery → context → tasks)\n2. Verify — verify an existing plan's completeness and quality\n3. Replan — modify/replan an existing session\n\nConsider: existing session_id, user keywords (verify, replan, re-plan).",
+      "choices": [
+        { "label": "Plan", "description": "Full planning: discovery → context → conflict → tasks", "next": "S_P1" },
+        { "label": "Verify", "description": "Plan verification only", "next": "S_P5" },
+        { "label": "Replan", "description": "Replan existing session", "next": "S_P6" }
+      ],
+      "default": "S_P1"
+    },
+    "S_P1": {
+      "type": "step",
+      "name": "Phase 1: Session Discovery",
+      "content_ref": "@skills/workflow-plan/phases/01-session-discovery.md",
+      "next": "S_P2"
+    },
+    "S_P2": {
+      "type": "step",
+      "name": "Phase 2: Context Gathering",
+      "content_ref": "@skills/workflow-plan/phases/02-context-gathering.md",
+      "next": "D_CONFLICT"
+    },
+    "D_CONFLICT": {
+      "type": "decision",
+      "name": "Conflict Risk Assessment",
+      "prompt": "Assess conflict risk based on session discovery and context gathering results:\n- Check for overlapping active sessions with same file scope\n- Check for uncommitted changes in target files\n- Check for recent sessions (7 days) touching same modules\n\nConflict risk: high (overlapping active session), low (recent but archived), none (clean).",
+      "choices": [
+        { "label": "Conflict Detected", "description": "Overlapping session or high-risk changes", "next": "S_P3" },
+        { "label": "No Conflict", "description": "Clean scope, proceed to task generation", "next": "S_P4" }
+      ],
+      "default": "S_P4"
+    },
+    "S_P3": {
+      "type": "step",
+      "name": "Phase 3: Conflict Resolution",
+      "content_ref": "@skills/workflow-plan/phases/03-conflict-resolution.md",
+      "next": "S_P4"
+    },
+    "S_P4": {
+      "type": "step",
+      "name": "Phase 4: Task Generation",
+      "content_ref": "@skills/workflow-plan/phases/04-task-generation.md",
+      "next": "D_CONFIRM"
+    },
+    "D_CONFIRM": {
+      "type": "decision",
+      "name": "Plan Confirmation",
+      "prompt": "Plan generation complete. User should review the generated tasks.\n\nOptions:\n1. Verify — run plan verification (quality + completeness check)\n2. Execute — plan approved, return to parent chain for execution\n3. Review — user wants to manually review before proceeding\n\nIn auto_yes mode, default to Execute.",
+      "choices": [
+        { "label": "Verify", "description": "Run plan verification", "next": "S_P5" },
+        { "label": "Execute", "description": "Plan approved, proceed to execution", "next": null },
+        { "label": "Review", "description": "Manual review pause", "next": null }
+      ],
+      "default": "S_P5"
+    },
+    "S_P5": {
+      "type": "step",
+      "name": "Phase 5: Plan Verify",
+      "content_ref": "@skills/workflow-plan/phases/05-plan-verify.md",
+      "next": null
+    },
+    "S_P6": {
+      "type": "step",
+      "name": "Phase 6: Replan",
+      "content_ref": "@skills/workflow-plan/phases/06-replan.md",
+      "next": null
+    }
+  }
+}

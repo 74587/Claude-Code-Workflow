@@ -1,0 +1,92 @@
+{
+  "chain_id": "spec-generator",
+  "name": "Spec Generator Skill Chain",
+  "description": "8-phase specification generation with quality gate loop and auto-fix",
+  "version": "1.0",
+  "entry": "S_P1",
+  "entries": [
+    { "name": "default", "node": "S_P1", "description": "Full spec generation from discovery" },
+    { "name": "continue", "node": "D_RESUME", "description": "Resume from quality gate checkpoint" }
+  ],
+  "preload": {
+    "skill-context": "@skills/spec-generator/SKILL.md"
+  },
+  "variables": {
+    "readiness_score": { "type": "number", "default": 0, "description": "Spec readiness score (0-100)" },
+    "fix_iterations": { "type": "number", "default": 0, "description": "Number of auto-fix iterations completed" },
+    "auto_yes": { "type": "boolean", "default": false, "description": "Auto-confirm mode" },
+    "goal": { "type": "string", "description": "User goal from intent analysis" }
+  },
+  "nodes": {
+    "S_P1": {
+      "type": "step",
+      "name": "Phase 1: Discovery",
+      "content_ref": "@skills/spec-generator/phases/01-discovery.md",
+      "next": "S_P1_5"
+    },
+    "S_P1_5": {
+      "type": "step",
+      "name": "Phase 1.5: Requirement Clarification",
+      "content_ref": "@skills/spec-generator/phases/01-5-requirement-clarification.md",
+      "next": "S_P2"
+    },
+    "S_P2": {
+      "type": "step",
+      "name": "Phase 2: Product Brief",
+      "content_ref": "@skills/spec-generator/phases/02-product-brief.md",
+      "next": "S_P3"
+    },
+    "S_P3": {
+      "type": "step",
+      "name": "Phase 3: Requirements",
+      "content_ref": "@skills/spec-generator/phases/03-requirements.md",
+      "next": "S_P4"
+    },
+    "S_P4": {
+      "type": "step",
+      "name": "Phase 4: Architecture",
+      "content_ref": "@skills/spec-generator/phases/04-architecture.md",
+      "next": "S_P5"
+    },
+    "S_P5": {
+      "type": "step",
+      "name": "Phase 5: Epics & Stories",
+      "content_ref": "@skills/spec-generator/phases/05-epics-stories.md",
+      "next": "S_P6"
+    },
+    "S_P6": {
+      "type": "step",
+      "name": "Phase 6: Readiness Check",
+      "content_ref": "@skills/spec-generator/phases/06-readiness-check.md",
+      "next": "D_QUALITY"
+    },
+    "D_QUALITY": {
+      "type": "decision",
+      "name": "Quality Gate",
+      "prompt": "Evaluate spec readiness based on the readiness check results:\n- readiness_score >= 80: Pass — spec is ready for downstream consumption\n- readiness_score < 80 AND fix_iterations < 2: Auto-Fix — attempt automated fixes\n- readiness_score < 80 AND fix_iterations >= 2: Force — accept current quality or abort\n\nConsider: readiness_score, fix_iterations count, specific failure categories.",
+      "choices": [
+        { "label": "Pass", "description": "Spec meets quality threshold (score >= 80)", "next": null },
+        { "label": "Auto-Fix", "description": "Attempt auto-fix and re-check (iterations < 2)", "next": "S_P6_5" },
+        { "label": "Force", "description": "Accept current quality or abort (max iterations reached)", "next": null }
+      ],
+      "default": "S_P6_5"
+    },
+    "S_P6_5": {
+      "type": "step",
+      "name": "Phase 6.5: Auto-Fix",
+      "content_ref": "@skills/spec-generator/phases/06-5-auto-fix.md",
+      "next": "S_P6"
+    },
+    "D_RESUME": {
+      "type": "decision",
+      "name": "Resume Point Selection",
+      "prompt": "Resuming spec generation. Determine where to continue:\n- If readiness check was in progress, resume at quality gate\n- If auto-fix was in progress, resume at auto-fix\n- Otherwise, resume at readiness check\n\nCheck session state for last completed phase.",
+      "choices": [
+        { "label": "Quality Gate", "description": "Resume at quality gate evaluation", "next": "D_QUALITY" },
+        { "label": "Auto-Fix", "description": "Resume at auto-fix phase", "next": "S_P6_5" },
+        { "label": "Readiness Check", "description": "Re-run readiness check", "next": "S_P6" }
+      ],
+      "default": "S_P6"
+    }
+  }
+}

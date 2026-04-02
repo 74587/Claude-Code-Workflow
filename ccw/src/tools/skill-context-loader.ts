@@ -34,38 +34,24 @@ type Params = z.infer<typeof ParamsSchema>;
 function getAvailableSkills(): Array<{ name: string; folderName: string; location: 'project' | 'user' }> {
   const skills: Array<{ name: string; folderName: string; location: 'project' | 'user' }> = [];
 
-  // Project skills
-  const projectSkillsDir = join(process.cwd(), '.claude', 'skills');
-  if (existsSync(projectSkillsDir)) {
-    try {
-      const entries = readdirSync(projectSkillsDir, { withFileTypes: true });
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          const skillMdPath = join(projectSkillsDir, entry.name, 'SKILL.md');
-          if (existsSync(skillMdPath)) {
-            const name = parseSkillName(skillMdPath) || entry.name;
-            skills.push({ name, folderName: entry.name, location: 'project' });
-          }
-        }
-      }
-    } catch {
-      // Ignore errors
-    }
-  }
+  const searchDirs = [
+    { base: join(process.cwd(), '.claude', 'skills'), location: 'project' as const },
+    { base: join(process.cwd(), '.claude', 'workflow-skills'), location: 'project' as const },
+    { base: join(homedir(), '.claude', 'skills'), location: 'user' as const },
+    { base: join(homedir(), '.claude', 'workflow-skills'), location: 'user' as const },
+  ];
 
-  // User skills
-  const userSkillsDir = join(homedir(), '.claude', 'skills');
-  if (existsSync(userSkillsDir)) {
+  for (const { base, location } of searchDirs) {
+    if (!existsSync(base)) continue;
     try {
-      const entries = readdirSync(userSkillsDir, { withFileTypes: true });
+      const entries = readdirSync(base, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.isDirectory()) {
-          const skillMdPath = join(userSkillsDir, entry.name, 'SKILL.md');
+          const skillMdPath = join(base, entry.name, 'SKILL.md');
           if (existsSync(skillMdPath)) {
             const name = parseSkillName(skillMdPath) || entry.name;
-            // Skip if already added from project (project takes priority)
             if (!skills.some(s => s.folderName === entry.name)) {
-              skills.push({ name, folderName: entry.name, location: 'user' });
+              skills.push({ name, folderName: entry.name, location });
             }
           }
         }

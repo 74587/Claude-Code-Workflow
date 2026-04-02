@@ -1,0 +1,51 @@
+{
+  "chain_id": "ccw-review-cycle",
+  "name": "CCW Review Cycle Sub-Chain",
+  "description": "Review cycle with 3-mode routing: session-level, module-level, or targeted fix review",
+  "version": "1.0",
+  "entry": "D1",
+  "entries": [
+    { "name": "default", "node": "D1", "description": "Select review mode via decision" },
+    { "name": "session", "node": "S_S1", "description": "Direct: Session-level review" },
+    { "name": "module", "node": "S_M1", "description": "Direct: Module-level review" },
+    { "name": "fix", "node": "S_F1", "description": "Direct: Targeted fix review" }
+  ],
+  "triggers": {
+    "task_types": ["review", "review-cycle"],
+    "keywords": ["review.*cycle|code review|review session"],
+    "scope": "Review cycle: session, module, or fix-targeted review"
+  },
+  "variables": {
+    "review_status": { "type": "string", "default": "pending", "description": "Overall review result" },
+    "fix_count": { "type": "number", "default": 0, "description": "Number of fixes applied" }
+  },
+  "nodes": {
+    "D1": {
+      "type": "decision",
+      "name": "Review Mode Selection",
+      "prompt": "Select the review mode based on scope and context:\n1. Session Review — full session-level review across all changed files\n2. Module Review — focused review on a specific module\n3. Fix Review — targeted review of specific fixes or patches\n\nConsider: session_id availability, scope of changes, user intent.",
+      "choices": [
+        { "label": "Session Review", "description": "Full session-level review", "next": "S_S1" },
+        { "label": "Module Review", "description": "Module-scoped review", "next": "S_M1" },
+        { "label": "Fix Review", "description": "Targeted fix review", "next": "S_F1" }
+      ],
+      "default": "S_S1"
+    },
+    "S_S1": { "type": "step", "name": "Session: Gather Changes", "content_inline": "## Session Review Phase 1: Gather Changes\n\nCollect all changed files from the current session:\n- Use `git diff` to identify modifications\n- Group by module/component\n- Prioritize by risk (security > logic > style)", "next": "S_S2" },
+    "S_S2": { "type": "step", "name": "Session: Code Quality Review", "content_ref": "@skills/review-cycle/SKILL.md", "next": "S_S3" },
+    "S_S3": { "type": "step", "name": "Session: Apply Fixes", "content_inline": "## Session Review Phase 3: Apply Fixes\n\nFor each finding from the review:\n1. Categorize: critical / warning / suggestion\n2. Auto-fix critical and warning items\n3. Log suggestions for user decision\n4. Update `fix_count` variable with number of fixes applied", "next": "S_S4" },
+    "S_S4": { "type": "step", "name": "Session: Verify Fixes", "content_inline": "## Session Review Phase 4: Verify Fixes\n\nRun verification after fixes:\n1. Type check (tsc --noEmit)\n2. Re-run affected tests\n3. Confirm no regressions\n4. Set `review_status` to 'passed' or 'needs-attention'", "next": "S_S5" },
+    "S_S5": { "type": "step", "name": "Session: Summary Report", "content_inline": "## Session Review Phase 5: Summary\n\nGenerate review summary:\n- Files reviewed / issues found / fixes applied\n- Remaining items requiring manual attention\n- Overall quality assessment", "next": null },
+
+    "S_M1": { "type": "step", "name": "Module: Identify Scope", "content_inline": "## Module Review Phase 1: Identify Scope\n\nDetermine the module boundary:\n- Identify module entry point and dependencies\n- Map internal vs external interfaces\n- List files to review", "next": "S_M2" },
+    "S_M2": { "type": "step", "name": "Module: Architecture Review", "content_inline": "## Module Review Phase 2: Architecture\n\nReview module architecture:\n- Single responsibility compliance\n- Dependency direction (no circular deps)\n- Interface cleanliness\n- Error handling patterns", "next": "S_M3" },
+    "S_M3": { "type": "step", "name": "Module: Code Quality Review", "content_ref": "@skills/review-cycle/SKILL.md", "next": "S_M4" },
+    "S_M4": { "type": "step", "name": "Module: Apply Fixes", "content_inline": "## Module Review Phase 4: Apply Fixes\n\nApply fixes within module scope:\n1. Fix identified issues\n2. Update `fix_count` variable\n3. Ensure module boundaries are respected", "next": "S_M5" },
+    "S_M5": { "type": "step", "name": "Module: Verify & Report", "content_inline": "## Module Review Phase 5: Verify & Report\n\nVerify module integrity:\n1. Run module-specific tests\n2. Check exports/imports consistency\n3. Set `review_status`\n4. Generate module review report", "next": null },
+
+    "S_F1": { "type": "step", "name": "Fix: Identify Targets", "content_inline": "## Fix Review Phase 1: Identify Targets\n\nIdentify specific fixes to review:\n- Parse fix descriptions or commit messages\n- Locate changed hunks\n- Map fix to original issue", "next": "S_F2" },
+    "S_F2": { "type": "step", "name": "Fix: Review Changes", "content_ref": "@skills/review-cycle/SKILL.md", "next": "S_F3" },
+    "S_F3": { "type": "step", "name": "Fix: Validate Correctness", "content_inline": "## Fix Review Phase 3: Validate Correctness\n\nValidate each fix:\n1. Does it address the root cause?\n2. Any side effects or regressions?\n3. Test coverage adequate?\n4. Update `fix_count` and `review_status`", "next": "S_F4" },
+    "S_F4": { "type": "step", "name": "Fix: Summary Report", "content_inline": "## Fix Review Phase 4: Summary\n\nGenerate fix review report:\n- Fixes validated / issues found\n- Regression test results\n- Approval status", "next": null }
+  }
+}

@@ -2,8 +2,20 @@
   "chain_id": "ccw-lightweight",
   "name": "CCW Lightweight Workflows (Level 2)",
   "description": "Level 2 workflow routing: rapid, bugfix, hotfix, docs — simple single/dual-skill pipelines",
-  "version": "2.0",
+  "version": "2.1",
   "entry": "D1",
+  "entries": [
+    { "name": "default", "node": "D1", "description": "Select flow via decision node" },
+    { "name": "rapid", "node": "S_R1", "description": "Direct: Rapid flow (lite-plan → test-fix)" },
+    { "name": "bugfix", "node": "S_B1", "description": "Direct: Bugfix flow (lite-plan --bugfix → test-fix)" },
+    { "name": "hotfix", "node": "S_H1", "description": "Direct: Hotfix flow (lite-plan --hotfix)" },
+    { "name": "docs", "node": "S_D1", "description": "Direct: Docs flow (lite-plan)" }
+  ],
+  "triggers": {
+    "task_types": ["bugfix", "bugfix-hotfix", "quick-task", "documentation", "feature"],
+    "keywords": ["fix|bug|error|crash|fail", "quick|simple|small", "docs|documentation|readme", "urgent|production|critical"],
+    "scope": "Level 2: rapid, bugfix, hotfix, docs — simple single/dual-skill pipelines"
+  },
   "nodes": {
     "D1": {
       "type": "decision",
@@ -20,37 +32,39 @@
     "S_R1": {
       "type": "step",
       "name": "Rapid: workflow-lite-plan",
-      "content_ref": "@phases/workflow-lite-plan.md",
+      "content_ref": "@skills/workflow-lite-plan/SKILL.md",
       "next": "S_R2"
     },
     "S_R2": {
-      "type": "step",
+      "type": "delegate",
       "name": "Rapid: workflow-test-fix",
-      "content_ref": "@phases/workflow-test-fix/SKILL.md",
+      "chain": "workflow-test-fix",
+      "pass_variables": ["auto_yes", "goal"],
       "next": null
     },
     "S_B1": {
       "type": "step",
       "name": "Bugfix: workflow-lite-plan --bugfix",
-      "content_ref": "@phases/workflow-lite-plan.md",
+      "content_ref": "@skills/workflow-lite-plan/SKILL.md",
       "next": "S_B2"
     },
     "S_B2": {
-      "type": "step",
+      "type": "delegate",
       "name": "Bugfix: workflow-test-fix",
-      "content_ref": "@phases/workflow-test-fix/SKILL.md",
+      "chain": "workflow-test-fix",
+      "pass_variables": ["auto_yes", "goal"],
       "next": null
     },
     "S_H1": {
       "type": "step",
       "name": "Hotfix: workflow-lite-plan --hotfix",
-      "content_ref": "@phases/workflow-lite-plan.md",
+      "content_ref": "@skills/workflow-lite-plan/SKILL.md",
       "next": null
     },
     "S_D1": {
       "type": "step",
       "name": "Docs: workflow-lite-plan",
-      "content_ref": "@phases/workflow-lite-plan.md",
+      "content_ref": "@skills/workflow-lite-plan/SKILL.md",
       "next": null
     }
   }

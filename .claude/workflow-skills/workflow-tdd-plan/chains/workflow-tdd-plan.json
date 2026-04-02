@@ -1,0 +1,95 @@
+{
+  "chain_id": "workflow-tdd-plan",
+  "name": "Workflow TDD Plan Skill Chain",
+  "description": "7-phase TDD planning workflow with mode routing, conflict detection, and confirmation gate",
+  "version": "1.0",
+  "entry": "D_MODE",
+  "entries": [
+    { "name": "default", "node": "D_MODE", "description": "Mode routing: plan or verify" },
+    { "name": "plan", "node": "S_P1", "description": "Direct: Start TDD planning from session discovery" },
+    { "name": "verify", "node": "S_P7", "description": "Direct: TDD plan verification only" }
+  ],
+  "preload": {
+    "skill-context": "@skills/workflow-tdd-plan/SKILL.md"
+  },
+  "variables": {
+    "session_id": { "type": "string", "description": "Workflow session ID (WFS-*)" },
+    "conflict_risk": { "type": "string", "default": "unknown", "description": "Conflict risk level: none|low|high" },
+    "auto_yes": { "type": "boolean", "default": false, "description": "Auto-confirm mode" },
+    "goal": { "type": "string", "description": "User goal from intent analysis" }
+  },
+  "nodes": {
+    "D_MODE": {
+      "type": "decision",
+      "name": "TDD Plan Mode Selection",
+      "prompt": "Select TDD planning mode based on user intent:\n1. Plan — full TDD planning flow (discovery → context → test coverage → conflict → tasks → validation)\n2. Verify — verify an existing TDD plan\n\nConsider: existing session_id, user keywords (verify, validate).",
+      "choices": [
+        { "label": "Plan", "description": "Full TDD planning flow", "next": "S_P1" },
+        { "label": "Verify", "description": "TDD plan verification only", "next": "S_P7" }
+      ],
+      "default": "S_P1"
+    },
+    "S_P1": {
+      "type": "step",
+      "name": "Phase 1: Session Discovery",
+      "content_ref": "@skills/workflow-tdd-plan/phases/01-session-discovery.md",
+      "next": "S_P2"
+    },
+    "S_P2": {
+      "type": "step",
+      "name": "Phase 2: Context Gathering",
+      "content_ref": "@skills/workflow-tdd-plan/phases/02-context-gathering.md",
+      "next": "S_P3"
+    },
+    "S_P3": {
+      "type": "step",
+      "name": "Phase 3: Test Coverage Analysis",
+      "content_ref": "@skills/workflow-tdd-plan/phases/03-test-coverage-analysis.md",
+      "next": "D_CONFLICT"
+    },
+    "D_CONFLICT": {
+      "type": "decision",
+      "name": "Conflict Risk Assessment",
+      "prompt": "Assess conflict risk based on session discovery and context gathering results:\n- Check for overlapping active sessions with same file scope\n- Check for uncommitted changes in target files\n- Check for recent sessions (7 days) touching same modules\n\nConflict risk: high (overlapping active session), low (recent but archived), none (clean).",
+      "choices": [
+        { "label": "Conflict Detected", "description": "Overlapping session or high-risk changes", "next": "S_P4" },
+        { "label": "No Conflict", "description": "Clean scope, skip to TDD task generation", "next": "S_P5" }
+      ],
+      "default": "S_P5"
+    },
+    "S_P4": {
+      "type": "step",
+      "name": "Phase 4: Conflict Resolution",
+      "content_ref": "@skills/workflow-tdd-plan/phases/04-conflict-resolution.md",
+      "next": "S_P5"
+    },
+    "S_P5": {
+      "type": "step",
+      "name": "Phase 5: TDD Task Generation",
+      "content_ref": "@skills/workflow-tdd-plan/phases/05-tdd-task-generation.md",
+      "next": "S_P6"
+    },
+    "S_P6": {
+      "type": "step",
+      "name": "Phase 6: TDD Structure Validation",
+      "content_ref": "@skills/workflow-tdd-plan/phases/06-tdd-structure-validation.md",
+      "next": "D_CONFIRM"
+    },
+    "D_CONFIRM": {
+      "type": "decision",
+      "name": "TDD Plan Confirmation",
+      "prompt": "TDD plan generation complete. Review the generated TDD tasks.\n\nOptions:\n1. Verify — run TDD plan verification (Red-Green-Refactor completeness)\n2. Execute — plan approved, return to parent chain for execution\n\nIn auto_yes mode, default to Execute.",
+      "choices": [
+        { "label": "Verify", "description": "Run TDD plan verification", "next": "S_P7" },
+        { "label": "Execute", "description": "Plan approved, proceed to execution", "next": null }
+      ],
+      "default": "S_P7"
+    },
+    "S_P7": {
+      "type": "step",
+      "name": "Phase 7: TDD Verify",
+      "content_ref": "@skills/workflow-tdd-plan/phases/07-tdd-verify.md",
+      "next": null
+    }
+  }
+}

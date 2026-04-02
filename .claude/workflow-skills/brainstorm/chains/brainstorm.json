@@ -1,0 +1,65 @@
+{
+  "chain_id": "brainstorm",
+  "name": "Brainstorm Skill Chain",
+  "description": "4-phase brainstorming with dual-mode routing: auto (multi-role) or single-role analysis",
+  "version": "1.0",
+  "entry": "S_P1",
+  "entries": [
+    { "name": "default", "node": "S_P1", "description": "Start from mode routing" },
+    { "name": "auto", "node": "S_P2", "description": "Direct: Auto multi-role brainstorm" },
+    { "name": "single-role", "node": "S_P3", "description": "Direct: Single-role analysis" }
+  ],
+  "preload": {
+    "skill-context": "@skills/brainstorm/SKILL.md"
+  },
+  "variables": {
+    "auto_yes": { "type": "boolean", "default": false, "description": "Auto-confirm mode" },
+    "goal": { "type": "string", "description": "User goal from intent analysis" }
+  },
+  "nodes": {
+    "S_P1": {
+      "type": "step",
+      "name": "Phase 1: Mode Routing",
+      "content_ref": "@skills/brainstorm/phases/01-mode-routing.md",
+      "next": "D_MODE"
+    },
+    "D_MODE": {
+      "type": "decision",
+      "name": "Brainstorm Mode Selection",
+      "prompt": "Select brainstorm mode based on phase 1 analysis:\n1. Auto — multi-role brainstorm with artifact generation, then role analysis, then synthesis\n2. Single — single-role focused analysis, then synthesis\n\nConsider: user preference, topic complexity, time constraints.",
+      "choices": [
+        { "label": "Auto", "description": "Multi-role: artifacts → role analysis → synthesis", "next": "S_P2" },
+        { "label": "Single", "description": "Single-role: role analysis → synthesis", "next": "S_P3" }
+      ],
+      "default": "S_P2"
+    },
+    "S_P2": {
+      "type": "step",
+      "name": "Phase 2: Artifact Generation",
+      "content_ref": "@skills/brainstorm/phases/02-artifacts.md",
+      "next": "S_P3"
+    },
+    "S_P3": {
+      "type": "step",
+      "name": "Phase 3: Role Analysis",
+      "content_ref": "@skills/brainstorm/phases/03-role-analysis.md",
+      "next": "D_SYNTH"
+    },
+    "D_SYNTH": {
+      "type": "decision",
+      "name": "Synthesis Decision",
+      "prompt": "Determine synthesis path based on brainstorm mode and results:\n1. Proceed — multi-role analysis complete, synthesize all perspectives\n2. Complete — single-role analysis done, finalize without full synthesis\n\nConsider: number of roles analyzed, depth of analysis, user intent.",
+      "choices": [
+        { "label": "Proceed", "description": "Full synthesis of all role perspectives", "next": "S_P4" },
+        { "label": "Complete", "description": "Finalize single-role output", "next": null }
+      ],
+      "default": "S_P4"
+    },
+    "S_P4": {
+      "type": "step",
+      "name": "Phase 4: Synthesis",
+      "content_ref": "@skills/brainstorm/phases/04-synthesis.md",
+      "next": null
+    }
+  }
+}

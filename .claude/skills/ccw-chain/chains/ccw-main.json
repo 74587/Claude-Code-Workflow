@@ -2,13 +2,26 @@
   "chain_id": "ccw-main",
   "name": "CCW Main Orchestrator",
   "description": "Main workflow orchestrator: intent analysis → clarity check → workflow category routing",
-  "version": "2.0",
+  "version": "2.2",
+  "preload": [
+    { "key": "memory", "source": "memory:MEMORY.md", "required": false },
+    { "key": "chain-list", "source": "@chains/_index.md", "required": false }
+  ],
+  "variables": {
+    "task_type": { "type": "string", "description": "Detected task type" },
+    "goal": { "type": "string", "description": "User's goal" },
+    "auto_yes": { "type": "boolean", "default": false, "description": "Auto-confirm mode" }
+  },
   "entry": "S1",
+  "entries": [
+    { "name": "default", "node": "S1", "description": "Full flow: intent analysis → clarity check → routing" },
+    { "name": "skip-analysis", "node": "D2", "description": "Skip analysis, directly select workflow category" }
+  ],
   "nodes": {
     "S1": {
       "type": "step",
       "name": "Analyze Intent",
-      "content_inline": "## Phase 1: Analyze Intent\n\nAnalyze the user's input ($ARGUMENTS) to determine:\n\n```javascript\nconst analysis = {\n  goal: extractGoal(input),\n  scope: extractScope(input),\n  constraints: extractConstraints(input),\n  task_type: detectTaskType(input),\n  complexity: assessComplexity(input),  // low|medium|high\n  clarity_score: calculateClarity(input) // 0-3 (>=2 = clear)\n};\n\nconst autoYes = /\\b(-y|--yes)\\b/.test($ARGUMENTS);\n```\n\nDetect task_type by priority (see specs/intent-patterns.md for full regex list):\n- bugfix-hotfix, greenfield, brainstorm, brainstorm-to-issue, debug-file, analyze-file\n- collaborative-plan, roadmap, spec-driven, integration-test, refactor, team-planex\n- multi-cli, bugfix, issue-batch, issue-transition, exploration, quick-task\n- ui-design, tdd, test-fix, test-gen, review, documentation, feature (default)\n\nOutput: `Type: [task_type] | Goal: [goal] | Complexity: [complexity] | Clarity: [clarity_score]/3`",
+      "content_inline": "## Phase 1: Analyze Intent\n\nAnalyze the user's input ($ARGUMENTS) to determine:\n\n```javascript\nconst analysis = {\n  goal: extractGoal(input),\n  scope: extractScope(input),\n  constraints: extractConstraints(input),\n  task_type: detectTaskType(input),\n  complexity: assessComplexity(input),  // low|medium|high\n  clarity_score: calculateClarity(input) // 0-3 (>=2 = clear)\n};\n\nconst autoYes = /\\b(-y|--yes)\\b/.test($ARGUMENTS);\n```\n\nDetect task_type by priority (use `chain_loader list` to see each chain's triggers):\n- bugfix-hotfix, greenfield, brainstorm, brainstorm-to-issue, debug-file, analyze-file\n- collaborative-plan, roadmap, spec-driven, integration-test, refactor, team-planex\n- multi-cli, bugfix, issue-batch, issue-transition, exploration, quick-task\n- ui-design, tdd, test-fix, test-gen, review, documentation, feature (default)\n\nOutput: `Type: [task_type] | Goal: [goal] | Complexity: [complexity] | Clarity: [clarity_score]/3`",
       "next": "D1"
     },
     "D1": {

@@ -11,7 +11,9 @@ import type {
   SkillChain, ChainNode, ChainSession,
   StepNode, DecisionNode, DelegateNode,
   ChainFrame, NodeStatus, LoadedEntry,
+  PreloadEntry, PreloadedContent, ChainVariable,
 } from '../types/chain-types.js';
+import { renderChainTopology, renderChainProgress } from '../utils/chain-visualizer.js';
 import {
   readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync,
 } from 'fs';
@@ -21,11 +23,13 @@ import { homedir } from 'os';
 // ─── Params ──────────────────────────────────────────────────
 
 const ParamsSchema = z.object({
-  cmd: z.enum(['list', 'start', 'next', 'done', 'status', 'content', 'complete']),
+  cmd: z.enum(['list', 'start', 'next', 'done', 'status', 'content', 'complete', 'inspect', 'visualize']),
   skill: z.string().optional(),
   chain: z.string().optional(),
   session_id: z.string().optional(),
   choice: z.number().optional(),
+  node: z.string().optional(),         // start from specific node
+  entry_name: z.string().optional(),   // select named entry
 });
 
 type Params = z.infer<typeof ParamsSchema>;
@@ -35,21 +39,25 @@ type Params = z.infer<typeof ParamsSchema>;
 export const schema: ToolSchema = {
   name: 'chain_loader',
   description: `Progressive skill chain loader. Auto-detects skill from cwd (cd to skill dir first) or pass skill explicitly.
-  list: List chains. Params: skill? (string, auto-detect from cwd)
-  start: Start chain session. Params: chain (string), skill? (string, auto-detect from cwd)
+  list: List chains with triggers/entries. Params: skill? (string)
+  inspect: Show chain node graph with topology. Params: chain (string), skill? (string)
+  start: Start chain session (resolves preload, initializes variables). Params: chain (string), skill? (string), node? (string), entry_name? (string)
   next: Read current node (idempotent if active, advance if completed). Params: session_id (string)
   done: Complete current node and advance. Params: session_id (string), choice? (number, 1-based for decisions)
-  status: Query session state. Params: session_id (string)
+  status: Query session state with variables and preload info. Params: session_id (string)
   content: Get all loaded content. Params: session_id (string)
-  complete: Mark session completed. Params: session_id (string)`,
+  complete: Mark session completed. Params: session_id (string)
+  visualize: Show live execution progress with chain nesting. Params: session_id (string)`,
   inputSchema: {
     type: 'object',
     properties: {
-      cmd: { type: 'string', description: 'Command: list|start|next|done|status|content|complete' },
+      cmd: { type: 'string', description: 'Command: list|inspect|start|next|done|status|content|complete|visualize' },
       skill: { type: 'string', description: 'Skill name (optional, auto-detected from cwd if omitted)' },
-      chain: { type: 'string', description: 'Chain name (for start)' },
+      chain: { type: 'string', description: 'Chain name (for start/inspect)' },
       session_id: { type: 'string', description: 'Session ID (for next/done/status/content/complete)' },
       choice: { type: 'number', description: 'Decision choice index (1-based, for done on decision nodes)' },
+      node: { type: 'string', description: 'Start from specific node ID (for start, bypasses entry)' },
+      entry_name: { type: 'string', description: 'Named entry point (for start, looks up in chain entries)' },
     },
     required: ['cmd'],
   },
@@ -71,12 +79,14 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
   try {
     switch (p.cmd) {
       case 'list':     return cmdList(p);
+      case 'inspect':  return cmdInspect(p);
       case 'start':    return cmdStart(p);
       case 'next':     return cmdNext(p);
       case 'done':     return cmdDone(p);
       case 'status':   return cmdStatus(p);
       case 'content':  return cmdContent(p);
       case 'complete': return cmdComplete(p);
+      case 'visualize': return cmdVisualize(p);
       default:
         return { success: false, error: `Unknown command: ${p.cmd}` };
     }
@@ -97,6 +107,8 @@ function cmdList(p: Params): ToolResult {
     name: string;
     description: string;
     node_count: number;
+    triggers?: { task_types?: string[]; keywords?: string[]; scope?: string };
+    entries?: Array<{ name: string; node: string; description: string }>;
   }> = [];
 
   for (const { skillName, skillPath } of skillDirs) {
@@ -113,12 +125,65 @@ function cmdList(p: Params): ToolResult {
           name: chain.name,
           description: chain.description,
           node_count: Object.keys(chain.nodes).length,
+          ...(chain.triggers ? { triggers: chain.triggers } : {}),
+          ...(chain.entries ? { entries: chain.entries } : {}),
         });
       } catch { /* skip invalid chain files */ }
     }
   }
 
   return { success: true, result: { chains: results, total: results.length } };
+}
+
+// ─── inspect ────────────────────────────────────────────────
+
+function cmdInspect(p: Params): ToolResult {
+  if (!p.chain) return { success: false, error: 'chain is required for inspect' };
+
+  const resolved = resolveSkill(p.skill);
+  if (!resolved) {
+    return { success: false, error: p.skill
+      ? `Skill not found: ${p.skill}`
+      : 'Cannot auto-detect skill from cwd. Pass skill explicitly.' };
+  }
+  const { skillName, skillPath } = resolved;
+
+  let chainPath = join(skillPath, 'chains', `${p.chain}.json`);
+  if (!existsSync(chainPath)) {
+    const crossPath = findChainAcrossSkills(p.chain);
+    if (!crossPath) {
+      return { success: false, error: `Chain not found: ${p.chain} in skill ${skillName}` };
+    }
+    chainPath = crossPath;
+  }
+
+  const chain = loadChainJson(chainPath);
+  const nodeList = Object.entries(chain.nodes).map(([id, node]) => {
+    const edges: string[] = [];
+    if (node.type === 'step') {
+      if (node.next) edges.push(node.next);
+    } else if (node.type === 'decision') {
+      for (const c of node.choices) edges.push(c.next);
+    } else if (node.type === 'delegate') {
+      if (node.next) edges.push(node.next);
+      edges.push(`[delegate:${node.chain}]`);
+    }
+    return { id, type: node.type, name: node.name, next: edges };
+  });
+
+  return {
+    success: true,
+    result: {
+      chain_id: chain.chain_id,
+      name: chain.name,
+      description: chain.description,
+      ...(chain.triggers ? { triggers: chain.triggers } : {}),
+      entries: chain.entries || (chain.entry ? [{ name: 'default', node: chain.entry, description: 'Default entry' }] : []),
+      node_count: nodeList.length,
+      nodes: nodeList,
+      topology: renderChainTopology(chain),
+    },
+  };
 }
 
 // ─── start ───────────────────────────────────────────────────
@@ -135,20 +200,45 @@ function cmdStart(p: Params): ToolResult {
   }
   const { skillName, skillPath } = resolved;
 
-  const chainPath = join(skillPath, 'chains', `${p.chain}.json`);
+  let chainPath = join(skillPath, 'chains', `${p.chain}.json`);
   if (!existsSync(chainPath)) {
-    return { success: false, error: `Chain not found: ${p.chain} in skill ${skillName}` };
+    const crossPath = findChainAcrossSkills(p.chain);
+    if (!crossPath) {
+      return { success: false, error: `Chain not found: ${p.chain} in skill ${skillName}` };
+    }
+    chainPath = crossPath;
   }
 
   const chain = loadChainJson(chainPath);
-  if (!chain.nodes[chain.entry]) {
-    return { success: false, error: `Entry node "${chain.entry}" not found in chain` };
+
+  // Resolve entry point: explicit node > entry_name > entries[0] > entry
+  const startNode = p.node
+    || (p.entry_name && chain.entries?.find(e => e.name === p.entry_name)?.node)
+    || (chain.entries?.[0]?.node)
+    || chain.entry;
+
+  if (!startNode) {
+    return { success: false, error: 'No entry point found. Provide node, entry_name, or define entry/entries in chain.' };
+  }
+  if (!chain.nodes[startNode]) {
+    return { success: false, error: `Node "${startNode}" not found in chain "${chain.chain_id}"` };
   }
 
   // Generate session ID
   const now = new Date();
   const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '');
   const sessionId = `CL-${skillName}-${timeStr}`;
+
+  // Initialize variables from chain defaults
+  const variables: Record<string, unknown> = {};
+  if (chain.variables) {
+    for (const [key, def] of Object.entries(chain.variables)) {
+      if (def.default !== undefined) variables[key] = def.default;
+    }
+  }
+
+  // Resolve preloads (normalize object format { key: source } to array format)
+  const preloaded = resolvePreloads(normalizePreload(chain.preload), skillPath);
 
   // Create session
   const session: ChainSession = {
@@ -157,22 +247,24 @@ function cmdStart(p: Params): ToolResult {
     skill_path: skillPath,
     status: 'active',
     current_chain: chain.chain_id,
-    current_node: chain.entry,
+    current_node: startNode,
     node_status: 'active',
     chain_stack: [],
     history: [],
     loaded_content: [],
+    variables,
+    preloaded,
     started_at: now.toISOString(),
     updated_at: now.toISOString(),
   };
 
   // Load entry node content
-  const entryNode = chain.nodes[chain.entry];
+  const entryNode = chain.nodes[startNode];
   const nodeContent = loadNodeContent(entryNode, skillPath);
 
   // Record in history
   session.history.push({
-    node_id: chain.entry,
+    node_id: startNode,
     chain_id: chain.chain_id,
     node_type: entryNode.type,
     node_status: 'active',
@@ -182,7 +274,7 @@ function cmdStart(p: Params): ToolResult {
   // Add to loaded content
   if (nodeContent) {
     session.loaded_content.push({
-      node_id: chain.entry,
+      node_id: startNode,
       chain_id: chain.chain_id,
       content: nodeContent,
       loaded_at: now.toISOString(),
@@ -196,8 +288,10 @@ function cmdStart(p: Params): ToolResult {
     result: {
       session_id: sessionId,
       current_chain: chain.chain_id,
-      current_node: chain.entry,
+      current_node: startNode,
       node_status: 'active',
+      preloaded_keys: preloaded.map(p => p.key),
+      variables,
       ...formatNodeOutput(entryNode, nodeContent),
     },
   };
@@ -268,6 +362,13 @@ function cmdStatus(p: Params): ToolResult {
   const session = loadSession(p.session_id);
   if (!session) return { success: false, error: `Session not found: ${p.session_id}` };
 
+  // Count total nodes in current chain
+  let currentChainTotalNodes = 0;
+  try {
+    const chain = loadChainFromSession(session);
+    currentChainTotalNodes = Object.keys(chain.nodes).length;
+  } catch { /* skip */ }
+
   return {
     success: true,
     result: {
@@ -277,9 +378,13 @@ function cmdStatus(p: Params): ToolResult {
       current_chain: session.current_chain,
       current_node: session.current_node,
       node_status: session.node_status,
+      nesting_depth: session.chain_stack.length,
+      current_chain_total_nodes: currentChainTotalNodes,
       chain_stack_depth: session.chain_stack.length,
       history_length: session.history.length,
       loaded_count: session.loaded_content.length,
+      preloaded_keys: (session.preloaded || []).map(p => p.key),
+      variables: session.variables || {},
       started_at: session.started_at,
       updated_at: session.updated_at,
     },
@@ -354,30 +459,61 @@ function advanceToNext(session: ChainSession, choice: number | undefined): ToolR
   } else if (currentNode.type === 'delegate') {
     // Push current chain onto stack and switch to sub-chain
     const subChainId = currentNode.chain;
-    const subChainPath = join(session.skill_path, 'chains', `${subChainId}.json`);
+    let subChainPath = join(session.skill_path, 'chains', `${subChainId}.json`);
     if (!existsSync(subChainPath)) {
-      return { success: false, error: `Delegate chain not found: ${subChainId}` };
+      const crossPath = findChainAcrossSkills(subChainId);
+      if (!crossPath) {
+        return { success: false, error: `Delegate chain not found: ${subChainId}` };
+      }
+      subChainPath = crossPath;
     }
 
     const subChain = loadChainJson(subChainPath);
 
-    // Push frame
+    // Snapshot parent variables and push frame
+    const variablesSnapshot = { ...(session.variables || {}) };
     session.chain_stack.push({
       chain_id: session.current_chain,
       return_node: currentNode.next || null,
+      variables_snapshot: variablesSnapshot,
     });
 
-    // Switch to sub-chain
+    // Pass variables to child scope
+    const childVars: Record<string, unknown> = {};
+    // Initialize from child chain defaults
+    if (subChain.variables) {
+      for (const [key, def] of Object.entries(subChain.variables)) {
+        if (def.default !== undefined) childVars[key] = def.default;
+      }
+    }
+    // Override with passed parent variables
+    const keysToPass = currentNode.pass_variables || Object.keys(session.variables || {});
+    for (const key of keysToPass) {
+      if (key in (session.variables || {})) {
+        childVars[key] = session.variables[key];
+      }
+    }
+    session.variables = childVars;
+
+    // Resolve entry: entry_name from delegate node > chain entries > chain entry
+    let subEntry: string;
+    if (currentNode.entry_name && subChain.entries) {
+      const found = subChain.entries.find(e => e.name === currentNode.entry_name);
+      subEntry = found?.node || resolveChainEntry(subChain);
+    } else {
+      subEntry = resolveChainEntry(subChain);
+    }
+
     session.current_chain = subChain.chain_id;
-    session.current_node = subChain.entry;
+    session.current_node = subEntry;
     session.node_status = 'active';
     session.updated_at = new Date().toISOString();
 
-    const entryNode = subChain.nodes[subChain.entry];
+    const entryNode = subChain.nodes[subEntry];
     const content = loadNodeContent(entryNode, session.skill_path);
 
     session.history.push({
-      node_id: subChain.entry,
+      node_id: subEntry,
       chain_id: subChain.chain_id,
       node_type: entryNode.type,
       node_status: 'active',
@@ -386,7 +522,7 @@ function advanceToNext(session: ChainSession, choice: number | undefined): ToolR
 
     if (content) {
       session.loaded_content.push({
-        node_id: subChain.entry,
+        node_id: subEntry,
         chain_id: subChain.chain_id,
         content,
         loaded_at: new Date().toISOString(),
@@ -403,6 +539,7 @@ function advanceToNext(session: ChainSession, choice: number | undefined): ToolR
         current_node: session.current_node,
         node_status: 'active',
         delegate_depth: session.chain_stack.length,
+        variables: session.variables,
         ...formatNodeOutput(entryNode, content),
       },
     };
@@ -411,22 +548,27 @@ function advanceToNext(session: ChainSession, choice: number | undefined): ToolR
   // Handle cross-chain routing (→chain-name)
   if (nextNodeId && nextNodeId.startsWith('→')) {
     const targetChainId = nextNodeId.slice(1);
-    const targetChainPath = join(session.skill_path, 'chains', `${targetChainId}.json`);
+    let targetChainPath = join(session.skill_path, 'chains', `${targetChainId}.json`);
     if (!existsSync(targetChainPath)) {
-      return { success: false, error: `Cross-chain target not found: ${targetChainId}` };
+      const crossPath = findChainAcrossSkills(targetChainId);
+      if (!crossPath) {
+        return { success: false, error: `Cross-chain target not found: ${targetChainId}` };
+      }
+      targetChainPath = crossPath;
     }
 
     const targetChain = loadChainJson(targetChainPath);
+    const targetEntry = resolveChainEntry(targetChain);
     session.current_chain = targetChain.chain_id;
-    session.current_node = targetChain.entry;
+    session.current_node = targetEntry;
     session.node_status = 'active';
     session.updated_at = new Date().toISOString();
 
-    const entryNode = targetChain.nodes[targetChain.entry];
+    const entryNode = targetChain.nodes[targetEntry];
     const content = loadNodeContent(entryNode, session.skill_path);
 
     session.history.push({
-      node_id: targetChain.entry,
+      node_id: targetEntry,
       chain_id: targetChain.chain_id,
       node_type: entryNode.type,
       node_status: 'active',
@@ -435,7 +577,7 @@ function advanceToNext(session: ChainSession, choice: number | undefined): ToolR
 
     if (content) {
       session.loaded_content.push({
-        node_id: targetChain.entry,
+        node_id: targetEntry,
         chain_id: targetChain.chain_id,
         content,
         loaded_at: new Date().toISOString(),
@@ -463,8 +605,27 @@ function advanceToNext(session: ChainSession, choice: number | undefined): ToolR
       const frame = session.chain_stack.pop()!;
       if (frame.return_node) {
         // Return to parent chain's return node
-        const parentChainPath = join(session.skill_path, 'chains', `${frame.chain_id}.json`);
+        let parentChainPath = join(session.skill_path, 'chains', `${frame.chain_id}.json`);
+        if (!existsSync(parentChainPath)) {
+          const crossPath = findChainAcrossSkills(frame.chain_id);
+          if (crossPath) parentChainPath = crossPath;
+        }
         const parentChain = loadChainJson(parentChainPath);
+
+        // Receive variables from child back to parent
+        const childVars = { ...(session.variables || {}) };
+        const parentVars = { ...(frame.variables_snapshot || {}) };
+
+        // Find the delegate node that spawned this child to get receive_variables
+        const delegateNode = findDelegateNodeForChain(parentChain, session.current_chain);
+        const receiveKeys = delegateNode?.receive_variables;
+
+        if (receiveKeys) {
+          for (const key of receiveKeys) {
+            if (key in childVars) parentVars[key] = childVars[key];
+          }
+        }
+        session.variables = parentVars;
 
         session.current_chain = frame.chain_id;
         session.current_node = frame.return_node;
@@ -501,6 +662,7 @@ function advanceToNext(session: ChainSession, choice: number | undefined): ToolR
             current_node: session.current_node,
             node_status: 'active',
             returned_from_delegate: true,
+            variables: session.variables,
             ...formatNodeOutput(returnNode, content),
           },
         };
@@ -568,27 +730,41 @@ function advanceToNext(session: ChainSession, choice: number | undefined): ToolR
   };
 }
 
+// ─── Entry Resolver ─────────────────────────────────────────
+
+function resolveChainEntry(chain: SkillChain): string {
+  return chain.entries?.[0]?.node || chain.entry || Object.keys(chain.nodes)[0];
+}
+
 // ─── Node Helpers ────────────────────────────────────────────
 
 function loadNodeContent(node: ChainNode, skillPath: string): string | null {
   if (node.type === 'step') {
-    if (node.content_ref) {
-      // Resolve @path relative to skill directory
-      const refPath = node.content_ref.replace(/^@/, '');
-      const fullPath = resolve(skillPath, refPath);
-      if (existsSync(fullPath)) {
-        return readFileSync(fullPath, 'utf-8');
+    const parts: string[] = [];
+
+    // 1. content_files: multiple file references, resolved in order
+    if (node.content_files?.length) {
+      for (const ref of node.content_files) {
+        const content = resolveFileRef(ref, skillPath);
+        if (content !== null) parts.push(content);
       }
-      return `[Content not found: ${fullPath}]`;
     }
+
+    // 2. content_ref: single file reference (backward compat)
+    if (node.content_ref) {
+      const content = resolveFileRef(node.content_ref, skillPath);
+      if (content !== null) parts.push(content);
+    }
+
+    // 3. content_inline: direct text with embedded @ref expansion
     if (node.content_inline) {
-      return node.content_inline;
+      parts.push(resolveInlineRefs(node.content_inline, skillPath));
     }
-    return null;
+
+    return parts.length > 0 ? parts.join('\n\n') : null;
   }
 
   if (node.type === 'decision') {
-    // Return prompt as content
     return node.prompt;
   }
 
@@ -597,6 +773,76 @@ function loadNodeContent(node: ChainNode, skillPath: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Resolve a single @file reference to its content.
+ * Supports: @path/file.md (skill-relative), @~/path/file.md (home-relative)
+ */
+function resolveFileRef(ref: string, skillPath: string): string | null {
+  try {
+    const raw = ref.replace(/^@/, '');
+    if (raw.startsWith('~/')) {
+      const fullPath = resolve(homedir(), raw.slice(2));
+      if (existsSync(fullPath)) return readFileSync(fullPath, 'utf-8');
+    } else if (raw.startsWith('skills/')) {
+      // @skills/workflow-plan/phases/01.md → .claude/skills/workflow-plan/phases/01.md
+      const relPath = raw.slice(7);
+      const projectPath = resolve(process.cwd(), '.claude', 'skills', relPath);
+      if (existsSync(projectPath)) return readFileSync(projectPath, 'utf-8');
+      const userPath = resolve(homedir(), '.claude', 'skills', relPath);
+      if (existsSync(userPath)) return readFileSync(userPath, 'utf-8');
+    } else if (raw.startsWith('commands/')) {
+      // @commands/workflow/analyze-with-file.md → .claude/commands/workflow/analyze-with-file.md
+      const relPath = raw.slice(9);
+      const projectPath = resolve(process.cwd(), '.claude', 'commands', relPath);
+      if (existsSync(projectPath)) return readFileSync(projectPath, 'utf-8');
+      const userPath = resolve(homedir(), '.claude', 'commands', relPath);
+      if (existsSync(userPath)) return readFileSync(userPath, 'utf-8');
+    } else {
+      const fullPath = resolve(skillPath, raw);
+      if (existsSync(fullPath)) return readFileSync(fullPath, 'utf-8');
+    }
+    return `[Content not found: ${ref}]`;
+  } catch {
+    return `[Error loading: ${ref}]`;
+  }
+}
+
+/**
+ * Expand embedded @file references in inline content.
+ * Pattern: @path/to/file.md (must end with file extension)
+ * Supports: @skill-relative/path.md, @~/home-relative/path.md
+ * Skips @-references inside code blocks.
+ */
+function resolveInlineRefs(text: string, skillPath: string): string {
+  // Match @skills/path.ext, @~/path/file.ext, or @path/file.ext — must have at least one / and end with .ext
+  return text.replace(/@((?:skills|commands|~)?\/[\w./-]+\.\w+)/g, (match, refPath: string) => {
+    try {
+      let fullPath: string;
+      if (refPath.startsWith('skills/')) {
+        const relPath = refPath.slice(7);
+        const projectPath = resolve(process.cwd(), '.claude', 'skills', relPath);
+        if (existsSync(projectPath)) return readFileSync(projectPath, 'utf-8');
+        const userPath = resolve(homedir(), '.claude', 'skills', relPath);
+        if (existsSync(userPath)) return readFileSync(userPath, 'utf-8');
+        return match;
+      } else if (refPath.startsWith('commands/')) {
+        const relPath = refPath.slice(9);
+        const projectPath = resolve(process.cwd(), '.claude', 'commands', relPath);
+        if (existsSync(projectPath)) return readFileSync(projectPath, 'utf-8');
+        const userPath = resolve(homedir(), '.claude', 'commands', relPath);
+        if (existsSync(userPath)) return readFileSync(userPath, 'utf-8');
+        return match;
+      } else if (refPath.startsWith('~/')) {
+        fullPath = resolve(homedir(), refPath.slice(2));
+      } else {
+        fullPath = resolve(skillPath, refPath.startsWith('/') ? refPath.slice(1) : refPath);
+      }
+      if (existsSync(fullPath)) return readFileSync(fullPath, 'utf-8');
+    } catch { /* fall through */ }
+    return match; // leave unresolved references as-is
+  });
 }
 
 function formatNodeOutput(node: ChainNode, content: string | null): Record<string, unknown> {
@@ -652,10 +898,10 @@ function loadChainJson(filePath: string): SkillChain {
 
 function loadChainFromSession(session: ChainSession): SkillChain {
   const chainPath = join(session.skill_path, 'chains', `${session.current_chain}.json`);
-  if (!existsSync(chainPath)) {
-    throw new Error(`Chain file not found: ${chainPath}`);
-  }
-  return loadChainJson(chainPath);
+  if (existsSync(chainPath)) return loadChainJson(chainPath);
+  const crossPath = findChainAcrossSkills(session.current_chain);
+  if (crossPath) return loadChainJson(crossPath);
+  throw new Error(`Chain file not found: ${chainPath}`);
 }
 
 function getSessionDir(sessionId: string): string {
@@ -719,7 +965,9 @@ function discoverSkillDirs(filterSkill?: string): SkillDir[] {
   const results: SkillDir[] = [];
   const searchLocations = [
     join(process.cwd(), '.claude', 'skills'),
+    join(process.cwd(), '.claude', 'workflow-skills'),
     join(homedir(), '.claude', 'skills'),
+    join(homedir(), '.claude', 'workflow-skills'),
   ];
 
   for (const base of searchLocations) {
@@ -738,14 +986,165 @@ function discoverSkillDirs(filterSkill?: string): SkillDir[] {
   return results;
 }
 
+// ─── visualize ─────────────────────────────────────────────
+
+function cmdVisualize(p: Params): ToolResult {
+  if (!p.session_id) return { success: false, error: 'session_id is required for visualize' };
+
+  const session = loadSession(p.session_id);
+  if (!session) return { success: false, error: `Session not found: ${p.session_id}` };
+
+  // Load all chains referenced in session (current + stack)
+  const chains = new Map<string, SkillChain>();
+  const chainIds = new Set<string>([session.current_chain]);
+  for (const frame of session.chain_stack) chainIds.add(frame.chain_id);
+
+  for (const chainId of chainIds) {
+    try {
+      const chainPath = join(session.skill_path, 'chains', `${chainId}.json`);
+      if (existsSync(chainPath)) {
+        chains.set(chainId, loadChainJson(chainPath));
+      } else {
+        const crossPath = findChainAcrossSkills(chainId);
+        if (crossPath) chains.set(chainId, loadChainJson(crossPath));
+      }
+    } catch { /* skip unloadable */ }
+  }
+
+  const visualization = renderChainProgress(session, chains);
+  const completed = session.history.filter(h => h.node_status === 'completed').length;
+  let total = 0;
+  for (const chain of chains.values()) total += Object.keys(chain.nodes).length;
+
+  return {
+    success: true,
+    result: {
+      visualization,
+      nesting_depth: session.chain_stack.length,
+      progress: { completed, total },
+    },
+  };
+}
+
+// ─── Preload Resolver ─────────────────────────────────────
+
+/**
+ * Normalize preload from either format:
+ * - Array: [{ key, source, required? }]  (typed format)
+ * - Object: { key: source }              (shorthand in chain JSON)
+ */
+function normalizePreload(preload: unknown): PreloadEntry[] {
+  if (!preload) return [];
+  if (Array.isArray(preload)) return preload;
+  if (typeof preload === 'object') {
+    return Object.entries(preload as Record<string, string>).map(([key, source]) => ({
+      key,
+      source: typeof source === 'string' ? source : String(source),
+    }));
+  }
+  return [];
+}
+
+function resolvePreloads(entries: PreloadEntry[], skillPath: string): PreloadedContent[] {
+  const results: PreloadedContent[] = [];
+  for (const entry of entries) {
+    const content = resolvePreloadSource(entry.source, skillPath);
+    if (content !== null) {
+      results.push({
+        key: entry.key,
+        content,
+        source: entry.source,
+        loaded_at: new Date().toISOString(),
+      });
+    } else if (entry.required !== false) {
+      results.push({
+        key: entry.key,
+        content: `[WARN: Failed to load required preload: ${entry.source}]`,
+        source: entry.source,
+        loaded_at: new Date().toISOString(),
+      });
+    }
+  }
+  return results;
+}
+
+function resolvePreloadSource(source: string, skillPath: string): string | null {
+  try {
+    if (source.startsWith('$env:')) {
+      const varName = source.slice(5);
+      return process.env[varName] || null;
+    }
+    if (source.startsWith('memory:')) {
+      const memFile = source.slice(7);
+      const memPath = resolve(process.cwd(), 'memory', memFile);
+      if (existsSync(memPath)) return readFileSync(memPath, 'utf-8');
+      return null;
+    }
+    if (source.startsWith('@~/')) {
+      const relPath = source.slice(3);
+      const fullPath = resolve(homedir(), relPath);
+      if (existsSync(fullPath)) return readFileSync(fullPath, 'utf-8');
+      return null;
+    }
+    if (source.startsWith('@skills/')) {
+      const relPath = source.slice(8);
+      const projectPath = resolve(process.cwd(), '.claude', 'skills', relPath);
+      if (existsSync(projectPath)) return readFileSync(projectPath, 'utf-8');
+      const userPath = resolve(homedir(), '.claude', 'skills', relPath);
+      if (existsSync(userPath)) return readFileSync(userPath, 'utf-8');
+      return null;
+    }
+    if (source.startsWith('@')) {
+      const relPath = source.slice(1);
+      const fullPath = resolve(skillPath, relPath);
+      if (existsSync(fullPath)) return readFileSync(fullPath, 'utf-8');
+      return null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Delegate Helper ─────────────────────────────────────
+
+function findDelegateNodeForChain(parentChain: SkillChain, childChainId: string): DelegateNode | null {
+  for (const node of Object.values(parentChain.nodes)) {
+    if (node.type === 'delegate' && node.chain === childChainId) {
+      return node;
+    }
+  }
+  return null;
+}
+
 function findSkillPath(skillName: string): string | null {
   const searchLocations = [
     join(process.cwd(), '.claude', 'skills', skillName),
+    join(process.cwd(), '.claude', 'workflow-skills', skillName),
     join(homedir(), '.claude', 'skills', skillName),
+    join(homedir(), '.claude', 'workflow-skills', skillName),
   ];
 
   for (const path of searchLocations) {
     if (existsSync(path)) return path;
+  }
+  return null;
+}
+
+function findChainAcrossSkills(chainId: string): string | null {
+  const bases = [
+    join(process.cwd(), '.claude', 'workflow-skills'),
+    join(process.cwd(), '.claude', 'skills'),
+    join(homedir(), '.claude', 'workflow-skills'),
+    join(homedir(), '.claude', 'skills'),
+  ];
+  for (const base of bases) {
+    if (!existsSync(base)) continue;
+    for (const entry of readdirSync(base, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const path = join(base, entry.name, 'chains', `${chainId}.json`);
+      if (existsSync(path)) return path;
+    }
   }
   return null;
 }
