@@ -7,4 +7,4 @@
 
 import { run } from '../dist/cli.js';
 
-run(process.argv);
+await run(process.argv);

@@ -1,24 +1,4 @@
 import { Command } from 'commander';
-import { viewCommand } from './commands/view.js';
-import { serveCommand } from './commands/serve.js';
-import { stopCommand } from './commands/stop.js';
-import { installCommand, installSkillHubCommand } from './commands/install.js';
-import { uninstallCommand } from './commands/uninstall.js';
-import { upgradeCommand } from './commands/upgrade.js';
-import { listCommand } from './commands/list.js';
-import { toolCommand } from './commands/tool.js';
-import { sessionCommand } from './commands/session.js';
-import { cliCommand } from './commands/cli.js';
-import { memoryCommand } from './commands/memory.js';
-import { coreMemoryCommand } from './commands/core-memory.js';
-import { hookCommand } from './commands/hook.js';
-import { specCommand } from './commands/spec.js';
-import { issueCommand } from './commands/issue.js';
-import { workflowCommand } from './commands/workflow.js';
-import { loopCommand } from './commands/loop.js';
-import { teamCommand } from './commands/team.js';
-import { launcherCommand } from './commands/launcher.js';
-import { chainLoaderCommand } from './commands/chain-loader.js';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -75,7 +55,22 @@ function loadPackageInfo(): PackageInfo {
 
 const pkg = loadPackageInfo();
 
-export function run(argv: string[]): void {
+type CommandHandler = (...args: any[]) => void | Promise<void>;
+
+async function invokeNamedExport<TModule extends Record<string, unknown>>(
+  loader: () => Promise<TModule>,
+  exportName: string,
+  ...args: unknown[]
+): Promise<void> {
+  const mod = await loader();
+  const handler = mod[exportName];
+  if (typeof handler !== 'function') {
+    throw new Error(`CCW CLI bootstrap error: ${exportName} is not exported by the command module.`);
+  }
+  await (handler as CommandHandler)(...args);
+}
+
+export async function run(argv: string[]): Promise<void> {
   const program = new Command();
 
   program
@@ -91,7 +86,7 @@ export function run(argv: string[]): void {
     .option('--port <port>', 'Server port', '3456')
     .option('--host <host>', 'Server host to bind', '127.0.0.1')
     .option('--no-browser', 'Start server without opening browser')
-    .action(viewCommand);
+    .action(async (options) => invokeNamedExport(() => import('./commands/view.js'), 'viewCommand', options));
 
   // Serve command (alias for view)
   program
@@ -101,7 +96,7 @@ export function run(argv: string[]): void {
     .option('--port <port>', 'Server port', '3456')
     .option('--host <host>', 'Server host to bind', '127.0.0.1')
     .option('--no-browser', 'Start server without opening browser')
-    .action(serveCommand);
+    .action(async (options) => invokeNamedExport(() => import('./commands/serve.js'), 'serveCommand', options));
 
   // Stop command
   program
@@ -109,7 +104,7 @@ export function run(argv: string[]): void {
     .description('Stop the running CCW dashboard server')
     .option('--port <port>', 'Server port', '3456')
     .option('-f, --force', 'Force kill process on the port')
-    .action(stopCommand);
+    .action(async (options) => invokeNamedExport(() => import('./commands/stop.js'), 'stopCommand', options));
 
   // Install command
   program
@@ -121,37 +116,38 @@ export function run(argv: string[]): void {
     .option('--skill-hub [skillId]', 'Install skill from skill-hub (use --list to see available)')
     .option('--cli <type>', 'Target CLI for skill installation (claude or codex)', 'claude')
     .option('--list', 'List available skills in skill-hub')
-    .action((options) => {
+    .action(async (options) => {
+      const installModule = await import('./commands/install.js');
       // If skill-hub option is used, route to skill hub command
       if (options.skillHub !== undefined || options.list) {
-        return installSkillHubCommand({
+        return installModule.installSkillHubCommand({
           skillId: typeof options.skillHub === 'string' ? options.skillHub : undefined,
           cliType: options.cli,
           list: options.list,
         });
       }
       // Otherwise use normal install
-      return installCommand(options);
+      return installModule.installCommand(options);
     });
 
   // Uninstall command
   program
     .command('uninstall')
     .description('Uninstall Claude Code Workflow')
-    .action(uninstallCommand);
+    .action(async () => invokeNamedExport(() => import('./commands/uninstall.js'), 'uninstallCommand'));
 
   // Upgrade command
   program
     .command('upgrade')
     .description('Upgrade Claude Code Workflow installations')
     .option('-a, --all', 'Upgrade all installations without prompting')
-    .action(upgradeCommand);
+    .action(async (options) => invokeNamedExport(() => import('./commands/upgrade.js'), 'upgradeCommand', options));
 
   // List command
   program
     .command('list')
     .description('List all installed Claude Code Workflow instances')
-    .action(listCommand);
+    .action(async () => invokeNamedExport(() => import('./commands/list.js'), 'listCommand'));
 
   // Tool command
   program
@@ -166,7 +162,7 @@ export function run(argv: string[]): void {
     .option('--file <file>', 'File path for symbol extraction (for codex_lens)')
     .option('--files <files>', 'Comma-separated file paths (for codex_lens update)')
     .option('--languages <langs>', 'Comma-separated languages (for codex_lens init)')
-    .action((subcommand, args, options) => toolCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/tool.js'), 'toolCommand', subcommand, args, options));
 
   // Session command
   program
@@ -183,7 +179,7 @@ export function run(argv: string[]): void {
     .option('--raw', 'Output raw content only')
     .option('--no-metadata', 'Exclude metadata from list')
     .option('--no-update-status', 'Skip status update on archive')
-    .action((subcommand, args, options) => sessionCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/session.js'), 'sessionCommand', subcommand, args, options));
 
   // CLI command
   program
@@ -233,7 +229,7 @@ export function run(argv: string[]): void {
     .option('--timeout <seconds>', 'Timeout for watch command')
     .option('--all', 'Show all executions in show command')
     .option('--to-file <path>', 'Save output to file')
-    .action((subcommand, args, options) => cliCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/cli.js'), 'cliCommand', subcommand, args, options));
 
   // Memory command
   program
@@ -262,7 +258,7 @@ export function run(argv: string[]): void {
     .option('--path <path>', 'Project path (pipeline commands)')
     .option('--max-sessions <n>', 'Max sessions to extract (extract)')
     .option('--session-ids <ids>', 'Comma-separated session IDs (extract)')
-    .action((subcommand, args, options) => memoryCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/memory.js'), 'memoryCommand', subcommand, args, options));
 
   // Core Memory command
   program
@@ -294,7 +290,7 @@ export function run(argv: string[]): void {
     .option('--topK <n>', 'Max results for unified search', '20')
     .option('--minScore <n>', 'Min relevance score for unified search', '0')
     .option('--category <cat>', 'Filter by category for unified search')
-    .action((subcommand, args, options) => coreMemoryCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/core-memory.js'), 'coreMemoryCommand', subcommand, args, options));
 
   // Hook command - CLI endpoint for Claude Code hooks
   program
@@ -306,7 +302,7 @@ export function run(argv: string[]): void {
     .option('--type <type>', 'Context type: session-start, context')
     .option('--path <path>', 'File or project path')
     .option('--limit <n>', 'Max entries to return (for project-state)')
-    .action((subcommand, args, options) => hookCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/hook.js'), 'hookCommand', subcommand, args, options));
 
   // Spec command - Project spec management (load/list/rebuild/status/init)
   program
@@ -317,7 +313,7 @@ export function run(argv: string[]): void {
     .option('--keywords <text>', 'Keywords for spec matching (CLI mode)')
     .option('--stdin', 'Read input from stdin (Hook mode)')
     .option('--json', 'Output as JSON')
-    .action((subcommand, args, options) => specCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/spec.js'), 'specCommand', subcommand, args, options));
 
   // Issue command - Issue lifecycle management with JSONL task tracking
   program
@@ -350,14 +346,14 @@ export function run(argv: string[]): void {
     .option('--state <state>', 'GitHub issue state: open, closed, or all')
     .option('--limit <n>', 'Maximum number of issues to pull from GitHub')
     .option('--labels <labels>', 'Filter by GitHub labels (comma-separated)')
-    .action((subcommand, args, options) => issueCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/issue.js'), 'issueCommand', subcommand, args, options));
 
   // Loop command - Loop management for multi-CLI orchestration
   program
     .command('loop [subcommand] [args...]')
     .description('Loop management for automated multi-CLI execution')
     .option('--session <name>', 'Specify workflow session')
-    .action((subcommand, args, options) => loopCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/loop.js'), 'loopCommand', subcommand, args, options));
 
   // Team command - Team Message Bus CLI interface
   program
@@ -373,7 +369,7 @@ export function run(argv: string[]): void {
     .option('--last <n>', 'Last N messages (for list)')
     .option('--role <role>', 'Role name (for get_state)')
     .option('--json', 'Output as JSON')
-    .action((subcommand, args, options) => teamCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/team.js'), 'teamCommand', subcommand, args, options));
 
   // Workflow command - Workflow installation and management
   program
@@ -381,7 +377,7 @@ export function run(argv: string[]): void {
     .description('Workflow installation and management (install, list, sync)')
     .option('-f, --force', 'Force installation without prompts')
     .option('--source <source>', 'Install specific source only')
-    .action((subcommand, args, options) => workflowCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/workflow.js'), 'workflowCommand', subcommand, args, options));
 
   // Launcher command - unified Claude Code launcher with workflow switching
   program
@@ -391,15 +387,15 @@ export function run(argv: string[]): void {
     .option('-s, --settings <name>', 'Settings profile to use')
     .option('--claude-md <path>', 'Path to CLAUDE.md (for add-workflow)')
     .option('--cli-tools <path>', 'Path to cli-tools.json (for add-workflow)')
-    .action((subcommand, args, options) => launcherCommand(subcommand, args, options));
+    .action(async (subcommand, args, options) => invokeNamedExport(() => import('./commands/launcher.js'), 'launcherCommand', subcommand, args, options));
 
   // Chain-loader command - progressive skill chain loader
   program
     .command('chain-loader [json]')
     .description('Progressive skill chain loader (JSON params: cmd, skill, chain, session_id, choice, node, entry_name)')
-    .action((json) => chainLoaderCommand(json));
+    .action(async (json) => invokeNamedExport(() => import('./commands/chain-loader.js'), 'chainLoaderCommand', json));
 
-  program.parse(argv);
+  await program.parseAsync(argv);
 }
 
 // Note: run() is called by bin/ccw.js entry point

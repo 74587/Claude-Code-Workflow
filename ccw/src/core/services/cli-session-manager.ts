@@ -3,7 +3,8 @@ import os from 'os';
 import path from 'path';
 import { randomBytes } from 'crypto';
 import { spawnSync } from 'child_process';
-import * as nodePty from 'node-pty';
+import { createRequire } from 'module';
+import type { IPty } from 'node-pty';
 import { EventEmitter } from 'events';
 import { broadcastToClients } from '../websocket.js';
 import {
@@ -18,6 +19,38 @@ import { assembleInstruction, type InstructionType } from './cli-instruction-ass
 import { loadEndpointSettings } from '../../config/cli-settings-manager.js';
 import { getToolConfig } from '../../tools/claude-cli-tools.js';
 import { generateExecutionId } from '../../tools/cli-executor.js';
+
+// Create require for loading CJS optional deps in ESM context.
+const require = createRequire(import.meta.url);
+
+/**
+ * node-pty is an optional native dependency.
+ * Load it lazily so unrelated commands remain usable when native builds are unavailable.
+ */
+let nodePty: typeof import('node-pty') | null = null;
+let nodePtyLoadWarned = false;
+
+function loadNodePty(): typeof import('node-pty') | null {
+  if (nodePty !== null) {
+    return nodePty;
+  }
+
+  try {
+    nodePty = require('node-pty');
+    return nodePty;
+  } catch {
+    if (!nodePtyLoadWarned) {
+      nodePtyLoadWarned = true;
+      console.error(
+        '\n[CCW] node-pty native module not available.\n' +
+        '  Terminal session features (dashboard PTY) are disabled.\n' +
+        '  To enable: install build tools and run:\n' +
+        '    npm rebuild node-pty\n'
+      );
+    }
+    return null;
+  }
+}
 
 export interface CliSession {
   sessionKey: string;
@@ -70,7 +103,7 @@ export interface CliSessionOutputEvent {
 }
 
 interface CliSessionInternal extends CliSession {
-  pty: nodePty.IPty;
+  pty: IPty;
   buffer: string[];
   bufferBytes: number;
   lastActivityAt: number;
@@ -345,9 +378,17 @@ export class CliSessionManager {
     // See: https://github.com/anthropics/claude-agent-sdk-python/issues/573
     delete spawnEnv.CLAUDECODE;
 
-    let pty: nodePty.IPty;
+    const nodePtyModule = loadNodePty();
+    if (!nodePtyModule) {
+      throw new Error(
+        'node-pty is not available. Terminal session features require the native module.\n' +
+        'Install build tools and run: npm rebuild node-pty'
+      );
+    }
+
+    let pty: IPty;
     try {
-      pty = nodePty.spawn(file, args, {
+      pty = nodePtyModule.spawn(file, args, {
         name: 'xterm-256color',
         cols: options.cols ?? 120,
         rows: options.rows ?? 30,

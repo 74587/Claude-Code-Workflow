@@ -276,6 +276,18 @@ export function updateActiveExecution(event: {
   }
 
   if (type === 'started') {
+    // If output arrived before started (out-of-order events), we may already have a placeholder.
+    // Update fields in-place and preserve any buffered output.
+    const existing = activeExecutions.get(executionId);
+    if (existing) {
+      existing.tool = tool || existing.tool || 'unknown';
+      existing.mode = mode || existing.mode || 'analysis';
+      if (prompt) {
+        existing.prompt = (prompt || '').substring(0, 500);
+      }
+      return;
+    }
+
     // Check map size limit before creating new execution
     if (activeExecutions.size >= MAX_ACTIVE_EXECUTIONS) {
       console.warn(`[ActiveExec] Max executions limit reached (${MAX_ACTIVE_EXECUTIONS}), cleanup may be needed`);
@@ -292,23 +304,62 @@ export function updateActiveExecution(event: {
       status: 'running'
     });
   } else if (type === 'output') {
-    // Append output to existing execution using array with size limit
-    const activeExec = activeExecutions.get(executionId);
-    if (activeExec && output) {
-      activeExec.output.push(output);
-      // Keep buffer size under limit by shifting old entries
-      if (activeExec.output.length > MAX_OUTPUT_BUFFER_LINES) {
-        activeExec.output.shift();  // Remove oldest entry
+    // Append output to existing execution using array with size limit.
+    //
+    // IMPORTANT: In practice, hook events can arrive out-of-order (or the STARTED event can be dropped).
+    // If we ignore output before "started", the dashboard will show "session not registered / not started"
+    // even though streaming output exists. Create a placeholder execution on first output to be robust.
+    if (!output) {
+      return;
+    }
+
+    let activeExec = activeExecutions.get(executionId);
+    if (!activeExec) {
+      if (activeExecutions.size >= MAX_ACTIVE_EXECUTIONS) {
+        console.warn(`[ActiveExec] Max executions limit reached (${MAX_ACTIVE_EXECUTIONS}), cleanup may be needed`);
       }
+
+      activeExec = {
+        id: executionId,
+        tool: tool || 'unknown',
+        mode: mode || 'analysis',
+        prompt: (prompt || '').substring(0, 500),
+        startTime: Date.now(),
+        output: [],
+        status: 'running'
+      };
+      activeExecutions.set(executionId, activeExec);
+      console.warn(`[ActiveExec] Missing started event; created placeholder for output: ${executionId}`);
+    }
+
+    activeExec.output.push(output);
+    // Keep buffer size under limit by shifting old entries
+    if (activeExec.output.length > MAX_OUTPUT_BUFFER_LINES) {
+      activeExec.output.shift();  // Remove oldest entry
     }
   } else if (type === 'completed') {
     // Mark as completed with timestamp for retention-based cleanup
-    const activeExec = activeExecutions.get(executionId);
-    if (activeExec) {
-      activeExec.status = success ? 'completed' : 'error';
-      activeExec.completedTimestamp = Date.now();
-      console.log(`[ActiveExec] Marked as ${activeExec.status}, retained for ${EXECUTION_RETENTION_MS / 1000}s`);
+    let activeExec = activeExecutions.get(executionId);
+    if (!activeExec) {
+      // Completion can also arrive without a STARTED event (dropped/out-of-order).
+      activeExec = {
+        id: executionId,
+        tool: tool || 'unknown',
+        mode: mode || 'analysis',
+        prompt: (prompt || '').substring(0, 500),
+        startTime: Date.now(),
+        output: [],
+        status: success ? 'completed' : 'error',
+        completedTimestamp: Date.now(),
+      };
+      activeExecutions.set(executionId, activeExec);
+      console.warn(`[ActiveExec] Missing started event; created placeholder for completed: ${executionId}`);
+      return;
     }
+
+    activeExec.status = success ? 'completed' : 'error';
+    activeExec.completedTimestamp = Date.now();
+    console.log(`[ActiveExec] Marked as ${activeExec.status}, retained for ${EXECUTION_RETENTION_MS / 1000}s`);
   }
 }
 

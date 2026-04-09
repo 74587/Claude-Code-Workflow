@@ -234,8 +234,19 @@ export function buildCommand(params: {
       useStdin = true;
       if (mode === 'review') {
         // codex review mode: non-interactive code review
-        // Format: codex review [OPTIONS] [PROMPT]
-        args.push('review');
+        //
+        // IMPORTANT:
+        // - `codex review` (top-level) does NOT support `--json` and tends to print
+        //   lots of intermediate process text, which breaks JSON parsing in CCW.
+        // - `codex exec review` supports `--json` (JSONL events) and matches the
+        //   Codex event schema CCW already parses (thread.started/item.completed/...).
+        //
+        // Format: codex exec review [OPTIONS] [PROMPT]
+        args.push('exec', 'review');
+
+        // Match codex exec defaults: allow the agent to run git/diff commands as needed.
+        // Review mode should remain safe by default (no bypass).
+        args.push('--full-auto');
 
         // Review target: --uncommitted (default), --base <branch>, or --commit <sha>
         if (reviewOptions?.base) {
@@ -253,14 +264,31 @@ export function buildCommand(params: {
         }
 
         if (model) {
-          // codex review uses -c key=value for config override, not -m
-          args.push('-c', `model=${model}`);
+          // codex exec review supports -m/--model
+          args.push('-m', model);
         }
-        // Note: --skip-git-repo-check is NOT supported by codex review command
-        // codex review uses positional prompt argument, not stdin
-        useStdin = false;
-        if (prompt) {
-          args.push(prompt);
+
+        if (include) {
+          const dirs = include.split(',').map((d) => d.trim()).filter((d) => d);
+          for (const addDir of dirs) {
+            args.push('--add-dir', addDir);
+          }
+        }
+
+        // Keep behavior consistent with codex exec/resume: allow non-git directories.
+        args.push('--skip-git-repo-check');
+
+        // Enable JSON output for structured parsing
+        args.push('--json');
+
+        // codex exec review supports reading the prompt from stdin when "-" is used.
+        // Prefer stdin to avoid quoting/escaping issues on Windows.
+        const hasPrompt = typeof prompt === 'string' && prompt.trim().length > 0;
+        if (hasPrompt) {
+          args.push('-');
+          useStdin = true;
+        } else {
+          useStdin = false;
         }
       } else if (nativeResume?.enabled) {
         args.push('resume');
