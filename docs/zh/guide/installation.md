@@ -78,10 +78,12 @@ ccw --help
 
 ### CLAUDE.md 指令
 
-在项目根目录创建 `CLAUDE.md`：
+CCW 框架指令存储在 `~/.claude/claude.ccw.md`（全局安装）。您的项目 `CLAUDE.md` 只需要一个 `@` 引用即可包含 CCW 指令：
 
 ```markdown
 # 项目指令
+
+- **CCW 指令**: @~/.claude/claude.ccw.md
 
 ## 编码标准
 - 使用 TypeScript 确保类型安全
@@ -94,15 +96,47 @@ ccw --help
 - 数据库: PostgreSQL
 ```
 
+使用 `ccw install` 的 Path 模式时，如果项目 `CLAUDE.md` 不存在，会自动创建包含 `@` 引用的最小文件。
+
+### 目标生态系统选择
+
+交互式安装时，可以选择安装哪些工作流生态系统：
+
+- **All**（默认）— 安装 Claude + Codex + 其他工作流
+- **Claude** — 仅安装 `.claude/` + `.ccw/`
+- **Codex** — 仅安装 `.codex/`
+
+也可以直接通过参数指定：
+
+```bash
+# 仅安装 Claude 工作流
+ccw install --target claude
+
+# 仅安装 Codex 工作流
+ccw install --target codex
+
+# 安装全部（默认）
+ccw install --target all
+```
+
 ## 更新 CCW
 
 ```bash
-# 更新到最新版本
-npm update -g claude-code-workflow
+# 进入 CCW 克隆目录
+cd ~/.claude/ccw-source
 
-# 或安装特定版本
-npm install -g claude-code-workflow@latest
+# 拉取最新代码
+git pull origin main
+
+# 升级所有安装
+ccw upgrade
 ```
+
+`ccw upgrade` 命令会：
+- 更新所有已安装目录到最新源文件
+- 更新 `~/.claude/claude.ccw.md` 到最新版本
+- **迁移**：如果检测到旧版 `CLAUDE.md`（ccw 版本），会提示是否迁移到新的 `claude.ccw.md` 全局格式
+- 保留用户设置和禁用状态
 
 ## 卸载
 
@@ -191,10 +225,6 @@ rm -rf ~/.claude/version.json
 rm -rf ~/.codex/prompts
 rm -rf ~/.codex/skills
 rm -rf ~/.codex/agents
-
-# 其他 CLI 目录
-rm -rf ~/.gemini
-rm -rf ~/.qwen
 
 # CCW 核心目录
 rm -rf ~/.ccw

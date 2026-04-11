@@ -6,6 +6,8 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { readFile, readdir, access } from 'fs/promises';
 import { join } from 'path';
 import type { RouteContext } from './types.js';
+import { scanSessions } from '../session-scanner.js';
+import { resolvePath } from '../../utils/path-resolver.js';
 
 /**
  * Check if a file or directory exists (async version)
@@ -575,17 +577,44 @@ export async function handleSessionRoutes(ctx: RouteContext): Promise<boolean> {
   const { pathname, url, req, res, handlePostRequest } = ctx;
 
   // API: Get session detail data (context, summaries, impl-plan, review)
+  // Supports two modes:
+  //   - ?path=<sessionDirPath> (original, direct path)
+  //   - ?id=<sessionId> (resolves path by scanning sessions)
   if (pathname === '/api/session-detail') {
     const sessionPath = url.searchParams.get('path');
+    const sessionId = url.searchParams.get('id');
     const dataType = url.searchParams.get('type') || 'all';
 
-    if (!sessionPath) {
+    let resolvedPath = sessionPath;
+
+    // When path is not provided but id is, resolve path by scanning sessions
+    if (!resolvedPath && sessionId) {
+      const projectPath = url.searchParams.get('projectPath') || ctx.initialPath;
+      const workflowDir = join(resolvePath(projectPath), '.workflow');
+
+      if (existsSync(workflowDir)) {
+        const sessions = await scanSessions(workflowDir);
+        const allSessions = [...sessions.active, ...sessions.archived];
+        const found = allSessions.find(s => s.id === sessionId);
+        if (found) {
+          resolvedPath = found.path;
+        }
+      }
+
+      if (!resolvedPath) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Session not found: ${sessionId}` }));
+        return true;
+      }
+    }
+
+    if (!resolvedPath) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Session path is required' }));
+      res.end(JSON.stringify({ error: 'Session path or id is required' }));
       return true;
     }
 
-    const detail = await getSessionDetailData(sessionPath, dataType);
+    const detail = await getSessionDetailData(resolvedPath, dataType);
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(detail));
     return true;

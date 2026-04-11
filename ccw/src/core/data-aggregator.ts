@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import { join, basename } from 'path';
 import { scanLiteTasks } from './lite-scanner.js';
 import { createDashboardCache } from './cache-manager.js';
+import type { DataTier } from './session-scanner.js';
 
 interface SessionData {
   session_id: string;
@@ -18,6 +19,14 @@ interface SessionData {
   hasReview: boolean;
   reviewSummary: ReviewSummary | null;
   reviewDimensions: DimensionData[];
+  /**
+   * Data completeness tier (0-3).
+   * 0 = full (workflow-session.json parsed with tasks/context)
+   * 1 = partial (workflow-session.json parsed but missing key fields)
+   * 2 = stat-only (workflow-session.json missing, directory stat succeeded)
+   * 3 = name-only (only session name available)
+   */
+  dataTier: DataTier;
 }
 
 interface TaskData {
@@ -62,6 +71,7 @@ interface SessionInput {
   updated?: string;  // From SessionMetadata
   archived_at?: string | null;
   path: string;
+  dataTier?: DataTier;
 }
 
 interface ScanSessionsResult {
@@ -298,6 +308,9 @@ export async function aggregateData(sessions: ScanSessionsResult, workflowDir: s
  * @returns Processed session data
  */
 async function processSession(session: SessionInput, isActive: boolean): Promise<SessionData> {
+  // Determine initial data tier from scanner result
+  let dataTier: DataTier = session.dataTier ?? 0;
+
   const result: SessionData = {
     session_id: session.session_id || session.id || '',
     project: session.project || session.description || session.session_id || session.id || '',
@@ -311,7 +324,8 @@ async function processSession(session: SessionInput, isActive: boolean): Promise
     taskCount: 0,
     hasReview: false,
     reviewSummary: null,
-    reviewDimensions: []
+    reviewDimensions: [],
+    dataTier
   };
 
   // Load tasks for active sessions (full details)

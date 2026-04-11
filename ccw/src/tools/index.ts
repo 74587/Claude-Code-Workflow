@@ -53,6 +53,7 @@ const tools = new Map<string, LegacyTool>();
 
 // Dashboard notification settings
 const DASHBOARD_PORT = process.env.CCW_PORT || 3456;
+const dashboardAgent = new http.Agent({ keepAlive: true, maxSockets: 5 });
 
 /**
  * Notify dashboard of tool execution events (fire and forget)
@@ -69,6 +70,7 @@ function notifyDashboard(data: Record<string, unknown>): void {
     port: Number(DASHBOARD_PORT),
     path: '/api/hook',
     method: 'POST',
+    agent: dashboardAgent,
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(payload)

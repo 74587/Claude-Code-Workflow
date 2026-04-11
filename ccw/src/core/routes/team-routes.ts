@@ -77,27 +77,49 @@ function scanArtifactsDirectory(dirPath: string, basePath: string): ArtifactNode
 
       if (entry.isDirectory()) {
         const children = scanArtifactsDirectory(fullPath, relativePath);
-        const stat = statSync(fullPath);
 
-        nodes.push({
-          type: 'directory',
-          name: entry.name,
-          path: relativePath,
-          contentType: 'unknown',
-          modifiedAt: stat.mtime.toISOString(),
-          children,
-        });
+        // Tier 2: stat-based listing
+        try {
+          const stat = statSync(fullPath);
+          nodes.push({
+            type: 'directory',
+            name: entry.name,
+            path: relativePath,
+            contentType: 'unknown',
+            modifiedAt: stat.mtime.toISOString(),
+            children,
+          });
+        } catch {
+          // Tier 3: name-based fallback (no stat info)
+          nodes.push({
+            type: 'directory',
+            name: entry.name,
+            path: relativePath,
+            contentType: 'unknown',
+            children,
+          });
+        }
       } else if (entry.isFile()) {
-        const stat = statSync(fullPath);
-
-        nodes.push({
-          type: 'file',
-          name: entry.name,
-          path: relativePath,
-          contentType: detectContentType(entry.name),
-          size: stat.size,
-          modifiedAt: stat.mtime.toISOString(),
-        });
+        // Tier 2: stat-based listing
+        try {
+          const stat = statSync(fullPath);
+          nodes.push({
+            type: 'file',
+            name: entry.name,
+            path: relativePath,
+            contentType: detectContentType(entry.name),
+            size: stat.size,
+            modifiedAt: stat.mtime.toISOString(),
+          });
+        } catch {
+          // Tier 3: name-based fallback (no stat info)
+          nodes.push({
+            type: 'file',
+            name: entry.name,
+            path: relativePath,
+            contentType: detectContentType(entry.name),
+          });
+        }
       }
     }
 
@@ -562,7 +584,17 @@ function serveArtifacts(
       return;
     }
 
-    const stat = statSync(filePath);
+    let stat;
+    try {
+      stat = statSync(filePath);
+    } catch (e) {
+      jsonResponse(res, 422, {
+        error: 'Failed to read file',
+        path: artifactPath,
+        reason: (e as Error).message
+      });
+      return;
+    }
 
     if (stat.isDirectory()) {
       // Return directory listing
@@ -578,7 +610,17 @@ function serveArtifacts(
     }
 
     // Return file content
-    const content = readFileSync(filePath, 'utf-8');
+    let content: string;
+    try {
+      content = readFileSync(filePath, 'utf-8');
+    } catch (e) {
+      jsonResponse(res, 422, {
+        error: 'Failed to read file content',
+        path: artifactPath,
+        reason: (e as Error).message
+      });
+      return;
+    }
     const contentType = detectContentType(artifactPath.split('/').pop() || '');
 
     jsonResponse(res, 200, {

@@ -7,11 +7,12 @@
  * - GET /api/analysis/:id - Returns detailed content of a specific session
  */
 
-import { readdir, readFile, stat } from 'fs/promises';
-import { existsSync, statSync } from 'fs';
+import { readdir, stat } from 'fs/promises';
+import { existsSync } from 'fs';
 import { join } from 'path';
 import type { RouteContext } from './types.js';
 import { resolvePath } from '../../utils/path-resolver.js';
+import { readJsonFileEx, readTextFileEx, toNullable } from '../../utils/file-reader.js';
 
 // Concurrency limit for processing folders
 const MAX_CONCURRENT = 10;
@@ -26,7 +27,7 @@ export interface AnalysisSessionSummary {
   name: string;
   topic: string;
   createdAt: string;
-  status: 'in_progress' | 'completed';
+  status: 'in_progress' | 'completed' | 'error';
   hasConclusions: boolean;
 }
 
@@ -38,7 +39,7 @@ export interface AnalysisSessionDetail {
   name: string;
   topic: string;
   createdAt: string;
-  status: 'in_progress' | 'completed';
+  status: 'in_progress' | 'completed' | 'error';
   discussion: string | null;
   conclusions: Record<string, unknown> | null;
   explorations: Record<string, unknown> | null;
@@ -56,31 +57,6 @@ function parseSessionId(folderName: string): { slug: string; date: string } | nu
 }
 
 /**
- * Read JSON file safely
- */
-async function readJsonFile(filePath: string): Promise<Record<string, unknown> | null> {
-  try {
-    if (!existsSync(filePath)) return null;
-    const content = await readFile(filePath, 'utf-8');
-    return JSON.parse(content);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Read text file safely
- */
-async function readTextFile(filePath: string): Promise<string | null> {
-  try {
-    if (!existsSync(filePath)) return null;
-    return await readFile(filePath, 'utf-8');
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Get analysis session summary from folder
  */
 async function getSessionSummary(
@@ -95,11 +71,16 @@ async function getSessionSummary(
   if (!folderStat.isDirectory()) return null;
 
   const conclusionsPath = join(sessionPath, 'conclusions.json');
+  const conclusionsResult = await readJsonFileEx<Record<string, unknown>>(conclusionsPath);
+  const conclusions = toNullable(conclusionsResult);
 
-  const hasConclusions = existsSync(conclusionsPath);
-  const conclusions = hasConclusions ? await readJsonFile(conclusionsPath) : null;
+  // Derive status from 3-state result
+  const status: 'in_progress' | 'completed' | 'error' =
+    conclusionsResult.status === 'ok' ? 'completed'
+    : conclusionsResult.status === 'corrupt' ? 'error'
+    : 'in_progress';
 
-  // Extract topic from conclusions or folder name
+  // Extract topic from conclusions or folder name (3-tier fallback)
   const topic = (conclusions?.topic as string) || parsed.slug.replace(/-/g, ' ');
 
   return {
@@ -107,8 +88,8 @@ async function getSessionSummary(
     name: folderName,
     topic,
     createdAt: parsed.date,
-    status: hasConclusions ? 'completed' : 'in_progress',
-    hasConclusions
+    status,
+    hasConclusions: conclusionsResult.status === 'ok'
   };
 }
 
@@ -125,21 +106,32 @@ async function getSessionDetail(
   const sessionPath = join(analysisDir, sessionId);
   if (!existsSync(sessionPath)) return null;
 
-  const [discussion, conclusions, explorations, perspectives] = await Promise.all([
-    readTextFile(join(sessionPath, 'discussion.md')),
-    readJsonFile(join(sessionPath, 'conclusions.json')),
-    readJsonFile(join(sessionPath, 'explorations.json')),
-    readJsonFile(join(sessionPath, 'perspectives.json'))
+  const [discussionResult, conclusionsResult, explorationsResult, perspectivesResult] = await Promise.all([
+    readTextFileEx(join(sessionPath, 'discussion.md')),
+    readJsonFileEx<Record<string, unknown>>(join(sessionPath, 'conclusions.json')),
+    readJsonFileEx<Record<string, unknown>>(join(sessionPath, 'explorations.json')),
+    readJsonFileEx<Record<string, unknown>>(join(sessionPath, 'perspectives.json'))
   ]);
 
+  const discussion = toNullable(discussionResult);
+  const conclusions = toNullable(conclusionsResult);
+  const explorations = toNullable(explorationsResult);
+  const perspectives = toNullable(perspectivesResult);
+
   const topic = (conclusions?.topic as string) || parsed.slug.replace(/-/g, ' ');
+
+  // Derive status from 3-state conclusions result
+  const status: 'in_progress' | 'completed' | 'error' =
+    conclusionsResult.status === 'ok' ? 'completed'
+    : conclusionsResult.status === 'corrupt' ? 'error'
+    : 'in_progress';
 
   return {
     id: sessionId,
     name: sessionId,
     topic,
     createdAt: parsed.date,
-    status: conclusions ? 'completed' : 'in_progress',
+    status,
     discussion,
     conclusions,
     explorations,

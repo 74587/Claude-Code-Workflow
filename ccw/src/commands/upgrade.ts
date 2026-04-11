@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readdirSync, statSync, copyFileSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
@@ -11,10 +11,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Source directories to install
-const SOURCE_DIRS = ['.claude', '.codex', '.gemini', '.qwen', '.ccw'];
+const SOURCE_DIRS = ['.claude', '.codex', '.ccw'];
 
 // Subdirectories that should always be installed to global (~/.claude/)
 const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates'];
+
+// Files that should always be installed to global (~/.claude/)
+const GLOBAL_FILES = ['claude.ccw.md'];
+
+// Files that should be excluded from copy (user-specific settings)
+const EXCLUDED_FILES = ['settings.json', 'settings.local.json', 'CLAUDE.md'];
 
 interface UpgradeOptions {
   all?: boolean;
@@ -280,6 +286,99 @@ async function performUpgrade(manifest: any, sourceDir: string, version: string)
     totalDirs += directories;
   }
 
+  // Install global files (claude.ccw.md) always to ~/.claude/
+  for (const file of GLOBAL_FILES) {
+    const srcFile = join(sourceDir, '.claude', file);
+    if (existsSync(srcFile)) {
+      const globalClaudeDir = join(homedir(), '.claude');
+      if (!existsSync(globalClaudeDir)) {
+        mkdirSync(globalClaudeDir, { recursive: true });
+      }
+      const destFile = join(globalClaudeDir, file);
+      copyFileSync(srcFile, destFile);
+      addFileEntry(newManifest, destFile);
+      totalFiles++;
+    }
+  }
+
+  // Migration: if old CLAUDE.md was installed by ccw, migrate to claude.ccw.md
+  const oldClaudeMd = join(installPath, '.claude', 'CLAUDE.md');
+  const srcClaudeCcwMd = join(sourceDir, '.claude', 'claude.ccw.md');
+  if (existsSync(oldClaudeMd) && existsSync(srcClaudeCcwMd)) {
+    const oldContent = readFileSync(oldClaudeMd, 'utf8');
+    const srcContent = readFileSync(srcClaudeCcwMd, 'utf8');
+
+    // Calculate similarity between old CLAUDE.md and source claude.ccw.md
+    const similarity = calculateSimilarity(oldContent, srcContent);
+
+    if (similarity > 0.5) {
+      // Similar content — ask user whether to migrate
+      console.log('');
+      info(`Detected existing CLAUDE.md that is ${Math.round(similarity * 100)}% similar to ccw's claude.ccw.md`);
+      console.log(chalk.gray(`  File: ${oldClaudeMd}`));
+
+      const { action } = await inquirer.prompt([{
+        type: 'list',
+        name: 'action',
+        message: 'How to handle the old CLAUDE.md?',
+        choices: [
+          {
+            name: 'Delete and create project CLAUDE.md with @ reference (recommended)',
+            value: 'migrate',
+            short: 'Migrate'
+          },
+          {
+            name: 'Keep as-is (manual merge required)',
+            value: 'keep',
+            short: 'Keep'
+          }
+        ]
+      }]);
+
+      if (action === 'migrate') {
+        // Delete old ccw CLAUDE.md from install path
+        unlinkSync(oldClaudeMd);
+        // Create project CLAUDE.md with @ reference
+        const minimalContent = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/claude.ccw.md\n';
+        writeFileSync(oldClaudeMd, minimalContent, 'utf8');
+        addFileEntry(newManifest, oldClaudeMd);
+        totalFiles++;
+        info('Migrated CLAUDE.md → claude.ccw.md (global) + project @ reference');
+      }
+    } else if (oldContent.includes('Coding Philosophy') || oldContent.includes('CLI Endpoints')) {
+      // Contains ccw markers but content diverged — still migrate
+      const newClaudeMd = join(homedir(), '.claude', 'claude.ccw.md');
+      const globalClaudeDir = join(homedir(), '.claude');
+      if (!existsSync(globalClaudeDir)) mkdirSync(globalClaudeDir, { recursive: true });
+      writeFileSync(newClaudeMd, oldContent, 'utf8');
+      addFileEntry(newManifest, newClaudeMd);
+      unlinkSync(oldClaudeMd);
+      totalFiles++;
+      info('Migrated CLAUDE.md → claude.ccw.md (global)');
+    }
+  }
+
+  // For Path mode: ensure project CLAUDE.md has @ reference
+  if (mode === 'Path') {
+    const projectClaudeMd = join(installPath, '.claude', 'CLAUDE.md');
+    if (!existsSync(projectClaudeMd)) {
+      const minimalContent = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/claude.ccw.md\n';
+      const projectClaudeDir = join(installPath, '.claude');
+      if (!existsSync(projectClaudeDir)) {
+        mkdirSync(projectClaudeDir, { recursive: true });
+      }
+      writeFileSync(projectClaudeMd, minimalContent, 'utf8');
+      addFileEntry(newManifest, projectClaudeMd);
+      totalFiles++;
+    } else {
+      const content = readFileSync(projectClaudeMd, 'utf8');
+      if (!content.includes('claude.ccw.md')) {
+        warning('Project CLAUDE.md does not reference claude.ccw.md');
+        info('Add this line to your CLAUDE.md: - **CCW Instructions**: @~/.claude/claude.ccw.md');
+      }
+    }
+  }
+
   // Update version.json
   const versionPath = join(installPath, '.claude', 'version.json');
   if (existsSync(dirname(versionPath))) {
@@ -316,7 +415,8 @@ async function copyDirectory(
   src: string,
   dest: string,
   manifest: any,
-  excludeDirs: string[] = []
+  excludeDirs: string[] = [],
+  excludeFiles: string[] = EXCLUDED_FILES
 ): Promise<CopyResult> {
   let files = 0;
   let directories = 0;
@@ -336,12 +436,17 @@ async function copyDirectory(
       continue;
     }
 
+    // Skip excluded files
+    if (excludeFiles.includes(entry)) {
+      continue;
+    }
+
     const srcPath = join(src, entry);
     const destPath = join(dest, entry);
     const stat = statSync(srcPath);
 
     if (stat.isDirectory()) {
-      const result = await copyDirectory(srcPath, destPath, manifest);
+      const result = await copyDirectory(srcPath, destPath, manifest, [], excludeFiles);
       files += result.files;
       directories += result.directories;
     } else {
@@ -352,4 +457,27 @@ async function copyDirectory(
   }
 
   return { files, directories };
+}
+
+/**
+ * Calculate similarity between two strings using line-based comparison
+ * Returns a value between 0 (completely different) and 1 (identical)
+ */
+function calculateSimilarity(a: string, b: string): number {
+  const linesA = a.split('\n').filter(l => l.trim().length > 0);
+  const linesB = b.split('\n').filter(l => l.trim().length > 0);
+
+  if (linesA.length === 0 && linesB.length === 0) return 1;
+  if (linesA.length === 0 || linesB.length === 0) return 0;
+
+  const setA = new Set(linesA);
+  const setB = new Set(linesB);
+
+  let intersection = 0;
+  for (const line of setA) {
+    if (setB.has(line)) intersection++;
+  }
+
+  const union = setA.size + setB.size - intersection;
+  return union === 0 ? 1 : intersection / union;
 }

@@ -192,7 +192,7 @@ export async function uninstallCommand(options: UninstallOptions): Promise<void>
 
     // Try to clean up parent directories if empty
     const installPath = selectedManifest.installation_path;
-    for (const dir of ['.claude', '.codex', '.gemini', '.qwen']) {
+    for (const dir of ['.claude', '.codex']) {
       const dirPath = join(installPath, dir);
       try {
         if (existsSync(dirPath)) {
@@ -206,6 +206,17 @@ export async function uninstallCommand(options: UninstallOptions): Promise<void>
     // Orphan cleanup: Scan for skills/commands not tracked in any manifest
     // This handles files installed by skill-hub that weren't tracked properly
     const orphanStats = await cleanupOrphanFiles(selectedManifest.manifest_id);
+
+    // Clean up claude.ccw.md from global space
+    const globalClaudeCcwMd = join(homedir(), '.claude', 'claude.ccw.md');
+    if (existsSync(globalClaudeCcwMd)) {
+      try {
+        unlinkSync(globalClaudeCcwMd);
+        removedFiles++;
+      } catch {
+        // Ignore if in use
+      }
+    }
 
     spinner.succeed('Uninstall complete!');
 

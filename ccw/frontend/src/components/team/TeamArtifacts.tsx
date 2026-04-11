@@ -213,7 +213,12 @@ export function TeamArtifacts({ teamName }: TeamArtifactsProps) {
         setContent(result.content);
       } catch (err) {
         console.error('Failed to load file content:', err);
-        setContent(formatMessage({ id: 'team.artifacts.contentError', defaultMessage: 'Failed to load file content' }));
+        const apiErr = err as { status?: number; path?: string; reason?: string };
+        if (apiErr.status === 422 && apiErr.path && apiErr.reason) {
+          setContent(`Error reading ${apiErr.path}: ${apiErr.reason}`);
+        } else {
+          setContent(formatMessage({ id: 'team.artifacts.contentError', defaultMessage: 'Failed to load file content' }));
+        }
       } finally {
         setLoading(false);
       }

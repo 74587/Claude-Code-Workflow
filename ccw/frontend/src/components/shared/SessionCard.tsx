@@ -26,6 +26,7 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
+  AlertTriangle,
   RefreshCw,
   FileText,
   Search,
@@ -229,6 +230,11 @@ export function SessionCard({
   const isPlanning = session.status === 'planning';
   const isArchived = session.status === 'archived' || session.location === 'archived';
 
+  // Data tier awareness
+  const dataTier = session.dataTier ?? 0;
+  const isTier3Compact = dataTier >= 3; // Minimal info: name + date only
+  const isTier2Degraded = dataTier === 2; // Limited Data indicator
+
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't trigger if clicking on dropdown
     if ((e.target as HTMLElement).closest('[data-radix-popper-content-wrapper]')) {
@@ -255,6 +261,36 @@ export function SessionCard({
     }
   };
 
+  // Tier 3: Compact card showing only session name and created date
+  if (isTier3Compact) {
+    return (
+      <Card
+        className={cn(
+          'group cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/30 opacity-70',
+          className
+        )}
+        onClick={handleCardClick}
+      >
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="font-bold text-card-foreground text-xs tracking-wide uppercase truncate">
+              {session.session_id}
+            </h3>
+            <Badge variant="secondary" className="gap-1 flex-shrink-0 text-[10px]">
+              <AlertTriangle className="h-3 w-3" />
+              Minimal Info
+            </Badge>
+          </div>
+          {session.created_at && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatDate(session.created_at)}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card
       className={cn(
@@ -265,6 +301,14 @@ export function SessionCard({
       onClick={handleCardClick}
     >
       <CardContent className="p-4">
+        {/* Data degradation indicator for Tier 2 */}
+        {isTier2Degraded && (
+          <div className="flex items-center gap-1 mb-2 text-xs text-muted-foreground" data-degraded="true">
+            <AlertTriangle className="h-3 w-3" />
+            <span>Limited Data</span>
+          </div>
+        )}
+
         {/* Header - Type badge + Session ID as title */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
@@ -283,6 +327,11 @@ export function SessionCard({
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Badge variant={statusVariant}>{statusLabel}</Badge>
+            {isTier2Degraded && (
+              <Badge variant="secondary" className="gap-1 text-[10px]">
+                Limited Data
+              </Badge>
+            )}
             {showActions && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

@@ -275,6 +275,8 @@ export interface SessionMetadata {
   summaries?: Array<{ task_id: string; content: unknown }>;
   tasks?: TaskData[];
   phase?: string;
+  /** Data completeness tier (0=full, 1=partial, 2=stat-only, 3=name-only) */
+  dataTier?: 0 | 1 | 2 | 3;
 }
 
 export interface TaskData {

@@ -192,9 +192,29 @@ if (stepsNeedTask.length > 0) {
     //   test          → 测试任务:     "为{场景}的{某模块}编写测试，覆盖{具体场景}"
     //   fix/debug     → 修复任务:     "先在沙箱创建含已知 bug 的代码，然后诊断修复"
     //   refactor      → 重构任务:     "先在沙箱创建可工作但需重构的代码，然后重构"
+    //
+    // ★ UPSTREAM-SCOPE RULE（通用原则）：
+    //   若本步命令的实际能力边界由**上游产物**决定（上一步生成了清单/列表/计划/任务集，
+    //   本步要"跑完"这个清单），那么 test_task 的范围必须**严格对齐上游产物的全量**，
+    //   不得凭空虚构"只做其中一部分"的子集。
+    //
+    //   判断信号：上一步 step 的命令名或描述中含 plan/list/catalog/queue/todo/spec/manifest 等
+    //   产物类词汇，且本步命令描述中出现 execute/run/process/consume/iterate/dispatch 等消费动词。
+    //
+    //   为什么：收窄范围会让被测命令的"调度器/依赖解析/并行分发/run-to-completion/批次推进"
+    //   等关键行为完全不被触发 — 测试只能证明"它能做一件事"，无法证明"它能跑完一批"。
+    //
+    //   正确做法：功能点写"按上游清单顺序/依赖执行全部条目"，验收标准包含"产物覆盖率 ≥ N%"；
+    //   错误做法：从上游清单里点名 1-2 条作为功能点 — 会让命令退化到单点模式。
+    const hasUpstreamScope = stepIdx > 0
+      && /plan|list|catalog|queue|todo|spec|manifest|清单|计划|任务/i.test(
+           (steps[stepIdx - 1]?.command || '') + ' ' + (steps[stepIdx - 1]?.test_task || ''))
+      && /execute|run|process|consume|iterate|dispatch|assemble|build|执行|运行|组装/i.test(cmdDesc);
 
-    step.test_task = /* 按上述模板生成，必须包含：项目、任务、功能点、技术约束、验收标准 */;
-    step.acceptance_criteria = /* 从 test_task 中提取 2-4 条可验证标准 */;
+    step.test_task = /* 按上述模板生成，必须包含：项目、任务、功能点、技术约束、验收标准。
+                        若 hasUpstreamScope，功能点必须描述"全量消费上游产物"而非挑选子集 */;
+    step.acceptance_criteria = /* 从 test_task 中提取 2-4 条可验证标准。
+                                   若 hasUpstreamScope，至少 1 条必须是"产物覆盖率 / 全量完成度" */;
     step.complexity_level = /plan|design|architect/i.test(cmdDesc) ? 'high'
       : /test|lint|format/i.test(cmdDesc) ? 'low' : 'medium';
   }
@@ -552,6 +572,9 @@ const prompt = assembleStepPrompt(step, stepIdx, state);
 
 // ★ All steps execute via ccw cli --tool claude --mode write
 // ★ --cd 指向沙箱目录（独立项目），不影响真实工作空间
+// ★★★ ONE STEP = ONE CLI CALL — 绝对禁止将多个 step 合并到一次 ccw cli 调用中
+// ★★★ 即使步骤紧密关联（如 plan+execute、execute+quality+review），也必须逐个独立调用
+// ★★★ 每次 Bash(ccw cli ...) 调用只处理 steps[stepIdx] 这一个步骤，不可批量
 Bash({
   command: `ccw cli -p ${escapeForShell(prompt)} --tool claude --mode write --rule universal-rigorous-style --cd "${state.sandbox_dir}"`,
   run_in_background: true, timeout: 600000
@@ -809,3 +832,4 @@ Report       → local generation (no CLI call)
 8. **Artifact Collection**: Scan sandbox filesystem (not git diff), compare pre/post snapshots
 9. **Prompt Assembly**: Every step goes through `assembleStepPrompt()` — resolves command file, reads YAML metadata, injects test_task, builds rich context
 10. **Auto-Confirm**: All prompts auto-confirmed, no blocking interactions during execution
+11. **ONE STEP = ONE CLI CALL (no multi-step batching)**: Each step MUST get exactly one independent `ccw cli --tool claude --mode write` invocation. Combining multiple steps (e.g. plan+execute, execute+quality+review) into a single CLI call is strictly prohibited. Violations cause: (1) later steps get skipped or truncated, (2) per-step quality analysis impossible, (3) timeout risk. This is a P0 rule — never batch steps.

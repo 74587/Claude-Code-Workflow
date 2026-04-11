@@ -14,7 +14,7 @@
 
 import { z } from 'zod';
 import type { ToolSchema, ToolResult } from '../types/tool.js';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { promises as fsp } from 'fs';
 import { resolve, dirname } from 'path';
 import { validatePath } from '../utils/path-validator.js';
 import {
@@ -87,7 +87,7 @@ export async function handler(params: Record<string, unknown>): Promise<ToolResu
       case 'set':     return await cmdSet(p);
       case 'validate':return await cmdValidate(p);
       case 'merge':   return await cmdMerge(p);
-      case 'info':    return cmdInfo(p);
+      case 'info':    return await cmdInfo(p);
       default:
         return { success: false, error: `Unknown command: ${p.cmd}` };
     }
@@ -102,14 +102,14 @@ async function cmdInit(p: Params): Promise<ToolResult> {
   if (!p.schema) return { success: false, error: 'schema is required for init' };
   if (!p.output) return { success: false, error: 'output is required for init' };
 
-  const jsonSchema = loadSchema(p.schema);
+  const jsonSchema = await loadSchema(p.schema);
   const skeleton = buildSkeleton(jsonSchema);
   const outputPath = await validatePath(p.output);
-  ensureDir(outputPath);
+  await ensureDir(outputPath);
   const content = JSON.stringify(skeleton, null, 2);
-  writeFileSync(outputPath, content, 'utf-8');
+  await fsp.writeFile(outputPath, content, 'utf-8');
 
-  const info = getSchemaInfo(p.schema);
+  const info = await getSchemaInfo(p.schema);
   return {
     success: true,
     result: {
@@ -176,11 +176,12 @@ async function cmdSet(p: Params): Promise<ToolResult> {
   if (!p.ops || p.ops.length === 0) return { success: false, error: 'ops is required for set' };
 
   const targetPath = await validatePath(p.target);
-  if (!existsSync(targetPath)) {
+  let raw: string;
+  try {
+    raw = await fsp.readFile(targetPath, 'utf-8');
+  } catch {
     return { success: false, error: `Target file not found: ${targetPath}` };
   }
-
-  const raw = readFileSync(targetPath, 'utf-8');
   const doc = JSON.parse(raw) as Record<string, unknown>;
 
   // Detect schema from doc._metadata?.source or from file name
@@ -191,7 +192,7 @@ async function cmdSet(p: Params): Promise<ToolResult> {
   let applied = 0;
 
   for (const op of p.ops) {
-    const result = applyOp(doc, op.path, op.value, schemaId);
+    const result = await applyOp(doc, op.path, op.value, schemaId);
     if (result.error) {
       errors.push(`${op.path}: ${result.error}`);
     } else {
@@ -205,7 +206,7 @@ async function cmdSet(p: Params): Promise<ToolResult> {
   }
 
   // Write back
-  writeFileSync(targetPath, JSON.stringify(doc, null, 2), 'utf-8');
+  await fsp.writeFile(targetPath, JSON.stringify(doc, null, 2), 'utf-8');
 
   return {
     success: true,
@@ -218,7 +219,7 @@ interface OpResult {
   warnings?: string[];
 }
 
-function applyOp(doc: Record<string, unknown>, path: string, value: unknown, schemaId?: string): OpResult {
+async function applyOp(doc: Record<string, unknown>, path: string, value: unknown, schemaId?: string): Promise<OpResult> {
   const warnings: string[] = [];
 
   // Handle "auto" values
@@ -236,7 +237,7 @@ function applyOp(doc: Record<string, unknown>, path: string, value: unknown, sch
 
   // Validate value against schema if schema is known
   if (schemaId) {
-    const validationResult = validateFieldValue(schemaId, path, value);
+    const validationResult = await validateFieldValue(schemaId, path, value);
     if (validationResult.error) return { error: validationResult.error };
     if (validationResult.warnings) warnings.push(...validationResult.warnings);
   }
@@ -333,11 +334,12 @@ async function cmdValidate(p: Params): Promise<ToolResult> {
   if (!p.target) return { success: false, error: 'target is required for validate' };
 
   const targetPath = await validatePath(p.target);
-  if (!existsSync(targetPath)) {
+  let raw: string;
+  try {
+    raw = await fsp.readFile(targetPath, 'utf-8');
+  } catch {
     return { success: false, error: `Target file not found: ${targetPath}` };
   }
-
-  const raw = readFileSync(targetPath, 'utf-8');
   let doc: Record<string, unknown>;
   try {
     doc = JSON.parse(raw);
@@ -350,7 +352,7 @@ async function cmdValidate(p: Params): Promise<ToolResult> {
     return { success: false, error: 'Cannot detect schema. Provide schema param.' };
   }
 
-  const jsonSchema = loadSchema(schemaId);
+  const jsonSchema = await loadSchema(schemaId);
   const errors: string[] = [];
   const warnings: string[] = [];
 
@@ -627,11 +629,11 @@ interface FieldValidation {
   warnings?: string[];
 }
 
-function validateFieldValue(schemaId: string, fieldPath: string, value: unknown): FieldValidation {
+async function validateFieldValue(schemaId: string, fieldPath: string, value: unknown): Promise<FieldValidation> {
   const warnings: string[] = [];
   let jsonSchema: JsonSchema;
   try {
-    jsonSchema = loadSchema(schemaId);
+    jsonSchema = await loadSchema(schemaId);
   } catch {
     return {}; // Skip validation if schema not found
   }
@@ -690,21 +692,24 @@ async function cmdMerge(p: Params): Promise<ToolResult> {
   const docs: Record<string, unknown>[] = [];
   for (const src of p.sources) {
     const srcPath = await validatePath(src);
-    if (!existsSync(srcPath)) {
+    let content: string;
+    try {
+      content = await fsp.readFile(srcPath, 'utf-8');
+    } catch {
       return { success: false, error: `Source not found: ${srcPath}` };
     }
-    docs.push(JSON.parse(readFileSync(srcPath, 'utf-8')));
+    docs.push(JSON.parse(content));
   }
 
   const schemaId = p.schema || detectSchema(docs[0], p.sources[0]);
-  const jsonSchema = schemaId ? loadSchema(schemaId) : null;
+  const jsonSchema = schemaId ? await loadSchema(schemaId) : null;
   const strategy = p.strategy || 'dedup_by_path';
 
   const merged = mergeDocuments(docs, jsonSchema, strategy);
 
   const outputPath = await validatePath(p.output);
-  ensureDir(outputPath);
-  writeFileSync(outputPath, JSON.stringify(merged, null, 2), 'utf-8');
+  await ensureDir(outputPath);
+  await fsp.writeFile(outputPath, JSON.stringify(merged, null, 2), 'utf-8');
 
   return {
     success: true,
@@ -766,21 +771,27 @@ function mergeDocuments(
 
 function deduplicateArrays(a: unknown[], b: unknown[]): unknown[] {
   const result = [...a];
-  const existingPaths = new Set(
-    a.filter(item => typeof item === 'object' && item !== null)
-      .map(item => (item as Record<string, unknown>).path as string)
-      .filter(Boolean)
-  );
+  const existingPaths = new Set<string>();
+  const indexMap = new Map<string, number>();
+
+  for (let i = 0; i < a.length; i++) {
+    const item = a[i];
+    if (typeof item === 'object' && item !== null) {
+      const path = (item as Record<string, unknown>).path as string;
+      if (path) {
+        existingPaths.add(path);
+        indexMap.set(path, i);
+      }
+    }
+  }
 
   for (const item of b) {
     if (typeof item === 'object' && item !== null) {
       const path = (item as Record<string, unknown>).path as string;
       if (path && existingPaths.has(path)) {
         // Dedup: keep the one with higher relevance
-        const existingIdx = result.findIndex(
-          e => typeof e === 'object' && e !== null && (e as Record<string, unknown>).path === path
-        );
-        if (existingIdx !== -1) {
+        const existingIdx = indexMap.get(path);
+        if (existingIdx !== undefined) {
           const existingRel = ((result[existingIdx] as Record<string, unknown>).relevance as number) || 0;
           const newRel = ((item as Record<string, unknown>).relevance as number) || 0;
           if (newRel > existingRel) {
@@ -789,7 +800,10 @@ function deduplicateArrays(a: unknown[], b: unknown[]): unknown[] {
         }
       } else {
         result.push(item);
-        if (path) existingPaths.add(path);
+        if (path) {
+          existingPaths.add(path);
+          indexMap.set(path, result.length - 1);
+        }
       }
     } else {
       // Primitive: dedup by value
@@ -804,32 +818,31 @@ function deduplicateArrays(a: unknown[], b: unknown[]): unknown[] {
 
 // ─── info ────────────────────────────────────────────────────
 
-function cmdInfo(p: Params): ToolResult {
+async function cmdInfo(p: Params): Promise<ToolResult> {
   if (!p.schema) {
     // List all schemas
     const schemas = listSchemas();
-    const summaries = schemas.map(id => {
+    const summaries = [];
+    for (const id of schemas) {
       try {
-        const info = getSchemaInfo(id);
-        return { id, title: info.title, required: info.requiredFields.length, format: info.format };
+        const info = await getSchemaInfo(id);
+        summaries.push({ id, title: info.title, required: info.requiredFields.length, format: info.format });
       } catch {
-        return { id, title: '(load error)', required: 0, format: 'json' };
+        summaries.push({ id, title: '(load error)', required: 0, format: 'json' });
       }
-    });
+    }
     return { success: true, result: { schemas: summaries } };
   }
 
-  const info = getSchemaInfo(p.schema);
+  const info = await getSchemaInfo(p.schema);
   return { success: true, result: info };
 }
 
 // ─── Utilities ───────────────────────────────────────────────
 
-function ensureDir(filePath: string): void {
+async function ensureDir(filePath: string): Promise<void> {
   const dir = dirname(filePath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+  await fsp.mkdir(dir, { recursive: true });
 }
 
 function detectSchema(doc: Record<string, unknown>, filePath: string): string | undefined {

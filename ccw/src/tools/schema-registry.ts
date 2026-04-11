@@ -3,7 +3,7 @@
  * Provides schema metadata extraction for json-builder tool.
  */
 
-import { readFileSync, existsSync } from 'fs';
+import { existsSync, promises as fsp } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -90,27 +90,37 @@ const SCHEMA_DEFS: Record<string, Omit<SchemaEntry, 'id' | 'title'>> = {
 // Cache loaded schemas
 const schemaCache = new Map<string, JsonSchema>();
 
+// Module-level cache for schemas directory path
+let _schemasDir: string | undefined;
+
 /**
- * Resolve the schemas directory path
+ * Resolve the schemas directory path (cached)
  */
 function getSchemasDir(): string {
+  if (_schemasDir) return _schemasDir;
+
   // Try environment variable first
   if (process.env.CCW_HOME) {
-    return resolve(process.env.CCW_HOME, 'workflows', 'cli-templates', 'schemas');
+    _schemasDir = resolve(process.env.CCW_HOME, 'workflows', 'cli-templates', 'schemas');
+    return _schemasDir;
   }
   // Try home directory
   const home = process.env.HOME || process.env.USERPROFILE || '';
   const ccwDir = resolve(home, '.ccw', 'workflows', 'cli-templates', 'schemas');
-  if (existsSync(ccwDir)) return ccwDir;
+  if (existsSync(ccwDir)) {
+    _schemasDir = ccwDir;
+    return _schemasDir;
+  }
   // Fallback to relative from this file
   const thisDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(thisDir, '..', '..', '..', '.ccw', 'workflows', 'cli-templates', 'schemas');
+  _schemasDir = resolve(thisDir, '..', '..', '..', '.ccw', 'workflows', 'cli-templates', 'schemas');
+  return _schemasDir;
 }
 
 /**
  * Load a raw JSON schema by ID
  */
-export function loadSchema(schemaId: string): JsonSchema {
+export async function loadSchema(schemaId: string): Promise<JsonSchema> {
   const cached = schemaCache.get(schemaId);
   if (cached) return cached;
 
@@ -121,11 +131,14 @@ export function loadSchema(schemaId: string): JsonSchema {
 
   const schemasDir = getSchemasDir();
   const filePath = resolve(schemasDir, def.file);
-  if (!existsSync(filePath)) {
+
+  let raw: string;
+  try {
+    raw = await fsp.readFile(filePath, 'utf-8');
+  } catch {
     throw new Error(`Schema file not found: ${filePath}`);
   }
 
-  const raw = readFileSync(filePath, 'utf-8');
   const schema = JSON.parse(raw) as JsonSchema;
   schemaCache.set(schemaId, schema);
   return schema;
@@ -134,20 +147,20 @@ export function loadSchema(schemaId: string): JsonSchema {
 /**
  * Get schema entry metadata (without loading full schema)
  */
-export function getSchemaEntry(schemaId: string): SchemaEntry {
+export async function getSchemaEntry(schemaId: string): Promise<SchemaEntry> {
   const def = SCHEMA_DEFS[schemaId];
   if (!def) {
     throw new Error(`Unknown schema: "${schemaId}". Available: ${Object.keys(SCHEMA_DEFS).join(', ')}`);
   }
-  const schema = loadSchema(schemaId);
+  const schema = await loadSchema(schemaId);
   return { id: schemaId, title: schema.title || schemaId, ...def };
 }
 
 /**
  * Get schema info summary (for agent consumption — replaces reading full schema)
  */
-export function getSchemaInfo(schemaId: string): SchemaInfo {
-  const schema = loadSchema(schemaId);
+export async function getSchemaInfo(schemaId: string): Promise<SchemaInfo> {
+  const schema = await loadSchema(schemaId);
   const def = SCHEMA_DEFS[schemaId];
   const props = schema.properties || {};
   const required = schema.required || [];

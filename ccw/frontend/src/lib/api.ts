@@ -35,6 +35,8 @@ interface BackendSessionData {
   type?: string;
   created_at: string;
   updated_at?: string;
+  /** Data completeness tier (0=full, 1=partial, 2=stat-only, 3=name-only) */
+  dataTier?: number;
   [key: string]: unknown;
 }
 
@@ -99,6 +101,8 @@ export interface ApiError {
   message: string;
   status: number;
   code?: string;
+  path?: string;
+  reason?: string;
 }
 
 // ========== CSRF Token Handling ==========
@@ -310,6 +314,8 @@ export async function fetchApi<T>(
         if (body.message) error.message = body.message;
         else if (body.error) error.message = body.error;
         if (body.code) error.code = body.code;
+        if (body.path) error.path = body.path;
+        if (body.reason) error.reason = body.reason;
       } catch (parseError) {
         // Silently ignore JSON parse errors for non-JSON responses
       }
@@ -471,6 +477,10 @@ function transformBackendSession(
     summaries: (backendSession as unknown as { summaries?: SessionMetadata['summaries'] }).summaries,
     tasks: ((backendSession as unknown as { tasks?: TaskData[] }).tasks || [])
       .map(t => normalizeTask(t as unknown as Record<string, unknown>)),
+    // Pass through data tier from backend (clamped to valid range)
+    dataTier: backendSession.dataTier != null
+      ? (Math.min(Math.max(backendSession.dataTier, 0), 3) as 0 | 1 | 2 | 3)
+      : undefined,
   };
 }
 
@@ -2175,12 +2185,45 @@ export interface SessionDetailResponse {
 
 /**
  * Fetch session detail for a specific workspace
- * First fetches session list to get the session path, then fetches detail data
+ * Uses progressive path resolution: cache > by-id > fetchSessions fallback
  * @param sessionId - Session ID to fetch details for
  * @param projectPath - Optional project path to filter data by workspace
  */
 export async function fetchSessionDetail(sessionId: string, projectPath?: string): Promise<SessionDetailResponse> {
-  // Step 1: Fetch all sessions to get the session path
+  // Phase 1: Try TanStack Query cache for session path (zero API calls)
+  let sessionPath: string | undefined;
+  let cachedSession: SessionMetadata | undefined;
+
+  if (projectPath) {
+    try {
+      // Dynamic import to avoid circular dependency - api.ts is imported by hooks
+      const { default: queryClient } = await import('./query-client');
+      const cacheKey = ['workspace', projectPath, 'sessions', 'list'] as const;
+      const cached = queryClient.getQueryData<{ activeSessions: SessionMetadata[]; archivedSessions: SessionMetadata[] }>(cacheKey);
+      if (cached) {
+        const allSessions = [...cached.activeSessions, ...cached.archivedSessions];
+        cachedSession = allSessions.find(s => s.session_id === sessionId);
+        if (cachedSession?.path) {
+          sessionPath = cachedSession.path;
+        }
+      }
+    } catch {
+      // queryClient not available (SSR, test env, etc.) - fall through to other strategies
+    }
+  }
+
+  // Phase 3: Try /api/session-detail?id= endpoint (1 API call)
+  if (!sessionPath) {
+    try {
+      const idParam = `/api/session-detail?id=${encodeURIComponent(sessionId)}&type=all${projectPath ? `&projectPath=${encodeURIComponent(projectPath)}` : ''}`;
+      const detailData = await fetchApi<Record<string, unknown>>(idParam);
+      return transformDetailResponse(detailData, cachedSession, sessionId);
+    } catch {
+      // by-id endpoint failed (session not found, network error) - fall through to fetchSessions
+    }
+  }
+
+  // Fallback: fetchSessions + session-detail (2 API calls, backward compatible)
   const sessionsData = await fetchSessions(projectPath);
   const allSessions = [...sessionsData.activeSessions, ...sessionsData.archivedSessions];
   const session = allSessions.find(s => s.session_id === sessionId);
@@ -2189,39 +2232,53 @@ export async function fetchSessionDetail(sessionId: string, projectPath?: string
     throw new Error(`Session not found: ${sessionId}`);
   }
 
-  // Step 2: Use the session path to fetch detail data from the correct endpoint
-  // Backend expects the actual session directory path, not the project path
-  const sessionPath = (session as any).path || session.session_id;
-  const detailData = await fetchApi<any>(`/api/session-detail?path=${encodeURIComponent(sessionPath)}&type=all`);
+  // Use session path from fresh fetch
+  sessionPath = (session as any).path || session.session_id;
+  const detailData = await fetchApi<Record<string, unknown>>(`/api/session-detail?path=${encodeURIComponent(sessionPath!)}&type=all`);
+  return transformDetailResponse(detailData, session, sessionId);
+}
 
-  // Step 3: Transform the response to match SessionDetailResponse interface
-  // Also check for summaries array and extract first one if summary is empty
-  let finalSummary = detailData.summary;
-  if (!finalSummary && detailData.summaries && detailData.summaries.length > 0) {
-    finalSummary = detailData.summaries[0].content || detailData.summaries[0].name || '';
+/**
+ * Transform raw detail API response into SessionDetailResponse
+ */
+function transformDetailResponse(
+  detailData: Record<string, unknown>,
+  sessionMeta: SessionMetadata | undefined,
+  sessionId: string
+): SessionDetailResponse {
+  // Extract summary: prefer direct summary, fallback to first summaries entry
+  let finalSummary = detailData.summary as string | undefined;
+  if (!finalSummary && Array.isArray(detailData.summaries) && detailData.summaries.length > 0) {
+    const first = detailData.summaries[0] as { content?: string; name?: string };
+    finalSummary = first.content || first.name || '';
   }
 
-  // Step 4: Transform context to match SessionDetailContext interface
-  // Backend returns raw context-package.json content, frontend expects it nested under 'context' field
+  // Backend returns raw context-package.json content, frontend expects it nested under 'context'
   const transformedContext = detailData.context ? { context: detailData.context } : undefined;
 
-  // Step 5: Merge tasks from detailData into session object
-  // Backend returns tasks at root level, frontend expects them on session object
-  const sessionWithTasks = {
-    ...session,
-    tasks: detailData.tasks || session.tasks || [],
-  };
+  // Build session object: prefer metadata from cache/list, merge tasks from detail
+  const sessionWithTasks = sessionMeta
+    ? { ...sessionMeta, tasks: (Array.isArray(detailData.tasks) ? detailData.tasks : sessionMeta.tasks || []) }
+    : {
+        session_id: sessionId,
+        title: sessionId,
+        status: 'in_progress' as const,
+        created_at: '',
+        location: 'active' as const,
+        tasks: Array.isArray(detailData.tasks) ? detailData.tasks : [],
+      };
 
   return {
     session: sessionWithTasks,
     context: transformedContext,
     summary: finalSummary,
-    summaries: detailData.summaries,
+    summaries: detailData.summaries as SessionDetailResponse['summaries'],
     implPlan: detailData.implPlan,
-    conflicts: detailData.conflictResolution,  // Backend returns 'conflictResolution', not 'conflicts'
+    conflicts: Array.isArray(detailData.conflictResolution) ? detailData.conflictResolution : undefined,
     review: detailData.review,
   };
 }
+
 
 // ========== History / CLI Execution API ==========
 

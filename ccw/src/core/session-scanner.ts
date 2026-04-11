@@ -12,11 +12,21 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
+/**
+ * Data completeness tier levels.
+ * 0 = full (workflow-session.json parsed with tasks/context)
+ * 1 = partial (workflow-session.json parsed but tasks array empty or missing key fields)
+ * 2 = stat-only (workflow-session.json missing but directory stat succeeded)
+ * 3 = name-only (only session name available, no directory stat)
+ */
+export type DataTier = 0 | 1 | 2 | 3;
+
 interface SessionData extends SessionMetadata {
   path: string;
   isActive: boolean;
   archived_at?: string | null;
   workflow_type?: string | null;
+  dataTier: DataTier;
 }
 
 interface ScanSessionsResult {
@@ -194,6 +204,14 @@ async function readSessionData(sessionPath: string): Promise<SessionData | null>
       if (type === 'test_session' as SessionType) type = 'test';
       if (type === 'implementation' as SessionType) type = 'workflow';
 
+      // Compute data tier based on JSON content completeness
+      // Tier 0: full data with session_id and key fields populated
+      // Tier 1: JSON parsed but tasks array empty or missing key fields
+      const hasSessionId = !!(data.session_id as string);
+      const hasStatus = !!(data.status as string);
+      const hasProject = !!((data.project as string) || (data.description as string));
+      const dataTier: DataTier = (hasSessionId && hasStatus && hasProject) ? 0 : 1;
+
       return {
         id: (data.session_id as string) || sessionName,
         type,
@@ -205,7 +223,8 @@ async function readSessionData(sessionPath: string): Promise<SessionData | null>
         path: sessionPath,
         isActive: true,
         archived_at: (data.archived_at as string) || null,
-        workflow_type: (data.workflow_type as string) || null  // Keep original for reference
+        workflow_type: (data.workflow_type as string) || null,  // Keep original for reference
+        dataTier
       };
     } catch {
       // Fall through to minimal session
@@ -231,7 +250,8 @@ async function readSessionData(sessionPath: string): Promise<SessionData | null>
       path: sessionPath,
       isActive: true,
       archived_at: null,
-      workflow_type: null
+      workflow_type: null,
+      dataTier: 2  // Tier 2: stat-only, no workflow-session.json
     };
   } catch {
     // Even if stat fails, return with name-extracted data
@@ -247,7 +267,8 @@ async function readSessionData(sessionPath: string): Promise<SessionData | null>
         path: sessionPath,
         isActive: true,
         archived_at: null,
-        workflow_type: null
+        workflow_type: null,
+        dataTier: 3  // Tier 3: name-only, no directory stat
       };
     }
     return null;

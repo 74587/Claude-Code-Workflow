@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Loader2,
   AlertCircle,
+  AlertTriangle,
   X,
   FileText,
   Code,
@@ -58,10 +59,17 @@ function SessionCard({ session, onClick, onStatusClick, isStatusFiltered }: Sess
     onStatusClick(session.status);
   };
 
+  const dataTier = session.dataTier ?? 0;
+  const isDegraded = dataTier >= 2;
+
   return (
     <Card
-      className="p-3 cursor-pointer transition-all hover:shadow-md hover:border-primary/50 h-full flex flex-col"
+      className={cn(
+        "p-3 cursor-pointer transition-all hover:shadow-md hover:border-primary/50 h-full flex flex-col",
+        isDegraded && "opacity-60"
+      )}
       onClick={onClick}
+      data-degraded={isDegraded ? "true" : undefined}
     >
       {/* Topic - smaller font */}
       <h3 className="text-sm font-medium text-foreground line-clamp-2 mb-2 leading-snug">
@@ -76,15 +84,18 @@ function SessionCard({ session, onClick, onStatusClick, isStatusFiltered }: Sess
       {/* Status and Date */}
       <div className="flex items-center justify-between text-xs mt-auto pt-2 border-t">
         <Badge
-          variant={session.status === 'completed' ? 'success' : 'warning'}
+          variant={session.status === 'completed' ? 'success' : session.status === 'error' ? 'destructive' : 'warning'}
           className={cn(
             "text-[10px] px-1.5 py-0 cursor-pointer transition-all",
-            isStatusFiltered && "ring-2 ring-primary ring-offset-1"
+            isStatusFiltered && "ring-2 ring-primary ring-offset-1",
+            isDegraded && "opacity-60"
           )}
           onClick={handleStatusClick}
         >
           {session.status === 'completed' ? (
             <><CheckCircle className="w-2.5 h-2.5 mr-0.5" />完成</>
+          ) : session.status === 'error' ? (
+            <><AlertTriangle className="w-2.5 h-2.5 mr-0.5" />异常</>
           ) : (
             <><Clock className="w-2.5 h-2.5 mr-0.5" />进行中</>
           )}
@@ -97,6 +108,14 @@ function SessionCard({ session, onClick, onStatusClick, isStatusFiltered }: Sess
         <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
           <FileText className="w-2.5 h-2.5" />
           <span>有结论</span>
+        </div>
+      )}
+
+      {/* Data degraded indicator */}
+      {isDegraded && (
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
+          <AlertTriangle className="w-2.5 h-2.5" />
+          <span>{dataTier >= 3 ? 'Minimal Info' : 'Limited Data'}</span>
         </div>
       )}
     </Card>
@@ -214,7 +233,7 @@ function DetailPanel({ sessionId, projectPath }: DetailPanelProps) {
 // ========== Main Component ==========
 
 type DateFilter = 'all' | 'today' | 'week' | 'month';
-type StatusFilter = 'all' | 'in_progress' | 'completed';
+type StatusFilter = 'all' | 'in_progress' | 'completed' | 'error';
 
 const DATE_FILTERS: { value: DateFilter; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -227,6 +246,7 @@ const STATUS_FILTERS: { value: StatusFilter; label: string; icon: React.ReactNod
   { value: 'all', label: '全部', icon: <FileSearch className="w-4 h-4" /> },
   { value: 'in_progress', label: '进行中', icon: <Clock className="w-4 h-4" /> },
   { value: 'completed', label: '已完成', icon: <CheckCircle className="w-4 h-4" /> },
+  { value: 'error', label: '异常', icon: <AlertTriangle className="w-4 h-4" /> },
 ];
 
 export function AnalysisPage() {

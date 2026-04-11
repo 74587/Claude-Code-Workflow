@@ -40,10 +40,33 @@ ccw install
 ```
 
 The `ccw install` command will:
-- Copy `.claude/`, `.codex/`, `.gemini/`, `.qwen/`, `.ccw/` directories to the appropriate locations
+- Install `claude.ccw.md` to global `~/.claude/` (framework instructions, always global)
+- Copy `.claude/`, `.codex/`, `.ccw/` directories to the appropriate locations
 - Create installation manifest for tracking
 - Preserve user settings (`settings.json`, `settings.local.json`)
+- Auto-create project `CLAUDE.md` with `@~/.claude/claude.ccw.md` reference (Path mode)
 - Optionally install Git Bash fix on Windows
+
+### Target Ecosystem Selection
+
+During interactive install, you can choose which workflow ecosystem to install:
+
+- **All** (default) — Install Claude + Codex + other workflows
+- **Claude** — Install `.claude/` + `.ccw/` only
+- **Codex** — Install `.codex/` only
+
+Or specify directly via flag:
+
+```bash
+# Install only Claude workflows
+ccw install --target claude
+
+# Install only Codex workflows
+ccw install --target codex
+
+# Install everything (default)
+ccw install --target all
+```
 
 ### Method 2: Manual Installation
 
@@ -51,10 +74,9 @@ If you prefer manual installation, copy the directories:
 
 ```bash
 # Copy to your home directory
+cp -r .claude/claude.ccw.md ~/.claude/claude.ccw.md
 cp -r .claude ~/.claude/
 cp -r .codex ~/.codex/
-cp -r .gemini ~/.gemini/
-cp -r .qwen ~/.qwen/
 cp -r .ccw ~/.ccw/
 ```
 
@@ -120,10 +142,12 @@ See [CLI Tools Guide](./cli-tools.md) for more configuration options.
 
 ### CLAUDE.md Instructions
 
-Create `CLAUDE.md` in your project root to define project-specific instructions:
+CCW framework instructions are stored in `~/.claude/claude.ccw.md` (installed globally). Your project's `CLAUDE.md` only needs an `@` reference to include CCW instructions:
 
 ```markdown
 # Project Instructions
+
+- **CCW Instructions**: @~/.claude/claude.ccw.md
 
 ## Coding Standards
 - Use TypeScript for type safety
@@ -134,11 +158,9 @@ Create `CLAUDE.md` in your project root to define project-specific instructions:
 - Frontend: Vue 3 + Vite
 - Backend: Node.js + Express
 - Database: PostgreSQL
-
-## CLI Endpoints
-- **CLI Tools Usage**: @~/.ccw/workflows/cli-tools-usage.md
-- **CLI Endpoints Config**: @~/.claude/cli-tools.json
 ```
+
+When using `ccw install` in Path mode, the project `CLAUDE.md` is auto-created with the `@` reference if it doesn't exist.
 
 ### Project Configuration
 
@@ -170,11 +192,18 @@ cd ~/.claude/ccw-source  # or wherever you cloned it
 # Pull latest changes
 git pull origin main
 
-# Copy updated files
-cp -r commands/* ~/.claude/commands/
-cp -r skills/* ~/.claude/skills/
-cp -r agents/* ~/.claude/agents/
+# Upgrade all installations
+ccw upgrade
+
+# Or upgrade specific target
+ccw upgrade  # Interactive selection
 ```
+
+The `ccw upgrade` command will:
+- Update all installed directories with latest source files
+- Update `~/.claude/claude.ccw.md` to the latest version
+- **Migration**: If an old `CLAUDE.md` (ccw version) is detected, it will prompt to migrate it to the new `claude.ccw.md` global format
+- Preserve user settings and disabled state
 
 ## Uninstallation
 
@@ -254,10 +283,6 @@ rm -rf ~/.claude/version.json
 rm -rf ~/.codex/prompts
 rm -rf ~/.codex/skills
 rm -rf ~/.codex/agents
-
-# Other CLI directories
-rm -rf ~/.gemini
-rm -rf ~/.qwen
 
 # CCW core directory
 rm -rf ~/.ccw

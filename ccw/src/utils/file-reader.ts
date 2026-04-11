@@ -5,6 +5,7 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFile as readFileAsync } from 'fs/promises';
 import { join, extname } from 'path';
 
 // Max content per file (truncate if larger)
@@ -53,6 +54,15 @@ export interface ReadResult {
   totalFiles: number;
   message: string;
 }
+
+/**
+ * 3-state discriminated union for file read results.
+ * Distinguishes between successful reads, missing files, and corrupt/unreadable files.
+ */
+export type FileReadResult<T> =
+  | { status: 'ok'; data: T }
+  | { status: 'missing'; path: string }
+  | { status: 'corrupt'; path: string; reason: string };
 
 /**
  * Check if file is likely binary
@@ -274,4 +284,55 @@ export function findMatches(content: string, pattern: string): string[] | null {
     console.error(`[read_file] contentPattern error: ${errorMsg}`);
     return [];
   }
+}
+
+/**
+ * Read and parse a JSON file with 3-state result.
+ * Returns 'missing' for ENOENT errors, 'corrupt' for JSON.parse errors.
+ */
+export async function readJsonFileEx<T = unknown>(filePath: string): Promise<FileReadResult<T>> {
+  let content: string;
+  try {
+    content = await readFileAsync(filePath, 'utf-8');
+  } catch (err) {
+    const nodeErr = err as NodeJS.ErrnoException;
+    if (nodeErr.code === 'ENOENT') {
+      return { status: 'missing', path: filePath };
+    }
+    return { status: 'corrupt', path: filePath, reason: (err as Error).message };
+  }
+  // Parse after successful read (separate try for corrupt detection)
+  try {
+    const data = JSON.parse(content) as T;
+    return { status: 'ok', data };
+  } catch (err) {
+    return { status: 'corrupt', path: filePath, reason: (err as Error).message };
+  }
+}
+
+/**
+ * Read a text file with 3-state result.
+ * Returns 'missing' for ENOENT errors, 'corrupt' for other read errors.
+ */
+export async function readTextFileEx(filePath: string): Promise<FileReadResult<string>> {
+  try {
+    const content = await readFileAsync(filePath, 'utf-8');
+    return { status: 'ok', data: content };
+  } catch (err) {
+    const nodeErr = err as NodeJS.ErrnoException;
+    if (nodeErr.code === 'ENOENT') {
+      return { status: 'missing', path: filePath };
+    }
+    return { status: 'corrupt', path: filePath, reason: (err as Error).message };
+  }
+}
+
+/**
+ * Extract data from ok state, returns null for missing/corrupt.
+ */
+export function toNullable<T>(result: FileReadResult<T>): T | null {
+  if (result.status === 'ok') {
+    return result.data;
+  }
+  return null;
 }

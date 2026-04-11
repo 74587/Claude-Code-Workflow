@@ -27,18 +27,22 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Source directories to install (includes .codex with prompts folder)
-const SOURCE_DIRS = ['.claude', '.codex', '.gemini', '.qwen', '.ccw'];
+const SOURCE_DIRS = ['.claude', '.codex', '.ccw'];
 
 // Subdirectories that should always be installed to global (~/.claude/)
 const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates', 'workflow-skills'];
 
+// Files that should always be installed to global (~/.claude/)
+const GLOBAL_FILES = ['claude.ccw.md'];
+
 // Files that should be excluded from cleanup (user-specific settings)
-const EXCLUDED_FILES = ['settings.json', 'settings.local.json'];
+const EXCLUDED_FILES = ['settings.json', 'settings.local.json', 'CLAUDE.md'];
 
 interface InstallOptions {
   mode?: string;
   path?: string;
   force?: boolean;
+  target?: string; // 'claude', 'codex', or 'all'
 }
 
 interface CopyResult {
@@ -254,7 +258,46 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   }
 
   // Validate source directories exist
-  const availableDirs = SOURCE_DIRS.filter(dir => existsSync(join(sourceDir, dir)));
+  let availableDirs = SOURCE_DIRS.filter(dir => existsSync(join(sourceDir, dir)));
+
+  // Interactive target ecosystem selection (if not specified via --target)
+  const ecosystemMap: Record<string, string[]> = {
+    claude: ['.claude', '.ccw'],
+    codex: ['.codex', '.ccw'],
+  };
+
+  let target: string;
+  if (options.target) {
+    target = options.target.toLowerCase();
+  } else {
+    // Check which ecosystems have source dirs available
+    const hasClaude = availableDirs.some(d => ecosystemMap.claude.includes(d));
+    const hasCodex = availableDirs.some(d => ecosystemMap.codex.includes(d));
+
+    if (hasClaude && hasCodex) {
+      target = await selectTarget();
+    } else if (hasClaude) {
+      target = 'claude';
+    } else if (hasCodex) {
+      target = 'codex';
+    } else {
+      target = 'all';
+    }
+  }
+
+  if (target !== 'all') {
+    const allowedDirs = ecosystemMap[target];
+    if (!allowedDirs) {
+      error(`Unknown target: ${target}. Use: claude, codex, or all`);
+      process.exit(1);
+    }
+    availableDirs = availableDirs.filter(dir => allowedDirs.includes(dir));
+  }
+
+  // Always include .ccw when installing claude target
+  if (target === 'claude' && !availableDirs.includes('.ccw') && existsSync(join(sourceDir, '.ccw'))) {
+    availableDirs.push('.ccw');
+  }
 
   if (availableDirs.length === 0) {
     error('No source directories found to install.');
@@ -396,6 +439,84 @@ export async function installCommand(options: InstallOptions): Promise<void> {
       const { files, directories } = await copyDirectory(srcPath, destPath, manifest, excludeDirs);
       totalFiles += files;
       totalDirs += directories;
+    }
+
+    // Install global files (claude.ccw.md) always to ~/.claude/
+    for (const file of GLOBAL_FILES) {
+      const srcFile = join(sourceDir, '.claude', file);
+      if (existsSync(srcFile)) {
+        const globalClaudeDir = join(homedir(), '.claude');
+        if (!existsSync(globalClaudeDir)) {
+          mkdirSync(globalClaudeDir, { recursive: true });
+        }
+        const destFile = join(globalClaudeDir, file);
+        spinner.text = `Installing ${file} to global...`;
+        copyFileSync(srcFile, destFile);
+        addFileEntry(manifest, destFile);
+        totalFiles++;
+      }
+    }
+
+    // Handle CLAUDE.md: similarity check + ensure @ reference
+    const srcClaudeCcwMd = join(sourceDir, '.claude', 'claude.ccw.md');
+    const claudeMdPath = join(installPath, '.claude', 'CLAUDE.md');
+    const minimalClaudeMd = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/claude.ccw.md\n';
+
+    if (existsSync(claudeMdPath) && existsSync(srcClaudeCcwMd)) {
+      // Existing CLAUDE.md — check similarity and @ reference
+      const existingContent = readFileSync(claudeMdPath, 'utf8');
+      const srcContent = readFileSync(srcClaudeCcwMd, 'utf8');
+
+      if (existingContent.includes('claude.ccw.md')) {
+        // Already has @ reference — all good
+      } else {
+        const similarity = calculateSimilarity(existingContent, srcContent);
+        if (similarity > 0.5) {
+          // Similar to ccw content — ask user
+          console.log('');
+          warning(`Existing CLAUDE.md is ${Math.round(similarity * 100)}% similar to ccw's claude.ccw.md`);
+          console.log(chalk.gray(`  File: ${claudeMdPath}`));
+
+          const { action } = await inquirer.prompt([{
+            type: 'list',
+            name: 'action',
+            message: 'How to handle the existing CLAUDE.md?',
+            choices: [
+              {
+                name: 'Replace with @ reference to claude.ccw.md (recommended)',
+                value: 'replace',
+                short: 'Replace'
+              },
+              {
+                name: 'Keep as-is (add @ reference manually later)',
+                value: 'keep',
+                short: 'Keep'
+              }
+            ]
+          }]);
+
+          if (action === 'replace') {
+            writeFileSync(claudeMdPath, minimalClaudeMd, 'utf8');
+            addFileEntry(manifest, claudeMdPath);
+            totalFiles++;
+            info('Replaced CLAUDE.md with @ reference');
+          }
+        } else {
+          // Different content — just warn
+          warning('Existing CLAUDE.md does not reference claude.ccw.md');
+          info('Add this line: - **CCW Instructions**: @~/.claude/claude.ccw.md');
+        }
+      }
+    } else if (!existsSync(claudeMdPath)) {
+      // No CLAUDE.md — auto-create with @ reference
+      const claudeDir = join(installPath, '.claude');
+      if (!existsSync(claudeDir)) {
+        mkdirSync(claudeDir, { recursive: true });
+      }
+      writeFileSync(claudeMdPath, minimalClaudeMd, 'utf8');
+      addFileEntry(manifest, claudeMdPath);
+      totalFiles++;
+      info('Created CLAUDE.md with @ reference to claude.ccw.md');
     }
 
     // Create version.json
@@ -580,6 +701,34 @@ async function selectMode(): Promise<string> {
   }]);
 
   return mode;
+}
+
+/**
+ * Interactive target ecosystem selection
+ * @returns {Promise<string>} - Selected target: 'all', 'claude', or 'codex'
+ */
+async function selectTarget(): Promise<string> {
+  const { target } = await inquirer.prompt([{
+    type: 'list',
+    name: 'target',
+    message: 'Select workflow ecosystem to install:',
+    choices: [
+      {
+        name: `${chalk.cyan('All')} - Install Claude + Codex + other workflows`,
+        value: 'all'
+      },
+      {
+        name: `${chalk.green('Claude')} - Install .claude/ + .ccw/ only`,
+        value: 'claude'
+      },
+      {
+        name: `${chalk.magenta('Codex')} - Install .codex/ + .ccw/`,
+        value: 'codex'
+      }
+    ]
+  }]);
+
+  return target;
 }
 
 /**
@@ -1321,4 +1470,27 @@ export async function installSkillHubCommand(options: SkillHubInstallOptions): P
   console.log(chalk.gray('  --skill-hub, --skill    Skill ID to install'));
   console.log(chalk.gray('  --cli                   Target CLI (claude or codex, default: claude)'));
   console.log(chalk.gray('  --list                  List available skills'));
+}
+
+/**
+ * Calculate similarity between two strings using line-based Jaccard comparison
+ * Returns a value between 0 (completely different) and 1 (identical)
+ */
+function calculateSimilarity(a: string, b: string): number {
+  const linesA = a.split('\n').filter(l => l.trim().length > 0);
+  const linesB = b.split('\n').filter(l => l.trim().length > 0);
+
+  if (linesA.length === 0 && linesB.length === 0) return 1;
+  if (linesA.length === 0 || linesB.length === 0) return 0;
+
+  const setA = new Set(linesA);
+  const setB = new Set(linesB);
+
+  let intersection = 0;
+  for (const line of setA) {
+    if (setB.has(line)) intersection++;
+  }
+
+  const union = setA.size + setB.size - intersection;
+  return union === 0 ? 1 : intersection / union;
 }

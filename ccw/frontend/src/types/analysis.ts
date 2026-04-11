@@ -11,8 +11,10 @@ export interface AnalysisSessionSummary {
   name: string;
   topic: string;
   createdAt: string;
-  status: 'in_progress' | 'completed';
+  status: 'in_progress' | 'completed' | 'error';
   hasConclusions: boolean;
+  /** Data completeness tier (0=full, 1=partial, 2=stat-only, 3=name-only) */
+  dataTier?: 0 | 1 | 2 | 3;
 }
 
 /**
@@ -77,7 +79,7 @@ export interface AnalysisSessionDetail {
   name: string;
   topic: string;
   createdAt: string;
-  status: 'in_progress' | 'completed';
+  status: 'in_progress' | 'completed' | 'error';
   discussion: string | null;
   conclusions: AnalysisConclusions | null;
   explorations: AnalysisExplorations | null;
