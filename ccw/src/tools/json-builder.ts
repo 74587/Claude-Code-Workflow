@@ -38,7 +38,7 @@ const ParamsSchema = z.object({
   cmd: z.enum(['create', 'set', 'get', 'merge', 'delete', 'validate']),
   target: z.string().optional(),
   output: z.string().optional(),
-  content: z.record(z.unknown()).optional(),
+  content: z.record(z.string(), z.unknown()).optional(),
   ops: z.array(OpSchema).optional(),
   fields: z.array(z.string()).optional(),
   paths: z.array(z.string()).optional(),
