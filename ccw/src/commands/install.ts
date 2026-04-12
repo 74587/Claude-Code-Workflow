@@ -371,11 +371,11 @@ export async function installCommand(options: InstallOptions): Promise<void> {
       utility: 'Utility',
     };
     const byCategory = listTemplatesByCategory();
-    const checklistChoices: Array<{ name: string; value: string; checked?: boolean }> = [];
+    const checklistChoices: Array<Record<string, unknown>> = [];
 
     for (const [category, templates] of Object.entries(byCategory)) {
       if (templates.length === 0) continue;
-      checklistChoices.push({ name: `── ${categoryNames[category] || category} ──`, value: `__sep_${category}`, checked: false });
+      checklistChoices.push(new inquirer.Separator(`── ${categoryNames[category] || category} (${templates.length}) ──`));
       for (const t of templates) {
         checklistChoices.push({
           name: `  ${chalk.yellow(t.id)}  —  ${t.description}  (${t.trigger}${t.matcher ? ` / ${t.matcher}` : ''})`,
@@ -392,7 +392,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
       choices: checklistChoices,
       pageSize: 20,
     }]);
-    selectedHookIds = selectedHooks.filter((id: string) => !id.startsWith('__sep_'));
+    selectedHookIds = selectedHooks as string[];
   }
 
   let hooksInstalled: string[] = [];
