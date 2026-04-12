@@ -187,7 +187,8 @@ export function getAllManifests(): ManifestWithMetadata[] {
     for (const file of files) {
       try {
         const filePath = join(MANIFEST_DIR, file);
-        const content = JSON.parse(readFileSync(filePath, 'utf8')) as Manifest;
+        const raw = readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
+        const content = JSON.parse(raw) as Manifest;
 
         // Try to read version.json for application version
         let appVersion = 'unknown';
