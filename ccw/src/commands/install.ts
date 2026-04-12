@@ -6,7 +6,7 @@ import { execSync } from 'child_process';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { showHeader, createSpinner, info, warning, error, summaryBox, divider } from '../utils/ui.js';
-import { createManifest, addFileEntry, addDirectoryEntry, saveManifest, findManifest, getAllManifests, type Manifest, type ManifestWithMetadata } from '../core/manifest.js';
+import { createManifest, addFileEntry, addDirectoryEntry, addHookEntry, saveManifest, findManifest, getAllManifests, type Manifest, type ManifestWithMetadata } from '../core/manifest.js';
 import { validatePath } from '../utils/path-resolver.js';
 import { loadClaudeCliTools, saveClaudeCliTools, loadClaudeCliSettings, saveClaudeCliSettings } from '../tools/claude-cli-tools.js';
 import type { Ora } from 'ora';
@@ -371,7 +371,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
       utility: 'Utility',
     };
     const byCategory = listTemplatesByCategory();
-    const checklistChoices: Array<Record<string, unknown>> = [];
+    const checklistChoices: Array<Record<string, unknown> | inquirer.Separator> = [];
 
     for (const [category, templates] of Object.entries(byCategory)) {
       if (templates.length === 0) continue;
@@ -398,7 +398,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   let hooksInstalled: string[] = [];
   if (selectedHookIds.length > 0) {
     const hookSpinner = createSpinner(`Installing ${selectedHookIds.length} Claude Code hooks...`).start();
-    hooksInstalled = installSelectedHooks(selectedHookIds, mode === 'Global' ? homedir() : installPath);
+    hooksInstalled = await installSelectedHooks(selectedHookIds, mode === 'Global' ? homedir() : installPath);
     hookSpinner.succeed(`Installed ${hooksInstalled.length} hooks: ${hooksInstalled.join(', ')}`);
   }
 
@@ -463,6 +463,18 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
   // Create manifest
   const manifest = createManifest(mode, installPath);
+
+  // Register installed hooks into manifest for proper uninstall tracking
+  if (hooksInstalled.length > 0) {
+    const hookScope = mode === 'Global' ? 'global' : 'project';
+    const { getTemplate } = await import('../core/hooks/hook-templates.js');
+    for (const hookId of hooksInstalled) {
+      const tmpl = getTemplate(hookId);
+      if (tmpl) {
+        addHookEntry(manifest, hookId, tmpl.trigger, hookScope);
+      }
+    }
+  }
 
   // Perform installation
   console.log('');
@@ -1550,10 +1562,8 @@ export async function installSkillHubCommand(options: SkillHubInstallOptions): P
  * @param settingsDir - Directory containing settings.json (e.g. ~/.claude/ or project/.claude/)
  * @returns List of installed hook IDs
  */
-function installSelectedHooks(templateIds: string[], settingsDir: string): string[] {
-  // Dynamic import to avoid top-level dependency on hook-templates
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { installTemplateToSettings } = require('../core/hooks/hook-templates.js') as typeof import('../core/hooks/hook-templates.js');
+async function installSelectedHooks(templateIds: string[], settingsDir: string): Promise<string[]> {
+  const { installTemplateToSettings } = await import('../core/hooks/hook-templates.js');
 
   const installed: string[] = [];
   const scope = settingsDir === homedir() ? 'global' : 'project';

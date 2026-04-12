@@ -227,6 +227,20 @@ export async function uninstallCommand(options: UninstallOptions): Promise<void>
     return;
   }
 
+  // Remove CCW hooks from settings.json (based on manifest records)
+  let hookCleanupResult = { removed: 0, ids: [] as string[] };
+  const manifestHooks = (selectedManifest as any).hooks || [];
+  if (manifestHooks.length > 0) {
+    try {
+      const { uninstallTemplateHooks } = await import('../core/hooks/hook-templates.js');
+      const hookIds = manifestHooks.map((h: any) => h.id);
+      const scope = selectedManifest.installation_mode === 'Global' ? 'global' : 'project';
+      hookCleanupResult = uninstallTemplateHooks(hookIds, scope);
+    } catch {
+      // Ignore if hook-templates is not available
+    }
+  }
+
   // Delete manifest
   deleteManifest(selectedManifest.manifest_file);
 
@@ -251,6 +265,10 @@ export async function uninstallCommand(options: UninstallOptions): Promise<void>
 
   if (orphanStats.removed > 0) {
     summaryLines.push(chalk.white(`Orphan files cleaned: ${chalk.magenta(orphanStats.removed.toString())}`));
+  }
+
+  if (hookCleanupResult.removed > 0) {
+    summaryLines.push(chalk.white(`Hooks removed: ${chalk.cyan(hookCleanupResult.removed.toString())} (${hookCleanupResult.ids.join(', ')})`));
   }
 
   if (failedFiles.length > 0) {

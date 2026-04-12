@@ -37,6 +37,8 @@ const SYSTEM_SETTINGS = join(CLAUDE_DIR, 'settings.json');
 interface WorkflowProfile {
   claudeMd: string;
   cliTools: string | null;
+  npmPackage?: string;
+  installCheck?: string;
 }
 
 interface SettingsProfile {
@@ -68,17 +70,214 @@ function save(config: LauncherConfig): void {
 }
 
 // ---------------------------------------------------------------------------
+// Display helpers
+// ---------------------------------------------------------------------------
+
+function workflowLabel(wf: WorkflowProfile): string {
+  const parent = dirname(wf.claudeMd);
+  const parentName = basename(parent);
+  if (parentName === '.claude') return basename(dirname(parent));
+  return parentName;
+}
+
+// ---------------------------------------------------------------------------
+// Install check helpers
+// ---------------------------------------------------------------------------
+
+function resolveCheckPath(p: string): string {
+  return p.replace(/^~[/\\]/, homedir() + '/');
+}
+
+function isBinaryAvailable(bin: string): boolean {
+  const cmd = process.platform === 'win32' ? 'where' : 'which';
+  const result = spawnSync(cmd, [bin], { stdio: 'pipe', shell: true });
+  return result.status === 0;
+}
+
+interface NpmPackageInfo {
+  name: string;
+  version: string | null;
+  installed: boolean;
+}
+
+function checkNpmPackage(packageName: string): NpmPackageInfo {
+  try {
+    const output = spawnSync('npm', ['list', '-g', '--depth=0', '--json'], {
+      shell: true,
+      encoding: 'utf-8',
+      timeout: 10000,
+    });
+    if (output.stdout) {
+      const data = JSON.parse(output.stdout);
+      const deps = data.dependencies || {};
+      for (const [key, info] of Object.entries(deps) as [string, any][]) {
+        if (key === packageName || info.name === packageName) {
+          return { name: packageName, version: info.version || null, installed: true };
+        }
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return { name: packageName, version: null, installed: false };
+}
+
+/**
+ * Ensure workflow dependencies are installed. If not, prompt and auto-install.
+ */
+async function ensureWorkflowReady(name: string, wf: WorkflowProfile): Promise<boolean> {
+  if (!wf.installCheck && !wf.npmPackage) return true;
+
+  // Check if resources are already present
+  if (wf.installCheck) {
+    const checkPath = resolveCheckPath(wf.installCheck);
+    if (existsSync(checkPath)) return true;
+  } else {
+    return true;
+  }
+
+  // Resources missing — prompt to install
+  console.error('');
+  console.error(`  Workflow "${name}" resources not found.`);
+  if (wf.installCheck) {
+    console.error(`  Missing: ${wf.installCheck}`);
+  }
+  console.error('');
+
+  const { proceed } = await inquirer.prompt([{
+    type: 'confirm',
+    name: 'proceed',
+    message: `Install "${name}" dependencies?`,
+    default: true,
+  }]);
+  if (!proceed) return false;
+
+  if (wf.npmPackage) {
+    const bin = name;
+    if (!isBinaryAvailable(bin)) {
+      console.error(`  Installing npm package: ${wf.npmPackage}...`);
+      const npmResult = spawnSync('npm', ['install', '-g', wf.npmPackage], {
+        stdio: 'inherit',
+        shell: true,
+      });
+      if (npmResult.status !== 0) {
+        console.error(`  Failed to install ${wf.npmPackage}`);
+        return false;
+      }
+      console.error(`  npm package installed.`);
+    }
+
+    console.error(`  Running ${bin} install...`);
+    const installResult = spawnSync(bin, ['install', '--force', '--global'], {
+      stdio: 'inherit',
+      shell: true,
+    });
+    if (installResult.status !== 0) {
+      console.error(`  Failed to run ${bin} install`);
+      return false;
+    }
+  }
+
+  // Verify after install
+  if (wf.installCheck) {
+    const checkPath = resolveCheckPath(wf.installCheck);
+    if (!existsSync(checkPath)) {
+      console.error(`  Warning: ${wf.installCheck} still not found after install.`);
+      return false;
+    }
+  }
+
+  console.error('  Installation complete.');
+  console.error('');
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Status dashboard
+// ---------------------------------------------------------------------------
+
+function printStatusDashboard(config: LauncherConfig, currentWf: string | null): void {
+  const wfEntries = Object.entries(config.workflows);
+
+  // Collect unique npm packages
+  const packageNames = new Set<string>();
+  for (const [, wf] of wfEntries) {
+    if (wf.npmPackage) packageNames.add(wf.npmPackage);
+  }
+
+  // Check npm packages
+  const pkgResults: NpmPackageInfo[] = [];
+  packageNames.forEach((pkg) => {
+    pkgResults.push(checkNpmPackage(pkg));
+  });
+
+  // Build lines
+  const lines: string[] = [];
+
+  // NPM packages section
+  if (pkgResults.length > 0) {
+    lines.push('  NPM Packages:');
+    for (const pkg of pkgResults) {
+      const icon = pkg.installed ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m';
+      const ver = pkg.version ? `\x1b[90mv${pkg.version}\x1b[0m` : '\x1b[31mnot installed\x1b[0m';
+      lines.push(`    ${icon} ${pkg.name.padEnd(20)} ${ver}`);
+    }
+    lines.push('');
+  }
+
+  // Workflows section
+  lines.push('  Workflows:');
+  for (const [name, wf] of wfEntries) {
+    const isActive = currentWf === name;
+    const isDefault = config.defaults.workflow === name;
+    const hasMd = existsSync(wf.claudeMd);
+    const hasInstall = wf.installCheck ? existsSync(resolveCheckPath(wf.installCheck)) : null;
+
+    // Icon: green if resources installed (or no check needed), red if missing
+    const ready = hasInstall !== false && hasMd;
+    const icon = ready ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m';
+
+    const tags: string[] = [];
+    if (isActive) tags.push('\x1b[36mactive\x1b[0m');
+    if (isDefault) tags.push('\x1b[33m★ default\x1b[0m');
+    if (hasInstall === true) tags.push('\x1b[32minstalled\x1b[0m');
+    else if (hasInstall === false) tags.push('\x1b[31mnot installed\x1b[0m');
+    if (!hasMd) tags.push('\x1b[31mCLAUDE.md missing\x1b[0m');
+
+    const tagStr = tags.length > 0 ? `  [${tags.join(', ')}]` : '';
+    lines.push(`    ${icon} ${name.padEnd(16)}${tagStr}`);
+  }
+
+  // Print box
+  console.error('');
+  console.error('\x1b[36m╭─ Launcher Status ─────────────────────────────────────╮\x1b[0m');
+  for (const line of lines) {
+    console.error(`\x1b[36m│\x1b[0m${line}`);
+  }
+  console.error('\x1b[36m╰───────────────────────────────────────────────────────╯\x1b[0m');
+  console.error('');
+}
+
+// ---------------------------------------------------------------------------
 // Workflow operations
 // ---------------------------------------------------------------------------
 
-function addWorkflow(name: string, claudeMdPath: string, cliToolsPath?: string): WorkflowProfile {
+interface AddWorkflowOpts {
+  npmPackage?: string;
+  installCheck?: string;
+}
+
+function addWorkflow(name: string, claudeMdPath: string, cliToolsPath?: string, opts: AddWorkflowOpts = {}): WorkflowProfile {
   const md = resolve(claudeMdPath);
   if (!existsSync(md)) throw new Error(`CLAUDE.md not found: ${md}`);
   const tools = cliToolsPath ? resolve(cliToolsPath) : null;
   if (tools && !existsSync(tools)) throw new Error(`cli-tools.json not found: ${tools}`);
 
   const config = load();
-  config.workflows[name] = { claudeMd: md, cliTools: tools };
+  const profile: WorkflowProfile = { claudeMd: md, cliTools: tools };
+  if (opts.npmPackage) profile.npmPackage = opts.npmPackage;
+  if (opts.installCheck) profile.installCheck = opts.installCheck;
+  config.workflows[name] = profile;
   if (Object.keys(config.workflows).length === 1) {
     config.defaults.workflow = name;
   }
@@ -179,18 +378,35 @@ async function interactiveLaunch(extraArgs: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const wfChoices = wfEntries.map(([name, wf]) => ({
-    name: `${name}${currentWf === name ? ' (active)' : ''}${config.defaults.workflow === name ? ' ★' : ''}  →  ${basename(dirname(wf.claudeMd))}`,
-    value: name,
-  }));
+  // Show status dashboard
+  printStatusDashboard(config, currentWf);
+
+  const wfChoices = wfEntries.map(([name, wf]) => {
+    const tags: string[] = [];
+    if (currentWf === name) tags.push('active');
+    if (config.defaults.workflow === name) tags.push('★');
+    if (wf.npmPackage) tags.push(wf.npmPackage);
+    const suffix = tags.length > 0 ? `  (${tags.join(', ')})` : '';
+    return { name: `${name}${suffix}`, value: name };
+  });
 
   const { chosenWf } = await inquirer.prompt([{
     type: 'list',
     name: 'chosenWf',
-    message: 'Workflow:',
+    message: 'Global Workflow (→ ~/.claude/):',
     choices: wfChoices,
     default: config.defaults.workflow || (currentWf ?? undefined),
   }]);
+
+  // Ensure workflow dependencies are installed
+  const wf = config.workflows[chosenWf];
+  if (wf && (wf.npmPackage || wf.installCheck)) {
+    const ready = await ensureWorkflowReady(chosenWf, wf);
+    if (!ready) {
+      console.error('Launch cancelled.');
+      process.exit(0);
+    }
+  }
 
   const settingsEntries = Object.entries(config.settings);
   const hasSystem = existsSync(SYSTEM_SETTINGS);
@@ -261,12 +477,17 @@ export function launcherCommand(subcommand: string | undefined, args: string[], 
   const handlers: Record<string, () => void | Promise<void>> = {
     'add-workflow': () => {
       const name = args[0];
-      if (!name) { console.error('Usage: ccw launcher add-workflow <name> --claude-md <path> [--cli-tools <path>]'); process.exit(1); }
+      if (!name) { console.error('Usage: ccw launcher add-workflow <name> --claude-md <path> [--cli-tools <path>] [--npm-package <pkg>] [--install-check <path>]'); process.exit(1); }
       try {
-        const wf = addWorkflow(name, options.claudeMd, options.cliTools);
+        const wf = addWorkflow(name, options.claudeMd, options.cliTools, {
+          npmPackage: options.npmPackage,
+          installCheck: options.installCheck,
+        });
         console.log(`Added workflow "${name}"`);
-        console.log(`  CLAUDE.md:  ${wf.claudeMd}`);
-        if (wf.cliTools) console.log(`  cli-tools:  ${wf.cliTools}`);
+        console.log(`  CLAUDE.md:       ${wf.claudeMd}`);
+        if (wf.cliTools) console.log(`  cli-tools:       ${wf.cliTools}`);
+        if (wf.npmPackage) console.log(`  npm-package:     ${wf.npmPackage}`);
+        if (wf.installCheck) console.log(`  install-check:   ${wf.installCheck}`);
       } catch (err: any) {
         console.error(`Error: ${err.message}`);
         process.exit(1);
@@ -334,6 +555,33 @@ export function launcherCommand(subcommand: string | undefined, args: string[], 
         process.exit(1);
       }
     },
+    'set': () => {
+      const [name, key, value] = args;
+      if (!name || !key || !value) {
+        console.error('Usage: ccw launcher set <name> <key> <value>');
+        console.error('  Keys: npm-package, install-check');
+        process.exit(1);
+      }
+      const validKeys: Record<string, keyof WorkflowProfile> = {
+        'npm-package': 'npmPackage',
+        'install-check': 'installCheck',
+      };
+      const field = validKeys[key];
+      if (!field) {
+        console.error(`Unknown key: ${key}. Valid keys: ${Object.keys(validKeys).join(', ')}`);
+        process.exit(1);
+      }
+      try {
+        const config = load();
+        if (!config.workflows[name]) throw new Error(`Workflow not found: ${name}`);
+        (config.workflows[name] as any)[field] = value;
+        save(config);
+        console.log(`Workflow "${name}": ${key} = "${value}"`);
+      } catch (err: any) {
+        console.error(`Error: ${err.message}`);
+        process.exit(1);
+      }
+    },
     'default': () => {
       const [type, name] = args;
       if (!type || !name || (type !== 'workflow' && type !== 'settings')) {
@@ -365,9 +613,15 @@ export function launcherCommand(subcommand: string | undefined, args: string[], 
         for (const [name, wf] of wfEntries) {
           const active = currentWf === name ? ' [active]' : '';
           const def = config.defaults.workflow === name ? ' ★' : '';
-          console.log(`  ${name}${def}${active}`);
+          console.log(`  ${name}${def}${active}  →  ${workflowLabel(wf)}`);
           console.log(`    CLAUDE.md:  ${wf.claudeMd}`);
           if (wf.cliTools) console.log(`    cli-tools:  ${wf.cliTools}`);
+          if (wf.npmPackage) console.log(`    npm:        ${wf.npmPackage}`);
+          if (wf.installCheck) {
+            const checkPath = resolveCheckPath(wf.installCheck);
+            const installed = existsSync(checkPath);
+            console.log(`    resources:  ${installed ? 'installed' : 'not installed'} (${wf.installCheck})`);
+          }
         }
       }
 
@@ -396,15 +650,9 @@ export function launcherCommand(subcommand: string | undefined, args: string[], 
       }
     },
     'status': () => {
+      const config = load();
       const currentWf = detectCurrentWorkflow();
-      console.log('');
-      console.log(`Active workflow: ${currentWf ?? '(unknown/unregistered)'}`);
-      if (existsSync(CLAUDE_MD)) {
-        const firstLine = readFileSync(CLAUDE_MD, 'utf-8').split('\n')[0];
-        console.log(`  CLAUDE.md:    ${firstLine}`);
-      }
-      console.log(`  cli-tools:    ${existsSync(CLI_TOOLS) ? 'present' : 'absent'}`);
-      console.log('');
+      printStatusDashboard(config, currentWf);
     },
   };
 
@@ -416,7 +664,20 @@ export function launcherCommand(subcommand: string | undefined, args: string[], 
       const settingsPath = options.settings
         ? (options.settings === 'system' ? undefined : config.settings[options.settings]?.path)
         : undefined;
-      launchClaude(workflow, settingsPath, []);
+
+      // Ensure deps before direct launch
+      const wf = config.workflows[workflow];
+      if (wf && (wf.npmPackage || wf.installCheck)) {
+        ensureWorkflowReady(workflow, wf).then((ready) => {
+          if (!ready) { console.error('Launch cancelled.'); process.exit(0); }
+          launchClaude(workflow, settingsPath, []);
+        }).catch((err) => {
+          console.error(`Error: ${err.message}`);
+          process.exit(1);
+        });
+      } else {
+        launchClaude(workflow, settingsPath, []);
+      }
     } else {
       interactiveLaunch([]).catch((err) => {
         console.error(`Error: ${err.message}`);
@@ -429,7 +690,7 @@ export function launcherCommand(subcommand: string | undefined, args: string[], 
   const handler = handlers[subcommand];
   if (!handler) {
     console.error(`Unknown subcommand: ${subcommand}`);
-    console.error('Available: add-workflow, remove-workflow, add-settings, remove-settings, scan, default, list, migrate, status');
+    console.error('Available: add-workflow, remove-workflow, add-settings, remove-settings, scan, set, default, list, migrate, status');
     process.exit(1);
   }
 

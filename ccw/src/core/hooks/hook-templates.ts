@@ -1062,3 +1062,64 @@ export function installTemplateToSettings(
     return { success: false, message: `Failed to write settings: ${(e as Error).message}` };
   }
 }
+
+/**
+ * Remove specific CCW template hooks from settings.json
+ *
+ * Removes hook entries whose _templateId is in the provided list.
+ *
+ * @param hookIds - List of hook template IDs to remove
+ * @param scope - 'global' or 'project'
+ * @returns Object with removed count and list of removed IDs
+ */
+export function uninstallTemplateHooks(
+  hookIds: string[],
+  scope: 'project' | 'global' = 'global'
+): { removed: number; ids: string[] } {
+  const idSet = new Set(hookIds);
+  const settingsPath = scope === 'global'
+    ? join(homedir(), '.claude', 'settings.json')
+    : join(process.cwd(), '.claude', 'settings.json');
+
+  if (!existsSync(settingsPath)) return { removed: 0, ids: [] };
+
+  let settings: Record<string, unknown>;
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+  } catch {
+    return { removed: 0, ids: [] };
+  }
+
+  if (!settings.hooks) return { removed: 0, ids: [] };
+
+  const hooks = settings.hooks as Record<string, Array<Record<string, unknown>>>;
+  const removedIds: string[] = [];
+
+  for (const [trigger, entries] of Object.entries(hooks)) {
+    const filtered = entries.filter(entry => {
+      if (entry._templateId && idSet.has(entry._templateId as string)) {
+        removedIds.push(entry._templateId as string);
+        return false;
+      }
+      return true;
+    });
+    if (filtered.length === 0) {
+      delete hooks[trigger];
+    } else {
+      hooks[trigger] = filtered;
+    }
+  }
+
+  // Remove hooks key entirely if empty
+  if (Object.keys(hooks).length === 0) {
+    delete settings.hooks;
+  }
+
+  try {
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  } catch {
+    // Ignore write errors
+  }
+
+  return { removed: removedIds.length, ids: removedIds };
+}

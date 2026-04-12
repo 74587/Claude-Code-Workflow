@@ -17,6 +17,13 @@ export interface ManifestDirectoryEntry {
   timestamp: string;
 }
 
+export interface ManifestHookEntry {
+  id: string;
+  trigger: string;
+  scope: 'global' | 'project';
+  timestamp: string;
+}
+
 export interface Manifest {
   manifest_id: string;
   version: string;
@@ -26,6 +33,7 @@ export interface Manifest {
   installer_version: string;
   files: ManifestFileEntry[];
   directories: ManifestDirectoryEntry[];
+  hooks: ManifestHookEntry[];
 }
 
 export interface ManifestWithMetadata extends Manifest {
@@ -65,7 +73,8 @@ export function createManifest(mode: string, installPath: string): Manifest {
     installation_date: new Date().toISOString(),
     installer_version: '1.0.0',
     files: [],
-    directories: []
+    directories: [],
+    hooks: []
   };
 }
 
@@ -91,6 +100,24 @@ export function addDirectoryEntry(manifest: Manifest, dirPath: string): void {
   manifest.directories.push({
     path: dirPath,
     type: 'Directory',
+    timestamp: new Date().toISOString()
+  });
+}
+
+/**
+ * Add hook entry to manifest
+ * @param manifest - Manifest object
+ * @param hookId - Hook template ID
+ * @param trigger - Hook trigger event
+ * @param scope - Hook scope (global or project)
+ */
+export function addHookEntry(manifest: Manifest, hookId: string, trigger: string, scope: 'global' | 'project'): void {
+  // Avoid duplicates
+  if (manifest.hooks.some(h => h.id === hookId)) return;
+  manifest.hooks.push({
+    id: hookId,
+    trigger,
+    scope,
     timestamp: new Date().toISOString()
   });
 }
