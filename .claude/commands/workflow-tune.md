@@ -32,6 +32,7 @@ Input → Parse → GenTestTask → Confirm → Setup
 4. **Sandbox Isolation**. 全部执行在 `sandbox/` 目录（独立 git 仓库），不影响真实项目。
 5. **State Machine**. 通过 `current_step` + `current_phase` 推进，禁止同步循环。
 6. **ABSOLUTE PATHS for --cd**. `ccw cli --cd` 必须使用绝对路径。相对路径会被 ccw cli 再次拼接 CWD 导致路径重复。`workDir`/`sandboxDir` 在创建时就解析为绝对路径。
+7. **FIXED --rule VALUES**. `--rule` 值已硬编码在各 Phase 代码中，禁止替换为其他模板。Execute=`workflow-tune-execute`，Analyze=`analysis-review-code-quality`，Synthesize=`analysis-review-architecture`。
 
 ## Input Formats
 

@@ -340,31 +340,65 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
   divider();
 
-  // Hooks installation selection (two-level: none / full)
-  const { installHooks } = await inquirer.prompt([{
+  // Hooks installation selection
+  const RECOMMENDED_HOOKS = ['ccw-coordinator-tracker', 'ccw-coordinator-skill-context'];
+
+  const { hookMode } = await inquirer.prompt([{
     type: 'list',
-    name: 'installHooks',
+    name: 'hookMode',
     message: 'Install Claude Code hooks?',
     choices: [
-      {
-        name: [
-          `${chalk.cyan('Full')} — install CCW hooks to settings.json (recommended)`,
-          chalk.gray('  ccw-coordinator-tracker   Stop  — check /ccw chain progress on response end, write bridge'),
-          chalk.gray('  ccw-coordinator-skill-context  UserPromptSubmit  — show active coordinator progress on /ccw input'),
-        ].join('\n'),
-        value: 'full'
-      },
-      {
-        name: `${chalk.gray('None')} — skip hooks installation`,
-        value: 'none'
-      }
+      { name: `${chalk.cyan('Recommended')} — CCW coordinator hooks (2 hooks)`, value: 'recommended' },
+      { name: `${chalk.cyan('All')} — install all available hooks (22 hooks)`, value: 'all' },
+      { name: `${chalk.yellow('Custom')} — select individual hooks`, value: 'custom' },
+      { name: `${chalk.gray('None')} — skip hooks installation`, value: 'none' },
     ]
   }]);
 
+  let selectedHookIds: string[] = [];
+  if (hookMode === 'recommended') {
+    selectedHookIds = [...RECOMMENDED_HOOKS];
+  } else if (hookMode === 'all') {
+    const { getAllTemplates } = await import('../core/hooks/hook-templates.js');
+    selectedHookIds = getAllTemplates().map(t => t.id);
+  } else if (hookMode === 'custom') {
+    const { listTemplatesByCategory } = await import('../core/hooks/hook-templates.js');
+    const categoryNames: Record<string, string> = {
+      notification: 'Notification',
+      automation: 'Automation',
+      protection: 'Protection',
+      indexing: 'Indexing',
+      utility: 'Utility',
+    };
+    const byCategory = listTemplatesByCategory();
+    const checklistChoices: Array<{ name: string; value: string; checked?: boolean }> = [];
+
+    for (const [category, templates] of Object.entries(byCategory)) {
+      if (templates.length === 0) continue;
+      checklistChoices.push({ name: `── ${categoryNames[category] || category} ──`, value: `__sep_${category}`, checked: false });
+      for (const t of templates) {
+        checklistChoices.push({
+          name: `  ${chalk.yellow(t.id)}  —  ${t.description}  (${t.trigger}${t.matcher ? ` / ${t.matcher}` : ''})`,
+          value: t.id,
+          checked: RECOMMENDED_HOOKS.includes(t.id),
+        });
+      }
+    }
+
+    const { selectedHooks } = await inquirer.prompt([{
+      type: 'checkbox',
+      name: 'selectedHooks',
+      message: 'Select hooks to install:',
+      choices: checklistChoices,
+      pageSize: 20,
+    }]);
+    selectedHookIds = selectedHooks.filter((id: string) => !id.startsWith('__sep_'));
+  }
+
   let hooksInstalled: string[] = [];
-  if (installHooks === 'full') {
-    const hookSpinner = createSpinner('Installing Claude Code hooks...').start();
-    hooksInstalled = installCcwHooks(mode === 'Global' ? homedir() : installPath);
+  if (selectedHookIds.length > 0) {
+    const hookSpinner = createSpinner(`Installing ${selectedHookIds.length} Claude Code hooks...`).start();
+    hooksInstalled = installSelectedHooks(selectedHookIds, mode === 'Global' ? homedir() : installPath);
     hookSpinner.succeed(`Installed ${hooksInstalled.length} hooks: ${hooksInstalled.join(', ')}`);
   }
 
@@ -1508,28 +1542,23 @@ export async function installSkillHubCommand(options: SkillHubInstallOptions): P
 }
 
 /**
- * Install CCW hooks to settings.json
+ * Install selected hooks to settings.json
  *
- * Installs a curated set of hooks for CCW coordinator tracking and monitoring.
- * Reuses the template system from hook-templates.ts.
+ * Installs the specified hook templates to settings.json using the template system.
  *
+ * @param templateIds - List of hook template IDs to install
  * @param settingsDir - Directory containing settings.json (e.g. ~/.claude/ or project/.claude/)
  * @returns List of installed hook IDs
  */
-function installCcwHooks(settingsDir: string): string[] {
+function installSelectedHooks(templateIds: string[], settingsDir: string): string[] {
   // Dynamic import to avoid top-level dependency on hook-templates
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { installTemplateToSettings } = require('../core/hooks/hook-templates.js') as typeof import('../core/hooks/hook-templates.js');
 
-  const templates = [
-    'ccw-coordinator-tracker',       // PostToolUse — track /ccw and /ccw-coordinator progress
-    'ccw-coordinator-skill-context', // UserPromptSubmit — inject progress hints when invoking /ccw
-  ];
-
   const installed: string[] = [];
   const scope = settingsDir === homedir() ? 'global' : 'project';
 
-  for (const templateId of templates) {
+  for (const templateId of templateIds) {
     try {
       const result = installTemplateToSettings(templateId, scope);
       if (result.success && !result.message.includes('already')) {
