@@ -164,7 +164,7 @@ Output as structured exploration vectors for multi-perspective analysis.
 })
 ```
 
-5. **Initialize brainstorm.md** with session metadata, initial context (user focus, depth, constraints), seed expansion (original idea + exploration vectors), empty thought evolution timeline sections
+5. **Initialize brainstorm.md** with session metadata, initial context (user focus, depth, constraints), seed expansion (original idea + exploration vectors), empty thought evolution timeline sections, and a trailing `## Artifact Index` section with relative links (`[name](./file)`) to all planned artifacts (exploration-codebase.json, perspectives.json, synthesis.json, ideas/). Update this section as each artifact is created.
 
 **TodoWrite**: Update `phase-1` → `"completed"`, `phase-2` → `"in_progress"`
 
@@ -432,7 +432,7 @@ CONSTRAINTS: Don't force incompatible ideas together
 
 **synthesis.json Schema**: `session_id`, `topic`, `completed` (timestamp), `total_rounds`, `top_ideas[]`, `parked_ideas[]`, `key_insights[]`, `recommendations` (primary/alternatives/not_recommended), `follow_up[]`
 
-2. **Final brainstorm.md Update**: Executive summary, top ideas ranked, primary recommendation with rationale, alternative approaches, parked ideas, key insights, session statistics (rounds, ideas generated/survived, duration)
+2. **Final brainstorm.md Update**: Executive summary, top ideas ranked, primary recommendation with rationale, alternative approaches, parked ideas, key insights, session statistics (rounds, ideas generated/survived, duration), and finalize the `## Artifact Index` with relative links to all produced files (exploration-codebase.json, perspectives.json, synthesis.json, each ideas/*.md)
 
 3. **MANDATORY GATE: Next Step Selection** — workflow MUST NOT end without executing this step.
 

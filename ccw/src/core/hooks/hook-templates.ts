@@ -763,6 +763,93 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
       return { exitCode: 0 };
     }
   },
+
+  // ============ CCW Coordinator Templates ============
+  {
+    id: 'ccw-coordinator-tracker',
+    name: 'CCW Coordinator Tracker',
+    description: 'Track /ccw and /ccw-coordinator execution progress, inject next-step hints when paused',
+    category: 'automation',
+    trigger: 'PostToolUse',
+    execute: (data) => {
+      const sessionId = getStringInput(data.session_id);
+      if (!sessionId) return { exitCode: 0 };
+
+      const workspace = data.cwd || process.env.CLAUDE_PROJECT_DIR || process.cwd();
+
+      // Dynamic import to avoid circular dependencies
+      try {
+        const { readLatestCcwSession, readCoordBridge, writeCoordBridge, buildNextStepHint } =
+          require('../hooks/ccw-coordinator-tracker.js');
+
+        const existing = readCoordBridge(sessionId);
+        const bridgeData = readLatestCcwSession(workspace, existing);
+        if (!bridgeData) return { exitCode: 0 };
+
+        bridgeData.session_id = sessionId;
+        writeCoordBridge(sessionId, bridgeData);
+
+        // Inject next-step hint for active sessions
+        const hint = buildNextStepHint(bridgeData);
+        if (hint) {
+          return {
+            exitCode: 0,
+            jsonOutput: {
+              hookSpecificOutput: {
+                hookEventName: 'PostToolUse',
+                additionalContext: hint,
+              },
+            },
+          };
+        }
+      } catch {
+        // Silent fail — tracker must not break tool execution
+      }
+      return { exitCode: 0 };
+    }
+  },
+  {
+    id: 'ccw-coordinator-skill-context',
+    name: 'CCW Coordinator Skill Context',
+    description: 'When /ccw or /ccw-coordinator is invoked, inject active coordinator progress from bridge',
+    category: 'automation',
+    trigger: 'UserPromptSubmit',
+    execute: (data) => {
+      const prompt = getStringInput(data.user_prompt) || getStringInput(data.prompt);
+      if (!prompt) return { exitCode: 0 };
+
+      // Only match /ccw and /ccw-coordinator invocations
+      const ccwMatch = /\/ccw(?:-coordinator)?\b/.test(prompt);
+      if (!ccwMatch) return { exitCode: 0 };
+
+      const sessionId = getStringInput(data.session_id);
+      if (!sessionId) return { exitCode: 0 };
+
+      try {
+        const { readCoordBridge, buildNextStepHint } =
+          require('../hooks/ccw-coordinator-tracker.js');
+
+        const bridgeData = readCoordBridge(sessionId);
+        if (!bridgeData) return { exitCode: 0 };
+
+        const hint = buildNextStepHint(bridgeData);
+        if (hint) {
+          return {
+            exitCode: 0,
+            jsonOutput: {
+              hookSpecificOutput: {
+                hookEventName: 'UserPromptSubmit',
+                additionalContext: hint,
+              },
+            },
+          };
+        }
+      } catch {
+        // Silent fail
+      }
+      return { exitCode: 0 };
+    }
+  },
 ];
 
 // ============================================================================

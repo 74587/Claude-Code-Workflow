@@ -340,6 +340,32 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
   divider();
 
+  // Hooks installation selection (two-level: none / full)
+  const { installHooks } = await inquirer.prompt([{
+    type: 'list',
+    name: 'installHooks',
+    message: 'Install Claude Code hooks?',
+    choices: [
+      {
+        name: `${chalk.cyan('Full')} — coordinator-tracker + monitoring hooks (recommended)`,
+        value: 'full'
+      },
+      {
+        name: `${chalk.gray('None')} — skip hooks installation`,
+        value: 'none'
+      }
+    ]
+  }]);
+
+  let hooksInstalled: string[] = [];
+  if (installHooks === 'full') {
+    const hookSpinner = createSpinner('Installing Claude Code hooks...').start();
+    hooksInstalled = installCcwHooks(mode === 'Global' ? homedir() : installPath);
+    hookSpinner.succeed(`Installed ${hooksInstalled.length} hooks: ${hooksInstalled.join(', ')}`);
+  }
+
+  divider();
+
   // Check for existing installation manifest
   const existingManifest = findManifest(installPath, mode);
   let cleanStats = { removed: 0, skipped: 0 };
@@ -593,6 +619,11 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     summaryLines.push(chalk.gray(`CLI config initialized: ${cliToolsInitResult.created.join(', ')}`));
   } else if (cliToolsInitResult.existing.length > 0) {
     summaryLines.push(chalk.gray(`CLI config preserved: ${cliToolsInitResult.existing.join(', ')}`));
+  }
+
+  // Add hooks info
+  if (hooksInstalled.length > 0) {
+    summaryLines.push(chalk.gray(`Hooks installed: ${hooksInstalled.length} (${hooksInstalled.join(', ')})`));
   }
 
   summaryLines.push('');
@@ -1470,6 +1501,44 @@ export async function installSkillHubCommand(options: SkillHubInstallOptions): P
   console.log(chalk.gray('  --skill-hub, --skill    Skill ID to install'));
   console.log(chalk.gray('  --cli                   Target CLI (claude or codex, default: claude)'));
   console.log(chalk.gray('  --list                  List available skills'));
+}
+
+/**
+ * Install CCW hooks to settings.json
+ *
+ * Installs a curated set of hooks for CCW coordinator tracking and monitoring.
+ * Reuses the template system from hook-templates.ts.
+ *
+ * @param settingsDir - Directory containing settings.json (e.g. ~/.claude/ or project/.claude/)
+ * @returns List of installed hook IDs
+ */
+function installCcwHooks(settingsDir: string): string[] {
+  // Dynamic import to avoid top-level dependency on hook-templates
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { installTemplateToSettings } = require('../core/hooks/hook-templates.js') as typeof import('../core/hooks/hook-templates.js');
+
+  const templates = [
+    'ccw-coordinator-tracker',       // PostToolUse — track /ccw and /ccw-coordinator progress
+    'ccw-coordinator-skill-context', // UserPromptSubmit — inject progress hints when invoking /ccw
+    'stop-notify',                  // Stop — notify dashboard on response completion
+    'memory-v2-extract',            // Stop — trigger memory extraction on session end
+  ];
+
+  const installed: string[] = [];
+  const scope = settingsDir === homedir() ? 'global' : 'project';
+
+  for (const templateId of templates) {
+    try {
+      const result = installTemplateToSettings(templateId, scope);
+      if (result.success && !result.message.includes('already')) {
+        installed.push(templateId);
+      }
+    } catch {
+      // Skip individual template failures
+    }
+  }
+
+  return installed;
 }
 
 /**

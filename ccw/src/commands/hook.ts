@@ -728,6 +728,67 @@ async function notifyAction(options: HookOptions): Promise<void> {
 }
 
 /**
+ * CCW Coordinator Tracker action - track /ccw and /ccw-coordinator progress
+ *
+ * PostToolUse hook: reads CCW status.json, writes bridge file, injects next-step hints.
+ */
+async function ccwCoordinatorTrackerAction(options: HookOptions): Promise<void> {
+  const { stdin } = options;
+  let hookData: HookData = {};
+
+  if (stdin) {
+    try {
+      const stdinData = await readStdin();
+      if (stdinData) {
+        hookData = JSON.parse(stdinData) as HookData;
+      }
+    } catch {
+      // Silently continue if stdin parsing fails
+    }
+  }
+
+  const sessionId = hookData.session_id;
+  if (!sessionId) {
+    process.exit(0);
+  }
+
+  try {
+    const workspace = getProjectPath(hookData.cwd);
+
+    const { readLatestCcwSession, readCoordBridge, writeCoordBridge, buildNextStepHint } =
+      await import('../core/hooks/ccw-coordinator-tracker.js');
+
+    const existing = readCoordBridge(sessionId);
+    const bridgeData = readLatestCcwSession(workspace, existing);
+    if (!bridgeData) {
+      process.exit(0);
+    }
+
+    bridgeData.session_id = sessionId;
+    writeCoordBridge(sessionId, bridgeData);
+
+    // Inject next-step hint for active sessions
+    const hint = buildNextStepHint(bridgeData);
+    if (hint) {
+      process.stdout.write(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PostToolUse',
+          additionalContext: hint,
+        },
+      }));
+    }
+
+    process.exit(0);
+  } catch (error) {
+    if (stdin) {
+      process.exit(0);
+    }
+    console.error(chalk.red(`Error: ${(error as Error).message}`));
+    process.exit(1);
+  }
+}
+
+/**
  * Template action - manage and execute hook templates
  *
  * Subcommands:
@@ -1029,6 +1090,7 @@ ${chalk.bold('SUBCOMMANDS')}
   notify            Send notification to ccw view dashboard
   project-state     Output project guidelines and recent dev history summary
   template          Manage and execute hook templates (list, install, exec)
+  ccw-coordinator-tracker  Track /ccw and /ccw-coordinator progress
 
 ${chalk.bold('OPTIONS')}
   --stdin           Read input from stdin (for Claude Code hooks)
@@ -1149,6 +1211,10 @@ export async function hookCommand(
     case 'template':
       // template has its own subcommands: list, install, exec
       await templateAction(argsArray[0] || 'list', argsArray.slice(1), options);
+      break;
+    case 'ccw-coordinator-tracker':
+    case 'ccw-coord-tracker':
+      await ccwCoordinatorTrackerAction(options);
       break;
     case 'help':
     case undefined:
