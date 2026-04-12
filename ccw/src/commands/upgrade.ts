@@ -17,7 +17,7 @@ const SOURCE_DIRS = ['.claude', '.codex', '.ccw'];
 const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates'];
 
 // Files that should always be installed to global (~/.claude/)
-const GLOBAL_FILES = ['claude.ccw.md'];
+const GLOBAL_FILES = ['CLAUDE.CCW.md'];
 
 // Files that should be excluded from copy (user-specific settings)
 const EXCLUDED_FILES = ['settings.json', 'settings.local.json', 'CLAUDE.md'];
@@ -286,7 +286,7 @@ async function performUpgrade(manifest: any, sourceDir: string, version: string)
     totalDirs += directories;
   }
 
-  // Install global files (claude.ccw.md) always to ~/.claude/
+  // Install global files (CLAUDE.CCW.md) always to ~/.claude/
   for (const file of GLOBAL_FILES) {
     const srcFile = join(sourceDir, '.claude', file);
     if (existsSync(srcFile)) {
@@ -301,20 +301,20 @@ async function performUpgrade(manifest: any, sourceDir: string, version: string)
     }
   }
 
-  // Migration: if old CLAUDE.md was installed by ccw, migrate to claude.ccw.md
+  // Migration: if old CLAUDE.md was installed by ccw, migrate to CLAUDE.CCW.md
   const oldClaudeMd = join(installPath, '.claude', 'CLAUDE.md');
-  const srcClaudeCcwMd = join(sourceDir, '.claude', 'claude.ccw.md');
+  const srcClaudeCcwMd = join(sourceDir, '.claude', 'CLAUDE.CCW.md');
   if (existsSync(oldClaudeMd) && existsSync(srcClaudeCcwMd)) {
     const oldContent = readFileSync(oldClaudeMd, 'utf8');
     const srcContent = readFileSync(srcClaudeCcwMd, 'utf8');
 
-    // Calculate similarity between old CLAUDE.md and source claude.ccw.md
+    // Calculate similarity between old CLAUDE.md and source CLAUDE.CCW.md
     const similarity = calculateSimilarity(oldContent, srcContent);
 
     if (similarity > 0.5) {
       // Similar content — ask user whether to migrate
       console.log('');
-      info(`Detected existing CLAUDE.md that is ${Math.round(similarity * 100)}% similar to ccw's claude.ccw.md`);
+      info(`Detected existing CLAUDE.md that is ${Math.round(similarity * 100)}% similar to ccw's CLAUDE.CCW.md`);
       console.log(chalk.gray(`  File: ${oldClaudeMd}`));
 
       const { action } = await inquirer.prompt([{
@@ -339,22 +339,22 @@ async function performUpgrade(manifest: any, sourceDir: string, version: string)
         // Delete old ccw CLAUDE.md from install path
         unlinkSync(oldClaudeMd);
         // Create project CLAUDE.md with @ reference
-        const minimalContent = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/claude.ccw.md\n';
+        const minimalContent = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/CLAUDE.CCW.md\n';
         writeFileSync(oldClaudeMd, minimalContent, 'utf8');
         addFileEntry(newManifest, oldClaudeMd);
         totalFiles++;
-        info('Migrated CLAUDE.md → claude.ccw.md (global) + project @ reference');
+        info('Migrated CLAUDE.md → CLAUDE.CCW.md (global) + project @ reference');
       }
     } else if (oldContent.includes('Coding Philosophy') || oldContent.includes('CLI Endpoints')) {
       // Contains ccw markers but content diverged — still migrate
-      const newClaudeMd = join(homedir(), '.claude', 'claude.ccw.md');
+      const newClaudeMd = join(homedir(), '.claude', 'CLAUDE.CCW.md');
       const globalClaudeDir = join(homedir(), '.claude');
       if (!existsSync(globalClaudeDir)) mkdirSync(globalClaudeDir, { recursive: true });
       writeFileSync(newClaudeMd, oldContent, 'utf8');
       addFileEntry(newManifest, newClaudeMd);
       unlinkSync(oldClaudeMd);
       totalFiles++;
-      info('Migrated CLAUDE.md → claude.ccw.md (global)');
+      info('Migrated CLAUDE.md → CLAUDE.CCW.md (global)');
     }
   }
 
@@ -362,7 +362,7 @@ async function performUpgrade(manifest: any, sourceDir: string, version: string)
   if (mode === 'Path') {
     const projectClaudeMd = join(installPath, '.claude', 'CLAUDE.md');
     if (!existsSync(projectClaudeMd)) {
-      const minimalContent = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/claude.ccw.md\n';
+      const minimalContent = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/CLAUDE.CCW.md\n';
       const projectClaudeDir = join(installPath, '.claude');
       if (!existsSync(projectClaudeDir)) {
         mkdirSync(projectClaudeDir, { recursive: true });
@@ -372,9 +372,9 @@ async function performUpgrade(manifest: any, sourceDir: string, version: string)
       totalFiles++;
     } else {
       const content = readFileSync(projectClaudeMd, 'utf8');
-      if (!content.includes('claude.ccw.md')) {
-        warning('Project CLAUDE.md does not reference claude.ccw.md');
-        info('Add this line to your CLAUDE.md: - **CCW Instructions**: @~/.claude/claude.ccw.md');
+      if (!content.includes('CLAUDE.CCW.md')) {
+        warning('Project CLAUDE.md does not reference CLAUDE.CCW.md');
+        info('Add this line to your CLAUDE.md: - **CCW Instructions**: @~/.claude/CLAUDE.CCW.md');
       }
     }
   }

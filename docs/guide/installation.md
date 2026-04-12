@@ -40,11 +40,11 @@ ccw install
 ```
 
 The `ccw install` command will:
-- Install `claude.ccw.md` to global `~/.claude/` (framework instructions, always global)
+- Install `CLAUDE.CCW.md` to global `~/.claude/` (framework instructions, always global)
 - Copy `.claude/`, `.codex/`, `.ccw/` directories to the appropriate locations
 - Create installation manifest for tracking
 - Preserve user settings (`settings.json`, `settings.local.json`)
-- Auto-create project `CLAUDE.md` with `@~/.claude/claude.ccw.md` reference (Path mode)
+- Auto-create project `CLAUDE.md` with `@~/.claude/CLAUDE.CCW.md` reference (Path mode)
 - Optionally install Git Bash fix on Windows
 
 ### Target Ecosystem Selection
@@ -74,7 +74,7 @@ If you prefer manual installation, copy the directories:
 
 ```bash
 # Copy to your home directory
-cp -r .claude/claude.ccw.md ~/.claude/claude.ccw.md
+cp -r .claude/CLAUDE.CCW.md ~/.claude/CLAUDE.CCW.md
 cp -r .claude ~/.claude/
 cp -r .codex ~/.codex/
 cp -r .ccw ~/.ccw/
@@ -142,12 +142,12 @@ See [CLI Tools Guide](./cli-tools.md) for more configuration options.
 
 ### CLAUDE.md Instructions
 
-CCW framework instructions are stored in `~/.claude/claude.ccw.md` (installed globally). Your project's `CLAUDE.md` only needs an `@` reference to include CCW instructions:
+CCW framework instructions are stored in `~/.claude/CLAUDE.CCW.md` (installed globally). Your project's `CLAUDE.md` only needs an `@` reference to include CCW instructions:
 
 ```markdown
 # Project Instructions
 
-- **CCW Instructions**: @~/.claude/claude.ccw.md
+- **CCW Instructions**: @~/.claude/CLAUDE.CCW.md
 
 ## Coding Standards
 - Use TypeScript for type safety
@@ -201,8 +201,8 @@ ccw upgrade  # Interactive selection
 
 The `ccw upgrade` command will:
 - Update all installed directories with latest source files
-- Update `~/.claude/claude.ccw.md` to the latest version
-- **Migration**: If an old `CLAUDE.md` (ccw version) is detected, it will prompt to migrate it to the new `claude.ccw.md` global format
+- Update `~/.claude/CLAUDE.CCW.md` to the latest version
+- **Migration**: If an old `CLAUDE.md` (ccw version) is detected, it will prompt to migrate it to the new `CLAUDE.CCW.md` global format
 - Preserve user settings and disabled state
 
 ## Uninstallation

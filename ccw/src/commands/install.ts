@@ -33,7 +33,7 @@ const SOURCE_DIRS = ['.claude', '.codex', '.ccw'];
 const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates', 'workflow-skills'];
 
 // Files that should always be installed to global (~/.claude/)
-const GLOBAL_FILES = ['claude.ccw.md'];
+const GLOBAL_FILES = ['CLAUDE.CCW.md'];
 
 // Files that should be excluded from cleanup (user-specific settings)
 const EXCLUDED_FILES = ['settings.json', 'settings.local.json', 'CLAUDE.md'];
@@ -441,7 +441,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
       totalDirs += directories;
     }
 
-    // Install global files (claude.ccw.md) always to ~/.claude/
+    // Install global files (CLAUDE.CCW.md) always to ~/.claude/
     for (const file of GLOBAL_FILES) {
       const srcFile = join(sourceDir, '.claude', file);
       if (existsSync(srcFile)) {
@@ -458,23 +458,23 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     }
 
     // Handle CLAUDE.md: similarity check + ensure @ reference
-    const srcClaudeCcwMd = join(sourceDir, '.claude', 'claude.ccw.md');
+    const srcClaudeCcwMd = join(sourceDir, '.claude', 'CLAUDE.CCW.md');
     const claudeMdPath = join(installPath, '.claude', 'CLAUDE.md');
-    const minimalClaudeMd = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/claude.ccw.md\n';
+    const minimalClaudeMd = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/CLAUDE.CCW.md\n';
 
     if (existsSync(claudeMdPath) && existsSync(srcClaudeCcwMd)) {
       // Existing CLAUDE.md — check similarity and @ reference
       const existingContent = readFileSync(claudeMdPath, 'utf8');
       const srcContent = readFileSync(srcClaudeCcwMd, 'utf8');
 
-      if (existingContent.includes('claude.ccw.md')) {
+      if (existingContent.includes('CLAUDE.CCW.md')) {
         // Already has @ reference — all good
       } else {
         const similarity = calculateSimilarity(existingContent, srcContent);
         if (similarity > 0.5) {
           // Similar to ccw content — ask user
           console.log('');
-          warning(`Existing CLAUDE.md is ${Math.round(similarity * 100)}% similar to ccw's claude.ccw.md`);
+          warning(`Existing CLAUDE.md is ${Math.round(similarity * 100)}% similar to ccw's CLAUDE.CCW.md`);
           console.log(chalk.gray(`  File: ${claudeMdPath}`));
 
           const { action } = await inquirer.prompt([{
@@ -483,7 +483,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
             message: 'How to handle the existing CLAUDE.md?',
             choices: [
               {
-                name: 'Replace with @ reference to claude.ccw.md (recommended)',
+                name: 'Replace with @ reference to CLAUDE.CCW.md (recommended)',
                 value: 'replace',
                 short: 'Replace'
               },
@@ -503,8 +503,8 @@ export async function installCommand(options: InstallOptions): Promise<void> {
           }
         } else {
           // Different content — just warn
-          warning('Existing CLAUDE.md does not reference claude.ccw.md');
-          info('Add this line: - **CCW Instructions**: @~/.claude/claude.ccw.md');
+          warning('Existing CLAUDE.md does not reference CLAUDE.CCW.md');
+          info('Add this line: - **CCW Instructions**: @~/.claude/CLAUDE.CCW.md');
         }
       }
     } else if (!existsSync(claudeMdPath)) {
@@ -516,7 +516,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
       writeFileSync(claudeMdPath, minimalClaudeMd, 'utf8');
       addFileEntry(manifest, claudeMdPath);
       totalFiles++;
-      info('Created CLAUDE.md with @ reference to claude.ccw.md');
+      info('Created CLAUDE.md with @ reference to CLAUDE.CCW.md');
     }
 
     // Create version.json

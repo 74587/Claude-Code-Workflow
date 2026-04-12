@@ -207,8 +207,8 @@ export async function uninstallCommand(options: UninstallOptions): Promise<void>
     // This handles files installed by skill-hub that weren't tracked properly
     const orphanStats = await cleanupOrphanFiles(selectedManifest.manifest_id);
 
-    // Clean up claude.ccw.md from global space
-    const globalClaudeCcwMd = join(homedir(), '.claude', 'claude.ccw.md');
+    // Clean up CLAUDE.CCW.md from global space
+    const globalClaudeCcwMd = join(homedir(), '.claude', 'CLAUDE.CCW.md');
     if (existsSync(globalClaudeCcwMd)) {
       try {
         unlinkSync(globalClaudeCcwMd);

@@ -78,12 +78,12 @@ ccw --help
 
 ### CLAUDE.md 指令
 
-CCW 框架指令存储在 `~/.claude/claude.ccw.md`（全局安装）。您的项目 `CLAUDE.md` 只需要一个 `@` 引用即可包含 CCW 指令：
+CCW 框架指令存储在 `~/.claude/CLAUDE.CCW.md`（全局安装）。您的项目 `CLAUDE.md` 只需要一个 `@` 引用即可包含 CCW 指令：
 
 ```markdown
 # 项目指令
 
-- **CCW 指令**: @~/.claude/claude.ccw.md
+- **CCW 指令**: @~/.claude/CLAUDE.CCW.md
 
 ## 编码标准
 - 使用 TypeScript 确保类型安全
@@ -134,8 +134,8 @@ ccw upgrade
 
 `ccw upgrade` 命令会：
 - 更新所有已安装目录到最新源文件
-- 更新 `~/.claude/claude.ccw.md` 到最新版本
-- **迁移**：如果检测到旧版 `CLAUDE.md`（ccw 版本），会提示是否迁移到新的 `claude.ccw.md` 全局格式
+- 更新 `~/.claude/CLAUDE.CCW.md` 到最新版本
+- **迁移**：如果检测到旧版 `CLAUDE.md`（ccw 版本），会提示是否迁移到新的 `CLAUDE.CCW.md` 全局格式
 - 保留用户设置和禁用状态
 
 ## 卸载
