@@ -347,7 +347,11 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     message: 'Install Claude Code hooks?',
     choices: [
       {
-        name: `${chalk.cyan('Full')} — coordinator-tracker + monitoring hooks (recommended)`,
+        name: [
+          `${chalk.cyan('Full')} — install CCW hooks to settings.json (recommended)`,
+          chalk.gray('  ccw-coordinator-tracker   Stop  — check /ccw chain progress on response end, write bridge'),
+          chalk.gray('  ccw-coordinator-skill-context  UserPromptSubmit  — show active coordinator progress on /ccw input'),
+        ].join('\n'),
         value: 'full'
       },
       {
@@ -1520,8 +1524,6 @@ function installCcwHooks(settingsDir: string): string[] {
   const templates = [
     'ccw-coordinator-tracker',       // PostToolUse — track /ccw and /ccw-coordinator progress
     'ccw-coordinator-skill-context', // UserPromptSubmit — inject progress hints when invoking /ccw
-    'stop-notify',                  // Stop — notify dashboard on response completion
-    'memory-v2-extract',            // Stop — trigger memory extraction on session end
   ];
 
   const installed: string[] = [];

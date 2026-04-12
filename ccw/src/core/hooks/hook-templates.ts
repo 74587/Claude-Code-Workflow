@@ -770,40 +770,101 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
     name: 'CCW Coordinator Tracker',
     description: 'Track /ccw and /ccw-coordinator execution progress, inject next-step hints when paused',
     category: 'automation',
-    trigger: 'PostToolUse',
+    trigger: 'Stop',
     execute: (data) => {
       const sessionId = getStringInput(data.session_id);
       if (!sessionId) return { exitCode: 0 };
 
       const workspace = data.cwd || process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
-      // Dynamic import to avoid circular dependencies
       try {
-        const { readLatestCcwSession, readCoordBridge, writeCoordBridge, buildNextStepHint } =
-          require('../hooks/ccw-coordinator-tracker.js');
+        const { existsSync, readFileSync, writeFileSync, readdirSync, statSync } = require('fs') as typeof import('fs');
+        const { join } = require('path') as typeof import('path');
+        const { tmpdir } = require('os') as typeof import('os');
+        const CCW_COORD_BRIDGE_PREFIX = 'ccw-coord-';
 
-        const existing = readCoordBridge(sessionId);
-        const bridgeData = readLatestCcwSession(workspace, existing);
-        if (!bridgeData) return { exitCode: 0 };
+        // --- Inline: read latest CCW session ---
+        function readLatestSession(dir: string, subPath: string): { bridge: CcwBridgeData; mtime: number } | null {
+          const base = join(dir, subPath);
+          if (!existsSync(base)) return null;
+          try {
+            const sessions = readdirSync(base)
+              .map(name => {
+                const sp = join(base, name, 'state.json');
+                if (!existsSync(sp)) {
+                  // ccw uses status.json, ccw-coordinator uses state.json
+                  return null;
+                }
+                const mtime = statSync(sp).mtimeMs;
+                const raw = JSON.parse(readFileSync(sp, 'utf8'));
+                const chain = raw.command_chain ?? [];
+                const results = raw.execution_results ?? [];
+                const ci = results.findIndex((r: any) => r.status === 'in-progress');
+                const completed = results.filter((r: any) => r.status === 'completed').length;
+                const current = ci >= 0 && chain[ci] ? chain[ci].command : null;
+                const ni = ci >= 0 ? ci + 1 : chain.length;
+                const next = chain[ni] ? chain[ni].command : null;
+                return {
+                  bridge: {
+                    session_id: sessionId, coordinator: subPath.includes('ccw-coordinator') ? 'ccw-coordinator' : 'ccw',
+                    chain_name: raw.workflow ?? '', intent: raw.analysis?.goal ?? '',
+                    steps_total: chain.length, steps_completed: completed,
+                    current_step: current != null ? { index: ci, command: current } : null,
+                    next_step: next != null ? { index: ni, command: next } : null,
+                    remaining_steps: chain.slice(ni).map((s: any) => ({ command: s.command ?? '' })),
+                    status: raw.status ?? 'unknown', updated_at: Math.floor(mtime),
+                  },
+                  mtime,
+                };
+              })
+              .filter((s): s is NonNullable<typeof s> => s !== null)
+              .sort((a, b) => b.mtime - a.mtime);
+            if (sessions.length === 0) return null;
+            return sessions[0];
+          } catch { return null; }
+        }
 
-        bridgeData.session_id = sessionId;
-        writeCoordBridge(sessionId, bridgeData);
+        interface CcwBridgeData {
+          session_id: string; coordinator: string; chain_name: string; intent: string;
+          steps_total: number; steps_completed: number;
+          current_step: { index: number; command: string } | null;
+          next_step: { index: number; command: string } | null;
+          remaining_steps: Array<{ command: string }>; status: string; updated_at: number;
+        }
 
-        // Inject next-step hint for active sessions
-        const hint = buildNextStepHint(bridgeData);
-        if (hint) {
-          return {
-            exitCode: 0,
-            jsonOutput: {
-              hookSpecificOutput: {
-                hookEventName: 'PostToolUse',
-                additionalContext: hint,
-              },
-            },
-          };
+        const ccwResult = readLatestSession(workspace, '.workflow/.ccw');
+        const coordResult = readLatestSession(workspace, '.workflow/.ccw-coordinator');
+        const candidates = [ccwResult, coordResult].filter((s): s is NonNullable<typeof s> => s !== null);
+        if (candidates.length === 0) return { exitCode: 0 };
+
+        const best = candidates.sort((a, b) => b.mtime - a.mtime)[0];
+
+        // Write bridge file
+        const bridgePath = join(tmpdir(), `${CCW_COORD_BRIDGE_PREFIX}${sessionId}.json`);
+        writeFileSync(bridgePath, JSON.stringify(best.bridge));
+
+        // Build next-step hint for active sessions
+        if (best.bridge.status === 'running' || best.bridge.status === 'waiting') {
+          if (best.bridge.next_step) {
+            const p = `[${best.bridge.steps_completed}/${best.bridge.steps_total}]`;
+            const lines = [
+              `## CCW Coordinator Active`,
+              `Chain: ${best.bridge.chain_name} ${p} | Status: ${best.bridge.status}`,
+              `Last: ${best.bridge.current_step?.command ?? '(unknown)'}`,
+              `Next: ${best.bridge.next_step.command}`,
+            ];
+            if (best.bridge.remaining_steps.length > 1) {
+              const r = best.bridge.remaining_steps.slice(1, 4).map(s => s.command).join(' → ');
+              lines.push(`Then: ${r}${best.bridge.remaining_steps.length > 4 ? ' …' : ''}`);
+            }
+            return {
+              exitCode: 0,
+              jsonOutput: { continue: true, message: lines.join('\n') },
+            };
+          }
         }
       } catch {
-        // Silent fail — tracker must not break tool execution
+        // Silent fail — tracker must not break hook execution
       }
       return { exitCode: 0 };
     }
@@ -826,24 +887,45 @@ export const HOOK_TEMPLATES: HookTemplate[] = [
       if (!sessionId) return { exitCode: 0 };
 
       try {
-        const { readCoordBridge, buildNextStepHint } =
-          require('../hooks/ccw-coordinator-tracker.js');
+        const { existsSync, readFileSync } = require('fs') as typeof import('fs');
+        const { join } = require('path') as typeof import('path');
+        const { tmpdir } = require('os') as typeof import('os');
 
-        const bridgeData = readCoordBridge(sessionId);
-        if (!bridgeData) return { exitCode: 0 };
+        // Read bridge file
+        const bridgePath = join(tmpdir(), `ccw-coord-${sessionId}.json`);
+        if (!existsSync(bridgePath)) return { exitCode: 0 };
 
-        const hint = buildNextStepHint(bridgeData);
-        if (hint) {
-          return {
-            exitCode: 0,
-            jsonOutput: {
-              hookSpecificOutput: {
-                hookEventName: 'UserPromptSubmit',
-                additionalContext: hint,
-              },
-            },
-          };
+        const bridge: {
+          status: string; steps_total: number; steps_completed: number;
+          chain_name: string; current_step: { command: string } | null; next_step: { command: string } | null;
+          remaining_steps: Array<{ command: string }>;
+        } = JSON.parse(readFileSync(bridgePath, 'utf8'));
+
+        // Only inject for active sessions with a next step
+        const isActive = bridge.status === 'running' || bridge.status === 'waiting';
+        if (!isActive || !bridge.next_step) return { exitCode: 0 };
+
+        const p = `[${bridge.steps_completed}/${bridge.steps_total}]`;
+        const lines = [
+          `## CCW Coordinator Active`,
+          `Chain: ${bridge.chain_name} ${p} | Status: ${bridge.status}`,
+          `Last: ${bridge.current_step?.command ?? '(unknown)'}`,
+          `Next: ${bridge.next_step.command}`,
+        ];
+        if (bridge.remaining_steps.length > 1) {
+          const r = bridge.remaining_steps.slice(1, 4).map(s => s.command).join(' → ');
+          lines.push(`Then: ${r}${bridge.remaining_steps.length > 4 ? ' …' : ''}`);
         }
+
+        return {
+          exitCode: 0,
+          jsonOutput: {
+            hookSpecificOutput: {
+              hookEventName: 'UserPromptSubmit',
+              additionalContext: lines.join('\n'),
+            },
+          },
+        };
       } catch {
         // Silent fail
       }

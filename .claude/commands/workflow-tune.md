@@ -31,6 +31,7 @@ Input → Parse → GenTestTask → Confirm → Setup
    - 错误: 功能点="撰写 Introduction (TASK-001)"，验收标准="introduction.md 存在" ← 仅完成 1/N
 4. **Sandbox Isolation**. 全部执行在 `sandbox/` 目录（独立 git 仓库），不影响真实项目。
 5. **State Machine**. 通过 `current_step` + `current_phase` 推进，禁止同步循环。
+6. **ABSOLUTE PATHS for --cd**. `ccw cli --cd` 必须使用绝对路径。相对路径会被 ccw cli 再次拼接 CWD 导致路径重复。`workDir`/`sandboxDir` 在创建时就解析为绝对路径。
 
 ## Input Formats
 
@@ -134,8 +135,9 @@ for (const [stepIdx, step] of stepsNeedTask.entries()) {
 const commandDoc = generateCommandDoc(steps, workflowName, projectScenario, analysisDepth);
 if (!autoYes) { /* AskUserQuestion: confirm or cancel */ }
 
-// Create sandbox
-const workDir = `.workflow/.scratchpad/workflow-tune-${Date.now()}`;
+// Create sandbox — MUST resolve absolute path (P0 Rule #6)
+const cwd = Bash('pwd').stdout.trim();
+const workDir = `${cwd}/.workflow/.scratchpad/workflow-tune-${Date.now()}`;
 const sandboxDir = `${workDir}/sandbox`;
 Bash(`mkdir -p "${workDir}/steps" "${sandboxDir}"`);
 Bash(`cd "${sandboxDir}" && git init && echo "# Sandbox" > README.md && git add . && git commit -m "init"`);

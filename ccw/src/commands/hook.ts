@@ -730,7 +730,7 @@ async function notifyAction(options: HookOptions): Promise<void> {
 /**
  * CCW Coordinator Tracker action - track /ccw and /ccw-coordinator progress
  *
- * PostToolUse hook: reads CCW status.json, writes bridge file, injects next-step hints.
+ * Stop hook: reads CCW status.json on response end, writes bridge file.
  */
 async function ccwCoordinatorTrackerAction(options: HookOptions): Promise<void> {
   const { stdin } = options;
@@ -755,11 +755,10 @@ async function ccwCoordinatorTrackerAction(options: HookOptions): Promise<void> 
   try {
     const workspace = getProjectPath(hookData.cwd);
 
-    const { readLatestCcwSession, readCoordBridge, writeCoordBridge, buildNextStepHint } =
+    const { readLatestCcwSession, writeCoordBridge, buildNextStepHint } =
       await import('../core/hooks/ccw-coordinator-tracker.js');
 
-    const existing = readCoordBridge(sessionId);
-    const bridgeData = readLatestCcwSession(workspace, existing);
+    const bridgeData = readLatestCcwSession(workspace);
     if (!bridgeData) {
       process.exit(0);
     }
@@ -770,12 +769,7 @@ async function ccwCoordinatorTrackerAction(options: HookOptions): Promise<void> 
     // Inject next-step hint for active sessions
     const hint = buildNextStepHint(bridgeData);
     if (hint) {
-      process.stdout.write(JSON.stringify({
-        hookSpecificOutput: {
-          hookEventName: 'PostToolUse',
-          additionalContext: hint,
-        },
-      }));
+      process.stdout.write(JSON.stringify({ continue: true, message: hint }));
     }
 
     process.exit(0);
