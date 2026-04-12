@@ -225,7 +225,7 @@ Research industry best practices for ${perspective} using Exa search
     timeout_ms: 300000  // 5 minutes
   });
 
-  close_agent({ id: exaAgentId });
+  close_agent({ target: exaAgentId });
 }
 ```
 

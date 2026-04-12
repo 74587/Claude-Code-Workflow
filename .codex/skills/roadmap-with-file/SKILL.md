@@ -90,7 +90,7 @@ Continue with plan generation.
 Clean up subagent resources (irreversible).
 
 ```javascript
-close_agent({ id: agentId })
+close_agent({ target: agentId })
 ```
 
 ---
@@ -574,7 +574,7 @@ Return findings as JSON with schema:
        timeout_ms: 120000
      })
 
-     close_agent({ id: exploreAgentId })
+     close_agent({ target: exploreAgentId })
 
      if (exploreResult.status[exploreAgentId].completed) {
        codebaseContext = exploreResult.status[exploreAgentId].completed
@@ -666,7 +666,7 @@ ${selectedMode === 'progressive' ? `**Progressive Mode**:
      timeout_ms: 300000  // 5 minutes for complex decomposition
    })
 
-   close_agent({ id: decompositionAgentId })
+   close_agent({ target: decompositionAgentId })
 
    if (!decompositionResult.status[decompositionAgentId].completed) {
      throw new Error('Decomposition agent failed to complete')

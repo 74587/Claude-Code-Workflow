@@ -296,7 +296,7 @@ Continue with plan generation.
 Clean up subagent resources (irreversible).
 
 ```javascript
-close_agent({ id: agentId })
+close_agent({ target: agentId })
 ```
 
 ## Core Guidelines

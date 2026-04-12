@@ -413,7 +413,7 @@ const deepDiveResult = wait_agent({
 });
 
 // Cleanup
-close_agent({ id: deepDiveAgentId });
+close_agent({ target: deepDiveAgentId });
 ```
 
 ## Dimension Guidance Reference

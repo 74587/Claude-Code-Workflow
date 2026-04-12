@@ -60,7 +60,7 @@ for (let i = 0; i < batches.length; i += MAX_PARALLEL) {
   }
 
   // Step 4: Cleanup agents in this chunk
-  agentIds.forEach(({ agentId }) => close_agent({ id: agentId }));
+  agentIds.forEach(({ agentId }) => close_agent({ target: agentId }));
 }
 
 // Aggregate partial plans → fix-plan.json
@@ -210,7 +210,7 @@ const result = wait_agent({
 });
 
 // Cleanup
-close_agent({ id: agentId });
+close_agent({ target: agentId });
 ```
 
 ## Output

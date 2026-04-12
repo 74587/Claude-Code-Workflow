@@ -557,7 +557,7 @@ Follow the same analysis protocol as wave role analysis but with interactive ref
   })
 
   wait_agent({ targets: [agentId] })
-  close_agent({ id: agentId })
+  close_agent({ target: agentId })
 
   console.log(`\n✓ ${roleName} analysis complete: ${roleDir}/analysis.md`)
 }
@@ -632,7 +632,7 @@ Evaluate complexity score (0-8):
    })
 
    wait_agent({ targets: [synthesisAgent] })
-   close_agent({ id: synthesisAgent })
+   close_agent({ target: synthesisAgent })
    ```
 
 3. **Completion Summary**

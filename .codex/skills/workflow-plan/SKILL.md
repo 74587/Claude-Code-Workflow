@@ -272,7 +272,7 @@ Format: {
 })
 
 wait_agent({ targets: [ctxAgent] })
-close_agent({ id: ctxAgent })
+close_agent({ target: ctxAgent })
 
 // Parse outputs
 const contextPkg = JSON.parse(Read(`${sessionFolder}/.process/context-package.json`) || '{}')
@@ -404,7 +404,7 @@ ${contextPkg.conflict_risk === 'medium' || contextPkg.conflict_risk === 'high'
      })
 
      wait_agent({ targets: [planAgent] })
-     close_agent({ id: planAgent })
+     close_agent({ target: planAgent })
    }
    ```
 
@@ -440,7 +440,7 @@ Mark cross-module dependencies as CROSS::${'{module}'}::${'{task}'}
 
      // Wait for all module planners
      wait_agent({ targets: moduleAgents.map(a => a.id) })
-     moduleAgents.forEach(a => close_agent({ id: a.id }))
+     moduleAgents.forEach(a => close_agent({ target: a.id }))
 
      // +1 Coordinator: integrate all modules
      const coordAgent = spawn_agent({
@@ -461,7 +461,7 @@ Integrate ${uniqueModules.length} module plans into unified IMPL_PLAN.md.
      })
 
      wait_agent({ targets: [coordAgent] })
-     close_agent({ id: coordAgent })
+     close_agent({ target: coordAgent })
    }
    ```
 
@@ -602,7 +602,7 @@ ${replanTaskId ? `**Target Task**: ${sessionFolder}/.task/${replanTaskId}.json` 
   })
 
   wait_agent({ targets: [replanAgent] })
-  close_agent({ id: replanAgent })
+  close_agent({ target: replanAgent })
 
   console.log(`  Replan complete. Review: ${sessionFolder}/IMPL_PLAN.md`)
 }

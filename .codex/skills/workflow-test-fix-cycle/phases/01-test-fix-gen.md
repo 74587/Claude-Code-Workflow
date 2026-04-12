@@ -93,7 +93,7 @@ Gather test context for session [testSessionId]
 });
 
 const contextResult = wait_agent({ targets: [contextAgentId], timeout_ms: 600000 });
-close_agent({ id: contextAgentId });
+close_agent({ target: contextAgentId });
 
 // Prompt Mode - gather from codebase via context-search-agent
 const contextAgentId = spawn_agent({
@@ -120,7 +120,7 @@ Gather project context for session [testSessionId]: [task_description]
 });
 
 const contextResult = wait_agent({ targets: [contextAgentId], timeout_ms: 600000 });
-close_agent({ id: contextAgentId });
+close_agent({ target: contextAgentId });
 ```
 
 **Input**: `testSessionId` from Sub-Phase 1.1
@@ -204,7 +204,7 @@ ${projectRoot}/.workflow/active/[testSessionId]/.process/TEST_ANALYSIS_RESULTS.m
 });
 
 const analysisResult = wait_agent({ targets: [analysisAgentId], timeout_ms: 1200000 });
-close_agent({ id: analysisAgentId });
+close_agent({ target: analysisAgentId });
 ```
 
 **Input**:
@@ -273,7 +273,7 @@ Generate test-specific IMPL_PLAN.md and task JSONs for session [testSessionId]
 });
 
 const taskGenResult = wait_agent({ targets: [taskGenAgentId], timeout_ms: 600000 });
-close_agent({ id: taskGenAgentId });
+close_agent({ target: taskGenAgentId });
 ```
 
 **Input**: `testSessionId` from Sub-Phase 1.1
@@ -448,9 +448,9 @@ try {
   const agentId = spawn_agent({ message: "..." });
   const result = wait_agent({ targets: [agentId], timeout_ms: 600000 });
   // ... process result ...
-  close_agent({ id: agentId });
+  close_agent({ target: agentId });
 } catch (error) {
-  if (agentId) close_agent({ id: agentId });
+  if (agentId) close_agent({ target: agentId });
   throw error;
 }
 ```

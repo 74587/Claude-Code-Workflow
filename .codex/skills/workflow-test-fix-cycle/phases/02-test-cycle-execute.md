@@ -145,7 +145,7 @@ const analysisResult = wait_agent({
 });
 
 // Clean up
-close_agent({ id: analysisAgentId });
+close_agent({ target: analysisAgentId });
 ```
 
 **@test-fix-agent** (execution):
@@ -205,7 +205,7 @@ const fixResult = wait_agent({
 });
 
 // Clean up
-close_agent({ id: fixAgentId });
+close_agent({ target: fixAgentId });
 
 // Task Type Configurations
 const taskTypeObjective = {
@@ -390,11 +390,11 @@ Fallback is triggered when any of these conditions occur:
 ```javascript
 try {
   const agentId = spawn_agent({ message: "..." });
-  const result = wait_agent({ ids: [agentId], timeout_ms: 2400000 });
+  const result = wait_agent({ targets: [agentId], timeout_ms: 2400000 });
   // ... process result ...
-  close_agent({ id: agentId });
+  close_agent({ target: agentId });
 } catch (error) {
-  if (agentId) close_agent({ id: agentId });
+  if (agentId) close_agent({ target: agentId });
   // Save state for resume capability
   throw error;
 }

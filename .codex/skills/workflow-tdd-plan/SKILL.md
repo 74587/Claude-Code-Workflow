@@ -299,7 +299,7 @@ Format: {
 })
 
 wait_agent({ targets: [ctxAgent] })
-close_agent({ id: ctxAgent })
+close_agent({ target: ctxAgent })
 
 // Parse outputs
 const contextPkg = JSON.parse(Read(`${sessionFolder}/.process/context-package.json`) || '{}')
@@ -368,7 +368,7 @@ Format: {
 })
 
 wait_agent({ targets: [testAgent] })
-close_agent({ id: testAgent })
+close_agent({ target: testAgent })
 
 const testContext = JSON.parse(Read(`${sessionFolder}/.process/test-context-package.json`) || '{}')
 
@@ -501,7 +501,7 @@ Each task MUST include Red-Green-Refactor cycle:
 })
 
 wait_agent({ targets: [planAgent] })
-close_agent({ id: planAgent })
+close_agent({ target: planAgent })
 
 console.log(`  TDD tasks generated`)
 ```
@@ -691,7 +691,7 @@ BLOCKED: Critical failures, must fix before execution
   })
 
   wait_agent({ targets: [verifyAgent] })
-  close_agent({ id: verifyAgent })
+  close_agent({ target: verifyAgent })
 
   const report = Read(`${sessionFolder}/.process/TDD_COMPLIANCE_REPORT.md`)
   const qualityGate = report.match(/Quality Gate: (\w+)/)?.[1] || 'UNKNOWN'

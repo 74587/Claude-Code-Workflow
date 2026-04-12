@@ -133,7 +133,7 @@ Continue with plan generation.
 Clean up subagent resources (irreversible).
 
 ```javascript
-close_agent({ id: agentId })
+close_agent({ target: agentId })
 ```
 
 ## Usage
@@ -346,9 +346,9 @@ try {
   const agentId = spawn_agent({ message: "..." });
   const result = wait_agent({ targets: [agentId], timeout_ms: 600000 });
   // ... process result ...
-  close_agent({ id: agentId });
+  close_agent({ target: agentId });
 } catch (error) {
-  if (agentId) close_agent({ id: agentId });
+  if (agentId) close_agent({ target: agentId });
   throw error;
 }
 ```

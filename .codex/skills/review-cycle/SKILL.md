@@ -358,7 +358,7 @@ Continue with analysis generation.
 Clean up subagent resources (irreversible).
 
 ```javascript
-close_agent({ id: agentId })
+close_agent({ target: agentId })
 ```
 
 ## Progress Tracking Pattern

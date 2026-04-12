@@ -227,7 +227,7 @@ const execResult = wait_agent({
 });
 
 // Cleanup
-close_agent({ id: execAgentId });
+close_agent({ target: execAgentId });
 ```
 
 ## Output

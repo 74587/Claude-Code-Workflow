@@ -193,7 +193,7 @@ Project root: ${projectRoot}
   }
 
 } finally {
-  if (exploreAgent) close_agent({ id: exploreAgent })
+  if (exploreAgent) close_agent({ target: exploreAgent })
 }
 ```
 
