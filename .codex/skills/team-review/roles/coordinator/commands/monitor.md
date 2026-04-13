@@ -121,7 +121,7 @@ Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 
 state.active_agents[taskId] = { agentId, role, started_at: now }
 
 // 4) Wait for completion — use task_name for stable targeting (v4)
-const waitResult = wait_agent({ targets: [taskId], timeout_ms: 900000 })
+const waitResult = wait_agent({ timeout_ms: 900000 })
 if (waitResult.timed_out) {
   state.tasks[taskId].status = 'timed_out'
   close_agent({ target: taskId })
@@ -166,7 +166,7 @@ send_message({
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 ## handleComplete
 

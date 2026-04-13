@@ -1,7 +1,7 @@
 ---
 name: team-motion-design
 description: Unified team skill for motion design. Animation token systems, scroll choreography, GPU-accelerated transforms, reduced-motion fallback. Uses team-worker agent architecture. Triggers on "team motion design", "animation system".
-allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), assign_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), mcp__ccw-tools__read_file(*), mcp__ccw-tools__write_file(*), mcp__ccw-tools__edit_file(*), mcp__ccw-tools__team_msg(*), mcp__chrome-devtools__evaluate_script(*), mcp__chrome-devtools__take_screenshot(*), mcp__chrome-devtools__performance_start_trace(*), mcp__chrome-devtools__performance_stop_trace(*), mcp__chrome-devtools__performance_analyze_insight(*)
+allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), mcp__ccw-tools__read_file(*), mcp__ccw-tools__write_file(*), mcp__ccw-tools__edit_file(*), mcp__ccw-tools__team_msg(*), mcp__chrome-devtools__evaluate_script(*), mcp__chrome-devtools__take_screenshot(*), mcp__chrome-devtools__performance_start_trace(*), mcp__chrome-devtools__performance_stop_trace(*), mcp__chrome-devtools__performance_analyze_insight(*)
 ---
 
 # Team Motion Design
@@ -54,7 +54,7 @@ Before calling ANY tool, apply this check:
 
 | Tool Call | Verdict | Reason |
 |-----------|---------|--------|
-| `spawn_agent`, `wait_agent`, `close_agent`, `send_message`, `assign_task` | ALLOWED | Orchestration |
+| `spawn_agent`, `wait_agent`, `close_agent`, `send_message`, `followup_task` | ALLOWED | Orchestration |
 | `list_agents` | ALLOWED | Agent health check |
 | `request_user_input` | ALLOWED | User interaction |
 | `mcp__ccw-tools__team_msg` | ALLOWED | Message bus |
@@ -87,7 +87,7 @@ Coordinator spawns workers using this template:
 spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
-  fork_context: false,
+  fork_turns: "none",
   items: [
     { type: "text", text: `## Role Assignment
 role: <role>
@@ -111,7 +111,7 @@ pipeline_phase: <pipeline-phase>` },
 })
 ```
 
-After spawning, use `wait_agent({ targets: [...], timeout_ms: 900000 })` to collect results, then `close_agent({ target })` each worker.
+After spawning, use `wait_agent({ timeout_ms: 900000 })` to collect results, then `close_agent({ target })` each worker.
 
 
 ### Model Selection Guide
@@ -133,7 +133,7 @@ Researcher findings must reach choreographer via coordinator's upstream context:
 spawn_agent({
   agent_type: "team_worker",
   task_name: "CHOREO-001",
-  fork_context: false,
+  fork_turns: "none",
   items: [
     ...,
     { type: "text", text: `## Upstream Context
@@ -189,7 +189,7 @@ Easing catalog: <session>/research/easing-catalog.json` }
 | Intent | API | Example |
 |--------|-----|---------|
 | Queue supplementary info (don't interrupt) | `send_message` | Send research findings to running choreographer |
-| Assign implementation from reviewed specs | `assign_task` | Assign ANIM task after choreography passes |
+| Assign implementation from reviewed specs | `followup_task` | Assign ANIM task after choreography passes |
 | Check running agents | `list_agents` | Verify agent health during resume |
 
 ### Agent Health Check
@@ -207,7 +207,7 @@ const running = list_agents({})
 
 Workers are spawned with `task_name: "<task-id>"` enabling direct addressing:
 - `send_message({ target: "CHOREO-001", items: [...] })` -- send additional research findings to choreographer
-- `assign_task({ target: "ANIM-001", items: [...] })` -- assign animation from reviewed choreography specs
+- `followup_task({ target: "ANIM-001", items: [...] })` -- assign animation from reviewed choreography specs
 - `close_agent({ target: "MTEST-001" })` -- cleanup after performance test
 
 ## Error Handling

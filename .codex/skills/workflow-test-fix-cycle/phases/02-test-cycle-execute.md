@@ -140,7 +140,6 @@ const analysisAgentId = spawn_agent({
 
 // Wait for analysis completion
 const analysisResult = wait_agent({
-  targets: [analysisAgentId],
   timeout_ms: 2400000  // 40 minutes (CLI analysis timeout)
 });
 
@@ -200,7 +199,6 @@ const fixAgentId = spawn_agent({
 
 // Wait for execution completion
 const fixResult = wait_agent({
-  targets: [fixAgentId],
   timeout_ms: 600000  // 10 minutes
 });
 
@@ -390,7 +388,7 @@ Fallback is triggered when any of these conditions occur:
 ```javascript
 try {
   const agentId = spawn_agent({ message: "..." });
-  const result = wait_agent({ targets: [agentId], timeout_ms: 2400000 });
+  const result = wait_agent({ timeout_ms: 2400000 });
   // ... process result ...
   close_agent({ target: agentId });
 } catch (error) {

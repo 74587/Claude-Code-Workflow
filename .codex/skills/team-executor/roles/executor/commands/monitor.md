@@ -167,7 +167,7 @@ After spawning all ready tasks:
 const agentIds = Object.values(state.active_agents)
   .filter(a => !a.resident)
   .map(a => a.agentId)
-const waitResult = wait_agent({ targets: agentIds, timeout_ms: 900000 })
+const waitResult = wait_agent({ timeout_ms: 900000 })
 if (waitResult.timed_out) {
   for (const [taskId, agent] of Object.entries(state.active_agents)) {
     if (agent.resident) continue

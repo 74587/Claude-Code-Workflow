@@ -322,12 +322,11 @@ Get results from subagent (only way to retrieve results).
 
 ```javascript
 const result = wait_agent({
-  targets: [agentId],
   timeout_ms: 600000  // 10 minutes
 })
 
 if (result.timed_out) {
-  // Handle timeout - can use assign_task to prompt completion
+  // Handle timeout - can use followup_task to prompt completion
 }
 
 // Check completion status
@@ -336,20 +335,20 @@ if (result.status[agentId].completed) {
 }
 ```
 
-### assign_task
+### followup_task
 
 Assign new work to active subagent (for clarification or follow-up).
 
 ```javascript
-assign_task({
+followup_task({
   target: agentId,
-  items: [{ type: "text", text: `
+  message: `
 ## CLARIFICATION ANSWERS
 ${answers}
 
 ## NEXT STEP
 Continue with analysis generation.
-` }]
+`
 })
 ```
 

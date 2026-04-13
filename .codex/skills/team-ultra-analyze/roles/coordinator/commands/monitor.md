@@ -239,7 +239,7 @@ After spawning all ready tasks:
 ```javascript
 // 4) Batch wait — use task_name for stable targeting (v4)
 const taskNames = Object.keys(state.active_agents)
-const waitResult = wait_agent({ targets: taskNames, timeout_ms: 900000 })
+const waitResult = wait_agent({ timeout_ms: 900000 })
 if (waitResult.timed_out) {
   for (const taskId of taskNames) {
     state.tasks[taskId].status = 'timed_out'
@@ -279,7 +279,7 @@ send_message({
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 5. **STOP** after processing -- wait for next event
 

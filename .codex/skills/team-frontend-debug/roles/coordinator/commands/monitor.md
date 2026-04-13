@@ -121,7 +121,7 @@ Find ready tasks, spawn workers, STOP.
         ```
       - Add to active_workers
 5. Update session, output summary, STOP
-6. Use `wait_agent({ targets: [<spawned-task-names>], timeout_ms: 900000 })` to wait for callbacks. If `result.timed_out`, mark tasks as `timed_out` and close agents. Use `close_agent({ target: taskId })` with task_name for cleanup. Workers use `report_agent_job_result()` to send results back.
+6. Use `wait_agent({ timeout_ms: 900000 })` to wait for callbacks. If `result.timed_out`, mark tasks as `timed_out` and close agents. Use `close_agent({ target: taskId })` with task_name for cleanup. Workers use `report_agent_job_result()` to send results back.
 
 **Cross-Agent Supplementary Context** (v4):
 
@@ -136,7 +136,7 @@ send_message({
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 ## handleComplete
 

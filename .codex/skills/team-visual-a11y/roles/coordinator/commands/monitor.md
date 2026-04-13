@@ -58,7 +58,7 @@ Worker completed (wait_agent returns). Process and advance.
    spawn_agent({ agent_type: "team_worker", task_name: "FOCUS-001", ... })
 
    // Wait for ALL 3 to complete
-   wait_agent({ targets: ["COLOR-001", "TYPO-001", "FOCUS-001"], timeout_ms: 900000 })
+   wait_agent({ timeout_ms: 900000 })
 
    // Close all 3
    close_agent({ target: "COLOR-001" })
@@ -75,7 +75,7 @@ Worker completed (wait_agent returns). Process and advance.
    ```javascript
    spawn_agent({ agent_type: "team_worker", task_name: "COLOR-002", ... })
    spawn_agent({ agent_type: "team_worker", task_name: "FOCUS-002", ... })
-   wait_agent({ targets: ["COLOR-002", "FOCUS-002"], timeout_ms: 900000 })
+   wait_agent({ timeout_ms: 900000 })
    close_agent({ target: "COLOR-002" })
    close_agent({ target: "FOCUS-002" })
    ```
@@ -172,7 +172,7 @@ state.tasks[taskId].status = 'in_progress'
 const agentId = spawn_agent({
   agent_type: "team_worker",
   task_name: taskId,  // e.g., "COLOR-001" -- enables named targeting
-  fork_context: false,
+  fork_turns: "none",
   items: [
     { type: "text", text: `## Role Assignment
 role: ${role}
@@ -199,7 +199,7 @@ ${upstreamContext}` }
 state.active_agents[taskId] = { agentId, role, started_at: now }
 
 // 4) Wait for completion -- use task_name for stable targeting (v4)
-const waitResult = wait_agent({ targets: [taskId], timeout_ms: 900000 })
+const waitResult = wait_agent({ timeout_ms: 900000 })
 if (waitResult.timed_out) {
   state.tasks[taskId].status = 'timed_out'
   close_agent({ target: taskId })
@@ -237,7 +237,7 @@ send_message({
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 5. Update tasks.json, output summary, STOP
 

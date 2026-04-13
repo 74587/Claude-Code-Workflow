@@ -120,7 +120,7 @@ Find ready tasks, spawn workers, STOP.
       Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).` }]
       })
       ```
-   d. Collect results: `wait_agent({ targets: [taskId], timeout_ms: 900000 })`
+   d. Collect results: `wait_agent({ timeout_ms: 900000 })`
    e. Read discoveries from output files
    f. Update tasks.json with results
    g. Close agent: `close_agent({ target: taskId })`  // Use task_name, not agentId
@@ -158,7 +158,7 @@ Execute built-in Phase 1 (task discovery, owner=<role>-<N>) -> role Phase 2-4 ->
 }
 // Use task_name for stable targeting (v4)
 const taskNames = readyTasks.map(t => t.id)
-const results = wait_agent({ targets: taskNames, timeout_ms: 900000 })
+const results = wait_agent({ timeout_ms: 900000 })
 if (results.timed_out) {
   for (const taskId of taskNames) { state.tasks[taskId].status = 'timed_out'; close_agent({ target: taskId }) }
 } else {
@@ -180,7 +180,7 @@ send_message({
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 6. Update session, output summary, STOP
 

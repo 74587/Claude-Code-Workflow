@@ -243,7 +243,6 @@ while (shouldContinue && iteration < maxIterations) {
   // Step 2: Batch wait for all dimension agents
   const dimensionAgentIds = dimensionAgents.map(a => a.agentId);
   const iterationResults = wait_agent({
-    targets: dimensionAgentIds,
     timeout_ms: 600000  // 10 minutes
   });
 

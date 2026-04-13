@@ -54,9 +54,9 @@ phases: 4
 
 ## Agent Registry
 
-| Agent | task_name | Role File | Responsibility | Pattern | fork_context |
+| Agent | task_name | Role File | Responsibility | Pattern | fork_turns |
 |-------|-----------|-----------|----------------|---------|-------------|
-| security-auditor | security-auditor | ~/.codex/agents/security-auditor.md | Execute all 4 phases: dependency audit, OWASP review, STRIDE modeling, report generation | Deep Interaction (2.3) | false |
+| security-auditor | security-auditor | ~/.codex/agents/security-auditor.md | Execute all 4 phases: dependency audit, OWASP review, STRIDE modeling, report generation | Deep Interaction (2.3) | "none" |
 
 > **COMPACT PROTECTION**: Agent files are execution documents. When context compression occurs and agent instructions are reduced to summaries, **you MUST immediately `Read` the corresponding agent.md to reload before continuing execution**.
 
@@ -64,15 +64,15 @@ phases: 4
 
 ## Fork Context Strategy
 
-| Agent | task_name | fork_context | fork_from | Rationale |
+| Agent | task_name | fork_turns | fork_from | Rationale |
 |-------|-----------|-------------|-----------|-----------|
-| security-auditor | security-auditor | false | — | Starts fresh; all context provided via assign_task phase messages |
+| security-auditor | security-auditor | "none" | — | Starts fresh; all context provided via followup_task phase messages |
 
 **Fork Decision Rules**:
 
-| Condition | fork_context | Reason |
+| Condition | fork_turns | Reason |
 |-----------|-------------|--------|
-| security-auditor spawn | false | Self-contained pipeline; phase inputs passed via assign_task |
+| security-auditor spawn | "none" | Self-contained pipeline; phase inputs passed via followup_task |
 
 ---
 
@@ -139,7 +139,7 @@ Spawn the security-auditor agent and assign Phase 1:
 ```
 spawn_agent({
   task_name: "security-auditor",
-  fork_context: false,
+  fork_turns: "none",
   message: `### MANDATORY FIRST STEPS
 1. Read: ~/.codex/skills/security-audit/agents/security-auditor.md
 
@@ -154,17 +154,17 @@ Deliverables:
 - .workflow/.security/supply-chain-report.json
 - Structured output summary with finding counts by severity`
 })
-const phase1Result = wait_agent({ targets: ["security-auditor"], timeout_ms: 300000 })
+const phase1Result = wait_agent({ timeout_ms: 300000 })
 ```
 
 **On timeout**:
 
 ```
-assign_task({
+followup_task({
   target: "security-auditor",
   items: [{ type: "text", text: "Finalize current supply chain scan and output supply-chain-report.json now." }]
 })
-const phase1Result = wait_agent({ targets: ["security-auditor"], timeout_ms: 120000 })
+const phase1Result = wait_agent({ timeout_ms: 120000 })
 ```
 
 **Output**:
@@ -211,7 +211,7 @@ close_agent({ target: "security-auditor" })
 **Execution**:
 
 ```
-assign_task({
+followup_task({
   target: "security-auditor",
   items: [{ type: "text", text: `## Phase 2 — OWASP Review
 
@@ -224,7 +224,7 @@ Deliverables:
 - .workflow/.security/owasp-findings.json
 - Coverage for all 10 OWASP categories (A01–A10)` }]
 })
-const phase2Result = wait_agent({ targets: ["security-auditor"], timeout_ms: 360000 })
+const phase2Result = wait_agent({ timeout_ms: 360000 })
 ```
 
 **Output**:
@@ -252,7 +252,7 @@ const phase2Result = wait_agent({ targets: ["security-auditor"], timeout_ms: 360
 **Execution**:
 
 ```
-assign_task({
+followup_task({
   target: "security-auditor",
   items: [{ type: "text", text: `## Phase 3 — Threat Modeling (STRIDE)
 
@@ -266,7 +266,7 @@ Deliverables:
 - All 6 STRIDE categories (S, T, R, I, D, E) evaluated per component
 - Trust boundaries and attack surface quantified` }]
 })
-const phase3Result = wait_agent({ targets: ["security-auditor"], timeout_ms: 360000 })
+const phase3Result = wait_agent({ timeout_ms: 360000 })
 ```
 
 **Output**:
@@ -295,7 +295,7 @@ const phase3Result = wait_agent({ targets: ["security-auditor"], timeout_ms: 360
 **Execution**:
 
 ```
-assign_task({
+followup_task({
   target: "security-auditor",
   items: [{ type: "text", text: `## Phase 4 — Report & Tracking
 
@@ -315,7 +315,7 @@ Deliverables:
 - .workflow/.security/audit-report-<YYYY-MM-DD>.json
 - Updated copies of all phase outputs in .workflow/.security/` }]
 })
-const phase4Result = wait_agent({ targets: ["security-auditor"], timeout_ms: 300000 })
+const phase4Result = wait_agent({ timeout_ms: 300000 })
 ```
 
 **Output**:
@@ -352,10 +352,10 @@ close_agent({ target: "security-auditor" })
 
 | Phase | Default Timeout | On Timeout |
 |-------|-----------------|------------|
-| Phase 1: Supply Chain | 300000 ms (5 min) | assign_task "Finalize output now", re-wait 120s |
-| Phase 2: OWASP Review | 360000 ms (6 min) | assign_task "Output partial findings", re-wait 120s |
-| Phase 3: Threat Modeling | 360000 ms (6 min) | assign_task "Output partial threat model", re-wait 120s |
-| Phase 4: Report | 300000 ms (5 min) | assign_task "Write report with available data", re-wait 120s |
+| Phase 1: Supply Chain | 300000 ms (5 min) | followup_task "Finalize output now", re-wait 120s |
+| Phase 2: OWASP Review | 360000 ms (6 min) | followup_task "Output partial findings", re-wait 120s |
+| Phase 3: Threat Modeling | 360000 ms (6 min) | followup_task "Output partial threat model", re-wait 120s |
+| Phase 4: Report | 300000 ms (5 min) | followup_task "Write report with available data", re-wait 120s |
 
 ### Cleanup Protocol
 
@@ -371,9 +371,9 @@ close_agent({ target: "security-auditor" })
 
 | Scenario | Resolution |
 |----------|------------|
-| Agent timeout (first) | assign_task "Finalize current work and output now" + re-wait 120000 ms |
+| Agent timeout (first) | followup_task "Finalize current work and output now" + re-wait 120000 ms |
 | Agent timeout (second) | Log error, close_agent({ target: "security-auditor" }), report partial results |
-| Phase output file missing | assign_task requesting specific file output, re-wait |
+| Phase output file missing | followup_task requesting specific file output, re-wait |
 | Audit tool not installed (npm/pip) | Phase 1 logs as INFO finding and continues — not a blocker |
 | No previous audit found | Treat as baseline — apply initial gate (>= 2/10) |
 | User cancellation | close_agent({ target: "security-auditor" }), report current state |

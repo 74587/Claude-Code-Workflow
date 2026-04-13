@@ -178,7 +178,7 @@ send_message({
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 **Spawn worker call** (one per ready task):
 
@@ -198,7 +198,7 @@ inner_loop: <true|false>
 Read role_spec file to load Phase 2-4 domain instructions.` }]
 })
 // Collect results — use task_name for stable targeting (v4):
-const result = wait_agent({ targets: [taskId], timeout_ms: 900000 })
+const result = wait_agent({ timeout_ms: 900000 })
 if (result.timed_out) {
   state.tasks[taskId].status = 'timed_out'
   close_agent({ target: taskId })

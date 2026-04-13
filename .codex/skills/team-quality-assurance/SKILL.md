@@ -1,7 +1,7 @@
 ---
 name: team-quality-assurance
 description: Unified team skill for quality assurance. Full closed-loop QA combining issue discovery and software testing. Triggers on "team quality-assurance", "team qa".
-allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), assign_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
 ---
 
 # Team Quality Assurance
@@ -55,7 +55,7 @@ Before calling ANY tool, apply this check:
 
 | Tool Call | Verdict | Reason |
 |-----------|---------|--------|
-| `spawn_agent`, `wait_agent`, `close_agent`, `send_message`, `assign_task` | ALLOWED | Orchestration |
+| `spawn_agent`, `wait_agent`, `close_agent`, `send_message`, `followup_task` | ALLOWED | Orchestration |
 | `list_agents` | ALLOWED | Agent health check |
 | `request_user_input` | ALLOWED | User interaction |
 | `mcp__ccw-tools__team_msg` | ALLOWED | Message bus |
@@ -88,7 +88,7 @@ Coordinator spawns workers using this template:
 spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
-  fork_context: false,
+  fork_turns: "none",
   items: [
     { type: "text", text: `## Role Assignment
 role: <role>
@@ -112,7 +112,7 @@ pipeline_phase: <pipeline-phase>` },
 })
 ```
 
-After spawning, use `wait_agent({ targets: [...], timeout_ms: 900000 })` to collect results, then `close_agent({ target })` each worker.
+After spawning, use `wait_agent({ timeout_ms: 900000 })` to collect results, then `close_agent({ target })` each worker.
 
 
 ### Model Selection Guide
@@ -130,7 +130,7 @@ Override model/reasoning_effort in spawn_agent when cost optimization is needed:
 spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
-  fork_context: false,
+  fork_turns: "none",
   model: "<model-override>",
   reasoning_effort: "<effort-level>",
   items: [...]
@@ -154,7 +154,7 @@ spawn_agent({
 | Intent | API | Example |
 |--------|-----|---------|
 | Send scout findings to running strategist | `send_message` | Queue issue scan results to QASTRAT-* |
-| Not used in this skill | `assign_task` | No resident agents -- all workers are one-shot |
+| Not used in this skill | `followup_task` | No resident agents -- all workers are one-shot |
 | Check running agents | `list_agents` | Verify agent health during resume |
 
 ### Pipeline Pattern

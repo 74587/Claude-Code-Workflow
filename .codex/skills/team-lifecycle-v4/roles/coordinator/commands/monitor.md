@@ -5,7 +5,7 @@ Synchronous pipeline coordination using spawn_agent + wait_agent.
 ## Constants
 
 - WORKER_AGENT: tlv4_worker
-- SUPERVISOR_AGENT: tlv4_supervisor (resident, woken via assign_task)
+- SUPERVISOR_AGENT: tlv4_supervisor (resident, woken via followup_task)
 
 ## Handler Router
 
@@ -107,7 +107,7 @@ After spawning all ready regular tasks:
 const taskNames = Object.entries(state.active_agents)
   .filter(([_, a]) => !a.resident)
   .map(([taskId]) => taskId)
-const waitResult = wait_agent({ targets: taskNames, timeout_ms: 900000 })
+const waitResult = wait_agent({ timeout_ms: 900000 })
 if (waitResult.timed_out) {
   for (const taskId of taskNames) {
     state.tasks[taskId].status = 'timed_out'
@@ -147,7 +147,7 @@ send_message({
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 ### Handle CHECKPOINT Tasks
 
@@ -158,7 +158,7 @@ For each ready CHECKPOINT task:
 2. Determine scope: list task IDs that this checkpoint depends on (its deps)
 3. Wake supervisor:
    ```javascript
-   assign_task({
+   followup_task({
      id: supervisorId,
      items: [
        { type: "text", text: `## Checkpoint Request
@@ -167,7 +167,7 @@ For each ready CHECKPOINT task:
    pipeline_progress: ${completedCount}/${totalCount} tasks completed` }
      ]
    })
-   const cpResult = wait_agent({ targets: [supervisorId], timeout_ms: 300000 })
+   const cpResult = wait_agent({ timeout_ms: 300000 })
    if (cpResult.timed_out) { /* mark checkpoint timed_out, close supervisor, STOP */ }
    ```
 4. Read checkpoint report from artifacts/${task.id}-report.md

@@ -1,7 +1,7 @@
 ---
 name: team-lifecycle-v4
 description: Full lifecycle team skill with clean architecture. SKILL.md is a universal router — all roles read it. Beat model is coordinator-only. Structure is roles/ + specs/ + templates/. Triggers on "team lifecycle v4".
-allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), assign_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), request_user_input(*)
+allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), request_user_input(*)
 ---
 
 # Team Lifecycle v4
@@ -29,7 +29,7 @@ Skill(skill="team-lifecycle-v4", args="task description")
             spawn_agent    ...     spawn_agent
           (team_worker)         (team_supervisor)
               per-task             resident agent
-              lifecycle            assign_task-driven
+              lifecycle            followup_task-driven
                     |                     |
                     +-- wait_agent --------+
                               |
@@ -63,7 +63,7 @@ Before calling ANY tool, apply this check:
 
 | Tool Call | Verdict | Reason |
 |-----------|---------|--------|
-| `spawn_agent`, `wait_agent`, `close_agent`, `send_message`, `assign_task` | ALLOWED | Orchestration |
+| `spawn_agent`, `wait_agent`, `close_agent`, `send_message`, `followup_task` | ALLOWED | Orchestration |
 | `list_agents` | ALLOWED | Agent health check |
 | `request_user_input` | ALLOWED | User interaction |
 | `mcp__ccw-tools__team_msg` | ALLOWED | Message bus |
@@ -96,7 +96,7 @@ Coordinator spawns workers using this template:
 spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
-  fork_context: false,
+  fork_turns: "none",
   items: [
     { type: "text", text: `## Role Assignment
 role: <role>
@@ -123,7 +123,7 @@ pipeline_phase: <pipeline-phase>` },
 
 ## Supervisor Spawn Template
 
-Supervisor is a **resident agent** (independent from team_worker). Spawned once during session init, woken via assign_task for each CHECKPOINT task.
+Supervisor is a **resident agent** (independent from team_worker). Spawned once during session init, woken via followup_task for each CHECKPOINT task.
 
 ### Spawn (Phase 2 -- once per session)
 
@@ -131,7 +131,7 @@ Supervisor is a **resident agent** (independent from team_worker). Spawned once 
 supervisorId = spawn_agent({
   agent_type: "team_supervisor",
   task_name: "supervisor",
-  fork_context: false,
+  fork_turns: "none",
   items: [
     { type: "text", text: `## Role Assignment
 role: supervisor
@@ -142,7 +142,7 @@ requirement: <task-description>
 
 Read role_spec file (<skill_root>/roles/supervisor/role.md) to load checkpoint definitions.
 Init: load baseline context, report ready, go idle.
-Wake cycle: orchestrator sends checkpoint requests via assign_task.` }
+Wake cycle: orchestrator sends checkpoint requests via followup_task.` }
   ]
 })
 ```
@@ -150,7 +150,7 @@ Wake cycle: orchestrator sends checkpoint requests via assign_task.` }
 ### Wake (per CHECKPOINT task)
 
 ```
-assign_task({
+followup_task({
   target: "supervisor",
   items: [
     { type: "text", text: `## Checkpoint Request
@@ -159,7 +159,7 @@ scope: [<upstream-task-ids>]
 pipeline_progress: <done>/<total> tasks completed` }
   ]
 })
-wait_agent({ targets: ["supervisor"], timeout_ms: 300000 })
+wait_agent({ timeout_ms: 300000 })
 ```
 
 ### Shutdown (pipeline complete)
@@ -186,7 +186,7 @@ Override model/reasoning_effort in spawn_agent when cost optimization is needed:
 spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
-  fork_context: false,
+  fork_turns: "none",
   model: "<model-override>",
   reasoning_effort: "<effort-level>",
   items: [...]
@@ -202,9 +202,9 @@ For each wave in the pipeline:
 3. **Build upstream context** -- For each task, gather findings from `context_from` tasks via tasks.json and `discoveries/{id}.json`
 4. **Separate task types** -- Split into regular tasks and CHECKPOINT tasks
 5. **Spawn regular tasks** -- For each regular task, call `spawn_agent({ agent_type: "team_worker", items: [...] })`, collect agent IDs
-6. **Wait** -- `wait_agent({ targets: [...], timeout_ms: 900000 })`
+6. **Wait** -- `wait_agent({ timeout_ms: 900000 })`
 7. **Collect results** -- Read `discoveries/{task_id}.json` for each agent, update tasks.json status/findings/error, then `close_agent({ target })` each worker
-8. **Execute checkpoints** -- For each CHECKPOINT task, `assign_task` to supervisor, `wait_agent`, read checkpoint report from `artifacts/`, parse verdict
+8. **Execute checkpoints** -- For each CHECKPOINT task, `followup_task` to supervisor, `wait_agent`, read checkpoint report from `artifacts/`, parse verdict
 9. **Handle block** -- If verdict is `block`, prompt user via `request_user_input` with options: Override / Revise upstream / Abort
 10. **Persist** -- Write updated state to `<session>/tasks.json`
 
@@ -226,11 +226,11 @@ For each wave in the pipeline:
 | Intent | API | Example |
 |--------|-----|---------|
 | Queue supplementary info (don't interrupt) | `send_message` | Send planning results to running implementers |
-| Wake resident supervisor for checkpoint | `assign_task` | Trigger CHECKPOINT-* evaluation on supervisor |
+| Wake resident supervisor for checkpoint | `followup_task` | Trigger CHECKPOINT-* evaluation on supervisor |
 | Supervisor reports back to coordinator | `send_message` | Supervisor sends checkpoint verdict as supplementary info |
 | Check running agents | `list_agents` | Verify agent + supervisor health during resume |
 
-**CRITICAL**: The supervisor is a **resident agent** woken via `assign_task`, NOT `send_message`. Regular workers complete and are closed; the supervisor persists across checkpoints. See "Supervisor Spawn Template" above.
+**CRITICAL**: The supervisor is a **resident agent** woken via `followup_task`, NOT `send_message`. Regular workers complete and are closed; the supervisor persists across checkpoints. See "Supervisor Spawn Template" above.
 
 ### Agent Health Check
 
@@ -248,7 +248,7 @@ const running = list_agents({})
 
 Workers are spawned with `task_name: "<task-id>"` enabling direct addressing:
 - `send_message({ target: "IMPL-001", items: [...] })` -- queue planning context to running implementer
-- `assign_task({ target: "supervisor", items: [...] })` -- wake supervisor for checkpoint
+- `followup_task({ target: "supervisor", items: [...] })` -- wake supervisor for checkpoint
 - `close_agent({ target: "IMPL-001" })` -- cleanup regular worker by name
 - `close_agent({ target: "supervisor" })` -- shutdown supervisor at pipeline end
 

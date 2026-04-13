@@ -137,7 +137,7 @@ Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`
 | feature | After QA-001 arch review | Spawn DEV-001 |
 | system | After QA-001 arch review | Spawn ARCH-002 + DEV-001 in parallel |
 
-4. STOP after spawning -- use `wait_agent({ targets: [<spawned-task-names>], timeout_ms: 900000 })` to wait for next callback. If `result.timed_out`, mark tasks as `timed_out` and close agents. Use `close_agent({ target: taskId })` with task_name for cleanup.
+4. STOP after spawning -- use `wait_agent({ timeout_ms: 900000 })` to wait for next callback. If `result.timed_out`, mark tasks as `timed_out` and close agents. Use `close_agent({ target: taskId })` with task_name for cleanup.
 
 **Cross-Agent Supplementary Context** (v4):
 
@@ -152,7 +152,7 @@ send_message({
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 ### handleCheck
 

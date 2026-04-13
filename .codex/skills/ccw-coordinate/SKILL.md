@@ -2,7 +2,7 @@
 name: ccw-coordinate
 description: Team-agent pipeline coordinator — classifies intent via structured extraction (action × object × style), maps to skill chain, spawns one agent per step whose prompt contains the skill invocation ($skill-name "intent"). Step results propagate as context to each successor. Session state at .workflow/.ccw-coordinate/{session-id}/state.json.
 argument-hint: "\"intent text\" [-y] [-c|--continue] [--dry-run] [--chain <name>]"
-allowed-tools: spawn_agent, wait, send_input, close_agent, Read, Write, Bash, Glob, Grep
+allowed-tools: spawn_agent, wait_agent, send_message, followup_task, close_agent, Read, Write, Bash, Glob, Grep
 ---
 
 ## Auto Mode
@@ -318,10 +318,10 @@ for (const step of state.steps.filter(s => s.status === 'pending')) {
   const agent = spawn_agent({ message: stepPrompt })
 
   // Wait — with timeout urge
-  let result = wait({ ids: [agent], timeout_ms: 600000 })
+  let result = wait_agent({ timeout_ms: 600000 })
   if (result.timed_out) {
-    send_input({ id: agent, message: "Please wrap up and output your findings JSON now." })
-    result = wait({ ids: [agent], timeout_ms: 120000 })
+    followup_task({ target: agent, message: "Please wrap up and output your findings JSON now." })
+    result = wait_agent({ timeout_ms: 120000 })
   }
 
   // Parse structured output from agent
@@ -331,7 +331,7 @@ for (const step of state.steps.filter(s => s.status === 'pending')) {
     hints_for_next: ""
   }
 
-  close_agent({ id: agent })
+  close_agent({ target: agent })
 
   // Persist step result
   step.status = result.timed_out ? "failed" : "completed"
@@ -460,6 +460,6 @@ Resume: $ccw-coordinate --continue
 5. **Skip on Failure**: Step failure immediately marks all remaining steps `skipped` and aborts the loop
 6. **Close before spawn**: Always `close_agent` the current step agent before spawning the next
 7. **Dry-run is read-only**: Stop after displaying the chain plan — never spawn agents
-8. **Timeout handling**: One urge via `send_input`; if still timed out → mark `failed`
+8. **Timeout handling**: One urge via `followup_task`; if still timed out → mark `failed`
 9. **No CLI fallback**: All execution is agent-native — no `exec_command("maestro cli ...")`
 10. **Semantic Routing**: Use LLM structured extraction (`action × object × style`) not regex for intent classification

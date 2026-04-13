@@ -287,7 +287,7 @@ Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`
 })
 ```
 
-Workers report results via `report_agent_job_result()`. Coordinator receives results via `wait_agent({ targets: [taskId], timeout_ms: 900000 })`. If `result.timed_out`, mark tasks as `timed_out` and close agents. Use `close_agent({ target: taskId })` with task_name for cleanup.
+Workers report results via `report_agent_job_result()`. Coordinator receives results via `wait_agent({ timeout_ms: 900000 })`. If `result.timed_out`, mark tasks as `timed_out` and close agents. Use `close_agent({ target: taskId })` with task_name for cleanup.
 
 **Cross-Agent Supplementary Context** (v4):
 
@@ -302,7 +302,7 @@ send_message({
 // Note: send_message queues info without interrupting the agent's current work
 ```
 
-Use `send_message` (not `assign_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
+Use `send_message` (not `followup_task`) for supplementary info that enriches but doesn't redirect the agent's current task.
 
 ---
 

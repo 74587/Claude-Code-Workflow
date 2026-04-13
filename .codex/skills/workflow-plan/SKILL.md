@@ -6,7 +6,7 @@ description: |
   (spawn_agent or N+1 parallel agents) → plan verification → interactive replan.
   Produces IMPL_PLAN.md, task JSONs, TODO_LIST.md.
 argument-hint: "[-y|--yes] [--session ID] \"task description\" | verify [--session ID] | replan [--session ID] [IMPL-N] \"changes\""
-allowed-tools: spawn_agent, wait_agent, send_message, assign_task, close_agent, request_user_input, Read, Write, Edit, Bash, Glob, Grep
+allowed-tools: spawn_agent, wait_agent, send_message, followup_task, close_agent, request_user_input, Read, Write, Edit, Bash, Glob, Grep
 ---
 
 ## Auto Mode
@@ -271,7 +271,7 @@ Format: {
 `
 })
 
-wait_agent({ targets: [ctxAgent] })
+wait_agent()
 close_agent({ target: ctxAgent })
 
 // Parse outputs
@@ -403,7 +403,7 @@ ${contextPkg.conflict_risk === 'medium' || contextPkg.conflict_risk === 'high'
 `
      })
 
-     wait_agent({ targets: [planAgent] })
+     wait_agent()
      close_agent({ target: planAgent })
    }
    ```
@@ -439,7 +439,7 @@ Mark cross-module dependencies as CROSS::${'{module}'}::${'{task}'}
      }
 
      // Wait for all module planners
-     wait_agent({ targets: moduleAgents.map(a => a.id) })
+     wait_agent()
      moduleAgents.forEach(a => close_agent({ target: a.id }))
 
      // +1 Coordinator: integrate all modules
@@ -460,7 +460,7 @@ Integrate ${uniqueModules.length} module plans into unified IMPL_PLAN.md.
 `
      })
 
-     wait_agent({ targets: [coordAgent] })
+     wait_agent()
      close_agent({ target: coordAgent })
    }
    ```
@@ -601,7 +601,7 @@ ${replanTaskId ? `**Target Task**: ${sessionFolder}/.task/${replanTaskId}.json` 
 `
   })
 
-  wait_agent({ targets: [replanAgent] })
+  wait_agent()
   close_agent({ target: replanAgent })
 
   console.log(`  Replan complete. Review: ${sessionFolder}/IMPL_PLAN.md`)
