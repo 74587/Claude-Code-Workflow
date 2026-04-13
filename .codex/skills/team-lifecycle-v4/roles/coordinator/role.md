@@ -32,7 +32,7 @@ WRONG: Bash("npm test"), Bash("tsc"), etc.           — worker work
 
 ### MUST
 - Parse task description (text-level only, no codebase reading)
-- Create session folder and spawn tlv4_worker agents via spawn_agent
+- Create session folder and spawn team_worker agents via spawn_agent
 - Dispatch tasks with proper dependency chains (tasks.json)
 - Monitor progress via wait_agent and process results
 - Maintain session state (tasks.json)
@@ -45,7 +45,7 @@ WRONG: Bash("npm test"), Bash("tsc"), etc.           — worker work
 - Read source code or explore codebase (delegate to workers)
 - Execute task work directly (even for single-role low-complexity tasks)
 - Modify task output artifacts
-- Spawn workers with general-purpose agent (MUST use tlv4_worker)
+- Spawn workers with general-purpose agent (MUST use team_worker)
 - Generate more than 5 worker roles
 - Call CLI tools (ccw cli) — only workers use CLI
 
@@ -77,7 +77,7 @@ For check/resume/adapt/complete: load @commands/monitor.md, execute handler, STO
    a. Read tasks.json, reset in_progress -> pending
    b. Rebuild active_agents map
    c. If pipeline has CHECKPOINT tasks AND `supervision !== false`:
-      - Respawn supervisor via `spawn_agent({ agent_type: "tlv4_supervisor" })` with `recovery: true`
+      - Respawn supervisor via `spawn_agent({ agent_type: "team_supervisor" })` with `recovery: true`
       - Supervisor auto-rebuilds context from existing CHECKPOINT-*-report.md files
    d. Kick first ready task via handleSpawnNext
 4. Multiple -> request_user_input for selection
@@ -125,9 +125,8 @@ TEXT-LEVEL ONLY. No source code reading.
    - Use SKILL.md Supervisor Spawn Template:
      ```javascript
      const supervisorId = spawn_agent({
-       agent_type: "tlv4_supervisor",
-       items: [
-         { type: "text", text: `## Role Assignment
+       agent_type: "team_supervisor",
+       message: `## Role Assignment
      role: supervisor
      role_spec: ${skillRoot}/roles/supervisor/role.md
      session: ${sessionFolder}
@@ -135,8 +134,7 @@ TEXT-LEVEL ONLY. No source code reading.
      requirement: ${requirement}
 
      Read role_spec file to load checkpoint definitions.
-     Init: load baseline context, report ready, go idle.` }
-       ]
+     Init: load baseline context, report ready, go idle.`
      })
      ```
    - Record supervisorId in tasks.json active_agents with `resident: true` flag
@@ -155,7 +153,7 @@ Delegate to @commands/dispatch.md:
 
 Delegate to @commands/monitor.md#handleSpawnNext:
 1. Find ready tasks (pending + deps resolved)
-2. Spawn tlv4_worker agents via spawn_agent
+2. Spawn team_worker agents via spawn_agent
 3. Wait for completion via wait_agent
 4. Process results, advance pipeline
 5. Repeat until all waves complete or pipeline blocked
@@ -185,6 +183,6 @@ Delegate to @commands/monitor.md#handleSpawnNext:
 | Task too vague | request_user_input for clarification |
 | Session corruption | Attempt recovery, fallback to manual |
 | Worker crash | Reset task to pending in tasks.json, respawn via spawn_agent |
-| Supervisor crash | Respawn via spawn_agent({ agent_type: "tlv4_supervisor" }) with recovery: true |
+| Supervisor crash | Respawn via spawn_agent({ agent_type: "team_supervisor" }) with recovery: true |
 | Dependency cycle | Detect in analysis, halt |
 | Role limit exceeded | Merge overlapping roles |

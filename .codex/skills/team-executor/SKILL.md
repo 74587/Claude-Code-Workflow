@@ -1,7 +1,7 @@
 ---
 name: team-executor
 description: Lightweight session execution skill. Resumes existing team-coordinate sessions for pure execution via team-worker agents. No analysis, no role generation -- only loads and executes. Session path required. Triggers on "Team Executor".
-allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), mcp__ccw-tools__team_msg(*)
 ---
 
 # Team Executor
@@ -111,8 +111,7 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: <role>
 role_spec: <session-folder>/role-specs/<role>.md
 session: <session-folder>
@@ -120,17 +119,16 @@ session_id: <session-id>
 requirement: <task-description>
 inner_loop: <true|false>
 
-Read role_spec file to load Phase 2-4 domain instructions.` },
+Read role_spec file to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: <task-id>
 title: <task-title>
 description: <task-description>
-pipeline_phase: <pipeline-phase>` },
+pipeline_phase: <pipeline-phase>
 
-    { type: "text", text: `## Upstream Context
-<prev_context>` }
-  ]
+## Upstream Context
+<prev_context>`
 })
 ```
 
@@ -159,8 +157,8 @@ const running = list_agents({})
 
 ### Worker Communication
 
-- `send_message({ target: "<task-id>", items: [...] })` -- queue supplementary context
-- `followup_task({ target: "<task-id>", items: [...] })` -- assign new work to inner_loop worker
+- `send_message({ target: "<task-id>", message: "..." })` -- queue supplementary context
+- `followup_task({ target: "<task-id>", message: "..." })` -- assign new work to inner_loop worker
 - `close_agent({ target: "<task-id>" })` -- cleanup completed worker
 
 ## Completion Action

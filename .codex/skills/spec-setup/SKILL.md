@@ -188,7 +188,7 @@ Project root: ${projectRoot}
 
   if (result.timed_out) {
     followup_task({ target: exploreAgent, message: "Complete analysis now and write project-tech.json." })
-    const retry = wait_agent({ timeout_ms: 300000 })
+    const retry = wait_agent({ timeout_ms: 600000 })
     if (retry.timed_out) throw new Error('Agent timeout')
   }
 

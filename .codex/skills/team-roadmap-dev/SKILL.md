@@ -1,7 +1,7 @@
 ---
 name: team-roadmap-dev
 description: Unified team skill for roadmap-driven development workflow. Coordinator discusses roadmap with user, then dispatches phased execution pipeline (plan -> execute -> verify). All roles invoke this skill with --role arg. Triggers on "team roadmap-dev".
-allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), mcp__ccw-tools__team_msg(*)
 ---
 
 # Team Roadmap Dev
@@ -93,8 +93,7 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: <role>
 role_spec: <skill_root>/roles/<role>/role.md
 session: <session-folder>
@@ -102,17 +101,16 @@ session_id: <session-id>
 requirement: <task-description>
 inner_loop: true
 
-Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.` },
+Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: <task-id>
 title: <task-title>
 description: <task-description>
-pipeline_phase: <pipeline-phase>` },
+pipeline_phase: <pipeline-phase>
 
-    { type: "text", text: `## Upstream Context
-<prev_context>` }
-  ]
+## Upstream Context
+<prev_context>`
 })
 ```
 
@@ -190,8 +188,8 @@ const running = list_agents({})
 ### Named Agent Targeting
 
 Workers are spawned with `task_name: "<task-id>"` enabling direct addressing:
-- `send_message({ target: "EXEC-N01", items: [...] })` -- send supplementary context to executor
-- `followup_task({ target: "PLAN-N01", items: [...] })` -- assign next phase planning
+- `send_message({ target: "EXEC-N01", message: "..." })` -- send supplementary context to executor
+- `followup_task({ target: "PLAN-N01", message: "..." })` -- assign next phase planning
 - `close_agent({ target: "VERIFY-N01" })` -- cleanup after verification
 
 ### Multi-Phase Context Accumulation

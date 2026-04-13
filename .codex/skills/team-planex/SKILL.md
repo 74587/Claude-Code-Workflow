@@ -86,8 +86,7 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: <role>
 role_spec: <skill_root>/roles/<role>/role.md
 session: <session-folder>
@@ -96,17 +95,16 @@ requirement: <task-description>
 inner_loop: <true|false>
 execution_method: <codex|gemini>
 
-Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.` },
+Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: <task-id>
 title: <task-title>
 description: <task-description>
-pipeline_phase: <pipeline-phase>` },
+pipeline_phase: <pipeline-phase>
 
-    { type: "text", text: `## Upstream Context
-<prev_context>` }
-  ]
+## Upstream Context
+<prev_context>`
 })
 ```
 
@@ -128,7 +126,7 @@ spawn_agent({
   fork_turns: "none",
   model: "<model-override>",
   reasoning_effort: "<effort-level>",
-  items: [...]
+  message: "..."
 })
 ```
 
@@ -199,7 +197,7 @@ const running = list_agents({})
 ### Named Agent Targeting
 
 Workers are spawned with `task_name: "<task-id>"` enabling direct addressing:
-- `send_message({ target: "EXEC-001", items: [...] })` -- queue plan solution to running executor
+- `send_message({ target: "EXEC-001", message: "..." })` -- queue plan solution to running executor
 - `close_agent({ target: "PLAN-001" })` -- cleanup by name after completion
 
 ## Error Handling

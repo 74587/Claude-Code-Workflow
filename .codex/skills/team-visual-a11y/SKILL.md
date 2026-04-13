@@ -100,8 +100,7 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: <role>
 role_spec: <skill_root>/roles/<role>/role.md
 session: <session-folder>
@@ -109,17 +108,16 @@ session_id: <session-id>
 requirement: <task-description>
 inner_loop: <true|false>
 
-Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.` },
+Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: <task-id>
 title: <task-title>
 description: <task-description>
-pipeline_phase: <pipeline-phase>` },
+pipeline_phase: <pipeline-phase>
 
-    { type: "text", text: `## Upstream Context
-<prev_context>` }
-  ]
+## Upstream Context
+<prev_context>`
 })
 ```
 
@@ -133,8 +131,7 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "COLOR-001",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: color-auditor
 role_spec: ${skillRoot}/roles/color-auditor/role.md
 session: ${sessionFolder}
@@ -142,21 +139,20 @@ session_id: ${sessionId}
 requirement: ${colorTaskDescription}
 inner_loop: false
 
-Read role_spec file to load Phase 2-4 domain instructions.` },
-    { type: "text", text: `## Task Context
+Read role_spec file to load Phase 2-4 domain instructions.
+
+## Task Context
 task_id: COLOR-001
 title: OKLCH Color Contrast Audit
 description: ${colorTaskDescription}
-pipeline_phase: audit` }
-  ]
+pipeline_phase: audit`
 })
 
 spawn_agent({
   agent_type: "team_worker",
   task_name: "TYPO-001",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: typo-auditor
 role_spec: ${skillRoot}/roles/typo-auditor/role.md
 session: ${sessionFolder}
@@ -164,21 +160,20 @@ session_id: ${sessionId}
 requirement: ${typoTaskDescription}
 inner_loop: false
 
-Read role_spec file to load Phase 2-4 domain instructions.` },
-    { type: "text", text: `## Task Context
+Read role_spec file to load Phase 2-4 domain instructions.
+
+## Task Context
 task_id: TYPO-001
 title: Typography Readability Audit
 description: ${typoTaskDescription}
-pipeline_phase: audit` }
-  ]
+pipeline_phase: audit`
 })
 
 spawn_agent({
   agent_type: "team_worker",
   task_name: "FOCUS-001",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: focus-auditor
 role_spec: ${skillRoot}/roles/focus-auditor/role.md
 session: ${sessionFolder}
@@ -186,13 +181,13 @@ session_id: ${sessionId}
 requirement: ${focusTaskDescription}
 inner_loop: false
 
-Read role_spec file to load Phase 2-4 domain instructions.` },
-    { type: "text", text: `## Task Context
+Read role_spec file to load Phase 2-4 domain instructions.
+
+## Task Context
 task_id: FOCUS-001
 title: Focus & Keyboard Accessibility Audit
 description: ${focusTaskDescription}
-pipeline_phase: audit` }
-  ]
+pipeline_phase: audit`
 })
 
 // Wait for ALL 3 auditors to complete
@@ -229,13 +224,10 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "REMED-001",
   fork_turns: "none",
-  items: [
-    ...,
-    { type: "text", text: `## Upstream Context
+  message: `## Upstream Context
 Color audit: <session>/audits/color/color-audit-001.md
 Typography audit: <session>/audits/typography/typo-audit-001.md
-Focus audit: <session>/audits/focus/focus-audit-001.md` }
-  ]
+Focus audit: <session>/audits/focus/focus-audit-001.md`
 })
 ```
 
@@ -302,8 +294,8 @@ const running = list_agents({})
 ### Named Agent Targeting
 
 Workers are spawned with `task_name: "<task-id>"` enabling direct addressing:
-- `send_message({ target: "REMED-001", items: [...] })` -- send additional audit findings to remediation-planner
-- `followup_task({ target: "FIX-001", items: [...] })` -- assign implementation from remediation plan
+- `send_message({ target: "REMED-001", message: "..." })` -- send additional audit findings to remediation-planner
+- `followup_task({ target: "FIX-001", message: "..." })` -- assign implementation from remediation plan
 - `close_agent({ target: "COLOR-001" })` -- cleanup after color audit
 
 ## Error Handling

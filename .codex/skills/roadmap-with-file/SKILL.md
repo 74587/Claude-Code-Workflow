@@ -569,7 +569,7 @@ Return findings as JSON with schema:
      })
 
      const exploreResult = wait_agent({
-       timeout_ms: 120000
+       timeout_ms: 600000
      })
 
      close_agent({ target: exploreAgentId })
@@ -660,7 +660,7 @@ ${selectedMode === 'progressive' ? `**Progressive Mode**:
    })
 
    const decompositionResult = wait_agent({
-     timeout_ms: 300000  // 5 minutes for complex decomposition
+     timeout_ms: 600000  // 10 minutes for complex decomposition
    })
 
    close_agent({ target: decompositionAgentId })

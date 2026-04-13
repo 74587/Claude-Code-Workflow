@@ -173,8 +173,7 @@ const agentId = spawn_agent({
   agent_type: "team_worker",
   task_name: taskId,  // e.g., "COLOR-001" -- enables named targeting
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: ${role}
 role_spec: ${skillRoot}/roles/${role}/role.md
 session: ${sessionFolder}
@@ -182,17 +181,16 @@ session_id: ${sessionId}
 requirement: ${taskDescription}
 inner_loop: ${innerLoop}
 
-Read role_spec file to load Phase 2-4 domain instructions.` },
+Read role_spec file to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: ${taskId}
 title: ${taskTitle}
 description: ${taskDescription}
-pipeline_phase: ${pipelinePhase}` },
+pipeline_phase: ${pipelinePhase}
 
-    { type: "text", text: `## Upstream Context
-${upstreamContext}` }
-  ]
+## Upstream Context
+${upstreamContext}`
 })
 
 // 3) Track agent
@@ -232,7 +230,7 @@ When spawning workers in a later pipeline phase, send upstream results as supple
 // Example: Send audit results to running remediation-planner
 send_message({
   target: "<running-agent-task-name>",
-  items: [{ type: "text", text: `## Supplementary Context\n${upstreamFindings}` }]
+  message: `## Supplementary Context\n${upstreamFindings}`
 })
 // Note: send_message queues info without interrupting the agent's current work
 ```

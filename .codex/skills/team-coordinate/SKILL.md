@@ -1,7 +1,7 @@
 ---
 name: team-coordinate
 description: Universal team coordination skill with dynamic role generation. Uses team-worker agent architecture with role-spec files. Only coordinator is built-in -- all worker roles are generated at runtime as role-specs and spawned via team-worker agent. Beat/cadence model for orchestration. Triggers on "Team Coordinate ".
-allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), mcp__ccw-tools__team_msg(*)
 ---
 
 # Team Coordinate
@@ -139,8 +139,7 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: <role>
 role_spec: <session-folder>/role-specs/<role>.md
 session: <session-folder>
@@ -148,17 +147,16 @@ session_id: <session-id>
 requirement: <task-description>
 inner_loop: <true|false>
 
-Read role_spec file to load Phase 2-4 domain instructions.` },
+Read role_spec file to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: <task-id>
 title: <task-title>
 description: <task-description>
-pipeline_phase: <pipeline-phase>` },
+pipeline_phase: <pipeline-phase>
 
-    { type: "text", text: `## Upstream Context
-<prev_context>` }
-  ]
+## Upstream Context
+<prev_context>`
 })
 ```
 
@@ -193,7 +191,7 @@ spawn_agent({
   fork_turns: "none",
   model: "<model-override>",
   reasoning_effort: "<effort-level>",
-  items: [...]
+  message: "..."
 })
 ```
 
@@ -232,7 +230,7 @@ const running = list_agents({})
 ### Named Agent Targeting
 
 Workers are spawned with `task_name: "<task-id>"` enabling direct addressing:
-- `send_message({ target: "<TASK-ID>", items: [...] })` -- queue upstream context without interrupting
+- `send_message({ target: "<TASK-ID>", message: "..." })` -- queue upstream context without interrupting
 - `close_agent({ target: "<TASK-ID>" })` -- cleanup by name
 
 ## Completion Action

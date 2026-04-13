@@ -211,23 +211,21 @@ state.tasks[taskId].status = 'in_progress'
 const agentId = spawn_agent({
   agent_type: "team_worker",
   task_name: taskId,  // e.g., "EXPLORE-001" — enables named targeting
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: ${role}
 role_spec: ${skillRoot}/roles/${role}/role.md
 session: ${sessionFolder}
 session_id: ${sessionId}
 requirement: ${taskDescription}
 agent_name: ${agentName}
-inner_loop: false` },
+inner_loop: false
 
-    { type: "text", text: `## Current Task
+## Current Task
 - Task ID: ${taskId}
 - Task: ${taskSubject}
 
 Read role_spec file to load Phase 2-4 domain instructions.
-Execute built-in Phase 1 (task discovery, owner=${agentName}) -> role-spec Phase 2-4 -> built-in Phase 5 (report).` }
-  ]
+Execute built-in Phase 1 (task discovery, owner=${agentName}) -> role-spec Phase 2-4 -> built-in Phase 5 (report).`
 })
 
 // 3) Track agent
@@ -274,7 +272,7 @@ When spawning workers in a later pipeline phase, send upstream results as supple
 // Example: Send exploration results to running analysts
 send_message({
   target: "<running-agent-task-name>",
-  items: [{ type: "text", text: `## Supplementary Context\n${upstreamFindings}` }]
+  message: `## Supplementary Context\n${upstreamFindings}`
 })
 // Note: send_message queues info without interrupting the agent's current work
 ```

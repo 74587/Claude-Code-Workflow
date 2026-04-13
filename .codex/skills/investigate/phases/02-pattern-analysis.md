@@ -93,7 +93,7 @@ CONTEXT: @src/**/*.<ext> | Bug in <module>, pattern: <pattern_description>
 EXPECTED: List of all files with same pattern, risk assessment per occurrence (same_bug|potential_bug|safe)
 CONSTRAINTS: Focus on <antipattern> pattern only | Ignore test files for scope`
 })
-const patternResult = wait_agent({ timeout_ms: 180000 })
+const patternResult = wait_agent({ timeout_ms: 600000 })
 close_agent({ target: "inline-cli-analysis" })
 ```
 

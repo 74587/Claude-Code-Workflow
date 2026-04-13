@@ -208,7 +208,7 @@ Format:
 
   if (result.timed_out) {
     followup_task({ target: exploreAgent, message: "Complete now and write cleanup-manifest.json." })
-    result = wait_agent({ timeout_ms: 300000 })
+    result = wait_agent({ timeout_ms: 600000 })
     if (result.timed_out) throw new Error('Agent timeout')
   }
 

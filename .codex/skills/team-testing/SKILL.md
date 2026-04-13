@@ -1,7 +1,7 @@
 ---
 name: team-testing
 description: Unified team skill for testing team. Progressive test coverage through Generator-Critic loops, shared memory, and dynamic layer selection. Triggers on "team testing".
-allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*)
+allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), request_user_input(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), mcp__ccw-tools__team_msg(*)
 ---
 
 # Team Testing
@@ -88,8 +88,7 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: <role>
 role_spec: <skill_root>/roles/<role>/role.md
 session: <session-folder>
@@ -97,17 +96,16 @@ session_id: <session-id>
 requirement: <task-description>
 inner_loop: <true|false>
 
-Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.` },
+Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: <task-id>
 title: <task-title>
 description: <task-description>
-pipeline_phase: <pipeline-phase>` },
+pipeline_phase: <pipeline-phase>
 
-    { type: "text", text: `## Upstream Context
-<prev_context>` }
-  ]
+## Upstream Context
+<prev_context>`
 })
 ```
 
@@ -131,7 +129,7 @@ spawn_agent({
   fork_turns: "none",
   model: "<model-override>",
   reasoning_effort: "<effort-level>",
-  items: [...]
+  message: "..."
 })
 ```
 
@@ -185,7 +183,7 @@ const running = list_agents({})
 ### Named Agent Targeting
 
 Workers are spawned with `task_name: "<task-id>"` enabling direct addressing:
-- `send_message({ target: "TESTGEN-001", items: [...] })` -- queue strategy context to running generator
+- `send_message({ target: "TESTGEN-001", message: "..." })` -- queue strategy context to running generator
 - `close_agent({ target: "TESTRUN-001" })` -- cleanup by name after wait_agent returns
 
 ## Completion Action

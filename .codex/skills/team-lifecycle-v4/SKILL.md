@@ -1,7 +1,7 @@
 ---
 name: team-lifecycle-v4
 description: Full lifecycle team skill with clean architecture. SKILL.md is a universal router — all roles read it. Beat model is coordinator-only. Structure is roles/ + specs/ + templates/. Triggers on "team lifecycle v4".
-allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), request_user_input(*)
+allowed-tools: spawn_agent(*), wait_agent(*), send_message(*), followup_task(*), close_agent(*), list_agents(*), report_agent_job_result(*), Read(*), Write(*), Edit(*), Bash(*), Glob(*), Grep(*), request_user_input(*), mcp__ccw-tools__team_msg(*)
 ---
 
 # Team Lifecycle v4
@@ -97,8 +97,7 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: <role>
 role_spec: <skill_root>/roles/<role>/role.md
 session: <session-folder>
@@ -107,17 +106,16 @@ requirement: <task-description>
 inner_loop: <true|false>
 
 Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.
-Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).` },
+Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: <task-id>
 title: <task-title>
 description: <task-description>
-pipeline_phase: <pipeline-phase>` },
+pipeline_phase: <pipeline-phase>
 
-    { type: "text", text: `## Upstream Context
-<prev_context>` }
-  ]
+## Upstream Context
+<prev_context>`
 })
 ```
 
@@ -132,8 +130,7 @@ supervisorId = spawn_agent({
   agent_type: "team_supervisor",
   task_name: "supervisor",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: supervisor
 role_spec: <skill_root>/roles/supervisor/role.md
 session: <session-folder>
@@ -142,8 +139,7 @@ requirement: <task-description>
 
 Read role_spec file (<skill_root>/roles/supervisor/role.md) to load checkpoint definitions.
 Init: load baseline context, report ready, go idle.
-Wake cycle: orchestrator sends checkpoint requests via followup_task.` }
-  ]
+Wake cycle: orchestrator sends checkpoint requests via followup_task.`
 })
 ```
 
@@ -152,14 +148,12 @@ Wake cycle: orchestrator sends checkpoint requests via followup_task.` }
 ```
 followup_task({
   target: "supervisor",
-  items: [
-    { type: "text", text: `## Checkpoint Request
+  message: `## Checkpoint Request
 task_id: <CHECKPOINT-NNN>
 scope: [<upstream-task-ids>]
-pipeline_progress: <done>/<total> tasks completed` }
-  ]
+pipeline_progress: <done>/<total> tasks completed`
 })
-wait_agent({ timeout_ms: 300000 })
+wait_agent({ timeout_ms: 900000 })
 ```
 
 ### Shutdown (pipeline complete)
@@ -189,7 +183,7 @@ spawn_agent({
   fork_turns: "none",
   model: "<model-override>",
   reasoning_effort: "<effort-level>",
-  items: [...]
+  message: "..."
 })
 ```
 
@@ -201,7 +195,7 @@ For each wave in the pipeline:
 2. **Skip failed deps** -- Mark tasks whose dependencies failed/skipped as `skipped`
 3. **Build upstream context** -- For each task, gather findings from `context_from` tasks via tasks.json and `discoveries/{id}.json`
 4. **Separate task types** -- Split into regular tasks and CHECKPOINT tasks
-5. **Spawn regular tasks** -- For each regular task, call `spawn_agent({ agent_type: "team_worker", items: [...] })`, collect agent IDs
+5. **Spawn regular tasks** -- For each regular task, call `spawn_agent({ agent_type: "team_worker", message: "..." })`, collect agent IDs
 6. **Wait** -- `wait_agent({ timeout_ms: 900000 })`
 7. **Collect results** -- Read `discoveries/{task_id}.json` for each agent, update tasks.json status/findings/error, then `close_agent({ target })` each worker
 8. **Execute checkpoints** -- For each CHECKPOINT task, `followup_task` to supervisor, `wait_agent`, read checkpoint report from `artifacts/`, parse verdict
@@ -247,8 +241,8 @@ const running = list_agents({})
 ### Named Agent Targeting
 
 Workers are spawned with `task_name: "<task-id>"` enabling direct addressing:
-- `send_message({ target: "IMPL-001", items: [...] })` -- queue planning context to running implementer
-- `followup_task({ target: "supervisor", items: [...] })` -- wake supervisor for checkpoint
+- `send_message({ target: "IMPL-001", message: "..." })` -- queue planning context to running implementer
+- `followup_task({ target: "supervisor", message: "..." })` -- wake supervisor for checkpoint
 - `close_agent({ target: "IMPL-001" })` -- cleanup regular worker by name
 - `close_agent({ target: "supervisor" })` -- shutdown supervisor at pipeline end
 

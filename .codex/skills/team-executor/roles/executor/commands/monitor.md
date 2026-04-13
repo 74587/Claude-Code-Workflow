@@ -134,25 +134,24 @@ Ready tasks found?
 ```javascript
 const agentId = spawn_agent({
   agent_type: "team_worker",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: ${task.role}
 role_spec: ${sessionFolder}/role-specs/${task.role}.md
 session: ${sessionFolder}
 session_id: ${sessionId}
 team_name: ${teamName}
 requirement: ${task.description}
-inner_loop: ${hasInnerLoop(task.role)}` },
+inner_loop: ${hasInnerLoop(task.role)}
 
-    { type: "text", text: `Read role_spec file (${sessionFolder}/role-specs/${task.role}.md) to load Phase 2-4 domain instructions.` },
+Read role_spec file (${sessionFolder}/role-specs/${task.role}.md) to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: ${taskId}
 title: ${task.title}
-description: ${task.description}` },
+description: ${task.description}
 
-    { type: "text", text: `## Upstream Context\n${prevContext}` }
-  ]
+## Upstream Context
+${prevContext}`
 })
 
 state.active_agents[taskId] = { agentId, role: task.role, started_at: now }

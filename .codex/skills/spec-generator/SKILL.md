@@ -126,7 +126,7 @@ Phase 1: Discovery & Seed Analysis
    |- Gemini CLI seed analysis (problem, users, domain, dimensions)
    |- Codebase exploration (conditional, if project detected)
    |  |- spawn_agent({ task_name: "spec-explorer", fork_turns: "none", message: ... })
-   |  |- wait_agent({ timeout_ms: 300000 })
+   |  |- wait_agent({ timeout_ms: 600000 })
    |  |- close_agent({ target: "spec-explorer" })
    |- Spec type selection: service|api|library|platform (interactive, -y defaults to service)
    |- User confirmation (interactive, -y skips)
@@ -395,9 +395,9 @@ const result = wait_agent({ timeout_ms: 600000 })
 if (result.timed_out) {
   followup_task({
     target: "doc-gen-p<N>",
-    items: [{ type: "text", text: "Please finalize current work and output results immediately." }]
+    message: "Please finalize current work and output results immediately."
   })
-  const retryResult = wait_agent({ timeout_ms: 120000 })
+  const retryResult = wait_agent({ timeout_ms: 300000 })
   if (retryResult.timed_out) {
     close_agent({ target: "doc-gen-p<N>" })
     // Fall back to inline execution for this phase
@@ -433,12 +433,12 @@ phasesSummaries[N] = summary
 
 | Phase | task_name | Default Timeout | On Timeout |
 |-------|-----------|-----------------|------------|
-| Phase 1 (explore) | `spec-explorer` | 300000ms (5min) | followup_task "finalize" → re-wait 120s → close |
-| Phase 2 | `doc-gen-p2` | 600000ms (10min) | followup_task "finalize" → re-wait 120s → close + inline fallback |
-| Phase 3 | `doc-gen-p3` | 600000ms (10min) | followup_task "finalize" → re-wait 120s → close + inline fallback |
-| Phase 4 | `doc-gen-p4` | 600000ms (10min) | followup_task "finalize" → re-wait 120s → close + inline fallback |
-| Phase 5 | `doc-gen-p5` | 600000ms (10min) | followup_task "finalize" → re-wait 120s → close + inline fallback |
-| Phase 6.5 | `doc-gen-fix` | 600000ms (10min) | followup_task "finalize" → re-wait 120s → close + force handoff |
+| Phase 1 (explore) | `spec-explorer` | 600000ms (10min) | followup_task "finalize" → re-wait 300s → close |
+| Phase 2 | `doc-gen-p2` | 600000ms (10min) | followup_task "finalize" → re-wait 300s → close + inline fallback |
+| Phase 3 | `doc-gen-p3` | 600000ms (10min) | followup_task "finalize" → re-wait 300s → close + inline fallback |
+| Phase 4 | `doc-gen-p4` | 600000ms (10min) | followup_task "finalize" → re-wait 300s → close + inline fallback |
+| Phase 5 | `doc-gen-p5` | 600000ms (10min) | followup_task "finalize" → re-wait 300s → close + inline fallback |
+| Phase 6.5 | `doc-gen-fix` | 600000ms (10min) | followup_task "finalize" → re-wait 300s → close + force handoff |
 
 ### Cleanup Protocol
 

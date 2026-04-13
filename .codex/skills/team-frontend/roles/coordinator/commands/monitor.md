@@ -110,11 +110,7 @@ Find and spawn the next ready tasks.
 spawn_agent({
   agent_type: "team_worker",
   task_name: taskId,  // e.g., "DEV-001" — enables named targeting
-  items: [{
-    description: "Spawn <role> worker for <task-id>",
-    team_name: "frontend",
-    name: "<role>",
-    prompt: `## Role Assignment
+  message: `## Role Assignment
 role: <role>
 role_spec: ~  or <project>/.codex/skills/team-frontend/roles/<role>/role.md
 session: <session-folder>
@@ -125,7 +121,6 @@ inner_loop: <true|false>
 
 Read role_spec file to load Phase 2-4 domain instructions.
 Execute built-in Phase 1 -> role-spec Phase 2-4 -> built-in Phase 5.`
-  }]
 })
 ```
 
@@ -147,7 +142,7 @@ When spawning workers in a later pipeline phase, send upstream results as supple
 // Example: Send analysis results to running developer
 send_message({
   target: "<running-agent-task-name>",
-  items: [{ type: "text", text: `## Supplementary Context\n${upstreamFindings}` }]
+  message: `## Supplementary Context\n${upstreamFindings}`
 })
 // Note: send_message queues info without interrupting the agent's current work
 ```

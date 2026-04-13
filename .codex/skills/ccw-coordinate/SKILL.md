@@ -321,7 +321,7 @@ for (const step of state.steps.filter(s => s.status === 'pending')) {
   let result = wait_agent({ timeout_ms: 600000 })
   if (result.timed_out) {
     followup_task({ target: agent, message: "Please wrap up and output your findings JSON now." })
-    result = wait_agent({ timeout_ms: 120000 })
+    result = wait_agent({ timeout_ms: 600000 })
   }
 
   // Parse structured output from agent

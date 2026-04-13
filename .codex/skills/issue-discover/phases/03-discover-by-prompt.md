@@ -252,7 +252,7 @@ while (shouldContinue && iteration < maxIterations) {
   }
 
   // Step 4: Close all dimension agents
-  dimensionAgentIds.forEach(id => close_agent({ id }));
+  dimensionAgentIds.forEach(id => close_agent({ target: id }));
 
   // Collect and analyze iteration findings
   const iterationFindings = await collectIterationFindings(iterationDir, iterationPlan.dimensions);

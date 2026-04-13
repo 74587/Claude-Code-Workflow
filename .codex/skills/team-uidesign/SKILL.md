@@ -88,8 +88,7 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: <role>
 role_spec: <skill_root>/roles/<role>/role.md
 session: <session-folder>
@@ -97,17 +96,16 @@ session_id: <session-id>
 requirement: <task-description>
 inner_loop: false
 
-Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.` },
+Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: <task-id>
 title: <task-title>
 description: <task-description>
-pipeline_phase: <pipeline-phase>` },
+pipeline_phase: <pipeline-phase>
 
-    { type: "text", text: `## Upstream Context
-<prev_context>` }
-  ]
+## Upstream Context
+<prev_context>`
 })
 ```
 
@@ -134,13 +132,10 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "DESIGN-001",
   fork_turns: "none",
-  items: [
-    ...,
-    { type: "text", text: `## Upstream Context
+  message: `## Upstream Context
 Research findings: <session>/research/design-intelligence.json
 Component inventory: <session>/research/component-inventory.json
-Accessibility audit: <session>/research/accessibility-audit.json` }
-  ]
+Accessibility audit: <session>/research/accessibility-audit.json`
 })
 ```
 
@@ -203,8 +198,8 @@ const running = list_agents({})
 ### Named Agent Targeting
 
 Workers are spawned with `task_name: "<task-id>"` enabling direct addressing:
-- `send_message({ target: "DESIGN-001", items: [...] })` -- send additional research findings to designer
-- `followup_task({ target: "BUILD-001", items: [...] })` -- assign implementation from reviewed design specs
+- `send_message({ target: "DESIGN-001", message: "..." })` -- send additional research findings to designer
+- `followup_task({ target: "BUILD-001", message: "..." })` -- assign implementation from reviewed design specs
 - `close_agent({ target: "AUDIT-001" })` -- cleanup after design audit
 
 ## Error Handling

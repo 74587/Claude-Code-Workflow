@@ -135,8 +135,7 @@ const agentId = spawn_agent({
   agent_type: "team_worker",
   task_name: taskId,  // e.g., "ANIM-001" -- enables named targeting
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: ${role}
 role_spec: ${skillRoot}/roles/${role}/role.md
 session: ${sessionFolder}
@@ -145,17 +144,16 @@ requirement: ${taskDescription}
 inner_loop: ${innerLoop}
 
 Read role_spec file to load Phase 2-4 domain instructions.
-Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).` },
+Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: ${taskId}
 title: ${taskTitle}
 description: ${taskDescription}
-pipeline_phase: ${pipelinePhase}` },
+pipeline_phase: ${pipelinePhase}
 
-    { type: "text", text: `## Upstream Context
-${prevContext}` }
-  ]
+## Upstream Context
+${prevContext}`
 })
 
 // 3) Track agent
@@ -192,7 +190,7 @@ When spawning workers in a later pipeline phase, send upstream results as supple
 // Example: Send research results to running choreographer
 send_message({
   target: "<running-agent-task-name>",
-  items: [{ type: "text", text: `## Supplementary Context\n${upstreamFindings}` }]
+  message: `## Supplementary Context\n${upstreamFindings}`
 })
 // Note: send_message queues info without interrupting the agent's current work
 ```

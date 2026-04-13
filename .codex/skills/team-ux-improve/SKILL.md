@@ -97,8 +97,7 @@ spawn_agent({
   agent_type: "team_worker",
   task_name: "<task-id>",
   fork_turns: "none",
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: <role>
 role_spec: <skill_root>/roles/<role>/role.md
 session: <session-folder>
@@ -106,17 +105,16 @@ session_id: <session-id>
 requirement: <task-description>
 inner_loop: <true|false>
 
-Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.` },
+Read role_spec file (<skill_root>/roles/<role>/role.md) to load Phase 2-4 domain instructions.
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: <task-id>
 title: <task-title>
 description: <task-description>
-pipeline_phase: <pipeline-phase>` },
+pipeline_phase: <pipeline-phase>
 
-    { type: "text", text: `## Upstream Context
-<prev_context>` }
-  ]
+## Upstream Context
+<prev_context>`
 })
 ```
 
@@ -193,8 +191,8 @@ const running = list_agents({})
 ### Named Agent Targeting
 
 Workers are spawned with `task_name: "<task-id>"` enabling direct addressing:
-- `send_message({ target: "SCAN-001", items: [...] })` -- send explorer findings to scanner
-- `followup_task({ target: "IMPL-001", items: [...] })` -- assign UX fix from designer output
+- `send_message({ target: "SCAN-001", message: "..." })` -- send explorer findings to scanner
+- `followup_task({ target: "IMPL-001", message: "..." })` -- assign UX fix from designer output
 - `close_agent({ target: "TEST-001" })` -- cleanup after UX testing
 
 ### Explorer-Assisted Scanning
@@ -204,12 +202,10 @@ Coordinator spawns explorer (utility member) early to gather codebase context, t
 // Explorer results inform scanner's scope
 send_message({
   target: "SCAN-001",
-  items: [
-    { type: "text", text: `## Explorer Findings
+  message: `## Explorer Findings
 component_patterns: <explorer's component inventory>
 framework: <detected framework>
-ui_library: <detected UI library>` }
-  ]
+ui_library: <detected UI library>`
 })
 ```
 

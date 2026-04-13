@@ -85,26 +85,24 @@ state.tasks[taskId].status = 'in_progress'
 const agentId = spawn_agent({
   agent_type: "team_worker",
   task_name: taskId,  // e.g., "DESIGN-001" — enables named targeting
-  items: [
-    { type: "text", text: `## Role Assignment
+  message: `## Role Assignment
 role: ${task.role}
 role_spec: ${skillRoot}/roles/${task.role}/role.md
 session: ${sessionFolder}
 session_id: ${sessionId}
 team_name: arch-opt
 requirement: ${task.description}
-inner_loop: ${task.role === 'refactorer'}` },
+inner_loop: ${task.role === 'refactorer'}
 
-    { type: "text", text: `Read role_spec file (${skillRoot}/roles/${task.role}/role.md) to load Phase 2-4 domain instructions.
-Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).` },
+Read role_spec file (${skillRoot}/roles/${task.role}/role.md) to load Phase 2-4 domain instructions.
+Execute built-in Phase 1 (task discovery) -> role Phase 2-4 -> built-in Phase 5 (report).
 
-    { type: "text", text: `## Task Context
+## Task Context
 task_id: ${taskId}
 title: ${task.title}
-description: ${task.description}` },
+description: ${task.description}
 
-    { type: "text", text: `## Upstream Context\n${prevContext}` }
-  ]
+## Upstream Context\n${prevContext}`
 })
 
 // 3) Track agent
@@ -128,7 +126,7 @@ When spawning workers in a later pipeline phase, send upstream results as supple
 // Example: Send design analysis results to running refactorers
 send_message({
   target: "<running-agent-task-name>",
-  items: [{ type: "text", text: `## Supplementary Context\n${upstreamFindings}` }]
+  message: `## Supplementary Context\n${upstreamFindings}`
 })
 // Note: send_message queues info without interrupting the agent's current work
 ```
