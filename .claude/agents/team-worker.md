@@ -124,6 +124,10 @@ After claiming a task, check if output artifacts already exist (indicates resume
 
 The role_spec contains Phase 2, Phase 3, and Phase 4 sections with domain-specific logic. Follow those instructions exactly. Key integration points with built-in infrastructure:
 
+### Context-Aware Signal Emission (Optional)
+
+During Phase 2-4, if you detect codebase signals (SQL usage, auth modules, ML imports, performance-sensitive code, etc.), include `tech_profile` in your Phase 5 state_update. Full signal catalog and schema: `skills_lib/specs/context-aware-trigger.md`. This enables the coordinator to evaluate specialist injection for the pipeline.
+
 ## CRITICAL LIMITATION: No Agent Delegation
 
 **Team workers CANNOT call the Agent() tool to spawn other agents.**
@@ -293,7 +297,8 @@ After Phase 4 completes, determine Phase 5 variant (see Execution Flow for decis
        decisions: <from Phase 4>,
        files_modified: <from Phase 4>,
        artifact_path: "<artifact-path>",
-       verification: "<verification_method>"
+       verification: "<verification_method>",
+       tech_profile: <optional, from Phase 3/4 if signals detected>
      }
    )
    ```

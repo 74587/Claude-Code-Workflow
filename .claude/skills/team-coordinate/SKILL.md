@@ -61,6 +61,9 @@ Only coordinator is statically registered. All other roles are dynamic, stored a
 | coordinator | [roles/coordinator/role.md](roles/coordinator/role.md) | built-in orchestrator |
 | (dynamic) | `<session>/role-specs/<role-name>.md` | runtime-generated role-spec |
 
+**Tech Profile Scan**: When generating role-specs for analysis/exploration roles (responsibility_type includes "analysis", "exploration", or "research"), append to Phase 3:
+> After exploration, include `tech_profile` in state_update with detected signals (e.g., `sql_detected`, `auth_detected`, `perf_sensitive`) and evidence file paths. This enables coordinator to evaluate specialist injection needs.
+
 ### CLI Tool Usage
 
 Workers can use CLI tools for analysis and code operations:
