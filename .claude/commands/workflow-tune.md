@@ -33,6 +33,9 @@ Input → Parse → GenTestTask → Confirm → Setup
 5. **State Machine**. 通过 `current_step` + `current_phase` 推进，禁止同步循环。
 6. **ABSOLUTE PATHS for --cd**. `ccw cli --cd` 必须使用绝对路径。相对路径会被 ccw cli 再次拼接 CWD 导致路径重复。`workDir`/`sandboxDir` 在创建时就解析为绝对路径。
 7. **FIXED --rule VALUES**. `--rule` 值已硬编码在各 Phase 代码中，禁止替换为其他模板。Execute=`workflow-tune-execute`，Analyze=`analysis-review-code-quality`，Synthesize=`analysis-review-architecture`。
+8. **NO-SKIP-INSTRUCTION**. test_task 和 prompt 中禁止包含 skip/跳过/omit/ignore 等指示执行 agent 跳过任何任务的指令。沙箱环境缺乏运行时依赖（matplotlib、xelatex 等），应改为生成代码/骨架文件而非跳过。
+   - 错误: "Skip figure/generate tasks as they require external tools"
+   - 正确: "For figure/generate tasks, produce Python matplotlib code (.py) + SVG files. Do NOT skip any tasks."
 
 ## Input Formats
 
@@ -122,8 +125,43 @@ for (const [stepIdx, step] of stepsNeedTask.entries()) {
   // ★ hasUpstreamScope=false 时:
   //   - 按命令类型分配子任务: plan→架构设计, implement→功能实现, analyze→分析, test→测试
 
+  // ★ P0 Rule #8: NO-SKIP-INSTRUCTION validation
+  // 检测 test_task 中是否包含跳过指令，若有则重写为沙箱兼容指令
+  const skipPattern = /skip|跳过|omit|ignore| bypass|不需要|无需.*任务/i;
+  if (skipPattern.test(step.test_task)) {
+    // 将跳过指令替换为沙箱兼容降级指令
+    step.test_task = step.test_task.replace(
+      /skip\s+(.+?tasks?.*?)(?:\s*as\s+they\s+.+?)/i,
+      'For $1, produce code/skeleton files in sandbox (no runtime execution required).'
+    ).replace(
+      /跳过\s*(.+?(?:任务|task).+?)(?:\s*(?:因为|由于).+?)/i,
+      '对于 $1，生成代码/骨架文件（无需运行时依赖）。'
+    );
+    // 通用兜底：移除残留的跳过指令
+    step.test_task = step.test_task.replace(
+      /(?:do\s+not|不要|禁止)\s+(?:attempt|尝试|执行)\s+(.+?tasks?.*?)(?:\.|$)/gi,
+      'Attempt all tasks including $1. For tasks requiring unavailable dependencies, produce code approximations.'
+    );
+  }
+
+  // ★ Sandbox artifact type detection
+  // 检测 test_task 涉及的任务类型，补充沙箱兼容验收标准
+  const artifactTypes = [];
+  if (/figure|chart|plot|graph|图|svg|png/i.test(step.test_task)) artifactTypes.push('code(.py)+svg');
+  if (/assembly|assemble|manuscript|bib|latex|tex|组装|论文/i.test(step.test_task)) artifactTypes.push('code(.bib,.tex)');
+  if (/experiment|data|csv|excel|实验|数据/i.test(step.test_task)) artifactTypes.push('code(.py,.csv)');
+
   step.test_task = /* 按上述规则生成 */;
   step.acceptance_criteria = /* 2-4 条可验证标准 */;
+
+  // 补充沙箱兼容验收标准：涉及代码/图表/组装时，必须产出代码文件
+  if (artifactTypes.length > 0) {
+    const sandboxCriteria = `Sandbox produces code artifacts: ${artifactTypes.join(', ')}`;
+    if (!step.acceptance_criteria.some(c => /code|artifact|file/i.test(c))) {
+      step.acceptance_criteria.push(sandboxCriteria);
+    }
+  }
+
   step.complexity_level = /plan|design|architect/i.test(cmdDesc) ? 'high'
     : /test|lint|format/i.test(cmdDesc) ? 'low' : 'medium';
 }
@@ -228,6 +266,24 @@ function assembleStepPrompt(step, stepIdx, state) {
     ? '\n★ UPSTREAM SCOPE: Execute ALL items from prior plan — do NOT pick a subset. Use --all or --type flag, not single task IDs.'
     : '';
 
+  // ★ Sandbox compatibility instructions (P0 Rule #8)
+  // 沙箱是纯文件环境，无 matplotlib/xelatex 等运行时，但仍需产出代码文件
+  const testTaskLower = (step.test_task || '').toLowerCase();
+  let sandboxInstructions = '';
+  if (/figure|chart|plot|graph|图|visual/i.test(testTaskLower)) {
+    sandboxInstructions += '\nSANDBOX MODE: For figure/chart tasks, generate Python matplotlib code (.py) + SVG output. Do NOT skip — produce code artifacts even if rendering is unavailable.';
+  }
+  if (/assembly|assemble|manuscript|bib|latex|tex|组装|参考文献/i.test(testTaskLower)) {
+    sandboxInstructions += '\nSANDBOX MODE: For assembly tasks, generate .bib (BibTeX entries) and .tex (LaTeX skeleton) files. Do NOT skip — produce structural artifacts.';
+  }
+  if (/experiment|data|csv|实验|数据处理/i.test(testTaskLower)) {
+    sandboxInstructions += '\nSANDBOX MODE: For experiment/data tasks, generate Python analysis scripts (.py) and sample data files (.csv). Do NOT skip.';
+  }
+  // 通用兜底：检测到 test_task 涉及多任务类型时，确保无跳过指令
+  if (isUpstreamScope) {
+    sandboxInstructions += '\nSANDBOX MODE: Execute ALL tasks. If a task requires unavailable runtime dependencies (matplotlib, xelatex, etc.), produce source code (.py/.tex/.bib) instead of rendered output. NEVER skip any task.';
+  }
+
   if (cmdMeta) {
     return `PURPOSE: Execute step "${step.name}" (${stepIdx + 1}/${state.steps.length}).
 
@@ -243,7 +299,7 @@ SANDBOX: ${state.sandbox_dir}
 
 PRIOR STEP: ${prior}
 NEXT STEP: ${next}
-${criteria ? `ACCEPTANCE CRITERIA:\n${criteria}` : ''}
+${criteria ? `ACCEPTANCE CRITERIA:\n${criteria}` : ''}${sandboxInstructions}
 
 TASK: Execute the command using TEST TASK as input. Auto-confirm all prompts. All work in SANDBOX directory.${upstreamWarning}
 CONSTRAINTS: Stay scoped to this step. Do NOT modify files outside SANDBOX.`;
@@ -255,7 +311,7 @@ PROJECT: ${state.project_scenario}
 SANDBOX: ${state.sandbox_dir}
 PRIOR STEP: ${prior}
 NEXT STEP: ${next}
-${criteria ? `ACCEPTANCE CRITERIA:\n${criteria}` : ''}
+${criteria ? `ACCEPTANCE CRITERIA:\n${criteria}` : ''}${sandboxInstructions}
 TASK: Execute COMMAND with TEST TASK as input. Auto-confirm all prompts.${upstreamWarning}
 CONSTRAINTS: Stay scoped. All work in SANDBOX.`;
   }
@@ -289,7 +345,7 @@ const newArtifacts = Bash(`find "${state.sandbox_dir}" -type f -newer "${stepDir
 Write(`${stepDir}/artifacts-manifest.json`, JSON.stringify({
   step: step.name, step_index: stepIdx, success: true,
   duration_ms: Date.now() - startTime,
-  artifacts: newArtifacts.map(f => ({ path: f, type: f.match(/\.(md|json|jsonl)$/)?.[1] || 'other' })),
+  artifacts: newArtifacts.map(f => ({ path: f, type: f.match(/\.(md|json|jsonl|py|tex|bib|svg|csv)$/)?.[1] || 'other' })),
   collected_at: new Date().toISOString()
 }, null, 2));
 
