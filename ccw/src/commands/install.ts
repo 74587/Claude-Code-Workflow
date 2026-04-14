@@ -38,6 +38,9 @@ const GLOBAL_FILES = ['CLAUDE.CCW.md'];
 // Files that should be excluded from cleanup (user-specific settings)
 const EXCLUDED_FILES = ['settings.json', 'settings.local.json', 'CLAUDE.md'];
 
+// CCW marker in CLAUDE.md for tracking ccw-added content
+const CCW_REFERENCE_LINE = '- **CCW Instructions**: @~/.claude/CLAUDE.CCW.md';
+
 interface InstallOptions {
   mode?: string;
   path?: string;
@@ -189,6 +192,112 @@ function restoreDisabledState(
   return { skillsRestored, commandsRestored };
 }
 
+/**
+ * Backup existing files that will be replaced during installation
+ * Works without manifest - scans target directories for existing content
+ * @param installPath - Target installation path
+ * @param availableDirs - Directories that will be installed
+ * @param globalPath - Global home path (for global subdirs in Path mode)
+ * @returns Backup directory path or null if nothing to backup
+ */
+async function backupBeforeInstall(
+  installPath: string,
+  availableDirs: string[],
+  globalPath?: string
+): Promise<string | null> {
+  const spinner = createSpinner('Creating pre-install backup...').start();
+
+  try {
+    const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').split('.')[0];
+    const backupDir = join(installPath, `.ccw-backup-${timestamp}`);
+    let backedUp = 0;
+
+    // Backup directories that will be overwritten
+    for (const dir of availableDirs) {
+      const targetDir = join(installPath, dir);
+      if (!existsSync(targetDir)) continue;
+
+      const backupTarget = join(backupDir, dir);
+      const result = await backupDirectoryRecursive(targetDir, backupTarget, spinner);
+      backedUp += result;
+    }
+
+    // Backup global subdirs if Path mode
+    if (globalPath) {
+      for (const subdir of GLOBAL_SUBDIRS) {
+        const globalSubdir = join(globalPath, '.claude', subdir);
+        if (!existsSync(globalSubdir)) continue;
+
+        const backupTarget = join(backupDir, '.claude-global', subdir);
+        const result = await backupDirectoryRecursive(globalSubdir, backupTarget, spinner);
+        backedUp += result;
+      }
+
+      // Backup global CLAUDE.CCW.md
+      const globalCcwMd = join(globalPath, '.claude', 'CLAUDE.CCW.md');
+      if (existsSync(globalCcwMd)) {
+        const backupTarget = join(backupDir, '.claude-global', 'CLAUDE.CCW.md');
+        const backupFileDir = dirname(backupTarget);
+        if (!existsSync(backupFileDir)) mkdirSync(backupFileDir, { recursive: true });
+        copyFileSync(globalCcwMd, backupTarget);
+        backedUp++;
+      }
+    }
+
+    if (backedUp > 0) {
+      spinner.succeed(`Pre-install backup: ${backupDir} (${backedUp} files)`);
+      return backupDir;
+    } else {
+      spinner.info('No existing files to backup');
+      // Remove empty backup dir
+      try { rmdirSync(backupDir); } catch { /* ignore */ }
+      return null;
+    }
+  } catch (err) {
+    const errMsg = err as Error;
+    spinner.warn(`Backup warning: ${errMsg.message}`);
+    return null;
+  }
+}
+
+/**
+ * Recursively backup a directory
+ */
+async function backupDirectoryRecursive(
+  src: string,
+  dest: string,
+  spinner: Ora
+): Promise<number> {
+  let count = 0;
+
+  if (!existsSync(src)) return count;
+
+  if (!existsSync(dest)) {
+    mkdirSync(dest, { recursive: true });
+  }
+
+  const entries = readdirSync(src);
+  for (const entry of entries) {
+    const srcPath = join(src, entry);
+    const destPath = join(dest, entry);
+    const stat = statSync(srcPath);
+
+    if (stat.isDirectory()) {
+      count += await backupDirectoryRecursive(srcPath, destPath, spinner);
+    } else {
+      try {
+        spinner.text = `Backing up: ${entry}`;
+        copyFileSync(srcPath, destPath);
+        count++;
+      } catch {
+        // Ignore individual file errors
+      }
+    }
+  }
+
+  return count;
+}
+
 // Get package root directory (ccw/src/commands -> ccw)
 function getPackageRoot(): string {
   return join(__dirname, '..', '..');
@@ -308,33 +417,61 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   console.log('');
   info(`Found ${availableDirs.length} directories to install: ${availableDirs.join(', ')}`);
 
-  // Show what will be installed including .codex subdirectories
+  // Interactive .codex subdirectory selection
+  let codexExcludeDirs: string[] = [];
   if (availableDirs.includes('.codex')) {
     const codexPath = join(sourceDir, '.codex');
+    const codexSubdirs: Array<{ name: string; count: number; label: string }> = [];
 
-    // Show prompts info
+    // Scan available codex subdirectories
     const promptsPath = join(codexPath, 'prompts');
     if (existsSync(promptsPath)) {
       const promptFiles = readdirSync(promptsPath, { recursive: true }).filter(f =>
         statSync(join(promptsPath, f.toString())).isFile()
       );
-      info(`  └─ .codex/prompts: ${promptFiles.length} files`);
+      codexSubdirs.push({ name: 'prompts', count: promptFiles.length, label: 'files' });
     }
 
-    // Show agents info
     const agentsPath = join(codexPath, 'agents');
     if (existsSync(agentsPath)) {
       const agentFiles = readdirSync(agentsPath).filter(f => f.endsWith('.md'));
-      info(`  └─ .codex/agents: ${agentFiles.length} agent definitions`);
+      codexSubdirs.push({ name: 'agents', count: agentFiles.length, label: 'agent definitions' });
     }
 
-    // Show skills info
     const skillsPath = join(codexPath, 'skills');
     if (existsSync(skillsPath)) {
       const skillDirs = readdirSync(skillsPath).filter(f =>
         statSync(join(skillsPath, f)).isDirectory()
       );
-      info(`  └─ .codex/skills: ${skillDirs.length} skills`);
+      codexSubdirs.push({ name: 'skills', count: skillDirs.length, label: 'skills' });
+    }
+
+    if (codexSubdirs.length > 0) {
+      info('Codex components available:');
+      for (const sub of codexSubdirs) {
+        info(`  └─ .codex/${sub.name}: ${sub.count} ${sub.label}`);
+      }
+
+      // Let user select which codex subdirs to install
+      const { selectedCodexDirs } = await inquirer.prompt([{
+        type: 'checkbox',
+        name: 'selectedCodexDirs',
+        message: 'Select .codex components to install:',
+        choices: codexSubdirs.map(sub => ({
+          name: `  ${chalk.cyan(sub.name)}  —  ${sub.count} ${sub.label}`,
+          value: sub.name,
+          checked: sub.name !== 'agents', // agents unchecked by default
+        })),
+      }]);
+
+      // Build exclude list from unselected dirs
+      codexExcludeDirs = codexSubdirs
+        .map(s => s.name)
+        .filter(name => !(selectedCodexDirs as string[]).includes(name));
+
+      if (codexExcludeDirs.length > 0) {
+        info(`Skipping .codex components: ${codexExcludeDirs.join(', ')}`);
+      }
     }
   }
 
@@ -404,7 +541,29 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
   divider();
 
-  // Check for existing installation manifest
+  // Always backup existing content before overwriting
+  const existingDirsToBackup = availableDirs.filter(dir => existsSync(join(installPath, dir)));
+  const globalPathForBackup = mode === 'Path' ? homedir() : undefined;
+
+  if (existingDirsToBackup.length > 0 || (globalPathForBackup && existsSync(join(globalPathForBackup, '.claude')))) {
+    if (!options.force) {
+      const { doBackup } = await inquirer.prompt([{
+        type: 'confirm',
+        name: 'doBackup',
+        message: 'Backup existing files before installing? (recommended)',
+        default: true
+      }]);
+
+      if (doBackup) {
+        await backupBeforeInstall(installPath, existingDirsToBackup, globalPathForBackup);
+      }
+    } else {
+      // Force mode: always backup silently
+      await backupBeforeInstall(installPath, existingDirsToBackup, globalPathForBackup);
+    }
+  }
+
+  // Check for existing installation manifest for cleanup
   const existingManifest = findManifest(installPath, mode);
   let cleanStats = { removed: 0, skipped: 0 };
 
@@ -413,19 +572,6 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     warning('Existing installation found at this location');
     info(`  Files in manifest: ${existingManifest.files?.length || 0}`);
     info(`  Installed: ${new Date(existingManifest.installation_date).toLocaleDateString()}`);
-
-    if (!options.force) {
-      const { backup } = await inquirer.prompt([{
-        type: 'confirm',
-        name: 'backup',
-        message: 'Create backup before reinstalling?',
-        default: true
-      }]);
-
-      if (backup) {
-        await createBackup(existingManifest);
-      }
-    }
 
     // Clean based on manifest records
     console.log('');
@@ -511,7 +657,13 @@ export async function installCommand(options: InstallOptions): Promise<void> {
       spinner.text = `Installing ${dir}...`;
 
       // For Path mode on .claude, exclude global subdirs (they're already installed to global)
-      const excludeDirs = (mode === 'Path' && dir === '.claude') ? GLOBAL_SUBDIRS : [];
+      // For .codex, exclude user-deselected subdirs (e.g. agents)
+      let excludeDirs: string[] = [];
+      if (mode === 'Path' && dir === '.claude') {
+        excludeDirs = GLOBAL_SUBDIRS;
+      } else if (dir === '.codex') {
+        excludeDirs = codexExcludeDirs;
+      }
       const { files, directories } = await copyDirectory(srcPath, destPath, manifest, excludeDirs);
       totalFiles += files;
       totalDirs += directories;

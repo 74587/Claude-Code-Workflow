@@ -1,14 +1,23 @@
-import { existsSync, unlinkSync, rmdirSync, readdirSync, statSync } from 'fs';
+import { existsSync, unlinkSync, rmdirSync, readdirSync, statSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { homedir, platform } from 'os';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { showBanner, createSpinner, success, info, warning, error, summaryBox, divider } from '../utils/ui.js';
-import { getAllManifests, deleteManifest, getFileReferenceCounts } from '../core/manifest.js';
+import { getAllManifests, deleteManifest } from '../core/manifest.js';
 import { removeGitBashFix } from './install.js';
 
 // Global subdirectories that should be protected when Global installation exists
 const GLOBAL_SUBDIRS = ['workflows', 'scripts', 'templates'];
+
+// CCW reference patterns in CLAUDE.md
+const CCW_REFERENCE_PATTERNS = [
+  /^-\s*\*\*CCW Instructions\*\*:\s*@~\/\.claude\/CLAUDE\.CCW\.md\s*$/,
+  /^-\s*\*\*CCW Instructions\*\*.*CLAUDE\.CCW\.md.*$/,
+];
+
+// Files that should have CCW content removed instead of being deleted
+const CONTENT_MANAGED_FILES = ['CLAUDE.md'];
 
 interface UninstallOptions {}
 
@@ -153,7 +162,24 @@ export async function uninstallCommand(options: UninstallOptions): Promise<void>
         }
       }
 
-      spinner.text = `Removing: ${basename(filePath)}`;
+      const fileName = basename(filePath);
+      spinner.text = `Removing: ${fileName}`;
+
+      // Special handling for CLAUDE.md: remove CCW content instead of deleting
+      if (CONTENT_MANAGED_FILES.includes(fileName)) {
+        try {
+          if (existsSync(filePath)) {
+            const cleaned = removeCcwContentFromClaudeMd(filePath);
+            if (cleaned) {
+              removedFiles++; // Count as processed
+            }
+          }
+        } catch (err) {
+          const error = err as Error;
+          failedFiles.push({ path: filePath, error: error.message });
+        }
+        continue;
+      }
 
       try {
         if (existsSync(filePath)) {
@@ -203,9 +229,9 @@ export async function uninstallCommand(options: UninstallOptions): Promise<void>
       }
     }
 
-    // Orphan cleanup: Scan for skills/commands not tracked in any manifest
-    // This handles files installed by skill-hub that weren't tracked properly
-    const orphanStats = await cleanupOrphanFiles(selectedManifest.manifest_id);
+    // Note: orphan cleanup removed — only manifest-tracked files are deleted.
+    // Non-manifest files (user-created skills/commands) are preserved.
+    orphanStats = { removed: 0, scanned: 0 };
 
     // Clean up CLAUDE.CCW.md from global space
     const globalClaudeCcwMd = join(homedir(), '.claude', 'CLAUDE.CCW.md');
@@ -320,93 +346,6 @@ export async function uninstallCommand(options: UninstallOptions): Promise<void>
 }
 
 /**
- * Clean up orphan files in skills/commands directories that weren't tracked in manifest
- * This handles files installed by skill-hub that bypassed manifest tracking
- * @param excludeManifestId - Manifest ID being uninstalled (to exclude from reference check)
- * @returns Count of removed orphan files and total scanned
- */
-async function cleanupOrphanFiles(excludeManifestId: string): Promise<{ removed: number; scanned: number }> {
-  let removed = 0;
-  let scanned = 0;
-  const home = homedir();
-
-  // Directories to scan for orphan files
-  const scanDirs = [
-    { base: join(home, '.claude', 'skills'), type: 'skill' },
-    { base: join(home, '.claude', 'commands'), type: 'command' },
-    { base: join(home, '.codex', 'skills'), type: 'skill' },
-    { base: join(home, '.codex', 'commands'), type: 'command' },
-  ];
-
-  // Get file reference counts excluding the manifest being uninstalled
-  const fileRefs = getFileReferenceCounts(excludeManifestId);
-
-  for (const { base } of scanDirs) {
-    if (!existsSync(base)) continue;
-
-    try {
-      // Recursively scan directory for files
-      const files = scanDirectoryForFiles(base);
-
-      for (const filePath of files) {
-        scanned++;
-
-        // Check if file is referenced by any remaining manifest
-        const normalizedPath = filePath.toLowerCase().replace(/\\/g, '/');
-        const refs = fileRefs.get(normalizedPath) || [];
-
-        // If not referenced, it's an orphan - remove it
-        if (refs.length === 0) {
-          try {
-            unlinkSync(filePath);
-            removed++;
-          } catch {
-            // Ignore removal errors (file may be in use)
-          }
-        }
-      }
-
-      // Clean up empty directories after orphan removal
-      await removeEmptyDirs(base);
-    } catch {
-      // Ignore scan errors
-    }
-  }
-
-  return { removed, scanned };
-}
-
-/**
- * Recursively scan directory for all files
- * @param dirPath - Directory to scan
- * @returns Array of file paths
- */
-function scanDirectoryForFiles(dirPath: string): string[] {
-  const files: string[] = [];
-
-  if (!existsSync(dirPath)) return files;
-
-  try {
-    const entries = readdirSync(dirPath);
-
-    for (const entry of entries) {
-      const fullPath = join(dirPath, entry);
-      const stat = statSync(fullPath);
-
-      if (stat.isDirectory()) {
-        files.push(...scanDirectoryForFiles(fullPath));
-      } else {
-        files.push(fullPath);
-      }
-    }
-  } catch {
-    // Ignore scan errors
-  }
-
-  return files;
-}
-
-/**
  * Recursively remove empty directories
  * @param {string} dirPath - Directory path
  */
@@ -431,4 +370,46 @@ async function removeEmptyDirs(dirPath: string): Promise<void> {
   if (files.length === 0) {
     rmdirSync(dirPath);
   }
+}
+
+/**
+ * Remove CCW-added content from CLAUDE.md instead of deleting the entire file.
+ * If the file only contains CCW content (the minimal template), delete it.
+ * If it has user content, only remove the CCW reference line.
+ * @param filePath - Path to CLAUDE.md
+ * @returns true if content was removed/cleaned, false if nothing to do
+ */
+function removeCcwContentFromClaudeMd(filePath: string): boolean {
+  if (!existsSync(filePath)) return false;
+
+  const content = readFileSync(filePath, 'utf8');
+  const lines = content.split('\n');
+
+  // Check if this is the minimal CCW-only CLAUDE.md
+  const minimalClaudeMd = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/CLAUDE.CCW.md\n';
+  if (content.trim() === minimalClaudeMd.trim()) {
+    // Entirely CCW-generated — safe to delete
+    unlinkSync(filePath);
+    return true;
+  }
+
+  // Has user content — only remove CCW reference lines
+  const filteredLines = lines.filter(line => {
+    const trimmed = line.trim();
+    return !CCW_REFERENCE_PATTERNS.some(pattern => pattern.test(trimmed));
+  });
+
+  if (filteredLines.length === lines.length) {
+    // No CCW content found — leave file as-is
+    return false;
+  }
+
+  // Clean up: remove consecutive blank lines left behind
+  const cleaned = filteredLines
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd() + '\n';
+
+  writeFileSync(filePath, cleaned, 'utf8');
+  return true;
 }

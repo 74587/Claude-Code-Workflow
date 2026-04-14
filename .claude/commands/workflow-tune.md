@@ -121,6 +121,13 @@ for (const [stepIdx, step] of stepsNeedTask.entries()) {
   //   - 若 upstreamFlags 非空，在任务中传递（如 "--type draft-section"）
   //   - 命令参数不含单个 task ID，用 --all 或 --type 或无参数
   //   - 验收标准必须含全量覆盖率（"产出文件数 = plan 中 task 数"）
+  //   - ★ TYPE-AWARE CRITERIA: 从上游 plan 产物（plan.json 等）中提取
+  //     task type 分布，为每种 type 生成对应的验收标准:
+  //       文本类(draft-section/writing/review) → "对应 .md 文件数 >= N"
+  //       代码类(figure/generate, experiment/*) → "代码文件(.py/.svg) 数 >= N"
+  //       数据类(data/*, assembly/*) → "数据/组装文件数 >= N"
+  //     这确保非文本类产出（图片代码、实验脚本、组装产物）不被静默跳过。
+  //     若上游 plan 不可读，退回通用全量覆盖标准。
   //
   // ★ hasUpstreamScope=false 时:
   //   - 按命令类型分配子任务: plan→架构设计, implement→功能实现, analyze→分析, test→测试
@@ -371,16 +378,31 @@ const artifactSummary = maxLines === 0
       catch { return `--- ${a.path} --- [unreadable]`; }
     }).join('\n\n');
 
+// ★ Detect upstream plan artifact for type-aware evaluation
+// Scans sandbox for plan.json/plan.yaml → extracts task type distribution
+// Enables gemini to evaluate whether ALL task types produced outputs
+const planTypeContext = (() => {
+  try {
+    const planFiles = Glob(`${state.sandbox_dir}/**/plan.json`);
+    if (!planFiles.length) return '';
+    const plan = JSON.parse(Read(planFiles[0]));
+    if (!plan.tasks?.length) return '';
+    const typeDist = {};
+    plan.tasks.forEach(t => { typeDist[t.type] = (typeDist[t.type] || 0) + 1; });
+    return `\nPLAN TASK TYPES: ${JSON.stringify(typeDist)}\nNOTE: Evaluate output completeness per task type. Missing types (e.g. plan has figure tasks but no .py/.png/.svg outputs) are critical gaps.`;
+  } catch { return ''; }
+})();
+
 const analysisPrompt = `PURPOSE: Evaluate step "${step.name}" (${stepIdx + 1}/${state.steps.length}).
 WORKFLOW: ${state.workflow_name} — ${state.project_scenario}
 COMMAND: ${step.command}
 TEST TASK: ${step.test_task || 'N/A'}
 ACCEPTANCE CRITERIA: ${(step.acceptance_criteria || []).join('; ') || 'N/A'}
-EXECUTION: ${step.execution.duration_ms}ms | ${manifest.artifacts.length} artifacts
+EXECUTION: ${step.execution.duration_ms}ms | ${manifest.artifacts.length} artifacts${planTypeContext}
 ARTIFACTS:
 ${artifactSummary}
 
-OUTPUT (strict JSON): { "quality_score": <0-100>, "requirement_match": { "pass": <bool>, "criteria_met": [], "criteria_missed": [] }, "execution_assessment": { "success": <bool>, "completeness": "" }, "artifact_assessment": { "count": <n>, "quality": "", "key_outputs": [], "missing_outputs": [] }, "issues": [{ "severity": "critical|high|medium|low", "description": "", "suggestion": "" }], "optimization_opportunities": [{ "area": "", "impact": "high|medium|low", "description": "" }], "step_summary": "" }`;
+OUTPUT (strict JSON): { "quality_score": <0-100>, "requirement_match": { "pass": <bool>, "criteria_met": [], "criteria_missed": [] }, "execution_assessment": { "success": <bool>, "completeness": "" }, "artifact_assessment": { "count": <n>, "quality": "", "key_outputs": [], "missing_outputs": [] }, "type_coverage": { "plan_types": {}, "output_types": {}, "missing": [] }, "issues": [{ "severity": "critical|high|medium|low", "description": "", "suggestion": "" }], "optimization_opportunities": [{ "area": "", "impact": "high|medium|low", "description": "" }], "step_summary": "" }`;
 
 let cmd = `ccw cli -p ${escapeForShell(analysisPrompt)} --tool gemini --mode analysis --rule analysis-review-code-quality`;
 if (state.gemini_session_id) cmd += ` --resume ${state.gemini_session_id}`;
@@ -425,7 +447,8 @@ STEP ANALYSES:
 ${stepAnalyses}
 
 Evaluate: cross-step coherence, handoff quality, bottlenecks, redundancy.
-OUTPUT (strict JSON): { "workflow_score": <0-100>, "coherence": { "score": <0-100>, "assessment": "", "gaps": [] }, "bottlenecks": [{ "step": "", "issue": "", "suggestion": "" }], "per_step_improvements": [{ "step": "", "priority": "high|medium|low", "action": "" }], "workflow_improvements": [{ "area": "", "impact": "high|medium|low", "description": "" }], "summary": "" }`;
+TYPE COVERAGE: If any step involved plan→execute, check whether ALL task types in the plan produced corresponding outputs. Missing types (e.g. plan has figure/code tasks but sandbox has only .md files) reduce workflow_score by 10 per missing type.
+OUTPUT (strict JSON): { "workflow_score": <0-100>, "coherence": { "score": <0-100>, "assessment": "", "gaps": [] }, "type_coverage": { "types_in_plan": [], "types_with_output": [], "missing_types": [], "coverage_rate": "<pct>" }, "bottlenecks": [{ "step": "", "issue": "", "suggestion": "" }], "per_step_improvements": [{ "step": "", "priority": "high|medium|low", "action": "" }], "workflow_improvements": [{ "area": "", "impact": "high|medium|low", "description": "" }], "summary": "" }`;
 
 let cmd = `ccw cli -p ${escapeForShell(synthesisPrompt)} --tool gemini --mode analysis --rule analysis-review-architecture`;
 if (state.gemini_session_id) cmd += ` --resume ${state.gemini_session_id}`;
