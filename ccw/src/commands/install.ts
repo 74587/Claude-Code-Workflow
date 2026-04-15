@@ -477,71 +477,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
   divider();
 
-  // Hooks installation selection
-  const RECOMMENDED_HOOKS = ['ccw-coordinator-tracker', 'ccw-coordinator-skill-context'];
-
-  const { hookMode } = await inquirer.prompt([{
-    type: 'list',
-    name: 'hookMode',
-    message: 'Install Claude Code hooks?',
-    choices: [
-      { name: `${chalk.cyan('Recommended')} — CCW coordinator hooks (2 hooks)`, value: 'recommended' },
-      { name: `${chalk.cyan('All')} — install all available hooks (22 hooks)`, value: 'all' },
-      { name: `${chalk.yellow('Custom')} — select individual hooks`, value: 'custom' },
-      { name: `${chalk.gray('None')} — skip hooks installation`, value: 'none' },
-    ]
-  }]);
-
-  let selectedHookIds: string[] = [];
-  if (hookMode === 'recommended') {
-    selectedHookIds = [...RECOMMENDED_HOOKS];
-  } else if (hookMode === 'all') {
-    const { getAllTemplates } = await import('../core/hooks/hook-templates.js');
-    selectedHookIds = getAllTemplates().map(t => t.id);
-  } else if (hookMode === 'custom') {
-    const { listTemplatesByCategory } = await import('../core/hooks/hook-templates.js');
-    const categoryNames: Record<string, string> = {
-      notification: 'Notification',
-      automation: 'Automation',
-      protection: 'Protection',
-      indexing: 'Indexing',
-      utility: 'Utility',
-    };
-    const byCategory = listTemplatesByCategory();
-    const checklistChoices: Array<Record<string, unknown> | inquirer.Separator> = [];
-
-    for (const [category, templates] of Object.entries(byCategory)) {
-      if (templates.length === 0) continue;
-      checklistChoices.push(new inquirer.Separator(`── ${categoryNames[category] || category} (${templates.length}) ──`));
-      for (const t of templates) {
-        checklistChoices.push({
-          name: `  ${chalk.yellow(t.id)}  —  ${t.description}  (${t.trigger}${t.matcher ? ` / ${t.matcher}` : ''})`,
-          value: t.id,
-          checked: RECOMMENDED_HOOKS.includes(t.id),
-        });
-      }
-    }
-
-    const { selectedHooks } = await inquirer.prompt([{
-      type: 'checkbox',
-      name: 'selectedHooks',
-      message: 'Select hooks to install:',
-      choices: checklistChoices,
-      pageSize: 20,
-    }]);
-    selectedHookIds = selectedHooks as string[];
-  }
-
-  let hooksInstalled: string[] = [];
-  if (selectedHookIds.length > 0) {
-    const hookSpinner = createSpinner(`Installing ${selectedHookIds.length} Claude Code hooks...`).start();
-    hooksInstalled = await installSelectedHooks(selectedHookIds, mode === 'Global' ? homedir() : installPath);
-    hookSpinner.succeed(`Installed ${hooksInstalled.length} hooks: ${hooksInstalled.join(', ')}`);
-  }
-
-  divider();
-
-  // Always backup existing content before overwriting
+  // Backup existing content BEFORE any modifications (preserves original settings.json)
   const existingDirsToBackup = availableDirs.filter(dir => existsSync(join(installPath, dir)));
   const globalPathForBackup = mode === 'Path' ? homedir() : undefined;
 
@@ -561,6 +497,75 @@ export async function installCommand(options: InstallOptions): Promise<void> {
       // Force mode: always backup silently
       await backupBeforeInstall(installPath, existingDirsToBackup, globalPathForBackup);
     }
+  }
+
+  divider();
+
+  // Hooks installation selection (Claude Code hooks — skip for codex-only target)
+  let hooksInstalled: string[] = [];
+
+  if (target !== 'codex') {
+    const RECOMMENDED_HOOKS = ['ccw-coordinator-tracker', 'ccw-coordinator-skill-context'];
+
+    const { hookMode } = await inquirer.prompt([{
+      type: 'list',
+      name: 'hookMode',
+      message: 'Install Claude Code hooks?',
+      choices: [
+        { name: `${chalk.cyan('Recommended')} — CCW coordinator hooks (2 hooks)`, value: 'recommended' },
+        { name: `${chalk.cyan('All')} — install all available hooks (22 hooks)`, value: 'all' },
+        { name: `${chalk.yellow('Custom')} — select individual hooks`, value: 'custom' },
+        { name: `${chalk.gray('None')} — skip hooks installation`, value: 'none' },
+      ]
+    }]);
+
+    let selectedHookIds: string[] = [];
+    if (hookMode === 'recommended') {
+      selectedHookIds = [...RECOMMENDED_HOOKS];
+    } else if (hookMode === 'all') {
+      const { getAllTemplates } = await import('../core/hooks/hook-templates.js');
+      selectedHookIds = getAllTemplates().map(t => t.id);
+    } else if (hookMode === 'custom') {
+      const { listTemplatesByCategory } = await import('../core/hooks/hook-templates.js');
+      const categoryNames: Record<string, string> = {
+        notification: 'Notification',
+        automation: 'Automation',
+        protection: 'Protection',
+        indexing: 'Indexing',
+        utility: 'Utility',
+      };
+      const byCategory = listTemplatesByCategory();
+      const checklistChoices: Array<Record<string, unknown> | inquirer.Separator> = [];
+
+      for (const [category, templates] of Object.entries(byCategory)) {
+        if (templates.length === 0) continue;
+        checklistChoices.push(new inquirer.Separator(`── ${categoryNames[category] || category} (${templates.length}) ──`));
+        for (const t of templates) {
+          checklistChoices.push({
+            name: `  ${chalk.yellow(t.id)}  —  ${t.description}  (${t.trigger}${t.matcher ? ` / ${t.matcher}` : ''})`,
+            value: t.id,
+            checked: RECOMMENDED_HOOKS.includes(t.id),
+          });
+        }
+      }
+
+      const { selectedHooks } = await inquirer.prompt([{
+        type: 'checkbox',
+        name: 'selectedHooks',
+        message: 'Select hooks to install:',
+        choices: checklistChoices,
+        pageSize: 20,
+      }]);
+      selectedHookIds = selectedHooks as string[];
+    }
+
+    if (selectedHookIds.length > 0) {
+      const hookSpinner = createSpinner(`Installing ${selectedHookIds.length} Claude Code hooks...`).start();
+      hooksInstalled = await installSelectedHooks(selectedHookIds, mode === 'Global' ? homedir() : installPath);
+      hookSpinner.succeed(`Installed ${hooksInstalled.length} hooks: ${hooksInstalled.join(', ')}`);
+    }
+  } else {
+    info('Codex target — skipping Claude Code hooks installation');
   }
 
   // Check for existing installation manifest for cleanup
