@@ -114,12 +114,16 @@ export class JsonLinesParser implements IOutputParser {
   private geminiAssistantCumulative: string = '';
   private geminiSawAssistantDelta: boolean = false;
 
+  // Track detected CLI tool from JSON protocol signatures (e.g. 'codex' from thread.started).
+  // Used to classify non-JSON stderr content appropriately per tool.
+  private detectedTool: string | null = null;
+
   /**
    * Classify non-JSON content to determine appropriate output type
    * Helps distinguish real errors from normal progress/output sent to stderr
    * (Some CLI tools like Codex send all progress info to stderr)
    */
-  private classifyNonJsonContent(content: string, originalType: 'stdout' | 'stderr'): 'stdout' | 'stderr' | 'progress' {
+  private classifyNonJsonContent(content: string, originalType: 'stdout' | 'stderr'): 'stdout' | 'stderr' | 'progress' | 'thought' {
     // Check for CLI initialization/progress patterns that should be filtered from final output
     const cliProgressPatterns = [
       /^Loaded cached credentials\.?$/i,        // Gemini auth message
@@ -194,8 +198,15 @@ export class JsonLinesParser implements IOutputParser {
       }
     }
 
+    // Codex sends reasoning/thinking summary text to stderr as plain text.
+    // When we know the tool is Codex, classify unrecognized stderr as thought
+    // to keep it out of final output (agent_message from stdout is the real answer).
+    if (this.detectedTool === 'codex') {
+      return 'thought';
+    }
+
     // Default: if stderr but doesn't look like an error, treat as stdout
-    // This handles CLI tools that send everything to stderr (like Codex)
+    // This handles CLI tools that send everything to stderr
     return 'stdout';
   }
 
@@ -304,6 +315,7 @@ export class JsonLinesParser implements IOutputParser {
     // {"type":"message","timestamp":"...","role":"assistant","content":"...","delta":true}
     // {"type":"result","timestamp":"...","status":"success","stats":{...}}
     if (json.type === 'init' && json.session_id) {
+      this.detectedTool = 'gemini';
       return {
         type: 'metadata',
         content: {
@@ -441,6 +453,7 @@ export class JsonLinesParser implements IOutputParser {
     // {"type":"item.completed","item":{"id":"...","type":"command_execution","aggregated_output":"..."}}
     // {"type":"turn.completed","usage":{"input_tokens":...,"output_tokens":...}}
     if (json.type === 'thread.started' && json.thread_id) {
+      this.detectedTool = 'codex';
       return {
         type: 'metadata',
         content: {
