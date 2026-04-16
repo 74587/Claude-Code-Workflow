@@ -189,7 +189,7 @@ Strategic requirement roadmap with **iterative decomposition**. Creates a single
 ## Output Structure
 
 ```
-.workflow/.roadmap/RMAP-{slug}-{date}/
+.workflow/.roadmap/RMAP-{date}-{slug}/
 └── roadmap.md                  # ⭐ Single source of truth
                                 #   - Strategy Assessment (embedded)
                                 #   - Roadmap Table
@@ -209,7 +209,7 @@ Strategic requirement roadmap with **iterative decomposition**. Creates a single
 ```markdown
 # Requirement Roadmap
 
-**Session**: RMAP-{slug}-{date}
+**Session**: RMAP-{date}-{slug}
 **Requirement**: {requirement}
 **Strategy**: {progressive|direct}
 **Status**: {Planning|Refining|Ready}
@@ -308,7 +308,7 @@ Mode: Append-only (new issues appended to end)
   "tags": ["roadmap", "progressive|direct", "wave-N", "layer-name"],
   "extended_context": {
     "notes": {
-      "session": "RMAP-{slug}-{date}",
+      "session": "RMAP-{date}-{slug}",
       "strategy": "progressive|direct",
       "wave": 1,
       "depends_on_issues": []
@@ -369,7 +369,7 @@ const slug = requirement.toLowerCase()
   .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
   .substring(0, 40)
 const dateStr = getUtc8ISOString().substring(0, 10)
-const sessionId = `RMAP-${slug}-${dateStr}`
+const sessionId = `RMAP-${dateStr}-${slug}`
 const sessionFolder = `.workflow/.roadmap/${sessionId}`
 
 // Auto-detect continue mode
@@ -794,10 +794,10 @@ ${selectedMode === 'progressive' ? `**Progressive Mode**:
    ```markdown
    ## Roadmap Complete
 
-   - **Session**: RMAP-{slug}-{date}
+   - **Session**: RMAP-{date}-{slug}
    - **Strategy**: {progressive|direct}
    - **Issues Created**: {count} across {waves} waves
-   - **Roadmap**: .workflow/.roadmap/RMAP-{slug}-{date}/roadmap.md
+   - **Roadmap**: .workflow/.roadmap/RMAP-{date}-{slug}/roadmap.md
 
    | Wave | Issue Count | Layer/Type |
    |------|-------------|------------|

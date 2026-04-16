@@ -83,7 +83,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `TLV4`
-- **Session path**: `.workflow/.team/TLV4-<slug>-<date>/`
+- **Session path**: `.workflow/.team/TLV4-<date>-<slug>/`
 - **State file**: `<session>/tasks.json`
 - **Discovery files**: `<session>/discoveries/{task_id}.json`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
@@ -274,7 +274,7 @@ functions.request_user_input({
 ## Session Directory
 
 ```
-.workflow/.team/TLV4-<slug>-<date>/
+.workflow/.team/TLV4-<date>-<slug>/
 ├── tasks.json                  # Task state (JSON)
 ├── discoveries/                # Per-task findings ({task_id}.json)
 ├── spec/                       # Spec phase outputs

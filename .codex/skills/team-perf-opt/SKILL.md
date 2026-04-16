@@ -85,7 +85,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `PERF-OPT`
-- **Session path**: `.workflow/.team/PERF-OPT-<slug>-<date>/`
+- **Session path**: `.workflow/.team/PERF-OPT-<date>-<slug>/`
 - **Team name**: `perf-opt`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
@@ -165,7 +165,7 @@ spawn_agent({
 ## Session Directory
 
 ```
-.workflow/.team/PERF-OPT-<slug>-<date>/
+.workflow/.team/PERF-OPT-<date>-<slug>/
 +-- session.json                    # Session metadata + status + parallel_mode
 +-- artifacts/
 |   +-- baseline-metrics.json       # Profiler: before-optimization metrics

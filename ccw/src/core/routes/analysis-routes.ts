@@ -50,10 +50,15 @@ export interface AnalysisSessionDetail {
  * Parse session folder name to extract metadata
  */
 function parseSessionId(folderName: string): { slug: string; date: string } | null {
-  // Format: ANL-{slug}-{YYYY-MM-DD}
-  const match = folderName.match(/^ANL-(.+)-(\d{4}-\d{2}-\d{2})$/);
-  if (!match) return null;
-  return { slug: match[1], date: match[2] };
+  // Preferred format: ANL-{YYYY-MM-DD}-{slug}
+  const matchNew = folderName.match(/^ANL-(\d{4}-\d{2}-\d{2})-(.+)$/);
+  if (matchNew) return { slug: matchNew[2], date: matchNew[1] };
+
+  // Legacy format: ANL-{slug}-{YYYY-MM-DD} (kept for backward compatibility)
+  const matchOld = folderName.match(/^ANL-(.+)-(\d{4}-\d{2}-\d{2})$/);
+  if (matchOld) return { slug: matchOld[1], date: matchOld[2] };
+
+  return null;
 }
 
 /**

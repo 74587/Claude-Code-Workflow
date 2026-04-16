@@ -84,7 +84,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `TFD`
-- **Session path**: `.workflow/.team/TFD-<slug>-<date>/`
+- **Session path**: `.workflow/.team/TFD-<date>-<slug>/`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
 
@@ -252,7 +252,7 @@ functions.request_user_input({
 ## Session Directory
 
 ```
-.workflow/.team/TFD-<slug>-<date>/
+.workflow/.team/TFD-<date>-<slug>/
 ├── team-session.json           # Session state + role registry
 ├── evidence/                   # Screenshots, snapshots, network logs
 ├── artifacts/                  # Test reports, RCA reports, patches, verification reports

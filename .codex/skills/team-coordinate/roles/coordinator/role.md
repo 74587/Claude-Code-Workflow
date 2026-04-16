@@ -242,7 +242,7 @@ After Phase 1 completes, the ONLY valid next step is Phase 2 (generate role-spec
      - Merge research findings into task context
      - Update task-analysis.json with enriched context
 
-3. **Generate session ID**: `TC-<slug>-<date>` (slug from first 3 meaningful words of task)
+3. **Generate session ID**: `TC-<date>-<slug>` (slug from first 3 meaningful words of task)
 
 4. **Create session folder structure**:
    ```

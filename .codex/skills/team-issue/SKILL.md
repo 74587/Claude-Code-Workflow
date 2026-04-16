@@ -74,7 +74,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `TISL`
-- **Session path**: `.workflow/.team/TISL-<slug>-<date>/`
+- **Session path**: `.workflow/.team/TISL-<date>-<slug>/`
 - **Team name**: `issue`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
@@ -175,7 +175,7 @@ spawn_agent({
 ## Session Directory
 
 ```
-.workflow/.team/TISL-<slug>-<date>/
+.workflow/.team/TISL-<date>-<slug>/
 ├── session.json                    # Session metadata + pipeline + fix_cycles
 ├── task-analysis.json              # Coordinator analyze output
 ├── .msg/

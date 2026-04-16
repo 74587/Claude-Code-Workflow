@@ -39,7 +39,7 @@ Phase 5: Fix & Verification
 ```javascript
 const bugSlug = bug_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 30)
 const dateStr = new Date().toISOString().substring(0, 10)
-const sessionId = `DBG-${bugSlug}-${dateStr}`
+const sessionId = `DBG-${dateStr}-${bugSlug}`
 const sessionFolder = `.workflow/.debug/${sessionId}`
 const debugLogPath = `${sessionFolder}/debug.log`
 ```
@@ -115,12 +115,12 @@ CONSTRAINTS: Focus on testable conditions
 
 **NDJSON Log Format**:
 ```json
-{"sid":"DBG-xxx-2025-01-06","hid":"H1","loc":"file.py:func:42","msg":"Check value","data":{"key":"value"},"ts":1736150400000}
+{"sid":"DBG-2025-01-06-xxx","hid":"H1","loc":"file.py:func:42","msg":"Check value","data":{"key":"value"},"ts":1736150400000}
 ```
 
 | Field | Description |
 |-------|-------------|
-| `sid` | Session ID (DBG-slug-date) |
+| `sid` | Session ID (DBG-date-slug) |
 | `hid` | Hypothesis ID (H1, H2, ...) |
 | `loc` | File:function:line |
 | `msg` | What's being tested |
@@ -315,7 +315,7 @@ Write(file_path, cleaned)
 ## Session Structure
 
 ```
-.workflow/.debug/DBG-{slug}-{date}/
+.workflow/.debug/DBG-{date}-{slug}/
 ├── debug.log           # NDJSON log (primary artifact)
 ├── hypotheses.json     # Generated hypotheses (optional)
 └── resolution.md       # Summary after fix (optional)

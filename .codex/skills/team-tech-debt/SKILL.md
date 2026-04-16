@@ -75,7 +75,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `TD`
-- **Session path**: `.workflow/.team/TD-<slug>-<date>/`
+- **Session path**: `.workflow/.team/TD-<date>-<slug>/`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
 - **Max GC rounds**: 3
@@ -152,7 +152,7 @@ Scanner discoveries flow through the pipeline — each stage narrows and refines
 ## Session Directory
 
 ```
-.workflow/.team/TD-<slug>-<date>/
+.workflow/.team/TD-<date>-<slug>/
 ├── .msg/
 │   ├── messages.jsonl      # Team message bus
 │   └── meta.json           # Pipeline config + role state snapshot

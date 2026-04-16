@@ -74,7 +74,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `MD`
-- **Session path**: `.workflow/.team/MD-<slug>-<date>/`
+- **Session path**: `.workflow/.team/MD-<date>-<slug>/`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
 - **Max GC rounds**: 2
@@ -156,7 +156,7 @@ Easing catalog: <session>/research/easing-catalog.json`
 ## Session Directory
 
 ```
-.workflow/.team/MD-<slug>-<date>/
+.workflow/.team/MD-<date>-<slug>/
 +-- .msg/
 |   +-- messages.jsonl         # Team message bus
 |   +-- meta.json              # Pipeline config + GC state

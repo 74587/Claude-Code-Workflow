@@ -44,7 +44,7 @@ When `--yes` or `-y`: Auto-confirm decisions, use recommended roles, balanced ex
 ## Output Structure
 
 ```
-.workflow/.brainstorm/BS-{slug}-{date}/
+.workflow/.brainstorm/BS-{date}-{slug}/
 ├── brainstorm.md                  # ⭐ Complete thought evolution timeline
 ├── exploration-codebase.json      # Phase 2: Codebase context
 ├── perspectives.json              # Phase 2: Multi-CLI findings
@@ -98,7 +98,7 @@ When `--yes` or `-y`: Auto-confirm decisions, use recommended roles, balanced ex
 ### Session Initialization
 
 1. Extract idea/topic from `$ARGUMENTS`
-2. Generate session ID: `BS-{slug}-{date}` (slug: lowercase, alphanumeric + Chinese, max 40 chars; date: YYYY-MM-DD UTC+8)
+2. Generate session ID: `BS-{date}-{slug}` (date: YYYY-MM-DD UTC+8; slug: lowercase, alphanumeric + Chinese, max 40 chars)
 3. Define session folder: `.workflow/.brainstorm/{session-id}`
 4. Parse command options:
    - `-c` or `--continue` for session continuation

@@ -79,7 +79,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `RD`
-- **Session path**: `.workflow/.team/RD-<slug>-<date>/`
+- **Session path**: `.workflow/.team/RD-<date>-<slug>/`
 - **Team name**: `roadmap-dev`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
@@ -141,7 +141,7 @@ All roles are inner_loop=true, enabling coordinator to send additional context v
 ## Session Directory
 
 ```
-.workflow/.team/RD-<slug>-<date>/
+.workflow/.team/RD-<date>-<slug>/
 +-- roadmap.md                 # Phase plan with requirements and success criteria
 +-- state.md                   # Living memory (<100 lines)
 +-- config.json                # Session settings (mode, depth, gates)

@@ -103,7 +103,7 @@ TEXT-LEVEL ONLY. No source code reading.
 1. Resolve workspace paths (MUST do first):
    - `project_root` = result of `Bash("pwd")`
    - `skill_root` = `<project_root>/.codex/skills/team-brainstorm`
-2. Generate session ID: `BRS-<topic-slug>-<date>`
+2. Generate session ID: `BRS-<date>-<topic-slug>`
 3. Create session folder structure: ideas/, critiques/, synthesis/, evaluation/, wisdom/, .msg/
 4. Create session folder + initialize `tasks.json` (empty array)
 5. Write session.json with pipeline, angles, gc_round=0, max_gc_rounds=2

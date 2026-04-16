@@ -74,7 +74,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `FE`
-- **Session path**: `.workflow/.team/FE-<slug>-<date>/`
+- **Session path**: `.workflow/.team/FE-<date>-<slug>/`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
 

@@ -82,7 +82,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `UAN`
-- **Session path**: `.workflow/.team/UAN-<slug>-<date>/`
+- **Session path**: `.workflow/.team/UAN-<date>-<slug>/`
 - **Team name**: `ultra-analyze`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
@@ -151,7 +151,7 @@ spawn_agent({
 ## Session Directory
 
 ```
-.workflow/.team/UAN-{slug}-{YYYY-MM-DD}/
+.workflow/.team/UAN-{YYYY-MM-DD}-{slug}/
 +-- .msg/messages.jsonl          # Message bus log
 +-- .msg/meta.json               # Session metadata + cross-role state
 +-- discussion.md                # Understanding evolution and discussion timeline

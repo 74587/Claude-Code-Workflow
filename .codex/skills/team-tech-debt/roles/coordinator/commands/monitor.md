@@ -165,7 +165,7 @@ After task completion, check for checkpoints:
 
 - **Worktree Creation** (before TDFIX):
   ```
-  Bash("git worktree add .worktrees/TD-<slug>-<date> -b tech-debt/TD-<slug>-<date>")
+  Bash("git worktree add .worktrees/TD-<date>-<slug> -b tech-debt/TD-<date>-<slug>")
   ```
   Update .msg/meta.json with worktree info.
 

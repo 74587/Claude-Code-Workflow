@@ -74,7 +74,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `UIP`
-- **Session path**: `.workflow/.team/UIP-<slug>-<date>/`
+- **Session path**: `.workflow/.team/UIP-<date>-<slug>/`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
 - **Max GC rounds**: 2
@@ -156,7 +156,7 @@ Scan report: <session>/scan/scan-report.md`
 ## Session Directory
 
 ```
-.workflow/.team/UIP-<slug>-<date>/
+.workflow/.team/UIP-<date>-<slug>/
 +-- .msg/
 |   +-- messages.jsonl         # Team message bus
 |   +-- meta.json              # Pipeline config + GC state

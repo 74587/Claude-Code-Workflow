@@ -85,7 +85,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `VA`
-- **Session path**: `.workflow/.team/VA-<slug>-<date>/`
+- **Session path**: `.workflow/.team/VA-<date>-<slug>/`
 - **team_name**: `visual-a11y`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
@@ -249,7 +249,7 @@ Focus audit: <session>/audits/focus/focus-audit-001.md`
 ## Session Directory
 
 ```
-.workflow/.team/VA-<slug>-<date>/
+.workflow/.team/VA-<date>-<slug>/
 +-- .msg/
 |   +-- messages.jsonl         # Team message bus
 |   +-- meta.json              # Pipeline config + GC state

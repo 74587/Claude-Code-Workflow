@@ -35,7 +35,7 @@ const slug = idea.toLowerCase()
   .replace(/^-|-$/g, '')
   .slice(0, 40);
 const date = new Date().toISOString().slice(0, 10);
-const sessionId = `SPEC-${slug}-${date}`;
+const sessionId = `SPEC-${date}-${slug}`;
 const workDir = `.workflow/.spec/${sessionId}`;
 
 // Check for continue mode
@@ -257,7 +257,7 @@ Write(`${workDir}/spec-config.json`, JSON.stringify(specConfig, null, 2));
 
 ## Quality Checklist
 
-- [ ] Session ID matches `SPEC-{slug}-{date}` format
+- [ ] Session ID matches `SPEC-{date}-{slug}` format
 - [ ] Problem statement exists and is >= 20 characters
 - [ ] Target users identified (>= 1)
 - [ ] 3-5 exploration dimensions generated

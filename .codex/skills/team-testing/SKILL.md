@@ -74,7 +74,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `TST`
-- **Session path**: `.workflow/.team/TST-<slug>-<date>/`
+- **Session path**: `.workflow/.team/TST-<date>-<slug>/`
 - **Team name**: `testing`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
@@ -208,7 +208,7 @@ functions.request_user_input({
 ## Session Directory
 
 ```
-.workflow/.team/TST-<slug>-<date>/
+.workflow/.team/TST-<date>-<slug>/
 ├── .msg/messages.jsonl     # Team message bus
 ├── .msg/meta.json          # Session metadata
 ├── wisdom/                 # Cross-task knowledge

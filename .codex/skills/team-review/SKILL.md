@@ -73,7 +73,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `RV`
-- **Session path**: `.workflow/.team/RV-<slug>-<date>/`
+- **Session path**: `.workflow/.team/RV-<date>-<slug>/`
 - **Team name**: `review`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
@@ -196,7 +196,7 @@ functions.request_user_input({
 ## Session Directory
 
 ```
-.workflow/.team/RV-<slug>-<date>/
+.workflow/.team/RV-<date>-<slug>/
 ├── .msg/messages.jsonl     # Team message bus
 ├── .msg/meta.json          # Session state + cross-role state
 ├── wisdom/                 # Cross-task knowledge

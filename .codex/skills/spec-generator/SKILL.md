@@ -121,7 +121,7 @@ Phase 0 → 1: functions.update_plan([{id:"phase-0",status:"completed"},{id:"pha
 
 Phase 1: Discovery & Seed Analysis
    |- Ref: phases/01-discovery.md
-   |- Generate session ID: SPEC-{slug}-{YYYY-MM-DD}
+   |- Generate session ID: SPEC-{YYYY-MM-DD}-{slug}
    |- Parse input (text or file reference)
    |- Gemini CLI seed analysis (problem, users, domain, dimensions)
    |- Codebase exploration (conditional, if project detected)
@@ -243,7 +243,7 @@ Phase 6/7 -> Handoff Bridge (conditional, based on user selection):
 // Session ID generation
 const slug = topic.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, '-').slice(0, 40);
 const date = new Date().toISOString().slice(0, 10);
-const sessionId = `SPEC-${slug}-${date}`;
+const sessionId = `SPEC-${date}-${slug}`;
 const workDir = `.workflow/.spec/${sessionId}`;
 
 Bash(`mkdir -p "${workDir}"`);
@@ -265,7 +265,7 @@ functions.update_plan([
 ## Output Structure
 
 ```
-.workflow/.spec/SPEC-{slug}-{YYYY-MM-DD}/
+.workflow/.spec/SPEC-{YYYY-MM-DD}-{slug}/
 +-- spec-config.json              # Session configuration + phase state
 +-- discovery-context.json        # Codebase exploration results (optional)
 +-- refined-requirements.json     # Phase 1.5: Confirmed requirements after discussion

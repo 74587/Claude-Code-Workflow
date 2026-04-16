@@ -74,7 +74,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `TAO`
-- **Session path**: `.workflow/.team/TAO-<slug>-<date>/`
+- **Session path**: `.workflow/.team/TAO-<date>-<slug>/`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
 
@@ -150,7 +150,7 @@ spawn_agent({
 ## Session Directory
 
 ```
-.workflow/.team/TAO-<slug>-<date>/
+.workflow/.team/TAO-<date>-<slug>/
 ├── session.json                    # Session metadata + status + parallel_mode
 ├── task-analysis.json              # Coordinator analyze output
 ├── artifacts/

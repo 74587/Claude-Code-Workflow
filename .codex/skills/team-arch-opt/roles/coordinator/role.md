@@ -106,7 +106,7 @@ TEXT-LEVEL ONLY. No source code reading.
 1. Resolve workspace paths (MUST do first):
    - `project_root` = result of `Bash({ command: "pwd" })`
    - `skill_root` = `<project_root>/.codex/skills/team-arch-opt`
-2. Generate session ID: `TAO-<slug>-<date>`
+2. Generate session ID: `TAO-<date>-<slug>`
 3. Create session folder structure:
    ```bash
    mkdir -p .workflow/.team/${SESSION_ID}/{artifacts,artifacts/branches,artifacts/pipelines,wisdom,wisdom/.msg}

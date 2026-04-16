@@ -73,7 +73,7 @@ Before calling ANY tool, apply this check:
 ## Shared Constants
 
 - **Session prefix**: `PEX`
-- **Session path**: `.workflow/.team/PEX-<slug>-<date>/`
+- **Session path**: `.workflow/.team/PEX-<date>-<slug>/`
 - **CLI tools**: `ccw cli --mode analysis` (read-only), `ccw cli --mode write` (modifications)
 - **Message bus**: `mcp__ccw-tools__team_msg(session_id=<session-id>, ...)`
 
