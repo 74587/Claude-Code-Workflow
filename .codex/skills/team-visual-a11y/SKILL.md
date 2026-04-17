@@ -191,7 +191,7 @@ pipeline_phase: audit`
 })
 
 // Wait for ALL 3 auditors to complete
-wait_agent({ timeout_ms: 900000 })
+wait_agent({ timeout_ms: 1800000 })  // 30 min — apply timeout cascade if timed_out
 
 // Close all 3
 close_agent({ target: "COLOR-001" })
@@ -201,7 +201,7 @@ close_agent({ target: "FOCUS-001" })
 // Then spawn remediation-planner with all 3 audit results as upstream context
 ```
 
-After spawning, use `wait_agent({ timeout_ms: 900000 })` to collect results, then `close_agent({ target })` each worker.
+After spawning, use `wait_agent({ timeout_ms: 1800000 })` to collect results. If `result.timed_out`, send STATUS_CHECK via followup_task (wait 3 min), then FINALIZE with interrupt (wait 3 min), then mark timed_out and close agents. Use `close_agent({ target })` each worker.
 
 ### Model Selection Guide
 

@@ -265,7 +265,7 @@ mcp__ccw-tools__team_msg({
 
 **Design**: Spawn-and-Stop + Callback pattern.
 - Spawn workers with `spawn_agent()` -> immediately return
-- Worker completes -> report_agent_job_result() -> coordinator receives via wait_agent({ timeout_ms: 900000 }) -> auto-advance
+- Worker completes -> report_agent_job_result() -> coordinator receives via wait_agent({ timeout_ms: 1800000 }) -> auto-advance (apply timeout cascade if timed_out)
 - User can use "check" / "resume" to manually advance
 - Coordinator does one operation per invocation, then STOPS
 

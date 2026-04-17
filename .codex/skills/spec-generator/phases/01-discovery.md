@@ -161,13 +161,26 @@ Schema:
 `
   });
 
-  const exploreResult = wait_agent({ timeout_ms: 600000 });
+  const exploreResult = wait_agent({ timeout_ms: 1800000 });
   if (exploreResult.timed_out) {
+    // Status probe
     followup_task({
       target: "spec-explorer",
-      message: "Finalize current findings and write discovery-context.json immediately."
+      message: "STATUS_CHECK: Report current progress, findings so far, and estimated remaining work."
     });
-    wait_agent({ timeout_ms: 300000 });
+    const status = wait_agent({ timeout_ms: 180000 });  // 3 min
+    if (status.timed_out) {
+      // Force finalize
+      followup_task({
+        target: "spec-explorer",
+        message: "FINALIZE: Output all current findings immediately. Time limit reached.",
+        interrupt: true
+      });
+      const forced = wait_agent({ timeout_ms: 180000 });  // 3 min
+      if (forced.timed_out) {
+        close_agent({ target: "spec-explorer" });
+      }
+    }
   }
   close_agent({ target: "spec-explorer" });
 }

@@ -117,7 +117,7 @@ pipeline_phase: <pipeline-phase>
 })
 ```
 
-After spawning, use `wait_agent({ timeout_ms: 900000 })` to collect results, then `close_agent({ target })` each worker.
+After spawning, use `wait_agent({ timeout_ms: 1800000 })` to collect results. If `result.timed_out`, send STATUS_CHECK via followup_task (wait 3 min), then FINALIZE with interrupt (wait 3 min), then mark timed_out and close agents. Use `close_agent({ target })` each worker.
 
 
 ### Model Selection Guide
@@ -191,7 +191,7 @@ const explorerNames = ["EXPLORE-001", "EXPLORE-002", ..., "EXPLORE-00N"]
 for (const name of explorerNames) {
   spawn_agent({ agent_type: "team_worker", task_name: name, ... })
 }
-wait_agent({ timeout_ms: 900000 })
+wait_agent({ timeout_ms: 1800000 })  // 30 min — apply timeout cascade if timed_out
 // Collect all results, then spawn ANALYZE phase
 
 // ANALYZE phase: send exploration context to analysts via items (not send_message)
