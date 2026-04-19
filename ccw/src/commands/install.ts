@@ -661,15 +661,17 @@ export async function installCommand(options: InstallOptions): Promise<void> {
 
       spinner.text = `Installing ${dir}...`;
 
-      // For Path mode on .claude, exclude global subdirs (they're already installed to global)
+      // For Path mode on .claude, exclude global subdirs and global files (they're installed to global separately)
       // For .codex, exclude user-deselected subdirs (e.g. agents)
       let excludeDirs: string[] = [];
+      let excludeFiles = EXCLUDED_FILES;
       if (mode === 'Path' && dir === '.claude') {
         excludeDirs = GLOBAL_SUBDIRS;
+        excludeFiles = [...EXCLUDED_FILES, ...GLOBAL_FILES];
       } else if (dir === '.codex') {
         excludeDirs = codexExcludeDirs;
       }
-      const { files, directories } = await copyDirectory(srcPath, destPath, manifest, excludeDirs);
+      const { files, directories } = await copyDirectory(srcPath, destPath, manifest, excludeDirs, excludeFiles);
       totalFiles += files;
       totalDirs += directories;
     }
@@ -691,11 +693,13 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     }
 
     // Handle CLAUDE.md: similarity check + ensure @ reference
+    // Only when claude ecosystem is being installed (skip for codex-only)
     const srcClaudeCcwMd = join(sourceDir, '.claude', 'CLAUDE.CCW.md');
     const claudeMdPath = join(installPath, '.claude', 'CLAUDE.md');
     const minimalClaudeMd = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/CLAUDE.CCW.md\n';
+    const shouldHandleClaudeMd = target === 'claude' || target === 'all';
 
-    if (existsSync(claudeMdPath) && existsSync(srcClaudeCcwMd)) {
+    if (shouldHandleClaudeMd && existsSync(claudeMdPath) && existsSync(srcClaudeCcwMd)) {
       // Existing CLAUDE.md — check similarity and @ reference
       const existingContent = readFileSync(claudeMdPath, 'utf8');
       const srcContent = readFileSync(srcClaudeCcwMd, 'utf8');
@@ -740,7 +744,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
           info('Add this line: - **CCW Instructions**: @~/.claude/CLAUDE.CCW.md');
         }
       }
-    } else if (!existsSync(claudeMdPath)) {
+    } else if (shouldHandleClaudeMd && !existsSync(claudeMdPath)) {
       // No CLAUDE.md — auto-create with @ reference
       const claudeDir = join(installPath, '.claude');
       if (!existsSync(claudeDir)) {
