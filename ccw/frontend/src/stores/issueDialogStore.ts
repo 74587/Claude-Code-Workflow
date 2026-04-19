@@ -238,14 +238,11 @@ export const useIssueDialogStore = create<IssueDialogState>()(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              id: `ISSUE-${Date.now()}`,
               title: formData.title,
+              description: formData.description,
               context: formData.description,
-              priority: formData.priority === 'urgent' ? 1 : 
-                        formData.priority === 'high' ? 2 : 
-                        formData.priority === 'medium' ? 3 : 4,
+              priority: formData.priority,
               tags: formData.tags,
-              status: 'registered',
             }),
           });
 
@@ -261,10 +258,10 @@ export const useIssueDialogStore = create<IssueDialogState>()(
 
           set({ 
             isSubmitting: false, 
-            submittedIssueId: result.issue?.id 
+            submittedIssueId: result.data?.issue?.id 
           });
 
-          return { success: true, issueId: result.issue?.id };
+          return { success: true, issueId: result.data?.issue?.id };
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : '网络错误，请稍后重试';
           set({ isSubmitting: false, submitError: errorMessage });

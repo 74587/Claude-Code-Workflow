@@ -1063,12 +1063,13 @@ export interface GitHubPullResponse {
   total: number;
 }
 
-export async function pullIssuesFromGitHub(options: GitHubPullOptions = {}): Promise<GitHubPullResponse> {
+export async function pullIssuesFromGitHub(options: GitHubPullOptions & { projectPath?: string } = {}): Promise<GitHubPullResponse> {
   const params = new URLSearchParams();
   if (options.state) params.set('state', options.state);
   if (options.limit) params.set('limit', String(options.limit));
   if (options.labels) params.set('labels', options.labels);
   if (options.downloadImages) params.set('downloadImages', 'true');
+  if (options.projectPath) params.set('path', options.projectPath);
 
   const url = `/api/issues/pull${params.toString() ? '?' + params.toString() : ''}`;
   return fetchApi<GitHubPullResponse>(url, {

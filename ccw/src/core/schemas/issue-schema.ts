@@ -46,8 +46,9 @@ export const CreateIssueRequestSchema = z.object({
     .trim(),
 
   description: z.string()
-    .min(1, 'Description is required')
-    .max(10000, 'Description must be at most 10000 characters'),
+    .max(10000, 'Description must be at most 10000 characters')
+    .optional()
+    .default(''),
 
   type: IssueTypeSchema.optional()
     .default('other'),
