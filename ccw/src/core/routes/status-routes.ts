@@ -35,9 +35,7 @@ function checkCcwInstallStatus(): {
     'chinese-response.md',
     'windows-platform.md',
     'cli-tools-usage.md',
-    'coding-philosophy.md',
-    'context-tools.md',
-    'file-modification.md'
+    'coding-philosophy.md'
   ];
 
   const missingFiles: string[] = [];
