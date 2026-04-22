@@ -71,7 +71,8 @@ if (typeof workflowPreferences === 'undefined' || workflowPreferences === null) 
 **Session Setup** (MANDATORY):
 ```javascript
 const getUtc8ISOString = () => new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
-const taskSlug = task_description.toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40)
+const priorHeader = task_description.match(/^## Prior (?:Analysis|Brainstorm) \((.+?)\)/m)
+const taskSlug = (priorHeader ? priorHeader[1] : task_description).toLowerCase().replace(/[^a-z0-9]+/g, '-').substring(0, 40).replace(/^-+|-+$/g, '')
 const dateStr = getUtc8ISOString().substring(0, 10)
 const sessionId = `${taskSlug}-${dateStr}`
 const sessionFolder = `.workflow/.lite-plan/${sessionId}`

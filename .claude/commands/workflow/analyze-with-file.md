@@ -578,14 +578,14 @@ const priorContext = `
    console.log(`## Implementation Scope (${implScope.length} items)`)
    implScope.forEach((item, i) => {
      console.log(`${i+1}. **${item.objective}** [${item.priority}]`)
-     console.log(`   Files: ${item.target_files.map(f => typeof f === 'string' ? f : f.path).join(', ') || 'TBD by lite-plan'}`)
+     console.log(`   Files: ${item.target_files.map(f => typeof f === 'string' ? f : f.path).join(', ') || 'TBD by workflow-lite-plan'}`)
      console.log(`   Done when: ${item.acceptance_criteria.join(' + ')}`)
    })
 
    if (!autoMode) {
      AskUserQuestion({
        questions: [{
-         question: "Implementation scope correct? lite-plan will break these into concrete tasks.",
+         question: "Implementation scope correct? workflow-lite-plan will break these into concrete tasks.",
          header: "Scope确认",
          multiSelect: false,
          options: [
@@ -601,7 +601,7 @@ const priorContext = `
 
    **Step C: Build Structured Handoff & Invoke Skill**:
    ```javascript
-   // Structured handoff — lite-plan parses this as JSON block, not free text
+   // Structured handoff — workflow-lite-plan parses this as JSON block, not free text
    const handoff = {
      source: 'analyze-with-file',
      session_id: sessionId,
@@ -609,7 +609,7 @@ const priorContext = `
      summary: conclusions.summary,
      implementation_scope: implScope,     // WHAT + acceptance criteria
      code_anchors: (conclusions.code_anchors || []).slice(0, 10),  // WHERE
-     key_files: explorationResults.relevant_files?.slice(0, 8) || [],
+     key_files: JSON.parse(Read(`${sessionFolder}/exploration-codebase.json`))?.relevant_files?.slice(0, 8) || [],
      key_findings: conclusions.key_conclusions?.slice(0, 5) || [],
      decision_context: conclusions.decision_trail?.slice(-3) || []  // recent decisions for context
    }
