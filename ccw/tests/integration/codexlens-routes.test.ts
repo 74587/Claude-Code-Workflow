@@ -351,7 +351,7 @@ describe('codexlens v2 routes integration', async () => {
       assert.equal(res.json.success, true);
       assert.ok(res.json.config?.mcpServers?.codexlens);
       assert.equal(res.json.config.mcpServers.codexlens.command, 'uvx');
-      assert.deepEqual(res.json.config.mcpServers.codexlens.args, ['--from', 'codexlens-search[mcp]', 'codexlens-mcp']);
+      assert.deepEqual(res.json.config.mcpServers.codexlens.args, ['--from', 'codexlens-search[mcp,ast,watcher]', 'codexlens-mcp']);
       assert.equal(res.json.config.mcpServers.codexlens.env, undefined);
     });
   });

@@ -197,7 +197,7 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
   // GET /api/codexlens/models
   if (pathname === '/api/codexlens/models' && req.method === 'GET') {
     try {
-      const result = await spawnCli('codexlens-search', ['list-models']);
+      const result = await spawnCli('codexlens-search', ['list-models', '--json']);
       if (result.exitCode !== 0) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: result.stderr || 'Failed to list models' }));
@@ -207,7 +207,10 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
       try {
         models = JSON.parse(result.stdout);
       } catch {
-        models = result.stdout;
+        models = [];
+      }
+      if (!Array.isArray(models)) {
+        models = [];
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: true, models }));
@@ -231,6 +234,16 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         if (result.exitCode !== 0) {
           return { error: result.stderr || 'Failed to download model', status: 500 };
         }
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(result.stdout);
+        } catch {
+          parsed = null;
+        }
+        if (parsed && typeof parsed === 'object' && 'status' in parsed && (parsed as Record<string, unknown>).status === 'failed') {
+          const msg = (parsed as Record<string, unknown>).message || (parsed as Record<string, unknown>).error || 'Download failed';
+          return { error: String(msg), status: 500 };
+        }
         return { success: true, output: result.stdout };
       } catch (err) {
         return { error: (err as Error).message, status: 500 };
@@ -251,6 +264,16 @@ export async function handleCodexLensRoutes(ctx: RouteContext): Promise<boolean>
         const result = await spawnCli('codexlens-search', ['delete-model', name]);
         if (result.exitCode !== 0) {
           return { error: result.stderr || 'Failed to delete model', status: 500 };
+        }
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(result.stdout);
+        } catch {
+          parsed = null;
+        }
+        if (parsed && typeof parsed === 'object' && 'status' in parsed && (parsed as Record<string, unknown>).status === 'failed') {
+          const msg = (parsed as Record<string, unknown>).message || (parsed as Record<string, unknown>).error || 'Delete failed';
+          return { error: String(msg), status: 500 };
         }
         return { success: true, output: result.stdout };
       } catch (err) {
