@@ -611,7 +611,14 @@ const priorContext = `
      code_anchors: (conclusions.code_anchors || []).slice(0, 10),  // WHERE
      key_files: JSON.parse(Read(`${sessionFolder}/exploration-codebase.json`))?.relevant_files?.slice(0, 8) || [],
      key_findings: conclusions.key_conclusions?.slice(0, 5) || [],
-     decision_context: conclusions.decision_trail?.slice(-3) || []  // recent decisions for context
+     decision_context: conclusions.decision_trail?.slice(-3) || [],  // recent decisions for context
+     exploration_artifacts: {
+       exploration_codebase: `${sessionFolder}/exploration-codebase.json`,
+       explorations: file_exists(`${sessionFolder}/explorations.json`) ? `${sessionFolder}/explorations.json` : null,
+       perspectives: file_exists(`${sessionFolder}/perspectives.json`) ? `${sessionFolder}/perspectives.json` : null,
+       research: file_exists(`${sessionFolder}/research.json`) ? `${sessionFolder}/research.json` : null,
+       deep_dives: glob(`${sessionFolder}/explorations/*.json`)
+     }
    }
 
    const handoffBlock = `## Prior Analysis (${sessionId})

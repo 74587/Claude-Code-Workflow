@@ -104,7 +104,8 @@ if (hasHandoffSpec) {
   if (specMatch) {
     handoffSpec = JSON.parse(specMatch[1])
     // handoffSpec contains: { source, session_id, session_folder, summary,
-    //   implementation_scope[], code_anchors[], key_files[], key_findings[], decision_context[] }
+    //   implementation_scope[], code_anchors[], key_files[], key_findings[], decision_context[],
+    //   exploration_artifacts: { exploration_codebase, explorations, perspectives, research, deep_dives[] } }
     // implementation_scope[]: { objective, rationale, priority, target_files[], acceptance_criteria[], change_summary }
     console.log(`[Handoff] From ${handoffSpec.source} session ${handoffSpec.session_id}`)
     console.log(`[Handoff] ${handoffSpec.implementation_scope.length} scoped items with acceptance criteria`)
@@ -124,8 +125,47 @@ needsExploration = workflowPreferences.forceExplore ? true
      task.modifies_existing_code)
 
 if (!needsExploration) {
-  // manifest absent; LP-Phase 3 loads with safe fallback
-  // If handoffSpec exists, it provides pre-scoped implementation context
+  // Bridge: Build manifest from analyze session's exploration artifacts
+  if (isAnalysisSource && handoffSpec?.exploration_artifacts) {
+    const artifacts = handoffSpec.exploration_artifacts
+    const explorationEntries = []
+    let idx = 1
+    const artifactMapping = [
+      { key: 'exploration_codebase', angle: 'codebase-discovery' },
+      { key: 'explorations', angle: 'analysis-findings' },
+      { key: 'perspectives', angle: 'multi-perspective' },
+      { key: 'research', angle: 'external-research' }
+    ]
+    artifactMapping.forEach(({ key, angle }) => {
+      if (artifacts[key] && file_exists(artifacts[key])) {
+        explorationEntries.push({
+          angle, file: artifacts[key].split('/').pop(),
+          path: artifacts[key], source_schema: 'analyze', index: idx++
+        })
+      }
+    })
+    if (artifacts.deep_dives?.length > 0) {
+      artifacts.deep_dives.forEach(divePath => {
+        if (file_exists(divePath)) {
+          const name = divePath.match(/explorations\/(.+)\.json$/)?.[1] || `deep-dive-${idx}`
+          explorationEntries.push({
+            angle: name, file: `${name}.json`,
+            path: divePath, source_schema: 'analyze', index: idx++
+          })
+        }
+      })
+    }
+    if (explorationEntries.length > 0) {
+      Write(`${sessionFolder}/explorations-manifest.json`, JSON.stringify({
+        session_id: sessionId, task_description, timestamp: getUtc8ISOString(),
+        complexity, exploration_count: explorationEntries.length,
+        source: 'analyze-with-file', source_session: handoffSpec.session_id,
+        explorations: explorationEntries
+      }, null, 2))
+      console.log(`[Analyze Bridge] ${explorationEntries.length} artifacts from ${handoffSpec.session_id}`)
+    }
+  }
+  // If no manifest built; LP-Phase 3 loads with safe fallback
   proceed_to_next_phase()
 }
 ```
