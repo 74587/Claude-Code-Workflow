@@ -453,6 +453,18 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 ---
 
+## ☕ 赞赏支持
+
+<div align="center">
+
+您的支持是更新的最大动力！
+
+<img src="assets/7e9099a5e71b02b0db581563d51a0439.png" width="300" alt="微信赞赏码"/>
+
+</div>
+
+---
+
 ## 🔗 友情链接
 
 <div align="center">

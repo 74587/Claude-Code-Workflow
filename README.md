@@ -453,6 +453,20 @@ Join the CCW WeChat group to discuss tips and share experiences with other devel
 
 ---
 
+## ☕ Buy Me a Coffee
+
+<div align="center">
+
+Your support is the greatest motivation for updates!
+
+<img src="assets/7e9099a5e71b02b0db581563d51a0439.png" width="300" alt="WeChat Appreciation QR Code"/>
+
+<sub>"您的支持是更新的最大动力"</sub>
+
+</div>
+
+---
+
 ## 🔗 Links
 
 <div align="center">
