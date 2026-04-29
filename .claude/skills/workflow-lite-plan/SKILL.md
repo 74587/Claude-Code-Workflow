@@ -109,6 +109,24 @@ if (hasHandoffSpec) {
     // implementation_scope[]: { objective, rationale, priority, target_files[], acceptance_criteria[], change_summary }
     console.log(`[Handoff] From ${handoffSpec.source} session ${handoffSpec.session_id}`)
     console.log(`[Handoff] ${handoffSpec.implementation_scope.length} scoped items with acceptance criteria`)
+
+    // Enrich task_description with handoff context for downstream planning agent
+    // These fields were previously produced but unused — now injected into planning context
+    if (handoffSpec.summary) {
+      task_description += `\n\n## Analysis Summary\n${handoffSpec.summary}`
+    }
+    if (handoffSpec.key_findings?.length > 0) {
+      task_description += `\n\n## Key Findings\n${handoffSpec.key_findings.map((f, i) =>
+        `${i+1}. ${f.point || f} (${f.confidence || 'medium'})`).join('\n')}`
+    }
+    if (handoffSpec.decision_context?.length > 0) {
+      task_description += `\n\n## Decision Context\n${handoffSpec.decision_context.map(d =>
+        `- **${d.decision || d}**: ${d.reason || ''}`).join('\n')}`
+    }
+    if (handoffSpec.code_anchors?.length > 0) {
+      task_description += `\n\n## Code Anchors\n${handoffSpec.code_anchors.slice(0, 10).map(a =>
+        `- \`${a.file}:${a.lines}\`: ${a.significance}`).join('\n')}`
+    }
   }
 }
 
