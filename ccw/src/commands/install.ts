@@ -417,61 +417,35 @@ export async function installCommand(options: InstallOptions): Promise<void> {
   console.log('');
   info(`Found ${availableDirs.length} directories to install: ${availableDirs.join(', ')}`);
 
-  // Interactive .codex subdirectory selection
-  let codexExcludeDirs: string[] = [];
+  // Show .codex components info (all installed by default)
+  const codexExcludeDirs: string[] = [];
   if (availableDirs.includes('.codex')) {
     const codexPath = join(sourceDir, '.codex');
-    const codexSubdirs: Array<{ name: string; count: number; label: string }> = [];
 
-    // Scan available codex subdirectories
     const promptsPath = join(codexPath, 'prompts');
-    if (existsSync(promptsPath)) {
-      const promptFiles = readdirSync(promptsPath, { recursive: true }).filter(f =>
-        statSync(join(promptsPath, f.toString())).isFile()
-      );
-      codexSubdirs.push({ name: 'prompts', count: promptFiles.length, label: 'files' });
-    }
-
     const agentsPath = join(codexPath, 'agents');
-    if (existsSync(agentsPath)) {
-      const agentFiles = readdirSync(agentsPath).filter(f => f.endsWith('.md'));
-      codexSubdirs.push({ name: 'agents', count: agentFiles.length, label: 'agent definitions' });
-    }
-
     const skillsPath = join(codexPath, 'skills');
+
+    const components: string[] = [];
+    if (existsSync(promptsPath)) {
+      const count = readdirSync(promptsPath, { recursive: true }).filter(f =>
+        statSync(join(promptsPath, f.toString())).isFile()
+      ).length;
+      components.push(`prompts(${count})`);
+    }
+    if (existsSync(agentsPath)) {
+      const count = readdirSync(agentsPath).filter(f => f.endsWith('.md') || f.endsWith('.toml')).length;
+      components.push(`agents(${count})`);
+    }
     if (existsSync(skillsPath)) {
-      const skillDirs = readdirSync(skillsPath).filter(f =>
+      const count = readdirSync(skillsPath).filter(f =>
         statSync(join(skillsPath, f)).isDirectory()
-      );
-      codexSubdirs.push({ name: 'skills', count: skillDirs.length, label: 'skills' });
+      ).length;
+      components.push(`skills(${count})`);
     }
 
-    if (codexSubdirs.length > 0) {
-      info('Codex components available:');
-      for (const sub of codexSubdirs) {
-        info(`  └─ .codex/${sub.name}: ${sub.count} ${sub.label}`);
-      }
-
-      // Let user select which codex subdirs to install
-      const { selectedCodexDirs } = await inquirer.prompt([{
-        type: 'checkbox',
-        name: 'selectedCodexDirs',
-        message: 'Select .codex components to install:',
-        choices: codexSubdirs.map(sub => ({
-          name: `  ${chalk.cyan(sub.name)}  —  ${sub.count} ${sub.label}`,
-          value: sub.name,
-          checked: sub.name !== 'agents', // agents unchecked by default
-        })),
-      }]);
-
-      // Build exclude list from unselected dirs
-      codexExcludeDirs = codexSubdirs
-        .map(s => s.name)
-        .filter(name => !(selectedCodexDirs as string[]).includes(name));
-
-      if (codexExcludeDirs.length > 0) {
-        info(`Skipping .codex components: ${codexExcludeDirs.join(', ')}`);
-      }
+    if (components.length > 0) {
+      info(`Codex components: ${components.join(', ')}`);
     }
   }
 
@@ -855,7 +829,7 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     // Agents
     const agentsPath = join(codexPath, 'agents');
     if (existsSync(agentsPath)) {
-      const agentCount = readdirSync(agentsPath).filter(f => f.endsWith('.md')).length;
+      const agentCount = readdirSync(agentsPath).filter(f => f.endsWith('.md') || f.endsWith('.toml')).length;
       summaryLines.push(chalk.gray(`  ✓ agents: ${agentCount} definitions`));
     }
 
