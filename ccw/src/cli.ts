@@ -114,6 +114,7 @@ export async function run(argv: string[]): Promise<void> {
     .option('-p, --path <path>', 'Installation path (for Path mode)')
     .option('-f, --force', 'Force installation without prompts')
     .option('--target <target>', 'Target ecosystem: claude, codex, or all')
+    .option('--lite', 'Lite mode: install only essential workflow commands and skills')
     .option('--skill-hub [skillId]', 'Install skill from skill-hub (use --list to see available)')
     .option('--cli <type>', 'Target CLI for skill installation (claude or codex)', 'claude')
     .option('--list', 'List available skills in skill-hub')

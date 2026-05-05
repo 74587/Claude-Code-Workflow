@@ -41,11 +41,32 @@ const EXCLUDED_FILES = ['settings.json', 'settings.local.json', 'CLAUDE.md'];
 // CCW marker in CLAUDE.md for tracking ccw-added content
 const CCW_REFERENCE_LINE = '- **CCW Instructions**: @~/.claude/CLAUDE.CCW.md';
 
+// Lite mode: minimal installation with specific commands and skills only
+const LITE_CLAUDE_COMMANDS = [
+  'workflow/analyze-with-file.md',
+  'workflow/debug-with-file.md',
+];
+
+const LITE_CLAUDE_SKILLS = [
+  'workflow-lite-plan',
+  'workflow-lite-execute',
+  'team-coordinate',
+];
+
+const LITE_CODEX_SKILLS = [
+  'analyze-with-file',
+  'debug-with-file',
+  'workflow-lite-planex',
+  'team-coordinate',
+  'csv-wave-pipeline',
+];
+
 interface InstallOptions {
   mode?: string;
   path?: string;
   force?: boolean;
   target?: string; // 'claude', 'codex', or 'all'
+  lite?: boolean;
 }
 
 interface CopyResult {
@@ -298,6 +319,205 @@ async function backupDirectoryRecursive(
   return count;
 }
 
+/**
+ * Lite mode: streamlined installation of specific commands and skills
+ */
+async function installLite(
+  sourceDir: string,
+  installPath: string,
+  mode: string,
+  target: string,
+  version: string
+): Promise<void> {
+  // Build item list for display
+  const claudeItems = (target === 'claude' || target === 'all')
+    ? [...LITE_CLAUDE_COMMANDS.map(c => `command: ${c}`), ...LITE_CLAUDE_SKILLS.map(s => `skill: ${s}`)]
+    : [];
+  const codexItems = (target === 'codex' || target === 'all')
+    ? LITE_CODEX_SKILLS.map(s => `codex skill: ${s}`)
+    : [];
+
+  console.log('');
+  info('Lite mode — installing minimal workflow set:');
+  for (const item of [...claudeItems, ...codexItems]) {
+    console.log(chalk.gray(`  • ${item}`));
+  }
+  console.log('');
+
+  const manifest = createManifest(mode, installPath);
+  const spinner = createSpinner('Installing lite mode files...').start();
+
+  try {
+    // Install specific commands and skills
+    const { totalFiles, totalDirs } = await installLiteModeItems(
+      sourceDir, installPath, mode, target, manifest, spinner
+    );
+
+    let files = totalFiles;
+    let dirs = totalDirs;
+
+    // Install CLAUDE.CCW.md to global
+    const srcClaudeCcwMd = join(sourceDir, '.claude', 'CLAUDE.CCW.md');
+    if (existsSync(srcClaudeCcwMd)) {
+      const globalClaudeDir = join(homedir(), '.claude');
+      if (!existsSync(globalClaudeDir)) {
+        mkdirSync(globalClaudeDir, { recursive: true });
+      }
+      const destFile = join(globalClaudeDir, 'CLAUDE.CCW.md');
+      spinner.text = 'Installing CLAUDE.CCW.md to global...';
+      copyFileSync(srcClaudeCcwMd, destFile);
+      addFileEntry(manifest, destFile);
+      files++;
+    }
+
+    // Handle CLAUDE.md reference
+    const shouldHandleClaudeMd = target === 'claude' || target === 'all';
+    const claudeMdPath = join(installPath, '.claude', 'CLAUDE.md');
+    const minimalClaudeMd = '# Project Instructions\n\n- **CCW Instructions**: @~/.claude/CLAUDE.CCW.md\n';
+
+    if (shouldHandleClaudeMd) {
+      if (existsSync(claudeMdPath)) {
+        const content = readFileSync(claudeMdPath, 'utf8');
+        if (!content.includes('CLAUDE.CCW.md')) {
+          // Append reference line
+          const updated = content.trimEnd() + '\n' + CCW_REFERENCE_LINE + '\n';
+          writeFileSync(claudeMdPath, updated, 'utf8');
+        }
+      } else {
+        const claudeDir = join(installPath, '.claude');
+        if (!existsSync(claudeDir)) {
+          mkdirSync(claudeDir, { recursive: true });
+        }
+        writeFileSync(claudeMdPath, minimalClaudeMd, 'utf8');
+        addFileEntry(manifest, claudeMdPath);
+        files++;
+      }
+    }
+
+    // Create version.json
+    const versionDir = join(installPath, '.claude');
+    if (!existsSync(versionDir)) mkdirSync(versionDir, { recursive: true });
+    const versionPath = join(versionDir, 'version.json');
+    writeFileSync(versionPath, JSON.stringify({
+      version, installedAt: new Date().toISOString(), mode, installer: 'ccw', lite: true
+    }, null, 2), 'utf8');
+    addFileEntry(manifest, versionPath);
+    files++;
+
+    // Initialize CLI tools config
+    spinner.text = 'Initializing CLI tools configuration...';
+    const cliToolsInitResult = initCliToolsConfig();
+    if (cliToolsInitResult.created.length > 0) {
+      files += cliToolsInitResult.created.length;
+    }
+
+    spinner.succeed('Lite mode installation complete!');
+
+    // Save manifest
+    const manifestPath = saveManifest(manifest);
+
+    // Show summary
+    console.log('');
+    summaryBox({
+      title: ' Lite Install Summary ',
+      lines: [
+        chalk.green.bold('✓ Lite Installation Successful'),
+        '',
+        chalk.white(`Mode: ${chalk.cyan(mode)}`),
+        chalk.white(`Path: ${chalk.cyan(installPath)}`),
+        chalk.white(`Target: ${chalk.cyan(target)}`),
+        chalk.white(`Version: ${chalk.cyan(version)}`),
+        '',
+        chalk.gray(`Files installed: ${files}`),
+        chalk.gray(`Directories created: ${dirs}`),
+        ...(cliToolsInitResult.created.length > 0
+          ? [chalk.gray(`CLI config initialized: ${cliToolsInitResult.created.join(', ')}`)]
+          : []),
+        '',
+        chalk.gray(`Manifest: ${basename(manifestPath)}`),
+      ],
+      borderColor: 'green'
+    });
+
+    console.log('');
+    info('Next steps:');
+    console.log(chalk.gray('  1. Restart Claude Code or your IDE'));
+    console.log(chalk.gray('  2. Try: /workflow-lite-plan or /team-coordinate'));
+    console.log(chalk.gray('  3. Run: ccw install (without --lite) for full installation'));
+    console.log('');
+
+  } catch (err) {
+    spinner.fail('Lite mode installation failed');
+    error((err as Error).message);
+    process.exit(1);
+  }
+}
+
+/**
+ * Install lite mode items: specific commands and skills only
+ */
+async function installLiteModeItems(
+  sourceDir: string,
+  installPath: string,
+  mode: string,
+  target: string,
+  manifest: any,
+  spinner: Ora
+): Promise<{ totalFiles: number; totalDirs: number }> {
+  let totalFiles = 0;
+  let totalDirs = 0;
+
+  // Install Claude commands and skills
+  if ((target === 'claude' || target === 'all') && existsSync(join(sourceDir, '.claude'))) {
+    // Commands
+    for (const cmd of LITE_CLAUDE_COMMANDS) {
+      const srcFile = join(sourceDir, '.claude', 'commands', cmd);
+      if (!existsSync(srcFile)) continue;
+
+      const destFile = join(installPath, '.claude', 'commands', cmd);
+      const destDir = dirname(destFile);
+      if (!existsSync(destDir)) {
+        mkdirSync(destDir, { recursive: true });
+        totalDirs++;
+        addDirectoryEntry(manifest, destDir);
+      }
+
+      spinner.text = `Installing command: ${cmd}`;
+      copyFileSync(srcFile, destFile);
+      addFileEntry(manifest, destFile);
+      totalFiles++;
+    }
+
+    // Skills
+    for (const skill of LITE_CLAUDE_SKILLS) {
+      const srcSkill = join(sourceDir, '.claude', 'skills', skill);
+      if (!existsSync(srcSkill)) continue;
+
+      const destSkill = join(installPath, '.claude', 'skills', skill);
+      spinner.text = `Installing skill: ${skill}`;
+      const result = await copyDirectory(srcSkill, destSkill, manifest);
+      totalFiles += result.files;
+      totalDirs += result.directories;
+    }
+  }
+
+  // Install Codex skills
+  if ((target === 'codex' || target === 'all') && existsSync(join(sourceDir, '.codex'))) {
+    for (const skill of LITE_CODEX_SKILLS) {
+      const srcSkill = join(sourceDir, '.codex', 'skills', skill);
+      if (!existsSync(srcSkill)) continue;
+
+      const destSkill = join(installPath, '.codex', 'skills', skill);
+      spinner.text = `Installing codex skill: ${skill}`;
+      const result = await copyDirectory(srcSkill, destSkill, manifest);
+      totalFiles += result.files;
+      totalDirs += result.directories;
+    }
+  }
+
+  return { totalFiles, totalDirs };
+}
+
 // Get package root directory (ccw/src/commands -> ccw)
 function getPackageRoot(): string {
   return join(__dirname, '..', '..');
@@ -412,6 +632,12 @@ export async function installCommand(options: InstallOptions): Promise<void> {
     error('No source directories found to install.');
     error(`Expected directories in: ${sourceDir}`);
     process.exit(1);
+  }
+
+  // Lite mode: install only specific commands and skills, then return
+  if (options.lite) {
+    await installLite(sourceDir, installPath, mode, target, version);
+    return;
   }
 
   console.log('');
