@@ -445,7 +445,7 @@ MIT License - see [LICENSE](LICENSE)
 
 Join the CCW WeChat group to discuss tips and share experiences with other developers!
 
-<img src="assets/wechat-group-qr.png" width="300" alt="CCW WeChat Group"/>
+<img src="assets/wechat-group-qr.jpg" width="300" alt="CCW WeChat Group"/>
 
 <sub>Scan to join the WeChat group (if the QR code has expired, please open an Issue for the latest one)</sub>
 
