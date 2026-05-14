@@ -20,7 +20,7 @@ ccw cli -p "<PROMPT>" [options]
 |--------|-------------|---------|
 | `-p, --prompt` | **Required**. Prompt text | — |
 | `--tool <name>` | Tool: gemini, qwen, codex, claude, opencode | First enabled in config |
-| `--mode <mode>` | `analysis` (read-only), `write` (create/modify/delete), `review` (codex-only) | `analysis` |
+| `--mode <mode>` | `analysis` (read-only) or `write` (create/modify/delete) | `analysis` |
 | `--model <model>` | Model override | Tool's `primaryModel` |
 | `--cd <dir>` | Working directory | Current directory |
 | `--includeDirs <dirs>` | Additional directories (comma-separated) | — |
@@ -34,11 +34,7 @@ ccw cli -p "<PROMPT>" [options]
 |------|-----------|------------------|---------|
 | `analysis` | Read-only | Yes | Review, exploration, diagnosis, architecture analysis |
 | `write` | Create/Modify/Delete | No — requires explicit intent | Implementation, bug fixes, refactoring |
-| `review` | Read-only (git-aware) | Yes | **Codex only**. Uncommitted changes, branch diffs, specific commits |
-
 > `--mode` is the **authoritative** permission control for ccw cli. The `MODE:` field inside prompt text is a hint for the agent — both should be consistent, but `--mode` governs actual behavior.
-
-**Codex review mode**: Target flags (`--uncommitted`, `--base`, `--commit`) are codex-only and mutually exclusive with `-p`.
 
 ---
 

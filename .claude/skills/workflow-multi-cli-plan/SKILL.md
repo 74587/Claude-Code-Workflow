@@ -185,7 +185,7 @@ AskUserQuestion({
       options: [
         { label: "Skip", description: "No review" },
         { label: "Gemini Review", description: "Gemini CLI tool" },
-        { label: "Codex Review", description: "codex review --uncommitted" },
+        { label: "Codex Review", description: "Codex CLI: prompt-based code quality review (--mode analysis)" },
         { label: "Agent Review", description: "Current agent review" }
       ]
     }

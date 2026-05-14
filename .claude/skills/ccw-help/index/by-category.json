@@ -52,8 +52,8 @@
       {
         "name": "codex-review",
         "command": "/cli:codex-review",
-        "description": "Interactive code review using Codex CLI via ccw endpoint with configurable review target, model, and custom instructions",
-        "arguments": "[--uncommitted|--base <branch>|--commit <sha>] [--model <model>] [--title <title>] [prompt]",
+        "description": "Prompt-based code review using Codex CLI via ccw endpoint with --mode analysis",
+        "arguments": "[--model <model>] [--title <title>] [prompt]",
         "category": "cli",
         "subcategory": null,
         "usage_scenario": "analysis",

@@ -531,7 +531,7 @@ if (workflowPreferences.autoYes) {
         multiSelect: false,
         options: [
           { label: "Gemini Review", description: "Gemini CLI: git diff quality review" },
-          { label: "Codex Review", description: "Codex CLI: git-aware code review (--mode review)" },
+          { label: "Codex Review", description: "Codex CLI: prompt-based code quality review (--mode analysis)" },
           { label: "Agent Review", description: "@code-reviewer agent" },
           { label: "Skip", description: "No code review" }
         ]

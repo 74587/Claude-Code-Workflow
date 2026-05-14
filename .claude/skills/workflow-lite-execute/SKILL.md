@@ -95,7 +95,7 @@ function selectExecutionOptions() {
         multiSelect: false,
         options: [
           { label: "Gemini Review", description: "Gemini CLI: git diff quality review" },
-          { label: "Codex Review", description: "Codex CLI: git-aware code review (--mode review)" },
+          { label: "Codex Review", description: "Codex CLI: prompt-based code quality review (--mode analysis)" },
           { label: "Agent Review", description: "@code-reviewer agent" },
           { label: "Skip", description: "No code review" }
         ]
@@ -435,7 +435,12 @@ Run \`git diff --name-only HEAD~${getTasks(planObject).length}..HEAD\` to identi
 
 ```javascript
 const reviewId = `${sessionId}-code-review`
-Bash(`ccw cli -p "Review code changes for quality, correctness, security, and pattern compliance. Focus: ${planObject.summary}" --tool codex --mode review --id ${reviewId}`, { run_in_background: true })
+Bash(`ccw cli -p "PURPOSE: Post-execution code quality review for: ${planObject.summary}
+TASK: • Run git diff to identify all changes • Review each changed file for quality, correctness, security • Check pattern compliance with existing codebase • Identify potential bugs, edge cases, performance issues
+MODE: analysis
+CONTEXT: @**/* | Memory: lite-execute completed, reviewing code quality
+EXPECTED: Per-file review with severity levels (Critical/High/Medium/Low), file:line references, fix suggestions, overall verdict
+CONSTRAINTS: Read-only | Focus on code quality not convergence" --tool codex --mode analysis --rule analysis-review-code-quality --id ${reviewId}`, { run_in_background: true })
 // STOP - wait for hook callback
 ```
 
