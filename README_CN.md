@@ -1,3 +1,18 @@
+> [!IMPORTANT]
+> ## 本项目已演进为 [Maestro Flow](https://github.com/catlog22/maestro-flow)
+>
+> **Claude Code Workflow 已归档。** 所有开发工作已迁移至：
+>
+> **https://github.com/catlog22/maestro-flow**
+>
+> ```bash
+> npm install -g maestro-flow
+> ```
+>
+> Maestro Flow 包含 CCW 的全部功能，并新增：知识图谱、自适应生命周期引擎 (Ralph)、Hook 系统、团队协作等。
+
+---
+
 <div align="center">
 
 <!-- Animated Header -->

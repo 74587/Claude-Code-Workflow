@@ -1,3 +1,18 @@
+> [!IMPORTANT]
+> ## This project has evolved into [Maestro Flow](https://github.com/catlog22/maestro-flow)
+>
+> **Claude Code Workflow is now archived.** All active development continues at:
+>
+> **https://github.com/catlog22/maestro-flow**
+>
+> ```bash
+> npm install -g maestro-flow
+> ```
+>
+> Maestro Flow includes everything from CCW plus: Knowledge Graph, adaptive lifecycle engine (Ralph), hook system, team collaboration, and more.
+
+---
+
 <div align="center">
 
 <!-- Animated Header -->
